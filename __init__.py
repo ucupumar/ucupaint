@@ -187,7 +187,7 @@ def rearrange_nodes(group_tree):
     start_node = nodes.get(group_tree.tg.start)
     if start_node.location != new_loc: start_node.location = new_loc
 
-    dist_y = 355.0
+    dist_y = 350.0
 
     # Start nodes
     for i, channel in enumerate(group_tree.tg.channels):
@@ -204,42 +204,52 @@ def rearrange_nodes(group_tree):
         start_entry = nodes.get(channel.start_entry)
         if start_entry.location != new_loc: start_entry.location = new_loc
 
-        # Texture nodes
-        new_loc.x += 100.0
-        ori_y = new_loc.y
-        ori_x = new_loc.x
-        for t in reversed(group_tree.tg.textures):
+        # Back to left
+        if i < len(group_tree.tg.channels)-1:
+            new_loc.x = 0.0
+
+    new_loc.x += 100.0
+    ori_x = new_loc.x
+
+    # Texture nodes
+    for i, t in enumerate(reversed(group_tree.tg.textures)):
+
+        new_loc.y = 0.0
+        new_loc.x = ori_x + 230.0 * i
+
+        # Blend and intensity per channel
+        for c in t.channels:
 
             # Blend node
-            blend = nodes.get(t.channels[i].blend)
+            blend = nodes.get(c.blend)
             if blend.location != new_loc: blend.location = new_loc
 
             new_loc.y -= 175.0
 
             # Intensity node
-            intensity = nodes.get(t.channels[i].intensity)
+            intensity = nodes.get(c.intensity)
             if intensity.location != new_loc: intensity.location = new_loc
 
-            #new_loc.x = ori_x + 200.0 * i
+            new_loc.y -= 175.0
 
-            # Source only need to set up once
-            if i == 0:
+        new_loc.y -= 50.0
 
-                # Source Linear node
-                new_loc.y = -dist_y * len(group_tree.tg.channels) - 65.0
-                linear = nodes.get(t.linear)
-                if linear.location != new_loc: linear.location = new_loc
+        # Source Linear node
+        linear = nodes.get(t.linear)
+        if linear.location != new_loc: linear.location = new_loc
 
-                # Source node
-                new_loc.y -= 120.0
-                source = nodes.get(t.source)
-                if source.location != new_loc: source.location = new_loc
+        # Source node
+        new_loc.y -= 120.0
+        source = nodes.get(t.source)
+        if source.location != new_loc: source.location = new_loc
 
-            new_loc.y = ori_y
-            new_loc.x += 235.0
+    new_loc.x += 240.0
+
+    # End nodes
+    for i, channel in enumerate(group_tree.tg.channels):
+        new_loc.y = -dist_y * i
 
         # End entry
-        #new_loc.x += 50.0
         end_entry = nodes.get(channel.end_entry)
         if end_entry.location != new_loc: end_entry.location = new_loc
 
@@ -249,15 +259,11 @@ def rearrange_nodes(group_tree):
             end_linear = nodes.get(channel.end_linear)
             if end_linear.location != new_loc: end_linear.location = new_loc
 
-        # Back to left
-        if i < len(group_tree.tg.channels)-1:
-            new_loc.x = 0.0
+        # Shift back x
+        new_loc.x -= 50.0
 
-    # Back to top
+    new_loc.x += 250.0
     new_loc.y = 0.0
-
-    # Shift the last x
-    new_loc.x += 200.0
 
     # End node
     end_node = nodes.get(group_tree.tg.end)
@@ -708,8 +714,15 @@ class LayerChannel(bpy.types.PropertyGroup):
     #modifiers = CollectionProperty(type=TextureModifier)
 
     # Node names
-    intensity = StringProperty(default='')
     blend = StringProperty(default='')
+
+    start_rgb = StringProperty(default='')
+    start_alpha = StringProperty(default='')
+    end_rgb = StringProperty(default='')
+    end_alpha = StringProperty(default='')
+    intensity = StringProperty(default='')
+
+    modifier_frame = StringProperty(default='')
 
 class TextureLayer(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True)
