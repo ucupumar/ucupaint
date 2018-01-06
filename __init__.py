@@ -21,18 +21,27 @@ SRGB_TO_LINEAR_VALUE_GROUP_NAME = '~~SRGB to Linear Value [yPanel]'
 LINEAR_TO_SRGB_VALUE_GROUP_NAME = '~~Linear to SRGB Value [yPanel]'
 
 texture_type_items = (
-         ('ShaderNodeTexImage', 'Image', ''),
-         #('ShaderNodeTexEnvironment', 'Environment', ''),
-         ('ShaderNodeTexBrick', 'Brick', ''),
-         ('ShaderNodeTexChecker', 'Checker', ''),
-         ('ShaderNodeTexGradient', 'Gradient', ''),
-         ('ShaderNodeTexMagic', 'Magic', ''),
-         ('ShaderNodeTexNoise', 'Noise', ''),
-         #('ShaderNodeTexPointDensity', 'Point Density', ''),
-         #('ShaderNodeTexSky', 'Sky', ''),
-         ('ShaderNodeTexVoronoi', 'Voronoi', ''),
-         ('ShaderNodeTexWave', 'Wave', ''),
-         )
+        ('ShaderNodeTexImage', 'Image', ''),
+        #('ShaderNodeTexEnvironment', 'Environment', ''),
+        ('ShaderNodeTexBrick', 'Brick', ''),
+        ('ShaderNodeTexChecker', 'Checker', ''),
+        ('ShaderNodeTexGradient', 'Gradient', ''),
+        ('ShaderNodeTexMagic', 'Magic', ''),
+        ('ShaderNodeTexNoise', 'Noise', ''),
+        #('ShaderNodeTexPointDensity', 'Point Density', ''),
+        #('ShaderNodeTexSky', 'Sky', ''),
+        ('ShaderNodeTexVoronoi', 'Voronoi', ''),
+        ('ShaderNodeTexWave', 'Wave', ''),
+        )
+
+modifier_type_items = (
+        ('INVERT', 'Invert', ''),
+        ('RGB_TO_INTENSITY', 'RGB to Intensity', ''),
+        ('COLOR_RAMP', 'Color Ramp', ''),
+        ('GRAYSCALE_TO_NORMAL', 'Grayscale To Normal', ''),
+        ('RGB_CURVE', 'RGB Curve', ''),
+        #('MASK', 'Mask', ''),
+        )
 
 # Check if name already available on the list
 def get_unique_name(name, items):
@@ -92,10 +101,12 @@ def create_blend_and_intensity_node(group_tree, texture, channel):
     #intensity.parent = blend_frame
 
     # Modifier pipeline nodes
-    intensity = group_tree.nodes.new('ShaderNodeMath')
-    intensity.operation = 'MULTIPLY'
+    intensity = group_tree.nodes.new('ShaderNodeMixRGB')
+    #intensity.blend_type = 'MULTIPLY'
     intensity.label = 'Intensity'
-    intensity.inputs[1].default_value = 1.0
+    intensity.inputs[0].default_value = 1.0
+    intensity.inputs[1].default_value = (0,0,0,1)
+    intensity.inputs[2].default_value = (1,1,1,1)
     channel.intensity = intensity.name
 
     start_rgb = group_tree.nodes.new('NodeReroute')
@@ -136,7 +147,7 @@ def create_blend_and_intensity_node(group_tree, texture, channel):
     group_tree.links.new(end_source_alpha.outputs[0], start_alpha.inputs[0])
 
     group_tree.links.new(start_rgb.outputs[0], end_rgb.inputs[0])
-    group_tree.links.new(start_alpha.outputs[0], intensity.inputs[0])
+    group_tree.links.new(start_alpha.outputs[0], intensity.inputs[2])
 
     group_tree.links.new(end_rgb.outputs[0], blend.inputs[2])
     group_tree.links.new(intensity.outputs[0], end_alpha.inputs[0])
@@ -222,6 +233,9 @@ def link_new_channel(group_tree):
         for i, t in reversed(list(enumerate(group_tree.tg.textures))):
             # Add new channel
             c = t.channels.add()
+
+            # New channel is disabled by default
+            #c.enable = False
 
             # Add new nodes
             blend, intensity = create_blend_and_intensity_node(group_tree, t, c)
@@ -366,8 +380,15 @@ def rearrange_nodes(group_tree):
         linear = nodes.get(t.linear)
         if linear.location != new_loc: linear.location = new_loc
 
+        solid_alpha = nodes.get(t.solid_alpha)
+        if solid_alpha:
+            new_loc.y -= 120.0
+            if solid_alpha.location != new_loc: solid_alpha.location = new_loc
+            new_loc.y -= 95.0
+        else:
+            new_loc.y -= 120.0
+
         # Source node
-        new_loc.y -= 120.0
         source = nodes.get(t.source)
         if source.location != new_loc: source.location = new_loc
 
@@ -440,6 +461,7 @@ def create_new_group_tree(mat):
     # Add new channel
     channel = group_tree.tg.channels.add()
     channel.name = 'Color'
+    group_tree.tg.temp_channels.add() # Also add temp channel
 
     add_io_from_new_channel(group_tree)
 
@@ -579,6 +601,7 @@ class NewTextureGroupChannel(bpy.types.Operator):
         channel = channels.add()
         channel.name = self.name
         channel.type = self.type
+        group_tree.tg.temp_channels.add()
 
         # Add input and output to the tree
         add_io_from_new_channel(group_tree)
@@ -588,6 +611,12 @@ class NewTextureGroupChannel(bpy.types.Operator):
 
         # Link new channel and the rearrange the nodes
         link_new_channel(group_tree)
+
+        # New channel is disabled in texture by default
+        for tex in group_tree.tg.textures:
+            tex.channels[last_index].enable = False
+
+        # Rearrange nodes
         rearrange_nodes(group_tree)
 
         # Set input default value
@@ -634,6 +663,7 @@ class MoveTextureGroupChannel(bpy.types.Operator):
 
         # Move channel
         group_tree.tg.channels.move(index, new_index)
+        group_tree.tg.temp_channels.move(index, new_index) # Temp channels
 
         # Move channel inside textures
         for tex in group_tree.tg.textures:
@@ -690,8 +720,19 @@ class RemoveTextureGroupChannel(bpy.types.Operator):
         try: nodes.remove(nodes.get(channel.end_linear)) 
         except: pass
 
+        # Remove some frames if it's the last channel
+        if len(tg.channels) == 1:
+            nodes.remove(nodes.get(tg.start_frame))
+            nodes.remove(nodes.get(tg.end_frame))
+            tg.start_frame = ''
+            tg.end_frame = ''
+            for t in tg.textures:
+                nodes.remove(nodes.get(t.blend_frame))
+                t.blend_frame = ''
+
         # Remove channel
         tg.channels.remove(channel_idx)
+        tg.temp_channels.remove(channel_idx)
 
         # Remove channel from tree
         group_tree.inputs.remove(group_tree.inputs[channel_idx])
@@ -720,6 +761,22 @@ class NewTextureLayer(bpy.types.Operator):
     def poll(cls, context):
         return get_active_texture_group_node()
 
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        node = get_active_texture_group_node()
+        tg = node.node_tree.tg
+
+        if len(tg.channels) == 0:
+            self.layout.label('No channel found! Still want to create a texture?', icon='ERROR')
+
+        for i, ch in enumerate(tg.channels):
+            row = self.layout.row(align=True)
+            row.label(ch.name + ':')
+            row.prop(tg.temp_channels[i], 'enable', text='')
+            row.prop(tg.temp_channels[i], 'blend_type', text='')
+
     def execute(self, context):
         node = get_active_texture_group_node()
         group_tree = node.node_tree
@@ -732,8 +789,12 @@ class NewTextureLayer(bpy.types.Operator):
         name = self.type.replace('ShaderNodeTex', '')
         tex.name = get_unique_name(name, tg.textures)
 
-        # For now, new texture always placed in the bottom
-        index = len(tg.textures)-1
+        # Move new texture to current index
+        last_index = len(tg.textures)-1
+        index = tg.active_texture_index
+        #for i in range(
+        tg.textures.move(last_index, index)
+        tex = tg.textures[index] # Repoint to new index
 
         # Add nodes to tree
         source = group_tree.nodes.new(self.type)
@@ -745,12 +806,29 @@ class NewTextureLayer(bpy.types.Operator):
         linear.node_tree = bpy.data.node_groups.get(LINEAR_TO_SRGB_COLOR_GROUP_NAME)
         tex.linear = linear.name
 
+        # Image texture and checker has SRGB color space by default
+        if self.type in {'ShaderNodeTexImage', 'ShaderNodeTexChecker'}:
+            tex.color_space = 'SRGB'
+        else:
+            # Non image texture has linear color space by default
+            tex.color_space = 'LINEAR'
+            linear.mute = True
+
         source_frame = group_tree.nodes.new('NodeFrame')
         source_frame.label = 'Source'
         tex.source_frame = source_frame.name
 
         source.parent = source_frame
         linear.parent = source_frame
+
+        # Solid alpha for non image texture
+        if self.type != 'ShaderNodeTexImage':
+            solid_alpha = group_tree.nodes.new('ShaderNodeValue')
+            solid_alpha.label = 'Solid Alpha'
+            solid_alpha.outputs[0].default_value = 1.0
+            tex.solid_alpha = solid_alpha.name
+
+            solid_alpha.parent = source_frame
 
         # Modifier pipeline nodes
         start_rgb = group_tree.nodes.new('NodeReroute')
@@ -778,10 +856,14 @@ class NewTextureLayer(bpy.types.Operator):
 
         # Link nodes
         group_tree.links.new(source.outputs[0], linear.inputs[0])
-        group_tree.links.new(source.outputs[1], start_alpha.inputs[0])
         group_tree.links.new(linear.outputs[0], start_rgb.inputs[0])
         group_tree.links.new(start_rgb.outputs[0], end_rgb.inputs[0])
         group_tree.links.new(start_alpha.outputs[0], end_alpha.inputs[0])
+
+        # Solid alpha is used on other than image texture
+        if self.type != 'ShaderNodeTexImage':
+            group_tree.links.new(solid_alpha.outputs[0], start_alpha.inputs[0])
+        else: group_tree.links.new(source.outputs[1], start_alpha.inputs[0])
 
         # Add channels
         for i, ch in enumerate(tg.channels):
@@ -789,6 +871,13 @@ class NewTextureLayer(bpy.types.Operator):
 
             # Add nodes
             blend, intensity = create_blend_and_intensity_node(group_tree, tex, c)
+
+            # Set blend type
+            blend.blend_type = tg.temp_channels[i].blend_type
+
+            # Set enable
+            c.enable = tg.temp_channels[i].enable
+            blend.mute = not c.enable
 
             # Link neighbor nodes
             if index < len(tg.textures)-1:
@@ -803,9 +892,316 @@ class NewTextureLayer(bpy.types.Operator):
                 end_entry = group_tree.nodes.get(tg.channels[i].end_entry)
                 group_tree.links.new(blend.outputs[0], end_entry.inputs[0])
 
+        # Rearrange nodes
         rearrange_nodes(group_tree)
 
         return {'FINISHED'}
+
+class MoveTextureLayer(bpy.types.Operator):
+    bl_idname = "node.y_move_texture_layer"
+    bl_label = "Move Texture Layer"
+    bl_description = "Move texture layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    direction = EnumProperty(
+            name = 'Direction',
+            items = (('UP', 'Up', ''),
+                     ('DOWN', 'Down', '')),
+            default = 'UP')
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_texture_group_node()
+        return group_node and len(group_node.node_tree.tg.textures) > 0
+
+    def execute(self, context):
+        node = get_active_texture_group_node()
+        group_tree = node.node_tree
+        nodes = group_tree.nodes
+        tg = group_tree.tg
+
+        num_tex = len(tg.textures)
+        tex_idx = tg.active_texture_index
+        tex = tg.textures[tex_idx]
+        
+        # Move image slot
+        if self.direction == 'UP' and tex_idx > 0:
+            swap_idx = tex_idx-1
+        elif self.direction == 'DOWN' and tex_idx < num_tex-1:
+            swap_idx = tex_idx+1
+        else:
+            return {'CANCELLED'}
+
+        swap_tex = tg.textures[swap_idx]
+
+        for i, ch in enumerate(tex.channels):
+            blend = nodes.get(ch.blend)
+            swap_blend = nodes.get(swap_tex.channels[i].blend)
+
+            inp_blend = blend.inputs[1].links[0].from_socket
+            out_blend = blend.outputs[0].links[0].to_socket
+
+            swap_in_blend = swap_blend.inputs[1].links[0].from_socket
+            swap_out_blend = swap_blend.outputs[0].links[0].to_socket
+
+            if self.direction == 'UP':
+                group_tree.links.new(blend.outputs[0], swap_out_blend)
+                group_tree.links.new(swap_blend.outputs[0], blend.inputs[1])
+                group_tree.links.new(inp_blend, swap_blend.inputs[1])
+            else:
+                group_tree.links.new(swap_blend.outputs[0], out_blend)
+                group_tree.links.new(blend.outputs[0], swap_blend.inputs[1])
+                group_tree.links.new(swap_in_blend, blend.inputs[1])
+
+        # Swap texture
+        tg.textures.move(tex_idx, swap_idx)
+        tg.active_texture_index = swap_idx
+
+        # Rearrange nodes
+        rearrange_nodes(group_tree)
+
+        return {'FINISHED'}
+
+class RemoveTextureLayer(bpy.types.Operator):
+    bl_idname = "node.y_remove_texture_layer"
+    bl_label = "Remove Texture Layer"
+    bl_description = "New Texture Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_texture_group_node()
+
+    def execute(self, context):
+        node = get_active_texture_group_node()
+        group_tree = node.node_tree
+        nodes = group_tree.nodes
+        tg = group_tree.tg
+
+        tex = tg.textures[tg.active_texture_index]
+
+        # Delete source
+        nodes.remove(nodes.get(tex.source))
+        nodes.remove(nodes.get(tex.linear))
+        try: nodes.remove(nodes.get(tex.solid_alpha))
+        except: pass
+
+        nodes.remove(nodes.get(tex.start_rgb))
+        nodes.remove(nodes.get(tex.start_alpha))
+        nodes.remove(nodes.get(tex.end_rgb))
+        nodes.remove(nodes.get(tex.end_alpha))
+
+        nodes.remove(nodes.get(tex.source_frame))
+        try: nodes.remove(nodes.get(tex.blend_frame))
+        except: pass
+        nodes.remove(nodes.get(tex.modifier_frame))
+
+        # Delete channels
+        for ch in tex.channels:
+            # Delete blend node and dealing with the links
+            blend = nodes.get(ch.blend)
+            inp = blend.inputs[1].links[0].from_socket
+            outp = blend.outputs[0].links[0].to_socket
+            group_tree.links.new(inp, outp)
+            nodes.remove(blend)
+
+            nodes.remove(nodes.get(ch.intensity))
+
+            nodes.remove(nodes.get(ch.start_rgb))
+            nodes.remove(nodes.get(ch.start_alpha))
+            nodes.remove(nodes.get(ch.end_rgb))
+            nodes.remove(nodes.get(ch.end_alpha))
+
+            nodes.remove(nodes.get(ch.modifier_frame))
+
+        # Delete the texture
+        tg.textures.remove(tg.active_texture_index)
+
+        # Set new active index
+        if (tg.active_texture_index == len(tg.textures) and
+            tg.active_texture_index > 0
+            ):
+            tg.active_texture_index -= 1
+
+        # Rearrange nodes
+        rearrange_nodes(group_tree)
+
+        return {'FINISHED'}
+
+class NewTexModifier(bpy.types.Operator):
+    bl_idname = "node.y_new_texture_modifier"
+    bl_label = "New Texture Modifier"
+    bl_description = "New Texture Modifier"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    type = EnumProperty(
+        name = 'Modifier Type',
+        items = modifier_type_items,
+        default = 'INVERT')
+
+    parent = EnumProperty(
+            name = 'Modifier Parent',
+            items = (('CHANNEL', 'Channel', '' ),
+                     ('TEXTURE', 'Texture', '' ),
+                     ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
+                    ),
+            default = 'TEXTURE_CHANNEL')
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_texture_group_node()
+
+    def execute(self, context):
+        node = get_active_texture_group_node()
+        group_tree = node.node_tree
+        nodes = group_tree.nodes
+        tg = group_tree.tg
+
+        if self.parent == 'CHANNEL':
+            pass
+        elif self.parent == 'TEXTURE':
+            pass
+        elif self.parent == 'TEXTURE_CHANNEL':
+            pass
+
+        return {'FINISHED'}
+
+def draw_tex_props(group_tree, tex, layout):
+
+    nodes = group_tree.nodes
+    tg = group_tree.tg
+
+    source = nodes.get(tex.source)
+    title = source.bl_idname.replace('ShaderNodeTex', '')
+
+    row = layout.row()
+    row.label(title + ' Properties:')
+    icon = 'TRIA_DOWN' if tg.show_texture_properties else 'TRIA_RIGHT'
+    row.prop(tg, 'show_texture_properties', emboss=False, text='', icon=icon)
+
+    if not tg.show_texture_properties:
+        return
+
+    box = layout.box()
+    bcol = box.column()
+
+    if title != 'Image':
+        row = bcol.row()
+        col = row.column(align=True)
+        col.label('Output:')
+        col.label('Color Space:')
+        col = row.column(align=True)
+        col.prop(tex, 'tex_output', text='')
+        col.prop(tex, 'color_space', text='')
+
+        bcol.separator()
+
+    if title == 'Brick':
+        row = bcol.row()
+        col = row.column(align=True)
+        col.label('Offset:')
+        col.label('Frequency:')
+        col.separator()
+
+        col.label('Squash:')
+        col.label('Frequency:')
+        col.separator()
+
+        col.label('Color 1:')
+        col.label('Color 2:')
+        col.label('Mortar:')
+        col.separator()
+        col.label('Scale:')
+        col.label('Mortar Size:')
+        col.label('Mortar Smooth:')
+        col.label('Bias:')
+        col.label('Brick Width:')
+        col.label('Brick Height:')
+
+        col = row.column(align=True)
+        col.prop(source, 'offset', text='')
+        col.prop(source, 'offset_frequency', text='')
+        col.separator()
+
+        col.prop(source, 'squash', text='')
+        col.prop(source, 'squash_frequency', text='')
+        col.separator()
+        for i in range (1,10):
+            if i == 4: col.separator()
+            col.prop(source.inputs[i], 'default_value', text='')
+
+    elif title == 'Checker':
+
+        row = bcol.row()
+        col = row.column(align=True)
+        col.label('Color 1:')
+        col.label('Color 2:')
+        col.separator()
+        col.label('Scale:')
+        col = row.column(align=True)
+        for i in range (1,4):
+            if i == 3: col.separator()
+            col.prop(source.inputs[i], 'default_value', text='')
+
+    elif title == 'Gradient':
+
+        row = bcol.row()
+        col = row.column(align=True)
+        col.label('Type:')
+        col = row.column(align=True)
+        col.prop(source, 'gradient_type', text='')
+
+    elif title == 'Magic':
+
+        row = bcol.row()
+        col = row.column(align=True)
+        col.label('Depth:')
+        col.label('Scale:')
+        col.label('Distortion:')
+        col = row.column(align=True)
+        col.prop(source, 'turbulence_depth', text='')
+        col.prop(source.inputs[1], 'default_value', text='')
+        col.prop(source.inputs[2], 'default_value', text='')
+
+    elif title == 'Noise':
+
+        row = bcol.row()
+        col = row.column(align=True)
+        col.label('Scale:')
+        col.label('Detail:')
+        col.label('Distortion:')
+        col = row.column(align=True)
+        for i in range (1,4):
+            col.prop(source.inputs[i], 'default_value', text='')
+
+    elif title == 'Voronoi':
+
+        row = bcol.row()
+        col = row.column(align=True)
+        col.label('Coloring:')
+        col.separator()
+        col.label('Scale:')
+        col = row.column(align=True)
+        col.prop(source, 'coloring', text='')
+        col.separator()
+        col.prop(source.inputs[1], 'default_value', text='')
+
+    elif title == 'Wave':
+
+        row = bcol.row()
+        col = row.column(align=True)
+        col.label('Type:')
+        col.label('Profile:')
+        col.label('Scale:')
+        col.label('Distortion:')
+        col.label('Detail:')
+        col.label('Detail Scale:')
+        col = row.column(align=True)
+        col.prop(source, 'wave_type', text='')
+        col.prop(source, 'wave_profile', text='')
+        col.separator()
+        for i in range (1,5):
+            col.prop(source.inputs[i], 'default_value', text='')
 
 class NODE_PT_texture_groups(bpy.types.Panel):
     #bl_space_type = 'VIEW_3D'
@@ -831,54 +1227,120 @@ class NODE_PT_texture_groups(bpy.types.Panel):
         nodes = group_tree.nodes
         tg = group_tree.tg
 
-        layout.label('Channel Base Value:', icon='COLOR')
-        row = layout.row()
-        row.template_list("NODE_UL_y_texture_groups", "", tg,
-                "channels", tg, "active_channel_index", rows=4, maxrows=5)  
-        col = row.column(align=True)
-        col.operator_menu_enum("node.y_add_new_texture_group_channel", 'type', icon='ZOOMIN', text='')
-        col.operator("node.y_remove_texture_group_channel", icon='ZOOMOUT', text='')
-        col.operator("node.y_move_texture_group_channel", text='', icon='TRIA_UP').direction = 'UP'
-        col.operator("node.y_move_texture_group_channel", text='', icon='TRIA_DOWN').direction = 'DOWN'
+        icon = 'TRIA_DOWN' if tg.show_channels else 'TRIA_RIGHT'
+        row = layout.row(align=True)
+        row.prop(tg, 'show_channels', emboss=False, text='', icon=icon)
+        row.label('Channels')
 
-        layout.label('Textures:', icon='TEXTURE')
-        row = layout.row()
-        row.template_list("NODE_UL_y_texture_layers", "", tg,
-                "textures", tg, "active_texture_index", rows=4, maxrows=5)  
+        if tg.show_channels:
 
-        col = row.column(align=True)
-        col.operator_menu_enum("node.y_new_texture_layer", 'type', icon='ZOOMIN', text='')
-        #col.operator("node.y_remove_texture_group_channel", icon='ZOOMOUT', text='')
-        #col.operator("node.y_move_texture_group_channel", text='', icon='TRIA_UP').direction = 'UP'
-        #col.operator("node.y_move_texture_group_channel", text='', icon='TRIA_DOWN').direction = 'DOWN'
+            box = layout.box()
+            col = box.column()
+            row = col.row()
+            row.template_list("NODE_UL_y_texture_groups", "", tg,
+                    "channels", tg, "active_channel_index", rows=4, maxrows=5)  
+            rcol = row.column(align=True)
+            rcol.operator_menu_enum("node.y_add_new_texture_group_channel", 'type', icon='ZOOMIN', text='')
+            rcol.operator("node.y_remove_texture_group_channel", icon='ZOOMOUT', text='')
+            rcol.operator("node.y_move_texture_group_channel", text='', icon='TRIA_UP').direction = 'UP'
+            rcol.operator("node.y_move_texture_group_channel", text='', icon='TRIA_DOWN').direction = 'DOWN'
 
-        tex = tg.textures[tg.active_texture_index]
+            col.prop(tg, 'preview_mode', text='Preview Mode')
 
-        col = layout.column(align=True)
-        col.label('Channels:')
-        for i, c in enumerate(tex.channels):
-            row = col.row(align=True)
-            row.label(tg.channels[i].name)
-            row.prop(c, 'enable', text='')
-            try:
-                blend = nodes.get(c.blend)
-                row.prop(blend, 'blend_type', text='')
-            except: pass
-            try:
-                intensity = nodes.get(c.intensity)
-                row.prop(intensity.inputs[1], 'default_value', text='')
-            except: pass
+            if len(tg.channels) > 0:
+                channel = tg.channels[tg.active_channel_index]
 
+                icon = 'TRIA_DOWN' if tg.show_end_modifiers else 'TRIA_RIGHT'
+                row = col.row(align=True)
+                row.label('Channel End Modifiers:')
+                row.prop(tg, 'show_end_modifiers', emboss=False, text='', icon=icon)
+                if tg.show_end_modifiers:
+                    col.box()
+
+        icon = 'TRIA_DOWN' if tg.show_textures else 'TRIA_RIGHT'
+        row = layout.row(align=True)
+        row.prop(tg, 'show_textures', emboss=False, text='', icon=icon)
+        row.label('Textures')
+
+        if tg.show_textures:
+
+            box = layout.box()
+            col = box.column(align=False)
+
+            row = col.row()
+            row.template_list("NODE_UL_y_texture_layers", "", tg,
+                    "textures", tg, "active_texture_index", rows=4, maxrows=5)  
+
+            rcol = row.column(align=True)
+            rcol.operator_menu_enum("node.y_new_texture_layer", 'type', icon='ZOOMIN', text='')
+            rcol.operator("node.y_remove_texture_layer", icon='ZOOMOUT', text='')
+            rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_UP').direction = 'UP'
+            rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_DOWN').direction = 'DOWN'
+
+            col.separator()
+
+            if len(tg.textures) > 0:
+                tex = tg.textures[tg.active_texture_index]
+
+                if len(tex.channels) == 0:
+                    col.label('No channel found!', icon='ERROR')
+
+                for i, ch in enumerate(tex.channels):
+
+                    #ccol = col.column(align=True)
+
+                    row = col.row(align=True)
+                    row.active = tex.enable
+                    row.label(tg.channels[i].name + ':')
+
+                    row.prop(ch, 'enable', text='')
+
+                    row = row.row(align=True)
+                    row.active = ch.enable
+
+                    blend = nodes.get(ch.blend)
+                    row.prop(blend, 'blend_type', text='')
+
+                    intensity = nodes.get(ch.intensity)
+                    row.prop(intensity.inputs[0], 'default_value', text='')
+
+                    row.prop(tg.channels[i], 'show_modifiers', text='', icon='MODIFIER')
+
+                    if tg.channels[i].show_modifiers:
+                        bbox = col.box()
+                        bbox.active = ch.enable and tex.enable
+                        bcol = bbox.column()
+                        #bcol = bbox.column(align
+                        bcol.label('Modifier:')
+
+                        row = bcol.row()
+                        row.template_list("NODE_UL_y_texture_modifiers", "", ch,
+                                "modifiers", ch, "active_modifier_index", rows=4, maxrows=5)  
+
+                    #col.separator()
+
+                tcol = col.column()
+                tcol.active = tex.enable
+
+                draw_tex_props(group_tree, tex, tcol)
+
+                row = tcol.row()
+                row.label('Texture Modifiers:')
+                icon = 'TRIA_DOWN' if tg.show_texture_modifiers else 'TRIA_RIGHT'
+                row.prop(tg, 'show_texture_modifiers', emboss=False, text='', icon=icon)
+
+                if tg.show_texture_modifiers:
+                    bbox = tcol.box()
 
 class NODE_UL_y_texture_groups(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 
         group_node = get_active_texture_group_node()
-        if not group_node: return
+        #if not group_node: return
         inputs = group_node.inputs
 
         row = layout.row()
-        row.prop(item, 'name', text='', emboss=False)
+        row.prop(item, 'name', text='', emboss=False, icon='LINK')
         if item.type == 'VALUE':
             row.prop(inputs[index], 'default_value', text='') #, emboss=False)
         elif item.type == 'RGB':
@@ -888,9 +1350,43 @@ class NODE_UL_y_texture_groups(bpy.types.UIList):
 
 class NODE_UL_y_texture_layers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        row = layout.row()
-        row.label(item.name)
-        row.prop(item, 'enable', text='')
+
+        group_node = get_active_texture_group_node()
+        #if not group_node: return
+        tg = group_node.node_tree.tg
+        nodes = group_node.node_tree.nodes
+
+        # Get active channel
+        #channel_idx = tg.active_channel_index
+        #channel = tg.channels[channel_idx]
+
+        master = layout.row(align=True)
+
+        row = master.row(align=True)
+
+        #if not item.enable or not item.channels[channel_idx].enable: row.active = False
+
+        row.prop(item, 'name', text='', emboss=False, icon='TEXTURE')
+
+        #blend = nodes.get(item.channels[channel_idx].blend)
+        #row.prop(blend, 'blend_type', text ='')
+
+        #intensity = nodes.get(item.channels[channel_idx].intensity)
+        #row.prop(intensity.inputs[0], 'default_value', text='')
+
+        #row = master.row()
+        #if item.enable: row.active = True
+        #else: row.active = False
+        #row.prop(item.channels[channel_idx], 'enable', text='')
+
+        row = master.row()
+        if item.enable: eye_icon = 'RESTRICT_VIEW_OFF'
+        else: eye_icon = 'RESTRICT_VIEW_ON'
+        row.prop(item, 'enable', emboss=False, text='', icon=eye_icon)
+
+class NODE_UL_y_texture_modifiers(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        layout.label(item.type)
 
 def menu_func(self, context):
     l = self.layout
@@ -910,13 +1406,151 @@ def update_texture_enable(self, context):
     group_tree = self.id_data
     nodes = group_tree.nodes
     for ch in self.channels:
-        try: nodes.get(ch.blend).mute = not self.enable
+        if ch.enable:
+            try: nodes.get(ch.blend).mute = not self.enable
+            except: pass
+
+def update_channel_enable(self, context):
+    group_tree = self.id_data
+    nodes = group_tree.nodes
+
+    # Get texture
+    tex = None
+    for t in group_tree.tg.textures:
+        for ch in t.channels:
+            if ch == self:
+                tex = t
+                break
+
+    #print(dir(self))
+    try: 
+        if tex.enable:
+            nodes.get(self.blend).mute = not self.enable
+    except: pass
+
+def update_tex_output(self, context):
+    group_tree = self.id_data
+    nodes = group_tree.nodes
+
+    source = nodes.get(self.source)
+    linear = nodes.get(self.linear)
+
+    group_tree.links.new(source.outputs[self.tex_output], linear.inputs[0])
+
+def update_tex_color_space(self, context):
+    group_tree = self.id_data
+    nodes = group_tree.nodes
+
+    linear = nodes.get(self.linear)
+    if self.color_space == 'SRGB':
+        linear.mute = False
+    elif self.color_space == 'LINEAR':
+        linear.mute = True
+
+def update_preview_mode(self, context):
+    try:
+        mat = bpy.context.object.active_material
+        tree = mat.node_tree
+        nodes = tree.nodes
+        group_node = get_active_texture_group_node()
+        tg = group_node.node_tree.tg
+        channel = tg.channels[tg.active_channel_index]
+        index = tg.active_channel_index
+    except: return
+
+    # Search for preview node
+    preview = nodes.get('Emission Viewer')
+
+    if self.preview_mode:
+
+        # Search for output
+        output = None
+        for node in nodes:
+            if node.bl_idname == 'ShaderNodeOutputMaterial' and node.is_active_output:
+                output = node
+                break
+
+        if not output: return
+
+        # Remember output and original bsdf
+        mat.tg.ori_output = output.name
+        ori_bsdf = output.inputs[0].links[0].from_node
+
+        if not preview:
+            preview = nodes.new('ShaderNodeEmission')
+            preview.name = 'Emission Viewer'
+            preview.label = 'Preview'
+            preview.hide = True
+            preview.location = (output.location.x, output.location.y + 30.0)
+
+        # Only remember original BSDF if its not the preview node itself
+        if ori_bsdf != preview:
+            mat.tg.ori_bsdf = ori_bsdf.name
+
+        tree.links.new(group_node.outputs[index], preview.inputs[0])
+        tree.links.new(preview.outputs[0], output.inputs[0])
+    else:
+        try: nodes.remove(preview)
         except: pass
 
-class LayerChannel(bpy.types.PropertyGroup):
-    enable = BoolProperty(default=True)
+        bsdf = nodes.get(mat.tg.ori_bsdf)
+        output = nodes.get(mat.tg.ori_output)
+        mat.tg.ori_bsdf = ''
+        mat.tg.ori_output = ''
 
-    #modifiers = CollectionProperty(type=TextureModifier)
+        try: tree.links.new(bsdf.outputs[0], output.inputs[0])
+        except: pass
+
+def update_active_group_channel(self, context):
+    try: 
+        group_node = get_active_texture_group_node()
+        tg = group_node.node_tree.tg
+    except: return
+    
+    if tg.preview_mode: tg.preview_mode = True
+
+class TextureModifier(bpy.types.PropertyGroup):
+    type = EnumProperty(
+        name = 'Modifier Type',
+        items = modifier_type_items,
+        default = 'INVERT')
+
+    # Base nodes
+    start_rgb = StringProperty(default='')
+    start_alpha = StringProperty(default='')
+    end_rgb = StringProperty(default='')
+    end_alpha = StringProperty(default='')
+
+    # RGB to Intensity nodes
+    rgb_to_intensity_color = StringProperty(default='')
+
+    # Invert nodes
+    invert = StringProperty(default='')
+
+    # Mask nodes
+    mask_texture = StringProperty(default='')
+
+    # Color Ramp nodes
+    color_ramp = StringProperty(default='')
+
+    # Grayscale to Normal nodes
+    gray_to_normal = StringProperty(default='')
+
+    # RGB Curve nodes
+    rgb_curve = StringProperty(default='')
+
+class TempChannel(bpy.types.PropertyGroup):
+    enable = BoolProperty(default=True)
+    blend_type = EnumProperty(
+        name = 'Blend',
+        items = blend_type_items,
+        default = 'MIX')
+
+class LayerChannel(bpy.types.PropertyGroup):
+    enable = BoolProperty(default=True, update=update_channel_enable)
+
+    modifiers = CollectionProperty(type=TextureModifier)
+    active_modifier_index = IntProperty(default=0)
 
     # Node names
     blend = StringProperty(default='')
@@ -931,12 +1565,26 @@ class LayerChannel(bpy.types.PropertyGroup):
     modifier_frame = StringProperty(default='')
 
 class TextureLayer(bpy.types.PropertyGroup):
-    enable = BoolProperty(default=True, update=update_texture_enable)
-
-    channels = CollectionProperty(type=LayerChannel)
-    #modifiers = CollectionProperty(type=TextureModifier)
-
     name = StringProperty(default='')
+    enable = BoolProperty(default=True, update=update_texture_enable)
+    channels = CollectionProperty(type=LayerChannel)
+
+    modifiers = CollectionProperty(type=TextureModifier)
+    active_modifier_index = IntProperty(default=0)
+
+    tex_output = EnumProperty(
+            name = 'Texture Output',
+            items = (('Color', 'Color', ''),
+                     ('Fac', 'Factor', '')),
+            default = 'Color',
+            update = update_tex_output)
+
+    color_space = EnumProperty(
+            name = 'Color Space',
+            items = (('LINEAR', 'Linear', ''),
+                     ('SRGB', 'sRGB', '')),
+            default = 'LINEAR',
+            update = update_tex_color_space)
 
     type = EnumProperty(
             name = 'Texture Type',
@@ -946,6 +1594,7 @@ class TextureLayer(bpy.types.PropertyGroup):
     # Node names
     source = StringProperty(default='')
     linear = StringProperty(default='')
+    solid_alpha = StringProperty(default='')
     #uv = StringProperty(default='')
 
     # Modifier pipeline
@@ -974,6 +1623,9 @@ class GroupChannel(bpy.types.PropertyGroup):
 
     is_alpha_channel = BoolProperty(default=False)
 
+    modifiers = PointerProperty(type=TextureModifier)
+    active_modifier_index = IntProperty(default=0)
+
     # Node names
     start_linear = StringProperty(default='')
     start_convert = StringProperty(default='')
@@ -983,14 +1635,15 @@ class GroupChannel(bpy.types.PropertyGroup):
     end_linear = StringProperty(default='')
     end_convert = StringProperty(default='')
 
-    #end_modifiers = PointerProperty(type=TextureGroupModifiers)
+    # UI related
+    show_modifiers = BoolProperty(default=False)
 
 class TextureGroup(bpy.types.PropertyGroup):
     is_tg_node = BoolProperty(default=False)
 
     # Channels
     channels = CollectionProperty(type=GroupChannel)
-    active_channel_index = IntProperty(default=0)
+    active_channel_index = IntProperty(default=0, update=update_active_group_channel)
 
     # Textures
     textures = CollectionProperty(type=TextureLayer)
@@ -1002,6 +1655,22 @@ class TextureGroup(bpy.types.PropertyGroup):
 
     end = StringProperty(default='')
     end_frame = StringProperty(default='')
+
+    # Temp channels to remember last channel selected when adding new texture
+    temp_channels = CollectionProperty(type=TempChannel)
+
+    # UI related
+    show_channels = BoolProperty(default=True)
+    show_textures = BoolProperty(default=True)
+    show_texture_properties = BoolProperty(default=True)
+    show_texture_modifiers = BoolProperty(default=True)
+    show_end_modifiers = BoolProperty(default=False)
+
+    preview_mode = BoolProperty(default=False, update=update_preview_mode)
+
+class MaterialTGProps(bpy.types.PropertyGroup):
+    ori_bsdf = StringProperty(default='')
+    ori_output = StringProperty(default='')
 
 @persistent
 def load_libraries(scene):
@@ -1020,6 +1689,7 @@ def register():
     bpy.utils.register_module(__name__)
 
     bpy.types.ShaderNodeTree.tg = PointerProperty(type=TextureGroup)
+    bpy.types.Material.tg = PointerProperty(type=MaterialTGProps)
 
     bpy.types.NODE_MT_add.append(menu_func)
 
