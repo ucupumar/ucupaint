@@ -126,8 +126,9 @@ def create_blend_and_intensity_node(group_tree, texture, channel):
     channel.end_alpha = end_alpha.name
 
     # Get source RGB and alpha
-    end_source_rgb = group_tree.nodes.get(texture.end_rgb)
-    end_source_alpha = group_tree.nodes.get(texture.end_alpha)
+    linear = group_tree.nodes.get(texture.linear)
+    solid_alpha = group_tree.nodes.get(texture.solid_alpha)
+    source = group_tree.nodes.get(texture.source)
 
     # Modifier frame
     modifier_frame = group_tree.nodes.get(channel.modifier_frame)
@@ -143,8 +144,10 @@ def create_blend_and_intensity_node(group_tree, texture, channel):
     end_alpha.parent = modifier_frame
 
     # Link nodes
-    group_tree.links.new(end_source_rgb.outputs[0], start_rgb.inputs[0])
-    group_tree.links.new(end_source_alpha.outputs[0], start_alpha.inputs[0])
+    group_tree.links.new(linear.outputs[0], start_rgb.inputs[0])
+    if solid_alpha:
+        group_tree.links.new(solid_alpha.outputs[0], start_alpha.inputs[0])
+    else: group_tree.links.new(source.outputs[1], start_alpha.inputs[0])
 
     group_tree.links.new(start_rgb.outputs[0], end_rgb.inputs[0])
     group_tree.links.new(start_alpha.outputs[0], intensity.inputs[2])
@@ -351,30 +354,6 @@ def rearrange_nodes(group_tree):
 
         new_loc.x = ori_xx
         new_loc.y -= 90.0
-
-        # Source modifier pipeline
-        end_rgb = nodes.get(t.end_rgb)
-        end_alpha = nodes.get(t.end_alpha)
-        start_rgb = nodes.get(t.start_rgb)
-        start_alpha = nodes.get(t.start_alpha)
-
-        # End
-        new_loc.x += 35.0
-        if end_rgb.location != new_loc: end_rgb.location = new_loc
-        new_loc.x += 65.0
-        if end_alpha.location != new_loc: end_alpha.location = new_loc
-
-        new_loc.x = ori_xx
-        new_loc.y -= 50.0
-
-        # Start
-        new_loc.x += 35.0
-        if start_rgb.location != new_loc: start_rgb.location = new_loc
-        new_loc.x += 65.0
-        if start_alpha.location != new_loc: start_alpha.location = new_loc
-
-        new_loc.x = ori_xx
-        new_loc.y -= 85.0
 
         # Source Linear node
         linear = nodes.get(t.linear)
@@ -830,40 +809,8 @@ class NewTextureLayer(bpy.types.Operator):
 
             solid_alpha.parent = source_frame
 
-        # Modifier pipeline nodes
-        start_rgb = group_tree.nodes.new('NodeReroute')
-        start_rgb.label = 'Start RGB'
-        tex.start_rgb = start_rgb.name
-        start_alpha = group_tree.nodes.new('NodeReroute')
-        start_alpha.label = 'Start Alpha'
-        tex.start_alpha = start_alpha.name
-
-        end_rgb = group_tree.nodes.new('NodeReroute')
-        end_rgb.label = 'End RGB'
-        tex.end_rgb = end_rgb.name
-        end_alpha = group_tree.nodes.new('NodeReroute')
-        end_alpha.label = 'End Alpha'
-        tex.end_alpha = end_alpha.name
-
-        modifier_frame = group_tree.nodes.new('NodeFrame')
-        modifier_frame.label = 'Modifiers'
-        tex.modifier_frame = modifier_frame.name
-
-        start_rgb.parent = modifier_frame
-        start_alpha.parent = modifier_frame
-        end_rgb.parent = modifier_frame
-        end_alpha.parent = modifier_frame
-
         # Link nodes
         group_tree.links.new(source.outputs[0], linear.inputs[0])
-        group_tree.links.new(linear.outputs[0], start_rgb.inputs[0])
-        group_tree.links.new(start_rgb.outputs[0], end_rgb.inputs[0])
-        group_tree.links.new(start_alpha.outputs[0], end_alpha.inputs[0])
-
-        # Solid alpha is used on other than image texture
-        if self.type != 'ShaderNodeTexImage':
-            group_tree.links.new(solid_alpha.outputs[0], start_alpha.inputs[0])
-        else: group_tree.links.new(source.outputs[1], start_alpha.inputs[0])
 
         # Add channels
         for i, ch in enumerate(tg.channels):
@@ -986,15 +933,9 @@ class RemoveTextureLayer(bpy.types.Operator):
         try: nodes.remove(nodes.get(tex.solid_alpha))
         except: pass
 
-        nodes.remove(nodes.get(tex.start_rgb))
-        nodes.remove(nodes.get(tex.start_alpha))
-        nodes.remove(nodes.get(tex.end_rgb))
-        nodes.remove(nodes.get(tex.end_alpha))
-
         nodes.remove(nodes.get(tex.source_frame))
         try: nodes.remove(nodes.get(tex.blend_frame))
         except: pass
-        nodes.remove(nodes.get(tex.modifier_frame))
 
         # Delete channels
         for ch in tex.channels:
@@ -1252,7 +1193,7 @@ class NODE_PT_texture_groups(bpy.types.Panel):
 
                 icon = 'TRIA_DOWN' if tg.show_end_modifiers else 'TRIA_RIGHT'
                 row = col.row(align=True)
-                row.label('Channel End Modifiers:')
+                row.label('Channel Modifiers:')
                 row.prop(tg, 'show_end_modifiers', emboss=False, text='', icon=icon)
                 if tg.show_end_modifiers:
                     col.box()
@@ -1324,13 +1265,13 @@ class NODE_PT_texture_groups(bpy.types.Panel):
 
                 draw_tex_props(group_tree, tex, tcol)
 
-                row = tcol.row()
-                row.label('Texture Modifiers:')
-                icon = 'TRIA_DOWN' if tg.show_texture_modifiers else 'TRIA_RIGHT'
-                row.prop(tg, 'show_texture_modifiers', emboss=False, text='', icon=icon)
+                #row = tcol.row()
+                #row.label('Texture Modifiers:')
+                #icon = 'TRIA_DOWN' if tg.show_texture_modifiers else 'TRIA_RIGHT'
+                #row.prop(tg, 'show_texture_modifiers', emboss=False, text='', icon=icon)
 
-                if tg.show_texture_modifiers:
-                    bbox = tcol.box()
+                #if tg.show_texture_modifiers:
+                #    bbox = tcol.box()
 
 class NODE_UL_y_texture_groups(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -1569,8 +1510,8 @@ class TextureLayer(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_texture_enable)
     channels = CollectionProperty(type=LayerChannel)
 
-    modifiers = CollectionProperty(type=TextureModifier)
-    active_modifier_index = IntProperty(default=0)
+    #modifiers = CollectionProperty(type=TextureModifier)
+    #active_modifier_index = IntProperty(default=0)
 
     tex_output = EnumProperty(
             name = 'Texture Output',
@@ -1597,15 +1538,8 @@ class TextureLayer(bpy.types.PropertyGroup):
     solid_alpha = StringProperty(default='')
     #uv = StringProperty(default='')
 
-    # Modifier pipeline
-    start_rgb = StringProperty(default='')
-    start_alpha = StringProperty(default='')
-    end_rgb = StringProperty(default='')
-    end_alpha = StringProperty(default='')
-
     source_frame = StringProperty(default='')
     blend_frame = StringProperty(default='')
-    modifier_frame = StringProperty(default='')
 
 class GroupChannel(bpy.types.PropertyGroup):
     name = StringProperty(
@@ -1663,7 +1597,7 @@ class TextureGroup(bpy.types.PropertyGroup):
     show_channels = BoolProperty(default=True)
     show_textures = BoolProperty(default=True)
     show_texture_properties = BoolProperty(default=True)
-    show_texture_modifiers = BoolProperty(default=True)
+    #show_texture_modifiers = BoolProperty(default=True)
     show_end_modifiers = BoolProperty(default=False)
 
     preview_mode = BoolProperty(default=False, update=update_preview_mode)
