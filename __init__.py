@@ -40,6 +40,7 @@ modifier_type_items = (
         ('COLOR_RAMP', 'Color Ramp', ''),
         ('RGB_CURVE', 'RGB Curve', ''),
         ('HUE_SATURATION', 'Hue Saturation', ''),
+        ('BRIGHT_CONTRAST', 'Brightness Contrast', ''),
         #('GRAYSCALE_TO_NORMAL', 'Grayscale To Normal', ''),
         #('MASK', 'Mask', ''),
         )
@@ -319,6 +320,9 @@ def delete_modifier_nodes(nodes, mod):
     elif mod.type == 'HUE_SATURATION':
         nodes.remove(nodes.get(mod.huesat))
 
+    elif mod.type == 'BRIGHT_CONTRAST':
+        nodes.remove(nodes.get(mod.brightcon))
+
 def arrange_modifier_nodes(nodes, parent, new_loc, original_x):
 
     # Modifier loops
@@ -381,6 +385,13 @@ def arrange_modifier_nodes(nodes, parent, new_loc, original_x):
             if huesat.location != new_loc: huesat.location = new_loc
 
             new_loc.y -= 185.0
+
+        elif m.type == 'BRIGHT_CONTRAST':
+
+            brightcon = nodes.get(m.brightcon)
+            if brightcon.location != new_loc: brightcon.location = new_loc
+
+            new_loc.y -= 150.0
 
         m_start_rgb = nodes.get(m.start_rgb)
         m_start_alpha = nodes.get(m.start_alpha)
@@ -1504,6 +1515,17 @@ class NewTexModifier(bpy.types.Operator):
             frame.label = 'RGB Curve'
             huesat.parent = frame
 
+        elif m.type == 'BRIGHT_CONTRAST':
+
+            brightcon = nodes.new('ShaderNodeBrightContrast')
+            m.brightcon = brightcon.name
+
+            links.new(start_rgb.outputs[0], brightcon.inputs[0])
+            links.new(brightcon.outputs[0], end_rgb.inputs[0])
+
+            frame.label = 'Brightness Contrast'
+            brightcon.parent = frame
+
         # Get previous modifier
         if len(modifiers) > 1 :
             prev_m = modifiers[1]
@@ -1546,12 +1568,12 @@ def draw_tex_props(group_tree, tex, layout):
 
     if title != 'Image':
         row = bcol.row()
-        col = row.column(align=True)
-        col.label('Output:')
-        col.label('Color Space:')
-        col = row.column(align=True)
-        col.prop(tex, 'tex_output', text='')
-        col.prop(tex, 'color_space', text='')
+        row.label('Input:')
+        row.prop(tex, 'tex_output', expand=True)
+
+        row = bcol.row()
+        row.label('Color Space:')
+        row.prop(tex, 'color_space', expand=True)
 
         bcol.separator()
 
@@ -1676,21 +1698,21 @@ def draw_modifier_properties(context, nodes, modifier, layout):
         #layout.label('Invert modifier has no properties')
         pass
 
-    if modifier.type == 'RGB_TO_INTENSITY':
+    elif modifier.type == 'RGB_TO_INTENSITY':
         rgb2i_color = nodes.get(modifier.rgb2i_color)
         row = layout.row(align=True)
         row.label('Color:')
         row.prop(rgb2i_color.outputs[0], 'default_value', text='')
 
-    if modifier.type == 'COLOR_RAMP':
+    elif modifier.type == 'COLOR_RAMP':
         color_ramp = nodes.get(modifier.color_ramp)
         layout.template_color_ramp(color_ramp, "color_ramp", expand=True)
 
-    if modifier.type == 'RGB_CURVE':
+    elif modifier.type == 'RGB_CURVE':
         rgb_curve = nodes.get(modifier.rgb_curve)
         rgb_curve.draw_buttons_ext(context, layout)
 
-    if modifier.type == 'HUE_SATURATION':
+    elif modifier.type == 'HUE_SATURATION':
         huesat = nodes.get(modifier.huesat)
         row = layout.row(align=True)
         col = row.column(align=True)
@@ -1701,6 +1723,17 @@ def draw_modifier_properties(context, nodes, modifier, layout):
         col = row.column(align=True)
         for i in range(3):
             col.prop(huesat.inputs[i], 'default_value', text='')
+
+    elif modifier.type == 'BRIGHT_CONTRAST':
+        brightcon = nodes.get(modifier.brightcon)
+        row = layout.row(align=True)
+        col = row.column(align=True)
+        col.label('Brightness:')
+        col.label('Contrast:')
+
+        col = row.column(align=True)
+        col.prop(brightcon.inputs[1], 'default_value', text='')
+        col.prop(brightcon.inputs[2], 'default_value', text='')
 
 class NODE_PT_texture_groups(bpy.types.Panel):
     #bl_space_type = 'VIEW_3D'
@@ -1756,7 +1789,7 @@ class NODE_PT_texture_groups(bpy.types.Panel):
                 if tg.show_end_modifiers:
                     bbox = col.box()
                     bcol = bbox.column()
-                    bcol.label('Modifier:')
+                    bcol.label('Modifiers:')
 
                     row = bcol.row()
                     row.template_list("NODE_UL_y_texture_modifiers", "", channel,
@@ -1836,7 +1869,7 @@ class NODE_PT_texture_groups(bpy.types.Panel):
                         bbox.active = ch.enable and tex.enable
                         bcol = bbox.column()
                         #bcol = bbox.column(align
-                        bcol.label('Modifier:')
+                        bcol.label('Modifiers:')
 
                         row = bcol.row()
                         row.template_list("NODE_UL_y_texture_modifiers", "", ch,
@@ -2120,6 +2153,10 @@ def update_modifier_enable(self, context):
         huesat = nodes.get(self.huesat)
         huesat.mute = not self.enable
 
+    elif self.type == 'BRIGHT_CONTRAST':
+        brightcon = nodes.get(self.brightcon)
+        brightcon.mute = not self.enable
+
 class TextureModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)
     name = StringProperty(default='')
@@ -2155,6 +2192,9 @@ class TextureModifier(bpy.types.PropertyGroup):
 
     # RGB Curve nodes
     rgb_curve = StringProperty(default='')
+
+    # Brightness Contrast nodes
+    brightcon = StringProperty(default='')
 
     # Hue Saturation nodes
     huesat = StringProperty(default='')
