@@ -20,6 +20,8 @@ LINEAR_TO_SRGB_COLOR_GROUP_NAME = '~~Linear to SRGB Color [yPanel]'
 SRGB_TO_LINEAR_VALUE_GROUP_NAME = '~~SRGB to Linear Value [yPanel]'
 LINEAR_TO_SRGB_VALUE_GROUP_NAME = '~~Linear to SRGB Value [yPanel]'
 
+GAMMA = 2.2
+
 texture_type_items = (
         ('ShaderNodeTexImage', 'Image', ''),
         #('ShaderNodeTexEnvironment', 'Environment', ''),
@@ -205,19 +207,25 @@ def link_new_channel(group_tree):
 
     # Create linarize node and converter node
     if channel.type in {'RGB', 'VALUE'}:
-        start_linear = group_tree.nodes.new('ShaderNodeGroup')
-        start_linear.label = 'Start Linear'
         if channel.type == 'RGB':
-            start_linear.node_tree = bpy.data.node_groups.get(LINEAR_TO_SRGB_COLOR_GROUP_NAME)
-        else: start_linear.node_tree = bpy.data.node_groups.get(LINEAR_TO_SRGB_VALUE_GROUP_NAME)
+            start_linear = group_tree.nodes.new('ShaderNodeGamma')
+        else: 
+            start_linear = group_tree.nodes.new('ShaderNodeMath')
+            start_linear.operation = 'POWER'
+        start_linear.label = 'Start Linear'
+        start_linear.inputs[1].default_value = 1.0/GAMMA
+
         start_linear.parent = start_frame
         channel.start_linear = start_linear.name
 
-        end_linear = group_tree.nodes.new('ShaderNodeGroup')
-        end_linear.label = 'End Linear'
         if channel.type == 'RGB':
-            end_linear.node_tree = bpy.data.node_groups.get(SRGB_TO_LINEAR_COLOR_GROUP_NAME)
-        else: end_linear.node_tree = bpy.data.node_groups.get(SRGB_TO_LINEAR_VALUE_GROUP_NAME)
+            end_linear = group_tree.nodes.new('ShaderNodeGamma')
+        else: 
+            end_linear = group_tree.nodes.new('ShaderNodeMath')
+            end_linear.operation = 'POWER'
+        end_linear.label = 'End Linear'
+        end_linear.inputs[1].default_value = GAMMA
+
         end_linear.parent = end_linear_frame
         channel.end_linear = end_linear.name
 
@@ -995,9 +1003,9 @@ class NewTextureLayer(bpy.types.Operator):
         source.label = 'Source'
         tex.source = source.name
 
-        linear = group_tree.nodes.new('ShaderNodeGroup')
+        linear = group_tree.nodes.new('ShaderNodeGamma')
         linear.label = 'Source Linear'
-        linear.node_tree = bpy.data.node_groups.get(LINEAR_TO_SRGB_COLOR_GROUP_NAME)
+        linear.inputs[1].default_value = 1.0/GAMMA
         tex.linear = linear.name
 
         # Image texture and checker has SRGB color space by default
@@ -1455,9 +1463,9 @@ class NewTexModifier(bpy.types.Operator):
             rgb2i_color = nodes.new('ShaderNodeRGB')
             m.rgb2i_color = rgb2i_color.name
 
-            rgb2i_linear = nodes.new('ShaderNodeGroup')
+            rgb2i_linear = nodes.new('ShaderNodeGamma')
             rgb2i_linear.label = 'Linear'
-            rgb2i_linear.node_tree = bpy.data.node_groups.get(LINEAR_TO_SRGB_COLOR_GROUP_NAME)
+            rgb2i_linear.inputs[1].default_value = 1.0/GAMMA
             m.rgb2i_linear = rgb2i_linear.name
 
             rgb2i_mix_rgb = nodes.new('ShaderNodeMixRGB')
