@@ -38,8 +38,9 @@ modifier_type_items = (
         ('INVERT', 'Invert', ''),
         ('RGB_TO_INTENSITY', 'RGB to Intensity', ''),
         ('COLOR_RAMP', 'Color Ramp', ''),
-        ('GRAYSCALE_TO_NORMAL', 'Grayscale To Normal', ''),
         ('RGB_CURVE', 'RGB Curve', ''),
+        ('HUE_SATURATION', 'Hue Saturation', ''),
+        #('GRAYSCALE_TO_NORMAL', 'Grayscale To Normal', ''),
         #('MASK', 'Mask', ''),
         )
 
@@ -137,7 +138,7 @@ def create_blend_and_intensity_node(group_tree, texture, channel):
         modifier_frame.label = 'Modifiers'
         channel.modifier_frame = modifier_frame.name
 
-    intensity.parent = modifier_frame
+    #intensity.parent = modifier_frame
     start_rgb.parent = modifier_frame
     start_alpha.parent = modifier_frame
     end_rgb.parent = modifier_frame
@@ -150,12 +151,14 @@ def create_blend_and_intensity_node(group_tree, texture, channel):
     else: group_tree.links.new(source.outputs[1], start_alpha.inputs[0])
 
     group_tree.links.new(start_rgb.outputs[0], end_rgb.inputs[0])
-    group_tree.links.new(start_alpha.outputs[0], intensity.inputs[2])
+    group_tree.links.new(start_alpha.outputs[0], end_alpha.inputs[0])
+    #group_tree.links.new(start_alpha.outputs[0], intensity.inputs[2])
 
     group_tree.links.new(end_rgb.outputs[0], blend.inputs[2])
-    group_tree.links.new(intensity.outputs[0], end_alpha.inputs[0])
+    group_tree.links.new(end_alpha.outputs[0], intensity.inputs[2])
+    #group_tree.links.new(intensity.outputs[0], end_alpha.inputs[0])
 
-    group_tree.links.new(end_alpha.outputs[0], blend.inputs[0])
+    group_tree.links.new(intensity.outputs[0], blend.inputs[0])
 
     return blend, intensity
 
@@ -182,11 +185,22 @@ def link_new_channel(group_tree):
         start_frame.label = 'Start'
         group_tree.tg.start_frame = start_frame.name
 
-    end_frame = group_tree.nodes.get(group_tree.tg.end_frame)
-    if not end_frame:
-        end_frame = group_tree.nodes.new('NodeFrame')
-        end_frame.label = 'End'
-        group_tree.tg.end_frame = end_frame.name
+    end_entry_frame = group_tree.nodes.get(group_tree.tg.end_entry_frame)
+    if not end_entry_frame:
+        end_entry_frame = group_tree.nodes.new('NodeFrame')
+        end_entry_frame.label = 'End'
+        group_tree.tg.end_entry_frame = end_entry_frame.name
+
+    #modifier_frame = group_tree.nodes.get(channel.modifier_frame)
+    modifier_frame = group_tree.nodes.new('NodeFrame')
+    modifier_frame.label = 'Modifier'
+    channel.modifier_frame = modifier_frame.name
+
+    end_linear_frame = group_tree.nodes.get(group_tree.tg.end_linear_frame)
+    if not end_linear_frame:
+        end_linear_frame = group_tree.nodes.new('NodeFrame')
+        end_linear_frame.label = 'End Linear'
+        group_tree.tg.end_linear_frame = end_linear_frame.name
 
     # Create linarize node and converter node
     if channel.type in {'RGB', 'VALUE'}:
@@ -203,7 +217,7 @@ def link_new_channel(group_tree):
         if channel.type == 'RGB':
             end_linear.node_tree = bpy.data.node_groups.get(SRGB_TO_LINEAR_COLOR_GROUP_NAME)
         else: end_linear.node_tree = bpy.data.node_groups.get(SRGB_TO_LINEAR_VALUE_GROUP_NAME)
-        end_linear.parent = end_frame
+        end_linear.parent = end_linear_frame
         channel.end_linear = end_linear.name
 
     start_entry = group_tree.nodes.new('NodeReroute')
@@ -213,8 +227,29 @@ def link_new_channel(group_tree):
 
     end_entry = group_tree.nodes.new('NodeReroute')
     end_entry.label = 'End Entry'
-    end_entry.parent = end_frame
+    end_entry.parent = end_entry_frame
     channel.end_entry = end_entry.name
+
+    # Modifier pipeline
+    start_rgb = group_tree.nodes.new('NodeReroute')
+    start_rgb.label = 'Start RGB'
+    start_rgb.parent = modifier_frame
+    channel.start_rgb = start_rgb.name
+
+    start_alpha = group_tree.nodes.new('NodeReroute')
+    start_alpha.label = 'Start Alpha'
+    start_alpha.parent = modifier_frame
+    channel.start_alpha = start_alpha.name
+
+    end_rgb = group_tree.nodes.new('NodeReroute')
+    end_rgb.label = 'End RGB'
+    end_rgb.parent = modifier_frame
+    channel.end_rgb = end_rgb.name
+
+    end_alpha = group_tree.nodes.new('NodeReroute')
+    end_alpha.label = 'End Alpha'
+    end_alpha.parent = modifier_frame
+    channel.end_alpha = end_alpha.name
 
     # Link nodes
     if start_linear:
@@ -223,11 +258,14 @@ def link_new_channel(group_tree):
     else:
         group_tree.links.new(start_node.outputs[last_index], start_entry.inputs[0])
 
+    group_tree.links.new(end_entry.outputs[0], start_rgb.inputs[0])
+    group_tree.links.new(start_rgb.outputs[0], end_rgb.inputs[0])
+
     if end_linear:
-        group_tree.links.new(end_entry.outputs[0], end_linear.inputs[0])
+        group_tree.links.new(end_rgb.outputs[0], end_linear.inputs[0])
         group_tree.links.new(end_linear.outputs[0], end_node.inputs[last_index])
     else:
-        group_tree.links.new(end_entry.outputs[0], end_node.inputs[last_index])
+        group_tree.links.new(end_rgb.outputs[0], end_node.inputs[last_index])
 
     # Link between textures
     if len(group_tree.tg.textures) == 0:
@@ -255,6 +293,108 @@ def link_new_channel(group_tree):
             if i == 0:
                 group_tree.links.new(blend.outputs[0], end_entry.inputs[0])
 
+def delete_modifier_nodes(nodes, mod):
+    # Delete the nodes
+    nodes.remove(nodes.get(mod.start_rgb))
+    nodes.remove(nodes.get(mod.start_alpha))
+    nodes.remove(nodes.get(mod.end_rgb))
+    nodes.remove(nodes.get(mod.end_alpha))
+    nodes.remove(nodes.get(mod.frame))
+
+    if mod.type == 'RGB_TO_INTENSITY':
+        nodes.remove(nodes.get(mod.rgb2i_color))
+        nodes.remove(nodes.get(mod.rgb2i_linear))
+        nodes.remove(nodes.get(mod.rgb2i_mix_rgb))
+        nodes.remove(nodes.get(mod.rgb2i_mix_alpha))
+
+    elif mod.type == 'INVERT':
+        nodes.remove(nodes.get(mod.invert))
+
+    elif mod.type == 'COLOR_RAMP':
+        nodes.remove(nodes.get(mod.color_ramp))
+
+    elif mod.type == 'RGB_CURVE':
+        nodes.remove(nodes.get(mod.rgb_curve))
+
+    elif mod.type == 'HUE_SATURATION':
+        nodes.remove(nodes.get(mod.huesat))
+
+def arrange_modifier_nodes(nodes, parent, new_loc, original_x):
+
+    # Modifier loops
+    for m in parent.modifiers:
+        m_end_rgb = nodes.get(m.end_rgb)
+        m_end_alpha = nodes.get(m.end_alpha)
+
+        new_loc.x += 35.0
+        if m_end_rgb.location != new_loc: m_end_rgb.location = new_loc
+        new_loc.x += 65.0
+        if m_end_alpha.location != new_loc: m_end_alpha.location = new_loc
+
+        new_loc.x = original_x
+        new_loc.y -= 20.0
+
+        if m.type == 'INVERT':
+            invert = nodes.get(m.invert)
+            if invert.location != new_loc: invert.location = new_loc
+
+            new_loc.y -= 120.0
+
+        elif m.type == 'RGB_TO_INTENSITY':
+            rgb2i_mix_alpha = nodes.get(m.rgb2i_mix_alpha)
+            if rgb2i_mix_alpha.location != new_loc: rgb2i_mix_alpha.location = new_loc
+
+            new_loc.y -= 180.0
+
+            rgb2i_mix_rgb = nodes.get(m.rgb2i_mix_rgb)
+            if rgb2i_mix_rgb.location != new_loc: rgb2i_mix_rgb.location = new_loc
+
+            new_loc.y -= 180.0
+
+            rgb2i_linear = nodes.get(m.rgb2i_linear)
+            if rgb2i_linear.location != new_loc: rgb2i_linear.location = new_loc
+
+            new_loc.y -= 120.0
+
+            rgb2i_color = nodes.get(m.rgb2i_color)
+            if rgb2i_color.location != new_loc: rgb2i_color.location = new_loc
+
+            new_loc.y -= 200.0
+
+        elif m.type == 'COLOR_RAMP':
+
+            color_ramp = nodes.get(m.color_ramp)
+            if color_ramp.location != new_loc: color_ramp.location = new_loc
+
+            new_loc.y -= 240.0
+
+        elif m.type == 'RGB_CURVE':
+
+            rgb_curve = nodes.get(m.rgb_curve)
+            if rgb_curve.location != new_loc: rgb_curve.location = new_loc
+
+            new_loc.y -= 320.0
+
+        elif m.type == 'HUE_SATURATION':
+
+            huesat = nodes.get(m.huesat)
+            if huesat.location != new_loc: huesat.location = new_loc
+
+            new_loc.y -= 185.0
+
+        m_start_rgb = nodes.get(m.start_rgb)
+        m_start_alpha = nodes.get(m.start_alpha)
+
+        new_loc.x += 35.0
+        if m_start_rgb.location != new_loc: m_start_rgb.location = new_loc
+        new_loc.x += 65.0
+        if m_start_alpha.location != new_loc: m_start_alpha.location = new_loc
+
+        new_loc.x = original_x
+        new_loc.y -= 85.0
+
+    return new_loc
+
 def rearrange_nodes(group_tree):
 
     nodes = group_tree.nodes
@@ -267,7 +407,7 @@ def rearrange_nodes(group_tree):
 
     #dist_y = 350.0
     dist_y = 175.0
-    dist_x = 220.0
+    dist_x = 370.0
 
     # Start nodes
     for i, channel in enumerate(group_tree.tg.channels):
@@ -311,14 +451,23 @@ def rearrange_nodes(group_tree):
             new_loc.x += dist_x
 
         new_loc.x = ori_xx
-        new_loc.y -= 75.0
+        new_loc.y -= 35.0
 
         ori_y = new_loc.y
+
+        # List of y locations
+        ys = []
 
         for c in t.channels:
 
             new_loc.y = ori_y
             ori_xxx = new_loc.x
+
+            # Intensity node
+            intensity = nodes.get(c.intensity)
+            if intensity.location != new_loc: intensity.location = new_loc
+
+            new_loc.y -= 220.0
 
             # Channel modifier pipeline
             end_rgb = nodes.get(c.end_rgb)
@@ -335,11 +484,10 @@ def rearrange_nodes(group_tree):
             new_loc.x = ori_xxx
             new_loc.y -= 50.0
 
-            # Intensity node
-            intensity = nodes.get(c.intensity)
-            if intensity.location != new_loc: intensity.location = new_loc
+            new_loc = arrange_modifier_nodes(nodes, c, new_loc, ori_xxx)
 
-            new_loc.y -= 200.0
+            #new_loc.x = ori_xxx
+            #new_loc.y -= 50.0
 
             # Start
             new_loc.x += 35.0
@@ -350,7 +498,14 @@ def rearrange_nodes(group_tree):
             new_loc.x = ori_xxx
             new_loc.x += dist_x
 
+            ys.append(new_loc.y)
+
             #new_loc.y -= dist_y
+
+        # Sort y locations and use the first one
+        if ys:
+            ys.sort()
+            new_loc.y = ys[0]
 
         new_loc.x = ori_xx
         new_loc.y -= 90.0
@@ -374,29 +529,59 @@ def rearrange_nodes(group_tree):
     #new_loc.x += 240.0
     new_loc.x = ori_x + dist_x * len(group_tree.tg.channels) * len(group_tree.tg.textures) + 25.0
 
-    # End nodes
+    # End entry nodes
     for i, channel in enumerate(group_tree.tg.channels):
         new_loc.y = -dist_y * i
 
-        ori_y = new_loc.y
-        new_loc.y -= 85.0
+        #ori_y = new_loc.y
+        new_loc.y -= 35.0
 
         # End entry
         end_entry = nodes.get(channel.end_entry)
         if end_entry.location != new_loc: end_entry.location = new_loc
 
-        new_loc.y = ori_y
+    new_loc.y = 0.0
+    new_loc.x += 120.0
+    ori_xxx = new_loc.x
 
-        # End linear
-        new_loc.x += 50.0
+    # End modifiers
+    for i, channel in enumerate(group_tree.tg.channels):
+        new_loc.y = -dist_y * i
+        new_loc.x = ori_xxx + dist_x * i
+
+        new_loc.x += 35.0
+        new_loc.y -= 35.0
+        end_rgb = nodes.get(channel.end_rgb)
+        if end_rgb.location != new_loc: end_rgb.location = new_loc
+
+        new_loc.x += 65.0
+        end_alpha = nodes.get(channel.end_alpha)
+        if end_alpha.location != new_loc: end_alpha.location = new_loc
+
+        new_loc.x = ori_xxx + dist_x * i
+        new_loc.y -= 50.0
+
+        new_loc = arrange_modifier_nodes(nodes, channel, new_loc, ori_xxx + dist_x * i)
+
+        new_loc.x += 35.0
+        start_rgb = nodes.get(channel.start_rgb)
+        if start_rgb.location != new_loc: start_rgb.location = new_loc
+
+        new_loc.x += 65.0
+        start_alpha = nodes.get(channel.start_alpha)
+        if start_alpha.location != new_loc: start_alpha.location = new_loc
+
+    new_loc.y = 0.0
+    new_loc.x += 250.0
+        
+    # End linear
+    for i, channel in enumerate(group_tree.tg.channels):
+        new_loc.y = -dist_y * i
         if channel.end_linear != '':
             end_linear = nodes.get(channel.end_linear)
             if end_linear.location != new_loc: end_linear.location = new_loc
 
-        # Shift back x
-        new_loc.x -= 50.0
-
-    new_loc.x += 250.0
+    new_loc.x += 200.0
     new_loc.y = 0.0
 
     # End node
@@ -588,7 +773,7 @@ class NewTextureGroupChannel(bpy.types.Operator):
         # Get last index
         last_index = len(channels)-1
 
-        # Link new channel and the rearrange the nodes
+        # Link new channel
         link_new_channel(group_tree)
 
         # New channel is disabled in texture by default
@@ -682,13 +867,20 @@ class RemoveTextureGroupChannel(bpy.types.Operator):
 
         # Remove channel nodes from textures
         for t in tg.textures:
-            nodes.remove(nodes.get(t.channels[channel_idx].blend))
-            nodes.remove(nodes.get(t.channels[channel_idx].start_rgb))
-            nodes.remove(nodes.get(t.channels[channel_idx].start_alpha))
-            nodes.remove(nodes.get(t.channels[channel_idx].end_rgb))
-            nodes.remove(nodes.get(t.channels[channel_idx].end_alpha))
-            nodes.remove(nodes.get(t.channels[channel_idx].modifier_frame))
-            nodes.remove(nodes.get(t.channels[channel_idx].intensity))
+            ch = t.channels[channel_idx]
+
+            nodes.remove(nodes.get(ch.blend))
+            nodes.remove(nodes.get(ch.start_rgb))
+            nodes.remove(nodes.get(ch.start_alpha))
+            nodes.remove(nodes.get(ch.end_rgb))
+            nodes.remove(nodes.get(ch.end_alpha))
+            nodes.remove(nodes.get(ch.modifier_frame))
+            nodes.remove(nodes.get(ch.intensity))
+
+            # Remove modifiers
+            for mod in ch.modifiers:
+                delete_modifier_nodes(nodes, mod)
+
             t.channels.remove(channel_idx)
 
         # Remove start and end nodes
@@ -699,12 +891,24 @@ class RemoveTextureGroupChannel(bpy.types.Operator):
         try: nodes.remove(nodes.get(channel.end_linear)) 
         except: pass
 
+        # Remove channel modifiers
+        nodes.remove(nodes.get(channel.start_rgb))
+        nodes.remove(nodes.get(channel.start_alpha))
+        nodes.remove(nodes.get(channel.end_rgb))
+        nodes.remove(nodes.get(channel.end_alpha))
+        nodes.remove(nodes.get(channel.modifier_frame))
+
+        for mod in channel.modifiers:
+            delete_modifier_nodes(nodes, mod)
+
         # Remove some frames if it's the last channel
         if len(tg.channels) == 1:
             nodes.remove(nodes.get(tg.start_frame))
-            nodes.remove(nodes.get(tg.end_frame))
+            nodes.remove(nodes.get(tg.end_entry_frame))
+            nodes.remove(nodes.get(tg.end_linear_frame))
             tg.start_frame = ''
-            tg.end_frame = ''
+            tg.end_entry_frame = ''
+            tg.end_linear_frame = ''
             for t in tg.textures:
                 nodes.remove(nodes.get(t.blend_frame))
                 t.blend_frame = ''
@@ -917,7 +1121,8 @@ class RemoveTextureLayer(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_texture_group_node()
+        group_node = get_active_texture_group_node()
+        return group_node and len(group_node.node_tree.tg.textures) > 0
 
     def execute(self, context):
         node = get_active_texture_group_node()
@@ -955,6 +1160,10 @@ class RemoveTextureLayer(bpy.types.Operator):
 
             nodes.remove(nodes.get(ch.modifier_frame))
 
+            # Remove modifiers
+            for mod in ch.modifiers:
+                delete_modifier_nodes(nodes, mod)
+
         # Delete the texture
         tg.textures.remove(tg.active_texture_index)
 
@@ -969,6 +1178,166 @@ class RemoveTextureLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class MoveTexModifier(bpy.types.Operator):
+    bl_idname = "node.y_move_texture_modifier"
+    bl_label = "Move Texture Modifier"
+    bl_description = "Move Texture Modifier"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    direction = EnumProperty(
+            name = 'Direction',
+            items = (('UP', 'Up', ''),
+                     ('DOWN', 'Down', '')),
+            default = 'UP')
+
+    parent_type = EnumProperty(
+            name = 'Modifier Parent',
+            items = (('CHANNEL', 'Channel', '' ),
+                     ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
+                    ),
+            default = 'TEXTURE_CHANNEL')
+
+    channel_index = IntProperty(default=0)
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_texture_group_node()
+
+    def execute(self, context):
+        node = get_active_texture_group_node()
+        group_tree = node.node_tree
+        nodes = group_tree.nodes
+        links = group_tree.links
+        tg = group_tree.tg
+
+        if len(tg.channels) == 0: return {'CANCELLED'}
+
+        if self.parent_type == 'CHANNEL':
+            parent = tg.channels[tg.active_channel_index]
+        elif self.parent_type == 'TEXTURE_CHANNEL':
+            if len(tg.textures) == 0: return {'CANCELLED'}
+            tex = tg.textures[tg.active_texture_index]
+            parent = tex.channels[self.channel_index]
+        else: return
+
+        num_mods = len(parent.modifiers)
+        if num_mods < 2: return {'CANCELLED'}
+
+        index = parent.active_modifier_index
+        mod = parent.modifiers[index]
+
+        # Get new index
+        if self.direction == 'UP' and index > 0:
+            new_index = index-1
+        elif self.direction == 'DOWN' and index < num_mods-1:
+            new_index = index+1
+        else:
+            return {'CANCELLED'}
+
+        swap_mod = parent.modifiers[new_index]
+
+        start_rgb = nodes.get(mod.start_rgb)
+        start_alpha = nodes.get(mod.start_alpha)
+        end_rgb = nodes.get(mod.end_rgb)
+        end_alpha = nodes.get(mod.end_alpha)
+
+        swap_start_rgb = nodes.get(swap_mod.start_rgb)
+        swap_start_alpha = nodes.get(swap_mod.start_alpha)
+        swap_end_rgb = nodes.get(swap_mod.end_rgb)
+        swap_end_alpha = nodes.get(swap_mod.end_alpha)
+
+        if self.direction == 'UP':
+            links.new(end_rgb.outputs[0], swap_end_rgb.outputs[0].links[0].to_socket)
+            links.new(end_alpha.outputs[0], swap_end_alpha.outputs[0].links[0].to_socket)
+
+            links.new(start_rgb.inputs[0].links[0].from_socket, swap_start_rgb.inputs[0])
+            links.new(start_alpha.inputs[0].links[0].from_socket, swap_start_alpha.inputs[0])
+
+            links.new(swap_end_rgb.outputs[0], start_rgb.inputs[0])
+            links.new(swap_end_alpha.outputs[0], start_alpha.inputs[0])
+
+        else:
+            links.new(swap_end_rgb.outputs[0], end_rgb.outputs[0].links[0].to_socket)
+            links.new(swap_end_alpha.outputs[0], end_alpha.outputs[0].links[0].to_socket)
+
+            links.new(swap_start_rgb.inputs[0].links[0].from_socket, start_rgb.inputs[0])
+            links.new(swap_start_alpha.inputs[0].links[0].from_socket, start_alpha.inputs[0])
+
+            links.new(end_rgb.outputs[0], swap_start_rgb.inputs[0])
+            links.new(end_alpha.outputs[0], swap_start_alpha.inputs[0])
+
+        # Swap modifier
+        parent.modifiers.move(index, new_index)
+        parent.active_modifier_index = new_index
+
+        # Rearrange nodes
+        rearrange_nodes(group_tree)
+
+        return {'FINISHED'}
+
+class RemoveTexModifier(bpy.types.Operator):
+    bl_idname = "node.y_remove_texture_modifier"
+    bl_label = "Remove Texture Modifier"
+    bl_description = "Remove Texture Modifier"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    parent_type = EnumProperty(
+            name = 'Modifier Parent',
+            items = (('CHANNEL', 'Channel', '' ),
+                     ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
+                    ),
+            default = 'TEXTURE_CHANNEL')
+
+    channel_index = IntProperty(default=0)
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_texture_group_node()
+
+    def execute(self, context):
+        node = get_active_texture_group_node()
+        group_tree = node.node_tree
+        nodes = group_tree.nodes
+        links = group_tree.links
+        tg = group_tree.tg
+
+        if len(tg.channels) == 0: return {'CANCELLED'}
+
+        if self.parent_type == 'CHANNEL':
+            parent = tg.channels[tg.active_channel_index]
+        elif self.parent_type == 'TEXTURE_CHANNEL':
+            if len(tg.textures) == 0: return {'CANCELLED'}
+            tex = tg.textures[tg.active_texture_index]
+            parent = tex.channels[self.channel_index]
+        else: return
+
+        if len(parent.modifiers) < 1: return {'CANCELLED'}
+
+        index = parent.active_modifier_index
+        mod = parent.modifiers[index]
+
+        prev_rgb = nodes.get(mod.start_rgb).inputs[0].links[0].from_socket
+        next_rgb = nodes.get(mod.end_rgb).outputs[0].links[0].to_socket
+        links.new(prev_rgb, next_rgb)
+
+        prev_alpha = nodes.get(mod.start_alpha).inputs[0].links[0].from_socket
+        next_alpha = nodes.get(mod.end_alpha).outputs[0].links[0].to_socket
+        links.new(prev_alpha, next_alpha)
+
+        # Delete the nodes
+        delete_modifier_nodes(nodes, mod)
+
+        # Delete the modifier
+        parent.modifiers.remove(index)
+        rearrange_nodes(group_tree)
+
+        # Set new active index
+        if (parent.active_modifier_index == len(parent.modifiers) and
+            parent.active_modifier_index > 0
+            ): parent.active_modifier_index -= 1
+
+        return {'FINISHED'}
+
 class NewTexModifier(bpy.types.Operator):
     bl_idname = "node.y_new_texture_modifier"
     bl_label = "New Texture Modifier"
@@ -980,13 +1349,14 @@ class NewTexModifier(bpy.types.Operator):
         items = modifier_type_items,
         default = 'INVERT')
 
-    parent = EnumProperty(
+    parent_type = EnumProperty(
             name = 'Modifier Parent',
             items = (('CHANNEL', 'Channel', '' ),
-                     ('TEXTURE', 'Texture', '' ),
                      ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
                     ),
             default = 'TEXTURE_CHANNEL')
+
+    channel_index = IntProperty(default=0)
 
     @classmethod
     def poll(cls, context):
@@ -996,14 +1366,162 @@ class NewTexModifier(bpy.types.Operator):
         node = get_active_texture_group_node()
         group_tree = node.node_tree
         nodes = group_tree.nodes
+        links = group_tree.links
         tg = group_tree.tg
 
-        if self.parent == 'CHANNEL':
-            pass
-        elif self.parent == 'TEXTURE':
-            pass
-        elif self.parent == 'TEXTURE_CHANNEL':
-            pass
+        if len(tg.channels) == 0: return {'CANCELLED'}
+
+        if self.parent_type == 'CHANNEL':
+            parent = tg.channels[tg.active_channel_index]
+        elif self.parent_type == 'TEXTURE_CHANNEL':
+            if len(tg.textures) == 0: return {'CANCELLED'}
+            tex = tg.textures[tg.active_texture_index]
+            parent = tex.channels[self.channel_index]
+        else: return
+
+        # Get start and end node
+        parent_start_rgb = nodes.get(parent.start_rgb)
+        parent_start_alpha = nodes.get(parent.start_alpha)
+        parent_end_rgb = nodes.get(parent.end_rgb)
+        parent_end_alpha = nodes.get(parent.end_alpha)
+        parent_frame = nodes.get(parent.modifier_frame)
+
+        # Get modifier list and its index
+        modifiers = parent.modifiers
+        #index = parent.active_modifier_index
+
+        # Add new modifier and move it to the top
+        m = modifiers.add()
+        name = [mt[1] for mt in modifier_type_items if mt[0] == self.type][0]
+        m.name = get_unique_name(name, modifiers)
+        modifiers.move(len(modifiers)-1, 0)
+        m = modifiers[0]
+        m.type = self.type
+        index = 0
+
+        # Create new pipeline nodes
+        start_rgb = nodes.new('NodeReroute')
+        start_rgb.label = 'Start RGB'
+        m.start_rgb = start_rgb.name
+
+        start_alpha = nodes.new('NodeReroute')
+        start_alpha.label = 'Start Alpha'
+        m.start_alpha = start_alpha.name
+
+        end_rgb = nodes.new('NodeReroute')
+        end_rgb.label = 'End RGB'
+        m.end_rgb = end_rgb.name
+
+        end_alpha = nodes.new('NodeReroute')
+        end_alpha.label = 'End Alpha'
+        m.end_alpha = end_alpha.name
+
+        frame = nodes.new('NodeFrame')
+        m.frame = frame.name
+        frame.parent = parent_frame
+        start_rgb.parent = frame
+        start_alpha.parent = frame
+        end_rgb.parent = frame
+        end_alpha.parent = frame
+
+        # Link new nodes
+        links.new(start_rgb.outputs[0], end_rgb.inputs[0])
+        links.new(start_alpha.outputs[0], end_alpha.inputs[0])
+
+        # Create the nodes
+        if self.type == 'INVERT':
+            invert = nodes.new('ShaderNodeInvert')
+            m.invert = invert.name
+
+            links.new(start_rgb.outputs[0], invert.inputs[1])
+            links.new(invert.outputs[0], end_rgb.inputs[0])
+
+            frame.label = 'Invert'
+            invert.parent = frame
+
+        elif m.type == 'RGB_TO_INTENSITY':
+
+            rgb2i_color = nodes.new('ShaderNodeRGB')
+            m.rgb2i_color = rgb2i_color.name
+
+            rgb2i_linear = nodes.new('ShaderNodeGroup')
+            rgb2i_linear.label = 'Linear'
+            rgb2i_linear.node_tree = bpy.data.node_groups.get(LINEAR_TO_SRGB_COLOR_GROUP_NAME)
+            m.rgb2i_linear = rgb2i_linear.name
+
+            rgb2i_mix_rgb = nodes.new('ShaderNodeMixRGB')
+            rgb2i_mix_rgb.label = 'Mix RGB'
+            rgb2i_mix_rgb.inputs[0].default_value = 1.0
+            m.rgb2i_mix_rgb = rgb2i_mix_rgb.name
+
+            rgb2i_mix_alpha = nodes.new('ShaderNodeMixRGB')
+            rgb2i_mix_alpha.label = 'Mix Alpha'
+            rgb2i_mix_alpha.inputs[0].default_value = 1.0
+            m.rgb2i_mix_alpha = rgb2i_mix_alpha.name
+
+            links.new(rgb2i_color.outputs[0], rgb2i_linear.inputs[0])
+            links.new(rgb2i_linear.outputs[0], rgb2i_mix_rgb.inputs[2])
+            links.new(start_rgb.outputs[0], rgb2i_mix_rgb.inputs[1])
+            links.new(rgb2i_mix_rgb.outputs[0], end_rgb.inputs[0])
+
+            links.new(start_rgb.outputs[0], rgb2i_mix_alpha.inputs[2])
+            links.new(start_alpha.outputs[0], rgb2i_mix_alpha.inputs[1])
+            links.new(rgb2i_mix_alpha.outputs[0], end_alpha.inputs[0])
+
+            frame.label = 'RGB to Intensity'
+            rgb2i_color.parent = frame
+
+        elif m.type == 'COLOR_RAMP':
+
+            color_ramp = nodes.new('ShaderNodeValToRGB')
+            m.color_ramp = color_ramp.name
+
+            links.new(start_rgb.outputs[0], color_ramp.inputs[0])
+            links.new(color_ramp.outputs[0], end_rgb.inputs[0])
+
+            frame.label = 'Color Ramp'
+            color_ramp.parent = frame
+
+        elif m.type == 'RGB_CURVE':
+
+            rgb_curve = nodes.new('ShaderNodeRGBCurve')
+            m.rgb_curve = rgb_curve.name
+
+            links.new(start_rgb.outputs[0], rgb_curve.inputs[1])
+            links.new(rgb_curve.outputs[0], end_rgb.inputs[0])
+
+            frame.label = 'RGB Curve'
+            rgb_curve.parent = frame
+
+        elif m.type == 'HUE_SATURATION':
+
+            huesat = nodes.new('ShaderNodeHueSaturation')
+            m.huesat = huesat.name
+
+            links.new(start_rgb.outputs[0], huesat.inputs[4])
+            links.new(huesat.outputs[0], end_rgb.inputs[0])
+
+            frame.label = 'RGB Curve'
+            huesat.parent = frame
+
+        # Get previous modifier
+        if len(modifiers) > 1 :
+            prev_m = modifiers[1]
+            prev_rgb = nodes.get(prev_m.end_rgb)
+            prev_alpha = nodes.get(prev_m.end_alpha)
+        else:
+            prev_rgb = nodes.get(parent.start_rgb)
+            prev_alpha = nodes.get(parent.start_alpha)
+
+        # Connect to previous modifier
+        links.new(prev_rgb.outputs[0], start_rgb.inputs[0])
+        links.new(prev_alpha.outputs[0], start_alpha.inputs[0])
+
+        # Connect to next modifier
+        links.new(end_rgb.outputs[0], parent_end_rgb.inputs[0])
+        links.new(end_alpha.outputs[0], parent_end_alpha.inputs[0])
+
+        rearrange_nodes(group_tree)
 
         return {'FINISHED'}
 
@@ -1144,6 +1662,46 @@ def draw_tex_props(group_tree, tex, layout):
         for i in range (1,5):
             col.prop(source.inputs[i], 'default_value', text='')
 
+def draw_modifier_properties(context, nodes, modifier, layout):
+
+    if modifier.type not in {'INVERT'}:
+        label = [mt[1] for mt in modifier_type_items if modifier.type == mt[0]][0]
+        layout.label(label + ' Properties:')
+
+    if modifier.type == 'INVERT':
+        #invert = nodes.get(modifier.invert)
+        #row = layout.row(align=True)
+        #row.label('Factor:')
+        #row.prop(invert.inputs[0], 'default_value', text='')
+        #layout.label('Invert modifier has no properties')
+        pass
+
+    if modifier.type == 'RGB_TO_INTENSITY':
+        rgb2i_color = nodes.get(modifier.rgb2i_color)
+        row = layout.row(align=True)
+        row.label('Color:')
+        row.prop(rgb2i_color.outputs[0], 'default_value', text='')
+
+    if modifier.type == 'COLOR_RAMP':
+        color_ramp = nodes.get(modifier.color_ramp)
+        layout.template_color_ramp(color_ramp, "color_ramp", expand=True)
+
+    if modifier.type == 'RGB_CURVE':
+        rgb_curve = nodes.get(modifier.rgb_curve)
+        rgb_curve.draw_buttons_ext(context, layout)
+
+    if modifier.type == 'HUE_SATURATION':
+        huesat = nodes.get(modifier.huesat)
+        row = layout.row(align=True)
+        col = row.column(align=True)
+        col.label('Hue:')
+        col.label('Saturation:')
+        col.label('Value:')
+
+        col = row.column(align=True)
+        for i in range(3):
+            col.prop(huesat.inputs[i], 'default_value', text='')
+
 class NODE_PT_texture_groups(bpy.types.Panel):
     #bl_space_type = 'VIEW_3D'
     bl_space_type = 'NODE_EDITOR'
@@ -1196,7 +1754,33 @@ class NODE_PT_texture_groups(bpy.types.Panel):
                 row.label('Channel Modifiers:')
                 row.prop(tg, 'show_end_modifiers', emboss=False, text='', icon=icon)
                 if tg.show_end_modifiers:
-                    col.box()
+                    bbox = col.box()
+                    bcol = bbox.column()
+                    bcol.label('Modifier:')
+
+                    row = bcol.row()
+                    row.template_list("NODE_UL_y_texture_modifiers", "", channel,
+                            "modifiers", channel, "active_modifier_index", rows=4, maxrows=5)  
+
+                    rcol = row.column(align=True)
+
+                    rcol.context_pointer_set('channel', channel)
+                    rcol.menu("NODE_MT_y_texture_modifier_specials", icon='ZOOMIN', text='')
+
+                    op = rcol.operator('node.y_remove_texture_modifier', icon='ZOOMOUT', text='')
+                    op.parent_type = 'CHANNEL'
+
+                    op = rcol.operator('node.y_move_texture_modifier', icon='TRIA_UP', text='')
+                    op.direction = 'UP'
+                    op.parent_type = 'CHANNEL'
+
+                    op = rcol.operator('node.y_move_texture_modifier', icon='TRIA_DOWN', text='')
+                    op.direction = 'DOWN'
+                    op.parent_type = 'CHANNEL'
+
+                    if len(channel.modifiers) > 0:
+                        mod = channel.modifiers[channel.active_modifier_index]
+                        draw_modifier_properties(context, nodes, mod, bcol)
 
         icon = 'TRIA_DOWN' if tg.show_textures else 'TRIA_RIGHT'
         row = layout.row(align=True)
@@ -1258,7 +1842,30 @@ class NODE_PT_texture_groups(bpy.types.Panel):
                         row.template_list("NODE_UL_y_texture_modifiers", "", ch,
                                 "modifiers", ch, "active_modifier_index", rows=4, maxrows=5)  
 
-                    #col.separator()
+                        rcol = row.column(align=True)
+
+                        rcol.context_pointer_set('channel', ch)
+                        rcol.menu("NODE_MT_y_texture_modifier_specials", icon='ZOOMIN', text='')
+
+                        op = rcol.operator('node.y_remove_texture_modifier', icon='ZOOMOUT', text='')
+                        op.parent_type = 'TEXTURE_CHANNEL'
+                        op.channel_index = i
+
+                        op = rcol.operator('node.y_move_texture_modifier', icon='TRIA_UP', text='')
+                        op.direction = 'UP'
+                        op.parent_type = 'TEXTURE_CHANNEL'
+                        op.channel_index = i
+
+                        op = rcol.operator('node.y_move_texture_modifier', icon='TRIA_DOWN', text='')
+                        op.direction = 'DOWN'
+                        op.parent_type = 'TEXTURE_CHANNEL'
+                        op.channel_index = i
+
+                        if len(ch.modifiers) > 0:
+                            mod = ch.modifiers[ch.active_modifier_index]
+                            draw_modifier_properties(context, nodes, mod, bcol)
+
+                        col.separator()
 
                 tcol = col.column()
                 tcol.active = tex.enable
@@ -1327,7 +1934,39 @@ class NODE_UL_y_texture_layers(bpy.types.UIList):
 
 class NODE_UL_y_texture_modifiers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        layout.label(item.type)
+        layout.label(item.name, icon='MODIFIER')
+        layout.prop(item, 'enable', text='')
+
+class TexModifierSpecialMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_texture_modifier_specials"
+    bl_label = "Texture Channel Modifiers"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_texture_group_node()
+
+    def draw(self, context):
+        node = get_active_texture_group_node()
+        tg = node.node_tree.tg
+
+        if 'LayerChannel' in str(type(context.channel)):
+            tex = tg.textures[tg.active_texture_index]
+            parent_type = 'TEXTURE_CHANNEL'
+            # Get index number by channel from context
+            index = [i for i, ch in enumerate(tex.channels) if ch == context.channel]
+            if index: index = index[0]
+            else: return
+        elif 'GroupChannel' in str(type(context.channel)):
+            parent_type = 'CHANNEL'
+            index = 0
+        else: return
+
+        # List the items
+        for mt in modifier_type_items:
+            op = self.layout.operator('node.y_new_texture_modifier', text=mt[1])
+            op.type = mt[0]
+            op.parent_type = parent_type
+            op.channel_index = index
 
 def menu_func(self, context):
     l = self.layout
@@ -1450,7 +2089,41 @@ def update_active_group_channel(self, context):
     
     if tg.preview_mode: tg.preview_mode = True
 
+def update_modifier_enable(self, context):
+    group_node = get_active_texture_group_node()
+    nodes = group_node.node_tree.nodes
+    #tg = group_node.node_tree.tg
+
+    if self.type == 'RGB_TO_INTENSITY':
+        rgb2i_color = nodes.get(self.rgb2i_color)
+        rgb2i_linear = nodes.get(self.rgb2i_linear)
+        rgb2i_mix_rgb = nodes.get(self.rgb2i_mix_rgb)
+        rgb2i_mix_alpha = nodes.get(self.rgb2i_mix_alpha)
+        rgb2i_color.mute = not self.enable
+        rgb2i_linear.mute = not self.enable
+        rgb2i_mix_rgb.mute = not self.enable
+        rgb2i_mix_alpha.mute = not self.enable
+
+    elif self.type == 'INVERT':
+        invert = nodes.get(self.invert)
+        invert.mute = not self.enable
+
+    elif self.type == 'COLOR_RAMP':
+        color_ramp = nodes.get(self.color_ramp)
+        color_ramp.mute = not self.enable
+
+    elif self.type == 'RGB_CURVE':
+        rgb_curve = nodes.get(self.rgb_curve)
+        rgb_curve.mute = not self.enable
+
+    elif self.type == 'HUE_SATURATION':
+        huesat = nodes.get(self.huesat)
+        huesat.mute = not self.enable
+
 class TextureModifier(bpy.types.PropertyGroup):
+    enable = BoolProperty(default=True, update=update_modifier_enable)
+    name = StringProperty(default='')
+
     type = EnumProperty(
         name = 'Modifier Type',
         items = modifier_type_items,
@@ -1463,7 +2136,10 @@ class TextureModifier(bpy.types.PropertyGroup):
     end_alpha = StringProperty(default='')
 
     # RGB to Intensity nodes
-    rgb_to_intensity_color = StringProperty(default='')
+    rgb2i_color = StringProperty(default='')
+    rgb2i_linear = StringProperty(default='')
+    rgb2i_mix_rgb = StringProperty(default='')
+    rgb2i_mix_alpha = StringProperty(default='')
 
     # Invert nodes
     invert = StringProperty(default='')
@@ -1479,6 +2155,12 @@ class TextureModifier(bpy.types.PropertyGroup):
 
     # RGB Curve nodes
     rgb_curve = StringProperty(default='')
+
+    # Hue Saturation nodes
+    huesat = StringProperty(default='')
+
+    # Individual modifier frame
+    frame = StringProperty(default='')
 
 class TempChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True)
@@ -1509,9 +2191,6 @@ class TextureLayer(bpy.types.PropertyGroup):
     name = StringProperty(default='')
     enable = BoolProperty(default=True, update=update_texture_enable)
     channels = CollectionProperty(type=LayerChannel)
-
-    #modifiers = CollectionProperty(type=TextureModifier)
-    #active_modifier_index = IntProperty(default=0)
 
     tex_output = EnumProperty(
             name = 'Texture Output',
@@ -1557,7 +2236,7 @@ class GroupChannel(bpy.types.PropertyGroup):
 
     is_alpha_channel = BoolProperty(default=False)
 
-    modifiers = PointerProperty(type=TextureModifier)
+    modifiers = CollectionProperty(type=TextureModifier)
     active_modifier_index = IntProperty(default=0)
 
     # Node names
@@ -1568,6 +2247,14 @@ class GroupChannel(bpy.types.PropertyGroup):
     end_entry = StringProperty(default='')
     end_linear = StringProperty(default='')
     end_convert = StringProperty(default='')
+
+    # For modifiers
+    start_rgb = StringProperty(default='')
+    start_alpha = StringProperty(default='')
+    end_rgb = StringProperty(default='')
+    end_alpha = StringProperty(default='')
+
+    modifier_frame = StringProperty(default='')
 
     # UI related
     show_modifiers = BoolProperty(default=False)
@@ -1588,7 +2275,8 @@ class TextureGroup(bpy.types.PropertyGroup):
     start_frame = StringProperty(default='')
 
     end = StringProperty(default='')
-    end_frame = StringProperty(default='')
+    end_entry_frame = StringProperty(default='')
+    end_linear_frame = StringProperty(default='')
 
     # Temp channels to remember last channel selected when adding new texture
     temp_channels = CollectionProperty(type=TempChannel)
