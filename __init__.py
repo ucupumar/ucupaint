@@ -126,10 +126,10 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     group_ch = tg.channels[ch_index]
 
     # Linear nodes
-    linear = nodes.new('ShaderNodeGamma')
-    linear.label = 'Source Linear'
-    linear.inputs[1].default_value = 1.0/GAMMA
-    channel.linear = linear.name
+    #linear = nodes.new('ShaderNodeGamma')
+    #linear.label = 'Source Linear'
+    #linear.inputs[1].default_value = 1.0/GAMMA
+    #channel.linear = linear.name
 
     # Modifier pipeline nodes
     start_rgb = nodes.new('NodeReroute')
@@ -205,8 +205,9 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     end_alpha.parent = modifier_frame
 
     # Link nodes
-    links.new(source.outputs[0], linear.inputs[0])
-    links.new(linear.outputs[0], start_rgb.inputs[0])
+    links.new(source.outputs[0], start_rgb.inputs[0])
+    #links.new(source.outputs[0], linear.inputs[0])
+    #links.new(linear.outputs[0], start_rgb.inputs[0])
     if solid_alpha:
         links.new(solid_alpha.outputs[0], start_alpha.inputs[0])
     else: links.new(source.outputs[1], start_alpha.inputs[0])
@@ -353,9 +354,9 @@ def link_new_channel(group_tree):
                 c.normal_map_type = 'BUMP'
 
             # Set color space of source input
-            if t.type not in {'ShaderNodeTexImage', 'ShaderNodeTexChecker'}:
-                c.color_space = 'LINEAR'
-            else: c.color_space = 'SRGB'
+            #if t.type not in {'ShaderNodeTexImage', 'ShaderNodeTexChecker'}:
+            #    c.color_space = 'LINEAR'
+            #else: c.color_space = 'SRGB'
 
             if i == len(group_tree.tg.textures)-1:
                 # Link start node
@@ -599,8 +600,8 @@ def rearrange_nodes(group_tree):
             new_loc.y -= 50.0
 
             # Linear node
-            linear = nodes.get(c.linear)
-            if linear.location != new_loc: linear.location = new_loc
+            #linear = nodes.get(c.linear)
+            #if linear.location != new_loc: linear.location = new_loc
 
             #new_loc.y -= 120.0
             new_loc.x += dist_x
@@ -615,7 +616,8 @@ def rearrange_nodes(group_tree):
             new_loc.y = ys[0]
 
         new_loc.x = ori_xx
-        new_loc.y -= 140.0
+        #new_loc.y -= 140.0
+        new_loc.y -= 50.0
 
         # Source solid alpha
         solid_alpha = nodes.get(t.solid_alpha)
@@ -991,7 +993,7 @@ class RemoveTextureGroupChannel(bpy.types.Operator):
             nodes.remove(nodes.get(ch.end_alpha))
             nodes.remove(nodes.get(ch.modifier_frame))
             nodes.remove(nodes.get(ch.intensity))
-            nodes.remove(nodes.get(ch.linear))
+            #nodes.remove(nodes.get(ch.linear))
             try: nodes.remove(nodes.get(ch.normal))
             except: pass
             try: nodes.remove(nodes.get(ch.bump))
@@ -1194,6 +1196,10 @@ class NewTextureLayer(bpy.types.Operator):
         source.parent = source_frame
         tex.source = source.name
 
+        # Always set non color to image node because of linear pipeline
+        if self.type == 'ShaderNodeTexImage':
+            source.color_space = 'NONE'
+
         # Add texcoord node
         texcoord = nodes.new('ShaderNodeTexCoord')
         texcoord.label = 'Source TexCoord'
@@ -1248,10 +1254,10 @@ class NewTextureLayer(bpy.types.Operator):
 
             # Set color space of source input
             #if (tex.type == 'ShaderNodeTexImage' and not self.hdr) or tex.type == 'ShaderNodeTexChecker':
-            if tex.type == 'ShaderNodeTexImage' or tex.type == 'ShaderNodeTexChecker':
-                c.color_space = 'SRGB'
-            else: 
-                c.color_space = 'LINEAR'
+            #if tex.type == 'ShaderNodeTexImage' or tex.type == 'ShaderNodeTexChecker':
+            #    c.color_space = 'SRGB'
+            #else: 
+            #    c.color_space = 'LINEAR'
 
             # Set enable and blend node automatically follows
             c.enable = tg.temp_channels[i].enable
@@ -1382,7 +1388,7 @@ class RemoveTextureLayer(bpy.types.Operator):
             nodes.remove(blend)
 
             nodes.remove(nodes.get(ch.intensity))
-            nodes.remove(nodes.get(ch.linear))
+            #nodes.remove(nodes.get(ch.linear))
 
             nodes.remove(nodes.get(ch.start_rgb))
             nodes.remove(nodes.get(ch.start_alpha))
@@ -2305,10 +2311,12 @@ class NODE_PT_texture_groups(bpy.types.Panel):
                             #row.prop(ch, 'color_space', text='')
                             bcol.prop(ch, 'normal_map_type')
 
-                        row = bcol.row(align=True)
-                        row.label('Input:')
-                        row.prop(ch, 'tex_input', text='')
-                        row.prop(ch, 'color_space', text='')
+                        #row = bcol.row(align=True)
+                        #row.label('Input:')
+                        #row.prop(ch, 'tex_input', text='')
+                        #row.prop(ch, 'color_space', text='')
+                        if tex.type != 'ShaderNodeTexImage':
+                            bcol.prop(ch, 'tex_input', text='Input')
 
                         row = bcol.row(align=True)
                         #crow = row.column(align=True)
@@ -2575,25 +2583,25 @@ def update_tex_input(self, context):
     if not tex: return
 
     source = nodes.get(tex.source)
-    linear = nodes.get(self.linear)
+    start_rgb = nodes.get(self.start_rgb)
 
     if self.tex_input == 'RGB': index = 0
     elif self.tex_input == 'ALPHA': index = 1
     else: return
 
-    group_tree.links.new(source.outputs[index], linear.inputs[0])
+    group_tree.links.new(source.outputs[index], start_rgb.inputs[0])
 
-def update_tex_channel_color_space(self, context):
-    group_tree = self.id_data
-    nodes = group_tree.nodes
-
-    linear = nodes.get(self.linear)
-    if not linear: return
-
-    if self.color_space == 'SRGB':
-        linear.mute = False
-    elif self.color_space == 'LINEAR':
-        linear.mute = True
+#def update_tex_channel_color_space(self, context):
+#    group_tree = self.id_data
+#    nodes = group_tree.nodes
+#
+#    linear = nodes.get(self.linear)
+#    if not linear: return
+#
+#    if self.color_space == 'SRGB':
+#        linear.mute = False
+#    elif self.color_space == 'LINEAR':
+#        linear.mute = True
 
 def update_preview_mode(self, context):
     try:
@@ -2908,12 +2916,12 @@ class LayerChannel(bpy.types.PropertyGroup):
             default = 'RGB',
             update = update_tex_input)
 
-    color_space = EnumProperty(
-            name = 'Input Color Space',
-            items = (('LINEAR', 'Linear', ''),
-                     ('SRGB', 'sRGB', '')),
-            default = 'LINEAR',
-            update = update_tex_channel_color_space)
+    #color_space = EnumProperty(
+    #        name = 'Input Color Space',
+    #        items = (('LINEAR', 'Linear', ''),
+    #                 ('SRGB', 'sRGB', '')),
+    #        default = 'LINEAR',
+    #        update = update_tex_channel_color_space)
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
@@ -2932,7 +2940,7 @@ class LayerChannel(bpy.types.PropertyGroup):
     active_modifier_index = IntProperty(default=0)
 
     # Node names
-    linear = StringProperty(default='')
+    #linear = StringProperty(default='')
     blend = StringProperty(default='')
     intensity = StringProperty(default='')
 
@@ -2966,7 +2974,7 @@ class TextureLayer(bpy.types.PropertyGroup):
 
     # Node names
     source = StringProperty(default='')
-    linear = StringProperty(default='')
+    #linear = StringProperty(default='')
     solid_alpha = StringProperty(default='')
     #uv = StringProperty(default='')
 
