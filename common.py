@@ -3,10 +3,8 @@ from mathutils import Color
 from bpy.app.handlers import persistent
 
 possible_dir_names = {
-        'ypanel',
-        'ypanel-master',
-        'yPanel',
-        'yPanel-master'
+        'texture-group-node',
+        'texture-group-node-master',
         }
 
 blend_type_items = (("MIX", "Mix", ""),

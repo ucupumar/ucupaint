@@ -19,10 +19,15 @@ else:
 
 import bpy
 from bpy.props import *
+from bpy.app.handlers import persistent
 from .common import *
 from mathutils import *
 
 GAMMA = 2.2
+
+# Imported node group names
+UDN = '~UDN Blend'
+DETAIL_ORIENTED = '~Detail Oriented Blend'
 
 texture_type_items = (
         ('ShaderNodeTexImage', 'Image', ''),
@@ -57,6 +62,12 @@ texcoord_type_items = (
         ('Camera', 'Camera', ''),
         ('Window', 'Window', ''),
         ('Reflection', 'Reflection', ''),
+        )
+
+vector_blend_items = (
+        ('MIX', 'Mix', ''),
+        ('UDN', 'UDN', ''),
+        ('DETAIL_ORIENTED', 'Detail', '')
         )
 
 # Check if name already available on the list
@@ -107,44 +118,18 @@ def update_image_editor_image(context, image):
 
 def create_texture_channel_nodes(group_tree, texture, channel):
 
+    tg = group_tree.tg
     nodes = group_tree.nodes
     links = group_tree.links
 
-    # Blend nodes
-    blend = nodes.new('ShaderNodeMixRGB')
-    blend.label = 'Blend'
-    channel.blend = blend.name
-
-    # Blend frame
-    blend_frame = nodes.get(texture.blend_frame)
-    if not blend_frame:
-        blend_frame = nodes.new('NodeFrame')
-        blend_frame.label = 'Blend'
-        texture.blend_frame = blend_frame.name
-
-    blend.parent = blend_frame
-    #intensity.parent = blend_frame
-
-    # Intensity nodes
-    intensity = nodes.new('ShaderNodeMixRGB')
-    #intensity.blend_type = 'MULTIPLY'
-    intensity.label = 'Intensity'
-    intensity.inputs[0].default_value = 1.0
-    intensity.inputs[1].default_value = (0,0,0,1)
-    intensity.inputs[2].default_value = (1,1,1,1)
-    channel.intensity = intensity.name
+    ch_index = [i for i, c in enumerate(texture.channels) if c == channel][0]
+    group_ch = tg.channels[ch_index]
 
     # Linear nodes
     linear = nodes.new('ShaderNodeGamma')
     linear.label = 'Source Linear'
     linear.inputs[1].default_value = 1.0/GAMMA
     channel.linear = linear.name
-
-    # Image texture and checker has SRGB color space by default
-    if channel.color_space == 'LINEAR':
-        linear.mute = True
-    elif channel.color_space == 'SRGB':
-        linear.mute = False
 
     # Modifier pipeline nodes
     start_rgb = nodes.new('NodeReroute')
@@ -162,6 +147,44 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     end_alpha = nodes.new('NodeReroute')
     end_alpha.label = 'End Alpha'
     channel.end_alpha = end_alpha.name
+
+    # Intensity nodes
+    intensity = nodes.new('ShaderNodeMixRGB')
+    #intensity.blend_type = 'MULTIPLY'
+    intensity.label = 'Intensity'
+    intensity.inputs[0].default_value = 1.0
+    intensity.inputs[1].default_value = (0,0,0,1)
+    intensity.inputs[2].default_value = (1,1,1,1)
+    channel.intensity = intensity.name
+
+    # Blend nodes
+    if group_ch.type == 'VECTOR':
+        blend = nodes.new('ShaderNodeGroup')
+        blend.node_tree = bpy.data.node_groups.get(DETAIL_ORIENTED)
+    else:
+        blend = nodes.new('ShaderNodeMixRGB')
+
+    blend.label = 'Blend'
+    channel.blend = blend.name
+
+    # Normal nodes
+    if group_ch.type == 'VECTOR':
+        normal = nodes.new('ShaderNodeNormalMap')
+        channel.normal = normal.name
+
+        bump = nodes.new('ShaderNodeBump')
+        bump.inputs[1].default_value = 0.05
+        channel.bump = bump.name
+
+    # Blend frame
+    blend_frame = nodes.get(texture.blend_frame)
+    if not blend_frame:
+        blend_frame = nodes.new('NodeFrame')
+        blend_frame.label = 'Blend'
+        texture.blend_frame = blend_frame.name
+
+    blend.parent = blend_frame
+    #intensity.parent = blend_frame
 
     # Get source RGB and alpha
     #linear = nodes.get(texture.linear)
@@ -192,10 +215,13 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     links.new(start_alpha.outputs[0], end_alpha.inputs[0])
     #links.new(start_alpha.outputs[0], intensity.inputs[2])
 
+    #if group_ch.type == 'VECTOR':
+    #    links.new(end_rgb.outputs[0], bump.inputs[2])
+    #    links.new(bump.outputs[0], blend.inputs[2])
+    #else:
     links.new(end_rgb.outputs[0], blend.inputs[2])
-    links.new(end_alpha.outputs[0], intensity.inputs[2])
-    #links.new(intensity.outputs[0], end_alpha.inputs[0])
 
+    links.new(end_alpha.outputs[0], intensity.inputs[2])
     links.new(intensity.outputs[0], blend.inputs[0])
 
     return blend
@@ -319,13 +345,17 @@ def link_new_channel(group_tree):
             # Add new channel
             c = t.channels.add()
 
+            # Add new nodes
+            blend = create_texture_channel_nodes(group_tree, t, c)
+
+            if channel.type == 'VECTOR':
+                c.normal_map_type = 'NORMAL'
+                c.normal_map_type = 'BUMP'
+
             # Set color space of source input
             if t.type not in {'ShaderNodeTexImage', 'ShaderNodeTexChecker'}:
                 c.color_space = 'LINEAR'
             else: c.color_space = 'SRGB'
-
-            # Add new nodes
-            blend = create_texture_channel_nodes(group_tree, t, c)
 
             if i == len(group_tree.tg.textures)-1:
                 # Link start node
@@ -523,7 +553,21 @@ def rearrange_nodes(group_tree):
             intensity = nodes.get(c.intensity)
             if intensity.location != new_loc: intensity.location = new_loc
 
-            new_loc.y -= 220.0
+            new_loc.y -= 180.0
+
+            # Normal node
+            normal = nodes.get(c.normal)
+            if normal:
+                if normal.location != new_loc: normal.location = new_loc
+                new_loc.y -= 160.0
+
+            # Bump node
+            bump = nodes.get(c.bump)
+            if bump:
+                if bump.location != new_loc: bump.location = new_loc
+                new_loc.y -= 175.0
+
+            new_loc.y -= 40.0
 
             # Channel modifier pipeline
             end_rgb = nodes.get(c.end_rgb)
@@ -948,6 +992,10 @@ class RemoveTextureGroupChannel(bpy.types.Operator):
             nodes.remove(nodes.get(ch.modifier_frame))
             nodes.remove(nodes.get(ch.intensity))
             nodes.remove(nodes.get(ch.linear))
+            try: nodes.remove(nodes.get(ch.normal))
+            except: pass
+            try: nodes.remove(nodes.get(ch.bump))
+            except: pass
 
             # Remove modifiers
             for mod in ch.modifiers:
@@ -1106,7 +1154,10 @@ class NewTextureLayer(bpy.types.Operator):
         for i, ch in enumerate(tg.channels):
             rrow = col.row(align=True)
             rrow.active = tg.temp_channels[i].enable
-            rrow.prop(tg.temp_channels[i], 'blend_type', text='')
+            if ch.type == 'VECTOR':
+                rrow.prop(tg.temp_channels[i], 'vector_blend', text='')
+            else:
+                rrow.prop(tg.temp_channels[i], 'blend_type', text='')
 
     def execute(self, context):
         node = get_active_texture_group_node()
@@ -1186,16 +1237,21 @@ class NewTextureLayer(bpy.types.Operator):
             # Add new channel to current texture
             c = tex.channels.add()
 
+            # Add blend and other nodes
+            blend = create_texture_channel_nodes(group_tree, tex, c)
+            if ch.type != 'VECTOR':
+                blend.blend_type = tg.temp_channels[i].blend_type
+
+            if ch.type == 'VECTOR':
+                c.normal_map_type = 'NORMAL'
+                c.normal_map_type = 'BUMP'
+
             # Set color space of source input
             #if (tex.type == 'ShaderNodeTexImage' and not self.hdr) or tex.type == 'ShaderNodeTexChecker':
             if tex.type == 'ShaderNodeTexImage' or tex.type == 'ShaderNodeTexChecker':
                 c.color_space = 'SRGB'
             else: 
                 c.color_space = 'LINEAR'
-
-            # Add blend and other nodes
-            blend = create_texture_channel_nodes(group_tree, tex, c)
-            blend.blend_type = tg.temp_channels[i].blend_type
 
             # Set enable and blend node automatically follows
             c.enable = tg.temp_channels[i].enable
@@ -1334,6 +1390,11 @@ class RemoveTextureLayer(bpy.types.Operator):
             nodes.remove(nodes.get(ch.end_alpha))
 
             nodes.remove(nodes.get(ch.modifier_frame))
+
+            try: nodes.remove(nodes.get(ch.normal))
+            except: pass
+            try: nodes.remove(nodes.get(ch.bump))
+            except: pass
 
             # Remove modifiers
             for mod in ch.modifiers:
@@ -1735,6 +1796,33 @@ class YAddSimpleUVs(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
         bpy.ops.paint.add_simple_uvs()
         bpy.ops.object.mode_set(mode=old_mode)
+
+        return {'FINISHED'}
+
+class YHackNormalConsistency(bpy.types.Operator):
+    bl_idname = "node.y_hack_bump_consistency"
+    bl_label = "Hack Normal Map Consistency"
+    bl_description = "Hack bump map consistency (try this if Blender produce error normal map result)"
+    #bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_texture_group_node()
+
+    def execute(self, context):
+        node = get_active_texture_group_node()
+        group_tree = node.node_tree
+        tg = group_tree.tg
+
+        for tex in tg.textures:
+            for i, ch in enumerate(tex.channels):
+                if tg.channels[i].type != 'VECTOR': continue
+                if ch.normal_map_type == 'BUMP':
+                    ch.normal_map_type = 'NORMAL'
+                    ch.normal_map_type = 'BUMP'
+                else:
+                    ch.normal_map_type = 'BUMP'
+                    ch.normal_map_type = 'NORMAL'
 
         return {'FINISHED'}
 
@@ -2180,6 +2268,8 @@ class NODE_PT_texture_groups(bpy.types.Panel):
 
                 for i, ch in enumerate(tex.channels):
 
+                    group_ch = tg.channels[i]
+
                     ccol = col.column(align=True)
 
                     row = ccol.row(align=True)
@@ -2190,8 +2280,11 @@ class NODE_PT_texture_groups(bpy.types.Panel):
                     row = row.row(align=True)
                     row.active = ch.enable
 
-                    blend = nodes.get(ch.blend)
-                    row.prop(blend, 'blend_type', text='')
+                    if group_ch.type == 'VECTOR':
+                        row.prop(ch, 'vector_blend', text='')
+                    else:
+                        blend = nodes.get(ch.blend)
+                        row.prop(blend, 'blend_type', text='')
 
                     intensity = nodes.get(ch.intensity)
                     row.prop(intensity.inputs[0], 'default_value', text='')
@@ -2204,6 +2297,13 @@ class NODE_PT_texture_groups(bpy.types.Panel):
                         bbox.active = ch.enable
                         bcol = bbox.column()
                         #bcol = bbox.column(align
+
+                        if group_ch.type == 'VECTOR':
+                            #row = bcol.row(align=True)
+                            #row.label('Norma:')
+                            #row.prop(ch, 'tex_input', text='')
+                            #row.prop(ch, 'color_space', text='')
+                            bcol.prop(ch, 'normal_map_type')
 
                         row = bcol.row(align=True)
                         row.label('Input:')
@@ -2311,8 +2411,8 @@ class NODE_UL_y_texture_groups(bpy.types.UIList):
             row.prop(inputs[index], 'default_value', text='') #, emboss=False)
         elif item.type == 'RGB':
             row.prop(inputs[index], 'default_value', text='', icon='COLOR')
-        elif item.type == 'VECTOR':
-            row.prop(inputs[index], 'default_value', text='', expand=False)
+        #elif item.type == 'VECTOR':
+        #    row.prop(inputs[index], 'default_value', text='', expand=False)
 
 class NODE_UL_y_texture_layers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -2379,7 +2479,8 @@ class TexSpecialMenu(bpy.types.Menu):
         self.layout.operator('node.y_save_image', icon='FILE_TICK')
         self.layout.operator('node.y_save_image', text='Save As', icon='SAVE_AS')
         self.layout.operator('node.y_save_image', text='Save All', icon='FILE_TICK')
-        #self.layout.separator()
+        self.layout.separator()
+        self.layout.operator('node.y_hack_bump_consistency', icon='MATCAP_23')
         #self.layout.operator("node.y_reload_image", icon='FILE_REFRESH')
 
 class TexModifierSpecialMenu(bpy.types.Menu):
@@ -2433,9 +2534,13 @@ def update_texture_enable(self, context):
     group_tree = self.id_data
     nodes = group_tree.nodes
     for ch in self.channels:
-        if ch.enable:
-            try: nodes.get(ch.blend).mute = not self.enable
-            except: pass
+
+        blend = nodes.get(ch.blend)
+        if not blend: continue
+
+        if self.enable and ch.enable:
+            blend.mute = False
+        else: blend.mute = True
 
 def update_channel_enable(self, context):
     group_tree = self.id_data
@@ -2449,11 +2554,12 @@ def update_channel_enable(self, context):
                 tex = t
                 break
 
-    #print(dir(self))
-    try: 
-        if tex.enable:
-            nodes.get(self.blend).mute = not self.enable
-    except: pass
+    blend = nodes.get(self.blend)
+    if not blend: return
+
+    if tex.enable and self.enable:
+        blend.mute = False
+    else: blend.mute = True
 
 def update_tex_input(self, context):
     group_tree = self.id_data
@@ -2466,7 +2572,6 @@ def update_tex_input(self, context):
             if ch == self:
                 tex = t
                 break
-
     if not tex: return
 
     source = nodes.get(tex.source)
@@ -2640,6 +2745,101 @@ def update_texture_index(self, context):
                 obj.data.uv_textures.active_index = i
                 break
 
+def update_normal_map_type(self, context):
+    group_tree = self.id_data
+    tg = group_tree.tg
+    nodes = group_tree.nodes
+    links = group_tree.links
+
+    end_rgb = nodes.get(self.end_rgb)
+    blend = nodes.get(self.blend)
+    bump = nodes.get(self.bump)
+    normal = nodes.get(self.normal)
+
+    if self.normal_map_type == 'BUMP':
+        links.new(end_rgb.outputs[0], bump.inputs[2])
+        links.new(bump.outputs[0], blend.inputs[2])
+    else:
+        links.new(end_rgb.outputs[0], normal.inputs[1])
+        links.new(normal.outputs[0], blend.inputs[2])
+
+        # Normal always use RGB input and sRGB color space
+        #self.tex_input = 'RGB'
+        #self.color_space = 'SRGB'
+
+def update_vector_blend(self, context):
+    group_tree = self.id_data
+    tg = group_tree.tg
+    nodes = group_tree.nodes
+    links = group_tree.links
+
+    tex = None
+    ch_index = -1
+    for t in tg.textures:
+        for i, ch in enumerate(t.channels):
+            if ch == self:
+                tex = t
+                ch_index = i
+                break
+    if not tex: return
+
+    group_ch = tg.channels[ch_index]
+    if group_ch.type != 'VECTOR': return
+
+    blend = nodes.get(self.blend)
+    
+    # Remember previous links
+    in_0 = blend.inputs[0].links[0].from_socket
+    in_1 = blend.inputs[1].links[0].from_socket
+    in_2 = blend.inputs[2].links[0].from_socket
+    out_node = blend.outputs[0].links[0].to_node
+    out_name = blend.outputs[0].links[0].to_socket.name
+
+    # Remove links
+    links.remove(blend.inputs[0].links[0])
+    links.remove(blend.inputs[1].links[0])
+    links.remove(blend.inputs[2].links[0])
+    links.remove(blend.outputs[0].links[0])
+
+    # Remember previous position and parent
+    loc = blend.location.copy()
+    parent = blend.parent
+
+    #print('Aha')
+
+    # Create new node if type isn't match
+    if self.vector_blend == 'MIX' and blend.bl_idname != 'ShaderNodeMixRGB':
+        nodes.remove(blend)
+        blend = nodes.new('ShaderNodeMixRGB')
+    elif self.vector_blend in {'UDN', 'DETAIL_ORIENTED'} and blend.bl_idname != 'ShaderNodeGroup':
+        nodes.remove(blend)
+        blend = nodes.new('ShaderNodeGroup')
+
+    blend.label = 'Blend'
+    self.blend = blend.name
+    blend.location = loc
+    blend.parent = parent
+
+    # Set node tree
+    if self.vector_blend == 'UDN':
+        blend.node_tree = bpy.data.node_groups.get(UDN)
+    elif self.vector_blend == 'DETAIL_ORIENTED': 
+        blend.node_tree = bpy.data.node_groups.get(DETAIL_ORIENTED)
+
+    # Relinks
+    links.new(in_0, blend.inputs[0])
+    links.new(in_1, blend.inputs[1])
+    link = links.new(in_2, blend.inputs[2])
+    links.new(blend.outputs[0], out_node.inputs[out_name])
+
+    # Hack
+    if self.normal_map_type == 'BUMP':
+        self.normal_map_type = 'NORMAL'
+        self.normal_map_type = 'BUMP'
+    else:
+        self.normal_map_type = 'BUMP'
+        self.normal_map_type = 'NORMAL'
+
 class TextureModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)
     name = StringProperty(default='')
@@ -2687,10 +2887,16 @@ class TextureModifier(bpy.types.PropertyGroup):
 
 class TempChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True)
+
     blend_type = EnumProperty(
         name = 'Blend',
         items = blend_type_items,
         default = 'MIX')
+
+    vector_blend = EnumProperty(
+            name = 'Vector Blend Type',
+            items = vector_blend_items,
+            default = 'DETAIL_ORIENTED')
 
 class LayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
@@ -2709,6 +2915,19 @@ class LayerChannel(bpy.types.PropertyGroup):
             default = 'LINEAR',
             update = update_tex_channel_color_space)
 
+    normal_map_type = EnumProperty(
+            name = 'Normal Map Type',
+            items = (('BUMP', 'Bump Map', ''),
+                     ('NORMAL', 'Normal Map', '')),
+            default = 'BUMP',
+            update = update_normal_map_type)
+
+    vector_blend = EnumProperty(
+            name = 'Vector Blend Type',
+            items = vector_blend_items,
+            default = 'DETAIL_ORIENTED',
+            update = update_vector_blend)
+
     modifiers = CollectionProperty(type=TextureModifier)
     active_modifier_index = IntProperty(default=0)
 
@@ -2722,6 +2941,10 @@ class LayerChannel(bpy.types.PropertyGroup):
     start_alpha = StringProperty(default='')
     end_rgb = StringProperty(default='')
     end_alpha = StringProperty(default='')
+
+    # Normal related
+    bump = StringProperty(default='')
+    normal = StringProperty(default='')
 
     modifier_frame = StringProperty(default='')
 
@@ -2767,7 +2990,11 @@ class GroupChannel(bpy.types.PropertyGroup):
                      ('VECTOR', 'Vector', '')),
             default = 'RGB')
 
-    is_alpha_channel = BoolProperty(default=False)
+    #is_alpha_channel = BoolProperty(default=False)
+    input_index = IntProperty(default=-1)
+    output_index = IntProperty(default=-1)
+    input_alpha_index = IntProperty(default=-1)
+    output_alpha_index = IntProperty(default=-1)
 
     modifiers = CollectionProperty(type=TextureModifier)
     active_modifier_index = IntProperty(default=0)
@@ -2857,6 +3084,9 @@ def register():
     # UI panel
     bpy.types.NODE_MT_add.append(menu_func)
 
+    # Load libraries
+    bpy.app.handlers.load_post.append(load_libraries)
+
 def unregister():
     # Custom Icon
     global custom_icons
@@ -2867,6 +3097,9 @@ def unregister():
 
     # Remove classes
     bpy.utils.unregister_module(__name__)
+
+    # Remove libraries
+    bpy.app.handlers.load_post.remove(load_libraries)
 
 if __name__ == "__main__":
     register()
