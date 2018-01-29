@@ -909,7 +909,7 @@ class YNewTextureLayer(bpy.types.Operator):
 
     add_rgb_to_intensity = BoolProperty(
             name = 'Add RGB To Intensity',
-            description = 'Add RGB To Intensity modifier to new texture layer channel',
+            description = 'Add RGB To Intensity modifier to all channels of newly created texture layer',
             default=False)
 
     uv_map = StringProperty(default='')
@@ -1112,7 +1112,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
     add_rgb_to_intensity = BoolProperty(
             name = 'Add RGB To Intensity',
-            description = 'Add RGB To Intensity modifier to new texture layer channel',
+            description = 'Add RGB To Intensity modifier to all channels of newly created texture layer',
             default=False)
 
     normal_map_type = EnumProperty(
@@ -1229,7 +1229,7 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
 
     add_rgb_to_intensity = BoolProperty(
             name = 'Add RGB To Intensity',
-            description = 'Add RGB To Intensity modifier to new texture layer channel',
+            description = 'Add RGB To Intensity modifier to all channels of newly created texture layer',
             default=False)
 
     normal_map_type = EnumProperty(
