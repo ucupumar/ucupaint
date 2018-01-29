@@ -1,5 +1,5 @@
 import bpy, os
-from mathutils import Color
+from mathutils import *
 from bpy.app.handlers import persistent
 
 possible_dir_names = {
@@ -23,6 +23,8 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("COLOR", "Color", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
 	             ("LINEAR_LIGHT", "Linear Light", ""))
+
+GAMMA = 2.2
 
 def get_active_material():
     scene = bpy.context.scene
@@ -105,3 +107,48 @@ def linear_to_srgb(inp):
             c[i] = linear_to_srgb_per_element(c[i])
 
         return c
+
+# Check if name already available on the list
+def get_unique_name(name, items):
+    unique_name = name
+    name_found = [item for item in items if item.name == name]
+    if name_found:
+        i = 1
+        while True:
+            new_name = name + ' ' + str(i)
+            name_found = [item for item in items if item.name == new_name]
+            if not name_found:
+                unique_name = new_name
+                break
+            i += 1
+
+    return unique_name
+
+# Specific methods for this addon
+
+def get_active_node():
+    obj = bpy.context.object
+    if not obj: return None
+    mat = obj.active_material
+    if not mat or not mat.node_tree: return None
+    node = mat.node_tree.nodes.active
+    return node
+
+def get_active_texture_group_node():
+    node = get_active_node()
+    if not node or node.type != 'GROUP' or not node.node_tree or not node.node_tree.tg.is_tg_node:
+        return None
+    return node
+
+# Some image_ops need this
+#def get_active_image():
+#    node = get_active_texture_group_node()
+#    if not node: return None
+#    tg = node.node_tree.tg
+#    nodes = node.node_tree.nodes
+#    if len(tg.textures) == 0: return None
+#    tex = tg.textures[tg.active_texture_index]
+#    if tex.type != 'ShaderNodeTexImage': return None
+#    source = nodes.get(tex.source)
+#    return source.image
+
