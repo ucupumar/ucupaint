@@ -33,6 +33,7 @@ from mathutils import *
 # Imported node group names
 #UDN = '~UDN Blend'
 OVERLAY_VECTOR = '~Overlay Vector'
+STRAIGHT_OVER = '~Straight Over Mix'
 
 texture_type_items = (
         ('ShaderNodeTexImage', 'Image', ''),
@@ -100,6 +101,192 @@ def update_image_editor_image(context, image):
             if not area.spaces[0].use_image_pin:
                 area.spaces[0].image = image
 
+def check_create_node_link(tree, out, inp):
+    if not any(l for l in out.links if l.to_socket == inp):
+        tree.links.new(out, inp)
+
+def refresh_layer_blends(group_tree):
+
+    tg = group_tree.tg
+    nodes = group_tree.nodes
+    links = group_tree.links
+
+    if tg.halt_update: return
+
+    # Make blend type consistent with the nodes
+    for tex in tg.textures:
+        for i, ch in enumerate(tex.channels):
+            group_ch = tg.channels[i]
+
+            blend_frame = nodes.get(tex.blend_frame)
+            blend = nodes.get(ch.blend)
+            alpha_passthrough = nodes.get(ch.alpha_passthrough)
+
+            intensity = nodes.get(ch.intensity)
+            end_rgb = nodes.get(ch.end_rgb)
+
+            if blend:
+                if (
+                    (ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
+                    (ch.blend_type != 'MIX' and blend.bl_idname == 'ShaderNodeGroup') or
+                    (ch.vector_blend == 'MIX' and blend.bl_idname == 'ShaderNodeGroup') or
+                    (ch.vector_blend == 'OVERLAY' and blend.bl_idname == 'ShaderNodeMixRGB')
+                    ):
+                    nodes.remove(blend)
+                    blend = None
+                    ch.blend = ''
+                    if alpha_passthrough: 
+                        nodes.remove(alpha_passthrough)
+                        alpha_passthrough = None
+                        ch.alpha_passthrough = ''
+
+            if not blend:
+                if group_ch.type == 'RGB':
+
+                    if ch.blend_type == 'MIX':
+                        blend = nodes.new('ShaderNodeGroup')
+                        blend.node_tree = bpy.data.node_groups.get(STRAIGHT_OVER)
+
+                        # Links inside
+                        links.new(end_rgb.outputs[0], blend.inputs[2])
+                        links.new(intensity.outputs[0], blend.inputs[3])
+
+                    else:
+                        blend = nodes.new('ShaderNodeMixRGB')
+                        blend.blend_type = ch.blend_type
+
+                        alpha_passthrough = nodes.new('NodeReroute')
+                        alpha_passthrough.label = 'Alpha Passthrough'
+                        ch.alpha_passthrough = alpha_passthrough.name
+                        if blend_frame: alpha_passthrough.parent = blend_frame
+
+                        # Links inside
+                        links.new(end_rgb.outputs[0], blend.inputs[2])
+                        links.new(intensity.outputs[0], blend.inputs[0])
+
+                elif group_ch.type == 'VECTOR':
+
+                    bump = nodes.get(ch.bump)
+                    normal = nodes.get(ch.normal)
+
+                    if ch.vector_blend == 'OVERLAY':
+                        blend = nodes.new('ShaderNodeGroup')
+                        blend.node_tree = bpy.data.node_groups.get(OVERLAY_VECTOR)
+                    else:
+                        blend = nodes.new('ShaderNodeMixRGB')
+
+                    # Links inside (also with refresh)
+                    if ch.normal_map_type == 'BUMP':
+                        links.new(normal.outputs[0], blend.inputs[2])
+                        links.new(bump.outputs[0], blend.inputs[2])
+                    else: 
+                        links.new(bump.outputs[0], blend.inputs[2])
+                        links.new(normal.outputs[0], blend.inputs[2])
+                    links.new(intensity.outputs[0], blend.inputs[0])
+
+                #elif group_ch.type == 'VALUE':
+                else: # VALUE type
+                    blend = nodes.new('ShaderNodeMixRGB')
+                    blend.blend_type = ch.blend_type
+
+                    # Links inside
+                    links.new(end_rgb.outputs[0], blend.inputs[2])
+                    links.new(intensity.outputs[0], blend.inputs[0])
+
+                blend.label = 'Blend'
+                if blend_frame: blend.parent = blend_frame
+                ch.blend = blend.name
+            
+            mute = not tex.enable or not ch.enable
+            if blend.mute != mute: blend.mute = mute
+
+    # Link start and end if has no textures
+    if len(tg.textures) == 0:
+        for group_ch in tg.channels:
+            start_entry = nodes.get(group_ch.start_entry)
+            start_alpha_entry = nodes.get(group_ch.start_alpha_entry)
+            end_entry = nodes.get(group_ch.end_entry)
+            end_alpha_entry = nodes.get(group_ch.end_alpha_entry)
+
+            check_create_node_link(group_tree, start_entry.outputs[0], end_entry.inputs[0])
+            if start_alpha_entry and end_alpha_entry:
+                check_create_node_link(group_tree, start_alpha_entry.outputs[0], end_alpha_entry.inputs[0])
+
+    # Link those blends
+    for i, tex in enumerate(tg.textures):
+        for j, ch in enumerate(tex.channels):
+            group_ch = tg.channels[j]
+
+            start_entry = nodes.get(group_ch.start_entry)
+            start_alpha_entry = nodes.get(group_ch.start_alpha_entry)
+            end_entry = nodes.get(group_ch.end_entry)
+            end_alpha_entry = nodes.get(group_ch.end_alpha_entry)
+
+            blend = nodes.get(ch.blend)
+            alpha_passthrough = nodes.get(ch.alpha_passthrough)
+
+            # Check vector blend changes
+            if group_ch.type == 'VECTOR':
+
+                bump = nodes.get(ch.bump)
+                normal = nodes.get(ch.normal)
+
+                if ch.normal_map_type == 'BUMP':
+                    #check_create_node_link(group_tree, normal.outputs[0], blend.inputs[2])
+                    check_create_node_link(group_tree, bump.outputs[0], blend.inputs[2])
+                else:
+                    #check_create_node_link(group_tree, bump.outputs[0], blend.inputs[2])
+                    check_create_node_link(group_tree, normal.outputs[0], blend.inputs[2])
+
+            # Check blend type changes
+            elif blend.bl_idname == 'ShaderNodeMixRGB':
+                if blend.blend_type != ch.blend_type: blend.blend_type = ch.blend_type
+
+            # Last texture
+            if i == 0: 
+
+                check_create_node_link(group_tree, blend.outputs[0], end_entry.inputs[0])
+                if group_ch.type == 'RGB' and ch.blend_type == 'MIX':
+                    check_create_node_link(group_tree, blend.outputs[1], end_alpha_entry.inputs[0])
+                if alpha_passthrough:
+                    check_create_node_link(group_tree, alpha_passthrough.outputs[0], end_alpha_entry.inputs[0])
+
+            # First texture
+            if i == len(tg.textures)-1: 
+
+                if group_ch.type == 'RGB' and ch.blend_type == 'MIX':
+                    check_create_node_link(group_tree, start_entry.outputs[0], blend.inputs[0])
+                    check_create_node_link(group_tree, start_alpha_entry.outputs[0], blend.inputs[1])
+                else:
+                    check_create_node_link(group_tree, start_entry.outputs[0], blend.inputs[1])
+
+                if alpha_passthrough:
+                    check_create_node_link(group_tree, start_alpha_entry.outputs[0], alpha_passthrough.inputs[0])
+
+            # Mid textures
+            if i != 0:
+                next_ch = tg.textures[i-1].channels[j]
+                next_blend = nodes.get(next_ch.blend)
+                next_alpha_passthrough = nodes.get(next_ch.alpha_passthrough)
+
+                if group_ch.type == 'RGB':
+                    if ch.blend_type == 'MIX' and next_ch.blend_type == 'MIX':
+                        check_create_node_link(group_tree, blend.outputs[0], next_blend.inputs[0])
+                        check_create_node_link(group_tree, blend.outputs[1], next_blend.inputs[1])
+                    elif ch.blend_type == 'MIX' and next_ch.blend_type != 'MIX':
+                        check_create_node_link(group_tree, blend.outputs[0], next_blend.inputs[1])
+                        check_create_node_link(group_tree, blend.outputs[1], next_alpha_passthrough.inputs[0])
+                    elif ch.blend_type != 'MIX' and next_ch.blend_type == 'MIX':
+                        check_create_node_link(group_tree, blend.outputs[0], next_blend.inputs[0])
+                        check_create_node_link(group_tree, alpha_passthrough.outputs[0], next_blend.inputs[1])
+                    else:
+                        check_create_node_link(group_tree, blend.outputs[0], next_blend.inputs[1])
+                        check_create_node_link(group_tree, alpha_passthrough.outputs[0], next_alpha_passthrough.inputs[0])
+                else:
+                    check_create_node_link(group_tree, blend.outputs[0], next_blend.inputs[1])
+
+    rearrange_nodes(group_tree)
+
 def create_texture_channel_nodes(group_tree, texture, channel):
 
     tg = group_tree.tg
@@ -141,15 +328,24 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     intensity.inputs[2].default_value = (1,1,1,1)
     channel.intensity = intensity.name
 
-    # Blend nodes
-    #if group_ch.type == 'VECTOR':
-    #    blend = nodes.new('ShaderNodeGroup')
-    #    blend.node_tree = bpy.data.node_groups.get(OVERLAY)
-    #else:
-    blend = nodes.new('ShaderNodeMixRGB')
+    # Blend frame
+    blend_frame = nodes.get(texture.blend_frame)
+    if not blend_frame:
+        blend_frame = nodes.new('NodeFrame')
+        blend_frame.label = 'Blend'
+        texture.blend_frame = blend_frame.name
 
-    blend.label = 'Blend'
-    channel.blend = blend.name
+    # Temporary blend, possibly replaced later
+    #blend = nodes.new('ShaderNodeMixRGB')
+    #blend.label = 'Blend'
+    #blend.parent = blend_frame
+    #channel.blend = blend.name
+
+    #if group_ch.type == 'RGB':
+    #    alpha_passthrough = nodes.new('NodeReroute')
+    #    alpha_passthrough.label = 'Alpha Passthrough'
+    #    channel.alpha_passthrough = alpha_passthrough.name
+    #    alpha_passthrough.parent = blend_frame
 
     # Normal nodes
     if group_ch.type == 'VECTOR':
@@ -167,14 +363,6 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         bump.inputs[1].default_value = 0.05
         channel.bump = bump.name
 
-    # Blend frame
-    blend_frame = nodes.get(texture.blend_frame)
-    if not blend_frame:
-        blend_frame = nodes.new('NodeFrame')
-        blend_frame.label = 'Blend'
-        texture.blend_frame = blend_frame.name
-
-    blend.parent = blend_frame
     #intensity.parent = blend_frame
 
     # Get source RGB and alpha
@@ -211,28 +399,30 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         links.new(end_alpha.outputs[0], bump_base.inputs[0])
         links.new(end_rgb.outputs[0], bump_base.inputs[2])
         links.new(bump_base.outputs[0], bump.inputs[2])
-
         links.new(end_rgb.outputs[0], normal.inputs[1])
 
         # Bump as default
-        links.new(bump.outputs[0], blend.inputs[2])
-    else:
-        links.new(end_rgb.outputs[0], blend.inputs[2])
+        #links.new(bump.outputs[0], blend.inputs[2])
+    #else:
+    #    links.new(end_rgb.outputs[0], blend.inputs[2])
 
     links.new(end_alpha.outputs[0], intensity.inputs[2])
-    links.new(intensity.outputs[0], blend.inputs[0])
+    #links.new(intensity.outputs[0], blend.inputs[0])
 
-    return blend
+    #return blend
 
-def link_new_channel(group_tree):
+def add_new_channel_nodes(group_tree):
     # TEMPORARY SOLUTION
     # New channel should be the last item
-    last_index = len(group_tree.tg.channels)-1
-    channel = group_tree.tg.channels[last_index]
+    tg = group_tree.tg
+    nodes = group_tree.nodes
+    links = group_tree.links
+    last_index = len(tg.channels)-1
+    channel = tg.channels[last_index]
 
     # Get start and end node
-    start_node = group_tree.nodes.get(group_tree.tg.start)
-    end_node = group_tree.nodes.get(group_tree.tg.end)
+    start_node = nodes.get(tg.start)
+    end_node = nodes.get(tg.end)
 
     start_linear = None
     start_convert = None
@@ -241,35 +431,35 @@ def link_new_channel(group_tree):
     end_convert = None
 
     # Get start and end frame
-    start_frame = group_tree.nodes.get(group_tree.tg.start_frame)
+    start_frame = nodes.get(tg.start_frame)
     if not start_frame:
-        start_frame = group_tree.nodes.new('NodeFrame')
+        start_frame = nodes.new('NodeFrame')
         start_frame.label = 'Start'
-        group_tree.tg.start_frame = start_frame.name
+        tg.start_frame = start_frame.name
 
-    end_entry_frame = group_tree.nodes.get(group_tree.tg.end_entry_frame)
+    end_entry_frame = nodes.get(tg.end_entry_frame)
     if not end_entry_frame:
-        end_entry_frame = group_tree.nodes.new('NodeFrame')
+        end_entry_frame = nodes.new('NodeFrame')
         end_entry_frame.label = 'End'
-        group_tree.tg.end_entry_frame = end_entry_frame.name
+        tg.end_entry_frame = end_entry_frame.name
 
-    #modifier_frame = group_tree.nodes.get(channel.modifier_frame)
-    modifier_frame = group_tree.nodes.new('NodeFrame')
+    #modifier_frame = nodes.get(channel.modifier_frame)
+    modifier_frame = nodes.new('NodeFrame')
     modifier_frame.label = 'Modifier'
     channel.modifier_frame = modifier_frame.name
 
-    end_linear_frame = group_tree.nodes.get(group_tree.tg.end_linear_frame)
+    end_linear_frame = nodes.get(tg.end_linear_frame)
     if not end_linear_frame:
-        end_linear_frame = group_tree.nodes.new('NodeFrame')
+        end_linear_frame = nodes.new('NodeFrame')
         end_linear_frame.label = 'End Linear'
-        group_tree.tg.end_linear_frame = end_linear_frame.name
+        tg.end_linear_frame = end_linear_frame.name
 
     # Create linarize node and converter node
     if channel.type in {'RGB', 'VALUE'}:
         if channel.type == 'RGB':
-            start_linear = group_tree.nodes.new('ShaderNodeGamma')
+            start_linear = nodes.new('ShaderNodeGamma')
         else: 
-            start_linear = group_tree.nodes.new('ShaderNodeMath')
+            start_linear = nodes.new('ShaderNodeMath')
             start_linear.operation = 'POWER'
         start_linear.label = 'Start Linear'
         start_linear.inputs[1].default_value = 1.0/GAMMA
@@ -278,9 +468,9 @@ def link_new_channel(group_tree):
         channel.start_linear = start_linear.name
 
         if channel.type == 'RGB':
-            end_linear = group_tree.nodes.new('ShaderNodeGamma')
+            end_linear = nodes.new('ShaderNodeGamma')
         else: 
-            end_linear = group_tree.nodes.new('ShaderNodeMath')
+            end_linear = nodes.new('ShaderNodeMath')
             end_linear.operation = 'POWER'
         end_linear.label = 'End Linear'
         end_linear.inputs[1].default_value = GAMMA
@@ -288,85 +478,86 @@ def link_new_channel(group_tree):
         end_linear.parent = end_linear_frame
         channel.end_linear = end_linear.name
 
-    start_entry = group_tree.nodes.new('NodeReroute')
+    start_entry = nodes.new('NodeReroute')
     start_entry.label = 'Start Entry'
     start_entry.parent = start_frame
     channel.start_entry = start_entry.name
 
-    end_entry = group_tree.nodes.new('NodeReroute')
+    end_entry = nodes.new('NodeReroute')
     end_entry.label = 'End Entry'
     end_entry.parent = end_entry_frame
     channel.end_entry = end_entry.name
 
+    if channel.type == 'RGB':
+        start_alpha_entry = nodes.new('NodeReroute')
+        start_alpha_entry.label = 'Start Alpha Entry'
+        start_alpha_entry.parent = start_frame
+        channel.start_alpha_entry = start_alpha_entry.name
+
+        solid_alpha = nodes.new('ShaderNodeValue')
+        solid_alpha.outputs[0].default_value = 1.0
+        solid_alpha.label = 'Solid Alpha'
+        solid_alpha.parent = start_frame
+        channel.solid_alpha = solid_alpha.name
+
+        end_alpha_entry = nodes.new('NodeReroute')
+        end_alpha_entry.label = 'End Alpha Entry'
+        end_alpha_entry.parent = end_entry_frame
+        channel.end_alpha_entry = end_alpha_entry.name
+
     # Modifier pipeline
-    start_rgb = group_tree.nodes.new('NodeReroute')
+    start_rgb = nodes.new('NodeReroute')
     start_rgb.label = 'Start RGB'
     start_rgb.parent = modifier_frame
     channel.start_rgb = start_rgb.name
 
-    start_alpha = group_tree.nodes.new('NodeReroute')
+    start_alpha = nodes.new('NodeReroute')
     start_alpha.label = 'Start Alpha'
     start_alpha.parent = modifier_frame
     channel.start_alpha = start_alpha.name
 
-    end_rgb = group_tree.nodes.new('NodeReroute')
+    end_rgb = nodes.new('NodeReroute')
     end_rgb.label = 'End RGB'
     end_rgb.parent = modifier_frame
     channel.end_rgb = end_rgb.name
 
-    end_alpha = group_tree.nodes.new('NodeReroute')
+    end_alpha = nodes.new('NodeReroute')
     end_alpha.label = 'End Alpha'
     end_alpha.parent = modifier_frame
     channel.end_alpha = end_alpha.name
 
     # Link nodes
     if start_linear:
-        group_tree.links.new(start_node.outputs[last_index], start_linear.inputs[0])
-        group_tree.links.new(start_linear.outputs[0], start_entry.inputs[0])
+        links.new(start_node.outputs[last_index], start_linear.inputs[0])
+        links.new(start_linear.outputs[0], start_entry.inputs[0])
     else:
-        group_tree.links.new(start_node.outputs[last_index], start_entry.inputs[0])
+        links.new(start_node.outputs[last_index], start_entry.inputs[0])
 
-    group_tree.links.new(end_entry.outputs[0], start_rgb.inputs[0])
-    group_tree.links.new(start_rgb.outputs[0], end_rgb.inputs[0])
+    links.new(end_entry.outputs[0], start_rgb.inputs[0])
+    links.new(start_rgb.outputs[0], end_rgb.inputs[0])
+    links.new(start_alpha.outputs[0], end_alpha.inputs[0])
+    if channel.type == 'RGB':
+        links.new(solid_alpha.outputs[0], start_alpha_entry.inputs[0])
+        links.new(end_alpha_entry.outputs[0], start_alpha.inputs[0])
 
     if end_linear:
-        group_tree.links.new(end_rgb.outputs[0], end_linear.inputs[0])
-        group_tree.links.new(end_linear.outputs[0], end_node.inputs[last_index])
+        links.new(end_rgb.outputs[0], end_linear.inputs[0])
+        links.new(end_linear.outputs[0], end_node.inputs[last_index])
     else:
-        group_tree.links.new(end_rgb.outputs[0], end_node.inputs[last_index])
+        links.new(end_rgb.outputs[0], end_node.inputs[last_index])
 
     # Link between textures
-    if len(group_tree.tg.textures) == 0:
-        group_tree.links.new(start_entry.outputs[0], end_entry.inputs[0])
+    if len(tg.textures) == 0:
+        links.new(start_entry.outputs[0], end_entry.inputs[0])
+        if channel.type == 'RGB':
+            links.new(start_alpha_entry.outputs[0], end_alpha_entry.inputs[0])
     else:
-        for i, t in reversed(list(enumerate(group_tree.tg.textures))):
+        for i, t in reversed(list(enumerate(tg.textures))):
             # Add new channel
             c = t.channels.add()
 
             # Add new nodes
-            blend = create_texture_channel_nodes(group_tree, t, c)
-
-            # Default vector layer is bump
-            if channel.type == 'VECTOR':
-                c.normal_map_type = 'NORMAL'
-                c.normal_map_type = 'BUMP'
-
-            # Set color space of source input
-            #if t.type not in {'ShaderNodeTexImage', 'ShaderNodeTexChecker'}:
-            #    c.color_space = 'LINEAR'
-            #else: c.color_space = 'SRGB'
-
-            if i == len(group_tree.tg.textures)-1:
-                # Link start node
-                group_tree.links.new(start_entry.outputs[0], blend.inputs[1])
-            else:
-                # Link between textures
-                below_blend = group_tree.nodes.get(group_tree.tg.textures[i+1].channels[last_index].blend)
-                group_tree.links.new(below_blend.outputs[0], blend.inputs[1])
-
-            # Link end node
-            if i == 0:
-                group_tree.links.new(blend.outputs[0], end_entry.inputs[0])
+            create_texture_channel_nodes(group_tree, t, c)
 
 def set_input_default_value(group_node, index):
     channel = group_node.node_tree.tg.channels[index]
@@ -402,7 +593,7 @@ def create_new_group_tree(mat):
     group_tree.tg.end = end_node.name
 
     # Link start and end node then rearrange the nodes
-    link_new_channel(group_tree)
+    add_new_channel_nodes(group_tree)
     rearrange_nodes(group_tree)
 
     return group_tree
@@ -542,7 +733,10 @@ class YNewTextureGroupChannel(bpy.types.Operator):
         last_index = len(channels)-1
 
         # Link new channel
-        link_new_channel(group_tree)
+        add_new_channel_nodes(group_tree)
+
+        # Refresh texture channel blend nodes
+        refresh_layer_blends(group_tree)
 
         # New channel is disabled in texture by default
         for tex in group_tree.tg.textures:
@@ -645,6 +839,8 @@ class YRemoveTextureGroupChannel(bpy.types.Operator):
             nodes.remove(nodes.get(ch.modifier_frame))
             nodes.remove(nodes.get(ch.intensity))
             #nodes.remove(nodes.get(ch.linear))
+            try: nodes.remove(nodes.get(ch.alpha_passthrough))
+            except: pass
             try: nodes.remove(nodes.get(ch.normal))
             except: pass
             try: nodes.remove(nodes.get(ch.bump))
@@ -664,6 +860,12 @@ class YRemoveTextureGroupChannel(bpy.types.Operator):
         try: nodes.remove(nodes.get(channel.start_linear)) 
         except: pass
         try: nodes.remove(nodes.get(channel.end_linear)) 
+        except: pass
+        try: nodes.remove(nodes.get(channel.start_alpha_entry)) 
+        except: pass
+        try: nodes.remove(nodes.get(channel.solid_alpha)) 
+        except: pass
+        try: nodes.remove(nodes.get(channel.end_alpha_entry)) 
         except: pass
 
         # Remove channel modifiers
@@ -716,17 +918,6 @@ def channel_items(self, context):
     items.append(('-1', 'All Channels', '', 'LINK', len(items)))
 
     return items
-
-#def vector_and_blend_type_items(self, context):
-#    node = get_active_texture_group_node()
-#    tg = node.node_tree.tg
-#
-#    channel = tg.channels[int(self.channel_idx)]
-#    if channel.type != 'VECTOR':
-#        items = blend_type_items
-#    else: items = vector_blend_items
-#
-#    return items
 
 def add_new_texture(tex_name, tex_type, channel_idx, blend_type, vector_blend, normal_map_type, 
         texcoord_type, uv_map_name='', add_rgb_to_intensity=False, image=None):
@@ -799,27 +990,18 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, vector_blend, n
         c = tex.channels.add()
 
         # Add blend and other nodes
-        blend = create_texture_channel_nodes(group_tree, tex, c)
+        create_texture_channel_nodes(group_tree, tex, c)
 
-        if ch.type != 'VECTOR' and channel_idx == i:
-            #blend.blend_type = tg.temp_channels[i].blend_type
-            blend.blend_type = blend_type
-
-        # Set color space of source input
-        #if (tex.type == 'ShaderNodeTexImage' and not self.hdr) or tex.type == 'ShaderNodeTexChecker':
-        #if tex.type == 'ShaderNodeTexImage' or tex.type == 'ShaderNodeTexChecker':
-        #    c.color_space = 'SRGB'
-        #else: 
-        #    c.color_space = 'LINEAR'
-
-        # Set enable and blend node automatically follows
-        #c.enable = tg.temp_channels[i].enable
+        # Set some props to selected channel
         if channel_idx == i or channel_idx == -1:
             c.enable = True
-            #if ch.type == 'RGB' and add_rgb_to_intensity:
-            #    m = tex_modifiers.add_new_modifier(group_tree, c, 'RGB_TO_INTENSITY')
-            #    m.shortcut = True
-        else: c.enable = False
+            if ch.type == 'VECTOR':
+                c.vector_blend = vector_blend
+                c.normal_map_type = normal_map_type
+            else:
+                c.blend_type = blend_type
+        else: 
+            c.enable = False
 
         # If RGB to intensity is selected, bump base is better be 0.0
         if add_rgb_to_intensity:
@@ -831,35 +1013,6 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, vector_blend, n
             if c.enable and ch.type == 'RGB' and not shortcut_created:
                 m.shortcut = True
                 shortcut_created = True
-
-        # Link neighbor nodes
-        if index < len(tg.textures)-1:
-            below_blend = nodes.get(tg.textures[index+1].channels[i].blend)
-        else: below_blend = nodes.get(tg.channels[i].start_entry)
-        links.new(below_blend.outputs[0], blend.inputs[1])
-
-        if index > 0:
-            upper_blend = nodes.get(tg.textures[index-1].channels[i].blend)
-            links.new(blend.outputs[0], upper_blend.inputs[1])
-        else: 
-            end_entry = nodes.get(tg.channels[i].end_entry)
-            links.new(blend.outputs[0], end_entry.inputs[0])
-
-    # Change vector blend types on the channels
-    for i, c in enumerate(tex.channels):
-        ch = tg.channels[i]
-
-        if ch.type == 'VECTOR' and channel_idx == i:
-            #c.vector_blend = tg.temp_channels[i].vector_blend
-            c.vector_blend = vector_blend
-
-            # Refresh normal map
-            if normal_map_type == 'BUMP':
-                c.normal_map_type = 'NORMAL'
-                c.normal_map_type = 'BUMP'
-            else:
-                c.normal_map_type = 'BUMP'
-                c.normal_map_type = 'NORMAL'
 
     # Refresh paint image by updating the index
     tg.active_texture_index = index
@@ -898,7 +1051,7 @@ class YNewTextureLayer(bpy.types.Operator):
 
     blend_type = EnumProperty(
         name = 'Blend',
-        #items = vector_and_blend_type_items)
+        description = 'Blend type',
         items = blend_type_items,
         default = 'MIX')
 
@@ -1057,11 +1210,16 @@ class YNewTextureLayer(bpy.types.Operator):
             img.generated_color = self.color
             update_image_editor_image(context, img)
 
+        tg.halt_update = True
         add_new_texture(self.name, self.type, int(self.channel_idx), self.blend_type, self.vector_blend, 
                 self.normal_map_type, self.texcoord_type, self.uv_map, self.add_rgb_to_intensity, img)
+        tg.halt_update = False
+
+        # Refresh texture channel blend nodes
+        refresh_layer_blends(node.node_tree)
 
         # Rearrange nodes
-        rearrange_nodes(node.node_tree)
+        #rearrange_nodes(node.node_tree)
 
         return {'FINISHED'}
 
@@ -1187,15 +1345,23 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         import_list, directory = self.generate_paths()
         images = tuple(load_image(path, directory) for path in import_list)
 
+        node.node_tree.tg.halt_update = True
+
         for image in images:
             if self.relative:
                 image.filepath = bpy.path.relpath(image.filepath)
+
             add_new_texture(image.name, 'ShaderNodeTexImage', int(self.channel_idx), self.blend_type, 
                     self.vector_blend, self.normal_map_type, self.texcoord_type, self.uv_map,
                     self.add_rgb_to_intensity, image)
 
+        node.node_tree.tg.halt_update = False
+
+        # Refresh texture channel blend nodes
+        refresh_layer_blends(node.node_tree)
+
         # Rearrange nodes
-        rearrange_nodes(node.node_tree)
+        #rearrange_nodes(node.node_tree)
 
         return {'FINISHED'}
 
@@ -1309,13 +1475,20 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "No image selected!")
             return {'CANCELLED'}
 
+        node.node_tree.tg.halt_update = True
+
         image = bpy.data.images.get(self.image_name)
         add_new_texture(image.name, 'ShaderNodeTexImage', int(self.channel_idx), self.blend_type, 
                 self.vector_blend, self.normal_map_type, self.texcoord_type, self.uv_map, 
                 self.add_rgb_to_intensity, image)
 
+        node.node_tree.tg.halt_update = False
+
+        # Refresh texture channel blend nodes
+        refresh_layer_blends(node.node_tree)
+
         # Rearrange nodes
-        rearrange_nodes(node.node_tree)
+        #rearrange_nodes(node.node_tree)
 
         return {'FINISHED'}
 
@@ -1379,8 +1552,11 @@ class YMoveTextureLayer(bpy.types.Operator):
         tg.textures.move(tex_idx, swap_idx)
         tg.active_texture_index = swap_idx
 
+        # Refresh texture channel blend nodes
+        refresh_layer_blends(group_tree)
+
         # Rearrange nodes
-        rearrange_nodes(group_tree)
+        #rearrange_nodes(group_tree)
 
         return {'FINISHED'}
 
@@ -1418,9 +1594,9 @@ class YRemoveTextureLayer(bpy.types.Operator):
         for ch in tex.channels:
             # Delete blend node and dealing with the links
             blend = nodes.get(ch.blend)
-            inp = blend.inputs[1].links[0].from_socket
-            outp = blend.outputs[0].links[0].to_socket
-            group_tree.links.new(inp, outp)
+            #inp = blend.inputs[1].links[0].from_socket
+            #outp = blend.outputs[0].links[0].to_socket
+            #group_tree.links.new(inp, outp)
             nodes.remove(blend)
 
             nodes.remove(nodes.get(ch.intensity))
@@ -1433,6 +1609,8 @@ class YRemoveTextureLayer(bpy.types.Operator):
 
             nodes.remove(nodes.get(ch.modifier_frame))
 
+            try: nodes.remove(nodes.get(ch.alpha_passthrough))
+            except: pass
             try: nodes.remove(nodes.get(ch.normal))
             except: pass
             try: nodes.remove(nodes.get(ch.bump))
@@ -1456,9 +1634,11 @@ class YRemoveTextureLayer(bpy.types.Operator):
             # Force update the index to refesh paint image
             tg.active_texture_index = tg.active_texture_index
 
-        # Rearrange nodes
-        rearrange_nodes(group_tree)
+        # Refresh texture channel blend nodes
+        refresh_layer_blends(group_tree)
 
+        # Rearrange nodes
+        #rearrange_nodes(group_tree)
 
         return {'FINISHED'}
 
@@ -1923,8 +2103,9 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                     if group_ch.type == 'VECTOR':
                         row.prop(ch, 'vector_blend', text='')
                     else:
-                        blend = nodes.get(ch.blend)
-                        row.prop(blend, 'blend_type', text='')
+                        #blend = nodes.get(ch.blend)
+                        #row.prop(blend, 'blend_type', text='')
+                        row.prop(ch, 'blend_type', text='')
 
                     intensity = nodes.get(ch.intensity)
                     row.prop(intensity.inputs[0], 'default_value', text='')
@@ -2375,119 +2556,26 @@ def update_texture_index(self, context):
                 obj.data.uv_textures.active_index = i
                 break
 
+#def get_tex_and_channel_index_from_layer_channel(tg, channel):
+#    tex = None
+#    ch_index = -1
+#    for t in tg.textures:
+#        for i, ch in enumerate(t.channels):
+#            if ch == channel:
+#                tex = t
+#                ch_index = i
+#                break
+#
+#    return tex, ch_index
+
 def update_normal_map_type(self, context):
-    group_tree = self.id_data
-    tg = group_tree.tg
-    nodes = group_tree.nodes
-    links = group_tree.links
+    refresh_layer_blends(self.id_data)
 
-    end_rgb = nodes.get(self.end_rgb)
-    blend = nodes.get(self.blend)
-    bump = nodes.get(self.bump)
-    normal = nodes.get(self.normal)
-
-    if self.normal_map_type == 'BUMP':
-        #links.new(end_rgb.outputs[0], bump.inputs[2])
-        links.new(bump.outputs[0], blend.inputs[2])
-    else:
-        #links.new(end_rgb.outputs[0], normal.inputs[1])
-        links.new(normal.outputs[0], blend.inputs[2])
-
-        # Normal always use RGB input and sRGB color space
-        #self.tex_input = 'RGB'
-        #self.color_space = 'SRGB'
+def update_blend_type(self, context):
+    refresh_layer_blends(self.id_data)
 
 def update_vector_blend(self, context):
-    group_tree = self.id_data
-    tg = group_tree.tg
-    nodes = group_tree.nodes
-    links = group_tree.links
-
-    tex = None
-    ch_index = -1
-    for t in tg.textures:
-        for i, ch in enumerate(t.channels):
-            if ch == self:
-                tex = t
-                ch_index = i
-                break
-    if not tex: return
-
-    group_ch = tg.channels[ch_index]
-    if group_ch.type != 'VECTOR': return
-
-    blend = nodes.get(self.blend)
-    
-    # Remember previous links
-    in_0 = blend.inputs[0].links[0].from_socket
-    in_1 = blend.inputs[1].links[0].from_socket
-    in_2 = blend.inputs[2].links[0].from_socket
-    out_node = blend.outputs[0].links[0].to_node
-    out_name = blend.outputs[0].links[0].to_socket.name
-
-    # Remove links
-    links.remove(blend.inputs[0].links[0])
-    links.remove(blend.inputs[1].links[0])
-    links.remove(blend.inputs[2].links[0])
-    links.remove(blend.outputs[0].links[0])
-
-    # Remember previous position and parent
-    loc = blend.location.copy()
-    parent = blend.parent
-
-    #print('Aha')
-
-    # Create new node if type isn't match
-    if self.vector_blend == 'MIX' and blend.bl_idname != 'ShaderNodeMixRGB':
-        nodes.remove(blend)
-        blend = nodes.new('ShaderNodeMixRGB')
-    #elif self.vector_blend in {'UDN', 'OVERLAY'} and blend.bl_idname != 'ShaderNodeGroup':
-    elif self.vector_blend == 'OVERLAY' and blend.bl_idname != 'ShaderNodeGroup':
-        nodes.remove(blend)
-        blend = nodes.new('ShaderNodeGroup')
-
-    blend.label = 'Blend'
-    self.blend = blend.name
-    blend.location = loc
-    blend.parent = parent
-
-    # Set node tree
-    #if self.vector_blend == 'UDN':
-    #    blend.node_tree = bpy.data.node_groups.get(UDN)
-    if self.vector_blend == 'OVERLAY': 
-        blend.node_tree = bpy.data.node_groups.get(OVERLAY_VECTOR)
-
-    # Relinks
-    links.new(in_0, blend.inputs[0])
-    links.new(in_1, blend.inputs[1])
-    link = links.new(in_2, blend.inputs[2])
-    links.new(blend.outputs[0], out_node.inputs[out_name])
-
-    # Hack
-    if self.normal_map_type == 'BUMP':
-        self.normal_map_type = 'NORMAL'
-        self.normal_map_type = 'BUMP'
-    else:
-        self.normal_map_type = 'BUMP'
-        self.normal_map_type = 'NORMAL'
-
-#class YTempChannel(bpy.types.PropertyGroup):
-#    enable = BoolProperty(default=True)
-#
-#    blend_type = EnumProperty(
-#        name = 'Blend',
-#        items = blend_type_items,
-#        default = 'MIX')
-#
-#    vector_blend = EnumProperty(
-#            name = 'Vector Blend Type',
-#            items = vector_blend_items,
-#            default = 'OVERLAY')
-#
-#    add_rgb_to_intensity = BoolProperty(
-#            name = 'Add RGB To Intensity to layer channel',
-#            description = 'Add RGB To Intensity modifier to layer channel',
-#            default=False)
+    refresh_layer_blends(self.id_data)
 
 def update_bump_base_value(self, context):
     group_tree = self.id_data
@@ -2527,6 +2615,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default = 'BUMP',
             update = update_normal_map_type)
 
+    blend_type = EnumProperty(
+        name = 'Blend',
+        #items = vector_and_blend_type_items)
+        items = blend_type_items,
+        default = 'MIX',
+        update = update_blend_type)
+
     vector_blend = EnumProperty(
             name = 'Vector Blend Type',
             items = vector_blend_items,
@@ -2539,6 +2634,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Node names
     #linear = StringProperty(default='')
     blend = StringProperty(default='')
+    alpha_passthrough = StringProperty(default='')
     intensity = StringProperty(default='')
 
     # Modifier pipeline
@@ -2577,10 +2673,10 @@ class YTextureLayer(bpy.types.PropertyGroup):
             default = 'ShaderNodeTexImage')
 
     texcoord_type = EnumProperty(
-            name = 'Texture Coordinate Type',
-            items = texcoord_type_items,
-            default = 'UV',
-            update=update_texcoord_type)
+        name = 'Texture Coordinate Type',
+        items = texcoord_type_items,
+        default = 'UV',
+        update=update_texcoord_type)
 
     # Node names
     source = StringProperty(default='')
@@ -2621,8 +2717,11 @@ class YGroupChannel(bpy.types.PropertyGroup):
     start_linear = StringProperty(default='')
     start_convert = StringProperty(default='')
     start_entry = StringProperty(default='')
+    start_alpha_entry = StringProperty(default='')
+    solid_alpha = StringProperty(default='')
 
     end_entry = StringProperty(default='')
+    end_alpha_entry = StringProperty(default='')
     end_linear = StringProperty(default='')
     end_convert = StringProperty(default='')
 
@@ -2668,6 +2767,9 @@ class YTextureGroup(bpy.types.PropertyGroup):
     show_mask_properties = BoolProperty(default=False)
 
     preview_mode = BoolProperty(default=False, update=update_preview_mode)
+
+    # Useful to suspend update when adding new stuff
+    halt_update = BoolProperty(default=False)
 
 class YMaterialTGProps(bpy.types.PropertyGroup):
     ori_bsdf = StringProperty(default='')

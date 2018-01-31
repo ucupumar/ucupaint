@@ -118,12 +118,23 @@ def rearrange_nodes(group_tree):
             start_linear = nodes.get(channel.start_linear)
             if start_linear.location != new_loc: start_linear.location = new_loc
 
+        # Start solid alpha
+        new_loc.y -= 100.0
+        solid_alpha = nodes.get(channel.solid_alpha)
+        if solid_alpha and solid_alpha.location != new_loc: solid_alpha.location = new_loc
+        new_loc.y += 100.0
+
         # Start entry
         ori_y = new_loc.y
         new_loc.x += 200.0
         new_loc.y -= 35.0
         start_entry = nodes.get(channel.start_entry)
         if start_entry.location != new_loc: start_entry.location = new_loc
+
+        new_loc.y -= 35.0
+
+        start_alpha_entry = nodes.get(channel.start_alpha_entry)
+        if start_alpha_entry and start_alpha_entry.location != new_loc: start_alpha_entry.location = new_loc
 
         new_loc.y = ori_y
 
@@ -146,11 +157,19 @@ def rearrange_nodes(group_tree):
             blend = nodes.get(c.blend)
             if blend.location != new_loc: blend.location = new_loc
 
+            alpha_passthrough = nodes.get(c.alpha_passthrough)
+            if alpha_passthrough:
+                new_loc.y -= 195.0
+                new_loc.x += 29.0
+                if alpha_passthrough.location != new_loc: alpha_passthrough.location = new_loc
+                new_loc.y += 195.0
+                new_loc.x -= 29.0
+
             new_loc.y -= dist_y
             new_loc.x += dist_x
 
         new_loc.x = ori_xx
-        new_loc.y -= 35.0
+        new_loc.y -= 75.0
 
         ori_y = new_loc.y
 
@@ -271,6 +290,11 @@ def rearrange_nodes(group_tree):
         # End entry
         end_entry = nodes.get(channel.end_entry)
         if end_entry.location != new_loc: end_entry.location = new_loc
+
+        new_loc.y -= 35.0
+
+        end_alpha_entry = nodes.get(channel.end_alpha_entry)
+        if end_alpha_entry and end_alpha_entry.location != new_loc: end_alpha_entry.location = new_loc
 
     new_loc.y = 0.0
     new_loc.x += 120.0
