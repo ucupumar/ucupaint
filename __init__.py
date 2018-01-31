@@ -85,6 +85,9 @@ def add_io_from_new_channel(group_tree):
     inp = group_tree.inputs.new(socket_type, channel.name)
     out = group_tree.outputs.new(socket_type, channel.name)
 
+    #group_tree.inputs.move(index,new_index)
+    #group_tree.outputs.move(index,new_index)
+
     if channel.type == 'VALUE':
         inp.min_value = 0.0
         inp.max_value = 1.0
@@ -94,6 +97,19 @@ def add_io_from_new_channel(group_tree):
         inp.min_value = -1.0
         inp.max_value = 1.0
         inp.default_value = (0,0,1)
+
+def set_input_default_value(group_node, channel):
+    #channel = group_node.node_tree.tg.channels[index]
+    
+    # Set default value
+    if channel.type == 'RGB':
+        group_node.inputs[channel.io_index].default_value = (1,1,1,1)
+        if channel.alpha:
+            group_node.inputs[channel.io_index+1].default_value = 1.0
+    if channel.type == 'VALUE':
+        group_node.inputs[channel.io_index].default_value = 0.0
+    if channel.type == 'VECTOR':
+        group_node.inputs[channel.io_index].default_value = (0,0,1)
 
 def update_image_editor_image(context, image):
     for area in context.screen.areas:
@@ -411,14 +427,14 @@ def create_texture_channel_nodes(group_tree, texture, channel):
 
     #return blend
 
-def add_new_channel_nodes(group_tree):
+def create_group_channel_nodes(group_tree, channel):
     # TEMPORARY SOLUTION
     # New channel should be the last item
     tg = group_tree.tg
     nodes = group_tree.nodes
     links = group_tree.links
-    last_index = len(tg.channels)-1
-    channel = tg.channels[last_index]
+    #last_index = len(tg.channels)-1
+    #channel = tg.channels[last_index]
 
     # Get start and end node
     start_node = nodes.get(tg.start)
@@ -528,10 +544,10 @@ def add_new_channel_nodes(group_tree):
 
     # Link nodes
     if start_linear:
-        links.new(start_node.outputs[last_index], start_linear.inputs[0])
+        links.new(start_node.outputs[channel.io_index], start_linear.inputs[0])
         links.new(start_linear.outputs[0], start_entry.inputs[0])
     else:
-        links.new(start_node.outputs[last_index], start_entry.inputs[0])
+        links.new(start_node.outputs[channel.io_index], start_entry.inputs[0])
 
     links.new(end_entry.outputs[0], start_rgb.inputs[0])
     links.new(start_rgb.outputs[0], end_rgb.inputs[0])
@@ -542,9 +558,9 @@ def add_new_channel_nodes(group_tree):
 
     if end_linear:
         links.new(end_rgb.outputs[0], end_linear.inputs[0])
-        links.new(end_linear.outputs[0], end_node.inputs[last_index])
+        links.new(end_linear.outputs[0], end_node.inputs[channel.io_index])
     else:
-        links.new(end_rgb.outputs[0], end_node.inputs[last_index])
+        links.new(end_rgb.outputs[0], end_node.inputs[channel.io_index])
 
     # Link between textures
     if len(tg.textures) == 0:
@@ -553,22 +569,12 @@ def add_new_channel_nodes(group_tree):
             links.new(start_alpha_entry.outputs[0], end_alpha_entry.inputs[0])
     else:
         for i, t in reversed(list(enumerate(tg.textures))):
+
             # Add new channel
             c = t.channels.add()
 
             # Add new nodes
             create_texture_channel_nodes(group_tree, t, c)
-
-def set_input_default_value(group_node, index):
-    channel = group_node.node_tree.tg.channels[index]
-    
-    # Set default value
-    if channel.type == 'RGB':
-        group_node.inputs[index].default_value = (1,1,1,1)
-    if channel.type == 'VALUE':
-        group_node.inputs[index].default_value = 0.0
-    if channel.type == 'VECTOR':
-        group_node.inputs[index].default_value = (0,0,1)
 
 def create_new_group_tree(mat):
 
@@ -585,6 +591,7 @@ def create_new_group_tree(mat):
     #group_tree.tg.temp_channels.add() # Also add temp channel
 
     add_io_from_new_channel(group_tree)
+    channel.io_index = 0
 
     # Create start and end node
     start_node = group_tree.nodes.new('NodeGroupInput')
@@ -593,8 +600,7 @@ def create_new_group_tree(mat):
     group_tree.tg.end = end_node.name
 
     # Link start and end node then rearrange the nodes
-    add_new_channel_nodes(group_tree)
-    rearrange_nodes(group_tree)
+    create_group_channel_nodes(group_tree, channel)
 
     return group_tree
 
@@ -641,7 +647,10 @@ class YNewTextureGroupNode(bpy.types.Operator):
         node.node_tree = group_tree
 
         # Set default input value
-        set_input_default_value(node, 0)
+        set_input_default_value(node, group_tree.tg.channels[0])
+
+        # Rearrange nodes
+        rearrange_nodes(group_tree)
 
         # Set the location of new node
         node.select = True
@@ -711,7 +720,8 @@ class YNewTextureGroupChannel(bpy.types.Operator):
         #node = context.active_node
         node = get_active_texture_group_node()
         group_tree = node.node_tree
-        channels = group_tree.tg.channels
+        tg = group_tree.tg
+        channels = tg.channels
 
         # Check if channel with same name is already available
         same_channel = [c for c in channels if c.name == self.name]
@@ -721,7 +731,6 @@ class YNewTextureGroupChannel(bpy.types.Operator):
 
         # Add new channel
         channel = channels.add()
-        channel.name = self.name
         channel.type = self.type
         #temp_ch = group_tree.tg.temp_channels.add()
         #temp_ch.enable = False
@@ -732,21 +741,30 @@ class YNewTextureGroupChannel(bpy.types.Operator):
         # Get last index
         last_index = len(channels)-1
 
+        # Get IO index
+        io_index = last_index
+        for ch in tg.channels:
+            if ch.type == 'RGB' and ch.alpha:
+                io_index += 1
+
+        channel.io_index = io_index
+        channel.name = self.name
+
         # Link new channel
-        add_new_channel_nodes(group_tree)
+        create_group_channel_nodes(group_tree, channel)
+
+        # New channel is disabled in texture by default
+        for tex in tg.textures:
+            tex.channels[last_index].enable = False
 
         # Refresh texture channel blend nodes
         refresh_layer_blends(group_tree)
 
-        # New channel is disabled in texture by default
-        for tex in group_tree.tg.textures:
-            tex.channels[last_index].enable = False
-
         # Rearrange nodes
-        rearrange_nodes(group_tree)
+        #rearrange_nodes(group_tree)
 
         # Set input default value
-        set_input_default_value(node, last_index)
+        set_input_default_value(node, channel)
 
         # Change active channel
         group_tree.tg.active_channel_index = last_index
@@ -773,11 +791,14 @@ class YMoveTextureGroupChannel(bpy.types.Operator):
     def execute(self, context):
         group_node = get_active_texture_group_node()
         group_tree = group_node.node_tree
+        tg = group_tree.tg
+        inputs = group_tree.inputs
+        outputs = group_tree.outputs
 
         # Get active channel
-        index = group_tree.tg.active_channel_index
-        channel = group_tree.tg.channels[index]
-        num_chs = len(group_tree.tg.channels)
+        index = tg.active_channel_index
+        channel = tg.channels[index]
+        num_chs = len(tg.channels)
 
         # Get new index
         if self.direction == 'UP' and index > 0:
@@ -787,21 +808,67 @@ class YMoveTextureGroupChannel(bpy.types.Operator):
         else:
             return {'CANCELLED'}
 
+        # Get IO index
+        swap_ch = tg.channels[new_index]
+        io_index = channel.io_index
+        io_index_swap = swap_ch.io_index
+
+        # Move IO
+        if channel.type == 'RGB' and channel.alpha:
+            if swap_ch.type == 'RGB' and swap_ch.alpha:
+                if io_index > io_index_swap:
+                    inputs.move(io_index, io_index_swap)
+                    inputs.move(io_index+1, io_index_swap+1)
+                    outputs.move(io_index, io_index_swap)
+                    outputs.move(io_index+1, io_index_swap+1)
+                else:
+                    inputs.move(io_index, io_index_swap)
+                    inputs.move(io_index, io_index_swap+1)
+                    outputs.move(io_index, io_index_swap)
+                    outputs.move(io_index, io_index_swap+1)
+            else:
+                if io_index > io_index_swap:
+                    inputs.move(io_index, io_index_swap)
+                    inputs.move(io_index+1, io_index_swap+1)
+                    outputs.move(io_index, io_index_swap)
+                    outputs.move(io_index+1, io_index_swap+1)
+                else:
+                    inputs.move(io_index+1, io_index_swap)
+                    inputs.move(io_index, io_index_swap-1)
+                    outputs.move(io_index+1, io_index_swap)
+                    outputs.move(io_index, io_index_swap-1)
+        else:
+            if swap_ch.type == 'RGB' and swap_ch.alpha:
+                if io_index > io_index_swap:
+                    inputs.move(io_index, io_index_swap)
+                    outputs.move(io_index, io_index_swap)
+                else:
+                    inputs.move(io_index, io_index_swap+1)
+                    outputs.move(io_index, io_index_swap+1)
+            else:
+                inputs.move(io_index, io_index_swap)
+                outputs.move(io_index, io_index_swap)
+
         # Move channel
-        group_tree.tg.channels.move(index, new_index)
-        #group_tree.tg.temp_channels.move(index, new_index) # Temp channels
+        tg.channels.move(index, new_index)
+        #tg.temp_channels.move(index, new_index) # Temp channels
 
         # Move channel inside textures
-        for tex in group_tree.tg.textures:
+        for tex in tg.textures:
             tex.channels.move(index, new_index)
 
-        # Move channel inside tree
-        group_tree.inputs.move(index,new_index)
-        group_tree.outputs.move(index,new_index)
+        # Reindex IO
+        i = 0
+        for ch in tg.channels:
+            ch.io_index = i
+            i += 1
+            if ch.type == 'RGB' and ch.alpha: i += 1
+
+        # Rearrange nodes
         rearrange_nodes(group_tree)
 
         # Set active index
-        group_tree.tg.active_channel_index = new_index
+        tg.active_channel_index = new_index
 
         return {'FINISHED'}
 
@@ -821,6 +888,8 @@ class YRemoveTextureGroupChannel(bpy.types.Operator):
         group_tree = group_node.node_tree
         tg = group_tree.tg
         nodes = group_tree.nodes
+        inputs = group_tree.inputs
+        outputs = group_tree.outputs
 
         # Get active channel
         channel_idx = tg.active_channel_index
@@ -890,19 +959,34 @@ class YRemoveTextureGroupChannel(bpy.types.Operator):
                 nodes.remove(nodes.get(t.blend_frame))
                 t.blend_frame = ''
 
+        # Remove channel from tree
+        inputs.remove(inputs[channel.io_index])
+        outputs.remove(outputs[channel.io_index])
+
+        shift = 1
+
+        if channel.type == 'RGB' and channel.alpha:
+            inputs.remove(inputs[channel.io_index])
+            outputs.remove(outputs[channel.io_index])
+
+            shift = 2
+
+        # Shift IO index
+        for ch in tg.channels:
+            if ch.io_index > channel.io_index:
+                ch.io_index -= shift
+
         # Remove channel
         tg.channels.remove(channel_idx)
         #tg.temp_channels.remove(channel_idx)
 
-        # Remove channel from tree
-        group_tree.inputs.remove(group_tree.inputs[channel_idx])
-        group_tree.outputs.remove(group_tree.outputs[channel_idx])
+        # Rearrange nodes
         rearrange_nodes(group_tree)
 
         # Set new active index
-        if (group_tree.tg.active_channel_index == len(group_tree.tg.channels) and
-            group_tree.tg.active_channel_index > 0
-            ): group_tree.tg.active_channel_index -= 1
+        if (tg.active_channel_index == len(tg.channels) and
+            tg.active_channel_index > 0
+            ): tg.active_channel_index -= 1
 
         return {'FINISHED'}
 
@@ -1916,7 +2000,7 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                     bbox = mcol.box()
                     bcol = bbox.column()
 
-                    inp = node.inputs[tg.active_channel_index]
+                    inp = node.inputs[channel.io_index]
                     brow = bcol.row(align=True)
                     if channel.type == 'RGB':
                         brow.label('Background:')
@@ -1926,6 +2010,13 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                         brow.label('Base Vector:')
 
                     brow.prop(inp,'default_value', text='')
+                    if channel.type == 'RGB':
+                        brow = bcol.row(align=True)
+                        brow.label('Alpha:')
+                        brow.prop(channel, 'alpha', text='')
+                        if channel.alpha:
+                            inp_alpha = node.inputs[channel.io_index+1]
+                            brow.prop(inp_alpha, 'default_value', text='')
 
                     bcol.label('Final Modifiers:')
 
@@ -2208,14 +2299,15 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
 
                 ccol = col.column(align=True)
 
-                row = ccol.row(align=True)
-                row.label('Mask:')
+                # MASK
+                #row = ccol.row(align=True)
+                #row.label('Mask:')
 
-                icon = 'TRIA_DOWN' if tg.show_mask_properties else 'TRIA_RIGHT'
-                row.prop(tg, 'show_mask_properties', text='', icon=icon)
+                #icon = 'TRIA_DOWN' if tg.show_mask_properties else 'TRIA_RIGHT'
+                #row.prop(tg, 'show_mask_properties', text='', icon=icon)
 
-                if tg.show_mask_properties:
-                    bbox = ccol.box()
+                #if tg.show_mask_properties:
+                #    bbox = ccol.box()
 
                 #row = tcol.row()
                 #row.label('Texture Modifiers:')
@@ -2235,11 +2327,14 @@ class NODE_UL_y_texture_groups(bpy.types.UIList):
         row = layout.row()
         row.prop(item, 'name', text='', emboss=False, icon='LINK')
         if item.type == 'VALUE':
-            row.prop(inputs[index], 'default_value', text='') #, emboss=False)
+            row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
         elif item.type == 'RGB':
-            row.prop(inputs[index], 'default_value', text='', icon='COLOR')
+            rrow = row.row(align=True)
+            rrow.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
+            if item.alpha:
+                rrow.prop(inputs[item.io_index+1], 'default_value', text='')
         #elif item.type == 'VECTOR':
-        #    row.prop(inputs[index], 'default_value', text='', expand=False)
+        #    row.prop(inputs[item.io_index], 'default_value', text='', expand=False)
 
 class NODE_UL_y_texture_layers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -2370,11 +2465,14 @@ def menu_func(self, context):
 
 def update_channel_name(self, context):
     group_tree = self.id_data
-    index = [i for i, ch in enumerate(group_tree.tg.channels) if ch == self][0]
 
-    if index < len(group_tree.inputs):
-        group_tree.inputs[index].name = self.name
-        group_tree.outputs[index].name = self.name
+    if self.io_index < len(group_tree.inputs):
+        group_tree.inputs[self.io_index].name = self.name
+        group_tree.outputs[self.io_index].name = self.name
+
+        if self.type == 'RGB' and self.alpha:
+            group_tree.inputs[self.io_index+1].name = self.name + ' Alpha'
+            group_tree.outputs[self.io_index+1].name = self.name + ' Alpha'
 
 def update_texture_enable(self, context):
     group_tree = self.id_data
@@ -2481,7 +2579,20 @@ def update_preview_mode(self, context):
         if ori_bsdf != preview:
             mat.tg.ori_bsdf = ori_bsdf.name
 
-        tree.links.new(group_node.outputs[index], preview.inputs[0])
+        if channel.type == 'RGB' and channel.alpha:
+            from_socket = [link.from_socket for link in preview.inputs[0].links]
+            if not from_socket: 
+                tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
+            else:
+                from_socket = from_socket[0]
+                color_output = group_node.outputs[channel.io_index]
+                alpha_output = group_node.outputs[channel.io_index+1]
+                if from_socket == color_output:
+                    tree.links.new(alpha_output, preview.inputs[0])
+                else:
+                    tree.links.new(color_output, preview.inputs[0])
+        else:
+            tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
         tree.links.new(preview.outputs[0], output.inputs[0])
     else:
         try: nodes.remove(preview)
@@ -2591,6 +2702,72 @@ def update_bump_distance(self, context):
 
     bump = nodes.get(self.bump)
     bump.inputs[1].default_value = self.bump_distance
+
+def update_channel_alpha(self, context):
+    group_tree = self.id_data
+    tg = group_tree.tg
+    nodes = group_tree.nodes
+    links = group_tree.links
+    inputs = group_tree.inputs
+    outputs = group_tree.outputs
+
+    start_alpha_entry = nodes.get(self.start_alpha_entry)
+    #end_alpha_entry = nodes.get(self.end_alpha_entry)
+    if not start_alpha_entry: return
+
+    start = nodes.get(tg.start)
+    end = nodes.get(tg.end)
+    end_alpha = nodes.get(self.end_alpha)
+
+    alpha_io_found = False
+    for out in start.outputs:
+        for link in out.links:
+            if link.to_socket == start_alpha_entry.inputs[0]:
+                alpha_io_found = True
+                break
+        if alpha_io_found: break
+    
+    if self.alpha and not alpha_io_found:
+        name = self.name + ' Alpha'
+        inp = inputs.new('NodeSocketFloat', name)
+        out = outputs.new('NodeSocketFloat', name)
+
+        # Set min max
+        inp.min_value = 0.0
+        inp.max_value = 1.0
+        inp.default_value = 0.0
+
+        last_index = len(inputs)-1
+        alpha_index = self.io_index+1
+
+        inputs.move(last_index, alpha_index)
+        outputs.move(last_index, alpha_index)
+
+        links.new(start.outputs[alpha_index], start_alpha_entry.inputs[0])
+        links.new(end_alpha.outputs[0], end.inputs[alpha_index])
+        
+        # Set node default_value
+        node = get_active_texture_group_node()
+        node.inputs[alpha_index].default_value = 0.0
+
+        # Shift other IO index
+        for ch in tg.channels:
+            if ch.io_index >= alpha_index:
+                ch.io_index += 1
+
+    elif not self.alpha and alpha_io_found:
+
+        inputs.remove(inputs[self.io_index+1])
+        outputs.remove(outputs[self.io_index+1])
+
+        # Relink
+        solid_alpha = nodes.get(self.solid_alpha)
+        links.new(solid_alpha.outputs[0], start_alpha_entry.inputs[0])
+
+        # Shift other IO index
+        for ch in tg.channels:
+            if ch.io_index > self.io_index:
+                ch.io_index -= 1
 
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
@@ -2705,10 +2882,13 @@ class YGroupChannel(bpy.types.PropertyGroup):
             default = 'RGB')
 
     #is_alpha_channel = BoolProperty(default=False)
-    input_index = IntProperty(default=-1)
-    output_index = IntProperty(default=-1)
-    input_alpha_index = IntProperty(default=-1)
-    output_alpha_index = IntProperty(default=-1)
+    #input_index = IntProperty(default=-1)
+    #output_index = IntProperty(default=-1)
+    #input_alpha_index = IntProperty(default=-1)
+    #output_alpha_index = IntProperty(default=-1)
+
+    io_index = IntProperty(default=0)
+    alpha = BoolProperty(default=False, update=update_channel_alpha)
 
     modifiers = CollectionProperty(type=tex_modifiers.YTextureModifier)
     active_modifier_index = IntProperty(default=0)
