@@ -369,7 +369,7 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         channel.normal = normal.name
 
         bump_base = nodes.new('ShaderNodeMixRGB')
-        bump_base.name = 'Bump Base'
+        bump_base.label = 'Bump Base'
         #mid_value = math.pow(0.5, 1/GAMMA)
         #bump_base.inputs[1].default_value = (mid_value, mid_value, mid_value, 1.0)
         bump_base.inputs[1].default_value = (0.5, 0.5, 0.5, 1.0)
