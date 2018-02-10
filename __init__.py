@@ -578,6 +578,8 @@ def create_group_channel_nodes(group_tree, channel):
 
 def create_new_group_tree(mat):
 
+    #tgup = bpy.context.user_preferences.addons[__name__].preferences
+
     # Group name is based from the material
     group_name = 'TexGroup ' + mat.name
 
@@ -589,6 +591,7 @@ def create_new_group_tree(mat):
     channel = group_tree.tg.channels.add()
     channel.name = 'Color'
     #group_tree.tg.temp_channels.add() # Also add temp channel
+    #tgup.channels.add()
 
     add_io_from_new_channel(group_tree)
     channel.io_index = 0
@@ -721,7 +724,12 @@ class YNewTextureGroupChannel(bpy.types.Operator):
         node = get_active_texture_group_node()
         group_tree = node.node_tree
         tg = group_tree.tg
+        #tgup = context.user_preferences.addons[__name__].preferences
         channels = tg.channels
+
+        if len(tg.channels) > 19:
+            self.report({'ERROR'}, "Maximum channel possible is 20")
+            return {'CANCELLED'}
 
         # Check if channel with same name is already available
         same_channel = [c for c in channels if c.name == self.name]
@@ -733,6 +741,7 @@ class YNewTextureGroupChannel(bpy.types.Operator):
         channel = channels.add()
         channel.type = self.type
         #temp_ch = group_tree.tg.temp_channels.add()
+        #tgup.channels.add()
         #temp_ch.enable = False
 
         # Add input and output to the tree
@@ -792,6 +801,8 @@ class YMoveTextureGroupChannel(bpy.types.Operator):
         group_node = get_active_texture_group_node()
         group_tree = group_node.node_tree
         tg = group_tree.tg
+        tgui = context.window_manager.tgui
+        #tgup = context.user_preferences.addons[__name__].preferences
         inputs = group_tree.inputs
         outputs = group_tree.outputs
 
@@ -807,6 +818,12 @@ class YMoveTextureGroupChannel(bpy.types.Operator):
             new_index = index+1
         else:
             return {'CANCELLED'}
+
+        # Swap collapse UI
+        temp_0 = getattr(tgui, 'show_channel_modifiers_' + str(index))
+        temp_1 = getattr(tgui, 'show_channel_modifiers_' + str(new_index))
+        setattr(tgui, 'show_channel_modifiers_' + str(index), temp_1)
+        setattr(tgui, 'show_channel_modifiers_' + str(new_index), temp_0)
 
         # Get IO index
         swap_ch = tg.channels[new_index]
@@ -851,6 +868,7 @@ class YMoveTextureGroupChannel(bpy.types.Operator):
 
         # Move channel
         tg.channels.move(index, new_index)
+        #tgup.channels.move(index, new_index)
         #tg.temp_channels.move(index, new_index) # Temp channels
 
         # Move channel inside textures
@@ -887,6 +905,8 @@ class YRemoveTextureGroupChannel(bpy.types.Operator):
         group_node = get_active_texture_group_node()
         group_tree = group_node.node_tree
         tg = group_tree.tg
+        tgui = context.window_manager.tgui
+        #tgup = context.user_preferences.addons[__name__].preferences
         nodes = group_tree.nodes
         inputs = group_tree.inputs
         outputs = group_tree.outputs
@@ -895,6 +915,9 @@ class YRemoveTextureGroupChannel(bpy.types.Operator):
         channel_idx = tg.active_channel_index
         channel = tg.channels[channel_idx]
         channel_name = channel.name
+
+        # Collapse the UI
+        setattr(tgui, 'show_channel_modifiers_' + str(channel_idx), False)
 
         # Remove channel nodes from textures
         for t in tg.textures:
@@ -978,6 +1001,7 @@ class YRemoveTextureGroupChannel(bpy.types.Operator):
 
         # Remove channel
         tg.channels.remove(channel_idx)
+        #tgup.channels.remove(channel_idx)
         #tg.temp_channels.remove(channel_idx)
 
         # Rearrange nodes
@@ -1959,15 +1983,17 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
         group_tree = node.node_tree
         nodes = group_tree.nodes
         tg = group_tree.tg
+        tgui = context.window_manager.tgui
+        #tgup = context.user_preferences.addons[__name__].preferences
         #layout.context_pointer_set('group_node', node)
         #layout.context_pointer_set('tg', tg)
 
-        icon = 'TRIA_DOWN' if tg.show_channels else 'TRIA_RIGHT'
+        icon = 'TRIA_DOWN' if tgui.show_channels else 'TRIA_RIGHT'
         row = layout.row(align=True)
-        row.prop(tg, 'show_channels', emboss=False, text='', icon=icon)
+        row.prop(tgui, 'show_channels', emboss=False, text='', icon=icon)
         row.label('Channels')
 
-        if tg.show_channels:
+        if tgui.show_channels:
 
             box = layout.box()
             col = box.column()
@@ -1992,11 +2018,11 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                 channel = tg.channels[tg.active_channel_index]
                 mcol.context_pointer_set('channel', channel)
 
-                icon = 'TRIA_DOWN' if tg.show_end_modifiers else 'TRIA_RIGHT'
+                icon = 'TRIA_DOWN' if tgui.show_end_modifiers else 'TRIA_RIGHT'
                 row = mcol.row(align=True)
                 row.label(channel.name + ' Properties:')
-                row.prop(tg, 'show_end_modifiers', text='', icon=icon)
-                if tg.show_end_modifiers:
+                row.prop(tgui, 'show_end_modifiers', text='', icon=icon)
+                if tgui.show_end_modifiers:
                     bbox = mcol.box()
                     bcol = bbox.column()
 
@@ -2012,7 +2038,7 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                     brow.prop(inp,'default_value', text='')
                     if channel.type == 'RGB':
                         brow = bcol.row(align=True)
-                        brow.label('Alpha:')
+                        brow.label('Base Alpha:')
                         brow.prop(channel, 'alpha', text='')
                         if channel.alpha:
                             inp_alpha = node.inputs[channel.io_index+1]
@@ -2043,12 +2069,12 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                         mod = channel.modifiers[channel.active_modifier_index]
                         tex_modifiers.draw_modifier_properties(context, channel, nodes, mod, bcol)
 
-        icon = 'TRIA_DOWN' if tg.show_textures else 'TRIA_RIGHT'
+        icon = 'TRIA_DOWN' if tgui.show_textures else 'TRIA_RIGHT'
         row = layout.row(align=True)
-        row.prop(tg, 'show_textures', emboss=False, text='', icon=icon)
+        row.prop(tgui, 'show_textures', emboss=False, text='', icon=icon)
         row.label('Textures')
 
-        if tg.show_textures:
+        if tgui.show_textures:
 
             box = layout.box()
 
@@ -2112,16 +2138,16 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                     title = source.bl_idname.replace('ShaderNodeTex', '')
                     row.label(title + ' Properties:', icon='TEXTURE')
                     #row.label(tex.name, icon='TEXTURE')
-                    #row.prop(tg, 'show_texture_properties', emboss=False, text='', icon=icon)
+                    #row.prop(tgui, 'show_texture_properties', emboss=False, text='', icon=icon)
 
-                icon = 'TRIA_DOWN' if tg.show_texture_properties else 'TRIA_RIGHT'
-                row.prop(tg, 'show_texture_properties', text='', icon=icon)
+                icon = 'TRIA_DOWN' if tgui.show_texture_properties else 'TRIA_RIGHT'
+                row.prop(tgui, 'show_texture_properties', text='', icon=icon)
 
                 #rrow = row.row(align=True)
                 #rrow.context_pointer_set('texture', tex)
                 #rrow.operator('node.y_popup_menu', text='', icon='SCRIPTWIN')
 
-                if tg.show_texture_properties:
+                if tgui.show_texture_properties:
                     bbox = ccol.box()
                     if not image:
                         draw_tex_props(group_tree, tex, bbox)
@@ -2183,8 +2209,15 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                     ccol = col.column(align=True)
                     ccol.context_pointer_set('channel', ch)
 
+                    if group_ch.type == 'RGB':
+                        icon_value = custom_icons["rgb_channel"].icon_id
+                    elif group_ch.type == 'VALUE':
+                        icon_value = custom_icons["value_channel"].icon_id
+                    elif group_ch.type == 'VECTOR':
+                        icon_value = custom_icons["vector_channel"].icon_id
+
                     row = ccol.row(align=True)
-                    row.label(tg.channels[i].name + ':') #, icon='LINK')
+                    row.label(tg.channels[i].name + ':', icon_value=icon_value)
 
                     row.prop(ch, 'enable', text='')
 
@@ -2201,9 +2234,11 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                     intensity = nodes.get(ch.intensity)
                     row.prop(intensity.inputs[0], 'default_value', text='')
 
-                    row.prop(tg.channels[i], 'show_modifiers', text='', icon='MODIFIER')
+                    #row.prop(tg.channels[i], 'show_modifiers', text='', icon='MODIFIER')
+                    row.prop(tgui, 'show_channel_modifiers_' + str(i), text='', icon='MODIFIER')
 
-                    if tg.channels[i].show_modifiers:
+                    #if tg.channels[i].show_modifiers:
+                    if getattr(tgui, 'show_channel_modifiers_' + str(i)):
                         bbox = ccol.box()
                         #bbox.alert = True
                         bbox.active = ch.enable
@@ -2215,7 +2250,7 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                             #row.label('Norma:')
                             #row.prop(ch, 'tex_input', text='')
                             #row.prop(ch, 'color_space', text='')
-                            bcol.prop(ch, 'normal_map_type')
+                            bcol.prop(ch, 'normal_map_type', text='Type')
                             if ch.normal_map_type == 'BUMP':
                                 bump = nodes.get(ch.bump)
                                 #bcol.prop(bump.inputs[1], 'default_value', text='Distance')
@@ -2285,10 +2320,10 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                 else:
                     split.prop(tex, 'texcoord_type', text='')
 
-                icon = 'TRIA_DOWN' if tg.show_vector_properties else 'TRIA_RIGHT'
-                row.prop(tg, 'show_vector_properties', text='', icon=icon)
+                icon = 'TRIA_DOWN' if tgui.show_vector_properties else 'TRIA_RIGHT'
+                row.prop(tgui, 'show_vector_properties', text='', icon=icon)
 
-                if tg.show_vector_properties:
+                if tgui.show_vector_properties:
                     bbox = ccol.box()
                     #if tex.texcoord_type == 'UV':
                     bbox.prop(source.texture_mapping, 'translation', text='Offset')
@@ -2303,10 +2338,10 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                 #row = ccol.row(align=True)
                 #row.label('Mask:')
 
-                #icon = 'TRIA_DOWN' if tg.show_mask_properties else 'TRIA_RIGHT'
-                #row.prop(tg, 'show_mask_properties', text='', icon=icon)
+                #icon = 'TRIA_DOWN' if tgui.show_mask_properties else 'TRIA_RIGHT'
+                #row.prop(tgui, 'show_mask_properties', text='', icon=icon)
 
-                #if tg.show_mask_properties:
+                #if tgui.show_mask_properties:
                 #    bbox = ccol.box()
 
                 #row = tcol.row()
@@ -2324,8 +2359,15 @@ class NODE_UL_y_texture_groups(bpy.types.UIList):
         #if not group_node: return
         inputs = group_node.inputs
 
+        if item.type == 'RGB':
+            icon_value = custom_icons["rgb_channel"].icon_id
+        elif item.type == 'VALUE':
+            icon_value = custom_icons["value_channel"].icon_id
+        elif item.type == 'VECTOR':
+            icon_value = custom_icons["vector_channel"].icon_id
+
         row = layout.row()
-        row.prop(item, 'name', text='', emboss=False, icon='LINK')
+        row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
         if item.type == 'VALUE':
             row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
         elif item.type == 'RGB':
@@ -2881,12 +2923,6 @@ class YGroupChannel(bpy.types.PropertyGroup):
                      ('VECTOR', 'Vector', '')),
             default = 'RGB')
 
-    #is_alpha_channel = BoolProperty(default=False)
-    #input_index = IntProperty(default=-1)
-    #output_index = IntProperty(default=-1)
-    #input_alpha_index = IntProperty(default=-1)
-    #output_alpha_index = IntProperty(default=-1)
-
     io_index = IntProperty(default=0)
     alpha = BoolProperty(default=False, update=update_channel_alpha)
 
@@ -2938,7 +2974,28 @@ class YTextureGroup(bpy.types.PropertyGroup):
     # Temp channels to remember last channel selected when adding new texture
     #temp_channels = CollectionProperty(type=YTempChannel)
 
-    # UI related
+    preview_mode = BoolProperty(default=False, update=update_preview_mode)
+
+    # Useful to suspend update when adding new stuff
+    halt_update = BoolProperty(default=False)
+
+#class YTempChannel(bpy.types.PropertyGroup):
+#    show_panel = BoolProperty(default=False)
+#
+#class YTempGroups(bpy.types.PropertyGroup):
+#    tree = PointerProperty(type=bpy.types.ShaderNodeTree)
+#    modifiers = CollectionProperty(type=YTempChannel)
+
+class YMaterialTGProps(bpy.types.PropertyGroup):
+    ori_bsdf = StringProperty(default='')
+    ori_output = StringProperty(default='')
+
+#class YTGUserPreferences(bpy.types.AddonPreferences):
+#    # this must match the addon name, use '__package__'
+#    # when defining this in a submodule of a python package.
+#    bl_idname = __name__
+
+class YTGUI(bpy.types.PropertyGroup):
     show_channels = BoolProperty(default=True)
     show_textures = BoolProperty(default=True)
     show_texture_properties = BoolProperty(default=False)
@@ -2946,14 +3003,57 @@ class YTextureGroup(bpy.types.PropertyGroup):
     show_vector_properties = BoolProperty(default=False)
     show_mask_properties = BoolProperty(default=False)
 
-    preview_mode = BoolProperty(default=False, update=update_preview_mode)
+    #tree = PointerProperty(type=bpy.types.ShaderNodeTree)
 
-    # Useful to suspend update when adding new stuff
-    halt_update = BoolProperty(default=False)
+    show_channel_modifiers_0 = BoolProperty(default=False)
+    show_channel_modifiers_1 = BoolProperty(default=False)
+    show_channel_modifiers_2 = BoolProperty(default=False)
+    show_channel_modifiers_3 = BoolProperty(default=False)
+    show_channel_modifiers_4 = BoolProperty(default=False)
+    show_channel_modifiers_5 = BoolProperty(default=False)
+    show_channel_modifiers_6 = BoolProperty(default=False)
+    show_channel_modifiers_7 = BoolProperty(default=False)
+    show_channel_modifiers_8 = BoolProperty(default=False)
+    show_channel_modifiers_9 = BoolProperty(default=False)
+    show_channel_modifiers_10 = BoolProperty(default=False)
+    show_channel_modifiers_11 = BoolProperty(default=False)
+    show_channel_modifiers_12 = BoolProperty(default=False)
+    show_channel_modifiers_13 = BoolProperty(default=False)
+    show_channel_modifiers_14 = BoolProperty(default=False)
+    show_channel_modifiers_15 = BoolProperty(default=False)
+    show_channel_modifiers_16 = BoolProperty(default=False)
+    show_channel_modifiers_17 = BoolProperty(default=False)
+    show_channel_modifiers_18 = BoolProperty(default=False)
+    show_channel_modifiers_19 = BoolProperty(default=False)
 
-class YMaterialTGProps(bpy.types.PropertyGroup):
-    ori_bsdf = StringProperty(default='')
-    ori_output = StringProperty(default='')
+    #groups = CollectionProperty(type=YTempGroups)
+
+def copy_ui_settings(source, dest):
+    for attr in dir(source):
+        if attr.startswith('show_'):
+            setattr(dest, attr, getattr(source, attr))
+
+@persistent
+def save_ui_settings(scene):
+    wmui = bpy.context.window_manager.tgui
+    scui = bpy.context.scene.tgui
+    copy_ui_settings(wmui, scui)
+
+@persistent
+def load_ui_settings(scene):
+    wmui = bpy.context.window_manager.tgui
+    scui = bpy.context.scene.tgui
+    copy_ui_settings(scui, wmui)
+
+#@persistent
+#def update_tree_ui(scene):
+#    tgui = bpy.context.window_manager.tgui
+#
+#    group_node =  get_active_texture_group_node()
+#    tree = group_node.node_tree if group_node else None
+#    if tgui.tree != tree:
+#        tgui.tree = tree
+#        print(tree)
 
 @persistent
 def load_libraries(scene):
@@ -2972,7 +3072,11 @@ def register():
     # Custom Icon
     global custom_icons
     custom_icons = bpy.utils.previews.new()
-    custom_icons.load('asterisk', get_addon_filepath() + 'asterisk_icon.png', 'IMAGE')
+    filepath = get_addon_filepath() + 'icons' + os.sep
+    custom_icons.load('asterisk', filepath + 'asterisk_icon.png', 'IMAGE')
+    custom_icons.load('rgb_channel', filepath + 'rgb_channel_icon.png', 'IMAGE')
+    custom_icons.load('value_channel', filepath + 'value_channel_icon.png', 'IMAGE')
+    custom_icons.load('vector_channel', filepath + 'vector_channel_icon.png', 'IMAGE')
 
     # Register classes
     bpy.utils.register_module(__name__)
@@ -2980,12 +3084,17 @@ def register():
     # TG Props
     bpy.types.ShaderNodeTree.tg = PointerProperty(type=YTextureGroup)
     bpy.types.Material.tg = PointerProperty(type=YMaterialTGProps)
+    bpy.types.Scene.tgui = PointerProperty(type=YTGUI)
+    bpy.types.WindowManager.tgui = PointerProperty(type=YTGUI)
 
     # UI panel
     bpy.types.NODE_MT_add.append(menu_func)
 
-    # Load libraries
+    # Handlers
     bpy.app.handlers.load_post.append(load_libraries)
+    bpy.app.handlers.load_post.append(load_ui_settings)
+    bpy.app.handlers.save_pre.append(save_ui_settings)
+    #bpy.app.handlers.scene_update_pre.append(update_tree_ui)
 
 def unregister():
     # Custom Icon
@@ -3000,6 +3109,9 @@ def unregister():
 
     # Remove libraries
     bpy.app.handlers.load_post.remove(load_libraries)
+    bpy.app.handlers.load_post.remove(load_ui_settings)
+    bpy.app.handlers.save_pre.remove(save_ui_settings)
+    #bpy.app.handlers.scene_update_pre.remove(update_tree_ui)
 
 if __name__ == "__main__":
     register()
