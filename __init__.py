@@ -1,7 +1,7 @@
 bl_info = {
-    "name": "Ucup Multilayered Texture System",
+    "name": "Cycles Texture Group by ucupumar",
     "author": "Yusuf Umar",
-    "version": (0, 0, 0),
+    "version": (1, 0, 0),
     "blender": (2, 79, 0),
     "location": "Node Editor > Properties > Texture Group",
     "description": "Texture Group Node can be substitute for layer manager within Cycles",
@@ -428,8 +428,6 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     #return blend
 
 def create_group_channel_nodes(group_tree, channel):
-    # TEMPORARY SOLUTION
-    # New channel should be the last item
     tg = group_tree.tg
     nodes = group_tree.nodes
     links = group_tree.links
@@ -601,6 +599,15 @@ def create_new_group_tree(mat):
     end_node = group_tree.nodes.new('NodeGroupOutput')
     group_tree.tg.start = start_node.name
     group_tree.tg.end = end_node.name
+
+    # Create warning frame
+    warning = group_tree.nodes.new('NodeFrame')
+    warning.label = 'WARNING! DO NOT MANUALLY EDIT THIS GROUP!'
+    warning.use_custom_color = True
+    warning.color = (1.0, 0.5, 0.5)
+    warning.width = 500.0
+    warning.height = 30.0
+    group_tree.tg.warning = warning.name
 
     # Link start and end node then rearrange the nodes
     create_group_channel_nodes(group_tree, channel)
@@ -3255,6 +3262,9 @@ class YTextureGroup(bpy.types.PropertyGroup):
     start = StringProperty(default='')
     start_frame = StringProperty(default='')
 
+    # Warning frame
+    warning = StringProperty(default='')
+
     end = StringProperty(default='')
     end_entry_frame = StringProperty(default='')
     end_linear_frame = StringProperty(default='')
@@ -3458,7 +3468,7 @@ def load_libraries(scene):
             if ng not in exist_groups:
                 data_to.node_groups.append(ng)
 
-def register():
+def load_custom_icons():
     # Custom Icon
     global custom_icons
     custom_icons = bpy.utils.previews.new()
@@ -3489,6 +3499,9 @@ def register():
     custom_icons.load('uncollapsed_value_channel', filepath + 'uncollapsed_value_icon.png', 'IMAGE')
     custom_icons.load('collapsed_vector_channel', filepath + 'collapsed_vector_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_vector_channel', filepath + 'uncollapsed_vector_icon.png', 'IMAGE')
+
+def register():
+    load_custom_icons()
 
     # Register classes
     bpy.utils.register_module(__name__)

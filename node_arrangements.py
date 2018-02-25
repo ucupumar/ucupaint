@@ -98,6 +98,11 @@ def rearrange_nodes(group_tree):
 
     nodes = group_tree.nodes
 
+    # Rearrange warning node
+    warning = nodes.get(group_tree.tg.warning)
+    warning_loc = Vector((0, 75))
+    if warning and warning.location != warning_loc: warning.location = warning_loc
+
     new_loc = Vector((0, 0))
 
     # Rearrange start nodes
