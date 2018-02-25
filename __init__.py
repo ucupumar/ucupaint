@@ -584,6 +584,7 @@ def create_new_group_tree(mat):
     # Create new group tree
     group_tree = bpy.data.node_groups.new(group_name, 'ShaderNodeTree')
     group_tree.tg.is_tg_node = True
+    group_tree.tg.version = str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
 
     # Add new channel
     channel = group_tree.tg.channels.add()
@@ -3249,6 +3250,7 @@ class YGroupChannel(bpy.types.PropertyGroup):
 
 class YTextureGroup(bpy.types.PropertyGroup):
     is_tg_node = BoolProperty(default=False)
+    version = StringProperty(default='')
 
     # Channels
     channels = CollectionProperty(type=YGroupChannel)
