@@ -1,7 +1,7 @@
 bl_info = {
     "name": "Cycles Texture Group by ucupumar",
     "author": "Yusuf Umar",
-    "version": (1, 0, 0),
+    "version": (0, 1, 0),
     "blender": (2, 79, 0),
     "location": "Node Editor > Properties > Texture Group",
     "description": "Texture Group Node can be substitute for layer manager within Cycles",
@@ -3534,7 +3534,7 @@ def unregister():
     # Remove classes
     bpy.utils.unregister_module(__name__)
 
-    # Remove libraries
+    # Remove handlers
     bpy.app.handlers.load_post.remove(load_libraries)
     bpy.app.handlers.load_post.remove(load_ui_settings)
     bpy.app.handlers.save_pre.remove(save_ui_settings)
