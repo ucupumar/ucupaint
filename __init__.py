@@ -34,6 +34,7 @@ from mathutils import *
 #UDN = '~UDN Blend'
 OVERLAY_VECTOR = '~Overlay Vector'
 STRAIGHT_OVER = '~Straight Over Mix'
+UNPACK_NORMAL = '~Unpack Normal'
 
 texture_type_items = (
         ('IMAGE', 'Image', ''),
@@ -197,7 +198,7 @@ def refresh_layer_blends(group_tree):
                 elif group_ch.type == 'VECTOR':
 
                     bump = nodes.get(ch.bump)
-                    normal = nodes.get(ch.normal)
+                    unpack_normal = nodes.get(ch.unpack_normal)
 
                     if ch.vector_blend == 'OVERLAY':
                         blend = nodes.new('ShaderNodeGroup')
@@ -207,11 +208,11 @@ def refresh_layer_blends(group_tree):
 
                     # Links inside (also with refresh)
                     if ch.normal_map_type == 'BUMP':
-                        links.new(normal.outputs[0], blend.inputs[2])
+                        links.new(unpack_normal.outputs[0], blend.inputs[2])
                         links.new(bump.outputs[0], blend.inputs[2])
                     else: 
                         links.new(bump.outputs[0], blend.inputs[2])
-                        links.new(normal.outputs[0], blend.inputs[2])
+                        links.new(unpack_normal.outputs[0], blend.inputs[2])
                     links.new(intensity.outputs[0], blend.inputs[0])
 
                 #elif group_ch.type == 'VALUE':
@@ -259,14 +260,14 @@ def refresh_layer_blends(group_tree):
             if group_ch.type == 'VECTOR':
 
                 bump = nodes.get(ch.bump)
-                normal = nodes.get(ch.normal)
+                unpack_normal = nodes.get(ch.unpack_normal)
 
                 if ch.normal_map_type == 'BUMP':
-                    #check_create_node_link(group_tree, normal.outputs[0], blend.inputs[2])
+                    #check_create_node_link(group_tree, unpack_normal.outputs[0], blend.inputs[2])
                     check_create_node_link(group_tree, bump.outputs[0], blend.inputs[2])
                 else:
                     #check_create_node_link(group_tree, bump.outputs[0], blend.inputs[2])
-                    check_create_node_link(group_tree, normal.outputs[0], blend.inputs[2])
+                    check_create_node_link(group_tree, unpack_normal.outputs[0], blend.inputs[2])
 
             # Check blend type changes
             elif blend.bl_idname == 'ShaderNodeMixRGB':
@@ -379,8 +380,10 @@ def create_texture_channel_nodes(group_tree, texture, channel):
 
     # Normal nodes
     if group_ch.type == 'VECTOR':
-        normal = nodes.new('ShaderNodeNormalMap')
-        channel.normal = normal.name
+        #unpack_normal = nodes.new('ShaderNodeNormalMap')
+        unpack_normal = nodes.new('ShaderNodeGroup')
+        unpack_normal.node_tree = bpy.data.node_groups.get(UNPACK_NORMAL)
+        channel.unpack_normal = unpack_normal.name
 
         bump_base = nodes.new('ShaderNodeMixRGB')
         bump_base.label = 'Bump Base'
@@ -429,7 +432,7 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         links.new(end_alpha.outputs[0], bump_base.inputs[0])
         links.new(end_rgb.outputs[0], bump_base.inputs[2])
         links.new(bump_base.outputs[0], bump.inputs[2])
-        links.new(end_rgb.outputs[0], normal.inputs[1])
+        links.new(end_rgb.outputs[0], unpack_normal.inputs[0])
 
         # Bump as default
         #links.new(bump.outputs[0], blend.inputs[2])
@@ -614,6 +617,9 @@ def create_new_group_tree(mat):
     end_node = group_tree.nodes.new('NodeGroupOutput')
     group_tree.tl.start = start_node.name
     group_tree.tl.end = end_node.name
+
+    geometry = group_tree.nodes.new('ShaderNodeNewGeometry')
+    group_tree.tl.geometry = geometry.name
 
     # Create version info frame
     version_info = group_tree.nodes.new('NodeFrame')
@@ -982,7 +988,7 @@ class YRemoveTextureGroupChannel(bpy.types.Operator):
             #nodes.remove(nodes.get(ch.linear))
             try: nodes.remove(nodes.get(ch.alpha_passthrough))
             except: pass
-            try: nodes.remove(nodes.get(ch.normal))
+            try: nodes.remove(nodes.get(ch.unpack_normal))
             except: pass
             try: nodes.remove(nodes.get(ch.bump))
             except: pass
@@ -1132,6 +1138,15 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, vector_blend, n
     uv_map.parent = source_frame
     uv_map.uv_map = uv_map_name
     tex.uv_map = uv_map.name
+
+    # Add tangent node
+    tangent = nodes.new('ShaderNodeNormalMap')
+    tangent.label = 'Source Tangent'
+    tangent.parent = source_frame
+    tangent.uv_map = uv_map_name
+    tangent.outputs[0].name = 'Tangent'
+    tangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+    tex.tangent = tangent.name
 
     # Set tex coordinate type
     tex.texcoord_type = texcoord_type
@@ -1812,7 +1827,7 @@ class YRemoveTextureLayer(bpy.types.Operator):
 
             try: nodes.remove(nodes.get(ch.alpha_passthrough))
             except: pass
-            try: nodes.remove(nodes.get(ch.normal))
+            try: nodes.remove(nodes.get(ch.unpack_normal))
             except: pass
             try: nodes.remove(nodes.get(ch.bump))
             except: pass
@@ -3182,7 +3197,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Normal related
     bump_base = StringProperty(default='')
     bump = StringProperty(default='')
-    normal = StringProperty(default='')
+    unpack_normal = StringProperty(default='')
 
     bump_distance = FloatProperty(
             name='Bump Distance', 
@@ -3222,6 +3237,9 @@ class YTextureLayer(bpy.types.PropertyGroup):
 
     texcoord = StringProperty(default='')
     uv_map = StringProperty(default='')
+
+    #normal = StringProperty(default='')
+    tangent = StringProperty(default='')
 
     source_frame = StringProperty(default='')
     blend_frame = StringProperty(default='')
@@ -3281,7 +3299,7 @@ class YGroupChannel(bpy.types.PropertyGroup):
     ori_alpha_to = CollectionProperty(type=YNodeConnections)
     ori_alpha_from = PointerProperty(type=YNodeConnections)
 
-class YTextureGroup(bpy.types.PropertyGroup):
+class YTextureLayersTree(bpy.types.PropertyGroup):
     is_tl_node = BoolProperty(default=False)
     version = StringProperty(default='')
 
@@ -3292,6 +3310,9 @@ class YTextureGroup(bpy.types.PropertyGroup):
     # Textures
     textures = CollectionProperty(type=YTextureLayer)
     active_texture_index = IntProperty(default=0, update=update_texture_index)
+
+    # Geometry
+    geometry = StringProperty(default='')
 
     # Node names
     start = StringProperty(default='')
@@ -3381,11 +3402,11 @@ class YTextureUI(bpy.types.PropertyGroup):
     expand_vector = BoolProperty(default=False, update=update_texture_ui)
     channels = CollectionProperty(type=YChannelUI)
 
-class YMaterialTGProps(bpy.types.PropertyGroup):
+class YMaterialTLProps(bpy.types.PropertyGroup):
     ori_bsdf = StringProperty(default='')
     ori_output = StringProperty(default='')
 
-class YTGUI(bpy.types.PropertyGroup):
+class YTLUI(bpy.types.PropertyGroup):
     show_channels = BoolProperty(default=True)
     show_textures = BoolProperty(default=True)
 
@@ -3467,7 +3488,7 @@ def update_ui(scene):
 
         tlui.halt_prop_update = False
     
-#class YTGUserPreferences(bpy.types.AddonPreferences):
+#class YTLUserPreferences(bpy.types.AddonPreferences):
 #    # this must match the addon name, use '__package__'
 #    # when defining this in a submodule of a python package.
 #    bl_idname = __name__
@@ -3543,11 +3564,11 @@ def register():
     # Register classes
     bpy.utils.register_module(__name__)
 
-    # TG Props
-    bpy.types.ShaderNodeTree.tl = PointerProperty(type=YTextureGroup)
-    bpy.types.Material.tl = PointerProperty(type=YMaterialTGProps)
-    bpy.types.Scene.tlui = PointerProperty(type=YTGUI)
-    bpy.types.WindowManager.tlui = PointerProperty(type=YTGUI)
+    # TL Props
+    bpy.types.ShaderNodeTree.tl = PointerProperty(type=YTextureLayersTree)
+    bpy.types.Material.tl = PointerProperty(type=YMaterialTLProps)
+    bpy.types.Scene.tlui = PointerProperty(type=YTLUI)
+    bpy.types.WindowManager.tlui = PointerProperty(type=YTLUI)
 
     # UI panel
     bpy.types.NODE_MT_add.append(menu_func)

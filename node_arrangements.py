@@ -113,11 +113,17 @@ def rearrange_nodes(group_tree):
     loc = Vector((0, 150))
     if version_info and version_info.location != loc: version_info.location = loc
 
-    new_loc = Vector((0, 0))
+    # Rearrange geometry node
+    geometry = nodes.get(group_tree.tl.geometry)
+    loc = Vector((0, 0))
+    if geometry.location != loc: geometry.location = loc
 
     # Rearrange start nodes
     start_node = nodes.get(group_tree.tl.start)
-    if start_node.location != new_loc: start_node.location = new_loc
+    loc = Vector((0, -200))
+    if start_node.location != loc: start_node.location = loc
+
+    new_loc = Vector((0, 0))
 
     #dist_y = 350.0
     dist_y = 175.0
@@ -203,10 +209,10 @@ def rearrange_nodes(group_tree):
             new_loc.y -= 180.0
 
             # Normal node
-            normal = nodes.get(c.normal)
-            if normal:
-                if normal.location != new_loc: normal.location = new_loc
-                new_loc.y -= 160.0
+            unpack_normal = nodes.get(c.unpack_normal)
+            if unpack_normal:
+                if unpack_normal.location != new_loc: unpack_normal.location = new_loc
+                new_loc.y -= 125.0
 
             # Bump node
             bump = nodes.get(c.bump)
@@ -287,6 +293,12 @@ def rearrange_nodes(group_tree):
         if uv_map.location != new_loc: uv_map.location = new_loc
 
         new_loc.y -= 120.0
+
+        # Texcoord node
+        tangent = nodes.get(t.tangent)
+        if tangent.location != new_loc: tangent.location = new_loc
+
+        new_loc.y -= 165.0
 
         # Source node
         source = nodes.get(t.source)
