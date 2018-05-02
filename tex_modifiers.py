@@ -254,15 +254,15 @@ class YNewTexModifier(bpy.types.Operator):
     def execute(self, context):
         node = get_active_texture_group_node()
         group_tree = node.node_tree
-        tg = group_tree.tg
+        tl = group_tree.tl
 
-        #if len(tg.channels) == 0: return {'CANCELLED'}
+        #if len(tl.channels) == 0: return {'CANCELLED'}
 
         #if self.parent_type == 'CHANNEL':
-        #    parent = tg.channels[tg.active_channel_index]
+        #    parent = tl.channels[tl.active_channel_index]
         #elif self.parent_type == 'TEXTURE_CHANNEL':
-        #    if len(tg.textures) == 0: return {'CANCELLED'}
-        #    tex = tg.textures[tg.active_texture_index]
+        #    if len(tl.textures) == 0: return {'CANCELLED'}
+        #    tex = tl.textures[tl.active_texture_index]
         #    parent = tex.channels[self.channel_index]
         #else: return
 
@@ -271,7 +271,7 @@ class YNewTexModifier(bpy.types.Operator):
         # If RGB to intensity is added, bump base is better be 0.0
         #if self.parent_type == 'TEXTURE_CHANNEL' and self.type == 'RGB_TO_INTENSITY':
         if self.type == 'RGB_TO_INTENSITY' and hasattr(context, 'texture'):
-            for i, ch in enumerate(tg.channels):
+            for i, ch in enumerate(tl.channels):
                 c = context.texture.channels[i]
                 if ch.type == 'VECTOR':
                     c.bump_base_value = 0.0
@@ -283,7 +283,7 @@ class YNewTexModifier(bpy.types.Operator):
         rearrange_nodes(group_tree)
 
         # Update UI
-        context.window_manager.tgui.need_update = True
+        context.window_manager.tlui.need_update = True
 
         return {'FINISHED'}
 
@@ -318,15 +318,15 @@ class YMoveTexModifier(bpy.types.Operator):
         group_tree = node.node_tree
         nodes = group_tree.nodes
         links = group_tree.links
-        #tg = group_tree.tg
+        #tl = group_tree.tl
 
-        #if len(tg.channels) == 0: return {'CANCELLED'}
+        #if len(tl.channels) == 0: return {'CANCELLED'}
 
         #if self.parent_type == 'CHANNEL':
-        #    parent = tg.channels[tg.active_channel_index]
+        #    parent = tl.channels[tl.active_channel_index]
         #elif self.parent_type == 'TEXTURE_CHANNEL':
-        #    if len(tg.textures) == 0: return {'CANCELLED'}
-        #    tex = tg.textures[tg.active_texture_index]
+        #    if len(tl.textures) == 0: return {'CANCELLED'}
+        #    tex = tl.textures[tl.active_texture_index]
         #    parent = tex.channels[self.channel_index]
         #else: return
 
@@ -394,7 +394,7 @@ class YMoveTexModifier(bpy.types.Operator):
         rearrange_nodes(group_tree)
 
         # Update UI
-        context.window_manager.tgui.need_update = True
+        context.window_manager.tlui.need_update = True
 
         return {'FINISHED'}
 
@@ -424,15 +424,15 @@ class YRemoveTexModifier(bpy.types.Operator):
         group_tree = node.node_tree
         nodes = group_tree.nodes
         links = group_tree.links
-        #tg = group_tree.tg
+        #tl = group_tree.tl
 
-        #if len(tg.channels) == 0: return {'CANCELLED'}
+        #if len(tl.channels) == 0: return {'CANCELLED'}
 
         #if self.parent_type == 'CHANNEL':
-        #    parent = tg.channels[tg.active_channel_index]
+        #    parent = tl.channels[tl.active_channel_index]
         #elif self.parent_type == 'TEXTURE_CHANNEL':
-        #    if len(tg.textures) == 0: return {'CANCELLED'}
-        #    tex = tg.textures[tg.active_texture_index]
+        #    if len(tl.textures) == 0: return {'CANCELLED'}
+        #    tex = tl.textures[tl.active_texture_index]
         #    parent = tex.channels[self.channel_index]
         #else: return
 
@@ -472,7 +472,7 @@ class YRemoveTexModifier(bpy.types.Operator):
         #    ): parent.active_modifier_index -= 1
 
         # Update UI
-        context.window_manager.tgui.need_update = True
+        context.window_manager.tlui.need_update = True
 
         return {'FINISHED'}
 
@@ -560,10 +560,10 @@ class YTexModifierSpecialMenu(bpy.types.Menu):
 
     def draw(self, context):
         #node = get_active_texture_group_node()
-        #tg = node.node_tree.tg
+        #tl = node.node_tree.tl
 
         #if 'YLayerChannel' in str(type(context.channel)):
-        #    tex = tg.textures[tg.active_texture_index]
+        #    tex = tl.textures[tl.active_texture_index]
         #    parent_type = 'TEXTURE_CHANNEL'
         #    #self.layout.prop(tex, 'name')
 
@@ -586,7 +586,7 @@ class YTexModifierSpecialMenu(bpy.types.Menu):
 def update_modifier_enable(self, context):
     group_node = get_active_texture_group_node()
     nodes = group_node.node_tree.nodes
-    #tg = group_node.node_tree.tg
+    #tl = group_node.node_tree.tl
 
     if self.type == 'RGB_TO_INTENSITY':
         rgb2i_color = nodes.get(self.rgb2i_color)
@@ -624,12 +624,12 @@ def update_modifier_enable(self, context):
 
 def update_modifier_shortcut(self, context):
     group_tree = self.id_data
-    tg = group_tree.tg
+    tl = group_tree.tl
 
     if self.shortcut:
         mod_found = False
         # Check if modifier on group channel
-        channel = tg.channels[tg.active_channel_index]
+        channel = tl.channels[tl.active_channel_index]
         for mod in channel.modifiers:
             if mod == self:
                 mod_found = True
@@ -642,7 +642,7 @@ def update_modifier_shortcut(self, context):
             return
 
         # Check texture channels
-        tex = tg.textures[tg.active_texture_index]
+        tex = tl.textures[tl.active_texture_index]
         for ch in tex.channels:
             for mod in ch.modifiers:
                 if mod != self:

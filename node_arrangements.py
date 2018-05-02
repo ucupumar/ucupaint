@@ -99,14 +99,24 @@ def rearrange_nodes(group_tree):
     nodes = group_tree.nodes
 
     # Rearrange warning node
-    warning = nodes.get(group_tree.tg.warning)
-    warning_loc = Vector((0, 75))
-    if warning and warning.location != warning_loc: warning.location = warning_loc
+    warning = nodes.get(group_tree.tl.warning)
+    loc = Vector((0, 70))
+    if warning and warning.location != loc: warning.location = loc
+
+    # Rearrange version info node
+    support_info = nodes.get(group_tree.tl.support_info)
+    loc = Vector((0, 110))
+    if support_info and support_info.location != loc: support_info.location = loc
+
+    # Rearrange version info node
+    version_info = nodes.get(group_tree.tl.version_info)
+    loc = Vector((0, 150))
+    if version_info and version_info.location != loc: version_info.location = loc
 
     new_loc = Vector((0, 0))
 
     # Rearrange start nodes
-    start_node = nodes.get(group_tree.tg.start)
+    start_node = nodes.get(group_tree.tl.start)
     if start_node.location != new_loc: start_node.location = new_loc
 
     #dist_y = 350.0
@@ -114,7 +124,7 @@ def rearrange_nodes(group_tree):
     dist_x = 370.0
 
     # Start nodes
-    for i, channel in enumerate(group_tree.tg.channels):
+    for i, channel in enumerate(group_tree.tl.channels):
         new_loc.y = -dist_y * i
 
         # Start linear
@@ -144,14 +154,14 @@ def rearrange_nodes(group_tree):
         new_loc.y = ori_y
 
         # Back to left
-        if i < len(group_tree.tg.channels)-1:
+        if i < len(group_tree.tl.channels)-1:
             new_loc.x = 0.0
 
     new_loc.x += 100.0
     ori_x = new_loc.x
 
     # Texture nodes
-    for i, t in enumerate(reversed(group_tree.tg.textures)):
+    for i, t in enumerate(reversed(group_tree.tl.textures)):
 
         new_loc.y = 0.0
         new_loc.x = ori_x + dist_x * i * len(t.channels)
@@ -283,10 +293,10 @@ def rearrange_nodes(group_tree):
         if source.location != new_loc: source.location = new_loc
 
     #new_loc.x += 240.0
-    new_loc.x = ori_x + dist_x * len(group_tree.tg.channels) * len(group_tree.tg.textures) + 25.0
+    new_loc.x = ori_x + dist_x * len(group_tree.tl.channels) * len(group_tree.tl.textures) + 25.0
 
     # End entry nodes
-    for i, channel in enumerate(group_tree.tg.channels):
+    for i, channel in enumerate(group_tree.tl.channels):
         new_loc.y = -dist_y * i
 
         #ori_y = new_loc.y
@@ -306,7 +316,7 @@ def rearrange_nodes(group_tree):
     ori_xxx = new_loc.x
 
     # End modifiers
-    for i, channel in enumerate(group_tree.tg.channels):
+    for i, channel in enumerate(group_tree.tl.channels):
         new_loc.y = -dist_y * i
         new_loc.x = ori_xxx + dist_x * i
 
@@ -336,7 +346,7 @@ def rearrange_nodes(group_tree):
     new_loc.x += 250.0
         
     # End linear
-    for i, channel in enumerate(group_tree.tg.channels):
+    for i, channel in enumerate(group_tree.tl.channels):
         new_loc.y = -dist_y * i
         if channel.end_linear != '':
             end_linear = nodes.get(channel.end_linear)
@@ -346,6 +356,6 @@ def rearrange_nodes(group_tree):
     new_loc.y = 0.0
 
     # End node
-    end_node = nodes.get(group_tree.tg.end)
+    end_node = nodes.get(group_tree.tl.end)
     if end_node.location != new_loc: end_node.location = new_loc
 

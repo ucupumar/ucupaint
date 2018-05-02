@@ -136,7 +136,7 @@ def get_active_node():
 
 def get_active_texture_group_node():
     node = get_active_node()
-    if not node or node.type != 'GROUP' or not node.node_tree or not node.node_tree.tg.is_tg_node:
+    if not node or node.type != 'GROUP' or not node.node_tree or not node.node_tree.tl.is_tl_node:
         return None
     return node
 
@@ -144,10 +144,10 @@ def get_active_texture_group_node():
 #def get_active_image():
 #    node = get_active_texture_group_node()
 #    if not node: return None
-#    tg = node.node_tree.tg
+#    tl = node.node_tree.tl
 #    nodes = node.node_tree.nodes
-#    if len(tg.textures) == 0: return None
-#    tex = tg.textures[tg.active_texture_index]
+#    if len(tl.textures) == 0: return None
+#    tex = tl.textures[tl.active_texture_index]
 #    if tex.type != 'ShaderNodeTexImage': return None
 #    source = nodes.get(tex.source)
 #    return source.image
