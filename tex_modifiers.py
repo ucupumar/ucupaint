@@ -273,7 +273,7 @@ class YNewTexModifier(bpy.types.Operator):
         if self.type == 'RGB_TO_INTENSITY' and hasattr(context, 'texture'):
             for i, ch in enumerate(tl.channels):
                 c = context.texture.channels[i]
-                if ch.type == 'VECTOR':
+                if ch.type == 'NORMAL':
                     c.bump_base_value = 0.0
 
         # Expand channel content to see added modifier
