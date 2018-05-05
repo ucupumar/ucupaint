@@ -32,9 +32,11 @@ from mathutils import *
 
 # Imported node group names
 #UDN = '~UDN Blend'
-OVERLAY_VECTOR = '~Overlay Vector'
+OVERLAY_NORMAL = '~Overlay Normal'
 STRAIGHT_OVER = '~Straight Over Mix'
 UNPACK_NORMAL = '~Unpack Normal'
+CHECK_INPUT_NORMAL = '~Check Input Normal'
+FLIP_BACKFACE_NORMAL = '~Flip Backface Normal'
 
 texture_type_items = (
         ('IMAGE', 'Image', ''),
@@ -109,9 +111,10 @@ def add_io_from_new_channel(group_tree):
     elif channel.type == 'RGB':
         inp.default_value = (1,1,1,1)
     elif channel.type == 'VECTOR':
-        inp.min_value = -1.0
-        inp.max_value = 1.0
-        inp.default_value = (0,0,1)
+        #inp.min_value = -1.0
+        #inp.max_value = 1.0
+        # Use 254 as normal z value so it will fallback to use geometry normal at checking process
+        inp.default_value = (254,254,254) 
 
 def set_input_default_value(group_node, channel):
     #channel = group_node.node_tree.tl.channels[index]
@@ -124,7 +127,8 @@ def set_input_default_value(group_node, channel):
     if channel.type == 'VALUE':
         group_node.inputs[channel.io_index].default_value = 0.0
     if channel.type == 'VECTOR':
-        group_node.inputs[channel.io_index].default_value = (0,0,1)
+        # Use 254 as normal z value so it will fallback to use geometry normal at checking process
+        group_node.inputs[channel.io_index].default_value = (254,254,254)
 
 def update_image_editor_image(context, image):
     for area in context.screen.areas:
@@ -135,8 +139,10 @@ def update_image_editor_image(context, image):
 def check_create_node_link(tree, out, inp):
     if not any(l for l in out.links if l.to_socket == inp):
         tree.links.new(out, inp)
+        return True
+    return False
 
-def refresh_layer_blends(group_tree):
+def refresh_layer_blends(group_tree): #, layer_ch=None):
 
     tl = group_tree.tl
     nodes = group_tree.nodes
@@ -147,6 +153,7 @@ def refresh_layer_blends(group_tree):
     # Make blend type consistent with the nodes
     for tex in tl.textures:
         for i, ch in enumerate(tex.channels):
+            #if not layer_ch or (layer_ch and layer_ch == ch):
             group_ch = tl.channels[i]
 
             blend_frame = nodes.get(tex.blend_frame)
@@ -198,21 +205,24 @@ def refresh_layer_blends(group_tree):
                 elif group_ch.type == 'VECTOR':
 
                     bump = nodes.get(ch.bump)
-                    unpack_normal = nodes.get(ch.unpack_normal)
+                    normal = nodes.get(ch.normal)
+                    normal_flip = nodes.get(ch.normal_flip)
 
                     if ch.vector_blend == 'OVERLAY':
                         blend = nodes.new('ShaderNodeGroup')
-                        blend.node_tree = bpy.data.node_groups.get(OVERLAY_VECTOR)
+                        blend.node_tree = bpy.data.node_groups.get(OVERLAY_NORMAL)
+
+                        # Link to normal and tangent input
+                        #geometry = nodes.get(tl.geometry)
+                        #tangent = nodes.get(tex.tangent)
+                        #bitangent = nodes.get(tex.bitangent)
+                        #links.new(geometry.outputs[1], blend.inputs[3])
+                        #links.new(tangent.outputs[0], blend.inputs[4])
+                        #links.new(bitangent.outputs[0], blend.inputs[5])
                     else:
                         blend = nodes.new('ShaderNodeMixRGB')
 
-                    # Links inside (also with refresh)
-                    if ch.normal_map_type == 'BUMP':
-                        links.new(unpack_normal.outputs[0], blend.inputs[2])
-                        links.new(bump.outputs[0], blend.inputs[2])
-                    else: 
-                        links.new(bump.outputs[0], blend.inputs[2])
-                        links.new(unpack_normal.outputs[0], blend.inputs[2])
+                    links.new(normal_flip.outputs[0], blend.inputs[2])
                     links.new(intensity.outputs[0], blend.inputs[0])
 
                 #elif group_ch.type == 'VALUE':
@@ -260,14 +270,25 @@ def refresh_layer_blends(group_tree):
             if group_ch.type == 'VECTOR':
 
                 bump = nodes.get(ch.bump)
-                unpack_normal = nodes.get(ch.unpack_normal)
+                normal = nodes.get(ch.normal)
+                normal_flip = nodes.get(ch.normal_flip)
+
+                if ch.vector_blend == 'OVERLAY':
+                    # Link to normal and tangent input
+                    geometry = nodes.get(tl.geometry)
+                    tangent = nodes.get(tex.tangent)
+                    bitangent = nodes.get(tex.bitangent)
+                    check_create_node_link(group_tree, geometry.outputs[1], blend.inputs[3])
+                    check_create_node_link(group_tree, tangent.outputs[0], blend.inputs[4])
+                    check_create_node_link(group_tree, bitangent.outputs[0], blend.inputs[5])
 
                 if ch.normal_map_type == 'BUMP':
-                    #check_create_node_link(group_tree, unpack_normal.outputs[0], blend.inputs[2])
-                    check_create_node_link(group_tree, bump.outputs[0], blend.inputs[2])
-                else:
                     #check_create_node_link(group_tree, bump.outputs[0], blend.inputs[2])
-                    check_create_node_link(group_tree, unpack_normal.outputs[0], blend.inputs[2])
+                    check_create_node_link(group_tree, bump.outputs[0], normal_flip.inputs[0])
+                else:
+                    #check_create_node_link(group_tree, normal.outputs[0], blend.inputs[2])
+                    check_create_node_link(group_tree, normal.outputs[0], normal_flip.inputs[0])
+                tl.refresh_normal = True
 
             # Check blend type changes
             elif blend.bl_idname == 'ShaderNodeMixRGB':
@@ -380,10 +401,13 @@ def create_texture_channel_nodes(group_tree, texture, channel):
 
     # Normal nodes
     if group_ch.type == 'VECTOR':
-        #unpack_normal = nodes.new('ShaderNodeNormalMap')
-        unpack_normal = nodes.new('ShaderNodeGroup')
-        unpack_normal.node_tree = bpy.data.node_groups.get(UNPACK_NORMAL)
-        channel.unpack_normal = unpack_normal.name
+        normal = nodes.new('ShaderNodeNormalMap')
+        uv_map = nodes.get(texture.uv_map)
+        normal.uv_map = uv_map.uv_map
+        #normal = nodes.new('ShaderNodeGroup')
+        #normal.node_tree = bpy.data.node_groups.get(UNPACK_NORMAL)
+        #normal.label = 'Normal Tangent Space'
+        channel.normal = normal.name
 
         bump_base = nodes.new('ShaderNodeMixRGB')
         bump_base.label = 'Bump Base'
@@ -395,6 +419,10 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         bump = nodes.new('ShaderNodeBump')
         bump.inputs[1].default_value = 0.05
         channel.bump = bump.name
+
+        normal_flip = nodes.new('ShaderNodeGroup')
+        normal_flip.node_tree = bpy.data.node_groups.get(FLIP_BACKFACE_NORMAL)
+        channel.normal_flip = normal_flip.name
 
     #intensity.parent = blend_frame
 
@@ -432,7 +460,10 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         links.new(end_alpha.outputs[0], bump_base.inputs[0])
         links.new(end_rgb.outputs[0], bump_base.inputs[2])
         links.new(bump_base.outputs[0], bump.inputs[2])
-        links.new(end_rgb.outputs[0], unpack_normal.inputs[0])
+        links.new(end_rgb.outputs[0], normal.inputs[1])
+
+        bitangent = nodes.get(texture.bitangent)
+        links.new(bitangent.outputs[0], normal_flip.inputs[1])
 
         # Bump as default
         #links.new(bump.outputs[0], blend.inputs[2])
@@ -509,6 +540,12 @@ def create_group_channel_nodes(group_tree, channel):
         end_linear.parent = end_linear_frame
         channel.end_linear = end_linear.name
 
+    if channel.type == 'VECTOR':
+        normal_filter = nodes.new('ShaderNodeGroup')
+        normal_filter.node_tree = bpy.data.node_groups.get(CHECK_INPUT_NORMAL)
+        normal_filter.parent = start_frame
+        channel.normal_filter = normal_filter.name
+
     start_entry = nodes.new('NodeReroute')
     start_entry.label = 'Start Entry'
     start_entry.parent = start_frame
@@ -561,6 +598,12 @@ def create_group_channel_nodes(group_tree, channel):
     if start_linear:
         links.new(start_node.outputs[channel.io_index], start_linear.inputs[0])
         links.new(start_linear.outputs[0], start_entry.inputs[0])
+    elif channel.type == 'VECTOR':
+        geometry = nodes.get(tl.geometry)
+        links.new(start_node.outputs[channel.io_index], normal_filter.inputs[0])
+        links.new(geometry.outputs[1], normal_filter.inputs[1])
+        links.new(normal_filter.outputs[0], start_entry.inputs[0])
+        tl.refresh_normal = True
     else:
         links.new(start_node.outputs[channel.io_index], start_entry.inputs[0])
 
@@ -988,7 +1031,9 @@ class YRemoveTextureGroupChannel(bpy.types.Operator):
             #nodes.remove(nodes.get(ch.linear))
             try: nodes.remove(nodes.get(ch.alpha_passthrough))
             except: pass
-            try: nodes.remove(nodes.get(ch.unpack_normal))
+            try: nodes.remove(nodes.get(ch.normal))
+            except: pass
+            try: nodes.remove(nodes.get(ch.normal_flip))
             except: pass
             try: nodes.remove(nodes.get(ch.bump))
             except: pass
@@ -1013,6 +1058,8 @@ class YRemoveTextureGroupChannel(bpy.types.Operator):
         try: nodes.remove(nodes.get(channel.solid_alpha)) 
         except: pass
         try: nodes.remove(nodes.get(channel.end_alpha_entry)) 
+        except: pass
+        try: nodes.remove(nodes.get(channel.normal_filter)) 
         except: pass
 
         # Remove channel modifiers
@@ -1104,6 +1151,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, vector_blend, n
     tex = tl.textures.add()
     tex.type = tex_type
     tex.name = tex_name
+    tex.uv_name = uv_map_name
 
     # Move new texture to current index
     last_index = len(tl.textures)-1
@@ -1144,9 +1192,17 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, vector_blend, n
     tangent.label = 'Source Tangent'
     tangent.parent = source_frame
     tangent.uv_map = uv_map_name
-    tangent.outputs[0].name = 'Tangent'
-    tangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+    #tangent.outputs[0].name = 'Tangent' # STOPP, DO NOT UNCOMMENT THIS CODE IF U DONT WANT HORRIBLE ERROR
+    tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
     tex.tangent = tangent.name
+
+    bitangent = nodes.new('ShaderNodeNormalMap')
+    bitangent.label = 'Source Bitangent'
+    bitangent.parent = source_frame
+    bitangent.uv_map = uv_map_name
+    #bitangent.outputs[0].name = 'Bitangent' # STOPP, DO NOT UNCOMMENT THIS CODE IF U DONT WANT HORRIBLE ERROR
+    bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+    tex.bitangent = bitangent.name
 
     # Set tex coordinate type
     tex.texcoord_type = texcoord_type
@@ -1799,6 +1855,8 @@ class YRemoveTextureLayer(bpy.types.Operator):
         nodes.remove(nodes.get(tex.source))
         nodes.remove(nodes.get(tex.texcoord))
         nodes.remove(nodes.get(tex.uv_map))
+        nodes.remove(nodes.get(tex.tangent))
+        nodes.remove(nodes.get(tex.bitangent))
         try: nodes.remove(nodes.get(tex.solid_alpha))
         except: pass
 
@@ -1827,7 +1885,9 @@ class YRemoveTextureLayer(bpy.types.Operator):
 
             try: nodes.remove(nodes.get(ch.alpha_passthrough))
             except: pass
-            try: nodes.remove(nodes.get(ch.unpack_normal))
+            try: nodes.remove(nodes.get(ch.normal))
+            except: pass
+            try: nodes.remove(nodes.get(ch.normal_flip))
             except: pass
             try: nodes.remove(nodes.get(ch.bump))
             except: pass
@@ -1884,32 +1944,32 @@ class YAddSimpleUVs(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YHackNormalConsistency(bpy.types.Operator):
-    bl_idname = "node.y_hack_bump_consistency"
-    bl_label = "Hack Normal Map Consistency"
-    bl_description = "Hack bump map consistency (try this if Blender produce error normal map result)"
-    #bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return get_active_texture_group_node()
-
-    def execute(self, context):
-        node = get_active_texture_group_node()
-        group_tree = node.node_tree
-        tl = group_tree.tl
-
-        for tex in tl.textures:
-            for i, ch in enumerate(tex.channels):
-                if tl.channels[i].type != 'VECTOR': continue
-                if ch.normal_map_type == 'BUMP':
-                    ch.normal_map_type = 'NORMAL'
-                    ch.normal_map_type = 'BUMP'
-                else:
-                    ch.normal_map_type = 'BUMP'
-                    ch.normal_map_type = 'NORMAL'
-
-        return {'FINISHED'}
+#class YHackNormalConsistency(bpy.types.Operator):
+#    bl_idname = "node.y_hack_bump_consistency"
+#    bl_label = "Hack Normal Map Consistency"
+#    bl_description = "Hack bump map consistency (try this if Blender produce error normal map result)"
+#    #bl_options = {'REGISTER', 'UNDO'}
+#
+#    @classmethod
+#    def poll(cls, context):
+#        return get_active_texture_group_node()
+#
+#    def execute(self, context):
+#        node = get_active_texture_group_node()
+#        group_tree = node.node_tree
+#        tl = group_tree.tl
+#
+#        for tex in tl.textures:
+#            for i, ch in enumerate(tex.channels):
+#                if tl.channels[i].type != 'VECTOR': continue
+#                if ch.normal_map_type == 'BUMP':
+#                    ch.normal_map_type = 'NORMAL'
+#                    ch.normal_map_type = 'BUMP'
+#                else:
+#                    ch.normal_map_type = 'BUMP'
+#                    ch.normal_map_type = 'NORMAL'
+#
+#        return {'FINISHED'}
 
 def draw_tex_props(group_tree, tex, layout):
 
@@ -2207,27 +2267,30 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                     inp = node.inputs[channel.io_index]
                     brow = bcol.row(align=True)
 
-                    if channel.type == 'VECTOR':
-                        if chui.expand_base_vector:
-                            icon_value = custom_icons["uncollapsed_input"].icon_id
-                        else: icon_value = custom_icons["collapsed_input"].icon_id
-                        brow.prop(chui, 'expand_base_vector', text='', emboss=False, icon_value=icon_value)
-                    else: brow.label('', icon='INFO')
+                    #if channel.type == 'VECTOR':
+                    #    if chui.expand_base_vector:
+                    #        icon_value = custom_icons["uncollapsed_input"].icon_id
+                    #    else: icon_value = custom_icons["collapsed_input"].icon_id
+                    #    brow.prop(chui, 'expand_base_vector', text='', emboss=False, icon_value=icon_value)
+                    #else: brow.label('', icon='INFO')
+                    brow.label('', icon='INFO')
 
                     if channel.type == 'RGB':
                         brow.label('Background:')
                     elif channel.type == 'VALUE':
                         brow.label('Base Value:')
                     elif channel.type == 'VECTOR':
-                        if chui.expand_base_vector:
-                            brow.label('Base Vector:')
-                        else: brow.label('Base Vector')
+                        #if chui.expand_base_vector:
+                        #    brow.label('Base Vector:')
+                        #else: brow.label('Base Vector')
+                        brow.label('Base Vector')
 
                     if channel.type == 'VECTOR':
-                        if chui.expand_base_vector:
-                            brow = bcol.row(align=True)
-                            brow.label('', icon='BLANK1')
-                            brow.prop(inp,'default_value', text='')
+                        #if chui.expand_base_vector:
+                        #    brow = bcol.row(align=True)
+                        #    brow.label('', icon='BLANK1')
+                        #    brow.prop(inp,'default_value', text='')
+                        pass
                     else:
                         brow.prop(inp,'default_value', text='')
 
@@ -2481,6 +2544,14 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                                 if tlui.expand_channels:
                                     row.label('', icon='BLANK1')
 
+                            row = ccol.row(align=True)
+                            row.label('', icon='BLANK1')
+                            row.label('', icon='INFO')
+                            row.label('Invert Backface Normal')
+                            row.prop(ch, 'invert_backface_normal', text='')
+                            if tlui.expand_channels:
+                                row.label('', icon='BLANK1')
+
                             extra_separator = True
 
                         for j, m in enumerate(ch.modifiers):
@@ -2568,10 +2639,11 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                 split = row.split(percentage=0.275, align=True)
                 split.label('Vector:')
                 if is_a_mesh and tex.texcoord_type == 'UV':
-                    uv_map = nodes.get(tex.uv_map)
+                    #uv_map = nodes.get(tex.uv_map)
                     ssplit = split.split(percentage=0.33, align=True)
                     ssplit.prop(tex, 'texcoord_type', text='')
-                    ssplit.prop_search(uv_map, "uv_map", obj.data, "uv_textures", text='')
+                    #ssplit.prop_search(uv_map, "uv_map", obj.data, "uv_textures", text='')
+                    ssplit.prop_search(tex, "uv_name", obj.data, "uv_textures", text='')
                 else:
                     split.prop(tex, 'texcoord_type', text='')
 
@@ -2758,8 +2830,8 @@ class YTexSpecialMenu(bpy.types.Menu):
         self.layout.operator('node.y_save_image', text='Save/Pack All', icon='FILE_TICK')
         self.layout.separator()
         self.layout.operator("node.y_reload_image", icon='FILE_REFRESH')
-        self.layout.separator()
-        self.layout.operator('node.y_hack_bump_consistency', icon='MATCAP_23')
+        #self.layout.separator()
+        #self.layout.operator('node.y_hack_bump_consistency', icon='MATCAP_23')
 
 class YModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_modifier_menu"
@@ -3015,13 +3087,13 @@ def update_texture_index(self, context):
 #    return tex, ch_index
 
 def update_normal_map_type(self, context):
-    refresh_layer_blends(self.id_data)
+    refresh_layer_blends(self.id_data) #, layer_ch=self)
 
 def update_blend_type(self, context):
-    refresh_layer_blends(self.id_data)
+    refresh_layer_blends(self.id_data) #, layer_ch=self)
 
 def update_vector_blend(self, context):
-    refresh_layer_blends(self.id_data)
+    refresh_layer_blends(self.id_data) #, layer_ch=self)
 
 def update_bump_base_value(self, context):
     group_tree = self.id_data
@@ -3140,6 +3212,32 @@ def update_channel_alpha(self, context):
             if ch.io_index > self.io_index:
                 ch.io_index -= 1
 
+def update_flip_backface_normal(self, context):
+    group_tree = self.id_data
+    tl = group_tree.tl
+    nodes = group_tree.nodes
+
+    normal_flip = nodes.get(self.normal_flip)
+    if normal_flip:
+        normal_flip.mute = self.invert_backface_normal
+
+def update_uv_name(self, context):
+    group_tree = self.id_data
+    tl = group_tree.tl
+    nodes = group_tree.nodes
+    tex = self
+
+    tangent = nodes.get(tex.tangent)
+    if tangent: tangent.uv_map = tex.uv_name
+
+    bitangent = nodes.get(tex.bitangent)
+    if bitangent: bitangent.uv_map = tex.uv_name
+
+    for ch in tex.channels:
+        normal = nodes.get(ch.normal)
+        if normal:
+            normal.uv_map = tex.uv_name
+
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
 
@@ -3182,6 +3280,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     expand_bump_settings = BoolProperty(default=False)
     expand_content = BoolProperty(default=False)
 
+    invert_backface_normal = BoolProperty(default=False, update=update_flip_backface_normal)
+
     # Node names
     #linear = StringProperty(default='')
     blend = StringProperty(default='')
@@ -3197,7 +3297,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Normal related
     bump_base = StringProperty(default='')
     bump = StringProperty(default='')
-    unpack_normal = StringProperty(default='')
+    normal = StringProperty(default='')
+    normal_flip = StringProperty(default='')
 
     bump_distance = FloatProperty(
             name='Bump Distance', 
@@ -3229,6 +3330,8 @@ class YTextureLayer(bpy.types.PropertyGroup):
         default = 'UV',
         update=update_texcoord_type)
 
+    uv_name = StringProperty(default='', update=update_uv_name)
+
     # Node names
     source = StringProperty(default='')
     #linear = StringProperty(default='')
@@ -3240,6 +3343,7 @@ class YTextureLayer(bpy.types.PropertyGroup):
 
     #normal = StringProperty(default='')
     tangent = StringProperty(default='')
+    bitangent = StringProperty(default='')
 
     source_frame = StringProperty(default='')
     blend_frame = StringProperty(default='')
@@ -3278,6 +3382,8 @@ class YGroupChannel(bpy.types.PropertyGroup):
     start_entry = StringProperty(default='')
     start_alpha_entry = StringProperty(default='')
     solid_alpha = StringProperty(default='')
+
+    normal_filter = StringProperty(default='')
 
     end_entry = StringProperty(default='')
     end_alpha_entry = StringProperty(default='')
@@ -3331,6 +3437,10 @@ class YTextureLayersTree(bpy.types.PropertyGroup):
     #temp_channels = CollectionProperty(type=YChannelUI)
 
     preview_mode = BoolProperty(default=False, update=update_preview_mode)
+
+    # Refresh normal hack
+    refresh_normal = BoolProperty(default=False)
+    #refresh_normal_counter = IntProperty(default=0)
 
     # Useful to suspend update when adding new stuff
     halt_update = BoolProperty(default=False)
@@ -3439,6 +3549,21 @@ def update_ui(scene):
     if not group_node: return
     tree = group_node.node_tree
     tl = tree.tl
+
+    # Refresh normal hack
+    if tl.refresh_normal:
+        print('Neveseneve')
+        #tl.refresh_normal_counter += 1
+        #if tl.refresh_normal_counter == 10:
+        # Just reconnect any connection twice to refresh normal
+        for link in tree.links:
+            from_socket = link.from_socket
+            to_socket = link.to_socket
+            tree.links.new(from_socket, to_socket)
+            tree.links.new(from_socket, to_socket)
+            break
+        tl.refresh_normal = False
+        #tl.refresh_normal_counter = 0
 
     if (tlui.tree != tree or 
         tlui.tex_idx != tl.active_texture_index or 

@@ -126,7 +126,7 @@ def rearrange_nodes(group_tree):
     new_loc = Vector((0, 0))
 
     #dist_y = 350.0
-    dist_y = 175.0
+    dist_y = 185.0
     dist_x = 370.0
 
     # Start nodes
@@ -138,6 +138,9 @@ def rearrange_nodes(group_tree):
         if channel.start_linear != '':
             start_linear = nodes.get(channel.start_linear)
             if start_linear.location != new_loc: start_linear.location = new_loc
+        elif channel.normal_filter != '':
+            normal_filter = nodes.get(channel.normal_filter)
+            if normal_filter.location != new_loc: normal_filter.location = new_loc
 
         # Start solid alpha
         new_loc.y -= 100.0
@@ -209,10 +212,16 @@ def rearrange_nodes(group_tree):
             new_loc.y -= 180.0
 
             # Normal node
-            unpack_normal = nodes.get(c.unpack_normal)
-            if unpack_normal:
-                if unpack_normal.location != new_loc: unpack_normal.location = new_loc
-                new_loc.y -= 125.0
+            normal_flip = nodes.get(c.normal_flip)
+            if normal_flip:
+                if normal_flip.location != new_loc: normal_flip.location = new_loc
+                new_loc.y -= 135.0
+
+            # Normal node
+            normal = nodes.get(c.normal)
+            if normal:
+                if normal.location != new_loc: normal.location = new_loc
+                new_loc.y -= 165.0
 
             # Bump node
             bump = nodes.get(c.bump)
@@ -294,9 +303,15 @@ def rearrange_nodes(group_tree):
 
         new_loc.y -= 120.0
 
-        # Texcoord node
+        # Tangent node
         tangent = nodes.get(t.tangent)
         if tangent.location != new_loc: tangent.location = new_loc
+
+        new_loc.y -= 165.0
+
+        # Bitangent node
+        bitangent = nodes.get(t.bitangent)
+        if bitangent.location != new_loc: bitangent.location = new_loc
 
         new_loc.y -= 165.0
 
