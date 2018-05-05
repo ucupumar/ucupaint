@@ -177,7 +177,7 @@ def add_new_modifier(group_tree, parent, modifier_type):
     elif m.type == 'COLOR_RAMP':
 
         color_ramp_alpha_multiply = nodes.new('ShaderNodeMixRGB')
-        color_ramp_alpha_multiply.name = 'ColorRamp Alpha Multiply'
+        color_ramp_alpha_multiply.label = 'ColorRamp Alpha Multiply'
         color_ramp_alpha_multiply.inputs[0].default_value = 1.0
         color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
         m.color_ramp_alpha_multiply = color_ramp_alpha_multiply.name
@@ -185,10 +185,15 @@ def add_new_modifier(group_tree, parent, modifier_type):
         color_ramp = nodes.new('ShaderNodeValToRGB')
         m.color_ramp = color_ramp.name
 
-        color_ramp_alpha_mix = nodes.new('ShaderNodeMixRGB')
-        color_ramp_alpha_mix.name = 'ColorRamp Alpha Mix'
-        color_ramp_alpha_mix.inputs[0].default_value = 1.0
-        m.color_ramp_alpha_mix = color_ramp_alpha_mix.name
+        color_ramp_mix_alpha = nodes.new('ShaderNodeMixRGB')
+        color_ramp_mix_alpha.label = 'ColorRamp Alpha Mix'
+        color_ramp_mix_alpha.inputs[0].default_value = 1.0
+        m.color_ramp_mix_alpha = color_ramp_mix_alpha.name
+
+        color_ramp_mix_rgb = nodes.new('ShaderNodeMixRGB')
+        color_ramp_mix_rgb.label = 'ColorRamp RGB Mix'
+        color_ramp_mix_rgb.inputs[0].default_value = 1.0
+        m.color_ramp_mix_rgb = color_ramp_mix_rgb.name
 
         # Set default color
         color_ramp.color_ramp.elements[0].color = (0,0,0,0)
@@ -197,11 +202,14 @@ def add_new_modifier(group_tree, parent, modifier_type):
         links.new(start_alpha.outputs[0], color_ramp_alpha_multiply.inputs[2])
         links.new(color_ramp_alpha_multiply.outputs[0], color_ramp.inputs[0])
         #links.new(start_rgb.outputs[0], color_ramp.inputs[0])
-        links.new(color_ramp.outputs[0], end_rgb.inputs[0])
+        #links.new(color_ramp.outputs[0], end_rgb.inputs[0])
+        links.new(start_rgb.outputs[0], color_ramp_mix_rgb.inputs[1])
+        links.new(color_ramp.outputs[0], color_ramp_mix_rgb.inputs[2])
+        links.new(color_ramp_mix_rgb.outputs[0], end_rgb.inputs[0])
 
-        links.new(start_alpha.outputs[0], color_ramp_alpha_mix.inputs[1])
-        links.new(color_ramp.outputs[1], color_ramp_alpha_mix.inputs[2])
-        links.new(color_ramp_alpha_mix.outputs[0], end_alpha.inputs[0])
+        links.new(start_alpha.outputs[0], color_ramp_mix_alpha.inputs[1])
+        links.new(color_ramp.outputs[1], color_ramp_mix_alpha.inputs[2])
+        links.new(color_ramp_mix_alpha.outputs[0], end_alpha.inputs[0])
 
         frame.label = 'Color Ramp'
         color_ramp.parent = frame
@@ -284,7 +292,8 @@ def delete_modifier_nodes(nodes, mod):
     elif mod.type == 'COLOR_RAMP':
         nodes.remove(nodes.get(mod.color_ramp))
         nodes.remove(nodes.get(mod.color_ramp_alpha_multiply))
-        nodes.remove(nodes.get(mod.color_ramp_alpha_mix))
+        nodes.remove(nodes.get(mod.color_ramp_mix_rgb))
+        nodes.remove(nodes.get(mod.color_ramp_mix_alpha))
 
     elif mod.type == 'RGB_CURVE':
         nodes.remove(nodes.get(mod.rgb_curve))
@@ -676,8 +685,10 @@ def update_modifier_enable(self, context):
         color_ramp.mute = not self.enable
         color_ramp_alpha_multiply = nodes.get(self.color_ramp_alpha_multiply)
         color_ramp_alpha_multiply.mute = not self.enable
-        color_ramp_alpha_mix = nodes.get(self.color_ramp_alpha_mix)
-        color_ramp_alpha_mix.mute = not self.enable
+        color_ramp_mix_rgb = nodes.get(self.color_ramp_mix_rgb)
+        color_ramp_mix_rgb.mute = not self.enable
+        color_ramp_mix_alpha = nodes.get(self.color_ramp_mix_alpha)
+        color_ramp_mix_alpha.mute = not self.enable
 
     elif self.type == 'RGB_CURVE':
         rgb_curve = nodes.get(self.rgb_curve)
@@ -776,7 +787,8 @@ class YTextureModifier(bpy.types.PropertyGroup):
     # Color Ramp nodes
     color_ramp = StringProperty(default='')
     color_ramp_alpha_multiply = StringProperty(default='')
-    color_ramp_alpha_mix = StringProperty(default='')
+    color_ramp_mix_rgb = StringProperty(default='')
+    color_ramp_mix_alpha = StringProperty(default='')
 
     # Grayscale to Normal nodes
     gray_to_normal = StringProperty(default='')

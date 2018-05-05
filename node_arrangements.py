@@ -77,8 +77,13 @@ def arrange_modifier_nodes(nodes, parent, new_loc, original_x):
 
         elif m.type == 'COLOR_RAMP':
 
-            color_ramp_alpha_mix = nodes.get(m.color_ramp_alpha_mix)
-            if color_ramp_alpha_mix.location != new_loc: color_ramp_alpha_mix.location = new_loc
+            color_ramp_mix_rgb = nodes.get(m.color_ramp_mix_rgb)
+            if color_ramp_mix_rgb.location != new_loc: color_ramp_mix_rgb.location = new_loc
+
+            new_loc.y -= 180.0
+
+            color_ramp_mix_alpha = nodes.get(m.color_ramp_mix_alpha)
+            if color_ramp_mix_alpha.location != new_loc: color_ramp_mix_alpha.location = new_loc
 
             new_loc.y -= 180.0
 

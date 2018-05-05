@@ -2148,7 +2148,7 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
         layout = self.layout
 
         if not node:
-            layout.label("No texture group node selected!")
+            layout.label("No texture layers node selected!")
             return
 
         group_tree = node.node_tree
