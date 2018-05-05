@@ -2227,7 +2227,7 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                         modui = chui.modifiers[i]
 
                         brow = bcol.row(align=True)
-                        if m.type in {'COLOR_RAMP', 'RGB_CURVE', 'HUE_SATURATION', 'BRIGHT_CONTRAST'}:
+                        if m.type in tex_modifiers.can_be_expanded:
                             if modui.expand_content:
                                 icon_value = custom_icons["uncollapsed_modifier"].icon_id
                             else: icon_value = custom_icons["collapsed_modifier"].icon_id
@@ -2248,9 +2248,7 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                         brow.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
                         brow.prop(m, 'enable', text='')
 
-                        if (modui.expand_content and m.type in 
-                            {'COLOR_RAMP', 'RGB_CURVE', 'HUE_SATURATION', 'BRIGHT_CONTRAST'}
-                            ):
+                        if modui.expand_content and m.type in tex_modifiers.can_be_expanded:
                             row = bcol.row(align=True)
                             #row.label('', icon='BLANK1')
                             row.label('', icon='BLANK1')
@@ -2562,7 +2560,7 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
 
                             modui = tlui.tex_ui.channels[i].modifiers[j]
 
-                            if m.type in {'COLOR_RAMP', 'RGB_CURVE', 'HUE_SATURATION', 'BRIGHT_CONTRAST'}:
+                            if m.type in tex_modifiers.can_be_expanded:
                                 if modui.expand_content:
                                     icon_value = custom_icons["uncollapsed_modifier"].icon_id
                                 else: icon_value = custom_icons["collapsed_modifier"].icon_id
@@ -2586,9 +2584,7 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                             if tlui.expand_channels:
                                 row.label('', icon='BLANK1')
 
-                            if (modui.expand_content and m.type in 
-                                {'COLOR_RAMP', 'RGB_CURVE', 'HUE_SATURATION', 'BRIGHT_CONTRAST'}
-                                ):
+                            if modui.expand_content and m.type in tex_modifiers.can_be_expanded:
                                 row = ccol.row(align=True)
                                 row.label('', icon='BLANK1')
                                 row.label('', icon='BLANK1')
