@@ -1,8 +1,10 @@
 import bpy, shutil
+import tempfile
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper
 #from bpy_extras.image_utils import load_image  
 from .common import *
+import time
 
 class YRefreshImage(bpy.types.Operator):
     """Reload Image"""
@@ -35,12 +37,99 @@ class YPackImage(bpy.types.Operator):
     def poll(cls, context):
         return hasattr(context, 'image') and context.image
 
+    #def unpack_and_remove_image(self, context):
+    #    image = context.image
+    #    
+    #    # Get blender default unpack directory
+    #    default_dir = os.path.join(os.path.abspath(bpy.path.abspath('//')), 'textures')
+
+    #    # Check if default directory is available or not, delete later if not found now
+    #    default_dir_found = os.path.isdir(default_dir)
+
+    #    # Blender always unpack at \\textures\file.ext
+    #    if image.filepath == '':
+    #        default_filepath = os.path.join(default_dir, image.name)
+    #    else: default_filepath = os.path.join(default_dir, bpy.path.basename(image.filepath))
+
+    #    # Check if file with default path is already available
+    #    temp_path = ''
+    #    if os.path.isfile(default_filepath):
+    #        temp_path = os.path.join(default_dir, '__TEMP__')
+    #        os.rename(default_filepath, temp_path)
+
+    #    # Unpack the file
+    #    image.unpack()
+    #    unpacked_path = bpy.path.abspath(image.filepath)
+
+    #    # Remove unpacked image
+    #    os.remove(unpacked_path)
+
+    #    # Rename back temporary file
+    #    if temp_path != '':
+    #        os.rename(temp_path, default_filepath)
+
+    #    # Delete default directory if not found before
+    #    if not default_dir_found:
+    #        os.rmdir(default_dir)
+
     def execute(self, context):
-        #print(context.space_data)
-        #context.image.pack(as_png=True)
+
+        T = time.time()
+
+        # Save file to temporary place first if image is float
+        if context.image.is_float:
+            
+            original_path = context.image.filepath
+
+            #if context.image.packed_file:
+            #    self.unpack_and_remove_image(context)
+
+            # Create temporary scene
+            tmpscene = bpy.data.scenes.new('Temp Scene')
+
+            # Set settings
+            settings = tmpscene.render.image_settings
+
+            #if context.image.filepath == '':
+            if original_path == '':
+                settings.file_format = 'PNG'
+                settings.color_depth = '16'
+                settings.compression = 15
+                image_name = '_temp_image.png'
+            else:
+                settings.file_format = context.image.file_format
+                if context.image.file_format in {'CINEON', 'DPX'}:
+                    settings.color_depth = '10'
+                elif context.image.file_format in {'TIFF'}:
+                    settings.color_depth = '16'
+                elif context.image.file_format in {'HDR', 'OPEN_EXR_MULTILAYER', 'OPEN_EXR'}:
+                    settings.color_depth = '32'
+                else:
+                    settings.color_depth = '16'
+                image_name = bpy.path.basename(original_path)
+
+            temp_filepath = os.path.join(tempfile.gettempdir(), image_name)
+
+            # Save image
+            context.image.save_render(temp_filepath, tmpscene)
+            context.image.filepath = temp_filepath
+            if context.image.file_format == 'PNG':
+                context.image.colorspace_settings.name = 'sRGB'
+
+            #context.image.reload()
+
+            # Delete temporary scene
+            bpy.data.scenes.remove(tmpscene)
 
         try: context.image.pack()
         except: context.image.pack(as_png=True)
+        #context.image.reload()
+
+        if context.image.is_float:
+            context.image.filepath = original_path
+            os.remove(temp_filepath)
+
+        print(time.time() - T)
 
         return {'FINISHED'}
 
@@ -316,7 +405,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         filepath = self.filepath
         file_ext = format_extensions[self.file_format]
 
-        if os.path.basename(filepath):
+        if bpy.path.basename(filepath):
 
             # Check current extensions
             for form, ext in format_extensions.items():
