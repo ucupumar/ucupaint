@@ -37,41 +37,6 @@ class YPackImage(bpy.types.Operator):
     def poll(cls, context):
         return hasattr(context, 'image') and context.image
 
-    #def unpack_and_remove_image(self, context):
-    #    image = context.image
-    #    
-    #    # Get blender default unpack directory
-    #    default_dir = os.path.join(os.path.abspath(bpy.path.abspath('//')), 'textures')
-
-    #    # Check if default directory is available or not, delete later if not found now
-    #    default_dir_found = os.path.isdir(default_dir)
-
-    #    # Blender always unpack at \\textures\file.ext
-    #    if image.filepath == '':
-    #        default_filepath = os.path.join(default_dir, image.name)
-    #    else: default_filepath = os.path.join(default_dir, bpy.path.basename(image.filepath))
-
-    #    # Check if file with default path is already available
-    #    temp_path = ''
-    #    if os.path.isfile(default_filepath):
-    #        temp_path = os.path.join(default_dir, '__TEMP__')
-    #        os.rename(default_filepath, temp_path)
-
-    #    # Unpack the file
-    #    image.unpack()
-    #    unpacked_path = bpy.path.abspath(image.filepath)
-
-    #    # Remove unpacked image
-    #    os.remove(unpacked_path)
-
-    #    # Rename back temporary file
-    #    if temp_path != '':
-    #        os.rename(temp_path, default_filepath)
-
-    #    # Delete default directory if not found before
-    #    if not default_dir_found:
-    #        os.rmdir(default_dir)
-
     def execute(self, context):
 
         T = time.time()
@@ -81,9 +46,6 @@ class YPackImage(bpy.types.Operator):
             
             original_path = context.image.filepath
 
-            #if context.image.packed_file:
-            #    self.unpack_and_remove_image(context)
-
             # Create temporary scene
             tmpscene = bpy.data.scenes.new('Temp Scene')
 
@@ -92,10 +54,15 @@ class YPackImage(bpy.types.Operator):
 
             #if context.image.filepath == '':
             if original_path == '':
-                settings.file_format = 'PNG'
-                settings.color_depth = '16'
-                settings.compression = 15
-                image_name = '_temp_image.png'
+                if context.image.use_alpha:
+                    settings.file_format = 'PNG'
+                    settings.color_depth = '16'
+                    settings.compression = 15
+                    image_name = '_temp_image.png'
+                else:
+                    settings.file_format = 'HDR'
+                    settings.color_depth = '32'
+                    image_name = '_temp_image.hdr'
             else:
                 settings.file_format = context.image.file_format
                 if context.image.file_format in {'CINEON', 'DPX'}:
@@ -115,6 +82,7 @@ class YPackImage(bpy.types.Operator):
             context.image.filepath = temp_filepath
             if context.image.file_format == 'PNG':
                 context.image.colorspace_settings.name = 'sRGB'
+            else: context.image.colorspace_settings.name = 'Linear'
 
             #context.image.reload()
 
@@ -129,7 +97,7 @@ class YPackImage(bpy.types.Operator):
             context.image.filepath = original_path
             os.remove(temp_filepath)
 
-        print(time.time() - T)
+        print('INFO:', context.image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 
