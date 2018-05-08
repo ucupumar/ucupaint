@@ -136,18 +136,23 @@ def rearrange_nodes(group_tree):
     nodes = group_tree.nodes
 
     # Rearrange warning node
-    warning = nodes.get(group_tree.tl.warning)
+    warning2 = nodes.get(group_tree.tl.warning2)
     loc = Vector((0, 70))
-    if warning and warning.location != loc: warning.location = loc
+    if warning2 and warning2.location != loc: warning2.location = loc
+
+    # Rearrange warning node
+    warning1 = nodes.get(group_tree.tl.warning1)
+    loc = Vector((0, 110))
+    if warning1 and warning1.location != loc: warning1.location = loc
 
     # Rearrange version info node
     support_info = nodes.get(group_tree.tl.support_info)
-    loc = Vector((0, 110))
+    loc = Vector((0, 150))
     if support_info and support_info.location != loc: support_info.location = loc
 
     # Rearrange version info node
     version_info = nodes.get(group_tree.tl.version_info)
-    loc = Vector((0, 150))
+    loc = Vector((0, 190))
     if version_info and version_info.location != loc: version_info.location = loc
 
     # Rearrange geometry node

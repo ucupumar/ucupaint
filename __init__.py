@@ -3,11 +3,12 @@
 #   so it's better to warn user about this when adding new image texture above limit
 # - Performance when adding and removing layer still terrible, 
 #   especially when refreshing layer blends (which contains rearrange nodes)
+#   SOLUTION: Create dedicated group every texture
 
 bl_info = {
     "name": "Texture Layers Node by ucupumar",
     "author": "Yusuf Umar",
-    "version": (1, 0, 0),
+    "version": (0, 9, 0),
     "blender": (2, 79, 0),
     "location": "Node Editor > Properties > Texture Layers",
     "description": "Texture layer manager inside Cycles",
@@ -690,13 +691,21 @@ def create_new_group_tree(mat):
     group_tree.tl.support_info = support_info.name
 
     # Create warning frame
-    warning = group_tree.nodes.new('NodeFrame')
-    warning.label = 'WARNING: Do NOT edit this group manually!'
-    warning.use_custom_color = True
-    warning.color = (1.0, 0.5, 0.5)
-    warning.width = 450.0
-    warning.height = 30.0
-    group_tree.tl.warning = warning.name
+    warning1 = group_tree.nodes.new('NodeFrame')
+    warning1.label = 'WARNING: Do NOT edit this group manually!'
+    warning1.use_custom_color = True
+    warning1.color = (1.0, 0.5, 0.5)
+    warning1.width = 450.0
+    warning1.height = 30.0
+    group_tree.tl.warning1 = warning1.name
+
+    warning2 = group_tree.nodes.new('NodeFrame')
+    warning2.label = 'Please use this panel: Node Editor > Tools > Texture Layers'
+    warning2.use_custom_color = True
+    warning2.color = (1.0, 0.5, 0.5)
+    warning2.width = 600.0
+    warning2.height = 30.0
+    group_tree.tl.warning2 = warning2.name
 
     # Link start and end node then rearrange the nodes
     create_group_channel_nodes(group_tree, channel)
@@ -2195,9 +2204,9 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
     #bl_space_type = 'VIEW_3D'
     bl_space_type = 'NODE_EDITOR'
     bl_label = "Texture Layers"
-    bl_region_type = 'UI'
-    #bl_region_type = 'TOOLS'
-    #bl_category = "Texture Layers"
+    #bl_region_type = 'UI'
+    bl_region_type = 'TOOLS'
+    bl_category = "Texture Layers"
 
     @classmethod
     def poll(cls, context):
@@ -3486,7 +3495,8 @@ class YTextureLayersTree(bpy.types.PropertyGroup):
     # Info frame
     version_info = StringProperty(default='')
     support_info = StringProperty(default='')
-    warning = StringProperty(default='')
+    warning1 = StringProperty(default='')
+    warning2 = StringProperty(default='')
 
     end = StringProperty(default='')
     end_entry_frame = StringProperty(default='')
