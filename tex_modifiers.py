@@ -590,10 +590,6 @@ def update_modifier_enable(self, context):
         rgb2i.mute = not self.enable
 
     elif self.type == 'INVERT':
-        #invert_mix_rgb = nodes.get(self.invert_mix_rgb)
-        #invert_mix_rgb.mute = not self.enable
-        #invert_a = nodes.get(self.invert_a)
-        #invert_a.mute = not self.enable or not self.invert_a_enable
         invert = nodes.get(self.invert)
         invert.mute = not self.enable
 
@@ -702,9 +698,6 @@ class YTextureModifier(bpy.types.PropertyGroup):
     color_ramp_alpha_multiply = StringProperty(default='')
     color_ramp_mix_rgb = StringProperty(default='')
     color_ramp_mix_alpha = StringProperty(default='')
-
-    # Grayscale to Normal nodes
-    gray_to_normal = StringProperty(default='')
 
     # RGB Curve nodes
     rgb_curve = StringProperty(default='')
