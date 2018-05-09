@@ -252,10 +252,10 @@ class YNewTexModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_texture_group_node() and hasattr(context, 'parent')
+        return get_active_texture_layers_node() and hasattr(context, 'parent')
 
     def execute(self, context):
-        node = get_active_texture_group_node()
+        node = get_active_texture_layers_node()
         group_tree = node.node_tree
         tl = group_tree.tl
 
@@ -313,11 +313,11 @@ class YMoveTexModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (get_active_texture_group_node() and 
+        return (get_active_texture_layers_node() and 
                 hasattr(context, 'parent') and hasattr(context, 'modifier'))
 
     def execute(self, context):
-        node = get_active_texture_group_node()
+        node = get_active_texture_layers_node()
         group_tree = node.node_tree
         nodes = group_tree.nodes
         links = group_tree.links
@@ -418,12 +418,12 @@ class YRemoveTexModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (get_active_texture_group_node() and 
+        return (get_active_texture_layers_node() and 
                 hasattr(context, 'parent') and hasattr(context, 'modifier'))
 
     def execute(self, context):
         #print(context.modifier.name)
-        node = get_active_texture_group_node()
+        node = get_active_texture_layers_node()
         group_tree = node.node_tree
         nodes = group_tree.nodes
         links = group_tree.links
@@ -534,7 +534,7 @@ def draw_modifier_properties(context, channel, nodes, modifier, layout):
 class NODE_UL_y_texture_modifiers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         #nodes = context.group_node.node_tree.nodes
-        group_node = get_active_texture_group_node()
+        group_node = get_active_texture_layers_node()
         nodes = group_node.node_tree.nodes
 
         row = layout.row(align=True)
@@ -553,10 +553,10 @@ class YTexModifierSpecialMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_texture_group_node()
+        return hasattr(context, 'parent') and get_active_texture_layers_node()
 
     def draw(self, context):
-        #node = get_active_texture_group_node()
+        #node = get_active_texture_layers_node()
         #tl = node.node_tree.tl
 
         #if 'YLayerChannel' in str(type(context.channel)):
@@ -581,7 +581,7 @@ class YTexModifierSpecialMenu(bpy.types.Menu):
         #    op.channel_index = index
 
 def update_modifier_enable(self, context):
-    group_node = get_active_texture_group_node()
+    group_node = get_active_texture_layers_node()
     nodes = group_node.node_tree.nodes
     #tl = group_node.node_tree.tl
 

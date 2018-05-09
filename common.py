@@ -134,7 +134,7 @@ def get_active_node():
     node = mat.node_tree.nodes.active
     return node
 
-def get_active_texture_group_node():
+def get_active_texture_layers_node():
     node = get_active_node()
     if not node or node.type != 'GROUP' or not node.node_tree or not node.node_tree.tl.is_tl_node:
         return None
@@ -142,7 +142,7 @@ def get_active_texture_group_node():
 
 # Some image_ops need this
 #def get_active_image():
-#    node = get_active_texture_group_node()
+#    node = get_active_texture_layers_node()
 #    if not node: return None
 #    tl = node.node_tree.tl
 #    nodes = node.node_tree.nodes
