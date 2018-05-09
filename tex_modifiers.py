@@ -3,6 +3,9 @@ from bpy.props import *
 from .common import *
 from .node_arrangements import *
 
+MOD_RGB2INT = '_TL Mod RGB To Intensity'
+MOD_INVERT = '_TL Mod Invert'
+
 modifier_type_items = (
         ('INVERT', 'Invert', '', 'MODIFIER', 0),
         ('RGB_TO_INTENSITY', 'RGB to Intensity', '', 'MODIFIER', 1),
@@ -77,102 +80,34 @@ def add_new_modifier(group_tree, parent, modifier_type):
 
     # Create the nodes
     if m.type == 'INVERT':
-        invert_separate = nodes.new('ShaderNodeSeparateRGB')
-        invert_separate.parent = frame
-        m.invert_separate = invert_separate.name
 
-        invert_r = nodes.new('ShaderNodeMath')
-        invert_r.inputs[0].default_value = 1.0
-        invert_r.operation = 'SUBTRACT'
-        invert_r.mute = not m.invert_r_enable
-        invert_r.parent = frame
-        m.invert_r = invert_r.name
+        invert = nodes.new('ShaderNodeGroup')
+        invert.node_tree = bpy.data.node_groups.get(MOD_INVERT)
+        m.invert = invert.name
 
-        invert_g = nodes.new('ShaderNodeMath')
-        invert_g.inputs[0].default_value = 1.0
-        invert_g.operation = 'SUBTRACT'
-        invert_g.mute = not m.invert_g_enable
-        invert_g.parent = frame
-        m.invert_g = invert_g.name
+        links.new(start_rgb.outputs[0], invert.inputs[0])
+        links.new(invert.outputs[0], end_rgb.inputs[0])
 
-        invert_b = nodes.new('ShaderNodeMath')
-        invert_b.inputs[0].default_value = 1.0
-        invert_b.operation = 'SUBTRACT'
-        invert_b.mute = not m.invert_b_enable
-        invert_b.parent = frame
-        m.invert_b = invert_b.name
-
-        invert_a = nodes.new('ShaderNodeMath')
-        invert_a.inputs[0].default_value = 1.0
-        invert_a.operation = 'SUBTRACT'
-        invert_a.mute = not m.invert_a_enable
-        invert_a.parent = frame
-        m.invert_a = invert_a.name
-
-        invert_combine = nodes.new('ShaderNodeCombineRGB')
-        invert_combine.parent = frame
-        m.invert_combine = invert_combine.name
-
-        invert_mix_rgb = nodes.new('ShaderNodeMixRGB')
-        invert_mix_rgb.inputs[0].default_value = 1.0
-        invert_mix_rgb.parent = frame
-        m.invert_mix_rgb = invert_mix_rgb.name
-
-        links.new(start_rgb.outputs[0], invert_separate.inputs[0])
-        links.new(start_rgb.outputs[0], invert_mix_rgb.inputs[1])
-        links.new(start_alpha.outputs[0], invert_a.inputs[1])
-        links.new(invert_separate.outputs[0], invert_r.inputs[1])
-        links.new(invert_separate.outputs[1], invert_g.inputs[1])
-        links.new(invert_separate.outputs[2], invert_b.inputs[1])
-        links.new(invert_r.outputs[0], invert_combine.inputs[0])
-        links.new(invert_g.outputs[0], invert_combine.inputs[1])
-        links.new(invert_b.outputs[0], invert_combine.inputs[2])
-        links.new(invert_combine.outputs[0], invert_mix_rgb.inputs[2])
-        links.new(invert_mix_rgb.outputs[0], end_rgb.inputs[0])
-        links.new(invert_a.outputs[0], end_alpha.inputs[0])
-
-        #invert = nodes.new('ShaderNodeInvert')
-        #m.invert = invert.name
-
-        #links.new(start_rgb.outputs[0], invert.inputs[1])
-        #links.new(invert.outputs[0], end_rgb.inputs[0])
+        links.new(start_alpha.outputs[0], invert.inputs[1])
+        links.new(invert.outputs[1], end_alpha.inputs[0])
 
         frame.label = 'Invert'
-        #invert.parent = frame
+        invert.parent = frame
 
     elif m.type == 'RGB_TO_INTENSITY':
 
-        rgb2i_color = nodes.new('ShaderNodeRGB')
-        rgb2i_color.outputs[0].default_value = (1,1,1,1)
-        m.rgb2i_color = rgb2i_color.name
+        rgb2i = nodes.new('ShaderNodeGroup')
+        rgb2i.node_tree = bpy.data.node_groups.get(MOD_RGB2INT)
+        m.rgb2i = rgb2i.name
 
-        rgb2i_linear = nodes.new('ShaderNodeGamma')
-        rgb2i_linear.label = 'Linear'
-        rgb2i_linear.inputs[1].default_value = 1.0/GAMMA
-        m.rgb2i_linear = rgb2i_linear.name
+        links.new(start_rgb.outputs[0], rgb2i.inputs[0])
+        links.new(start_alpha.outputs[0], rgb2i.inputs[1])
 
-        rgb2i_mix_rgb = nodes.new('ShaderNodeMixRGB')
-        rgb2i_mix_rgb.label = 'Mix RGB'
-        rgb2i_mix_rgb.inputs[0].default_value = 1.0
-        m.rgb2i_mix_rgb = rgb2i_mix_rgb.name
-
-        rgb2i_mix_alpha = nodes.new('ShaderNodeMixRGB')
-        rgb2i_mix_alpha.label = 'Mix Alpha'
-        rgb2i_mix_alpha.blend_type = 'MULTIPLY'
-        rgb2i_mix_alpha.inputs[0].default_value = 1.0
-        m.rgb2i_mix_alpha = rgb2i_mix_alpha.name
-
-        links.new(rgb2i_color.outputs[0], rgb2i_linear.inputs[0])
-        links.new(rgb2i_linear.outputs[0], rgb2i_mix_rgb.inputs[2])
-        links.new(start_rgb.outputs[0], rgb2i_mix_rgb.inputs[1])
-        links.new(rgb2i_mix_rgb.outputs[0], end_rgb.inputs[0])
-
-        links.new(start_rgb.outputs[0], rgb2i_mix_alpha.inputs[2])
-        links.new(start_alpha.outputs[0], rgb2i_mix_alpha.inputs[1])
-        links.new(rgb2i_mix_alpha.outputs[0], end_alpha.inputs[0])
+        links.new(rgb2i.outputs[0], end_rgb.inputs[0])
+        links.new(rgb2i.outputs[1], end_alpha.inputs[0])
 
         frame.label = 'RGB to Intensity'
-        rgb2i_color.parent = frame
+        rgb2i.parent = frame
 
     elif m.type == 'COLOR_RAMP':
 
@@ -275,19 +210,10 @@ def delete_modifier_nodes(nodes, mod):
     nodes.remove(nodes.get(mod.frame))
 
     if mod.type == 'RGB_TO_INTENSITY':
-        nodes.remove(nodes.get(mod.rgb2i_color))
-        nodes.remove(nodes.get(mod.rgb2i_linear))
-        nodes.remove(nodes.get(mod.rgb2i_mix_rgb))
-        nodes.remove(nodes.get(mod.rgb2i_mix_alpha))
+        nodes.remove(nodes.get(mod.rgb2i))
 
     elif mod.type == 'INVERT':
-        nodes.remove(nodes.get(mod.invert_separate))
-        nodes.remove(nodes.get(mod.invert_r))
-        nodes.remove(nodes.get(mod.invert_g))
-        nodes.remove(nodes.get(mod.invert_b))
-        nodes.remove(nodes.get(mod.invert_a))
-        nodes.remove(nodes.get(mod.invert_combine))
-        nodes.remove(nodes.get(mod.invert_mix_rgb))
+        nodes.remove(nodes.get(mod.invert))
 
     elif mod.type == 'COLOR_RAMP':
         nodes.remove(nodes.get(mod.color_ramp))
@@ -567,10 +493,6 @@ def draw_modifier_properties(context, channel, nodes, modifier, layout):
         row.prop(modifier, 'invert_a_enable', text='A', toggle=True)
 
     #elif modifier.type == 'RGB_TO_INTENSITY':
-    #    rgb2i_color = nodes.get(modifier.rgb2i_color)
-    #    row = layout.row(align=True)
-    #    row.label('Color:')
-    #    row.prop(rgb2i_color.outputs[0], 'default_value', text='')
 
     #    # Shortcut only available on texture layer channel
     #    if 'YLayerChannel' in str(type(channel)):
@@ -620,8 +542,7 @@ class NODE_UL_y_texture_modifiers(bpy.types.UIList):
         row.label(item.name, icon='MODIFIER')
 
         if item.type == 'RGB_TO_INTENSITY':
-            rgb2i_color = nodes.get(item.rgb2i_color)
-            row.prop(rgb2i_color.outputs[0], 'default_value', text='', icon='COLOR')
+            row.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
 
         row.prop(item, 'enable', text='')
 
@@ -665,20 +586,16 @@ def update_modifier_enable(self, context):
     #tl = group_node.node_tree.tl
 
     if self.type == 'RGB_TO_INTENSITY':
-        rgb2i_color = nodes.get(self.rgb2i_color)
-        rgb2i_linear = nodes.get(self.rgb2i_linear)
-        rgb2i_mix_rgb = nodes.get(self.rgb2i_mix_rgb)
-        rgb2i_mix_alpha = nodes.get(self.rgb2i_mix_alpha)
-        rgb2i_color.mute = not self.enable
-        rgb2i_linear.mute = not self.enable
-        rgb2i_mix_rgb.mute = not self.enable
-        rgb2i_mix_alpha.mute = not self.enable
+        rgb2i = nodes.get(self.rgb2i)
+        rgb2i.mute = not self.enable
 
     elif self.type == 'INVERT':
-        invert_mix_rgb = nodes.get(self.invert_mix_rgb)
-        invert_mix_rgb.mute = not self.enable
-        invert_a = nodes.get(self.invert_a)
-        invert_a.mute = not self.enable or not self.invert_a_enable
+        #invert_mix_rgb = nodes.get(self.invert_mix_rgb)
+        #invert_mix_rgb.mute = not self.enable
+        #invert_a = nodes.get(self.invert_a)
+        #invert_a.mute = not self.enable or not self.invert_a_enable
+        invert = nodes.get(self.invert)
+        invert.mute = not self.enable
 
     elif self.type == 'COLOR_RAMP':
         color_ramp = nodes.get(self.color_ramp)
@@ -732,17 +649,23 @@ def update_invert_channel(self, context):
     group_tree = self.id_data
     nodes = group_tree.nodes
 
-    invert_r = nodes.get(self.invert_r)
-    invert_r.mute = not self.invert_r_enable
+    invert = nodes.get(self.invert)
 
-    invert_g = nodes.get(self.invert_g)
-    invert_g.mute = not self.invert_g_enable
+    if self.invert_r_enable:
+        invert.inputs[2].default_value = 1.0
+    else: invert.inputs[2].default_value = 0.0
 
-    invert_b = nodes.get(self.invert_b)
-    invert_b.mute = not self.invert_b_enable
+    if self.invert_g_enable:
+        invert.inputs[3].default_value = 1.0
+    else: invert.inputs[3].default_value = 0.0
 
-    invert_a = nodes.get(self.invert_a)
-    invert_a.mute = not self.invert_a_enable or not self.enable
+    if self.invert_b_enable:
+        invert.inputs[4].default_value = 1.0
+    else: invert.inputs[4].default_value = 0.0
+
+    if self.invert_a_enable:
+        invert.inputs[5].default_value = 1.0
+    else: invert.inputs[5].default_value = 0.0
 
 class YTextureModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)
@@ -760,20 +683,10 @@ class YTextureModifier(bpy.types.PropertyGroup):
     end_alpha = StringProperty(default='')
 
     # RGB to Intensity nodes
-    rgb2i_color = StringProperty(default='')
-    rgb2i_linear = StringProperty(default='')
-    rgb2i_mix_rgb = StringProperty(default='')
-    rgb2i_mix_alpha = StringProperty(default='')
+    rgb2i = StringProperty(default='')
 
     # Invert nodes
     invert = StringProperty(default='')
-    invert_separate = StringProperty(default='')
-    invert_r = StringProperty(default='')
-    invert_g = StringProperty(default='')
-    invert_b = StringProperty(default='')
-    invert_a = StringProperty(default='')
-    invert_combine = StringProperty(default='')
-    invert_mix_rgb = StringProperty(default='')
 
     # Invert toggles
     invert_r_enable = BoolProperty(default=True, update=update_invert_channel)

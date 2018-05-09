@@ -17,61 +17,14 @@ def arrange_modifier_nodes(nodes, parent, new_loc, original_x):
         new_loc.y -= 20.0
 
         if m.type == 'INVERT':
-            #invert = nodes.get(m.invert)
-            #if invert.location != new_loc: invert.location = new_loc
-            invert_mix_rgb = nodes.get(m.invert_mix_rgb)
-            if invert_mix_rgb.location != new_loc: invert_mix_rgb.location = new_loc
+            invert = nodes.get(m.invert)
+            if invert.location != new_loc: invert.location = new_loc
 
-            new_loc.y -= 180.0
-
-            invert_combine = nodes.get(m.invert_combine)
-            if invert_combine.location != new_loc: invert_combine.location = new_loc
-
-            new_loc.y -= 150.0
-
-            invert_b = nodes.get(m.invert_b)
-            if invert_b.location != new_loc: invert_b.location = new_loc
-
-            new_loc.y -= 165.0
-
-            invert_g = nodes.get(m.invert_g)
-            if invert_g.location != new_loc: invert_g.location = new_loc
-
-            new_loc.y -= 165.0
-
-            invert_r = nodes.get(m.invert_r)
-            if invert_r.location != new_loc: invert_r.location = new_loc
-
-            new_loc.y -= 165.0
-
-            invert_separate = nodes.get(m.invert_separate)
-            if invert_separate.location != new_loc: invert_separate.location = new_loc
-
-            new_loc.y -= 150.0
-
-            invert_a = nodes.get(m.invert_a)
-            if invert_a.location != new_loc: invert_a.location = new_loc
-
-            new_loc.y -= 165.0
+            new_loc.y -= 260.0
 
         elif m.type == 'RGB_TO_INTENSITY':
-            rgb2i_mix_alpha = nodes.get(m.rgb2i_mix_alpha)
-            if rgb2i_mix_alpha.location != new_loc: rgb2i_mix_alpha.location = new_loc
-
-            new_loc.y -= 180.0
-
-            rgb2i_mix_rgb = nodes.get(m.rgb2i_mix_rgb)
-            if rgb2i_mix_rgb.location != new_loc: rgb2i_mix_rgb.location = new_loc
-
-            new_loc.y -= 180.0
-
-            rgb2i_linear = nodes.get(m.rgb2i_linear)
-            if rgb2i_linear.location != new_loc: rgb2i_linear.location = new_loc
-
-            new_loc.y -= 120.0
-
-            rgb2i_color = nodes.get(m.rgb2i_color)
-            if rgb2i_color.location != new_loc: rgb2i_color.location = new_loc
+            rgb2i = nodes.get(m.rgb2i)
+            if rgb2i.location != new_loc: rgb2i.location = new_loc
 
             new_loc.y -= 200.0
 
