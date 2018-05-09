@@ -1261,8 +1261,6 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
             m = tex_modifiers.add_new_modifier(group_tree, c, 'RGB_TO_INTENSITY')
             if channel_idx == i or channel_idx == -1:
                 col = (rgb_to_intensity_color[0], rgb_to_intensity_color[1], rgb_to_intensity_color[2], 1)
-                #rgb2i_color = nodes.get(m.rgb2i_color)
-                #rgb2i_color.outputs[0].default_value = col
                 rgb2i = nodes.get(m.rgb2i)
                 rgb2i.inputs[2].default_value = col
 
@@ -2308,8 +2306,6 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                             brow.label(m.name)
 
                         if m.type == 'RGB_TO_INTENSITY':
-                            #rgb2i_color = nodes.get(m.rgb2i_color)
-                            #brow.prop(rgb2i_color.outputs[0], 'default_value', text='', icon='COLOR')
                             rgb2i = nodes.get(m.rgb2i)
                             brow.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
                             brow.separator()
@@ -2643,8 +2639,6 @@ class NODE_PT_y_texture_groups(bpy.types.Panel):
                                 row.label(m.name)
 
                             if m.type == 'RGB_TO_INTENSITY':
-                                #rgb2i_color = nodes.get(m.rgb2i_color)
-                                #row.prop(rgb2i_color.outputs[0], 'default_value', text='', icon='COLOR')
                                 rgb2i = nodes.get(m.rgb2i)
                                 row.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
                                 row.separator()
@@ -2838,8 +2832,6 @@ class NODE_UL_y_texture_layers(bpy.types.UIList):
                     shortcut_found = True
                     if mod.type == 'RGB_TO_INTENSITY':
                         rrow = row.row()
-                        #rgb2i_color = nodes.get(mod.rgb2i_color)
-                        #rrow.prop(rgb2i_color.outputs[0], 'default_value', text='', icon='COLOR')
                         rgb2i = nodes.get(mod.rgb2i)
                         rrow.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
                     break
