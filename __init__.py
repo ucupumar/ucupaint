@@ -39,12 +39,11 @@ from .node_arrangements import *
 from mathutils import *
 
 # Imported node group names
-#UDN = '~UDN Blend'
-OVERLAY_NORMAL = '~Overlay Normal'
-STRAIGHT_OVER = '~Straight Over Mix'
-UNPACK_NORMAL = '~Unpack Normal'
-CHECK_INPUT_NORMAL = '~Check Input Normal'
-FLIP_BACKFACE_NORMAL = '~Flip Backface Normal'
+#UDN = '_UDN Blend'
+OVERLAY_NORMAL = '_TL_Overlay Normal'
+STRAIGHT_OVER = '_TL_Straight Over Mix'
+CHECK_INPUT_NORMAL = '_TL_Check Input Normal'
+FLIP_BACKFACE_NORMAL = '_TL_Flip Backface Normal'
 
 texture_type_items = (
         ('IMAGE', 'Image', ''),
@@ -412,9 +411,6 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         normal = nodes.new('ShaderNodeNormalMap')
         uv_map = nodes.get(texture.uv_map)
         normal.uv_map = uv_map.uv_map
-        #normal = nodes.new('ShaderNodeGroup')
-        #normal.node_tree = bpy.data.node_groups.get(UNPACK_NORMAL)
-        #normal.label = 'Normal Tangent Space'
         channel.normal = normal.name
 
         bump_base = nodes.new('ShaderNodeMixRGB')
@@ -3386,6 +3382,14 @@ class YTextureLayer(bpy.types.PropertyGroup):
     name = StringProperty(default='')
     enable = BoolProperty(default=True, update=update_texture_enable)
     channels = CollectionProperty(type=YLayerChannel)
+
+    #### New approach
+    node_group = StringProperty(default='')
+    #group_tree = PointerProperty(type=bpy.Types.ShaderNodeTree)
+
+    start = StringProperty(default='')
+    end = StringProperty(default='')
+    ####
 
     type = EnumProperty(
             name = 'Texture Type',
