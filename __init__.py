@@ -202,6 +202,16 @@ def reconnect_tl_tex_nodes(tree, ch_idx=-1):
 
     num_tex = len(tl.textures)
 
+    if num_tex == 0:
+        for ch in tl.channels:
+            start_entry = nodes.get(ch.start_entry)
+            end_entry = nodes.get(ch.end_entry)
+            check_create_node_link(tree, start_entry.outputs[0], end_entry.inputs[0])
+            if ch.type == 'RGB':
+                start_alpha_entry = nodes.get(ch.start_alpha_entry)
+                end_alpha_entry = nodes.get(ch.end_alpha_entry)
+                check_create_node_link(tree, start_alpha_entry.outputs[0], end_alpha_entry.inputs[0])
+
     for i, tex in reversed(list(enumerate(tl.textures))):
 
         node = nodes.get(tex.node_group)
@@ -253,6 +263,10 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
         start_alpha = nodes.get(ch.start_alpha)
         end_rgb = nodes.get(ch.end_rgb)
         end_alpha = nodes.get(ch.end_alpha)
+
+        if len(ch.modifiers) == 0 and ch.type != 'NORMAL':
+            check_create_node_link(tree, start_rgb.outputs[0], end_rgb.inputs[0])
+            check_create_node_link(tree, start_alpha.outputs[0], end_alpha.inputs[0])
 
         if start_linear:
             check_create_node_link(tree, start.outputs[ch.io_index], start_linear.inputs[0])
@@ -326,6 +340,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             check_create_node_link(tree, solid_alpha.outputs[0], start_alpha.inputs[0])
         else: check_create_node_link(tree, source.outputs[1], start_alpha.inputs[0])
 
+        if len(ch.modifiers) == 0:
+            check_create_node_link(tree, start_rgb.outputs[0], end_rgb.inputs[0])
+            check_create_node_link(tree, start_alpha.outputs[0], end_alpha.inputs[0])
+
         if tl_ch.type == 'NORMAL':
             check_create_node_link(tree, end_rgb.outputs[0], bump_base.inputs[2])
             check_create_node_link(tree, end_alpha.outputs[0], bump_base.inputs[0])
@@ -367,7 +385,6 @@ def create_texture_channel_nodes(group_tree, texture, channel):
 
     tl = group_tree.tl
     #nodes = group_tree.nodes
-    #links = group_tree.links
 
     ch_index = [i for i, c in enumerate(texture.channels) if c == channel][0]
     tl_ch = tl.channels[ch_index]
@@ -398,10 +415,6 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     end_alpha = tree.nodes.new('NodeReroute')
     end_alpha.label = 'End Alpha'
     channel.end_alpha = end_alpha.name
-
-    # Modifier connections
-    tree.links.new(start_rgb.outputs[0], end_rgb.inputs[0])
-    tree.links.new(start_alpha.outputs[0], end_alpha.inputs[0])
 
     # Intensity nodes
     intensity = tree.nodes.new('ShaderNodeMixRGB')
@@ -440,7 +453,7 @@ def create_texture_channel_nodes(group_tree, texture, channel):
 def create_tl_channel_nodes(group_tree, channel, channel_idx):
     tl = group_tree.tl
     nodes = group_tree.nodes
-    links = group_tree.links
+    #links = group_tree.links
     #last_index = len(tl.channels)-1
     #channel = tl.channels[last_index]
 
@@ -549,28 +562,19 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         #end_alpha.parent = modifier_frame
         channel.end_alpha = end_alpha.name
 
-        # Link modifier start and end
-        links.new(start_rgb.outputs[0], end_rgb.inputs[0])
-        links.new(start_alpha.outputs[0], end_alpha.inputs[0])
-
     # Link between textures
-    if len(tl.textures) == 0:
-        links.new(start_entry.outputs[0], end_entry.inputs[0])
-        if channel.type == 'RGB':
-            links.new(start_alpha_entry.outputs[0], end_alpha_entry.inputs[0])
-    else:
-        for i, t in reversed(list(enumerate(tl.textures))):
+    for i, t in reversed(list(enumerate(tl.textures))):
 
-            # Add new channel
-            c = t.channels.add()
-            c.channel_index = channel_idx
-            c.texture_index = i
+        # Add new channel
+        c = t.channels.add()
+        c.channel_index = channel_idx
+        c.texture_index = i
 
-            # Add new nodes
-            create_texture_channel_nodes(group_tree, t, c)
+        # Add new nodes
+        create_texture_channel_nodes(group_tree, t, c)
 
-            # Rearrange node inside textures
-            rearrange_tex_nodes(t)
+        # Rearrange node inside textures
+        rearrange_tex_nodes(t)
 
 def create_new_group_tree(mat):
 
@@ -716,6 +720,13 @@ class YNewTextureLayersNode(bpy.types.Operator):
 
         return result
 
+def new_channel_items(self, context):
+    items = [('VALUE', 'Value', '', custom_icons['value_channel'].icon_id, 0),
+             ('RGB', 'RGB', '', custom_icons['rgb_channel'].icon_id, 1),
+             ('NORMAL', 'Normal', '', custom_icons['vector_channel'].icon_id, 2)]
+
+    return items
+
 class YNewTLChannel(bpy.types.Operator):
     bl_idname = "node.y_add_new_texture_layers_channel"
     bl_label = "Add new Texture Group Channel"
@@ -729,10 +740,7 @@ class YNewTLChannel(bpy.types.Operator):
 
     type = EnumProperty(
             name = 'Channel Type',
-            items = (('VALUE', 'Value', ''),
-                     ('RGB', 'RGB', ''),
-                     ('NORMAL', 'Normal', '')),
-            default = 'RGB')
+            items = new_channel_items)
 
     @classmethod
     def poll(cls, context):
