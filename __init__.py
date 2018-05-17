@@ -3538,7 +3538,7 @@ class YTLUI(bpy.types.PropertyGroup):
     halt_prop_update = BoolProperty(default=False)
 
 @persistent
-def update_ui(scene):
+def ytl_scene_update(scene):
     tlui = bpy.context.window_manager.tlui
 
     group_node =  get_active_texture_layers_node()
@@ -3557,6 +3557,21 @@ def update_ui(scene):
             break
         tl.refresh_tree = False
 
+    # Check duplicate textures
+    if len(tl.textures) > 0:
+        # Check only the first texture
+        tex = tl.textures[0]
+
+        # Texture tree can only be used for 2 users
+        if tex.tree.users > 2:
+
+            # Make all textures single(dual) user
+            for t in tl.textures:
+                t.tree = t.tree.copy()
+                node = tree.nodes.get(t.node_group)
+                node.node_tree = t.tree
+
+    # Update UI
     if (tlui.tree != tree or 
         tlui.tex_idx != tl.active_texture_index or 
         tlui.channel_idx != tl.active_channel_index or 
@@ -3694,7 +3709,7 @@ def register():
     bpy.app.handlers.load_post.append(load_libraries)
     bpy.app.handlers.load_post.append(load_ui_settings)
     bpy.app.handlers.save_pre.append(save_ui_settings)
-    bpy.app.handlers.scene_update_pre.append(update_ui)
+    bpy.app.handlers.scene_update_pre.append(ytl_scene_update)
 
 def unregister():
     # Custom Icon
@@ -3711,7 +3726,7 @@ def unregister():
     bpy.app.handlers.load_post.remove(load_libraries)
     bpy.app.handlers.load_post.remove(load_ui_settings)
     bpy.app.handlers.save_pre.remove(save_ui_settings)
-    bpy.app.handlers.scene_update_pre.remove(update_ui)
+    bpy.app.handlers.scene_update_pre.remove(ytl_scene_update)
 
 if __name__ == "__main__":
     register()
