@@ -268,6 +268,11 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
             check_create_node_link(tree, start_rgb.outputs[0], end_rgb.inputs[0])
             check_create_node_link(tree, start_alpha.outputs[0], end_alpha.inputs[0])
 
+        if len(tl.textures) == 0:
+            check_create_node_link(tree, start_entry.outputs[0], end_entry.inputs[0])
+            if ch.type == 'RGB':
+                check_create_node_link(tree, start_alpha_entry.outputs[0], end_alpha_entry.inputs[0])
+
         if start_linear:
             check_create_node_link(tree, start.outputs[ch.io_index], start_linear.inputs[0])
             check_create_node_link(tree, start_linear.outputs[0], start_entry.inputs[0])
@@ -609,40 +614,8 @@ def create_new_group_tree(mat):
     solid_alpha.label = 'Solid Alpha'
     group_tree.tl.solid_alpha = solid_alpha.name
 
-    # Create version info frame
-    version_info = group_tree.nodes.new('NodeFrame')
-    version_info.label = 'Created using Texture Layers Node addon version ' + group_tree.tl.version
-    version_info.use_custom_color = True
-    version_info.color = (1.0, 1.0, 1.0)
-    version_info.width = 540.0
-    version_info.height = 30.0
-    group_tree.tl.version_info = version_info.name
-
-    # Create version info frame
-    support_info = group_tree.nodes.new('NodeFrame')
-    support_info.label = 'Support this addon development on patreon.com/ucupumar'
-    support_info.use_custom_color = True
-    support_info.color = (1.0, 1.0, 1.0)
-    support_info.width = 590.0
-    support_info.height = 30.0
-    group_tree.tl.support_info = support_info.name
-
-    # Create warning frame
-    warning1 = group_tree.nodes.new('NodeFrame')
-    warning1.label = 'WARNING: Do NOT edit this group manually!'
-    warning1.use_custom_color = True
-    warning1.color = (1.0, 0.5, 0.5)
-    warning1.width = 450.0
-    warning1.height = 30.0
-    group_tree.tl.warning1 = warning1.name
-
-    warning2 = group_tree.nodes.new('NodeFrame')
-    warning2.label = 'Please use this panel: Node Editor > Tools > Texture Layers'
-    warning2.use_custom_color = True
-    warning2.color = (1.0, 0.5, 0.5)
-    warning2.width = 600.0
-    warning2.height = 30.0
-    group_tree.tl.warning2 = warning2.name
+    # Create info nodes
+    create_info_nodes(group_tree)
 
     # Link start and end node then rearrange the nodes
     create_tl_channel_nodes(group_tree, channel, 0)
@@ -1161,6 +1134,9 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     node_group.node_tree = tree
     tex.tree = tree
     #nodes = tree.nodes
+
+    # Create info nodes
+    create_info_nodes(group_tree, tex)
 
     # Tree start and end
     start = tree.nodes.new('NodeGroupInput')
@@ -3427,12 +3403,6 @@ class YTextureLayersTree(bpy.types.PropertyGroup):
     # Node names
     start = StringProperty(default='')
     start_frame = StringProperty(default='')
-
-    # Info frame
-    version_info = StringProperty(default='')
-    support_info = StringProperty(default='')
-    warning1 = StringProperty(default='')
-    warning2 = StringProperty(default='')
 
     end = StringProperty(default='')
     end_entry_frame = StringProperty(default='')

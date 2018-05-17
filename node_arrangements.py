@@ -1,6 +1,66 @@
 import bpy
 from mathutils import *
 
+INFO_PREFIX = '__ytl_info_'
+
+def create_info_nodes(group_tree, tex=None):
+    tl = group_tree.tl
+    if tex:
+        nodes = tex.tree.nodes
+    else: nodes = group_tree.nodes
+
+    # Delete previous info nodes
+    for node in nodes:
+        if node.name.startswith(INFO_PREFIX):
+            nodes.remove(node)
+
+    # Create info nodes
+    infos = []
+
+    info = nodes.new('NodeFrame')
+    if tex:
+        info.label = 'Part of Texture Layers Node addon version ' + tl.version
+    else: info.label = 'Created using Texture Layers Node addon version ' + tl.version
+    info.use_custom_color = True
+    info.color = (1.0, 1.0, 1.0)
+    if tex:
+        info.width = 480.0
+    else: info.width = 540.0
+    info.height = 30.0
+    infos.append(info)
+
+    info = nodes.new('NodeFrame')
+    info.label = 'Support this addon development on patreon.com/ucupumar'
+    info.use_custom_color = True
+    info.color = (1.0, 1.0, 1.0)
+    info.width = 590.0
+    info.height = 30.0
+    infos.append(info)
+
+    info = nodes.new('NodeFrame')
+    info.label = 'WARNING: Do NOT edit this group manually!'
+    info.use_custom_color = True
+    info.color = (1.0, 0.5, 0.5)
+    info.width = 450.0
+    info.height = 30.0
+    infos.append(info)
+
+    info = nodes.new('NodeFrame')
+    info.label = 'Please use this panel: Node Editor > Tools > Texture Layers'
+    info.use_custom_color = True
+    info.color = (1.0, 0.5, 0.5)
+    info.width = 580.0
+    info.height = 30.0
+    infos.append(info)
+
+    loc = Vector((0, 50))
+
+    for info in reversed(infos):
+        info.name = INFO_PREFIX + info.name
+
+        loc.y += 40
+        info.location = loc
+
 #def arrange_modifier_nodes(nodes, parent, loc, original_x):
 def arrange_modifier_nodes(nodes, parent, loc):
 
@@ -256,30 +316,11 @@ def rearrange_tex_nodes(tex):
 
 def rearrange_tl_nodes(group_tree):
 
+    tl = group_tree.tl
     nodes = group_tree.nodes
 
-    # Rearrange warning node
-    warning2 = nodes.get(group_tree.tl.warning2)
-    loc = Vector((0, 70))
-    if warning2 and warning2.location != loc: warning2.location = loc
-
-    # Rearrange warning node
-    warning1 = nodes.get(group_tree.tl.warning1)
-    loc = Vector((0, 110))
-    if warning1 and warning1.location != loc: warning1.location = loc
-
-    # Rearrange version info node
-    support_info = nodes.get(group_tree.tl.support_info)
-    loc = Vector((0, 150))
-    if support_info and support_info.location != loc: support_info.location = loc
-
-    # Rearrange version info node
-    version_info = nodes.get(group_tree.tl.version_info)
-    loc = Vector((0, 190))
-    if version_info and version_info.location != loc: version_info.location = loc
-
     # Rearrange start nodes
-    start_node = nodes.get(group_tree.tl.start)
+    start_node = nodes.get(tl.start)
     loc = Vector((0, 0))
     if start_node.location != loc: start_node.location = loc
 
@@ -290,7 +331,7 @@ def rearrange_tl_nodes(group_tree):
     dist_x = 200.0
 
     # Start nodes
-    for i, channel in enumerate(group_tree.tl.channels):
+    for i, channel in enumerate(tl.channels):
         new_loc.y = -dist_y * i
 
         # Start linear
@@ -302,12 +343,12 @@ def rearrange_tl_nodes(group_tree):
             normal_filter = nodes.get(channel.normal_filter)
             if normal_filter.location != new_loc: normal_filter.location = new_loc
 
-        if i == len(group_tree.tl.channels)-1:
+        if i == len(tl.channels)-1:
             loc = Vector((new_loc.x, 0))
             loc.y = -dist_y * (i+1)
 
             # Rearrange solid alpha node
-            solid_alpha = nodes.get(group_tree.tl.solid_alpha)
+            solid_alpha = nodes.get(tl.solid_alpha)
             if solid_alpha.location != loc: solid_alpha.location = loc
 
         # Start entry
@@ -325,7 +366,7 @@ def rearrange_tl_nodes(group_tree):
         new_loc.y = ori_y
 
         # Back to left
-        if i < len(group_tree.tl.channels)-1:
+        if i < len(tl.channels)-1:
             new_loc.x = 0.0
 
     new_loc.x += 70.0
@@ -333,7 +374,7 @@ def rearrange_tl_nodes(group_tree):
     new_loc.y = 0.0
 
     # Texture nodes
-    for i, t in enumerate(reversed(group_tree.tl.textures)):
+    for i, t in enumerate(reversed(tl.textures)):
 
         tnode = nodes.get(t.node_group)
 
@@ -342,7 +383,7 @@ def rearrange_tl_nodes(group_tree):
         new_loc.x += dist_x
 
     # End entry nodes
-    for i, channel in enumerate(group_tree.tl.channels):
+    for i, channel in enumerate(tl.channels):
         new_loc.y = -dist_y * i
 
         #ori_y = new_loc.y
@@ -364,7 +405,7 @@ def rearrange_tl_nodes(group_tree):
     farthest_x = 0
 
     # End modifiers
-    for i, channel in enumerate(group_tree.tl.channels):
+    for i, channel in enumerate(tl.channels):
         bookmark_y = new_loc.y
         new_loc.x = ori_xxx
 
@@ -410,7 +451,7 @@ def rearrange_tl_nodes(group_tree):
     new_loc.x = farthest_x
         
     # End linear
-    for i, channel in enumerate(group_tree.tl.channels):
+    for i, channel in enumerate(tl.channels):
         new_loc.y = -dist_y * i
         if channel.end_linear != '':
             end_linear = nodes.get(channel.end_linear)
@@ -420,6 +461,6 @@ def rearrange_tl_nodes(group_tree):
     new_loc.y = 0.0
 
     # End node
-    end_node = nodes.get(group_tree.tl.end)
+    end_node = nodes.get(tl.end)
     if end_node.location != new_loc: end_node.location = new_loc
 
