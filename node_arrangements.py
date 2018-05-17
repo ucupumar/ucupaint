@@ -1,90 +1,260 @@
 import bpy
 from mathutils import *
 
-def arrange_modifier_nodes(nodes, parent, new_loc, original_x):
+#def arrange_modifier_nodes(nodes, parent, loc, original_x):
+def arrange_modifier_nodes(nodes, parent, loc):
+
+    ori_y = loc.y
 
     # Modifier loops
-    for m in parent.modifiers:
-        m_end_rgb = nodes.get(m.end_rgb)
-        m_end_alpha = nodes.get(m.end_alpha)
+    for m in reversed(parent.modifiers):
 
-        new_loc.x += 35.0
-        if m_end_rgb.location != new_loc: m_end_rgb.location = new_loc
-        new_loc.x += 65.0
-        if m_end_alpha.location != new_loc: m_end_alpha.location = new_loc
+        start_rgb = nodes.get(m.start_rgb)
+        start_alpha = nodes.get(m.start_alpha)
 
-        new_loc.x = original_x
-        new_loc.y -= 20.0
+        loc.y -= 50
+        if start_rgb.location != loc: start_rgb.location = loc
+
+        loc.y -= 50
+        if start_alpha.location != loc: start_alpha.location = loc
+
+        loc.y = ori_y
+        loc.x += 20
+
+        #m_end_rgb = nodes.get(m.end_rgb)
+        #m_end_alpha = nodes.get(m.end_alpha)
+
+        #loc.x += 35.0
+        #if m_end_rgb.location != loc: m_end_rgb.location = loc
+        #loc.x += 65.0
+        #if m_end_alpha.location != loc: m_end_alpha.location = loc
+
+        #loc.x = original_x
+        #loc.y -= 20.0
 
         if m.type == 'INVERT':
             invert = nodes.get(m.invert)
-            if invert.location != new_loc: invert.location = new_loc
+            if invert.location != loc: invert.location = loc
 
-            new_loc.y -= 260.0
+            loc.x += 165.0
 
         elif m.type == 'RGB_TO_INTENSITY':
             rgb2i = nodes.get(m.rgb2i)
-            if rgb2i.location != new_loc: rgb2i.location = new_loc
+            if rgb2i.location != loc: rgb2i.location = loc
 
-            new_loc.y -= 200.0
+            loc.x += 165.0
 
         elif m.type == 'COLOR_RAMP':
 
-            color_ramp_mix_rgb = nodes.get(m.color_ramp_mix_rgb)
-            if color_ramp_mix_rgb.location != new_loc: color_ramp_mix_rgb.location = new_loc
+            color_ramp_alpha_multiply = nodes.get(m.color_ramp_alpha_multiply)
+            if color_ramp_alpha_multiply.location != loc: color_ramp_alpha_multiply.location = loc
 
-            new_loc.y -= 180.0
-
-            color_ramp_mix_alpha = nodes.get(m.color_ramp_mix_alpha)
-            if color_ramp_mix_alpha.location != new_loc: color_ramp_mix_alpha.location = new_loc
-
-            new_loc.y -= 180.0
+            loc.x += 165.0
 
             color_ramp = nodes.get(m.color_ramp)
-            if color_ramp.location != new_loc: color_ramp.location = new_loc
+            if color_ramp.location != loc: color_ramp.location = loc
 
-            new_loc.y -= 220.0
+            loc.x += 265.0
 
-            color_ramp_alpha_multiply = nodes.get(m.color_ramp_alpha_multiply)
-            if color_ramp_alpha_multiply.location != new_loc: color_ramp_alpha_multiply.location = new_loc
+            color_ramp_mix_rgb = nodes.get(m.color_ramp_mix_rgb)
+            if color_ramp_mix_rgb.location != loc: color_ramp_mix_rgb.location = loc
 
-            new_loc.y -= 180.0
+            loc.x += 165.0
+
+            color_ramp_mix_alpha = nodes.get(m.color_ramp_mix_alpha)
+            if color_ramp_mix_alpha.location != loc: color_ramp_mix_alpha.location = loc
+
+            loc.x += 165.0
 
         elif m.type == 'RGB_CURVE':
 
             rgb_curve = nodes.get(m.rgb_curve)
-            if rgb_curve.location != new_loc: rgb_curve.location = new_loc
+            if rgb_curve.location != loc: rgb_curve.location = loc
 
-            new_loc.y -= 320.0
+            loc.x += 260.0
 
         elif m.type == 'HUE_SATURATION':
 
             huesat = nodes.get(m.huesat)
-            if huesat.location != new_loc: huesat.location = new_loc
+            if huesat.location != loc: huesat.location = loc
 
-            new_loc.y -= 185.0
+            loc.x += 175.0
 
         elif m.type == 'BRIGHT_CONTRAST':
 
             brightcon = nodes.get(m.brightcon)
-            if brightcon.location != new_loc: brightcon.location = new_loc
+            if brightcon.location != loc: brightcon.location = loc
 
-            new_loc.y -= 150.0
+            loc.x += 165.0
 
-        m_start_rgb = nodes.get(m.start_rgb)
-        m_start_alpha = nodes.get(m.start_alpha)
+        end_rgb = nodes.get(m.end_rgb)
+        end_alpha = nodes.get(m.end_alpha)
 
-        new_loc.x += 35.0
-        if m_start_rgb.location != new_loc: m_start_rgb.location = new_loc
-        new_loc.x += 65.0
-        if m_start_alpha.location != new_loc: m_start_alpha.location = new_loc
+        loc.y -= 50
+        if end_rgb.location != loc: end_rgb.location = loc
+        loc.y -= 50
+        if end_alpha.location != loc: end_alpha.location = loc
 
-        new_loc.x = original_x
-        new_loc.y -= 85.0
+        loc.y = ori_y
+        loc.x += 100
 
-    return new_loc
+    return loc
 
-def rearrange_nodes(group_tree):
+def rearrange_tex_nodes(tex):
+    tree = tex.tree
+    nodes = tree.nodes
+
+    start = nodes.get(tex.start)
+    end = nodes.get(tex.end)
+    source = nodes.get(tex.source)
+    solid_alpha = nodes.get(tex.solid_alpha)
+    texcoord = nodes.get(tex.texcoord)
+    uv_map = nodes.get(tex.uv_map)
+    tangent = nodes.get(tex.tangent)
+    bitangent = nodes.get(tex.bitangent)
+    geometry = nodes.get(tex.geometry)
+
+    dist_y = 200
+    mid_y = (len(tex.channels)-1) / 2 * -dist_y
+
+    loc = Vector((0, mid_y))
+    if source:
+        if source.location != loc: source.location = loc
+        loc.y -= 260
+
+    if solid_alpha:
+        if solid_alpha.location != loc: solid_alpha.location = loc
+        loc.y -= 90
+
+    if uv_map:
+        if uv_map.location != loc: uv_map.location = loc
+        loc.y -= 115
+
+    if texcoord:
+        if texcoord.location != loc: texcoord.location = loc
+        loc.y -= 240
+
+    if bitangent:
+        if bitangent.location != loc: bitangent.location = loc
+        loc.y -= 160
+
+    if tangent:
+        if tangent.location != loc: tangent.location = loc
+        loc.y -= 160
+
+    if geometry:
+        if geometry.location != loc: geometry.location = loc
+        #loc.y += 160
+
+    start_x = 200
+    loc = Vector((start_x, 0))
+
+    farthest_x = 0
+
+    for i, ch in enumerate(tex.channels):
+
+        start_rgb = nodes.get(ch.start_rgb)
+        end_rgb = nodes.get(ch.end_rgb)
+        start_alpha = nodes.get(ch.start_alpha)
+        end_alpha = nodes.get(ch.end_alpha)
+
+        bump_base = nodes.get(ch.bump_base)
+        bump = nodes.get(ch.bump)
+        normal = nodes.get(ch.normal)
+        normal_flip = nodes.get(ch.normal_flip)
+
+        loc.x = start_x
+        #loc.y = i*-dist_y
+        bookmark_y = loc.y
+
+        if start_rgb:
+            loc.y -= 50
+            if start_rgb.location != loc: start_rgb.location = loc
+
+        if start_alpha:
+            loc.y -= 50
+            if start_alpha.location != loc: start_alpha.location = loc
+
+        loc.x = start_x + 50
+        #loc.y = i*-dist_y
+        loc.y = bookmark_y
+
+        # Modifier loop
+        loc = arrange_modifier_nodes(nodes, ch, loc)
+
+        if end_rgb:
+            loc.y -= 50
+            if end_rgb.location != loc: end_rgb.location = loc
+
+        if end_alpha:
+            loc.y -= 50
+            if end_alpha.location != loc: end_alpha.location = loc
+
+        loc.x += 50
+        #loc.y = i*-dist_y
+        loc.y = bookmark_y
+
+        if bump_base:
+            if bump_base.location != loc: bump_base.location = loc
+            loc.x += 200.0
+
+        if bump:
+            if bump.location != loc: bump.location = loc
+            loc.x += 200.0
+
+        if normal:
+            if normal.location != loc: normal.location = loc
+            loc.x += 200.0
+
+        if normal_flip:
+            if normal_flip.location != loc: normal_flip.location = loc
+            loc.x += 200.0
+
+        if loc.x > farthest_x: farthest_x = loc.x
+
+        if any([m for m in ch.modifiers if m.type == 'RGB_CURVE']):
+            loc.y -= 365
+        elif any([m for m in ch.modifiers if m.type == 'INVERT']):
+            loc.y -= 305
+        elif len(ch.modifiers)>0:
+            loc.y -= 240
+        else:
+            loc.y -= dist_y
+
+    # Group input
+    loc.y = len(tex.channels) * -dist_y
+
+    #loc = Vector((farthest_x+400, 0))
+    loc.y = 0
+    loc.x = farthest_x
+
+    for i, ch in enumerate(tex.channels):
+        intensity = nodes.get(ch.intensity)
+
+        loc.y = i*-dist_y
+
+        if intensity:
+            if intensity.location != loc: intensity.location = loc
+
+    loc.y = mid_y
+    loc.x += 200
+    if start and start.location != loc: start.location = loc
+    loc.x += 200
+    loc.y = 0
+
+    for i, ch in enumerate(tex.channels):
+        blend = nodes.get(ch.blend)
+
+        loc.y = i*-dist_y
+
+        if blend:
+            if blend.location != loc: blend.location = loc
+
+    loc.x += 200
+    loc.y = mid_y
+    if end and end.location != loc: end.location = loc
+
+def rearrange_tl_nodes(group_tree):
 
     nodes = group_tree.nodes
 
@@ -122,7 +292,7 @@ def rearrange_nodes(group_tree):
 
     #dist_y = 350.0
     dist_y = 185.0
-    dist_x = 370.0
+    dist_x = 200.0
 
     # Start nodes
     for i, channel in enumerate(group_tree.tl.channels):
@@ -161,161 +331,18 @@ def rearrange_nodes(group_tree):
         if i < len(group_tree.tl.channels)-1:
             new_loc.x = 0.0
 
-    new_loc.x += 100.0
+    new_loc.x += 70.0
     ori_x = new_loc.x
+    new_loc.y = 0.0
 
     # Texture nodes
     for i, t in enumerate(reversed(group_tree.tl.textures)):
 
-        new_loc.y = 0.0
-        new_loc.x = ori_x + dist_x * i * len(t.channels)
-        ori_xx = new_loc.x
+        tnode = nodes.get(t.node_group)
 
-        # Blend nodes
-        for c in t.channels:
-            blend = nodes.get(c.blend)
-            if blend.location != new_loc: blend.location = new_loc
+        if tnode.location != new_loc: tnode.location = new_loc
 
-            alpha_passthrough = nodes.get(c.alpha_passthrough)
-            if alpha_passthrough:
-                new_loc.y -= 195.0
-                new_loc.x += 29.0
-                if alpha_passthrough.location != new_loc: alpha_passthrough.location = new_loc
-                new_loc.y += 195.0
-                new_loc.x -= 29.0
-
-            new_loc.y -= dist_y
-            new_loc.x += dist_x
-
-        new_loc.x = ori_xx
-        new_loc.y -= 75.0
-
-        ori_y = new_loc.y
-
-        # List of y locations
-        ys = []
-
-        for c in t.channels:
-
-            new_loc.y = ori_y
-            ori_xxx = new_loc.x
-
-            # Intensity node
-            intensity = nodes.get(c.intensity)
-            if intensity.location != new_loc: intensity.location = new_loc
-
-            new_loc.y -= 180.0
-
-            # Normal node
-            normal_flip = nodes.get(c.normal_flip)
-            if normal_flip:
-                if normal_flip.location != new_loc: normal_flip.location = new_loc
-                new_loc.y -= 135.0
-
-            # Normal node
-            normal = nodes.get(c.normal)
-            if normal:
-                if normal.location != new_loc: normal.location = new_loc
-                new_loc.y -= 165.0
-
-            # Bump node
-            bump = nodes.get(c.bump)
-            if bump:
-                if bump.location != new_loc: bump.location = new_loc
-                new_loc.y -= 175.0
-
-            bump_base = nodes.get(c.bump_base)
-            if bump_base:
-                if bump_base.location != new_loc: bump_base.location = new_loc
-                new_loc.y -= 180.0
-
-            new_loc.y -= 40.0
-
-            # Channel modifier pipeline
-            end_rgb = nodes.get(c.end_rgb)
-            end_alpha = nodes.get(c.end_alpha)
-            start_rgb = nodes.get(c.start_rgb)
-            start_alpha = nodes.get(c.start_alpha)
-
-            # End
-            new_loc.x += 35.0
-            if end_rgb.location != new_loc: end_rgb.location = new_loc
-            new_loc.x += 65.0
-            if end_alpha.location != new_loc: end_alpha.location = new_loc
-
-            new_loc.x = ori_xxx
-            new_loc.y -= 50.0
-
-            new_loc = arrange_modifier_nodes(nodes, c, new_loc, ori_xxx)
-
-            #new_loc.x = ori_xxx
-            #new_loc.y -= 50.0
-
-            # Start
-            new_loc.x += 35.0
-            if start_rgb.location != new_loc: start_rgb.location = new_loc
-            new_loc.x += 65.0
-            if start_alpha.location != new_loc: start_alpha.location = new_loc
-
-            new_loc.x = ori_xxx
-            new_loc.y -= 50.0
-
-            # Linear node
-            #linear = nodes.get(c.linear)
-            #if linear.location != new_loc: linear.location = new_loc
-
-            #new_loc.y -= 120.0
-            new_loc.x += dist_x
-
-            ys.append(new_loc.y)
-
-            #new_loc.y -= dist_y
-
-        # Sort y locations and use the first one
-        if ys:
-            ys.sort()
-            new_loc.y = ys[0]
-
-        new_loc.x = ori_xx
-        #new_loc.y -= 140.0
-        new_loc.y -= 50.0
-
-        # Source solid alpha
-        solid_alpha = nodes.get(t.solid_alpha)
-        if solid_alpha:
-            if solid_alpha.location != new_loc: solid_alpha.location = new_loc
-            new_loc.y -= 95.0
-
-        # Texcoord node
-        texcoord = nodes.get(t.texcoord)
-        if texcoord.location != new_loc: texcoord.location = new_loc
-
-        new_loc.y -= 245.0
-
-        # Texcoord node
-        uv_map = nodes.get(t.uv_map)
-        if uv_map.location != new_loc: uv_map.location = new_loc
-
-        new_loc.y -= 120.0
-
-        # Tangent node
-        tangent = nodes.get(t.tangent)
-        if tangent.location != new_loc: tangent.location = new_loc
-
-        new_loc.y -= 165.0
-
-        # Bitangent node
-        bitangent = nodes.get(t.bitangent)
-        if bitangent.location != new_loc: bitangent.location = new_loc
-
-        new_loc.y -= 165.0
-
-        # Source node
-        source = nodes.get(t.source)
-        if source.location != new_loc: source.location = new_loc
-
-    #new_loc.x += 240.0
-    new_loc.x = ori_x + dist_x * len(group_tree.tl.channels) * len(group_tree.tl.textures) + 25.0
+        new_loc.x += dist_x
 
     # End entry nodes
     for i, channel in enumerate(group_tree.tl.channels):
@@ -337,35 +364,53 @@ def rearrange_nodes(group_tree):
     new_loc.x += 120.0
     ori_xxx = new_loc.x
 
+    farthest_x = 0
+
     # End modifiers
     for i, channel in enumerate(group_tree.tl.channels):
-        new_loc.y = -dist_y * i
-        new_loc.x = ori_xxx + dist_x * i
+        bookmark_y = new_loc.y
+        new_loc.x = ori_xxx
 
-        new_loc.x += 35.0
-        new_loc.y -= 35.0
-        end_rgb = nodes.get(channel.end_rgb)
-        if end_rgb.location != new_loc: end_rgb.location = new_loc
+        new_loc.y -= 50
 
-        new_loc.x += 65.0
-        end_alpha = nodes.get(channel.end_alpha)
-        if end_alpha.location != new_loc: end_alpha.location = new_loc
-
-        new_loc.x = ori_xxx + dist_x * i
-        new_loc.y -= 50.0
-
-        new_loc = arrange_modifier_nodes(nodes, channel, new_loc, ori_xxx + dist_x * i)
-
-        new_loc.x += 35.0
         start_rgb = nodes.get(channel.start_rgb)
         if start_rgb.location != new_loc: start_rgb.location = new_loc
 
-        new_loc.x += 65.0
+        new_loc.y -= 50
+
         start_alpha = nodes.get(channel.start_alpha)
         if start_alpha.location != new_loc: start_alpha.location = new_loc
 
+        new_loc.x += 50
+        new_loc.y = bookmark_y
+
+        new_loc = arrange_modifier_nodes(nodes, channel, new_loc)
+        new_loc.y -= 50
+
+        end_rgb = nodes.get(channel.end_rgb)
+        if end_rgb.location != new_loc: end_rgb.location = new_loc
+
+        new_loc.y -= 50
+
+        end_alpha = nodes.get(channel.end_alpha)
+        if end_alpha.location != new_loc: end_alpha.location = new_loc
+
+        new_loc.x += 100
+        new_loc.y = bookmark_y
+
+        if new_loc.x > farthest_x: farthest_x = new_loc.x
+
+        if any([m for m in channel.modifiers if m.type == 'RGB_CURVE']):
+            new_loc.y -= 365
+        elif any([m for m in channel.modifiers if m.type == 'INVERT']):
+            new_loc.y -= 305
+        elif len(channel.modifiers)>0:
+            new_loc.y -= 240
+        else:
+            new_loc.y -= dist_y
+
     new_loc.y = 0.0
-    new_loc.x += 250.0
+    new_loc.x = farthest_x
         
     # End linear
     for i, channel in enumerate(group_tree.tl.channels):
