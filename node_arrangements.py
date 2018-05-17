@@ -302,11 +302,13 @@ def rearrange_tl_nodes(group_tree):
             normal_filter = nodes.get(channel.normal_filter)
             if normal_filter.location != new_loc: normal_filter.location = new_loc
 
-        # Start solid alpha
-        new_loc.y -= 100.0
-        solid_alpha = nodes.get(channel.solid_alpha)
-        if solid_alpha and solid_alpha.location != new_loc: solid_alpha.location = new_loc
-        new_loc.y += 100.0
+        if i == len(group_tree.tl.channels)-1:
+            loc = Vector((new_loc.x, 0))
+            loc.y = -dist_y * (i+1)
+
+            # Rearrange solid alpha node
+            solid_alpha = nodes.get(group_tree.tl.solid_alpha)
+            if solid_alpha.location != loc: solid_alpha.location = loc
 
         # Start entry
         ori_y = new_loc.y
@@ -369,12 +371,12 @@ def rearrange_tl_nodes(group_tree):
         new_loc.y -= 50
 
         start_rgb = nodes.get(channel.start_rgb)
-        if start_rgb.location != new_loc: start_rgb.location = new_loc
+        if start_rgb and start_rgb.location != new_loc: start_rgb.location = new_loc
 
         new_loc.y -= 50
 
         start_alpha = nodes.get(channel.start_alpha)
-        if start_alpha.location != new_loc: start_alpha.location = new_loc
+        if start_alpha and start_alpha.location != new_loc: start_alpha.location = new_loc
 
         new_loc.x += 50
         new_loc.y = bookmark_y
@@ -383,12 +385,12 @@ def rearrange_tl_nodes(group_tree):
         new_loc.y -= 50
 
         end_rgb = nodes.get(channel.end_rgb)
-        if end_rgb.location != new_loc: end_rgb.location = new_loc
+        if end_rgb and end_rgb.location != new_loc: end_rgb.location = new_loc
 
         new_loc.y -= 50
 
         end_alpha = nodes.get(channel.end_alpha)
-        if end_alpha.location != new_loc: end_alpha.location = new_loc
+        if end_alpha and end_alpha.location != new_loc: end_alpha.location = new_loc
 
         new_loc.x += 100
         new_loc.y = bookmark_y

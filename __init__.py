@@ -116,8 +116,8 @@ def add_io_from_new_channel(group_tree):
     elif channel.type == 'NORMAL':
         #inp.min_value = -1.0
         #inp.max_value = 1.0
-        # Use 254 as normal z value so it will fallback to use geometry normal at checking process
-        inp.default_value = (254,254,254) 
+        # Use 999 as normal z value so it will fallback to use geometry normal at checking process
+        inp.default_value = (999,999,999) 
 
 def set_input_default_value(group_node, channel):
     #channel = group_node.node_tree.tl.channels[index]
@@ -130,8 +130,8 @@ def set_input_default_value(group_node, channel):
     if channel.type == 'VALUE':
         group_node.inputs[channel.io_index].default_value = 0.0
     if channel.type == 'NORMAL':
-        # Use 254 as normal z value so it will fallback to use geometry normal at checking process
-        group_node.inputs[channel.io_index].default_value = (254,254,254)
+        # Use 999 as normal z value so it will fallback to use geometry normal at checking process
+        group_node.inputs[channel.io_index].default_value = (999,999,999)
 
 def update_image_editor_image(context, image):
     for area in context.screen.areas:
@@ -236,6 +236,7 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
 
     start = nodes.get(tl.start)
     end = nodes.get(tl.end)
+    solid_alpha = nodes.get(tl.solid_alpha)
 
     for i, ch in enumerate(tl.channels):
         if ch_idx != -1 and i != ch_idx: continue
@@ -247,7 +248,6 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
         start_alpha_entry = nodes.get(ch.start_alpha_entry)
         end_alpha_entry = nodes.get(ch.end_alpha_entry)
         normal_filter = nodes.get(ch.normal_filter)
-        solid_alpha = nodes.get(ch.solid_alpha)
 
         start_rgb = nodes.get(ch.start_rgb)
         start_alpha = nodes.get(ch.start_alpha)
@@ -268,14 +268,19 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
             else: 
                 check_create_node_link(tree, solid_alpha.outputs[0], start_alpha_entry.inputs[0])
             check_create_node_link(tree, end_alpha_entry.outputs[0], start_alpha.inputs[0])
+        elif ch.type != 'NORMAL':
+            check_create_node_link(tree, solid_alpha.outputs[0], start_alpha.inputs[0])
 
-        check_create_node_link(tree, end_entry.outputs[0], start_rgb.inputs[0])
-
-        if end_linear:
-            check_create_node_link(tree, end_rgb.outputs[0], end_linear.inputs[0])
-            check_create_node_link(tree, end_linear.outputs[0], end.inputs[ch.io_index])
+        if ch.type == 'NORMAL':
+            check_create_node_link(tree, end_entry.outputs[0], end.inputs[ch.io_index])
         else:
-            check_create_node_link(tree, end_rgb.outputs[0], end.inputs[ch.io_index])
+            check_create_node_link(tree, end_entry.outputs[0], start_rgb.inputs[0])
+
+            if end_linear:
+                check_create_node_link(tree, end_rgb.outputs[0], end_linear.inputs[0])
+                check_create_node_link(tree, end_linear.outputs[0], end.inputs[ch.io_index])
+            else:
+                check_create_node_link(tree, end_rgb.outputs[0], end.inputs[ch.io_index])
 
 def reconnect_tex_nodes(tex, ch_idx=-1):
     tl =  get_active_texture_layers_node().node_tree.tl
@@ -517,41 +522,36 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         start_alpha_entry.parent = start_frame
         channel.start_alpha_entry = start_alpha_entry.name
 
-        solid_alpha = nodes.new('ShaderNodeValue')
-        solid_alpha.outputs[0].default_value = 1.0
-        solid_alpha.label = 'Solid Alpha'
-        solid_alpha.parent = start_frame
-        channel.solid_alpha = solid_alpha.name
-
         end_alpha_entry = nodes.new('NodeReroute')
         end_alpha_entry.label = 'End Alpha Entry'
         end_alpha_entry.parent = end_entry_frame
         channel.end_alpha_entry = end_alpha_entry.name
 
     # Modifier pipeline
-    start_rgb = nodes.new('NodeReroute')
-    start_rgb.label = 'Start RGB'
-    #start_rgb.parent = modifier_frame
-    channel.start_rgb = start_rgb.name
+    if channel.type != 'NORMAL':
+        start_rgb = nodes.new('NodeReroute')
+        start_rgb.label = 'Start RGB'
+        #start_rgb.parent = modifier_frame
+        channel.start_rgb = start_rgb.name
 
-    start_alpha = nodes.new('NodeReroute')
-    start_alpha.label = 'Start Alpha'
-    #start_alpha.parent = modifier_frame
-    channel.start_alpha = start_alpha.name
+        start_alpha = nodes.new('NodeReroute')
+        start_alpha.label = 'Start Alpha'
+        #start_alpha.parent = modifier_frame
+        channel.start_alpha = start_alpha.name
 
-    end_rgb = nodes.new('NodeReroute')
-    end_rgb.label = 'End RGB'
-    #end_rgb.parent = modifier_frame
-    channel.end_rgb = end_rgb.name
+        end_rgb = nodes.new('NodeReroute')
+        end_rgb.label = 'End RGB'
+        #end_rgb.parent = modifier_frame
+        channel.end_rgb = end_rgb.name
 
-    end_alpha = nodes.new('NodeReroute')
-    end_alpha.label = 'End Alpha'
-    #end_alpha.parent = modifier_frame
-    channel.end_alpha = end_alpha.name
+        end_alpha = nodes.new('NodeReroute')
+        end_alpha.label = 'End Alpha'
+        #end_alpha.parent = modifier_frame
+        channel.end_alpha = end_alpha.name
 
-    # Link modifier start and end
-    links.new(start_rgb.outputs[0], end_rgb.inputs[0])
-    links.new(start_alpha.outputs[0], end_alpha.inputs[0])
+        # Link modifier start and end
+        links.new(start_rgb.outputs[0], end_rgb.inputs[0])
+        links.new(start_alpha.outputs[0], end_alpha.inputs[0])
 
     # Link between textures
     if len(tl.textures) == 0:
@@ -598,6 +598,12 @@ def create_new_group_tree(mat):
     end_node = group_tree.nodes.new('NodeGroupOutput')
     group_tree.tl.start = start_node.name
     group_tree.tl.end = end_node.name
+
+    # Create solid alpha node
+    solid_alpha = group_tree.nodes.new('ShaderNodeValue')
+    solid_alpha.outputs[0].default_value = 1.0
+    solid_alpha.label = 'Solid Alpha'
+    group_tree.tl.solid_alpha = solid_alpha.name
 
     # Create version info frame
     version_info = group_tree.nodes.new('NodeFrame')
@@ -1022,18 +1028,20 @@ class YRemoveTLChannel(bpy.types.Operator):
         except: pass
         try: nodes.remove(nodes.get(channel.start_alpha_entry)) 
         except: pass
-        try: nodes.remove(nodes.get(channel.solid_alpha)) 
-        except: pass
         try: nodes.remove(nodes.get(channel.end_alpha_entry)) 
         except: pass
         try: nodes.remove(nodes.get(channel.normal_filter)) 
         except: pass
 
         # Remove channel modifiers
-        nodes.remove(nodes.get(channel.start_rgb))
-        nodes.remove(nodes.get(channel.start_alpha))
-        nodes.remove(nodes.get(channel.end_rgb))
-        nodes.remove(nodes.get(channel.end_alpha))
+        try: nodes.remove(nodes.get(channel.start_rgb))
+        except: pass
+        try: nodes.remove(nodes.get(channel.start_alpha))
+        except: pass
+        try: nodes.remove(nodes.get(channel.end_rgb))
+        except: pass
+        try: nodes.remove(nodes.get(channel.end_alpha))
+        except: pass
         #nodes.remove(nodes.get(channel.modifier_frame))
 
         for mod in channel.modifiers:
@@ -3193,7 +3201,7 @@ def update_channel_alpha(self, context):
         outputs.remove(outputs[self.io_index+1])
 
         # Relink inside tree
-        solid_alpha = nodes.get(self.solid_alpha)
+        solid_alpha = nodes.get(tl.solid_alpha)
         links.new(solid_alpha.outputs[0], start_alpha_entry.inputs[0])
 
         # Shift other IO index
@@ -3371,7 +3379,6 @@ class YTLChannel(bpy.types.PropertyGroup):
     start_linear = StringProperty(default='')
     start_entry = StringProperty(default='')
     start_alpha_entry = StringProperty(default='')
-    solid_alpha = StringProperty(default='')
 
     normal_filter = StringProperty(default='')
 
@@ -3405,6 +3412,9 @@ class YTextureLayersTree(bpy.types.PropertyGroup):
     # Textures
     textures = CollectionProperty(type=YTextureLayer)
     active_texture_index = IntProperty(default=0, update=update_texture_index)
+
+    # Solid alpha for modifier alpha input
+    solid_alpha = StringProperty(default='')
 
     # Node names
     start = StringProperty(default='')
