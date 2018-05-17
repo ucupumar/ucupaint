@@ -278,14 +278,9 @@ def rearrange_tl_nodes(group_tree):
     loc = Vector((0, 190))
     if version_info and version_info.location != loc: version_info.location = loc
 
-    # Rearrange geometry node
-    geometry = nodes.get(group_tree.tl.geometry)
-    loc = Vector((0, 0))
-    if geometry.location != loc: geometry.location = loc
-
     # Rearrange start nodes
     start_node = nodes.get(group_tree.tl.start)
-    loc = Vector((0, -200))
+    loc = Vector((0, 0))
     if start_node.location != loc: start_node.location = loc
 
     new_loc = Vector((0, 0))

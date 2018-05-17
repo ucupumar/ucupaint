@@ -1,9 +1,6 @@
 # KNOWN ISSUES:
 # - Cycles has limit of 31 image textures per material, NOT per node_tree, 
 #   so it's better to warn user about this when adding new image texture above limit
-# - Performance when adding and removing layer still terrible, 
-#   especially when refreshing layer blends (which contains rearrange nodes)
-#   SOLUTION: Create dedicated group every texture
 
 bl_info = {
     "name": "Texture Layers Node by ucupumar",
@@ -239,7 +236,6 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
 
     start = nodes.get(tl.start)
     end = nodes.get(tl.end)
-    geometry = nodes.get(tl.geometry)
 
     for i, ch in enumerate(tl.channels):
         if ch_idx != -1 and i != ch_idx: continue
@@ -263,7 +259,6 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
             check_create_node_link(tree, start_linear.outputs[0], start_entry.inputs[0])
         elif normal_filter:
             check_create_node_link(tree, start.outputs[ch.io_index], normal_filter.inputs[0])
-            check_create_node_link(tree, geometry.outputs[1], normal_filter.inputs[1])
             check_create_node_link(tree, normal_filter.outputs[0], start_entry.inputs[0])
 
         if ch.type == 'RGB':
@@ -603,9 +598,6 @@ def create_new_group_tree(mat):
     end_node = group_tree.nodes.new('NodeGroupOutput')
     group_tree.tl.start = start_node.name
     group_tree.tl.end = end_node.name
-
-    geometry = group_tree.nodes.new('ShaderNodeNewGeometry')
-    group_tree.tl.geometry = geometry.name
 
     # Create version info frame
     version_info = group_tree.nodes.new('NodeFrame')
@@ -3413,9 +3405,6 @@ class YTextureLayersTree(bpy.types.PropertyGroup):
     # Textures
     textures = CollectionProperty(type=YTextureLayer)
     active_texture_index = IntProperty(default=0, update=update_texture_index)
-
-    # Geometry
-    geometry = StringProperty(default='')
 
     # Node names
     start = StringProperty(default='')
