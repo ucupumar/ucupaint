@@ -1,6 +1,8 @@
 # KNOWN ISSUES:
 # - Cycles has limit of 31 image textures per material, NOT per node_tree, 
 #   so it's better to warn user about this when adding new image texture above limit
+# - Cycles also hsa limit of 20 image textures inside group
+# - Use of cineon files will cause crash (??)
 
 bl_info = {
     "name": "Texture Layers Node by ucupumar",
@@ -1450,10 +1452,8 @@ class YNewTextureLayer(bpy.types.Operator):
 
         T = time.time()
 
-        # Refresh texture channel blend nodes
+        # Reconnect and rearrange nodes
         reconnect_tl_tex_nodes(node.node_tree)
-
-        # Rearrange nodes
         rearrange_tl_nodes(node.node_tree)
 
         # Update UI
@@ -1628,11 +1628,9 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
         node.node_tree.tl.halt_update = False
 
-        # Refresh texture channel blend nodes
+        # Reconnect and rearrange nodes
         reconnect_tl_tex_nodes(node.node_tree)
-
-        # Rearrange nodes
-        #rearrange_tl_nodes(node.node_tree)
+        rearrange_tl_nodes(node.node_tree)
 
         # Update UI
         context.window_manager.tlui.need_update = True
@@ -1775,11 +1773,9 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
 
         node.node_tree.tl.halt_update = False
 
-        # Refresh texture channel blend nodes
+        # Reconnect and rearrange nodes
         reconnect_tl_tex_nodes(node.node_tree)
-
-        # Rearrange nodes
-        #rearrange_tl_nodes(node.node_tree)
+        rearrange_tl_nodes(node.node_tree)
 
         # Update UI
         context.window_manager.tlui.need_update = True
@@ -2218,6 +2214,7 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
                     #    brow.label('Textures happen here..')
 
                     inp = node.inputs[channel.io_index]
+
                     brow = bcol.row(align=True)
 
                     #if channel.type == 'NORMAL':
@@ -2226,6 +2223,7 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
                     #    else: icon_value = custom_icons["collapsed_input"].icon_id
                     #    brow.prop(chui, 'expand_base_vector', text='', emboss=False, icon_value=icon_value)
                     #else: brow.label('', icon='INFO')
+
                     brow.label('', icon='INFO')
 
                     if channel.type == 'RGB':
@@ -2244,8 +2242,10 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
                         #    brow.label('', icon='BLANK1')
                         #    brow.prop(inp,'default_value', text='')
                         pass
-                    else:
+                    elif len(inp.links) == 0:
                         brow.prop(inp,'default_value', text='')
+                    else:
+                        brow.label('', icon='LINKED')
 
                     if len(channel.modifiers) > 0:
                         brow.label('', icon='BLANK1')
@@ -2258,7 +2258,10 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
                             #brow = bcol.row(align=True)
                             #brow.label('', icon='BLANK1')
                             brow.label('Base Alpha:')
-                            brow.prop(inp_alpha, 'default_value', text='')
+                            if len(node.inputs[channel.io_index].links)==0:
+                                brow.prop(inp_alpha, 'default_value', text='')
+                            else:
+                                brow.label('', icon='LINKED')
                         else:
                             brow.label('Alpha:')
                         brow.prop(channel, 'alpha', text='')
@@ -2656,15 +2659,22 @@ class NODE_UL_y_tl_channels(bpy.types.UIList):
 
         row = layout.row()
         row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
-        if item.type == 'VALUE':
-            row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
-        elif item.type == 'RGB':
-            rrow = row.row(align=True)
-            rrow.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
-            if item.alpha:
-                rrow.prop(inputs[item.io_index+1], 'default_value', text='')
-        #elif item.type == 'NORMAL':
-        #    row.prop(inputs[item.io_index], 'default_value', text='', expand=False)
+
+        if item.type == 'RGB':
+            row = row.row(align=True)
+
+        if len(inputs[item.io_index].links) == 0:
+            if item.type == 'VALUE':
+                row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
+            elif item.type == 'RGB':
+                row.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
+        else:
+            row.label('', icon='LINKED')
+
+        if item.type=='RGB' and item.alpha:
+            if len(inputs[item.io_index+1].links) == 0:
+                row.prop(inputs[item.io_index+1], 'default_value', text='')
+            else: row.label('', icon='LINKED')
 
 class NODE_UL_y_tl_textures(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
