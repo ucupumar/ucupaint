@@ -533,7 +533,7 @@ def rearrange_tl_nodes(group_tree):
         elif channel.type == 'VALUE':
             loc.y -= 220
         elif channel.type == 'NORMAL':
-            loc.y -= 120
+            loc.y -= 155
 
         if i+1 < len(tl.channels):
             next_ch = tl.channels[i+1]

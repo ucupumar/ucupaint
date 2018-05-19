@@ -266,9 +266,8 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
         end_rgb = nodes.get(ch.end_rgb)
         end_alpha = nodes.get(ch.end_alpha)
 
-        if len(ch.modifiers) == 0 and ch.type != 'NORMAL':
-            check_create_node_link(tree, start_rgb.outputs[0], end_rgb.inputs[0])
-            check_create_node_link(tree, start_alpha.outputs[0], end_alpha.inputs[0])
+        check_create_node_link(tree, start_rgb.outputs[0], end_rgb.inputs[0])
+        check_create_node_link(tree, start_alpha.outputs[0], end_alpha.inputs[0])
 
         if len(tl.textures) == 0:
             check_create_node_link(tree, start_entry.outputs[0], end_entry.inputs[0])
@@ -289,19 +288,16 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
             else: 
                 check_create_node_link(tree, solid_alpha.outputs[0], start_alpha_entry.inputs[0])
             check_create_node_link(tree, end_alpha_entry.outputs[0], start_alpha.inputs[0])
-        elif ch.type != 'NORMAL':
+        else:
             check_create_node_link(tree, solid_alpha.outputs[0], start_alpha.inputs[0])
 
-        if ch.type == 'NORMAL':
-            check_create_node_link(tree, end_entry.outputs[0], end.inputs[ch.io_index])
-        else:
-            check_create_node_link(tree, end_entry.outputs[0], start_rgb.inputs[0])
+        check_create_node_link(tree, end_entry.outputs[0], start_rgb.inputs[0])
 
-            if end_linear:
-                check_create_node_link(tree, end_rgb.outputs[0], end_linear.inputs[0])
-                check_create_node_link(tree, end_linear.outputs[0], end.inputs[ch.io_index])
-            else:
-                check_create_node_link(tree, end_rgb.outputs[0], end.inputs[ch.io_index])
+        if end_linear:
+            check_create_node_link(tree, end_rgb.outputs[0], end_linear.inputs[0])
+            check_create_node_link(tree, end_linear.outputs[0], end.inputs[ch.io_index])
+        else:
+            check_create_node_link(tree, end_rgb.outputs[0], end.inputs[ch.io_index])
 
 def reconnect_tex_nodes(tex, ch_idx=-1):
     tl =  get_active_texture_layers_node().node_tree.tl
@@ -549,26 +545,25 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         channel.end_alpha_entry = end_alpha_entry.name
 
     # Modifier pipeline
-    if channel.type != 'NORMAL':
-        start_rgb = nodes.new('NodeReroute')
-        start_rgb.label = 'Start RGB'
-        #start_rgb.parent = modifier_frame
-        channel.start_rgb = start_rgb.name
+    start_rgb = nodes.new('NodeReroute')
+    start_rgb.label = 'Start RGB'
+    #start_rgb.parent = modifier_frame
+    channel.start_rgb = start_rgb.name
 
-        start_alpha = nodes.new('NodeReroute')
-        start_alpha.label = 'Start Alpha'
-        #start_alpha.parent = modifier_frame
-        channel.start_alpha = start_alpha.name
+    start_alpha = nodes.new('NodeReroute')
+    start_alpha.label = 'Start Alpha'
+    #start_alpha.parent = modifier_frame
+    channel.start_alpha = start_alpha.name
 
-        end_rgb = nodes.new('NodeReroute')
-        end_rgb.label = 'End RGB'
-        #end_rgb.parent = modifier_frame
-        channel.end_rgb = end_rgb.name
+    end_rgb = nodes.new('NodeReroute')
+    end_rgb.label = 'End RGB'
+    #end_rgb.parent = modifier_frame
+    channel.end_rgb = end_rgb.name
 
-        end_alpha = nodes.new('NodeReroute')
-        end_alpha.label = 'End Alpha'
-        #end_alpha.parent = modifier_frame
-        channel.end_alpha = end_alpha.name
+    end_alpha = nodes.new('NodeReroute')
+    end_alpha.label = 'End Alpha'
+    #end_alpha.parent = modifier_frame
+    channel.end_alpha = end_alpha.name
 
     # Link between textures
     for i, t in reversed(list(enumerate(tl.textures))):
