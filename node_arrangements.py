@@ -26,6 +26,24 @@ def check_set_node_label(node, label):
     if node and node.label != label:
         node.label = label
 
+def refresh_tl_channel_frame(ch, nodes):
+
+    start_frame = nodes.get(ch.start_frame)
+    if not start_frame:
+        start_frame = nodes.new('NodeFrame')
+        ch.start_frame = start_frame.name
+
+    check_set_node_label(start_frame, ch.name + ' Start')
+
+    end_frame = nodes.get(ch.end_frame)
+    if not end_frame:
+        end_frame = nodes.new('NodeFrame')
+        ch.end_frame = end_frame.name
+
+    check_set_node_label(end_frame, ch.name + ' End')
+
+    return start_frame, end_frame
+
 def rearrange_tl_frame_nodes(group_tree):
     tl = group_tree.tl
     nodes = group_tree.nodes
@@ -33,19 +51,7 @@ def rearrange_tl_frame_nodes(group_tree):
     # Channel loops
     for ch in tl.channels:
 
-        start_frame = nodes.get(ch.start_frame)
-        if not start_frame:
-            start_frame = nodes.new('NodeFrame')
-            ch.start_frame = start_frame.name
-
-        check_set_node_label(start_frame, ch.name + ' Start')
-
-        end_frame = nodes.get(ch.end_frame)
-        if not end_frame:
-            end_frame = nodes.new('NodeFrame')
-            ch.end_frame = end_frame.name
-
-        check_set_node_label(end_frame, ch.name + ' End')
+        start_frame, end_frame = refresh_tl_channel_frame(ch, nodes)
 
         start_linear = nodes.get(ch.start_linear)
         start_normal_filter = nodes.get(ch.start_normal_filter)

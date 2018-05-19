@@ -2859,6 +2859,8 @@ def update_channel_name(self, context):
                 if self.type == 'RGB' and self.alpha:
                     tex.tree.inputs[self.io_index+1].name = self.name + ' Alpha'
                     tex.tree.outputs[self.io_index+1].name = self.name + ' Alpha'
+        
+        refresh_tl_channel_frame(self, group_tree.nodes)
 
 #def update_tex_channel_color_space(self, context):
 #    group_tree = self.id_data
