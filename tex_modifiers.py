@@ -78,6 +78,13 @@ def add_new_modifier(tree, parent, modifier_type):
     links.new(start_rgb.outputs[0], end_rgb.inputs[0])
     links.new(start_alpha.outputs[0], end_alpha.inputs[0])
 
+    end_frame = None
+    if hasattr(parent, 'end_frame'):
+        end_frame = nodes.get(parent.end_frame)
+
+    if end_frame:
+        frame.parent = end_frame
+
     # Create the nodes
     if m.type == 'INVERT':
 
@@ -148,6 +155,9 @@ def add_new_modifier(tree, parent, modifier_type):
 
         frame.label = 'Color Ramp'
         color_ramp.parent = frame
+        color_ramp_alpha_multiply.parent = frame
+        color_ramp_mix_alpha.parent = frame
+        color_ramp_mix_rgb.parent = frame
 
     elif m.type == 'RGB_CURVE':
 
@@ -168,7 +178,7 @@ def add_new_modifier(tree, parent, modifier_type):
         links.new(start_rgb.outputs[0], huesat.inputs[4])
         links.new(huesat.outputs[0], end_rgb.inputs[0])
 
-        frame.label = 'RGB Curve'
+        frame.label = 'Hue Saturation Value'
         huesat.parent = frame
 
     elif m.type == 'BRIGHT_CONTRAST':
@@ -259,18 +269,24 @@ class YNewTexModifier(bpy.types.Operator):
         group_tree = node.node_tree
         tl = group_tree.tl
 
-        parent_type = str(type(context.parent))
+        tex = context.texture if hasattr(context, 'texture') else None
 
-        if 'YLayerChannel' in parent_type:
-            tex = tl.textures[context.parent.texture_index]
-            m = add_new_modifier(tex.tree, context.parent, self.type)
-            m.texture_index = context.parent.texture_index
+        if tex:
+            mod = add_new_modifier(tex.tree, context.parent, self.type)
+            mod.texture_index = context.parent.texture_index
+            channel_type = tl.channels[context.parent.channel_index].type
+            nodes = tex.tree.nodes
         else:
-            add_new_modifier(group_tree, context.parent, self.type)
+            mod = add_new_modifier(group_tree, context.parent, self.type)
+            channel_type = context.parent.type
+            nodes = group_tree.nodes
+
+        if self.type == 'RGB_TO_INTENSITY' and channel_type == 'RGB':
+            rgb2i = nodes.get(mod.rgb2i)
+            rgb2i.inputs[2].default_value = (1,0,1,1)
 
         # If RGB to intensity is added, bump base is better be 0.0
-        #if self.parent_type == 'TEXTURE_CHANNEL' and self.type == 'RGB_TO_INTENSITY':
-        if self.type == 'RGB_TO_INTENSITY' and hasattr(context, 'texture'):
+        if tex and self.type == 'RGB_TO_INTENSITY':
             for i, ch in enumerate(tl.channels):
                 c = context.texture.channels[i]
                 if ch.type == 'NORMAL':
@@ -281,7 +297,7 @@ class YNewTexModifier(bpy.types.Operator):
             context.channel_ui.expand_content = True
 
         # Rearrange nodes
-        if 'YLayerChannel' in parent_type:
+        if tex:
             rearrange_tex_nodes(tex)
         else: rearrange_tl_nodes(group_tree)
 
@@ -342,10 +358,9 @@ class YMoveTexModifier(bpy.types.Operator):
         else:
             return {'CANCELLED'}
 
-        parent_type = str(type(parent))
+        tex = context.texture if hasattr(context, 'texture') else None
 
-        if 'YLayerChannel' in parent_type:
-            tex = tl.textures[parent.texture_index]
+        if tex:
             nodes = tex.tree.nodes
             links = tex.tree.links
         else:
@@ -389,7 +404,7 @@ class YMoveTexModifier(bpy.types.Operator):
         #parent.active_modifier_index = new_index
 
         # Rearrange nodes
-        if 'YLayerChannel' in parent_type:
+        if tex:
             rearrange_tex_nodes(tex)
         else: rearrange_tl_nodes(group_tree)
 
@@ -436,10 +451,9 @@ class YRemoveTexModifier(bpy.types.Operator):
 
         if len(parent.modifiers) < 1: return {'CANCELLED'}
 
-        parent_type = str(type(parent))
+        tex = context.texture if hasattr(context, 'texture') else None
 
-        if 'YLayerChannel' in parent_type:
-            tex = tl.textures[parent.texture_index]
+        if tex:
             nodes = tex.tree.nodes
             links = tex.tree.links
         else:
@@ -461,7 +475,7 @@ class YRemoveTexModifier(bpy.types.Operator):
         parent.modifiers.remove(index)
 
         # Rearrange nodes
-        if 'YLayerChannel' in parent_type:
+        if tex:
             rearrange_tex_nodes(tex)
         else: rearrange_tl_nodes(group_tree)
 
@@ -619,7 +633,11 @@ def update_modifier_shortcut(self, context):
 
 def update_invert_channel(self, context):
     group_tree = self.id_data
-    nodes = group_tree.nodes
+    tl = group_tree.tl
+
+    if self.texture_index != -1:
+        nodes = tl.textures[self.texture_index].tree.nodes
+    else: nodes = group_tree.nodes
 
     invert = nodes.get(self.invert)
 

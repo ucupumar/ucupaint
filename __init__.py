@@ -259,7 +259,7 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
         end_entry = nodes.get(ch.end_entry)
         start_alpha_entry = nodes.get(ch.start_alpha_entry)
         end_alpha_entry = nodes.get(ch.end_alpha_entry)
-        normal_filter = nodes.get(ch.normal_filter)
+        start_normal_filter = nodes.get(ch.start_normal_filter)
 
         start_rgb = nodes.get(ch.start_rgb)
         start_alpha = nodes.get(ch.start_alpha)
@@ -278,9 +278,9 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
         if start_linear:
             check_create_node_link(tree, start.outputs[ch.io_index], start_linear.inputs[0])
             check_create_node_link(tree, start_linear.outputs[0], start_entry.inputs[0])
-        elif normal_filter:
-            check_create_node_link(tree, start.outputs[ch.io_index], normal_filter.inputs[0])
-            check_create_node_link(tree, normal_filter.outputs[0], start_entry.inputs[0])
+        elif start_normal_filter:
+            check_create_node_link(tree, start.outputs[ch.io_index], start_normal_filter.inputs[0])
+            check_create_node_link(tree, start_normal_filter.outputs[0], start_entry.inputs[0])
 
         if ch.type == 'RGB':
             if ch.alpha:
@@ -473,28 +473,28 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
     end_linear = None
 
     # Get start and end frame
-    start_frame = nodes.get(tl.start_frame)
-    if not start_frame:
-        start_frame = nodes.new('NodeFrame')
-        start_frame.label = 'Start'
-        tl.start_frame = start_frame.name
+    #start_frame = nodes.get(tl.start_frame)
+    #if not start_frame:
+    #    start_frame = nodes.new('NodeFrame')
+    #    start_frame.label = 'Start'
+    #    tl.start_frame = start_frame.name
 
-    end_entry_frame = nodes.get(tl.end_entry_frame)
-    if not end_entry_frame:
-        end_entry_frame = nodes.new('NodeFrame')
-        end_entry_frame.label = 'End'
-        tl.end_entry_frame = end_entry_frame.name
+    #end_entry_frame = nodes.get(tl.end_entry_frame)
+    #if not end_entry_frame:
+    #    end_entry_frame = nodes.new('NodeFrame')
+    #    end_entry_frame.label = 'End'
+    #    tl.end_entry_frame = end_entry_frame.name
 
     #modifier_frame = nodes.get(channel.modifier_frame)
     #modifier_frame = nodes.new('NodeFrame')
     #modifier_frame.label = 'Modifier'
     #channel.modifier_frame = modifier_frame.name
 
-    end_linear_frame = nodes.get(tl.end_linear_frame)
-    if not end_linear_frame:
-        end_linear_frame = nodes.new('NodeFrame')
-        end_linear_frame.label = 'End Linear'
-        tl.end_linear_frame = end_linear_frame.name
+    #end_linear_frame = nodes.get(tl.end_linear_frame)
+    #if not end_linear_frame:
+    #    end_linear_frame = nodes.new('NodeFrame')
+    #    end_linear_frame.label = 'End Linear'
+    #    tl.end_linear_frame = end_linear_frame.name
 
     # Create linarize node and converter node
     if channel.type in {'RGB', 'VALUE'}:
@@ -506,7 +506,7 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         start_linear.label = 'Start Linear'
         start_linear.inputs[1].default_value = 1.0/GAMMA
 
-        start_linear.parent = start_frame
+        #start_linear.parent = start_frame
         channel.start_linear = start_linear.name
 
         if channel.type == 'RGB':
@@ -517,34 +517,35 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         end_linear.label = 'End Linear'
         end_linear.inputs[1].default_value = GAMMA
 
-        end_linear.parent = end_linear_frame
+        #end_linear.parent = end_linear_frame
         channel.end_linear = end_linear.name
 
     if channel.type == 'NORMAL':
-        normal_filter = nodes.new('ShaderNodeGroup')
-        normal_filter.node_tree = bpy.data.node_groups.get(CHECK_INPUT_NORMAL)
-        normal_filter.parent = start_frame
-        channel.normal_filter = normal_filter.name
+        start_normal_filter = nodes.new('ShaderNodeGroup')
+        start_normal_filter.node_tree = bpy.data.node_groups.get(CHECK_INPUT_NORMAL)
+        #start_normal_filter.parent = start_frame
+        start_normal_filter.label = 'Start Normal Filter'
+        channel.start_normal_filter = start_normal_filter.name
 
     start_entry = nodes.new('NodeReroute')
     start_entry.label = 'Start Entry'
-    start_entry.parent = start_frame
+    #start_entry.parent = start_frame
     channel.start_entry = start_entry.name
 
     end_entry = nodes.new('NodeReroute')
     end_entry.label = 'End Entry'
-    end_entry.parent = end_entry_frame
+    #end_entry.parent = end_entry_frame
     channel.end_entry = end_entry.name
 
     if channel.type == 'RGB':
         start_alpha_entry = nodes.new('NodeReroute')
         start_alpha_entry.label = 'Start Alpha Entry'
-        start_alpha_entry.parent = start_frame
+        #start_alpha_entry.parent = start_frame
         channel.start_alpha_entry = start_alpha_entry.name
 
         end_alpha_entry = nodes.new('NodeReroute')
         end_alpha_entry.label = 'End Alpha Entry'
-        end_alpha_entry.parent = end_entry_frame
+        #end_alpha_entry.parent = end_entry_frame
         channel.end_alpha_entry = end_alpha_entry.name
 
     # Modifier pipeline
@@ -1013,7 +1014,7 @@ class YRemoveTLChannel(bpy.types.Operator):
         except: pass
         try: nodes.remove(nodes.get(channel.end_alpha_entry)) 
         except: pass
-        try: nodes.remove(nodes.get(channel.normal_filter)) 
+        try: nodes.remove(nodes.get(channel.start_normal_filter)) 
         except: pass
 
         # Remove channel modifiers
@@ -1025,6 +1026,10 @@ class YRemoveTLChannel(bpy.types.Operator):
         except: pass
         try: nodes.remove(nodes.get(channel.end_alpha))
         except: pass
+        try: nodes.remove(nodes.get(channel.start_frame))
+        except: pass
+        try: nodes.remove(nodes.get(channel.end_frame))
+        except: pass
         #nodes.remove(nodes.get(channel.modifier_frame))
 
         for mod in channel.modifiers:
@@ -1032,12 +1037,13 @@ class YRemoveTLChannel(bpy.types.Operator):
 
         # Remove some frames if it's the last channel
         if len(tl.channels) == 1:
-            nodes.remove(nodes.get(tl.start_frame))
-            nodes.remove(nodes.get(tl.end_entry_frame))
-            nodes.remove(nodes.get(tl.end_linear_frame))
-            tl.start_frame = ''
-            tl.end_entry_frame = ''
-            tl.end_linear_frame = ''
+            pass
+            #nodes.remove(nodes.get(tl.start_frame))
+            #nodes.remove(nodes.get(tl.end_entry_frame))
+            #nodes.remove(nodes.get(tl.end_linear_frame))
+            #tl.start_frame = ''
+            #tl.end_entry_frame = ''
+            #tl.end_linear_frame = ''
             #for t in tl.textures:
             #    nodes.remove(nodes.get(t.blend_frame))
             #    t.blend_frame = ''
@@ -2164,6 +2170,7 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
 
                 if channel.type != 'NORMAL':
                     row.context_pointer_set('parent', channel)
+                    row.context_pointer_set('channel_ui', chui)
                     icon_value = custom_icons["add_modifier"].icon_id
                     row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
 
@@ -2845,12 +2852,13 @@ def update_channel_name(self, context):
             group_tree.outputs[self.io_index+1].name = self.name + ' Alpha'
 
         for tex in tl.textures:
-            tex.tree.inputs[self.io_index].name = self.name
-            tex.tree.outputs[self.io_index].name = self.name
+            if self.io_index < len(tex.tree.inputs):
+                tex.tree.inputs[self.io_index].name = self.name
+                tex.tree.outputs[self.io_index].name = self.name
 
-            if self.type == 'RGB' and self.alpha:
-                tex.tree.inputs[self.io_index+1].name = self.name + ' Alpha'
-                tex.tree.outputs[self.io_index+1].name = self.name + ' Alpha'
+                if self.type == 'RGB' and self.alpha:
+                    tex.tree.inputs[self.io_index+1].name = self.name + ' Alpha'
+                    tex.tree.outputs[self.io_index+1].name = self.name + ' Alpha'
 
 #def update_tex_channel_color_space(self, context):
 #    group_tree = self.id_data
@@ -3373,12 +3381,14 @@ class YTLChannel(bpy.types.PropertyGroup):
     start_linear = StringProperty(default='')
     start_entry = StringProperty(default='')
     start_alpha_entry = StringProperty(default='')
-
-    normal_filter = StringProperty(default='')
+    start_normal_filter = StringProperty(default='')
 
     end_entry = StringProperty(default='')
     end_alpha_entry = StringProperty(default='')
     end_linear = StringProperty(default='')
+
+    start_frame = StringProperty(default='')
+    end_frame = StringProperty(default='')
 
     # For modifiers
     start_rgb = StringProperty(default='')
@@ -3412,11 +3422,11 @@ class YTextureLayersTree(bpy.types.PropertyGroup):
 
     # Node names
     start = StringProperty(default='')
-    start_frame = StringProperty(default='')
+    #start_frame = StringProperty(default='')
 
     end = StringProperty(default='')
-    end_entry_frame = StringProperty(default='')
-    end_linear_frame = StringProperty(default='')
+    #end_entry_frame = StringProperty(default='')
+    #end_linear_frame = StringProperty(default='')
 
     # Temp channels to remember last channel selected when adding new texture
     #temp_channels = CollectionProperty(type=YChannelUI)

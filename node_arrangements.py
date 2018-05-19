@@ -3,6 +3,79 @@ from mathutils import *
 
 INFO_PREFIX = '__ytl_info_'
 
+START_FRAME_PREFIX = '__ytl_start_frame_'
+
+START_FRAME = '__ytl_start_frame_'
+TEXTURES_FRAME = '__ytl_textures_frame_'
+END_ENTRY_FRAME = '__ytl_end_entry_frame_'
+MODIFIER_FRAME = '__ytl_modifier_frame_'
+END_LINEAR_FRAME = '__ytl_end_linear_frame_'
+
+def check_set_node_location(node, loc):
+    if node:
+        if node.location != loc:
+            node.location = loc
+        return True
+    return False
+
+def check_set_node_parent(child, parent):
+    if child and child.parent != parent:
+        child.parent = parent
+
+def check_set_node_label(node, label):
+    if node and node.label != label:
+        node.label = label
+
+def rearrange_tl_frame_nodes(group_tree):
+    tl = group_tree.tl
+    nodes = group_tree.nodes
+
+    # Channel loops
+    for ch in tl.channels:
+
+        start_frame = nodes.get(ch.start_frame)
+        if not start_frame:
+            start_frame = nodes.new('NodeFrame')
+            ch.start_frame = start_frame.name
+
+        check_set_node_label(start_frame, ch.name + ' Start')
+
+        end_frame = nodes.get(ch.end_frame)
+        if not end_frame:
+            end_frame = nodes.new('NodeFrame')
+            ch.end_frame = end_frame.name
+
+        check_set_node_label(end_frame, ch.name + ' End')
+
+        start_linear = nodes.get(ch.start_linear)
+        start_normal_filter = nodes.get(ch.start_normal_filter)
+        start_alpha_entry = nodes.get(ch.start_alpha_entry)
+        start_entry = nodes.get(ch.start_entry)
+
+        end_linear = nodes.get(ch.end_linear)
+        end_alpha_entry = nodes.get(ch.end_alpha_entry)
+        end_entry = nodes.get(ch.end_entry)
+
+        start_rgb = nodes.get(ch.start_rgb)
+        start_alpha = nodes.get(ch.start_alpha)
+        end_rgb = nodes.get(ch.end_rgb)
+        end_alpha = nodes.get(ch.end_alpha)
+
+        # Start Frame
+        check_set_node_parent(start_entry, start_frame)
+        check_set_node_parent(start_linear, start_frame)
+        check_set_node_parent(start_alpha_entry, start_frame)
+        check_set_node_parent(start_normal_filter, start_frame)
+
+        # End Frame
+        check_set_node_parent(end_entry, end_frame)
+        check_set_node_parent(end_alpha_entry, end_frame)
+        check_set_node_parent(start_rgb, end_frame)
+        check_set_node_parent(start_alpha, end_frame)
+        check_set_node_parent(end_rgb, end_frame)
+        check_set_node_parent(end_alpha, end_frame)
+        check_set_node_parent(end_linear, end_frame)
+
 def create_info_nodes(group_tree, tex=None):
     tl = group_tree.tl
     if tex:
@@ -72,10 +145,10 @@ def arrange_modifier_nodes(nodes, parent, loc):
         start_rgb = nodes.get(m.start_rgb)
         start_alpha = nodes.get(m.start_alpha)
 
-        loc.y -= 50
+        loc.y -= 35
         if start_rgb.location != loc: start_rgb.location = loc
 
-        loc.y -= 50
+        loc.y -= 35
         if start_alpha.location != loc: start_alpha.location = loc
 
         loc.y = ori_y
@@ -150,9 +223,9 @@ def arrange_modifier_nodes(nodes, parent, loc):
         end_rgb = nodes.get(m.end_rgb)
         end_alpha = nodes.get(m.end_alpha)
 
-        loc.y -= 50
+        loc.y -= 35
         if end_rgb.location != loc: end_rgb.location = loc
-        loc.y -= 50
+        loc.y -= 35
         if end_alpha.location != loc: end_alpha.location = loc
 
         loc.y = ori_y
@@ -224,34 +297,31 @@ def rearrange_tex_nodes(tex):
         normal_flip = nodes.get(ch.normal_flip)
 
         loc.x = start_x
-        #loc.y = i*-dist_y
         bookmark_y = loc.y
 
         if start_rgb:
-            loc.y -= 50
+            loc.y -= 35
             if start_rgb.location != loc: start_rgb.location = loc
 
         if start_alpha:
-            loc.y -= 50
+            loc.y -= 35
             if start_alpha.location != loc: start_alpha.location = loc
 
         loc.x = start_x + 50
-        #loc.y = i*-dist_y
         loc.y = bookmark_y
 
         # Modifier loop
         loc = arrange_modifier_nodes(nodes, ch, loc)
 
         if end_rgb:
-            loc.y -= 50
+            loc.y -= 35
             if end_rgb.location != loc: end_rgb.location = loc
 
         if end_alpha:
-            loc.y -= 50
+            loc.y -= 35
             if end_alpha.location != loc: end_alpha.location = loc
 
         loc.x += 50
-        #loc.y = i*-dist_y
         loc.y = bookmark_y
 
         if bump_base:
@@ -319,148 +389,159 @@ def rearrange_tl_nodes(group_tree):
     tl = group_tree.tl
     nodes = group_tree.nodes
 
-    # Rearrange start nodes
     start_node = nodes.get(tl.start)
+    solid_alpha = nodes.get(tl.solid_alpha)
+    end_node = nodes.get(tl.end)
+
+    dist_y = 185
+    dist_x = 200
     loc = Vector((0, 0))
-    if start_node.location != loc: start_node.location = loc
 
-    new_loc = Vector((0, 0))
+    # Rearrange start nodes
+    check_set_node_location(start_node, loc)
 
-    #dist_y = 350.0
-    dist_y = 185.0
-    dist_x = 200.0
+    loc.x += 200
+    ori_x = loc.x
 
     # Start nodes
     for i, channel in enumerate(tl.channels):
-        new_loc.y = -dist_y * i
 
-        # Start linear
-        new_loc.x += 200.0
-        if channel.start_linear != '':
-            start_linear = nodes.get(channel.start_linear)
-            if start_linear.location != new_loc: start_linear.location = new_loc
-        elif channel.normal_filter != '':
-            normal_filter = nodes.get(channel.normal_filter)
-            if normal_filter.location != new_loc: normal_filter.location = new_loc
+        start_linear = nodes.get(channel.start_linear)
+        start_normal_filter = nodes.get(channel.start_normal_filter)
+        start_entry = nodes.get(channel.start_entry)
+        start_alpha_entry = nodes.get(channel.start_alpha_entry)
 
-        if i == len(tl.channels)-1:
-            loc = Vector((new_loc.x, 0))
-            loc.y = -dist_y * (i+1)
+        bookmark_y = loc.y
+        loc.x = ori_x
 
-            # Rearrange solid alpha node
-            solid_alpha = nodes.get(tl.solid_alpha)
-            if solid_alpha.location != loc: solid_alpha.location = loc
+        # Start nodes
+        check_set_node_location(start_linear, loc)
+        check_set_node_location(start_normal_filter, loc)
 
         # Start entry
-        ori_y = new_loc.y
-        new_loc.x += 200.0
-        new_loc.y -= 35.0
-        start_entry = nodes.get(channel.start_entry)
-        if start_entry.location != new_loc: start_entry.location = new_loc
+        loc.x += 200
+        loc.y -= 35
+        check_set_node_location(start_entry, loc)
 
-        new_loc.y -= 35.0
+        loc.y -= 35
+        check_set_node_location(start_alpha_entry, loc)
 
-        start_alpha_entry = nodes.get(channel.start_alpha_entry)
-        if start_alpha_entry and start_alpha_entry.location != new_loc: start_alpha_entry.location = new_loc
+        loc.y = bookmark_y
 
-        new_loc.y = ori_y
+        if channel.type == 'RGB':
+            loc.y -= 165
+        elif channel.type == 'VALUE':
+            loc.y -= 220
+        elif channel.type == 'NORMAL':
+            loc.y -= 175
 
-        # Back to left
-        if i < len(tl.channels)-1:
-            new_loc.x = 0.0
+    # Rearrange solid alpha node
+    if len(tl.channels) > 0:
+        loc.y += 30
+    loc.x = ori_x
+    check_set_node_location(solid_alpha, loc)
 
-    new_loc.x += 70.0
-    ori_x = new_loc.x
-    new_loc.y = 0.0
+    if len(tl.textures) > 0:
+        loc.x = ori_x + 280.0
+    else: loc.x = ori_x + 300.0
+    ori_x = loc.x
+    loc.y = 0.0
 
     # Texture nodes
     for i, t in enumerate(reversed(tl.textures)):
 
         tnode = nodes.get(t.node_group)
+        check_set_node_location(tnode, loc)
 
-        if tnode.location != new_loc: tnode.location = new_loc
+        if i == len(tl.textures)-1:
+            loc.x += 220
+        else: loc.x += 190
 
-        new_loc.x += dist_x
-
-    # End entry nodes
-    for i, channel in enumerate(tl.channels):
-        new_loc.y = -dist_y * i
-
-        #ori_y = new_loc.y
-        new_loc.y -= 35.0
-
-        # End entry
-        end_entry = nodes.get(channel.end_entry)
-        if end_entry.location != new_loc: end_entry.location = new_loc
-
-        new_loc.y -= 35.0
-
-        end_alpha_entry = nodes.get(channel.end_alpha_entry)
-        if end_alpha_entry and end_alpha_entry.location != new_loc: end_alpha_entry.location = new_loc
-
-    new_loc.y = 0.0
-    new_loc.x += 120.0
-    ori_xxx = new_loc.x
-
+    ori_x = loc.x
     farthest_x = 0
 
-    # End modifiers
+    # End nodes
     for i, channel in enumerate(tl.channels):
-        bookmark_y = new_loc.y
-        new_loc.x = ori_xxx
 
-        new_loc.y -= 50
-
+        end_entry = nodes.get(channel.end_entry)
+        end_alpha_entry = nodes.get(channel.end_alpha_entry)
         start_rgb = nodes.get(channel.start_rgb)
-        if start_rgb and start_rgb.location != new_loc: start_rgb.location = new_loc
-
-        new_loc.y -= 50
-
         start_alpha = nodes.get(channel.start_alpha)
-        if start_alpha and start_alpha.location != new_loc: start_alpha.location = new_loc
-
-        new_loc.x += 50
-        new_loc.y = bookmark_y
-
-        new_loc = arrange_modifier_nodes(nodes, channel, new_loc)
-        new_loc.y -= 50
-
         end_rgb = nodes.get(channel.end_rgb)
-        if end_rgb and end_rgb.location != new_loc: end_rgb.location = new_loc
-
-        new_loc.y -= 50
-
         end_alpha = nodes.get(channel.end_alpha)
-        if end_alpha and end_alpha.location != new_loc: end_alpha.location = new_loc
+        end_linear = nodes.get(channel.end_linear)
 
-        new_loc.x += 100
-        new_loc.y = bookmark_y
+        loc.x = ori_x
+        bookmark_y = loc.y
+        loc.y -= 35.0
 
-        if new_loc.x > farthest_x: farthest_x = new_loc.x
+        check_set_node_location(end_entry, loc)
+
+        loc.y -= 35.0
+        check_set_node_location(end_alpha_entry, loc)
+
+        loc.x += 120.0
+        loc.y = bookmark_y
+        loc.y -= 35
+
+        check_set_node_location(start_rgb, loc)
+
+        loc.y -= 35
+        check_set_node_location(start_alpha, loc)
+
+        loc.x += 70
+        loc.y = bookmark_y
+
+        loc = arrange_modifier_nodes(nodes, channel, loc)
+        loc.y -= 35
+
+        check_set_node_location(end_rgb, loc)
+
+        loc.y -= 35
+        check_set_node_location(end_alpha, loc)
+
+        loc.x += 100
+        loc.y = bookmark_y
+
+        if check_set_node_location(end_linear, loc):
+            loc.x += 200
+
+        if loc.x > farthest_x: farthest_x = loc.x
 
         if any([m for m in channel.modifiers if m.type == 'RGB_CURVE']):
-            new_loc.y -= 365
+            loc.y -= 390
         elif any([m for m in channel.modifiers if m.type == 'INVERT']):
-            new_loc.y -= 305
-        elif len(channel.modifiers)>0:
-            new_loc.y -= 240
-        else:
-            new_loc.y -= dist_y
+            loc.y -= 330
+        elif any([m for m in channel.modifiers if m.type == 'COLOR_RAMP']):
+            loc.y -= 315
+        elif any([m for m in channel.modifiers if m.type == 'RGB_TO_INTENSITY']):
+            loc.y -= 270
+        elif any([m for m in channel.modifiers if m.type == 'HUE_SATURATION']):
+            loc.y -= 265
+        elif any([m for m in channel.modifiers if m.type == 'BRIGHT_CONTRAST']):
+            loc.y -= 220
+        #elif len(channel.modifiers)>0:
+        #    loc.y -= 270
+        elif channel.type == 'RGB':
+            loc.y -= 165
+        elif channel.type == 'VALUE':
+            loc.y -= 220
+        elif channel.type == 'NORMAL':
+            loc.y -= 120
 
-    new_loc.y = 0.0
-    new_loc.x = farthest_x
-        
-    # End linear
-    for i, channel in enumerate(tl.channels):
-        new_loc.y = -dist_y * i
-        if channel.end_linear != '':
-            end_linear = nodes.get(channel.end_linear)
-            if end_linear.location != new_loc: end_linear.location = new_loc
+        if i+1 < len(tl.channels):
+            next_ch = tl.channels[i+1]
+            if next_ch.type == 'NORMAL':
+                loc.y += 25
+            if len(next_ch.modifiers) > 0:
+                loc.y -= 35
 
-    new_loc.x += 200.0
-    new_loc.y = 0.0
+    loc.x = farthest_x
+    loc.y = 0.0
 
     # End node
-    end_node = nodes.get(tl.end)
-    if end_node.location != new_loc: end_node.location = new_loc
+    check_set_node_location(end_node, loc)
+
+    # Rearrange frames
+    rearrange_tl_frame_nodes(group_tree)
 
