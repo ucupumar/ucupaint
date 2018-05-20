@@ -1,18 +1,24 @@
+# TODO:
+# - Change internal group prefix to '~' rather than '_' (V)
+# - UI remember the last tl node selected (V)
+# - UI on 3D view tools/properties
+# - Support this addon button and Patron list
+# - Pack/Save All
+# - Auto pack/save images at saving blend (with preferences)
+# - Frame nodes for texture layer
+# - Masking (Per texture and modifier)
+# - Rename github repo to texture layers node
+#
+# TODO (Optional):
+# - Advanced unique names that can detect filepath and auto save if necessary
+# - Notify if tl tree has more than one users
+# - Matcap view on Normal preview
+#
 # KNOWN ISSUES:
 # - Cycles has limit of 31 image textures per material, NOT per node_tree, 
 #   so it's better to warn user about this when adding new image texture above limit
 # - Cycles also hsa limit of 20 image textures inside group
 # - Use of cineon files will cause crash (??)
-
-# TODO:
-# - Change internal group prefix to '~' rather than '_' (V)
-# - UI remember the last tl node selected
-# - Pack/Save All
-# - Auto pack/save images at saving blend (with preferences)
-# - Support this addon button and Patron list
-# - Frame nodes for texture layer
-# - Masking (Per texture and modifier)
-# - Rename github repo to texture layers node
 
 bl_info = {
     "name": "Texture Layers Node by ucupumar",
@@ -55,6 +61,7 @@ CHECK_INPUT_NORMAL = '~TL Check Input Normal'
 FLIP_BACKFACE_NORMAL = '~TL Flip Backface Normal'
 TEXGROUP_PREFIX = '~TL Tex '
 TL_GROUP_SUFFIX = ' TexLayers'
+DEFAULT_NEW_IMG_SUFFIX = ' Tex'
 
 texture_type_items = (
         ('IMAGE', 'Image', ''),
@@ -231,10 +238,10 @@ def reconnect_tl_tex_nodes(tree, ch_idx=-1):
 
     for i, tex in reversed(list(enumerate(tl.textures))):
 
-        node = nodes.get(tex.node_group)
+        node = nodes.get(tex.group_node)
         below_node = None
         if i != num_tex-1:
-            below_node = nodes.get(tl.textures[i+1].node_group)
+            below_node = nodes.get(tl.textures[i+1].group_node)
 
         for j, ch in enumerate(tl.channels):
             if ch_idx != -1 and j != ch_idx: continue
@@ -408,7 +415,7 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     ch_index = [i for i, c in enumerate(texture.channels) if c == channel][0]
     tl_ch = tl.channels[ch_index]
 
-    #tree = nodes.get(texture.node_group).node_tree
+    #tree = nodes.get(texture.group_node).node_tree
     tree = texture.tree
 
     # Tree input and output
@@ -1146,14 +1153,14 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
             c.texture_index = i
 
     # New texture node group
-    node_group = nodes.new('ShaderNodeGroup')
-    tex.node_group = node_group.name
+    group_node = nodes.new('ShaderNodeGroup')
+    tex.group_node = group_node.name
 
     # New texture tree
     tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + tex_name, 'ShaderNodeTree')
     tree.tl.is_tl_tex_node = True
     tree.tl.version = get_current_version_str()
-    node_group.node_tree = tree
+    group_node.node_tree = tree
     tex.tree = tree
     #nodes = tree.nodes
 
@@ -1357,7 +1364,7 @@ class YNewTextureLayer(bpy.types.Operator):
             name = [i[1] for i in texture_type_items if i[0] == self.type][0]
             items = tl.textures
         else:
-            name = obj.active_material.name
+            name = obj.active_material.name + DEFAULT_NEW_IMG_SUFFIX
             items = bpy.data.images
 
         self.name = get_unique_name(name, items)
@@ -1886,7 +1893,7 @@ class YRemoveTextureLayer(bpy.types.Operator):
         tex = tl.textures[tl.active_texture_index]
 
         # Remove node group and tex tree
-        nodes.remove(nodes.get(tex.node_group))
+        nodes.remove(nodes.get(tex.group_node))
         bpy.data.node_groups.remove(tex.tree)
 
         # Delete the texture
@@ -1951,6 +1958,7 @@ class YFixDuplicatedTextures(bpy.types.Operator):
         return len(tl.textures) > 0 and tl.textures[0].tree.users > 3
 
     def execute(self, context):
+        tlui = context.window_manager.tlui
         group_node = get_active_texture_layers_node()
         tree = group_node.node_tree
         tl = tree.tl
@@ -1958,8 +1966,14 @@ class YFixDuplicatedTextures(bpy.types.Operator):
         # Make all textures single(dual) user
         for t in tl.textures:
             t.tree = t.tree.copy()
-            node = tree.nodes.get(t.node_group)
+            node = tree.nodes.get(t.group_node)
             node.node_tree = t.tree
+
+            if t.type == 'IMAGE' and tlui.make_image_single_user:
+                source = t.tree.nodes.get(t.source)
+                img = source.image
+
+                source.image = img.copy()
 
         return {'FINISHED'}
 
@@ -2343,6 +2357,7 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
                 row.alert = True
                 row.operator("node.y_fix_duplicated_textures", icon='ERROR')
                 row.alert = False
+                box.prop(tlui, 'make_image_single_user')
                 return
 
             # Get texture, image and set context pointer
@@ -3364,7 +3379,7 @@ class YTextureLayer(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_texture_enable)
     channels = CollectionProperty(type=YLayerChannel)
 
-    node_group = StringProperty(default='')
+    group_node = StringProperty(default='')
     tree = PointerProperty(type=bpy.types.ShaderNodeTree)
 
     start = StringProperty(default='')
@@ -3567,8 +3582,9 @@ class YTLUI(bpy.types.PropertyGroup):
             description='Expand all channels',
             default=False)
 
-    # To store active tree
-    tree = PointerProperty(type=bpy.types.ShaderNodeTree)
+    # To store active node and tree
+    node_name = StringProperty(default='')
+    tree_name = StringProperty(default='')
     
     # Texture related UI
     tex_idx = IntProperty(default=0)
@@ -3583,10 +3599,24 @@ class YTLUI(bpy.types.PropertyGroup):
     need_update = BoolProperty(default=False)
     halt_prop_update = BoolProperty(default=False)
 
+    # Duplicated texture related
+    make_image_single_user = BoolProperty(
+            name = 'Make Images Single User',
+            description = 'Make duplicated image textures single user',
+            default=True)
+
 @persistent
 def ytl_scene_update(scene):
     tlui = bpy.context.window_manager.tlui
 
+    # Check if active node is tl node or not
+    node = get_active_node()
+    if node and node.type == 'GROUP' and node.node_tree and node.node_tree.tl.is_tl_node:
+        # Update node name
+        if tlui.node_name != node.name:
+            tlui.node_name = node.name
+
+    # Get active tl node
     group_node =  get_active_texture_layers_node()
     if not group_node: return
     tree = group_node.node_tree
@@ -3603,6 +3633,17 @@ def ytl_scene_update(scene):
             break
         tl.refresh_tree = False
 
+    # Check single user image texture
+    if len(tl.textures) > 0:
+        tex = tl.textures[tl.active_texture_index]
+
+        if tex.type == 'IMAGE':
+            source = tex.tree.nodes.get(tex.source)
+            img = source.image
+
+            if img and img.users == 1:
+                update_image_editor_image(bpy.context, img)
+
     # Check duplicate textures 
     # (Commented because currently can cause memory leak when opening Material properties tab)
     #if len(tl.textures) > 0:
@@ -3615,17 +3656,17 @@ def ytl_scene_update(scene):
     #        # Make all textures single(dual) user
     #        for t in tl.textures:
     #            t.tree = t.tree.copy()
-    #            node = tree.nodes.get(t.node_group)
+    #            node = tree.nodes.get(t.group_node)
     #            node.node_tree = t.tree
 
     # Update UI
-    if (tlui.tree != tree or 
+    if (tlui.tree_name != tree.name or 
         tlui.tex_idx != tl.active_texture_index or 
         tlui.channel_idx != tl.active_channel_index or 
         tlui.need_update
         ):
 
-        tlui.tree = tree
+        tlui.tree_name = tree.name
         tlui.tex_idx = tl.active_texture_index
         tlui.channel_idx = tl.active_channel_index
         tlui.need_update = False
@@ -3674,7 +3715,7 @@ def ytl_scene_update(scene):
 
 def copy_ui_settings(source, dest):
     for attr in dir(source):
-        if attr.startswith(('show_', 'expand_')):
+        if attr.startswith(('show_', 'expand_')) or attr.endswith('_name'):
             setattr(dest, attr, getattr(source, attr))
 
 @persistent

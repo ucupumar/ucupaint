@@ -456,7 +456,7 @@ def rearrange_tl_nodes(group_tree):
     # Texture nodes
     for i, t in enumerate(reversed(tl.textures)):
 
-        tnode = nodes.get(t.node_group)
+        tnode = nodes.get(t.group_node)
         check_set_node_location(tnode, loc)
 
         if i == len(tl.textures)-1:

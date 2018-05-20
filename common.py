@@ -36,8 +36,7 @@ def get_active_material():
     mat = obj.active_material
 
     if engine in {'BLENDER_RENDER', 'BLENDER_GAME'}:
-        if mat and mat.use_nodes:
-            mat = mat.active_node_material
+        return None
 
     return mat
 
@@ -124,21 +123,27 @@ def get_unique_name(name, items):
 
     return unique_name
 
-# Specific methods for this addon
 
 def get_active_node():
-    obj = bpy.context.object
-    if not obj: return None
-    mat = obj.active_material
+    mat = get_active_material()
     if not mat or not mat.node_tree: return None
     node = mat.node_tree.nodes.active
     return node
 
+# Specific methods for this addon
 def get_active_texture_layers_node():
-    node = get_active_node()
-    if not node or node.type != 'GROUP' or not node.node_tree or not node.node_tree.tl.is_tl_node:
-        return None
-    return node
+    #node = get_active_node()
+    #if not node or node.type != 'GROUP' or not node.node_tree or not node.node_tree.tl.is_tl_node:
+    #    return None
+    #return node
+
+    tlui = bpy.context.window_manager.tlui
+    mat = get_active_material()
+    if not mat or not mat.node_tree: return None
+
+    nodes = mat.node_tree.nodes
+
+    return nodes.get(tlui.node_name)
 
 # Some image_ops need this
 #def get_active_image():
