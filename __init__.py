@@ -1948,7 +1948,7 @@ class YFixDuplicatedTextures(bpy.types.Operator):
     def poll(cls, context):
         group_node = get_active_texture_layers_node()
         tl = group_node.node_tree.tl
-        return len(tl.textures) > 0 and tl.textures[0].tree.users > 2
+        return len(tl.textures) > 0 and tl.textures[0].tree.users > 3
 
     def execute(self, context):
         group_node = get_active_texture_layers_node()
@@ -2337,8 +2337,8 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
                 row.alert = False
                 return
 
-            # Check duplicated textures
-            if len(tl.textures) > 0 and tl.textures[0].tree.users > 2:
+            # Check duplicated textures (indicated by 4 users)
+            if len(tl.textures) > 0 and tl.textures[0].tree.users > 3:
                 row = box.row(align=True)
                 row.alert = True
                 row.operator("node.y_fix_duplicated_textures", icon='ERROR')
