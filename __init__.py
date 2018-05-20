@@ -4,13 +4,20 @@
 # - Cycles also hsa limit of 20 image textures inside group
 # - Use of cineon files will cause crash (??)
 
+# TODO:
+# - Change internal group prefix to '~' rather than '_' (V)
+# - UI remember the last tl node selected
+# - Frame nodes for texture layer
+# - Masking (Per texture and modifier)
+# - Rename github repo to texture layers node
+
 bl_info = {
     "name": "Texture Layers Node by ucupumar",
     "author": "Yusuf Umar",
     "version": (0, 9, 0),
     "blender": (2, 79, 0),
     "location": "Node Editor > Properties > Texture Layers",
-    "description": "Texture layer manager inside Cycles",
+    "description": "Texture layer manager node for Cycles materials",
     "wiki_url": "http://twitter.com/ucupumar",
     "category": "Material",
 }
@@ -39,10 +46,12 @@ from mathutils import *
 
 # Imported node group names
 #UDN = '_UDN Blend'
-OVERLAY_NORMAL = '_TL Overlay Normal'
-STRAIGHT_OVER = '_TL Straight Over Mix'
-CHECK_INPUT_NORMAL = '_TL Check Input Normal'
-FLIP_BACKFACE_NORMAL = '_TL Flip Backface Normal'
+OVERLAY_NORMAL = '~TL Overlay Normal'
+STRAIGHT_OVER = '~TL Straight Over Mix'
+CHECK_INPUT_NORMAL = '~TL Check Input Normal'
+FLIP_BACKFACE_NORMAL = '~TL Flip Backface Normal'
+TEXGROUP_PREFIX = '~TL Tex '
+TL_GROUP_SUFFIX = ' TexLayers'
 
 texture_type_items = (
         ('IMAGE', 'Image', ''),
@@ -287,6 +296,7 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
                 check_create_node_link(tree, end_alpha.outputs[0], end.inputs[ch.io_index+1])
             else: 
                 check_create_node_link(tree, solid_alpha.outputs[0], start_alpha_entry.inputs[0])
+                check_create_node_link(tree, start_alpha_entry.outputs[0], end_alpha_entry.inputs[0])
             check_create_node_link(tree, end_alpha_entry.outputs[0], start_alpha.inputs[0])
         else:
             check_create_node_link(tree, solid_alpha.outputs[0], start_alpha.inputs[0])
@@ -445,6 +455,7 @@ def create_texture_channel_nodes(group_tree, texture, channel):
 
         normal_flip = tree.nodes.new('ShaderNodeGroup')
         normal_flip.node_tree = bpy.data.node_groups.get(FLIP_BACKFACE_NORMAL)
+        normal_flip.label = 'Flip Backface Normal'
         channel.normal_flip = normal_flip.name
 
     # Update texture channel blend type
@@ -584,7 +595,7 @@ def create_new_group_tree(mat):
     #tlup = bpy.context.user_preferences.addons[__name__].preferences
 
     # Group name is based from the material
-    group_name = 'TexLayers ' + mat.name
+    group_name = mat.name + TL_GROUP_SUFFIX
 
     # Create new group tree
     group_tree = bpy.data.node_groups.new(group_name, 'ShaderNodeTree')
@@ -1133,7 +1144,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     tex.node_group = node_group.name
 
     # New texture tree
-    tree = bpy.data.node_groups.new('_TL Tex ' + tex_name, 'ShaderNodeTree')
+    tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + tex_name, 'ShaderNodeTree')
     node_group.node_tree = tree
     tex.tree = tree
     #nodes = tree.nodes
@@ -2832,7 +2843,7 @@ def menu_func(self, context):
     l = self.layout
     l.operator_context = 'INVOKE_REGION_WIN'
     l.separator()
-    l.operator('node.y_add_new_texture_layers_node', text='Texture Layers', icon='NODE')
+    l.operator('node.y_add_new_texture_layers_node', text='Texture Layers', icon='NODETREE')
 
 def update_channel_name(self, context):
     group_tree = self.id_data
@@ -3311,13 +3322,11 @@ class YTextureLayer(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_texture_enable)
     channels = CollectionProperty(type=YLayerChannel)
 
-    #### New approach
     node_group = StringProperty(default='')
     tree = PointerProperty(type=bpy.types.ShaderNodeTree)
 
     start = StringProperty(default='')
     end = StringProperty(default='')
-    ####
 
     type = EnumProperty(
             name = 'Texture Type',
@@ -3338,7 +3347,6 @@ class YTextureLayer(bpy.types.PropertyGroup):
     solid_alpha = StringProperty(default='')
     texcoord = StringProperty(default='')
     uv_map = StringProperty(default='')
-    #normal = StringProperty(default='')
     tangent = StringProperty(default='')
     bitangent = StringProperty(default='')
     geometry = StringProperty(default='')

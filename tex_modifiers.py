@@ -3,8 +3,8 @@ from bpy.props import *
 from .common import *
 from .node_arrangements import *
 
-MOD_RGB2INT = '_TL Mod RGB To Intensity'
-MOD_INVERT = '_TL Mod Invert'
+MOD_RGB2INT = '~TL Mod RGB To Intensity'
+MOD_INVERT = '~TL Mod Invert'
 
 modifier_type_items = (
         ('INVERT', 'Invert', '', 'MODIFIER', 0),
