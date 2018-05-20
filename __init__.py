@@ -7,6 +7,9 @@
 # TODO:
 # - Change internal group prefix to '~' rather than '_' (V)
 # - UI remember the last tl node selected
+# - Pack/Save All
+# - Auto pack/save images at saving blend (with preferences)
+# - Support this addon button and Patron list
 # - Frame nodes for texture layer
 # - Masking (Per texture and modifier)
 # - Rename github repo to texture layers node
@@ -108,6 +111,9 @@ channel_socket_types = {
     'VALUE': 'NodeSocketFloat',
     'NORMAL': 'NodeSocketVector',
 }
+
+def get_current_version_str():
+    return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
 
 def add_io_from_new_channel(group_tree):
     # New channel should be the last item
@@ -600,7 +606,7 @@ def create_new_group_tree(mat):
     # Create new group tree
     group_tree = bpy.data.node_groups.new(group_name, 'ShaderNodeTree')
     group_tree.tl.is_tl_node = True
-    group_tree.tl.version = str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
+    group_tree.tl.version = get_current_version_str()
 
     # Add new channel
     channel = group_tree.tl.channels.add()
@@ -1145,6 +1151,8 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
 
     # New texture tree
     tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + tex_name, 'ShaderNodeTree')
+    tree.tl.is_tl_tex_node = True
+    tree.tl.version = get_current_version_str()
     node_group.node_tree = tree
     tex.tree = tree
     #nodes = tree.nodes
@@ -1460,10 +1468,6 @@ class YNewTextureLayer(bpy.types.Operator):
                 self.add_rgb_to_intensity, self.rgb_to_intensity_color)
         tl.halt_update = False
 
-        print('INFO: Texture', tex.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-
-        T = time.time()
-
         # Reconnect and rearrange nodes
         reconnect_tl_tex_nodes(node.node_tree)
         rearrange_tl_nodes(node.node_tree)
@@ -1471,7 +1475,7 @@ class YNewTextureLayer(bpy.types.Operator):
         # Update UI
         context.window_manager.tlui.need_update = True
 
-        print('INFO: Texture', tex.name, 'is refreshed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Texture', tex.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 
@@ -1934,6 +1938,31 @@ class YAddSimpleUVs(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YFixDuplicatedTextures(bpy.types.Operator):
+    bl_idname = "node.y_fix_duplicated_textures"
+    bl_label = "Fix Duplicated Textures"
+    bl_description = "Fix dupliacted textures caused by duplicated Texture Layers Group Node"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_texture_layers_node()
+        tl = group_node.node_tree.tl
+        return len(tl.textures) > 0 and tl.textures[0].tree.users > 2
+
+    def execute(self, context):
+        group_node = get_active_texture_layers_node()
+        tree = group_node.node_tree
+        tl = tree.tl
+
+        # Make all textures single(dual) user
+        for t in tl.textures:
+            t.tree = t.tree.copy()
+            node = tree.nodes.get(t.node_group)
+            node.node_tree = t.tree
+
+        return {'FINISHED'}
+
 def draw_tex_props(group_tree, tex, layout):
 
     nodes = group_tree.nodes
@@ -2114,6 +2143,11 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
             layout.label("No texture layers node selected!")
             return
 
+        #layout.label('Active: ' + node.node_tree.name, icon='NODETREE')
+        row = layout.row(align=True)
+        row.label('', icon='NODETREE')
+        row.label(node.node_tree.name)
+
         group_tree = node.node_tree
         nodes = group_tree.nodes
         tl = group_tree.tl
@@ -2271,7 +2305,7 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
                             #brow = bcol.row(align=True)
                             #brow.label('', icon='BLANK1')
                             brow.label('Base Alpha:')
-                            if len(node.inputs[channel.io_index].links)==0:
+                            if len(node.inputs[channel.io_index+1].links)==0:
                                 brow.prop(inp_alpha, 'default_value', text='')
                             else:
                                 brow.label('', icon='LINKED')
@@ -2300,6 +2334,14 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
                 row = box.row(align=True)
                 row.alert = True
                 row.operator("node.y_add_simple_uvs", icon='ERROR')
+                row.alert = False
+                return
+
+            # Check duplicated textures
+            if len(tl.textures) > 0 and tl.textures[0].tree.users > 2:
+                row = box.row(align=True)
+                row.alert = True
+                row.operator("node.y_fix_duplicated_textures", icon='ERROR')
                 row.alert = False
                 return
 
@@ -3412,6 +3454,7 @@ class YTLChannel(bpy.types.PropertyGroup):
 
 class YTextureLayersTree(bpy.types.PropertyGroup):
     is_tl_node = BoolProperty(default=False)
+    is_tl_tex_node = BoolProperty(default=False)
     version = StringProperty(default='')
 
     # Channels
@@ -3560,19 +3603,20 @@ def ytl_scene_update(scene):
             break
         tl.refresh_tree = False
 
-    # Check duplicate textures
-    if len(tl.textures) > 0:
-        # Check only the first texture
-        tex = tl.textures[0]
+    # Check duplicate textures 
+    # (Commented because currently can cause memory leak when opening Material properties tab)
+    #if len(tl.textures) > 0:
+    #    # Check only the first texture
+    #    tex = tl.textures[0]
 
-        # Texture tree can only be used for 2 users
-        if tex.tree.users > 2:
+    #    # Texture tree can only be used for 2 users
+    #    if tex.tree.users > 2:
 
-            # Make all textures single(dual) user
-            for t in tl.textures:
-                t.tree = t.tree.copy()
-                node = tree.nodes.get(t.node_group)
-                node.node_tree = t.tree
+    #        # Make all textures single(dual) user
+    #        for t in tl.textures:
+    #            t.tree = t.tree.copy()
+    #            node = tree.nodes.get(t.node_group)
+    #            node.node_tree = t.tree
 
     # Update UI
     if (tlui.tree != tree or 
