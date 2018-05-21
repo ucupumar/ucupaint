@@ -3,6 +3,7 @@
 # - UI remember the last tl node selected (V)
 # - UI on 3D view tools/properties
 # - Support this addon button and Patron list
+# - Blur UV (?)
 # - Pack/Save All
 # - Auto pack/save images at saving blend (with preferences)
 # - Frame nodes for texture layer
@@ -3572,6 +3573,7 @@ class YTextureUI(bpy.types.PropertyGroup):
 class YMaterialTLProps(bpy.types.PropertyGroup):
     ori_bsdf = StringProperty(default='')
     ori_output = StringProperty(default='')
+    active_tl_node = StringProperty(default='')
 
 class YTLUI(bpy.types.PropertyGroup):
     show_channels = BoolProperty(default=True)
@@ -3583,7 +3585,6 @@ class YTLUI(bpy.types.PropertyGroup):
             default=False)
 
     # To store active node and tree
-    node_name = StringProperty(default='')
     tree_name = StringProperty(default='')
     
     # Texture related UI
@@ -3610,11 +3611,12 @@ def ytl_scene_update(scene):
     tlui = bpy.context.window_manager.tlui
 
     # Check if active node is tl node or not
+    mat = get_active_material()
     node = get_active_node()
     if node and node.type == 'GROUP' and node.node_tree and node.node_tree.tl.is_tl_node:
         # Update node name
-        if tlui.node_name != node.name:
-            tlui.node_name = node.name
+        if mat.tl.active_tl_node != node.name:
+            mat.tl.active_tl_node = node.name
 
     # Get active tl node
     group_node =  get_active_texture_layers_node()

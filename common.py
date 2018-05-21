@@ -137,13 +137,12 @@ def get_active_texture_layers_node():
     #    return None
     #return node
 
-    tlui = bpy.context.window_manager.tlui
     mat = get_active_material()
     if not mat or not mat.node_tree: return None
 
     nodes = mat.node_tree.nodes
 
-    return nodes.get(tlui.node_name)
+    return nodes.get(mat.tl.active_tl_node)
 
 # Some image_ops need this
 #def get_active_image():
