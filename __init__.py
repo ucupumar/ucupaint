@@ -171,15 +171,16 @@ def check_create_node_link(tree, out, inp):
     return False
 
 def update_blend_type_(tl_ch, tex, ch):
+    need_reconnect = False
+
     nodes = tex.tree.nodes
     blend = nodes.get(ch.blend)
-
-    need_reconnect = False
 
     # Check blend type
     if blend:
         if tl_ch.type == 'RGB':
-            if ((ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
+            if ((tl_ch.alpha and ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
+                (not tl_ch.alpha and blend.bl_idname == 'ShaderNodeGroup') or
                 (ch.blend_type != 'MIX' and blend.bl_idname == 'ShaderNodeGroup')):
                 nodes.remove(blend)
                 blend = None
@@ -194,7 +195,8 @@ def update_blend_type_(tl_ch, tex, ch):
     # Create blend node if its missing
     if not blend:
         if tl_ch.type == 'RGB':
-            if ch.blend_type == 'MIX':
+            #if ch.blend_type == 'MIX':
+            if tl_ch.alpha and ch.blend_type == 'MIX':
                 blend = nodes.new('ShaderNodeGroup')
                 blend.node_tree = bpy.data.node_groups.get(STRAIGHT_OVER)
             else:
@@ -215,9 +217,20 @@ def update_blend_type_(tl_ch, tex, ch):
         blend.label = 'Blend'
         ch.blend = blend.name
 
+        # Blend mute
+        if tex.enable and ch.enable:
+            blend.mute = False
+        else: blend.mute = True
+
     # Update blend mix
-    if tl_ch.type != 'NORMAL' and ch.blend_type != 'MIX' and blend.blend_type != ch.blend_type:
+    if tl_ch.type != 'NORMAL' and blend.bl_idname == 'ShaderNodeMixRGB' and blend.blend_type != ch.blend_type:
         blend.blend_type = ch.blend_type
+
+    # Check alpha tex input output connection
+    start = tex.tree.nodes.get(tex.start)
+    if (tl_ch.type == 'RGB' and tl_ch.alpha and ch.blend_type != 'MIX' and 
+        len(start.outputs[tl_ch.io_index+1].links) == 0):
+        need_reconnect = True
 
     return need_reconnect
 
@@ -393,11 +406,13 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
         check_create_node_link(tree, end_alpha.outputs[0], intensity.inputs[2])
 
-        if tl_ch.type == 'RGB' and ch.blend_type == 'MIX':
+        if tl_ch.type == 'RGB' and ch.blend_type == 'MIX' and tl_ch.alpha:
             check_create_node_link(tree, start.outputs[tl_ch.io_index], blend.inputs[0])
-            if tl_ch.alpha:
-                check_create_node_link(tree, start.outputs[tl_ch.io_index+1], blend.inputs[1])
-                check_create_node_link(tree, blend.outputs[1], end.inputs[tl_ch.io_index+1])
+            #if tl_ch.alpha:
+            #    check_create_node_link(tree, start.outputs[tl_ch.io_index+1], blend.inputs[1])
+            #    check_create_node_link(tree, blend.outputs[1], end.inputs[tl_ch.io_index+1])
+            check_create_node_link(tree, start.outputs[tl_ch.io_index+1], blend.inputs[1])
+            check_create_node_link(tree, blend.outputs[1], end.inputs[tl_ch.io_index+1])
             check_create_node_link(tree, intensity.outputs[0], blend.inputs[3])
         else:
             check_create_node_link(tree, intensity.outputs[0], blend.inputs[0])
@@ -1141,6 +1156,9 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     tex.type = tex_type
     tex.name = tex_name
     tex.uv_name = uv_map_name
+
+    if image:
+        tex.image_name = image.name
 
     # Move new texture to current index
     last_index = len(tl.textures)-1
@@ -3221,7 +3239,12 @@ def update_channel_alpha(self, context):
             tree.inputs.move(last_index, alpha_index)
             tree.outputs.move(last_index, alpha_index)
 
-            reconnect_tex_nodes(tex)
+            # Update texture blend nodes
+            for i, ch in enumerate(tex.channels):
+                tl_ch = tl.channels[i]
+                if update_blend_type_(tl_ch, tex, ch):
+                    reconnect_tex_nodes(tex, i)
+                    rearrange_tex_nodes(tex)
         
         # Try to relink to original connections
         tree = context.object.active_material.node_tree
@@ -3282,6 +3305,13 @@ def update_channel_alpha(self, context):
             tree = tex.tree
             tree.inputs.remove(tree.inputs[self.io_index+1])
             tree.outputs.remove(tree.outputs[self.io_index+1])
+
+            # Update texture blend nodes
+            for i, ch in enumerate(tex.channels):
+                tl_ch = tl.channels[i]
+                if update_blend_type_(tl_ch, tex, ch):
+                    reconnect_tex_nodes(tex, i)
+                    rearrange_tex_nodes(tex)
 
         # Reconnect solid alpha to end alpha
         links.new(start_alpha_entry.outputs[0], end_alpha_entry.inputs[0])
@@ -3396,6 +3426,9 @@ class YTextureLayer(bpy.types.PropertyGroup):
         items = texcoord_type_items,
         default = 'UV',
         update=update_texcoord_type)
+
+    # To detect change of texture image
+    image_name = StringProperty(default='')
 
     uv_name = StringProperty(default='', update=update_uv_name)
 
@@ -3643,8 +3676,10 @@ def ytl_scene_update(scene):
             source = tex.tree.nodes.get(tex.source)
             img = source.image
 
-            if img and img.users == 1:
-                update_image_editor_image(bpy.context, img)
+            if img and img.name != tex.image_name:
+                # Update active texture paint image
+                tex.image_name = img.name
+                tl.active_texture_index = tl.active_texture_index
 
     # Check duplicate textures 
     # (Commented because currently can cause memory leak when opening Material properties tab)
