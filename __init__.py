@@ -16,9 +16,9 @@
 # - Matcap view on Normal preview
 #
 # KNOWN ISSUES:
-# - Cycles has limit of 31 image textures per material, NOT per node_tree, 
+# - Cycles has limit of 32 images per material, NOT per node_tree, 
 #   so it's better to warn user about this when adding new image texture above limit
-# - Cycles also hsa limit of 20 image textures inside group
+# - Limit decrease to 20 images if alpha is used
 # - Use of cineon files will cause crash (??)
 
 bl_info = {
@@ -114,21 +114,33 @@ normal_map_type_items = (
         ('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 1)
         )
 
-channel_socket_types = {
+channel_socket_bl_idnames = {
     'RGB': 'NodeSocketColor',
     'VALUE': 'NodeSocketFloat',
     'NORMAL': 'NodeSocketVector',
 }
 
+channel_socket_types = {
+    'RGB' : 'RGBA',
+    'VALUE' : 'VALUE',
+    'NORMAL' : 'VECTOR',
+}
+
+channel_socket_custom_icon_names = {
+    'RGB' : 'rgb_channel',
+    'VALUE' : 'value_channel',
+    'NORMAL' : 'vector_channel',
+}
+
 def get_current_version_str():
     return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
 
-def add_io_from_new_channel(group_tree):
+def add_io_from_new_channel(group_tree, channel):
     # New channel should be the last item
-    channel = group_tree.tl.channels[-1]
+    #channel = group_tree.tl.channels[-1]
 
-    inp = group_tree.inputs.new(channel_socket_types[channel.type], channel.name)
-    out = group_tree.outputs.new(channel_socket_types[channel.type], channel.name)
+    inp = group_tree.inputs.new(channel_socket_bl_idnames[channel.type], channel.name)
+    out = group_tree.outputs.new(channel_socket_bl_idnames[channel.type], channel.name)
 
     #group_tree.inputs.move(index,new_index)
     #group_tree.outputs.move(index,new_index)
@@ -144,8 +156,12 @@ def add_io_from_new_channel(group_tree):
         # Use 999 as normal z value so it will fallback to use geometry normal at checking process
         inp.default_value = (999,999,999) 
 
-def set_input_default_value(group_node, channel):
+def set_input_default_value(group_node, channel, custom_value=None):
     #channel = group_node.node_tree.tl.channels[index]
+
+    if custom_value:
+        group_node.inputs[channel.io_index].default_value = custom_value
+        return
     
     # Set default value
     if channel.type == 'RGB':
@@ -435,11 +451,11 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     tree = texture.tree
 
     # Tree input and output
-    inp = tree.inputs.new(channel_socket_types[tl_ch.type], tl_ch.name)
-    out = tree.outputs.new(channel_socket_types[tl_ch.type], tl_ch.name)
+    inp = tree.inputs.new(channel_socket_bl_idnames[tl_ch.type], tl_ch.name)
+    out = tree.outputs.new(channel_socket_bl_idnames[tl_ch.type], tl_ch.name)
     if tl_ch.alpha:
-        inp = tree.inputs.new(channel_socket_types['VALUE'], tl_ch.name + ' Alpha')
-        out = tree.outputs.new(channel_socket_types['VALUE'], tl_ch.name + ' Alpha')
+        inp = tree.inputs.new(channel_socket_bl_idnames['VALUE'], tl_ch.name + ' Alpha')
+        out = tree.outputs.new(channel_socket_bl_idnames['VALUE'], tl_ch.name + ' Alpha')
 
     # Modifier pipeline nodes
     start_rgb = tree.nodes.new('NodeReroute')
@@ -632,13 +648,14 @@ def create_new_group_tree(mat):
     group_tree.tl.version = get_current_version_str()
 
     # Add new channel
-    channel = group_tree.tl.channels.add()
-    channel.name = 'Color'
+    #channel = group_tree.tl.channels.add()
+    #channel.name = 'Color'
+    #channel.type = 'RGB'
     #group_tree.tl.temp_channels.add() # Also add temp channel
     #tlup.channels.add()
 
-    add_io_from_new_channel(group_tree)
-    channel.io_index = 0
+    #add_io_from_new_channel(group_tree, channel)
+    #channel.io_index = 0
 
     # Create start and end node
     start_node = group_tree.nodes.new('NodeGroupInput')
@@ -656,12 +673,232 @@ def create_new_group_tree(mat):
     create_info_nodes(group_tree)
 
     # Link start and end node then rearrange the nodes
-    create_tl_channel_nodes(group_tree, channel, 0)
+    #create_tl_channel_nodes(group_tree, channel, 0)
     reconnect_tl_channel_nodes(group_tree)
 
     return group_tree
 
-class YNewTextureLayersNode(bpy.types.Operator):
+def create_new_tl_channel(group_tree, name, type, enable=False):
+    tl = group_tree.tl
+
+    # Add new channel
+    channel = tl.channels.add()
+    channel.name = name
+    channel.type = type
+
+    # Add input and output to the tree
+    add_io_from_new_channel(group_tree, channel)
+
+    # Get last index
+    last_index = len(tl.channels)-1
+
+    # Get IO index
+    io_index = last_index
+    for ch in tl.channels:
+        if ch.type == 'RGB' and ch.alpha:
+            io_index += 1
+
+    channel.io_index = io_index
+
+    # Link new channel
+    create_tl_channel_nodes(group_tree, channel, last_index)
+    reconnect_tl_channel_nodes(group_tree)
+    reconnect_tl_tex_nodes(group_tree, last_index)
+
+    for tex in tl.textures:
+        # New channel is disabled in texture by default
+        tex.channels[last_index].enable = enable
+
+    return channel
+
+def update_quick_setup_type(self, context):
+    if self.type == 'PRINCIPLED':
+        self.roughness = True
+        self.normal = True
+    elif self.type == 'DIFFUSE':
+        self.roughness = False
+        self.normal = False
+
+class YQuickSetupTLNode(bpy.types.Operator):
+    bl_idname = "node.y_quick_setup_texture_layers_node"
+    bl_label = "Quick Texture Layers Node Setup"
+    bl_description = "Quick Texture Layers Node Setup"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    type = EnumProperty(
+            name = 'Type',
+            items = (('PRINCIPLED', 'Principled', ''),
+                     ('DIFFUSE', 'Diffuse', ''),
+                     ),
+            default = 'PRINCIPLED')
+            #update=update_quick_setup_type)
+
+    color = BoolProperty(name='Color', default=True)
+    metallic = BoolProperty(name='Metallic', default=False)
+    roughness = BoolProperty(name='Roughness', default=True)
+    normal = BoolProperty(name='Normal', default=True)
+
+    @classmethod
+    def poll(cls, context):
+        return context.object
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self)
+
+    def check(self, context):
+        return True
+
+    def draw(self, context):
+        #row = self.layout.row()
+        row = self.layout.split(percentage=0.35)
+        col = row.column()
+        col.label('Type:')
+        ccol = col.column(align=True)
+        ccol.label('Channels:')
+        if self.type == 'PRINCIPLED':
+            ccol.label('')
+        ccol.label('')
+        ccol.label('')
+        col = row.column()
+        col.prop(self, 'type', text='')
+        ccol = col.column(align=True)
+        ccol.prop(self, 'color', toggle=True)
+        if self.type == 'PRINCIPLED':
+            ccol.prop(self, 'metallic', toggle=True)
+        ccol.prop(self, 'roughness', toggle=True)
+        ccol.prop(self, 'normal', toggle=True)
+
+    def execute(self, context):
+        obj = context.object
+        mat = get_active_material()
+        if not mat:
+            mat = bpy.data.materials.new(obj.name)
+            mat.use_nodes = True
+            obj.data.materials.append(mat)
+
+            # Remove default diffuse bsdf
+            #if self.type == 'PRINCIPLED':
+            for n in mat.node_tree.nodes:
+                if n.type == 'BSDF_DIFFUSE':
+                    mat.node_tree.nodes.remove(n)
+
+        nodes = mat.node_tree.nodes
+        links = mat.node_tree.links
+
+        # Get active output
+        outp = [n for n in nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+        if outp: 
+            outp = outp[0]
+        else:
+            outp = nodes.new(type='ShaderNodeOutputMaterial')
+            outp.is_active_output = True
+
+        main_bsdf = None
+        trans_bsdf = None
+        mix_bsdf = None
+
+        # Check output connection
+        outp_in = [l.from_node for l in outp.inputs[0].links]
+        if outp_in: 
+            outp_in = outp_in[0]
+            if outp_in.type == 'MIX_SHADER' and not any([l for l in outp_in.inputs[0].links]):
+
+                if self.type == 'PRINCIPLED':
+                    bsdf_type = 'BSDF_PRINCIPLED'
+                elif self.type == 'DIFFUSE':
+                    bsdf_type = 'BSDF_DIFFUSE'
+
+                # Try to search for transparent and main bsdf
+                if (any([l for l in outp_in.inputs[1].links if l.from_node.type == 'BSDF_TRANSPARENT']) and
+                    any([l for l in outp_in.inputs[2].links if l.from_node.type == bsdf_type])):
+
+                        mix_bsdf = outp_in
+                        trans_bsdf = mix_bsdf.inputs[1].links[0].from_node
+                        main_bsdf = mix_bsdf.inputs[2].links[0].from_node
+
+        if not mix_bsdf:
+            mix_bsdf = nodes.new('ShaderNodeMixShader')
+            mix_bsdf.inputs[0].default_value = 1.0
+            links.new(mix_bsdf.outputs[0], outp.inputs[0])
+
+            mix_bsdf.location = outp.location.copy()
+            outp.location.x += 180
+
+        if not trans_bsdf:
+            trans_bsdf = nodes.new('ShaderNodeBsdfTransparent')
+            links.new(trans_bsdf.outputs[0], mix_bsdf.inputs[1])
+
+            trans_bsdf.location = mix_bsdf.location.copy()
+            mix_bsdf.location.x += 180
+            outp.location.x += 180
+
+        if not main_bsdf:
+            if self.type == 'PRINCIPLED':
+                main_bsdf = nodes.new('ShaderNodeBsdfPrincipled')
+            elif self.type == 'DIFFUSE':
+                main_bsdf = nodes.new('ShaderNodeBsdfDiffuse')
+
+            links.new(main_bsdf.outputs[0], mix_bsdf.inputs[2])
+
+            # Rearrange position
+            main_bsdf.location = trans_bsdf.location.copy()
+            main_bsdf.location.y -= 90
+
+        group_tree = create_new_group_tree(mat)
+
+        # Create new group node
+        node = nodes.new(type='ShaderNodeGroup')
+        node.node_tree = group_tree
+        node.select = True
+        nodes.active = node
+        mat.tl.active_tl_node = node.name
+
+        # Add new channels
+        if self.color:
+            channel = create_new_tl_channel(group_tree, 'Color', 'RGB')
+            inp = main_bsdf.inputs[0]
+            set_input_default_value(node, channel, inp.default_value)
+            links.new(node.outputs[channel.io_index], inp)
+
+            # Enable, link, and disable alpha to remember which input was alpha connected to
+            channel.alpha = True
+            links.new(node.outputs[channel.io_index+1], mix_bsdf.inputs[0])
+            channel.alpha = False
+
+        if self.type == 'PRINCIPLED' and self.metallic:
+            channel = create_new_tl_channel(group_tree, 'Metallic', 'VALUE')
+            inp = main_bsdf.inputs['Metallic']
+            set_input_default_value(node, channel, inp.default_value)
+            links.new(node.outputs[channel.io_index], inp)
+
+        if self.roughness:
+            channel = create_new_tl_channel(group_tree, 'Roughness', 'VALUE')
+            inp = main_bsdf.inputs['Roughness']
+            set_input_default_value(node, channel, inp.default_value)
+            links.new(node.outputs[channel.io_index], inp)
+
+        if self.normal:
+            channel = create_new_tl_channel(group_tree, 'Normal', 'NORMAL')
+            inp = main_bsdf.inputs['Normal']
+            set_input_default_value(node, channel)
+            links.new(node.outputs[channel.io_index], inp)
+
+        # Rearrange nodes
+        rearrange_tl_nodes(group_tree)
+
+        # Set new tl node location
+        node.location = main_bsdf.location.copy()
+        main_bsdf.location.x += 180
+        trans_bsdf.location.x += 180
+        mix_bsdf.location.x += 180
+        outp.location.x += 180
+
+        # Update UI
+        context.window_manager.tlui.need_update = True
+
+        return {'FINISHED'}
+
+class YNewTLNode(bpy.types.Operator):
     bl_idname = "node.y_add_new_texture_layers_node"
     bl_label = "Add new Texture Layers Node"
     bl_description = "Add new texture layers node"
@@ -698,13 +935,17 @@ class YNewTextureLayersNode(bpy.types.Operator):
 
         # Create new group tree
         group_tree = create_new_group_tree(mat)
+        tl = group_tree.tl
+
+        # Add new channel
+        channel = create_new_tl_channel(group_tree, 'Color', 'RGB')
 
         # Create new group node
         node = tree.nodes.new(type='ShaderNodeGroup')
         node.node_tree = group_tree
 
         # Set default input value
-        set_input_default_value(node, group_tree.tl.channels[0])
+        set_input_default_value(node, channel)
 
         # Rearrange nodes
         rearrange_tl_nodes(group_tree)
@@ -738,6 +979,17 @@ def new_channel_items(self, context):
 
     return items
 
+class YNodeInputCollItem(bpy.types.PropertyGroup):
+    name = StringProperty(default='')
+    node_name = StringProperty(default='')
+    input_name = StringProperty(default='')
+
+def update_connect_to(self, context):
+    tl = get_active_texture_layers_node().node_tree.tl
+    item = self.input_coll.get(self.connect_to)
+    if item:
+        self.name = get_unique_name(item.input_name, tl.channels)
+
 class YNewTLChannel(bpy.types.Operator):
     bl_idname = "node.y_add_new_texture_layers_channel"
     bl_label = "Add new Texture Group Channel"
@@ -753,9 +1005,30 @@ class YNewTLChannel(bpy.types.Operator):
             name = 'Channel Type',
             items = new_channel_items)
 
+    connect_to = StringProperty(name='Connect To', default='', update=update_connect_to)
+    input_coll = CollectionProperty(type=YNodeInputCollItem)
+
     @classmethod
     def poll(cls, context):
         return get_active_texture_layers_node()
+
+    def refresh_input_coll(self, context):
+        # Refresh input names
+        self.input_coll.clear()
+        mat = get_active_material()
+        nodes = mat.node_tree.nodes
+        tl_node = get_active_texture_layers_node()
+
+        for node in nodes:
+            if node == tl_node: continue
+            for inp in node.inputs:
+                if inp.type != channel_socket_types[self.type]: continue
+                if len(inp.links) > 0 : continue
+                label = inp.name + ' (' + node.name +')'
+                item = self.input_coll.add()
+                item.name = label
+                item.node_name = node.name
+                item.input_name = inp.name
 
     def invoke(self, context, event):
         group_node = get_active_texture_layers_node()
@@ -771,6 +1044,9 @@ class YNewTLChannel(bpy.types.Operator):
         # Check if name already available on the list
         self.name = get_unique_name(self.name, channels)
 
+        self.refresh_input_coll(context)
+        self.connect_to = ''
+
         return context.window_manager.invoke_props_dialog(self)
         #return context.window_manager.invoke_popup(self)
 
@@ -779,9 +1055,16 @@ class YNewTLChannel(bpy.types.Operator):
 
     def draw(self, context):
         self.layout.prop(self, 'name', text='Name')
+        #self.layout.prop(self, 'connect_to', text='Connect To')
+        self.layout.prop_search(self, "connect_to", self, "input_coll", icon = 'NODETREE')
+                #custom_icons[channel_socket_custom_icon_names[self.type]].icon_id)
 
     def execute(self, context):
+
+        T = time.time()
+
         #node = context.active_node
+        mat = get_active_material()
         node = get_active_texture_layers_node()
         group_tree = node.node_tree
         tl = group_tree.tl
@@ -798,48 +1081,43 @@ class YNewTLChannel(bpy.types.Operator):
             self.report({'ERROR'}, "Channel named '" + self.name +"' is already available!")
             return {'CANCELLED'}
 
-        # Add new channel
-        channel = channels.add()
-        channel.type = self.type
-        #temp_ch = group_tree.tl.temp_channels.add()
-        #tlup.channels.add()
-        #temp_ch.enable = False
-
-        # Add input and output to the tree
-        add_io_from_new_channel(group_tree)
-
-        # Get last index
-        last_index = len(channels)-1
-
-        # Get IO index
-        io_index = last_index
-        for ch in tl.channels:
-            if ch.type == 'RGB' and ch.alpha:
-                io_index += 1
-
-        channel.io_index = io_index
-        channel.name = self.name
-
-        # Link new channel
-        create_tl_channel_nodes(group_tree, channel, last_index)
-        reconnect_tl_channel_nodes(group_tree)
-        reconnect_tl_tex_nodes(group_tree, last_index)
-
-        for tex in tl.textures:
-            # New channel is disabled in texture by default
-            tex.channels[last_index].enable = False
+        # Create new tl channel
+        channel = create_new_tl_channel(group_tree, self.name, self.type)
 
         # Rearrange nodes
         rearrange_tl_nodes(group_tree)
 
+        # Connect to other inputs
+        item = self.input_coll.get(self.connect_to)
+        inp = None
+        if item:
+            target_node = mat.node_tree.nodes.get(item.node_name)
+            inp = target_node.inputs[item.input_name]
+            mat.node_tree.links.new(node.outputs[channel.io_index], inp)
+
+            # Search for possible alpha input
+            if self.type == 'RGB':
+                for l in target_node.outputs[0].links:
+                    if l.to_node.type == 'MIX_SHADER' and not any([m for m in l.to_node.inputs[0].links]):
+                        for n in l.to_node.inputs[1].links:
+                            if n.from_node.type == 'BSDF_TRANSPARENT':
+                                channel.alpha = True
+                                mat.node_tree.links.new(node.outputs[channel.io_index+1], l.to_node.inputs[0])
+                                channel.alpha = False
+
         # Set input default value
-        set_input_default_value(node, channel)
+        if inp and self.type != 'NORMAL': 
+            set_input_default_value(node, channel, inp.default_value)
+        else: set_input_default_value(node, channel)
 
         # Change active channel
+        last_index = len(tl.channels)-1
         group_tree.tl.active_channel_index = last_index
 
         # Update UI
         context.window_manager.tlui.need_update = True
+
+        print('INFO: Channel', channel.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         return {'FINISHED'}
 
@@ -1964,6 +2242,34 @@ class YAddSimpleUVs(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YRenameTLTree(bpy.types.Operator):
+    bl_idname = "node.y_rename_tl_tree"
+    bl_label = "Rename Texture Layers Group Name"
+    bl_description = "Rename Texture Layers Group Name"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name = StringProperty(name='New Name', description='New Name', default='')
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_texture_layers_node()
+
+    def invoke(self, context, event):
+        node = get_active_texture_layers_node()
+        tree = node.node_tree
+
+        self.name = tree.name
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        self.layout.prop(self, 'name')
+
+    def execute(self, context):
+        node = get_active_texture_layers_node()
+        tree = node.node_tree
+        tree.name = self.name
+        return {'FINISHED'}
+
 class YFixDuplicatedTextures(bpy.types.Operator):
     bl_idname = "node.y_fix_duplicated_textures"
     bl_label = "Fix Duplicated Textures"
@@ -2153,6 +2459,581 @@ def draw_tex_props(group_tree, tex, layout):
 #        context.scene.name = self.name
 #        return {'FINISHED'}
 
+def main_draw(self, context):
+    obj = context.object
+    is_a_mesh = True if obj and obj.type == 'MESH' else False
+    node = get_active_texture_layers_node()
+
+    layout = self.layout
+
+    if not node:
+        #layout.alert = True
+        #layout.label("No active texture layers node!", icon='NODETREE')
+        layout.label("No active texture layers node!", icon='ERROR')
+        #layout.operator("node.y_quick_setup_texture_layers_node", icon='ERROR')
+        layout.operator("node.y_quick_setup_texture_layers_node", icon='NODETREE')
+        #layout.alert = False
+        return
+
+    #layout.label('Active: ' + node.node_tree.name, icon='NODETREE')
+    row = layout.row(align=True)
+    row.label('', icon='NODETREE')
+    #row.label('Active: ' + node.node_tree.name)
+    row.label(node.node_tree.name)
+    #row.prop(node.node_tree, 'name', text='')
+    row.menu("NODE_MT_y_tl_special_menu", text='', icon='SCRIPTWIN')
+
+    group_tree = node.node_tree
+    nodes = group_tree.nodes
+    tl = group_tree.tl
+    tlui = context.window_manager.tlui
+    #tlup = context.user_preferences.addons[__name__].preferences
+    #layout.context_pointer_set('group_node', node)
+    #layout.context_pointer_set('tl', tl)
+
+    icon = 'TRIA_DOWN' if tlui.show_channels else 'TRIA_RIGHT'
+    row = layout.row(align=True)
+    row.prop(tlui, 'show_channels', emboss=False, text='', icon=icon)
+    row.label('Channels')
+
+    if tlui.show_channels:
+
+        box = layout.box()
+        col = box.column()
+        row = col.row()
+
+        rcol = row.column()
+        if len(tl.channels) > 0:
+            pcol = rcol.column()
+            if tl.preview_mode: pcol.alert = True
+            pcol.prop(tl, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
+
+        rcol.template_list("NODE_UL_y_tl_channels", "", tl,
+                "channels", tl, "active_channel_index", rows=3, maxrows=5)  
+
+        rcol = row.column(align=True)
+        rcol.operator_menu_enum("node.y_add_new_texture_layers_channel", 'type', icon='ZOOMIN', text='')
+        rcol.operator("node.y_remove_texture_layers_channel", icon='ZOOMOUT', text='')
+        rcol.operator("node.y_move_texture_layers_channel", text='', icon='TRIA_UP').direction = 'UP'
+        rcol.operator("node.y_move_texture_layers_channel", text='', icon='TRIA_DOWN').direction = 'DOWN'
+
+        if len(tl.channels) > 0:
+
+            mcol = col.column(align=False)
+
+            channel = tl.channels[tl.active_channel_index]
+            mcol.context_pointer_set('channel', channel)
+
+            chui = tlui.channel_ui
+
+            if channel.type == 'RGB':
+                icon_name = 'rgb_channel'
+            elif channel.type == 'VALUE':
+                icon_name = 'value_channel'
+            elif channel.type == 'NORMAL':
+                icon_name = 'vector_channel'
+
+            if chui.expand_content:
+                icon_name = 'uncollapsed_' + icon_name
+            else: icon_name = 'collapsed_' + icon_name
+
+            icon_value = custom_icons[icon_name].icon_id
+
+            row = mcol.row(align=True)
+            row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            row.label(channel.name + ' Channel')
+
+            if channel.type != 'NORMAL':
+                row.context_pointer_set('parent', channel)
+                row.context_pointer_set('channel_ui', chui)
+                icon_value = custom_icons["add_modifier"].icon_id
+                row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
+
+            if chui.expand_content:
+
+                row = mcol.row(align=True)
+                row.label('', icon='BLANK1')
+                bcol = row.column()
+
+                for i, m in enumerate(channel.modifiers):
+
+                    modui = chui.modifiers[i]
+
+                    brow = bcol.row(align=True)
+                    if m.type in tex_modifiers.can_be_expanded:
+                        if modui.expand_content:
+                            icon_value = custom_icons["uncollapsed_modifier"].icon_id
+                        else: icon_value = custom_icons["collapsed_modifier"].icon_id
+                        brow.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                        brow.label(m.name)
+                    else:
+                        brow.label('', icon='MODIFIER')
+                        brow.label(m.name)
+
+                    if m.type == 'RGB_TO_INTENSITY':
+                        rgb2i = nodes.get(m.rgb2i)
+                        brow.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
+                        brow.separator()
+
+                    #brow.context_pointer_set('texture', tex)
+                    brow.context_pointer_set('parent', channel)
+                    brow.context_pointer_set('modifier', m)
+                    brow.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
+                    brow.prop(m, 'enable', text='')
+
+                    if modui.expand_content and m.type in tex_modifiers.can_be_expanded:
+                        row = bcol.row(align=True)
+                        #row.label('', icon='BLANK1')
+                        row.label('', icon='BLANK1')
+                        bbox = row.box()
+                        bbox.active = m.enable
+                        tex_modifiers.draw_modifier_properties(context, channel, nodes, m, bbox)
+                        row.label('', icon='BLANK1')
+
+                #if len(channel.modifiers) > 0:
+                #    brow = bcol.row(align=True)
+                #    brow.label('', icon='TEXTURE')
+                #    brow.label('Textures happen here..')
+
+                inp = node.inputs[channel.io_index]
+
+                brow = bcol.row(align=True)
+
+                #if channel.type == 'NORMAL':
+                #    if chui.expand_base_vector:
+                #        icon_value = custom_icons["uncollapsed_input"].icon_id
+                #    else: icon_value = custom_icons["collapsed_input"].icon_id
+                #    brow.prop(chui, 'expand_base_vector', text='', emboss=False, icon_value=icon_value)
+                #else: brow.label('', icon='INFO')
+
+                brow.label('', icon='INFO')
+
+                if channel.type == 'RGB':
+                    brow.label('Background:')
+                elif channel.type == 'VALUE':
+                    brow.label('Base Value:')
+                elif channel.type == 'NORMAL':
+                    #if chui.expand_base_vector:
+                    #    brow.label('Base Normal:')
+                    #else: brow.label('Base Normal')
+                    brow.label('Base Normal')
+
+                if channel.type == 'NORMAL':
+                    #if chui.expand_base_vector:
+                    #    brow = bcol.row(align=True)
+                    #    brow.label('', icon='BLANK1')
+                    #    brow.prop(inp,'default_value', text='')
+                    pass
+                elif len(inp.links) == 0:
+                    brow.prop(inp,'default_value', text='')
+                else:
+                    brow.label('', icon='LINKED')
+
+                if len(channel.modifiers) > 0:
+                    brow.label('', icon='BLANK1')
+
+                if channel.type == 'RGB':
+                    brow = bcol.row(align=True)
+                    brow.label('', icon='INFO')
+                    if channel.alpha:
+                        inp_alpha = node.inputs[channel.io_index+1]
+                        #brow = bcol.row(align=True)
+                        #brow.label('', icon='BLANK1')
+                        brow.label('Base Alpha:')
+                        if len(node.inputs[channel.io_index+1].links)==0:
+                            brow.prop(inp_alpha, 'default_value', text='')
+                        else:
+                            brow.label('', icon='LINKED')
+                    else:
+                        brow.label('Alpha:')
+                    brow.prop(channel, 'alpha', text='')
+
+                    #if len(channel.modifiers) > 0:
+                    #    brow.label('', icon='BLANK1')
+
+    icon = 'TRIA_DOWN' if tlui.show_textures else 'TRIA_RIGHT'
+    row = layout.row(align=True)
+    row.prop(tlui, 'show_textures', emboss=False, text='', icon=icon)
+    row.label('Textures')
+
+    if tlui.show_textures:
+
+        box = layout.box()
+
+        # Check if uv is found
+        uv_found = False
+        if is_a_mesh and len(obj.data.uv_textures) > 0: 
+            uv_found = True
+
+        if is_a_mesh and not uv_found:
+            row = box.row(align=True)
+            row.alert = True
+            row.operator("node.y_add_simple_uvs", icon='ERROR')
+            row.alert = False
+            return
+
+        # Check duplicated textures (indicated by 4 users)
+        if len(tl.textures) > 0 and tl.textures[0].tree.users > 3:
+            row = box.row(align=True)
+            row.alert = True
+            row.operator("node.y_fix_duplicated_textures", icon='ERROR')
+            row.alert = False
+            box.prop(tlui, 'make_image_single_user')
+            return
+
+        # Get texture, image and set context pointer
+        tex = None
+        source = None
+        image = None
+        if len(tl.textures) > 0:
+            tex = tl.textures[tl.active_texture_index]
+            box.context_pointer_set('texture', tex)
+
+            source = tex.tree.nodes.get(tex.source)
+            if tex.type == 'IMAGE':
+                image = source.image
+                box.context_pointer_set('image', image)
+
+        col = box.column()
+
+        row = col.row()
+        row.template_list("NODE_UL_y_tl_textures", "", tl,
+                "textures", tl, "active_texture_index", rows=5, maxrows=5)  
+
+        rcol = row.column(align=True)
+        #rcol.operator_menu_enum("node.y_new_texture_layer", 'type', icon='ZOOMIN', text='')
+        #rcol.context_pointer_set('group_node', node)
+        rcol.menu("NODE_MT_y_new_texture_layer_menu", text='', icon='ZOOMIN')
+        rcol.operator("node.y_remove_texture_layer", icon='ZOOMOUT', text='')
+        rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_UP').direction = 'UP'
+        rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_DOWN').direction = 'DOWN'
+        rcol.menu("NODE_MT_y_texture_specials", text='', icon='DOWNARROW_HLT')
+
+        col = box.column()
+
+        if tex:
+
+            col.active = tex.enable
+
+            texui = tlui.tex_ui
+
+            ccol = col.column() #align=True)
+            row = ccol.row(align=True)
+            
+            if image:
+                if texui.expand_content:
+                    icon_value = custom_icons["uncollapsed_image"].icon_id
+                else: icon_value = custom_icons["collapsed_image"].icon_id
+
+                row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                row.label(image.name)
+                #row.operator("node.y_single_user_image_copy", text="2")
+                #row.operator("node.y_reload_image", text="", icon='FILE_REFRESH')
+                #row.separator()
+            else:
+                title = source.bl_idname.replace('ShaderNodeTex', '')
+                #row.label(title + ' Properties:', icon='TEXTURE')
+                if texui.expand_content:
+                    icon_value = custom_icons["uncollapsed_texture"].icon_id
+                else: icon_value = custom_icons["collapsed_texture"].icon_id
+
+                row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                row.label(title)
+
+            row.prop(tlui, 'expand_channels', text='', emboss=True, icon_value = custom_icons['channels'].icon_id)
+
+            if texui.expand_content:
+                rrow = ccol.row(align=True)
+                rrow.label('', icon='BLANK1')
+                bbox = rrow.box()
+                if not image:
+                    draw_tex_props(group_tree, tex, bbox)
+                else:
+                    incol = bbox.column()
+                    incol.template_ID(source, "image", unlink='node.y_remove_texture_layer')
+                    if image.source == 'GENERATED':
+                        incol.label('Generated image settings:')
+                        row = incol.row()
+
+                        col1 = row.column(align=True)
+                        col1.prop(image, 'generated_width', text='X')
+                        col1.prop(image, 'generated_height', text='Y')
+
+                        col1.prop(image, 'use_generated_float', text='Float Buffer')
+                        col2 = row.column(align=True)
+                        col2.prop(image, 'generated_type', expand=True)
+
+                        row = incol.row()
+                        row.label('Color:')
+                        row.prop(image, 'generated_color', text='')
+                        incol.template_colorspace_settings(image, "colorspace_settings")
+
+                    elif image.source == 'FILE':
+                        if not image.filepath:
+                            incol.label('Image Path: -')
+                        else:
+                            incol.label('Path: ' + image.filepath)
+
+                        image_format = 'RGBA'
+                        image_bit = int(image.depth/4)
+                        if image.depth in {24, 48, 96}:
+                            image_format = 'RGB'
+                            image_bit = int(image.depth/3)
+
+                        incol.label('Info: ' + str(image.size[0]) + ' x ' + str(image.size[1]) +
+                                ' ' + image_format + ' ' + str(image_bit) + '-bit')
+
+                        incol.template_colorspace_settings(image, "colorspace_settings")
+                        #incol.prop(image, 'use_view_as_render')
+                        incol.prop(image, 'alpha_mode')
+                        incol.prop(image, 'use_alpha')
+                        #incol.prop(image, 'use_fields')
+                        #incol.template_image(tex, "image", tex.image_user)
+
+                if tlui.expand_channels:
+                    rrow.label('', icon='BLANK1')
+
+                ccol.separator()
+
+            if len(tex.channels) == 0:
+                col.label('No channel found!', icon='ERROR')
+
+            ch_count = 0
+            for i, ch in enumerate(tex.channels):
+
+                if not tlui.expand_channels and not ch.enable:
+                    continue
+
+                tl_ch = tl.channels[i]
+                ch_count += 1
+
+                chui = tlui.tex_ui.channels[i]
+
+                ccol = col.column()
+                ccol.active = ch.enable
+                ccol.context_pointer_set('channel', ch)
+
+                if tl_ch.type == 'RGB':
+                    icon_name = 'rgb_channel'
+                elif tl_ch.type == 'VALUE':
+                    icon_name = 'value_channel'
+                elif tl_ch.type == 'NORMAL':
+                    icon_name = 'vector_channel'
+
+                if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or tl_ch.type == 'NORMAL':
+                    if chui.expand_content:
+                        icon_name = 'uncollapsed_' + icon_name
+                    else: icon_name = 'collapsed_' + icon_name
+
+                icon_value = custom_icons[icon_name].icon_id
+
+                row = ccol.row(align=True)
+                if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or tl_ch.type == 'NORMAL':
+                    row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                else: row.label('', icon_value=icon_value)
+
+                #row.label(tl.channels[i].name +' (' + str(ch.channel_index) + ')'+ ':')
+                #row.label(tl.channels[i].name +' (' + str(ch.texture_index) + ')'+ ':')
+                row.label(tl.channels[i].name + ':')
+
+                if tl_ch.type == 'NORMAL':
+                    row.prop(ch, 'normal_blend', text='')
+                else: row.prop(ch, 'blend_type', text='')
+
+                intensity = tex.tree.nodes.get(ch.intensity)
+                row.prop(intensity.inputs[0], 'default_value', text='')
+
+                row.context_pointer_set('parent', ch)
+                row.context_pointer_set('texture', tex)
+                row.context_pointer_set('channel_ui', chui)
+                icon_value = custom_icons["add_modifier"].icon_id
+                row.menu('NODE_MT_y_texture_modifier_specials', text='', icon_value=icon_value)
+
+                if tlui.expand_channels:
+                    row.prop(ch, 'enable', text='')
+
+                if chui.expand_content:
+                    extra_separator = False
+
+                    if tl_ch.type == 'NORMAL':
+                        row = ccol.row(align=True)
+                        row.label('', icon='BLANK1')
+                        if ch.normal_map_type == 'BUMP_MAP':
+                            if chui.expand_bump_settings:
+                                icon_value = custom_icons["uncollapsed_input"].icon_id
+                            else: icon_value = custom_icons["collapsed_input"].icon_id
+                            row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
+                        else:
+                            row.label('', icon='INFO')
+                        split = row.split(percentage=0.275)
+                        split.label('Type:') #, icon='INFO')
+                        split.prop(ch, 'normal_map_type', text='')
+
+                        if tlui.expand_channels:
+                            row.label('', icon='BLANK1')
+
+                        if ch.normal_map_type == 'BUMP_MAP' and chui.expand_bump_settings:
+                            row = ccol.row(align=True)
+                            row.label('', icon='BLANK1')
+                            row.label('', icon='BLANK1')
+
+                            bbox = row.box()
+                            cccol = bbox.column(align=True)
+
+                            bump = tex.tree.nodes.get(ch.bump)
+
+                            brow = cccol.row(align=True)
+                            brow.label('Bump Base:') #, icon='INFO')
+                            brow.prop(ch, 'bump_base_value', text='')
+
+                            brow = cccol.row(align=True)
+                            brow.label('Distance:') #, icon='INFO')
+                            brow.prop(ch, 'bump_distance', text='')
+
+                            if tlui.expand_channels:
+                                row.label('', icon='BLANK1')
+
+                        row = ccol.row(align=True)
+                        row.label('', icon='BLANK1')
+                        row.label('', icon='INFO')
+                        row.label('Invert Backface Normal')
+                        row.prop(ch, 'invert_backface_normal', text='')
+                        if tlui.expand_channels:
+                            row.label('', icon='BLANK1')
+
+                        extra_separator = True
+
+                    for j, m in enumerate(ch.modifiers):
+
+                        row = ccol.row(align=True)
+                        #row.active = m.enable
+                        row.label('', icon='BLANK1')
+
+                        modui = tlui.tex_ui.channels[i].modifiers[j]
+
+                        if m.type in tex_modifiers.can_be_expanded:
+                            if modui.expand_content:
+                                icon_value = custom_icons["uncollapsed_modifier"].icon_id
+                            else: icon_value = custom_icons["collapsed_modifier"].icon_id
+                            row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                        else:
+                            row.label('', icon='MODIFIER')
+
+                        #row.label(m.name + ' (' + str(m.texture_index) + ')')
+                        row.label(m.name)
+
+                        if m.type == 'RGB_TO_INTENSITY':
+                            rgb2i = tex.tree.nodes.get(m.rgb2i)
+                            row.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
+                            row.separator()
+
+                        row.context_pointer_set('texture', tex)
+                        row.context_pointer_set('parent', ch)
+                        row.context_pointer_set('modifier', m)
+                        row.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
+                        row.prop(m, 'enable', text='')
+
+                        if tlui.expand_channels:
+                            row.label('', icon='BLANK1')
+
+                        if modui.expand_content and m.type in tex_modifiers.can_be_expanded:
+                            row = ccol.row(align=True)
+                            row.label('', icon='BLANK1')
+                            row.label('', icon='BLANK1')
+                            bbox = row.box()
+                            bbox.active = m.enable
+                            tex_modifiers.draw_modifier_properties(context, ch, tex.tree.nodes, m, bbox)
+
+                            if tlui.expand_channels:
+                                row.label('', icon='BLANK1')
+
+                        extra_separator = True
+
+                    if tex.type != 'IMAGE':
+                        row = ccol.row(align=True)
+                        row.label('', icon='BLANK1')
+                        row.label('', icon='INFO')
+                        split = row.split(percentage=0.275)
+                        split.label('Input:')
+                        split.prop(ch, 'tex_input', text='')
+
+                        if tlui.expand_channels:
+                            row.label('', icon='BLANK1')
+
+                        extra_separator = True
+
+                    if extra_separator:
+                        ccol.separator()
+
+                #if i == len(tex.channels)-1: #and i > 0:
+                #    ccol.separator()
+
+            if not tlui.expand_channels and ch_count == 0:
+                col.label('No active channel!')
+
+            col.separator()
+            ccol = col.column()
+
+            row = ccol.row(align=True)
+
+            if texui.expand_vector:
+                icon_value = custom_icons["uncollapsed_uv"].icon_id
+            else: icon_value = custom_icons["collapsed_uv"].icon_id
+            row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+
+            #icon = 'TRIA_DOWN' if tlui.show_vector_properties else 'TRIA_RIGHT'
+            #row.prop(tlui, 'show_vector_properties', text='', icon=icon)
+
+            split = row.split(percentage=0.275, align=True)
+            split.label('Vector:')
+            if is_a_mesh and tex.texcoord_type == 'UV':
+                #uv_map = nodes.get(tex.uv_map)
+                ssplit = split.split(percentage=0.33, align=True)
+                ssplit.prop(tex, 'texcoord_type', text='')
+                #ssplit.prop_search(uv_map, "uv_map", obj.data, "uv_textures", text='')
+                ssplit.prop_search(tex, "uv_name", obj.data, "uv_textures", text='')
+            else:
+                split.prop(tex, 'texcoord_type', text='')
+
+            #if tlui.expand_channels:
+            #    row.label('', icon='BLANK1')
+
+            #if tlui.show_vector_properties:
+            if texui.expand_vector:
+                row = ccol.row()
+                row.label('', icon='BLANK1')
+                bbox = row.box()
+                crow = row.column()
+                #if tex.texcoord_type == 'UV':
+                bbox.prop(source.texture_mapping, 'translation', text='Offset')
+                bbox.prop(source.texture_mapping, 'scale')
+                #else:
+                #    bbox.label('This option has no settings yet!')
+                #ccol.separator()
+
+                #if tlui.expand_channels:
+                #    row.label('', icon='BLANK1')
+
+            #ccol = col.column(align=True)
+
+            # MASK
+            #row = ccol.row(align=True)
+            #row.label('Mask:')
+
+            #icon = 'TRIA_DOWN' if tlui.show_mask_properties else 'TRIA_RIGHT'
+            #row.prop(tlui, 'show_mask_properties', text='', icon=icon)
+
+            #if tlui.show_mask_properties:
+            #    bbox = ccol.box()
+
+            #row = tcol.row()
+            #row.label('Texture Modifiers:')
+            #icon = 'TRIA_DOWN' if tl.show_texture_modifiers else 'TRIA_RIGHT'
+            #row.prop(tl, 'show_texture_modifiers', emboss=False, text='', icon=icon)
+
+            #if tl.show_texture_modifiers:
+            #    bbox = tcol.box()
+
 class NODE_PT_y_texture_layers(bpy.types.Panel):
     #bl_space_type = 'VIEW_3D'
     bl_space_type = 'NODE_EDITOR'
@@ -2166,571 +3047,21 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
         return context.scene.render.engine == 'CYCLES' and context.space_data.tree_type == 'ShaderNodeTree'
 
     def draw(self, context):
-        obj = context.object
-        is_a_mesh = True if obj and obj.type == 'MESH' else False
-        node = get_active_texture_layers_node()
-
-        layout = self.layout
-
-        if not node:
-            layout.label("No texture layers node selected!")
-            return
-
-        #layout.label('Active: ' + node.node_tree.name, icon='NODETREE')
-        row = layout.row(align=True)
-        row.label('', icon='NODETREE')
-        row.label(node.node_tree.name)
-
-        group_tree = node.node_tree
-        nodes = group_tree.nodes
-        tl = group_tree.tl
-        tlui = context.window_manager.tlui
-        #tlup = context.user_preferences.addons[__name__].preferences
-        #layout.context_pointer_set('group_node', node)
-        #layout.context_pointer_set('tl', tl)
-
-        icon = 'TRIA_DOWN' if tlui.show_channels else 'TRIA_RIGHT'
-        row = layout.row(align=True)
-        row.prop(tlui, 'show_channels', emboss=False, text='', icon=icon)
-        row.label('Channels')
-
-        if tlui.show_channels:
-
-            box = layout.box()
-            col = box.column()
-            row = col.row()
-
-            rcol = row.column()
-            if len(tl.channels) > 0:
-                pcol = rcol.column()
-                if tl.preview_mode: pcol.alert = True
-                pcol.prop(tl, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
-
-            rcol.template_list("NODE_UL_y_tl_channels", "", tl,
-                    "channels", tl, "active_channel_index", rows=3, maxrows=5)  
-
-            rcol = row.column(align=True)
-            rcol.operator_menu_enum("node.y_add_new_texture_layers_channel", 'type', icon='ZOOMIN', text='')
-            rcol.operator("node.y_remove_texture_layers_channel", icon='ZOOMOUT', text='')
-            rcol.operator("node.y_move_texture_layers_channel", text='', icon='TRIA_UP').direction = 'UP'
-            rcol.operator("node.y_move_texture_layers_channel", text='', icon='TRIA_DOWN').direction = 'DOWN'
-
-            if len(tl.channels) > 0:
-
-                mcol = col.column(align=False)
-
-                channel = tl.channels[tl.active_channel_index]
-                mcol.context_pointer_set('channel', channel)
-
-                chui = tlui.channel_ui
-
-                if channel.type == 'RGB':
-                    icon_name = 'rgb_channel'
-                elif channel.type == 'VALUE':
-                    icon_name = 'value_channel'
-                elif channel.type == 'NORMAL':
-                    icon_name = 'vector_channel'
-
-                if chui.expand_content:
-                    icon_name = 'uncollapsed_' + icon_name
-                else: icon_name = 'collapsed_' + icon_name
-
-                icon_value = custom_icons[icon_name].icon_id
-
-                row = mcol.row(align=True)
-                row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-                row.label(channel.name + ' Channel')
-
-                if channel.type != 'NORMAL':
-                    row.context_pointer_set('parent', channel)
-                    row.context_pointer_set('channel_ui', chui)
-                    icon_value = custom_icons["add_modifier"].icon_id
-                    row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
-
-                if chui.expand_content:
-
-                    row = mcol.row(align=True)
-                    row.label('', icon='BLANK1')
-                    bcol = row.column()
-
-                    for i, m in enumerate(channel.modifiers):
-
-                        modui = chui.modifiers[i]
-
-                        brow = bcol.row(align=True)
-                        if m.type in tex_modifiers.can_be_expanded:
-                            if modui.expand_content:
-                                icon_value = custom_icons["uncollapsed_modifier"].icon_id
-                            else: icon_value = custom_icons["collapsed_modifier"].icon_id
-                            brow.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-                            brow.label(m.name)
-                        else:
-                            brow.label('', icon='MODIFIER')
-                            brow.label(m.name)
-
-                        if m.type == 'RGB_TO_INTENSITY':
-                            rgb2i = nodes.get(m.rgb2i)
-                            brow.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
-                            brow.separator()
-
-                        #brow.context_pointer_set('texture', tex)
-                        brow.context_pointer_set('parent', channel)
-                        brow.context_pointer_set('modifier', m)
-                        brow.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
-                        brow.prop(m, 'enable', text='')
-
-                        if modui.expand_content and m.type in tex_modifiers.can_be_expanded:
-                            row = bcol.row(align=True)
-                            #row.label('', icon='BLANK1')
-                            row.label('', icon='BLANK1')
-                            bbox = row.box()
-                            bbox.active = m.enable
-                            tex_modifiers.draw_modifier_properties(context, channel, nodes, m, bbox)
-                            row.label('', icon='BLANK1')
-
-                    #if len(channel.modifiers) > 0:
-                    #    brow = bcol.row(align=True)
-                    #    brow.label('', icon='TEXTURE')
-                    #    brow.label('Textures happen here..')
-
-                    inp = node.inputs[channel.io_index]
-
-                    brow = bcol.row(align=True)
-
-                    #if channel.type == 'NORMAL':
-                    #    if chui.expand_base_vector:
-                    #        icon_value = custom_icons["uncollapsed_input"].icon_id
-                    #    else: icon_value = custom_icons["collapsed_input"].icon_id
-                    #    brow.prop(chui, 'expand_base_vector', text='', emboss=False, icon_value=icon_value)
-                    #else: brow.label('', icon='INFO')
-
-                    brow.label('', icon='INFO')
-
-                    if channel.type == 'RGB':
-                        brow.label('Background:')
-                    elif channel.type == 'VALUE':
-                        brow.label('Base Value:')
-                    elif channel.type == 'NORMAL':
-                        #if chui.expand_base_vector:
-                        #    brow.label('Base Normal:')
-                        #else: brow.label('Base Normal')
-                        brow.label('Base Normal')
-
-                    if channel.type == 'NORMAL':
-                        #if chui.expand_base_vector:
-                        #    brow = bcol.row(align=True)
-                        #    brow.label('', icon='BLANK1')
-                        #    brow.prop(inp,'default_value', text='')
-                        pass
-                    elif len(inp.links) == 0:
-                        brow.prop(inp,'default_value', text='')
-                    else:
-                        brow.label('', icon='LINKED')
-
-                    if len(channel.modifiers) > 0:
-                        brow.label('', icon='BLANK1')
-
-                    if channel.type == 'RGB':
-                        brow = bcol.row(align=True)
-                        brow.label('', icon='INFO')
-                        if channel.alpha:
-                            inp_alpha = node.inputs[channel.io_index+1]
-                            #brow = bcol.row(align=True)
-                            #brow.label('', icon='BLANK1')
-                            brow.label('Base Alpha:')
-                            if len(node.inputs[channel.io_index+1].links)==0:
-                                brow.prop(inp_alpha, 'default_value', text='')
-                            else:
-                                brow.label('', icon='LINKED')
-                        else:
-                            brow.label('Alpha:')
-                        brow.prop(channel, 'alpha', text='')
-
-                        #if len(channel.modifiers) > 0:
-                        #    brow.label('', icon='BLANK1')
-
-        icon = 'TRIA_DOWN' if tlui.show_textures else 'TRIA_RIGHT'
-        row = layout.row(align=True)
-        row.prop(tlui, 'show_textures', emboss=False, text='', icon=icon)
-        row.label('Textures')
-
-        if tlui.show_textures:
-
-            box = layout.box()
-
-            # Check if uv is found
-            uv_found = False
-            if is_a_mesh and len(obj.data.uv_textures) > 0: 
-                uv_found = True
-
-            if is_a_mesh and not uv_found:
-                row = box.row(align=True)
-                row.alert = True
-                row.operator("node.y_add_simple_uvs", icon='ERROR')
-                row.alert = False
-                return
-
-            # Check duplicated textures (indicated by 4 users)
-            if len(tl.textures) > 0 and tl.textures[0].tree.users > 3:
-                row = box.row(align=True)
-                row.alert = True
-                row.operator("node.y_fix_duplicated_textures", icon='ERROR')
-                row.alert = False
-                box.prop(tlui, 'make_image_single_user')
-                return
-
-            # Get texture, image and set context pointer
-            tex = None
-            source = None
-            image = None
-            if len(tl.textures) > 0:
-                tex = tl.textures[tl.active_texture_index]
-                box.context_pointer_set('texture', tex)
-
-                source = tex.tree.nodes.get(tex.source)
-                if tex.type == 'IMAGE':
-                    image = source.image
-                    box.context_pointer_set('image', image)
-
-            col = box.column()
-
-            row = col.row()
-            row.template_list("NODE_UL_y_tl_textures", "", tl,
-                    "textures", tl, "active_texture_index", rows=5, maxrows=5)  
-
-            rcol = row.column(align=True)
-            #rcol.operator_menu_enum("node.y_new_texture_layer", 'type', icon='ZOOMIN', text='')
-            #rcol.context_pointer_set('group_node', node)
-            rcol.menu("NODE_MT_y_new_texture_layer_menu", text='', icon='ZOOMIN')
-            rcol.operator("node.y_remove_texture_layer", icon='ZOOMOUT', text='')
-            rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_UP').direction = 'UP'
-            rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_DOWN').direction = 'DOWN'
-            rcol.menu("NODE_MT_y_texture_specials", text='', icon='DOWNARROW_HLT')
-
-            col = box.column()
-
-            if tex:
-
-                col.active = tex.enable
-
-                texui = tlui.tex_ui
-
-                ccol = col.column() #align=True)
-                row = ccol.row(align=True)
-                
-                if image:
-                    if texui.expand_content:
-                        icon_value = custom_icons["uncollapsed_image"].icon_id
-                    else: icon_value = custom_icons["collapsed_image"].icon_id
-
-                    row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-                    row.label(image.name)
-                    #row.operator("node.y_single_user_image_copy", text="2")
-                    #row.operator("node.y_reload_image", text="", icon='FILE_REFRESH')
-                    #row.separator()
-                else:
-                    title = source.bl_idname.replace('ShaderNodeTex', '')
-                    #row.label(title + ' Properties:', icon='TEXTURE')
-                    if texui.expand_content:
-                        icon_value = custom_icons["uncollapsed_texture"].icon_id
-                    else: icon_value = custom_icons["collapsed_texture"].icon_id
-
-                    row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-                    row.label(title)
-
-                row.prop(tlui, 'expand_channels', text='', emboss=True, icon_value = custom_icons['channels'].icon_id)
-
-                if texui.expand_content:
-                    rrow = ccol.row(align=True)
-                    rrow.label('', icon='BLANK1')
-                    bbox = rrow.box()
-                    if not image:
-                        draw_tex_props(group_tree, tex, bbox)
-                    else:
-                        incol = bbox.column()
-                        incol.template_ID(source, "image", unlink='node.y_remove_texture_layer')
-                        if image.source == 'GENERATED':
-                            incol.label('Generated image settings:')
-                            row = incol.row()
-
-                            col1 = row.column(align=True)
-                            col1.prop(image, 'generated_width', text='X')
-                            col1.prop(image, 'generated_height', text='Y')
-
-                            col1.prop(image, 'use_generated_float', text='Float Buffer')
-                            col2 = row.column(align=True)
-                            col2.prop(image, 'generated_type', expand=True)
-
-                            row = incol.row()
-                            row.label('Color:')
-                            row.prop(image, 'generated_color', text='')
-                            incol.template_colorspace_settings(image, "colorspace_settings")
-
-                        elif image.source == 'FILE':
-                            if not image.filepath:
-                                incol.label('Image Path: -')
-                            else:
-                                incol.label('Path: ' + image.filepath)
-
-                            image_format = 'RGBA'
-                            image_bit = int(image.depth/4)
-                            if image.depth in {24, 48, 96}:
-                                image_format = 'RGB'
-                                image_bit = int(image.depth/3)
-
-                            incol.label('Info: ' + str(image.size[0]) + ' x ' + str(image.size[1]) +
-                                    ' ' + image_format + ' ' + str(image_bit) + '-bit')
-
-                            incol.template_colorspace_settings(image, "colorspace_settings")
-                            #incol.prop(image, 'use_view_as_render')
-                            incol.prop(image, 'alpha_mode')
-                            incol.prop(image, 'use_alpha')
-                            #incol.prop(image, 'use_fields')
-                            #incol.template_image(tex, "image", tex.image_user)
-
-                    if tlui.expand_channels:
-                        rrow.label('', icon='BLANK1')
-
-                    ccol.separator()
-
-                if len(tex.channels) == 0:
-                    col.label('No channel found!', icon='ERROR')
-
-                ch_count = 0
-                for i, ch in enumerate(tex.channels):
-
-                    if not tlui.expand_channels and not ch.enable:
-                        continue
-
-                    tl_ch = tl.channels[i]
-                    ch_count += 1
-
-                    chui = tlui.tex_ui.channels[i]
-
-                    ccol = col.column()
-                    ccol.active = ch.enable
-                    ccol.context_pointer_set('channel', ch)
-
-                    if tl_ch.type == 'RGB':
-                        icon_name = 'rgb_channel'
-                    elif tl_ch.type == 'VALUE':
-                        icon_name = 'value_channel'
-                    elif tl_ch.type == 'NORMAL':
-                        icon_name = 'vector_channel'
-
-                    if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or tl_ch.type == 'NORMAL':
-                        if chui.expand_content:
-                            icon_name = 'uncollapsed_' + icon_name
-                        else: icon_name = 'collapsed_' + icon_name
-
-                    icon_value = custom_icons[icon_name].icon_id
-
-                    row = ccol.row(align=True)
-                    if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or tl_ch.type == 'NORMAL':
-                        row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-                    else: row.label('', icon_value=icon_value)
-
-                    #row.label(tl.channels[i].name +' (' + str(ch.channel_index) + ')'+ ':')
-                    #row.label(tl.channels[i].name +' (' + str(ch.texture_index) + ')'+ ':')
-                    row.label(tl.channels[i].name + ':')
-
-                    if tl_ch.type == 'NORMAL':
-                        row.prop(ch, 'normal_blend', text='')
-                    else: row.prop(ch, 'blend_type', text='')
-
-                    intensity = tex.tree.nodes.get(ch.intensity)
-                    row.prop(intensity.inputs[0], 'default_value', text='')
-
-                    row.context_pointer_set('parent', ch)
-                    row.context_pointer_set('texture', tex)
-                    row.context_pointer_set('channel_ui', chui)
-                    icon_value = custom_icons["add_modifier"].icon_id
-                    row.menu('NODE_MT_y_texture_modifier_specials', text='', icon_value=icon_value)
-
-                    if tlui.expand_channels:
-                        row.prop(ch, 'enable', text='')
-
-                    if chui.expand_content:
-                        extra_separator = False
-
-                        if tl_ch.type == 'NORMAL':
-                            row = ccol.row(align=True)
-                            row.label('', icon='BLANK1')
-                            if ch.normal_map_type == 'BUMP_MAP':
-                                if chui.expand_bump_settings:
-                                    icon_value = custom_icons["uncollapsed_input"].icon_id
-                                else: icon_value = custom_icons["collapsed_input"].icon_id
-                                row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
-                            else:
-                                row.label('', icon='INFO')
-                            split = row.split(percentage=0.275)
-                            split.label('Type:') #, icon='INFO')
-                            split.prop(ch, 'normal_map_type', text='')
-
-                            if tlui.expand_channels:
-                                row.label('', icon='BLANK1')
-
-                            if ch.normal_map_type == 'BUMP_MAP' and chui.expand_bump_settings:
-                                row = ccol.row(align=True)
-                                row.label('', icon='BLANK1')
-                                row.label('', icon='BLANK1')
-
-                                bbox = row.box()
-                                cccol = bbox.column(align=True)
-
-                                bump = tex.tree.nodes.get(ch.bump)
-
-                                brow = cccol.row(align=True)
-                                brow.label('Bump Base:') #, icon='INFO')
-                                brow.prop(ch, 'bump_base_value', text='')
-
-                                brow = cccol.row(align=True)
-                                brow.label('Distance:') #, icon='INFO')
-                                brow.prop(ch, 'bump_distance', text='')
-
-                                if tlui.expand_channels:
-                                    row.label('', icon='BLANK1')
-
-                            row = ccol.row(align=True)
-                            row.label('', icon='BLANK1')
-                            row.label('', icon='INFO')
-                            row.label('Invert Backface Normal')
-                            row.prop(ch, 'invert_backface_normal', text='')
-                            if tlui.expand_channels:
-                                row.label('', icon='BLANK1')
-
-                            extra_separator = True
-
-                        for j, m in enumerate(ch.modifiers):
-
-                            row = ccol.row(align=True)
-                            #row.active = m.enable
-                            row.label('', icon='BLANK1')
-
-                            modui = tlui.tex_ui.channels[i].modifiers[j]
-
-                            if m.type in tex_modifiers.can_be_expanded:
-                                if modui.expand_content:
-                                    icon_value = custom_icons["uncollapsed_modifier"].icon_id
-                                else: icon_value = custom_icons["collapsed_modifier"].icon_id
-                                row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-                            else:
-                                row.label('', icon='MODIFIER')
-
-                            #row.label(m.name + ' (' + str(m.texture_index) + ')')
-                            row.label(m.name)
-
-                            if m.type == 'RGB_TO_INTENSITY':
-                                rgb2i = tex.tree.nodes.get(m.rgb2i)
-                                row.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
-                                row.separator()
-
-                            row.context_pointer_set('texture', tex)
-                            row.context_pointer_set('parent', ch)
-                            row.context_pointer_set('modifier', m)
-                            row.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
-                            row.prop(m, 'enable', text='')
-
-                            if tlui.expand_channels:
-                                row.label('', icon='BLANK1')
-
-                            if modui.expand_content and m.type in tex_modifiers.can_be_expanded:
-                                row = ccol.row(align=True)
-                                row.label('', icon='BLANK1')
-                                row.label('', icon='BLANK1')
-                                bbox = row.box()
-                                bbox.active = m.enable
-                                tex_modifiers.draw_modifier_properties(context, ch, tex.tree.nodes, m, bbox)
-
-                                if tlui.expand_channels:
-                                    row.label('', icon='BLANK1')
-
-                            extra_separator = True
-
-                        if tex.type != 'IMAGE':
-                            row = ccol.row(align=True)
-                            row.label('', icon='BLANK1')
-                            row.label('', icon='INFO')
-                            split = row.split(percentage=0.275)
-                            split.label('Input:')
-                            split.prop(ch, 'tex_input', text='')
-
-                            if tlui.expand_channels:
-                                row.label('', icon='BLANK1')
-
-                            extra_separator = True
-
-                        if extra_separator:
-                            ccol.separator()
-
-                    #if i == len(tex.channels)-1: #and i > 0:
-                    #    ccol.separator()
-
-                if not tlui.expand_channels and ch_count == 0:
-                    col.label('No active channel!')
-
-                col.separator()
-                ccol = col.column()
-
-                row = ccol.row(align=True)
-
-                if texui.expand_vector:
-                    icon_value = custom_icons["uncollapsed_uv"].icon_id
-                else: icon_value = custom_icons["collapsed_uv"].icon_id
-                row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
-
-                #icon = 'TRIA_DOWN' if tlui.show_vector_properties else 'TRIA_RIGHT'
-                #row.prop(tlui, 'show_vector_properties', text='', icon=icon)
-
-                split = row.split(percentage=0.275, align=True)
-                split.label('Vector:')
-                if is_a_mesh and tex.texcoord_type == 'UV':
-                    #uv_map = nodes.get(tex.uv_map)
-                    ssplit = split.split(percentage=0.33, align=True)
-                    ssplit.prop(tex, 'texcoord_type', text='')
-                    #ssplit.prop_search(uv_map, "uv_map", obj.data, "uv_textures", text='')
-                    ssplit.prop_search(tex, "uv_name", obj.data, "uv_textures", text='')
-                else:
-                    split.prop(tex, 'texcoord_type', text='')
-
-                #if tlui.expand_channels:
-                #    row.label('', icon='BLANK1')
-
-                #if tlui.show_vector_properties:
-                if texui.expand_vector:
-                    row = ccol.row()
-                    row.label('', icon='BLANK1')
-                    bbox = row.box()
-                    crow = row.column()
-                    #if tex.texcoord_type == 'UV':
-                    bbox.prop(source.texture_mapping, 'translation', text='Offset')
-                    bbox.prop(source.texture_mapping, 'scale')
-                    #else:
-                    #    bbox.label('This option has no settings yet!')
-                    #ccol.separator()
-
-                    #if tlui.expand_channels:
-                    #    row.label('', icon='BLANK1')
-
-                #ccol = col.column(align=True)
-
-                # MASK
-                #row = ccol.row(align=True)
-                #row.label('Mask:')
-
-                #icon = 'TRIA_DOWN' if tlui.show_mask_properties else 'TRIA_RIGHT'
-                #row.prop(tlui, 'show_mask_properties', text='', icon=icon)
-
-                #if tlui.show_mask_properties:
-                #    bbox = ccol.box()
-
-                #row = tcol.row()
-                #row.label('Texture Modifiers:')
-                #icon = 'TRIA_DOWN' if tl.show_texture_modifiers else 'TRIA_RIGHT'
-                #row.prop(tl, 'show_texture_modifiers', emboss=False, text='', icon=icon)
-
-                #if tl.show_texture_modifiers:
-                #    bbox = tcol.box()
+        main_draw(self, context)
+
+class VIEW3D_PT_y_texture_layers(bpy.types.Panel):
+    bl_space_type = 'VIEW_3D'
+    bl_label = "Texture Layers"
+    #bl_region_type = 'UI'
+    bl_region_type = 'TOOLS'
+    bl_category = "Texture Layers"
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.render.engine == 'CYCLES'
+
+    def draw(self, context):
+        main_draw(self, context)
 
 class NODE_UL_y_tl_channels(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -2833,6 +3164,18 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         else: eye_icon = 'RESTRICT_VIEW_ON'
         row.prop(item, 'enable', emboss=False, text='', icon=eye_icon)
 
+class YTLSpecialMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_tl_special_menu"
+    bl_label = "Texture Layers Special Menu"
+    bl_description = "Texture Layers Special Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_texture_layers_node()
+
+    def draw(self, context):
+        self.layout.operator('node.y_rename_tl_tree')
+
 class YNewTexMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_texture_layer_menu"
     bl_description = 'New Texture Layer'
@@ -2924,6 +3267,8 @@ def menu_func(self, context):
 def update_channel_name(self, context):
     group_tree = self.id_data
     tl = group_tree.tl
+
+    if self.io_index == -1: return
 
     if self.io_index < len(group_tree.inputs):
         group_tree.inputs[self.io_index].name = self.name
@@ -3467,7 +3812,7 @@ class YTLChannel(bpy.types.PropertyGroup):
                      ('NORMAL', 'Normal', '')),
             default = 'RGB')
 
-    io_index = IntProperty(default=0)
+    io_index = IntProperty(default=-1)
     alpha = BoolProperty(default=False, update=update_channel_alpha)
 
     modifiers = CollectionProperty(type=tex_modifiers.YTextureModifier)
@@ -3681,20 +4026,10 @@ def ytl_scene_update(scene):
                 tex.image_name = img.name
                 tl.active_texture_index = tl.active_texture_index
 
-    # Check duplicate textures 
-    # (Commented because currently can cause memory leak when opening Material properties tab)
-    #if len(tl.textures) > 0:
-    #    # Check only the first texture
-    #    tex = tl.textures[0]
-
-    #    # Texture tree can only be used for 2 users
-    #    if tex.tree.users > 2:
-
-    #        # Make all textures single(dual) user
-    #        for t in tl.textures:
-    #            t.tree = t.tree.copy()
-    #            node = tree.nodes.get(t.group_node)
-    #            node.node_tree = t.tree
+    # Check if tex channel ui consistency
+    if len(tl.textures) > 0:
+        if len(tlui.tex_ui.channels) != len(tl.channels):
+            tlui.need_update = True
 
     # Update UI
     if (tlui.tree_name != tree.name or 

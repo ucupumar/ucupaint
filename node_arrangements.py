@@ -3,14 +3,6 @@ from mathutils import *
 
 INFO_PREFIX = '__ytl_info_'
 
-START_FRAME_PREFIX = '__ytl_start_frame_'
-
-START_FRAME = '__ytl_start_frame_'
-TEXTURES_FRAME = '__ytl_textures_frame_'
-END_ENTRY_FRAME = '__ytl_end_entry_frame_'
-MODIFIER_FRAME = '__ytl_modifier_frame_'
-END_LINEAR_FRAME = '__ytl_end_linear_frame_'
-
 def check_set_node_location(node, loc):
     if node:
         if node.location != loc:
@@ -447,9 +439,12 @@ def rearrange_tl_nodes(group_tree):
     loc.x = ori_x
     check_set_node_location(solid_alpha, loc)
 
-    if len(tl.textures) > 0:
+    #if len(tl.textures) == 0 and len(tl.channels) == 0:
+    #    loc.x = ori_x + 200.0
+    if len(tl.textures) == 0:
+        loc.x = ori_x + 300.0
+    else: 
         loc.x = ori_x + 280.0
-    else: loc.x = ori_x + 300.0
     ori_x = loc.x
     loc.y = 0.0
 
@@ -464,7 +459,7 @@ def rearrange_tl_nodes(group_tree):
         else: loc.x += 190
 
     ori_x = loc.x
-    farthest_x = 0
+    farthest_x = loc.x
 
     # End nodes
     for i, channel in enumerate(tl.channels):
