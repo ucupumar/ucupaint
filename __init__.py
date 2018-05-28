@@ -53,6 +53,7 @@ from bpy_extras.image_utils import load_image
 from .common import *
 from .node_arrangements import *
 from mathutils import *
+from bpy.app.translations import pgettext_iface as iface_
 
 # Imported node group names
 #UDN = '_UDN Blend'
@@ -114,7 +115,13 @@ normal_map_type_items = (
         ('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 1)
         )
 
-channel_socket_bl_idnames = {
+channel_socket_input_bl_idnames = {
+    'RGB': 'NodeSocketColor',
+    'VALUE': 'NodeSocketFloatFactor',
+    'NORMAL': 'NodeSocketVector',
+}
+
+channel_socket_output_bl_idnames = {
     'RGB': 'NodeSocketColor',
     'VALUE': 'NodeSocketFloat',
     'NORMAL': 'NodeSocketVector',
@@ -139,8 +146,8 @@ def add_io_from_new_channel(group_tree, channel):
     # New channel should be the last item
     #channel = group_tree.tl.channels[-1]
 
-    inp = group_tree.inputs.new(channel_socket_bl_idnames[channel.type], channel.name)
-    out = group_tree.outputs.new(channel_socket_bl_idnames[channel.type], channel.name)
+    inp = group_tree.inputs.new(channel_socket_input_bl_idnames[channel.type], channel.name)
+    out = group_tree.outputs.new(channel_socket_output_bl_idnames[channel.type], channel.name)
 
     #group_tree.inputs.move(index,new_index)
     #group_tree.outputs.move(index,new_index)
@@ -160,6 +167,8 @@ def set_input_default_value(group_node, channel, custom_value=None):
     #channel = group_node.node_tree.tl.channels[index]
 
     if custom_value:
+        if channel.type == 'RGB' and len(custom_value) == 3:
+            custom_value = (custom_value[0], custom_value[1], custom_value[2], 1)
         group_node.inputs[channel.io_index].default_value = custom_value
         return
     
@@ -451,11 +460,11 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     tree = texture.tree
 
     # Tree input and output
-    inp = tree.inputs.new(channel_socket_bl_idnames[tl_ch.type], tl_ch.name)
-    out = tree.outputs.new(channel_socket_bl_idnames[tl_ch.type], tl_ch.name)
+    inp = tree.inputs.new(channel_socket_input_bl_idnames[tl_ch.type], tl_ch.name)
+    out = tree.outputs.new(channel_socket_output_bl_idnames[tl_ch.type], tl_ch.name)
     if tl_ch.alpha:
-        inp = tree.inputs.new(channel_socket_bl_idnames['VALUE'], tl_ch.name + ' Alpha')
-        out = tree.outputs.new(channel_socket_bl_idnames['VALUE'], tl_ch.name + ' Alpha')
+        inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], tl_ch.name + ' Alpha')
+        out = tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], tl_ch.name + ' Alpha')
 
     # Modifier pipeline nodes
     start_rgb = tree.nodes.new('NodeReroute')
@@ -785,44 +794,52 @@ class YQuickSetupTLNode(bpy.types.Operator):
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
 
-        # Get active output
-        outp = [n for n in nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
-        if outp: 
-            outp = outp[0]
-        else:
-            outp = nodes.new(type='ShaderNodeOutputMaterial')
-            outp.is_active_output = True
-
         main_bsdf = None
         trans_bsdf = None
         mix_bsdf = None
+        mat_out = None
 
-        # Check output connection
-        outp_in = [l.from_node for l in outp.inputs[0].links]
-        if outp_in: 
-            outp_in = outp_in[0]
-            if outp_in.type == 'MIX_SHADER' and not any([l for l in outp_in.inputs[0].links]):
+        # Get active output
+        output = [n for n in nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+        if output: 
+            output = output[0]
 
-                if self.type == 'PRINCIPLED':
-                    bsdf_type = 'BSDF_PRINCIPLED'
-                elif self.type == 'DIFFUSE':
-                    bsdf_type = 'BSDF_DIFFUSE'
+            # Check output connection
+            output_in = [l.from_node for l in output.inputs[0].links]
+            if output_in: 
+                output_in = output_in[0]
+                if output_in.type == 'MIX_SHADER' and not any([l for l in output_in.inputs[0].links]):
 
-                # Try to search for transparent and main bsdf
-                if (any([l for l in outp_in.inputs[1].links if l.from_node.type == 'BSDF_TRANSPARENT']) and
-                    any([l for l in outp_in.inputs[2].links if l.from_node.type == bsdf_type])):
+                    if self.type == 'PRINCIPLED':
+                        bsdf_type = 'BSDF_PRINCIPLED'
+                    elif self.type == 'DIFFUSE':
+                        bsdf_type = 'BSDF_DIFFUSE'
 
-                        mix_bsdf = outp_in
-                        trans_bsdf = mix_bsdf.inputs[1].links[0].from_node
-                        main_bsdf = mix_bsdf.inputs[2].links[0].from_node
+                    # Try to search for transparent and main bsdf
+                    if (any([l for l in output_in.inputs[1].links if l.from_node.type == 'BSDF_TRANSPARENT']) and
+                        any([l for l in output_in.inputs[2].links if l.from_node.type == bsdf_type])):
+
+                            mat_out = output
+                            mix_bsdf = output_in
+                            trans_bsdf = mix_bsdf.inputs[1].links[0].from_node
+                            main_bsdf = mix_bsdf.inputs[2].links[0].from_node
+
+        if not mat_out:
+            mat_out = nodes.new(type='ShaderNodeOutputMaterial')
+            mat_out.is_active_output = True
+
+            if output:
+                output.is_active_output = False
+                mat_out.location = output.location.copy()
+                mat_out.location.x += 180
 
         if not mix_bsdf:
             mix_bsdf = nodes.new('ShaderNodeMixShader')
             mix_bsdf.inputs[0].default_value = 1.0
-            links.new(mix_bsdf.outputs[0], outp.inputs[0])
+            links.new(mix_bsdf.outputs[0], mat_out.inputs[0])
 
-            mix_bsdf.location = outp.location.copy()
-            outp.location.x += 180
+            mix_bsdf.location = mat_out.location.copy()
+            mat_out.location.x += 180
 
         if not trans_bsdf:
             trans_bsdf = nodes.new('ShaderNodeBsdfTransparent')
@@ -830,11 +847,13 @@ class YQuickSetupTLNode(bpy.types.Operator):
 
             trans_bsdf.location = mix_bsdf.location.copy()
             mix_bsdf.location.x += 180
-            outp.location.x += 180
+            mat_out.location.x += 180
 
         if not main_bsdf:
             if self.type == 'PRINCIPLED':
                 main_bsdf = nodes.new('ShaderNodeBsdfPrincipled')
+                main_bsdf.inputs[2].default_value = (1.0, 0.2, 0.1) # Use eevee default value
+                main_bsdf.inputs[3].default_value = (0.8, 0.8, 0.8, 1.0) # Use eevee default value
             elif self.type == 'DIFFUSE':
                 main_bsdf = nodes.new('ShaderNodeBsdfDiffuse')
 
@@ -891,7 +910,7 @@ class YQuickSetupTLNode(bpy.types.Operator):
         main_bsdf.location.x += 180
         trans_bsdf.location.x += 180
         mix_bsdf.location.x += 180
-        outp.location.x += 180
+        mat_out.location.x += 180
 
         # Update UI
         context.window_manager.tlui.need_update = True
@@ -1022,7 +1041,10 @@ class YNewTLChannel(bpy.types.Operator):
         for node in nodes:
             if node == tl_node: continue
             for inp in node.inputs:
-                if inp.type != channel_socket_types[self.type]: continue
+                #if inp.type != channel_socket_types[self.type]: continue
+                if self.type == 'VALUE' and inp.type != 'VALUE': continue
+                elif self.type == 'RGB' and inp.type not in {'RGBA', 'VECTOR'}: continue
+                elif self.type == 'NORMAL' and 'Normal' not in inp.name: continue
                 if len(inp.links) > 0 : continue
                 label = inp.name + ' (' + node.name +')'
                 item = self.input_coll.add()
@@ -3088,6 +3110,10 @@ class NODE_UL_y_tl_channels(bpy.types.UIList):
                 row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
             elif item.type == 'RGB':
                 row.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
+            #elif item.type == 'NORMAL':
+            #    socket = inputs[item.io_index]
+            #    socket.draw(context, row, group_node, iface_(socket.name, socket.bl_rna.translation_context))
+            #    #row.prop(inputs[item.io_index], 'default_value', text='', expand=False)
         else:
             row.label('', icon='LINKED')
 
@@ -3548,7 +3574,7 @@ def update_channel_alpha(self, context):
     # Create alpha IO
     if self.alpha and not alpha_io_found:
         name = self.name + ' Alpha'
-        inp = inputs.new('NodeSocketFloat', name)
+        inp = inputs.new('NodeSocketFloatFactor', name)
         out = outputs.new('NodeSocketFloat', name)
 
         # Set min max
@@ -3578,7 +3604,7 @@ def update_channel_alpha(self, context):
         for tex in tl.textures:
             tree = tex.tree
 
-            ti = tree.inputs.new('NodeSocketFloat', name)
+            ti = tree.inputs.new('NodeSocketFloatFactor', name)
             to = tree.outputs.new('NodeSocketFloat', name)
 
             tree.inputs.move(last_index, alpha_index)
