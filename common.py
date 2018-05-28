@@ -2,10 +2,7 @@ import bpy, os
 from mathutils import *
 from bpy.app.handlers import persistent
 
-possible_dir_names = {
-        'texture-group-node',
-        'texture-group-node-master',
-        }
+ADDON_NAME = 'texture-group-node'
 
 blend_type_items = (("MIX", "Mix", ""),
 	             ("ADD", "Add", ""),
@@ -54,6 +51,8 @@ def get_addon_filepath():
 
     # Search for addon dirs
     roots = bpy.utils.script_paths()
+
+    possible_dir_names = [ADDON_NAME, ADDON_NAME + '-master']
 
     for root in roots:
         if os.path.basename(root) != 'scripts': continue

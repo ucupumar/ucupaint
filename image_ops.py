@@ -6,6 +6,78 @@ from bpy_extras.io_utils import ExportHelper
 from .common import *
 import time
 
+def pack_float_image(image):
+    original_path = image.filepath
+
+    # Create temporary scene
+    tmpscene = bpy.data.scenes.new('Temp Scene')
+
+    # Set settings
+    settings = tmpscene.render.image_settings
+
+    #if image.filepath == '':
+    if original_path == '':
+        if image.use_alpha:
+            settings.file_format = 'PNG'
+            settings.color_depth = '16'
+            settings.compression = 15
+            image_name = '_temp_image.png'
+        else:
+            settings.file_format = 'HDR'
+            settings.color_depth = '32'
+            image_name = '_temp_image.hdr'
+    else:
+        settings.file_format = image.file_format
+        if image.file_format in {'CINEON', 'DPX'}:
+            settings.color_depth = '10'
+        elif image.file_format in {'TIFF'}:
+            settings.color_depth = '16'
+        elif image.file_format in {'HDR', 'OPEN_EXR_MULTILAYER', 'OPEN_EXR'}:
+            settings.color_depth = '32'
+        else:
+            settings.color_depth = '16'
+        image_name = bpy.path.basename(original_path)
+
+    temp_filepath = os.path.join(tempfile.gettempdir(), image_name)
+
+    # Save image
+    image.save_render(temp_filepath, tmpscene)
+    image.filepath = temp_filepath
+    if image.file_format == 'PNG':
+        image.colorspace_settings.name = 'sRGB'
+    else: image.colorspace_settings.name = 'Linear'
+
+    #image.reload()
+
+    # Delete temporary scene
+    bpy.data.scenes.remove(tmpscene)
+
+    # Pack image
+    image.pack()
+
+    # Bring back to original path
+    image.filepath = original_path
+    os.remove(temp_filepath)
+
+def save_pack_all(only_dirty = True):
+    tl = get_active_texture_layers_node().node_tree.tl
+
+    for tex in tl.textures:
+        T = time.time()
+        if tex.type != 'IMAGE': continue
+        source = tex.tree.nodes.get(tex.source)
+        image = source.image
+        if only_dirty and not image.is_dirty: continue
+        if image.packed_file or image.filepath == '':
+            if image.is_float:
+                pack_float_image(image)
+            else: 
+                image.pack(as_png=True)
+            print('INFO:', image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        else:
+            image.save()
+            print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
 class YRefreshImage(bpy.types.Operator):
     """Reload Image"""
     bl_idname = "node.y_reload_image"
@@ -43,59 +115,9 @@ class YPackImage(bpy.types.Operator):
 
         # Save file to temporary place first if image is float
         if context.image.is_float:
-            
-            original_path = context.image.filepath
-
-            # Create temporary scene
-            tmpscene = bpy.data.scenes.new('Temp Scene')
-
-            # Set settings
-            settings = tmpscene.render.image_settings
-
-            #if context.image.filepath == '':
-            if original_path == '':
-                if context.image.use_alpha:
-                    settings.file_format = 'PNG'
-                    settings.color_depth = '16'
-                    settings.compression = 15
-                    image_name = '_temp_image.png'
-                else:
-                    settings.file_format = 'HDR'
-                    settings.color_depth = '32'
-                    image_name = '_temp_image.hdr'
-            else:
-                settings.file_format = context.image.file_format
-                if context.image.file_format in {'CINEON', 'DPX'}:
-                    settings.color_depth = '10'
-                elif context.image.file_format in {'TIFF'}:
-                    settings.color_depth = '16'
-                elif context.image.file_format in {'HDR', 'OPEN_EXR_MULTILAYER', 'OPEN_EXR'}:
-                    settings.color_depth = '32'
-                else:
-                    settings.color_depth = '16'
-                image_name = bpy.path.basename(original_path)
-
-            temp_filepath = os.path.join(tempfile.gettempdir(), image_name)
-
-            # Save image
-            context.image.save_render(temp_filepath, tmpscene)
-            context.image.filepath = temp_filepath
-            if context.image.file_format == 'PNG':
-                context.image.colorspace_settings.name = 'sRGB'
-            else: context.image.colorspace_settings.name = 'Linear'
-
-            #context.image.reload()
-
-            # Delete temporary scene
-            bpy.data.scenes.remove(tmpscene)
-
-        try: context.image.pack()
-        except: context.image.pack(as_png=True)
-        #context.image.reload()
-
-        if context.image.is_float:
-            context.image.filepath = original_path
-            os.remove(temp_filepath)
+            pack_float_image(context.image)
+        else: 
+            context.image.pack(as_png=True)
 
         print('INFO:', context.image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -481,3 +503,18 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         #context.image.save()
         return {'FINISHED'}
 
+class YSavePackAll(bpy.types.Operator):
+    """Save and Pack All Image Textures"""
+    bl_idname = "node.y_save_pack_all"
+    bl_label = "Save and Pack All Textures"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_texture_layers_node()
+
+    def execute(self, context):
+        #T = time.time()
+        save_pack_all()
+        #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        return {'FINISHED'}

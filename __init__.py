@@ -3,9 +3,9 @@
 # - UI remember the last tl node selected (V)
 # - UI on 3D view tools/properties (V)
 # - Support this addon button and Patron list (V)
-# - Blur UV (?)
 # - Pack/Save All
-# - Auto pack/save images at saving blend (with preferences)
+# - Auto pack/save images at saving blend (with preferences) (V)
+# - Blur UV (?)
 # - Frame nodes for texture layer
 # - Masking (Per texture and modifier)
 # - Rename github repo to texture layers node
@@ -22,7 +22,7 @@
 # - Use of cineon files will cause crash (??)
 
 bl_info = {
-    "name": "Texture Layers Node by ucupumar",
+    "name": "Texture Layers Node",
     "author": "Yusuf Umar",
     "version": (0, 9, 0),
     "blender": (2, 79, 0),
@@ -38,9 +38,10 @@ if "bpy" in locals():
     imp.reload(tex_modifiers)
     imp.reload(common)
     imp.reload(node_arrangements)
+    imp.reload(preferences)
     #print("Reloaded multifiles")
 else:
-    from . import image_ops, tex_modifiers
+    from . import image_ops, tex_modifiers, preferences
     #print("Imported multifiles")
 
 import bpy, os, math
@@ -3065,7 +3066,7 @@ def main_draw(self, context):
         box = layout.box()
         col = box.column()
         col.alert = True
-        col.operator('scene.y_open_web_browser', text='Become A Patron!', icon='POSE_DATA')
+        col.operator('scene.y_open_web_browser', text='Become A Patron!', icon='POSE_DATA').link = 'https://www.patreon.com/ucupumar'
         col.alert = False
         col.label('Patron List (June 2018):')
         col = col.column(align=True)
@@ -3187,9 +3188,10 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
 
             # Asterisk icon to indicate dirty image and also for saving/packing
             if image.is_dirty:
-                if image.packed_file or image.filepath == '':
-                    row.operator('node.y_pack_image', text='', icon_value=custom_icons['asterisk'].icon_id, emboss=False)
-                else: row.operator('node.y_save_image', text='', icon_value=custom_icons['asterisk'].icon_id, emboss=False)
+                #if image.packed_file or image.filepath == '':
+                #    row.operator('node.y_pack_image', text='', icon_value=custom_icons['asterisk'].icon_id, emboss=False)
+                #else: row.operator('node.y_save_image', text='', icon_value=custom_icons['asterisk'].icon_id, emboss=False)
+                row.label('', icon_value=custom_icons['asterisk'].icon_id)
 
             # Indicate packed image
             if image.packed_file:
@@ -3288,7 +3290,7 @@ class YTexSpecialMenu(bpy.types.Menu):
             self.layout.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
         else:
             self.layout.operator('node.y_save_as_image', text='Save As Image', icon='SAVE_AS')
-        self.layout.operator('node.y_save_image', text='Save/Pack All', icon='FILE_TICK')
+        self.layout.operator('node.y_save_pack_all', text='Save/Pack All', icon='FILE_TICK')
         self.layout.separator()
         self.layout.operator("node.y_reload_image", icon='FILE_REFRESH')
 
@@ -4221,6 +4223,7 @@ def register():
 
     # Register classes
     bpy.utils.register_module(__name__)
+    preferences.register()
 
     # TL Props
     bpy.types.ShaderNodeTree.tl = PointerProperty(type=YTextureLayersTree)
@@ -4247,6 +4250,7 @@ def unregister():
 
     # Remove classes
     bpy.utils.unregister_module(__name__)
+    preferences.unregister()
 
     # Remove handlers
     bpy.app.handlers.load_post.remove(load_libraries)
