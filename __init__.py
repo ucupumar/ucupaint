@@ -2,7 +2,7 @@
 # - Change internal group prefix to '~' rather than '_' (V)
 # - UI remember the last tl node selected (V)
 # - UI on 3D view tools/properties (V)
-# - Support this addon button and Patron list
+# - Support this addon button and Patron list (V)
 # - Blur UV (?)
 # - Pack/Save All
 # - Auto pack/save images at saving blend (with preferences)
@@ -3056,11 +3056,37 @@ def main_draw(self, context):
             #if tl.show_texture_modifiers:
             #    bbox = tcol.box()
 
+    icon = 'TRIA_DOWN' if tlui.show_support else 'TRIA_RIGHT'
+    row = layout.row(align=True)
+    row.prop(tlui, 'show_support', emboss=False, text='', icon=icon)
+    row.label('Support This Addon!')
+
+    if tlui.show_support:
+        box = layout.box()
+        col = box.column()
+        col.alert = True
+        col.operator('scene.y_open_web_browser', text='Become A Patron!', icon='POSE_DATA')
+        col.alert = False
+        col.label('Patron List (June 2018):')
+        col = col.column(align=True)
+        col.operator('scene.y_open_web_browser', text='masterxeon1001').link = 'https://masterxeon1001.com/'
+        col.operator('scene.y_open_web_browser', text='Stephen Bates').link = 'https://twitter.com/pharion3d'
+
+class YOpenWebBrowser(bpy.types.Operator):
+    """Open web browser"""
+    bl_idname = "scene.y_open_web_browser"
+    bl_label = "Open Web Browser"
+
+    link = StringProperty(name="Link", default='https://www.patreon.com/ucupumar')
+        
+    def execute(self, context):
+        import webbrowser
+        webbrowser.open(self.link)
+        return {'FINISHED'}
+
 class NODE_PT_y_texture_layers(bpy.types.Panel):
-    #bl_space_type = 'VIEW_3D'
     bl_space_type = 'NODE_EDITOR'
     bl_label = "Texture Layers"
-    #bl_region_type = 'UI'
     bl_region_type = 'TOOLS'
     bl_category = "Texture Layers"
 
@@ -3074,13 +3100,12 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
 class VIEW3D_PT_y_texture_layers_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_label = "Texture Layers"
-    #bl_region_type = 'UI'
     bl_region_type = 'TOOLS'
     bl_category = "Texture Layers"
 
     @classmethod
     def poll(cls, context):
-        return context.scene.render.engine == 'CYCLES'
+        return context.object and context.object.type in {'MESH'} and context.scene.render.engine == 'CYCLES'
 
     def draw(self, context):
         main_draw(self, context)
@@ -3094,7 +3119,7 @@ class VIEW3D_PT_y_texture_layers_ui(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.scene.render.engine == 'CYCLES'
+        return context.object and context.object.type in {'MESH'} and context.scene.render.engine == 'CYCLES'
 
     def draw(self, context):
         main_draw(self, context)
@@ -3996,6 +4021,7 @@ class YMaterialTLProps(bpy.types.PropertyGroup):
 class YTLUI(bpy.types.PropertyGroup):
     show_channels = BoolProperty(default=True)
     show_textures = BoolProperty(default=True)
+    show_support = BoolProperty(default=False)
 
     expand_channels = BoolProperty(
             name='Expand all channels',
