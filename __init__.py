@@ -3,7 +3,7 @@
 # - UI remember the last tl node selected (V)
 # - UI on 3D view tools/properties (V)
 # - Support this addon button and Patron list (V)
-# - Pack/Save All
+# - Pack/Save All (V)
 # - Auto pack/save images at saving blend (with preferences) (V)
 # - Blur UV (?)
 # - Frame nodes for texture layer

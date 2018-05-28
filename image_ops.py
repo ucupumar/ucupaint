@@ -515,6 +515,6 @@ class YSavePackAll(bpy.types.Operator):
 
     def execute(self, context):
         #T = time.time()
-        save_pack_all()
+        save_pack_all(only_dirty=False)
         #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         return {'FINISHED'}
