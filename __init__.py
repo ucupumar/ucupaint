@@ -1,7 +1,7 @@
 # TODO:
 # - Change internal group prefix to '~' rather than '_' (V)
 # - UI remember the last tl node selected (V)
-# - UI on 3D view tools/properties
+# - UI on 3D view tools/properties (V)
 # - Support this addon button and Patron list
 # - Blur UV (?)
 # - Pack/Save All
@@ -3071,12 +3071,26 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
     def draw(self, context):
         main_draw(self, context)
 
-class VIEW3D_PT_y_texture_layers(bpy.types.Panel):
+class VIEW3D_PT_y_texture_layers_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_label = "Texture Layers"
     #bl_region_type = 'UI'
     bl_region_type = 'TOOLS'
     bl_category = "Texture Layers"
+
+    @classmethod
+    def poll(cls, context):
+        return context.scene.render.engine == 'CYCLES'
+
+    def draw(self, context):
+        main_draw(self, context)
+
+class VIEW3D_PT_y_texture_layers_ui(bpy.types.Panel):
+    bl_label = 'Texture Layers'
+    bl_space_type = 'VIEW_3D'
+    #bl_context = "object"
+    bl_region_type = 'UI'
+    bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
     def poll(cls, context):
