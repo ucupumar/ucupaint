@@ -9,7 +9,7 @@
 # - Channel type aware invert modifier (V)
 # - Multiplier Modifier (V)
 # - Lazy import group nodes (V)
-# - Rename github repo to texture layers node
+# - Rename github repo to texture layers node (V)
 #
 # TODO (After release):
 # - Masking (Per texture and modifier)
