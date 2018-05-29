@@ -1,5 +1,6 @@
 import bpy
 from mathutils import *
+from .common import *
 
 INFO_PREFIX = '__ytl_info_'
 
@@ -35,6 +36,21 @@ def refresh_tl_channel_frame(ch, nodes):
     check_set_node_label(end_frame, ch.name + ' End')
 
     return start_frame, end_frame
+
+def refresh_tex_channel_frame(tl_ch, ch, nodes):
+
+    pipeline_frame = nodes.get(ch.pipeline_frame)
+    if not pipeline_frame:
+        pipeline_frame = nodes.new('NodeFrame')
+        ch.pipeline_frame = pipeline_frame.name
+
+    check_set_node_label(pipeline_frame, tl_ch.name + ' Pipeline')
+
+    blend = nodes.get(ch.blend)
+    if blend:
+        check_set_node_label(blend, tl_ch.name + ' Blend')
+
+    return pipeline_frame
 
 def rearrange_tl_frame_nodes(group_tree):
     tl = group_tree.tl
@@ -73,6 +89,51 @@ def rearrange_tl_frame_nodes(group_tree):
         check_set_node_parent(end_rgb, end_frame)
         check_set_node_parent(end_alpha, end_frame)
         check_set_node_parent(end_linear, end_frame)
+
+        # Modifiers
+        for mod in ch.modifiers:
+            frame = nodes.get(mod.frame)
+            check_set_node_parent(frame, end_frame)
+
+def rearrange_tex_frame_nodes(tex):
+    tl = get_active_texture_layers_node().node_tree.tl
+    nodes = tex.tree.nodes
+
+    # Texture channels
+    for i, ch in enumerate(tex.channels):
+        tl_ch = tl.channels[i]
+
+        pipeline_frame = refresh_tex_channel_frame(tl_ch, ch, nodes)
+        
+        start_rgb = nodes.get(ch.start_rgb)
+        start_alpha = nodes.get(ch.start_alpha)
+        end_rgb = nodes.get(ch.end_rgb)
+        end_alpha = nodes.get(ch.end_alpha)
+
+        bump_base = nodes.get(ch.bump_base)
+        bump = nodes.get(ch.bump)
+        normal = nodes.get(ch.normal)
+        normal_flip = nodes.get(ch.normal_flip)
+
+        intensity = nodes.get(ch.intensity)
+        blend = nodes.get(ch.blend)
+
+        check_set_node_parent(start_rgb, pipeline_frame)
+        check_set_node_parent(start_alpha, pipeline_frame)
+        check_set_node_parent(end_rgb, pipeline_frame)
+        check_set_node_parent(end_alpha, pipeline_frame)
+
+        check_set_node_parent(bump_base, pipeline_frame)
+        check_set_node_parent(bump, pipeline_frame)
+        check_set_node_parent(normal, pipeline_frame)
+        check_set_node_parent(normal_flip, pipeline_frame)
+
+        check_set_node_parent(intensity, pipeline_frame)
+
+        # Modifiers
+        for mod in ch.modifiers:
+            frame = nodes.get(mod.frame)
+            check_set_node_parent(frame, pipeline_frame)
 
 def create_info_nodes(group_tree, tex=None):
     tl = group_tree.tl
@@ -124,7 +185,7 @@ def create_info_nodes(group_tree, tex=None):
     info.height = 30.0
     infos.append(info)
 
-    loc = Vector((0, 50))
+    loc = Vector((0, 70))
 
     for info in reversed(infos):
         info.name = INFO_PREFIX + info.name
@@ -245,42 +306,11 @@ def rearrange_tex_nodes(tex):
     bitangent = nodes.get(tex.bitangent)
     geometry = nodes.get(tex.geometry)
 
-    dist_y = 200
-    mid_y = (len(tex.channels)-1) / 2 * -dist_y
-
-    loc = Vector((0, mid_y))
-    if source:
-        if source.location != loc: source.location = loc
-        loc.y -= 260
-
-    if solid_alpha:
-        if solid_alpha.location != loc: solid_alpha.location = loc
-        loc.y -= 90
-
-    if uv_map:
-        if uv_map.location != loc: uv_map.location = loc
-        loc.y -= 115
-
-    if texcoord:
-        if texcoord.location != loc: texcoord.location = loc
-        loc.y -= 240
-
-    if bitangent:
-        if bitangent.location != loc: bitangent.location = loc
-        loc.y -= 160
-
-    if tangent:
-        if tangent.location != loc: tangent.location = loc
-        loc.y -= 160
-
-    if geometry:
-        if geometry.location != loc: geometry.location = loc
-        #loc.y += 160
-
-    start_x = 200
+    start_x = 250
     loc = Vector((start_x, 0))
 
     farthest_x = 0
+    bookmarks_ys = []
 
     for i, ch in enumerate(tex.channels):
 
@@ -293,17 +323,17 @@ def rearrange_tex_nodes(tex):
         bump = nodes.get(ch.bump)
         normal = nodes.get(ch.normal)
         normal_flip = nodes.get(ch.normal_flip)
+        intensity = nodes.get(ch.intensity)
 
         loc.x = start_x
         bookmark_y = loc.y
+        bookmarks_ys.append(bookmark_y)
 
-        if start_rgb:
-            loc.y -= 35
-            if start_rgb.location != loc: start_rgb.location = loc
+        loc.y -= 35
+        check_set_node_location(start_rgb, loc)
 
-        if start_alpha:
-            loc.y -= 35
-            if start_alpha.location != loc: start_alpha.location = loc
+        loc.y -= 35
+        check_set_node_location(start_alpha, loc)
 
         loc.x = start_x + 50
         loc.y = bookmark_y
@@ -311,76 +341,98 @@ def rearrange_tex_nodes(tex):
         # Modifier loop
         loc = arrange_modifier_nodes(nodes, ch, loc)
 
-        if end_rgb:
-            loc.y -= 35
-            if end_rgb.location != loc: end_rgb.location = loc
+        loc.y -= 35
+        check_set_node_location(end_rgb, loc)
 
-        if end_alpha:
-            loc.y -= 35
-            if end_alpha.location != loc: end_alpha.location = loc
+        loc.y -= 35
+        check_set_node_location(end_alpha, loc)
 
         loc.x += 50
         loc.y = bookmark_y
 
-        if bump_base:
-            if bump_base.location != loc: bump_base.location = loc
+        if check_set_node_location(bump_base, loc):
             loc.x += 200.0
 
-        if bump:
-            if bump.location != loc: bump.location = loc
+        if check_set_node_location(bump, loc):
             loc.x += 200.0
 
-        if normal:
-            if normal.location != loc: normal.location = loc
+        if check_set_node_location(normal, loc):
             loc.x += 200.0
 
-        if normal_flip:
-            if normal_flip.location != loc: normal_flip.location = loc
+        if check_set_node_location(normal_flip, loc):
+            loc.x += 200.0
+
+        if check_set_node_location(intensity, loc):
             loc.x += 200.0
 
         if loc.x > farthest_x: farthest_x = loc.x
 
         if any([m for m in ch.modifiers if m.type == 'RGB_CURVE']):
-            loc.y -= 365
+            loc.y -= 390
         elif any([m for m in ch.modifiers if m.type == 'INVERT']):
-            loc.y -= 305
-        elif len(ch.modifiers)>0:
-            loc.y -= 240
-        else:
-            loc.y -= dist_y
+            loc.y -= 330
+        elif any([m for m in ch.modifiers if m.type == 'COLOR_RAMP']):
+            loc.y -= 315
+        elif any([m for m in ch.modifiers if m.type == 'RGB_TO_INTENSITY']):
+            loc.y -= 270
+        elif any([m for m in ch.modifiers if m.type == 'HUE_SATURATION']):
+            loc.y -= 265
+        elif any([m for m in ch.modifiers if m.type == 'BRIGHT_CONTRAST']):
+            loc.y -= 220
+        elif len(ch.modifiers)==0:
+            loc.y -= 235
 
-    # Group input
-    loc.y = len(tex.channels) * -dist_y
+        if i+1 < len(tex.channels):
+            next_ch = tex.channels[i+1]
+            #if next_ch.type == 'NORMAL':
+            #    loc.y += 25
+            if len(next_ch.modifiers) > 0:
+                loc.y -= 35
 
-    #loc = Vector((farthest_x+400, 0))
-    loc.y = 0
+    mid_y = (bookmarks_ys[-1]) / 2
+
     loc.x = farthest_x
-
-    for i, ch in enumerate(tex.channels):
-        intensity = nodes.get(ch.intensity)
-
-        loc.y = i*-dist_y
-
-        if intensity:
-            if intensity.location != loc: intensity.location = loc
-
     loc.y = mid_y
-    loc.x += 200
-    if start and start.location != loc: start.location = loc
-    loc.x += 200
+    check_set_node_location(start, loc)
+    loc.x += 250
     loc.y = 0
 
     for i, ch in enumerate(tex.channels):
+
+        loc.y = bookmarks_ys[i]
+
         blend = nodes.get(ch.blend)
+        check_set_node_location(blend, loc)
 
-        loc.y = i*-dist_y
-
-        if blend:
-            if blend.location != loc: blend.location = loc
-
-    loc.x += 200
+    loc.x += 250
     loc.y = mid_y
-    if end and end.location != loc: end.location = loc
+    check_set_node_location(end, loc)
+
+    # Back to source nodes
+    loc = Vector((0, mid_y))
+    if check_set_node_location(source, loc):
+        loc.y -= 260
+
+    if check_set_node_location(solid_alpha, loc):
+        loc.y -= 90
+
+    if check_set_node_location(uv_map, loc):
+        loc.y -= 115
+
+    if check_set_node_location(texcoord, loc):
+        loc.y -= 240
+
+    if check_set_node_location(bitangent, loc):
+        loc.y -= 160
+
+    if check_set_node_location(tangent, loc):
+        loc.y -= 160
+
+    if check_set_node_location(geometry, loc):
+        #loc.y += 160
+        pass
+
+    rearrange_tex_frame_nodes(tex)
 
 def rearrange_tl_nodes(group_tree):
 

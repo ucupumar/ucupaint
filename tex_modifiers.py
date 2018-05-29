@@ -78,13 +78,6 @@ def add_new_modifier(tree, parent, modifier_type):
     links.new(start_rgb.outputs[0], end_rgb.inputs[0])
     links.new(start_alpha.outputs[0], end_alpha.inputs[0])
 
-    end_frame = None
-    if hasattr(parent, 'end_frame'):
-        end_frame = nodes.get(parent.end_frame)
-
-    if end_frame:
-        frame.parent = end_frame
-
     # Create the nodes
     if m.type == 'INVERT':
 

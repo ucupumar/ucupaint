@@ -5,15 +5,17 @@
 # - Support this addon button and Patron list (V)
 # - Pack/Save All (V)
 # - Auto pack/save images at saving blend (with preferences) (V)
-# - Blur UV (?)
-# - Frame nodes for texture layer
+# - Frame nodes for texture layer (V)
 # - Masking (Per texture and modifier)
+# - Multiplier Modifier
+# - Channel type aware invert modifier
+# - Matcap view on Normal preview
+# - Blur UV (?)
 # - Rename github repo to texture layers node
 #
 # TODO (Optional):
 # - Advanced unique names that can detect filepath and auto save if necessary
 # - Notify if tl tree has more than one users
-# - Matcap view on Normal preview
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree, 
@@ -1323,6 +1325,8 @@ class YRemoveTLChannel(bpy.types.Operator):
             try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump))
             except: pass
             try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump_base))
+            except: pass
+            try: t.tree.nodes.remove(t.tree.nodes.get(ch.pipeline_frame))
             except: pass
 
             # Remove modifiers
@@ -3353,6 +3357,10 @@ def update_channel_name(self, context):
                 if self.type == 'RGB' and self.alpha:
                     tex.tree.inputs[self.io_index+1].name = self.name + ' Alpha'
                     tex.tree.outputs[self.io_index+1].name = self.name + ' Alpha'
+
+            for i, ch in enumerate(tex.channels):
+                if tl.channels[i] == self:
+                    refresh_tex_channel_frame(self, ch, tex.tree.nodes)
         
         refresh_tl_channel_frame(self, group_tree.nodes)
 
@@ -3770,6 +3778,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
             #update = update_vector_blend)
             update = update_blend_type)
 
+    pipeline_frame = StringProperty(default='')
+
     modifiers = CollectionProperty(type=tex_modifiers.YTextureModifier)
     active_modifier_index = IntProperty(default=0)
 
@@ -3781,7 +3791,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Node names
     #linear = StringProperty(default='')
     blend = StringProperty(default='')
-    alpha_passthrough = StringProperty(default='')
     intensity = StringProperty(default='')
 
     # Modifier pipeline
@@ -3789,13 +3798,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     start_alpha = StringProperty(default='')
     end_rgb = StringProperty(default='')
     end_alpha = StringProperty(default='')
-
-    intensity = StringProperty(default='')
-    bump_base = StringProperty(default='')
-    bump = StringProperty(default='')
-    normal = StringProperty(default='')
-    normal_flip = StringProperty(default='')
-    blend = StringProperty(default='')
 
     # Normal related
     bump_base = StringProperty(default='')
