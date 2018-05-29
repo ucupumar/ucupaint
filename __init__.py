@@ -8,7 +8,7 @@
 # - Frame nodes for texture layer (V)
 # - Channel type aware invert modifier (V)
 # - Multiplier Modifier (V)
-# - Lazy import group nodes
+# - Lazy import group nodes (V)
 # - Rename github repo to texture layers node
 #
 # TODO (After release):
@@ -42,11 +42,12 @@ if "bpy" in locals():
     imp.reload(image_ops)
     imp.reload(tex_modifiers)
     imp.reload(common)
+    imp.reload(lib)
     imp.reload(node_arrangements)
     imp.reload(preferences)
     #print("Reloaded multifiles")
 else:
-    from . import image_ops, tex_modifiers, preferences
+    from . import image_ops, tex_modifiers, preferences, lib
     #print("Imported multifiles")
 
 import bpy, os, math
@@ -57,16 +58,13 @@ from bpy.app.handlers import persistent
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
 from .common import *
+#from .lib import *
 from .node_arrangements import *
 from mathutils import *
 from bpy.app.translations import pgettext_iface as iface_
 
 # Imported node group names
-#UDN = '_UDN Blend'
-OVERLAY_NORMAL = '~TL Overlay Normal'
-STRAIGHT_OVER = '~TL Straight Over Mix'
-CHECK_INPUT_NORMAL = '~TL Check Input Normal'
-FLIP_BACKFACE_NORMAL = '~TL Flip Backface Normal'
+
 TEXGROUP_PREFIX = '~TL Tex '
 TL_GROUP_SUFFIX = ' TexLayers'
 DEFAULT_NEW_IMG_SUFFIX = ' Tex'
@@ -111,8 +109,6 @@ texcoord_type_items = (
 
 normal_blend_items = (
         ('MIX', 'Mix', ''),
-        #('UDN', 'UDN', ''),
-        #('OVERLAY', 'Detail', '')
         ('OVERLAY', 'Overlay', '')
         )
 
@@ -229,7 +225,7 @@ def update_blend_type_(tl_ch, tex, ch):
             #if ch.blend_type == 'MIX':
             if tl_ch.alpha and ch.blend_type == 'MIX':
                 blend = nodes.new('ShaderNodeGroup')
-                blend.node_tree = bpy.data.node_groups.get(STRAIGHT_OVER)
+                blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
             else:
                 blend = nodes.new('ShaderNodeMixRGB')
                 blend.blend_type = ch.blend_type
@@ -237,7 +233,7 @@ def update_blend_type_(tl_ch, tex, ch):
         elif tl_ch.type == 'NORMAL':
             if ch.normal_blend == 'OVERLAY':
                 blend = nodes.new('ShaderNodeGroup')
-                blend.node_tree = bpy.data.node_groups.get(OVERLAY_NORMAL)
+                blend.node_tree = lib.get_node_tree_lib(lib.OVERLAY_NORMAL)
             else:
                 blend = nodes.new('ShaderNodeMixRGB')
 
@@ -514,7 +510,7 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         channel.bump = bump.name
 
         normal_flip = tree.nodes.new('ShaderNodeGroup')
-        normal_flip.node_tree = bpy.data.node_groups.get(FLIP_BACKFACE_NORMAL)
+        normal_flip.node_tree = lib.get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
         normal_flip.label = 'Flip Backface Normal'
         channel.normal_flip = normal_flip.name
 
@@ -589,7 +585,7 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
 
     if channel.type == 'NORMAL':
         start_normal_filter = nodes.new('ShaderNodeGroup')
-        start_normal_filter.node_tree = bpy.data.node_groups.get(CHECK_INPUT_NORMAL)
+        start_normal_filter.node_tree = lib.get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
         #start_normal_filter.parent = start_frame
         start_normal_filter.label = 'Start Normal Filter'
         channel.start_normal_filter = start_normal_filter.name
@@ -998,9 +994,9 @@ class YNewTLNode(bpy.types.Operator):
         return result
 
 def new_channel_items(self, context):
-    items = [('VALUE', 'Value', '', custom_icons['value_channel'].icon_id, 0),
-             ('RGB', 'RGB', '', custom_icons['rgb_channel'].icon_id, 1),
-             ('NORMAL', 'Normal', '', custom_icons['vector_channel'].icon_id, 2)]
+    items = [('VALUE', 'Value', '', lib.custom_icons['value_channel'].icon_id, 0),
+             ('RGB', 'RGB', '', lib.custom_icons['rgb_channel'].icon_id, 1),
+             ('NORMAL', 'Normal', '', lib.custom_icons['vector_channel'].icon_id, 2)]
 
     return items
 
@@ -1085,7 +1081,7 @@ class YNewTLChannel(bpy.types.Operator):
         self.layout.prop(self, 'name', text='Name')
         #self.layout.prop(self, 'connect_to', text='Connect To')
         self.layout.prop_search(self, "connect_to", self, "input_coll", icon = 'NODETREE')
-                #custom_icons[channel_socket_custom_icon_names[self.type]].icon_id)
+                #lib.custom_icons[channel_socket_custom_icon_names[self.type]].icon_id)
 
     def execute(self, context):
 
@@ -1444,9 +1440,9 @@ def channel_items(self, context):
             icon_name = 'value_channel'
         elif ch.type == 'NORMAL':
             icon_name = 'vector_channel'
-        items.append((str(i), ch.name, '', custom_icons[icon_name].icon_id, i))
+        items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
 
-    items.append(('-1', 'All Channels', '', custom_icons['channels'].icon_id, len(items)))
+    items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
 
     return items
 
@@ -2567,7 +2563,7 @@ def main_draw(self, context):
                 icon_name = 'uncollapsed_' + icon_name
             else: icon_name = 'collapsed_' + icon_name
 
-            icon_value = custom_icons[icon_name].icon_id
+            icon_value = lib.custom_icons[icon_name].icon_id
 
             row = mcol.row(align=True)
             row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
@@ -2576,7 +2572,7 @@ def main_draw(self, context):
             if channel.type != 'NORMAL':
                 row.context_pointer_set('parent', channel)
                 row.context_pointer_set('channel_ui', chui)
-                icon_value = custom_icons["add_modifier"].icon_id
+                icon_value = lib.custom_icons["add_modifier"].icon_id
                 row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
 
             if chui.expand_content:
@@ -2592,8 +2588,8 @@ def main_draw(self, context):
                     brow = bcol.row(align=True)
                     if m.type in tex_modifiers.can_be_expanded:
                         if modui.expand_content:
-                            icon_value = custom_icons["uncollapsed_modifier"].icon_id
-                        else: icon_value = custom_icons["collapsed_modifier"].icon_id
+                            icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
+                        else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
                         brow.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
                         brow.label(m.name)
                     else:
@@ -2631,8 +2627,8 @@ def main_draw(self, context):
 
                 #if channel.type == 'NORMAL':
                 #    if chui.expand_base_vector:
-                #        icon_value = custom_icons["uncollapsed_input"].icon_id
-                #    else: icon_value = custom_icons["collapsed_input"].icon_id
+                #        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                #    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
                 #    brow.prop(chui, 'expand_base_vector', text='', emboss=False, icon_value=icon_value)
                 #else: brow.label('', icon='INFO')
 
@@ -2752,8 +2748,8 @@ def main_draw(self, context):
             
             if image:
                 if texui.expand_content:
-                    icon_value = custom_icons["uncollapsed_image"].icon_id
-                else: icon_value = custom_icons["collapsed_image"].icon_id
+                    icon_value = lib.custom_icons["uncollapsed_image"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_image"].icon_id
 
                 row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
                 row.label(image.name)
@@ -2764,13 +2760,13 @@ def main_draw(self, context):
                 title = source.bl_idname.replace('ShaderNodeTex', '')
                 #row.label(title + ' Properties:', icon='TEXTURE')
                 if texui.expand_content:
-                    icon_value = custom_icons["uncollapsed_texture"].icon_id
-                else: icon_value = custom_icons["collapsed_texture"].icon_id
+                    icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
 
                 row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
                 row.label(title)
 
-            row.prop(tlui, 'expand_channels', text='', emboss=True, icon_value = custom_icons['channels'].icon_id)
+            row.prop(tlui, 'expand_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
 
             if texui.expand_content:
                 rrow = ccol.row(align=True)
@@ -2858,7 +2854,7 @@ def main_draw(self, context):
                         icon_name = 'uncollapsed_' + icon_name
                     else: icon_name = 'collapsed_' + icon_name
 
-                icon_value = custom_icons[icon_name].icon_id
+                icon_value = lib.custom_icons[icon_name].icon_id
 
                 row = ccol.row(align=True)
                 if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or tl_ch.type == 'NORMAL':
@@ -2879,7 +2875,7 @@ def main_draw(self, context):
                 row.context_pointer_set('parent', ch)
                 row.context_pointer_set('texture', tex)
                 row.context_pointer_set('channel_ui', chui)
-                icon_value = custom_icons["add_modifier"].icon_id
+                icon_value = lib.custom_icons["add_modifier"].icon_id
                 row.menu('NODE_MT_y_texture_modifier_specials', text='', icon_value=icon_value)
 
                 if tlui.expand_channels:
@@ -2893,8 +2889,8 @@ def main_draw(self, context):
                         row.label('', icon='BLANK1')
                         if ch.normal_map_type == 'BUMP_MAP':
                             if chui.expand_bump_settings:
-                                icon_value = custom_icons["uncollapsed_input"].icon_id
-                            else: icon_value = custom_icons["collapsed_input"].icon_id
+                                icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                            else: icon_value = lib.custom_icons["collapsed_input"].icon_id
                             row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
                         else:
                             row.label('', icon='INFO')
@@ -2949,8 +2945,8 @@ def main_draw(self, context):
 
                         if m.type in tex_modifiers.can_be_expanded:
                             if modui.expand_content:
-                                icon_value = custom_icons["uncollapsed_modifier"].icon_id
-                            else: icon_value = custom_icons["collapsed_modifier"].icon_id
+                                icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
+                            else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
                             row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
                         else:
                             row.label('', icon='MODIFIER')
@@ -3013,8 +3009,8 @@ def main_draw(self, context):
             row = ccol.row(align=True)
 
             if texui.expand_vector:
-                icon_value = custom_icons["uncollapsed_uv"].icon_id
-            else: icon_value = custom_icons["collapsed_uv"].icon_id
+                icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
             row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
 
             #icon = 'TRIA_DOWN' if tlui.show_vector_properties else 'TRIA_RIGHT'
@@ -3147,11 +3143,11 @@ class NODE_UL_y_tl_channels(bpy.types.UIList):
         inputs = group_node.inputs
 
         if item.type == 'RGB':
-            icon_value = custom_icons["rgb_channel"].icon_id
+            icon_value = lib.custom_icons["rgb_channel"].icon_id
         elif item.type == 'VALUE':
-            icon_value = custom_icons["value_channel"].icon_id
+            icon_value = lib.custom_icons["value_channel"].icon_id
         elif item.type == 'NORMAL':
-            icon_value = custom_icons["vector_channel"].icon_id
+            icon_value = lib.custom_icons["vector_channel"].icon_id
 
         row = layout.row()
         row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
@@ -3203,9 +3199,9 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
             # Asterisk icon to indicate dirty image and also for saving/packing
             if image.is_dirty:
                 #if image.packed_file or image.filepath == '':
-                #    row.operator('node.y_pack_image', text='', icon_value=custom_icons['asterisk'].icon_id, emboss=False)
-                #else: row.operator('node.y_save_image', text='', icon_value=custom_icons['asterisk'].icon_id, emboss=False)
-                row.label('', icon_value=custom_icons['asterisk'].icon_id)
+                #    row.operator('node.y_pack_image', text='', icon_value=lib.custom_icons['asterisk'].icon_id, emboss=False)
+                #else: row.operator('node.y_save_image', text='', icon_value=lib.custom_icons['asterisk'].icon_id, emboss=False)
+                row.label('', icon_value=lib.custom_icons['asterisk'].icon_id)
 
             # Indicate packed image
             if image.packed_file:
@@ -4185,57 +4181,11 @@ def load_ui_settings(scene):
     # Update texture UI
     wmui.need_update = True
 
-@persistent
-def load_libraries(scene):
-    # Node groups necessary are in nodegroups_lib.blend
-    filepath = get_addon_filepath() + "lib.blend"
-
-    with bpy.data.libraries.load(filepath) as (data_from, data_to):
-
-        # Load node groups
-        exist_groups = [ng.name for ng in bpy.data.node_groups]
-        for ng in data_from.node_groups:
-            if ng not in exist_groups:
-                data_to.node_groups.append(ng)
-
-def load_custom_icons():
-    # Custom Icon
-    global custom_icons
-    custom_icons = bpy.utils.previews.new()
-    filepath = get_addon_filepath() + 'icons' + os.sep
-    custom_icons.load('asterisk', filepath + 'asterisk_icon.png', 'IMAGE')
-
-    custom_icons.load('channels', filepath + 'channels_icon.png', 'IMAGE')
-    custom_icons.load('rgb_channel', filepath + 'rgb_channel_icon.png', 'IMAGE')
-    custom_icons.load('value_channel', filepath + 'value_channel_icon.png', 'IMAGE')
-    custom_icons.load('vector_channel', filepath + 'vector_channel_icon.png', 'IMAGE')
-
-    custom_icons.load('add_modifier', filepath + 'add_modifier_icon.png', 'IMAGE')
-
-    custom_icons.load('collapsed_texture', filepath + 'collapsed_texture_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_texture', filepath + 'uncollapsed_texture_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_image', filepath + 'collapsed_image_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_image', filepath + 'uncollapsed_image_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_modifier', filepath + 'collapsed_modifier_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_modifier', filepath + 'uncollapsed_modifier_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_input', filepath + 'collapsed_input_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_input', filepath + 'uncollapsed_input_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_uv', filepath + 'collapsed_uv_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_uv', filepath + 'uncollapsed_uv_icon.png', 'IMAGE')
-
-    custom_icons.load('collapsed_rgb_channel', filepath + 'collapsed_rgb_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_rgb_channel', filepath + 'uncollapsed_rgb_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_value_channel', filepath + 'collapsed_value_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_value_channel', filepath + 'uncollapsed_value_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_vector_channel', filepath + 'collapsed_vector_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_vector_channel', filepath + 'uncollapsed_vector_icon.png', 'IMAGE')
-
 def register():
-    load_custom_icons()
-
     # Register classes
     bpy.utils.register_module(__name__)
     preferences.register()
+    lib.register()
 
     # TL Props
     bpy.types.ShaderNodeTree.tl = PointerProperty(type=YTextureLayersTree)
@@ -4247,25 +4197,20 @@ def register():
     bpy.types.NODE_MT_add.append(menu_func)
 
     # Handlers
-    bpy.app.handlers.load_post.append(load_libraries)
     bpy.app.handlers.load_post.append(load_ui_settings)
     bpy.app.handlers.save_pre.append(save_ui_settings)
     bpy.app.handlers.scene_update_pre.append(ytl_scene_update)
 
 def unregister():
-    # Custom Icon
-    global custom_icons
-    bpy.utils.previews.remove(custom_icons)
-
     # Remove UI panel
     bpy.types.NODE_MT_add.remove(menu_func)
 
     # Remove classes
     bpy.utils.unregister_module(__name__)
     preferences.unregister()
+    lib.unregister()
 
     # Remove handlers
-    bpy.app.handlers.load_post.remove(load_libraries)
     bpy.app.handlers.load_post.remove(load_ui_settings)
     bpy.app.handlers.save_pre.remove(save_ui_settings)
     bpy.app.handlers.scene_update_pre.remove(ytl_scene_update)
