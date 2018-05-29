@@ -279,6 +279,13 @@ def arrange_modifier_nodes(nodes, parent, loc):
 
             loc.x += 165.0
 
+        elif m.type == 'MULTIPLIER':
+
+            multiplier = nodes.get(m.multiplier)
+            if multiplier.location != loc: multiplier.location = loc
+
+            loc.x += 165.0
+
         end_rgb = nodes.get(m.end_rgb)
         end_alpha = nodes.get(m.end_alpha)
 
@@ -379,6 +386,10 @@ def rearrange_tex_nodes(tex):
             loc.y -= 265
         elif any([m for m in ch.modifiers if m.type == 'BRIGHT_CONTRAST']):
             loc.y -= 220
+        elif any([m for m in ch.modifiers if m.type == 'MULTIPLIER']):
+            loc.y -= 265
+        elif len(ch.modifiers)>0:
+            loc.y -= 235
         elif len(ch.modifiers)==0:
             loc.y -= 235
 
@@ -573,8 +584,10 @@ def rearrange_tl_nodes(group_tree):
             loc.y -= 265
         elif any([m for m in channel.modifiers if m.type == 'BRIGHT_CONTRAST']):
             loc.y -= 220
-        #elif len(channel.modifiers)>0:
-        #    loc.y -= 270
+        elif any([m for m in channel.modifiers if m.type == 'MULTIPLIER']):
+            loc.y -= 265
+        elif len(channel.modifiers)>0:
+            loc.y -= 235
         elif channel.type == 'RGB':
             loc.y -= 165
         elif channel.type == 'VALUE':

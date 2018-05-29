@@ -5,6 +5,9 @@ from .node_arrangements import *
 
 MOD_RGB2INT = '~TL Mod RGB To Intensity'
 MOD_INVERT = '~TL Mod Invert'
+MOD_INVERT_VALUE = '~TL Mod Invert Value'
+MOD_MULTIPLIER = '~TL Mod Multiplier'
+MOD_MULTIPLIER_VALUE = '~TL Mod Multiplier Value'
 
 modifier_type_items = (
         ('INVERT', 'Invert', '', 'MODIFIER', 0),
@@ -13,6 +16,7 @@ modifier_type_items = (
         ('RGB_CURVE', 'RGB Curve', '', 'MODIFIER', 3),
         ('HUE_SATURATION', 'Hue Saturation', '', 'MODIFIER', 4),
         ('BRIGHT_CONTRAST', 'Brightness Contrast', '', 'MODIFIER', 5),
+        ('MULTIPLIER', 'Multiplier', '', 'MODIFIER', 6),
         #('GRAYSCALE_TO_NORMAL', 'Grayscale To Normal', ''),
         #('MASK', 'Mask', ''),
         )
@@ -23,9 +27,10 @@ can_be_expanded = {
         'RGB_CURVE',
         'HUE_SATURATION',
         'BRIGHT_CONTRAST',
+        'MULTIPLIER',
         }
 
-def add_new_modifier(tree, parent, modifier_type):
+def add_new_modifier(tree, parent, modifier_type, channel_type):
     nodes = tree.nodes
     links = tree.links
 
@@ -82,7 +87,9 @@ def add_new_modifier(tree, parent, modifier_type):
     if m.type == 'INVERT':
 
         invert = nodes.new('ShaderNodeGroup')
-        invert.node_tree = bpy.data.node_groups.get(MOD_INVERT)
+        if channel_type == 'VALUE':
+            invert.node_tree = bpy.data.node_groups.get(MOD_INVERT_VALUE)
+        else: invert.node_tree = bpy.data.node_groups.get(MOD_INVERT)
         m.invert = invert.name
 
         links.new(start_rgb.outputs[0], invert.inputs[0])
@@ -185,6 +192,20 @@ def add_new_modifier(tree, parent, modifier_type):
         frame.label = 'Brightness Contrast'
         brightcon.parent = frame
 
+    elif m.type == 'MULTIPLIER':
+
+        multiplier = nodes.new('ShaderNodeGroup')
+        if channel_type == 'VALUE':
+            multiplier.node_tree = bpy.data.node_groups.get(MOD_MULTIPLIER_VALUE)
+        else: multiplier.node_tree = bpy.data.node_groups.get(MOD_MULTIPLIER)
+        m.multiplier = multiplier.name
+
+        links.new(start_rgb.outputs[0], multiplier.inputs[0])
+        links.new(multiplier.outputs[0], end_rgb.inputs[0])
+
+        frame.label = 'Multiplier'
+        multiplier.parent = frame
+
     # Get previous modifier
     if len(modifiers) > 1 :
         prev_m = modifiers[1]
@@ -233,6 +254,9 @@ def delete_modifier_nodes(nodes, mod):
     elif mod.type == 'BRIGHT_CONTRAST':
         nodes.remove(nodes.get(mod.brightcon))
 
+    elif mod.type == 'MULTIPLIER':
+        nodes.remove(nodes.get(mod.multiplier))
+
 class YNewTexModifier(bpy.types.Operator):
     bl_idname = "node.y_new_texture_modifier"
     bl_label = "New Texture Modifier"
@@ -265,13 +289,13 @@ class YNewTexModifier(bpy.types.Operator):
         tex = context.texture if hasattr(context, 'texture') else None
 
         if tex:
-            mod = add_new_modifier(tex.tree, context.parent, self.type)
-            mod.texture_index = context.parent.texture_index
             channel_type = tl.channels[context.parent.channel_index].type
+            mod = add_new_modifier(tex.tree, context.parent, self.type, channel_type)
+            mod.texture_index = context.parent.texture_index
             nodes = tex.tree.nodes
         else:
-            mod = add_new_modifier(group_tree, context.parent, self.type)
             channel_type = context.parent.type
+            mod = add_new_modifier(group_tree, context.parent, self.type, channel_type)
             nodes = group_tree.nodes
 
         if self.type == 'RGB_TO_INTENSITY' and channel_type == 'RGB':
@@ -485,10 +509,15 @@ def draw_modifier_properties(context, channel, nodes, modifier, layout):
 
     if modifier.type == 'INVERT':
         row = layout.row(align=True)
-        row.prop(modifier, 'invert_r_enable', text='R', toggle=True)
-        row.prop(modifier, 'invert_g_enable', text='G', toggle=True)
-        row.prop(modifier, 'invert_b_enable', text='B', toggle=True)
-        row.prop(modifier, 'invert_a_enable', text='A', toggle=True)
+        invert = nodes.get(modifier.invert)
+        if invert.node_tree.name == MOD_INVERT:
+            row.prop(modifier, 'invert_r_enable', text='R', toggle=True)
+            row.prop(modifier, 'invert_g_enable', text='G', toggle=True)
+            row.prop(modifier, 'invert_b_enable', text='B', toggle=True)
+            row.prop(modifier, 'invert_a_enable', text='A', toggle=True)
+        elif invert.node_tree.name == MOD_INVERT_VALUE:
+            row.prop(modifier, 'invert_r_enable', text='Value', toggle=True)
+            row.prop(modifier, 'invert_a_enable', text='Alpha', toggle=True)
 
     #elif modifier.type == 'RGB_TO_INTENSITY':
 
@@ -528,6 +557,21 @@ def draw_modifier_properties(context, channel, nodes, modifier, layout):
         col = row.column(align=True)
         col.prop(brightcon.inputs[1], 'default_value', text='')
         col.prop(brightcon.inputs[2], 'default_value', text='')
+
+    elif modifier.type == 'MULTIPLIER':
+        multiplier = nodes.get(modifier.multiplier)
+        #row = layout.row(align=True)
+        #col = row.column(align=True)
+        #col.label('Brightness:')
+        #col.label('Contrast:')
+
+        col = layout.column(align=True)
+        if multiplier.node_tree.name == MOD_MULTIPLIER_VALUE:
+            col.prop(multiplier.inputs[1], 'default_value', text='Value')
+        elif multiplier.node_tree.name == MOD_MULTIPLIER:
+            col.prop(multiplier.inputs[1], 'default_value', text='R')
+            col.prop(multiplier.inputs[2], 'default_value', text='G')
+            col.prop(multiplier.inputs[3], 'default_value', text='B')
 
 class NODE_UL_y_texture_modifiers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -598,6 +642,10 @@ def update_modifier_enable(self, context):
         brightcon = nodes.get(self.brightcon)
         brightcon.mute = not self.enable
 
+    elif self.type == 'MULTIPLIER':
+        multiplier = nodes.get(self.multiplier)
+        multiplier.mute = not self.enable
+
 def update_modifier_shortcut(self, context):
     group_tree = self.id_data
     tl = group_tree.tl
@@ -638,17 +686,25 @@ def update_invert_channel(self, context):
         invert.inputs[2].default_value = 1.0
     else: invert.inputs[2].default_value = 0.0
 
-    if self.invert_g_enable:
-        invert.inputs[3].default_value = 1.0
-    else: invert.inputs[3].default_value = 0.0
+    if invert.node_tree.name == MOD_INVERT:
 
-    if self.invert_b_enable:
-        invert.inputs[4].default_value = 1.0
-    else: invert.inputs[4].default_value = 0.0
+        if self.invert_g_enable:
+            invert.inputs[3].default_value = 1.0
+        else: invert.inputs[3].default_value = 0.0
 
-    if self.invert_a_enable:
-        invert.inputs[5].default_value = 1.0
-    else: invert.inputs[5].default_value = 0.0
+        if self.invert_b_enable:
+            invert.inputs[4].default_value = 1.0
+        else: invert.inputs[4].default_value = 0.0
+
+        if self.invert_a_enable:
+            invert.inputs[5].default_value = 1.0
+        else: invert.inputs[5].default_value = 0.0
+
+    elif invert.node_tree.name == MOD_INVERT_VALUE:
+
+        if self.invert_a_enable:
+            invert.inputs[3].default_value = 1.0
+        else: invert.inputs[3].default_value = 0.0
 
 class YTextureModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)
@@ -680,7 +736,7 @@ class YTextureModifier(bpy.types.PropertyGroup):
     invert_a_enable = BoolProperty(default=False, update=update_invert_channel)
 
     # Mask nodes
-    mask_texture = StringProperty(default='')
+    #mask_texture = StringProperty(default='')
 
     # Color Ramp nodes
     color_ramp = StringProperty(default='')
@@ -696,6 +752,9 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     # Hue Saturation nodes
     huesat = StringProperty(default='')
+
+    # Multiplier nodes
+    multiplier = StringProperty(default='')
 
     # Individual modifier node frame
     frame = StringProperty(default='')

@@ -6,22 +6,25 @@
 # - Pack/Save All (V)
 # - Auto pack/save images at saving blend (with preferences) (V)
 # - Frame nodes for texture layer (V)
-# - Masking (Per texture and modifier)
-# - Multiplier Modifier
-# - Channel type aware invert modifier
-# - Matcap view on Normal preview
-# - Blur UV (?)
+# - Channel type aware invert modifier (V)
+# - Multiplier Modifier (V)
+# - Lazy import group nodes
 # - Rename github repo to texture layers node
 #
-# TODO (Optional):
-# - Advanced unique names that can detect filepath and auto save if necessary
-# - Notify if tl tree has more than one users
+# TODO (After release):
+# - Masking (Per texture and modifier)
+# - Matcap view on Normal preview
+# - Bake channel
+# - 'Ignore below' blend for bake channel result
+# - Bake pointiness, AO 
+# - Blur UV (?)
+# - Texture Group + bake proxy
+# - Eevee support
 #
 # KNOWN ISSUES:
-# - Cycles has limit of 32 images per material, NOT per node_tree, 
-#   so it's better to warn user about this when adding new image texture above limit
+# - Cycles has limit of 32 images per material, NOT per node_tree
 # - Limit decrease to 20 images if alpha is used
-# - Use of cineon files will cause crash (??)
+# - Use of cineon images will cause crash (??)
 
 bl_info = {
     "name": "Texture Layers Node",
@@ -1575,7 +1578,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
             if ch.type == 'NORMAL':
                 c.bump_base_value = 0.0
 
-            m = tex_modifiers.add_new_modifier(tex.tree, c, 'RGB_TO_INTENSITY')
+            m = tex_modifiers.add_new_modifier(tex.tree, c, 'RGB_TO_INTENSITY', ch.type)
             m.texture_index = index
             if channel_idx == i or channel_idx == -1:
                 col = (rgb_to_intensity_color[0], rgb_to_intensity_color[1], rgb_to_intensity_color[2], 1)
@@ -2834,7 +2837,10 @@ def main_draw(self, context):
                 tl_ch = tl.channels[i]
                 ch_count += 1
 
-                chui = tlui.tex_ui.channels[i]
+                try: chui = tlui.tex_ui.channels[i]
+                except: 
+                    tlui.need_update = True
+                    return
 
                 ccol = col.column()
                 ccol.active = ch.enable
@@ -2936,7 +2942,10 @@ def main_draw(self, context):
                         #row.active = m.enable
                         row.label('', icon='BLANK1')
 
-                        modui = tlui.tex_ui.channels[i].modifiers[j]
+                        try: modui = tlui.tex_ui.channels[i].modifiers[j]
+                        except: 
+                            tlui.need_update = True
+                            return
 
                         if m.type in tex_modifiers.can_be_expanded:
                             if modui.expand_content:
@@ -3033,6 +3042,7 @@ def main_draw(self, context):
                 crow = row.column()
                 #if tex.texcoord_type == 'UV':
                 bbox.prop(source.texture_mapping, 'translation', text='Offset')
+                bbox.prop(source.texture_mapping, 'rotation')
                 bbox.prop(source.texture_mapping, 'scale')
                 #else:
                 #    bbox.label('This option has no settings yet!')
