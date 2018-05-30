@@ -4076,6 +4076,8 @@ class YTLUI(bpy.types.PropertyGroup):
             description = 'Make duplicated image textures single user',
             default=True)
 
+    # HACK: For some reason active float image will glitch after auto save
+    # This prop will notify if float image is active after saving
     refresh_image_hack = BoolProperty(default=False)
 
 @persistent
