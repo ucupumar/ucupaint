@@ -89,6 +89,8 @@ def save_pack_all(only_dirty = True):
             image.save()
             print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
+    # HACK: For some reason active float image will glitch after auto save
+    # Below is part of the fix
     # Check if active image is packed float image
     if len(tl.textures) > 0:
         tex = tl.textures[tl.active_texture_index]

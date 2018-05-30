@@ -31,7 +31,7 @@ def auto_save_images(scene):
         image_ops.save_pack_all(only_dirty=False)
 
 @persistent
-# For some reason active float image will glitch after auto save
+# HACK: For some reason active float image will glitch after auto save
 # This hack will fix that
 def refresh_float_image_hack(scene):
     tlui = bpy.context.window_manager.tlui
