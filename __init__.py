@@ -21,6 +21,9 @@
 # - Texture Group + bake proxy
 # - Eevee support
 #
+# BUGS:
+# - Pack float image still produce error (V)
+#
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree
 # - Limit decrease to 20 images if alpha is used
@@ -787,11 +790,16 @@ class YQuickSetupTLNode(bpy.types.Operator):
             mat.use_nodes = True
             obj.data.materials.append(mat)
 
-            # Remove default diffuse bsdf
-            #if self.type == 'PRINCIPLED':
+            # Remove default nodes
             for n in mat.node_tree.nodes:
-                if n.type == 'BSDF_DIFFUSE':
-                    mat.node_tree.nodes.remove(n)
+                mat.node_tree.nodes.remove(n)
+
+        if not mat.node_tree:
+            mat.use_nodes = True
+
+            # Remove default nodes
+            for n in mat.node_tree.nodes:
+                mat.node_tree.nodes.remove(n)
 
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
@@ -908,11 +916,19 @@ class YQuickSetupTLNode(bpy.types.Operator):
         rearrange_tl_nodes(group_tree)
 
         # Set new tl node location
-        node.location = main_bsdf.location.copy()
-        main_bsdf.location.x += 180
-        trans_bsdf.location.x += 180
-        mix_bsdf.location.x += 180
-        mat_out.location.x += 180
+        if output:
+            node.location = main_bsdf.location.copy()
+            main_bsdf.location.x += 180
+            trans_bsdf.location.x += 180
+            mix_bsdf.location.x += 180
+            mat_out.location.x += 180
+        else:
+            main_bsdf.location.y += 300
+            trans_bsdf.location.y += 300
+            mix_bsdf.location.y += 300
+            mat_out.location.y += 300
+            node.location = main_bsdf.location.copy()
+            node.location.x -= 180
 
         # Update UI
         context.window_manager.tlui.need_update = True
@@ -4059,6 +4075,8 @@ class YTLUI(bpy.types.PropertyGroup):
             name = 'Make Images Single User',
             description = 'Make duplicated image textures single user',
             default=True)
+
+    refresh_image_hack = BoolProperty(default=False)
 
 @persistent
 def ytl_scene_update(scene):

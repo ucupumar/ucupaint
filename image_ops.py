@@ -16,7 +16,8 @@ def pack_float_image(image):
     settings = tmpscene.render.image_settings
 
     #if image.filepath == '':
-    if original_path == '':
+    #if original_path == '':
+    if bpy.path.basename(original_path) == '':
         if image.use_alpha:
             settings.file_format = 'PNG'
             settings.color_depth = '16'
@@ -42,12 +43,11 @@ def pack_float_image(image):
 
     # Save image
     image.save_render(temp_filepath, tmpscene)
+    image.source = 'FILE'
     image.filepath = temp_filepath
     if image.file_format == 'PNG':
         image.colorspace_settings.name = 'sRGB'
     else: image.colorspace_settings.name = 'Linear'
-
-    #image.reload()
 
     # Delete temporary scene
     bpy.data.scenes.remove(tmpscene)
@@ -55,13 +55,22 @@ def pack_float_image(image):
     # Pack image
     image.pack()
 
+    #image.reload()
+
     # Bring back to original path
     image.filepath = original_path
     os.remove(temp_filepath)
 
+    # HACK: Need to exit from texture paint mode to refresh image
+    #if bpy.context.object.mode == 'TEXTURE_PAINT':
+    #    bpy.ops.object.mode_set(mode='OBJECT')
+    #    bpy.context.scene.update()
+    #    bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
+
 def save_pack_all(only_dirty = True):
     tl = get_active_texture_layers_node().node_tree.tl
 
+    packed_float_images = []
     for tex in tl.textures:
         T = time.time()
         if tex.type != 'IMAGE': continue
@@ -71,12 +80,24 @@ def save_pack_all(only_dirty = True):
         if image.packed_file or image.filepath == '':
             if image.is_float:
                 pack_float_image(image)
+                packed_float_images.append(image)
             else: 
                 image.pack(as_png=True)
+
             print('INFO:', image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         else:
             image.save()
             print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
+    # Check if active image is packed float image
+    if len(tl.textures) > 0:
+        tex = tl.textures[tl.active_texture_index]
+        if tex.type == 'IMAGE':
+            source = tex.tree.nodes.get(tex.source)
+            image = source.image
+            if image in packed_float_images:
+                tlui = bpy.context.window_manager.tlui
+                tlui.refresh_image_hack = True
 
 class YRefreshImage(bpy.types.Operator):
     """Reload Image"""
@@ -116,8 +137,7 @@ class YPackImage(bpy.types.Operator):
         # Save file to temporary place first if image is float
         if context.image.is_float:
             pack_float_image(context.image)
-        else: 
-            context.image.pack(as_png=True)
+        else: context.image.pack(as_png=True)
 
         print('INFO:', context.image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -514,7 +534,9 @@ class YSavePackAll(bpy.types.Operator):
         return get_active_texture_layers_node()
 
     def execute(self, context):
+        tlui = bpy.context.window_manager.tlui
         #T = time.time()
         save_pack_all(only_dirty=False)
         #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        tlui.refresh_image_hack = False
         return {'FINISHED'}
