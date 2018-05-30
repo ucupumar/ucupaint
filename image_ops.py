@@ -61,12 +61,6 @@ def pack_float_image(image):
     image.filepath = original_path
     os.remove(temp_filepath)
 
-    # HACK: Need to exit from texture paint mode to refresh image
-    #if bpy.context.object.mode == 'TEXTURE_PAINT':
-    #    bpy.ops.object.mode_set(mode='OBJECT')
-    #    bpy.context.scene.update()
-    #    bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
-
 def save_pack_all(only_dirty = True):
     tl = get_active_texture_layers_node().node_tree.tl
 
@@ -90,9 +84,9 @@ def save_pack_all(only_dirty = True):
             print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
     # HACK: For some reason active float image will glitch after auto save
-    # Below is part of the fix
-    # Check if active image is packed float image
-    if len(tl.textures) > 0:
+    # This is only happen if active object is on texture paint mode
+    obj = bpy.context.object
+    if len(tl.textures) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
         tex = tl.textures[tl.active_texture_index]
         if tex.type == 'IMAGE':
             source = tex.tree.nodes.get(tex.source)
