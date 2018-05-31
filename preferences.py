@@ -30,9 +30,9 @@ def auto_save_images(scene):
     elif tlup.auto_save == 'FORCE_ALL':
         image_ops.save_pack_all(only_dirty=False)
 
-@persistent
 # HACK: For some reason active float image will glitch after auto save
 # This hack will fix that
+@persistent
 def refresh_float_image_hack(scene):
     tlui = bpy.context.window_manager.tlui
 
