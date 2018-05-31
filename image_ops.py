@@ -61,10 +61,7 @@ def pack_float_image(image):
     image.filepath = original_path
     os.remove(temp_filepath)
 
-def save_pack_all(only_dirty = True):
-    tl_node = get_active_texture_layers_node()
-    if not tl_node: return
-    tl = tl_node.node_tree.tl
+def save_pack_all(tl, only_dirty = True):
 
     packed_float_images = []
     for tex in tl.textures:
@@ -534,7 +531,8 @@ class YSavePackAll(bpy.types.Operator):
     def execute(self, context):
         tlui = bpy.context.window_manager.tlui
         #T = time.time()
-        save_pack_all(only_dirty=False)
+        tl = get_active_texture_layers_node().node_tree.tl
+        save_pack_all(tl, only_dirty=False)
         #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         tlui.refresh_image_hack = False
         return {'FINISHED'}

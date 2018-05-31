@@ -25,10 +25,12 @@ class YTLPreferences(AddonPreferences):
 @persistent
 def auto_save_images(scene):
     tlup = bpy.context.user_preferences.addons[__package__].preferences
-    if tlup.auto_save == 'ONLY_DIRTY':
-        image_ops.save_pack_all(only_dirty=True)
-    elif tlup.auto_save == 'FORCE_ALL':
-        image_ops.save_pack_all(only_dirty=False)
+    for tree in bpy.data.node_groups:
+        if tree.tl.is_tl_node:
+            if tlup.auto_save == 'ONLY_DIRTY':
+                image_ops.save_pack_all(tree.tl, only_dirty=True)
+            elif tlup.auto_save == 'FORCE_ALL':
+                image_ops.save_pack_all(tree.tl, only_dirty=False)
 
 # HACK: For some reason active float image will glitch after auto save
 # This hack will fix that
