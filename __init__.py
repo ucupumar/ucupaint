@@ -10,6 +10,7 @@
 # - Multiplier Modifier (V)
 # - Lazy import group nodes (V)
 # - Rename github repo to texture layers node (V)
+# - Move to Bitbucket (V)
 # - Rename again to yTexlayers
 #
 # TODO (After release):
