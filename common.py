@@ -2,7 +2,7 @@ import bpy, os
 from mathutils import *
 from bpy.app.handlers import persistent
 
-ADDON_NAME = 'texture-layers-node'
+ADDON_NAME = 'yTexLayers'
 
 blend_type_items = (("MIX", "Mix", ""),
 	             ("ADD", "Add", ""),

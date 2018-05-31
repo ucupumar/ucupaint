@@ -94,6 +94,8 @@ def update_node_tree_libs(name):
 
     filepath = get_addon_filepath() + "lib.blend"
 
+    if bpy.data.filepath == filepath: return
+
     trees = []
     tree_names = []
     exist_groups = [ng.name for ng in bpy.data.node_groups if ng.name in tree_lib_names]

@@ -11,7 +11,7 @@
 # - Lazy import group nodes (V)
 # - Rename github repo to texture layers node (V)
 # - Move to Bitbucket (V)
-# - Rename again to yTexlayers
+# - Rename again to yTexlayers (V)
 #
 # TODO (After release):
 # - Masking (Per texture and modifier)
@@ -32,12 +32,12 @@
 # - Use of cineon images will cause crash (??)
 
 bl_info = {
-    "name": "Texture Layers Node",
+    "name": "yTexLayers",
     "author": "Yusuf Umar",
     "version": (0, 9, 0),
     "blender": (2, 79, 0),
     "location": "Node Editor > Properties > Texture Layers",
-    "description": "Texture layer manager node for Cycles materials",
+    "description": "Special node to manage texture layers for Cycles materials",
     "wiki_url": "http://twitter.com/ucupumar",
     "category": "Material",
 }

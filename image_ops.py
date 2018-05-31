@@ -62,7 +62,9 @@ def pack_float_image(image):
     os.remove(temp_filepath)
 
 def save_pack_all(only_dirty = True):
-    tl = get_active_texture_layers_node().node_tree.tl
+    tl_node = get_active_texture_layers_node()
+    if not tl_node: return
+    tl = tl_node.node_tree.tl
 
     packed_float_images = []
     for tex in tl.textures:

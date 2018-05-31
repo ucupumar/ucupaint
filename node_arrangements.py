@@ -151,21 +151,21 @@ def create_info_nodes(group_tree, tex=None):
 
     info = nodes.new('NodeFrame')
     if tex:
-        info.label = 'Part of Texture Layers Node addon version ' + tl.version
-    else: info.label = 'Created using Texture Layers Node addon version ' + tl.version
+        info.label = 'Part of yTexLayers addon version ' + tl.version
+    else: info.label = 'Created using yTexLayers addon version ' + tl.version
     info.use_custom_color = True
     info.color = (1.0, 1.0, 1.0)
     if tex:
-        info.width = 480.0
-    else: info.width = 540.0
+        info.width = 400.0
+    else: info.width = 460.0
     info.height = 30.0
     infos.append(info)
 
     info = nodes.new('NodeFrame')
-    info.label = 'Support this addon development on patreon.com/ucupumar'
+    info.label = 'Get this addon on patreon.com/ucupumar'
     info.use_custom_color = True
     info.color = (1.0, 1.0, 1.0)
-    info.width = 590.0
+    info.width = 420.0
     info.height = 30.0
     infos.append(info)
 
