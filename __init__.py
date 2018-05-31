@@ -3094,24 +3094,12 @@ def main_draw(self, context):
         box = layout.box()
         col = box.column()
         col.alert = True
-        col.operator('scene.y_open_web_browser', text='Become A Patron!', icon='POSE_DATA').link = 'https://www.patreon.com/ucupumar'
+        col.operator('wm.url_open', text='Become A Patron!', icon='POSE_DATA').url = 'https://www.patreon.com/ucupumar'
         col.alert = False
         col.label('Patron List (June 2018):')
         col = col.column(align=True)
-        col.operator('scene.y_open_web_browser', text='masterxeon1001').link = 'https://masterxeon1001.com/'
-        col.operator('scene.y_open_web_browser', text='Stephen Bates').link = 'https://twitter.com/pharion3d'
-
-class YOpenWebBrowser(bpy.types.Operator):
-    """Open web browser"""
-    bl_idname = "scene.y_open_web_browser"
-    bl_label = "Open Web Browser"
-
-    link = StringProperty(name="Link", default='https://www.patreon.com/ucupumar')
-        
-    def execute(self, context):
-        import webbrowser
-        webbrowser.open(self.link)
-        return {'FINISHED'}
+        col.operator('wm.url_open', text='masterxeon1001').url = 'https://masterxeon1001.com/'
+        col.operator('wm.url_open', text='Stephen Bates').url = 'https://twitter.com/pharion3d'
 
 class NODE_PT_y_texture_layers(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
