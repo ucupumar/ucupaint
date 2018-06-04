@@ -18,7 +18,7 @@
 bl_info = {
     "name": "yTexLayers",
     "author": "Yusuf Umar",
-    "version": (0, 9, 0),
+    "version": (0, 9, 1),
     "blender": (2, 79, 0),
     "location": "Node Editor > Properties > Texture Layers",
     "description": "Special node to manage texture layers for Cycles materials",
