@@ -4195,6 +4195,8 @@ def register():
     bpy.app.handlers.save_pre.append(save_ui_settings)
     bpy.app.handlers.scene_update_pre.append(ytl_scene_update)
 
+    print('INFO: yTexLayers ' + get_current_version_str() + ' is registered!')
+
 def unregister():
     # Remove UI panel
     bpy.types.NODE_MT_add.remove(menu_func)
@@ -4208,6 +4210,8 @@ def unregister():
     bpy.app.handlers.load_post.remove(load_ui_settings)
     bpy.app.handlers.save_pre.remove(save_ui_settings)
     bpy.app.handlers.scene_update_pre.remove(ytl_scene_update)
+
+    print('INFO: yTexLayers ' + get_current_version_str() + ' is unregistered!')
 
 if __name__ == "__main__":
     register()
