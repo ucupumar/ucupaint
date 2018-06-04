@@ -3105,7 +3105,7 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_label = "Texture Layers"
     bl_region_type = 'TOOLS'
-    bl_category = "Texture Layers"
+    bl_category = "yTexLayers"
 
     @classmethod
     def poll(cls, context):
@@ -3118,7 +3118,7 @@ class VIEW3D_PT_y_texture_layers_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_label = "Texture Layers"
     bl_region_type = 'TOOLS'
-    bl_category = "Texture Layers"
+    bl_category = "yTexLayers"
 
     @classmethod
     def poll(cls, context):
