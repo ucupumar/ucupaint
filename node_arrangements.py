@@ -400,7 +400,9 @@ def rearrange_tex_nodes(tex):
             if len(next_ch.modifiers) > 0:
                 loc.y -= 35
 
-    mid_y = (bookmarks_ys[-1]) / 2
+    if bookmarks_ys:
+        mid_y = (bookmarks_ys[-1]) / 2
+    else: mid_y = 0
 
     loc.x = farthest_x
     loc.y = mid_y

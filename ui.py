@@ -641,9 +641,16 @@ def main_draw(self, context):
             if not tlui.expand_channels and ch_count == 0:
                 col.label('No active channel!')
 
-            col.separator()
+            #col.separator()
             ccol = col.column()
+            row = ccol.row(align=True)
 
+            row.label('', icon='MOD_MASK')
+            row.label('Mask')
+            row.menu("NODE_MT_y_new_texture_mask_menu", text='', icon='ZOOMIN')
+
+            #col.separator()
+            ccol = col.column()
             row = ccol.row(align=True)
 
             if texui.expand_vector:
@@ -942,9 +949,6 @@ class YModifierMenu(bpy.types.Menu):
 
     def draw(self, context):
         layout = self.layout
-
-        #row = layout.row()
-        #col = row.column()
         col = layout.column()
 
         op = col.operator('node.y_move_texture_modifier', icon='TRIA_UP', text='Move Modifier Up')
@@ -959,6 +963,21 @@ class YModifierMenu(bpy.types.Menu):
         if type(context.parent) == YLayerChannel and context.modifier.type == 'RGB_TO_INTENSITY':
             col.separator()
             col.prop(context.modifier, 'shortcut', text='Shortcut on texture list')
+
+class YNewTexMaskMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_new_texture_mask_menu"
+    bl_description = 'New Texture Mask'
+    bl_label = "New Texture Mask"
+
+    @classmethod
+    def poll(cls, context):
+        node =  get_active_texture_layers_node()
+        return node and len(node.node_tree.tl.textures) > 0
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+        col.label('Not implemented yet!', icon='ERROR')
 
 def update_modifier_ui(self, context):
     tlui = context.window_manager.tlui

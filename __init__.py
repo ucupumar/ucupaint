@@ -23,7 +23,7 @@ bl_info = {
     "location": "Node Editor > Properties > Texture Layers",
     "description": "Special node to manage texture layers for Cycles materials",
     "wiki_url": "http://twitter.com/ucupumar",
-    "category": "Material",
+    "category": "Node",
 }
 
 if "bpy" in locals():
