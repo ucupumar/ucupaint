@@ -729,7 +729,8 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.scene.render.engine == 'CYCLES' and context.space_data.tree_type == 'ShaderNodeTree'
+        return (context.object and context.object.type in possible_object_types 
+                and context.scene.render.engine == 'CYCLES' and context.space_data.tree_type == 'ShaderNodeTree')
 
     def draw(self, context):
         main_draw(self, context)
@@ -742,7 +743,7 @@ class VIEW3D_PT_y_texture_layers_tools(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type in {'MESH'} and context.scene.render.engine == 'CYCLES'
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine == 'CYCLES'
 
     def draw(self, context):
         main_draw(self, context)
@@ -756,7 +757,7 @@ class VIEW3D_PT_y_texture_layers_ui(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type in {'MESH'} and context.scene.render.engine == 'CYCLES'
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine == 'CYCLES'
 
     def draw(self, context):
         main_draw(self, context)

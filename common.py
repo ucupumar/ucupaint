@@ -21,6 +21,14 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
 	             ("LINEAR_LIGHT", "Linear Light", ""))
 
+possible_object_types = {
+        'MESH',
+        'META',
+        'CURVE',
+        'SURFACE',
+        'FONT'
+        }
+
 GAMMA = 2.2
 
 def get_active_material():
