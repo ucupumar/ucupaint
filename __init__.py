@@ -1,19 +1,4 @@
 # TODO:
-# - Change internal group prefix to '~' rather than '_' (V)
-# - UI remember the last tl node selected (V)
-# - UI on 3D view tools/properties (V)
-# - Support this addon button and Patron list (V)
-# - Pack/Save All (V)
-# - Auto pack/save images at saving blend (with preferences) (V)
-# - Frame nodes for texture layer (V)
-# - Channel type aware invert modifier (V)
-# - Multiplier Modifier (V)
-# - Lazy import group nodes (V)
-# - Rename github repo to texture layers node (V)
-# - Move to Bitbucket (V)
-# - Rename again to yTexlayers (V)
-#
-# TODO (After release):
 # - Masking (Per texture and modifier)
 # - Matcap view on Normal preview
 # - Bake channel
@@ -24,7 +9,6 @@
 # - Eevee support
 #
 # BUGS:
-# - Pack float image still produce error (V)
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree
