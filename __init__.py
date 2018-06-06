@@ -22,7 +22,8 @@ bl_info = {
     "blender": (2, 79, 0),
     "location": "Node Editor > Properties > Texture Layers",
     "description": "Special node to manage texture layers for Cycles materials",
-    "wiki_url": "http://twitter.com/ucupumar",
+    "warning" : "This is alpha version, incompability to future releases might happen",
+    #"wiki_url": "http://patreon.com/ucupumar",
     "category": "Node",
 }
 
