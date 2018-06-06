@@ -643,9 +643,10 @@ def main_draw(self, context):
             ccol = col.column()
             row = ccol.row(align=True)
 
-            row.label('', icon='MOD_MASK')
-            row.label('Mask')
-            row.menu("NODE_MT_y_new_texture_mask_menu", text='', icon='ZOOMIN')
+            #row.label('', icon='MOD_MASK')
+            #row.label('Mask')
+            #icon_value = lib.custom_icons["add_mask"].icon_id
+            #row.menu("NODE_MT_y_new_texture_mask_menu", text='', icon='ZOOMIN') #icon_value=icon_value)
 
             #col.separator()
             ccol = col.column()

@@ -41,6 +41,7 @@ def load_custom_icons():
     custom_icons.load('vector_channel', filepath + 'vector_channel_icon.png', 'IMAGE')
 
     custom_icons.load('add_modifier', filepath + 'add_modifier_icon.png', 'IMAGE')
+    custom_icons.load('add_mask', filepath + 'add_mask_icon.png', 'IMAGE')
 
     custom_icons.load('collapsed_texture', filepath + 'collapsed_texture_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_texture', filepath + 'uncollapsed_texture_icon.png', 'IMAGE')
