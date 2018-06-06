@@ -3,6 +3,7 @@ from bpy.props import *
 from bpy.app.handlers import persistent
 from . import lib, tex_modifiers
 from .common import *
+from .__init__ import get_current_version_str
 
 def draw_tex_props(group_tree, tex, layout):
 
@@ -151,9 +152,6 @@ def main_draw(self, context):
     nodes = group_tree.nodes
     tl = group_tree.tl
     tlui = context.window_manager.tlui
-    #tlup = context.user_preferences.addons[__name__].preferences
-    #layout.context_pointer_set('group_node', node)
-    #layout.context_pointer_set('tl', tl)
 
     icon = 'TRIA_DOWN' if tlui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -658,59 +656,26 @@ def main_draw(self, context):
             else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
             row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
 
-            #icon = 'TRIA_DOWN' if tlui.show_vector_properties else 'TRIA_RIGHT'
-            #row.prop(tlui, 'show_vector_properties', text='', icon=icon)
-
             split = row.split(percentage=0.275, align=True)
             split.label('Vector:')
             if is_a_mesh and tex.texcoord_type == 'UV':
-                #uv_map = nodes.get(tex.uv_map)
                 ssplit = split.split(percentage=0.33, align=True)
                 ssplit.prop(tex, 'texcoord_type', text='')
-                #ssplit.prop_search(uv_map, "uv_map", obj.data, "uv_textures", text='')
                 ssplit.prop_search(tex, "uv_name", obj.data, "uv_textures", text='')
             else:
                 split.prop(tex, 'texcoord_type', text='')
 
-            #if tlui.expand_channels:
-            #    row.label('', icon='BLANK1')
-
-            #if tlui.show_vector_properties:
             if texui.expand_vector:
                 row = ccol.row()
                 row.label('', icon='BLANK1')
                 bbox = row.box()
                 crow = row.column()
-                #if tex.texcoord_type == 'UV':
                 bbox.prop(source.texture_mapping, 'translation', text='Offset')
                 bbox.prop(source.texture_mapping, 'rotation')
                 bbox.prop(source.texture_mapping, 'scale')
-                #else:
-                #    bbox.label('This option has no settings yet!')
-                #ccol.separator()
 
-                #if tlui.expand_channels:
-                #    row.label('', icon='BLANK1')
-
-            #ccol = col.column(align=True)
-
-            # MASK
-            #row = ccol.row(align=True)
-            #row.label('Mask:')
-
-            #icon = 'TRIA_DOWN' if tlui.show_mask_properties else 'TRIA_RIGHT'
-            #row.prop(tlui, 'show_mask_properties', text='', icon=icon)
-
-            #if tlui.show_mask_properties:
-            #    bbox = ccol.box()
-
-            #row = tcol.row()
-            #row.label('Texture Modifiers:')
-            #icon = 'TRIA_DOWN' if tl.show_texture_modifiers else 'TRIA_RIGHT'
-            #row.prop(tl, 'show_texture_modifiers', emboss=False, text='', icon=icon)
-
-            #if tl.show_texture_modifiers:
-            #    bbox = tcol.box()
+    # Hide support this addon panel for now
+    return
 
     icon = 'TRIA_DOWN' if tlui.show_support else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -727,10 +692,11 @@ def main_draw(self, context):
         col = col.column(align=True)
         col.operator('wm.url_open', text='masterxeon1001').url = 'https://masterxeon1001.com/'
         col.operator('wm.url_open', text='Stephen Bates').url = 'https://twitter.com/pharion3d'
+        col.operator('wm.url_open', text='Chala').url = 'https://steamcommunity.com/id/BlenderNova/'
 
 class NODE_PT_y_texture_layers(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
-    bl_label = "Texture Layers"
+    bl_label = "yTexLayers " + get_current_version_str()
     bl_region_type = 'TOOLS'
     bl_category = "yTexLayers"
 
@@ -744,7 +710,7 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
 
 class VIEW3D_PT_y_texture_layers_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
-    bl_label = "Texture Layers"
+    bl_label = "yTexLayers " + get_current_version_str()
     bl_region_type = 'TOOLS'
     bl_category = "yTexLayers"
 
@@ -756,7 +722,7 @@ class VIEW3D_PT_y_texture_layers_tools(bpy.types.Panel):
         main_draw(self, context)
 
 class VIEW3D_PT_y_texture_layers_ui(bpy.types.Panel):
-    bl_label = 'Texture Layers'
+    bl_label = "yTexLayers " + get_current_version_str()
     bl_space_type = 'VIEW_3D'
     #bl_context = "object"
     bl_region_type = 'UI'
