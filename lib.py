@@ -7,6 +7,8 @@ OVERLAY_NORMAL = '~TL Overlay Normal'
 STRAIGHT_OVER = '~TL Straight Over Mix'
 CHECK_INPUT_NORMAL = '~TL Check Input Normal'
 FLIP_BACKFACE_NORMAL = '~TL Flip Backface Normal'
+NEIGHBOR_UV ='~TL Neighbor UV'
+FINE_BUMP ='~TL Fine Bump'
 
 # Modifier tree names
 MOD_RGB2INT = '~TL Mod RGB To Intensity'

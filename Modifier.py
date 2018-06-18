@@ -1,6 +1,7 @@
 import bpy
 from bpy.props import *
 from .common import *
+from .node_connections import *
 from .node_arrangements import *
 from . import lib
 
@@ -25,30 +26,87 @@ can_be_expanded = {
         'MULTIPLIER',
         }
 
-def add_new_modifier(tree, parent, modifier_type, channel_type):
+def reconnect_between_modifier_nodes(tree, parent):
+
+    modifiers = parent.modifiers
+    nodes = tree.nodes
+
+    if hasattr(parent, 'mod_tree') and parent.mod_tree:
+        parent_start = nodes.get(parent.mod_tree_start)
+        parent_start_rgb = parent_start.outputs[0]
+        parent_start_alpha = parent_start.outputs[1]
+
+        parent_end = nodes.get(parent.mod_tree_end)
+        parent_end_rgb = parent_end.inputs[0]
+        parent_end_alpha = parent_end.inputs[1]
+    else:
+        parent_start_rgb = nodes.get(parent.start_rgb).outputs[0]
+        parent_start_alpha = nodes.get(parent.start_alpha).outputs[0]
+        parent_end_rgb = nodes.get(parent.end_rgb).inputs[0]
+        parent_end_alpha = nodes.get(parent.end_alpha).inputs[0]
+
+    for i, m in enumerate(modifiers):
+        start_rgb = nodes.get(m.start_rgb)
+        end_rgb = nodes.get(m.end_rgb)
+        start_alpha = nodes.get(m.start_alpha)
+        end_alpha = nodes.get(m.end_alpha)
+
+        # Get previous modifier
+        if i == len(modifiers)-1:
+            prev_rgb = parent_start_rgb
+            prev_alpha = parent_start_alpha
+        else:
+            prev_m = modifiers[i+1]
+            prev_rgb = nodes.get(prev_m.end_rgb)
+            prev_alpha = nodes.get(prev_m.end_alpha)
+            prev_rgb = prev_rgb.outputs[0]
+            prev_alpha = prev_alpha.outputs[0]
+
+        # Connect to previous modifier
+        check_create_node_link(tree, prev_rgb, start_rgb.inputs[0])
+        check_create_node_link(tree, prev_alpha, start_alpha.inputs[0])
+
+        if i == 0:
+            # Connect to next modifier
+            check_create_node_link(tree, end_rgb.outputs[0], parent_end_rgb)
+            check_create_node_link(tree, end_alpha.outputs[0], parent_end_alpha)
+
+def remove_modifier_start_end_nodes(tree, m):
+
+    start_rgb = tree.nodes.get(m.start_rgb)
+    start_alpha = tree.nodes.get(m.start_alpha)
+    end_rgb = tree.nodes.get(m.end_rgb)
+    end_alpha = tree.nodes.get(m.end_alpha)
+    frame = tree.nodes.get(m.frame)
+
+    tree.nodes.remove(start_rgb)
+    tree.nodes.remove(start_alpha)
+    tree.nodes.remove(end_rgb)
+    tree.nodes.remove(end_alpha)
+    tree.nodes.remove(frame)
+
+def add_modifier_nodes(tl, tree, m, parent, ref_tree=None):
     nodes = tree.nodes
     links = tree.links
-
-    # Get start and end node
-    parent_start_rgb = nodes.get(parent.start_rgb)
-    parent_start_alpha = nodes.get(parent.start_alpha)
-    parent_end_rgb = nodes.get(parent.end_rgb)
-    parent_end_alpha = nodes.get(parent.end_alpha)
-    #parent_frame = nodes.get(parent.modifier_frame)
-
-    # Get modifier list and its index
     modifiers = parent.modifiers
-    #index = parent.active_modifier_index
 
-    # Add new modifier and move it to the top
-    m = modifiers.add()
-    name = [mt[1] for mt in modifier_type_items if mt[0] == modifier_type][0]
-    m.name = get_unique_name(name, modifiers)
-    modifiers.move(len(modifiers)-1, 0)
-    m = modifiers[0]
-    m.type = modifier_type
-    m.channel_type = channel_type
-    index = 0
+    # Get non color flag
+    if hasattr(parent, 'texture_index'):
+        tl_ch = tl.channels[parent.channel_index]
+        non_color = tl_ch.non_color_data == 'NON_COLOR'
+    else: non_color = parent.non_color_data == 'NON_COLOR'
+
+    # Get index
+    index = -1
+    for i, mod in enumerate(modifiers):
+        if mod == m:
+            index = i
+            break
+    if index == -1: return None
+
+    # Remove previous start and end if ref tree is passed
+    if ref_tree:
+        remove_modifier_start_end_nodes(ref_tree, m)
 
     # Create new pipeline nodes
     start_rgb = nodes.new('NodeReroute')
@@ -69,7 +127,6 @@ def add_new_modifier(tree, parent, modifier_type, channel_type):
 
     frame = nodes.new('NodeFrame')
     m.frame = frame.name
-    #frame.parent = parent_frame
     start_rgb.parent = frame
     start_alpha.parent = frame
     end_rgb.parent = frame
@@ -83,9 +140,16 @@ def add_new_modifier(tree, parent, modifier_type, channel_type):
     if m.type == 'INVERT':
 
         invert = nodes.new('ShaderNodeGroup')
-        if channel_type == 'VALUE':
-            invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT_VALUE)
-        else: invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT)
+
+        if ref_tree:
+            invert_ref = ref_tree.nodes.get(m.invert)
+            copy_node_props(invert_ref, invert)
+            ref_tree.nodes.remove(invert_ref)
+        else:
+            if m.channel_type == 'VALUE':
+                invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT_VALUE)
+            else: invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT)
+
         m.invert = invert.name
 
         links.new(start_rgb.outputs[0], invert.inputs[0])
@@ -100,7 +164,14 @@ def add_new_modifier(tree, parent, modifier_type, channel_type):
     elif m.type == 'RGB_TO_INTENSITY':
 
         rgb2i = nodes.new('ShaderNodeGroup')
-        rgb2i.node_tree = lib.get_node_tree_lib(lib.MOD_RGB2INT)
+
+        if ref_tree:
+            rgb2i_ref = ref_tree.nodes.get(m.rgb2i)
+            copy_node_props(rgb2i_ref, rgb2i)
+            ref_tree.nodes.remove(rgb2i_ref)
+        else:
+            rgb2i.node_tree = lib.get_node_tree_lib(lib.MOD_RGB2INT)
+        
         m.rgb2i = rgb2i.name
 
         links.new(start_rgb.outputs[0], rgb2i.inputs[0])
@@ -109,32 +180,54 @@ def add_new_modifier(tree, parent, modifier_type, channel_type):
         links.new(rgb2i.outputs[0], end_rgb.inputs[0])
         links.new(rgb2i.outputs[1], end_alpha.inputs[0])
 
+        if non_color:
+            rgb2i.inputs['Linearize'].default_value = 0.0
+        else: rgb2i.inputs['Linearize'].default_value = 1.0
+
         frame.label = 'RGB to Intensity'
         rgb2i.parent = frame
 
     elif m.type == 'COLOR_RAMP':
 
         color_ramp_alpha_multiply = nodes.new('ShaderNodeMixRGB')
-        color_ramp_alpha_multiply.label = 'ColorRamp Alpha Multiply'
-        color_ramp_alpha_multiply.inputs[0].default_value = 1.0
-        color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
-        m.color_ramp_alpha_multiply = color_ramp_alpha_multiply.name
-
         color_ramp = nodes.new('ShaderNodeValToRGB')
-        m.color_ramp = color_ramp.name
-
         color_ramp_mix_alpha = nodes.new('ShaderNodeMixRGB')
-        color_ramp_mix_alpha.label = 'ColorRamp Alpha Mix'
-        color_ramp_mix_alpha.inputs[0].default_value = 1.0
-        m.color_ramp_mix_alpha = color_ramp_mix_alpha.name
-
         color_ramp_mix_rgb = nodes.new('ShaderNodeMixRGB')
-        color_ramp_mix_rgb.label = 'ColorRamp RGB Mix'
-        color_ramp_mix_rgb.inputs[0].default_value = 1.0
-        m.color_ramp_mix_rgb = color_ramp_mix_rgb.name
 
-        # Set default color
-        color_ramp.color_ramp.elements[0].color = (0,0,0,0)
+        if ref_tree:
+            color_ramp_alpha_multiply_ref = ref_tree.nodes.get(m.color_ramp_alpha_multiply)
+            color_ramp_ref = ref_tree.nodes.get(m.color_ramp)
+            color_ramp_mix_alpha_ref = ref_tree.nodes.get(m.color_ramp_mix_alpha)
+            color_ramp_mix_rgb_ref = ref_tree.nodes.get(m.color_ramp_mix_rgb)
+
+            copy_node_props(color_ramp_alpha_multiply_ref, color_ramp_alpha_multiply)
+            copy_node_props(color_ramp_ref, color_ramp)
+            copy_node_props(color_ramp_mix_alpha_ref, color_ramp_mix_alpha)
+            copy_node_props(color_ramp_mix_rgb_ref, color_ramp_mix_rgb)
+
+            ref_tree.nodes.remove(color_ramp_alpha_multiply_ref)
+            ref_tree.nodes.remove(color_ramp_ref)
+            ref_tree.nodes.remove(color_ramp_mix_alpha_ref)
+            ref_tree.nodes.remove(color_ramp_mix_rgb_ref)
+        else:
+
+            color_ramp_alpha_multiply.label = 'ColorRamp Alpha Multiply'
+            color_ramp_alpha_multiply.inputs[0].default_value = 1.0
+            color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
+
+            color_ramp_mix_alpha.label = 'ColorRamp Alpha Mix'
+            color_ramp_mix_alpha.inputs[0].default_value = 1.0
+
+            color_ramp_mix_rgb.label = 'ColorRamp RGB Mix'
+            color_ramp_mix_rgb.inputs[0].default_value = 1.0
+
+            # Set default color
+            color_ramp.color_ramp.elements[0].color = (0,0,0,0)
+
+        m.color_ramp_alpha_multiply = color_ramp_alpha_multiply.name
+        m.color_ramp = color_ramp.name
+        m.color_ramp_mix_alpha = color_ramp_mix_alpha.name
+        m.color_ramp_mix_rgb = color_ramp_mix_rgb.name
 
         links.new(start_rgb.outputs[0], color_ramp_alpha_multiply.inputs[1])
         links.new(start_alpha.outputs[0], color_ramp_alpha_multiply.inputs[2])
@@ -158,6 +251,12 @@ def add_new_modifier(tree, parent, modifier_type, channel_type):
     elif m.type == 'RGB_CURVE':
 
         rgb_curve = nodes.new('ShaderNodeRGBCurve')
+
+        if ref_tree:
+            rgb_curve_ref = ref_tree.nodes.get(m.rgb_curve)
+            copy_node_props(rgb_curve_ref, rgb_curve)
+            ref_tree.nodes.remove(rgb_curve_ref)
+
         m.rgb_curve = rgb_curve.name
 
         links.new(start_rgb.outputs[0], rgb_curve.inputs[1])
@@ -169,6 +268,12 @@ def add_new_modifier(tree, parent, modifier_type, channel_type):
     elif m.type == 'HUE_SATURATION':
 
         huesat = nodes.new('ShaderNodeHueSaturation')
+
+        if ref_tree:
+            huesat_ref = ref_tree.nodes.get(m.huesat)
+            copy_node_props(huesat_ref, huesat)
+            ref_tree.nodes.remove(huesat_ref)
+
         m.huesat = huesat.name
 
         links.new(start_rgb.outputs[0], huesat.inputs[4])
@@ -180,6 +285,12 @@ def add_new_modifier(tree, parent, modifier_type, channel_type):
     elif m.type == 'BRIGHT_CONTRAST':
 
         brightcon = nodes.new('ShaderNodeBrightContrast')
+
+        if ref_tree:
+            brightcon_ref = ref_tree.nodes.get(m.brightcon)
+            copy_node_props(brightcon_ref, brightcon)
+            ref_tree.nodes.remove(brightcon_ref)
+
         m.brightcon = brightcon.name
 
         links.new(start_rgb.outputs[0], brightcon.inputs[0])
@@ -191,9 +302,16 @@ def add_new_modifier(tree, parent, modifier_type, channel_type):
     elif m.type == 'MULTIPLIER':
 
         multiplier = nodes.new('ShaderNodeGroup')
-        if channel_type == 'VALUE':
-            multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER_VALUE)
-        else: multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER)
+
+        if ref_tree:
+            multiplier_ref = ref_tree.nodes.get(m.multiplier)
+            copy_node_props(multiplier_ref, multiplier)
+            ref_tree.nodes.remove(multiplier_ref)
+        else:
+            if m.channel_type == 'VALUE':
+                multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER_VALUE)
+            else: multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER)
+
         m.multiplier = multiplier.name
 
         links.new(start_rgb.outputs[0], multiplier.inputs[0])
@@ -202,22 +320,22 @@ def add_new_modifier(tree, parent, modifier_type, channel_type):
         frame.label = 'Multiplier'
         multiplier.parent = frame
 
-    # Get previous modifier
-    if len(modifiers) > 1 :
-        prev_m = modifiers[1]
-        prev_rgb = nodes.get(prev_m.end_rgb)
-        prev_alpha = nodes.get(prev_m.end_alpha)
-    else:
-        prev_rgb = nodes.get(parent.start_rgb)
-        prev_alpha = nodes.get(parent.start_alpha)
+def add_new_modifier(tl, tree, parent, modifier_type, channel_type):
+    # Get modifier list and its index
+    modifiers = parent.modifiers
+    #index = parent.active_modifier_index
 
-    # Connect to previous modifier
-    links.new(prev_rgb.outputs[0], start_rgb.inputs[0])
-    links.new(prev_alpha.outputs[0], start_alpha.inputs[0])
+    # Add new modifier and move it to the top
+    m = modifiers.add()
+    name = [mt[1] for mt in modifier_type_items if mt[0] == modifier_type][0]
+    m.name = get_unique_name(name, modifiers)
+    modifiers.move(len(modifiers)-1, 0)
+    m = modifiers[0]
+    m.type = modifier_type
+    m.channel_type = channel_type
 
-    # Connect to next modifier
-    links.new(end_rgb.outputs[0], parent_end_rgb.inputs[0])
-    links.new(end_alpha.outputs[0], parent_end_alpha.inputs[0])
+    add_modifier_nodes(tl, tree, m, parent)
+    reconnect_between_modifier_nodes(tree, parent)
 
     return m
 
@@ -285,13 +403,15 @@ class YNewTexModifier(bpy.types.Operator):
         tex = context.texture if hasattr(context, 'texture') else None
 
         if tex:
-            channel_type = tl.channels[context.parent.channel_index].type
-            mod = add_new_modifier(tex.tree, context.parent, self.type, channel_type)
+            tl_ch = tl.channels[context.parent.channel_index]
+            channel_type = tl_ch.type
+            mod = add_new_modifier(tl, tex.tree, context.parent, self.type, channel_type)
             mod.texture_index = context.parent.texture_index
+            mod.channel_index = context.parent.channel_index
             nodes = tex.tree.nodes
         else:
             channel_type = context.parent.type
-            mod = add_new_modifier(group_tree, context.parent, self.type, channel_type)
+            mod = add_new_modifier(tl, group_tree, context.parent, self.type, channel_type)
             nodes = group_tree.nodes
 
         if self.type == 'RGB_TO_INTENSITY' and channel_type == 'RGB':
@@ -594,6 +714,7 @@ class YTexModifierSpecialMenu(bpy.types.Menu):
         return hasattr(context, 'parent') and get_active_texture_layers_node()
 
     def draw(self, context):
+        self.layout.label('Add Modifier')
         ## List the items
         for mt in modifier_type_items:
             self.layout.operator('node.y_new_texture_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
@@ -604,7 +725,10 @@ def update_modifier_enable(self, context):
 
     if self.texture_index != -1:
         tex = tl.textures[self.texture_index]
-        nodes = tex.tree.nodes
+        ch = tex.channels[self.channel_index]
+        if ch.mod_tree:
+            nodes = ch.mod_tree.nodes
+        else: nodes = tex.tree.nodes
     else:
         nodes = group_node.node_tree.nodes
 
@@ -708,6 +832,7 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     channel_type = StringProperty(default='')
     texture_index = IntProperty(default=-1)
+    channel_index = IntProperty(default=-1)
 
     type = EnumProperty(
         name = 'Modifier Type',
@@ -763,3 +888,60 @@ class YTextureModifier(bpy.types.PropertyGroup):
             update=update_modifier_shortcut)
 
     expand_content = BoolProperty(default=True)
+
+def group_modifiers(group_tree, parent, context):
+    tl = group_tree.tl
+
+    if not hasattr(parent, 'mod_tree'): return
+
+    tree = bpy.data.node_groups.new('~TL Modifiers', 'ShaderNodeTree')
+    parent.mod_tree = tree
+
+    tree.inputs.new('NodeSocketColor', 'RGB')
+    tree.inputs.new('NodeSocketFloat', 'Alpha')
+    tree.outputs.new('NodeSocketColor', 'RGB')
+    tree.outputs.new('NodeSocketFloat', 'Alpha')
+
+    # New inputs and outputs
+    mod_tree_start = tree.nodes.new('NodeGroupInput')
+    mod_tree_end = tree.nodes.new('NodeGroupOutput')
+    parent.mod_tree_start = mod_tree_start.name
+    parent.mod_tree_end = mod_tree_end.name
+
+    if hasattr(parent, 'texture_index'):
+        tex = tl.textures[parent.texture_index]
+        parent_tree = tex.tree
+    else: parent_tree = group_tree
+
+    mod_group = parent_tree.nodes.new('ShaderNodeGroup')
+    mod_group.node_tree = tree
+    parent.mod_group = mod_group.name
+
+    # Connect to channel start and end
+    start_rgb = parent_tree.nodes.get(parent.start_rgb)
+    start_alpha = parent_tree.nodes.get(parent.start_alpha)
+    end_rgb = parent_tree.nodes.get(parent.end_rgb)
+    end_alpha = parent_tree.nodes.get(parent.end_alpha)
+    parent_tree.links.new(start_rgb.outputs[0], mod_group.inputs[0])
+    parent_tree.links.new(start_alpha.outputs[0], mod_group.inputs[1])
+    parent_tree.links.new(mod_group.outputs[0], end_rgb.inputs[0])
+    parent_tree.links.new(mod_group.outputs[1], end_alpha.inputs[0])
+
+    for mod in parent.modifiers:
+        add_modifier_nodes(tl, tree, mod, parent, parent_tree)
+
+    reconnect_between_modifier_nodes(tree, parent)
+    if hasattr(parent, 'texture_index'):
+        rearrange_tex_nodes(tex)
+
+def ungroup_modifiers(tl, parent, context):
+    pass
+
+def update_mod_tree(self, context):
+    group_tree = self.id_data
+
+    if self.is_mod_tree:
+        group_modifiers(group_tree, self, context)
+    else:
+        ungroup_modifiers(group_tree, self, context)
+    #print('Neve sei neve')

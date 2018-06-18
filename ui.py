@@ -1,9 +1,8 @@
 import bpy
 from bpy.props import *
 from bpy.app.handlers import persistent
-from . import lib, tex_modifiers
+from . import lib, Modifier
 from .common import *
-from .__init__ import get_current_version_str
 
 def draw_tex_props(group_tree, tex, layout):
 
@@ -222,7 +221,8 @@ def main_draw(self, context):
                     modui = chui.modifiers[i]
 
                     brow = bcol.row(align=True)
-                    if m.type in tex_modifiers.can_be_expanded:
+                    #brow.active = m.enable
+                    if m.type in Modifier.can_be_expanded:
                         if modui.expand_content:
                             icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
                         else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
@@ -243,13 +243,13 @@ def main_draw(self, context):
                     brow.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
                     brow.prop(m, 'enable', text='')
 
-                    if modui.expand_content and m.type in tex_modifiers.can_be_expanded:
+                    if modui.expand_content and m.type in Modifier.can_be_expanded:
                         row = bcol.row(align=True)
                         #row.label('', icon='BLANK1')
                         row.label('', icon='BLANK1')
                         bbox = row.box()
                         bbox.active = m.enable
-                        tex_modifiers.draw_modifier_properties(context, channel, nodes, m, bbox)
+                        Modifier.draw_modifier_properties(context, channel, nodes, m, bbox)
                         row.label('', icon='BLANK1')
 
                 #if len(channel.modifiers) > 0:
@@ -313,6 +313,13 @@ def main_draw(self, context):
                     #if len(channel.modifiers) > 0:
                     #    brow.label('', icon='BLANK1')
 
+                if channel.type in {'RGB', 'VALUE'}:
+                    brow = bcol.row(align=True)
+                    brow.label('', icon='INFO')
+                    split = brow.split(percentage=0.375)
+                    split.label('Space:')
+                    split.prop(channel, 'non_color_data', text='')
+
     icon = 'TRIA_DOWN' if tlui.show_textures else 'TRIA_RIGHT'
     row = layout.row(align=True)
     row.prop(tlui, 'show_textures', emboss=False, text='', icon=icon)
@@ -351,7 +358,9 @@ def main_draw(self, context):
             tex = tl.textures[tl.active_texture_index]
             box.context_pointer_set('texture', tex)
 
-            source = tex.tree.nodes.get(tex.source)
+            if tex.source_tree:
+                source = tex.source_tree.nodes.get(tex.source)
+            else: source = tex.tree.nodes.get(tex.source)
             if tex.type == 'IMAGE':
                 image = source.image
                 box.context_pointer_set('image', image)
@@ -523,7 +532,7 @@ def main_draw(self, context):
                     if tl_ch.type == 'NORMAL':
                         row = ccol.row(align=True)
                         row.label('', icon='BLANK1')
-                        if ch.normal_map_type == 'BUMP_MAP':
+                        if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
                             if chui.expand_bump_settings:
                                 icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                             else: icon_value = lib.custom_icons["collapsed_input"].icon_id
@@ -537,7 +546,7 @@ def main_draw(self, context):
                         if tlui.expand_channels:
                             row.label('', icon='BLANK1')
 
-                        if ch.normal_map_type == 'BUMP_MAP' and chui.expand_bump_settings:
+                        if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} and chui.expand_bump_settings:
                             row = ccol.row(align=True)
                             row.label('', icon='BLANK1')
                             row.label('', icon='BLANK1')
@@ -552,8 +561,12 @@ def main_draw(self, context):
                             brow.prop(ch, 'bump_base_value', text='')
 
                             brow = cccol.row(align=True)
-                            brow.label('Distance:') #, icon='INFO')
-                            brow.prop(ch, 'bump_distance', text='')
+                            if ch.normal_map_type == 'BUMP_MAP':
+                                brow.label('Distance:') #, icon='INFO')
+                                brow.prop(ch, 'bump_distance', text='')
+                            elif ch.normal_map_type == 'FINE_BUMP_MAP':
+                                brow.label('Scale:') #, icon='INFO')
+                                brow.prop(ch, 'fine_bump_scale', text='')
 
                             if tlui.expand_channels:
                                 row.label('', icon='BLANK1')
@@ -579,7 +592,7 @@ def main_draw(self, context):
                             tlui.need_update = True
                             return
 
-                        if m.type in tex_modifiers.can_be_expanded:
+                        if m.type in Modifier.can_be_expanded:
                             if modui.expand_content:
                                 icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
                             else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
@@ -591,7 +604,9 @@ def main_draw(self, context):
                         row.label(m.name)
 
                         if m.type == 'RGB_TO_INTENSITY':
-                            rgb2i = tex.tree.nodes.get(m.rgb2i)
+                            if ch.mod_tree:
+                                rgb2i = ch.mod_tree.nodes.get(m.rgb2i)
+                            else: rgb2i = tex.tree.nodes.get(m.rgb2i)
                             row.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
                             row.separator()
 
@@ -604,13 +619,15 @@ def main_draw(self, context):
                         if tlui.expand_channels:
                             row.label('', icon='BLANK1')
 
-                        if modui.expand_content and m.type in tex_modifiers.can_be_expanded:
+                        if modui.expand_content and m.type in Modifier.can_be_expanded:
                             row = ccol.row(align=True)
                             row.label('', icon='BLANK1')
                             row.label('', icon='BLANK1')
                             bbox = row.box()
                             bbox.active = m.enable
-                            tex_modifiers.draw_modifier_properties(context, ch, tex.tree.nodes, m, bbox)
+                            if ch.mod_tree:
+                                Modifier.draw_modifier_properties(context, ch, ch.mod_tree.nodes, m, bbox)
+                            else: Modifier.draw_modifier_properties(context, ch, tex.tree.nodes, m, bbox)
 
                             if tlui.expand_channels:
                                 row.label('', icon='BLANK1')
@@ -630,6 +647,28 @@ def main_draw(self, context):
 
                         extra_separator = True
 
+                    if hasattr(ch, 'is_mod_tree'):
+                        row = ccol.row(align=True)
+                        row.label('', icon='BLANK1')
+                        row.label('', icon='INFO')
+                        row.label('Mod Tree')
+                        row.prop(ch, 'is_mod_tree', text='')
+                        if tlui.expand_channels:
+                            row.label('', icon='BLANK1')
+
+                        extra_separator = True
+
+                    if hasattr(ch, 'enable_blur'):
+                        row = ccol.row(align=True)
+                        row.label('', icon='BLANK1')
+                        row.label('', icon='INFO')
+                        row.label('Blur')
+                        row.prop(ch, 'enable_blur', text='')
+                        if tlui.expand_channels:
+                            row.label('', icon='BLANK1')
+
+                        extra_separator = True
+
                     if extra_separator:
                         ccol.separator()
 
@@ -641,16 +680,18 @@ def main_draw(self, context):
 
             #col.separator()
             ccol = col.column()
+            ccol = col.column()
             row = ccol.row(align=True)
 
             #row.label('', icon='MOD_MASK')
             #row.label('Mask')
             #icon_value = lib.custom_icons["add_mask"].icon_id
-            #row.menu("NODE_MT_y_new_texture_mask_menu", text='', icon='ZOOMIN') #icon_value=icon_value)
+            #row.menu("NODE_MT_y_new_texture_mask_menu", text='', icon_value=icon_value)
+            ##row.menu("NODE_MT_y_new_texture_mask_menu", text='', icon='ZOOMIN')
 
             #col.separator()
-            ccol = col.column()
-            row = ccol.row(align=True)
+            #ccol = col.column()
+            #row = ccol.row(align=True)
 
             if texui.expand_vector:
                 icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
@@ -788,11 +829,14 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         master = layout.row(align=True)
 
         row = master.row(align=True)
+        #row.active = item.enable
 
         #if not item.enable or not item.channels[channel_idx].enable: row.active = False
 
         if item.type == 'IMAGE':
-            source = item.tree.nodes.get(item.source)
+            if item.source_tree:
+                source = item.source_tree.nodes.get(item.source)
+            else: source = item.tree.nodes.get(item.source)
             image = source.image
             row.context_pointer_set('image', image)
             row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
@@ -927,7 +971,7 @@ class YModifierMenu(bpy.types.Menu):
         col.separator()
         op = col.operator('node.y_remove_texture_modifier', icon='ZOOMOUT', text='Remove Modifier')
 
-        if type(context.parent) == YLayerChannel and context.modifier.type == 'RGB_TO_INTENSITY':
+        if hasattr(context, 'texture') and context.modifier.type == 'RGB_TO_INTENSITY':
             col.separator()
             col.prop(context.modifier, 'shortcut', text='Shortcut on texture list')
 

@@ -1,7 +1,9 @@
-import bpy, os
+import bpy, os, sys
 from mathutils import *
 from bpy.app.handlers import persistent
+#from .__init__ import bl_info
 
+TEXGROUP_PREFIX = '~TL Tex '
 ADDON_NAME = 'yTexLayers'
 
 blend_type_items = (("MIX", "Mix", ""),
@@ -21,6 +23,53 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
 	             ("LINEAR_LIGHT", "Linear Light", ""))
 
+normal_map_type_items = (
+        ('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 0),
+        ('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 1),
+        ('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 2)
+        )
+
+normal_blend_items = (
+        ('MIX', 'Mix', ''),
+        ('OVERLAY', 'Overlay', '')
+        )
+
+texture_type_items = (
+        ('IMAGE', 'Image', ''),
+        #('ENVIRONMENT', 'Environment', ''),
+        ('BRICK', 'Brick', ''),
+        ('CHECKER', 'Checker', ''),
+        ('GRADIENT', 'Gradient', ''),
+        ('MAGIC', 'Magic', ''),
+        ('NOISE', 'Noise', ''),
+        #('POINT_DENSITY', 'Point Density', ''),
+        #('SKY', 'Sky', ''),
+        ('VORONOI', 'Voronoi', ''),
+        ('WAVE', 'Wave', ''),
+        )
+
+texcoord_type_items = (
+        ('Generated', 'Generated', ''),
+        ('Normal', 'Normal', ''),
+        ('UV', 'UV', ''),
+        ('Object', 'Object', ''),
+        ('Camera', 'Camera', ''),
+        ('Window', 'Window', ''),
+        ('Reflection', 'Reflection', ''),
+        )
+
+channel_socket_input_bl_idnames = {
+    'RGB': 'NodeSocketColor',
+    'VALUE': 'NodeSocketFloatFactor',
+    'NORMAL': 'NodeSocketVector',
+}
+
+channel_socket_output_bl_idnames = {
+    'RGB': 'NodeSocketColor',
+    'VALUE': 'NodeSocketFloat',
+    'NORMAL': 'NodeSocketVector',
+}
+
 possible_object_types = {
         'MESH',
         'META',
@@ -31,9 +80,14 @@ possible_object_types = {
 
 GAMMA = 2.2
 
+def get_current_version_str():
+    bl_info = sys.modules[ADDON_NAME].bl_info
+    return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
+
 def get_active_material():
     scene = bpy.context.scene
     engine = scene.render.engine
+    if not hasattr(bpy.context, 'object'): return None
     obj = bpy.context.object
 
     if not obj: return None
@@ -114,6 +168,73 @@ def linear_to_srgb(inp):
 
         return c
 
+def copy_node_props_(source, dest, extras = []):
+    print()
+    props = dir(source)
+    filters = ['rna_type']
+    filters.extend(extras)
+    for prop in props:
+        if prop.startswith('__'): continue
+        if prop.startswith('bl_'): continue
+        if prop in filters: continue
+        val = getattr(source, prop)
+        if 'bpy_func' in str(type(val)): continue
+        # Copy stuff here
+        try: 
+            setattr(dest, prop, val)
+            print('SUCCESS:', prop, val)
+        except: 
+            print('FAILED:', prop, val)
+
+def copy_node_props(source ,dest, extras = []):
+    # Copy node props
+    copy_node_props_(source, dest, extras)
+
+    if source.type == 'CURVE_RGB':
+        
+        # Copy mapping props
+        copy_node_props_(source.mapping, dest.mapping)
+        
+        # Copy curve props
+        for i, curve in enumerate(source.mapping.curves):
+            curve_copy = dest.mapping.curves[i]
+            copy_node_props_(curve, curve_copy)
+    
+            # Copy point props
+            for j, point in enumerate(curve.points):
+                if j >= len(curve_copy.points):
+                    point_copy = curve_copy.points.new(point.location[0], point.location[1])
+                else: point_copy = curve_copy.points[j]
+                copy_node_props_(point, point_copy)
+                
+            # Copy selection
+            for j, point in enumerate(curve.points):
+                point_copy = curve_copy.points[j]
+                point_copy.select = point.select
+                
+        # Update curve
+        dest.mapping.update()
+    
+    elif source.type == 'VALTORGB':
+    
+        # Copy color ramp props
+        copy_node_props_(source.color_ramp, dest.color_ramp)
+        
+        # Copy color ramp elements
+        for i, elem in enumerate(source.color_ramp.elements):
+            if i >= len(dest.color_ramp.elements):
+                elem_copy = dest.color_ramp.elements.new(elem.position)
+            else: elem_copy = dest.color_ramp.elements[i]
+            copy_node_props_(elem, elem_copy)
+
+    # Copy inputs default value
+    for i, inp in enumerate(source.inputs):
+        dest.inputs[i].default_value = inp.default_value
+
+    # Copy outputs default value
+    for i, outp in enumerate(source.outputs):
+        dest.outputs[i].default_value = outp.default_value 
+
 # Check if name already available on the list
 def get_unique_name(name, items):
     unique_name = name
@@ -129,7 +250,6 @@ def get_unique_name(name, items):
             i += 1
 
     return unique_name
-
 
 def get_active_node():
     mat = get_active_material()

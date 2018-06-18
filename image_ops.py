@@ -1,4 +1,4 @@
-import bpy, shutil
+import bpy, shutil, os
 import tempfile
 from bpy.props import *
 from bpy_extras.io_utils import ExportHelper

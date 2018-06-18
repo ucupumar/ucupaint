@@ -131,9 +131,13 @@ def rearrange_tex_frame_nodes(tex):
         check_set_node_parent(intensity, pipeline_frame)
 
         # Modifiers
-        for mod in ch.modifiers:
-            frame = nodes.get(mod.frame)
-            check_set_node_parent(frame, pipeline_frame)
+        if ch.mod_tree:
+            mod_group = nodes.get(ch.mod_group)
+            check_set_node_parent(mod_group, pipeline_frame)
+        else:
+            for mod in ch.modifiers:
+                frame = nodes.get(mod.frame)
+                check_set_node_parent(frame, pipeline_frame)
 
 def create_info_nodes(group_tree, tex=None):
     tl = group_tree.tl
@@ -195,6 +199,11 @@ def create_info_nodes(group_tree, tex=None):
 
 #def arrange_modifier_nodes(nodes, parent, loc, original_x):
 def arrange_modifier_nodes(nodes, parent, loc):
+
+    if hasattr(parent, 'mod_tree') and parent.mod_tree:
+        mod_tree_start = parent.mod_tree.nodes.get(parent.mod_tree_start)
+        if mod_tree_start.location != loc: mod_tree_start.location = loc
+        loc.x += 200
 
     ori_y = loc.y
 
@@ -297,7 +306,34 @@ def arrange_modifier_nodes(nodes, parent, loc):
         loc.y = ori_y
         loc.x += 100
 
+    if hasattr(parent, 'mod_tree') and parent.mod_tree:
+        mod_tree_end = parent.mod_tree.nodes.get(parent.mod_tree_end)
+        if mod_tree_end.location != loc: mod_tree_end.location = loc
+        loc.x += 200
+
     return loc
+
+def rearrange_source_tree_nodes(tex):
+
+    start = None
+    end = None
+    for node in tex.source_tree.nodes:
+        if node.type == 'GROUP_INPUT':
+            start = node
+        elif node.type == 'GROUP_OUTPUT':
+            end = node
+
+    source = tex.source_tree.nodes.get(tex.source)
+
+    loc = Vector((0, 0))
+
+    if check_set_node_location(start, loc):
+        loc.x += 180
+
+    if check_set_node_location(source, loc):
+        loc.x += 180
+
+    check_set_node_location(end, loc)
 
 def rearrange_tex_nodes(tex):
     tree = tex.tree
@@ -305,7 +341,12 @@ def rearrange_tex_nodes(tex):
 
     start = nodes.get(tex.start)
     end = nodes.get(tex.end)
-    source = nodes.get(tex.source)
+
+    if tex.source_tree:
+        source = nodes.get(tex.source_group)
+        rearrange_source_tree_nodes(tex)
+    else: source = nodes.get(tex.source)
+
     solid_alpha = nodes.get(tex.solid_alpha)
     texcoord = nodes.get(tex.texcoord)
     uv_map = nodes.get(tex.uv_map)
@@ -326,10 +367,20 @@ def rearrange_tex_nodes(tex):
         start_alpha = nodes.get(ch.start_alpha)
         end_alpha = nodes.get(ch.end_alpha)
 
+        mod_group = nodes.get(ch.mod_group)
+
+        normal = nodes.get(ch.normal)
         bump_base = nodes.get(ch.bump_base)
         bump = nodes.get(ch.bump)
-        normal = nodes.get(ch.normal)
+        neighbor_uv = nodes.get(ch.neighbor_uv)
+        fine_bump = nodes.get(ch.fine_bump)
+        source_n = nodes.get(ch.source_n)
+        source_s = nodes.get(ch.source_s)
+        source_e = nodes.get(ch.source_e)
+        source_w = nodes.get(ch.source_w)
+
         normal_flip = nodes.get(ch.normal_flip)
+
         intensity = nodes.get(ch.intensity)
 
         loc.x = start_x
@@ -346,7 +397,12 @@ def rearrange_tex_nodes(tex):
         loc.y = bookmark_y
 
         # Modifier loop
-        loc = arrange_modifier_nodes(nodes, ch, loc)
+        if mod_group:
+            arrange_modifier_nodes(ch.mod_tree.nodes, ch, Vector((0,0)))
+            check_set_node_location(mod_group, loc)
+            loc.x += 200
+        else:
+            loc = arrange_modifier_nodes(nodes, ch, loc)
 
         loc.y -= 35
         check_set_node_location(end_rgb, loc)
@@ -364,6 +420,25 @@ def rearrange_tex_nodes(tex):
             loc.x += 200.0
 
         if check_set_node_location(normal, loc):
+            loc.x += 200.0
+
+        if check_set_node_location(neighbor_uv, loc):
+            loc.x += 200.0
+
+        if check_set_node_location(source_n, loc):
+            loc.y -= 40.0
+
+        if check_set_node_location(source_s, loc):
+            loc.y -= 40.0
+
+        if check_set_node_location(source_e, loc):
+            loc.y -= 40.0
+
+        if check_set_node_location(source_w, loc):
+            loc.y = bookmark_y
+            loc.x += 140.0
+
+        if check_set_node_location(fine_bump, loc):
             loc.x += 200.0
 
         if check_set_node_location(normal_flip, loc):
