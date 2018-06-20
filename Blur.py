@@ -7,10 +7,9 @@ def update_tex_channel_blur(self, context):
     tl = self.id_data.tl
     path = self.path_from_id()
 
-    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[\d+\]', path)
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', path)
     if not m: return
-    index = int(m.group(1))
-    tex = tl.textures[index]
+    tex = tl.textures[int(m.group(1))]
 
     if self.enable_blur:
         if not tex.source_tree:

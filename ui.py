@@ -9,7 +9,9 @@ def draw_tex_props(group_tree, tex, layout):
     nodes = group_tree.nodes
     tl = group_tree.tl
 
-    source = tex.tree.nodes.get(tex.source)
+    if tex.source_tree:
+        source = tex.source_tree.nodes.get(tex.source)
+    else: source = tex.tree.nodes.get(tex.source)
     title = source.bl_idname.replace('ShaderNodeTex', '')
 
     col = layout.column()
@@ -475,7 +477,7 @@ def main_draw(self, context):
                 if not tlui.expand_channels and not ch.enable:
                     continue
 
-                tl_ch = tl.channels[i]
+                root_ch = tl.channels[i]
                 ch_count += 1
 
                 try: chui = tlui.tex_ui.channels[i]
@@ -487,14 +489,14 @@ def main_draw(self, context):
                 ccol.active = ch.enable
                 ccol.context_pointer_set('channel', ch)
 
-                if tl_ch.type == 'RGB':
+                if root_ch.type == 'RGB':
                     icon_name = 'rgb_channel'
-                elif tl_ch.type == 'VALUE':
+                elif root_ch.type == 'VALUE':
                     icon_name = 'value_channel'
-                elif tl_ch.type == 'NORMAL':
+                elif root_ch.type == 'NORMAL':
                     icon_name = 'vector_channel'
 
-                if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or tl_ch.type == 'NORMAL':
+                if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
                     if chui.expand_content:
                         icon_name = 'uncollapsed_' + icon_name
                     else: icon_name = 'collapsed_' + icon_name
@@ -502,7 +504,7 @@ def main_draw(self, context):
                 icon_value = lib.custom_icons[icon_name].icon_id
 
                 row = ccol.row(align=True)
-                if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or tl_ch.type == 'NORMAL':
+                if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
                     row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
                 else: row.label('', icon_value=icon_value)
 
@@ -510,7 +512,7 @@ def main_draw(self, context):
                 #row.label(tl.channels[i].name +' (' + str(ch.texture_index) + ')'+ ':')
                 row.label(tl.channels[i].name + ':')
 
-                if tl_ch.type == 'NORMAL':
+                if root_ch.type == 'NORMAL':
                     row.prop(ch, 'normal_blend', text='')
                 else: row.prop(ch, 'blend_type', text='')
 
@@ -529,7 +531,7 @@ def main_draw(self, context):
                 if chui.expand_content:
                     extra_separator = False
 
-                    if tl_ch.type == 'NORMAL':
+                    if root_ch.type == 'NORMAL':
                         row = ccol.row(align=True)
                         row.label('', icon='BLANK1')
                         if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
@@ -567,6 +569,10 @@ def main_draw(self, context):
                             elif ch.normal_map_type == 'FINE_BUMP_MAP':
                                 brow.label('Scale:') #, icon='INFO')
                                 brow.prop(ch, 'fine_bump_scale', text='')
+
+                            brow = cccol.row(align=True)
+                            brow.label('Hardness:') #, icon='INFO')
+                            brow.prop(ch, 'intensity_multiplier_value', text='')
 
                             if tlui.expand_channels:
                                 row.label('', icon='BLANK1')
@@ -647,16 +653,16 @@ def main_draw(self, context):
 
                         extra_separator = True
 
-                    if hasattr(ch, 'is_mod_tree'):
-                        row = ccol.row(align=True)
-                        row.label('', icon='BLANK1')
-                        row.label('', icon='INFO')
-                        row.label('Mod Tree')
-                        row.prop(ch, 'is_mod_tree', text='')
-                        if tlui.expand_channels:
-                            row.label('', icon='BLANK1')
+                    #if hasattr(ch, 'is_mod_tree'):
+                    #    row = ccol.row(align=True)
+                    #    row.label('', icon='BLANK1')
+                    #    row.label('', icon='INFO')
+                    #    row.label('Mod Tree')
+                    #    row.prop(ch, 'is_mod_tree', text='')
+                    #    if tlui.expand_channels:
+                    #        row.label('', icon='BLANK1')
 
-                        extra_separator = True
+                    #    extra_separator = True
 
                     if hasattr(ch, 'enable_blur'):
                         row = ccol.row(align=True)
@@ -874,7 +880,9 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                     shortcut_found = True
                     if mod.type == 'RGB_TO_INTENSITY':
                         rrow = row.row()
-                        rgb2i = item.tree.nodes.get(mod.rgb2i)
+                        if ch.mod_tree:
+                            rgb2i = ch.mod_tree.nodes.get(mod.rgb2i)
+                        else: rgb2i = item.tree.nodes.get(mod.rgb2i)
                         rrow.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
                     break
             if shortcut_found:

@@ -1,4 +1,4 @@
-import bpy
+import bpy, re
 from bpy.props import *
 from .common import *
 from .node_connections import *
@@ -26,24 +26,60 @@ can_be_expanded = {
         'MULTIPLIER',
         }
 
-def reconnect_between_modifier_nodes(tree, parent):
+def reconnect_between_modifier_nodes(parent):
 
+    tl = parent.id_data.tl
     modifiers = parent.modifiers
-    nodes = tree.nodes
 
-    if hasattr(parent, 'mod_tree') and parent.mod_tree:
-        parent_start = nodes.get(parent.mod_tree_start)
+    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', parent.path_from_id())
+    match2 = re.match(r'tl\.channels\[(\d+)\]', parent.path_from_id())
+    if match1:
+        tex = tl.textures[int(match1.group(1))]
+        root_ch = tl.channels[int(match1.group(2))]
+    elif match2: 
+        tex = None
+        root_ch = tl.channels[int(match1.group(1))]
+    else: return None
+
+    if tex:
+        if parent.mod_tree:
+            tree = parent.mod_tree
+        else: tree = tex.tree
+    else: tree = parent.id_data
+
+    nodes = tree.nodes
+        
+    if tex and parent.mod_tree:
+        # start and end inside modifier tree
+        parent_start = nodes.get(MODIFIER_TREE_START)
         parent_start_rgb = parent_start.outputs[0]
         parent_start_alpha = parent_start.outputs[1]
 
-        parent_end = nodes.get(parent.mod_tree_end)
+        parent_end = nodes.get(MODIFIER_TREE_END)
         parent_end_rgb = parent_end.inputs[0]
         parent_end_alpha = parent_end.inputs[1]
+
+        # Connect outside tree nodes
+        mod_group = tex.tree.nodes.get(parent.mod_group)
+        start_rgb = tex.tree.nodes.get(parent.start_rgb)
+        start_alpha = tex.tree.nodes.get(parent.start_alpha)
+        end_rgb = tex.tree.nodes.get(parent.end_rgb)
+        end_alpha = tex.tree.nodes.get(parent.end_alpha)
+
+        check_create_node_link(tex.tree, start_rgb.outputs[0], mod_group.inputs[0])
+        check_create_node_link(tex.tree, start_alpha.outputs[0], mod_group.inputs[1])
+        check_create_node_link(tex.tree, mod_group.outputs[0], end_rgb.inputs[0])
+        check_create_node_link(tex.tree, mod_group.outputs[1], end_alpha.inputs[0])
+
     else:
         parent_start_rgb = nodes.get(parent.start_rgb).outputs[0]
         parent_start_alpha = nodes.get(parent.start_alpha).outputs[0]
         parent_end_rgb = nodes.get(parent.end_rgb).inputs[0]
         parent_end_alpha = nodes.get(parent.end_alpha).inputs[0]
+
+    if len(modifiers) == 0:
+        check_create_node_link(tree, parent_start_rgb, parent_end_rgb)
+        check_create_node_link(tree, parent_start_alpha, parent_end_alpha)
 
     for i, m in enumerate(modifiers):
         start_rgb = nodes.get(m.start_rgb)
@@ -71,7 +107,7 @@ def reconnect_between_modifier_nodes(tree, parent):
             check_create_node_link(tree, end_rgb.outputs[0], parent_end_rgb)
             check_create_node_link(tree, end_alpha.outputs[0], parent_end_alpha)
 
-def remove_modifier_start_end_nodes(tree, m):
+def remove_modifier_start_end_nodes(m, tree):
 
     start_rgb = tree.nodes.get(m.start_rgb)
     start_alpha = tree.nodes.get(m.start_alpha)
@@ -85,28 +121,26 @@ def remove_modifier_start_end_nodes(tree, m):
     tree.nodes.remove(end_alpha)
     tree.nodes.remove(frame)
 
-def add_modifier_nodes(tl, tree, m, parent, ref_tree=None):
+def add_modifier_nodes(m, tree, ref_tree=None):
+
+    tl = m.id_data.tl
     nodes = tree.nodes
     links = tree.links
-    modifiers = parent.modifiers
+
+    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
+    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
+    if match1:
+        root_ch = tl.channels[int(match1.group(2))]
+    elif match2: 
+        root_ch = tl.channels[int(match1.group(1))]
+    else: return None
 
     # Get non color flag
-    if hasattr(parent, 'texture_index'):
-        tl_ch = tl.channels[parent.channel_index]
-        non_color = tl_ch.non_color_data == 'NON_COLOR'
-    else: non_color = parent.non_color_data == 'NON_COLOR'
-
-    # Get index
-    index = -1
-    for i, mod in enumerate(modifiers):
-        if mod == m:
-            index = i
-            break
-    if index == -1: return None
+    non_color = root_ch.non_color_data == 'NON_COLOR'
 
     # Remove previous start and end if ref tree is passed
     if ref_tree:
-        remove_modifier_start_end_nodes(ref_tree, m)
+        remove_modifier_start_end_nodes(m, ref_tree)
 
     # Create new pipeline nodes
     start_rgb = nodes.new('NodeReroute')
@@ -320,10 +354,24 @@ def add_modifier_nodes(tl, tree, m, parent, ref_tree=None):
         frame.label = 'Multiplier'
         multiplier.parent = frame
 
-def add_new_modifier(tl, tree, parent, modifier_type, channel_type):
-    # Get modifier list and its index
+def add_new_modifier(parent, modifier_type):
+
+    tl = parent.id_data.tl
+    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', parent.path_from_id())
+    match2 = re.match(r'tl\.channels\[(\d+)\]', parent.path_from_id())
+    if match1: 
+        tex = tl.textures[int(match1.group(1))]
+        root_ch = tl.channels[int(match1.group(2))]
+        if parent.mod_tree:
+            tree = parent.mod_tree
+        else: tree = tex.tree
+    elif match2:
+        tex = None
+        root_ch = tl.channels[int(match2.group(1))]
+        tree = parent.id_data
+    else: return None
+
     modifiers = parent.modifiers
-    #index = parent.active_modifier_index
 
     # Add new modifier and move it to the top
     m = modifiers.add()
@@ -332,10 +380,10 @@ def add_new_modifier(tl, tree, parent, modifier_type, channel_type):
     modifiers.move(len(modifiers)-1, 0)
     m = modifiers[0]
     m.type = modifier_type
-    m.channel_type = channel_type
+    m.channel_type = root_ch.type
 
-    add_modifier_nodes(tl, tree, m, parent)
-    reconnect_between_modifier_nodes(tree, parent)
+    add_modifier_nodes(m, tree)
+    reconnect_between_modifier_nodes(parent)
 
     return m
 
@@ -403,15 +451,15 @@ class YNewTexModifier(bpy.types.Operator):
         tex = context.texture if hasattr(context, 'texture') else None
 
         if tex:
-            tl_ch = tl.channels[context.parent.channel_index]
-            channel_type = tl_ch.type
-            mod = add_new_modifier(tl, tex.tree, context.parent, self.type, channel_type)
+            root_ch = tl.channels[context.parent.channel_index]
+            channel_type = root_ch.type
+            mod = add_new_modifier(context.parent, self.type)
             mod.texture_index = context.parent.texture_index
             mod.channel_index = context.parent.channel_index
             nodes = tex.tree.nodes
         else:
             channel_type = context.parent.type
-            mod = add_new_modifier(tl, group_tree, context.parent, self.type, channel_type)
+            mod = add_new_modifier(context.parent, self.type)
             nodes = group_tree.nodes
 
         if self.type == 'RGB_TO_INTENSITY' and channel_type == 'RGB':
@@ -493,52 +541,17 @@ class YMoveTexModifier(bpy.types.Operator):
 
         tex = context.texture if hasattr(context, 'texture') else None
 
-        if tex:
-            nodes = tex.tree.nodes
-            links = tex.tree.links
-        else:
-            nodes = group_tree.nodes
-            links = group_tree.links
-
-        swap_mod = parent.modifiers[new_index]
-
-        start_rgb = nodes.get(mod.start_rgb)
-        start_alpha = nodes.get(mod.start_alpha)
-        end_rgb = nodes.get(mod.end_rgb)
-        end_alpha = nodes.get(mod.end_alpha)
-
-        swap_start_rgb = nodes.get(swap_mod.start_rgb)
-        swap_start_alpha = nodes.get(swap_mod.start_alpha)
-        swap_end_rgb = nodes.get(swap_mod.end_rgb)
-        swap_end_alpha = nodes.get(swap_mod.end_alpha)
-
-        if self.direction == 'UP':
-            links.new(end_rgb.outputs[0], swap_end_rgb.outputs[0].links[0].to_socket)
-            links.new(end_alpha.outputs[0], swap_end_alpha.outputs[0].links[0].to_socket)
-
-            links.new(start_rgb.inputs[0].links[0].from_socket, swap_start_rgb.inputs[0])
-            links.new(start_alpha.inputs[0].links[0].from_socket, swap_start_alpha.inputs[0])
-
-            links.new(swap_end_rgb.outputs[0], start_rgb.inputs[0])
-            links.new(swap_end_alpha.outputs[0], start_alpha.inputs[0])
-
-        else:
-            links.new(swap_end_rgb.outputs[0], end_rgb.outputs[0].links[0].to_socket)
-            links.new(swap_end_alpha.outputs[0], end_alpha.outputs[0].links[0].to_socket)
-
-            links.new(swap_start_rgb.inputs[0].links[0].from_socket, start_rgb.inputs[0])
-            links.new(swap_start_alpha.inputs[0].links[0].from_socket, start_alpha.inputs[0])
-
-            links.new(end_rgb.outputs[0], swap_start_rgb.inputs[0])
-            links.new(end_alpha.outputs[0], swap_start_alpha.inputs[0])
+        if tex: tree = tex.tree
+        else: tree = group_tree
 
         # Swap modifier
         parent.modifiers.move(index, new_index)
-        #parent.active_modifier_index = new_index
+
+        # Reconnect modifier nodes
+        reconnect_between_modifier_nodes(parent)
 
         # Rearrange nodes
-        if tex:
-            rearrange_tex_nodes(tex)
+        if tex: rearrange_tex_nodes(tex)
         else: rearrange_tl_nodes(group_tree)
 
         # Update UI
@@ -563,13 +576,10 @@ class YRemoveTexModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (get_active_texture_layers_node() and 
-                hasattr(context, 'parent') and hasattr(context, 'modifier'))
+        return hasattr(context, 'parent') and hasattr(context, 'modifier')
 
     def execute(self, context):
-        #print(context.modifier.name)
-        node = get_active_texture_layers_node()
-        group_tree = node.node_tree
+        group_tree = context.parent.id_data
         tl = group_tree.tl
 
         parent = context.parent
@@ -587,25 +597,19 @@ class YRemoveTexModifier(bpy.types.Operator):
         tex = context.texture if hasattr(context, 'texture') else None
 
         if tex:
-            nodes = tex.tree.nodes
-            links = tex.tree.links
-        else:
-            nodes = group_tree.nodes
-            links = group_tree.links
-
-        prev_rgb = nodes.get(mod.start_rgb).inputs[0].links[0].from_socket
-        next_rgb = nodes.get(mod.end_rgb).outputs[0].links[0].to_socket
-        links.new(prev_rgb, next_rgb)
-
-        prev_alpha = nodes.get(mod.start_alpha).inputs[0].links[0].from_socket
-        next_alpha = nodes.get(mod.end_alpha).outputs[0].links[0].to_socket
-        links.new(prev_alpha, next_alpha)
+            if parent.mod_tree:
+                tree = parent.mod_tree
+            else: tree = tex.tree
+        else: tree = group_tree
 
         # Delete the nodes
-        delete_modifier_nodes(nodes, mod)
+        delete_modifier_nodes(tree.nodes, mod)
 
         # Delete the modifier
         parent.modifiers.remove(index)
+
+        # Reconnect nodes
+        reconnect_between_modifier_nodes(parent)
 
         # Rearrange nodes
         if tex:
@@ -723,14 +727,16 @@ def update_modifier_enable(self, context):
     group_node = get_active_texture_layers_node()
     tl = group_node.node_tree.tl
 
-    if self.texture_index != -1:
-        tex = tl.textures[self.texture_index]
-        ch = tex.channels[self.channel_index]
-        if ch.mod_tree:
-            nodes = ch.mod_tree.nodes
+    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    if match1:
+        tex = tl.textures[int(match1.group(1))]
+        ch = tex.channels[int(match1.group(2))]
+        if ch.mod_tree: nodes = ch.mod_tree.nodes
         else: nodes = tex.tree.nodes
-    else:
-        nodes = group_node.node_tree.nodes
+    elif match2: 
+        nodes = group_tree.nodes
+    else: return None
 
     if self.type == 'RGB_TO_INTENSITY':
         rgb2i = nodes.get(self.rgb2i)
@@ -796,9 +802,16 @@ def update_invert_channel(self, context):
     group_tree = self.id_data
     tl = group_tree.tl
 
-    if self.texture_index != -1:
-        nodes = tl.textures[self.texture_index].tree.nodes
-    else: nodes = group_tree.nodes
+    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    if match1:
+        tex = tl.textures[int(match1.group(1))]
+        ch = tex.channels[int(match1.group(2))]
+        if ch.mod_tree: nodes = ch.mod_tree.nodes
+        else: nodes = tex.tree.nodes
+    elif match2: 
+        nodes = group_tree.nodes
+    else: return None
 
     invert = nodes.get(self.invert)
 
@@ -889,59 +902,80 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     expand_content = BoolProperty(default=True)
 
-def group_modifiers(group_tree, parent, context):
+def enable_modifiers_tree(ch):
+    
+    group_tree = ch.id_data
     tl = group_tree.tl
 
-    if not hasattr(parent, 'mod_tree'): return
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+    if not m: return
+    tex = tl.textures[int(m.group(1))]
+    root_ch = tl.channels[int(m.group(2))]
 
-    tree = bpy.data.node_groups.new('~TL Modifiers', 'ShaderNodeTree')
-    parent.mod_tree = tree
+    # Check if modifier tree already available
+    if ch.mod_tree: return
 
-    tree.inputs.new('NodeSocketColor', 'RGB')
-    tree.inputs.new('NodeSocketFloat', 'Alpha')
-    tree.outputs.new('NodeSocketColor', 'RGB')
-    tree.outputs.new('NodeSocketFloat', 'Alpha')
+    mod_tree = bpy.data.node_groups.new('~TL Modifiers ' + root_ch.name + ' ' + tex.name, 'ShaderNodeTree')
+    ch.mod_tree = mod_tree
+
+    mod_tree.inputs.new('NodeSocketColor', 'RGB')
+    mod_tree.inputs.new('NodeSocketFloat', 'Alpha')
+    mod_tree.outputs.new('NodeSocketColor', 'RGB')
+    mod_tree.outputs.new('NodeSocketFloat', 'Alpha')
 
     # New inputs and outputs
-    mod_tree_start = tree.nodes.new('NodeGroupInput')
-    mod_tree_end = tree.nodes.new('NodeGroupOutput')
-    parent.mod_tree_start = mod_tree_start.name
-    parent.mod_tree_end = mod_tree_end.name
+    mod_tree_start = mod_tree.nodes.new('NodeGroupInput')
+    mod_tree_start.name = MODIFIER_TREE_START
+    mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
+    mod_tree_end.name = MODIFIER_TREE_END
 
-    if hasattr(parent, 'texture_index'):
-        tex = tl.textures[parent.texture_index]
-        parent_tree = tex.tree
-    else: parent_tree = group_tree
+    mod_group = tex.tree.nodes.new('ShaderNodeGroup')
+    mod_group.node_tree = mod_tree
+    ch.mod_group = mod_group.name
 
-    mod_group = parent_tree.nodes.new('ShaderNodeGroup')
-    mod_group.node_tree = tree
-    parent.mod_group = mod_group.name
+    for mod in ch.modifiers:
+        add_modifier_nodes(mod, mod_tree, tex.tree)
 
-    # Connect to channel start and end
-    start_rgb = parent_tree.nodes.get(parent.start_rgb)
-    start_alpha = parent_tree.nodes.get(parent.start_alpha)
-    end_rgb = parent_tree.nodes.get(parent.end_rgb)
-    end_alpha = parent_tree.nodes.get(parent.end_alpha)
-    parent_tree.links.new(start_rgb.outputs[0], mod_group.inputs[0])
-    parent_tree.links.new(start_alpha.outputs[0], mod_group.inputs[1])
-    parent_tree.links.new(mod_group.outputs[0], end_rgb.inputs[0])
-    parent_tree.links.new(mod_group.outputs[1], end_alpha.inputs[0])
+    reconnect_between_modifier_nodes(ch)
+    rearrange_tex_nodes(tex)
 
-    for mod in parent.modifiers:
-        add_modifier_nodes(tl, tree, mod, parent, parent_tree)
+def disable_modifiers_tree(ch):
+    group_tree = ch.id_data
+    tl = group_tree.tl
 
-    reconnect_between_modifier_nodes(tree, parent)
-    if hasattr(parent, 'texture_index'):
-        rearrange_tex_nodes(tex)
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+    if not m: return
+    tex = tl.textures[int(m.group(1))]
 
-def ungroup_modifiers(tl, parent, context):
-    pass
+    # Check if modifier tree already gone
+    if not ch.mod_tree: return
 
-def update_mod_tree(self, context):
-    group_tree = self.id_data
+    # Check if texture channels has fine bump
+    #fine_bump_found = False
+    #for i, ch in enumerate(tex.channels):
+    #    if tl.channels[i].type == 'NORMAL' and ch.normal_map_type == 'FINE_BUMP_MAP':
+    #        fine_bump_found = True
 
-    if self.is_mod_tree:
-        group_modifiers(group_tree, self, context)
-    else:
-        ungroup_modifiers(group_tree, self, context)
-    #print('Neve sei neve')
+    #if fine_bump_found: return
+
+    for mod in ch.modifiers:
+        add_modifier_nodes(mod, tex.tree, ch.mod_tree)
+
+    # Remove modifier tree
+    mod_group = tex.tree.nodes.get(ch.mod_group)
+    tex.tree.nodes.remove(mod_group)
+    bpy.data.node_groups.remove(ch.mod_tree)
+    ch.mod_tree = None
+    ch.mod_group = ''
+
+    reconnect_between_modifier_nodes(ch)
+    rearrange_tex_nodes(tex)
+
+#def update_mod_tree(self, context):
+#    group_tree = self.id_data
+#
+#    if self.is_mod_tree:
+#        enable_modifiers_tree(self)
+#    else:
+#        disable_modifiers_tree(self)
+#    #print('Neve sei neve')

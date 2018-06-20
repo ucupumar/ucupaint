@@ -702,8 +702,8 @@ class YNewTLChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def swap_channel_io(tl_ch, swap_ch, io_index, io_index_swap, inputs, outputs):
-    if tl_ch.type == 'RGB' and tl_ch.alpha:
+def swap_channel_io(root_ch, swap_ch, io_index, io_index_swap, inputs, outputs):
+    if root_ch.type == 'RGB' and root_ch.alpha:
         if swap_ch.type == 'RGB' and swap_ch.alpha:
             if io_index > io_index_swap:
                 inputs.move(io_index, io_index_swap)
@@ -894,12 +894,34 @@ class YRemoveTLChannel(bpy.types.Operator):
             except: pass
             try: t.tree.nodes.remove(t.tree.nodes.get(ch.source_w))
             except: pass
+            try: t.tree.nodes.remove(t.tree.nodes.get(ch.mod_n))
+            except: pass
+            try: t.tree.nodes.remove(t.tree.nodes.get(ch.mod_s))
+            except: pass
+            try: t.tree.nodes.remove(t.tree.nodes.get(ch.mod_e))
+            except: pass
+            try: t.tree.nodes.remove(t.tree.nodes.get(ch.mod_w))
+            except: pass
+            try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump_base_n))
+            except: pass
+            try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump_base_s))
+            except: pass
+            try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump_base_e))
+            except: pass
+            try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump_base_w))
+            except: pass
             try: t.tree.nodes.remove(t.tree.nodes.get(ch.fine_bump))
+            except: pass
+            try: t.tree.nodes.remove(t.tree.nodes.get(ch.intensity_multiplier))
             except: pass
 
             # Remove modifiers
-            for mod in ch.modifiers:
-                Modifier.delete_modifier_nodes(t.tree.nodes, mod)
+            if ch.mod_tree:
+                t.tree.nodes.remove(t.tree.nodes.get(ch.mod_group))
+                bpy.data.node_groups.remove(ch.mod_tree)
+            else:
+                for mod in ch.modifiers:
+                    Modifier.delete_modifier_nodes(t.tree.nodes, mod)
 
             # Remove tex IO
             t.tree.inputs.remove(t.tree.inputs[channel.io_index])
@@ -1314,8 +1336,8 @@ def update_channel_alpha(self, context):
 
             # Update texture blend nodes
             for i, ch in enumerate(tex.channels):
-                tl_ch = tl.channels[i]
-                if Layer.update_blend_type_(tl_ch, tex, ch):
+                root_ch = tl.channels[i]
+                if Layer.update_blend_type_(root_ch, tex, ch):
                     reconnect_tex_nodes(tex, i)
                     rearrange_tex_nodes(tex)
         
@@ -1381,8 +1403,8 @@ def update_channel_alpha(self, context):
 
             # Update texture blend nodes
             for i, ch in enumerate(tex.channels):
-                tl_ch = tl.channels[i]
-                if Layer.update_blend_type_(tl_ch, tex, ch):
+                root_ch = tl.channels[i]
+                if Layer.update_blend_type_(root_ch, tex, ch):
                     reconnect_tex_nodes(tex, i)
                     rearrange_tex_nodes(tex)
 

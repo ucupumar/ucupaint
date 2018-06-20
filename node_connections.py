@@ -137,7 +137,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
     for i, ch in enumerate(tex.channels):
         if ch_idx != -1 and i != ch_idx: continue
-        tl_ch = tl.channels[i]
+        root_ch = tl.channels[i]
 
         start_rgb = nodes.get(ch.start_rgb)
         start_alpha = nodes.get(ch.start_alpha)
@@ -149,17 +149,33 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         normal = nodes.get(ch.normal)
         neighbor_uv = nodes.get(ch.neighbor_uv)
         fine_bump = nodes.get(ch.fine_bump)
+
         source_n = nodes.get(ch.source_n)
         source_s = nodes.get(ch.source_s)
         source_e = nodes.get(ch.source_e)
         source_w = nodes.get(ch.source_w)
+
+        mod_n = nodes.get(ch.mod_n)
+        mod_s = nodes.get(ch.mod_s)
+        mod_e = nodes.get(ch.mod_e)
+        mod_w = nodes.get(ch.mod_w)
+
+        bump_base_n = nodes.get(ch.bump_base_n)
+        bump_base_s = nodes.get(ch.bump_base_s)
+        bump_base_e = nodes.get(ch.bump_base_e)
+        bump_base_w = nodes.get(ch.bump_base_w)
+
         normal_flip = nodes.get(ch.normal_flip)
 
         intensity = nodes.get(ch.intensity)
+        intensity_multiplier = nodes.get(ch.intensity_multiplier)
         blend = nodes.get(ch.blend)
 
         # Start and end modifiers
-        check_create_node_link(tree, source.outputs[0], start_rgb.inputs[0])
+        if tex.type != 'IMAGE' and ch.tex_input == 'ALPHA':
+            check_create_node_link(tree, source.outputs[1], start_rgb.inputs[0])
+        else: check_create_node_link(tree, source.outputs[0], start_rgb.inputs[0])
+
         if solid_alpha:
             check_create_node_link(tree, solid_alpha.outputs[0], start_alpha.inputs[0])
         else: check_create_node_link(tree, source.outputs[1], start_alpha.inputs[0])
@@ -168,7 +184,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             check_create_node_link(tree, start_rgb.outputs[0], end_rgb.inputs[0])
             check_create_node_link(tree, start_alpha.outputs[0], end_alpha.inputs[0])
 
-        if tl_ch.type == 'NORMAL':
+        if root_ch.type == 'NORMAL':
             if bump_base:
                 check_create_node_link(tree, end_rgb.outputs[0], bump_base.inputs[2])
                 check_create_node_link(tree, end_alpha.outputs[0], bump_base.inputs[0])
@@ -187,10 +203,32 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 check_create_node_link(tree, neighbor_uv.outputs[3], source_w.inputs[0])
                 #check_create_node_link(tree, source.outputs[0], fine_bump.inputs[1])
                 check_create_node_link(tree, bump_base.outputs[0], fine_bump.inputs[1])
-                check_create_node_link(tree, source_n.outputs[0], fine_bump.inputs[2])
-                check_create_node_link(tree, source_s.outputs[0], fine_bump.inputs[3])
-                check_create_node_link(tree, source_e.outputs[0], fine_bump.inputs[4])
-                check_create_node_link(tree, source_w.outputs[0], fine_bump.inputs[5])
+
+                check_create_node_link(tree, source_n.outputs[0], mod_n.inputs[0])
+                check_create_node_link(tree, source_s.outputs[0], mod_s.inputs[0])
+                check_create_node_link(tree, source_e.outputs[0], mod_e.inputs[0])
+                check_create_node_link(tree, source_w.outputs[0], mod_w.inputs[0])
+
+                check_create_node_link(tree, source_n.outputs[1], mod_n.inputs[1])
+                check_create_node_link(tree, source_s.outputs[1], mod_s.inputs[1])
+                check_create_node_link(tree, source_e.outputs[1], mod_e.inputs[1])
+                check_create_node_link(tree, source_w.outputs[1], mod_w.inputs[1])
+
+                check_create_node_link(tree, mod_n.outputs[0], bump_base_n.inputs[2])
+                check_create_node_link(tree, mod_s.outputs[0], bump_base_s.inputs[2])
+                check_create_node_link(tree, mod_e.outputs[0], bump_base_e.inputs[2])
+                check_create_node_link(tree, mod_w.outputs[0], bump_base_w.inputs[2])
+
+                check_create_node_link(tree, mod_n.outputs[1], bump_base_n.inputs[0])
+                check_create_node_link(tree, mod_s.outputs[1], bump_base_s.inputs[0])
+                check_create_node_link(tree, mod_e.outputs[1], bump_base_e.inputs[0])
+                check_create_node_link(tree, mod_w.outputs[1], bump_base_w.inputs[0])
+
+                check_create_node_link(tree, bump_base_n.outputs[0], fine_bump.inputs[2])
+                check_create_node_link(tree, bump_base_s.outputs[0], fine_bump.inputs[3])
+                check_create_node_link(tree, bump_base_e.outputs[0], fine_bump.inputs[4])
+                check_create_node_link(tree, bump_base_w.outputs[0], fine_bump.inputs[5])
+
                 check_create_node_link(tree, tangent.outputs[0], fine_bump.inputs[6])
                 check_create_node_link(tree, bitangent.outputs[0], fine_bump.inputs[7])
                 check_create_node_link(tree, texcoord.outputs['Normal'], fine_bump.inputs[8])
@@ -213,22 +251,26 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         else:
             check_create_node_link(tree, end_rgb.outputs[0], blend.inputs[2])
 
-        check_create_node_link(tree, end_alpha.outputs[0], intensity.inputs[2])
+        if intensity_multiplier:
+            check_create_node_link(tree, end_alpha.outputs[0], intensity_multiplier.inputs[0])
+            check_create_node_link(tree, intensity_multiplier.outputs[0], intensity.inputs[2])
+        else:
+            check_create_node_link(tree, end_alpha.outputs[0], intensity.inputs[2])
 
-        if tl_ch.type == 'RGB' and ch.blend_type == 'MIX' and tl_ch.alpha:
-            check_create_node_link(tree, start.outputs[tl_ch.io_index], blend.inputs[0])
-            #if tl_ch.alpha:
-            #    check_create_node_link(tree, start.outputs[tl_ch.io_index+1], blend.inputs[1])
-            #    check_create_node_link(tree, blend.outputs[1], end.inputs[tl_ch.io_index+1])
-            check_create_node_link(tree, start.outputs[tl_ch.io_index+1], blend.inputs[1])
-            check_create_node_link(tree, blend.outputs[1], end.inputs[tl_ch.io_index+1])
+        if root_ch.type == 'RGB' and ch.blend_type == 'MIX' and root_ch.alpha:
+            check_create_node_link(tree, start.outputs[root_ch.io_index], blend.inputs[0])
+            #if root_ch.alpha:
+            #    check_create_node_link(tree, start.outputs[root_ch.io_index+1], blend.inputs[1])
+            #    check_create_node_link(tree, blend.outputs[1], end.inputs[root_ch.io_index+1])
+            check_create_node_link(tree, start.outputs[root_ch.io_index+1], blend.inputs[1])
+            check_create_node_link(tree, blend.outputs[1], end.inputs[root_ch.io_index+1])
             check_create_node_link(tree, intensity.outputs[0], blend.inputs[3])
         else:
             check_create_node_link(tree, intensity.outputs[0], blend.inputs[0])
-            check_create_node_link(tree, start.outputs[tl_ch.io_index], blend.inputs[1])
+            check_create_node_link(tree, start.outputs[root_ch.io_index], blend.inputs[1])
 
-        check_create_node_link(tree, blend.outputs[0], end.inputs[tl_ch.io_index])
+        check_create_node_link(tree, blend.outputs[0], end.inputs[root_ch.io_index])
 
-        if tl_ch.type == 'RGB' and ch.blend_type != 'MIX' and tl_ch.alpha:
-            check_create_node_link(tree, start.outputs[tl_ch.io_index+1], end.inputs[tl_ch.io_index+1])
+        if root_ch.type == 'RGB' and ch.blend_type != 'MIX' and root_ch.alpha:
+            check_create_node_link(tree, start.outputs[root_ch.io_index+1], end.inputs[root_ch.io_index+1])
 

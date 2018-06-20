@@ -6,6 +6,9 @@ from bpy.app.handlers import persistent
 TEXGROUP_PREFIX = '~TL Tex '
 ADDON_NAME = 'yTexLayers'
 
+MODIFIER_TREE_START = '__mod_start_'
+MODIFIER_TREE_END = '__mod_end_'
+
 blend_type_items = (("MIX", "Mix", ""),
 	             ("ADD", "Add", ""),
 	             ("SUBTRACT", "Subtract", ""),
@@ -76,6 +79,21 @@ possible_object_types = {
         'CURVE',
         'SURFACE',
         'FONT'
+        }
+
+texture_node_types = {
+        'TEX_IMAGE',
+        'TEX_BRICK',
+        'TEX_ENVIRONMENT',
+        'TEX_CHECKER',
+        'TEX_GRADIENT',
+        'TEX_MAGIC',
+        'TEX_MUSGRAVE',
+        'TEX_NOISE',
+        'TEX_POINTDENSITY',
+        'TEX_SKY',
+        'TEX_VORONOI',
+        'TEX_WAVE',
         }
 
 GAMMA = 2.2
@@ -169,7 +187,7 @@ def linear_to_srgb(inp):
         return c
 
 def copy_node_props_(source, dest, extras = []):
-    print()
+    #print()
     props = dir(source)
     filters = ['rna_type']
     filters.extend(extras)
@@ -182,9 +200,10 @@ def copy_node_props_(source, dest, extras = []):
         # Copy stuff here
         try: 
             setattr(dest, prop, val)
-            print('SUCCESS:', prop, val)
+            #print('SUCCESS:', prop, val)
         except: 
-            print('FAILED:', prop, val)
+            #print('FAILED:', prop, val)
+            pass
 
 def copy_node_props(source ,dest, extras = []):
     # Copy node props
@@ -226,6 +245,11 @@ def copy_node_props(source ,dest, extras = []):
                 elem_copy = dest.color_ramp.elements.new(elem.position)
             else: elem_copy = dest.color_ramp.elements[i]
             copy_node_props_(elem, elem_copy)
+
+    elif source.type in texture_node_types:
+
+        # Copy texture mapping
+        copy_node_props_(source.texture_mapping, dest.texture_mapping)
 
     # Copy inputs default value
     for i, inp in enumerate(source.inputs):

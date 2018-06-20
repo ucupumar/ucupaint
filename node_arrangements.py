@@ -37,18 +37,18 @@ def refresh_tl_channel_frame(ch, nodes):
 
     return start_frame, end_frame
 
-def refresh_tex_channel_frame(tl_ch, ch, nodes):
+def refresh_tex_channel_frame(root_ch, ch, nodes):
 
     pipeline_frame = nodes.get(ch.pipeline_frame)
     if not pipeline_frame:
         pipeline_frame = nodes.new('NodeFrame')
         ch.pipeline_frame = pipeline_frame.name
 
-    check_set_node_label(pipeline_frame, tl_ch.name + ' Pipeline')
+    check_set_node_label(pipeline_frame, root_ch.name + ' Pipeline')
 
     blend = nodes.get(ch.blend)
     if blend:
-        check_set_node_label(blend, tl_ch.name + ' Blend')
+        check_set_node_label(blend, root_ch.name + ' Blend')
 
     return pipeline_frame
 
@@ -101,9 +101,9 @@ def rearrange_tex_frame_nodes(tex):
 
     # Texture channels
     for i, ch in enumerate(tex.channels):
-        tl_ch = tl.channels[i]
+        root_ch = tl.channels[i]
 
-        pipeline_frame = refresh_tex_channel_frame(tl_ch, ch, nodes)
+        pipeline_frame = refresh_tex_channel_frame(root_ch, ch, nodes)
         
         start_rgb = nodes.get(ch.start_rgb)
         start_alpha = nodes.get(ch.start_alpha)
@@ -201,7 +201,7 @@ def create_info_nodes(group_tree, tex=None):
 def arrange_modifier_nodes(nodes, parent, loc):
 
     if hasattr(parent, 'mod_tree') and parent.mod_tree:
-        mod_tree_start = parent.mod_tree.nodes.get(parent.mod_tree_start)
+        mod_tree_start = parent.mod_tree.nodes.get(MODIFIER_TREE_START)
         if mod_tree_start.location != loc: mod_tree_start.location = loc
         loc.x += 200
 
@@ -307,7 +307,7 @@ def arrange_modifier_nodes(nodes, parent, loc):
         loc.x += 100
 
     if hasattr(parent, 'mod_tree') and parent.mod_tree:
-        mod_tree_end = parent.mod_tree.nodes.get(parent.mod_tree_end)
+        mod_tree_end = parent.mod_tree.nodes.get(MODIFIER_TREE_END)
         if mod_tree_end.location != loc: mod_tree_end.location = loc
         loc.x += 200
 
@@ -374,14 +374,26 @@ def rearrange_tex_nodes(tex):
         bump = nodes.get(ch.bump)
         neighbor_uv = nodes.get(ch.neighbor_uv)
         fine_bump = nodes.get(ch.fine_bump)
+
         source_n = nodes.get(ch.source_n)
         source_s = nodes.get(ch.source_s)
         source_e = nodes.get(ch.source_e)
         source_w = nodes.get(ch.source_w)
 
+        mod_n = nodes.get(ch.mod_n)
+        mod_s = nodes.get(ch.mod_s)
+        mod_e = nodes.get(ch.mod_e)
+        mod_w = nodes.get(ch.mod_w)
+
+        bump_base_n = nodes.get(ch.bump_base_n)
+        bump_base_s = nodes.get(ch.bump_base_s)
+        bump_base_e = nodes.get(ch.bump_base_e)
+        bump_base_w = nodes.get(ch.bump_base_w)
+
         normal_flip = nodes.get(ch.normal_flip)
 
         intensity = nodes.get(ch.intensity)
+        intensity_multiplier = nodes.get(ch.intensity_multiplier)
 
         loc.x = start_x
         bookmark_y = loc.y
@@ -436,12 +448,41 @@ def rearrange_tex_nodes(tex):
 
         if check_set_node_location(source_w, loc):
             loc.y = bookmark_y
-            loc.x += 140.0
+            loc.x += 120.0
+
+        if check_set_node_location(mod_n, loc):
+            loc.y -= 40.0
+
+        if check_set_node_location(mod_s, loc):
+            loc.y -= 40.0
+
+        if check_set_node_location(mod_e, loc):
+            loc.y -= 40.0
+
+        if check_set_node_location(mod_w, loc):
+            loc.y = bookmark_y
+            loc.x += 120.0
+
+        if check_set_node_location(bump_base_n, loc):
+            loc.y -= 40.0
+
+        if check_set_node_location(bump_base_s, loc):
+            loc.y -= 40.0
+
+        if check_set_node_location(bump_base_e, loc):
+            loc.y -= 40.0
+
+        if check_set_node_location(bump_base_w, loc):
+            loc.y = bookmark_y
+            loc.x += 200.0
 
         if check_set_node_location(fine_bump, loc):
             loc.x += 200.0
 
         if check_set_node_location(normal_flip, loc):
+            loc.x += 200.0
+
+        if check_set_node_location(intensity_multiplier, loc):
             loc.x += 200.0
 
         if check_set_node_location(intensity, loc):

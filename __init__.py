@@ -1,4 +1,5 @@
 # TODO (Immediate):
+# - Musgrave texture
 # - Check for more consistent class names and properties
 # - Eraser brush (check for ypanel implementation)
 #
