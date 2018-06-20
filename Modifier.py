@@ -349,7 +349,9 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         m.multiplier = multiplier.name
 
         links.new(start_rgb.outputs[0], multiplier.inputs[0])
+        links.new(start_alpha.outputs[0], multiplier.inputs[1])
         links.new(multiplier.outputs[0], end_rgb.inputs[0])
+        links.new(multiplier.outputs[1], end_alpha.inputs[0])
 
         frame.label = 'Multiplier'
         multiplier.parent = frame
@@ -686,12 +688,19 @@ def draw_modifier_properties(context, channel, nodes, modifier, layout):
         #col.label('Contrast:')
 
         col = layout.column(align=True)
+        row = col.row()
+        row.label('Clamp:')
+        row.prop(modifier, 'use_clamp', text='')
         if modifier.channel_type == 'VALUE':
-            col.prop(multiplier.inputs[1], 'default_value', text='Value')
+            col.prop(multiplier.inputs[3], 'default_value', text='Value')
+            col.prop(multiplier.inputs[4], 'default_value', text='Alpha')
         else:
-            col.prop(multiplier.inputs[1], 'default_value', text='R')
-            col.prop(multiplier.inputs[2], 'default_value', text='G')
-            col.prop(multiplier.inputs[3], 'default_value', text='B')
+            col.prop(multiplier.inputs[3], 'default_value', text='R')
+            col.prop(multiplier.inputs[4], 'default_value', text='G')
+            col.prop(multiplier.inputs[5], 'default_value', text='B')
+            #col = layout.column(align=True)
+            col.separator()
+            col.prop(multiplier.inputs[6], 'default_value', text='Alpha')
 
 class NODE_UL_y_texture_modifiers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -839,6 +848,25 @@ def update_invert_channel(self, context):
             invert.inputs[5].default_value = 1.0
         else: invert.inputs[5].default_value = 0.0
 
+def update_use_clamp(self, context):
+    group_tree = self.id_data
+    tl = group_tree.tl
+
+    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    if match1:
+        tex = tl.textures[int(match1.group(1))]
+        ch = tex.channels[int(match1.group(2))]
+        if ch.mod_tree: nodes = ch.mod_tree.nodes
+        else: nodes = tex.tree.nodes
+    elif match2: 
+        nodes = group_tree.nodes
+    else: return None
+
+    if self.type == 'MULTIPLIER':
+        multiplier = nodes.get(self.multiplier)
+        multiplier.inputs[2].default_value = 1.0 if self.use_clamp else 0.0
+
 class YTextureModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)
     name = StringProperty(default='')
@@ -893,6 +921,9 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     # Individual modifier node frame
     frame = StringProperty(default='')
+
+    # Clamp prop is available in some modifiers
+    use_clamp = BoolProperty(name='Use Clamp', default=False, update=update_use_clamp)
 
     shortcut = BoolProperty(
             name = 'Property Shortcut',

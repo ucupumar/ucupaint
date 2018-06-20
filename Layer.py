@@ -1392,6 +1392,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     intensity_multiplier_value = FloatProperty(
             name = 'Intensity Multiplier',
+            description = 'Intensity Multiplier (can be useful for sharper normal blending transition)',
             default=1.0, min=1.0, max=100.0, 
             update=update_intensity_multiplier)
 

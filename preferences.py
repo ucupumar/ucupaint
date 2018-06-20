@@ -44,7 +44,9 @@ def refresh_float_image_hack(scene):
             tl = node.node_tree.tl
             if len(tl.textures) > 0:
                 tex = tl.textures[tl.active_texture_index]
-                source = tex.tree.nodes.get(tex.source)
+                if tex.source_tree:
+                    source = tex.source_tree.nodes.get(tex.source)
+                else: source = tex.tree.nodes.get(tex.source)
                 if hasattr(source, 'image'):
                     image = source.image
                     # Just reload image to fix glitched float image

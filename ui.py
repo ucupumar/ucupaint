@@ -571,7 +571,7 @@ def main_draw(self, context):
                                 brow.prop(ch, 'fine_bump_scale', text='')
 
                             brow = cccol.row(align=True)
-                            brow.label('Hardness:') #, icon='INFO')
+                            brow.label('Intensity Multiplier:') #, icon='INFO')
                             brow.prop(ch, 'intensity_multiplier_value', text='')
 
                             if tlui.expand_channels:

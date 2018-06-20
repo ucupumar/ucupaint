@@ -67,7 +67,9 @@ def save_pack_all(tl, only_dirty = True):
     for tex in tl.textures:
         T = time.time()
         if tex.type != 'IMAGE': continue
-        source = tex.tree.nodes.get(tex.source)
+        if tex.source_tree:
+            source = tex.source_tree.nodes.get(tex.source)
+        else: source = tex.tree.nodes.get(tex.source)
         image = source.image
         if only_dirty and not image.is_dirty: continue
         if image.packed_file or image.filepath == '':
@@ -88,7 +90,9 @@ def save_pack_all(tl, only_dirty = True):
     if len(tl.textures) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
         tex = tl.textures[tl.active_texture_index]
         if tex.type == 'IMAGE':
-            source = tex.tree.nodes.get(tex.source)
+            if tex.source_tree:
+                source = tex.source_tree.nodes.get(tex.source)
+            else: source = tex.tree.nodes.get(tex.source)
             image = source.image
             if image in packed_float_images:
                 tlui = bpy.context.window_manager.tlui
