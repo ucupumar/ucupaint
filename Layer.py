@@ -119,6 +119,25 @@ def channel_items(self, context):
 
     return items
 
+def tex_input_items(self, context):
+    tl = self.id_data.tl
+
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    if not m: return []
+    #tex = tl.textures[int(m.group(1))]
+    root_ch = tl.channels[int(m.group(2))]
+
+    items = []
+
+    if root_ch.colorspace == 'SRGB':
+        items.append(('RGB_LINEAR', 'Color (Linear)', ''))
+        items.append(('RGB_SRGB', 'Color (Gamma)',  ''))
+    else: items.append(('RGB_LINEAR', 'Color', ''))
+        
+    items.append(('ALPHA', 'Factor',  ''))
+
+    return items
+
 def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, normal_map_type, 
         texcoord_type, uv_map_name='', image=None, add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1)):
 
@@ -442,7 +461,6 @@ class YNewTextureLayer(bpy.types.Operator):
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
             crow.prop_search(self, "uv_map", obj.data, "uv_textures", text='', icon='GROUP_UVS')
 
-
     def execute(self, context):
 
         T = time.time()
@@ -473,6 +491,12 @@ class YNewTextureLayer(bpy.types.Operator):
                 self.normal_map_type, self.texcoord_type, self.uv_map, img, 
                 self.add_rgb_to_intensity, self.rgb_to_intensity_color)
         tl.halt_update = False
+
+        # Some texture type better be at sRGB colorspace
+        if tex.type in {'CHECKER'}:
+            for i, root_ch in enumerate(tl.channels):
+                if root_ch.colorspace == 'SRGB':
+                    tex.channels[i].tex_input = 'RGB_SRGB'
 
         # Reconnect and rearrange nodes
         reconnect_tl_tex_nodes(node.node_tree)
@@ -1219,17 +1243,31 @@ def update_intensity_multiplier(self, context):
 
 def update_tex_input(self, context):
     tl = self.id_data.tl
-    tex = tl.textures[self.texture_index]
+
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    if not m: return
+    tex = tl.textures[int(m.group(1))]
+    root_ch = tl.channels[int(m.group(2))]
+
+    if tex.type == 'IMAGE': return
+
+    linear = tex.tree.nodes.get(self.linear)
+    if self.tex_input == 'RGB_SRGB' and not linear:
+        if root_ch.type == 'VALUE':
+            linear = tex.tree.nodes.new('ShaderNodeMath')
+            linear.operation = 'POWER'
+        elif root_ch.type == 'RGB':
+            linear = tex.tree.nodes.new('ShaderNodeGamma')
+        linear.label = 'Linear'
+        linear.inputs[1].default_value = 1.0 / GAMMA
+        self.linear = linear.name
+
+    if self.tex_input != 'RGB_SRGB' and linear:
+        tex.tree.nodes.remove(linear)
+        self.linear = ''
 
     reconnect_tex_nodes(tex)
-    #source = tex.tree.nodes.get(tex.source)
-    #start_rgb = tex.tree.nodes.get(self.start_rgb)
-
-    #if self.tex_input == 'RGB': index = 0
-    #elif self.tex_input == 'ALPHA': index = 1
-    #else: return
-
-    #tex.tree.links.new(source.outputs[index], start_rgb.inputs[0])
+    rearrange_tex_nodes(tex)
 
 def update_uv_name(self, context):
     group_tree = self.id_data
@@ -1281,9 +1319,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     tex_input = EnumProperty(
             name = 'Input from Texture',
-            items = (('RGB', 'Color', ''),
-                     ('ALPHA', 'Alpha / Factor', '')),
-            default = 'RGB',
+            #items = (('RGB', 'Color', ''),
+            #         ('ALPHA', 'Alpha / Factor', '')),
+            #default = 'RGB',
+            items = tex_input_items,
             update = update_tex_input)
 
     texture_index = IntProperty(default=0, update=update_channel_texture_index)
@@ -1337,7 +1376,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     invert_backface_normal = BoolProperty(default=False, update=update_flip_backface_normal)
 
     # Node names
-    #linear = StringProperty(default='')
+    linear = StringProperty(default='')
     blend = StringProperty(default='')
     intensity = StringProperty(default='')
 

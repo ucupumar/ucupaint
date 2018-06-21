@@ -20,9 +20,9 @@ channel_socket_custom_icon_names = {
     'NORMAL' : 'vector_channel',
 }
 
-non_color_data_items = (
-    ('NON_COLOR', 'Non-Color Data', ''),
-    ('COLOR', 'Color Data', '')
+colorspace_items = (
+    ('LINEAR', 'Non-Color Data', ''),
+    ('SRGB', 'Color Data', '')
         
 )
 
@@ -242,8 +242,8 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
     if channel_type in {'RGB', 'VALUE'}:
         print('AAAA', non_color)
         if non_color:
-            channel.non_color_data = 'NON_COLOR'
-        else: channel.non_color_data = 'COLOR'
+            channel.colorspace = 'LINEAR'
+        else: channel.colorspace = 'SRGB'
 
     return channel
 
@@ -567,11 +567,11 @@ class YNewTLChannel(bpy.types.Operator):
     connect_to = StringProperty(name='Connect To', default='', update=update_connect_to)
     input_coll = CollectionProperty(type=YNodeInputCollItem)
 
-    non_color_data = EnumProperty(
+    colorspace = EnumProperty(
             name = 'Color Space',
             description = "Non color won't converted to linear first before blending",
-            items = non_color_data_items,
-            default='NON_COLOR')
+            items = colorspace_items,
+            default='LINEAR')
 
     @classmethod
     def poll(cls, context):
@@ -604,10 +604,10 @@ class YNewTLChannel(bpy.types.Operator):
 
         if self.type == 'RGB':
             self.name = 'Color'
-            self.non_color_data = 'COLOR'
+            self.colorspace = 'SRGB'
         elif self.type == 'VALUE':
             self.name = 'Value'
-            self.non_color_data = 'NON_COLOR'
+            self.colorspace = 'LINEAR'
         elif self.type == 'NORMAL':
             self.name = 'Normal'
 
@@ -637,7 +637,7 @@ class YNewTLChannel(bpy.types.Operator):
         col.prop_search(self, "connect_to", self, "input_coll", icon = 'NODETREE', text='')
                 #lib.custom_icons[channel_socket_custom_icon_names[self.type]].icon_id)
         if self.type != 'NORMAL':
-            col.prop(self, "non_color_data", text='')
+            col.prop(self, "colorspace", text='')
 
     def execute(self, context):
 
@@ -663,7 +663,7 @@ class YNewTLChannel(bpy.types.Operator):
 
         # Create new tl channel
         channel = create_new_tl_channel(group_tree, self.name, self.type, 
-                non_color=self.non_color_data == 'NON_COLOR')
+                non_color=self.colorspace == 'LINEAR')
 
         # Rearrange nodes
         rearrange_tl_nodes(group_tree)
@@ -1240,7 +1240,7 @@ def update_texture_index(self, context):
                 obj.data.uv_textures.active_index = i
                 break
 
-def update_channel_non_color_data(self, context):
+def update_channel_colorspace(self, context):
     group_tree = self.id_data
     tl = group_tree.tl
     nodes = group_tree.nodes
@@ -1248,8 +1248,9 @@ def update_channel_non_color_data(self, context):
     start_linear = nodes.get(self.start_linear)
     end_linear = nodes.get(self.end_linear)
 
-    start_linear.mute = end_linear.mute = self.non_color_data == 'NON_COLOR'
+    start_linear.mute = end_linear.mute = self.colorspace == 'LINEAR'
 
+    # Check for modifier that aware of colorspace
     channel_index = -1
     for i, c in enumerate(tl.channels):
         if c == self:
@@ -1257,19 +1258,24 @@ def update_channel_non_color_data(self, context):
             for mod in c.modifiers:
                 if mod.type == 'RGB_TO_INTENSITY':
                     rgb2i = nodes.get(mod.rgb2i)
-                    if self.non_color_data == 'NON_COLOR':
+                    if self.colorspace == 'LINEAR':
                         rgb2i.inputs['Linearize'].default_value = 0.0
                     else: rgb2i.inputs['Linearize'].default_value = 1.0
 
     for tex in tl.textures:
-        for i, ch in enumerate(tex.channels):
-            if i != channel_index: continue
-            for mod in ch.modifiers:
-                if mod.type == 'RGB_TO_INTENSITY':
-                    rgb2i = tex.tree.nodes.get(mod.rgb2i)
-                    if self.non_color_data == 'NON_COLOR':
-                        rgb2i.inputs['Linearize'].default_value = 0.0
-                    else: rgb2i.inputs['Linearize'].default_value = 1.0
+        ch = tex.channels[channel_index]
+
+        # Check for linear node
+        linear = tex.tree.nodes.get(ch.linear)
+        if self.colorspace == 'LINEAR' and linear:
+            ch.tex_input = 'RGB_LINEAR'
+
+        for mod in ch.modifiers:
+            if mod.type == 'RGB_TO_INTENSITY':
+                rgb2i = tex.tree.nodes.get(mod.rgb2i)
+                if self.colorspace == 'LINEAR':
+                    rgb2i.inputs['Linearize'].default_value = 0.0
+                else: rgb2i.inputs['Linearize'].default_value = 1.0
 
 def update_channel_alpha(self, context):
     group_tree = self.id_data
@@ -1434,12 +1440,12 @@ class YRootChannel(bpy.types.PropertyGroup):
     io_index = IntProperty(default=-1)
     alpha = BoolProperty(default=False, update=update_channel_alpha)
 
-    non_color_data = EnumProperty(
+    colorspace = EnumProperty(
             name = 'Color Space',
             description = "Non color won't converted to linear first before blending",
-            items = non_color_data_items,
-            default='NON_COLOR',
-            update=update_channel_non_color_data)
+            items = colorspace_items,
+            default='LINEAR',
+            update=update_channel_colorspace)
 
     modifiers = CollectionProperty(type=Modifier.YTextureModifier)
     active_modifier_index = IntProperty(default=0)

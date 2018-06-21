@@ -139,6 +139,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         if ch_idx != -1 and i != ch_idx: continue
         root_ch = tl.channels[i]
 
+        linear = nodes.get(ch.linear)
+
         start_rgb = nodes.get(ch.start_rgb)
         start_alpha = nodes.get(ch.start_alpha)
         end_rgb = nodes.get(ch.end_rgb)
@@ -171,10 +173,15 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         intensity_multiplier = nodes.get(ch.intensity_multiplier)
         blend = nodes.get(ch.blend)
 
-        # Start and end modifiers
+        # Source output
         if tex.type != 'IMAGE' and ch.tex_input == 'ALPHA':
-            check_create_node_link(tree, source.outputs[1], start_rgb.inputs[0])
-        else: check_create_node_link(tree, source.outputs[0], start_rgb.inputs[0])
+            source_index = 1
+        else: source_index = 0
+
+        if linear:
+            check_create_node_link(tree, source.outputs[source_index], linear.inputs[0])
+            check_create_node_link(tree, linear.outputs[0], start_rgb.inputs[0])
+        else: check_create_node_link(tree, source.outputs[source_index], start_rgb.inputs[0])
 
         if solid_alpha:
             check_create_node_link(tree, solid_alpha.outputs[0], start_alpha.inputs[0])
@@ -204,10 +211,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 #check_create_node_link(tree, source.outputs[0], fine_bump.inputs[1])
                 check_create_node_link(tree, bump_base.outputs[0], fine_bump.inputs[1])
 
-                check_create_node_link(tree, source_n.outputs[0], mod_n.inputs[0])
-                check_create_node_link(tree, source_s.outputs[0], mod_s.inputs[0])
-                check_create_node_link(tree, source_e.outputs[0], mod_e.inputs[0])
-                check_create_node_link(tree, source_w.outputs[0], mod_w.inputs[0])
+                check_create_node_link(tree, source_n.outputs[source_index], mod_n.inputs[0])
+                check_create_node_link(tree, source_s.outputs[source_index], mod_s.inputs[0])
+                check_create_node_link(tree, source_e.outputs[source_index], mod_e.inputs[0])
+                check_create_node_link(tree, source_w.outputs[source_index], mod_w.inputs[0])
 
                 check_create_node_link(tree, source_n.outputs[1], mod_n.inputs[1])
                 check_create_node_link(tree, source_s.outputs[1], mod_s.inputs[1])

@@ -136,7 +136,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
     else: return None
 
     # Get non color flag
-    non_color = root_ch.non_color_data == 'NON_COLOR'
+    non_color = root_ch.colorspace == 'LINEAR'
 
     # Remove previous start and end if ref tree is passed
     if ref_tree:

@@ -320,7 +320,7 @@ def main_draw(self, context):
                     brow.label('', icon='INFO')
                     split = brow.split(percentage=0.375)
                     split.label('Space:')
-                    split.prop(channel, 'non_color_data', text='')
+                    split.prop(channel, 'colorspace', text='')
 
     icon = 'TRIA_DOWN' if tlui.show_textures else 'TRIA_RIGHT'
     row = layout.row(align=True)

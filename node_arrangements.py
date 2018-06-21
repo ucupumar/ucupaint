@@ -105,6 +105,8 @@ def rearrange_tex_frame_nodes(tex):
 
         pipeline_frame = refresh_tex_channel_frame(root_ch, ch, nodes)
         
+        linear = nodes.get(ch.linear)
+        
         start_rgb = nodes.get(ch.start_rgb)
         start_alpha = nodes.get(ch.start_alpha)
         end_rgb = nodes.get(ch.end_rgb)
@@ -117,6 +119,8 @@ def rearrange_tex_frame_nodes(tex):
 
         intensity = nodes.get(ch.intensity)
         blend = nodes.get(ch.blend)
+
+        check_set_node_parent(linear, pipeline_frame)
 
         check_set_node_parent(start_rgb, pipeline_frame)
         check_set_node_parent(start_alpha, pipeline_frame)
@@ -362,6 +366,8 @@ def rearrange_tex_nodes(tex):
 
     for i, ch in enumerate(tex.channels):
 
+        linear = nodes.get(ch.linear)
+
         start_rgb = nodes.get(ch.start_rgb)
         end_rgb = nodes.get(ch.end_rgb)
         start_alpha = nodes.get(ch.start_alpha)
@@ -399,13 +405,16 @@ def rearrange_tex_nodes(tex):
         bookmark_y = loc.y
         bookmarks_ys.append(bookmark_y)
 
+        if check_set_node_location(linear, loc):
+            loc.x += 200.0
+
         loc.y -= 35
         check_set_node_location(start_rgb, loc)
 
         loc.y -= 35
         check_set_node_location(start_alpha, loc)
 
-        loc.x = start_x + 50
+        loc.x += + 50
         loc.y = bookmark_y
 
         # Modifier loop
