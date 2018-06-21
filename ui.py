@@ -85,6 +85,28 @@ def draw_tex_props(group_tree, tex, layout):
         col.prop(source.inputs[1], 'default_value', text='')
         col.prop(source.inputs[2], 'default_value', text='')
 
+    elif title == 'Musgrave':
+
+        row = col.row()
+        col = row.column(align=True)
+        col.label('Type:')
+        col.separator()
+        col.label('Scale:')
+        col.label('Detail:')
+        col.label('Dimension:')
+        col.label('Lacunarity:')
+        col.label('Offset:')
+        col.label('Gain:')
+        col = row.column(align=True)
+        col.prop(source, 'musgrave_type', text='')
+        col.separator()
+        col.prop(source.inputs[1], 'default_value', text='')
+        col.prop(source.inputs[2], 'default_value', text='')
+        col.prop(source.inputs[3], 'default_value', text='')
+        col.prop(source.inputs[4], 'default_value', text='')
+        col.prop(source.inputs[5], 'default_value', text='')
+        col.prop(source.inputs[6], 'default_value', text='')
+
     elif title == 'Noise':
 
         row = col.row()
@@ -931,6 +953,7 @@ class YNewTexMenu(bpy.types.Menu):
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Checker').type = 'CHECKER'
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Gradient').type = 'GRADIENT'
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Magic').type = 'MAGIC'
+        col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Musgrave').type = 'MUSGRAVE'
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Noise').type = 'NOISE'
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Voronoi').type = 'VORONOI'
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Wave').type = 'WAVE'

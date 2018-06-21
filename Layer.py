@@ -17,6 +17,7 @@ texture_node_bl_idnames = {
         'CHECKER' : 'ShaderNodeTexChecker',
         'GRADIENT' : 'ShaderNodeTexGradient',
         'MAGIC' : 'ShaderNodeTexMagic',
+        'MUSGRAVE' : 'ShaderNodeTexMusgrave',
         'NOISE' : 'ShaderNodeTexNoise',
         'POINT_DENSITY' : 'ShaderNodeTexPointDensity',
         'SKY' : 'ShaderNodeTexSky',

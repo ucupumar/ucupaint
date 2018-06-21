@@ -44,6 +44,7 @@ texture_type_items = (
         ('CHECKER', 'Checker', ''),
         ('GRADIENT', 'Gradient', ''),
         ('MAGIC', 'Magic', ''),
+        ('MUSGRAVE', 'Musgrave', ''),
         ('NOISE', 'Noise', ''),
         #('POINT_DENSITY', 'Point Density', ''),
         #('SKY', 'Sky', ''),
