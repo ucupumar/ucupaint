@@ -240,7 +240,6 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
         tex.channels[last_index].enable = enable
 
     if channel_type in {'RGB', 'VALUE'}:
-        print('AAAA', non_color)
         if non_color:
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'

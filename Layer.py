@@ -280,6 +280,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
                 m.shortcut = True
                 shortcut_created = True
 
+
     # Refresh paint image by updating the index
     tl.active_texture_index = index
 
@@ -384,6 +385,7 @@ class YNewTextureLayer(bpy.types.Operator):
         else:
             name = obj.active_material.name + DEFAULT_NEW_IMG_SUFFIX
             items = bpy.data.images
+            self.normal_map_type = 'FINE_BUMP_MAP'
 
         self.name = get_unique_name(name, items)
 
@@ -1035,6 +1037,9 @@ def update_normal_map_type(self, context):
         if tex.type == 'IMAGE' and source.image:
             neighbor_uv.inputs[1].default_value = source.image.size[0]
             neighbor_uv.inputs[2].default_value = source.image.size[1]
+        else:
+            neighbor_uv.inputs[1].default_value = 1000
+            neighbor_uv.inputs[2].default_value = 1000
 
         if not fine_bump:
             fine_bump = nodes.new('ShaderNodeGroup')
@@ -1306,6 +1311,7 @@ def update_texcoord_type(self, context):
         links.new(texcoord.outputs[self.texcoord_type], source.inputs[0])
 
 def update_texture_enable(self, context):
+    print(self.id_data, self.id_data.users)
     group_tree = self.id_data
     tex = self
 
@@ -1367,8 +1373,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mod_tree = PointerProperty(type=bpy.types.ShaderNodeTree)
 
     # Blur
-    enable_blur = BoolProperty(default=False, update=Blur.update_tex_channel_blur)
-    blur = PointerProperty(type=Blur.YTextureBlur)
+    #enable_blur = BoolProperty(default=False, update=Blur.update_tex_channel_blur)
+    #blur = PointerProperty(type=Blur.YTextureBlur)
 
     # For UI
     expand_bump_settings = BoolProperty(default=False)

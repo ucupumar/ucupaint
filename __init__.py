@@ -1,5 +1,5 @@
 # TODO (Immediate):
-# - Musgrave texture
+# - Musgrave texture (V)
 # - Check for more consistent class names and properties
 # - Eraser brush (check for ypanel implementation)
 #
@@ -16,6 +16,7 @@
 # BUGS:
 #
 # KNOWN ISSUES:
+# - Musgrave fine bump cannot read below 0.0
 # - Cycles has limit of 32 images per material, NOT per node_tree
 # - Limit decrease to 20 images if alpha is used
 # - Use of cineon images will cause crash (??)
