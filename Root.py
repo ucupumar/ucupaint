@@ -1206,37 +1206,47 @@ def update_texture_index(self, context):
 
     if (len(self.textures) == 0 or
         self.active_texture_index >= len(self.textures) or self.active_texture_index < 0): 
-        Layer.update_image_editor_image(context, None)
+        update_image_editor_image(context, None)
         scene.tool_settings.image_paint.canvas = None
         return
+
+    tex = self.textures[self.active_texture_index]
 
     # Set image paint mode to Image
     scene.tool_settings.image_paint.mode = 'IMAGE'
 
-    tex = self.textures[self.active_texture_index]
-    if tex.type != 'IMAGE': 
-        Layer.update_image_editor_image(context, None)
-        scene.tool_settings.image_paint.canvas = None
-        return
+    uv_name = ''
+    image = None
 
-    # Get source image
-    if tex.source_tree:
-        source = tex.source_tree.nodes.get(tex.source)
-    else: source = tex.tree.nodes.get(tex.source)
-    if not source or not source.image: return
+    for mask in tex.masks:
+        if mask.type == 'IMAGE' and mask.active_edit:
+            uv_map = tex.tree.nodes.get(mask.uv_map)
+            uv_name = uv_map.uv_map
+            if mask.tree:
+                source = mask.tree.nodes.get(mask.source)
+            else: source = tex.tree.nodes.get(mask.source)
+            image = source.image
+
+    if not image and tex.type == 'IMAGE':
+        uv_map = tex.tree.nodes.get(tex.uv_map)
+        uv_name = uv_map.uv_map
+        if tex.source_tree:
+            source = tex.source_tree.nodes.get(tex.source)
+        else: source = tex.tree.nodes.get(tex.source)
+        image = source.image
 
     # Update image editor
-    Layer.update_image_editor_image(context, source.image)
+    update_image_editor_image(context, image)
 
     # Update tex paint
-    scene.tool_settings.image_paint.canvas = source.image
+    scene.tool_settings.image_paint.canvas = image
 
     # Update uv layer
     if obj.type == 'MESH':
-        uv_map = tex.tree.nodes.get(tex.uv_map)
         for i, uv in enumerate(obj.data.uv_textures):
-            if uv.name == uv_map.uv_map:
-                obj.data.uv_textures.active_index = i
+            if uv.name == uv_name:
+                if obj.data.uv_textures.active_index != i:
+                    obj.data.uv_textures.active_index = i
                 break
 
 def update_channel_colorspace(self, context):

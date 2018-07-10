@@ -339,6 +339,26 @@ def rearrange_source_tree_nodes(tex):
 
     check_set_node_location(end, loc)
 
+def rearrange_mask_tree_nodes(mask):
+    source = mask.tree.nodes.get(mask.source)
+    hardness = mask.tree.nodes.get(mask.hardness)
+    start = mask.tree.nodes.get(MASK_TREE_START)
+    end = mask.tree.nodes.get(MASK_TREE_END)
+
+    loc = Vector((0, 0))
+
+    if check_set_node_location(start, loc):
+        loc.x += 180
+
+    if check_set_node_location(source, loc):
+        loc.x += 180
+
+    if check_set_node_location(hardness, loc):
+        loc.x += 180
+
+    if check_set_node_location(end, loc):
+        loc.x += 180
+
 def rearrange_tex_nodes(tex):
     tree = tex.tree
     nodes = tree.nodes
@@ -414,7 +434,7 @@ def rearrange_tex_nodes(tex):
         loc.y -= 35
         check_set_node_location(start_alpha, loc)
 
-        loc.x += + 50
+        loc.x += 50
         loc.y = bookmark_y
 
         # Modifier loop
@@ -488,6 +508,48 @@ def rearrange_tex_nodes(tex):
         if check_set_node_location(fine_bump, loc):
             loc.x += 200.0
 
+        # Check bump mask channel
+        for m in tex.masks:
+            c = m.channels[i]
+            if c.enable_bump:
+                mask_neighbor_uv = nodes.get(c.neighbor_uv)
+                mask_fine_bump = nodes.get(c.fine_bump)
+                mask_vector_mix = nodes.get(c.vector_mix)
+                mask_source_n = nodes.get(c.source_n)
+                mask_source_s = nodes.get(c.source_s)
+                mask_source_e = nodes.get(c.source_e)
+                mask_source_w = nodes.get(c.source_w)
+                mask_invert = nodes.get(c.invert)
+                mask_vector_intensity_multiplier = nodes.get(c.vector_intensity_multiplier)
+
+                if check_set_node_location(mask_neighbor_uv, loc):
+                    loc.x += 200.0
+
+                if check_set_node_location(mask_source_n, loc):
+                    loc.y -= 40.0
+
+                if check_set_node_location(mask_source_s, loc):
+                    loc.y -= 40.0
+
+                if check_set_node_location(mask_source_e, loc):
+                    loc.y -= 40.0
+
+                if check_set_node_location(mask_source_w, loc):
+                    loc.y = bookmark_y
+                    loc.x += 140.0
+
+                if check_set_node_location(mask_fine_bump, loc):
+                    loc.x += 200.0
+
+                if check_set_node_location(mask_invert, loc):
+                    loc.x += 200.0
+
+                if check_set_node_location(mask_vector_intensity_multiplier, loc):
+                    loc.x += 200.0
+
+                if check_set_node_location(mask_vector_mix, loc):
+                    loc.x += 200.0
+
         if check_set_node_location(normal_flip, loc):
             loc.x += 200.0
 
@@ -496,6 +558,30 @@ def rearrange_tex_nodes(tex):
 
         if check_set_node_location(intensity, loc):
             loc.x += 200.0
+
+        for j, mask in enumerate(tex.masks):
+
+            mask_intensity_multiplier = nodes.get(mask.channels[i].intensity_multiplier)
+            multiply = nodes.get(mask.channels[i].multiply)
+
+            if check_set_node_location(mask_intensity_multiplier, loc):
+                loc.x += 200.0
+
+            if check_set_node_location(multiply, loc):
+                loc.x += 200.0
+
+            mask_ramp = nodes.get(mask.channels[i].ramp)
+            mask_ramp_multiply = nodes.get(mask.channels[i].ramp_multiply)
+            mask_ramp_mix = nodes.get(mask.channels[i].ramp_mix)
+
+            if check_set_node_location(mask_ramp, loc):
+                loc.x += 270.0
+
+            if check_set_node_location(mask_ramp_multiply, loc):
+                loc.x += 170.0
+
+            if check_set_node_location(mask_ramp_mix, loc):
+                loc.x += 200.0
 
         if loc.x > farthest_x: farthest_x = loc.x
 
@@ -524,6 +610,36 @@ def rearrange_tex_nodes(tex):
             #    loc.y += 25
             if len(next_ch.modifiers) > 0:
                 loc.y -= 35
+
+    # Mask sources
+    for j, mask in enumerate(tex.masks):
+        mask_uv_map = nodes.get(mask.uv_map)
+        if mask.tree:
+            mask_source = nodes.get(mask.group)
+            mask_hardness = None
+            rearrange_mask_tree_nodes(mask)
+        else:
+            mask_source = nodes.get(mask.source)
+            mask_hardness = nodes.get(mask.hardness)
+        mask_final = nodes.get(mask.final)
+
+        loc.x = start_x
+
+        if check_set_node_location(mask_uv_map, loc):
+            loc.x += 200
+
+        if check_set_node_location(mask_source, loc):
+            loc.x += 200
+
+        if check_set_node_location(mask_hardness, loc):
+            loc.x += 200
+
+        if mask_final:
+            loc.y -= 35
+            check_set_node_location(mask_final, loc)
+            #loc.x += 200
+
+        loc.y -= 235
 
     if bookmarks_ys:
         mid_y = (bookmarks_ys[-1]) / 2

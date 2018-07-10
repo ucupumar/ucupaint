@@ -2,28 +2,13 @@ import bpy, time, re
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
-from . import Modifier, lib, Blur
+from . import Modifier, lib, Blur, Mask
 from .common import *
 from .node_arrangements import *
 from .node_connections import *
 from .subtree import *
 
 DEFAULT_NEW_IMG_SUFFIX = ' Tex'
-
-texture_node_bl_idnames = {
-        'IMAGE' : 'ShaderNodeTexImage',
-        'ENVIRONMENT' : 'ShaderNodeTexEnvironment',
-        'BRICK' : 'ShaderNodeTexBrick',
-        'CHECKER' : 'ShaderNodeTexChecker',
-        'GRADIENT' : 'ShaderNodeTexGradient',
-        'MAGIC' : 'ShaderNodeTexMagic',
-        'MUSGRAVE' : 'ShaderNodeTexMusgrave',
-        'NOISE' : 'ShaderNodeTexNoise',
-        'POINT_DENSITY' : 'ShaderNodeTexPointDensity',
-        'SKY' : 'ShaderNodeTexSky',
-        'VORONOI' : 'ShaderNodeTexVoronoi',
-        'WAVE' : 'ShaderNodeTexWave',
-        }
 
 def create_texture_channel_nodes(group_tree, texture, channel):
 
@@ -94,12 +79,6 @@ def create_texture_channel_nodes(group_tree, texture, channel):
 
     # Reconnect node inside textures
     reconnect_tex_nodes(texture, ch_index)
-
-def update_image_editor_image(context, image):
-    for area in context.screen.areas:
-        if area.type == 'IMAGE_EDITOR':
-            if not area.spaces[0].use_image_pin:
-                area.spaces[0].image = image
 
 def channel_items(self, context):
     node = get_active_texture_layers_node()
@@ -390,7 +369,8 @@ class YNewTextureLayer(bpy.types.Operator):
         self.name = get_unique_name(name, items)
 
         if obj.type != 'MESH':
-            self.texcoord_type = 'Object'
+            #self.texcoord_type = 'Object'
+            self.texcoord_type = 'Generated'
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_textures) > 0:
@@ -473,9 +453,13 @@ class YNewTextureLayer(bpy.types.Operator):
         tlui = context.window_manager.tlui
 
         # Check if texture with same name is already available
-        same_name = [t for t in tl.textures if t.name == self.name]
+        if self.type == 'IMAGE':
+            same_name = [i for i in bpy.data.images if i.name == self.name]
+        else: same_name = [t for t in tl.textures if t.name == self.name]
         if same_name:
-            self.report({'ERROR'}, "Texture named '" + tex_name +"' is already available!")
+            if self.type == 'IMAGE':
+                self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
+            self.report({'ERROR'}, "Texture named '" + self.name +"' is already available!")
             return {'CANCELLED'}
 
         img = None
@@ -1150,11 +1134,11 @@ def update_blend_type_(root_ch, tex, ch):
                 blend = None
                 need_reconnect = True
         elif root_ch.type == 'NORMAL':
-            if ((ch.normal_blend == 'MIX' and blend.bl_idname == 'ShaderNodeGroup') or
-                (ch.normal_blend == 'OVERLAY' and blend.bl_idname == 'ShaderNodeMixRGB')):
-                nodes.remove(blend)
-                blend = None
-                need_reconnect = True
+            #if ((ch.normal_blend == 'MIX' and blend.bl_idname == 'ShaderNodeGroup') or
+            #    (ch.normal_blend in {'OVERLAY'} and blend.bl_idname == 'ShaderNodeMixRGB')):
+            nodes.remove(blend)
+            blend = None
+            need_reconnect = True
 
     # Create blend node if its missing
     if not blend:
@@ -1171,8 +1155,12 @@ def update_blend_type_(root_ch, tex, ch):
             if ch.normal_blend == 'OVERLAY':
                 blend = nodes.new('ShaderNodeGroup')
                 blend.node_tree = lib.get_node_tree_lib(lib.OVERLAY_NORMAL)
-            else:
-                blend = nodes.new('ShaderNodeMixRGB')
+            #elif ch.normal_blend == 'VECTOR_MIX':
+            elif ch.normal_blend == 'MIX':
+                blend = nodes.new('ShaderNodeGroup')
+                blend.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
+            #else:
+            #    blend = nodes.new('ShaderNodeMixRGB')
 
         else:
             blend = nodes.new('ShaderNodeMixRGB')
@@ -1235,17 +1223,40 @@ def update_bump_distance(self, context):
 
 def update_fine_bump_distance(self, context):
     tl = self.id_data.tl
-    tex = tl.textures[self.texture_index]
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
 
     fine_bump = tex.tree.nodes.get(self.fine_bump)
     if fine_bump: fine_bump.inputs[0].default_value = self.fine_bump_scale
 
+    #for mask in tex.masks:
+    #    for c in mask.channels:
+    #        if c.enable_bump:
+    #            fine_bump = tex.tree.nodes.get(c.fine_bump)
+    #            if fine_bump: fine_bump.inputs[0].default_value = self.fine_bump_scale
+
 def update_intensity_multiplier(self, context):
     tl = self.id_data.tl
-    tex = tl.textures[self.texture_index]
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
 
-    intensity_multiplier = tex.tree.nodes.get(self.intensity_multiplier)
-    if intensity_multiplier: intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+    if self.intensity_multiplier_link:
+        for ch in tex.channels:
+            intensity_multiplier = tex.tree.nodes.get(ch.intensity_multiplier)
+            if intensity_multiplier: intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+                    
+    else:
+        intensity_multiplier = tex.tree.nodes.get(self.intensity_multiplier)
+        if intensity_multiplier: intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+
+    for mask in tex.masks:
+        for c in mask.channels:
+            #if c.enable_bump:
+            intensity_multiplier = tex.tree.nodes.get(c.intensity_multiplier)
+            if intensity_multiplier: intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+
+            vector_intensity_multiplier = tex.tree.nodes.get(c.vector_intensity_multiplier)
+            if vector_intensity_multiplier: vector_intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
 def update_tex_input(self, context):
     tl = self.id_data.tl
@@ -1276,6 +1287,7 @@ def update_tex_input(self, context):
     rearrange_tex_nodes(tex)
 
 def update_uv_name(self, context):
+    obj = context.object
     group_tree = self.id_data
     tl = group_tree.tl
     tex = self
@@ -1296,22 +1308,40 @@ def update_uv_name(self, context):
         normal = nodes.get(ch.normal)
         if normal: normal.uv_map = tex.uv_name
 
+    # Update uv layer
+    if obj.type == 'MESH':
+        for i, uv in enumerate(obj.data.uv_textures):
+            if uv.name == tex.uv_name:
+                if obj.data.uv_textures.active_index != i:
+                    obj.data.uv_textures.active_index = i
+                break
+
 def update_texcoord_type(self, context):
     tree = self.tree
     nodes = tree.nodes
     links = tree.links
 
-    source = nodes.get(self.source)
+    if self.source_tree:
+        source = nodes.get(self.source_group)
+    else: source = nodes.get(self.source)
     texcoord = nodes.get(self.texcoord)
     uv_map = nodes.get(self.uv_map)
 
+    # Connect to source
     if self.texcoord_type == 'UV':
         links.new(uv_map.outputs[0], source.inputs[0])
-    else:
-        links.new(texcoord.outputs[self.texcoord_type], source.inputs[0])
+    else: links.new(texcoord.outputs[self.texcoord_type], source.inputs[0])
+
+    # Connect to neighbor uv if available
+    for ch in self.channels:
+        neighbor_uv = nodes.get(ch.neighbor_uv)
+        if neighbor_uv:
+            if self.texcoord_type == 'UV':
+                links.new(uv_map.outputs[0], neighbor_uv.inputs[0])
+            else: links.new(texcoord.outputs[self.texcoord_type], neighbor_uv.inputs[0])
 
 def update_texture_enable(self, context):
-    print(self.id_data, self.id_data.users)
+    #print(self.id_data, self.id_data.users)
     group_tree = self.id_data
     tex = self
 
@@ -1320,6 +1350,94 @@ def update_texture_enable(self, context):
         if tex.enable and ch.enable:
             blend.mute = False
         else: blend.mute = True
+
+def create_intensity_multiplier_node(tree, parent, invert=False, sharpen=False):
+    intensity_multiplier = tree.nodes.get(parent.intensity_multiplier)
+
+    #if intensity_multiplier:
+    #    tree.nodes.remove(intensity_multiplier)
+    #    intensity_multiplier = None
+
+    if not intensity_multiplier:
+        intensity_multiplier = tree.nodes.new('ShaderNodeGroup')
+        intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
+        intensity_multiplier.label = 'Intensity Multiplier'
+        parent.intensity_multiplier = intensity_multiplier.name
+
+    if invert:
+        intensity_multiplier.inputs[2].default_value = 1.0
+    else: intensity_multiplier.inputs[2].default_value = 0.0
+
+    if sharpen:
+        intensity_multiplier.inputs[3].default_value = 1.0
+    else: intensity_multiplier.inputs[3].default_value = 0.0
+
+    return intensity_multiplier
+
+def create_channel_intensity_multiplier_nodes(self, tex):
+    for ch in tex.channels:
+        if ch == self: continue
+        #if ch != self and ch.intensity_multiplier_link:
+        if ch.intensity_multiplier_link:
+            ch.intensity_multiplier_link = False
+
+        intensity_multiplier = create_intensity_multiplier_node(tex.tree, ch, self.im_invert_others, self.im_sharpen)
+        intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+
+def create_mask_intensity_multiplier_nodes(self, tex, ch_index):
+    for mask in tex.masks:
+        for i, c in enumerate(mask.channels):
+            if i == ch_index: continue
+            intensity_multiplier = create_intensity_multiplier_node(tex.tree, c, self.im_invert_others, self.im_sharpen)
+            intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+
+def remove_channel_intensity_multiplier_nodes(self, tex):
+    for ch in tex.channels:
+        if ch == self: continue
+
+        intensity_multiplier = tex.tree.nodes.get(ch.intensity_multiplier)
+        if intensity_multiplier:
+            tex.tree.nodes.remove(intensity_multiplier)
+            ch.intensity_multiplier = ''
+
+def remove_mask_intensity_multiplier_nodes(self, tex, ch_index):
+    for mask in tex.masks:
+        for i, c in enumerate(mask.channels):
+            if i == ch_index: continue
+            intensity_multiplier = tex.tree.nodes.get(c.intensity_multiplier)
+            if intensity_multiplier:
+                tex.tree.nodes.remove(intensity_multiplier)
+                c.intensity_multiplier = ''
+
+def update_intensity_multiplier_link(self, context):
+    tl = self.id_data.tl
+    if tl.halt_update: return
+
+    tl.halt_update = True
+
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
+    ch_index = int(m.group(2))
+    root_ch = tl.channels[ch_index]
+
+    if self.intensity_multiplier_link:
+
+        if self.im_link_all_channels:
+            create_channel_intensity_multiplier_nodes(self, tex)
+        else: remove_channel_intensity_multiplier_nodes(self, tex)
+
+        if self.im_link_all_masks:
+            create_mask_intensity_multiplier_nodes(self, tex, ch_index)
+        else: remove_mask_intensity_multiplier_nodes(self, tex, ch_index)
+
+    else:
+        remove_channel_intensity_multiplier_nodes(self, tex)
+        remove_mask_intensity_multiplier_nodes(self, tex, ch_index)
+
+    reconnect_tex_nodes(tex)
+    rearrange_tex_nodes(tex)
+
+    tl.halt_update = False
 
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
@@ -1375,10 +1493,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Blur
     #enable_blur = BoolProperty(default=False, update=Blur.update_tex_channel_blur)
     #blur = PointerProperty(type=Blur.YTextureBlur)
-
-    # For UI
-    expand_bump_settings = BoolProperty(default=False)
-    expand_content = BoolProperty(default=False)
 
     invert_backface_normal = BoolProperty(default=False, update=update_flip_backface_normal)
 
@@ -1436,6 +1550,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=4.0, min=-100.0, max=100.0,
             update=update_fine_bump_distance)
 
+    # Intensity Stuff
+
     intensity_multiplier_value = FloatProperty(
             name = 'Intensity Multiplier',
             description = 'Intensity Multiplier (can be useful for sharper normal blending transition)',
@@ -1443,8 +1559,19 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update=update_intensity_multiplier)
 
     intensity_multiplier = StringProperty(default='')
+    intensity_multiplier_link = BoolProperty(default=False, update=update_intensity_multiplier_link)
+
+    im_link_all_channels = BoolProperty(default=True, update=update_intensity_multiplier_link)
+    im_link_all_masks = BoolProperty(default=True, update=update_intensity_multiplier_link)
+    im_invert_others = BoolProperty(default=False, update=update_intensity_multiplier_link)
+    im_sharpen = BoolProperty(default=False, update=update_intensity_multiplier_link)
 
     #modifier_frame = StringProperty(default='')
+
+    # For UI
+    expand_bump_settings = BoolProperty(default=False)
+    expand_intensity_settings = BoolProperty(default=False)
+    expand_content = BoolProperty(default=False)
 
 class YTextureLayer(bpy.types.PropertyGroup):
     name = StringProperty(default='')
@@ -1487,7 +1614,12 @@ class YTextureLayer(bpy.types.PropertyGroup):
     bitangent = StringProperty(default='')
     geometry = StringProperty(default='')
 
+    # Mask
+    enable_masks = BoolProperty(default=True, update=Mask.update_enable_texture_masks)
+    masks = CollectionProperty(type=Mask.YTextureMask)
+
     # UI related
     expand_content = BoolProperty(default=False)
     expand_vector = BoolProperty(default=False)
+    expand_masks = BoolProperty(default=False)
 

@@ -14,9 +14,10 @@
 # - Eevee support
 #
 # BUGS:
+# - Value channel should output only grayscale
+# - Musgrave fine bump cannot read below 0.0
 #
 # KNOWN ISSUES:
-# - Musgrave fine bump cannot read below 0.0
 # - Cycles has limit of 32 images per material, NOT per node_tree
 # - Limit decrease to 20 images if alpha is used
 # - Use of cineon images will cause crash (??)
@@ -43,6 +44,7 @@ if "bpy" in locals():
     imp.reload(node_arrangements)
     imp.reload(node_connections)
     imp.reload(preferences)
+    imp.reload(Mask)
     imp.reload(Modifier)
     imp.reload(Blur)
     imp.reload(Layer)
@@ -50,7 +52,7 @@ if "bpy" in locals():
     #print("Reloaded multifiles")
 else:
     from . import image_ops, common, lib, ui, subtree, node_arrangements, node_connections, preferences
-    from . import Modifier, Blur, Layer, Root
+    from . import Mask, Modifier, Blur, Layer, Root
     #print("Imported multifiles")
 
 import bpy 

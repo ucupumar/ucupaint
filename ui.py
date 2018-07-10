@@ -1,17 +1,55 @@
-import bpy
+import bpy, re
 from bpy.props import *
 from bpy.app.handlers import persistent
 from . import lib, Modifier
 from .common import *
 
-def draw_tex_props(group_tree, tex, layout):
+def draw_image_props(source, layout):
 
-    nodes = group_tree.nodes
-    tl = group_tree.tl
+    image = source.image
 
-    if tex.source_tree:
-        source = tex.source_tree.nodes.get(tex.source)
-    else: source = tex.tree.nodes.get(tex.source)
+    col = layout.column()
+    col.template_ID(source, "image", unlink='node.y_remove_texture_layer')
+    if image.source == 'GENERATED':
+        col.label('Generated image settings:')
+        row = col.row()
+
+        col1 = row.column(align=True)
+        col1.prop(image, 'generated_width', text='X')
+        col1.prop(image, 'generated_height', text='Y')
+
+        col1.prop(image, 'use_generated_float', text='Float Buffer')
+        col2 = row.column(align=True)
+        col2.prop(image, 'generated_type', expand=True)
+
+        row = col.row()
+        row.label('Color:')
+        row.prop(image, 'generated_color', text='')
+        col.template_colorspace_settings(image, "colorspace_settings")
+
+    elif image.source == 'FILE':
+        if not image.filepath:
+            col.label('Image Path: -')
+        else:
+            col.label('Path: ' + image.filepath)
+
+        image_format = 'RGBA'
+        image_bit = int(image.depth/4)
+        if image.depth in {24, 48, 96}:
+            image_format = 'RGB'
+            image_bit = int(image.depth/3)
+
+        col.label('Info: ' + str(image.size[0]) + ' x ' + str(image.size[1]) +
+                ' ' + image_format + ' ' + str(image_bit) + '-bit')
+
+        col.template_colorspace_settings(image, "colorspace_settings")
+        #col.prop(image, 'use_view_as_render')
+        col.prop(image, 'alpha_mode')
+        col.prop(image, 'use_alpha')
+        #col.prop(image, 'use_fields')
+
+def draw_tex_props(source, layout):
+
     title = source.bl_idname.replace('ShaderNodeTex', '')
 
     col = layout.column()
@@ -242,7 +280,10 @@ def main_draw(self, context):
 
                 for i, m in enumerate(channel.modifiers):
 
-                    modui = chui.modifiers[i]
+                    try: modui = chui.modifiers[i]
+                    except: 
+                        tlui.need_update = True
+                        return
 
                     brow = bcol.row(align=True)
                     #brow.active = m.enable
@@ -385,9 +426,27 @@ def main_draw(self, context):
             if tex.source_tree:
                 source = tex.source_tree.nodes.get(tex.source)
             else: source = tex.tree.nodes.get(tex.source)
+
+            active_image = None # Active image on list
+            image = None # Global texture image
+
+            # Check for active mask
+            for m in tex.masks:
+                if m.type == 'IMAGE' and m.active_edit:
+                    if m.tree:
+                        src = m.tree.nodes.get(m.source)
+                    else: src = tex.tree.nodes.get(m.source)
+                    active_image = src.image
+
+            # Use tex image if there is no mask image
             if tex.type == 'IMAGE':
                 image = source.image
-                box.context_pointer_set('image', image)
+                if not active_image:
+                    active_image = image
+
+            # Set pointer for active image
+            if active_image:
+                box.context_pointer_set('image', active_image)
 
         col = box.column()
 
@@ -441,49 +500,9 @@ def main_draw(self, context):
                 rrow = ccol.row(align=True)
                 rrow.label('', icon='BLANK1')
                 bbox = rrow.box()
-                if not image:
-                    draw_tex_props(group_tree, tex, bbox)
-                else:
-                    incol = bbox.column()
-                    incol.template_ID(source, "image", unlink='node.y_remove_texture_layer')
-                    if image.source == 'GENERATED':
-                        incol.label('Generated image settings:')
-                        row = incol.row()
-
-                        col1 = row.column(align=True)
-                        col1.prop(image, 'generated_width', text='X')
-                        col1.prop(image, 'generated_height', text='Y')
-
-                        col1.prop(image, 'use_generated_float', text='Float Buffer')
-                        col2 = row.column(align=True)
-                        col2.prop(image, 'generated_type', expand=True)
-
-                        row = incol.row()
-                        row.label('Color:')
-                        row.prop(image, 'generated_color', text='')
-                        incol.template_colorspace_settings(image, "colorspace_settings")
-
-                    elif image.source == 'FILE':
-                        if not image.filepath:
-                            incol.label('Image Path: -')
-                        else:
-                            incol.label('Path: ' + image.filepath)
-
-                        image_format = 'RGBA'
-                        image_bit = int(image.depth/4)
-                        if image.depth in {24, 48, 96}:
-                            image_format = 'RGB'
-                            image_bit = int(image.depth/3)
-
-                        incol.label('Info: ' + str(image.size[0]) + ' x ' + str(image.size[1]) +
-                                ' ' + image_format + ' ' + str(image_bit) + '-bit')
-
-                        incol.template_colorspace_settings(image, "colorspace_settings")
-                        #incol.prop(image, 'use_view_as_render')
-                        incol.prop(image, 'alpha_mode')
-                        incol.prop(image, 'use_alpha')
-                        #incol.prop(image, 'use_fields')
-                        #incol.template_image(tex, "image", tex.image_user)
+                if image:
+                    draw_image_props(source, bbox)
+                else: draw_tex_props(source, bbox)
 
                 if tlui.expand_channels:
                     rrow.label('', icon='BLANK1')
@@ -584,20 +603,72 @@ def main_draw(self, context):
                             brow.label('Bump Base:') #, icon='INFO')
                             brow.prop(ch, 'bump_base_value', text='')
 
-                            brow = cccol.row(align=True)
-                            if ch.normal_map_type == 'BUMP_MAP':
-                                brow.label('Distance:') #, icon='INFO')
-                                brow.prop(ch, 'bump_distance', text='')
-                            elif ch.normal_map_type == 'FINE_BUMP_MAP':
-                                brow.label('Scale:') #, icon='INFO')
-                                brow.prop(ch, 'fine_bump_scale', text='')
-
-                            brow = cccol.row(align=True)
-                            brow.label('Intensity Multiplier:') #, icon='INFO')
-                            brow.prop(ch, 'intensity_multiplier_value', text='')
+                            #cccol.separator()
+                            #brow = cccol.row(align=True)
+                            #brow.label('Intensity Multiplier:') #, icon='INFO')
+                            #brow.prop(ch, 'intensity_multiplier_value', text='')
+                            #brow.prop(ch, 'intensity_multiplier_link', toggle=True, text='', icon='LINKED')
 
                             if tlui.expand_channels:
                                 row.label('', icon='BLANK1')
+
+                        brow = ccol.row(align=True)
+                        brow.label('', icon='BLANK1')
+                        brow.label('', icon='INFO')
+                        if ch.normal_map_type == 'BUMP_MAP':
+                            brow.label('Distance:') #, icon='INFO')
+                            brow.prop(ch, 'bump_distance', text='')
+                        elif ch.normal_map_type == 'FINE_BUMP_MAP':
+                            brow.label('Scale:') #, icon='INFO')
+                            brow.prop(ch, 'fine_bump_scale', text='')
+                        if tlui.expand_channels:
+                            brow.label('', icon='BLANK1')
+
+                        if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+                            row = ccol.row(align=True)
+                            row.label('', icon='BLANK1')
+                            if chui.expand_intensity_settings:
+                                icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                            else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                            row.prop(chui, 'expand_intensity_settings', text='', emboss=False, icon_value=icon_value)
+                            #row.label('', icon='INFO')
+                            row.label('Intensity Multiplier:') #, icon='INFO')
+                            row.prop(ch, 'intensity_multiplier_value', text='')
+                            row.prop(ch, 'intensity_multiplier_link', toggle=True, text='', icon='LINKED')
+                            if tlui.expand_channels:
+                                row.label('', icon='BLANK1')
+                            
+                            if chui.expand_intensity_settings:
+                                row = ccol.row(align=True)
+                                row.label('', icon='BLANK1')
+                                row.label('', icon='BLANK1')
+
+                                bbox = row.box()
+                                bbox.active = ch.intensity_multiplier_link
+                                cccol = bbox.column(align=True)
+
+                                #bbbox = cccol.box()
+                                #brow = bbbox.row(align=True)
+                                #brow.label('Intensity Multiplier Settings') #, icon='INFO')
+
+                                brow = cccol.row(align=True)
+                                brow.label('Link All Channels:') #, icon='INFO')
+                                brow.prop(ch, 'im_link_all_channels', text='')
+
+                                brow = cccol.row(align=True)
+                                brow.label('Link All Masks:') #, icon='INFO')
+                                brow.prop(ch, 'im_link_all_masks', text='')
+
+                                brow = cccol.row(align=True)
+                                brow.label('Invert Others:') #, icon='INFO')
+                                brow.prop(ch, 'im_invert_others', text='')
+
+                                brow = cccol.row(align=True)
+                                brow.label('Sharpen:') #, icon='INFO')
+                                brow.prop(ch, 'im_sharpen', text='')
+
+                                if tlui.expand_channels:
+                                    row.label('', icon='BLANK1')
 
                         row = ccol.row(align=True)
                         row.label('', icon='BLANK1')
@@ -711,16 +782,6 @@ def main_draw(self, context):
             ccol = col.column()
             row = ccol.row(align=True)
 
-            #row.label('', icon='MOD_MASK')
-            #row.label('Mask')
-            #icon_value = lib.custom_icons["add_mask"].icon_id
-            #row.menu("NODE_MT_y_new_texture_mask_menu", text='', icon_value=icon_value)
-            ##row.menu("NODE_MT_y_new_texture_mask_menu", text='', icon='ZOOMIN')
-
-            #col.separator()
-            #ccol = col.column()
-            #row = ccol.row(align=True)
-
             if texui.expand_vector:
                 icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
             else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
@@ -743,6 +804,192 @@ def main_draw(self, context):
                 bbox.prop(source.texture_mapping, 'translation', text='Offset')
                 bbox.prop(source.texture_mapping, 'rotation')
                 bbox.prop(source.texture_mapping, 'scale')
+
+            #col.separator()
+            ccol = col.column()
+            ccol = col.column()
+
+            row = ccol.row(align=True)
+            row.active = tex.enable_masks
+            if len(tex.masks) == 0:
+                row.label('', icon='MOD_MASK')
+            else: 
+                if texui.expand_masks:
+                    icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
+                row.prop(texui, 'expand_masks', text='', emboss=False, icon_value=icon_value)
+
+            if len(tex.masks) > 1:
+                label = 'Masks:'
+            else: label = 'Mask:'
+
+            if len(tex.masks) == 0:
+                row.label(label + ' -')
+
+            else: row.label(label)
+            #icon_value = lib.custom_icons["add_mask"].icon_id
+            #row.menu("NODE_MT_y_add_texture_mask_menu", text='', icon_value=icon_value)
+            row.menu("NODE_MT_y_add_texture_mask_menu", text='', icon='ZOOMIN')
+
+            #if len(tex.masks) > 0:
+            #    row.prop(tex, 'enable_masks', text='')
+
+            if texui.expand_masks:
+                ccol = col.column()
+                ccol.active = tex.enable_masks
+
+                image_masks_count = len([m for m in tex.masks if m.type == 'IMAGE'])
+
+                for j, mask in enumerate(tex.masks):
+
+                    try: maskui = tlui.tex_ui.masks[j]
+                    except: 
+                        tlui.need_update = True
+                        return
+
+                    row = ccol.row(align=True)
+                    row.active = mask.enable
+                    row.label('', icon='BLANK1')
+                    #row.label('', icon='MOD_MASK')
+
+                    if maskui.expand_content:
+                        icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
+                    row.prop(maskui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+
+                    mask_image = None
+                    if mask.tree:
+                        mask_source = mask.tree.nodes.get(mask.source)
+                    else: mask_source = tex.tree.nodes.get(mask.source)
+                    if mask.type == 'IMAGE':
+                        mask_image = mask_source.image
+                        row.label(mask_image.name)
+                        #row.prop(mask_image, 'name', text='', emboss=False)
+                    else:
+                        row.label(mask.name)
+
+                    if mask.type == 'IMAGE':
+                        row.prop(mask, 'active_edit', text='', toggle=True, icon='IMAGE_DATA')
+                    #else:
+                    #    #row.prop(mask, 'active_edit', text='', toggle=True, icon='TEXTURE')
+                    #    row.label('', icon='TEXTURE')
+
+                    #row.separator()
+                    row.context_pointer_set('mask', mask)
+                    row.menu("NODE_MT_y_texture_mask_menu_special", text='', icon='SCRIPTWIN')
+
+                    row = row.row(align=True)
+                    row.prop(mask, 'enable', text='')
+                    #row.label('', icon='BLANK1')
+
+                    if maskui.expand_content:
+                        row = ccol.row(align=True)
+                        row.active = mask.enable
+                        row.label('', icon='BLANK1')
+                        row.label('', icon='BLANK1')
+                        rcol = row.column()
+
+                        # Channels row
+                        for k, c in enumerate(mask.channels):
+                            rrow = rcol.row(align=True)
+                            root_ch = tl.channels[k]
+                            if root_ch.type == 'VALUE':
+                                rrow.label('', icon_value = lib.custom_icons['value_channel'].icon_id)
+                            elif root_ch.type == 'RGB':
+                                rrow.label('', icon_value = lib.custom_icons['rgb_channel'].icon_id)
+                            elif root_ch.type == 'NORMAL':
+                                rrow.label('', icon_value = lib.custom_icons['vector_channel'].icon_id)
+                            rrow.label(root_ch.name)
+                            rrow.prop(c, 'enable', text='')
+
+                            if root_ch.type == 'NORMAL':
+
+                                rrow = rcol.row(align=True)
+                                rrow.label('', icon='BLANK1')
+                                rrow.label('', icon='INFO')
+                                rrow.label('Bump')
+                                rrow.prop(c, 'enable_bump', text='')
+
+                                rrow = rcol.row(align=True)
+                                rrow.label('', icon='BLANK1')
+                                rrow.label('', icon='INFO')
+                                splits = rrow.split(percentage=0.4)
+                                splits.label('Bump Height')
+                                splits.prop(c, 'bump_height', text='')
+                                #rrow.label('', icon='BLANK1')
+
+                            elif root_ch.type == 'RGB':
+
+                                rrow = rcol.row(align=True)
+                                rrow.label('', icon='BLANK1')
+                                rrow.label('', icon='INFO')
+                                rrow.label('Ramp')
+                                rrow.prop(c, 'enable_ramp', text='')
+
+                                if c.enable_ramp:
+                                    rrow = rcol.row(align=True)
+                                    rrow.label('', icon='BLANK1')
+                                    rrow.label('', icon='BLANK1')
+                                    bbbox = rrow.box()
+                                    cccol = bbbox.column(align=False)
+                                    ramp = tex.tree.nodes.get(c.ramp)
+                                    cccol.template_color_ramp(ramp, "color_ramp", expand=True)
+
+                        # Hardness row
+                        if mask.enable_hardness:
+                            rrow = rcol.row(align=True)
+                            rrow.label('', icon='MODIFIER')
+                            splits = rrow.split(percentage=0.4)
+                            splits.label('Hardness:')
+                            splits.prop(mask, 'hardness_value', text='')
+
+                        # Source row
+                        rrow = rcol.row(align=True)
+                        suffix = 'image' if mask.type == 'IMAGE' else 'texture'
+
+                        if maskui.expand_source:
+                            icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
+                        else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
+
+                        rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+                        if mask_image:
+                            rrow.label('Source: ' + mask_image.name)
+                        else: rrow.label('Source: ' + mask.name)
+
+                        if maskui.expand_source:
+                            rrow = rcol.row(align=True)
+                            rrow.label('', icon='BLANK1')
+                            rbox = rrow.box()
+                            if mask_image:
+                                draw_image_props(mask_source, rbox)
+                            else: draw_tex_props(mask_source, rbox)
+
+                        # Vector row
+                        rrow = rcol.row(align=True)
+
+                        if maskui.expand_vector:
+                            icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+                        else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+
+                        rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+
+                        splits = rrow.split(percentage=0.3)
+                        splits.label('Vector:')
+                        rrrow = splits.row(align=True)
+                        rrrow.prop(mask, 'texcoord_type', text='')
+                        if mask.texcoord_type == 'UV':
+                            rrrow.prop_search(mask, "uv_name", obj.data, "uv_textures", text='')
+
+                        if maskui.expand_vector:
+                            rrow = rcol.row(align=True)
+                            rrow.label('', icon='BLANK1')
+                            rbox = rrow.box()
+                            rbox.prop(mask_source.texture_mapping, 'translation', text='Offset')
+                            rbox.prop(mask_source.texture_mapping, 'rotation')
+                            rbox.prop(mask_source.texture_mapping, 'scale')
+
+                        #bcol.label('Ahahah')
+                        row.label('', icon='BLANK1')
 
     # Hide support this addon panel for now
     return
@@ -845,58 +1092,98 @@ class NODE_UL_y_tl_channels(bpy.types.UIList):
 class NODE_UL_y_tl_textures(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 
-        group_node = get_active_texture_layers_node()
-        #if not group_node: return
-        tl = group_node.node_tree.tl
-        nodes = group_node.node_tree.nodes
-
-        # Get active channel
-        #channel_idx = tl.active_channel_index
-        #channel = tl.channels[channel_idx]
+        group_tree = item.id_data
+        tl = group_tree.tl
+        nodes = group_tree.nodes
+        tex = item
 
         master = layout.row(align=True)
-
         row = master.row(align=True)
-        #row.active = item.enable
 
-        #if not item.enable or not item.channels[channel_idx].enable: row.active = False
-
-        if item.type == 'IMAGE':
-            if item.source_tree:
-                source = item.source_tree.nodes.get(item.source)
-            else: source = item.tree.nodes.get(item.source)
+        # Try to get image
+        image = None
+        if tex.type == 'IMAGE':
+            if tex.source_tree:
+                source = tex.source_tree.nodes.get(tex.source)
+            else: source = tex.tree.nodes.get(tex.source)
             image = source.image
-            row.context_pointer_set('image', image)
-            row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
 
+        # Try to get image masks
+        image_masks = []
+        active_mask = None
+        for m in tex.masks:
+            if m.type == 'IMAGE':
+                image_masks.append(m)
+                if m.active_edit:
+                    active_mask = m
+
+        # Image icon
+        if len(image_masks) == 0:
+            if image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+            else: row.prop(tex, 'name', text='', emboss=False, icon='TEXTURE')
+        else:
+            if active_mask:
+                row.active = False
+                if image: row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=image.preview.icon_id)
+                else: row.prop(active_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
+            else:
+                if image: row.label('', icon_value=image.preview.icon_id)
+                else: row.label('', icon='TEXTURE')
+
+        # Image mask icons
+        active_mask_image = None
+        for m in image_masks:
+            if m.tree:
+                src = m.tree.nodes.get(m.source)
+            else: src = tex.tree.nodes.get(m.source)
+            row = master.row(align=True)
+            row.active = m.active_edit
+            if m.active_edit:
+                active_mask_image = src.image
+                row.label('', icon_value=src.image.preview.icon_id)
+            else:
+                row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+
+        # Active image/tex label
+        if len(image_masks) > 0:
+            row = master.row(align=True)
+            if active_mask_image:
+                row.prop(active_mask_image, 'name', text='', emboss=False)
+            else: 
+                if image: row.prop(image, 'name', text='', emboss=False)
+                else: row.prop(tex, 'name', text='', emboss=False)
+
+        # Active image
+        if active_mask_image: active_image = active_mask_image
+        elif image: active_image = image
+        else: active_image = None
+
+        if active_image:
             # Asterisk icon to indicate dirty image and also for saving/packing
-            if image.is_dirty:
-                #if image.packed_file or image.filepath == '':
+            if active_image.is_dirty:
+                #if active_image.packed_file or active_image.filepath == '':
                 #    row.operator('node.y_pack_image', text='', icon_value=lib.custom_icons['asterisk'].icon_id, emboss=False)
                 #else: row.operator('node.y_save_image', text='', icon_value=lib.custom_icons['asterisk'].icon_id, emboss=False)
                 row.label('', icon_value=lib.custom_icons['asterisk'].icon_id)
 
             # Indicate packed image
-            if image.packed_file:
+            if active_image.packed_file:
                 row.label(text='', icon='PACKAGE')
 
-        else:
-            row.prop(item, 'name', text='', emboss=False, icon='TEXTURE')
-
-        #blend = nodes.get(item.channels[channel_idx].blend)
+        #blend = nodes.get(tex.channels[channel_idx].blend)
         #row.prop(blend, 'blend_type', text ='')
 
-        #intensity = nodes.get(item.channels[channel_idx].intensity)
+        #intensity = nodes.get(tex.channels[channel_idx].intensity)
         #row.prop(intensity.inputs[0], 'default_value', text='')
 
         #row = master.row()
-        #if item.enable: row.active = True
+        #if tex.enable: row.active = True
         #else: row.active = False
-        #row.prop(item.channels[channel_idx], 'enable', text='')
+        #row.prop(tex.channels[channel_idx], 'enable', text='')
 
         # Modifier shortcut
         shortcut_found = False
-        for ch in item.channels:
+        for ch in tex.channels:
             for mod in ch.modifiers:
                 if mod.shortcut:
                     shortcut_found = True
@@ -904,17 +1191,23 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                         rrow = row.row()
                         if ch.mod_tree:
                             rgb2i = ch.mod_tree.nodes.get(mod.rgb2i)
-                        else: rgb2i = item.tree.nodes.get(mod.rgb2i)
+                        else: rgb2i = tex.tree.nodes.get(mod.rgb2i)
                         rrow.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
                     break
             if shortcut_found:
                 break
 
+        # Mask visibility
+        if len(tex.masks) > 0:
+            row = master.row()
+            row.active = tex.enable_masks
+            row.prop(tex, 'enable_masks', emboss=False, text='', icon='MOD_MASK')
+
         # Texture visibility
         row = master.row()
-        if item.enable: eye_icon = 'RESTRICT_VIEW_OFF'
+        if tex.enable: eye_icon = 'RESTRICT_VIEW_OFF'
         else: eye_icon = 'RESTRICT_VIEW_ON'
-        row.prop(item, 'enable', emboss=False, text='', icon=eye_icon)
+        row.prop(tex, 'enable', emboss=False, text='', icon=eye_icon)
 
 class YTLSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_tl_special_menu"
@@ -979,6 +1272,8 @@ class YTexSpecialMenu(bpy.types.Menu):
         self.layout.operator('node.y_save_pack_all', text='Save/Pack All', icon='FILE_TICK')
         self.layout.separator()
         self.layout.operator("node.y_reload_image", icon='FILE_REFRESH')
+        self.layout.separator()
+        self.layout.operator("node.y_invert_image", icon='IMAGE_ALPHA')
 
 class YModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_modifier_menu"
@@ -1006,20 +1301,66 @@ class YModifierMenu(bpy.types.Menu):
             col.separator()
             col.prop(context.modifier, 'shortcut', text='Shortcut on texture list')
 
-class YNewTexMaskMenu(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_new_texture_mask_menu"
-    bl_description = 'New Texture Mask'
-    bl_label = "New Texture Mask"
+class YAddTexMaskMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_add_texture_mask_menu"
+    bl_description = 'Add Texture Mask'
+    bl_label = "Add Texture Mask"
 
     @classmethod
     def poll(cls, context):
-        node =  get_active_texture_layers_node()
-        return node and len(node.node_tree.tl.textures) > 0
+        return hasattr(context, 'texture')
+        #node =  get_active_texture_layers_node()
+        #return node and len(node.node_tree.tl.textures) > 0
 
     def draw(self, context):
+        #print(context.texture)
         layout = self.layout
-        col = layout.column()
-        col.label('Not implemented yet!', icon='ERROR')
+        col = layout.column(align=True)
+        col.context_pointer_set('texture', context.texture)
+
+        col.label('Image Mask:')
+        col.operator('node.y_new_texture_mask', icon='IMAGE_DATA', text='New Image Mask').type = 'IMAGE'
+        col.label('Open Image as Mask', icon='IMASEL')
+        col.label('Open Available Image as Mask', icon='IMASEL')
+        #col.label('Not implemented yet!', icon='ERROR')
+        col.separator()
+        #col.label('Open Mask:')
+        col.label('Open Other Mask', icon='MOD_MASK')
+
+        col.separator()
+        col.label('Generated Mask:')
+        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Checker').type = 'CHECKER'
+        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Gradient').type = 'GRADIENT'
+        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Magic').type = 'MAGIC'
+        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Musgrave').type = 'MUSGRAVE'
+        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Noise').type = 'NOISE'
+        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Voronoi').type = 'VORONOI'
+        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Wave').type = 'WAVE'
+
+class YTexMaskMenuSpecial(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_texture_mask_menu_special"
+    bl_description = 'Texture Mask Menu'
+    bl_label = "Texture Mask Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'mask') and hasattr(context, 'texture')
+
+    def draw(self, context):
+        #print(context.mask)
+        mask = context.mask
+        tex = context.texture
+        layout = self.layout
+        col = layout.column(align=True)
+        if mask.type == 'IMAGE':
+            if mask.tree:
+                source = mask.tree.nodes.get(mask.source)
+            else: source = tex.tree.nodes.get(mask.source)
+            col.context_pointer_set('image', source.image)
+            col.operator('node.y_invert_image', text='Invert Image', icon='IMAGE_ALPHA')
+        col.prop(mask, 'enable_hardness', text='Hardness')
+        col.separator()
+        col.operator('node.y_remove_texture_mask', text='Remove Mask', icon='ZOOMOUT')
 
 def update_modifier_ui(self, context):
     tlui = context.window_manager.tlui
@@ -1029,10 +1370,13 @@ def update_modifier_ui(self, context):
     if not group_node: return
     tl = group_node.node_tree.tl
 
-    # Index -1 means modifier parent is group channel
-    if self.ch_index == -1:
-        mod = tl.channels[tl.active_channel_index].modifiers[self.index]
-    else: mod = tl.textures[tl.active_texture_index].channels[self.ch_index].modifiers[self.index]
+    match1 = re.match(r'tlui\.tex_ui\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'tlui\.channel_ui\.modifiers\[(\d+)\]', self.path_from_id())
+    if match1:
+        mod = tl.textures[tl.active_texture_index].channels[int(match1.group(1))].modifiers[int(match1.group(2))]
+    elif match2:
+        mod = tl.channels[tl.active_channel_index].modifiers[int(match2.group(1))]
+    #else: return #yolo
 
     mod.expand_content = self.expand_content
 
@@ -1048,6 +1392,7 @@ def update_texture_ui(self, context):
     tex = tl.textures[tl.active_texture_index]
     tex.expand_content = self.expand_content
     tex.expand_vector = self.expand_vector
+    tex.expand_masks = self.expand_masks
 
 def update_channel_ui(self, context):
     tlui = context.window_manager.tlui
@@ -1058,35 +1403,60 @@ def update_channel_ui(self, context):
     tl = group_node.node_tree.tl
     if len(tl.channels) == 0: return
 
-    # Index -1 means this is group channel
-    if self.index == -1:
+    match1 = re.match(r'tlui\.tex_ui\.channels\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'tlui\.channel_ui', self.path_from_id())
+
+    if match1:
+        ch = tl.textures[tl.active_texture_index].channels[int(match1.group(1))]
+    elif match2:
         ch = tl.channels[tl.active_channel_index]
-    else: 
-        if len(tl.textures) == 0: return
-        ch = tl.textures[tl.active_texture_index].channels[self.index]
+    #else: return #yolo
 
     ch.expand_content = self.expand_content
     if hasattr(ch, 'expand_bump_settings'):
         ch.expand_bump_settings = self.expand_bump_settings
     if hasattr(ch, 'expand_base_vector'):
         ch.expand_base_vector = self.expand_base_vector
+    if hasattr(ch, 'expand_intensity_settings'):
+        ch.expand_intensity_settings = self.expand_intensity_settings
+
+def update_mask_ui(self, context):
+    tlui = context.window_manager.tlui
+    if tlui.halt_prop_update: return
+
+    group_node =  get_active_texture_layers_node()
+    if not group_node: return
+    tl = group_node.node_tree.tl
+    if len(tl.channels) == 0: return
+
+    match = re.match(r'tlui\.tex_ui\.masks\[(\d+)\]', self.path_from_id())
+    mask = tl.textures[tl.active_texture_index].masks[int(match.group(1))]
+
+    mask.expand_content = self.expand_content
+    mask.expand_source = self.expand_source
+    mask.expand_vector = self.expand_vector
+
+class YMaskUI(bpy.types.PropertyGroup):
+    expand_content = BoolProperty(default=True, update=update_mask_ui)
+    expand_source = BoolProperty(default=True, update=update_mask_ui)
+    expand_vector = BoolProperty(default=True, update=update_mask_ui)
 
 class YModifierUI(bpy.types.PropertyGroup):
-    index = IntProperty(default=0)
-    ch_index = IntProperty(default=-1)
     expand_content = BoolProperty(default=True, update=update_modifier_ui)
 
 class YChannelUI(bpy.types.PropertyGroup):
-    index = IntProperty(default=-1)
     expand_content = BoolProperty(default=False, update=update_channel_ui)
     expand_bump_settings = BoolProperty(default=False, update=update_channel_ui)
+    expand_intensity_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_base_vector = BoolProperty(default=True, update=update_channel_ui)
     modifiers = CollectionProperty(type=YModifierUI)
 
 class YTextureUI(bpy.types.PropertyGroup):
     expand_content = BoolProperty(default=False, update=update_texture_ui)
     expand_vector = BoolProperty(default=False, update=update_texture_ui)
+    expand_masks = BoolProperty(default=False, update=update_texture_ui)
     channels = CollectionProperty(type=YChannelUI)
+    masks = CollectionProperty(type=YMaskUI)
 
 class YTLUI(bpy.types.PropertyGroup):
     show_channels = BoolProperty(default=True)
@@ -1177,7 +1547,6 @@ def ytl_ui_update(scene):
             # Construct channel UI objects
             for i, mod in enumerate(channel.modifiers):
                 m = tlui.channel_ui.modifiers.add()
-                m.index = i
                 m.expand_content = mod.expand_content
 
         if len(tl.textures) > 0:
@@ -1186,19 +1555,26 @@ def ytl_ui_update(scene):
             tex = tl.textures[tl.active_texture_index]
             tlui.tex_ui.expand_content = tex.expand_content
             tlui.tex_ui.expand_vector = tex.expand_vector
+            tlui.tex_ui.expand_masks = tex.expand_masks
             tlui.tex_ui.channels.clear()
+            tlui.tex_ui.masks.clear()
             
-            # Construct texture UI objects
+            # Construct texture channel UI objects
             for i, ch in enumerate(tex.channels):
                 c = tlui.tex_ui.channels.add()
                 c.expand_bump_settings = ch.expand_bump_settings
+                c.expand_intensity_settings = ch.expand_intensity_settings
                 c.expand_content = ch.expand_content
-                c.index = i
                 for j, mod in enumerate(ch.modifiers):
                     m = c.modifiers.add()
-                    m.ch_index = i
-                    m.index = j
                     m.expand_content = mod.expand_content
+
+            # Construct texture masks UI objects
+            for i, mask in enumerate(tex.masks):
+                m = tlui.tex_ui.masks.add()
+                m.expand_content = mask.expand_content
+                m.expand_source = mask.expand_source
+                m.expand_vector = mask.expand_vector
 
         tlui.halt_prop_update = False
 

@@ -63,21 +63,35 @@ def pack_float_image(image):
 
 def save_pack_all(tl, only_dirty = True):
 
-    packed_float_images = []
+    images = []
     for tex in tl.textures:
-        T = time.time()
-        if tex.type != 'IMAGE': continue
-        if tex.source_tree:
-            source = tex.source_tree.nodes.get(tex.source)
-        else: source = tex.tree.nodes.get(tex.source)
-        image = source.image
+        
+        # Texture image
+        if tex.type == 'IMAGE':
+            if tex.source_tree:
+                source = tex.source_tree.nodes.get(tex.source)
+            else: source = tex.tree.nodes.get(tex.source)
+            images.append(source.image)
+
+        # Mask image
+        for mask in tex.masks:
+            if mask.type == 'IMAGE':
+                if mask.tree:
+                    source = mask.tree.nodes.get(mask.source)
+                else: source = tex.tree.nodes.get(mask.source)
+                images.append(source.image)
+
+    packed_float_images = []
+
+    # Save/pack images
+    for image in images:
         if only_dirty and not image.is_dirty: continue
+        T = time.time()
         if image.packed_file or image.filepath == '':
             if image.is_float:
                 pack_float_image(image)
                 packed_float_images.append(image)
-            else: 
-                image.pack(as_png=True)
+            else: image.pack(as_png=True)
 
             print('INFO:', image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         else:
@@ -97,6 +111,27 @@ def save_pack_all(tl, only_dirty = True):
             if image in packed_float_images:
                 tlui = bpy.context.window_manager.tlui
                 tlui.refresh_image_hack = True
+
+class YInvertImage(bpy.types.Operator):
+    """Invert Image"""
+    bl_idname = "node.y_invert_image"
+    bl_label = "Invert Image"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'image') and context.image
+
+    def execute(self, context):
+        # Copy context
+        override = bpy.context.copy()
+        override['edit_image'] = context.image
+
+        # Invert image
+        #context.image.reload()
+        bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
+
+        return {'FINISHED'}
 
 class YRefreshImage(bpy.types.Operator):
     """Reload Image"""

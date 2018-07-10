@@ -38,7 +38,7 @@ def reconnect_between_modifier_nodes(parent):
         root_ch = tl.channels[int(match1.group(2))]
     elif match2: 
         tex = None
-        root_ch = tl.channels[int(match1.group(1))]
+        root_ch = tl.channels[int(match2.group(1))]
     else: return None
 
     if tex:
@@ -132,7 +132,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
     if match1:
         root_ch = tl.channels[int(match1.group(2))]
     elif match2: 
-        root_ch = tl.channels[int(match1.group(1))]
+        root_ch = tl.channels[int(match2.group(1))]
     else: return None
 
     # Get non color flag
@@ -733,8 +733,8 @@ class YTexModifierSpecialMenu(bpy.types.Menu):
             self.layout.operator('node.y_new_texture_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
 
 def update_modifier_enable(self, context):
-    group_node = get_active_texture_layers_node()
-    tl = group_node.node_tree.tl
+    group_tree = self.id_data
+    tl = group_tree.tl
 
     match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())

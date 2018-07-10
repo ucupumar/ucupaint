@@ -4,10 +4,14 @@ from bpy.app.handlers import persistent
 #from .__init__ import bl_info
 
 TEXGROUP_PREFIX = '~TL Tex '
+MASKGROUP_PREFIX = '~TL Mask '
 ADDON_NAME = 'yTexLayers'
 
 MODIFIER_TREE_START = '__mod_start_'
 MODIFIER_TREE_END = '__mod_end_'
+
+MASK_TREE_START = '__mask_start_'
+MASK_TREE_END = '__mask_end_'
 
 blend_type_items = (("MIX", "Mix", ""),
 	             ("ADD", "Add", ""),
@@ -34,6 +38,7 @@ normal_map_type_items = (
 
 normal_blend_items = (
         ('MIX', 'Mix', ''),
+        #('VECTOR_MIX', 'Vector Mix', ''),
         ('OVERLAY', 'Overlay', '')
         )
 
@@ -95,6 +100,21 @@ texture_node_types = {
         'TEX_SKY',
         'TEX_VORONOI',
         'TEX_WAVE',
+        }
+
+texture_node_bl_idnames = {
+        'IMAGE' : 'ShaderNodeTexImage',
+        'ENVIRONMENT' : 'ShaderNodeTexEnvironment',
+        'BRICK' : 'ShaderNodeTexBrick',
+        'CHECKER' : 'ShaderNodeTexChecker',
+        'GRADIENT' : 'ShaderNodeTexGradient',
+        'MAGIC' : 'ShaderNodeTexMagic',
+        'MUSGRAVE' : 'ShaderNodeTexMusgrave',
+        'NOISE' : 'ShaderNodeTexNoise',
+        'POINT_DENSITY' : 'ShaderNodeTexPointDensity',
+        'SKY' : 'ShaderNodeTexSky',
+        'VORONOI' : 'ShaderNodeTexVoronoi',
+        'WAVE' : 'ShaderNodeTexWave',
         }
 
 GAMMA = 2.2
@@ -259,6 +279,13 @@ def copy_node_props(source ,dest, extras = []):
     # Copy outputs default value
     for i, outp in enumerate(source.outputs):
         dest.outputs[i].default_value = outp.default_value 
+
+def update_image_editor_image(context, image):
+    for area in context.screen.areas:
+        if area.type == 'IMAGE_EDITOR':
+            if not area.spaces[0].use_image_pin:
+                if area.spaces[0].image != image:
+                    area.spaces[0].image = image
 
 # Check if name already available on the list
 def get_unique_name(name, items):

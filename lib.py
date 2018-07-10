@@ -9,6 +9,9 @@ CHECK_INPUT_NORMAL = '~TL Check Input Normal'
 FLIP_BACKFACE_NORMAL = '~TL Flip Backface Normal'
 NEIGHBOR_UV ='~TL Neighbor UV'
 FINE_BUMP ='~TL Fine Bump'
+VECTOR_MIX ='~TL Vector Mix'
+INVERTED_MULTIPLIER ='~TL Inverted Multiplier'
+INTENSITY_MULTIPLIER ='~TL Intensity Multiplier'
 
 # Modifier tree names
 MOD_RGB2INT = '~TL Mod RGB To Intensity'
@@ -16,6 +19,7 @@ MOD_INVERT = '~TL Mod Invert'
 MOD_INVERT_VALUE = '~TL Mod Invert Value'
 MOD_MULTIPLIER = '~TL Mod Multiplier'
 MOD_MULTIPLIER_VALUE = '~TL Mod Multiplier Value'
+MOD_INTENSITY_HARDNESS = '~TL Mod Intensity Hardness'
 
 tree_lib_names = {
         OVERLAY_NORMAL,
@@ -55,6 +59,8 @@ def load_custom_icons():
     custom_icons.load('uncollapsed_input', filepath + 'uncollapsed_input_icon.png', 'IMAGE')
     custom_icons.load('collapsed_uv', filepath + 'collapsed_uv_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_uv', filepath + 'uncollapsed_uv_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_mask', filepath + 'collapsed_mask_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_mask', filepath + 'uncollapsed_mask_icon.png', 'IMAGE')
 
     custom_icons.load('collapsed_rgb_channel', filepath + 'collapsed_rgb_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_rgb_channel', filepath + 'uncollapsed_rgb_icon.png', 'IMAGE')
