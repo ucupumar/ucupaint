@@ -421,6 +421,8 @@ def rearrange_tex_nodes(tex):
         intensity = nodes.get(ch.intensity)
         intensity_multiplier = nodes.get(ch.intensity_multiplier)
 
+        #ch_tex_start = nodes.get(ch.tex_start)
+
         loc.x = start_x
         bookmark_y = loc.y
         bookmarks_ys.append(bookmark_y)
@@ -572,12 +574,23 @@ def rearrange_tex_nodes(tex):
 
             mask_ramp = nodes.get(mask.channels[i].ramp)
             mask_ramp_multiply = nodes.get(mask.channels[i].ramp_multiply)
+            mask_ramp_subtract = nodes.get(mask.channels[i].ramp_subtract)
+            mask_ramp_intensity = nodes.get(mask.channels[i].ramp_intensity)
             mask_ramp_mix = nodes.get(mask.channels[i].ramp_mix)
+
+            #if j == 0 and check_set_node_location(ch_tex_start, loc):
+            #    loc.x += 170.0
 
             if check_set_node_location(mask_ramp, loc):
                 loc.x += 270.0
 
             if check_set_node_location(mask_ramp_multiply, loc):
+                loc.x += 170.0
+
+            if check_set_node_location(mask_ramp_subtract, loc):
+                loc.x += 170.0
+
+            if check_set_node_location(mask_ramp_intensity, loc):
                 loc.x += 170.0
 
             if check_set_node_location(mask_ramp_mix, loc):

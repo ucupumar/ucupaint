@@ -557,8 +557,9 @@ def main_draw(self, context):
                     row.prop(ch, 'normal_blend', text='')
                 else: row.prop(ch, 'blend_type', text='')
 
-                intensity = tex.tree.nodes.get(ch.intensity)
-                row.prop(intensity.inputs[0], 'default_value', text='')
+                #intensity = tex.tree.nodes.get(ch.intensity)
+                #row.prop(intensity.inputs[0], 'default_value', text='')
+                row.prop(ch, 'intensity_value', text='')
 
                 row.context_pointer_set('parent', ch)
                 row.context_pointer_set('texture', tex)
@@ -932,6 +933,9 @@ def main_draw(self, context):
                                     rrow.label('', icon='BLANK1')
                                     bbbox = rrow.box()
                                     cccol = bbbox.column(align=False)
+                                    rrrow = cccol.row(align=True)
+                                    rrrow.prop(c, 'ramp_blend_type', text='')
+                                    rrrow.prop(c, 'ramp_intensity_value', text='')
                                     ramp = tex.tree.nodes.get(c.ramp)
                                     cccol.template_color_ramp(ramp, "color_ramp", expand=True)
 

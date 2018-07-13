@@ -926,12 +926,23 @@ class YRemoveTextureLayer(bpy.types.Operator):
 
 def update_channel_enable(self, context):
     tl = self.id_data.tl
-    tex = tl.textures[self.texture_index]
-    blend = tex.tree.nodes.get(self.blend)
 
-    if tex.enable and self.enable:
-        blend.mute = False
-    else: blend.mute = True
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
+    ch_index = int(m.group(2))
+    root_ch = tl.channels[ch_index]
+
+    blend = tex.tree.nodes.get(self.blend)
+    #if tex.enable and self.enable:
+    #    blend.mute = False
+    #else: blend.mute = True
+    blend.mute = not tex.enable or not self.enable
+
+    for mask in tex.masks:
+        for i, c in enumerate(mask.channels):
+            if i == ch_index and c.enable_ramp:
+                ramp_mix = tex.tree.nodes.get(c.ramp_mix)
+                ramp_mix.mute = not tex.enable or not self.enable
 
 def update_channel_texture_index(self, context):
     for mod in self.modifiers:
@@ -1351,6 +1362,12 @@ def update_texture_enable(self, context):
             blend.mute = False
         else: blend.mute = True
 
+    for mask in tex.masks:
+        for i, c in enumerate(mask.channels):
+            if c.enable_ramp:
+                ramp_mix = tex.tree.nodes.get(c.ramp_mix)
+                ramp_mix.mute = not tex.enable or not self.enable
+
 def create_intensity_multiplier_node(tree, parent, invert=False, sharpen=False):
     intensity_multiplier = tree.nodes.get(parent.intensity_multiplier)
 
@@ -1439,6 +1456,23 @@ def update_intensity_multiplier_link(self, context):
 
     tl.halt_update = False
 
+def update_channel_intensity_value(self, context):
+    tl = self.id_data.tl
+
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
+    ch_index = int(m.group(2))
+    root_ch = tl.channels[ch_index]
+
+    intensity = tex.tree.nodes.get(self.intensity)
+    intensity.inputs[0].default_value = self.intensity_value
+
+    for mask in tex.masks:
+        for i, c in enumerate(mask.channels):
+            if i == ch_index and c.enable_ramp:
+                ramp_intensity = tex.tree.nodes.get(c.ramp_intensity)
+                ramp_intensity.inputs[1].default_value = self.intensity_value * c.ramp_intensity_value
+
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
 
@@ -1480,7 +1514,11 @@ class YLayerChannel(bpy.types.PropertyGroup):
             #update = update_vector_blend)
             update = update_blend_type)
 
-    pipeline_frame = StringProperty(default='')
+    intensity_value = FloatProperty(
+            name = 'Channel Intensity Factor', 
+            description = 'Channel Intensity Factor',
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
+            update = update_channel_intensity_value)
 
     # Modifiers
     modifiers = CollectionProperty(type=Modifier.YTextureModifier)
@@ -1500,6 +1538,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     linear = StringProperty(default='')
     blend = StringProperty(default='')
     intensity = StringProperty(default='')
+
+    pipeline_frame = StringProperty(default='')
 
     # Modifier pipeline
     start_rgb = StringProperty(default='')
@@ -1567,6 +1607,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
     im_sharpen = BoolProperty(default=False, update=update_intensity_multiplier_link)
 
     #modifier_frame = StringProperty(default='')
+
+    # Tex start node, becuse sometimes it's useful
+    #tex_start = StringProperty(default='')
 
     # For UI
     expand_bump_settings = BoolProperty(default=False)

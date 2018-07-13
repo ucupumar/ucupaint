@@ -210,7 +210,7 @@ def linear_to_srgb(inp):
 def copy_node_props_(source, dest, extras = []):
     #print()
     props = dir(source)
-    filters = ['rna_type']
+    filters = ['rna_type', 'name']
     filters.extend(extras)
     for prop in props:
         if prop.startswith('__'): continue
@@ -322,6 +322,54 @@ def get_active_texture_layers_node():
     nodes = mat.node_tree.nodes
 
     return nodes.get(mat.tl.active_tl_node)
+
+def remove_node(tree, obj, prop, remove_data=True):
+    if not hasattr(obj, prop): return
+
+    scene = bpy.context.scene
+    node = tree.nodes.get(getattr(obj, prop))
+
+    if node: 
+        if remove_data:
+            # Remove image data if the node is the only user
+            if node.bl_idname == 'ShaderNodeTexImage':
+                image = node.image
+                if image:
+                    if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
+                        (scene.tool_settings.image_paint.canvas != image and image.users == 1)):
+                        bpy.data.images.remove(image)
+
+        # Remove the node itself
+        tree.nodes.remove(node)
+
+    setattr(obj, prop, '')
+
+def new_node(tree, obj, prop, node_id_name, label=''):
+    
+    if not hasattr(obj, prop): return
+
+    node = tree.nodes.new(node_id_name)
+    setattr(obj, prop, node.name)
+
+    if label != '':
+        node.label = label
+
+    return node
+
+def check_new_node(tree, obj, prop, node_id_name, label=''):
+    ''' Check if node is available, if not, create one '''
+    if not hasattr(obj, prop): return
+
+    # Try to get the node first
+    node = tree.nodes.get(getattr(obj, prop))
+    new = False
+
+    # Create new node if not found
+    if not node:
+        node = new_node(tree, obj, prop, node_id_name, label)
+        new = True
+
+    return node, new
 
 # Some image_ops need this
 #def get_active_image():
