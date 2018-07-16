@@ -66,10 +66,10 @@ def reconnect_between_modifier_nodes(parent):
         end_rgb = tex.tree.nodes.get(parent.end_rgb)
         end_alpha = tex.tree.nodes.get(parent.end_alpha)
 
-        check_create_node_link(tex.tree, start_rgb.outputs[0], mod_group.inputs[0])
-        check_create_node_link(tex.tree, start_alpha.outputs[0], mod_group.inputs[1])
-        check_create_node_link(tex.tree, mod_group.outputs[0], end_rgb.inputs[0])
-        check_create_node_link(tex.tree, mod_group.outputs[1], end_alpha.inputs[0])
+        create_link(tex.tree, start_rgb.outputs[0], mod_group.inputs[0])
+        create_link(tex.tree, start_alpha.outputs[0], mod_group.inputs[1])
+        create_link(tex.tree, mod_group.outputs[0], end_rgb.inputs[0])
+        create_link(tex.tree, mod_group.outputs[1], end_alpha.inputs[0])
 
     else:
         parent_start_rgb = nodes.get(parent.start_rgb).outputs[0]
@@ -78,8 +78,8 @@ def reconnect_between_modifier_nodes(parent):
         parent_end_alpha = nodes.get(parent.end_alpha).inputs[0]
 
     if len(modifiers) == 0:
-        check_create_node_link(tree, parent_start_rgb, parent_end_rgb)
-        check_create_node_link(tree, parent_start_alpha, parent_end_alpha)
+        create_link(tree, parent_start_rgb, parent_end_rgb)
+        create_link(tree, parent_start_alpha, parent_end_alpha)
 
     for i, m in enumerate(modifiers):
         start_rgb = nodes.get(m.start_rgb)
@@ -99,13 +99,13 @@ def reconnect_between_modifier_nodes(parent):
             prev_alpha = prev_alpha.outputs[0]
 
         # Connect to previous modifier
-        check_create_node_link(tree, prev_rgb, start_rgb.inputs[0])
-        check_create_node_link(tree, prev_alpha, start_alpha.inputs[0])
+        create_link(tree, prev_rgb, start_rgb.inputs[0])
+        create_link(tree, prev_alpha, start_alpha.inputs[0])
 
         if i == 0:
             # Connect to next modifier
-            check_create_node_link(tree, end_rgb.outputs[0], parent_end_rgb)
-            check_create_node_link(tree, end_alpha.outputs[0], parent_end_alpha)
+            create_link(tree, end_rgb.outputs[0], parent_end_rgb)
+            create_link(tree, end_alpha.outputs[0], parent_end_alpha)
 
 def remove_modifier_start_end_nodes(m, tree):
 

@@ -282,6 +282,36 @@ def update_channel_idx_new_texture(self, context):
                 self.rgb_to_intensity_color = (1,0,1)
             else: self.rgb_to_intensity_color = (1,1,1)
 
+def get_fine_bump_distance(tex, distance):
+    scale = 100
+    if tex.type == 'IMAGE':
+        if tex.source_tree:
+            source = tex.source_tree.nodes.get(tex.source)
+        else: source = tex.tree.nodes.get(tex.source)
+        image = source.image
+        if image: scale = image.size[0] / 10
+
+    return distance * scale
+
+class YRefreshNeighborUV(bpy.types.Operator):
+    """Refresh Neighbor UV"""
+    bl_idname = "node.y_refresh_neighbor_uv"
+    bl_label = "Refresh Neighbor UV"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'texture') and hasattr(context, 'channel') and hasattr(context, 'image') and context.image
+
+    def execute(self, context):
+        neighbor_uv = context.texture.tree.nodes.get(context.parent.neighbor_uv)
+        neighbor_uv.inputs[1].default_value = context.image.size[0]
+        neighbor_uv.inputs[2].default_value = context.image.size[1]
+
+        fine_bump = context.texture.tree.nodes.get(context.parent.fine_bump)
+        fine_bump.inputs[0].default_value = get_fine_bump_distance(context.texture, context.channel.bump_distance)
+        return {'FINISHED'}
+
 class YNewTextureLayer(bpy.types.Operator):
     bl_idname = "node.y_new_texture_layer"
     bl_label = "New Texture Layer"
@@ -1039,7 +1069,7 @@ def update_normal_map_type(self, context):
         if not fine_bump:
             fine_bump = nodes.new('ShaderNodeGroup')
             fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
-            fine_bump.inputs[0].default_value = self.fine_bump_scale
+            fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
             fine_bump.label = 'Fine Bump'
             self.fine_bump = fine_bump.name
 
@@ -1229,22 +1259,12 @@ def update_bump_distance(self, context):
     tl = self.id_data.tl
     tex = tl.textures[self.texture_index]
 
-    bump = tex.tree.nodes.get(self.bump)
-    if bump: bump.inputs[1].default_value = self.bump_distance
-
-def update_fine_bump_distance(self, context):
-    tl = self.id_data.tl
-    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(m.group(1))]
-
-    fine_bump = tex.tree.nodes.get(self.fine_bump)
-    if fine_bump: fine_bump.inputs[0].default_value = self.fine_bump_scale
-
-    #for mask in tex.masks:
-    #    for c in mask.channels:
-    #        if c.enable_bump:
-    #            fine_bump = tex.tree.nodes.get(c.fine_bump)
-    #            if fine_bump: fine_bump.inputs[0].default_value = self.fine_bump_scale
+    if self.normal_map_type == 'BUMP_MAP':
+        bump = tex.tree.nodes.get(self.bump)
+        if bump: bump.inputs[1].default_value = self.bump_distance
+    elif self.normal_map_type == 'FINE_BUMP_MAP':
+        fine_bump = tex.tree.nodes.get(self.fine_bump)
+        if fine_bump: fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
 
 def update_intensity_multiplier(self, context):
     tl = self.id_data.tl
@@ -1556,7 +1576,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     bump_distance = FloatProperty(
             name='Bump Distance', 
             description= 'Distance of bump', 
-            default=0.05, min=-1.0, max=1.0,
+            default=0.05, min=-1.0, max=1.0, precision=3, # step=1,
             update=update_bump_distance)
 
     bump_base_value = FloatProperty(
@@ -1583,12 +1603,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     bump_base_w = StringProperty(default='')
 
     fine_bump = StringProperty(default='')
-
-    fine_bump_scale = FloatProperty(
-            name='Bump Scale', 
-            description= 'Scale of bump', 
-            default=4.0, min=-100.0, max=100.0,
-            update=update_fine_bump_distance)
 
     # Intensity Stuff
 

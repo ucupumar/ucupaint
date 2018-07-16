@@ -574,6 +574,22 @@ def main_draw(self, context):
                     extra_separator = False
 
                     if root_ch.type == 'NORMAL':
+
+                        if ch.normal_map_type == 'FINE_BUMP_MAP' and image:
+                            neighbor_uv = tex.tree.nodes.get(ch.neighbor_uv)
+                            cur_x = neighbor_uv.inputs[1].default_value 
+                            cur_y = neighbor_uv.inputs[1].default_value 
+                            if cur_x != image.size[0] or cur_y != image.size[1]:
+                                brow = ccol.row(align=True)
+                                brow.label('', icon='BLANK1')
+                                #brow.label('', icon='BLANK1')
+                                brow.alert = True
+                                brow.context_pointer_set('channel', ch)
+                                brow.context_pointer_set('image', image)
+                                brow.operator('node.y_refresh_neighbor_uv', icon='ERROR')
+                                if tlui.expand_channels:
+                                    brow.label('', icon='BLANK1')
+
                         row = ccol.row(align=True)
                         row.label('', icon='BLANK1')
                         if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
@@ -616,12 +632,12 @@ def main_draw(self, context):
                         brow = ccol.row(align=True)
                         brow.label('', icon='BLANK1')
                         brow.label('', icon='INFO')
-                        if ch.normal_map_type == 'BUMP_MAP':
-                            brow.label('Distance:') #, icon='INFO')
-                            brow.prop(ch, 'bump_distance', text='')
-                        elif ch.normal_map_type == 'FINE_BUMP_MAP':
-                            brow.label('Scale:') #, icon='INFO')
-                            brow.prop(ch, 'fine_bump_scale', text='')
+                        #if ch.normal_map_type == 'BUMP_MAP':
+                        brow.label('Distance:') #, icon='INFO')
+                        brow.prop(ch, 'bump_distance', text='')
+                        #elif ch.normal_map_type == 'FINE_BUMP_MAP':
+                        #    brow.label('Scale:') #, icon='INFO')
+                        #    brow.prop(ch, 'fine_bump_scale', text='')
                         if tlui.expand_channels:
                             brow.label('', icon='BLANK1')
 
