@@ -1,11 +1,17 @@
 # TODO (Immediate):
 # - Musgrave texture (V)
-# - Check for more consistent class names and properties
+# - Masking (Per texture and modifier)
+# - Global mask setting
+#   - Bump
+#   - Ramp
+# - Mask switcher on the list
+# - Texture group/folder
 # - Eraser brush (check for ypanel implementation)
+# - Check for more consistent class names and properties
 #
 # TODO:
-# - Masking (Per texture and modifier)
 # - Matcap view on Normal preview
+# - Per texture preview
 # - Bake channel
 # - 'Ignore below' blend for bake channel result
 # - Bake pointiness, AO 
@@ -14,6 +20,8 @@
 # - Eevee support
 #
 # BUGS:
+# - Fine bump still produces wrong result when using non UV texture mapping
+# - Sharp bump can cause bleed on color channel
 # - Value channel should output only grayscale
 # - Musgrave fine bump cannot read below 0.0
 #
