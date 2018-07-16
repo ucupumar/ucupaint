@@ -16,7 +16,7 @@
 # - 'Ignore below' blend for bake channel result
 # - Bake pointiness, AO 
 # - Blur UV (?)
-# - Texture Group + bake proxy
+# - Texture Group bake proxy
 # - Eevee support
 #
 # BUGS:
