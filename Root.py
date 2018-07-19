@@ -1220,16 +1220,18 @@ def update_texture_index(self, context):
 
     for mask in tex.masks:
         if mask.type == 'IMAGE' and mask.active_edit:
-            uv_map = tex.tree.nodes.get(mask.uv_map)
-            uv_name = uv_map.uv_map
+            #uv_map = tex.tree.nodes.get(mask.uv_map)
+            #uv_name = uv_map.uv_map
+            uv_name = mask.uv_name
             if mask.tree:
                 source = mask.tree.nodes.get(mask.source)
             else: source = tex.tree.nodes.get(mask.source)
             image = source.image
 
     if not image and tex.type == 'IMAGE':
-        uv_map = tex.tree.nodes.get(tex.uv_map)
-        uv_name = uv_map.uv_map
+        #uv_map = tex.tree.nodes.get(tex.uv_map)
+        #uv_name = uv_map.uv_map
+        uv_name = tex.uv_name
         if tex.source_tree:
             source = tex.source_tree.nodes.get(tex.source)
         else: source = tex.tree.nodes.get(tex.source)

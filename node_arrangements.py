@@ -373,7 +373,8 @@ def rearrange_tex_nodes(tex):
 
     solid_alpha = nodes.get(tex.solid_alpha)
     texcoord = nodes.get(tex.texcoord)
-    uv_map = nodes.get(tex.uv_map)
+    #uv_map = nodes.get(tex.uv_map)
+    uv_attr = nodes.get(tex.uv_attr)
     tangent = nodes.get(tex.tangent)
     bitangent = nodes.get(tex.bitangent)
     geometry = nodes.get(tex.geometry)
@@ -683,8 +684,11 @@ def rearrange_tex_nodes(tex):
     if check_set_node_location(solid_alpha, loc):
         loc.y -= 90
 
-    if check_set_node_location(uv_map, loc):
-        loc.y -= 115
+    #if check_set_node_location(uv_map, loc):
+    #    loc.y -= 115
+
+    if check_set_node_location(uv_attr, loc):
+        loc.y -= 140
 
     if check_set_node_location(texcoord, loc):
         loc.y -= 240

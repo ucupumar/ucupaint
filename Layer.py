@@ -53,29 +53,12 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     intensity.inputs[2].default_value = (1,1,1,1)
     channel.intensity = intensity.name
 
-    # Normal nodes
-    #if root_ch.type == 'NORMAL':
-    #    normal = tree.nodes.new('ShaderNodeNormalMap')
-    #    uv_map = tree.nodes.get(texture.uv_map)
-    #    normal.uv_map = uv_map.uv_map
-    #    channel.normal = normal.name
-
-    #    bump_base = tree.nodes.new('ShaderNodeMixRGB')
-    #    bump_base.label = 'Bump Base'
-    #    bump_base.inputs[1].default_value = (0.5, 0.5, 0.5, 1.0)
-    #    channel.bump_base = bump_base.name
-
-    #    bump = tree.nodes.new('ShaderNodeBump')
-    #    bump.inputs[1].default_value = 0.05
-    #    channel.bump = bump.name
-
-    #    normal_flip = tree.nodes.new('ShaderNodeGroup')
-    #    normal_flip.node_tree = lib.get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
-    #    normal_flip.label = 'Flip Backface Normal'
-    #    channel.normal_flip = normal_flip.name
-
     # Update texture channel blend type
     update_blend_type_(root_ch, texture, channel)
+
+    # Normal related nodes created by set it's normal map type
+    if root_ch.type == 'NORMAL':
+        channel.normal_map_type = channel.normal_map_type
 
     # Reconnect node inside textures
     reconnect_tex_nodes(texture, ch_index)
@@ -119,7 +102,7 @@ def tex_input_items(self, context):
     return items
 
 def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, normal_map_type, 
-        texcoord_type, uv_map_name='', image=None, add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1)):
+        texcoord_type, uv_name='', image=None, add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1)):
 
     group_node = get_active_texture_layers_node()
     group_tree = group_node.node_tree
@@ -131,7 +114,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     tex = tl.textures.add()
     tex.type = tex_type
     tex.name = tex_name
-    tex.uv_name = uv_map_name
+    tex.uv_name = uv_name
 
     if image:
         tex.image_name = image.name
@@ -186,34 +169,26 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
         solid_alpha.outputs[0].default_value = 1.0
         tex.solid_alpha = solid_alpha.name
 
-    # Add geometry node
-    geometry = tree.nodes.new('ShaderNodeNewGeometry')
-    geometry.label = 'Source Geometry'
-    tex.geometry = geometry.name
-
-    # Add texcoord node
-    texcoord = tree.nodes.new('ShaderNodeTexCoord')
-    texcoord.label = 'Source TexCoord'
-    tex.texcoord = texcoord.name
+    # Add geometry and texcoord node
+    geometry = new_node(tree, tex, 'geometry', 'ShaderNodeNewGeometry', 'Source Geometry')
+    texcoord = new_node(tree, tex, 'texcoord', 'ShaderNodeTexCoord', 'Source TexCoord')
 
     # Add uv map node
-    uv_map = tree.nodes.new('ShaderNodeUVMap')
-    uv_map.label = 'Source UV Map'
-    uv_map.uv_map = uv_map_name
-    tex.uv_map = uv_map.name
+    #uv_map = new_node(tree, tex, 'uv_map', 'ShaderNodeUVMap', 'Source UV Map')
+    #uv_map.uv_map = uv_name
 
-    # Add tangent node
-    tangent = tree.nodes.new('ShaderNodeNormalMap')
-    tangent.label = 'Source Tangent'
-    tangent.uv_map = uv_map_name
+    # Add uv attribute node
+    uv_attr = new_node(tree, tex, 'uv_attr', 'ShaderNodeAttribute', 'Source UV Attribute')
+    uv_attr.attribute_name = uv_name
+
+    # Add tangent and bitangent node
+    tangent = new_node(tree, tex, 'tangent', 'ShaderNodeNormalMap', 'Source Tangent')
+    tangent.uv_map = uv_name
     tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
-    tex.tangent = tangent.name
 
-    bitangent = tree.nodes.new('ShaderNodeNormalMap')
-    bitangent.label = 'Source Bitangent'
-    bitangent.uv_map = uv_map_name
+    bitangent = new_node(tree, tex, 'bitangent', 'ShaderNodeNormalMap', 'Source Bitangent')
+    bitangent.uv_map = uv_name
     bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
-    tex.bitangent = bitangent.name
 
     # Set tex coordinate type
     tex.texcoord_type = texcoord_type
@@ -258,7 +233,6 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
             if c.enable and ch.type == 'RGB' and not shortcut_created:
                 m.shortcut = True
                 shortcut_created = True
-
 
     # Refresh paint image by updating the index
     tl.active_texture_index = index
@@ -963,9 +937,6 @@ def update_channel_enable(self, context):
     root_ch = tl.channels[ch_index]
 
     blend = tex.tree.nodes.get(self.blend)
-    #if tex.enable and self.enable:
-    #    blend.mute = False
-    #else: blend.mute = True
     blend.mute = not tex.enable or not self.enable
 
     for mask in tex.masks:
@@ -973,6 +944,8 @@ def update_channel_enable(self, context):
             if i == ch_index and c.enable_ramp:
                 ramp_mix = tex.tree.nodes.get(c.ramp_mix)
                 ramp_mix.mute = not tex.enable or not self.enable
+
+    reconnect_tex_nodes(tex)
 
 def update_channel_texture_index(self, context):
     for mod in self.modifiers:
@@ -1326,8 +1299,11 @@ def update_uv_name(self, context):
 
     nodes = tex.tree.nodes
 
-    uv_map = nodes.get(tex.uv_map)
-    if uv_map: uv_map.uv_map = tex.uv_name
+    #uv_map = nodes.get(tex.uv_map)
+    #if uv_map: uv_map.uv_map = tex.uv_name
+
+    uv_attr = nodes.get(tex.uv_attr)
+    if uv_attr: uv_attr.attribute_name = tex.uv_name
 
     tangent = nodes.get(tex.tangent)
     if tangent: tangent.uv_map = tex.uv_name
@@ -1348,28 +1324,35 @@ def update_uv_name(self, context):
                 break
 
 def update_texcoord_type(self, context):
-    tree = self.tree
-    nodes = tree.nodes
-    links = tree.links
+    tl = self.id_data.tl
+    tex = self
 
-    if self.source_tree:
-        source = nodes.get(self.source_group)
-    else: source = nodes.get(self.source)
-    texcoord = nodes.get(self.texcoord)
-    uv_map = nodes.get(self.uv_map)
+    # Check for normal channel for fine bump space switch
+    # UV is using Tangent space
+    # Generated, Normal, and object are using Object Space
+    # Camera and Window are using View Space
+    # Reflection actually aren't using view space, but whatever, no one use bump map in reflection texcoord
+    for i, ch in enumerate(tex.channels):
+        root_ch = tl.channels[i]
+        if root_ch.type == 'NORMAL':
 
-    # Connect to source
-    if self.texcoord_type == 'UV':
-        links.new(uv_map.outputs[0], source.inputs[0])
-    else: links.new(texcoord.outputs[self.texcoord_type], source.inputs[0])
+            if tex.texcoord_type == 'UV':
+                space = 1.0 # Tangent Space
+            elif tex.texcoord_type in {'Generated', 'Normal', 'Object'}:
+                space = 0.5 # Object Space
+            elif tex.texcoord_type in {'Camera', 'Window', 'Reflection'}: 
+                space = 0.0 # View Space
+            else: space = 1.0
 
-    # Connect to neighbor uv if available
-    for ch in self.channels:
-        neighbor_uv = nodes.get(ch.neighbor_uv)
-        if neighbor_uv:
-            if self.texcoord_type == 'UV':
-                links.new(uv_map.outputs[0], neighbor_uv.inputs[0])
-            else: links.new(texcoord.outputs[self.texcoord_type], neighbor_uv.inputs[0])
+            neighbor_uv = tex.tree.nodes.get(ch.neighbor_uv)
+            if neighbor_uv:
+                neighbor_uv.inputs['Space'].default_value = space
+
+            fine_bump = tex.tree.nodes.get(ch.fine_bump)
+            if fine_bump:
+                fine_bump.inputs['Space'].default_value = space
+
+    reconnect_tex_nodes(self)
 
 def update_texture_enable(self, context):
     #print(self.id_data, self.id_data.users)
@@ -1378,15 +1361,15 @@ def update_texture_enable(self, context):
 
     for ch in tex.channels:
         blend = tex.tree.nodes.get(ch.blend)
-        if tex.enable and ch.enable:
-            blend.mute = False
-        else: blend.mute = True
+        blend.mute = not tex.enable or not ch.enable
 
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
             if c.enable_ramp:
                 ramp_mix = tex.tree.nodes.get(c.ramp_mix)
                 ramp_mix.mute = not tex.enable or not self.enable
+
+    reconnect_tex_nodes(tex)
 
 def create_intensity_multiplier_node(tree, parent, invert=False, sharpen=False):
     intensity_multiplier = tree.nodes.get(parent.intensity_multiplier)
@@ -1666,7 +1649,8 @@ class YTextureLayer(bpy.types.PropertyGroup):
     #linear = StringProperty(default='')
     solid_alpha = StringProperty(default='')
     texcoord = StringProperty(default='')
-    uv_map = StringProperty(default='')
+    #uv_map = StringProperty(default='')
+    uv_attr = StringProperty(default='')
     tangent = StringProperty(default='')
     bitangent = StringProperty(default='')
     geometry = StringProperty(default='')

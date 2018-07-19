@@ -18,9 +18,10 @@
 # - Blur UV (?)
 # - Texture Group bake proxy
 # - Eevee support
+# - Armory support
 #
 # BUGS:
-# - Fine bump still produces wrong result when using non UV texture mapping
+# - Fine bump still produces wrong result when using non UV texture mapping (V)
 # - Sharp bump can cause bleed on color channel
 # - Value channel should output only grayscale
 # - Musgrave fine bump cannot read below 0.0

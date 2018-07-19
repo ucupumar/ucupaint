@@ -137,7 +137,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         source = nodes.get(tex.source_group)
     else: source = nodes.get(tex.source)
 
-    uv_map = nodes.get(tex.uv_map)
+    #uv_map = nodes.get(tex.uv_map)
+    uv_attr = nodes.get(tex.uv_attr)
     texcoord = nodes.get(tex.texcoord)
     solid_alpha = nodes.get(tex.solid_alpha)
     tangent = nodes.get(tex.tangent)
@@ -146,7 +147,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
     # Texcoord
     if tex.texcoord_type == 'UV':
-        create_link(tree, uv_map.outputs[0], source.inputs[0])
+        #create_link(tree, uv_map.outputs[0], source.inputs[0])
+        create_link(tree, uv_attr.outputs[1], source.inputs[0])
     else: create_link(tree, texcoord.outputs[tex.texcoord_type], source.inputs[0])
 
     for i, ch in enumerate(tex.channels):
@@ -221,7 +223,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
             if neighbor_uv:
                 if tex.texcoord_type == 'UV':
-                    create_link(tree, uv_map.outputs[0], neighbor_uv.inputs[0])
+                    #create_link(tree, uv_map.outputs[0], neighbor_uv.inputs[0])
+                    create_link(tree, uv_attr.outputs[1], neighbor_uv.inputs[0])
                 else: create_link(tree, texcoord.outputs[tex.texcoord_type], neighbor_uv.inputs[0])
                 create_link(tree, neighbor_uv.outputs[0], source_n.inputs[0])
                 create_link(tree, neighbor_uv.outputs[1], source_s.inputs[0])
@@ -255,9 +258,13 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, bump_base_e.outputs[0], fine_bump.inputs[4])
                 create_link(tree, bump_base_w.outputs[0], fine_bump.inputs[5])
 
-                create_link(tree, tangent.outputs[0], fine_bump.inputs[6])
-                create_link(tree, bitangent.outputs[0], fine_bump.inputs[7])
-                create_link(tree, geometry.outputs['Normal'], fine_bump.inputs[8])
+                create_link(tree, neighbor_uv.outputs[4], fine_bump.inputs[6])
+                create_link(tree, neighbor_uv.outputs[5], fine_bump.inputs[7])
+                create_link(tree, neighbor_uv.outputs[6], fine_bump.inputs[8])
+
+                create_link(tree, tangent.outputs[0], fine_bump.inputs[10])
+                create_link(tree, bitangent.outputs[0], fine_bump.inputs[11])
+                #create_link(tree, geometry.outputs['Normal'], fine_bump.inputs[8])
 
             #if bump and ch.normal_map_type == 'BUMP_MAP':
             #    normal_flip_input = bump.outputs[0]
@@ -460,7 +467,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, ramp_output, blend.inputs[1])
             else: create_link(tree, start.outputs[root_ch.io_index], blend.inputs[1])
 
-        create_link(tree, blend.outputs[0], end.inputs[root_ch.io_index])
+        # Armory can't recognize mute node, so reconnect input to output directly
+        if tex.enable and ch.enable:
+            create_link(tree, blend.outputs[0], end.inputs[root_ch.io_index])
+        else: create_link(tree, start.outputs[root_ch.io_index], end.inputs[root_ch.io_index])
 
         if root_ch.type == 'RGB' and ch.blend_type != 'MIX' and root_ch.alpha:
             create_link(tree, start.outputs[root_ch.io_index+1], end.inputs[root_ch.io_index+1])
