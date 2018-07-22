@@ -20,6 +20,9 @@
 # - Eevee support
 # - Armory support
 #
+# TODO OPT:
+# - Lazy node calling (can be useful to prevent missing error)
+#
 # BUGS:
 # - Fine bump still produces wrong result when using non UV texture mapping (V)
 # - Sharp bump can cause bleed on color channel
