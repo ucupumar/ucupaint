@@ -744,3 +744,15 @@ class YTextureMask(bpy.types.PropertyGroup):
     expand_content = BoolProperty(default=False)
     expand_source = BoolProperty(default=False)
     expand_vector = BoolProperty(default=False)
+
+def register():
+    bpy.utils.register_class(YNewTextureMask)
+    bpy.utils.register_class(YRemoveTextureMask)
+    bpy.utils.register_class(YTextureMaskChannel)
+    bpy.utils.register_class(YTextureMask)
+
+def unregister():
+    bpy.utils.unregister_class(YNewTextureMask)
+    bpy.utils.unregister_class(YRemoveTextureMask)
+    bpy.utils.unregister_class(YTextureMaskChannel)
+    bpy.utils.unregister_class(YTextureMask)

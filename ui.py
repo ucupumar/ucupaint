@@ -1619,6 +1619,23 @@ def ytl_load_ui_settings(scene):
     wmui.need_update = True
 
 def register():
+    bpy.utils.register_class(YTLSpecialMenu)
+    bpy.utils.register_class(YNewTexMenu)
+    bpy.utils.register_class(YTexSpecialMenu)
+    bpy.utils.register_class(YModifierMenu)
+    bpy.utils.register_class(YAddTexMaskMenu)
+    bpy.utils.register_class(YTexMaskMenuSpecial)
+    bpy.utils.register_class(YMaskUI)
+    bpy.utils.register_class(YModifierUI)
+    bpy.utils.register_class(YChannelUI)
+    bpy.utils.register_class(YTextureUI)
+    bpy.utils.register_class(NODE_UL_y_tl_channels)
+    bpy.utils.register_class(NODE_UL_y_tl_textures)
+    bpy.utils.register_class(NODE_PT_y_texture_layers)
+    bpy.utils.register_class(VIEW3D_PT_y_texture_layers_tools)
+    bpy.utils.register_class(VIEW3D_PT_y_texture_layers_ui)
+    bpy.utils.register_class(YTLUI)
+
     bpy.types.Scene.tlui = PointerProperty(type=YTLUI)
     bpy.types.WindowManager.tlui = PointerProperty(type=YTLUI)
 
@@ -1631,6 +1648,23 @@ def register():
     bpy.app.handlers.save_pre.append(ytl_save_ui_settings)
 
 def unregister():
+    bpy.utils.unregister_class(YTLSpecialMenu)
+    bpy.utils.unregister_class(YNewTexMenu)
+    bpy.utils.unregister_class(YTexSpecialMenu)
+    bpy.utils.unregister_class(YModifierMenu)
+    bpy.utils.unregister_class(YAddTexMaskMenu)
+    bpy.utils.unregister_class(YTexMaskMenuSpecial)
+    bpy.utils.unregister_class(YMaskUI)
+    bpy.utils.unregister_class(YModifierUI)
+    bpy.utils.unregister_class(YChannelUI)
+    bpy.utils.unregister_class(YTextureUI)
+    bpy.utils.unregister_class(NODE_UL_y_tl_channels)
+    bpy.utils.unregister_class(NODE_UL_y_tl_textures)
+    bpy.utils.unregister_class(NODE_PT_y_texture_layers)
+    bpy.utils.unregister_class(VIEW3D_PT_y_texture_layers_tools)
+    bpy.utils.unregister_class(VIEW3D_PT_y_texture_layers_ui)
+    bpy.utils.unregister_class(YTLUI)
+
     # Remove add texture layers node ui
     bpy.types.NODE_MT_add.remove(add_new_tl_node_menu)
 

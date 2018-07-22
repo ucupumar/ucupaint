@@ -1664,3 +1664,22 @@ class YTextureLayer(bpy.types.PropertyGroup):
     expand_vector = BoolProperty(default=False)
     expand_masks = BoolProperty(default=False)
 
+def register():
+    bpy.utils.register_class(YRefreshNeighborUV)
+    bpy.utils.register_class(YNewTextureLayer)
+    bpy.utils.register_class(YOpenImageToLayer)
+    bpy.utils.register_class(YOpenAvailableImageToLayer)
+    bpy.utils.register_class(YMoveTextureLayer)
+    bpy.utils.register_class(YRemoveTextureLayer)
+    bpy.utils.register_class(YLayerChannel)
+    bpy.utils.register_class(YTextureLayer)
+
+def unregister():
+    bpy.utils.unregister_class(YRefreshNeighborUV)
+    bpy.utils.unregister_class(YNewTextureLayer)
+    bpy.utils.unregister_class(YOpenImageToLayer)
+    bpy.utils.unregister_class(YOpenAvailableImageToLayer)
+    bpy.utils.unregister_class(YMoveTextureLayer)
+    bpy.utils.unregister_class(YRemoveTextureLayer)
+    bpy.utils.unregister_class(YLayerChannel)
+    bpy.utils.unregister_class(YTextureLayer)

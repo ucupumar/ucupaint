@@ -1010,3 +1010,17 @@ def disable_modifiers_tree(ch):
 #    else:
 #        disable_modifiers_tree(self)
 #    #print('Neve sei neve')
+
+def register():
+    bpy.utils.register_class(YNewTexModifier)
+    bpy.utils.register_class(YMoveTexModifier)
+    bpy.utils.register_class(YRemoveTexModifier)
+    bpy.utils.register_class(YTexModifierSpecialMenu)
+    bpy.utils.register_class(YTextureModifier)
+
+def unregister():
+    bpy.utils.unregister_class(YNewTexModifier)
+    bpy.utils.unregister_class(YMoveTexModifier)
+    bpy.utils.unregister_class(YRemoveTexModifier)
+    bpy.utils.unregister_class(YTexModifierSpecialMenu)
+    bpy.utils.unregister_class(YTextureModifier)

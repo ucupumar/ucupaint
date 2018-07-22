@@ -1564,6 +1564,20 @@ def ytl_hacks_and_scene_updates(scene):
                 tl.active_texture_index = tl.active_texture_index
 
 def register():
+    bpy.utils.register_class(YMaterialTLProps)
+    bpy.utils.register_class(YQuickSetupTLNode)
+    bpy.utils.register_class(YNewTLNode)
+    bpy.utils.register_class(YNodeInputCollItem)
+    bpy.utils.register_class(YNewTLChannel)
+    bpy.utils.register_class(YMoveTLChannel)
+    bpy.utils.register_class(YRemoveTLChannel)
+    bpy.utils.register_class(YAddSimpleUVs)
+    bpy.utils.register_class(YRenameTLTree)
+    bpy.utils.register_class(YFixDuplicatedTextures)
+    bpy.utils.register_class(YNodeConnections)
+    bpy.utils.register_class(YRootChannel)
+    bpy.utils.register_class(YTextureLayersRoot)
+
     # TL Props
     bpy.types.ShaderNodeTree.tl = PointerProperty(type=YTextureLayersRoot)
     bpy.types.Material.tl = PointerProperty(type=YMaterialTLProps)
@@ -1572,6 +1586,19 @@ def register():
     bpy.app.handlers.scene_update_pre.append(ytl_hacks_and_scene_updates)
 
 def unregister():
+    bpy.utils.unregister_class(YMaterialTLProps)
+    bpy.utils.unregister_class(YQuickSetupTLNode)
+    bpy.utils.unregister_class(YNewTLNode)
+    bpy.utils.unregister_class(YNodeInputCollItem)
+    bpy.utils.unregister_class(YNewTLChannel)
+    bpy.utils.unregister_class(YMoveTLChannel)
+    bpy.utils.unregister_class(YRemoveTLChannel)
+    bpy.utils.unregister_class(YAddSimpleUVs)
+    bpy.utils.unregister_class(YRenameTLTree)
+    bpy.utils.unregister_class(YFixDuplicatedTextures)
+    bpy.utils.unregister_class(YNodeConnections)
+    bpy.utils.unregister_class(YRootChannel)
+    bpy.utils.unregister_class(YTextureLayersRoot)
 
     # Remove handlers
     bpy.app.handlers.scene_update_pre.remove(ytl_hacks_and_scene_updates)

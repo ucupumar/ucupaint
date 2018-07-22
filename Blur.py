@@ -37,3 +37,9 @@ class YTextureBlur(bpy.types.PropertyGroup):
 
     tree = PointerProperty(type=bpy.types.ShaderNodeTree)
     node = StringProperty(default='')
+
+def register():
+    bpy.utils.register_class(YTextureBlur)
+
+def unregister():
+    bpy.utils.unregister_class(YTextureBlur)

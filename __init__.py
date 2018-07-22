@@ -72,20 +72,30 @@ import bpy
 
 def register():
     # Register classes
-    bpy.utils.register_module(__name__)
+    #bpy.utils.register_module(__name__)
+    image_ops.register()
     preferences.register()
     lib.register()
     ui.register()
+    Mask.register()
+    Modifier.register()
+    Blur.register()
+    Layer.register()
     Root.register()
 
     print('INFO: yTexLayers ' + common.get_current_version_str() + ' is registered!')
 
 def unregister():
     # Remove classes
-    bpy.utils.unregister_module(__name__)
+    #bpy.utils.unregister_module(__name__)
+    image_ops.unregister()
     preferences.unregister()
     lib.unregister()
     ui.unregister()
+    Mask.unregister()
+    Modifier.unregister()
+    Blur.unregister()
+    Layer.unregister()
     Root.unregister()
 
     print('INFO: yTexLayers ' + common.get_current_version_str() + ' is unregistered!')

@@ -575,3 +575,19 @@ class YSavePackAll(bpy.types.Operator):
         #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         tlui.refresh_image_hack = False
         return {'FINISHED'}
+
+def register():
+    bpy.utils.register_class(YInvertImage)
+    bpy.utils.register_class(YRefreshImage)
+    bpy.utils.register_class(YPackImage)
+    bpy.utils.register_class(YSaveImage)
+    bpy.utils.register_class(YSaveAsImage)
+    bpy.utils.register_class(YSavePackAll)
+
+def unregister():
+    bpy.utils.unregister_class(YInvertImage)
+    bpy.utils.unregister_class(YRefreshImage)
+    bpy.utils.unregister_class(YPackImage)
+    bpy.utils.unregister_class(YSaveImage)
+    bpy.utils.unregister_class(YSaveAsImage)
+    bpy.utils.unregister_class(YSavePackAll)

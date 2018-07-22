@@ -58,9 +58,13 @@ def refresh_float_image_hack(scene):
         tlui.refresh_image_hack = False
 
 def register():
+    bpy.utils.register_class(YTLPreferences)
+
     bpy.app.handlers.save_pre.append(auto_save_images)
     bpy.app.handlers.save_post.append(refresh_float_image_hack)
 
 def unregister():
+    bpy.utils.unregister_class(YTLPreferences)
+
     bpy.app.handlers.save_pre.remove(auto_save_images)
     bpy.app.handlers.save_post.remove(refresh_float_image_hack)
