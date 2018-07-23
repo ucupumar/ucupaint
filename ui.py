@@ -4,6 +4,75 @@ from bpy.app.handlers import persistent
 from . import lib, Modifier
 from .common import *
 
+def update_tl_ui():
+
+    # Get active tl node
+    node = get_active_texture_layers_node()
+    if not node or node.type != 'GROUP': return
+    tree = node.node_tree
+    tl = tree.tl
+    tlui = bpy.context.window_manager.tlui
+
+    # Check if tex channel ui consistency
+    if len(tl.textures) > 0:
+        if len(tlui.tex_ui.channels) != len(tl.channels):
+            tlui.need_update = True
+
+    # Update UI
+    if (tlui.tree_name != tree.name or 
+        tlui.tex_idx != tl.active_texture_index or 
+        tlui.channel_idx != tl.active_channel_index or 
+        tlui.need_update
+        ):
+
+        tlui.tree_name = tree.name
+        tlui.tex_idx = tl.active_texture_index
+        tlui.channel_idx = tl.active_channel_index
+        tlui.need_update = False
+        tlui.halt_prop_update = True
+
+        if len(tl.channels) > 0:
+
+            # Get channel
+            channel = tl.channels[tl.active_channel_index]
+            tlui.channel_ui.expand_content = channel.expand_content
+            tlui.channel_ui.expand_base_vector = channel.expand_base_vector
+            tlui.channel_ui.modifiers.clear()
+
+            # Construct channel UI objects
+            for i, mod in enumerate(channel.modifiers):
+                m = tlui.channel_ui.modifiers.add()
+                m.expand_content = mod.expand_content
+
+        if len(tl.textures) > 0:
+
+            # Get texture
+            tex = tl.textures[tl.active_texture_index]
+            tlui.tex_ui.expand_content = tex.expand_content
+            tlui.tex_ui.expand_vector = tex.expand_vector
+            tlui.tex_ui.expand_masks = tex.expand_masks
+            tlui.tex_ui.channels.clear()
+            tlui.tex_ui.masks.clear()
+            
+            # Construct texture channel UI objects
+            for i, ch in enumerate(tex.channels):
+                c = tlui.tex_ui.channels.add()
+                c.expand_bump_settings = ch.expand_bump_settings
+                c.expand_intensity_settings = ch.expand_intensity_settings
+                c.expand_content = ch.expand_content
+                for j, mod in enumerate(ch.modifiers):
+                    m = c.modifiers.add()
+                    m.expand_content = mod.expand_content
+
+            # Construct texture masks UI objects
+            for i, mask in enumerate(tex.masks):
+                m = tlui.tex_ui.masks.add()
+                m.expand_content = mask.expand_content
+                m.expand_source = mask.expand_source
+                m.expand_vector = mask.expand_vector
+
+        tlui.halt_prop_update = False
+
 def draw_image_props(source, layout):
 
     image = source.image
@@ -186,8 +255,13 @@ def draw_tex_props(source, layout):
             col.prop(source.inputs[i], 'default_value', text='')
 
 def main_draw(self, context):
+
+    # Update ui props first
+    update_tl_ui()
+
     obj = context.object
     is_a_mesh = True if obj and obj.type == 'MESH' else False
+    #node = get_active_texture_layers_node()
     node = get_active_texture_layers_node()
 
     layout = self.layout
@@ -218,6 +292,9 @@ def main_draw(self, context):
     row = layout.row(align=True)
     row.prop(tlui, 'show_channels', emboss=False, text='', icon=icon)
     row.label('Channels')
+
+    #tlui.random_prop = True
+    #tl.random_prop = True
 
     if tlui.show_channels:
 
@@ -1457,14 +1534,17 @@ def update_mask_ui(self, context):
     mask.expand_vector = self.expand_vector
 
 class YMaskUI(bpy.types.PropertyGroup):
+    #name = StringProperty(default='')
     expand_content = BoolProperty(default=True, update=update_mask_ui)
     expand_source = BoolProperty(default=True, update=update_mask_ui)
     expand_vector = BoolProperty(default=True, update=update_mask_ui)
 
 class YModifierUI(bpy.types.PropertyGroup):
+    #name = StringProperty(default='')
     expand_content = BoolProperty(default=True, update=update_modifier_ui)
 
 class YChannelUI(bpy.types.PropertyGroup):
+    #name = StringProperty(default='')
     expand_content = BoolProperty(default=False, update=update_channel_ui)
     expand_bump_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_intensity_settings = BoolProperty(default=False, update=update_channel_ui)
@@ -1472,11 +1552,17 @@ class YChannelUI(bpy.types.PropertyGroup):
     modifiers = CollectionProperty(type=YModifierUI)
 
 class YTextureUI(bpy.types.PropertyGroup):
+    #name = StringProperty(default='')
     expand_content = BoolProperty(default=False, update=update_texture_ui)
     expand_vector = BoolProperty(default=False, update=update_texture_ui)
     expand_masks = BoolProperty(default=False, update=update_texture_ui)
     channels = CollectionProperty(type=YChannelUI)
     masks = CollectionProperty(type=YMaskUI)
+
+class YMaterialUI(bpy.types.PropertyGroup):
+    name = StringProperty(default='')
+    material = PointerProperty(type=bpy.types.Material)
+    active_tl_node = StringProperty(default='')
 
 class YTLUI(bpy.types.PropertyGroup):
     show_channels = BoolProperty(default=True)
@@ -1487,6 +1573,8 @@ class YTLUI(bpy.types.PropertyGroup):
             name='Expand all channels',
             description='Expand all channels',
             default=False)
+
+    #active_tl_node = StringProperty(default='')
 
     # To store active node and tree
     tree_name = StringProperty(default='')
@@ -1514,6 +1602,10 @@ class YTLUI(bpy.types.PropertyGroup):
     # This prop will notify if float image is active after saving
     refresh_image_hack = BoolProperty(default=False)
 
+    materials = CollectionProperty(type=YMaterialUI)
+
+    #random_prop = BoolProperty(default=False)
+
 def add_new_tl_node_menu(self, context):
     if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine != 'CYCLES': return
     l = self.layout
@@ -1521,96 +1613,35 @@ def add_new_tl_node_menu(self, context):
     l.separator()
     l.operator('node.y_add_new_texture_layers_node', text='Texture Layers', icon='NODETREE')
 
-@persistent
-def ytl_ui_update(scene):
-    # Check if active node is tl node or not
-    mat = get_active_material()
-    node = get_active_node()
-    if node and node.type == 'GROUP' and node.node_tree and node.node_tree.tl.is_tl_node:
-        # Update node name
-        if mat.tl.active_tl_node != node.name:
-            mat.tl.active_tl_node = node.name
-
-    # Get active tl node
-    group_node =  get_active_texture_layers_node()
-    if not group_node: return
-    tree = group_node.node_tree
-    tl = tree.tl
-    tlui = bpy.context.window_manager.tlui
-
-    # Check if tex channel ui consistency
-    if len(tl.textures) > 0:
-        if len(tlui.tex_ui.channels) != len(tl.channels):
-            tlui.need_update = True
-
-    # Update UI
-    if (tlui.tree_name != tree.name or 
-        tlui.tex_idx != tl.active_texture_index or 
-        tlui.channel_idx != tl.active_channel_index or 
-        tlui.need_update
-        ):
-
-        tlui.tree_name = tree.name
-        tlui.tex_idx = tl.active_texture_index
-        tlui.channel_idx = tl.active_channel_index
-        tlui.need_update = False
-        tlui.halt_prop_update = True
-
-        if len(tl.channels) > 0:
-
-            # Get channel
-            channel = tl.channels[tl.active_channel_index]
-            tlui.channel_ui.expand_content = channel.expand_content
-            tlui.channel_ui.expand_base_vector = channel.expand_base_vector
-            tlui.channel_ui.modifiers.clear()
-
-            # Construct channel UI objects
-            for i, mod in enumerate(channel.modifiers):
-                m = tlui.channel_ui.modifiers.add()
-                m.expand_content = mod.expand_content
-
-        if len(tl.textures) > 0:
-
-            # Get texture
-            tex = tl.textures[tl.active_texture_index]
-            tlui.tex_ui.expand_content = tex.expand_content
-            tlui.tex_ui.expand_vector = tex.expand_vector
-            tlui.tex_ui.expand_masks = tex.expand_masks
-            tlui.tex_ui.channels.clear()
-            tlui.tex_ui.masks.clear()
-            
-            # Construct texture channel UI objects
-            for i, ch in enumerate(tex.channels):
-                c = tlui.tex_ui.channels.add()
-                c.expand_bump_settings = ch.expand_bump_settings
-                c.expand_intensity_settings = ch.expand_intensity_settings
-                c.expand_content = ch.expand_content
-                for j, mod in enumerate(ch.modifiers):
-                    m = c.modifiers.add()
-                    m.expand_content = mod.expand_content
-
-            # Construct texture masks UI objects
-            for i, mask in enumerate(tex.masks):
-                m = tlui.tex_ui.masks.add()
-                m.expand_content = mask.expand_content
-                m.expand_source = mask.expand_source
-                m.expand_vector = mask.expand_vector
-
-        tlui.halt_prop_update = False
-
 def copy_ui_settings(source, dest):
     for attr in dir(source):
         if attr.startswith(('show_', 'expand_')) or attr.endswith('_name'):
             setattr(dest, attr, getattr(source, attr))
 
+def save_mat_ui_settings():
+    tlui = bpy.context.window_manager.tlui
+    for mui in tlui.materials:
+        mui.material.tl.active_tl_node = mui.active_tl_node
+
+def load_mat_ui_settings():
+    tlui = bpy.context.window_manager.tlui
+    for mat in bpy.data.materials:
+        if mat.tl.active_tl_node != '':
+            mui = tlui.materials.add()
+            mui.name = mat.name
+            mui.material = mat
+            mui.active_tl_node = mat.tl.active_tl_node
+
 @persistent
 def ytl_save_ui_settings(scene):
+    save_mat_ui_settings()
     wmui = bpy.context.window_manager.tlui
     scui = bpy.context.scene.tlui
     copy_ui_settings(wmui, scui)
 
 @persistent
 def ytl_load_ui_settings(scene):
+    load_mat_ui_settings()
     wmui = bpy.context.window_manager.tlui
     scui = bpy.context.scene.tlui
     copy_ui_settings(scui, wmui)
@@ -1629,6 +1660,7 @@ def register():
     bpy.utils.register_class(YModifierUI)
     bpy.utils.register_class(YChannelUI)
     bpy.utils.register_class(YTextureUI)
+    bpy.utils.register_class(YMaterialUI)
     bpy.utils.register_class(NODE_UL_y_tl_channels)
     bpy.utils.register_class(NODE_UL_y_tl_textures)
     bpy.utils.register_class(NODE_PT_y_texture_layers)
@@ -1643,7 +1675,6 @@ def register():
     bpy.types.NODE_MT_add.append(add_new_tl_node_menu)
 
     # Handlers
-    bpy.app.handlers.scene_update_pre.append(ytl_ui_update)
     bpy.app.handlers.load_post.append(ytl_load_ui_settings)
     bpy.app.handlers.save_pre.append(ytl_save_ui_settings)
 
@@ -1658,6 +1689,7 @@ def unregister():
     bpy.utils.unregister_class(YModifierUI)
     bpy.utils.unregister_class(YChannelUI)
     bpy.utils.unregister_class(YTextureUI)
+    bpy.utils.unregister_class(YMaterialUI)
     bpy.utils.unregister_class(NODE_UL_y_tl_channels)
     bpy.utils.unregister_class(NODE_UL_y_tl_textures)
     bpy.utils.unregister_class(NODE_PT_y_texture_layers)
@@ -1669,6 +1701,5 @@ def unregister():
     bpy.types.NODE_MT_add.remove(add_new_tl_node_menu)
 
     # Remove Handlers
-    bpy.app.handlers.scene_update_pre.remove(ytl_ui_update)
     bpy.app.handlers.load_post.remove(ytl_load_ui_settings)
     bpy.app.handlers.save_pre.remove(ytl_save_ui_settings)

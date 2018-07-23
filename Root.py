@@ -206,6 +206,9 @@ def create_new_group_tree(mat):
     #create_tl_channel_nodes(group_tree, channel, 0)
     reconnect_tl_channel_nodes(group_tree)
 
+    # Add ui for this tree
+    #add_ui(group_tree.tl)
+
     return group_tree
 
 def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable=False):
@@ -243,6 +246,9 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
         if non_color:
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
+
+    # Add ui for this tree
+    #add_ui(channel)
 
     return channel
 
@@ -486,6 +492,7 @@ class YNewTLNode(bpy.types.Operator):
         space = context.space_data
         tree = space.edit_tree
         mat = space.id
+        tlui = context.window_manager.tlui
 
         # select only the new node
         for n in tree.nodes:
@@ -1524,6 +1531,11 @@ class YTextureLayersRoot(bpy.types.PropertyGroup):
     # Useful to suspend update when adding new stuff
     halt_update = BoolProperty(default=False)
 
+    # Index pointer to the UI
+    #ui_index = IntProperty(default=0)
+
+    #random_prop = BoolProperty(default=False)
+
 class YMaterialTLProps(bpy.types.PropertyGroup):
     ori_bsdf = StringProperty(default='')
     ori_output = StringProperty(default='')
@@ -1564,7 +1576,6 @@ def ytl_hacks_and_scene_updates(scene):
                 tl.active_texture_index = tl.active_texture_index
 
 def register():
-    bpy.utils.register_class(YMaterialTLProps)
     bpy.utils.register_class(YQuickSetupTLNode)
     bpy.utils.register_class(YNewTLNode)
     bpy.utils.register_class(YNodeInputCollItem)
@@ -1577,16 +1588,17 @@ def register():
     bpy.utils.register_class(YNodeConnections)
     bpy.utils.register_class(YRootChannel)
     bpy.utils.register_class(YTextureLayersRoot)
+    bpy.utils.register_class(YMaterialTLProps)
 
     # TL Props
     bpy.types.ShaderNodeTree.tl = PointerProperty(type=YTextureLayersRoot)
     bpy.types.Material.tl = PointerProperty(type=YMaterialTLProps)
 
     # Handlers
-    bpy.app.handlers.scene_update_pre.append(ytl_hacks_and_scene_updates)
+    if hasattr(bpy.app.handlers, 'scene_update_pre'):
+        bpy.app.handlers.scene_update_pre.append(ytl_hacks_and_scene_updates)
 
 def unregister():
-    bpy.utils.unregister_class(YMaterialTLProps)
     bpy.utils.unregister_class(YQuickSetupTLNode)
     bpy.utils.unregister_class(YNewTLNode)
     bpy.utils.unregister_class(YNodeInputCollItem)
@@ -1599,7 +1611,9 @@ def unregister():
     bpy.utils.unregister_class(YNodeConnections)
     bpy.utils.unregister_class(YRootChannel)
     bpy.utils.unregister_class(YTextureLayersRoot)
+    bpy.utils.unregister_class(YMaterialTLProps)
 
     # Remove handlers
-    bpy.app.handlers.scene_update_pre.remove(ytl_hacks_and_scene_updates)
+    if hasattr(bpy.app.handlers, 'scene_update_pre'):
+        bpy.app.handlers.scene_update_pre.remove(ytl_hacks_and_scene_updates)
 

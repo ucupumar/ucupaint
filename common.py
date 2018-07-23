@@ -1,4 +1,4 @@
-import bpy, os, sys
+import bpy, os, sys, re
 from mathutils import *
 from bpy.app.handlers import persistent
 #from .__init__ import bl_info
@@ -310,18 +310,62 @@ def get_active_node():
     return node
 
 # Specific methods for this addon
-def get_active_texture_layers_node():
-    #node = get_active_node()
-    #if not node or node.type != 'GROUP' or not node.node_tree or not node.node_tree.tl.is_tl_node:
-    #    return None
-    #return node
 
+#def get_active_texture_layers_node():
+#    #node = get_active_node()
+#    #if not node or node.type != 'GROUP' or not node.node_tree or not node.node_tree.tl.is_tl_node:
+#    #    return None
+#    #return node
+#
+#    mat = get_active_material()
+#    if not mat or not mat.node_tree: return None
+#
+#    nodes = mat.node_tree.nodes
+#
+#    return nodes.get(mat.tl.active_tl_node)
+
+def get_active_texture_layers_node():
+    tlui = bpy.context.window_manager.tlui
+
+    # Get material UI prop
     mat = get_active_material()
     if not mat or not mat.node_tree: return None
 
-    nodes = mat.node_tree.nodes
+    # Search for its name first
+    mui = tlui.materials.get(mat.name)
 
-    return nodes.get(mat.tl.active_tl_node)
+    # If not found, search for its pointer
+    if not mui:
+        mui = [mui for mui in tlui.materials if mui.material == mat]
+        if mui: 
+            mui = mui[0]
+            mui.name = mui.material.name
+
+    # If still not found, create one
+    if not mui:
+        mui = tlui.materials.add()
+        mui.material = mat
+        mui.name = mat.name
+
+    # Try to get tl node
+    node = get_active_node()
+    if node and node.type == 'GROUP' and node.node_tree and node.node_tree.tl.is_tl_node:
+        # Update node name
+        if mui.active_tl_node != node.name:
+            mui.active_tl_node = node.name
+        return node
+
+    # If not active node isn't a group node
+    node = mat.node_tree.nodes.get(mui.active_tl_node)
+    if node: return node
+
+    # If node not found
+    for node in mat.node_tree.nodes:
+        if node.type == 'GROUP' and node.node_tree and node.node_tree.tl.is_tl_node:
+            mui.active_tl_node = node.name
+            return node
+
+    return None
 
 def remove_node(tree, obj, prop, remove_data=True):
     if not hasattr(obj, prop): return
@@ -383,3 +427,64 @@ def check_new_node(tree, obj, prop, node_id_name, label=''):
 #    source = nodes.get(tex.source)
 #    return source.image
 
+
+## UI (Shouldn't be here)
+#def add_ui(obj):
+#    tlui = bpy.context.window_manager.tlui
+#
+#    # Root
+#    match = re.match(r'^tl$', obj.path_from_id())
+#    if match:
+#        tree = obj.id_data
+#        ui = tlui.roots.add()
+#        ui.name = tree.name
+#        return
+#
+#    # Root channel
+#    match = re.match(r'^tl\.channels\[(\d+)\]$', obj.path_from_id())
+#    if match:
+#        tree = obj.id_data
+#        root_ui = tlui.roots.get(tree.name)
+#        ui = root_ui.channels.add()
+#        #ui.name = obj.name
+#        return
+#    
+#    # Textures
+#    match = re.match(r'^tl\.textures\[(\d+)\]$', obj.path_from_id())
+#    if match:
+#        tree = obj.id_data
+#        root_ui = tlui.roots.get(tree.name)
+#        ui = root_ui.textures.add()
+#        #ui.name = obj.name
+#        return
+#
+#    # Texture channels
+#    match = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', obj.path_from_id())
+#    if match:
+#        tree = obj.id_data
+#        root_ui = tlui.roots.get(tree.name)
+#        tex_ui = root_ui.textures[int(match.group(1))]
+#        ui = tex_ui.channels.add()
+#        #ui.name = obj.name
+#        return
+#
+#    # Texture channel modifiers
+#    match = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]$', obj.path_from_id())
+#    if match:
+#        tree = obj.id_data
+#        root_ui = tlui.roots.get(tree.name)
+#        tex_ui = root_ui.textures[int(match.group(1))]
+#        ch_ui = tex_ui.channels[int(match.group(2))]
+#        ui = ch_ui.modifiers.add()
+#        #ui.name = obj.name
+#        return
+#
+#    # Texture masks
+#    match = re.match(r'^tl\.textures\[(\d+)\]\.masks\[(\d+)\]$', obj.path_from_id())
+#    if match:
+#        tree = obj.id_data
+#        root_ui = tlui.roots.get(tree.name)
+#        tex_ui = root_ui.textures[int(match.group(1))]
+#        ui = tex_ui.masks.add()
+#        #ui.name = obj.name
+#        return

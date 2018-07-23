@@ -37,6 +37,7 @@ tree_lib_names = {
 def load_custom_icons():
     # Custom Icon
     global custom_icons
+    if not hasattr(bpy.utils, 'previews'): return
     custom_icons = bpy.utils.previews.new()
     filepath = get_addon_filepath() + 'icons' + os.sep
     custom_icons.load('asterisk', filepath + 'asterisk_icon.png', 'IMAGE')
