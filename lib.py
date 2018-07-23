@@ -174,6 +174,7 @@ def register():
 
 def unregister():
     global custom_icons
-    bpy.utils.previews.remove(custom_icons)
+    if hasattr(bpy.utils, 'previews'):
+        bpy.utils.previews.remove(custom_icons)
     #bpy.app.handlers.load_post.remove(load_libraries)
     bpy.app.handlers.load_post.remove(update_node_tree_libs)
