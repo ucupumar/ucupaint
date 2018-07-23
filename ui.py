@@ -1117,7 +1117,7 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
     @classmethod
     def poll(cls, context):
         return (context.object and context.object.type in possible_object_types 
-                and context.scene.render.engine == 'CYCLES' and context.space_data.tree_type == 'ShaderNodeTree')
+                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE'} and context.space_data.tree_type == 'ShaderNodeTree')
 
     def draw(self, context):
         main_draw(self, context)
@@ -1130,7 +1130,7 @@ class VIEW3D_PT_y_texture_layers_tools(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type in possible_object_types and context.scene.render.engine == 'CYCLES'
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         main_draw(self, context)
@@ -1144,7 +1144,7 @@ class VIEW3D_PT_y_texture_layers_ui(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type in possible_object_types and context.scene.render.engine == 'CYCLES'
+        return context.object and context.object.type in possible_object_types and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE'}
 
     def draw(self, context):
         main_draw(self, context)
@@ -1607,7 +1607,7 @@ class YTLUI(bpy.types.PropertyGroup):
     #random_prop = BoolProperty(default=False)
 
 def add_new_tl_node_menu(self, context):
-    if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine != 'CYCLES': return
+    if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE'}: return
     l = self.layout
     l.operator_context = 'INVOKE_REGION_WIN'
     l.separator()
