@@ -34,10 +34,22 @@ tree_lib_names = {
         MOD_MULTIPLIER_VALUE,
         }
 
+channel_custom_icon_dict = {
+        'RGB' : 'rgb_channel',
+        'VALUE' : 'value_channel',
+        'NORMAL' : 'vector_channel',
+        }
+
+channel_icon_dict = {
+        'RGB' : 'SPACE2',
+        'VALUE' : 'SPACE3',
+        'NORMAL' : 'KEYTYPE_BREAKDOWN_VEC',
+        }
+
 def load_custom_icons():
     # Custom Icon
-    global custom_icons
     if not hasattr(bpy.utils, 'previews'): return
+    global custom_icons
     custom_icons = bpy.utils.previews.new()
     filepath = get_addon_filepath() + 'icons' + os.sep
     custom_icons.load('asterisk', filepath + 'asterisk_icon.png', 'IMAGE')

@@ -259,6 +259,10 @@ def main_draw(self, context):
     # Update ui props first
     update_tl_ui()
 
+    if hasattr(lib, 'custom_icons'):
+        custom_icon_enable = True
+    else: custom_icon_enable = False
+
     obj = context.object
     is_a_mesh = True if obj and obj.type == 'MESH' else False
     #node = get_active_texture_layers_node()
@@ -306,7 +310,9 @@ def main_draw(self, context):
         if len(tl.channels) > 0:
             pcol = rcol.column()
             if tl.preview_mode: pcol.alert = True
-            pcol.prop(tl, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
+            if custom_icon_enable:
+                pcol.prop(tl, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
+            else: pcol.prop(tl, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
 
         rcol.template_list("NODE_UL_y_tl_channels", "", tl,
                 "channels", tl, "active_channel_index", rows=3, maxrows=5)  
@@ -326,28 +332,28 @@ def main_draw(self, context):
 
             chui = tlui.channel_ui
 
-            if channel.type == 'RGB':
-                icon_name = 'rgb_channel'
-            elif channel.type == 'VALUE':
-                icon_name = 'value_channel'
-            elif channel.type == 'NORMAL':
-                icon_name = 'vector_channel'
-
-            if chui.expand_content:
-                icon_name = 'uncollapsed_' + icon_name
-            else: icon_name = 'collapsed_' + icon_name
-
-            icon_value = lib.custom_icons[icon_name].icon_id
-
             row = mcol.row(align=True)
-            row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+
+            if custom_icon_enable:
+                icon_name = lib.channel_custom_icon_dict[channel.type]
+                if chui.expand_content:
+                    icon_name = 'uncollapsed_' + icon_name
+                else: icon_name = 'collapsed_' + icon_name
+                icon_value = lib.custom_icons[icon_name].icon_id
+                row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            else:
+                row.prop(chui, 'expand_content', text='', emboss=True, icon=lib.channel_icon_dict[channel.type])
+
             row.label(channel.name + ' Channel')
 
             if channel.type != 'NORMAL':
                 row.context_pointer_set('parent', channel)
                 row.context_pointer_set('channel_ui', chui)
-                icon_value = lib.custom_icons["add_modifier"].icon_id
-                row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
+                if custom_icon_enable:
+                    icon_value = lib.custom_icons["add_modifier"].icon_id
+                    row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
+                else:
+                    row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
 
             if chui.expand_content:
 
@@ -365,10 +371,13 @@ def main_draw(self, context):
                     brow = bcol.row(align=True)
                     #brow.active = m.enable
                     if m.type in Modifier.can_be_expanded:
-                        if modui.expand_content:
-                            icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
-                        else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
-                        brow.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                        if custom_icon_enable:
+                            if modui.expand_content:
+                                icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
+                            else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
+                            brow.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                        else:
+                            brow.prop(modui, 'expand_content', text='', emboss=False, icon='MODIFIER')
                         brow.label(m.name)
                     else:
                         brow.label('', icon='MODIFIER')
@@ -473,7 +482,7 @@ def main_draw(self, context):
 
         # Check if uv is found
         uv_found = False
-        if is_a_mesh and len(obj.data.uv_textures) > 0: 
+        if is_a_mesh and len(obj.data.uv_layers) > 0: 
             uv_found = True
 
         if is_a_mesh and not uv_found:
@@ -552,11 +561,13 @@ def main_draw(self, context):
             row = ccol.row(align=True)
             
             if image:
-                if texui.expand_content:
-                    icon_value = lib.custom_icons["uncollapsed_image"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_image"].icon_id
-
-                row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                if custom_icon_enable:
+                    if texui.expand_content:
+                        icon_value = lib.custom_icons["uncollapsed_image"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_image"].icon_id
+                    row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                else:
+                    row.prop(texui, 'expand_content', text='', emboss=True, icon='IMAGE_DATA')
                 row.label(image.name)
                 #row.operator("node.y_single_user_image_copy", text="2")
                 #row.operator("node.y_reload_image", text="", icon='FILE_REFRESH')
@@ -564,14 +575,18 @@ def main_draw(self, context):
             else:
                 title = source.bl_idname.replace('ShaderNodeTex', '')
                 #row.label(title + ' Properties:', icon='TEXTURE')
-                if texui.expand_content:
-                    icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
-
-                row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                if custom_icon_enable:
+                    if texui.expand_content:
+                        icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
+                    row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                else:
+                    row.prop(texui, 'expand_content', text='', emboss=True, icon='TEXTURE')
                 row.label(title)
 
-            row.prop(tlui, 'expand_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
+            if custom_icon_enable:
+                row.prop(tlui, 'expand_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
+            else: row.prop(tlui, 'expand_channels', text='', emboss=True, icon = 'GROUP_VERTEX')
 
             if texui.expand_content:
                 rrow = ccol.row(align=True)
@@ -607,24 +622,23 @@ def main_draw(self, context):
                 ccol.active = ch.enable
                 ccol.context_pointer_set('channel', ch)
 
-                if root_ch.type == 'RGB':
-                    icon_name = 'rgb_channel'
-                elif root_ch.type == 'VALUE':
-                    icon_name = 'value_channel'
-                elif root_ch.type == 'NORMAL':
-                    icon_name = 'vector_channel'
-
-                if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
-                    if chui.expand_content:
-                        icon_name = 'uncollapsed_' + icon_name
-                    else: icon_name = 'collapsed_' + icon_name
-
-                icon_value = lib.custom_icons[icon_name].icon_id
-
                 row = ccol.row(align=True)
-                if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
-                    row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-                else: row.label('', icon_value=icon_value)
+
+                if custom_icon_enable:
+                    icon_name = lib.channel_custom_icon_dict[root_ch.type]
+                    if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
+                        if chui.expand_content:
+                            icon_name = 'uncollapsed_' + icon_name
+                        else: icon_name = 'collapsed_' + icon_name
+                    icon_value = lib.custom_icons[icon_name].icon_id
+                    if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
+                        row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                    else: row.label('', icon_value=icon_value)
+                else:
+                    icon = lib.channel_icon_dict[root_ch.type]
+                    if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
+                        row.prop(chui, 'expand_content', text='', emboss=True, icon=icon)
+                    else: row.label('', icon=icon)
 
                 #row.label(tl.channels[i].name +' (' + str(ch.channel_index) + ')'+ ':')
                 #row.label(tl.channels[i].name +' (' + str(ch.texture_index) + ')'+ ':')
@@ -641,8 +655,12 @@ def main_draw(self, context):
                 row.context_pointer_set('parent', ch)
                 row.context_pointer_set('texture', tex)
                 row.context_pointer_set('channel_ui', chui)
-                icon_value = lib.custom_icons["add_modifier"].icon_id
-                row.menu('NODE_MT_y_texture_modifier_specials', text='', icon_value=icon_value)
+
+                if custom_icon_enable:
+                    icon_value = lib.custom_icons["add_modifier"].icon_id
+                    row.menu('NODE_MT_y_texture_modifier_specials', text='', icon_value=icon_value)
+                else:
+                    row.menu('NODE_MT_y_texture_modifier_specials', text='', icon='MODIFIER')
 
                 if tlui.expand_channels:
                     row.prop(ch, 'enable', text='')
@@ -670,10 +688,15 @@ def main_draw(self, context):
                         row = ccol.row(align=True)
                         row.label('', icon='BLANK1')
                         if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
-                            if chui.expand_bump_settings:
-                                icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                            else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                            row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
+
+                            if custom_icon_enable:
+                                if chui.expand_bump_settings:
+                                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                                row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
+                            else:
+                                row.prop(chui, 'expand_bump_settings', text='', emboss=True, icon='INFO')
+
                         else:
                             row.label('', icon='INFO')
                         split = row.split(percentage=0.275)
@@ -721,10 +744,15 @@ def main_draw(self, context):
                         if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
                             row = ccol.row(align=True)
                             row.label('', icon='BLANK1')
-                            if chui.expand_intensity_settings:
-                                icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                            else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                            row.prop(chui, 'expand_intensity_settings', text='', emboss=False, icon_value=icon_value)
+
+                            if custom_icon_enable:
+                                if chui.expand_intensity_settings:
+                                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                                row.prop(chui, 'expand_intensity_settings', text='', emboss=False, icon_value=icon_value)
+                            else: 
+                                row.prop(chui, 'expand_intensity_settings', text='', emboss=True, icon='INFO')
+
                             #row.label('', icon='INFO')
                             row.label('Intensity Multiplier:') #, icon='INFO')
                             row.prop(ch, 'intensity_multiplier_value', text='')
@@ -786,10 +814,13 @@ def main_draw(self, context):
                             return
 
                         if m.type in Modifier.can_be_expanded:
-                            if modui.expand_content:
-                                icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
-                            else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
-                            row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                            if custom_icon_enable:
+                                if modui.expand_content:
+                                    icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
+                                else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
+                                row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                            else:
+                                row.prop(modui, 'expand_content', text='', emboss=True, icon='MODIFIER')
                         else:
                             row.label('', icon='MODIFIER')
 
@@ -876,17 +907,20 @@ def main_draw(self, context):
             ccol = col.column()
             row = ccol.row(align=True)
 
-            if texui.expand_vector:
-                icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-            row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+            if custom_icon_enable:
+                if texui.expand_vector:
+                    icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+                row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+            else:
+                row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
 
             split = row.split(percentage=0.275, align=True)
             split.label('Vector:')
             if is_a_mesh and tex.texcoord_type == 'UV':
                 ssplit = split.split(percentage=0.33, align=True)
                 ssplit.prop(tex, 'texcoord_type', text='')
-                ssplit.prop_search(tex, "uv_name", obj.data, "uv_textures", text='')
+                ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='')
             else:
                 split.prop(tex, 'texcoord_type', text='')
 
@@ -908,10 +942,13 @@ def main_draw(self, context):
             if len(tex.masks) == 0:
                 row.label('', icon='MOD_MASK')
             else: 
-                if texui.expand_masks:
-                    icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
-                row.prop(texui, 'expand_masks', text='', emboss=False, icon_value=icon_value)
+                if custom_icon_enable:
+                    if texui.expand_masks:
+                        icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
+                    row.prop(texui, 'expand_masks', text='', emboss=False, icon_value=icon_value)
+                else:
+                    row.prop(texui, 'expand_masks', text='', emboss=True, icon='MOD_MASK')
 
             if len(tex.masks) > 1:
                 label = 'Masks:'
@@ -921,8 +958,6 @@ def main_draw(self, context):
                 row.label(label + ' -')
 
             else: row.label(label)
-            #icon_value = lib.custom_icons["add_mask"].icon_id
-            #row.menu("NODE_MT_y_add_texture_mask_menu", text='', icon_value=icon_value)
             row.menu("NODE_MT_y_add_texture_mask_menu", text='', icon='ZOOMIN')
 
             #if len(tex.masks) > 0:
@@ -946,10 +981,13 @@ def main_draw(self, context):
                     row.label('', icon='BLANK1')
                     #row.label('', icon='MOD_MASK')
 
-                    if maskui.expand_content:
-                        icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
-                    else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
-                    row.prop(maskui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                    if custom_icon_enable:
+                        if maskui.expand_content:
+                            icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
+                        else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
+                        row.prop(maskui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                    else:
+                        row.prop(maskui, 'expand_content', text='', emboss=True, icon='MOD_MASK')
 
                     mask_image = None
                     if mask.tree:
@@ -987,12 +1025,10 @@ def main_draw(self, context):
                         for k, c in enumerate(mask.channels):
                             rrow = rcol.row(align=True)
                             root_ch = tl.channels[k]
-                            if root_ch.type == 'VALUE':
-                                rrow.label('', icon_value = lib.custom_icons['value_channel'].icon_id)
-                            elif root_ch.type == 'RGB':
-                                rrow.label('', icon_value = lib.custom_icons['rgb_channel'].icon_id)
-                            elif root_ch.type == 'NORMAL':
-                                rrow.label('', icon_value = lib.custom_icons['vector_channel'].icon_id)
+                            if custom_icon_enable:
+                                rrow.label('', icon_value=lib.custom_icons[lib.channel_custom_icon_dict[root_ch.type]].icon_id)
+                            else:
+                                rrow.label('', icon = lib.channel_icon_dict[root_ch.type].icon_id)
                             rrow.label(root_ch.name)
                             rrow.prop(c, 'enable', text='')
 
@@ -1042,13 +1078,17 @@ def main_draw(self, context):
 
                         # Source row
                         rrow = rcol.row(align=True)
-                        suffix = 'image' if mask.type == 'IMAGE' else 'texture'
 
-                        if maskui.expand_source:
-                            icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
-                        else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
+                        if custom_icon_enable:
+                            suffix = 'image' if mask.type == 'IMAGE' else 'texture'
+                            if maskui.expand_source:
+                                icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
+                            else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
+                            rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+                        else:
+                            icon = 'IMAGE_DATA' if mask.type == 'IMAGE' else 'TEXTURE'
+                            rrow.prop(maskui, 'expand_source', text='', emboss=True, icon=icon)
 
-                        rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
                         if mask_image:
                             rrow.label('Source: ' + mask_image.name)
                         else: rrow.label('Source: ' + mask.name)
@@ -1064,18 +1104,20 @@ def main_draw(self, context):
                         # Vector row
                         rrow = rcol.row(align=True)
 
-                        if maskui.expand_vector:
-                            icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
-                        else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-
-                        rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+                        if custom_icon_enable:
+                            if maskui.expand_vector:
+                                icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+                            else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+                            rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+                        else:
+                            rrow.prop(maskui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
 
                         splits = rrow.split(percentage=0.3)
                         splits.label('Vector:')
                         rrrow = splits.row(align=True)
                         rrrow.prop(mask, 'texcoord_type', text='')
                         if mask.texcoord_type == 'UV':
-                            rrrow.prop_search(mask, "uv_name", obj.data, "uv_textures", text='')
+                            rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='')
 
                         if maskui.expand_vector:
                             rrow = rcol.row(align=True)
@@ -1156,15 +1198,13 @@ class NODE_UL_y_tl_channels(bpy.types.UIList):
         #if not group_node: return
         inputs = group_node.inputs
 
-        if item.type == 'RGB':
-            icon_value = lib.custom_icons["rgb_channel"].icon_id
-        elif item.type == 'VALUE':
-            icon_value = lib.custom_icons["value_channel"].icon_id
-        elif item.type == 'NORMAL':
-            icon_value = lib.custom_icons["vector_channel"].icon_id
-
         row = layout.row()
-        row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
+
+        if hasattr(lib, 'custom_icons'):
+            icon_value = lib.custom_icons[lib.channel_custom_icon_dict[item.type]].icon_id
+            row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
+        else:
+            row.prop(item, 'name', text='', emboss=False, icon=lib.channel_icon_dict[item.type])
 
         if item.type == 'RGB':
             row = row.row(align=True)
@@ -1261,7 +1301,10 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                 #if active_image.packed_file or active_image.filepath == '':
                 #    row.operator('node.y_pack_image', text='', icon_value=lib.custom_icons['asterisk'].icon_id, emboss=False)
                 #else: row.operator('node.y_save_image', text='', icon_value=lib.custom_icons['asterisk'].icon_id, emboss=False)
-                row.label('', icon_value=lib.custom_icons['asterisk'].icon_id)
+                if hasattr(lib, 'custom_icons'):
+                    row.label('', icon_value=lib.custom_icons['asterisk'].icon_id)
+                else:
+                    row.label('', icon='PARTICLES')
 
             # Indicate packed image
             if active_image.packed_file:
@@ -1302,8 +1345,12 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
 
         # Texture visibility
         row = master.row()
-        if tex.enable: eye_icon = 'RESTRICT_VIEW_OFF'
-        else: eye_icon = 'RESTRICT_VIEW_ON'
+        if hasattr(lib, 'custom_icons'):
+            if tex.enable: eye_icon = 'RESTRICT_VIEW_OFF'
+            else: eye_icon = 'RESTRICT_VIEW_ON'
+        else:
+            if tex.enable: eye_icon = 'HIDE_OFF'
+            else: eye_icon = 'HIDE_ON'
         row.prop(tex, 'enable', emboss=False, text='', icon=eye_icon)
 
 class YTLSpecialMenu(bpy.types.Menu):
@@ -1664,7 +1711,8 @@ def register():
     bpy.utils.register_class(NODE_UL_y_tl_channels)
     bpy.utils.register_class(NODE_UL_y_tl_textures)
     bpy.utils.register_class(NODE_PT_y_texture_layers)
-    bpy.utils.register_class(VIEW3D_PT_y_texture_layers_tools)
+    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+        bpy.utils.register_class(VIEW3D_PT_y_texture_layers_tools)
     bpy.utils.register_class(VIEW3D_PT_y_texture_layers_ui)
     bpy.utils.register_class(YTLUI)
 
@@ -1693,7 +1741,8 @@ def unregister():
     bpy.utils.unregister_class(NODE_UL_y_tl_channels)
     bpy.utils.unregister_class(NODE_UL_y_tl_textures)
     bpy.utils.unregister_class(NODE_PT_y_texture_layers)
-    bpy.utils.unregister_class(VIEW3D_PT_y_texture_layers_tools)
+    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+        bpy.utils.unregister_class(VIEW3D_PT_y_texture_layers_tools)
     bpy.utils.unregister_class(VIEW3D_PT_y_texture_layers_ui)
     bpy.utils.unregister_class(YTLUI)
 

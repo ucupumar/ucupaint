@@ -1252,10 +1252,10 @@ def update_texture_index(self, context):
 
     # Update uv layer
     if obj.type == 'MESH':
-        for i, uv in enumerate(obj.data.uv_textures):
+        for i, uv in enumerate(obj.data.uv_layers):
             if uv.name == uv_name:
-                if obj.data.uv_textures.active_index != i:
-                    obj.data.uv_textures.active_index = i
+                if obj.data.uv_layers.active_index != i:
+                    obj.data.uv_layers.active_index = i
                 break
 
 def update_channel_colorspace(self, context):

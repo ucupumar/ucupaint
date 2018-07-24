@@ -70,15 +70,14 @@ def channel_items(self, context):
     items = []
 
     for i, ch in enumerate(tl.channels):
-        if ch.type == 'RGB':
-            icon_name = 'rgb_channel'
-        elif ch.type == 'VALUE':
-            icon_name = 'value_channel'
-        elif ch.type == 'NORMAL':
-            icon_name = 'vector_channel'
-        items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
+        if hasattr(lib, 'custom_icons'):
+            icon_name = lib.channel_custom_icon_dict[ch.type]
+            items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
+        else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], i))
 
-    items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
+    if hasattr(lib, 'custom_icons'):
+        items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
+    else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
 
     return items
 
@@ -377,8 +376,12 @@ class YNewTextureLayer(bpy.types.Operator):
             self.texcoord_type = 'Generated'
 
         # Use active uv layer name by default
-        if obj.type == 'MESH' and len(obj.data.uv_textures) > 0:
-            self.uv_map = obj.data.uv_textures.active.name
+        if hasattr(obj.data, 'uv_layers'):
+            uv_layers = obj.data.uv_layers
+        else: uv_layers = obj.data.uv_layers
+
+        if obj.type == 'MESH' and len(uv_layers) > 0:
+            self.uv_map = uv_layers.active.name
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -446,7 +449,7 @@ class YNewTextureLayer(bpy.types.Operator):
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            crow.prop_search(self, "uv_map", obj.data, "uv_textures", text='', icon='GROUP_UVS')
+            crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
     def execute(self, context):
 
@@ -583,8 +586,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             self.texcoord_type = 'Object'
 
         # Use active uv layer name by default
-        if obj.type == 'MESH' and len(obj.data.uv_textures) > 0:
-            self.uv_map = obj.data.uv_textures.active.name
+        if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
+            self.uv_map = obj.data.uv_layers.active.name
 
         #return context.window_manager.invoke_props_dialog(self)
         context.window_manager.fileselect_add(self)
@@ -616,7 +619,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            crow.prop_search(self, "uv_map", obj.data, "uv_textures", text='', icon='GROUP_UVS')
+            crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
         #col.label('')
         rrow = col.row(align=True)
@@ -727,8 +730,8 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
             self.texcoord_type = 'Object'
 
         # Use active uv layer name by default
-        if obj.type == 'MESH' and len(obj.data.uv_textures) > 0:
-            self.uv_map = obj.data.uv_textures.active.name
+        if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
+            self.uv_map = obj.data.uv_layers.active.name
 
         # Update image names
         self.image_coll.clear()
@@ -766,7 +769,7 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            crow.prop_search(self, "uv_map", obj.data, "uv_textures", text='', icon='GROUP_UVS')
+            crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
         #col.label('')
         rrow = col.row(align=True)
@@ -1317,10 +1320,10 @@ def update_uv_name(self, context):
 
     # Update uv layer
     if obj.type == 'MESH':
-        for i, uv in enumerate(obj.data.uv_textures):
+        for i, uv in enumerate(obj.data.uv_layers):
             if uv.name == tex.uv_name:
-                if obj.data.uv_textures.active_index != i:
-                    obj.data.uv_textures.active_index = i
+                if obj.data.uv_layers.active_index != i:
+                    obj.data.uv_layers.active_index = i
                 break
 
 def update_texcoord_type(self, context):

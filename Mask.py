@@ -169,9 +169,9 @@ class YNewTextureMask(bpy.types.Operator):
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Generated'
-        elif len(obj.data.uv_textures) > 0:
+        elif len(obj.data.uv_layers) > 0:
             # Use active uv layer name by default
-            self.uv_name = obj.data.uv_textures.active.name
+            self.uv_name = obj.data.uv_layers.active.name
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -202,7 +202,7 @@ class YNewTextureMask(bpy.types.Operator):
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            crow.prop_search(self, "uv_name", obj.data, "uv_textures", text='', icon='GROUP_UVS')
+            crow.prop_search(self, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
     def execute(self, context):
         if self.auto_cancel: return {'CANCELLED'}
@@ -371,10 +371,10 @@ def update_mask_uv_name(self, context):
 
     # Update uv layer
     if self.active_edit and obj.type == 'MESH':
-        for i, uv in enumerate(obj.data.uv_textures):
+        for i, uv in enumerate(obj.data.uv_layers):
             if uv.name == self.uv_name:
-                if obj.data.uv_textures.active_index != i:
-                    obj.data.uv_textures.active_index = i
+                if obj.data.uv_layers.active_index != i:
+                    obj.data.uv_layers.active_index = i
                 break
 
 def update_mask_hardness_enable(self, context):
