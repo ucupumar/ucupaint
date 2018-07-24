@@ -920,7 +920,7 @@ def main_draw(self, context):
             if is_a_mesh and tex.texcoord_type == 'UV':
                 ssplit = split.split(percentage=0.33, align=True)
                 ssplit.prop(tex, 'texcoord_type', text='')
-                ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='')
+                ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
             else:
                 split.prop(tex, 'texcoord_type', text='')
 
