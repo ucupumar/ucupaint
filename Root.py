@@ -805,7 +805,8 @@ class YMoveTLChannel(bpy.types.Operator):
 
         # Move tex IO
         for tex in tl.textures:
-            swap_channel_io(channel, swap_ch, io_index, io_index_swap, tex.tree.inputs, tex.tree.outputs)
+            tree = get_tree(tex)
+            swap_channel_io(channel, swap_ch, io_index, io_index_swap, tree.inputs, tree.outputs)
 
         # Move channel
         tl.channels.move(index, new_index)
@@ -1116,17 +1117,18 @@ def update_channel_name(self, context):
             group_tree.outputs[self.io_index+1].name = self.name + ' Alpha'
 
         for tex in tl.textures:
-            if self.io_index < len(tex.tree.inputs):
-                tex.tree.inputs[self.io_index].name = self.name
-                tex.tree.outputs[self.io_index].name = self.name
+            tree = get_tree(tex)
+            if self.io_index < len(tree.inputs):
+                tree.inputs[self.io_index].name = self.name
+                tree.outputs[self.io_index].name = self.name
 
                 if self.type == 'RGB' and self.alpha:
-                    tex.tree.inputs[self.io_index+1].name = self.name + ' Alpha'
-                    tex.tree.outputs[self.io_index+1].name = self.name + ' Alpha'
+                    tree.inputs[self.io_index+1].name = self.name + ' Alpha'
+                    tree.outputs[self.io_index+1].name = self.name + ' Alpha'
 
             for i, ch in enumerate(tex.channels):
                 if tl.channels[i] == self:
-                    refresh_tex_channel_frame(self, ch, tex.tree.nodes)
+                    refresh_tex_channel_frame(self, ch, tree.nodes)
         
         refresh_tl_channel_frame(self, group_tree.nodes)
 
@@ -1218,6 +1220,7 @@ def update_texture_index(self, context):
         return
 
     tex = self.textures[self.active_texture_index]
+    tree = get_tree(tex)
 
     # Set image paint mode to Image
     scene.tool_settings.image_paint.mode = 'IMAGE'
@@ -1227,21 +1230,17 @@ def update_texture_index(self, context):
 
     for mask in tex.masks:
         if mask.type == 'IMAGE' and mask.active_edit:
-            #uv_map = tex.tree.nodes.get(mask.uv_map)
-            #uv_name = uv_map.uv_map
             uv_name = mask.uv_name
             if mask.tree:
                 source = mask.tree.nodes.get(mask.source)
-            else: source = tex.tree.nodes.get(mask.source)
+            else: source = tree.nodes.get(mask.source)
             image = source.image
 
     if not image and tex.type == 'IMAGE':
-        #uv_map = tex.tree.nodes.get(tex.uv_map)
-        #uv_name = uv_map.uv_map
         uv_name = tex.uv_name
         if tex.source_tree:
             source = tex.source_tree.nodes.get(tex.source)
-        else: source = tex.tree.nodes.get(tex.source)
+        else: source = tree.nodes.get(tex.source)
         image = source.image
 
     # Update image editor
@@ -1282,15 +1281,16 @@ def update_channel_colorspace(self, context):
 
     for tex in tl.textures:
         ch = tex.channels[channel_index]
+        tree = get_tree(tex)
 
         # Check for linear node
-        linear = tex.tree.nodes.get(ch.linear)
+        linear = tree.nodes.get(ch.linear)
         if self.colorspace == 'LINEAR' and linear:
             ch.tex_input = 'RGB_LINEAR'
 
         for mod in ch.modifiers:
             if mod.type == 'RGB_TO_INTENSITY':
-                rgb2i = tex.tree.nodes.get(mod.rgb2i)
+                rgb2i = tree.nodes.get(mod.rgb2i)
                 if self.colorspace == 'LINEAR':
                     rgb2i.inputs['Linearize'].default_value = 0.0
                 else: rgb2i.inputs['Linearize'].default_value = 1.0
@@ -1350,7 +1350,7 @@ def update_channel_alpha(self, context):
 
         # Add socket to texture tree
         for tex in tl.textures:
-            tree = tex.tree
+            tree = get_tree(tree)
 
             ti = tree.inputs.new('NodeSocketFloatFactor', name)
             to = tree.outputs.new('NodeSocketFloat', name)
@@ -1421,7 +1421,7 @@ def update_channel_alpha(self, context):
 
         # Remove socket from texture tree
         for tex in tl.textures:
-            tree = tex.tree
+            tree = get_tree(tree)
             tree.inputs.remove(tree.inputs[self.io_index+1])
             tree.outputs.remove(tree.outputs[self.io_index+1])
 
@@ -1563,11 +1563,13 @@ def ytl_hacks_and_scene_updates(scene):
     # Check single user image texture
     if len(tl.textures) > 0:
         tex = tl.textures[tl.active_texture_index]
+        tree = get_tree(tex)
 
         if tex.type == 'IMAGE':
             if tex.source_tree:
                 source = tex.source_tree.nodes.get(tex.source)
-            else: source = tex.tree.nodes.get(tex.source)
+            else: 
+                source = tree.nodes.get(tex.source)
             img = source.image
 
             if img and img.name != tex.image_name:

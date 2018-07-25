@@ -493,7 +493,8 @@ def main_draw(self, context):
             return
 
         # Check duplicated textures (indicated by 4 users)
-        if len(tl.textures) > 0 and tl.textures[0].tree.users > 3:
+        #if len(tl.textures) > 0 and tl.textures[0].tree.users > 3:
+        if len(tl.textures) > 0 and get_tree(tl.textures[0]).users > 3:
             row = box.row(align=True)
             row.alert = True
             row.operator("node.y_fix_duplicated_textures", icon='ERROR')
@@ -507,11 +508,12 @@ def main_draw(self, context):
         image = None
         if len(tl.textures) > 0:
             tex = tl.textures[tl.active_texture_index]
+            tex_tree = get_tree(tex)
             box.context_pointer_set('texture', tex)
 
             if tex.source_tree:
                 source = tex.source_tree.nodes.get(tex.source)
-            else: source = tex.tree.nodes.get(tex.source)
+            else: source = tex_tree.nodes.get(tex.source)
 
             active_image = None # Active image on list
             image = None # Global texture image
@@ -521,7 +523,7 @@ def main_draw(self, context):
                 if m.type == 'IMAGE' and m.active_edit:
                     if m.tree:
                         src = m.tree.nodes.get(m.source)
-                    else: src = tex.tree.nodes.get(m.source)
+                    else: src = tex_tree.nodes.get(m.source)
                     active_image = src.image
 
             # Use tex image if there is no mask image
@@ -648,7 +650,7 @@ def main_draw(self, context):
                     row.prop(ch, 'normal_blend', text='')
                 else: row.prop(ch, 'blend_type', text='')
 
-                #intensity = tex.tree.nodes.get(ch.intensity)
+                #intensity = tex_tree.nodes.get(ch.intensity)
                 #row.prop(intensity.inputs[0], 'default_value', text='')
                 row.prop(ch, 'intensity_value', text='')
 
@@ -671,7 +673,7 @@ def main_draw(self, context):
                     if root_ch.type == 'NORMAL':
 
                         if ch.normal_map_type == 'FINE_BUMP_MAP' and image:
-                            neighbor_uv = tex.tree.nodes.get(ch.neighbor_uv)
+                            neighbor_uv = tex_tree.nodes.get(ch.neighbor_uv)
                             cur_x = neighbor_uv.inputs[1].default_value 
                             cur_y = neighbor_uv.inputs[1].default_value 
                             if cur_x != image.size[0] or cur_y != image.size[1]:
@@ -714,7 +716,7 @@ def main_draw(self, context):
                             bbox = row.box()
                             cccol = bbox.column(align=True)
 
-                            bump = tex.tree.nodes.get(ch.bump)
+                            bump = tex_tree.nodes.get(ch.bump)
 
                             brow = cccol.row(align=True)
                             brow.label('Bump Base:') #, icon='INFO')
@@ -830,7 +832,7 @@ def main_draw(self, context):
                         if m.type == 'RGB_TO_INTENSITY':
                             if ch.mod_tree:
                                 rgb2i = ch.mod_tree.nodes.get(m.rgb2i)
-                            else: rgb2i = tex.tree.nodes.get(m.rgb2i)
+                            else: rgb2i = tex_tree.nodes.get(m.rgb2i)
                             row.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
                             row.separator()
 
@@ -851,7 +853,7 @@ def main_draw(self, context):
                             bbox.active = m.enable
                             if ch.mod_tree:
                                 Modifier.draw_modifier_properties(context, ch, ch.mod_tree.nodes, m, bbox)
-                            else: Modifier.draw_modifier_properties(context, ch, tex.tree.nodes, m, bbox)
+                            else: Modifier.draw_modifier_properties(context, ch, tex_tree.nodes, m, bbox)
 
                             if tlui.expand_channels:
                                 row.label('', icon='BLANK1')
@@ -992,7 +994,7 @@ def main_draw(self, context):
                     mask_image = None
                     if mask.tree:
                         mask_source = mask.tree.nodes.get(mask.source)
-                    else: mask_source = tex.tree.nodes.get(mask.source)
+                    else: mask_source = tex_tree.nodes.get(mask.source)
                     if mask.type == 'IMAGE':
                         mask_image = mask_source.image
                         row.label(mask_image.name)
@@ -1065,7 +1067,7 @@ def main_draw(self, context):
                                     rrrow = cccol.row(align=True)
                                     rrrow.prop(c, 'ramp_blend_type', text='')
                                     rrrow.prop(c, 'ramp_intensity_value', text='')
-                                    ramp = tex.tree.nodes.get(c.ramp)
+                                    ramp = tex_tree.nodes.get(c.ramp)
                                     cccol.template_color_ramp(ramp, "color_ramp", expand=True)
 
                         # Hardness row
@@ -1233,6 +1235,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         tl = group_tree.tl
         nodes = group_tree.nodes
         tex = item
+        tex_tree = get_tree(tex)
 
         master = layout.row(align=True)
         row = master.row(align=True)
@@ -1242,7 +1245,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         if tex.type == 'IMAGE':
             if tex.source_tree:
                 source = tex.source_tree.nodes.get(tex.source)
-            else: source = tex.tree.nodes.get(tex.source)
+            else: source = tex_tree.nodes.get(tex.source)
             image = source.image
 
         # Try to get image masks
@@ -1272,7 +1275,8 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         for m in image_masks:
             if m.tree:
                 src = m.tree.nodes.get(m.source)
-            else: src = tex.tree.nodes.get(m.source)
+            else: 
+                src = tex_tree.nodes.get(m.source)
             row = master.row(align=True)
             row.active = m.active_edit
             if m.active_edit:
@@ -1331,7 +1335,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                         rrow = row.row()
                         if ch.mod_tree:
                             rgb2i = ch.mod_tree.nodes.get(mod.rgb2i)
-                        else: rgb2i = tex.tree.nodes.get(mod.rgb2i)
+                        else: rgb2i = tex_tree.nodes.get(mod.rgb2i)
                         rrow.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
                     break
             if shortcut_found:
@@ -1494,12 +1498,13 @@ class YTexMaskMenuSpecial(bpy.types.Menu):
         #print(context.mask)
         mask = context.mask
         tex = context.texture
+        tex_tree = get_tree(tex)
         layout = self.layout
         col = layout.column(align=True)
         if mask.type == 'IMAGE':
             if mask.tree:
                 source = mask.tree.nodes.get(mask.source)
-            else: source = tex.tree.nodes.get(mask.source)
+            else: source = tex_tree.nodes.get(mask.source)
             col.context_pointer_set('image', source.image)
             col.operator('node.y_invert_image', text='Invert Image', icon='IMAGE_ALPHA')
         col.prop(mask, 'enable_hardness', text='Hardness')

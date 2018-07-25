@@ -19,7 +19,8 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     root_ch = tl.channels[ch_index]
 
     #tree = nodes.get(texture.group_node).node_tree
-    tree = texture.tree
+    #tree = texture.tree
+    tree = get_tree(texture)
 
     # Tree input and output
     inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], root_ch.name)
@@ -138,7 +139,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     tree.tl.is_tl_tex_node = True
     tree.tl.version = get_current_version_str()
     group_node.node_tree = tree
-    tex.tree = tree
+    #tex.tree = tree
     #nodes = tree.nodes
 
     # Create info nodes
@@ -226,7 +227,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
             m.texture_index = index
             if channel_idx == i or channel_idx == -1:
                 col = (rgb_to_intensity_color[0], rgb_to_intensity_color[1], rgb_to_intensity_color[2], 1)
-                rgb2i = tex.tree.nodes.get(m.rgb2i)
+                rgb2i = tree.nodes.get(m.rgb2i)
                 rgb2i.inputs[2].default_value = col
 
             if c.enable and ch.type == 'RGB' and not shortcut_created:
@@ -260,7 +261,9 @@ def get_fine_bump_distance(tex, distance):
     if tex.type == 'IMAGE':
         if tex.source_tree:
             source = tex.source_tree.nodes.get(tex.source)
-        else: source = tex.tree.nodes.get(tex.source)
+        else: 
+            tree = get_tree(tex)
+            source = tree.nodes.get(tex.source)
         image = source.image
         if image: scale = image.size[0] / 10
 
@@ -277,11 +280,12 @@ class YRefreshNeighborUV(bpy.types.Operator):
         return hasattr(context, 'texture') and hasattr(context, 'channel') and hasattr(context, 'image') and context.image
 
     def execute(self, context):
-        neighbor_uv = context.texture.tree.nodes.get(context.parent.neighbor_uv)
+        tree = get_tree(context.texture)
+        neighbor_uv = tree.nodes.get(context.parent.neighbor_uv)
         neighbor_uv.inputs[1].default_value = context.image.size[0]
         neighbor_uv.inputs[2].default_value = context.image.size[1]
 
-        fine_bump = context.texture.tree.nodes.get(context.parent.fine_bump)
+        fine_bump = tree.nodes.get(context.parent.fine_bump)
         fine_bump.inputs[0].default_value = get_fine_bump_distance(context.texture, context.channel.bump_distance)
         return {'FINISHED'}
 
@@ -899,8 +903,8 @@ class YRemoveTextureLayer(bpy.types.Operator):
         tex = tl.textures[tl.active_texture_index]
 
         # Remove node group and tex tree
+        bpy.data.node_groups.remove(get_tree(tex))
         nodes.remove(nodes.get(tex.group_node))
-        bpy.data.node_groups.remove(tex.tree)
 
         # Delete the texture
         tl.textures.remove(tl.active_texture_index)
@@ -939,13 +943,15 @@ def update_channel_enable(self, context):
     ch_index = int(m.group(2))
     root_ch = tl.channels[ch_index]
 
-    blend = tex.tree.nodes.get(self.blend)
+    tree = get_tree(tex)
+
+    blend = tree.nodes.get(self.blend)
     blend.mute = not tex.enable or not self.enable
 
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
             if i == ch_index and c.enable_ramp:
-                ramp_mix = tex.tree.nodes.get(c.ramp_mix)
+                ramp_mix = tree.nodes.get(c.ramp_mix)
                 ramp_mix.mute = not tex.enable or not self.enable
 
     reconnect_tex_nodes(tex)
@@ -961,7 +967,8 @@ def update_channel_channel_index(self, context):
 def update_normal_map_type(self, context):
     tl = self.id_data.tl
     tex = tl.textures[self.texture_index]
-    nodes = tex.tree.nodes
+    tree = get_tree(tex)
+    nodes = tree.nodes
 
     # Normal nodes
     normal = nodes.get(self.normal)
@@ -1138,7 +1145,8 @@ def update_normal_map_type(self, context):
 def update_blend_type_(root_ch, tex, ch):
     need_reconnect = False
 
-    nodes = tex.tree.nodes
+    tree = get_tree(tex)
+    nodes = tree.nodes
     blend = nodes.get(ch.blend)
 
     # Check blend type
@@ -1196,7 +1204,7 @@ def update_blend_type_(root_ch, tex, ch):
         blend.blend_type = ch.blend_type
 
     # Check alpha tex input output connection
-    start = tex.tree.nodes.get(tex.start)
+    start = nodes.get(tex.start)
     if (root_ch.type == 'RGB' and root_ch.alpha and ch.blend_type != 'MIX' and 
         len(start.outputs[root_ch.io_index+1].links) == 0):
         need_reconnect = True
@@ -1214,55 +1222,59 @@ def update_blend_type(self, context):
 def update_flip_backface_normal(self, context):
     tl = self.id_data.tl
     tex = tl.textures[self.texture_index]
+    tree = get_tree(tex)
 
-    normal_flip = tex.tree.nodes.get(self.normal_flip)
+    normal_flip = tree.nodes.get(self.normal_flip)
     normal_flip.mute = self.invert_backface_normal
 
 def update_bump_base_value(self, context):
     tl = self.id_data.tl
     tex = tl.textures[self.texture_index]
+    tree = get_tree(tex)
 
-    bump_base = tex.tree.nodes.get(self.bump_base)
+    bump_base = tree.nodes.get(self.bump_base)
     val = self.bump_base_value
     bump_base.inputs[1].default_value = (val, val, val, 1.0)
 
     neighbor_directions = ['n', 's', 'e', 'w']
     for d in neighbor_directions:
-        b = tex.tree.nodes.get(getattr(self, 'bump_base_' + d))
+        b = tree.nodes.get(getattr(self, 'bump_base_' + d))
         if b: b.inputs[1].default_value = (val, val, val, 1.0)
 
 def update_bump_distance(self, context):
     tl = self.id_data.tl
     tex = tl.textures[self.texture_index]
+    tree = get_tree(tex)
 
     if self.normal_map_type == 'BUMP_MAP':
-        bump = tex.tree.nodes.get(self.bump)
+        bump = tree.nodes.get(self.bump)
         if bump: bump.inputs[1].default_value = self.bump_distance
     elif self.normal_map_type == 'FINE_BUMP_MAP':
-        fine_bump = tex.tree.nodes.get(self.fine_bump)
+        fine_bump = tree.nodes.get(self.fine_bump)
         if fine_bump: fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
 
 def update_intensity_multiplier(self, context):
     tl = self.id_data.tl
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(m.group(1))]
+    tree = get_tree(tex)
 
     if self.intensity_multiplier_link:
         for ch in tex.channels:
-            intensity_multiplier = tex.tree.nodes.get(ch.intensity_multiplier)
+            intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
             if intensity_multiplier: intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
                     
     else:
-        intensity_multiplier = tex.tree.nodes.get(self.intensity_multiplier)
+        intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
         if intensity_multiplier: intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
     for mask in tex.masks:
         for c in mask.channels:
             #if c.enable_bump:
-            intensity_multiplier = tex.tree.nodes.get(c.intensity_multiplier)
+            intensity_multiplier = tree.nodes.get(c.intensity_multiplier)
             if intensity_multiplier: intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
-            vector_intensity_multiplier = tex.tree.nodes.get(c.vector_intensity_multiplier)
+            vector_intensity_multiplier = tree.nodes.get(c.vector_intensity_multiplier)
             if vector_intensity_multiplier: vector_intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
 def update_tex_input(self, context):
@@ -1272,22 +1284,23 @@ def update_tex_input(self, context):
     if not m: return
     tex = tl.textures[int(m.group(1))]
     root_ch = tl.channels[int(m.group(2))]
+    tree = get_tree(tex)
 
     if tex.type == 'IMAGE': return
 
-    linear = tex.tree.nodes.get(self.linear)
+    linear = tree.nodes.get(self.linear)
     if self.tex_input == 'RGB_SRGB' and not linear:
         if root_ch.type == 'VALUE':
-            linear = tex.tree.nodes.new('ShaderNodeMath')
+            linear = tree.nodes.new('ShaderNodeMath')
             linear.operation = 'POWER'
         elif root_ch.type == 'RGB':
-            linear = tex.tree.nodes.new('ShaderNodeGamma')
+            linear = tree.nodes.new('ShaderNodeGamma')
         linear.label = 'Linear'
         linear.inputs[1].default_value = 1.0 / GAMMA
         self.linear = linear.name
 
     if self.tex_input != 'RGB_SRGB' and linear:
-        tex.tree.nodes.remove(linear)
+        tree.nodes.remove(linear)
         self.linear = ''
 
     reconnect_tex_nodes(tex)
@@ -1298,9 +1311,10 @@ def update_uv_name(self, context):
     group_tree = self.id_data
     tl = group_tree.tl
     tex = self
-    if not tex.tree: return
+    tree = get_tree(tex)
+    if not tree: return
 
-    nodes = tex.tree.nodes
+    nodes = tree.nodes
 
     #uv_map = nodes.get(tex.uv_map)
     #if uv_map: uv_map.uv_map = tex.uv_name
@@ -1329,6 +1343,7 @@ def update_uv_name(self, context):
 def update_texcoord_type(self, context):
     tl = self.id_data.tl
     tex = self
+    tree = get_tree(tex)
 
     # Check for normal channel for fine bump space switch
     # UV is using Tangent space
@@ -1347,11 +1362,11 @@ def update_texcoord_type(self, context):
                 space = 0.0 # View Space
             else: space = 1.0
 
-            neighbor_uv = tex.tree.nodes.get(ch.neighbor_uv)
+            neighbor_uv = tree.nodes.get(ch.neighbor_uv)
             if neighbor_uv:
                 neighbor_uv.inputs['Space'].default_value = space
 
-            fine_bump = tex.tree.nodes.get(ch.fine_bump)
+            fine_bump = tree.nodes.get(ch.fine_bump)
             if fine_bump:
                 fine_bump.inputs['Space'].default_value = space
 
@@ -1361,15 +1376,16 @@ def update_texture_enable(self, context):
     #print(self.id_data, self.id_data.users)
     group_tree = self.id_data
     tex = self
+    tree = get_tree(tex)
 
     for ch in tex.channels:
-        blend = tex.tree.nodes.get(ch.blend)
+        blend = tree.nodes.get(ch.blend)
         blend.mute = not tex.enable or not ch.enable
 
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
             if c.enable_ramp:
-                ramp_mix = tex.tree.nodes.get(c.ramp_mix)
+                ramp_mix = tree.nodes.get(c.ramp_mix)
                 ramp_mix.mute = not tex.enable or not self.enable
 
     reconnect_tex_nodes(tex)
@@ -1398,38 +1414,42 @@ def create_intensity_multiplier_node(tree, parent, invert=False, sharpen=False):
     return intensity_multiplier
 
 def create_channel_intensity_multiplier_nodes(self, tex):
+    tree = get_tree(tex)
     for ch in tex.channels:
         if ch == self: continue
         #if ch != self and ch.intensity_multiplier_link:
         if ch.intensity_multiplier_link:
             ch.intensity_multiplier_link = False
 
-        intensity_multiplier = create_intensity_multiplier_node(tex.tree, ch, self.im_invert_others, self.im_sharpen)
+        intensity_multiplier = create_intensity_multiplier_node(tree, ch, self.im_invert_others, self.im_sharpen)
         intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
 def create_mask_intensity_multiplier_nodes(self, tex, ch_index):
+    tree = get_tree(tex)
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
             if i == ch_index: continue
-            intensity_multiplier = create_intensity_multiplier_node(tex.tree, c, self.im_invert_others, self.im_sharpen)
+            intensity_multiplier = create_intensity_multiplier_node(tree, c, self.im_invert_others, self.im_sharpen)
             intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
 def remove_channel_intensity_multiplier_nodes(self, tex):
+    tree = get_tree(tex)
     for ch in tex.channels:
         if ch == self: continue
 
-        intensity_multiplier = tex.tree.nodes.get(ch.intensity_multiplier)
+        intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
         if intensity_multiplier:
-            tex.tree.nodes.remove(intensity_multiplier)
+            tree.nodes.remove(intensity_multiplier)
             ch.intensity_multiplier = ''
 
 def remove_mask_intensity_multiplier_nodes(self, tex, ch_index):
+    tree = get_tree(tex)
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
             if i == ch_index: continue
-            intensity_multiplier = tex.tree.nodes.get(c.intensity_multiplier)
+            intensity_multiplier = tree.nodes.get(c.intensity_multiplier)
             if intensity_multiplier:
-                tex.tree.nodes.remove(intensity_multiplier)
+                tree.nodes.remove(intensity_multiplier)
                 c.intensity_multiplier = ''
 
 def update_intensity_multiplier_link(self, context):
@@ -1467,16 +1487,17 @@ def update_channel_intensity_value(self, context):
 
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(m.group(1))]
+    tree = get_tree(tex)
     ch_index = int(m.group(2))
     root_ch = tl.channels[ch_index]
 
-    intensity = tex.tree.nodes.get(self.intensity)
+    intensity = tree.nodes.get(self.intensity)
     intensity.inputs[0].default_value = self.intensity_value
 
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
             if i == ch_index and c.enable_ramp:
-                ramp_intensity = tex.tree.nodes.get(c.ramp_intensity)
+                ramp_intensity = tree.nodes.get(c.ramp_intensity)
                 ramp_intensity.inputs[1].default_value = self.intensity_value * c.ramp_intensity_value
 
 class YLayerChannel(bpy.types.PropertyGroup):

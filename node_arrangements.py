@@ -97,7 +97,8 @@ def rearrange_tl_frame_nodes(group_tree):
 
 def rearrange_tex_frame_nodes(tex):
     tl = get_active_texture_layers_node().node_tree.tl
-    nodes = tex.tree.nodes
+    tree = get_tree(tex)
+    nodes = tree.nodes
 
     # Texture channels
     for i, ch in enumerate(tex.channels):
@@ -146,7 +147,8 @@ def rearrange_tex_frame_nodes(tex):
 def create_info_nodes(group_tree, tex=None):
     tl = group_tree.tl
     if tex:
-        nodes = tex.tree.nodes
+        tree = get_tree(tex)
+        nodes = tree.nodes
     else: nodes = group_tree.nodes
 
     # Delete previous info nodes
@@ -360,7 +362,7 @@ def rearrange_mask_tree_nodes(mask):
         loc.x += 180
 
 def rearrange_tex_nodes(tex):
-    tree = tex.tree
+    tree = get_tree(tex)
     nodes = tree.nodes
 
     start = nodes.get(tex.start)
@@ -629,7 +631,7 @@ def rearrange_tex_nodes(tex):
     for j, mask in enumerate(tex.masks):
         mask_uv_map = nodes.get(mask.uv_map)
         if mask.tree:
-            mask_source = nodes.get(mask.group)
+            mask_source = nodes.get(mask.group_node)
             mask_hardness = None
             rearrange_mask_tree_nodes(mask)
         else:

@@ -65,12 +65,13 @@ def save_pack_all(tl, only_dirty = True):
 
     images = []
     for tex in tl.textures:
+        tex_tree = get_tree(tex)
         
         # Texture image
         if tex.type == 'IMAGE':
             if tex.source_tree:
                 source = tex.source_tree.nodes.get(tex.source)
-            else: source = tex.tree.nodes.get(tex.source)
+            else: source = tex_tree.nodes.get(tex.source)
             images.append(source.image)
 
         # Mask image
@@ -78,7 +79,7 @@ def save_pack_all(tl, only_dirty = True):
             if mask.type == 'IMAGE':
                 if mask.tree:
                     source = mask.tree.nodes.get(mask.source)
-                else: source = tex.tree.nodes.get(mask.source)
+                else: source = tex_tree.nodes.get(mask.source)
                 images.append(source.image)
 
     packed_float_images = []
@@ -103,10 +104,11 @@ def save_pack_all(tl, only_dirty = True):
     obj = bpy.context.object
     if len(tl.textures) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
         tex = tl.textures[tl.active_texture_index]
+        tex_tree = get_tree(tex)
         if tex.type == 'IMAGE':
             if tex.source_tree:
                 source = tex.source_tree.nodes.get(tex.source)
-            else: source = tex.tree.nodes.get(tex.source)
+            else: source = tex_tree.nodes.get(tex.source)
             image = source.image
             if image in packed_float_images:
                 tlui = bpy.context.window_manager.tlui

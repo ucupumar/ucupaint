@@ -415,6 +415,19 @@ def check_new_node(tree, obj, prop, node_id_name, label=''):
 
     return node, new
 
+def get_tree(obj):
+
+    #m = re.match(r'tl\.textures\[(\d+)\]', obj.path_from_id())
+    #if not m: return None
+    if not hasattr(obj.id_data, 'tl') or not hasattr(obj, 'group_node'): return None
+
+    tree = obj.id_data
+    tl = tree.tl
+
+    group_node = tree.nodes.get(obj.group_node)
+    if not group_node or group_node.type != 'GROUP': return None
+    return group_node.node_tree
+
 # Some image_ops need this
 #def get_active_image():
 #    node = get_active_texture_layers_node()
@@ -426,65 +439,3 @@ def check_new_node(tree, obj, prop, node_id_name, label=''):
 #    if tex.type != 'ShaderNodeTexImage': return None
 #    source = nodes.get(tex.source)
 #    return source.image
-
-
-## UI (Shouldn't be here)
-#def add_ui(obj):
-#    tlui = bpy.context.window_manager.tlui
-#
-#    # Root
-#    match = re.match(r'^tl$', obj.path_from_id())
-#    if match:
-#        tree = obj.id_data
-#        ui = tlui.roots.add()
-#        ui.name = tree.name
-#        return
-#
-#    # Root channel
-#    match = re.match(r'^tl\.channels\[(\d+)\]$', obj.path_from_id())
-#    if match:
-#        tree = obj.id_data
-#        root_ui = tlui.roots.get(tree.name)
-#        ui = root_ui.channels.add()
-#        #ui.name = obj.name
-#        return
-#    
-#    # Textures
-#    match = re.match(r'^tl\.textures\[(\d+)\]$', obj.path_from_id())
-#    if match:
-#        tree = obj.id_data
-#        root_ui = tlui.roots.get(tree.name)
-#        ui = root_ui.textures.add()
-#        #ui.name = obj.name
-#        return
-#
-#    # Texture channels
-#    match = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', obj.path_from_id())
-#    if match:
-#        tree = obj.id_data
-#        root_ui = tlui.roots.get(tree.name)
-#        tex_ui = root_ui.textures[int(match.group(1))]
-#        ui = tex_ui.channels.add()
-#        #ui.name = obj.name
-#        return
-#
-#    # Texture channel modifiers
-#    match = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]$', obj.path_from_id())
-#    if match:
-#        tree = obj.id_data
-#        root_ui = tlui.roots.get(tree.name)
-#        tex_ui = root_ui.textures[int(match.group(1))]
-#        ch_ui = tex_ui.channels[int(match.group(2))]
-#        ui = ch_ui.modifiers.add()
-#        #ui.name = obj.name
-#        return
-#
-#    # Texture masks
-#    match = re.match(r'^tl\.textures\[(\d+)\]\.masks\[(\d+)\]$', obj.path_from_id())
-#    if match:
-#        tree = obj.id_data
-#        root_ui = tlui.roots.get(tree.name)
-#        tex_ui = root_ui.textures[int(match.group(1))]
-#        ui = tex_ui.masks.add()
-#        #ui.name = obj.name
-#        return

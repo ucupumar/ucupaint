@@ -44,12 +44,13 @@ def reconnect_between_modifier_nodes(parent):
     if tex:
         if parent.mod_tree:
             tree = parent.mod_tree
-        else: tree = tex.tree
+        else: tree = get_tree(tex)
     else: tree = parent.id_data
 
     nodes = tree.nodes
         
     if tex and parent.mod_tree:
+        tex_tree = get_tree(tex)
         # start and end inside modifier tree
         parent_start = nodes.get(MODIFIER_TREE_START)
         parent_start_rgb = parent_start.outputs[0]
@@ -60,16 +61,16 @@ def reconnect_between_modifier_nodes(parent):
         parent_end_alpha = parent_end.inputs[1]
 
         # Connect outside tree nodes
-        mod_group = tex.tree.nodes.get(parent.mod_group)
-        start_rgb = tex.tree.nodes.get(parent.start_rgb)
-        start_alpha = tex.tree.nodes.get(parent.start_alpha)
-        end_rgb = tex.tree.nodes.get(parent.end_rgb)
-        end_alpha = tex.tree.nodes.get(parent.end_alpha)
+        mod_group = tex_tree.nodes.get(parent.mod_group)
+        start_rgb = tex_tree.nodes.get(parent.start_rgb)
+        start_alpha = tex_tree.nodes.get(parent.start_alpha)
+        end_rgb = tex_tree.nodes.get(parent.end_rgb)
+        end_alpha = tex_tree.nodes.get(parent.end_alpha)
 
-        create_link(tex.tree, start_rgb.outputs[0], mod_group.inputs[0])
-        create_link(tex.tree, start_alpha.outputs[0], mod_group.inputs[1])
-        create_link(tex.tree, mod_group.outputs[0], end_rgb.inputs[0])
-        create_link(tex.tree, mod_group.outputs[1], end_alpha.inputs[0])
+        create_link(tex_tree, start_rgb.outputs[0], mod_group.inputs[0])
+        create_link(tex_tree, start_alpha.outputs[0], mod_group.inputs[1])
+        create_link(tex_tree, mod_group.outputs[0], end_rgb.inputs[0])
+        create_link(tex_tree, mod_group.outputs[1], end_alpha.inputs[0])
 
     else:
         parent_start_rgb = nodes.get(parent.start_rgb).outputs[0]
@@ -366,7 +367,7 @@ def add_new_modifier(parent, modifier_type):
         root_ch = tl.channels[int(match1.group(2))]
         if parent.mod_tree:
             tree = parent.mod_tree
-        else: tree = tex.tree
+        else: tree = get_tree(tex)
     elif match2:
         tex = None
         root_ch = tl.channels[int(match2.group(1))]
@@ -458,7 +459,8 @@ class YNewTexModifier(bpy.types.Operator):
             mod = add_new_modifier(context.parent, self.type)
             mod.texture_index = context.parent.texture_index
             mod.channel_index = context.parent.channel_index
-            nodes = tex.tree.nodes
+            tree = get_tree(tex)
+            nodes = tree.nodes
         else:
             channel_type = context.parent.type
             mod = add_new_modifier(context.parent, self.type)
@@ -543,7 +545,7 @@ class YMoveTexModifier(bpy.types.Operator):
 
         tex = context.texture if hasattr(context, 'texture') else None
 
-        if tex: tree = tex.tree
+        if tex: tree = get_tree(tex)
         else: tree = group_tree
 
         # Swap modifier
@@ -601,7 +603,7 @@ class YRemoveTexModifier(bpy.types.Operator):
         if tex:
             if parent.mod_tree:
                 tree = parent.mod_tree
-            else: tree = tex.tree
+            else: tree = get_tree(tex)
         else: tree = group_tree
 
         # Delete the nodes
@@ -741,8 +743,11 @@ def update_modifier_enable(self, context):
     if match1:
         tex = tl.textures[int(match1.group(1))]
         ch = tex.channels[int(match1.group(2))]
-        if ch.mod_tree: nodes = ch.mod_tree.nodes
-        else: nodes = tex.tree.nodes
+        if ch.mod_tree: 
+            nodes = ch.mod_tree.nodes
+        else: 
+            tree = get_tree(tex)
+            nodes = tree.nodes
     elif match2: 
         nodes = group_tree.nodes
     else: return None
@@ -816,8 +821,11 @@ def update_invert_channel(self, context):
     if match1:
         tex = tl.textures[int(match1.group(1))]
         ch = tex.channels[int(match1.group(2))]
-        if ch.mod_tree: nodes = ch.mod_tree.nodes
-        else: nodes = tex.tree.nodes
+        if ch.mod_tree: 
+            nodes = ch.mod_tree.nodes
+        else:
+            tree = get_tree(tex)
+            nodes = tree.nodes
     elif match2: 
         nodes = group_tree.nodes
     else: return None
@@ -857,8 +865,11 @@ def update_use_clamp(self, context):
     if match1:
         tex = tl.textures[int(match1.group(1))]
         ch = tex.channels[int(match1.group(2))]
-        if ch.mod_tree: nodes = ch.mod_tree.nodes
-        else: nodes = tex.tree.nodes
+        if ch.mod_tree: 
+            nodes = ch.mod_tree.nodes
+        else: 
+            tree = get_tree(tex)
+            nodes = tree.nodes
     elif match2: 
         nodes = group_tree.nodes
     else: return None
@@ -960,12 +971,14 @@ def enable_modifiers_tree(ch):
     mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
     mod_tree_end.name = MODIFIER_TREE_END
 
-    mod_group = tex.tree.nodes.new('ShaderNodeGroup')
+    tex_tree = get_tree(tex)
+
+    mod_group = tex_tree.nodes.new('ShaderNodeGroup')
     mod_group.node_tree = mod_tree
     ch.mod_group = mod_group.name
 
     for mod in ch.modifiers:
-        add_modifier_nodes(mod, mod_tree, tex.tree)
+        add_modifier_nodes(mod, mod_tree, tex_tree)
 
     reconnect_between_modifier_nodes(ch)
     rearrange_tex_nodes(tex)
@@ -977,6 +990,7 @@ def disable_modifiers_tree(ch):
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
     if not m: return
     tex = tl.textures[int(m.group(1))]
+    tex_tree = get_tree(tex)
 
     # Check if modifier tree already gone
     if not ch.mod_tree: return
@@ -990,11 +1004,11 @@ def disable_modifiers_tree(ch):
     #if fine_bump_found: return
 
     for mod in ch.modifiers:
-        add_modifier_nodes(mod, tex.tree, ch.mod_tree)
+        add_modifier_nodes(mod, tex_tree, ch.mod_tree)
 
     # Remove modifier tree
-    mod_group = tex.tree.nodes.get(ch.mod_group)
-    tex.tree.nodes.remove(mod_group)
+    mod_group = tex_tree.nodes.get(ch.mod_group)
+    tex_tree.nodes.remove(mod_group)
     bpy.data.node_groups.remove(ch.mod_tree)
     ch.mod_tree = None
     ch.mod_group = ''

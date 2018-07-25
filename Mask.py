@@ -9,8 +9,8 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None):
     tl = tex.id_data.tl
     tl.halt_update = True
 
-    nodes = tex.tree.nodes
-    tree = tex.tree
+    tree = get_tree(tex)
+    nodes = tree.nodes
 
     mask = tex.masks.add()
     mask.name = name
@@ -62,12 +62,12 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None):
 
 def remove_mask(tex, mask):
 
-    tree = tex.tree
+    tree = get_tree(tex)
 
     # Remove mask nodes
     if mask.tree:
         remove_node(mask.tree, mask, 'source')
-        remove_node(tree, mask, 'group')
+        remove_node(tree, mask, 'group_node')
     else: 
         remove_node(tree, mask, 'source')
         remove_node(tree, mask, 'hardness')
@@ -256,6 +256,7 @@ class YRemoveTextureMask(bpy.types.Operator):
     def execute(self, context):
         mask = context.mask
         tex = context.texture
+        tree = get_tree(tex)
 
         remove_mask(tex, mask)
 
@@ -274,7 +275,7 @@ class YRemoveTextureMask(bpy.types.Operator):
             if tex.type == 'IMAGE':
                 if tex.source_tree:
                     source = tex.source_tree.nodes.get(tex.source)
-                else: source = tex.tree.nodes.get(tex.source)
+                else: source = tree.nodes.get(tex.source)
                 update_image_editor_image(context, source.image)
             else:
                 update_image_editor_image(context, None)
@@ -318,9 +319,10 @@ def update_enable_texture_masks(self, context):
     if tl.halt_update: return
 
     tex = self
+    tree = get_tree(tex)
     for mask in tex.masks:
         for ch in mask.channels:
-            multiply = tex.tree.nodes.get(ch.multiply)
+            multiply = tree.nodes.get(ch.multiply)
             multiply.mute = not ch.enable or not mask.enable or not tex.enable_masks
 
 def update_tex_mask_channel_enable(self, context):
@@ -329,9 +331,10 @@ def update_tex_mask_channel_enable(self, context):
 
     match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
+    tree = get_tree(tex)
     mask = tl.textures[int(match.group(2))]
 
-    multiply = tex.tree.nodes.get(self.multiply)
+    multiply = tree.nodes.get(self.multiply)
     multiply.mute = not self.enable or not mask.enable or not tex.enable_masks
 
 def update_tex_mask_enable(self, context):
@@ -340,12 +343,13 @@ def update_tex_mask_enable(self, context):
 
     match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
+    tree = get_tree(tex)
 
     for ch in self.channels:
-        multiply = tex.tree.nodes.get(ch.multiply)
+        multiply = tree.nodes.get(ch.multiply)
         multiply.mute = not ch.enable or not self.enable or not tex.enable_masks
 
-        vector_mix = tex.tree.nodes.get(ch.vector_mix)
+        vector_mix = tree.nodes.get(ch.vector_mix)
         if vector_mix:
             vector_mix.mute = not ch.enable or not self.enable or not tex.enable_masks
 
@@ -365,8 +369,9 @@ def update_mask_uv_name(self, context):
 
     match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
+    tree = get_tree(tex)
     
-    uv_map = tex.tree.nodes.get(self.uv_map)
+    uv_map = tree.nodes.get(self.uv_map)
     uv_map.uv_map = self.uv_name
 
     # Update uv layer
@@ -383,8 +388,8 @@ def update_mask_hardness_enable(self, context):
     tex = tl.textures[int(match.group(1))]
 
     if self.tree: 
-        tree = self.tree
-    else: tree = tex.tree
+        tree = get_tree(self)
+    else: tree = get_tree(tex)
 
     hardness = tree.nodes.get(self.hardness)
 
@@ -405,7 +410,9 @@ def update_mask_hardness_value(self, context):
 
     if self.tree:
         hardness = self.tree.nodes.get(self.hardness)
-    else: hardness = tex.tree.nodes.get(self.hardness)
+    else: 
+        tex_tree = get_tree(tex)
+        hardness = tex_tree.nodes.get(self.hardness)
 
     if hardness:
         hardness.inputs[1].default_value = self.hardness_value
@@ -414,8 +421,9 @@ def update_mask_bump_height(self, context):
     tl = self.id_data.tl
     match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
+    tree = get_tree(tex)
 
-    fine_bump = tex.tree.nodes.get(self.fine_bump)
+    fine_bump = tree.nodes.get(self.fine_bump)
 
     if fine_bump:
         fine_bump.inputs[0].default_value = self.bump_height
@@ -425,16 +433,18 @@ def update_mask_ramp_intensity_value(self, context):
     match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
     ch = tex.channels[int(match.group(3))]
+    tree = get_tree(tex)
 
-    ramp_intensity = tex.tree.nodes.get(self.ramp_intensity)
+    ramp_intensity = tree.nodes.get(self.ramp_intensity)
     ramp_intensity.inputs[1].default_value = ch.intensity_value * self.ramp_intensity_value
 
 def update_mask_ramp_blend_type(self, context):
     tl = self.id_data.tl
     match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
+    tree = get_tree(tex)
 
-    ramp_mix = tex.tree.nodes.get(self.ramp_mix)
+    ramp_mix = tree.nodes.get(self.ramp_mix)
     ramp_mix.blend_type = self.ramp_blend_type
 
 def update_mask_enable_ramp(self, context):
@@ -444,7 +454,7 @@ def update_mask_enable_ramp(self, context):
     mask = tex.masks[int(match.group(2))]
     ch = tex.channels[int(match.group(3))]
 
-    tree = tex.tree
+    tree = get_tree(tex)
 
     if self.enable_ramp:
 
@@ -491,20 +501,22 @@ def update_mask_bump_enable(self, context):
     mask = tex.masks[int(match.group(2))]
     ch = tex.channels[int(match.group(3))]
 
+    tree = get_tree(tex)
+
     directions = ['n', 's', 'e', 'w']
 
     if self.enable_bump:
         enable_mask_source(tex, mask, False)
 
-        neighbor_uv = tex.tree.nodes.get(self.neighbor_uv)
-        fine_bump = tex.tree.nodes.get(self.fine_bump)
-        invert = tex.tree.nodes.get(self.invert)
-        intensity_multiplier = tex.tree.nodes.get(self.intensity_multiplier)
-        vector_intensity_multiplier = tex.tree.nodes.get(self.vector_intensity_multiplier)
-        vector_mix = tex.tree.nodes.get(self.vector_mix)
+        neighbor_uv = tree.nodes.get(self.neighbor_uv)
+        fine_bump = tree.nodes.get(self.fine_bump)
+        invert = tree.nodes.get(self.invert)
+        intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
+        vector_intensity_multiplier = tree.nodes.get(self.vector_intensity_multiplier)
+        vector_mix = tree.nodes.get(self.vector_mix)
 
         if not neighbor_uv:
-            neighbor_uv = new_node(tex.tree, self, 'neighbor_uv', 'ShaderNodeGroup', 'Mask Neighbor UV')
+            neighbor_uv = new_node(tree, self, 'neighbor_uv', 'ShaderNodeGroup', 'Mask Neighbor UV')
             neighbor_uv.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_UV)
             if mask.type == 'IMAGE':
                 src = mask.tree.nodes.get(mask.source)
@@ -515,49 +527,49 @@ def update_mask_bump_enable(self, context):
                 neighbor_uv.inputs[2].default_value = 1000
 
         if not fine_bump:
-            fine_bump = new_node(tex.tree, self, 'fine_bump', 'ShaderNodeGroup', 'Mask Fine Bump')
+            fine_bump = new_node(tree, self, 'fine_bump', 'ShaderNodeGroup', 'Mask Fine Bump')
             fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
             #fine_bump.inputs[0].default_value = ch.fine_bump_scale
             fine_bump.inputs[0].default_value = self.bump_height
 
         if not invert:
-            invert = new_node(tex.tree, self, 'invert', 'ShaderNodeInvert', 'Mask Bump Invert')
+            invert = new_node(tree, self, 'invert', 'ShaderNodeInvert', 'Mask Bump Invert')
 
         if not vector_intensity_multiplier:
-            vector_intensity_multiplier = new_node(tex.tree, self, 'vector_intensity_multiplier', 
+            vector_intensity_multiplier = new_node(tree, self, 'vector_intensity_multiplier', 
                     'ShaderNodeGroup', 'Mask Vector Intensity Multiplier')
             vector_intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
             vector_intensity_multiplier.inputs[1].default_value = ch.intensity_multiplier_value
 
         if not vector_mix:
-            vector_mix = new_node(tex.tree, self, 'vector_mix', 'ShaderNodeGroup', 'Mask Vector Mix')
+            vector_mix = new_node(tree, self, 'vector_mix', 'ShaderNodeGroup', 'Mask Vector Mix')
             vector_mix.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
 
         if not intensity_multiplier:
-            intensity_multiplier = new_node(tex.tree, self, 'intensity_multiplier', 
+            intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 
                     'ShaderNodeGroup', 'Mask Intensity Multiplier')
             intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
             intensity_multiplier.inputs[1].default_value = ch.intensity_multiplier_value
 
         for d in directions:
-            src = tex.tree.nodes.get(getattr(self, 'source_' + d))
+            src = tree.nodes.get(getattr(self, 'source_' + d))
             if not src:
-                src = new_node(tex.tree, self, 'source_' + d, 'ShaderNodeGroup', 'Mask_' + d)
+                src = new_node(tree, self, 'source_' + d, 'ShaderNodeGroup', 'Mask_' + d)
                 src.node_tree = mask.tree
                 src.hide = True
 
     else:
         disable_mask_source(tex, mask)
 
-        remove_node(tex.tree, self, 'neighbor_uv')
-        remove_node(tex.tree, self, 'fine_bump')
-        remove_node(tex.tree, self, 'invert')
-        #remove_node(tex.tree, self, 'intensity_multiplier')
-        remove_node(tex.tree, self, 'vector_intensity_multiplier')
-        remove_node(tex.tree, self, 'vector_mix')
+        remove_node(tree, self, 'neighbor_uv')
+        remove_node(tree, self, 'fine_bump')
+        remove_node(tree, self, 'invert')
+        #remove_node(tree, self, 'intensity_multiplier')
+        remove_node(tree, self, 'vector_intensity_multiplier')
+        remove_node(tree, self, 'vector_mix')
 
         for d in directions:
-            remove_node(tex.tree, self, 'source_' + d)
+            remove_node(tree, self, 'source_' + d)
 
     # Reconnect outside nodes
     reconnect_tex_nodes(tex)
@@ -570,9 +582,11 @@ def enable_mask_source(tex, mask, reconnect_and_rearrange = True):
     # Check if source tree is already available
     if mask.tree: return
 
+    tex_tree = get_tree(tex)
+
     # Get current source for reference
-    source_ref = tex.tree.nodes.get(mask.source)
-    hardness_ref = tex.tree.nodes.get(mask.hardness)
+    source_ref = tex_tree.nodes.get(mask.source)
+    hardness_ref = tex_tree.nodes.get(mask.hardness)
 
     # Create mask tree
     mask.tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
@@ -597,13 +611,13 @@ def enable_mask_source(tex, mask, reconnect_and_rearrange = True):
         copy_node_props(hardness_ref, hardness)
 
     # Create source node group
-    mask_group = new_node(tex.tree, mask, 'group', 'ShaderNodeGroup')
-    mask_group.node_tree = mask.tree
+    group_node = new_node(tex_tree, mask, 'group_node', 'ShaderNodeGroup')
+    group_node.node_tree = mask.tree
 
     # Remove previous nodes
-    tex.tree.nodes.remove(source_ref)
+    tex_tree.nodes.remove(source_ref)
     if hardness_ref:
-        tex.tree.nodes.remove(hardness_ref)
+        tex_tree.nodes.remove(hardness_ref)
 
     if reconnect_and_rearrange:
         # Reconnect outside nodes
@@ -617,22 +631,24 @@ def disable_mask_source(tex, mask):
     # Check if source tree is already gone
     if not mask.tree: return
 
+    tex_tree = get_tree(tex)
+
     source_ref = mask.tree.nodes.get(mask.source)
     hardness_ref = mask.tree.nodes.get(mask.hardness)
-    group = tex.tree.nodes.get(mask.group)
+    group_node = tex_tree.nodes.get(mask.group_node)
 
     # Create new nodes
-    source = new_node(tex.tree, mask, 'source', source_ref.bl_idname)
+    source = new_node(tex_tree, mask, 'source', source_ref.bl_idname)
     copy_node_props(source_ref, source)
 
     if hardness_ref:
-        hardness = new_node(tex.tree, mask, 'hardness', hardness_ref.bl_idname)
+        hardness = new_node(tex_tree, mask, 'hardness', hardness_ref.bl_idname)
         copy_node_props(hardness_ref, hardness)
 
     # Remove previous source
     #remove_node(mask.tree, mask, 'source')
     #remove_node(mask.tree, mask, 'hardness')
-    remove_node(tex.tree, mask, 'group')
+    remove_node(tex_tree, mask, 'group_node')
     bpy.data.node_groups.remove(mask.tree)
     mask.tree = None
 
@@ -694,7 +710,7 @@ class YTextureMask(bpy.types.PropertyGroup):
     halt_update = BoolProperty(default=False)
     
     tree = PointerProperty(type=bpy.types.ShaderNodeTree)
-    group = StringProperty(default='')
+    group_node = StringProperty(default='')
 
     enable = BoolProperty(
             name='Enable Mask', 

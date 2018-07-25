@@ -127,7 +127,7 @@ def reconnect_mask_internal_nodes(mask):
 def reconnect_tex_nodes(tex, ch_idx=-1):
     tl =  get_active_texture_layers_node().node_tree.tl
 
-    tree = tex.tree
+    tree = get_tree(tex)
     nodes = tree.nodes
 
     start = nodes.get(tex.start)
@@ -365,7 +365,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             mask_uv_map = nodes.get(mask.uv_map)
 
             if mask.tree:
-                mask_source = nodes.get(mask.group)
+                mask_source = nodes.get(mask.group_node)
                 mask_hardness = None
                 reconnect_mask_internal_nodes(mask)
             else:
