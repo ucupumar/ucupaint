@@ -125,11 +125,6 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     tl.textures.move(last_index, index)
     tex = tl.textures[index] # Repoint to new index
 
-    # Repoint other texture index for other texture channels
-    for i in range(index+1, last_index+1):
-        for c in tl.textures[i].channels:
-            c.texture_index = i
-
     # New texture node group
     group_node = nodes.new('ShaderNodeGroup')
     tex.group_node = group_node.name
@@ -198,8 +193,6 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     for i, ch in enumerate(tl.channels):
         # Add new channel to current texture
         c = tex.channels.add()
-        c.channel_index = i
-        c.texture_index = index
 
         # Add blend and other nodes
         create_texture_channel_nodes(group_tree, tex, c)
@@ -224,7 +217,6 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
                 c.bump_base_value = 0.0
 
             m = Modifier.add_new_modifier(c, 'RGB_TO_INTENSITY')
-            m.texture_index = index
             if channel_idx == i or channel_idx == -1:
                 col = (rgb_to_intensity_color[0], rgb_to_intensity_color[1], rgb_to_intensity_color[2], 1)
                 rgb2i = tree.nodes.get(m.rgb2i)
@@ -856,13 +848,6 @@ class YMoveTextureLayer(bpy.types.Operator):
         tl.textures.move(tex_idx, swap_idx)
         tl.active_texture_index = swap_idx
 
-        # Repoint channel texture index
-        for ch in tl.textures[tex_idx].channels:
-            ch.texture_index = tex_idx
-
-        for ch in tl.textures[swap_idx].channels:
-            ch.texture_index = swap_idx
-
         # Refresh texture channel blend nodes
         reconnect_tl_tex_nodes(group_tree)
         rearrange_tl_nodes(group_tree)
@@ -918,11 +903,6 @@ class YRemoveTextureLayer(bpy.types.Operator):
             # Force update the index to refesh paint image
             tl.active_texture_index = tl.active_texture_index
 
-        # Repoint channel texture index
-        for i in range(tl.active_texture_index, len(tl.textures)):
-            for ch in tl.textures[i].channels:
-                ch.texture_index = i
-
         # Refresh texture channel blend nodes
         reconnect_tl_tex_nodes(group_tree)
         rearrange_tl_nodes(group_tree)
@@ -956,17 +936,11 @@ def update_channel_enable(self, context):
 
     reconnect_tex_nodes(tex)
 
-def update_channel_texture_index(self, context):
-    for mod in self.modifiers:
-        mod.texture_index = self.texture_index
-
-def update_channel_channel_index(self, context):
-    for mod in self.modifiers:
-        mod.channel_index = self.channel_index
-
 def update_normal_map_type(self, context):
     tl = self.id_data.tl
-    tex = tl.textures[self.texture_index]
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
+    ch_index = int(m.group(2))
     tree = get_tree(tex)
     nodes = tree.nodes
 
@@ -1139,7 +1113,7 @@ def update_normal_map_type(self, context):
         normal_flip.label = 'Flip Backface Normal'
         self.normal_flip = normal_flip.name
 
-    reconnect_tex_nodes(tex, self.channel_index)
+    reconnect_tex_nodes(tex, ch_index)
     rearrange_tex_nodes(tex)
 
 def update_blend_type_(root_ch, tex, ch):
@@ -1213,15 +1187,19 @@ def update_blend_type_(root_ch, tex, ch):
 
 def update_blend_type(self, context):
     tl = self.id_data.tl
-    tex = tl.textures[self.texture_index]
-    root_ch = tl.channels[self.channel_index]
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
+    ch_index = int(m.group(2))
+    root_ch = tl.channels[ch_index]
+
     if update_blend_type_(root_ch, tex, self):
-        reconnect_tex_nodes(tex, self.channel_index)
+        reconnect_tex_nodes(tex, ch_index)
         rearrange_tex_nodes(tex)
 
 def update_flip_backface_normal(self, context):
     tl = self.id_data.tl
-    tex = tl.textures[self.texture_index]
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
     tree = get_tree(tex)
 
     normal_flip = tree.nodes.get(self.normal_flip)
@@ -1229,7 +1207,8 @@ def update_flip_backface_normal(self, context):
 
 def update_bump_base_value(self, context):
     tl = self.id_data.tl
-    tex = tl.textures[self.texture_index]
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
     tree = get_tree(tex)
 
     bump_base = tree.nodes.get(self.bump_base)
@@ -1243,7 +1222,8 @@ def update_bump_base_value(self, context):
 
 def update_bump_distance(self, context):
     tl = self.id_data.tl
-    tex = tl.textures[self.texture_index]
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
     tree = get_tree(tex)
 
     if self.normal_map_type == 'BUMP_MAP':
@@ -1510,9 +1490,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
             #default = 'RGB',
             items = tex_input_items,
             update = update_tex_input)
-
-    texture_index = IntProperty(default=0, update=update_channel_texture_index)
-    channel_index = IntProperty(default=0, update=update_channel_channel_index)
 
     #color_space = EnumProperty(
     #        name = 'Input Color Space',

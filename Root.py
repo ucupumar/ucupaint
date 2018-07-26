@@ -156,8 +156,6 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
 
         # Add new channel
         c = t.channels.add()
-        c.channel_index = channel_idx
-        c.texture_index = i
 
         # Add new nodes
         Layer.create_texture_channel_nodes(group_tree, t, c)
@@ -744,12 +742,6 @@ def swap_channel_io(root_ch, swap_ch, io_index, io_index_swap, inputs, outputs):
             inputs.move(io_index, io_index_swap)
             outputs.move(io_index, io_index_swap)
 
-def repoint_channel_index(tl):
-    for tex in tl.textures:
-        for i, ch in enumerate(tex.channels):
-            if ch.channel_index != i:
-                ch.channel_index = i
-
 class YMoveTLChannel(bpy.types.Operator):
     bl_idname = "node.y_move_texture_layers_channel"
     bl_label = "Move Texture Group Channel"
@@ -831,7 +823,7 @@ class YMoveTLChannel(bpy.types.Operator):
         tl.active_channel_index = new_index
 
         # Repoint channel index
-        repoint_channel_index(tl)
+        #repoint_channel_index(tl)
 
         # Update UI
         context.window_manager.tlui.need_update = True
@@ -1005,7 +997,7 @@ class YRemoveTLChannel(bpy.types.Operator):
             ): tl.active_channel_index -= 1
 
         # Repoint channel index
-        repoint_channel_index(tl)
+        #repoint_channel_index(tl)
 
         # Update UI
         context.window_manager.tlui.need_update = True

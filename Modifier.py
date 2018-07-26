@@ -440,8 +440,6 @@ class YNewTexModifier(bpy.types.Operator):
                     ),
             default = 'TEXTURE_CHANNEL')
 
-    channel_index = IntProperty(default=0)
-
     @classmethod
     def poll(cls, context):
         return get_active_texture_layers_node() and hasattr(context, 'parent')
@@ -451,14 +449,13 @@ class YNewTexModifier(bpy.types.Operator):
         group_tree = node.node_tree
         tl = group_tree.tl
 
-        tex = context.texture if hasattr(context, 'texture') else None
-
-        if tex:
-            root_ch = tl.channels[context.parent.channel_index]
+        tex = None
+        m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+        if m:
+            tex = tl.textures[int(m.group(1))]
+            root_ch = tl.channels[int(m.group(2))]
             channel_type = root_ch.type
             mod = add_new_modifier(context.parent, self.type)
-            mod.texture_index = context.parent.texture_index
-            mod.channel_index = context.parent.channel_index
             tree = get_tree(tex)
             nodes = tree.nodes
         else:
@@ -482,8 +479,7 @@ class YNewTexModifier(bpy.types.Operator):
             context.channel_ui.expand_content = True
 
         # Rearrange nodes
-        if tex:
-            rearrange_tex_nodes(tex)
+        if tex: rearrange_tex_nodes(tex)
         else: rearrange_tl_nodes(group_tree)
 
         # Update UI
@@ -509,8 +505,6 @@ class YMoveTexModifier(bpy.types.Operator):
                      ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
                     ),
             default = 'TEXTURE_CHANNEL')
-
-    channel_index = IntProperty(default=0)
 
     @classmethod
     def poll(cls, context):
@@ -575,8 +569,6 @@ class YRemoveTexModifier(bpy.types.Operator):
                      ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
                     ),
             default = 'TEXTURE_CHANNEL')
-
-    channel_index = IntProperty(default=0)
 
     @classmethod
     def poll(cls, context):
@@ -883,8 +875,6 @@ class YTextureModifier(bpy.types.PropertyGroup):
     name = StringProperty(default='')
 
     channel_type = StringProperty(default='')
-    texture_index = IntProperty(default=-1)
-    channel_index = IntProperty(default=-1)
 
     type = EnumProperty(
         name = 'Modifier Type',

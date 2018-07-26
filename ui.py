@@ -642,8 +642,6 @@ def main_draw(self, context):
                         row.prop(chui, 'expand_content', text='', emboss=True, icon=icon)
                     else: row.label('', icon=icon)
 
-                #row.label(tl.channels[i].name +' (' + str(ch.channel_index) + ')'+ ':')
-                #row.label(tl.channels[i].name +' (' + str(ch.texture_index) + ')'+ ':')
                 row.label(tl.channels[i].name + ':')
 
                 if root_ch.type == 'NORMAL':
