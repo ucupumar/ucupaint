@@ -804,6 +804,8 @@ def main_draw(self, context):
 
                     for j, m in enumerate(ch.modifiers):
 
+                        mod_tree = get_mod_tree(m)
+
                         row = ccol.row(align=True)
                         #row.active = m.enable
                         row.label('', icon='BLANK1')
@@ -828,9 +830,7 @@ def main_draw(self, context):
                         row.label(m.name)
 
                         if m.type == 'RGB_TO_INTENSITY':
-                            if ch.mod_tree:
-                                rgb2i = ch.mod_tree.nodes.get(m.rgb2i)
-                            else: rgb2i = tex_tree.nodes.get(m.rgb2i)
+                            rgb2i = mod_tree.nodes.get(m.rgb2i)
                             row.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
                             row.separator()
 
@@ -849,9 +849,7 @@ def main_draw(self, context):
                             row.label('', icon='BLANK1')
                             bbox = row.box()
                             bbox.active = m.enable
-                            if ch.mod_tree:
-                                Modifier.draw_modifier_properties(context, ch, ch.mod_tree.nodes, m, bbox)
-                            else: Modifier.draw_modifier_properties(context, ch, tex_tree.nodes, m, bbox)
+                            Modifier.draw_modifier_properties(context, root_ch, mod_tree.nodes, m, bbox)
 
                             if tlui.expand_channels:
                                 row.label('', icon='BLANK1')
@@ -1331,9 +1329,8 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                     shortcut_found = True
                     if mod.type == 'RGB_TO_INTENSITY':
                         rrow = row.row()
-                        if ch.mod_tree:
-                            rgb2i = ch.mod_tree.nodes.get(mod.rgb2i)
-                        else: rgb2i = tex_tree.nodes.get(mod.rgb2i)
+                        mod_tree = get_mod_tree(mod)
+                        rgb2i = mod_tree.nodes.get(mod.rgb2i)
                         rrow.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
                     break
             if shortcut_found:

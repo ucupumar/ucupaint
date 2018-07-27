@@ -862,73 +862,76 @@ class YRemoveTLChannel(bpy.types.Operator):
         # Remove channel nodes from textures
         for t in tl.textures:
             ch = t.channels[channel_idx]
+            ttree = get_tree(t)
 
-            t.tree.nodes.remove(t.tree.nodes.get(ch.blend))
-            t.tree.nodes.remove(t.tree.nodes.get(ch.start_rgb))
-            t.tree.nodes.remove(t.tree.nodes.get(ch.start_alpha))
-            t.tree.nodes.remove(t.tree.nodes.get(ch.end_rgb))
-            t.tree.nodes.remove(t.tree.nodes.get(ch.end_alpha))
-            #t.tree.nodes.remove(t.tree.nodes.get(ch.modifier_frame_))
-            t.tree.nodes.remove(t.tree.nodes.get(ch.intensity))
-            #t.tree.nodes.remove(t.tree.nodes.get(ch.linear))
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.alpha_passthrough_))
+            ttree.nodes.remove(ttree.nodes.get(ch.blend))
+            ttree.nodes.remove(ttree.nodes.get(ch.start_rgb))
+            ttree.nodes.remove(ttree.nodes.get(ch.start_alpha))
+            ttree.nodes.remove(ttree.nodes.get(ch.end_rgb))
+            ttree.nodes.remove(ttree.nodes.get(ch.end_alpha))
+            #ttree.nodes.remove(ttree.nodes.get(ch.modifier_frame_))
+            ttree.nodes.remove(ttree.nodes.get(ch.intensity))
+            #ttree.nodes.remove(ttree.nodes.get(ch.linear))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.alpha_passthrough_))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.normal))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.normal))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.normal_flip))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.normal_flip))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.bump))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump_base))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.bump_base))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.pipeline_frame))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.pipeline_frame))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.neighbor_uv))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.neighbor_uv))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.source_n))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.source_n))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.source_s))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.source_s))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.source_e))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.source_e))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.source_w))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.source_w))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.mod_n))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.mod_n))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.mod_s))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.mod_s))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.mod_e))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.mod_e))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.mod_w))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.mod_w))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump_base_n))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.bump_base_n))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump_base_s))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.bump_base_s))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump_base_e))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.bump_base_e))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.bump_base_w))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.bump_base_w))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.fine_bump))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.fine_bump))
             except: pass
-            try: t.tree.nodes.remove(t.tree.nodes.get(ch.intensity_multiplier))
+            try: ttree.nodes.remove(ttree.nodes.get(ch.intensity_multiplier))
             except: pass
 
             # Remove modifiers
-            if ch.mod_tree:
-                t.tree.nodes.remove(t.tree.nodes.get(ch.mod_group))
-                bpy.data.node_groups.remove(ch.mod_tree)
+            #if ch.mod_tree:
+            if ch.mod_group != '':
+                mod_group = ttree.nodes.get(ch.mod_group)
+                bpy.data.node_groups.remove(mod_group.node_tree)
+                ttree.nodes.remove(mod_group)
             else:
                 for mod in ch.modifiers:
-                    Modifier.delete_modifier_nodes(t.tree.nodes, mod)
+                    Modifier.delete_modifier_nodes(ttree.nodes, mod)
 
             # Remove tex IO
-            t.tree.inputs.remove(t.tree.inputs[channel.io_index])
-            t.tree.outputs.remove(t.tree.outputs[channel.io_index])
+            ttree.inputs.remove(ttree.inputs[channel.io_index])
+            ttree.outputs.remove(ttree.outputs[channel.io_index])
 
             if channel.type == 'RGB' and channel.alpha:
-                t.tree.inputs.remove(t.tree.inputs[channel.io_index])
-                t.tree.outputs.remove(t.tree.outputs[channel.io_index])
+                ttree.inputs.remove(ttree.inputs[channel.io_index])
+                ttree.outputs.remove(ttree.outputs[channel.io_index])
 
             t.channels.remove(channel_idx)
 
@@ -1065,7 +1068,9 @@ class YFixDuplicatedTextures(bpy.types.Operator):
     def poll(cls, context):
         group_node = get_active_texture_layers_node()
         tl = group_node.node_tree.tl
-        return len(tl.textures) > 0 and tl.textures[0].tree.users > 3
+        if len(tl.textures) == 0: return False
+        tex_tree = get_tree(tl.textures[0])
+        return tex_tree.users > 1
 
     def execute(self, context):
         tlui = context.window_manager.tlui
@@ -1075,18 +1080,19 @@ class YFixDuplicatedTextures(bpy.types.Operator):
 
         # Make all textures single(dual) user
         for t in tl.textures:
-            t.tree = t.tree.copy()
+            oldtree = get_tree(t)
+            ttree = oldtree.copy()
             node = tree.nodes.get(t.group_node)
-            node.node_tree = t.tree
+            node.node_tree = ttree
 
             if t.type == 'IMAGE' and tlui.make_image_single_user:
                 if t.source_tree:
                     t.source_tree = t.source_tree.copy()
-                    source_group = t.tree.nodes.get(t.source_group)
+                    source_group = ttree.nodes.get(t.source_group)
                     source_group.node_tree = t.source_tree
                     source = t.source_tree.nodes.get(t.source)
                 else:
-                    source = t.tree.nodes.get(t.source)
+                    source = ttree.nodes.get(t.source)
 
                 img = source.image
 

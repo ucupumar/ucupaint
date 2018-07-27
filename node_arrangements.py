@@ -136,7 +136,7 @@ def rearrange_tex_frame_nodes(tex):
         check_set_node_parent(intensity, pipeline_frame)
 
         # Modifiers
-        if ch.mod_tree:
+        if ch.mod_group != '':
             mod_group = nodes.get(ch.mod_group)
             check_set_node_parent(mod_group, pipeline_frame)
         else:
@@ -206,8 +206,9 @@ def create_info_nodes(group_tree, tex=None):
 #def arrange_modifier_nodes(nodes, parent, loc, original_x):
 def arrange_modifier_nodes(nodes, parent, loc):
 
-    if hasattr(parent, 'mod_tree') and parent.mod_tree:
-        mod_tree_start = parent.mod_tree.nodes.get(MODIFIER_TREE_START)
+    if hasattr(parent, 'mod_group') and parent.mod_group != '':
+        mod_tree = get_mod_tree(parent)
+        mod_tree_start = mod_tree.nodes.get(MODIFIER_TREE_START)
         if mod_tree_start.location != loc: mod_tree_start.location = loc
         loc.x += 200
 
@@ -312,8 +313,9 @@ def arrange_modifier_nodes(nodes, parent, loc):
         loc.y = ori_y
         loc.x += 100
 
-    if hasattr(parent, 'mod_tree') and parent.mod_tree:
-        mod_tree_end = parent.mod_tree.nodes.get(MODIFIER_TREE_END)
+    if hasattr(parent, 'mod_group') and parent.mod_group != '':
+        mod_tree = get_mod_tree(parent)
+        mod_tree_end = mod_tree.nodes.get(MODIFIER_TREE_END)
         if mod_tree_end.location != loc: mod_tree_end.location = loc
         loc.x += 200
 
@@ -444,7 +446,7 @@ def rearrange_tex_nodes(tex):
 
         # Modifier loop
         if mod_group:
-            arrange_modifier_nodes(ch.mod_tree.nodes, ch, Vector((0,0)))
+            arrange_modifier_nodes(mod_group.node_tree.nodes, ch, Vector((0,0)))
             check_set_node_location(mod_group, loc)
             loc.x += 200
         else:

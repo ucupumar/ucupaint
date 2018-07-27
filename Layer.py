@@ -1006,6 +1006,7 @@ def update_normal_map_type(self, context):
         # Make sure to enable source tree and modifier tree
         enable_tex_source_tree(tex)
         Modifier.enable_modifiers_tree(self)
+        mod_tree = get_mod_tree(self)
 
         # Get the original source
         source = tex.source_tree.nodes.get(tex.source)
@@ -1042,7 +1043,7 @@ def update_normal_map_type(self, context):
         for i, m in enumerate(mod_groups):
             if not m:
                 m = nodes.new('ShaderNodeGroup')
-                m.node_tree = self.mod_tree
+                m.node_tree = mod_tree
                 m.label = 'mod ' + neighbor_directions[i]
                 setattr(self, 'mod_' + neighbor_directions[i], m.name)
                 m.hide = True

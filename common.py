@@ -428,6 +428,26 @@ def get_tree(obj):
     if not group_node or group_node.type != 'GROUP': return None
     return group_node.node_tree
 
+def get_mod_tree(obj):
+
+    m1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', obj.path_from_id())
+    m2 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', obj.path_from_id())
+    #m2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', obj.path_from_id())
+    if not m1 and not m2:
+        return obj.id_data
+
+    tl = obj.id_data.tl
+    tex = tl.textures[int(m1.group(1))]
+    ch = tex.channels[int(m1.group(2))]
+    tex_tree = get_tree(tex)
+
+    #print(ch.mod_group)
+    mod_group = tex_tree.nodes.get(ch.mod_group)
+    if not mod_group or mod_group.type != 'GROUP':
+        return tex_tree
+
+    return mod_group.node_tree
+
 # Some image_ops need this
 #def get_active_image():
 #    node = get_active_texture_layers_node()
