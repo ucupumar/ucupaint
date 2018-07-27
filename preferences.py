@@ -44,16 +44,12 @@ def refresh_float_image_hack(scene):
             tl = node.node_tree.tl
             if len(tl.textures) > 0:
                 tex = tl.textures[tl.active_texture_index]
-                if tex.source_tree:
-                    source = tex.source_tree.nodes.get(tex.source)
-                else: source = tex.tree.nodes.get(tex.source)
-                if hasattr(source, 'image'):
-                    image = source.image
+                source = get_tex_source(tex)
+                if source.type == 'TEX_IMAGE' and source.image:
                     # Just reload image to fix glitched float image
-                    if image: 
-                        print("INFO: Just ignore error below if there's any, this is fine..")
-                        image.reload()
-                        print('INFO: ..fine error ended')
+                    print("INFO: Just ignore error below if there's any, this is fine..")
+                    source.image.reload()
+                    print('INFO: ..fine error ended')
 
         tlui.refresh_image_hack = False
 

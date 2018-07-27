@@ -18,8 +18,6 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     ch_index = [i for i, c in enumerate(texture.channels) if c == channel][0]
     root_ch = tl.channels[ch_index]
 
-    #tree = nodes.get(texture.group_node).node_tree
-    #tree = texture.tree
     tree = get_tree(texture)
 
     # Tree input and output
@@ -30,29 +28,15 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         out = tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], root_ch.name + ' Alpha')
 
     # Modifier pipeline nodes
-    start_rgb = tree.nodes.new('NodeReroute')
-    start_rgb.label = 'Start RGB'
-    channel.start_rgb = start_rgb.name
-
-    start_alpha = tree.nodes.new('NodeReroute')
-    start_alpha.label = 'Start Alpha'
-    channel.start_alpha = start_alpha.name
-
-    end_rgb = tree.nodes.new('NodeReroute')
-    end_rgb.label = 'End RGB'
-    channel.end_rgb = end_rgb.name
-
-    end_alpha = tree.nodes.new('NodeReroute')
-    end_alpha.label = 'End Alpha'
-    channel.end_alpha = end_alpha.name
+    start_rgb = new_node(tree, channel, 'start_rgb', 'NodeReroute', 'Start RGB')
+    start_alpha = new_node(tree, channel, 'start_alpha', 'NodeReroute', 'Start Alpha')
+    end_rgb = new_node(tree, channel, 'end_rgb', 'NodeReroute', 'End RGB')
+    end_alpha = new_node(tree, channel, 'end_alpha', 'NodeReroute', 'End Alpha')
 
     # Intensity nodes
-    intensity = tree.nodes.new('ShaderNodeMixRGB')
-    intensity.label = 'Intensity'
-    intensity.inputs[0].default_value = 1.0
-    intensity.inputs[1].default_value = (0,0,0,1)
-    intensity.inputs[2].default_value = (1,1,1,1)
-    channel.intensity = intensity.name
+    intensity = new_node(tree, channel, 'intensity', 'ShaderNodeMath', 'Intensity')
+    intensity.operation = 'MULTIPLY'
+    intensity.inputs[1].default_value = 1.0
 
     # Update texture channel blend type
     update_blend_type_(root_ch, texture, channel)
@@ -125,31 +109,24 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     tl.textures.move(last_index, index)
     tex = tl.textures[index] # Repoint to new index
 
-    # New texture node group
-    group_node = nodes.new('ShaderNodeGroup')
-    tex.group_node = group_node.name
-
     # New texture tree
     tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + tex_name, 'ShaderNodeTree')
     tree.tl.is_tl_tex_node = True
     tree.tl.version = get_current_version_str()
+
+    # New texture node group
+    group_node = new_node(group_tree, tex, 'group_node', 'ShaderNodeGroup', tex_name)
     group_node.node_tree = tree
-    #tex.tree = tree
-    #nodes = tree.nodes
 
     # Create info nodes
     create_info_nodes(group_tree, tex)
 
     # Tree start and end
-    start = tree.nodes.new('NodeGroupInput')
-    tex.start = start.name
-    end = tree.nodes.new('NodeGroupOutput')
-    tex.end = end.name
+    start = new_node(tree, tex, 'start', 'NodeGroupInput', 'Start')
+    end = new_node(tree, tex, 'end', 'NodeGroupOutput', 'Start')
 
     # Add source frame
-    source = tree.nodes.new(texture_node_bl_idnames[tex_type])
-    source.label = 'Source'
-    tex.source = source.name
+    source = new_node(tree, tex, 'source', texture_node_bl_idnames[tex_type], 'Source')
 
     if tex_type == 'IMAGE':
         # Always set non color to image node because of linear pipeline
@@ -159,10 +136,8 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
         source.image = image
     else:
         # Solid alpha for non image texture
-        solid_alpha = tree.nodes.new('ShaderNodeValue')
-        solid_alpha.label = 'Solid Alpha'
+        solid_alpha = new_node(tree, tex, 'solid_alpha', 'ShaderNodeValue', 'Solid Alpha')
         solid_alpha.outputs[0].default_value = 1.0
-        tex.solid_alpha = solid_alpha.name
 
     # Add geometry and texcoord node
     geometry = new_node(tree, tex, 'geometry', 'ShaderNodeNewGeometry', 'Source Geometry')
@@ -251,11 +226,7 @@ def update_channel_idx_new_texture(self, context):
 def get_fine_bump_distance(tex, distance):
     scale = 100
     if tex.type == 'IMAGE':
-        if tex.source_tree:
-            source = tex.source_tree.nodes.get(tex.source)
-        else: 
-            tree = get_tree(tex)
-            source = tree.nodes.get(tex.source)
+        source = get_tex_source(tex)
         image = source.image
         if image: scale = image.size[0] / 10
 
@@ -975,31 +946,25 @@ def update_normal_map_type(self, context):
     # Bump base is available on standard and fine bump
     if self.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
         if not bump_base:
-            bump_base = nodes.new('ShaderNodeMixRGB')
-            bump_base.label = 'Bump Base'
+            bump_base = new_node(tree, self, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
             val = self.bump_base_value
             bump_base.inputs[1].default_value = (val, val, val, 1.0)
-            self.bump_base = bump_base.name
         if not intensity_multiplier:
-            intensity_multiplier = nodes.new('ShaderNodeMath')
-            intensity_multiplier.label = 'Intensity Multiplier'
+            intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeMath', 'Intensity Multiplier')
             intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
             intensity_multiplier.use_clamp = True
             intensity_multiplier.operation = 'MULTIPLY'
-            self.intensity_multiplier = intensity_multiplier.name
 
     if self.normal_map_type == 'NORMAL_MAP':
         if not normal:
-            normal = nodes.new('ShaderNodeNormalMap')
+            normal = new_node(tree, self, 'normal', 'ShaderNodeNormalMap')
             normal.uv_map = tex.uv_name
-            self.normal = normal.name
 
     elif self.normal_map_type == 'BUMP_MAP':
 
         if not bump:
-            bump = nodes.new('ShaderNodeBump')
+            bump = new_node(tree, self, 'bump', 'ShaderNodeBump')
             bump.inputs[1].default_value = self.bump_distance
-            self.bump = bump.name
 
     elif self.normal_map_type == 'FINE_BUMP_MAP':
 
@@ -1009,13 +974,11 @@ def update_normal_map_type(self, context):
         mod_tree = get_mod_tree(self)
 
         # Get the original source
-        source = tex.source_tree.nodes.get(tex.source)
+        source = get_tex_source(tex, tree)
 
         if not neighbor_uv:
-            neighbor_uv = nodes.new('ShaderNodeGroup')
+            neighbor_uv = new_node(tree, self, 'neighbor_uv', 'ShaderNodeGroup', 'Neighbor UV')
             neighbor_uv.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_UV)
-            neighbor_uv.label = 'Neighbor UV'
-            self.neighbor_uv = neighbor_uv.name
 
         if tex.type == 'IMAGE' and source.image:
             neighbor_uv.inputs[1].default_value = source.image.size[0]
@@ -1025,35 +988,29 @@ def update_normal_map_type(self, context):
             neighbor_uv.inputs[2].default_value = 1000
 
         if not fine_bump:
-            fine_bump = nodes.new('ShaderNodeGroup')
+            fine_bump = new_node(tree, self, 'fine_bump', 'ShaderNodeGroup', 'Fine Bump')
             fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
             fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
-            fine_bump.label = 'Fine Bump'
-            self.fine_bump = fine_bump.name
 
         for i, s in enumerate(sources):
             if not s:
-                #s = nodes.new(source.bl_idname)
-                s = nodes.new('ShaderNodeGroup')
-                s.node_tree = tex.source_tree
-                s.label = neighbor_directions[i]
-                setattr(self, 'source_' + neighbor_directions[i], s.name)
+                s = new_node(tree, self, 'source_' + neighbor_directions[i], 'ShaderNodeGroup', 
+                        'source ' + neighbor_directions[i])
+                s.node_tree = get_source_tree(tex, tree)
                 s.hide = True
 
         for i, m in enumerate(mod_groups):
             if not m:
-                m = nodes.new('ShaderNodeGroup')
+                m = new_node(tree, self, 'mod_' + neighbor_directions[i], 'ShaderNodeGroup', 
+                        'mod ' + neighbor_directions[i])
                 m.node_tree = mod_tree
-                m.label = 'mod ' + neighbor_directions[i]
-                setattr(self, 'mod_' + neighbor_directions[i], m.name)
                 m.hide = True
 
         for i, b in enumerate(bump_bases):
             if not b:
-                b = nodes.new('ShaderNodeMixRGB')
+                b = new_node(tree, self, 'bump_base_' + neighbor_directions[i], 'ShaderNodeMixRGB', 
+                        'bump base ' + neighbor_directions[i])
                 copy_node_props(bump_base, b, ['parent'])
-                b.label = 'bump base ' + neighbor_directions[i]
-                setattr(self, 'bump_base_' + neighbor_directions[i], b.name)
                 b.hide = True
 
     # Remove bump nodes
@@ -1109,10 +1066,8 @@ def update_normal_map_type(self, context):
 
     # Create normal flip node
     if not normal_flip:
-        normal_flip = nodes.new('ShaderNodeGroup')
+        normal_flip = new_node(tree, self, 'normal_flip', 'ShaderNodeGroup', 'Flip Backface Normal')
         normal_flip.node_tree = lib.get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
-        normal_flip.label = 'Flip Backface Normal'
-        self.normal_flip = normal_flip.name
 
     reconnect_tex_nodes(tex, ch_index)
     rearrange_tex_nodes(tex)
@@ -1145,29 +1100,27 @@ def update_blend_type_(root_ch, tex, ch):
         if root_ch.type == 'RGB':
             #if ch.blend_type == 'MIX':
             if root_ch.alpha and ch.blend_type == 'MIX':
-                blend = nodes.new('ShaderNodeGroup')
+                blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
                 blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
             else:
-                blend = nodes.new('ShaderNodeMixRGB')
+                blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
                 blend.blend_type = ch.blend_type
 
         elif root_ch.type == 'NORMAL':
             if ch.normal_blend == 'OVERLAY':
-                blend = nodes.new('ShaderNodeGroup')
+                blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
                 blend.node_tree = lib.get_node_tree_lib(lib.OVERLAY_NORMAL)
             #elif ch.normal_blend == 'VECTOR_MIX':
             elif ch.normal_blend == 'MIX':
-                blend = nodes.new('ShaderNodeGroup')
+                blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
                 blend.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
-            #else:
-            #    blend = nodes.new('ShaderNodeMixRGB')
 
         else:
-            blend = nodes.new('ShaderNodeMixRGB')
+            blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
             blend.blend_type = ch.blend_type
 
-        blend.label = 'Blend'
-        ch.blend = blend.name
+        #blend.label = 'Blend'
+        #ch.blend = blend.name
 
         # Blend mute
         if tex.enable and ch.enable:
@@ -1272,13 +1225,11 @@ def update_tex_input(self, context):
     linear = tree.nodes.get(self.linear)
     if self.tex_input == 'RGB_SRGB' and not linear:
         if root_ch.type == 'VALUE':
-            linear = tree.nodes.new('ShaderNodeMath')
+            linear = new_node(tree, self, 'linear', 'ShaderNodeMath', 'Linear')
             linear.operation = 'POWER'
         elif root_ch.type == 'RGB':
-            linear = tree.nodes.new('ShaderNodeGamma')
-        linear.label = 'Linear'
+            linear = new_node(tree, self, 'linear', 'ShaderNodeGamma', 'Linear')
         linear.inputs[1].default_value = 1.0 / GAMMA
-        self.linear = linear.name
 
     if self.tex_input != 'RGB_SRGB' and linear:
         tree.nodes.remove(linear)
@@ -1379,10 +1330,8 @@ def create_intensity_multiplier_node(tree, parent, invert=False, sharpen=False):
     #    intensity_multiplier = None
 
     if not intensity_multiplier:
-        intensity_multiplier = tree.nodes.new('ShaderNodeGroup')
+        intensity_multiplier = new_node(tree, parent, 'intensity_multiplier', 'ShaderNodeGroup', 'Intensity Multiplier')
         intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
-        intensity_multiplier.label = 'Intensity Multiplier'
-        parent.intensity_multiplier = intensity_multiplier.name
 
     if invert:
         intensity_multiplier.inputs[2].default_value = 1.0
@@ -1473,7 +1422,7 @@ def update_channel_intensity_value(self, context):
     root_ch = tl.channels[ch_index]
 
     intensity = tree.nodes.get(self.intensity)
-    intensity.inputs[0].default_value = self.intensity_value
+    intensity.inputs[1].default_value = self.intensity_value
 
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
@@ -1531,7 +1480,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # For some occasion, modifiers are stored in a tree
     #is_mod_tree = BoolProperty(default=False, update=Modifier.update_mod_tree)
     mod_group = StringProperty(default='')
-    mod_tree = PointerProperty(type=bpy.types.ShaderNodeTree)
 
     # Blur
     #enable_blur = BoolProperty(default=False, update=Blur.update_tex_channel_blur)
@@ -1621,7 +1569,6 @@ class YTextureLayer(bpy.types.PropertyGroup):
     channels = CollectionProperty(type=YLayerChannel)
 
     group_node = StringProperty(default='')
-    tree = PointerProperty(type=bpy.types.ShaderNodeTree)
 
     start = StringProperty(default='')
     end = StringProperty(default='')
@@ -1644,7 +1591,6 @@ class YTextureLayer(bpy.types.PropertyGroup):
 
     # Sources
     source = StringProperty(default='')
-    source_tree = PointerProperty(type=bpy.types.ShaderNodeTree)
     source_group = StringProperty(default='')
 
     # Node names

@@ -448,6 +448,38 @@ def get_mod_tree(obj):
 
     return mod_group.node_tree
 
+def get_mask_tree(mask):
+
+    m = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+    if not m : return None
+
+    tl = mask.id_data.tl
+    tex = tl.textures[int(m.group(1))]
+    tex_tree = get_tree(tex)
+
+    group_node = tex_tree.nodes.get(mask.group_node)
+    if not group_node or group_node.type != 'GROUP': return tex_tree
+    return group_node.node_tree
+
+def get_source_tree(tex, tree=None):
+    if not tree: tree = get_tree(tex)
+    if not tree: return None
+
+    if tex.source_group != '':
+        source_group = tree.nodes.get(tex.source_group)
+        return source_group.node_tree
+
+    return None
+
+def get_tex_source(tex, tree=None):
+    if not tree: tree = get_tree(tex)
+
+    source_tree = get_source_tree(tex, tree)
+    if source_tree: return source_tree.nodes.get(tex.source)
+    if tree: return tree.nodes.get(tex.source)
+
+    return None
+
 # Some image_ops need this
 #def get_active_image():
 #    node = get_active_texture_layers_node()

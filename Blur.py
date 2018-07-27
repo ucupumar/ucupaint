@@ -12,10 +12,8 @@ def update_tex_channel_blur(self, context):
     tex = tl.textures[int(m.group(1))]
 
     if self.enable_blur:
-        if not tex.source_tree:
-            enable_tex_source_tree(tex)
-    else:
-        disable_tex_source_tree(tex)
+        enable_tex_source_tree(tex)
+    else: disable_tex_source_tree(tex)
 
 #class YTextureBlurSample(bpy.types.PropertyGroup):
 #    pass

@@ -65,13 +65,11 @@ def remove_mask(tex, mask):
     tree = get_tree(tex)
 
     # Remove mask nodes
-    if mask.tree:
-        remove_node(mask.tree, mask, 'source')
-        remove_node(tree, mask, 'group_node')
-    else: 
-        remove_node(tree, mask, 'source')
-        remove_node(tree, mask, 'hardness')
+    mask_tree = get_mask_tree(mask)
+    remove_node(mask_tree, mask, 'source')
+    remove_node(mask_tree, mask, 'hardness')
 
+    remove_node(tree, mask, 'group_node')
     remove_node(tree, mask, 'uv_map')
     remove_node(tree, mask, 'final')
 
@@ -273,9 +271,7 @@ class YRemoveTextureMask(bpy.types.Operator):
         # Use texture image as active image if active edit mask not found
         if not found_active_edit:
             if tex.type == 'IMAGE':
-                if tex.source_tree:
-                    source = tex.source_tree.nodes.get(tex.source)
-                else: source = tree.nodes.get(tex.source)
+                source = get_tex_source(tex, tree)
                 update_image_editor_image(context, source.image)
             else:
                 update_image_editor_image(context, None)
@@ -387,10 +383,7 @@ def update_mask_hardness_enable(self, context):
     match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
 
-    if self.tree: 
-        tree = get_tree(self)
-    else: tree = get_tree(tex)
-
+    tree = get_mask_tree(self)
     hardness = tree.nodes.get(self.hardness)
 
     if self.enable_hardness and not hardness:
@@ -408,12 +401,9 @@ def update_mask_hardness_value(self, context):
     match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
 
-    if self.tree:
-        hardness = self.tree.nodes.get(self.hardness)
-    else: 
-        tex_tree = get_tree(tex)
-        hardness = tex_tree.nodes.get(self.hardness)
+    tree = get_mask_tree(self)
 
+    hardness = tree.nodes.get(self.hardness)
     if hardness:
         hardness.inputs[1].default_value = self.hardness_value
 
@@ -508,6 +498,8 @@ def update_mask_bump_enable(self, context):
     if self.enable_bump:
         enable_mask_source(tex, mask, False)
 
+        mask_tree = get_mask_tree(mask)
+
         neighbor_uv = tree.nodes.get(self.neighbor_uv)
         fine_bump = tree.nodes.get(self.fine_bump)
         invert = tree.nodes.get(self.invert)
@@ -519,7 +511,7 @@ def update_mask_bump_enable(self, context):
             neighbor_uv = new_node(tree, self, 'neighbor_uv', 'ShaderNodeGroup', 'Mask Neighbor UV')
             neighbor_uv.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_UV)
             if mask.type == 'IMAGE':
-                src = mask.tree.nodes.get(mask.source)
+                src = mask_tree.nodes.get(mask.source)
                 neighbor_uv.inputs[1].default_value = src.image.size[0]
                 neighbor_uv.inputs[2].default_value = src.image.size[1]
             else:
@@ -555,7 +547,7 @@ def update_mask_bump_enable(self, context):
             src = tree.nodes.get(getattr(self, 'source_' + d))
             if not src:
                 src = new_node(tree, self, 'source_' + d, 'ShaderNodeGroup', 'Mask_' + d)
-                src.node_tree = mask.tree
+                src.node_tree = mask_tree
                 src.hide = True
 
     else:
@@ -580,7 +572,7 @@ def update_mask_bump_enable(self, context):
 def enable_mask_source(tex, mask, reconnect_and_rearrange = True):
 
     # Check if source tree is already available
-    if mask.tree: return
+    if mask.group_node != '': return
 
     tex_tree = get_tree(tex)
 
@@ -589,30 +581,30 @@ def enable_mask_source(tex, mask, reconnect_and_rearrange = True):
     hardness_ref = tex_tree.nodes.get(mask.hardness)
 
     # Create mask tree
-    mask.tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
+    mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
 
     # Create input and outputs
-    mask.tree.inputs.new('NodeSocketVector', 'Vector')
-    #mask.tree.outputs.new('NodeSocketColor', 'Color')
-    mask.tree.outputs.new('NodeSocketFloat', 'Value')
+    mask_tree.inputs.new('NodeSocketVector', 'Vector')
+    #mask_tree.outputs.new('NodeSocketColor', 'Color')
+    mask_tree.outputs.new('NodeSocketFloat', 'Value')
 
-    start = mask.tree.nodes.new('NodeGroupInput')
+    start = mask_tree.nodes.new('NodeGroupInput')
     start.name = MASK_TREE_START
-    end = mask.tree.nodes.new('NodeGroupOutput')
+    end = mask_tree.nodes.new('NodeGroupOutput')
     end.name = MASK_TREE_END
 
     # Copy nodes from reference
-    source = new_node(mask.tree, mask, 'source', source_ref.bl_idname)
+    source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)
     copy_node_props(source_ref, source)
 
     hardness = None
     if hardness_ref:
-        hardness = new_node(mask.tree, mask, 'hardness', hardness_ref.bl_idname)
+        hardness = new_node(mask_tree, mask, 'hardness', hardness_ref.bl_idname)
         copy_node_props(hardness_ref, hardness)
 
     # Create source node group
     group_node = new_node(tex_tree, mask, 'group_node', 'ShaderNodeGroup')
-    group_node.node_tree = mask.tree
+    group_node.node_tree = mask_tree
 
     # Remove previous nodes
     tex_tree.nodes.remove(source_ref)
@@ -629,12 +621,13 @@ def enable_mask_source(tex, mask, reconnect_and_rearrange = True):
 def disable_mask_source(tex, mask):
 
     # Check if source tree is already gone
-    if not mask.tree: return
+    if mask.group_node == '': return
 
     tex_tree = get_tree(tex)
+    mask_tree = get_mask_tree(mask)
 
-    source_ref = mask.tree.nodes.get(mask.source)
-    hardness_ref = mask.tree.nodes.get(mask.hardness)
+    source_ref = mask_tree.nodes.get(mask.source)
+    hardness_ref = mask_tree.nodes.get(mask.hardness)
     group_node = tex_tree.nodes.get(mask.group_node)
 
     # Create new nodes
@@ -646,11 +639,8 @@ def disable_mask_source(tex, mask):
         copy_node_props(hardness_ref, hardness)
 
     # Remove previous source
-    #remove_node(mask.tree, mask, 'source')
-    #remove_node(mask.tree, mask, 'hardness')
     remove_node(tex_tree, mask, 'group_node')
-    bpy.data.node_groups.remove(mask.tree)
-    mask.tree = None
+    bpy.data.node_groups.remove(mask_tree)
 
     # Reconnect outside nodes
     reconnect_tex_nodes(tex)
@@ -709,7 +699,6 @@ class YTextureMask(bpy.types.PropertyGroup):
 
     halt_update = BoolProperty(default=False)
     
-    tree = PointerProperty(type=bpy.types.ShaderNodeTree)
     group_node = StringProperty(default='')
 
     enable = BoolProperty(
@@ -747,8 +736,6 @@ class YTextureMask(bpy.types.PropertyGroup):
 
     # Nodes
     source = StringProperty(default='')
-    #source_tree = PointerProperty(type=bpy.types.ShaderNodeTree)
-    #source_group = StringProperty(default='')
     final = StringProperty('')
 
     #texcoord = StringProperty(default='')

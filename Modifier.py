@@ -133,24 +133,12 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         remove_modifier_start_end_nodes(m, ref_tree)
 
     # Create new pipeline nodes
-    start_rgb = nodes.new('NodeReroute')
-    start_rgb.label = 'Start RGB'
-    m.start_rgb = start_rgb.name
+    start_rgb = new_node(tree, m, 'start_rgb', 'NodeReroute', 'Start RGB')
+    end_rgb = new_node(tree, m, 'end_rgb', 'NodeReroute', 'End RGB')
+    start_alpha = new_node(tree, m, 'start_alpha', 'NodeReroute', 'Start Alpha')
+    end_alpha = new_node(tree, m, 'end_alpha', 'NodeReroute', 'End Alpha')
+    frame = new_node(tree, m, 'frame', 'NodeFrame')
 
-    start_alpha = nodes.new('NodeReroute')
-    start_alpha.label = 'Start Alpha'
-    m.start_alpha = start_alpha.name
-
-    end_rgb = nodes.new('NodeReroute')
-    end_rgb.label = 'End RGB'
-    m.end_rgb = end_rgb.name
-
-    end_alpha = nodes.new('NodeReroute')
-    end_alpha.label = 'End Alpha'
-    m.end_alpha = end_alpha.name
-
-    frame = nodes.new('NodeFrame')
-    m.frame = frame.name
     start_rgb.parent = frame
     start_alpha.parent = frame
     end_rgb.parent = frame
@@ -163,18 +151,18 @@ def add_modifier_nodes(m, tree, ref_tree=None):
     # Create the nodes
     if m.type == 'INVERT':
 
-        invert = nodes.new('ShaderNodeGroup')
-
         if ref_tree:
             invert_ref = ref_tree.nodes.get(m.invert)
+
+        invert = new_node(tree, m, 'invert', 'ShaderNodeGroup', 'Invert')
+
+        if ref_tree:
             copy_node_props(invert_ref, invert)
             ref_tree.nodes.remove(invert_ref)
         else:
             if root_ch.type == 'VALUE':
                 invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT_VALUE)
             else: invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT)
-
-        m.invert = invert.name
 
         links.new(start_rgb.outputs[0], invert.inputs[0])
         links.new(invert.outputs[0], end_rgb.inputs[0])
@@ -187,17 +175,17 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
     elif m.type == 'RGB_TO_INTENSITY':
 
-        rgb2i = nodes.new('ShaderNodeGroup')
-
         if ref_tree:
             rgb2i_ref = ref_tree.nodes.get(m.rgb2i)
+
+        rgb2i = new_node(tree, m, 'rgb2i', 'ShaderNodeGroup', 'RGB to Intensity')
+
+        if ref_tree:
             copy_node_props(rgb2i_ref, rgb2i)
             ref_tree.nodes.remove(rgb2i_ref)
         else:
             rgb2i.node_tree = lib.get_node_tree_lib(lib.MOD_RGB2INT)
         
-        m.rgb2i = rgb2i.name
-
         links.new(start_rgb.outputs[0], rgb2i.inputs[0])
         links.new(start_alpha.outputs[0], rgb2i.inputs[1])
 
@@ -213,17 +201,19 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
     elif m.type == 'COLOR_RAMP':
 
-        color_ramp_alpha_multiply = nodes.new('ShaderNodeMixRGB')
-        color_ramp = nodes.new('ShaderNodeValToRGB')
-        color_ramp_mix_alpha = nodes.new('ShaderNodeMixRGB')
-        color_ramp_mix_rgb = nodes.new('ShaderNodeMixRGB')
-
         if ref_tree:
             color_ramp_alpha_multiply_ref = ref_tree.nodes.get(m.color_ramp_alpha_multiply)
             color_ramp_ref = ref_tree.nodes.get(m.color_ramp)
             color_ramp_mix_alpha_ref = ref_tree.nodes.get(m.color_ramp_mix_alpha)
             color_ramp_mix_rgb_ref = ref_tree.nodes.get(m.color_ramp_mix_rgb)
 
+        color_ramp_alpha_multiply = new_node(tree, m, 'color_ramp_alpha_multiply', 'ShaderNodeMixRGB', 
+                'ColorRamp Alpha Multiply')
+        color_ramp = new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp')
+        color_ramp_mix_alpha = new_node(tree, m, 'color_ramp_mix_alpha', 'ShaderNodeMixRGB', 'ColorRamp Mix Alpha')
+        color_ramp_mix_rgb = new_node(tree, m, 'color_ramp_mix_rgb', 'ShaderNodeMixRGB', 'ColorRamp Mix RGB')
+
+        if ref_tree:
             copy_node_props(color_ramp_alpha_multiply_ref, color_ramp_alpha_multiply)
             copy_node_props(color_ramp_ref, color_ramp)
             copy_node_props(color_ramp_mix_alpha_ref, color_ramp_mix_alpha)
@@ -235,23 +225,15 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             ref_tree.nodes.remove(color_ramp_mix_rgb_ref)
         else:
 
-            color_ramp_alpha_multiply.label = 'ColorRamp Alpha Multiply'
             color_ramp_alpha_multiply.inputs[0].default_value = 1.0
             color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
 
-            color_ramp_mix_alpha.label = 'ColorRamp Alpha Mix'
             color_ramp_mix_alpha.inputs[0].default_value = 1.0
 
-            color_ramp_mix_rgb.label = 'ColorRamp RGB Mix'
             color_ramp_mix_rgb.inputs[0].default_value = 1.0
 
             # Set default color
             color_ramp.color_ramp.elements[0].color = (0,0,0,0)
-
-        m.color_ramp_alpha_multiply = color_ramp_alpha_multiply.name
-        m.color_ramp = color_ramp.name
-        m.color_ramp_mix_alpha = color_ramp_mix_alpha.name
-        m.color_ramp_mix_rgb = color_ramp_mix_rgb.name
 
         links.new(start_rgb.outputs[0], color_ramp_alpha_multiply.inputs[1])
         links.new(start_alpha.outputs[0], color_ramp_alpha_multiply.inputs[2])
@@ -274,14 +256,14 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
     elif m.type == 'RGB_CURVE':
 
-        rgb_curve = nodes.new('ShaderNodeRGBCurve')
-
         if ref_tree:
             rgb_curve_ref = ref_tree.nodes.get(m.rgb_curve)
+
+        rgb_curve = new_node(tree, m, 'rgb_curve', 'ShaderNodeRGBCurve', 'RGB Curve')
+
+        if ref_tree:
             copy_node_props(rgb_curve_ref, rgb_curve)
             ref_tree.nodes.remove(rgb_curve_ref)
-
-        m.rgb_curve = rgb_curve.name
 
         links.new(start_rgb.outputs[0], rgb_curve.inputs[1])
         links.new(rgb_curve.outputs[0], end_rgb.inputs[0])
@@ -291,14 +273,14 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
     elif m.type == 'HUE_SATURATION':
 
-        huesat = nodes.new('ShaderNodeHueSaturation')
-
         if ref_tree:
             huesat_ref = ref_tree.nodes.get(m.huesat)
+
+        huesat = new_node(tree, m, 'huesat', 'ShaderNodeHueSaturation', 'Hue Saturation')
+
+        if ref_tree:
             copy_node_props(huesat_ref, huesat)
             ref_tree.nodes.remove(huesat_ref)
-
-        m.huesat = huesat.name
 
         links.new(start_rgb.outputs[0], huesat.inputs[4])
         links.new(huesat.outputs[0], end_rgb.inputs[0])
@@ -308,14 +290,14 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
     elif m.type == 'BRIGHT_CONTRAST':
 
-        brightcon = nodes.new('ShaderNodeBrightContrast')
-
         if ref_tree:
             brightcon_ref = ref_tree.nodes.get(m.brightcon)
+
+        brightcon = new_node(tree, m, 'brightcon', 'ShaderNodeBrightContrast', 'Brightness Contrast')
+
+        if ref_tree:
             copy_node_props(brightcon_ref, brightcon)
             ref_tree.nodes.remove(brightcon_ref)
-
-        m.brightcon = brightcon.name
 
         links.new(start_rgb.outputs[0], brightcon.inputs[0])
         links.new(brightcon.outputs[0], end_rgb.inputs[0])
@@ -325,18 +307,18 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
     elif m.type == 'MULTIPLIER':
 
-        multiplier = nodes.new('ShaderNodeGroup')
-
         if ref_tree:
             multiplier_ref = ref_tree.nodes.get(m.multiplier)
+
+        multiplier = new_node(tree, m, 'multiplier', 'ShaderNodeGroup', 'Multiplier')
+
+        if ref_tree:
             copy_node_props(multiplier_ref, multiplier)
             ref_tree.nodes.remove(multiplier_ref)
         else:
             if root_ch.type == 'VALUE':
                 multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER_VALUE)
             else: multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER)
-
-        m.multiplier = multiplier.name
 
         links.new(start_rgb.outputs[0], multiplier.inputs[0])
         links.new(start_alpha.outputs[0], multiplier.inputs[1])
@@ -905,9 +887,8 @@ def enable_modifiers_tree(ch):
 
     tex_tree = get_tree(tex)
 
-    mod_group = tex_tree.nodes.new('ShaderNodeGroup')
+    mod_group = new_node(tex_tree, ch, 'mod_group', 'ShaderNodeGroup', tex.name + ' ' + ch.name + ' Modifiers')
     mod_group.node_tree = mod_tree
-    ch.mod_group = mod_group.name
 
     for mod in ch.modifiers:
         add_modifier_nodes(mod, mod_tree, tex_tree)

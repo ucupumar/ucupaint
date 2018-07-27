@@ -81,75 +81,35 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
     # Create linarize node and converter node
     if channel.type in {'RGB', 'VALUE'}:
         if channel.type == 'RGB':
-            start_linear = nodes.new('ShaderNodeGamma')
+            start_linear = new_node(group_tree, channel, 'start_linear', 'ShaderNodeGamma', 'Start Linear')
         else: 
-            start_linear = nodes.new('ShaderNodeMath')
+            start_linear = new_node(group_tree, channel, 'start_linear', 'ShaderNodeMath', 'Start Linear')
             start_linear.operation = 'POWER'
-        start_linear.label = 'Start Linear'
         start_linear.inputs[1].default_value = 1.0/GAMMA
 
-        #start_linear.parent = start_frame
-        channel.start_linear = start_linear.name
-
         if channel.type == 'RGB':
-            end_linear = nodes.new('ShaderNodeGamma')
+            end_linear = new_node(group_tree, channel, 'end_linear', 'ShaderNodeGamma', 'End Linear')
         else: 
-            end_linear = nodes.new('ShaderNodeMath')
+            end_linear = new_node(group_tree, channel, 'end_linear', 'ShaderNodeMath', 'End Linear')
             end_linear.operation = 'POWER'
-        end_linear.label = 'End Linear'
         end_linear.inputs[1].default_value = GAMMA
 
-        #end_linear.parent = end_linear_frame
-        channel.end_linear = end_linear.name
-
     if channel.type == 'NORMAL':
-        start_normal_filter = nodes.new('ShaderNodeGroup')
+        start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
         start_normal_filter.node_tree = lib.get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
-        #start_normal_filter.parent = start_frame
-        start_normal_filter.label = 'Start Normal Filter'
-        channel.start_normal_filter = start_normal_filter.name
 
-    start_entry = nodes.new('NodeReroute')
-    start_entry.label = 'Start Entry'
-    #start_entry.parent = start_frame
-    channel.start_entry = start_entry.name
-
-    end_entry = nodes.new('NodeReroute')
-    end_entry.label = 'End Entry'
-    #end_entry.parent = end_entry_frame
-    channel.end_entry = end_entry.name
+    start_entry = new_node(group_tree, channel, 'start_entry', 'NodeReroute', 'Start Entry')
+    end_entry = new_node(group_tree, channel, 'end_entry', 'NodeReroute', 'End Entry')
 
     if channel.type == 'RGB':
-        start_alpha_entry = nodes.new('NodeReroute')
-        start_alpha_entry.label = 'Start Alpha Entry'
-        #start_alpha_entry.parent = start_frame
-        channel.start_alpha_entry = start_alpha_entry.name
-
-        end_alpha_entry = nodes.new('NodeReroute')
-        end_alpha_entry.label = 'End Alpha Entry'
-        #end_alpha_entry.parent = end_entry_frame
-        channel.end_alpha_entry = end_alpha_entry.name
+        start_alpha_entry = new_node(group_tree, channel, 'start_alpha_entry', 'NodeReroute', 'Start Alpha Entry')
+        end_alpha_entry = new_node(group_tree, channel, 'end_alpha_entry', 'NodeReroute', 'End Alpha Entry')
 
     # Modifier pipeline
-    start_rgb = nodes.new('NodeReroute')
-    start_rgb.label = 'Start RGB'
-    #start_rgb.parent = modifier_frame
-    channel.start_rgb = start_rgb.name
-
-    start_alpha = nodes.new('NodeReroute')
-    start_alpha.label = 'Start Alpha'
-    #start_alpha.parent = modifier_frame
-    channel.start_alpha = start_alpha.name
-
-    end_rgb = nodes.new('NodeReroute')
-    end_rgb.label = 'End RGB'
-    #end_rgb.parent = modifier_frame
-    channel.end_rgb = end_rgb.name
-
-    end_alpha = nodes.new('NodeReroute')
-    end_alpha.label = 'End Alpha'
-    #end_alpha.parent = modifier_frame
-    channel.end_alpha = end_alpha.name
+    start_rgb = new_node(group_tree, channel, 'start_rgb', 'NodeReroute', 'Start RGB')
+    start_alpha = new_node(group_tree, channel, 'start_alpha', 'NodeReroute', 'Start Alpha')
+    end_rgb = new_node(group_tree, channel, 'end_rgb', 'NodeReroute', 'End RGB')
+    end_alpha = new_node(group_tree, channel, 'end_alpha', 'NodeReroute', 'End Alpha')
 
     # Link between textures
     for i, t in reversed(list(enumerate(tl.textures))):
@@ -186,16 +146,12 @@ def create_new_group_tree(mat):
     #channel.io_index = 0
 
     # Create start and end node
-    start_node = group_tree.nodes.new('NodeGroupInput')
-    end_node = group_tree.nodes.new('NodeGroupOutput')
-    group_tree.tl.start = start_node.name
-    group_tree.tl.end = end_node.name
+    start = new_node(group_tree, group_tree.tl, 'start', 'NodeGroupInput', 'Start')
+    end = new_node(group_tree, group_tree.tl, 'end', 'NodeGroupOutput', 'End')
 
     # Create solid alpha node
-    solid_alpha = group_tree.nodes.new('ShaderNodeValue')
+    solid_alpha = new_node(group_tree, group_tree.tl, 'solid_alpha', 'ShaderNodeValue', 'Solid Value')
     solid_alpha.outputs[0].default_value = 1.0
-    solid_alpha.label = 'Solid Alpha'
-    group_tree.tl.solid_alpha = solid_alpha.name
 
     # Create info nodes
     create_info_nodes(group_tree)
@@ -1086,11 +1042,10 @@ class YFixDuplicatedTextures(bpy.types.Operator):
             node.node_tree = ttree
 
             if t.type == 'IMAGE' and tlui.make_image_single_user:
-                if t.source_tree:
-                    t.source_tree = t.source_tree.copy()
+                if t.source_group != '':
                     source_group = ttree.nodes.get(t.source_group)
-                    source_group.node_tree = t.source_tree
-                    source = t.source_tree.nodes.get(t.source)
+                    source_group.node_tree = source_group.node_tree.copy()
+                    source = source_group.node_tree.nodes.get(t.source)
                 else:
                     source = ttree.nodes.get(t.source)
 
@@ -1229,16 +1184,13 @@ def update_texture_index(self, context):
     for mask in tex.masks:
         if mask.type == 'IMAGE' and mask.active_edit:
             uv_name = mask.uv_name
-            if mask.tree:
-                source = mask.tree.nodes.get(mask.source)
-            else: source = tree.nodes.get(mask.source)
+            mask_tree = get_mask_tree(mask)
+            source = mask_tree.nodes.get(mask.source)
             image = source.image
 
     if not image and tex.type == 'IMAGE':
         uv_name = tex.uv_name
-        if tex.source_tree:
-            source = tex.source_tree.nodes.get(tex.source)
-        else: source = tree.nodes.get(tex.source)
+        source = get_tex_source(tex, tree)
         image = source.image
 
     # Update image editor
@@ -1561,13 +1513,9 @@ def ytl_hacks_and_scene_updates(scene):
     # Check single user image texture
     if len(tl.textures) > 0:
         tex = tl.textures[tl.active_texture_index]
-        tree = get_tree(tex)
 
         if tex.type == 'IMAGE':
-            if tex.source_tree:
-                source = tex.source_tree.nodes.get(tex.source)
-            else: 
-                source = tree.nodes.get(tex.source)
+            source = get_tex_source(tex)
             img = source.image
 
             if img and img.name != tex.image_name:

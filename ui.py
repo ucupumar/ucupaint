@@ -493,8 +493,7 @@ def main_draw(self, context):
             return
 
         # Check duplicated textures (indicated by 4 users)
-        #if len(tl.textures) > 0 and tl.textures[0].tree.users > 3:
-        if len(tl.textures) > 0 and get_tree(tl.textures[0]).users > 3:
+        if len(tl.textures) > 0 and get_tree(tl.textures[0]).users > 1:
             row = box.row(align=True)
             row.alert = True
             row.operator("node.y_fix_duplicated_textures", icon='ERROR')
@@ -511,9 +510,7 @@ def main_draw(self, context):
             tex_tree = get_tree(tex)
             box.context_pointer_set('texture', tex)
 
-            if tex.source_tree:
-                source = tex.source_tree.nodes.get(tex.source)
-            else: source = tex_tree.nodes.get(tex.source)
+            source = get_tex_source(tex, tex_tree)
 
             active_image = None # Active image on list
             image = None # Global texture image
@@ -521,9 +518,8 @@ def main_draw(self, context):
             # Check for active mask
             for m in tex.masks:
                 if m.type == 'IMAGE' and m.active_edit:
-                    if m.tree:
-                        src = m.tree.nodes.get(m.source)
-                    else: src = tex_tree.nodes.get(m.source)
+                    mask_tree = get_mask_tree(m)
+                    src = mask_tree.nodes.get(m.source)
                     active_image = src.image
 
             # Use tex image if there is no mask image
@@ -988,9 +984,8 @@ def main_draw(self, context):
                         row.prop(maskui, 'expand_content', text='', emboss=True, icon='MOD_MASK')
 
                     mask_image = None
-                    if mask.tree:
-                        mask_source = mask.tree.nodes.get(mask.source)
-                    else: mask_source = tex_tree.nodes.get(mask.source)
+                    mask_tree = get_mask_tree(mask)
+                    mask_source = mask_tree.nodes.get(mask.source)
                     if mask.type == 'IMAGE':
                         mask_image = mask_source.image
                         row.label(mask_image.name)
@@ -1239,9 +1234,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         # Try to get image
         image = None
         if tex.type == 'IMAGE':
-            if tex.source_tree:
-                source = tex.source_tree.nodes.get(tex.source)
-            else: source = tex_tree.nodes.get(tex.source)
+            source = get_tex_source(tex, tex_tree)
             image = source.image
 
         # Try to get image masks
@@ -1269,10 +1262,8 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         # Image mask icons
         active_mask_image = None
         for m in image_masks:
-            if m.tree:
-                src = m.tree.nodes.get(m.source)
-            else: 
-                src = tex_tree.nodes.get(m.source)
+            mask_tree = get_mask_tree(m)
+            src = mask_tree.nodes.get(m.source)
             row = master.row(align=True)
             row.active = m.active_edit
             if m.active_edit:
@@ -1497,9 +1488,8 @@ class YTexMaskMenuSpecial(bpy.types.Menu):
         layout = self.layout
         col = layout.column(align=True)
         if mask.type == 'IMAGE':
-            if mask.tree:
-                source = mask.tree.nodes.get(mask.source)
-            else: source = tex_tree.nodes.get(mask.source)
+            mask_tree = get_mask_tree(mask)
+            source = mask_tree.nodes.get(mask.source)
             col.context_pointer_set('image', source.image)
             col.operator('node.y_invert_image', text='Invert Image', icon='IMAGE_ALPHA')
         col.prop(mask, 'enable_hardness', text='Hardness')

@@ -323,15 +323,17 @@ def arrange_modifier_nodes(nodes, parent, loc):
 
 def rearrange_source_tree_nodes(tex):
 
+    source_tree = get_source_tree(tex)
+
     start = None
     end = None
-    for node in tex.source_tree.nodes:
+    for node in source_tree.nodes:
         if node.type == 'GROUP_INPUT':
             start = node
         elif node.type == 'GROUP_OUTPUT':
             end = node
 
-    source = tex.source_tree.nodes.get(tex.source)
+    source = source_tree.nodes.get(tex.source)
 
     loc = Vector((0, 0))
 
@@ -344,10 +346,11 @@ def rearrange_source_tree_nodes(tex):
     check_set_node_location(end, loc)
 
 def rearrange_mask_tree_nodes(mask):
-    source = mask.tree.nodes.get(mask.source)
-    hardness = mask.tree.nodes.get(mask.hardness)
-    start = mask.tree.nodes.get(MASK_TREE_START)
-    end = mask.tree.nodes.get(MASK_TREE_END)
+    tree = get_mask_tree(mask)
+    source = tree.nodes.get(mask.source)
+    hardness = tree.nodes.get(mask.hardness)
+    start = tree.nodes.get(MASK_TREE_START)
+    end = tree.nodes.get(MASK_TREE_END)
 
     loc = Vector((0, 0))
 
@@ -370,7 +373,7 @@ def rearrange_tex_nodes(tex):
     start = nodes.get(tex.start)
     end = nodes.get(tex.end)
 
-    if tex.source_tree:
+    if tex.source_group != '':
         source = nodes.get(tex.source_group)
         rearrange_source_tree_nodes(tex)
     else: source = nodes.get(tex.source)
@@ -632,7 +635,7 @@ def rearrange_tex_nodes(tex):
     # Mask sources
     for j, mask in enumerate(tex.masks):
         mask_uv_map = nodes.get(mask.uv_map)
-        if mask.tree:
+        if mask.group_node != '':
             mask_source = nodes.get(mask.group_node)
             mask_hardness = None
             rearrange_mask_tree_nodes(mask)

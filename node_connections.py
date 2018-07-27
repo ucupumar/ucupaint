@@ -112,17 +112,19 @@ def reconnect_tl_channel_nodes(tree, ch_idx=-1):
 
 def reconnect_mask_internal_nodes(mask):
 
-    source = mask.tree.nodes.get(mask.source)
-    hardness = mask.tree.nodes.get(mask.hardness)
-    start = mask.tree.nodes.get(MASK_TREE_START)
-    end = mask.tree.nodes.get(MASK_TREE_END)
+    tree = get_mask_tree(mask)
 
-    create_link(mask.tree, start.outputs[0], source.inputs[0])
+    source = tree.nodes.get(mask.source)
+    hardness = tree.nodes.get(mask.hardness)
+    start = tree.nodes.get(MASK_TREE_START)
+    end = tree.nodes.get(MASK_TREE_END)
+
+    create_link(tree, start.outputs[0], source.inputs[0])
     if hardness:
-        create_link(mask.tree, source.outputs[0], hardness.inputs[0])
-        create_link(mask.tree, hardness.outputs[0], end.inputs[0])
+        create_link(tree, source.outputs[0], hardness.inputs[0])
+        create_link(tree, hardness.outputs[0], end.inputs[0])
     else: 
-        create_link(mask.tree, source.outputs[0], end.inputs[0])
+        create_link(tree, source.outputs[0], end.inputs[0])
 
 def reconnect_tex_nodes(tex, ch_idx=-1):
     tl =  get_active_texture_layers_node().node_tree.tl
@@ -133,7 +135,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     start = nodes.get(tex.start)
     end = nodes.get(tex.end)
 
-    if tex.source_tree:
+    if tex.source_group != '':
         source = nodes.get(tex.source_group)
     else: source = nodes.get(tex.source)
 
@@ -318,9 +320,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     create_link(tree, mask_source_e.outputs[0], mask_fine_bump.inputs[4])
                     create_link(tree, mask_source_w.outputs[0], mask_fine_bump.inputs[5])
 
-                    create_link(tree, tangent.outputs[0], mask_fine_bump.inputs[6])
-                    create_link(tree, bitangent.outputs[0], mask_fine_bump.inputs[7])
-                    create_link(tree, geometry.outputs['Normal'], mask_fine_bump.inputs[8])
+                    create_link(tree, mask_neighbor_uv.outputs[4], mask_fine_bump.inputs[6])
+                    create_link(tree, mask_neighbor_uv.outputs[5], mask_fine_bump.inputs[7])
+                    create_link(tree, mask_neighbor_uv.outputs[6], mask_fine_bump.inputs[8])
+
+                    create_link(tree, tangent.outputs[0], mask_fine_bump.inputs[10])
+                    create_link(tree, bitangent.outputs[0], mask_fine_bump.inputs[11])
 
                     create_link(tree, mask_final.outputs[0], mask_invert.inputs[1])
                     create_link(tree, mask_invert.outputs[0], mask_intensity_multiplier.inputs[0])
@@ -353,9 +358,9 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
         if intensity_multiplier:
             create_link(tree, end_alpha.outputs[0], intensity_multiplier.inputs[0])
-            create_link(tree, intensity_multiplier.outputs[0], intensity.inputs[2])
+            create_link(tree, intensity_multiplier.outputs[0], intensity.inputs[0])
         else:
-            create_link(tree, end_alpha.outputs[0], intensity.inputs[2])
+            create_link(tree, end_alpha.outputs[0], intensity.inputs[0])
 
         # Mark final intensity
         final_intensity = intensity.outputs[0]
@@ -364,7 +369,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         for j, mask in enumerate(tex.masks):
             mask_uv_map = nodes.get(mask.uv_map)
 
-            if mask.tree:
+            if mask.group_node != '':
                 mask_source = nodes.get(mask.group_node)
                 mask_hardness = None
                 reconnect_mask_internal_nodes(mask)
