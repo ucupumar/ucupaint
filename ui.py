@@ -493,7 +493,8 @@ def main_draw(self, context):
             return
 
         # Check duplicated textures (indicated by 4 users)
-        if len(tl.textures) > 0 and get_tree(tl.textures[0]).users > 1:
+        if len(tl.textures) > 0 and get_tree(tl.textures[-1]).users > 1:
+        #if len(tl.textures) > 0 and get_tree(tl.textures[0]).users > 1:
             row = box.row(align=True)
             row.alert = True
             row.operator("node.y_fix_duplicated_textures", icon='ERROR')
