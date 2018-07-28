@@ -94,7 +94,7 @@ def normal_map_type_items(self, context):
         items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 2))
     else: # Blender 2.8
         items.append(('BUMP_MAP', 'Bump Map', ''))
-        items.append(('FINE_BUMP_MAP', 'Fine Bump Map'))
+        items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
         items.append(('NORMAL_MAP', 'Normal Map', ''))
 
     return items
@@ -879,7 +879,9 @@ class YRemoveTextureLayer(bpy.types.Operator):
 
         # Remove the source first to remove image
         source_tree = get_source_tree(tex, tex_tree)
-        remove_node(source_tree, tex, 'source')
+        if source_tree:
+            remove_node(source_tree, tex, 'source')
+        else: remove_node(tex_tree, tex, 'source')
 
         # Remove node group and tex tree
         bpy.data.node_groups.remove(get_tree(tex))
@@ -1466,7 +1468,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     modifiers = CollectionProperty(type=Modifier.YTextureModifier)
 
     # For some occasion, modifiers are stored in a tree
-    #is_mod_tree = BoolProperty(default=False, update=Modifier.update_mod_tree)
     mod_group = StringProperty(default='')
 
     # Blur
@@ -1540,11 +1541,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     im_link_all_masks = BoolProperty(default=True, update=update_intensity_multiplier_link)
     im_invert_others = BoolProperty(default=False, update=update_intensity_multiplier_link)
     im_sharpen = BoolProperty(default=False, update=update_intensity_multiplier_link)
-
-    #modifier_frame = StringProperty(default='')
-
-    # Tex start node, becuse sometimes it's useful
-    #tex_start = StringProperty(default='')
 
     # For UI
     expand_bump_settings = BoolProperty(default=False)

@@ -3,6 +3,8 @@ from mathutils import *
 from bpy.app.handlers import persistent
 #from .__init__ import bl_info
 
+BLENDER_28_HACK = True
+
 TEXGROUP_PREFIX = '~TL Tex '
 MASKGROUP_PREFIX = '~TL Mask '
 ADDON_NAME = 'yTexLayers'
@@ -29,12 +31,6 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("COLOR", "Color", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
 	             ("LINEAR_LIGHT", "Linear Light", ""))
-
-#normal_map_type_items = (
-#        ('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 0),
-#        ('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 1),
-#        ('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 2)
-#        )
 
 normal_blend_items = (
         ('MIX', 'Mix', ''),

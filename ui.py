@@ -1203,14 +1203,20 @@ class NODE_UL_y_tl_channels(bpy.types.UIList):
             row = row.row(align=True)
 
         if len(inputs[item.io_index].links) == 0:
-            if item.type == 'VALUE':
-                row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
-            elif item.type == 'RGB':
-                row.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
-            #elif item.type == 'NORMAL':
-            #    socket = inputs[item.io_index]
-            #    socket.draw(context, row, group_node, iface_(socket.name, socket.bl_rna.translation_context))
-            #    #row.prop(inputs[item.io_index], 'default_value', text='', expand=False)
+            if BLENDER_28_HACK:
+                if item.type == 'VALUE':
+                    row.prop(item, 'val_input', text='') #, emboss=False)
+                elif item.type == 'RGB':
+                    row.prop(item, 'col_input', text='', icon='COLOR') #, emboss=False)
+            else:
+                if item.type == 'VALUE':
+                    row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
+                elif item.type == 'RGB':
+                    row.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
+                #elif item.type == 'NORMAL':
+                #    socket = inputs[item.io_index]
+                #    socket.draw(context, row, group_node, iface_(socket.name, socket.bl_rna.translation_context))
+                #    #row.prop(inputs[item.io_index], 'default_value', text='', expand=False)
         else:
             row.label('', icon='LINKED')
 

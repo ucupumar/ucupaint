@@ -53,16 +53,30 @@ def set_input_default_value(group_node, channel, custom_value=None):
     if custom_value:
         if channel.type == 'RGB' and len(custom_value) == 3:
             custom_value = (custom_value[0], custom_value[1], custom_value[2], 1)
-        group_node.inputs[channel.io_index].default_value = custom_value
+
+        if BLENDER_28_HACK and channel.type in {'RGB', 'VALUE'}:
+            if channel.type == 'RGB':
+                channel.col_input = custom_value
+            elif channel.type == 'VALUE':
+                channel.val_input = custom_value
+        else:
+            group_node.inputs[channel.io_index].default_value = custom_value
         return
     
     # Set default value
     if channel.type == 'RGB':
-        group_node.inputs[channel.io_index].default_value = (1,1,1,1)
+        if BLENDER_28_HACK:
+            channel.col_input = (1,1,1,1)
+        else: group_node.inputs[channel.io_index].default_value = (1,1,1,1)
+
         if channel.alpha:
-            group_node.inputs[channel.io_index+1].default_value = 1.0
+            if BLENDER_28_HACK:
+                channel.val_input = 1.0
+            else: group_node.inputs[channel.io_index+1].default_value = 1.0
     if channel.type == 'VALUE':
-        group_node.inputs[channel.io_index].default_value = 0.0
+        if BLENDER_28_HACK:
+            channel.val_input = 0.0
+        else: group_node.inputs[channel.io_index].default_value = 0.0
     if channel.type == 'NORMAL':
         # Use 999 as normal z value so it will fallback to use geometry normal at checking process
         group_node.inputs[channel.io_index].default_value = (999,999,999)
@@ -1180,7 +1194,12 @@ def update_channel_colorspace(self, context):
     start_linear = nodes.get(self.start_linear)
     end_linear = nodes.get(self.end_linear)
 
-    start_linear.mute = end_linear.mute = self.colorspace == 'LINEAR'
+    #start_linear.mute = end_linear.mute = self.colorspace == 'LINEAR'
+    if self.colorspace == 'LINEAR':
+        start_linear.inputs[1].default_value = end_linear.inputs[1].default_value = 1.0
+    else: 
+        start_linear.inputs[1].default_value = 1.0/GAMMA
+        end_linear.inputs[1].default_value = GAMMA
 
     # Check for modifier that aware of colorspace
     channel_index = -1
@@ -1352,6 +1371,36 @@ def update_channel_alpha(self, context):
 
         tl.refresh_tree = True
 
+def update_col_input(self, context):
+    group_node = get_active_texture_layers_node()
+    group_tree = group_node.node_tree
+    tl = group_tree.tl
+
+    #if tl.halt_update: return
+    if self.type != 'RGB': return
+
+    group_node.inputs[self.io_index].default_value = self.col_input
+
+    # Get start
+    start_linear = group_tree.nodes.get(self.start_linear)
+    if start_linear: start_linear.inputs[0].default_value = self.col_input
+
+def update_val_input(self, context):
+    group_node = get_active_texture_layers_node()
+    group_tree = group_node.node_tree
+    tl = group_tree.tl
+
+    #if tl.halt_update: return
+    if self.type == 'VALUE':
+        group_node.inputs[self.io_index].default_value = self.val_input
+
+        # Get start
+        start_linear = group_tree.nodes.get(self.start_linear)
+        if start_linear: start_linear.inputs[0].default_value = self.val_input
+
+    elif self.alpha and self.type == 'RGB':
+        group_node.inputs[self.io_index+1].default_value = self.val_input
+
 class YNodeConnections(bpy.types.PropertyGroup):
     node = StringProperty(default='')
     socket = StringProperty(default='')
@@ -1370,7 +1419,18 @@ class YRootChannel(bpy.types.PropertyGroup):
                      ('NORMAL', 'Normal', '')),
             default = 'RGB')
 
+    # Blender 2.8 need these
+    col_input = FloatVectorProperty(name='Color Input', size=4, subtype='COLOR', 
+            default=(0.0,0.0,0.0,1.0), min=0.0, max=1.0,
+            update=update_col_input)
+
+    val_input = FloatProperty(default=1.0, min=0.0, max=1.0, subtype='FACTOR',
+            update=update_val_input)
+
+    # Input output index
     io_index = IntProperty(default=-1)
+
+    # Alpha
     alpha = BoolProperty(default=False, update=update_channel_alpha)
 
     colorspace = EnumProperty(
