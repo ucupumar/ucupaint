@@ -820,56 +820,33 @@ class YRemoveTLChannel(bpy.types.Operator):
             ch = t.channels[channel_idx]
             ttree = get_tree(t)
 
-            ttree.nodes.remove(ttree.nodes.get(ch.blend))
-            ttree.nodes.remove(ttree.nodes.get(ch.start_rgb))
-            ttree.nodes.remove(ttree.nodes.get(ch.start_alpha))
-            ttree.nodes.remove(ttree.nodes.get(ch.end_rgb))
-            ttree.nodes.remove(ttree.nodes.get(ch.end_alpha))
-            #ttree.nodes.remove(ttree.nodes.get(ch.modifier_frame_))
-            ttree.nodes.remove(ttree.nodes.get(ch.intensity))
-            #ttree.nodes.remove(ttree.nodes.get(ch.linear))
-            try: ttree.nodes.remove(ttree.nodes.get(ch.alpha_passthrough_))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.normal))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.normal_flip))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.bump))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.bump_base))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.pipeline_frame))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.neighbor_uv))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.source_n))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.source_s))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.source_e))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.source_w))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.mod_n))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.mod_s))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.mod_e))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.mod_w))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.bump_base_n))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.bump_base_s))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.bump_base_e))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.bump_base_w))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.fine_bump))
-            except: pass
-            try: ttree.nodes.remove(ttree.nodes.get(ch.intensity_multiplier))
-            except: pass
+            remove_node(ttree, ch, 'blend')
+            remove_node(ttree, ch, 'start_rgb')
+            remove_node(ttree, ch, 'start_alpha')
+            remove_node(ttree, ch, 'end_rgb')
+            remove_node(ttree, ch, 'end_alpha')
+            remove_node(ttree, ch, 'intensity')
+
+            remove_node(ttree, ch, 'pipeline_frame')
+            remove_node(ttree, ch, 'normal')
+            remove_node(ttree, ch, 'normal_flip')
+            remove_node(ttree, ch, 'bump')
+            remove_node(ttree, ch, 'bump_base')
+            remove_node(ttree, ch, 'neighbor_uv')
+            remove_node(ttree, ch, 'source_n')
+            remove_node(ttree, ch, 'source_s')
+            remove_node(ttree, ch, 'source_e')
+            remove_node(ttree, ch, 'source_w')
+            remove_node(ttree, ch, 'mod_n')
+            remove_node(ttree, ch, 'mod_s')
+            remove_node(ttree, ch, 'mod_e')
+            remove_node(ttree, ch, 'mod_w')
+            remove_node(ttree, ch, 'bump_base_n')
+            remove_node(ttree, ch, 'bump_base_s')
+            remove_node(ttree, ch, 'bump_base_e')
+            remove_node(ttree, ch, 'bump_base_w')
+            remove_node(ttree, ch, 'fine_bump')
+            remove_node(ttree, ch, 'intensity_multiplier')
 
             # Remove modifiers
             #if ch.mod_tree:
@@ -879,7 +856,7 @@ class YRemoveTLChannel(bpy.types.Operator):
                 ttree.nodes.remove(mod_group)
             else:
                 for mod in ch.modifiers:
-                    Modifier.delete_modifier_nodes(ttree.nodes, mod)
+                    Modifier.delete_modifier_nodes(ttree, mod)
 
             # Remove tex IO
             ttree.inputs.remove(ttree.inputs[channel.io_index])
@@ -892,36 +869,24 @@ class YRemoveTLChannel(bpy.types.Operator):
             t.channels.remove(channel_idx)
 
         # Remove start and end nodes
-        nodes.remove(nodes.get(channel.start_entry))
-        nodes.remove(nodes.get(channel.end_entry))
-        try: nodes.remove(nodes.get(channel.start_linear)) 
-        except: pass
-        try: nodes.remove(nodes.get(channel.end_linear)) 
-        except: pass
-        try: nodes.remove(nodes.get(channel.start_alpha_entry)) 
-        except: pass
-        try: nodes.remove(nodes.get(channel.end_alpha_entry)) 
-        except: pass
-        try: nodes.remove(nodes.get(channel.start_normal_filter)) 
-        except: pass
+        remove_node(group_tree, channel, 'start_entry')
+        remove_node(group_tree, channel, 'end_entry')
+        remove_node(group_tree, channel, 'start_linear')
+        remove_node(group_tree, channel, 'end_linear')
+        remove_node(group_tree, channel, 'start_alpha_entry')
+        remove_node(group_tree, channel, 'end_alpha_entry')
+        remove_node(group_tree, channel, 'start_normal_filter')
 
         # Remove channel modifiers
-        try: nodes.remove(nodes.get(channel.start_rgb))
-        except: pass
-        try: nodes.remove(nodes.get(channel.start_alpha))
-        except: pass
-        try: nodes.remove(nodes.get(channel.end_rgb))
-        except: pass
-        try: nodes.remove(nodes.get(channel.end_alpha))
-        except: pass
-        try: nodes.remove(nodes.get(channel.start_frame))
-        except: pass
-        try: nodes.remove(nodes.get(channel.end_frame))
-        except: pass
-        #nodes.remove(nodes.get(channel.modifier_frame))
+        remove_node(group_tree, channel, 'start_rgb')
+        remove_node(group_tree, channel, 'start_alpha')
+        remove_node(group_tree, channel, 'end_rgb')
+        remove_node(group_tree, channel, 'end_alpha')
+        remove_node(group_tree, channel, 'start_frame')
+        remove_node(group_tree, channel, 'end_frame')
 
         for mod in channel.modifiers:
-            Modifier.delete_modifier_nodes(nodes, mod)
+            Modifier.delete_modifier_nodes(group_tree, mod)
 
         # Remove channel from tree
         inputs.remove(inputs[channel.io_index])

@@ -355,37 +355,37 @@ def add_new_modifier(parent, modifier_type):
 
     return m
 
-def delete_modifier_nodes(nodes, mod):
+def delete_modifier_nodes(tree, mod):
     # Delete the nodes
-    nodes.remove(nodes.get(mod.start_rgb))
-    nodes.remove(nodes.get(mod.start_alpha))
-    nodes.remove(nodes.get(mod.end_rgb))
-    nodes.remove(nodes.get(mod.end_alpha))
-    nodes.remove(nodes.get(mod.frame))
+    remove_node(tree, mod, 'start_rgb')
+    remove_node(tree, mod, 'start_alpha')
+    remove_node(tree, mod, 'end_rgb')
+    remove_node(tree, mod, 'end_alpha')
+    remove_node(tree, mod, 'frame')
 
     if mod.type == 'RGB_TO_INTENSITY':
-        nodes.remove(nodes.get(mod.rgb2i))
+        remove_node(tree, mod, 'rgb2i')
 
     elif mod.type == 'INVERT':
-        nodes.remove(nodes.get(mod.invert))
+        remove_node(tree, mod, 'invert')
 
     elif mod.type == 'COLOR_RAMP':
-        nodes.remove(nodes.get(mod.color_ramp))
-        nodes.remove(nodes.get(mod.color_ramp_alpha_multiply))
-        nodes.remove(nodes.get(mod.color_ramp_mix_rgb))
-        nodes.remove(nodes.get(mod.color_ramp_mix_alpha))
+        remove_node(tree, mod, 'color_ramp')
+        remove_node(tree, mod, 'color_ramp_alpha_multiply')
+        remove_node(tree, mod, 'color_ramp_mix_rgb')
+        remove_node(tree, mod, 'color_ramp_mix_alpha')
 
     elif mod.type == 'RGB_CURVE':
-        nodes.remove(nodes.get(mod.rgb_curve))
+        remove_node(tree, mod, 'rgb_curve')
 
     elif mod.type == 'HUE_SATURATION':
-        nodes.remove(nodes.get(mod.huesat))
+        remove_node(tree, mod, 'huesat')
 
     elif mod.type == 'BRIGHT_CONTRAST':
-        nodes.remove(nodes.get(mod.brightcon))
+        remove_node(tree, mod, 'brightcon')
 
     elif mod.type == 'MULTIPLIER':
-        nodes.remove(nodes.get(mod.multiplier))
+        remove_node(tree, mod, 'multiplier')
 
 class YNewTexModifier(bpy.types.Operator):
     bl_idname = "node.y_new_texture_modifier"
@@ -559,7 +559,7 @@ class YRemoveTexModifier(bpy.types.Operator):
         tree = get_mod_tree(parent)
 
         # Delete the nodes
-        delete_modifier_nodes(tree.nodes, mod)
+        delete_modifier_nodes(tree, mod)
 
         # Delete the modifier
         parent.modifiers.remove(index)
@@ -908,7 +908,8 @@ def disable_modifiers_tree(ch):
     # Check if modifier tree already gone
     if ch.mod_group == '': return
 
-    mod_tree = get_mod_tree(ch)
+    # Get modifier group
+    mod_group = tex_tree.nodes.get(ch.mod_group)
 
     # Check if texture channels has fine bump
     #fine_bump_found = False
@@ -918,14 +919,13 @@ def disable_modifiers_tree(ch):
 
     #if fine_bump_found: return
 
+    # Add new copied modifier nodes on texture tree
     for mod in ch.modifiers:
-        add_modifier_nodes(mod, tex_tree, mod_tree)
+        add_modifier_nodes(mod, tex_tree, mod_group.node_tree)
 
     # Remove modifier tree
-    mod_group = tex_tree.nodes.get(ch.mod_group)
-    tex_tree.nodes.remove(mod_group)
-    bpy.data.node_groups.remove(mod_tree)
-    ch.mod_group = ''
+    bpy.data.node_groups.remove(mod_group.node_tree)
+    remove_node(tex_tree, ch, 'mod_group')
 
     reconnect_between_modifier_nodes(ch)
     rearrange_tex_nodes(tex)

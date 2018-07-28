@@ -369,9 +369,11 @@ def get_active_texture_layers_node():
 
 def remove_node(tree, obj, prop, remove_data=True):
     if not hasattr(obj, prop): return
+    #if prop not in obj: return
 
     scene = bpy.context.scene
     node = tree.nodes.get(getattr(obj, prop))
+    #node = tree.nodes.get(obj[prop])
 
     if node: 
         if remove_data:
@@ -387,6 +389,7 @@ def remove_node(tree, obj, prop, remove_data=True):
         tree.nodes.remove(node)
 
     setattr(obj, prop, '')
+    #obj[prop] = ''
 
 def new_node(tree, obj, prop, node_id_name, label=''):
     
@@ -394,6 +397,7 @@ def new_node(tree, obj, prop, node_id_name, label=''):
 
     node = tree.nodes.new(node_id_name)
     setattr(obj, prop, node.name)
+    #obj[prop] = node.name
 
     if label != '':
         node.label = label
@@ -406,6 +410,7 @@ def check_new_node(tree, obj, prop, node_id_name, label=''):
 
     # Try to get the node first
     node = tree.nodes.get(getattr(obj, prop))
+    #node = tree.nodes.get(obj[prop])
     new = False
 
     # Create new node if not found

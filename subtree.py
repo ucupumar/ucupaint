@@ -71,8 +71,7 @@ def disable_tex_source_tree(tex):
 
         # Remove previous source
         bpy.data.node_groups.remove(source_group.node_tree)
-        tex_tree.nodes.remove(source_group)
-        tex.source_group = ''
+        remove_node(tex_tree, tex, 'source_group')
 
         # Reconnect outside nodes
         reconnect_tex_nodes(tex)

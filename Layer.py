@@ -208,7 +208,8 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
             m = Modifier.add_new_modifier(c, 'RGB_TO_INTENSITY')
             if channel_idx == i or channel_idx == -1:
                 col = (rgb_to_intensity_color[0], rgb_to_intensity_color[1], rgb_to_intensity_color[2], 1)
-                rgb2i = tree.nodes.get(m.rgb2i)
+                mod_tree = get_mod_tree(m)
+                rgb2i = mod_tree.nodes.get(m.rgb2i)
                 rgb2i.inputs[2].default_value = col
 
             if c.enable and ch.type == 'RGB' and not shortcut_created:
@@ -874,6 +875,11 @@ class YRemoveTextureLayer(bpy.types.Operator):
         tl = group_tree.tl
 
         tex = tl.textures[tl.active_texture_index]
+        tex_tree = get_tree(tex)
+
+        # Remove the source first to remove image
+        source_tree = get_source_tree(tex, tex_tree)
+        remove_node(source_tree, tex, 'source')
 
         # Remove node group and tex tree
         bpy.data.node_groups.remove(get_tree(tex))
@@ -1032,49 +1038,26 @@ def update_normal_map_type(self, context):
 
     # Remove bump nodes
     if self.normal_map_type != 'BUMP_MAP':
-        if bump: 
-            nodes.remove(bump)
-            self.bump = ''
+        remove_node(tree, self, 'bump')
 
     # Remove normal nodes
     if self.normal_map_type != 'NORMAL_MAP':
-        if normal: 
-            nodes.remove(normal)
-            self.normal = ''
+        remove_node(tree, self, 'normal')
 
     # Remove fine bump nodes
     if self.normal_map_type != 'FINE_BUMP_MAP':
-        if neighbor_uv:
-            nodes.remove(neighbor_uv)
-            self.neighbor_uv = ''
+        remove_node(tree, self, 'neighbor_uv')
+        remove_node(tree, self, 'fine_bump')
         
-        if fine_bump:
-            nodes.remove(fine_bump)
-            self.fine_bump = ''
-
-        for i, s in enumerate(sources):
-            if s:
-                nodes.remove(s)
-                setattr(self, 'source_' + neighbor_directions[i], '')
-
-        for i, m in enumerate(mod_groups):
-            if m:
-                nodes.remove(m)
-                setattr(self, 'mod_' + neighbor_directions[i], '')
-
-        for i, b in enumerate(bump_bases):
-            if b:
-                nodes.remove(b)
-                setattr(self, 'bump_base_' + neighbor_directions[i], '')
+        for d in neighbor_directions:
+            remove_node(tree, self, 'source_' + d)
+            remove_node(tree, self, 'mod_' + d)
+            remove_node(tree, self, 'bump_base_' + d)
 
     # Remove bump base
     if self.normal_map_type not in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
-        if bump_base: 
-            nodes.remove(bump_base)
-            self.bump_base = ''
-        if intensity_multiplier: 
-            nodes.remove(intensity_multiplier)
-            self.intensity_multiplier = ''
+        remove_node(tree, self, 'bump_base')
+        remove_node(tree, self, 'intensity_multiplier')
 
     # Try to remove source tree
     if self.normal_map_type in {'NORMAL_MAP', 'BUMP_MAP'}:
@@ -1249,8 +1232,7 @@ def update_tex_input(self, context):
         linear.inputs[1].default_value = 1.0 / GAMMA
 
     if self.tex_input != 'RGB_SRGB' and linear:
-        tree.nodes.remove(linear)
-        self.linear = ''
+        remove_node(tree, self, 'linear')
 
     reconnect_tex_nodes(tex)
     rearrange_tex_nodes(tex)
@@ -1342,10 +1324,6 @@ def update_texture_enable(self, context):
 def create_intensity_multiplier_node(tree, parent, invert=False, sharpen=False):
     intensity_multiplier = tree.nodes.get(parent.intensity_multiplier)
 
-    #if intensity_multiplier:
-    #    tree.nodes.remove(intensity_multiplier)
-    #    intensity_multiplier = None
-
     if not intensity_multiplier:
         intensity_multiplier = new_node(tree, parent, 'intensity_multiplier', 'ShaderNodeGroup', 'Intensity Multiplier')
         intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
@@ -1383,21 +1361,14 @@ def remove_channel_intensity_multiplier_nodes(self, tex):
     tree = get_tree(tex)
     for ch in tex.channels:
         if ch == self: continue
-
-        intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
-        if intensity_multiplier:
-            tree.nodes.remove(intensity_multiplier)
-            ch.intensity_multiplier = ''
+        remove_node(tree, ch, 'intensity_multiplier')
 
 def remove_mask_intensity_multiplier_nodes(self, tex, ch_index):
     tree = get_tree(tex)
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
             if i == ch_index: continue
-            intensity_multiplier = tree.nodes.get(c.intensity_multiplier)
-            if intensity_multiplier:
-                tree.nodes.remove(intensity_multiplier)
-                c.intensity_multiplier = ''
+            remove_node(tree, c, 'intensity_multiplier')
 
 def update_intensity_multiplier_link(self, context):
     tl = self.id_data.tl
