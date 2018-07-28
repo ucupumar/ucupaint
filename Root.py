@@ -1265,7 +1265,7 @@ def update_channel_alpha(self, context):
 
         # Add socket to texture tree
         for tex in tl.textures:
-            tree = get_tree(tree)
+            tree = get_tree(tex)
 
             ti = tree.inputs.new('NodeSocketFloatFactor', name)
             to = tree.outputs.new('NodeSocketFloat', name)
@@ -1336,7 +1336,7 @@ def update_channel_alpha(self, context):
 
         # Remove socket from texture tree
         for tex in tl.textures:
-            tree = get_tree(tree)
+            tree = get_tree(tex)
             tree.inputs.remove(tree.inputs[self.io_index+1])
             tree.outputs.remove(tree.outputs[self.io_index+1])
 
