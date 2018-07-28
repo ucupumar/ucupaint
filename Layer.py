@@ -85,6 +85,20 @@ def tex_input_items(self, context):
 
     return items
 
+def normal_map_type_items(self, context):
+    items = []
+
+    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+        items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 0))
+        items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 1))
+        items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 2))
+    else: # Blender 2.8
+        items.append(('BUMP_MAP', 'Bump Map', ''))
+        items.append(('FINE_BUMP_MAP', 'Fine Bump Map'))
+        items.append(('NORMAL_MAP', 'Normal Map', ''))
+
+    return items
+
 def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, normal_map_type, 
         texcoord_type, uv_name='', image=None, add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1)):
 
@@ -307,8 +321,8 @@ class YNewTextureLayer(bpy.types.Operator):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this texture',
-            items = normal_map_type_items,
-            default = 'BUMP_MAP')
+            items = normal_map_type_items)
+            #default = 'BUMP_MAP')
 
     @classmethod
     def poll(cls, context):
@@ -526,8 +540,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this texture',
-            items = normal_map_type_items,
-            default = 'NORMAL_MAP')
+            items = normal_map_type_items)
+            #default = 'NORMAL_MAP')
 
     rgb_to_intensity_color = FloatVectorProperty(
             name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
@@ -555,6 +569,9 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
             self.uv_map = obj.data.uv_layers.active.name
+
+        # Normal map is the default
+        self.normal_map_type = 'NORMAL_MAP'
 
         #return context.window_manager.invoke_props_dialog(self)
         context.window_manager.fileselect_add(self)
@@ -673,8 +690,8 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this texture',
-            items = normal_map_type_items,
-            default = 'BUMP_MAP')
+            items = normal_map_type_items)
+            #default = 'BUMP_MAP')
 
     image_name = StringProperty(name="Image")
     image_coll = CollectionProperty(type=bpy.types.PropertyGroup)
@@ -1451,7 +1468,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             items = normal_map_type_items,
-            default = 'BUMP_MAP',
+            #default = 'BUMP_MAP',
             update = update_normal_map_type)
 
     blend_type = EnumProperty(
