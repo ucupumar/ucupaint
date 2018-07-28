@@ -506,9 +506,14 @@ class YNewTLNode(bpy.types.Operator):
         return result
 
 def new_channel_items(self, context):
-    items = [('VALUE', 'Value', '', lib.custom_icons['value_channel'].icon_id, 0),
-             ('RGB', 'RGB', '', lib.custom_icons['rgb_channel'].icon_id, 1),
-             ('NORMAL', 'Normal', '', lib.custom_icons['vector_channel'].icon_id, 2)]
+    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+        items = [('VALUE', 'Value', '', lib.custom_icons[lib.channel_custom_icon_dict['VALUE']].icon_id, 0),
+                 ('RGB', 'RGB', '', lib.custom_icons[lib.channel_custom_icon_dict['RGB']].icon_id, 1),
+                 ('NORMAL', 'Normal', '', lib.custom_icons[lib.channel_custom_icon_dict['NORMAL']].icon_id, 2)]
+    else: 
+        items = [('VALUE', 'Value', '', lib.channel_icon_dict['VALUE'], 0),
+                 ('RGB', 'RGB', '', lib.channel_icon_dict['RGB'], 1),
+                 ('NORMAL', 'Normal', '', lib.channel_icon_dict['NORMAL'], 2)]
 
     return items
 
@@ -1004,7 +1009,7 @@ class YFixDuplicatedTextures(bpy.types.Operator):
         group_node = get_active_texture_layers_node()
         tl = group_node.node_tree.tl
         if len(tl.textures) == 0: return False
-        tex_tree = get_tree(tl.textures[0])
+        tex_tree = get_tree(tl.textures[-1])
         return tex_tree.users > 1
 
     def execute(self, context):
