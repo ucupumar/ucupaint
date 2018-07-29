@@ -325,39 +325,67 @@ def get_active_texture_layers_node():
 
     # Get material UI prop
     mat = get_active_material()
-    if not mat or not mat.node_tree: return None
+    if not mat or not mat.node_tree: 
+        tlui.active_mat = ''
+        return None
 
     # Search for its name first
     mui = tlui.materials.get(mat.name)
 
-    # If not found, search for its pointer
-    if not mui:
-        mui = [mui for mui in tlui.materials if mui.material == mat]
-        if mui: 
-            mui = mui[0]
-            mui.name = mui.material.name
+    # Flag for indicate new mui just created
+    change_name = False
 
     # If still not found, create one
     if not mui:
+
+        if tlui.active_mat != '':
+            prev_mat = bpy.data.materials.get(tlui.active_mat)
+            if not prev_mat:
+                #print(tlui.active_mat)
+                change_name = True
+                # Remove prev mui
+                prev_idx = [i for i, m in enumerate(tlui.materials) if m.name == tlui.active_mat]
+                if prev_idx:
+                    tlui.materials.remove(prev_idx[0])
+                    #print('Removed!')
+
         mui = tlui.materials.add()
-        mui.material = mat
         mui.name = mat.name
+        #print('New MUI!', mui.name)
+
+    if tlui.active_mat != mat.name:
+        tlui.active_mat = mat.name
 
     # Try to get tl node
     node = get_active_node()
     if node and node.type == 'GROUP' and node.node_tree and node.node_tree.tl.is_tl_node:
         # Update node name
         if mui.active_tl_node != node.name:
+            #print('From:', mui.active_tl_node)
             mui.active_tl_node = node.name
+            #print('To:', node.name)
+        if tlui.active_tl_node != node.name:
+            tlui.active_tl_node = node.name
         return node
 
     # If not active node isn't a group node
+    # New mui possibly means material name just changed, try to get previous active node
+    if change_name: 
+        node = mat.node_tree.nodes.get(tlui.active_tl_node)
+        if node:
+            #print(mui.name, 'Change name from:', mui.active_tl_node)
+            mui.active_tl_node = node.name
+            #print(mui.name, 'Change name to', mui.active_tl_node)
+            return node
+
     node = mat.node_tree.nodes.get(mui.active_tl_node)
+    #print(mui.active_tl_node, node)
     if node: return node
 
-    # If node not found
+    # If node still not found
     for node in mat.node_tree.nodes:
         if node.type == 'GROUP' and node.node_tree and node.node_tree.tl.is_tl_node:
+            #print('Last resort!', mui.name, mui.active_tl_node)
             mui.active_tl_node = node.name
             return node
 

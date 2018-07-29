@@ -1603,10 +1603,12 @@ class YTextureUI(bpy.types.PropertyGroup):
     channels = CollectionProperty(type=YChannelUI)
     masks = CollectionProperty(type=YMaskUI)
 
+#def update_mat_active_tl_node(self, context):
+#    print('Update:', self.active_tl_node)
+
 class YMaterialUI(bpy.types.PropertyGroup):
     name = StringProperty(default='')
-    material = PointerProperty(type=bpy.types.Material)
-    active_tl_node = StringProperty(default='')
+    active_tl_node = StringProperty(default='') #, update=update_mat_active_tl_node)
 
 class YTLUI(bpy.types.PropertyGroup):
     show_channels = BoolProperty(default=True)
@@ -1617,8 +1619,6 @@ class YTLUI(bpy.types.PropertyGroup):
             name='Expand all channels',
             description='Expand all channels',
             default=False)
-
-    #active_tl_node = StringProperty(default='')
 
     # To store active node and tree
     tree_name = StringProperty(default='')
@@ -1647,6 +1647,9 @@ class YTLUI(bpy.types.PropertyGroup):
     refresh_image_hack = BoolProperty(default=False)
 
     materials = CollectionProperty(type=YMaterialUI)
+    #active_obj = StringProperty(default='')
+    active_mat = StringProperty(default='')
+    active_tl_node = StringProperty(default='')
 
     #random_prop = BoolProperty(default=False)
 
@@ -1665,7 +1668,8 @@ def copy_ui_settings(source, dest):
 def save_mat_ui_settings():
     tlui = bpy.context.window_manager.tlui
     for mui in tlui.materials:
-        mui.material.tl.active_tl_node = mui.active_tl_node
+        mat = bpy.data.materials.get(mui.name)
+        if mat: mat.tl.active_tl_node = mui.active_tl_node
 
 def load_mat_ui_settings():
     tlui = bpy.context.window_manager.tlui

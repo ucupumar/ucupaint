@@ -477,16 +477,18 @@ class YNewTLNode(bpy.types.Operator):
         node = tree.nodes.new(type='ShaderNodeGroup')
         node.node_tree = group_tree
 
+        # Select new node
+        node.select = True
+        tree.nodes.active = node
+
         # Set default input value
         set_input_default_value(node, channel)
 
+        # Set the location of new node
+        node.location = space.cursor_location
+
         # Rearrange nodes
         rearrange_tl_nodes(group_tree)
-
-        # Set the location of new node
-        node.select = True
-        tree.nodes.active = node
-        node.location = space.cursor_location
 
         # Update UI
         context.window_manager.tlui.need_update = True
