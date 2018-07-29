@@ -473,9 +473,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             else: create_link(tree, start.outputs[root_ch.io_index], blend.inputs[1])
 
         # Armory can't recognize mute node, so reconnect input to output directly
-        if tex.enable and ch.enable:
-            create_link(tree, blend.outputs[0], end.inputs[root_ch.io_index])
-        else: create_link(tree, start.outputs[root_ch.io_index], end.inputs[root_ch.io_index])
+        #if tex.enable and ch.enable:
+        #    create_link(tree, blend.outputs[0], end.inputs[root_ch.io_index])
+        #else: create_link(tree, start.outputs[root_ch.io_index], end.inputs[root_ch.io_index])
+        create_link(tree, blend.outputs[0], end.inputs[root_ch.io_index])
 
         if root_ch.type == 'RGB' and ch.blend_type != 'MIX' and root_ch.alpha:
             create_link(tree, start.outputs[root_ch.io_index+1], end.inputs[root_ch.io_index+1])

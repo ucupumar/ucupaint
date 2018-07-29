@@ -930,7 +930,7 @@ def update_channel_enable(self, context):
                 ramp_mix = tree.nodes.get(c.ramp_mix)
                 ramp_mix.mute = not tex.enable or not self.enable
 
-    reconnect_tex_nodes(tex)
+    #reconnect_tex_nodes(tex)
 
 def update_normal_map_type(self, context):
     tl = self.id_data.tl
