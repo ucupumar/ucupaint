@@ -384,8 +384,7 @@ def main_draw(self, context):
                         brow.label(m.name)
 
                     if m.type == 'RGB_TO_INTENSITY':
-                        rgb2i = nodes.get(m.rgb2i)
-                        brow.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
+                        brow.prop(m, 'rgb2i_col', text='', icon='COLOR')
                         brow.separator()
 
                     #brow.context_pointer_set('texture', tex)
@@ -827,8 +826,7 @@ def main_draw(self, context):
                         row.label(m.name)
 
                         if m.type == 'RGB_TO_INTENSITY':
-                            rgb2i = mod_tree.nodes.get(m.rgb2i)
-                            row.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
+                            row.prop(m, 'rgb2i_col', text='', icon='COLOR')
                             row.separator()
 
                         row.context_pointer_set('texture', tex)
@@ -1328,8 +1326,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                     if mod.type == 'RGB_TO_INTENSITY':
                         rrow = row.row()
                         mod_tree = get_mod_tree(mod)
-                        rgb2i = mod_tree.nodes.get(mod.rgb2i)
-                        rrow.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
+                        rrow.prop(mod, 'rgb2i_col', text='', icon='COLOR')
                     break
             if shortcut_found:
                 break

@@ -164,6 +164,11 @@ def add_modifier_nodes(m, tree, ref_tree=None):
                 invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT_VALUE)
             else: invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT)
 
+            if BLENDER_28_GROUP_INPUT_HACK:
+                invert.node_tree.name += '_Copy'
+                if invert.node_tree.users > 1:
+                    invert.node_tree = invert.node_tree.copy()
+
         links.new(start_rgb.outputs[0], invert.inputs[0])
         links.new(invert.outputs[0], end_rgb.inputs[0])
 
@@ -185,6 +190,11 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             ref_tree.nodes.remove(rgb2i_ref)
         else:
             rgb2i.node_tree = lib.get_node_tree_lib(lib.MOD_RGB2INT)
+
+            if BLENDER_28_GROUP_INPUT_HACK:
+                rgb2i.node_tree.name += '_Copy'
+                if rgb2i.node_tree.users > 1:
+                    rgb2i.node_tree = rgb2i.node_tree.copy()
         
         links.new(start_rgb.outputs[0], rgb2i.inputs[0])
         links.new(start_alpha.outputs[0], rgb2i.inputs[1])
@@ -195,6 +205,11 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         if non_color:
             rgb2i.inputs['Gamma'].default_value = 1.0
         else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            inp = rgb2i.node_tree.nodes.get('Group Input')
+            if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
+                inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
 
         frame.label = 'RGB to Intensity'
         rgb2i.parent = frame
@@ -320,6 +335,11 @@ def add_modifier_nodes(m, tree, ref_tree=None):
                 multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER_VALUE)
             else: multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER)
 
+            if BLENDER_28_GROUP_INPUT_HACK:
+                multiplier.node_tree.name += '_Copy'
+                if multiplier.node_tree.users > 1:
+                    multiplier.node_tree = multiplier.node_tree.copy()
+
         links.new(start_rgb.outputs[0], multiplier.inputs[0])
         links.new(start_alpha.outputs[0], multiplier.inputs[1])
         links.new(multiplier.outputs[0], end_rgb.inputs[0])
@@ -428,8 +448,7 @@ class YNewTexModifier(bpy.types.Operator):
             nodes = group_tree.nodes
 
         if self.type == 'RGB_TO_INTENSITY' and root_ch.type == 'RGB':
-            rgb2i = nodes.get(mod.rgb2i)
-            rgb2i.inputs[2].default_value = (1,0,1,1)
+            mod.rgb2i_col = (1,0,1,1)
 
         # If RGB to intensity is added, bump base is better be 0.0
         if tex and self.type == 'RGB_TO_INTENSITY':
@@ -636,40 +655,27 @@ def draw_modifier_properties(context, root_ch, nodes, modifier, layout):
 
     elif modifier.type == 'MULTIPLIER':
         multiplier = nodes.get(modifier.multiplier)
-        #row = layout.row(align=True)
-        #col = row.column(align=True)
-        #col.label('Brightness:')
-        #col.label('Contrast:')
 
         col = layout.column(align=True)
         row = col.row()
         row.label('Clamp:')
         row.prop(modifier, 'use_clamp', text='')
         if root_ch.type == 'VALUE':
-            col.prop(multiplier.inputs[3], 'default_value', text='Value')
-            col.prop(multiplier.inputs[4], 'default_value', text='Alpha')
+            #col.prop(multiplier.inputs[3], 'default_value', text='Value')
+            #col.prop(multiplier.inputs[4], 'default_value', text='Alpha')
+            col.prop(modifier, 'multiplier_r_val', text='Value')
+            col.prop(modifier, 'multiplier_a_val', text='Alpha')
         else:
-            col.prop(multiplier.inputs[3], 'default_value', text='R')
-            col.prop(multiplier.inputs[4], 'default_value', text='G')
-            col.prop(multiplier.inputs[5], 'default_value', text='B')
+            #col.prop(multiplier.inputs[3], 'default_value', text='R')
+            #col.prop(multiplier.inputs[4], 'default_value', text='G')
+            #col.prop(multiplier.inputs[5], 'default_value', text='B')
+            col.prop(modifier, 'multiplier_r_val', text='R')
+            col.prop(modifier, 'multiplier_g_val', text='G')
+            col.prop(modifier, 'multiplier_b_val', text='B')
             #col = layout.column(align=True)
             col.separator()
-            col.prop(multiplier.inputs[6], 'default_value', text='Alpha')
-
-class NODE_UL_y_texture_modifiers(bpy.types.UIList):
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
-        #nodes = context.group_node.node_tree.nodes
-        group_node = get_active_texture_layers_node()
-        nodes = group_node.node_tree.nodes
-
-        row = layout.row(align=True)
-
-        row.label(item.name, icon='MODIFIER')
-
-        if item.type == 'RGB_TO_INTENSITY':
-            row.prop(rgb2i.inputs[2], 'default_value', text='', icon='COLOR')
-
-        row.prop(item, 'enable', text='')
+            #col.prop(multiplier.inputs[6], 'default_value', text='Alpha')
+            col.prop(modifier, 'multiplier_a_val', text='Alpha')
 
 class YTexModifierSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_texture_modifier_specials"
@@ -787,13 +793,71 @@ def update_invert_channel(self, context):
             invert.inputs[5].default_value = 1.0
         else: invert.inputs[5].default_value = 0.0
 
-def update_use_clamp(self, context):
+    if BLENDER_28_GROUP_INPUT_HACK:
+        inp = invert.node_tree.nodes.get('Group Input')
 
+        if root_ch.type == 'VALUE':
+            end = 4
+        else: end = 6
+
+        for i in range(2, end):
+            for link in inp.outputs[i].links:
+                if link.to_socket.default_value != invert.inputs[i].default_value:
+                    link.to_socket.default_value = invert.inputs[i].default_value
+
+def update_use_clamp(self, context):
     tree = get_mod_tree(self)
 
     if self.type == 'MULTIPLIER':
         multiplier = tree.nodes.get(self.multiplier)
         multiplier.inputs[2].default_value = 1.0 if self.use_clamp else 0.0
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            inp = multiplier.node_tree.nodes.get('Group Input')
+            if inp.outputs[2].links[0].to_socket.default_value != multiplier.inputs[2].default_value:
+                inp.outputs[2].links[0].to_socket.default_value = multiplier.inputs[2].default_value
+
+def update_multiplier_val_input(self, context):
+    tl = self.id_data.tl
+    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    if match1: 
+        root_ch = tl.channels[int(match1.group(2))]
+    elif match2:
+        root_ch = tl.channels[int(match2.group(1))]
+
+    tree = get_mod_tree(self)
+
+    if self.type == 'MULTIPLIER':
+        multiplier = tree.nodes.get(self.multiplier)
+        multiplier.inputs[3].default_value = self.multiplier_r_val
+        if root_ch.type == 'VALUE':
+            multiplier.inputs[4].default_value = self.multiplier_a_val
+        else:
+            multiplier.inputs[4].default_value = self.multiplier_g_val
+            multiplier.inputs[5].default_value = self.multiplier_b_val
+            multiplier.inputs[6].default_value = self.multiplier_a_val
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            inp = multiplier.node_tree.nodes.get('Group Input')
+            if root_ch.type == 'VALUE':
+                end = 5
+            else: end = 7
+            for i in range(3, end):
+                for link in inp.outputs[i].links:
+                    if link.to_socket.default_value != multiplier.inputs[i].default_value:
+                        link.to_socket.default_value = multiplier.inputs[i].default_value
+
+def update_rgb2i_col(self, context):
+    tree = get_mod_tree(self)
+
+    if self.type == 'RGB_TO_INTENSITY':
+        rgb2i = tree.nodes.get(self.rgb2i)
+        rgb2i.inputs[2].default_value = self.rgb2i_col
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            inp = rgb2i.node_tree.nodes.get('Group Input')
+            inp.outputs[2].links[0].to_socket.default_value = self.rgb2i_col
 
 class YTextureModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)
@@ -814,6 +878,10 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     # RGB to Intensity nodes
     rgb2i = StringProperty(default='')
+
+    rgb2i_col = FloatVectorProperty(name='RGB to Intensity Color', size=4, subtype='COLOR', 
+            default=(0.0,0.0,0.0,1.0), min=0.0, max=1.0,
+            update=update_rgb2i_col)
 
     # Invert nodes
     invert = StringProperty(default='')
@@ -844,6 +912,11 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     # Multiplier nodes
     multiplier = StringProperty(default='')
+
+    multiplier_r_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
+    multiplier_g_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
+    multiplier_b_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
+    multiplier_a_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
 
     # Individual modifier node frame
     frame = StringProperty(default='')

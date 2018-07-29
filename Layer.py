@@ -209,8 +209,9 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
             if channel_idx == i or channel_idx == -1:
                 col = (rgb_to_intensity_color[0], rgb_to_intensity_color[1], rgb_to_intensity_color[2], 1)
                 mod_tree = get_mod_tree(m)
-                rgb2i = mod_tree.nodes.get(m.rgb2i)
-                rgb2i.inputs[2].default_value = col
+                m.rgb2i_col = col
+                #rgb2i = mod_tree.nodes.get(m.rgb2i)
+                #rgb2i.inputs[2].default_value = col
 
             if c.enable and ch.type == 'RGB' and not shortcut_created:
                 m.shortcut = True

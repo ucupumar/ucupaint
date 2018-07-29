@@ -409,6 +409,10 @@ def remove_node(tree, obj, prop, remove_data=True):
                         (scene.tool_settings.image_paint.canvas != image and image.users == 1)):
                         bpy.data.images.remove(image)
 
+            if node.bl_idname == 'ShaderNodeGroup':
+                if node.node_tree and node.node_tree.users == 1:
+                    bpy.data.node_groups.remove(node.node_tree)
+
         # Remove the node itself
         tree.nodes.remove(node)
 

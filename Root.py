@@ -1217,8 +1217,13 @@ def update_channel_colorspace(self, context):
                 if mod.type == 'RGB_TO_INTENSITY':
                     rgb2i = nodes.get(mod.rgb2i)
                     if self.colorspace == 'LINEAR':
-                        rgb2i.inputs['Linearize'].default_value = 0.0
-                    else: rgb2i.inputs['Linearize'].default_value = 1.0
+                        rgb2i.inputs['Gamma'].default_value = 1.0
+                    else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
+
+                    if BLENDER_28_GROUP_INPUT_HACK:
+                        inp = rgb2i.node_tree.nodes.get('Group Input')
+                        if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
+                            inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
 
     for tex in tl.textures:
         ch = tex.channels[channel_index]
@@ -1235,6 +1240,11 @@ def update_channel_colorspace(self, context):
                 if self.colorspace == 'LINEAR':
                     rgb2i.inputs['Gamma'].default_value = 1.0
                 else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
+
+                if BLENDER_28_GROUP_INPUT_HACK:
+                    inp = rgb2i.node_tree.nodes.get('Group Input')
+                    if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
+                        inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
 
 def update_channel_alpha(self, context):
     group_tree = self.id_data
