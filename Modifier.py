@@ -193,8 +193,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         links.new(rgb2i.outputs[1], end_alpha.inputs[0])
 
         if non_color:
-            rgb2i.inputs['Linearize'].default_value = 0.0
-        else: rgb2i.inputs['Linearize'].default_value = 1.0
+            rgb2i.inputs['Gamma'].default_value = 1.0
+        else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
         frame.label = 'RGB to Intensity'
         rgb2i.parent = frame

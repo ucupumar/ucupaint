@@ -3,7 +3,7 @@ from mathutils import *
 from bpy.app.handlers import persistent
 #from .__init__ import bl_info
 
-BLENDER_28_HACK = True
+BLENDER_28_GROUP_INPUT_HACK = True
 
 TEXGROUP_PREFIX = '~TL Tex '
 MASKGROUP_PREFIX = '~TL Mask '
@@ -417,7 +417,7 @@ def remove_node(tree, obj, prop, remove_data=True):
 
 def new_node(tree, obj, prop, node_id_name, label=''):
     
-    if not hasattr(obj, prop): return
+    if not hasattr(obj, prop): return None
 
     node = tree.nodes.new(node_id_name)
     setattr(obj, prop, node.name)

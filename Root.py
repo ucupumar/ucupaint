@@ -54,7 +54,7 @@ def set_input_default_value(group_node, channel, custom_value=None):
         if channel.type == 'RGB' and len(custom_value) == 3:
             custom_value = (custom_value[0], custom_value[1], custom_value[2], 1)
 
-        if BLENDER_28_HACK and channel.type in {'RGB', 'VALUE'}:
+        if BLENDER_28_GROUP_INPUT_HACK and channel.type in {'RGB', 'VALUE'}:
             if channel.type == 'RGB':
                 channel.col_input = custom_value
             elif channel.type == 'VALUE':
@@ -65,16 +65,16 @@ def set_input_default_value(group_node, channel, custom_value=None):
     
     # Set default value
     if channel.type == 'RGB':
-        if BLENDER_28_HACK:
+        if BLENDER_28_GROUP_INPUT_HACK:
             channel.col_input = (1,1,1,1)
         else: group_node.inputs[channel.io_index].default_value = (1,1,1,1)
 
         if channel.alpha:
-            if BLENDER_28_HACK:
+            if BLENDER_28_GROUP_INPUT_HACK:
                 channel.val_input = 1.0
             else: group_node.inputs[channel.io_index+1].default_value = 1.0
     if channel.type == 'VALUE':
-        if BLENDER_28_HACK:
+        if BLENDER_28_GROUP_INPUT_HACK:
             channel.val_input = 0.0
         else: group_node.inputs[channel.io_index].default_value = 0.0
     if channel.type == 'NORMAL':
@@ -1233,8 +1233,8 @@ def update_channel_colorspace(self, context):
             if mod.type == 'RGB_TO_INTENSITY':
                 rgb2i = tree.nodes.get(mod.rgb2i)
                 if self.colorspace == 'LINEAR':
-                    rgb2i.inputs['Linearize'].default_value = 0.0
-                else: rgb2i.inputs['Linearize'].default_value = 1.0
+                    rgb2i.inputs['Gamma'].default_value = 1.0
+                else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
 def update_channel_alpha(self, context):
     group_tree = self.id_data
