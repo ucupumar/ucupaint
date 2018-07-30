@@ -1226,17 +1226,32 @@ def update_intensity_multiplier(self, context):
     if self.intensity_multiplier_link:
         for ch in tex.channels:
             intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
-            if intensity_multiplier: intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+            if intensity_multiplier: 
+                intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+
+                if BLENDER_28_GROUP_INPUT_HACK and intensity_multiplier.type =='GROUP':
+                    inp = intensity_multiplier.node_tree.nodes.get('Group Input')
+                    for link in inp.outputs[1].links:
+                        if link.to_socket.default_value != self.intensity_multiplier_value:
+                            link.to_socket.default_value = self.intensity_multiplier_value
                     
     else:
         intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
-        if intensity_multiplier: intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+        if intensity_multiplier: 
+            intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
     for mask in tex.masks:
         for c in mask.channels:
             #if c.enable_bump:
             intensity_multiplier = tree.nodes.get(c.intensity_multiplier)
-            if intensity_multiplier: intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+            if intensity_multiplier: 
+                intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+
+                if BLENDER_28_GROUP_INPUT_HACK and intensity_multiplier.type =='GROUP':
+                    inp = intensity_multiplier.node_tree.nodes.get('Group Input')
+                    for link in inp.outputs[1].links:
+                        if link.to_socket.default_value != self.intensity_multiplier_value:
+                            link.to_socket.default_value = self.intensity_multiplier_value
 
             vector_intensity_multiplier = tree.nodes.get(c.vector_intensity_multiplier)
             if vector_intensity_multiplier: vector_intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
@@ -1361,12 +1376,36 @@ def update_texture_enable(self, context):
 
     reconnect_tex_nodes(tex)
 
-def create_intensity_multiplier_node(tree, parent, invert=False, sharpen=False):
+def create_intensity_multiplier_node(tex, tree, parent, invert=False, sharpen=False):
     intensity_multiplier = tree.nodes.get(parent.intensity_multiplier)
 
     if not intensity_multiplier:
-        intensity_multiplier = new_node(tree, parent, 'intensity_multiplier', 'ShaderNodeGroup', 'Intensity Multiplier')
-        intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
+        intensity_multiplier = new_node(tree, parent, 'intensity_multiplier', 'ShaderNodeGroup', 
+                'Intensity Multiplier')
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+
+            other_im_found = False
+            for ch in tex.channels:
+                if ch == parent: continue
+                other_im = tree.nodes.get(ch.intensity_multiplier)
+                if other_im and other_im.type =='GROUP' and other_im.node_tree:
+                    other_im_found = True
+                    intensity_multiplier.node_tree = other_im.node_tree
+
+            #if not other_im_found:
+            #    for m in tex.masks:
+            #        for ch in m.channels:
+            #            other_im = tree.nodes.get(ch.intensity_multiplier)
+            #            if other_im and other_im.type =='GROUP' and other_im.node_tree:
+            #                other_im_found = True
+            #                intensity_multiplier.node_tree = other_im.node_tree
+
+            if not other_im_found:
+                intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
+                duplicate_lib_node_tree(intensity_multiplier)
+        else:
+            intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
 
     if invert:
         intensity_multiplier.inputs[2].default_value = 1.0
@@ -1375,6 +1414,13 @@ def create_intensity_multiplier_node(tree, parent, invert=False, sharpen=False):
     if sharpen:
         intensity_multiplier.inputs[3].default_value = 1.0
     else: intensity_multiplier.inputs[3].default_value = 0.0
+
+    if BLENDER_28_GROUP_INPUT_HACK:
+        inp = intensity_multiplier.node_tree.nodes.get('Group Input')
+        for i in range(2,4):
+            for link in inp.outputs[i].links:
+                if link.to_socket.default_value != intensity_multiplier.inputs[i].default_value:
+                    link.to_socket.default_value = intensity_multiplier.inputs[i].default_value
 
     return intensity_multiplier
 
@@ -1386,16 +1432,28 @@ def create_channel_intensity_multiplier_nodes(self, tex):
         if ch.intensity_multiplier_link:
             ch.intensity_multiplier_link = False
 
-        intensity_multiplier = create_intensity_multiplier_node(tree, ch, self.im_invert_others, self.im_sharpen)
+        intensity_multiplier = create_intensity_multiplier_node(tex, tree, ch, self.im_invert_others, self.im_sharpen)
         intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            inp = intensity_multiplier.node_tree.nodes.get('Group Input')
+            for link in inp.outputs[1].links:
+                if link.to_socket.default_value != self.intensity_multiplier_value:
+                    link.to_socket.default_value = self.intensity_multiplier_value
 
 def create_mask_intensity_multiplier_nodes(self, tex, ch_index):
     tree = get_tree(tex)
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
             if i == ch_index: continue
-            intensity_multiplier = create_intensity_multiplier_node(tree, c, self.im_invert_others, self.im_sharpen)
+            intensity_multiplier = create_intensity_multiplier_node(tex, tree, c, self.im_invert_others, self.im_sharpen)
             intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    inp = intensity_multiplier.node_tree.nodes.get('Group Input')
+            #    for link in inp.outputs[1].links:
+            #        if link.to_socket.default_value != self.intensity_multiplier_value:
+            #            link.to_socket.default_value = self.intensity_multiplier_value
 
 def remove_channel_intensity_multiplier_nodes(self, tex):
     tree = get_tree(tex)
