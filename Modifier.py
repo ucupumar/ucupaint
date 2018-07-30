@@ -191,6 +191,9 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
             if BLENDER_28_GROUP_INPUT_HACK:
                 duplicate_lib_node_tree(rgb2i)
+
+            if root_ch.type == 'RGB':
+                m.rgb2i_col = (1.0, 0.0, 1.0, 1.0)
         
         links.new(start_rgb.outputs[0], rgb2i.inputs[0])
         links.new(start_alpha.outputs[0], rgb2i.inputs[1])
@@ -874,7 +877,7 @@ class YTextureModifier(bpy.types.PropertyGroup):
     rgb2i = StringProperty(default='')
 
     rgb2i_col = FloatVectorProperty(name='RGB to Intensity Color', size=4, subtype='COLOR', 
-            default=(0.0,0.0,0.0,1.0), min=0.0, max=1.0,
+            default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0,
             update=update_rgb2i_col)
 
     # Invert nodes
