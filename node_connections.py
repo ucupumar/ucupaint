@@ -349,9 +349,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, normal_flip.outputs[0], blend.inputs[2])
 
             if ch.normal_blend == 'OVERLAY':
-                create_link(tree, geometry.outputs[1], blend.inputs[3])
-                create_link(tree, tangent.outputs[0], blend.inputs[4])
-                create_link(tree, bitangent.outputs[0], blend.inputs[5])
+                create_link(tree, tangent.outputs[0], blend.inputs[3])
+                create_link(tree, bitangent.outputs[0], blend.inputs[4])
         else:
             final_rgb = end_rgb.outputs[0]
             #create_link(tree, end_rgb.outputs[0], blend.inputs[2])
