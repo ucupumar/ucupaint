@@ -1127,7 +1127,43 @@ def update_blend_type_(root_ch, tex, ch):
             #if ch.blend_type == 'MIX':
             if root_ch.alpha and ch.blend_type == 'MIX':
                 blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
-                blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
+
+                if BLENDER_28_GROUP_INPUT_HACK:
+
+                    tl = tex.id_data.tl
+
+                    # Get index
+                    ch_index = 0
+                    for i, c in enumerate(tl.channels):
+                        if c == root_ch:
+                            ch_index = i
+                            break
+
+                    # Search for other blend already using lib tree
+                    other_blend = None
+
+                    for t in tl.textures:
+                        ttree = get_tree(t)
+                        for i, c in enumerate(t.channels):
+                            if i == ch_index:
+                                b = ttree.nodes.get(c.blend)
+                                if b and b.type == 'GROUP' and b.node_tree:
+                                    other_blend = b
+                                    blend.node_tree = other_blend.node_tree
+                                    break
+                        if other_blend: break
+
+                    # Use copy from linrary if other blend with lib tree aren't available
+                    if not other_blend:
+                        blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
+                        duplicate_lib_node_tree(blend)
+
+                        inp = blend.node_tree.nodes.get('Group Input')
+                        inp.outputs['Alpha1'].links[0].to_socket.default_value = root_ch.val_input
+
+                else:
+                    blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
+
             else:
                 blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
                 blend.blend_type = ch.blend_type

@@ -437,7 +437,13 @@ def main_draw(self, context):
                     #    brow.prop(inp,'default_value', text='')
                     pass
                 elif len(inp.links) == 0:
-                    brow.prop(inp,'default_value', text='')
+                    if BLENDER_28_GROUP_INPUT_HACK:
+                        if channel.type == 'RGB':
+                            brow.prop(channel,'col_input', text='')
+                        elif channel.type == 'VALUE':
+                            brow.prop(channel,'val_input', text='')
+                    else:
+                        brow.prop(inp,'default_value', text='')
                 else:
                     brow.label('', icon='LINKED')
 
@@ -453,7 +459,10 @@ def main_draw(self, context):
                         #brow.label('', icon='BLANK1')
                         brow.label('Base Alpha:')
                         if len(node.inputs[channel.io_index+1].links)==0:
-                            brow.prop(inp_alpha, 'default_value', text='')
+                            if BLENDER_28_GROUP_INPUT_HACK:
+                                brow.prop(channel,'val_input', text='')
+                            else:
+                                brow.prop(inp_alpha, 'default_value', text='')
                         else:
                             brow.label('', icon='LINKED')
                     else:
@@ -1221,7 +1230,9 @@ class NODE_UL_y_tl_channels(bpy.types.UIList):
 
         if item.type=='RGB' and item.alpha:
             if len(inputs[item.io_index+1].links) == 0:
-                row.prop(inputs[item.io_index+1], 'default_value', text='')
+                if BLENDER_28_GROUP_INPUT_HACK:
+                    row.prop(item,'val_input', text='')
+                else: row.prop(inputs[item.io_index+1], 'default_value', text='')
             else: row.label('', icon='LINKED')
 
 class NODE_UL_y_tl_textures(bpy.types.UIList):

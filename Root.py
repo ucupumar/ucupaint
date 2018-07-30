@@ -1,4 +1,4 @@
-import bpy, time
+import bpy, time, re
 from bpy.props import *
 from bpy.app.handlers import persistent
 from .common import *
@@ -57,6 +57,7 @@ def set_input_default_value(group_node, channel, custom_value=None):
         if BLENDER_28_GROUP_INPUT_HACK and channel.type in {'RGB', 'VALUE'}:
             if channel.type == 'RGB':
                 channel.col_input = custom_value
+                channel.val_input = 0.0
             elif channel.type == 'VALUE':
                 channel.val_input = custom_value
         else:
@@ -67,6 +68,7 @@ def set_input_default_value(group_node, channel, custom_value=None):
     if channel.type == 'RGB':
         if BLENDER_28_GROUP_INPUT_HACK:
             channel.col_input = (1,1,1,1)
+            channel.val_input = 0.0
         else: group_node.inputs[channel.io_index].default_value = (1,1,1,1)
 
         if channel.alpha:
@@ -1247,6 +1249,7 @@ def update_channel_colorspace(self, context):
                         inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
 
 def update_channel_alpha(self, context):
+    mat = get_active_material()
     group_tree = self.id_data
     tl = group_tree.tl
     nodes = group_tree.nodes
@@ -1272,6 +1275,13 @@ def update_channel_alpha(self, context):
     
     # Create alpha IO
     if self.alpha and not alpha_io_found:
+
+        # Set material to use alpha blend
+        if hasattr(mat, 'blend_method'): # Blender 2.8
+            mat.blend_method = 'BLEND'
+        else: # Blender 2.7
+            mat.game_settings.alpha_blend = 'ALPHA'
+
         name = self.name + ' Alpha'
         inp = inputs.new('NodeSocketFloatFactor', name)
         out = outputs.new('NodeSocketFloat', name)
@@ -1345,9 +1355,20 @@ def update_channel_alpha(self, context):
     # Remove alpha IO
     elif not self.alpha and alpha_io_found:
 
+        # Set material to use opaque
+        if hasattr(mat, 'blend_method'): # Blender 2.8
+            mat.blend_method = 'OPAQUE'
+        else: # Blender 2.7
+            mat.game_settings.alpha_blend = 'OPAQUE'
+
         node = get_active_texture_layers_node()
         inp = node.inputs[self.io_index+1]
         outp = node.outputs[self.io_index+1]
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            # In case blend_found isn't found
+            for link in outp.links:
+                link.to_socket.default_value = 1.0
 
         # Remember the connections
         if len(inp.links) > 0:
@@ -1417,6 +1438,27 @@ def update_val_input(self, context):
 
     elif self.alpha and self.type == 'RGB':
         group_node.inputs[self.io_index+1].default_value = self.val_input
+
+        # Get index
+        m = re.match(r'tl\.channels\[(\d+)\]', self.path_from_id())
+        ch_index = int(m.group(1))
+
+        blend_found = False
+        for tex in tl.textures:
+            for i, ch in enumerate(tex.channels):
+                if i == ch_index:
+                    tree = get_tree(tex)
+                    blend = tree.nodes.get(ch.blend)
+                    if blend and blend.type =='GROUP':
+                        inp = blend.node_tree.nodes.get('Group Input')
+                        inp.outputs['Alpha1'].links[0].to_socket.default_value = self.val_input
+                        blend_found = True
+                        break
+            if blend_found: break
+
+        # In case blend_found isn't found
+        for link in group_node.outputs[self.io_index+1].links:
+            link.to_socket.default_value = self.val_input
 
 class YNodeConnections(bpy.types.PropertyGroup):
     node = StringProperty(default='')
