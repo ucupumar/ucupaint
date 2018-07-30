@@ -513,6 +513,12 @@ def get_tex_source(tex, tree=None):
 
     return None
 
+# BLENDER_28_GROUP_INPUT_HACK
+def duplicate_lib_node_tree(node):
+    node.node_tree.name += '_Copy'
+    if node.node_tree.users > 1:
+        node.node_tree = node.node_tree.copy()
+
 # Some image_ops need this
 #def get_active_image():
 #    node = get_active_texture_layers_node()

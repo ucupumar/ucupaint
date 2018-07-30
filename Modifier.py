@@ -165,9 +165,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             else: invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT)
 
             if BLENDER_28_GROUP_INPUT_HACK:
-                invert.node_tree.name += '_Copy'
-                if invert.node_tree.users > 1:
-                    invert.node_tree = invert.node_tree.copy()
+                duplicate_lib_node_tree(invert)
 
         links.new(start_rgb.outputs[0], invert.inputs[0])
         links.new(invert.outputs[0], end_rgb.inputs[0])
@@ -192,9 +190,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             rgb2i.node_tree = lib.get_node_tree_lib(lib.MOD_RGB2INT)
 
             if BLENDER_28_GROUP_INPUT_HACK:
-                rgb2i.node_tree.name += '_Copy'
-                if rgb2i.node_tree.users > 1:
-                    rgb2i.node_tree = rgb2i.node_tree.copy()
+                duplicate_lib_node_tree(rgb2i)
         
         links.new(start_rgb.outputs[0], rgb2i.inputs[0])
         links.new(start_alpha.outputs[0], rgb2i.inputs[1])
@@ -336,9 +332,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             else: multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER)
 
             if BLENDER_28_GROUP_INPUT_HACK:
-                multiplier.node_tree.name += '_Copy'
-                if multiplier.node_tree.users > 1:
-                    multiplier.node_tree = multiplier.node_tree.copy()
+                duplicate_lib_node_tree(multiplier)
 
         links.new(start_rgb.outputs[0], multiplier.inputs[0])
         links.new(start_alpha.outputs[0], multiplier.inputs[1])

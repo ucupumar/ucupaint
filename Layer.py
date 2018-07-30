@@ -263,9 +263,16 @@ class YRefreshNeighborUV(bpy.types.Operator):
         neighbor_uv = tree.nodes.get(context.parent.neighbor_uv)
         neighbor_uv.inputs[1].default_value = context.image.size[0]
         neighbor_uv.inputs[2].default_value = context.image.size[1]
+        if BLENDER_28_GROUP_INPUT_HACK:
+            inp = neighbor_uv.node_tree.nodes.get('Group Input')
+            inp.outputs[1].links[0].to_socket.default_value = neighbor_uv.inputs[1].default_value
+            inp.outputs[2].links[0].to_socket.default_value = neighbor_uv.inputs[2].default_value
 
         fine_bump = tree.nodes.get(context.parent.fine_bump)
         fine_bump.inputs[0].default_value = get_fine_bump_distance(context.texture, context.channel.bump_distance)
+        if BLENDER_28_GROUP_INPUT_HACK:
+            inp = fine_bump.node_tree.nodes.get('Group Input.002')
+            inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
         return {'FINISHED'}
 
 class YNewTextureLayer(bpy.types.Operator):
@@ -1006,6 +1013,9 @@ def update_normal_map_type(self, context):
             neighbor_uv = new_node(tree, self, 'neighbor_uv', 'ShaderNodeGroup', 'Neighbor UV')
             neighbor_uv.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_UV)
 
+            if BLENDER_28_GROUP_INPUT_HACK:
+                duplicate_lib_node_tree(neighbor_uv)
+
         if tex.type == 'IMAGE' and source.image:
             neighbor_uv.inputs[1].default_value = source.image.size[0]
             neighbor_uv.inputs[2].default_value = source.image.size[1]
@@ -1013,10 +1023,21 @@ def update_normal_map_type(self, context):
             neighbor_uv.inputs[1].default_value = 1000
             neighbor_uv.inputs[2].default_value = 1000
 
+        if BLENDER_28_GROUP_INPUT_HACK:
+            inp = neighbor_uv.node_tree.nodes.get('Group Input.001')
+            inp.outputs[1].links[0].to_socket.default_value = neighbor_uv.inputs[1].default_value
+            inp.outputs[2].links[0].to_socket.default_value = neighbor_uv.inputs[2].default_value
+
         if not fine_bump:
             fine_bump = new_node(tree, self, 'fine_bump', 'ShaderNodeGroup', 'Fine Bump')
             fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
             fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
+
+            if BLENDER_28_GROUP_INPUT_HACK:
+                duplicate_lib_node_tree(fine_bump)
+
+                inp = fine_bump.node_tree.nodes.get('Group Input.002')
+                inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
 
         for i, s in enumerate(sources):
             if not s:
@@ -1088,13 +1109,15 @@ def update_blend_type_(root_ch, tex, ch):
             if ((root_ch.alpha and ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
                 (not root_ch.alpha and blend.bl_idname == 'ShaderNodeGroup') or
                 (ch.blend_type != 'MIX' and blend.bl_idname == 'ShaderNodeGroup')):
-                nodes.remove(blend)
+                #nodes.remove(blend)
+                remove_node(tree, ch, 'blend')
                 blend = None
                 need_reconnect = True
         elif root_ch.type == 'NORMAL':
             #if ((ch.normal_blend == 'MIX' and blend.bl_idname == 'ShaderNodeGroup') or
             #    (ch.normal_blend in {'OVERLAY'} and blend.bl_idname == 'ShaderNodeMixRGB')):
-            nodes.remove(blend)
+            #nodes.remove(blend)
+            remove_node(tree, ch, 'blend')
             blend = None
             need_reconnect = True
 
@@ -1188,7 +1211,11 @@ def update_bump_distance(self, context):
         if bump: bump.inputs[1].default_value = self.bump_distance
     elif self.normal_map_type == 'FINE_BUMP_MAP':
         fine_bump = tree.nodes.get(self.fine_bump)
-        if fine_bump: fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
+        if fine_bump: 
+            fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
+            if BLENDER_28_GROUP_INPUT_HACK:
+                inp = fine_bump.node_tree.nodes.get('Group Input.002')
+                inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
 
 def update_intensity_multiplier(self, context):
     tl = self.id_data.tl
@@ -1300,9 +1327,19 @@ def update_texcoord_type(self, context):
             if neighbor_uv:
                 neighbor_uv.inputs['Space'].default_value = space
 
+                if BLENDER_28_GROUP_INPUT_HACK:
+                    inp = neighbor_uv.node_tree.nodes.get('Group Input')
+                    inp.outputs['Space'].links[0].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
+                    inp.outputs['Space'].links[1].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
+
             fine_bump = tree.nodes.get(ch.fine_bump)
             if fine_bump:
                 fine_bump.inputs['Space'].default_value = space
+
+                if BLENDER_28_GROUP_INPUT_HACK:
+                    inp = fine_bump.node_tree.nodes.get('Group Input.003')
+                    inp.outputs['Space'].links[0].to_socket.default_value = fine_bump.inputs['Space'].default_value
+                    inp.outputs['Space'].links[1].to_socket.default_value = fine_bump.inputs['Space'].default_value
 
     reconnect_tex_nodes(self)
 

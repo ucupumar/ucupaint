@@ -1202,7 +1202,7 @@ class NODE_UL_y_tl_channels(bpy.types.UIList):
             row = row.row(align=True)
 
         if len(inputs[item.io_index].links) == 0:
-            if BLENDER_28_HACK:
+            if BLENDER_28_GROUP_INPUT_HACK:
                 if item.type == 'VALUE':
                     row.prop(item, 'val_input', text='') #, emboss=False)
                 elif item.type == 'RGB':
