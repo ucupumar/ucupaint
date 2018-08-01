@@ -144,6 +144,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     texcoord = nodes.get(tex.texcoord)
     solid_alpha = nodes.get(tex.solid_alpha)
     tangent = nodes.get(tex.tangent)
+    hacky_tangent = nodes.get(tex.hacky_tangent)
     bitangent = nodes.get(tex.bitangent)
     geometry = nodes.get(tex.geometry)
 
@@ -152,6 +153,13 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         #create_link(tree, uv_map.outputs[0], source.inputs[0])
         create_link(tree, uv_attr.outputs[1], source.inputs[0])
     else: create_link(tree, texcoord.outputs[tex.texcoord_type], source.inputs[0])
+
+    # Get bitangent from tangent
+    if hacky_tangent:
+        create_link(tree, tangent.outputs[0], bitangent.inputs[0])
+        create_link(tree, hacky_tangent.outputs[0], bitangent.inputs[1])
+        tangent_output = bitangent.outputs[1]
+    else: tangent_output = tangent.outputs[0]
 
     for i, ch in enumerate(tex.channels):
         if ch_idx != -1 and i != ch_idx: continue
@@ -264,7 +272,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, neighbor_uv.outputs[5], fine_bump.inputs[7])
                 create_link(tree, neighbor_uv.outputs[6], fine_bump.inputs[8])
 
-                create_link(tree, tangent.outputs[0], fine_bump.inputs[10])
+                #create_link(tree, tangent.outputs[0], fine_bump.inputs[10])
+                create_link(tree, tangent_output, fine_bump.inputs[10])
                 create_link(tree, bitangent.outputs[0], fine_bump.inputs[11])
                 #create_link(tree, geometry.outputs['Normal'], fine_bump.inputs[8])
 
@@ -324,7 +333,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     create_link(tree, mask_neighbor_uv.outputs[5], mask_fine_bump.inputs[7])
                     create_link(tree, mask_neighbor_uv.outputs[6], mask_fine_bump.inputs[8])
 
-                    create_link(tree, tangent.outputs[0], mask_fine_bump.inputs[10])
+                    #create_link(tree, tangent.outputs[0], mask_fine_bump.inputs[10])
+                    create_link(tree, tangent_output, mask_fine_bump.inputs[10])
                     create_link(tree, bitangent.outputs[0], mask_fine_bump.inputs[11])
 
                     create_link(tree, mask_final.outputs[0], mask_invert.inputs[1])
@@ -349,7 +359,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, normal_flip.outputs[0], blend.inputs[2])
 
             if ch.normal_blend == 'OVERLAY':
-                create_link(tree, tangent.outputs[0], blend.inputs[3])
+                #create_link(tree, tangent.outputs[0], blend.inputs[3])
+                create_link(tree, tangent_output, blend.inputs[3])
                 create_link(tree, bitangent.outputs[0], blend.inputs[4])
         else:
             final_rgb = end_rgb.outputs[0]

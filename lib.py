@@ -12,6 +12,7 @@ FINE_BUMP ='~TL Fine Bump'
 VECTOR_MIX ='~TL Vector Mix'
 INVERTED_MULTIPLIER ='~TL Inverted Multiplier'
 INTENSITY_MULTIPLIER ='~TL Intensity Multiplier'
+GET_BITANGENT ='~TL Get Bitangent'
 
 # Modifier tree names
 MOD_RGB2INT = '~TL Mod RGB To Intensity'

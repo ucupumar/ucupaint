@@ -383,6 +383,7 @@ def rearrange_tex_nodes(tex):
     #uv_map = nodes.get(tex.uv_map)
     uv_attr = nodes.get(tex.uv_attr)
     tangent = nodes.get(tex.tangent)
+    hacky_tangent = nodes.get(tex.hacky_tangent)
     bitangent = nodes.get(tex.bitangent)
     geometry = nodes.get(tex.geometry)
 
@@ -700,10 +701,13 @@ def rearrange_tex_nodes(tex):
     if check_set_node_location(texcoord, loc):
         loc.y -= 240
 
-    if check_set_node_location(bitangent, loc):
+    if check_set_node_location(tangent, loc):
+        loc.y -= 90
+
+    if check_set_node_location(hacky_tangent, loc):
         loc.y -= 160
 
-    if check_set_node_location(tangent, loc):
+    if check_set_node_location(bitangent, loc):
         loc.y -= 160
 
     if check_set_node_location(geometry, loc):
