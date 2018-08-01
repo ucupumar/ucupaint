@@ -1340,6 +1340,9 @@ def update_uv_name(self, context):
     tangent = nodes.get(tex.tangent)
     if tangent: tangent.uv_map = tex.uv_name
 
+    hacky_tangent = nodes.get(tex.hacky_tangent)
+    if hacky_tangent: hacky_tangent.uv_map = tex.uv_name
+
     #bitangent = nodes.get(tex.bitangent)
     #if bitangent: bitangent.uv_map = tex.uv_name
 
