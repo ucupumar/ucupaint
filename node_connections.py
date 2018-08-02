@@ -144,7 +144,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     texcoord = nodes.get(tex.texcoord)
     solid_alpha = nodes.get(tex.solid_alpha)
     tangent = nodes.get(tex.tangent)
-    hacky_tangent = nodes.get(tex.hacky_tangent)
+    #hacky_tangent = nodes.get(tex.hacky_tangent)
     bitangent = nodes.get(tex.bitangent)
     geometry = nodes.get(tex.geometry)
 
@@ -155,11 +155,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     else: create_link(tree, texcoord.outputs[tex.texcoord_type], source.inputs[0])
 
     # Get bitangent from tangent
-    if hacky_tangent:
-        create_link(tree, tangent.outputs[0], bitangent.inputs[0])
-        create_link(tree, hacky_tangent.outputs[0], bitangent.inputs[1])
-        tangent_output = bitangent.outputs[1]
-    else: tangent_output = tangent.outputs[0]
+    #if hacky_tangent:
+    #    create_link(tree, tangent.outputs[0], bitangent.inputs[0])
+    #    create_link(tree, hacky_tangent.outputs[0], bitangent.inputs[1])
+    #    tangent_output = bitangent.outputs[1]
+    #else: 
+    tangent_output = tangent.outputs[0]
 
     for i, ch in enumerate(tex.channels):
         if ch_idx != -1 and i != ch_idx: continue

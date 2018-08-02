@@ -166,16 +166,24 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     uv_attr.attribute_name = uv_name
 
     # Add tangent and bitangent node
-    tangent = new_node(tree, tex, 'tangent', 'ShaderNodeTangent', 'Source Tangent')
-    tangent.direction_type = 'UV_MAP'
+    #tangent = new_node(tree, tex, 'tangent', 'ShaderNodeTangent', 'Source Tangent')
+    #tangent.direction_type = 'UV_MAP'
+    #tangent.uv_map = uv_name
+
+    tangent = new_node(tree, tex, 'tangent', 'ShaderNodeNormalMap', 'Source Tangent')
     tangent.uv_map = uv_name
+    tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
 
-    hacky_tangent = new_node(tree, tex, 'hacky_tangent', 'ShaderNodeNormalMap', 'Hacky Source Tangent')
-    hacky_tangent.uv_map = uv_name
-    hacky_tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+    bitangent = new_node(tree, tex, 'bitangent', 'ShaderNodeNormalMap', 'Source Bitangent')
+    bitangent.uv_map = uv_name
+    bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
 
-    bitangent = new_node(tree, tex, 'bitangent', 'ShaderNodeGroup', 'Source Bitangent')
-    bitangent.node_tree = lib.get_node_tree_lib(lib.GET_BITANGENT)
+    #hacky_tangent = new_node(tree, tex, 'hacky_tangent', 'ShaderNodeNormalMap', 'Hacky Source Tangent')
+    #hacky_tangent.uv_map = uv_name
+    #hacky_tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+
+    #bitangent = new_node(tree, tex, 'bitangent', 'ShaderNodeGroup', 'Source Bitangent')
+    #bitangent.node_tree = lib.get_node_tree_lib(lib.GET_BITANGENT)
 
     # Set tex coordinate type
     tex.texcoord_type = texcoord_type
@@ -1340,11 +1348,11 @@ def update_uv_name(self, context):
     tangent = nodes.get(tex.tangent)
     if tangent: tangent.uv_map = tex.uv_name
 
-    hacky_tangent = nodes.get(tex.hacky_tangent)
-    if hacky_tangent: hacky_tangent.uv_map = tex.uv_name
+    #hacky_tangent = nodes.get(tex.hacky_tangent)
+    #if hacky_tangent: hacky_tangent.uv_map = tex.uv_name
 
-    #bitangent = nodes.get(tex.bitangent)
-    #if bitangent: bitangent.uv_map = tex.uv_name
+    bitangent = nodes.get(tex.bitangent)
+    if bitangent: bitangent.uv_map = tex.uv_name
 
     for ch in tex.channels:
         normal = nodes.get(ch.normal)
