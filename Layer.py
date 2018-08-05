@@ -965,7 +965,7 @@ def update_normal_map_type(self, context):
     # Bump nodes
     bump_base = nodes.get(self.bump_base)
     bump = nodes.get(self.bump)
-    intensity_multiplier = nodes.get(self.intensity_multiplier)
+    #intensity_multiplier = nodes.get(self.intensity_multiplier)
 
     # Fine bump nodes
     neighbor_uv = nodes.get(self.neighbor_uv)
@@ -993,11 +993,11 @@ def update_normal_map_type(self, context):
             bump_base = new_node(tree, self, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
             val = self.bump_base_value
             bump_base.inputs[1].default_value = (val, val, val, 1.0)
-        if not intensity_multiplier:
-            intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeMath', 'Intensity Multiplier')
-            intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
-            intensity_multiplier.use_clamp = True
-            intensity_multiplier.operation = 'MULTIPLY'
+        #if not intensity_multiplier:
+        #    intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeMath', 'Intensity Multiplier')
+        #    intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+        #    intensity_multiplier.use_clamp = True
+        #    intensity_multiplier.operation = 'MULTIPLY'
 
     if self.normal_map_type == 'NORMAL_MAP':
         if not normal:
@@ -1092,7 +1092,7 @@ def update_normal_map_type(self, context):
     # Remove bump base
     if self.normal_map_type not in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
         remove_node(tree, self, 'bump_base')
-        remove_node(tree, self, 'intensity_multiplier')
+        #remove_node(tree, self, 'intensity_multiplier')
 
     # Try to remove source tree
     if self.normal_map_type in {'NORMAL_MAP', 'BUMP_MAP'}:
@@ -1271,7 +1271,13 @@ def update_intensity_multiplier(self, context):
     tree = get_tree(tex)
 
     if self.intensity_multiplier_link:
-        for ch in tex.channels:
+        for i, ch in enumerate(tex.channels):
+            root_ch = tl.channels[i]
+            if root_ch.type == 'NORMAL':
+                intensity = tree.nodes.get(ch.intensity)
+                intensity.inputs[1].default_value = self.intensity_value * self.intensity_multiplier_value
+                continue
+
             intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
             if intensity_multiplier: 
                 intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
@@ -1283,9 +1289,12 @@ def update_intensity_multiplier(self, context):
                             link.to_socket.default_value = self.intensity_multiplier_value
                     
     else:
-        intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
-        if intensity_multiplier: 
-            intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+        intensity = tree.nodes.get(self.intensity)
+        intensity.inputs[1].default_value = self.intensity_value * self.intensity_multiplier_value
+
+        #intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
+        #if intensity_multiplier: 
+        #    intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
     for mask in tex.masks:
         for c in mask.channels:
@@ -1558,7 +1567,7 @@ def update_channel_intensity_value(self, context):
     root_ch = tl.channels[ch_index]
 
     intensity = tree.nodes.get(self.intensity)
-    intensity.inputs[1].default_value = self.intensity_value
+    intensity.inputs[1].default_value = self.intensity_value * self.intensity_multiplier_value
 
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
@@ -1688,6 +1697,15 @@ class YLayerChannel(bpy.types.PropertyGroup):
     im_invert_others = BoolProperty(default=False, update=update_intensity_multiplier_link)
     im_sharpen = BoolProperty(default=False, update=update_intensity_multiplier_link)
 
+    # Mask related
+    active_mask_bump = BoolProperty(default=False)
+    enable_mask_bump = BoolProperty(name='Enable Mask Bump', description='Enable mask bump',
+            default=False) #, update=Mask.update_enable_texture_masks)
+
+    active_mask_ramp = BoolProperty(default=False)
+    enable_mask_ramp = BoolProperty(name='Enable Mask Ramp', description='Enable mask ramp', 
+            default=False)
+
     # For UI
     expand_bump_settings = BoolProperty(default=False)
     expand_intensity_settings = BoolProperty(default=False)
@@ -1695,7 +1713,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
 class YTextureLayer(bpy.types.PropertyGroup):
     name = StringProperty(default='')
-    enable = BoolProperty(default=True, update=update_texture_enable)
+    enable = BoolProperty(
+            name = 'Enable Texture', description = 'Enable texture',
+            default=True, update=update_texture_enable)
     channels = CollectionProperty(type=YLayerChannel)
 
     group_node = StringProperty(default='')
@@ -1735,7 +1755,8 @@ class YTextureLayer(bpy.types.PropertyGroup):
     geometry = StringProperty(default='')
 
     # Mask
-    enable_masks = BoolProperty(default=True, update=Mask.update_enable_texture_masks)
+    enable_masks = BoolProperty(name='Enable Texture Masks', description='Enable texture masks',
+            default=True, update=Mask.update_enable_texture_masks)
     masks = CollectionProperty(type=Mask.YTextureMask)
 
     # UI related

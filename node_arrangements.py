@@ -118,6 +118,26 @@ def rearrange_tex_frame_nodes(tex):
         normal = nodes.get(ch.normal)
         normal_flip = nodes.get(ch.normal_flip)
 
+        neighbor_uv = nodes.get(ch.neighbor_uv)
+        fine_bump = nodes.get(ch.fine_bump)
+
+        source_n = nodes.get(ch.source_n)
+        source_s = nodes.get(ch.source_s)
+        source_e = nodes.get(ch.source_e)
+        source_w = nodes.get(ch.source_w)
+
+        mod_n = nodes.get(ch.mod_n)
+        mod_s = nodes.get(ch.mod_s)
+        mod_e = nodes.get(ch.mod_e)
+        mod_w = nodes.get(ch.mod_w)
+
+        bump_base_n = nodes.get(ch.bump_base_n)
+        bump_base_s = nodes.get(ch.bump_base_s)
+        bump_base_e = nodes.get(ch.bump_base_e)
+        bump_base_w = nodes.get(ch.bump_base_w)
+
+        intensity_multiplier = nodes.get(ch.intensity_multiplier)
+
         intensity = nodes.get(ch.intensity)
         blend = nodes.get(ch.blend)
 
@@ -133,6 +153,22 @@ def rearrange_tex_frame_nodes(tex):
         check_set_node_parent(normal, pipeline_frame)
         check_set_node_parent(normal_flip, pipeline_frame)
 
+        check_set_node_parent(neighbor_uv, pipeline_frame)
+        check_set_node_parent(fine_bump, pipeline_frame)
+        check_set_node_parent(source_n, pipeline_frame)
+        check_set_node_parent(source_s, pipeline_frame)
+        check_set_node_parent(source_e, pipeline_frame)
+        check_set_node_parent(source_w, pipeline_frame)
+        check_set_node_parent(mod_n, pipeline_frame)
+        check_set_node_parent(mod_s, pipeline_frame)
+        check_set_node_parent(mod_e, pipeline_frame)
+        check_set_node_parent(mod_w, pipeline_frame)
+        check_set_node_parent(bump_base_n, pipeline_frame)
+        check_set_node_parent(bump_base_s, pipeline_frame)
+        check_set_node_parent(bump_base_e, pipeline_frame)
+        check_set_node_parent(bump_base_w, pipeline_frame)
+
+        check_set_node_parent(intensity_multiplier, pipeline_frame)
         check_set_node_parent(intensity, pipeline_frame)
 
         # Modifiers
@@ -572,14 +608,14 @@ def rearrange_tex_nodes(tex):
 
         for j, mask in enumerate(tex.masks):
 
-            mask_intensity_multiplier = nodes.get(mask.channels[i].intensity_multiplier)
-            multiply = nodes.get(mask.channels[i].multiply)
+            #mask_intensity_multiplier = nodes.get(mask.channels[i].intensity_multiplier)
+            #multiply = nodes.get(mask.channels[i].multiply)
 
-            if check_set_node_location(mask_intensity_multiplier, loc):
-                loc.x += 200.0
+            #if check_set_node_location(mask_intensity_multiplier, loc):
+            #    loc.x += 200.0
 
-            if check_set_node_location(multiply, loc):
-                loc.x += 200.0
+            #if check_set_node_location(multiply, loc):
+            #    loc.x += 200.0
 
             mask_ramp = nodes.get(mask.channels[i].ramp)
             mask_ramp_multiply = nodes.get(mask.channels[i].ramp_multiply)
@@ -607,7 +643,9 @@ def rearrange_tex_nodes(tex):
 
         if loc.x > farthest_x: farthest_x = loc.x
 
-        if any([m for m in ch.modifiers if m.type == 'RGB_CURVE']):
+        if fine_bump:
+            loc.y -= 410
+        elif any([m for m in ch.modifiers if m.type == 'RGB_CURVE']):
             loc.y -= 390
         elif any([m for m in ch.modifiers if m.type == 'INVERT']):
             loc.y -= 330
@@ -633,9 +671,15 @@ def rearrange_tex_nodes(tex):
             if len(next_ch.modifiers) > 0:
                 loc.y -= 35
 
+    if bookmarks_ys:
+        mid_y = (bookmarks_ys[-1]) / 2
+    else: mid_y = 0
+
+    #loc.x = farthest_x
+    #loc.y = mid_y
+
     # Mask sources
-    for j, mask in enumerate(tex.masks):
-        mask_uv_map = nodes.get(mask.uv_map)
+    for i, mask in enumerate(tex.masks):
         if mask.group_node != '':
             mask_source = nodes.get(mask.group_node)
             mask_hardness = None
@@ -643,9 +687,11 @@ def rearrange_tex_nodes(tex):
         else:
             mask_source = nodes.get(mask.source)
             mask_hardness = nodes.get(mask.hardness)
+        mask_uv_map = nodes.get(mask.uv_map)
         mask_final = nodes.get(mask.final)
 
-        loc.x = start_x
+        loc.y = mid_y
+        loc.x = farthest_x
 
         if check_set_node_location(mask_uv_map, loc):
             loc.x += 200
@@ -659,20 +705,37 @@ def rearrange_tex_nodes(tex):
         if mask_final:
             loc.y -= 35
             check_set_node_location(mask_final, loc)
-            #loc.x += 200
+            loc.x += 200
 
-        loc.y -= 235
+        #loc.y -= 235
 
-    if bookmarks_ys:
-        mid_y = (bookmarks_ys[-1]) / 2
-    else: mid_y = 0
+        bookmark_x = loc.x
+
+        for j, c in enumerate(mask.channels):
+            mask_intensity_multiplier = nodes.get(c.intensity_multiplier)
+            multiply = nodes.get(c.multiply)
+
+            loc.x = bookmark_x
+            loc.y = bookmarks_ys[j]
+
+            if check_set_node_location(mask_intensity_multiplier, loc):
+                loc.x += 200.0
+
+            if check_set_node_location(multiply, loc):
+                loc.x += 200.0
+
+            if loc.x > farthest_x: farthest_x = loc.x
 
     loc.x = farthest_x
     loc.y = mid_y
+
+    # Start node
     check_set_node_location(start, loc)
+
     loc.x += 250
     loc.y = 0
 
+    # Channel blends
     for i, ch in enumerate(tex.channels):
 
         loc.y = bookmarks_ys[i]

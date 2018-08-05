@@ -782,9 +782,13 @@ class YMoveTLChannel(bpy.types.Operator):
         # Move channel
         tl.channels.move(index, new_index)
 
-        # Move tex channel
+        # Move tex channels
         for tex in tl.textures:
             tex.channels.move(index, new_index)
+
+            # Move mask channels
+            for mask in tex.masks:
+                mask.channels.move(index, new_index)
 
         # Reindex IO
         i = 0

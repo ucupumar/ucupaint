@@ -283,6 +283,211 @@ class YRemoveTextureMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def mask_bump_channel_items(self, context):
+    tl = get_active_texture_layers_node().node_tree.tl
+    tex = tl.textures[tl.active_texture_index]
+    items = []
+    idx = 0
+    for i, root_ch in enumerate(tl.channels):
+        ch = tex.channels[i]
+        if root_ch.type == 'NORMAL' and not ch.active_mask_bump:
+            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+                items.append((str(i), root_ch.name, '', 
+                    lib.custom_icons[lib.channel_custom_icon_dict['NORMAL']].icon_id, idx))
+            else:
+                 items.append((str(i), root_ch.name, '', lib.channel_icon_dict['NORMAL'], idx))
+            idx += 1
+
+    return items
+
+def mask_ramp_channel_items(self, context):
+    tl = get_active_texture_layers_node().node_tree.tl
+    tex = tl.textures[tl.active_texture_index]
+    items = []
+    idx = 0
+    for i, root_ch in enumerate(tl.channels):
+        ch = tex.channels[i]
+        if root_ch.type != 'NORMAL' and not ch.active_mask_ramp:
+            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+                items.append((str(i), root_ch.name, '', 
+                    lib.custom_icons[lib.channel_custom_icon_dict[root_ch.type]].icon_id, idx))
+            else:
+                 items.append((str(i), root_ch.name, '', lib.channel_icon_dict['NORMAL'], idx))
+            idx += 1
+
+    return items
+
+class YAddMaskBump(bpy.types.Operator):
+    bl_idname = "node.y_add_mask_bump"
+    bl_label = "Add Mask Bump"
+    bl_description = "Add Mask Bump"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    channel = EnumProperty(
+            name = 'Target Channel',
+            items = mask_bump_channel_items)
+
+    @classmethod
+    def poll(cls, context):
+        return True
+        #return hasattr(context, 'texture')
+        #return hasattr(context, 'mask') and hasattr(context, 'texture')
+
+    def invoke(self, context, event):
+        #if not hasattr(context, 'texture'):
+        #    return self.execute(context)
+
+        self.texture = context.texture
+        tl = self.texture.id_data.tl
+        self.no_channel = not any([c for c in tl.channels if c.type == 'NORMAL'])
+        self.no_more_channel = not any([c for i, c in enumerate(self.texture.channels) 
+            if tl.channels[i].type == 'NORMAL' and not c.active_mask_bump])
+        self.no_mask = len(self.texture.masks) == 0
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def draw(self, context):
+        if self.no_mask:
+            self.layout.label('You need to set at least one mask!', icon='ERROR')
+        elif self.no_channel:
+            self.layout.label('You need Normal channel to use mask bump!', icon='ERROR')
+        elif self.no_more_channel:
+            self.layout.label('All Normal channel(s) already use mask bump!', icon='ERROR')
+        else: self.layout.prop(self, 'channel')
+
+    def execute(self, context):
+        #if not hasattr(context, 'texture'):
+        #    return {'CANCELLED'}
+
+        if self.no_mask or self.no_channel or self.no_more_channel:
+            return {'CANCELLED'}
+
+        tex = self.texture
+        tl = tex.id_data.tl
+        tlui = context.window_manager.tlui
+
+        ch = tex.channels[int(self.channel)]
+        ch.active_mask_bump = True
+        ch.enable_mask_bump = True
+
+        tlui.need_update = True
+        #context.scene.update()
+
+        return {'FINISHED'}
+
+class YAddMaskRamp(bpy.types.Operator):
+    bl_idname = "node.y_add_mask_ramp"
+    bl_label = "Add Mask Ramp"
+    bl_description = "Add Mask Ramp"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    channel = EnumProperty(
+            name = 'Target Channel',
+            items = mask_ramp_channel_items)
+
+    @classmethod
+    def poll(cls, context):
+        return True
+        #return hasattr(context, 'mask') and hasattr(context, 'texture')
+
+    def invoke(self, context, event):
+        #if not hasattr(context, 'texture'):
+        #    return self.execute(context)
+
+        self.texture = context.texture
+        tl = self.texture.id_data.tl
+        self.no_mask = len(self.texture.masks) == 0
+        self.no_channel = not any([c for c in tl.channels if c.type in {'RGB', 'VALUE'}])
+        self.no_more_channel = not any([c for i, c in enumerate(self.texture.channels) 
+            if tl.channels[i].type in {'RGB', 'VALUE'} and not c.active_mask_ramp])
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def draw(self, context):
+        if self.no_mask:
+            self.layout.label('You need to set at least one mask!', icon='ERROR')
+        elif self.no_channel:
+            self.layout.label('You need RGB/Value channel to use mask ramp!', icon='ERROR')
+        elif self.no_more_channel:
+            self.layout.label('All RGB/Value channel(s) already use mask ramp!', icon='ERROR')
+        else: self.layout.prop(self, 'channel')
+
+    def execute(self, context):
+        #if not hasattr(context, 'texture'):
+        #    return {'CANCELLED'}
+
+        if self.no_mask or self.no_channel or self.no_more_channel:
+            return {'CANCELLED'}
+
+        tex = self.texture
+        tl = tex.id_data.tl
+        tlui = context.window_manager.tlui
+
+        ch = tex.channels[int(self.channel)]
+        ch.active_mask_ramp = True
+        ch.enable_mask_ramp = True
+
+        tlui.need_update = True
+        #context.scene.update()
+
+        return {'FINISHED'}
+
+class YRemoveMaskBump(bpy.types.Operator):
+    bl_idname = "node.y_remove_mask_bump"
+    bl_label = "Remove Mask Bump"
+    bl_description = "Remove Mask Bump"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'channel')
+
+    def execute(self, context):
+        tlui = context.window_manager.tlui
+        ch = context.channel
+        tl = ch.id_data.tl
+        match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        print(match)
+        root_ch = tl.channels[int(match.group(2))]
+
+        if root_ch.type != 'NORMAL':
+            return {'CANCELLED'}
+
+        ch.active_mask_bump = False
+        ch.enable_mask_bump = False
+
+        tlui.need_update = True
+        #context.scene.update()
+
+        return {'FINISHED'}
+
+class YRemoveMaskRamp(bpy.types.Operator):
+    bl_idname = "node.y_remove_mask_ramp"
+    bl_label = "Remove Mask Ramp"
+    bl_description = "Remove Mask Ramp"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'channel')
+
+    def execute(self, context):
+        tlui = context.window_manager.tlui
+        ch = context.channel
+        tl = ch.id_data.tl
+        match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        print(match)
+        root_ch = tl.channels[int(match.group(2))]
+
+        if root_ch.type not in {'RGB', 'VALUE'}:
+            return {'CANCELLED'}
+
+        ch.active_mask_ramp = False
+        ch.enable_mask_ramp = False
+
+        tlui.need_update = True
+        #context.scene.update()
+
+        return {'FINISHED'}
+
 def update_mask_active_edit(self, context):
     if self.halt_update: return
 
@@ -695,6 +900,9 @@ class YTextureMaskChannel(bpy.types.PropertyGroup):
     ramp_intensity = StringProperty(default='')
     ramp_mix = StringProperty(default='')
 
+    # UI related
+    expand_content = BoolProperty(default=False)
+
 class YTextureMask(bpy.types.PropertyGroup):
 
     halt_update = BoolProperty(default=False)
@@ -703,7 +911,7 @@ class YTextureMask(bpy.types.PropertyGroup):
 
     enable = BoolProperty(
             name='Enable Mask', 
-            description = 'Enable Mask',
+            description = 'Enable mask',
             default=True, update=update_tex_mask_enable)
 
     enable_hardness = BoolProperty(
@@ -745,17 +953,26 @@ class YTextureMask(bpy.types.PropertyGroup):
 
     # UI related
     expand_content = BoolProperty(default=False)
+    expand_channels = BoolProperty(default=False)
     expand_source = BoolProperty(default=False)
     expand_vector = BoolProperty(default=False)
 
 def register():
     bpy.utils.register_class(YNewTextureMask)
     bpy.utils.register_class(YRemoveTextureMask)
+    bpy.utils.register_class(YAddMaskBump)
+    bpy.utils.register_class(YAddMaskRamp)
+    bpy.utils.register_class(YRemoveMaskBump)
+    bpy.utils.register_class(YRemoveMaskRamp)
     bpy.utils.register_class(YTextureMaskChannel)
     bpy.utils.register_class(YTextureMask)
 
 def unregister():
     bpy.utils.unregister_class(YNewTextureMask)
     bpy.utils.unregister_class(YRemoveTextureMask)
+    bpy.utils.unregister_class(YAddMaskBump)
+    bpy.utils.unregister_class(YAddMaskRamp)
+    bpy.utils.unregister_class(YRemoveMaskBump)
+    bpy.utils.unregister_class(YRemoveMaskRamp)
     bpy.utils.unregister_class(YTextureMaskChannel)
     bpy.utils.unregister_class(YTextureMask)
