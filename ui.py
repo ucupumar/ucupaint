@@ -59,6 +59,7 @@ def update_tl_ui():
                 c = tlui.tex_ui.channels.add()
                 c.expand_bump_settings = ch.expand_bump_settings
                 c.expand_intensity_settings = ch.expand_intensity_settings
+                c.expand_mask_settings = ch.expand_mask_settings
                 c.expand_content = ch.expand_content
                 for j, mod in enumerate(ch.modifiers):
                     m = c.modifiers.add()
@@ -441,185 +442,185 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 split.label('Space:')
                 split.prop(channel, 'colorspace', text='')
 
-def draw_mask_ui(context, layout, tex, mask, mask_idx, source, image, is_a_mesh, custom_icon_enable):
-    obj = context.object
-    tl = tex.id_data.tl
-    tlui = context.window_manager.tlui
-
-    col = layout.column()
-    col.active = mask.enable and tex.enable_masks
-
-    #col.context_pointer_set('texture', tex)
-
-    ccol = col.column() #align=True)
-    row = ccol.row(align=True)
-
-    try: maskui = tlui.tex_ui.masks[mask_idx]
-    except:
-        tlui.need_update = True
-        return
-
-    if image:
-        if custom_icon_enable:
-            if maskui.expand_content:
-                icon_value = lib.custom_icons["uncollapsed_image"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_image"].icon_id
-            row.prop(maskui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.prop(maskui, 'expand_content', text='', emboss=True, icon='IMAGE_DATA')
-    else:
-        title = source.bl_idname.replace('ShaderNodeTex', '')
-        #row.label(title + ' Properties:', icon='TEXTURE')
-        if custom_icon_enable:
-            if maskui.expand_content:
-                icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
-            row.prop(maskui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.prop(maskui, 'expand_content', text='', emboss=True, icon='TEXTURE')
-
-    if image:
-        row.label(image.name)
-    else: row.label(title)
-
-    row.prop(mask, 'enable', text='') #, emboss=True, icon = 'MOD_MASK')
-    if custom_icon_enable:
-        row.prop(tlui, 'expand_mask_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
-    else: row.prop(tlui, 'expand_mask_channels', text='', emboss=True, icon = 'GROUP_VERTEX')
-    #row = row.row(align=True)
-    #row.active = mask.enable
-
-    if maskui.expand_content:
-
-        rrow = ccol.row(align=True)
-        rrow.label('', icon='BLANK1')
-        #rrow.label('', icon='BLANK1')
-        bbox = rrow.box()
-        if image:
-            draw_image_props(source, bbox)
-        else: draw_tex_props(source, bbox)
-
-        if tlui.expand_mask_channels:
-            rrow.label('', icon='BLANK1')
-
-        ccol.separator()
-
-    #row = ccol.row(align=True)
-    ##row.label('', icon='BLANK1')
-
-    #if custom_icon_enable:
-    #    if maskui.expand_mask_channels:
-    #        icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
-    #    else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
-    #    row.prop(maskui, 'expand_mask_channels', text='', emboss=False, icon_value=icon_value)
-    #else: row.prop(maskui, 'expand_mask_channels', text='', emboss=True, icon = 'MOD_MASK')
-
-    #row.label('Channels')
-
-    if tlui.expand_mask_channels:
-        for i, ch in enumerate(mask.channels):
-            tex_ch = tex.channels[i]
-            root_ch = tl.channels[i]
-
-            #if not tlui.expand_mask_channels and not tex_ch.enable: continue
-
-            ccol = col.column()
-            ccol.active = tex_ch.enable
-            #ccol.context_pointer_set('channel', ch)
-
-            try: maskchui = maskui.channels[i]
-            except:
-                tlui.need_update = True
-                return
-
-            row = ccol.row(align=True)
-            #row.label('', icon='BLANK1')
-
-            if custom_icon_enable:
-                icon_name = lib.channel_custom_icon_dict[root_ch.type]
-                #if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
-                #    if maskchui.expand_content:
-                #        icon_name = 'uncollapsed_' + icon_name
-                #    else: icon_name = 'collapsed_' + icon_name
-                icon_value = lib.custom_icons[icon_name].icon_id
-                #if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
-                #    row.prop(maskchui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-                #else: row.label('', icon_value=icon_value)
-                row.label('', icon_value=icon_value)
-            else:
-                icon = lib.channel_icon_dict[root_ch.type]
-                #if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
-                #    row.prop(maskchui, 'expand_content', text='', emboss=True, icon=icon)
-                #else: row.label('', icon=icon)
-                row.label('', icon=icon)
-
-            #row.label('Mask ' + tl.channels[i].name)
-            row.label(tl.channels[i].name)
-
-            row.prop(ch, 'enable', text='')
-
-    row = col.row(align=True)
-
-    if custom_icon_enable:
-        if maskui.expand_vector:
-            icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
-        else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-        row.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
-    else:
-        row.prop(maskui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
-
-    split = row.split(percentage=0.275, align=True)
-    split.label('Vector:')
-    if is_a_mesh and mask.texcoord_type == 'UV':
-        ssplit = split.split(percentage=0.33, align=True)
-        ssplit.prop(mask, 'texcoord_type', text='')
-        ssplit.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-    else:
-        split.prop(mask, 'texcoord_type', text='')
-
-    if maskui.expand_vector:
-        row = col.row()
-        row.label('', icon='BLANK1')
-        bbox = row.box()
-        crow = row.column()
-        bbox.prop(source.texture_mapping, 'translation', text='Offset')
-        bbox.prop(source.texture_mapping, 'rotation')
-        bbox.prop(source.texture_mapping, 'scale')
-
-    mask_bump_found = False
-    for i, ch in enumerate(tex.channels):
-        root_ch = tl.channels[i]
-        if root_ch.type == 'NORMAL' and ch.active_mask_bump:
-            row = col.row(align=True)
-            #row.context_pointer_set('channel', ch)
-            row.label('', icon='SMOOTHCURVE')
-            row.label('Bump (' + root_ch.name + ')')
-            row.menu("NODE_MT_y_tex_mask_bump_menu_special", text='', icon='SCRIPTWIN')
-            row.prop(ch, 'enable_mask_bump', text='')
-            mask_bump_found = True
-
-    if not mask_bump_found:
-        row = col.row(align=True)
-        row.label('', icon='SMOOTHCURVE')
-        row.label('Bump')
-        row.operator('node.y_add_mask_bump', text='', icon='ZOOMIN')
-
-    mask_ramp_found = False
-    for i, ch in enumerate(tex.channels):
-        root_ch = tl.channels[i]
-        if root_ch.type != 'NORMAL' and ch.active_mask_ramp:
-            row = col.row(align=True)
-            row.label('', icon='IPO_CIRC')
-            row.label('Ramp (' + root_ch.name + ')')
-            row.menu("NODE_MT_y_tex_mask_ramp_menu_special", text='', icon='SCRIPTWIN')
-            row.prop(ch, 'enable_mask_ramp', text='')
-            mask_ramp_found = True
-
-    if not mask_ramp_found:
-        row = col.row(align=True)
-        row.label('', icon='IPO_CIRC')
-        row.label('Color Ramp')
-        row.operator('node.y_add_mask_ramp', text='', icon='ZOOMIN')
+#def draw_mask_ui(context, layout, tex, mask, mask_idx, source, image, is_a_mesh, custom_icon_enable):
+#    obj = context.object
+#    tl = tex.id_data.tl
+#    tlui = context.window_manager.tlui
+#
+#    col = layout.column()
+#    col.active = mask.enable and tex.enable_masks
+#
+#    #col.context_pointer_set('texture', tex)
+#
+#    ccol = col.column() #align=True)
+#    row = ccol.row(align=True)
+#
+#    try: maskui = tlui.tex_ui.masks[mask_idx]
+#    except:
+#        tlui.need_update = True
+#        return
+#
+#    if image:
+#        if custom_icon_enable:
+#            if maskui.expand_content:
+#                icon_value = lib.custom_icons["uncollapsed_image"].icon_id
+#            else: icon_value = lib.custom_icons["collapsed_image"].icon_id
+#            row.prop(maskui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+#        else:
+#            row.prop(maskui, 'expand_content', text='', emboss=True, icon='IMAGE_DATA')
+#    else:
+#        title = source.bl_idname.replace('ShaderNodeTex', '')
+#        #row.label(title + ' Properties:', icon='TEXTURE')
+#        if custom_icon_enable:
+#            if maskui.expand_content:
+#                icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
+#            else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
+#            row.prop(maskui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+#        else:
+#            row.prop(maskui, 'expand_content', text='', emboss=True, icon='TEXTURE')
+#
+#    if image:
+#        row.label(image.name)
+#    else: row.label(title)
+#
+#    row.prop(mask, 'enable', text='') #, emboss=True, icon = 'MOD_MASK')
+#    if custom_icon_enable:
+#        row.prop(tlui, 'expand_mask_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
+#    else: row.prop(tlui, 'expand_mask_channels', text='', emboss=True, icon = 'GROUP_VERTEX')
+#    #row = row.row(align=True)
+#    #row.active = mask.enable
+#
+#    if maskui.expand_content:
+#
+#        rrow = ccol.row(align=True)
+#        rrow.label('', icon='BLANK1')
+#        #rrow.label('', icon='BLANK1')
+#        bbox = rrow.box()
+#        if image:
+#            draw_image_props(source, bbox)
+#        else: draw_tex_props(source, bbox)
+#
+#        if tlui.expand_mask_channels:
+#            rrow.label('', icon='BLANK1')
+#
+#        ccol.separator()
+#
+#    #row = ccol.row(align=True)
+#    ##row.label('', icon='BLANK1')
+#
+#    #if custom_icon_enable:
+#    #    if maskui.expand_mask_channels:
+#    #        icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
+#    #    else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
+#    #    row.prop(maskui, 'expand_mask_channels', text='', emboss=False, icon_value=icon_value)
+#    #else: row.prop(maskui, 'expand_mask_channels', text='', emboss=True, icon = 'MOD_MASK')
+#
+#    #row.label('Channels')
+#
+#    if tlui.expand_mask_channels:
+#        for i, ch in enumerate(mask.channels):
+#            tex_ch = tex.channels[i]
+#            root_ch = tl.channels[i]
+#
+#            #if not tlui.expand_mask_channels and not tex_ch.enable: continue
+#
+#            ccol = col.column()
+#            ccol.active = tex_ch.enable
+#            #ccol.context_pointer_set('channel', ch)
+#
+#            try: maskchui = maskui.channels[i]
+#            except:
+#                tlui.need_update = True
+#                return
+#
+#            row = ccol.row(align=True)
+#            #row.label('', icon='BLANK1')
+#
+#            if custom_icon_enable:
+#                icon_name = lib.channel_custom_icon_dict[root_ch.type]
+#                #if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
+#                #    if maskchui.expand_content:
+#                #        icon_name = 'uncollapsed_' + icon_name
+#                #    else: icon_name = 'collapsed_' + icon_name
+#                icon_value = lib.custom_icons[icon_name].icon_id
+#                #if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
+#                #    row.prop(maskchui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+#                #else: row.label('', icon_value=icon_value)
+#                row.label('', icon_value=icon_value)
+#            else:
+#                icon = lib.channel_icon_dict[root_ch.type]
+#                #if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
+#                #    row.prop(maskchui, 'expand_content', text='', emboss=True, icon=icon)
+#                #else: row.label('', icon=icon)
+#                row.label('', icon=icon)
+#
+#            #row.label('Mask ' + tl.channels[i].name)
+#            row.label(tl.channels[i].name)
+#
+#            row.prop(ch, 'enable', text='')
+#
+#    row = col.row(align=True)
+#
+#    if custom_icon_enable:
+#        if maskui.expand_vector:
+#            icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+#        else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+#        row.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+#    else:
+#        row.prop(maskui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
+#
+#    split = row.split(percentage=0.275, align=True)
+#    split.label('Vector:')
+#    if is_a_mesh and mask.texcoord_type == 'UV':
+#        ssplit = split.split(percentage=0.33, align=True)
+#        ssplit.prop(mask, 'texcoord_type', text='')
+#        ssplit.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+#    else:
+#        split.prop(mask, 'texcoord_type', text='')
+#
+#    if maskui.expand_vector:
+#        row = col.row()
+#        row.label('', icon='BLANK1')
+#        bbox = row.box()
+#        crow = row.column()
+#        bbox.prop(source.texture_mapping, 'translation', text='Offset')
+#        bbox.prop(source.texture_mapping, 'rotation')
+#        bbox.prop(source.texture_mapping, 'scale')
+#
+#    mask_bump_found = False
+#    for i, ch in enumerate(tex.channels):
+#        root_ch = tl.channels[i]
+#        if root_ch.type == 'NORMAL' and ch.active_mask_bump:
+#            row = col.row(align=True)
+#            #row.context_pointer_set('channel', ch)
+#            row.label('', icon='SMOOTHCURVE')
+#            row.label('Bump (' + root_ch.name + ')')
+#            row.menu("NODE_MT_y_tex_mask_bump_menu_special", text='', icon='SCRIPTWIN')
+#            row.prop(ch, 'enable_mask_bump', text='')
+#            mask_bump_found = True
+#
+#    if not mask_bump_found:
+#        row = col.row(align=True)
+#        row.label('', icon='SMOOTHCURVE')
+#        row.label('Bump')
+#        row.operator('node.y_add_mask_bump', text='', icon='ZOOMIN')
+#
+#    mask_ramp_found = False
+#    for i, ch in enumerate(tex.channels):
+#        root_ch = tl.channels[i]
+#        if root_ch.type != 'NORMAL' and ch.active_mask_ramp:
+#            row = col.row(align=True)
+#            row.label('', icon='IPO_CIRC')
+#            row.label('Ramp (' + root_ch.name + ')')
+#            row.menu("NODE_MT_y_tex_mask_ramp_menu_special", text='', icon='SCRIPTWIN')
+#            row.prop(ch, 'enable_mask_ramp', text='')
+#            mask_ramp_found = True
+#
+#    if not mask_ramp_found:
+#        row = col.row(align=True)
+#        row.label('', icon='IPO_CIRC')
+#        row.label('Color Ramp')
+#        row.operator('node.y_add_mask_ramp', text='', icon='ZOOMIN')
 
 def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_enable):
     obj = context.object
@@ -773,26 +774,30 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
 
                 row = ccol.row(align=True)
                 row.label('', icon='BLANK1')
-                if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+                #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
 
-                    if custom_icon_enable:
-                        if chui.expand_bump_settings:
-                            icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                        else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                        row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
-                    else:
-                        row.prop(chui, 'expand_bump_settings', text='', emboss=True, icon='INFO')
-
+                if custom_icon_enable:
+                    if chui.expand_bump_settings:
+                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                    row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
                 else:
-                    row.label('', icon='INFO')
+                    row.prop(chui, 'expand_bump_settings', text='', emboss=True, icon='INFO')
+
+                #else:
+                #    row.label('', icon='INFO')
                 split = row.split(percentage=0.275)
                 split.label('Type:') #, icon='INFO')
-                split.prop(ch, 'normal_map_type', text='')
+                srow = split.row(align=True)
+                srow.prop(ch, 'normal_map_type', text='')
+                if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+                    srow.prop(ch, 'bump_distance', text='')
 
                 if tlui.expand_channels:
                     row.label('', icon='BLANK1')
 
-                if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} and chui.expand_bump_settings:
+                #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} and chui.expand_bump_settings:
+                if chui.expand_bump_settings:
                     row = ccol.row(align=True)
                     row.label('', icon='BLANK1')
                     row.label('', icon='BLANK1')
@@ -800,11 +805,14 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     bbox = row.box()
                     cccol = bbox.column(align=True)
 
-                    bump = tex_tree.nodes.get(ch.bump)
+                    if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+                        brow = cccol.row(align=True)
+                        brow.label('Bump Base:') #, icon='INFO')
+                        brow.prop(ch, 'bump_base_value', text='')
 
                     brow = cccol.row(align=True)
-                    brow.label('Bump Base:') #, icon='INFO')
-                    brow.prop(ch, 'bump_base_value', text='')
+                    brow.label('Invert Backface Normal')
+                    brow.prop(ch, 'invert_backface_normal', text='')
 
                     #cccol.separator()
                     #brow = cccol.row(align=True)
@@ -815,76 +823,120 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     if tlui.expand_channels:
                         row.label('', icon='BLANK1')
 
-                brow = ccol.row(align=True)
-                brow.label('', icon='BLANK1')
-                brow.label('', icon='INFO')
-                #if ch.normal_map_type == 'BUMP_MAP':
-                brow.label('Distance:') #, icon='INFO')
-                brow.prop(ch, 'bump_distance', text='')
-                #elif ch.normal_map_type == 'FINE_BUMP_MAP':
-                #    brow.label('Scale:') #, icon='INFO')
-                #    brow.prop(ch, 'fine_bump_scale', text='')
-                if tlui.expand_channels:
-                    brow.label('', icon='BLANK1')
+                #brow = ccol.row(align=True)
+                #brow.label('', icon='BLANK1')
+                #brow.label('', icon='INFO')
+                #brow.label('Distance:') #, icon='INFO')
+                #brow.prop(ch, 'bump_distance', text='')
+                #if tlui.expand_channels:
+                #    brow.label('', icon='BLANK1')
 
-                if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
-                    row = ccol.row(align=True)
-                    row.label('', icon='BLANK1')
+                #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+                #    row = ccol.row(align=True)
+                #    row.label('', icon='BLANK1')
 
-                    if custom_icon_enable:
-                        if chui.expand_intensity_settings:
-                            icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                        else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                        row.prop(chui, 'expand_intensity_settings', text='', emboss=False, icon_value=icon_value)
-                    else: 
-                        row.prop(chui, 'expand_intensity_settings', text='', emboss=True, icon='INFO')
+                #    if custom_icon_enable:
+                #        if chui.expand_intensity_settings:
+                #            icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                #        else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                #        row.prop(chui, 'expand_intensity_settings', text='', emboss=False, icon_value=icon_value)
+                #    else: 
+                #        row.prop(chui, 'expand_intensity_settings', text='', emboss=True, icon='INFO')
 
-                    #row.label('', icon='INFO')
-                    row.label('Intensity Multiplier:') #, icon='INFO')
-                    row.prop(ch, 'intensity_multiplier_value', text='')
-                    row.prop(ch, 'intensity_multiplier_link', toggle=True, text='', icon='LINKED')
-                    if tlui.expand_channels:
-                        row.label('', icon='BLANK1')
-                    
-                    if chui.expand_intensity_settings:
-                        row = ccol.row(align=True)
-                        row.label('', icon='BLANK1')
-                        row.label('', icon='BLANK1')
+                #    #row.label('', icon='INFO')
+                #    row.label('Intensity Multiplier:') #, icon='INFO')
+                #    row.prop(ch, 'intensity_multiplier_value', text='')
+                #    row.prop(ch, 'intensity_multiplier_link', toggle=True, text='', icon='LINKED')
+                #    if tlui.expand_channels:
+                #        row.label('', icon='BLANK1')
+                #    
+                #    if chui.expand_intensity_settings:
+                #        row = ccol.row(align=True)
+                #        row.label('', icon='BLANK1')
+                #        row.label('', icon='BLANK1')
 
-                        bbox = row.box()
-                        bbox.active = ch.intensity_multiplier_link
-                        cccol = bbox.column(align=True)
+                #        bbox = row.box()
+                #        bbox.active = ch.intensity_multiplier_link
+                #        cccol = bbox.column(align=True)
 
-                        #bbbox = cccol.box()
-                        #brow = bbbox.row(align=True)
-                        #brow.label('Intensity Multiplier Settings') #, icon='INFO')
+                #        #bbbox = cccol.box()
+                #        #brow = bbbox.row(align=True)
+                #        #brow.label('Intensity Multiplier Settings') #, icon='INFO')
 
-                        brow = cccol.row(align=True)
-                        brow.label('Link All Channels:') #, icon='INFO')
-                        brow.prop(ch, 'im_link_all_channels', text='')
+                #        brow = cccol.row(align=True)
+                #        brow.label('Link All Channels:') #, icon='INFO')
+                #        brow.prop(ch, 'im_link_all_channels', text='')
 
-                        brow = cccol.row(align=True)
-                        brow.label('Link All Masks:') #, icon='INFO')
-                        brow.prop(ch, 'im_link_all_masks', text='')
+                #        brow = cccol.row(align=True)
+                #        brow.label('Link All Masks:') #, icon='INFO')
+                #        brow.prop(ch, 'im_link_all_masks', text='')
 
-                        brow = cccol.row(align=True)
-                        brow.label('Invert Others:') #, icon='INFO')
-                        brow.prop(ch, 'im_invert_others', text='')
+                #        brow = cccol.row(align=True)
+                #        brow.label('Invert Others:') #, icon='INFO')
+                #        brow.prop(ch, 'im_invert_others', text='')
 
-                        brow = cccol.row(align=True)
-                        brow.label('Sharpen:') #, icon='INFO')
-                        brow.prop(ch, 'im_sharpen', text='')
+                #        brow = cccol.row(align=True)
+                #        brow.label('Sharpen:') #, icon='INFO')
+                #        brow.prop(ch, 'im_sharpen', text='')
 
-                        if tlui.expand_channels:
-                            row.label('', icon='BLANK1')
+                #        if tlui.expand_channels:
+                #            row.label('', icon='BLANK1')
 
                 row = ccol.row(align=True)
                 row.label('', icon='BLANK1')
-                row.label('', icon='INFO')
-                row.label('Invert Backface Normal')
-                row.prop(ch, 'invert_backface_normal', text='')
+
+                if custom_icon_enable:
+                    if chui.expand_intensity_settings:
+                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                    row.prop(chui, 'expand_intensity_settings', text='', emboss=False, icon_value=icon_value)
+                else: 
+                    row.prop(chui, 'expand_intensity_settings', text='', emboss=True, icon='INFO')
+
+                row.label('Sharpen:')
+                if ch.sharpen_normal_transition:
+                    row.prop(ch, 'normal_transition_sharpness', text='')
+                row.prop(ch, 'sharpen_normal_transition', text='')
                 if tlui.expand_channels:
                     row.label('', icon='BLANK1')
+
+                if chui.expand_intensity_settings:
+                    row = ccol.row(align=True)
+                    row.label('', icon='BLANK1')
+                    row.label('', icon='BLANK1')
+
+                    bbox = row.box()
+                    #bbox.active = ch.intensity_multiplier_link
+                    cccol = bbox.column(align=True)
+
+                    crow = cccol.row(align=True)
+                    crow.label('No settings yet!') #, icon='INFO')
+                    #crow.label('Sharpness:') #, icon='INFO')
+                    #crow.prop(ch, 'normal_transition_sharpness', text='')
+                    if tlui.expand_channels:
+                        row.label('', icon='BLANK1')
+
+                if len(tex.masks) > 0:
+                    brow = ccol.row(align=True)
+                    brow.label('', icon='BLANK1')
+                    brow.label('', icon='INFO')
+                    #brow.context_pointer_set('channel', ch)
+                    #brow.label('', icon='RNDCURVE')
+                    #if custom_icon_enable:
+                    #    if chui.expand_mask_settings:
+                    #        icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
+                    #    else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
+                    #    brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
+                    #else:
+                    #    brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MODIFIER')
+                    brow.label('Mask Bump:')
+                    if ch.enable_mask_bump:
+                        brow.prop(ch, 'mask_bump_distance', text='')
+                    #brow.menu("NODE_MT_y_tex_mask_bump_menu_special", text='', icon='SCRIPTWIN')
+                    brow.prop(ch, 'enable_mask_bump', text='')
+
+                    if tlui.expand_channels:
+                        brow.label('', icon='BLANK1')
 
                 extra_separator = True
 
@@ -935,6 +987,44 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     bbox = row.box()
                     bbox.active = m.enable
                     Modifier.draw_modifier_properties(context, root_ch, mod_tree.nodes, m, bbox)
+
+                    if tlui.expand_channels:
+                        row.label('', icon='BLANK1')
+
+                extra_separator = True
+
+            if root_ch.type in {'RGB', 'VALUE'} and len(tex.masks) > 0:
+                row = ccol.row(align=True)
+                row.label('', icon='BLANK1')
+
+                ramp = tex_tree.nodes.get(ch.mr_ramp)
+
+                if not ramp:
+                    row.label('', icon='INFO')
+                else:
+                    if custom_icon_enable:
+                        if chui.expand_mask_settings:
+                            icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                        else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                        row.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
+                    else:
+                        row.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='INFO')
+                row.label('Mask Ramp:')
+                row.prop(ch, 'enable_mask_ramp', text='')
+
+                if tlui.expand_channels:
+                    row.label('', icon='BLANK1')
+
+                if ramp and chui.expand_mask_settings:
+                    row = ccol.row(align=True)
+                    row.label('', icon='BLANK1')
+                    row.label('', icon='BLANK1')
+                    box = row.box()
+                    bcol = box.column(align=False)
+                    brow = bcol.row(align=True)
+                    brow.prop(ch, 'mr_blend_type', text='Blend')
+                    #brow.prop(ch, 'ramp_intensity_value', text='')
+                    bcol.template_color_ramp(ramp, "color_ramp", expand=True)
 
                     if tlui.expand_channels:
                         row.label('', icon='BLANK1')
@@ -1214,16 +1304,42 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
     ccol.active = tex.enable_masks
 
     #mask_bump_found = False
-    for i, ch in enumerate(tex.channels):
-        root_ch = tl.channels[i]
-        if root_ch.type == 'NORMAL' and ch.active_mask_bump:
-            row = ccol.row(align=True)
-            row.context_pointer_set('channel', ch)
-            row.label('', icon='RNDCURVE')
-            row.label('Mask Bump (' + root_ch.name + ')')
-            row.menu("NODE_MT_y_tex_mask_bump_menu_special", text='', icon='SCRIPTWIN')
-            row.prop(ch, 'enable_mask_bump', text='')
-            #mask_bump_found = True
+    #for i, ch in enumerate(tex.channels):
+
+    #    try: chui = tlui.tex_ui.channels[i]
+    #    except: 
+    #        tlui.need_update = True
+    #        return
+
+    #    root_ch = tl.channels[i]
+    #    if root_ch.type == 'NORMAL' and ch.active_mask_bump:
+    #        row = ccol.row(align=True)
+    #        row.context_pointer_set('channel', ch)
+    #        #row.label('', icon='RNDCURVE')
+    #        if custom_icon_enable:
+    #            if chui.expand_mask_settings:
+    #                icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
+    #            else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
+    #            row.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
+    #        else:
+    #            row.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MODIFIER')
+    #        row.label('Mask Bump (' + root_ch.name + ')')
+    #        if ch.enable_mask_bump:
+    #            row.prop(ch, 'mask_bump_distance', text='')
+    #        row.menu("NODE_MT_y_tex_mask_bump_menu_special", text='', icon='SCRIPTWIN')
+    #        row.prop(ch, 'enable_mask_bump', text='')
+    #        #mask_bump_found = True
+
+    #        if chui.expand_mask_settings:
+    #            row = ccol.row(align=True)
+    #            row.label('', icon='BLANK1')
+    #            #row.label('', icon='BLANK1')
+    #            box = row.box()
+    #            bcol = box.column(align=True)
+
+    #            bcol.label('Aloha')
+
+    #            row.label('', icon='BLANK1')
 
     #if not mask_bump_found:
     #    row = ccol.row(align=True)
@@ -1232,16 +1348,43 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
     #    row.operator('node.y_add_mask_bump', text='', icon='ZOOMIN')
 
     #mask_ramp_found = False
-    for i, ch in enumerate(tex.channels):
-        root_ch = tl.channels[i]
-        if root_ch.type != 'NORMAL' and ch.active_mask_ramp:
-            row = ccol.row(align=True)
-            row.context_pointer_set('channel', ch)
-            row.label('', icon='IPO_CIRC')
-            row.label('Mask Ramp (' + root_ch.name + ')')
-            row.menu("NODE_MT_y_tex_mask_ramp_menu_special", text='', icon='SCRIPTWIN')
-            row.prop(ch, 'enable_mask_ramp', text='')
-            #mask_ramp_found = True
+    #for i, ch in enumerate(tex.channels):
+
+    #    try: chui = tlui.tex_ui.channels[i]
+    #    except: 
+    #        tlui.need_update = True
+    #        return
+
+    #    root_ch = tl.channels[i]
+    #    if root_ch.type != 'NORMAL' and ch.active_mask_ramp:
+    #        row = ccol.row(align=True)
+    #        row.context_pointer_set('channel', ch)
+    #        #row.label('', icon='IPO_CIRC')
+    #        if custom_icon_enable:
+    #            if chui.expand_mask_settings:
+    #                icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
+    #            else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
+    #            row.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
+    #        else:
+    #            row.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MODIFIER')
+    #        row.label('Mask Ramp (' + root_ch.name + ')')
+    #        row.menu("NODE_MT_y_tex_mask_ramp_menu_special", text='', icon='SCRIPTWIN')
+    #        row.prop(ch, 'enable_mask_ramp', text='')
+    #        #mask_ramp_found = True
+
+    #        if chui.expand_mask_settings:
+    #            row = ccol.row(align=True)
+    #            row.label('', icon='BLANK1')
+    #            #row.label('', icon='BLANK1')
+    #            box = row.box()
+    #            bcol = box.column(align=False)
+    #            brow = bcol.row(align=True)
+    #            brow.prop(ch, 'mr_blend_type', text='Blend')
+    #            #brow.prop(ch, 'ramp_intensity_value', text='')
+    #            ramp = tex_tree.nodes.get(ch.mr_ramp)
+    #            bcol.template_color_ramp(ramp, "color_ramp", expand=True)
+
+    #            row.label('', icon='BLANK1')
 
     #if not mask_ramp_found:
     #    row = ccol.row(align=True)
@@ -1331,7 +1474,8 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
     #if mask:
     #    draw_mask_ui(context, box, tex, mask, mask_idx, source, image, is_a_mesh, custom_icon_enable)
     #elif tex:
-    draw_texture_ui(context, box, tex, source, image, is_a_mesh, custom_icon_enable)
+    if tex:
+        draw_texture_ui(context, box, tex, source, image, is_a_mesh, custom_icon_enable)
 
 def main_draw(self, context):
 
@@ -1751,44 +1895,44 @@ class YAddTexMaskMenu(bpy.types.Menu):
         col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Voronoi').type = 'VORONOI'
         col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Wave').type = 'WAVE'
 
-        col = row.column(align=True)
-        col.label('Mask Effect:')
-        col.operator('node.y_add_mask_ramp', text='Mask Ramp', icon='IPO_CIRC')
-        col.operator('node.y_add_mask_bump', text='Mask Bump', icon='RNDCURVE')
+        #col = row.column(align=True)
+        #col.label('Mask Effect:')
+        #col.operator('node.y_add_mask_ramp', text='Mask Ramp', icon='IPO_CIRC')
+        #col.operator('node.y_add_mask_bump', text='Mask Bump', icon='RNDCURVE')
 
-class YTexMaskBumpMenuSpecial(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_tex_mask_bump_menu_special"
-    bl_description = 'Mask Bump Menu'
-    bl_label = "Mask Bump Menu"
-
-    @classmethod
-    def poll(cls, context):
-        return True
-        #return hasattr(context, 'mask') and hasattr(context, 'texture')
-        #return hasattr(context, 'channel')
-
-    def draw(self, context):
-
-        col = self.layout.column(align=True)
-        col.operator('node.y_remove_mask_bump', text='Remove Mask Bump', icon='ZOOMOUT')
-        #col.separator()
-        #col.operator('node.y_add_mask_bump', text='Add Bump to other Channel', icon='ZOOMIN')
-
-class YTexMaskRampMenuSpecial(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_tex_mask_ramp_menu_special"
-    bl_description = 'Mask Ramp Menu'
-    bl_label = "Mask Ramp Menu"
-
-    @classmethod
-    def poll(cls, context):
-        return True
-        #return hasattr(context, 'mask') and hasattr(context, 'texture')
-
-    def draw(self, context):
-        col = self.layout.column(align=True)
-        col.operator('node.y_remove_mask_ramp', text='Remove Mask Ramp', icon='ZOOMOUT')
-        #col.separator()
-        #col.operator('node.y_add_mask_ramp', text='Add Ramp to other Channel', icon='ZOOMIN')
+#class YTexMaskBumpMenuSpecial(bpy.types.Menu):
+#    bl_idname = "NODE_MT_y_tex_mask_bump_menu_special"
+#    bl_description = 'Mask Bump Menu'
+#    bl_label = "Mask Bump Menu"
+#
+#    @classmethod
+#    def poll(cls, context):
+#        return True
+#        #return hasattr(context, 'mask') and hasattr(context, 'texture')
+#        #return hasattr(context, 'channel')
+#
+#    def draw(self, context):
+#
+#        col = self.layout.column(align=True)
+#        col.operator('node.y_remove_mask_bump', text='Remove Mask Bump', icon='ZOOMOUT')
+#        #col.separator()
+#        #col.operator('node.y_add_mask_bump', text='Add Bump to other Channel', icon='ZOOMIN')
+#
+#class YTexMaskRampMenuSpecial(bpy.types.Menu):
+#    bl_idname = "NODE_MT_y_tex_mask_ramp_menu_special"
+#    bl_description = 'Mask Ramp Menu'
+#    bl_label = "Mask Ramp Menu"
+#
+#    @classmethod
+#    def poll(cls, context):
+#        return True
+#        #return hasattr(context, 'mask') and hasattr(context, 'texture')
+#
+#    def draw(self, context):
+#        col = self.layout.column(align=True)
+#        col.operator('node.y_remove_mask_ramp', text='Remove Mask Ramp', icon='ZOOMOUT')
+#        #col.separator()
+#        #col.operator('node.y_add_mask_ramp', text='Add Ramp to other Channel', icon='ZOOMIN')
 
 class YTexMaskMenuSpecial(bpy.types.Menu):
     bl_idname = "NODE_MT_y_texture_mask_menu_special"
@@ -1872,6 +2016,8 @@ def update_channel_ui(self, context):
         ch.expand_base_vector = self.expand_base_vector
     if hasattr(ch, 'expand_intensity_settings'):
         ch.expand_intensity_settings = self.expand_intensity_settings
+    if hasattr(ch, 'expand_mask_settings'):
+        ch.expand_mask_settings = self.expand_mask_settings
 
 def update_mask_ui(self, context):
     tlui = context.window_manager.tlui
@@ -1915,6 +2061,7 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_bump_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_intensity_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_base_vector = BoolProperty(default=True, update=update_channel_ui)
+    expand_mask_settings = BoolProperty(default=True, update=update_channel_ui)
     modifiers = CollectionProperty(type=YModifierUI)
 
 class YMaskChannelUI(bpy.types.PropertyGroup):
@@ -2045,8 +2192,8 @@ def register():
     bpy.utils.register_class(YModifierMenu)
     bpy.utils.register_class(YAddTexMaskMenu)
     bpy.utils.register_class(YTexMaskMenuSpecial)
-    bpy.utils.register_class(YTexMaskBumpMenuSpecial)
-    bpy.utils.register_class(YTexMaskRampMenuSpecial)
+    #bpy.utils.register_class(YTexMaskBumpMenuSpecial)
+    #bpy.utils.register_class(YTexMaskRampMenuSpecial)
     bpy.utils.register_class(YModifierUI)
     bpy.utils.register_class(YChannelUI)
     bpy.utils.register_class(YMaskChannelUI)
@@ -2078,8 +2225,8 @@ def unregister():
     bpy.utils.unregister_class(YModifierMenu)
     bpy.utils.unregister_class(YAddTexMaskMenu)
     bpy.utils.unregister_class(YTexMaskMenuSpecial)
-    bpy.utils.unregister_class(YTexMaskBumpMenuSpecial)
-    bpy.utils.unregister_class(YTexMaskRampMenuSpecial)
+    #bpy.utils.unregister_class(YTexMaskBumpMenuSpecial)
+    #bpy.utils.unregister_class(YTexMaskRampMenuSpecial)
     bpy.utils.unregister_class(YModifierUI)
     bpy.utils.unregister_class(YChannelUI)
     bpy.utils.unregister_class(YMaskChannelUI)

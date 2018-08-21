@@ -419,6 +419,11 @@ def remove_node(tree, obj, prop, remove_data=True):
     setattr(obj, prop, '')
     #obj[prop] = ''
 
+def mute_node(tree, obj, prop):
+    if not hasattr(obj, prop): return
+    node = tree.nodes.get(getattr(obj, prop))
+    if node: node.mute = True
+
 def new_node(tree, obj, prop, node_id_name, label=''):
     
     if not hasattr(obj, prop): return None
@@ -512,6 +517,14 @@ def get_tex_source(tex, tree=None):
     if tree: return tree.nodes.get(tex.source)
 
     return None
+
+def get_neighbor_uv_space_input(texcoord_type):
+    if texcoord_type == 'UV':
+        return 0.0 # Tangent Space
+    if texcoord_type in {'Generated', 'Normal', 'Object'}:
+        return 1.0 # Object Space
+    if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
+        return 2.0 # View Space
 
 # BLENDER_28_GROUP_INPUT_HACK
 def duplicate_lib_node_tree(node):

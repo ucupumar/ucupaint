@@ -196,6 +196,9 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
         normal_flip = nodes.get(ch.normal_flip)
 
+        mask_intensity_multiplier = nodes.get(ch.mask_intensity_multiplier)
+        mask_total = nodes.get(ch.mask_total)
+
         intensity = nodes.get(ch.intensity)
         intensity_multiplier = nodes.get(ch.intensity_multiplier)
         blend = nodes.get(ch.blend)
@@ -212,9 +215,9 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             create_link(tree, linear.outputs[0], start_rgb.inputs[0])
         else: create_link(tree, source.outputs[source_index], start_rgb.inputs[0])
 
-        if solid_alpha:
-            create_link(tree, solid_alpha.outputs[0], start_alpha.inputs[0])
-        else: create_link(tree, source.outputs[1], start_alpha.inputs[0])
+        if tex.type == 'IMAGE':
+            create_link(tree, source.outputs[1], start_alpha.inputs[0])
+        else: create_link(tree, solid_alpha.outputs[0], start_alpha.inputs[0])
 
         if len(ch.modifiers) == 0:
             create_link(tree, start_rgb.outputs[0], end_rgb.inputs[0])
@@ -237,6 +240,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     #create_link(tree, uv_map.outputs[0], neighbor_uv.inputs[0])
                     create_link(tree, uv_attr.outputs[1], neighbor_uv.inputs[0])
                 else: create_link(tree, texcoord.outputs[tex.texcoord_type], neighbor_uv.inputs[0])
+
+                if 'Tangent' in neighbor_uv.inputs:
+                    create_link(tree, tangent.outputs[0], neighbor_uv.inputs['Tangent'])
+                if 'Bitangent' in neighbor_uv.inputs:
+                    create_link(tree, bitangent.outputs[0], neighbor_uv.inputs['Bitangent'])
+
                 create_link(tree, neighbor_uv.outputs[0], source_n.inputs[0])
                 create_link(tree, neighbor_uv.outputs[1], source_s.inputs[0])
                 create_link(tree, neighbor_uv.outputs[2], source_e.inputs[0])
@@ -269,13 +278,13 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, bump_base_e.outputs[0], fine_bump.inputs[4])
                 create_link(tree, bump_base_w.outputs[0], fine_bump.inputs[5])
 
-                create_link(tree, neighbor_uv.outputs[4], fine_bump.inputs[6])
-                create_link(tree, neighbor_uv.outputs[5], fine_bump.inputs[7])
-                create_link(tree, neighbor_uv.outputs[6], fine_bump.inputs[8])
+                #create_link(tree, neighbor_uv.outputs[4], fine_bump.inputs[6])
+                #create_link(tree, neighbor_uv.outputs[5], fine_bump.inputs[7])
+                #create_link(tree, neighbor_uv.outputs[6], fine_bump.inputs[8])
 
                 #create_link(tree, tangent.outputs[0], fine_bump.inputs[10])
-                create_link(tree, tangent_output, fine_bump.inputs[10])
-                create_link(tree, bitangent.outputs[0], fine_bump.inputs[11])
+                create_link(tree, tangent_output, fine_bump.inputs[6])
+                create_link(tree, bitangent.outputs[0], fine_bump.inputs[7])
                 #create_link(tree, geometry.outputs['Normal'], fine_bump.inputs[8])
 
             #if bump and ch.normal_map_type == 'BUMP_MAP':
@@ -293,66 +302,70 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 normal_flip_input = fine_bump.outputs[0]
 
             # Bump Mask connections
-            for j, m in enumerate(tex.masks):
-                c = m.channels[i]
-                if c.enable_bump:
+            #for j, m in enumerate(tex.masks):
+            #    c = m.channels[i]
+            #    if c.enable_bump:
 
-                    prev_vector_mix = None
-                    if j > 0:
-                        prev_m = tex.masks[j-1]
-                        prev_c = prev_m.channels[i] 
-                        if prev_c.enable_bump:
-                            prev_vector_mix = nodes.get(prev_c.vector_mix)
+            #        prev_vector_mix = None
+            #        if j > 0:
+            #            prev_m = tex.masks[j-1]
+            #            prev_c = prev_m.channels[i] 
+            #            if prev_c.enable_bump:
+            #                prev_vector_mix = nodes.get(prev_c.vector_mix)
 
-                    mask_uv_map = nodes.get(m.uv_map)
-                    mask_final = nodes.get(m.final)
-                    mask_neighbor_uv = nodes.get(c.neighbor_uv)
-                    mask_source_n = nodes.get(c.source_n)
-                    mask_source_s = nodes.get(c.source_s)
-                    mask_source_e = nodes.get(c.source_e)
-                    mask_source_w = nodes.get(c.source_w)
-                    mask_fine_bump = nodes.get(c.fine_bump)
-                    mask_invert = nodes.get(c.invert)
-                    mask_intensity_multiplier = nodes.get(c.vector_intensity_multiplier)
-                    mask_vector_mix = nodes.get(c.vector_mix)
+            #        mask_uv_map = nodes.get(m.uv_map)
+            #        mask_final = nodes.get(m.final)
+            #        mask_tangent = nodes.get(m.tangent)
+            #        mask_bitangent = nodes.get(m.bitangent)
 
-                    if m.texcoord_type == 'UV':
-                        create_link(tree, mask_uv_map.outputs[0], mask_neighbor_uv.inputs[0])
-                    else: create_link(tree, texcoord.outputs[m.texcoord_type], neighbor_uv.inputs[0])
-                    create_link(tree, mask_neighbor_uv.outputs[0], mask_source_n.inputs[0])
-                    create_link(tree, mask_neighbor_uv.outputs[1], mask_source_s.inputs[0])
-                    create_link(tree, mask_neighbor_uv.outputs[2], mask_source_e.inputs[0])
-                    create_link(tree, mask_neighbor_uv.outputs[3], mask_source_w.inputs[0])
+            #        mask_neighbor_uv = nodes.get(c.neighbor_uv)
+            #        mask_source_n = nodes.get(c.source_n)
+            #        mask_source_s = nodes.get(c.source_s)
+            #        mask_source_e = nodes.get(c.source_e)
+            #        mask_source_w = nodes.get(c.source_w)
+            #        mask_fine_bump = nodes.get(c.fine_bump)
+            #        mask_invert = nodes.get(c.invert)
+            #        mask_intensity_multiplier = nodes.get(c.vector_intensity_multiplier)
+            #        mask_vector_mix = nodes.get(c.vector_mix)
 
-                    create_link(tree, mask_final.outputs[0], mask_fine_bump.inputs[1])
-                    create_link(tree, mask_source_n.outputs[0], mask_fine_bump.inputs[2])
-                    create_link(tree, mask_source_s.outputs[0], mask_fine_bump.inputs[3])
-                    create_link(tree, mask_source_e.outputs[0], mask_fine_bump.inputs[4])
-                    create_link(tree, mask_source_w.outputs[0], mask_fine_bump.inputs[5])
+            #        if m.texcoord_type == 'UV':
+            #            create_link(tree, mask_uv_map.outputs[0], mask_neighbor_uv.inputs[0])
+            #        else: create_link(tree, texcoord.outputs[m.texcoord_type], mask_neighbor_uv.inputs[0])
 
-                    create_link(tree, mask_neighbor_uv.outputs[4], mask_fine_bump.inputs[6])
-                    create_link(tree, mask_neighbor_uv.outputs[5], mask_fine_bump.inputs[7])
-                    create_link(tree, mask_neighbor_uv.outputs[6], mask_fine_bump.inputs[8])
+            #        create_link(tree, mask_neighbor_uv.outputs[0], mask_source_n.inputs[0])
+            #        create_link(tree, mask_neighbor_uv.outputs[1], mask_source_s.inputs[0])
+            #        create_link(tree, mask_neighbor_uv.outputs[2], mask_source_e.inputs[0])
+            #        create_link(tree, mask_neighbor_uv.outputs[3], mask_source_w.inputs[0])
 
-                    #create_link(tree, tangent.outputs[0], mask_fine_bump.inputs[10])
-                    create_link(tree, tangent_output, mask_fine_bump.inputs[10])
-                    create_link(tree, bitangent.outputs[0], mask_fine_bump.inputs[11])
+            #        create_link(tree, mask_final.outputs[0], mask_fine_bump.inputs[1])
+            #        create_link(tree, mask_source_n.outputs[0], mask_fine_bump.inputs[2])
+            #        create_link(tree, mask_source_s.outputs[0], mask_fine_bump.inputs[3])
+            #        create_link(tree, mask_source_e.outputs[0], mask_fine_bump.inputs[4])
+            #        create_link(tree, mask_source_w.outputs[0], mask_fine_bump.inputs[5])
 
-                    create_link(tree, mask_final.outputs[0], mask_invert.inputs[1])
-                    create_link(tree, mask_invert.outputs[0], mask_intensity_multiplier.inputs[0])
-                    create_link(tree, mask_intensity_multiplier.outputs[0], mask_vector_mix.inputs[0])
+            #        create_link(tree, mask_neighbor_uv.outputs[4], mask_fine_bump.inputs[6])
+            #        create_link(tree, mask_neighbor_uv.outputs[5], mask_fine_bump.inputs[7])
+            #        create_link(tree, mask_neighbor_uv.outputs[6], mask_fine_bump.inputs[8])
 
-                    if prev_vector_mix:
-                        create_link(tree, prev_vector_mix.outputs[0], mask_vector_mix.inputs[1])
-                    elif fine_bump:
-                        create_link(tree, fine_bump.outputs[0], mask_vector_mix.inputs[1])
-                    elif bump:
-                        create_link(tree, bump.outputs[0], mask_vector_mix.inputs[1])
-                    elif normal:
-                        create_link(tree, normal.outputs[0], mask_vector_mix.inputs[1])
+            #        #create_link(tree, tangent.outputs[0], mask_fine_bump.inputs[10])
+            #        create_link(tree, tangent_output, mask_fine_bump.inputs[10])
+            #        create_link(tree, bitangent.outputs[0], mask_fine_bump.inputs[11])
 
-                    create_link(tree, mask_fine_bump.outputs[0], mask_vector_mix.inputs[2])
-                    normal_flip_input = mask_vector_mix.outputs[0]
+            #        create_link(tree, mask_final.outputs[0], mask_invert.inputs[1])
+            #        create_link(tree, mask_invert.outputs[0], mask_intensity_multiplier.inputs[0])
+            #        create_link(tree, mask_intensity_multiplier.outputs[0], mask_vector_mix.inputs[0])
+
+            #        if prev_vector_mix:
+            #            create_link(tree, prev_vector_mix.outputs[0], mask_vector_mix.inputs[1])
+            #        elif fine_bump:
+            #            create_link(tree, fine_bump.outputs[0], mask_vector_mix.inputs[1])
+            #        elif bump:
+            #            create_link(tree, bump.outputs[0], mask_vector_mix.inputs[1])
+            #        elif normal:
+            #            create_link(tree, normal.outputs[0], mask_vector_mix.inputs[1])
+
+            #        create_link(tree, mask_fine_bump.outputs[0], mask_vector_mix.inputs[2])
+            #        normal_flip_input = mask_vector_mix.outputs[0]
 
             if normal_flip and normal_flip_input:
                 create_link(tree, normal_flip_input, normal_flip.inputs[0])
@@ -390,7 +403,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
             mask_final = nodes.get(mask.final)
 
-            mask_intensity_multiplier = nodes.get(mask.channels[i].intensity_multiplier)
+            #mask_intensity_multiplier = nodes.get(mask.channels[i].intensity_multiplier)
             mask_multiply = nodes.get(mask.channels[i].multiply)
 
             if mask.texcoord_type == 'UV':
@@ -403,85 +416,219 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             else:
                 create_link(tree, mask_source.outputs[0], mask_final.inputs[0])
 
-            if mask_intensity_multiplier:
-                create_link(tree, mask_final.outputs[0], mask_intensity_multiplier.inputs[0])
-                create_link(tree, mask_intensity_multiplier.outputs[0], mask_multiply.inputs[1])
-            else:
-                create_link(tree, mask_final.outputs[0], mask_multiply.inputs[1])
+            #if mask_intensity_multiplier:
+            #    create_link(tree, mask_final.outputs[0], mask_intensity_multiplier.inputs[0])
+            #    create_link(tree, mask_intensity_multiplier.outputs[0], mask_multiply.inputs[1])
+            #else:
+            create_link(tree, mask_final.outputs[0], mask_multiply.inputs[1])
 
             if j == 0:
-                create_link(tree, intensity.outputs[0], mask_multiply.inputs[0])
+                #create_link(tree, intensity.outputs[0], mask_multiply.inputs[0])
+                create_link(tree, solid_alpha.outputs[0], mask_multiply.inputs[0])
             else:
                 prev_multiply = nodes.get(tex.masks[j-1].channels[i].multiply)
                 create_link(tree, prev_multiply.outputs[0], mask_multiply.inputs[0])
             if j == len(tex.masks)-1:
-                final_intensity = mask_multiply.outputs[0]
+                if mask_intensity_multiplier:
+                    create_link(tree, mask_multiply.outputs[0], mask_intensity_multiplier.inputs[0])
+                    create_link(tree, mask_intensity_multiplier.outputs[0], mask_total.inputs[1])
+                else:
+                    create_link(tree, mask_multiply.outputs[0], mask_total.inputs[1])
+                #final_intensity = mask_multiply.outputs[0]
+                final_intensity = mask_total.outputs[0]
 
         # Mask ramps
-        ramp_output = None
-        ramp_output_alpha = None
+        #ramp_output = None
+        #ramp_output_alpha = None
 
-        for j, mask in enumerate(tex.masks):
+        if len(tex.masks) > 0:
+            create_link(tree, intensity.outputs[0], mask_total.inputs[0])
 
-            if mask.channels[i].enable_ramp:
+            # Ramp
+            if ch.enable_mask_ramp:
+                mr_inverse = nodes.get(ch.mr_inverse)
+                mr_ramp = nodes.get(ch.mr_ramp)
+                mr_intensity_multiplier = nodes.get(ch.mr_intensity_multiplier)
+                mr_alpha = nodes.get(ch.mr_alpha)
+                mr_blend = nodes.get(ch.mr_blend)
 
-                prev_ramp_mix = None
-                if j > 0:
-                    prev_ramp_mix = nodes.get(tex.masks[j-1].channels[i].ramp_mix)
+                last_mask_multiply = nodes.get(tex.masks[-1].channels[i].multiply)
 
-                mask_final = nodes.get(mask.final)
-                mask_intensity_multiplier = nodes.get(mask.channels[i].intensity_multiplier)
-                mask_ramp = nodes.get(mask.channels[i].ramp)
-                mask_ramp_multiply = nodes.get(mask.channels[i].ramp_multiply)
-                mask_ramp_subtract = nodes.get(mask.channels[i].ramp_subtract)
-                mask_ramp_intensity = nodes.get(mask.channels[i].ramp_intensity)
-                mask_ramp_mix = nodes.get(mask.channels[i].ramp_mix)
+                create_link(tree, last_mask_multiply.outputs[0], mr_inverse.inputs[1])
+                create_link(tree, mr_inverse.outputs[0], mr_ramp.inputs[0])
+                create_link(tree, mr_ramp.outputs[0], mr_blend.inputs[2])
+                #create_link(tree, mask_multiply.outputs[0], mr_alpha.inputs[0])
+                create_link(tree, mr_ramp.outputs[1], mr_alpha.inputs[1])
+                if mr_intensity_multiplier:
+                    create_link(tree, mr_inverse.outputs[0], mr_intensity_multiplier.inputs[0])
+                    create_link(tree, mr_intensity_multiplier.outputs[0], mr_alpha.inputs[0])
+                else:
+                    create_link(tree, mr_inverse.outputs[0], mr_alpha.inputs[0])
+                #if mr_intensity_multiplier:
+                #    create_link(tree, mr_alpha.outputs[0], mr_intensity_multiplier.inputs[0])
+                #    create_link(tree, mr_intensity_multiplier.outputs[0], mr_blend.inputs[0])
+                #else:
+                create_link(tree, mr_alpha.outputs[0], mr_blend.inputs[0])
+                create_link(tree, end_rgb.outputs[0], mr_blend.inputs[1])
 
-                create_link(tree, mask_final.outputs[0], mask_ramp.inputs[0])
-                create_link(tree, mask_final.outputs[0], mask_ramp_multiply.inputs[0])
-                create_link(tree, mask_ramp.outputs[1], mask_ramp_multiply.inputs[1])
+                final_rgb = mr_blend.outputs[0]
 
-                create_link(tree, mask_ramp_multiply.outputs[0], mask_ramp_subtract.inputs[0])
-                if mask_intensity_multiplier:
-                    create_link(tree, mask_intensity_multiplier.outputs[0], mask_ramp_subtract.inputs[1])
-                else: create_link(tree, mask_final.outputs[0], mask_ramp_subtract.inputs[1])
+            # Bump
+            if ch.enable_mask_bump:
 
-                create_link(tree, mask_ramp_subtract.outputs[0], mask_ramp_intensity.inputs[0])
+                for j, mask in enumerate(tex.masks):
+                    c = mask.channels[i]
 
-                create_link(tree, mask_ramp_intensity.outputs[0], mask_ramp_mix.inputs[0])
-                #create_link(tree, ch_tex_start.outputs[root_ch.io_index], mask_ramp_mix.inputs[1])
+                    mask_source = nodes.get(mask.group_node)
+                    mask_uv_map = nodes.get(mask.uv_map)
+                    mask_tangent = nodes.get(mask.tangent)
+                    mask_bitangent = nodes.get(mask.bitangent)
+                    mask_multiply = nodes.get(c.multiply)
 
-                if prev_ramp_mix:
-                    create_link(tree, prev_ramp_mix.outputs[0], mask_ramp_mix.inputs[1])
-                else: create_link(tree, start.outputs[root_ch.io_index], mask_ramp_mix.inputs[1])
+                    mb_neighbor_uv = nodes.get(c.neighbor_uv)
+                    mb_source_n = nodes.get(c.source_n)
+                    mb_source_s = nodes.get(c.source_s)
+                    mb_source_e = nodes.get(c.source_e)
+                    mb_source_w = nodes.get(c.source_w)
+                    #mb_multiply_me = nodes.get(c.multiply_me)
+                    mb_multiply_n = nodes.get(c.multiply_n)
+                    mb_multiply_s = nodes.get(c.multiply_s)
+                    mb_multiply_e = nodes.get(c.multiply_e)
+                    mb_multiply_w = nodes.get(c.multiply_w)
 
-                create_link(tree, mask_ramp.outputs[0], mask_ramp_mix.inputs[2])
+                    create_link(tree, mb_neighbor_uv.outputs[0], mb_source_n.inputs[0])
+                    create_link(tree, mb_neighbor_uv.outputs[1], mb_source_s.inputs[0])
+                    create_link(tree, mb_neighbor_uv.outputs[2], mb_source_e.inputs[0])
+                    create_link(tree, mb_neighbor_uv.outputs[3], mb_source_w.inputs[0])
 
-                #final_rgb =  mask_ramp_mix.outputs[0]
-                #final_intensity = mask_ramp_mix.outputs[1]
+                    if mask.texcoord_type == 'UV':
+                        create_link(tree, mask_uv_map.outputs[0], mb_neighbor_uv.inputs[0])
+                    else: create_link(tree, texcoord.outputs[mask.texcoord_type], mb_neighbor_uv.inputs[0])
 
-                ramp_output = mask_ramp_mix.outputs[0]
+                    if 'Tangent' in mb_neighbor_uv.inputs:
+                        create_link(tree, tangent.outputs[0], mb_neighbor_uv.inputs['Tangent'])
+                    if 'Bitangent' in mb_neighbor_uv.inputs:
+                        create_link(tree, bitangent.outputs[0], mb_neighbor_uv.inputs['Bitangent'])
+                    if 'Mask Tangent' in mb_neighbor_uv.inputs:
+                        create_link(tree, mask_tangent.outputs[0], mb_neighbor_uv.inputs['Mask Tangent'])
+                    if 'Mask Bitangent' in mb_neighbor_uv.inputs:
+                        create_link(tree, mask_bitangent.outputs[0], mb_neighbor_uv.inputs['Mask Bitangent'])
+
+                    if j == 0:
+                        #create_link(tree, solid_alpha.outputs[0], mb_multiply_me.inputs[0])
+                        create_link(tree, solid_alpha.outputs[0], mb_multiply_n.inputs[0])
+                        create_link(tree, solid_alpha.outputs[0], mb_multiply_s.inputs[0])
+                        create_link(tree, solid_alpha.outputs[0], mb_multiply_e.inputs[0])
+                        create_link(tree, solid_alpha.outputs[0], mb_multiply_w.inputs[0])
+                    else:
+                        #prev_mul_me = nodes.get(tex.masks[j-1].channels[i].multiply_me)
+                        prev_mul_n = nodes.get(tex.masks[j-1].channels[i].multiply_n)
+                        prev_mul_s = nodes.get(tex.masks[j-1].channels[i].multiply_s)
+                        prev_mul_e = nodes.get(tex.masks[j-1].channels[i].multiply_e)
+                        prev_mul_w = nodes.get(tex.masks[j-1].channels[i].multiply_w)
+
+                        #create_link(tree, prev_mul_me.outputs[0], mb_multiply_me.inputs[0])
+                        create_link(tree, prev_mul_n.outputs[0], mb_multiply_n.inputs[0])
+                        create_link(tree, prev_mul_s.outputs[0], mb_multiply_s.inputs[0])
+                        create_link(tree, prev_mul_e.outputs[0], mb_multiply_e.inputs[0])
+                        create_link(tree, prev_mul_w.outputs[0], mb_multiply_w.inputs[0])
+
+                    #create_link(tree, mask_source.outputs[0], mb_multiply_me.inputs[1])
+                    create_link(tree, mb_source_n.outputs[0], mb_multiply_n.inputs[1])
+                    create_link(tree, mb_source_s.outputs[0], mb_multiply_s.inputs[1])
+                    create_link(tree, mb_source_e.outputs[0], mb_multiply_e.inputs[1])
+                    create_link(tree, mb_source_w.outputs[0], mb_multiply_w.inputs[1])
+
+                mb_fine_bump = nodes.get(ch.mb_fine_bump)
+                mb_inverse = nodes.get(ch.mb_inverse)
+                mb_intensity_multiplier = nodes.get(ch.mb_intensity_multiplier)
+                mb_blend = nodes.get(ch.mb_blend)
+
+                #create_link(tree, mb_multiply_me.outputs[0], mb_fine_bump.inputs[1])
+                create_link(tree, mask_multiply.outputs[0], mb_fine_bump.inputs[1])
+                create_link(tree, mb_multiply_n.outputs[0], mb_fine_bump.inputs[2])
+                create_link(tree, mb_multiply_s.outputs[0], mb_fine_bump.inputs[3])
+                create_link(tree, mb_multiply_e.outputs[0], mb_fine_bump.inputs[4])
+                create_link(tree, mb_multiply_w.outputs[0], mb_fine_bump.inputs[5])
+                create_link(tree, tangent.outputs[0], mb_fine_bump.inputs['Tangent'])
+                create_link(tree, bitangent.outputs[0], mb_fine_bump.inputs['Bitangent'])
+
+                create_link(tree, mask_multiply.outputs[0], mb_inverse.inputs[1])
+                if mb_intensity_multiplier:
+                    create_link(tree, mb_inverse.outputs[0], mb_intensity_multiplier.inputs[0])
+                    create_link(tree, mb_intensity_multiplier.outputs[0], mb_blend.inputs[0])
+                else:
+                    create_link(tree, mb_inverse.outputs[0], mb_blend.inputs[0])
+
+                create_link(tree, normal_flip.outputs[0], mb_blend.inputs[1])
+                create_link(tree, mb_fine_bump.outputs[0], mb_blend.inputs[2])
+
+                final_rgb = mb_blend.outputs[0]
+
+        #for j, mask in enumerate(tex.masks):
+
+        #    if mask.channels[i].enable_ramp:
+
+        #        prev_ramp_mix = None
+        #        if j > 0:
+        #            prev_ramp_mix = nodes.get(tex.masks[j-1].channels[i].ramp_mix)
+
+        #        mask_final = nodes.get(mask.final)
+        #        mask_intensity_multiplier = nodes.get(mask.channels[i].intensity_multiplier)
+        #        mask_ramp = nodes.get(mask.channels[i].ramp)
+        #        mask_ramp_multiply = nodes.get(mask.channels[i].ramp_multiply)
+        #        mask_ramp_subtract = nodes.get(mask.channels[i].ramp_subtract)
+        #        mask_ramp_intensity = nodes.get(mask.channels[i].ramp_intensity)
+        #        mask_ramp_mix = nodes.get(mask.channels[i].ramp_mix)
+
+        #        create_link(tree, mask_final.outputs[0], mask_ramp.inputs[0])
+        #        create_link(tree, mask_final.outputs[0], mask_ramp_multiply.inputs[0])
+        #        create_link(tree, mask_ramp.outputs[1], mask_ramp_multiply.inputs[1])
+
+        #        create_link(tree, mask_ramp_multiply.outputs[0], mask_ramp_subtract.inputs[0])
+        #        if mask_intensity_multiplier:
+        #            create_link(tree, mask_intensity_multiplier.outputs[0], mask_ramp_subtract.inputs[1])
+        #        else: create_link(tree, mask_final.outputs[0], mask_ramp_subtract.inputs[1])
+
+        #        create_link(tree, mask_ramp_subtract.outputs[0], mask_ramp_intensity.inputs[0])
+
+        #        create_link(tree, mask_ramp_intensity.outputs[0], mask_ramp_mix.inputs[0])
+        #        #create_link(tree, ch_tex_start.outputs[root_ch.io_index], mask_ramp_mix.inputs[1])
+
+        #        if prev_ramp_mix:
+        #            create_link(tree, prev_ramp_mix.outputs[0], mask_ramp_mix.inputs[1])
+        #        else: create_link(tree, start.outputs[root_ch.io_index], mask_ramp_mix.inputs[1])
+
+        #        create_link(tree, mask_ramp.outputs[0], mask_ramp_mix.inputs[2])
+
+        #        #final_rgb =  mask_ramp_mix.outputs[0]
+        #        #final_intensity = mask_ramp_mix.outputs[1]
+
+        #        ramp_output = mask_ramp_mix.outputs[0]
 
         if final_rgb:
             create_link(tree, final_rgb, blend.inputs[2])
 
         if root_ch.type == 'RGB' and ch.blend_type == 'MIX' and root_ch.alpha:
-            if ramp_output:
-                create_link(tree, ramp_output, blend.inputs[0])
-            else: create_link(tree, start.outputs[root_ch.io_index], blend.inputs[0])
+            #if ramp_output:
+            #    create_link(tree, ramp_output, blend.inputs[0])
+            #else: 
+            create_link(tree, start.outputs[root_ch.io_index], blend.inputs[0])
 
-            if ramp_output_alpha:
-                create_link(tree, ramp_output_alpha, blend.inputs[1])
-            else: create_link(tree, start.outputs[root_ch.io_index+1], blend.inputs[1])
+            #if ramp_output_alpha:
+            #    create_link(tree, ramp_output_alpha, blend.inputs[1])
+            #else: 
+            create_link(tree, start.outputs[root_ch.io_index+1], blend.inputs[1])
 
             create_link(tree, blend.outputs[1], end.inputs[root_ch.io_index+1])
             create_link(tree, final_intensity, blend.inputs[3])
         else:
             create_link(tree, final_intensity, blend.inputs[0])
 
-            if ramp_output:
-                create_link(tree, ramp_output, blend.inputs[1])
-            else: create_link(tree, start.outputs[root_ch.io_index], blend.inputs[1])
+            #if ramp_output:
+            #    create_link(tree, ramp_output, blend.inputs[1])
+            #else: 
+            create_link(tree, start.outputs[root_ch.io_index], blend.inputs[1])
 
         # Armory can't recognize mute node, so reconnect input to output directly
         #if tex.enable and ch.enable:

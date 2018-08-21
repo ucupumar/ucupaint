@@ -148,10 +148,10 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
 
         # Add new image if it's image texture
         source.image = image
-    else:
-        # Solid alpha for non image texture
-        solid_alpha = new_node(tree, tex, 'solid_alpha', 'ShaderNodeValue', 'Solid Alpha')
-        solid_alpha.outputs[0].default_value = 1.0
+    #else:
+    # Solid alpha can be useful for many things
+    solid_alpha = new_node(tree, tex, 'solid_alpha', 'ShaderNodeValue', 'Solid Alpha')
+    solid_alpha.outputs[0].default_value = 1.0
 
     # Add geometry and texcoord node
     geometry = new_node(tree, tex, 'geometry', 'ShaderNodeNewGeometry', 'Source Geometry')
@@ -257,6 +257,7 @@ def get_fine_bump_distance(tex, distance):
         image = source.image
         if image: scale = image.size[0] / 10
 
+    #return -1.0 * distance * scale
     return distance * scale
 
 class YRefreshNeighborUV(bpy.types.Operator):
@@ -271,9 +272,11 @@ class YRefreshNeighborUV(bpy.types.Operator):
 
     def execute(self, context):
         tree = get_tree(context.texture)
+
         neighbor_uv = tree.nodes.get(context.parent.neighbor_uv)
         neighbor_uv.inputs[1].default_value = context.image.size[0]
         neighbor_uv.inputs[2].default_value = context.image.size[1]
+        
         if BLENDER_28_GROUP_INPUT_HACK:
             inp = neighbor_uv.node_tree.nodes.get('Group Input')
             inp.outputs[1].links[0].to_socket.default_value = neighbor_uv.inputs[1].default_value
@@ -281,9 +284,11 @@ class YRefreshNeighborUV(bpy.types.Operator):
 
         fine_bump = tree.nodes.get(context.parent.fine_bump)
         fine_bump.inputs[0].default_value = get_fine_bump_distance(context.texture, context.channel.bump_distance)
+
         if BLENDER_28_GROUP_INPUT_HACK:
-            inp = fine_bump.node_tree.nodes.get('Group Input.002')
+            inp = fine_bump.node_tree.nodes.get('Group Input')
             inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
+
         return {'FINISHED'}
 
 class YNewTextureLayer(bpy.types.Operator):
@@ -368,7 +373,9 @@ class YNewTextureLayer(bpy.types.Operator):
         else:
             name = obj.active_material.name + DEFAULT_NEW_IMG_SUFFIX
             items = bpy.data.images
-            self.normal_map_type = 'FINE_BUMP_MAP'
+            
+        # Default normal map type is fine bump map
+        self.normal_map_type = 'FINE_BUMP_MAP'
 
         self.name = get_unique_name(name, items)
 
@@ -965,7 +972,7 @@ def update_normal_map_type(self, context):
     # Bump nodes
     bump_base = nodes.get(self.bump_base)
     bump = nodes.get(self.bump)
-    #intensity_multiplier = nodes.get(self.intensity_multiplier)
+    intensity_multiplier = nodes.get(self.intensity_multiplier)
 
     # Fine bump nodes
     neighbor_uv = nodes.get(self.neighbor_uv)
@@ -993,11 +1000,14 @@ def update_normal_map_type(self, context):
             bump_base = new_node(tree, self, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
             val = self.bump_base_value
             bump_base.inputs[1].default_value = (val, val, val, 1.0)
-        #if not intensity_multiplier:
-        #    intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeMath', 'Intensity Multiplier')
-        #    intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
-        #    intensity_multiplier.use_clamp = True
-        #    intensity_multiplier.operation = 'MULTIPLY'
+        if not intensity_multiplier:
+            intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeGroup', 
+                    'Intensity Multiplier')
+            intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
+            #intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeMath', 'Intensity Multiplier')
+            #intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+            #intensity_multiplier.use_clamp = True
+            #intensity_multiplier.operation = 'MULTIPLY'
 
     if self.normal_map_type == 'NORMAL_MAP':
         if not normal:
@@ -1022,7 +1032,8 @@ def update_normal_map_type(self, context):
 
         if not neighbor_uv:
             neighbor_uv = new_node(tree, self, 'neighbor_uv', 'ShaderNodeGroup', 'Neighbor UV')
-            neighbor_uv.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_UV)
+            #neighbor_uv.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_UV)
+            neighbor_uv.node_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
 
             if BLENDER_28_GROUP_INPUT_HACK:
                 duplicate_lib_node_tree(neighbor_uv)
@@ -1034,10 +1045,15 @@ def update_normal_map_type(self, context):
             neighbor_uv.inputs[1].default_value = 1000
             neighbor_uv.inputs[2].default_value = 1000
 
+        #neighbor_uv.inputs['Space'].default_value = get_neighbor_uv_space_input(tex.texcoord_type)
+
         if BLENDER_28_GROUP_INPUT_HACK:
-            inp = neighbor_uv.node_tree.nodes.get('Group Input.001')
-            inp.outputs[1].links[0].to_socket.default_value = neighbor_uv.inputs[1].default_value
-            inp.outputs[2].links[0].to_socket.default_value = neighbor_uv.inputs[2].default_value
+            inp = neighbor_uv.node_tree.nodes.get('Group Input')
+            inp.outputs['ResX'].links[0].to_socket.default_value = neighbor_uv.inputs['ResX'].default_value
+            inp.outputs['ResY'].links[0].to_socket.default_value = neighbor_uv.inputs['ResY'].default_value
+            #inp.outputs['Space'].links[0].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
+            #inp.outputs['Space'].links[1].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
+            #inp.outputs['Space'].links[2].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
 
         if not fine_bump:
             fine_bump = new_node(tree, self, 'fine_bump', 'ShaderNodeGroup', 'Fine Bump')
@@ -1047,7 +1063,7 @@ def update_normal_map_type(self, context):
             if BLENDER_28_GROUP_INPUT_HACK:
                 duplicate_lib_node_tree(fine_bump)
 
-                inp = fine_bump.node_tree.nodes.get('Group Input.002')
+                inp = fine_bump.node_tree.nodes.get('Group Input')
                 inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
 
         for i, s in enumerate(sources):
@@ -1256,13 +1272,95 @@ def update_bump_distance(self, context):
     if self.normal_map_type == 'BUMP_MAP':
         bump = tree.nodes.get(self.bump)
         if bump: bump.inputs[1].default_value = self.bump_distance
+
     elif self.normal_map_type == 'FINE_BUMP_MAP':
+
         fine_bump = tree.nodes.get(self.fine_bump)
         if fine_bump: 
             fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
+
             if BLENDER_28_GROUP_INPUT_HACK:
-                inp = fine_bump.node_tree.nodes.get('Group Input.002')
+                inp = fine_bump.node_tree.nodes.get('Group Input')
                 inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
+
+def update_normal_transition_sharpness(self, context):
+    tl = self.id_data.tl
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
+    tree = get_tree(tex)
+    ch = self
+
+    props = ['intensity_multiplier', 'mb_intensity_multiplier', 'mask_intensity_multiplier']
+    for prop in props:
+        im = tree.nodes.get(getattr(ch, prop))
+        if im: im.inputs[1].default_value = ch.normal_transition_sharpness
+
+    props = ['intensity_multiplier', 'mr_intensity_multiplier', 'mask_intensity_multiplier']
+    for c in tex.channels:
+        if c == ch: continue
+        for prop in props:
+            im = tree.nodes.get(getattr(c, prop))
+            if im: im.inputs[1].default_value = ch.normal_transition_sharpness
+
+def update_sharpen_normal_transition(self, context):
+    T = time.time()
+
+    tl = self.id_data.tl
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
+    tree = get_tree(tex)
+    ch = self
+
+    if ch.sharpen_normal_transition:
+        props = ['intensity_multiplier', 'mask_intensity_multiplier']
+        if ch.enable_mask_bump:
+            props.append('mb_intensity_multiplier')
+
+        rearrange = False
+
+        for prop in props:
+            im = tree.nodes.get(getattr(ch, prop))
+            if not im:
+                im = lib.new_intensity_multiplier_node(tree, ch, prop, ch.normal_transition_sharpness)
+                rearrange = True
+            im.mute = False
+
+        for c in tex.channels:
+            if c == ch: continue
+            props = ['intensity_multiplier', 'mask_intensity_multiplier']
+
+            if c.enable_mask_ramp and ch.enable_mask_bump:
+                props.append('mr_intensity_multiplier')
+
+            for prop in props:
+                im = tree.nodes.get(getattr(c, prop))
+                if not im:
+                    im = lib.new_intensity_multiplier_node(tree, c, prop, ch.normal_transition_sharpness)
+                    rearrange = True
+                im.mute = False
+
+        if rearrange:
+            #Ti = time.time()
+            reconnect_tex_nodes(tex)
+            rearrange_tex_nodes(tex)
+            #print('{:0.2f}'.format((time.time() - Ti) * 1000), 'ms')
+
+    else:
+        #remove_node(tree, ch, 'intensity_multiplier')
+        #remove_node(tree, ch, 'mb_intensity_multiplier')
+        #remove_node(tree, ch, 'mask_intensity_multiplier')
+        mute_node(tree, ch, 'intensity_multiplier')
+        mute_node(tree, ch, 'mb_intensity_multiplier')
+        mute_node(tree, ch, 'mask_intensity_multiplier')
+
+        for c in tex.channels:
+            mute_node(tree, c, 'intensity_multiplier')
+            mute_node(tree, c, 'mr_intensity_multiplier')
+            mute_node(tree, c, 'mask_intensity_multiplier')
+
+    if ch.sharpen_normal_transition:
+        print('INFO: Normal transition is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    else: print('INFO: Normal transition is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_intensity_multiplier(self, context):
     tl = self.id_data.tl
@@ -1272,11 +1370,6 @@ def update_intensity_multiplier(self, context):
 
     if self.intensity_multiplier_link:
         for i, ch in enumerate(tex.channels):
-            root_ch = tl.channels[i]
-            if root_ch.type == 'NORMAL':
-                intensity = tree.nodes.get(ch.intensity)
-                intensity.inputs[1].default_value = self.intensity_value * self.intensity_multiplier_value
-                continue
 
             intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
             if intensity_multiplier: 
@@ -1287,14 +1380,10 @@ def update_intensity_multiplier(self, context):
                     for link in inp.outputs[1].links:
                         if link.to_socket.default_value != self.intensity_multiplier_value:
                             link.to_socket.default_value = self.intensity_multiplier_value
-                    
     else:
-        intensity = tree.nodes.get(self.intensity)
-        intensity.inputs[1].default_value = self.intensity_value * self.intensity_multiplier_value
-
-        #intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
-        #if intensity_multiplier: 
-        #    intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+        intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
+        if intensity_multiplier: 
+            intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
     for mask in tex.masks:
         for c in mask.channels:
@@ -1389,31 +1478,30 @@ def update_texcoord_type(self, context):
         root_ch = tl.channels[i]
         if root_ch.type == 'NORMAL':
 
-            if tex.texcoord_type == 'UV':
-                space = 1.0 # Tangent Space
-            elif tex.texcoord_type in {'Generated', 'Normal', 'Object'}:
-                space = 0.5 # Object Space
-            elif tex.texcoord_type in {'Camera', 'Window', 'Reflection'}: 
-                space = 0.0 # View Space
-            else: space = 1.0
-
             neighbor_uv = tree.nodes.get(ch.neighbor_uv)
             if neighbor_uv:
-                neighbor_uv.inputs['Space'].default_value = space
+                cur_tree = neighbor_uv.node_tree
+                sel_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
 
-                if BLENDER_28_GROUP_INPUT_HACK:
-                    inp = neighbor_uv.node_tree.nodes.get('Group Input')
-                    inp.outputs['Space'].links[0].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
-                    inp.outputs['Space'].links[1].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
+                if sel_tree != cur_tree:
+                    neighbor_uv.node_tree = sel_tree
 
-            fine_bump = tree.nodes.get(ch.fine_bump)
-            if fine_bump:
-                fine_bump.inputs['Space'].default_value = space
+                    if cur_tree.users == 0:
+                        bpy.data.node_groups.remove(cur_tree)
 
-                if BLENDER_28_GROUP_INPUT_HACK:
-                    inp = fine_bump.node_tree.nodes.get('Group Input.003')
-                    inp.outputs['Space'].links[0].to_socket.default_value = fine_bump.inputs['Space'].default_value
-                    inp.outputs['Space'].links[1].to_socket.default_value = fine_bump.inputs['Space'].default_value
+                    if BLENDER_28_GROUP_INPUT_HACK:
+                        duplicate_lib_node_tree(neighbor_uv)
+                        inp = neighbor_uv.node_tree.nodes.get('Group Input')
+                        inp.outputs['ResX'].links[0].to_socket.default_value = neighbor_uv.inputs['ResX'].default_value
+                        inp.outputs['ResY'].links[0].to_socket.default_value = neighbor_uv.inputs['ResY'].default_value
+
+                #neighbor_uv.inputs['Space'].default_value = get_neighbor_uv_space_input(tex.texcoord_type)
+
+                #if BLENDER_28_GROUP_INPUT_HACK:
+                #    inp = neighbor_uv.node_tree.nodes.get('Group Input')
+                #    inp.outputs['Space'].links[0].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
+                #    inp.outputs['Space'].links[1].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
+                #    inp.outputs['Space'].links[2].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
 
     reconnect_tex_nodes(self)
 
@@ -1486,9 +1574,9 @@ def create_intensity_multiplier_node(tex, tree, parent, invert=False, sharpen=Fa
 def create_channel_intensity_multiplier_nodes(self, tex):
     tree = get_tree(tex)
     for ch in tex.channels:
-        if ch == self: continue
+        #if ch == self: continue
         #if ch != self and ch.intensity_multiplier_link:
-        if ch.intensity_multiplier_link:
+        if ch.intensity_multiplier_link and ch != self:
             ch.intensity_multiplier_link = False
 
         intensity_multiplier = create_intensity_multiplier_node(tex, tree, ch, self.im_invert_others, self.im_sharpen)
@@ -1567,7 +1655,9 @@ def update_channel_intensity_value(self, context):
     root_ch = tl.channels[ch_index]
 
     intensity = tree.nodes.get(self.intensity)
-    intensity.inputs[1].default_value = self.intensity_value * self.intensity_multiplier_value
+    intensity.inputs[1].default_value = self.intensity_value
+    #intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
+    #intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
     for mask in tex.masks:
         for i, c in enumerate(mask.channels):
@@ -1662,6 +1752,26 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=0.5, min=0.0, max=1.0,
             update=update_bump_base_value)
 
+    sharpen_normal_transition = BoolProperty(
+            name = 'Sharpen Transition',
+            description = 'Sharpen intensity/alpha transition of normal channe;',
+            default = False,
+            update=update_sharpen_normal_transition)
+
+    #normal_transition = EnumProperty(
+    #        name = 'Normal Transition Type',
+    #        description = 'Intensity/alpha transition of normal channel',
+    #        items = (('SHARP', 'Sharp', ''),
+    #                 ('SOFT', 'Soft', '')),
+    #        default = 'SHARP',
+    #        update=update_normal_transition)
+    
+    normal_transition_sharpness = FloatProperty(
+        name = 'Normal Transition Sharpness',
+        description = 'Normal transition sharpness',
+        default=5.0, min=1.0, max=100.0, 
+        update=update_normal_transition_sharpness)
+
     # Fine bump related
     neighbor_uv = StringProperty(default='')
     source_n = StringProperty(default='')
@@ -1697,19 +1807,53 @@ class YLayerChannel(bpy.types.PropertyGroup):
     im_invert_others = BoolProperty(default=False, update=update_intensity_multiplier_link)
     im_sharpen = BoolProperty(default=False, update=update_intensity_multiplier_link)
 
-    # Mask related
+    # Mask bump related
     active_mask_bump = BoolProperty(default=False)
     enable_mask_bump = BoolProperty(name='Enable Mask Bump', description='Enable mask bump',
-            default=False) #, update=Mask.update_enable_texture_masks)
+            default=False, update=Mask.update_enable_mask_bump)
 
+    mask_bump_distance = FloatProperty(
+            name='Mask Bump Distance', 
+            description= 'Distance of mask bump', 
+            default=0.05, min=-1.0, max=1.0, precision=3, # step=1,
+            update=Mask.update_mask_bump_distance)
+
+    #mb_total_n = StringProperty(default='')
+    #mb_total_s = StringProperty(default='')
+    #mb_total_e = StringProperty(default='')
+    #mb_total_w = StringProperty(default='')
+
+    mb_fine_bump = StringProperty(default='')
+    mb_inverse = StringProperty(default='')
+    mb_intensity_multiplier = StringProperty(default='')
+    mb_blend = StringProperty(default='')
+
+    # Mask ramp related
     active_mask_ramp = BoolProperty(default=False)
     enable_mask_ramp = BoolProperty(name='Enable Mask Ramp', description='Enable mask ramp', 
-            default=False)
+            default=False, update=Mask.update_enable_mask_ramp)
+
+    mr_blend_type = EnumProperty(
+        name = 'Ramp Blend Type',
+        items = blend_type_items,
+        default = 'MIX', update = Mask.update_ramp_blend_type)
+
+    # Mask ramp nodes
+    mr_ramp = StringProperty(default='')
+    mr_inverse = StringProperty(default='')
+    mr_alpha = StringProperty(default='')
+    mr_intensity_multiplier = StringProperty(default='')
+    mr_blend = StringProperty(default='')
+
+    # Mask intensity pipeline
+    mask_total = StringProperty(default='')
+    mask_intensity_multiplier = StringProperty(default='')
 
     # For UI
     expand_bump_settings = BoolProperty(default=False)
     expand_intensity_settings = BoolProperty(default=False)
     expand_content = BoolProperty(default=False)
+    expand_mask_settings = BoolProperty(default=False)
 
 class YTextureLayer(bpy.types.PropertyGroup):
     name = StringProperty(default='')

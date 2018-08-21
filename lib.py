@@ -7,8 +7,14 @@ OVERLAY_NORMAL = '~TL Overlay Normal'
 STRAIGHT_OVER = '~TL Straight Over Mix'
 CHECK_INPUT_NORMAL = '~TL Check Input Normal'
 FLIP_BACKFACE_NORMAL = '~TL Flip Backface Normal'
+
 NEIGHBOR_UV ='~TL Neighbor UV'
+NEIGHBOR_UV_TANGENT ='~TL Neighbor UV (Tangent)'
+NEIGHBOR_UV_OBJECT ='~TL Neighbor UV (Object)'
+NEIGHBOR_UV_CAMERA ='~TL Neighbor UV (Camera)'
+NEIGHBOR_UV_OTHER_UV ='~TL Neighbor UV (Other UV)'
 FINE_BUMP ='~TL Fine Bump'
+
 VECTOR_MIX ='~TL Vector Mix'
 INVERTED_MULTIPLIER ='~TL Inverted Multiplier'
 INTENSITY_MULTIPLIER ='~TL Intensity Multiplier'
@@ -100,6 +106,27 @@ def get_node_tree_lib(name):
                 break
 
     return bpy.data.node_groups.get(name)
+
+def get_neighbor_uv_tree(texcoord_type, different_uv=False):
+    if texcoord_type == 'UV':
+        if different_uv: return get_node_tree_lib(NEIGHBOR_UV_OTHER_UV)
+        return get_node_tree_lib(NEIGHBOR_UV_TANGENT)
+    if texcoord_type in {'Generated', 'Normal', 'Object'}:
+        return get_node_tree_lib(NEIGHBOR_UV_OBJECT)
+    if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
+        return get_node_tree_lib(NEIGHBOR_UV_CAMERA)
+
+def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
+    if label == '': label = 'Intensity Multiplier'
+    intensity_multiplier = new_node(tree, obj, prop, 'ShaderNodeGroup', label)
+    intensity_multiplier.node_tree = get_node_tree_lib(INTENSITY_MULTIPLIER)
+    intensity_multiplier.inputs[1].default_value = sharpness
+    intensity_multiplier.inputs['Sharpen'].default_value = 1.0
+
+    #if BLENDER_28_GROUP_INPUT_HACK:
+    #    duplicate_lib_node_tree(intensity_multiplier)
+
+    return intensity_multiplier
 
 #@persistent
 #def load_libraries(scene):

@@ -606,41 +606,6 @@ def rearrange_tex_nodes(tex):
         if check_set_node_location(intensity, loc):
             loc.x += 200.0
 
-        for j, mask in enumerate(tex.masks):
-
-            #mask_intensity_multiplier = nodes.get(mask.channels[i].intensity_multiplier)
-            #multiply = nodes.get(mask.channels[i].multiply)
-
-            #if check_set_node_location(mask_intensity_multiplier, loc):
-            #    loc.x += 200.0
-
-            #if check_set_node_location(multiply, loc):
-            #    loc.x += 200.0
-
-            mask_ramp = nodes.get(mask.channels[i].ramp)
-            mask_ramp_multiply = nodes.get(mask.channels[i].ramp_multiply)
-            mask_ramp_subtract = nodes.get(mask.channels[i].ramp_subtract)
-            mask_ramp_intensity = nodes.get(mask.channels[i].ramp_intensity)
-            mask_ramp_mix = nodes.get(mask.channels[i].ramp_mix)
-
-            #if j == 0 and check_set_node_location(ch_tex_start, loc):
-            #    loc.x += 170.0
-
-            if check_set_node_location(mask_ramp, loc):
-                loc.x += 270.0
-
-            if check_set_node_location(mask_ramp_multiply, loc):
-                loc.x += 170.0
-
-            if check_set_node_location(mask_ramp_subtract, loc):
-                loc.x += 170.0
-
-            if check_set_node_location(mask_ramp_intensity, loc):
-                loc.x += 170.0
-
-            if check_set_node_location(mask_ramp_mix, loc):
-                loc.x += 200.0
-
         if loc.x > farthest_x: farthest_x = loc.x
 
         if fine_bump:
@@ -688,16 +653,30 @@ def rearrange_tex_nodes(tex):
             mask_source = nodes.get(mask.source)
             mask_hardness = nodes.get(mask.hardness)
         mask_uv_map = nodes.get(mask.uv_map)
+        mask_tangent = nodes.get(mask.tangent)
+        mask_bitangent = nodes.get(mask.bitangent)
         mask_final = nodes.get(mask.final)
 
         loc.y = mid_y
         loc.x = farthest_x
 
-        if check_set_node_location(mask_uv_map, loc):
-            loc.x += 200
-
         if check_set_node_location(mask_source, loc):
-            loc.x += 200
+            #loc.x += 200
+            loc.y -= 270
+
+        if check_set_node_location(mask_uv_map, loc):
+            loc.y -= 130
+
+        if check_set_node_location(mask_tangent, loc):
+            #loc.x += 200
+            loc.y -= 170
+
+        if check_set_node_location(mask_bitangent, loc):
+            #loc.x += 200
+            loc.y -= 180
+
+        loc.x += 200
+        loc.y = mid_y
 
         if check_set_node_location(mask_hardness, loc):
             loc.x += 200
@@ -705,15 +684,34 @@ def rearrange_tex_nodes(tex):
         if mask_final:
             loc.y -= 35
             check_set_node_location(mask_final, loc)
-            loc.x += 200
+            loc.x += 50
 
         #loc.y -= 235
 
         bookmark_x = loc.x
 
+        # Mask channels
         for j, c in enumerate(mask.channels):
             mask_intensity_multiplier = nodes.get(c.intensity_multiplier)
             multiply = nodes.get(c.multiply)
+
+            mask_ramp = nodes.get(c.ramp)
+            mask_ramp_multiply = nodes.get(c.ramp_multiply)
+            mask_ramp_subtract = nodes.get(c.ramp_subtract)
+            mask_ramp_intensity = nodes.get(c.ramp_intensity)
+            mask_ramp_mix = nodes.get(c.ramp_mix)
+
+            # Bump stuff
+            mask_neighbor_uv = nodes.get(c.neighbor_uv)
+            mask_source_n = nodes.get(c.source_n)
+            mask_source_s = nodes.get(c.source_s)
+            mask_source_e = nodes.get(c.source_e)
+            mask_source_w = nodes.get(c.source_w)
+            #mask_multiply_me = nodes.get(c.multiply_me)
+            mask_multiply_n = nodes.get(c.multiply_n)
+            mask_multiply_s = nodes.get(c.multiply_s)
+            mask_multiply_e = nodes.get(c.multiply_e)
+            mask_multiply_w = nodes.get(c.multiply_w)
 
             loc.x = bookmark_x
             loc.y = bookmarks_ys[j]
@@ -724,8 +722,151 @@ def rearrange_tex_nodes(tex):
             if check_set_node_location(multiply, loc):
                 loc.x += 200.0
 
-            if loc.x > farthest_x: farthest_x = loc.x
+            #if j == 0 and check_set_node_location(ch_tex_start, loc):
+            #    loc.x += 170.0
 
+            if check_set_node_location(mask_ramp, loc):
+                loc.x += 270.0
+
+            if check_set_node_location(mask_ramp_multiply, loc):
+                loc.x += 170.0
+
+            if check_set_node_location(mask_ramp_subtract, loc):
+                loc.x += 170.0
+
+            if check_set_node_location(mask_ramp_intensity, loc):
+                loc.x += 170.0
+
+            if check_set_node_location(mask_ramp_mix, loc):
+                loc.x += 200.0
+
+            # Bump stuff
+            if check_set_node_location(mask_neighbor_uv, loc):
+                loc.x += 180.0
+
+            save_x = loc.x
+
+            #loc.x += 120.0
+            #if check_set_node_location(mask_multiply_me, loc):
+            #    loc.y -= 40.0
+            #    loc.x = save_x
+
+            if check_set_node_location(mask_source_n, loc):
+                loc.x += 120.0
+
+            if check_set_node_location(mask_multiply_n, loc):
+                loc.y -= 40.0
+                loc.x = save_x
+
+            if check_set_node_location(mask_source_s, loc):
+                loc.x += 120.0
+
+            if check_set_node_location(mask_multiply_s, loc):
+                loc.y -= 40.0
+                loc.x = save_x
+
+            if check_set_node_location(mask_source_e, loc):
+                loc.x += 120.0
+
+            if check_set_node_location(mask_multiply_e, loc):
+                loc.y -= 40.0
+                loc.x = save_x
+
+            if check_set_node_location(mask_source_w, loc):
+                loc.x += 120.0
+
+            if check_set_node_location(mask_multiply_w, loc):
+                loc.y = bookmarks_ys[j]
+                loc.x += 140.0
+
+            if loc.x > farthest_x: farthest_x = loc.x + 50
+
+    loc.x = farthest_x
+    loc.y = 0
+    bookmark_x = loc.x
+
+    for i, ch in enumerate(tex.channels):
+        #mask_total = tree.nodes.get(ch.mask_total)
+
+        # Ramp
+        mr_ramp = tree.nodes.get(ch.mr_ramp)
+        mr_inverse = tree.nodes.get(ch.mr_inverse)
+        mr_alpha = tree.nodes.get(ch.mr_alpha)
+        mr_intensity_multiplier = nodes.get(ch.mr_intensity_multiplier)
+        mr_blend = tree.nodes.get(ch.mr_blend)
+
+        # Bump
+        mb_fine_bump = nodes.get(ch.mb_fine_bump)
+        mb_inverse = nodes.get(ch.mb_inverse)
+        mb_intensity_multiplier = nodes.get(ch.mb_intensity_multiplier)
+        mb_blend = nodes.get(ch.mb_blend)
+
+        loc.x = bookmark_x
+        loc.y = bookmarks_ys[i]
+
+        #if check_set_node_location(mask_total, loc):
+        #    loc.x += 200.0
+
+        if check_set_node_location(mr_inverse, loc):
+            loc.x += 170.0
+
+        if check_set_node_location(mr_ramp, loc):
+            loc.x += 270.0
+
+        if check_set_node_location(mr_intensity_multiplier, loc):
+            loc.x += 170.0
+
+        if check_set_node_location(mr_alpha, loc):
+            loc.x += 170.0
+
+        if check_set_node_location(mr_blend, loc):
+            loc.x += 170.0
+
+        if check_set_node_location(mb_fine_bump, loc):
+            loc.x += 170.0
+
+        if check_set_node_location(mb_inverse, loc):
+            loc.x += 170.0
+
+        if check_set_node_location(mb_intensity_multiplier, loc):
+            loc.x += 170.0
+
+        if check_set_node_location(mb_blend, loc):
+            loc.x += 170.0
+
+        if loc.x > farthest_x: farthest_x = loc.x
+
+    loc.x = farthest_x
+    loc.y = 0
+    bookmark_x = loc.x
+
+    for i, ch in enumerate(tex.channels):
+        mask_intensity_multiplier = tree.nodes.get(ch.mask_intensity_multiplier)
+
+        loc.x = bookmark_x
+        loc.y = bookmarks_ys[i]
+
+        if check_set_node_location(mask_intensity_multiplier, loc):
+            loc.x += 200.0
+
+        if loc.x > farthest_x: farthest_x = loc.x
+
+    loc.x = farthest_x
+    loc.y = 0
+    bookmark_x = loc.x
+
+    for i, ch in enumerate(tex.channels):
+        mask_total = tree.nodes.get(ch.mask_total)
+
+        loc.x = bookmark_x
+        loc.y = bookmarks_ys[i]
+
+        if check_set_node_location(mask_total, loc):
+            loc.x += 200.0
+
+        if loc.x > farthest_x: farthest_x = loc.x
+
+    #loc.x += 200
     loc.x = farthest_x
     loc.y = mid_y
 
