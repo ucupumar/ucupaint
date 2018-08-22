@@ -5,6 +5,60 @@ from .common import *
 from .node_connections import *
 from .node_arrangements import *
 
+def add_mask_channel_bump_nodes(c):
+    tl = c.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', c.path_from_id())
+    tex = tl.textures[int(match.group(1))]
+    mask = tex.masks[int(match.group(2))]
+    ch = tex.channels[int(match.group(3))]
+
+    tree = get_tree(tex)
+
+    enable_mask_source(tex, mask, False)
+    mask_tree = get_mask_tree(mask)
+
+    neighbor_uv = tree.nodes.get(c.neighbor_uv)
+    different_uv = mask.texcoord_type == 'UV' and tex.uv_name != mask.uv_name
+
+    if not neighbor_uv:
+        neighbor_uv = new_node(tree, c, 'neighbor_uv', 'ShaderNodeGroup', 'Mask Neighbor UV')
+        neighbor_uv.node_tree = lib.get_neighbor_uv_tree(mask.texcoord_type, different_uv)
+        if mask.type == 'IMAGE':
+            src = mask_tree.nodes.get(mask.source)
+            neighbor_uv.inputs[1].default_value = src.image.size[0]
+            neighbor_uv.inputs[2].default_value = src.image.size[1]
+        else:
+            neighbor_uv.inputs[1].default_value = 1000
+            neighbor_uv.inputs[2].default_value = 1000
+
+    if different_uv:
+        tangent = tree.nodes.get(mask.tangent)
+        bitangent = tree.nodes.get(mask.bitangent)
+
+        if not tangent:
+            tangent = new_node(tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Mask Tangent')
+            tangent.uv_map = mask.uv_name
+            tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+
+        if not bitangent:
+            bitangent = new_node(tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Mask Bitangent')
+            bitangent.uv_map = mask.uv_name
+            bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+
+    for d in neighbor_directions:
+
+        src = tree.nodes.get(getattr(c, 'source_' + d))
+        if not src:
+            src = new_node(tree, c, 'source_' + d, 'ShaderNodeGroup', 'mask_' + d)
+            src.node_tree = mask_tree
+            src.hide = True
+
+        mul = tree.nodes.get(getattr(c, 'multiply_' + d))
+        if not mul:
+            mul = new_node(tree, c, 'multiply_' + d, 'ShaderNodeMath', 'mul_' + d)
+            mul.operation = 'MULTIPLY'
+            mul.hide = True
+
 def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None):
     tl = tex.id_data.tl
     tl.halt_update = True
@@ -28,15 +82,6 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None):
 
     final = new_node(tree, mask, 'final', 'NodeReroute', 'Mask Final')
 
-    # Check if there's any link all masks on
-    link_all_masks = False
-    norm_ch = None
-    for i, ch in enumerate(tex.channels):
-        root_ch = tl.channels[i]
-        if root_ch.type == 'NORMAL' and ch.intensity_multiplier_link and ch.im_link_all_masks:
-            norm_ch = ch
-            link_all_masks = True
-
     for i, root_ch in enumerate(tl.channels):
         ch = tex.channels[i]
         c = mask.channels.add()
@@ -46,30 +91,13 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None):
         multiply.inputs[0].default_value = 1.0
         multiply.inputs[1].default_value = 1.0
 
-        #if root_ch.type == 'NORMAL' or link_all_masks:
-        #    intensity_multiplier = new_node(tree, c, 'intensity_multiplier', 'ShaderNodeGroup', 'Mask Intensity Multiplier')
-        #    intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
-        #    if norm_ch:
-        #        intensity_multiplier.inputs[1].default_value = norm_ch.intensity_multiplier_value
-        #        if ch != norm_ch:
-        #            if norm_ch.im_invert_others:
-        #                intensity_multiplier.inputs[2].default_value = 1.0
-        #            if norm_ch.im_sharpen:
-        #                intensity_multiplier.inputs[3].default_value = 1.0
-        #    else: intensity_multiplier.inputs[1].default_value = ch.intensity_multiplier_value
-
-        # Add final mask multiply node
-        #mask_start = nodes.get(ch.mask_start)
-        #if not mask_start:
-        #    mask_start = new_node(tree, ch, 'mask_start', 'ShaderNodeValue', 'Start Mask')
-        #    mask_start.outputs[0].default_value = 1.0
-            
         mask_total = nodes.get(ch.mask_total)
         if not mask_total:
             mask_total = new_node(tree, ch, 'mask_total', 'ShaderNodeMath', 'Total Channel Mask')
             mask_total.operation = 'MULTIPLY'
-            #mask_total.inputs[0].default_value = 1.0
-            #mask_total.inputs[1].default_value = 1.0
+
+        if ch.enable_mask_bump:
+            add_mask_channel_bump_nodes(c)
 
     tl.halt_update = False
 
@@ -87,6 +115,8 @@ def remove_mask(tex, mask):
     remove_node(tree, mask, 'group_node')
     remove_node(tree, mask, 'uv_map')
     remove_node(tree, mask, 'final')
+    remove_node(tree, mask, 'tangent')
+    remove_node(tree, mask, 'bitangent')
 
     # Remove mask channel nodes
     for c in mask.channels:
@@ -97,11 +127,15 @@ def remove_mask(tex, mask):
         remove_node(tree, c, 'source_s')
         remove_node(tree, c, 'source_e')
         remove_node(tree, c, 'source_w')
-        remove_node(tree, c, 'fine_bump')
-        remove_node(tree, c, 'invert')
-        remove_node(tree, c, 'intensity_multiplier')
-        remove_node(tree, c, 'vector_intensity_multiplier')
-        remove_node(tree, c, 'vector_mix')
+        remove_node(tree, c, 'multiply_n')
+        remove_node(tree, c, 'multiply_s')
+        remove_node(tree, c, 'multiply_e')
+        remove_node(tree, c, 'multiply_w')
+        #remove_node(tree, c, 'fine_bump')
+        #remove_node(tree, c, 'invert')
+        #remove_node(tree, c, 'intensity_multiplier')
+        #remove_node(tree, c, 'vector_intensity_multiplier')
+        #remove_node(tree, c, 'vector_mix')
 
         # Ramp related
         #remove_node(tree, c, 'ramp')
@@ -123,6 +157,7 @@ def remove_mask(tex, mask):
     if len(tex.masks) == 0:
         for ch in tex.channels:
             remove_node(tree, ch, 'mask_total')
+            remove_node(tree, ch, 'mask_intensity_multiplier')
 
 class YNewTextureMask(bpy.types.Operator):
     bl_idname = "node.y_new_texture_mask"
@@ -337,177 +372,6 @@ def mask_ramp_channel_items(self, context):
 
     return items
 
-#class YAddMaskBump(bpy.types.Operator):
-#    bl_idname = "node.y_add_mask_bump"
-#    bl_label = "Add Mask Bump"
-#    bl_description = "Add Mask Bump"
-#    bl_options = {'REGISTER', 'UNDO'}
-#
-#    channel = EnumProperty(
-#            name = 'Target Channel',
-#            items = mask_bump_channel_items)
-#
-#    @classmethod
-#    def poll(cls, context):
-#        return True
-#        #return hasattr(context, 'texture')
-#        #return hasattr(context, 'mask') and hasattr(context, 'texture')
-#
-#    def invoke(self, context, event):
-#        #if not hasattr(context, 'texture'):
-#        #    return self.execute(context)
-#
-#        self.texture = context.texture
-#        tl = self.texture.id_data.tl
-#        self.no_channel = not any([c for c in tl.channels if c.type == 'NORMAL'])
-#        self.no_more_channel = not any([c for i, c in enumerate(self.texture.channels) 
-#            if tl.channels[i].type == 'NORMAL' and not c.active_mask_bump])
-#        self.no_mask = len(self.texture.masks) == 0
-#        return context.window_manager.invoke_props_dialog(self, width=320)
-#
-#    def draw(self, context):
-#        if self.no_mask:
-#            self.layout.label('You need to set at least one mask!', icon='ERROR')
-#        elif self.no_channel:
-#            self.layout.label('You need Normal channel to use mask bump!', icon='ERROR')
-#        elif self.no_more_channel:
-#            self.layout.label('All Normal channel(s) already use mask bump!', icon='ERROR')
-#        else: self.layout.prop(self, 'channel')
-#
-#    def execute(self, context):
-#        #if not hasattr(context, 'texture'):
-#        #    return {'CANCELLED'}
-#
-#        if self.no_mask or self.no_channel or self.no_more_channel:
-#            return {'CANCELLED'}
-#
-#        tex = self.texture
-#        tl = tex.id_data.tl
-#        tlui = context.window_manager.tlui
-#
-#        ch = tex.channels[int(self.channel)]
-#        ch.active_mask_bump = True
-#        ch.enable_mask_bump = True
-#
-#        tlui.need_update = True
-#        #context.scene.update()
-#
-#        return {'FINISHED'}
-#
-#class YAddMaskRamp(bpy.types.Operator):
-#    bl_idname = "node.y_add_mask_ramp"
-#    bl_label = "Add Mask Ramp"
-#    bl_description = "Add Mask Ramp"
-#    bl_options = {'REGISTER', 'UNDO'}
-#
-#    channel = EnumProperty(
-#            name = 'Target Channel',
-#            items = mask_ramp_channel_items)
-#
-#    @classmethod
-#    def poll(cls, context):
-#        return True
-#        #return hasattr(context, 'mask') and hasattr(context, 'texture')
-#
-#    def invoke(self, context, event):
-#        #if not hasattr(context, 'texture'):
-#        #    return self.execute(context)
-#
-#        self.texture = context.texture
-#        tl = self.texture.id_data.tl
-#        self.no_mask = len(self.texture.masks) == 0
-#        self.no_channel = not any([c for c in tl.channels if c.type in {'RGB', 'VALUE'}])
-#        self.no_more_channel = not any([c for i, c in enumerate(self.texture.channels) 
-#            if tl.channels[i].type in {'RGB', 'VALUE'} and not c.active_mask_ramp])
-#        return context.window_manager.invoke_props_dialog(self, width=320)
-#
-#    def draw(self, context):
-#        if self.no_mask:
-#            self.layout.label('You need to set at least one mask!', icon='ERROR')
-#        elif self.no_channel:
-#            self.layout.label('You need RGB/Value channel to use mask ramp!', icon='ERROR')
-#        elif self.no_more_channel:
-#            self.layout.label('All RGB/Value channel(s) already use mask ramp!', icon='ERROR')
-#        else: self.layout.prop(self, 'channel')
-#
-#    def execute(self, context):
-#        #if not hasattr(context, 'texture'):
-#        #    return {'CANCELLED'}
-#
-#        if self.no_mask or self.no_channel or self.no_more_channel:
-#            return {'CANCELLED'}
-#
-#        tex = self.texture
-#        tl = tex.id_data.tl
-#        tlui = context.window_manager.tlui
-#
-#        ch = tex.channels[int(self.channel)]
-#        ch.active_mask_ramp = True
-#        ch.enable_mask_ramp = True
-#
-#        tlui.need_update = True
-#        #context.scene.update()
-#
-#        return {'FINISHED'}
-#
-#class YRemoveMaskBump(bpy.types.Operator):
-#    bl_idname = "node.y_remove_mask_bump"
-#    bl_label = "Remove Mask Bump"
-#    bl_description = "Remove Mask Bump"
-#    bl_options = {'REGISTER', 'UNDO'}
-#
-#    @classmethod
-#    def poll(cls, context):
-#        return hasattr(context, 'channel')
-#
-#    def execute(self, context):
-#        tlui = context.window_manager.tlui
-#        ch = context.channel
-#        tl = ch.id_data.tl
-#        match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
-#        print(match)
-#        root_ch = tl.channels[int(match.group(2))]
-#
-#        if root_ch.type != 'NORMAL':
-#            return {'CANCELLED'}
-#
-#        ch.active_mask_bump = False
-#        ch.enable_mask_bump = False
-#
-#        tlui.need_update = True
-#        #context.scene.update()
-#
-#        return {'FINISHED'}
-#
-#class YRemoveMaskRamp(bpy.types.Operator):
-#    bl_idname = "node.y_remove_mask_ramp"
-#    bl_label = "Remove Mask Ramp"
-#    bl_description = "Remove Mask Ramp"
-#    bl_options = {'REGISTER', 'UNDO'}
-#
-#    @classmethod
-#    def poll(cls, context):
-#        return hasattr(context, 'channel')
-#
-#    def execute(self, context):
-#        tlui = context.window_manager.tlui
-#        ch = context.channel
-#        tl = ch.id_data.tl
-#        match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
-#        print(match)
-#        root_ch = tl.channels[int(match.group(2))]
-#
-#        if root_ch.type not in {'RGB', 'VALUE'}:
-#            return {'CANCELLED'}
-#
-#        ch.active_mask_ramp = False
-#        ch.enable_mask_ramp = False
-#
-#        tlui.need_update = True
-#        #context.scene.update()
-#
-#        return {'FINISHED'}
-
 def update_mask_active_edit(self, context):
     if self.halt_update: return
 
@@ -570,9 +434,9 @@ def update_tex_mask_enable(self, context):
         multiply = tree.nodes.get(ch.multiply)
         multiply.mute = not ch.enable or not self.enable or not tex.enable_masks
 
-        vector_mix = tree.nodes.get(ch.vector_mix)
-        if vector_mix:
-            vector_mix.mute = not ch.enable or not self.enable or not tex.enable_masks
+        for d in neighbor_directions:
+            mul = tree.nodes.get(getattr(ch, 'multiply_' + d))
+            if mul: mul.mute = not ch.enable or not self.enable or not tex.enable_masks
 
 def update_mask_texcoord_type(self, context):
     tl = self.id_data.tl
@@ -632,17 +496,6 @@ def update_mask_hardness_value(self, context):
     if hardness:
         hardness.inputs[1].default_value = self.hardness_value
 
-#def update_mask_bump_height(self, context):
-#    tl = self.id_data.tl
-#    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-#    tex = tl.textures[int(match.group(1))]
-#    tree = get_tree(tex)
-#
-#    fine_bump = tree.nodes.get(self.fine_bump)
-#
-#    if fine_bump:
-#        fine_bump.inputs[0].default_value = self.bump_height
-
 def update_mask_ramp_intensity_value(self, context):
     tl = self.id_data.tl
     match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
@@ -651,17 +504,6 @@ def update_mask_ramp_intensity_value(self, context):
 
     mr_intensity = tree.nodes.get(self.mr_intensity)
     if mr_intensity: mr_intensity.inputs[1].default_value = self.mr_intensity_value
-    #ramp_intensity = tree.nodes.get(self.ramp_intensity)
-    #ramp_intensity.inputs[1].default_value = ch.intensity_value * self.ramp_intensity_value
-
-#def update_mask_ramp_blend_type(self, context):
-#    tl = self.id_data.tl
-#    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-#    tex = tl.textures[int(match.group(1))]
-#    tree = get_tree(tex)
-#
-#    ramp_mix = tree.nodes.get(self.ramp_mix)
-#    ramp_mix.blend_type = self.ramp_blend_type
 
 def update_mask_ramp_blend_type(self, context):
     tl = self.id_data.tl
@@ -751,52 +593,6 @@ def update_enable_mask_ramp(self, context):
         print('INFO: Mask ramp is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     else: print('INFO: Mask ramp is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-#def update_mask_enable_ramp(self, context):
-#    tl = self.id_data.tl
-#    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-#    tex = tl.textures[int(match.group(1))]
-#    mask = tex.masks[int(match.group(2))]
-#    ch = tex.channels[int(match.group(3))]
-#
-#    tree = get_tree(tex)
-#
-#    if self.enable_ramp:
-#
-#        ramp = tree.nodes.get(self.ramp)
-#        ramp_multiply = tree.nodes.get(self.ramp_multiply)
-#        ramp_subtract = tree.nodes.get(self.ramp_subtract)
-#        ramp_intensity = tree.nodes.get(self.ramp_intensity)
-#        ramp_mix = tree.nodes.get(self.ramp_mix)
-#
-#        if not ramp:
-#            ramp = new_node(tree, self, 'ramp', 'ShaderNodeValToRGB')
-#            ramp.color_ramp.elements[0].color = (1,1,1,1)
-#            ramp.color_ramp.elements[1].color = (0.5,0.5,0.5,1)
-#        if not ramp_multiply:
-#            ramp_multiply = new_node(tree, self, 'ramp_multiply', 'ShaderNodeMath')
-#            ramp_multiply.operation = 'MULTIPLY'
-#        if not ramp_subtract:
-#            ramp_subtract = new_node(tree, self, 'ramp_subtract', 'ShaderNodeMath')
-#            ramp_subtract.operation = 'SUBTRACT'
-#            ramp_subtract.use_clamp = True
-#        if not ramp_intensity:
-#            ramp_intensity = new_node(tree, self, 'ramp_intensity', 'ShaderNodeMath')
-#            ramp_intensity.operation = 'MULTIPLY'
-#            ramp_intensity.inputs[1].default_value = ch.intensity_value * self.ramp_intensity_value
-#        if not ramp_mix:
-#            #ramp_mix = new_node(tree, self, 'ramp_mix', 'ShaderNodeGroup')
-#            #ramp_mix.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
-#            ramp_mix = new_node(tree, self, 'ramp_mix', 'ShaderNodeMixRGB')
-#            ramp_mix.blend_type = self.ramp_blend_type
-#    else:
-#        remove_node(tree, self, 'ramp_multiply')
-#        remove_node(tree, self, 'ramp_subtract')
-#        remove_node(tree, self, 'ramp_intensity')
-#        remove_node(tree, self, 'ramp_mix')
-#
-#    reconnect_tex_nodes(tex)
-#    rearrange_tex_nodes(tex)
-
 def get_mask_fine_bump_distance(distance):
     scale = 100
     #if mask.type == 'IMAGE':
@@ -830,8 +626,6 @@ def update_enable_mask_bump(self, context):
     ch = self
 
     tree = get_tree(tex)
-    directions = ['n', 's', 'e', 'w']
-    #directions_me = ['n', 's', 'e', 'w', 'me']
 
     if ch.enable_mask_bump:
         mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
@@ -869,62 +663,8 @@ def update_enable_mask_bump(self, context):
             mb_blend.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
 
         for mask in tex.masks:
-            enable_mask_source(tex, mask, False)
-
-            mask_tree = get_mask_tree(mask)
             c = mask.channels[ch_index]
-
-            neighbor_uv = tree.nodes.get(c.neighbor_uv)
-
-            different_uv = mask.texcoord_type == 'UV' and tex.uv_name != mask.uv_name
-
-            if not neighbor_uv:
-                neighbor_uv = new_node(tree, c, 'neighbor_uv', 'ShaderNodeGroup', 'Mask Neighbor UV')
-                neighbor_uv.node_tree = lib.get_neighbor_uv_tree(mask.texcoord_type, different_uv)
-                #neighbor_uv.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_UV)
-                if mask.type == 'IMAGE':
-                    src = mask_tree.nodes.get(mask.source)
-                    neighbor_uv.inputs[1].default_value = src.image.size[0]
-                    neighbor_uv.inputs[2].default_value = src.image.size[1]
-                else:
-                    neighbor_uv.inputs[1].default_value = 1000
-                    neighbor_uv.inputs[2].default_value = 1000
-
-            if different_uv:
-                tangent = tree.nodes.get(mask.tangent)
-                bitangent = tree.nodes.get(mask.bitangent)
-
-                if not tangent:
-                    tangent = new_node(tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Mask Tangent')
-                    tangent.uv_map = mask.uv_name
-                    tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
-
-                if not bitangent:
-                    bitangent = new_node(tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Mask Bitangent')
-                    bitangent.uv_map = mask.uv_name
-                    bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
-
-            for d in directions:
-
-                src = tree.nodes.get(getattr(c, 'source_' + d))
-                if not src:
-                    src = new_node(tree, c, 'source_' + d, 'ShaderNodeGroup', 'mask_' + d)
-                    src.node_tree = mask_tree
-                    src.hide = True
-
-            #for d in directions_me:
-
-                mul = tree.nodes.get(getattr(c, 'multiply_' + d))
-                if not mul:
-                    mul = new_node(tree, c, 'multiply_' + d, 'ShaderNodeMath', 'mul_' + d)
-                    mul.operation = 'MULTIPLY'
-                    mul.hide = True
-
-                #tot = tree.nodes.get(getattr(c, 'mb_total_' + d))
-                #if not tot:
-                #    tot = new_node(tree, c, 'multiply_' + d, 'ShaderNodeMath', 'mb_total_' + d)
-                #    tot.operation = 'MULTIPLY'
-                #    tot.hide = True
+            add_mask_channel_bump_nodes(c)
 
     else:
         remove_node(tree, ch, 'mb_fine_bump')
@@ -941,7 +681,7 @@ def update_enable_mask_bump(self, context):
             remove_node(tree, mask, 'bitangent')
             remove_node(tree, c, 'neighbor_uv')
 
-            for d in directions:
+            for d in neighbor_directions:
                 remove_node(tree, c, 'source_' + d)
             #for d in directions_me:
                 remove_node(tree, c, 'multiply_' + d)
@@ -957,92 +697,6 @@ def update_enable_mask_bump(self, context):
     if ch.enable_mask_bump:
         print('INFO: Mask bump is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     else: print('INFO: Mask bump is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-
-#def update_mask_bump_enable(self, context):
-#
-#    tl = self.id_data.tl
-#    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-#    tex = tl.textures[int(match.group(1))]
-#    mask = tex.masks[int(match.group(2))]
-#    ch = tex.channels[int(match.group(3))]
-#
-#    tree = get_tree(tex)
-#
-#    directions = ['n', 's', 'e', 'w']
-#
-#    if self.enable_bump:
-#        enable_mask_source(tex, mask, False)
-#
-#        mask_tree = get_mask_tree(mask)
-#
-#        neighbor_uv = tree.nodes.get(self.neighbor_uv)
-#        fine_bump = tree.nodes.get(self.fine_bump)
-#        invert = tree.nodes.get(self.invert)
-#        intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
-#        vector_intensity_multiplier = tree.nodes.get(self.vector_intensity_multiplier)
-#        vector_mix = tree.nodes.get(self.vector_mix)
-#
-#        if not neighbor_uv:
-#            neighbor_uv = new_node(tree, self, 'neighbor_uv', 'ShaderNodeGroup', 'Mask Neighbor UV')
-#            neighbor_uv.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_UV)
-#            if mask.type == 'IMAGE':
-#                src = mask_tree.nodes.get(mask.source)
-#                neighbor_uv.inputs[1].default_value = src.image.size[0]
-#                neighbor_uv.inputs[2].default_value = src.image.size[1]
-#            else:
-#                neighbor_uv.inputs[1].default_value = 1000
-#                neighbor_uv.inputs[2].default_value = 1000
-#
-#        if not fine_bump:
-#            fine_bump = new_node(tree, self, 'fine_bump', 'ShaderNodeGroup', 'Mask Fine Bump')
-#            fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
-#            #fine_bump.inputs[0].default_value = ch.fine_bump_scale
-#            fine_bump.inputs[0].default_value = self.bump_height
-#
-#        if not invert:
-#            invert = new_node(tree, self, 'invert', 'ShaderNodeInvert', 'Mask Bump Invert')
-#
-#        if not vector_intensity_multiplier:
-#            vector_intensity_multiplier = new_node(tree, self, 'vector_intensity_multiplier', 
-#                    'ShaderNodeGroup', 'Mask Vector Intensity Multiplier')
-#            vector_intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
-#            vector_intensity_multiplier.inputs[1].default_value = ch.intensity_multiplier_value
-#
-#        if not vector_mix:
-#            vector_mix = new_node(tree, self, 'vector_mix', 'ShaderNodeGroup', 'Mask Vector Mix')
-#            vector_mix.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
-#
-#        if not intensity_multiplier:
-#            intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 
-#                    'ShaderNodeGroup', 'Mask Intensity Multiplier')
-#            intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
-#            intensity_multiplier.inputs[1].default_value = ch.intensity_multiplier_value
-#
-#        for d in directions:
-#            src = tree.nodes.get(getattr(self, 'source_' + d))
-#            if not src:
-#                src = new_node(tree, self, 'source_' + d, 'ShaderNodeGroup', 'Mask_' + d)
-#                src.node_tree = mask_tree
-#                src.hide = True
-#
-#    else:
-#        disable_mask_source(tex, mask)
-#
-#        remove_node(tree, self, 'neighbor_uv')
-#        remove_node(tree, self, 'fine_bump')
-#        remove_node(tree, self, 'invert')
-#        #remove_node(tree, self, 'intensity_multiplier')
-#        remove_node(tree, self, 'vector_intensity_multiplier')
-#        remove_node(tree, self, 'vector_mix')
-#
-#        for d in directions:
-#            remove_node(tree, self, 'source_' + d)
-#
-#    # Reconnect outside nodes
-#    reconnect_tex_nodes(tex)
-#
-#    # Rearrange nodes
-#    rearrange_tex_nodes(tex)
 
 def enable_mask_source(tex, mask, reconnect_and_rearrange = True):
 

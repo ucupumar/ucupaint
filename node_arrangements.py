@@ -116,7 +116,7 @@ def rearrange_tex_frame_nodes(tex):
         bump_base = nodes.get(ch.bump_base)
         bump = nodes.get(ch.bump)
         normal = nodes.get(ch.normal)
-        normal_flip = nodes.get(ch.normal_flip)
+        #normal_flip = nodes.get(ch.normal_flip)
 
         neighbor_uv = nodes.get(ch.neighbor_uv)
         fine_bump = nodes.get(ch.fine_bump)
@@ -151,7 +151,7 @@ def rearrange_tex_frame_nodes(tex):
         check_set_node_parent(bump_base, pipeline_frame)
         check_set_node_parent(bump, pipeline_frame)
         check_set_node_parent(normal, pipeline_frame)
-        check_set_node_parent(normal_flip, pipeline_frame)
+        #check_set_node_parent(normal_flip, pipeline_frame)
 
         check_set_node_parent(neighbor_uv, pipeline_frame)
         check_set_node_parent(fine_bump, pipeline_frame)
@@ -597,6 +597,7 @@ def rearrange_tex_nodes(tex):
         #        if check_set_node_location(mask_vector_mix, loc):
         #            loc.x += 200.0
 
+        #if len(tex.masks) == 0 or not ch.enable_mask_bump:
         if check_set_node_location(normal_flip, loc):
             loc.x += 200.0
 

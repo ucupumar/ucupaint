@@ -32,6 +32,8 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
 	             ("LINEAR_LIGHT", "Linear Light", ""))
 
+neighbor_directions = ['n', 's', 'e', 'w']
+
 normal_blend_items = (
         ('MIX', 'Mix', ''),
         #('VECTOR_MIX', 'Vector Mix', ''),
