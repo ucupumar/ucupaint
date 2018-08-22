@@ -1022,7 +1022,9 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     box = row.box()
                     bcol = box.column(align=False)
                     brow = bcol.row(align=True)
-                    brow.prop(ch, 'mr_blend_type', text='Blend')
+                    brow.label('Blend:')
+                    brow.prop(ch, 'mr_blend_type', text='')
+                    brow.prop(ch, 'mr_intensity_value', text='')
                     #brow.prop(ch, 'ramp_intensity_value', text='')
                     bcol.template_color_ramp(ramp, "color_ramp", expand=True)
 

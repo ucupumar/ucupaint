@@ -445,11 +445,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             create_link(tree, intensity.outputs[0], mask_total.inputs[0])
 
             # Ramp
-            if ch.enable_mask_ramp:
+            if root_ch.type in {'RGB', 'VALUE'} and ch.enable_mask_ramp:
                 mr_inverse = nodes.get(ch.mr_inverse)
                 mr_ramp = nodes.get(ch.mr_ramp)
                 mr_intensity_multiplier = nodes.get(ch.mr_intensity_multiplier)
                 mr_alpha = nodes.get(ch.mr_alpha)
+                mr_intensity = nodes.get(ch.mr_intensity)
                 mr_blend = nodes.get(ch.mr_blend)
 
                 last_mask_multiply = nodes.get(tex.masks[-1].channels[i].multiply)
@@ -468,13 +469,14 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 #    create_link(tree, mr_alpha.outputs[0], mr_intensity_multiplier.inputs[0])
                 #    create_link(tree, mr_intensity_multiplier.outputs[0], mr_blend.inputs[0])
                 #else:
-                create_link(tree, mr_alpha.outputs[0], mr_blend.inputs[0])
+                create_link(tree, mr_alpha.outputs[0], mr_intensity.inputs[0])
+                create_link(tree, mr_intensity.outputs[0], mr_blend.inputs[0])
                 create_link(tree, end_rgb.outputs[0], mr_blend.inputs[1])
 
                 final_rgb = mr_blend.outputs[0]
 
             # Bump
-            if ch.enable_mask_bump:
+            if root_ch.type == 'NORMAL' and ch.enable_mask_bump:
 
                 for j, mask in enumerate(tex.masks):
                     c = mask.channels[i]

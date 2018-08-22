@@ -556,46 +556,46 @@ def rearrange_tex_nodes(tex):
             loc.x += 200.0
 
         # Check bump mask channel
-        for m in tex.masks:
-            c = m.channels[i]
-            if c.enable_bump:
-                mask_neighbor_uv = nodes.get(c.neighbor_uv)
-                mask_fine_bump = nodes.get(c.fine_bump)
-                mask_vector_mix = nodes.get(c.vector_mix)
-                mask_source_n = nodes.get(c.source_n)
-                mask_source_s = nodes.get(c.source_s)
-                mask_source_e = nodes.get(c.source_e)
-                mask_source_w = nodes.get(c.source_w)
-                mask_invert = nodes.get(c.invert)
-                mask_vector_intensity_multiplier = nodes.get(c.vector_intensity_multiplier)
+        #for m in tex.masks:
+        #    c = m.channels[i]
+        #    if c.enable_bump:
+        #        mask_neighbor_uv = nodes.get(c.neighbor_uv)
+        #        mask_fine_bump = nodes.get(c.fine_bump)
+        #        mask_vector_mix = nodes.get(c.vector_mix)
+        #        mask_source_n = nodes.get(c.source_n)
+        #        mask_source_s = nodes.get(c.source_s)
+        #        mask_source_e = nodes.get(c.source_e)
+        #        mask_source_w = nodes.get(c.source_w)
+        #        mask_invert = nodes.get(c.invert)
+        #        mask_vector_intensity_multiplier = nodes.get(c.vector_intensity_multiplier)
 
-                if check_set_node_location(mask_neighbor_uv, loc):
-                    loc.x += 200.0
+        #        if check_set_node_location(mask_neighbor_uv, loc):
+        #            loc.x += 200.0
 
-                if check_set_node_location(mask_source_n, loc):
-                    loc.y -= 40.0
+        #        if check_set_node_location(mask_source_n, loc):
+        #            loc.y -= 40.0
 
-                if check_set_node_location(mask_source_s, loc):
-                    loc.y -= 40.0
+        #        if check_set_node_location(mask_source_s, loc):
+        #            loc.y -= 40.0
 
-                if check_set_node_location(mask_source_e, loc):
-                    loc.y -= 40.0
+        #        if check_set_node_location(mask_source_e, loc):
+        #            loc.y -= 40.0
 
-                if check_set_node_location(mask_source_w, loc):
-                    loc.y = bookmark_y
-                    loc.x += 140.0
+        #        if check_set_node_location(mask_source_w, loc):
+        #            loc.y = bookmark_y
+        #            loc.x += 140.0
 
-                if check_set_node_location(mask_fine_bump, loc):
-                    loc.x += 200.0
+        #        if check_set_node_location(mask_fine_bump, loc):
+        #            loc.x += 200.0
 
-                if check_set_node_location(mask_invert, loc):
-                    loc.x += 200.0
+        #        if check_set_node_location(mask_invert, loc):
+        #            loc.x += 200.0
 
-                if check_set_node_location(mask_vector_intensity_multiplier, loc):
-                    loc.x += 200.0
+        #        if check_set_node_location(mask_vector_intensity_multiplier, loc):
+        #            loc.x += 200.0
 
-                if check_set_node_location(mask_vector_mix, loc):
-                    loc.x += 200.0
+        #        if check_set_node_location(mask_vector_mix, loc):
+        #            loc.x += 200.0
 
         if check_set_node_location(normal_flip, loc):
             loc.x += 200.0
@@ -692,14 +692,14 @@ def rearrange_tex_nodes(tex):
 
         # Mask channels
         for j, c in enumerate(mask.channels):
-            mask_intensity_multiplier = nodes.get(c.intensity_multiplier)
+            #mask_intensity_multiplier = nodes.get(c.intensity_multiplier)
             multiply = nodes.get(c.multiply)
 
-            mask_ramp = nodes.get(c.ramp)
-            mask_ramp_multiply = nodes.get(c.ramp_multiply)
-            mask_ramp_subtract = nodes.get(c.ramp_subtract)
-            mask_ramp_intensity = nodes.get(c.ramp_intensity)
-            mask_ramp_mix = nodes.get(c.ramp_mix)
+            #mask_ramp = nodes.get(c.ramp)
+            #mask_ramp_multiply = nodes.get(c.ramp_multiply)
+            #mask_ramp_subtract = nodes.get(c.ramp_subtract)
+            #mask_ramp_intensity = nodes.get(c.ramp_intensity)
+            #mask_ramp_mix = nodes.get(c.ramp_mix)
 
             # Bump stuff
             mask_neighbor_uv = nodes.get(c.neighbor_uv)
@@ -716,8 +716,8 @@ def rearrange_tex_nodes(tex):
             loc.x = bookmark_x
             loc.y = bookmarks_ys[j]
 
-            if check_set_node_location(mask_intensity_multiplier, loc):
-                loc.x += 200.0
+            #if check_set_node_location(mask_intensity_multiplier, loc):
+            #    loc.x += 200.0
 
             if check_set_node_location(multiply, loc):
                 loc.x += 200.0
@@ -725,20 +725,20 @@ def rearrange_tex_nodes(tex):
             #if j == 0 and check_set_node_location(ch_tex_start, loc):
             #    loc.x += 170.0
 
-            if check_set_node_location(mask_ramp, loc):
-                loc.x += 270.0
+            #if check_set_node_location(mask_ramp, loc):
+            #    loc.x += 270.0
 
-            if check_set_node_location(mask_ramp_multiply, loc):
-                loc.x += 170.0
+            #if check_set_node_location(mask_ramp_multiply, loc):
+            #    loc.x += 170.0
 
-            if check_set_node_location(mask_ramp_subtract, loc):
-                loc.x += 170.0
+            #if check_set_node_location(mask_ramp_subtract, loc):
+            #    loc.x += 170.0
 
-            if check_set_node_location(mask_ramp_intensity, loc):
-                loc.x += 170.0
+            #if check_set_node_location(mask_ramp_intensity, loc):
+            #    loc.x += 170.0
 
-            if check_set_node_location(mask_ramp_mix, loc):
-                loc.x += 200.0
+            #if check_set_node_location(mask_ramp_mix, loc):
+            #    loc.x += 200.0
 
             # Bump stuff
             if check_set_node_location(mask_neighbor_uv, loc):
@@ -793,6 +793,7 @@ def rearrange_tex_nodes(tex):
         mr_inverse = tree.nodes.get(ch.mr_inverse)
         mr_alpha = tree.nodes.get(ch.mr_alpha)
         mr_intensity_multiplier = nodes.get(ch.mr_intensity_multiplier)
+        mr_intensity = tree.nodes.get(ch.mr_intensity)
         mr_blend = tree.nodes.get(ch.mr_blend)
 
         # Bump
@@ -817,6 +818,9 @@ def rearrange_tex_nodes(tex):
             loc.x += 170.0
 
         if check_set_node_location(mr_alpha, loc):
+            loc.x += 170.0
+
+        if check_set_node_location(mr_intensity, loc):
             loc.x += 170.0
 
         if check_set_node_location(mr_blend, loc):

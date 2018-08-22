@@ -950,11 +950,11 @@ def update_channel_enable(self, context):
     blend = tree.nodes.get(self.blend)
     blend.mute = not tex.enable or not self.enable
 
-    for mask in tex.masks:
-        for i, c in enumerate(mask.channels):
-            if i == ch_index and c.enable_ramp:
-                ramp_mix = tree.nodes.get(c.ramp_mix)
-                ramp_mix.mute = not tex.enable or not self.enable
+    #for mask in tex.masks:
+    #    for i, c in enumerate(mask.channels):
+    #        if i == ch_index and c.enable_ramp:
+    #            ramp_mix = tree.nodes.get(c.ramp_mix)
+    #            ramp_mix.mute = not tex.enable or not self.enable
 
     #reconnect_tex_nodes(tex)
 
@@ -1793,22 +1793,22 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Intensity Stuff
 
-    intensity_multiplier_value = FloatProperty(
-            name = 'Intensity Multiplier',
-            description = 'Intensity Multiplier (can be useful for sharper normal blending transition)',
-            default=1.0, min=1.0, max=100.0, 
-            update=update_intensity_multiplier)
+    #intensity_multiplier_value = FloatProperty(
+    #        name = 'Intensity Multiplier',
+    #        description = 'Intensity Multiplier (can be useful for sharper normal blending transition)',
+    #        default=1.0, min=1.0, max=100.0, 
+    #        update=update_intensity_multiplier)
 
     intensity_multiplier = StringProperty(default='')
-    intensity_multiplier_link = BoolProperty(default=False, update=update_intensity_multiplier_link)
+    #intensity_multiplier_link = BoolProperty(default=False, update=update_intensity_multiplier_link)
 
-    im_link_all_channels = BoolProperty(default=True, update=update_intensity_multiplier_link)
-    im_link_all_masks = BoolProperty(default=True, update=update_intensity_multiplier_link)
-    im_invert_others = BoolProperty(default=False, update=update_intensity_multiplier_link)
-    im_sharpen = BoolProperty(default=False, update=update_intensity_multiplier_link)
+    #im_link_all_channels = BoolProperty(default=True, update=update_intensity_multiplier_link)
+    #im_link_all_masks = BoolProperty(default=True, update=update_intensity_multiplier_link)
+    #im_invert_others = BoolProperty(default=False, update=update_intensity_multiplier_link)
+    #im_sharpen = BoolProperty(default=False, update=update_intensity_multiplier_link)
 
     # Mask bump related
-    active_mask_bump = BoolProperty(default=False)
+    #active_mask_bump = BoolProperty(default=False)
     enable_mask_bump = BoolProperty(name='Enable Mask Bump', description='Enable mask bump',
             default=False, update=Mask.update_enable_mask_bump)
 
@@ -1829,20 +1829,27 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mb_blend = StringProperty(default='')
 
     # Mask ramp related
-    active_mask_ramp = BoolProperty(default=False)
+    #active_mask_ramp = BoolProperty(default=False)
     enable_mask_ramp = BoolProperty(name='Enable Mask Ramp', description='Enable mask ramp', 
             default=False, update=Mask.update_enable_mask_ramp)
+
+    mr_intensity_value = FloatProperty(
+            name = 'Channel Intensity Factor', 
+            description = 'Channel Intensity Factor',
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
+            update = Mask.update_mask_ramp_intensity_value)
 
     mr_blend_type = EnumProperty(
         name = 'Ramp Blend Type',
         items = blend_type_items,
-        default = 'MIX', update = Mask.update_ramp_blend_type)
+        default = 'MIX', update = Mask.update_mask_ramp_blend_type)
 
     # Mask ramp nodes
     mr_ramp = StringProperty(default='')
     mr_inverse = StringProperty(default='')
     mr_alpha = StringProperty(default='')
     mr_intensity_multiplier = StringProperty(default='')
+    mr_intensity = StringProperty(default='')
     mr_blend = StringProperty(default='')
 
     # Mask intensity pipeline
