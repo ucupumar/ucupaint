@@ -402,6 +402,37 @@ def rearrange_mask_tree_nodes(mask):
     if check_set_node_location(end, loc):
         loc.x += 180
 
+def rearrange_mask_ramp_nodes(tree, ch, loc):
+    # Ramp
+    mr_ramp = tree.nodes.get(ch.mr_ramp)
+    mr_inverse = tree.nodes.get(ch.mr_inverse)
+    mr_alpha = tree.nodes.get(ch.mr_alpha)
+    mr_intensity_multiplier = tree.nodes.get(ch.mr_intensity_multiplier)
+    mr_intensity = tree.nodes.get(ch.mr_intensity)
+    mr_subtract = tree.nodes.get(ch.mr_subtract)
+    mr_blend = tree.nodes.get(ch.mr_blend)
+
+    if check_set_node_location(mr_inverse, loc):
+        loc.x += 170.0
+
+    if check_set_node_location(mr_ramp, loc):
+        loc.x += 270.0
+
+    if check_set_node_location(mr_intensity_multiplier, loc):
+        loc.x += 170.0
+
+    if check_set_node_location(mr_alpha, loc):
+        loc.x += 170.0
+
+    if check_set_node_location(mr_subtract, loc):
+        loc.x += 170.0
+
+    if check_set_node_location(mr_intensity, loc):
+        loc.x += 170.0
+
+    if check_set_node_location(mr_blend, loc):
+        loc.x += 170.0
+
 def rearrange_tex_nodes(tex):
     tree = get_tree(tex)
     nodes = tree.nodes
@@ -782,50 +813,26 @@ def rearrange_tex_nodes(tex):
 
             if loc.x > farthest_x: farthest_x = loc.x + 50
 
+
+    flip_bump = any([c for c in tex.channels if c.mask_bump_flip and c.enable])
+
     loc.x = farthest_x
     loc.y = 0
     bookmark_x = loc.x
 
     for i, ch in enumerate(tex.channels):
-        #mask_total = tree.nodes.get(ch.mask_total)
 
-        # Ramp
-        mr_ramp = tree.nodes.get(ch.mr_ramp)
-        mr_inverse = tree.nodes.get(ch.mr_inverse)
-        mr_alpha = tree.nodes.get(ch.mr_alpha)
-        mr_intensity_multiplier = nodes.get(ch.mr_intensity_multiplier)
-        mr_intensity = tree.nodes.get(ch.mr_intensity)
-        mr_blend = tree.nodes.get(ch.mr_blend)
+        loc.x = bookmark_x
+        loc.y = bookmarks_ys[i]
+
+        if not flip_bump:
+            rearrange_mask_ramp_nodes(tree, ch, loc)
 
         # Bump
         mb_fine_bump = nodes.get(ch.mb_fine_bump)
         mb_inverse = nodes.get(ch.mb_inverse)
         mb_intensity_multiplier = nodes.get(ch.mb_intensity_multiplier)
         mb_blend = nodes.get(ch.mb_blend)
-
-        loc.x = bookmark_x
-        loc.y = bookmarks_ys[i]
-
-        #if check_set_node_location(mask_total, loc):
-        #    loc.x += 200.0
-
-        if check_set_node_location(mr_inverse, loc):
-            loc.x += 170.0
-
-        if check_set_node_location(mr_ramp, loc):
-            loc.x += 270.0
-
-        if check_set_node_location(mr_intensity_multiplier, loc):
-            loc.x += 170.0
-
-        if check_set_node_location(mr_alpha, loc):
-            loc.x += 170.0
-
-        if check_set_node_location(mr_intensity, loc):
-            loc.x += 170.0
-
-        if check_set_node_location(mr_blend, loc):
-            loc.x += 170.0
 
         if check_set_node_location(mb_fine_bump, loc):
             loc.x += 170.0
@@ -879,6 +886,21 @@ def rearrange_tex_nodes(tex):
     check_set_node_location(start, loc)
 
     loc.x += 250
+    loc.y = 0
+    bookmark_x = loc.x
+
+    # If flip bump
+    if flip_bump:
+        for i, ch in enumerate(tex.channels):
+
+            loc.x = bookmark_x
+            loc.y = bookmarks_ys[i]
+
+            rearrange_mask_ramp_nodes(tree, ch, loc)
+
+            if loc.x > farthest_x: farthest_x = loc.x
+
+    loc.x = farthest_x
     loc.y = 0
 
     # Channel blends

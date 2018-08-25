@@ -426,6 +426,11 @@ def mute_node(tree, obj, prop):
     node = tree.nodes.get(getattr(obj, prop))
     if node: node.mute = True
 
+def unmute_node(tree, obj, prop):
+    if not hasattr(obj, prop): return
+    node = tree.nodes.get(getattr(obj, prop))
+    if node: node.mute = False
+
 def new_node(tree, obj, prop, node_id_name, label=''):
     
     if not hasattr(obj, prop): return None

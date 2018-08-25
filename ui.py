@@ -882,61 +882,86 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                 #        if tlui.expand_channels:
                 #            row.label('', icon='BLANK1')
 
-                row = ccol.row(align=True)
-                row.label('', icon='BLANK1')
+                #row = ccol.row(align=True)
+                #row.label('', icon='BLANK1')
 
-                if custom_icon_enable:
-                    if chui.expand_intensity_settings:
-                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                    row.prop(chui, 'expand_intensity_settings', text='', emboss=False, icon_value=icon_value)
-                else: 
-                    row.prop(chui, 'expand_intensity_settings', text='', emboss=True, icon='INFO')
+                #if custom_icon_enable:
+                #    if chui.expand_intensity_settings:
+                #        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                #    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                #    row.prop(chui, 'expand_intensity_settings', text='', emboss=False, icon_value=icon_value)
+                #else: 
+                #    row.prop(chui, 'expand_intensity_settings', text='', emboss=True, icon='INFO')
 
-                row.label('Sharpen:')
-                if ch.sharpen_normal_transition:
-                    row.prop(ch, 'normal_transition_sharpness', text='')
-                row.prop(ch, 'sharpen_normal_transition', text='')
-                if tlui.expand_channels:
-                    row.label('', icon='BLANK1')
+                #row.label('Sharpen:')
+                ##if ch.sharpen_normal_transition:
+                ##    row.prop(ch, 'mask_bump_value', text='')
+                #row.prop(ch, 'sharpen_normal_transition', text='')
+                #if tlui.expand_channels:
+                #    row.label('', icon='BLANK1')
 
-                if chui.expand_intensity_settings:
-                    row = ccol.row(align=True)
-                    row.label('', icon='BLANK1')
-                    row.label('', icon='BLANK1')
+                #if chui.expand_intensity_settings:
+                #    row = ccol.row(align=True)
+                #    row.label('', icon='BLANK1')
+                #    row.label('', icon='BLANK1')
 
-                    bbox = row.box()
-                    #bbox.active = ch.intensity_multiplier_link
-                    cccol = bbox.column(align=True)
+                #    bbox = row.box()
+                #    cccol = bbox.column(align=True)
 
-                    crow = cccol.row(align=True)
-                    crow.label('No settings yet!') #, icon='INFO')
-                    #crow.label('Sharpness:') #, icon='INFO')
-                    #crow.prop(ch, 'normal_transition_sharpness', text='')
-                    if tlui.expand_channels:
-                        row.label('', icon='BLANK1')
+                #    crow = cccol.row(align=True)
+                #    crow.label('No settings yet!') #, icon='INFO')
+                #    #crow.label('Sharpness:') #, icon='INFO')
+                #    #crow.prop(ch, 'mask_bump_value', text='')
+                #    if tlui.expand_channels:
+                #        row.label('', icon='BLANK1')
 
                 if len(tex.masks) > 0:
                     brow = ccol.row(align=True)
                     brow.label('', icon='BLANK1')
-                    brow.label('', icon='INFO')
-                    #brow.context_pointer_set('channel', ch)
-                    #brow.label('', icon='RNDCURVE')
-                    #if custom_icon_enable:
-                    #    if chui.expand_mask_settings:
-                    #        icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
-                    #    else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
-                    #    brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
-                    #else:
-                    #    brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MODIFIER')
+                    #brow.label('', icon='INFO')
+                    if custom_icon_enable:
+                        if chui.expand_mask_settings:
+                            icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                        else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                        brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
+                    else:
+                        brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MODIFIER')
                     brow.label('Mask Bump:')
+
+                    #if ch.enable_mask_bump:
+                    #    brow.prop(ch, 'mask_bump_distance', text='')
+                    #if ch.sharpen_normal_transition:
                     if ch.enable_mask_bump:
-                        brow.prop(ch, 'mask_bump_distance', text='')
+                        brow.prop(ch, 'mask_bump_value', text='')
+
                     #brow.menu("NODE_MT_y_tex_mask_bump_menu_special", text='', icon='SCRIPTWIN')
                     brow.prop(ch, 'enable_mask_bump', text='')
 
                     if tlui.expand_channels:
                         brow.label('', icon='BLANK1')
+
+                    if chui.expand_mask_settings:
+                        row = ccol.row(align=True)
+                        row.label('', icon='BLANK1')
+                        row.label('', icon='BLANK1')
+
+                        bbox = row.box()
+                        cccol = bbox.column(align=True)
+
+                        crow = cccol.row(align=True)
+                        crow.label('Type:') #, icon='INFO')
+                        crow.prop(ch, 'mask_bump_type', text='')
+
+                        crow = cccol.row(align=True)
+                        crow.label('Distance:') #, icon='INFO')
+                        crow.prop(ch, 'mask_bump_distance', text='')
+
+                        crow = cccol.row(align=True)
+                        crow.label('Flip:') #, icon='INFO')
+                        crow.prop(ch, 'mask_bump_flip', text='')
+
+                        if tlui.expand_channels:
+                            row.label('', icon='BLANK1')
 
                 extra_separator = True
 
@@ -1023,8 +1048,8 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     bcol = box.column(align=False)
                     brow = bcol.row(align=True)
                     brow.label('Blend:')
-                    brow.prop(ch, 'mr_blend_type', text='')
-                    brow.prop(ch, 'mr_intensity_value', text='')
+                    brow.prop(ch, 'mask_ramp_blend_type', text='')
+                    brow.prop(ch, 'mask_ramp_intensity_value', text='')
                     #brow.prop(ch, 'ramp_intensity_value', text='')
                     bcol.template_color_ramp(ramp, "color_ramp", expand=True)
 
@@ -1381,7 +1406,7 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
     #            box = row.box()
     #            bcol = box.column(align=False)
     #            brow = bcol.row(align=True)
-    #            brow.prop(ch, 'mr_blend_type', text='Blend')
+    #            brow.prop(ch, 'mask_ramp_blend_type', text='Blend')
     #            #brow.prop(ch, 'ramp_intensity_value', text='')
     #            ramp = tex_tree.nodes.get(ch.mr_ramp)
     #            bcol.template_color_ramp(ramp, "color_ramp", expand=True)
