@@ -1651,6 +1651,13 @@ def update_channel_intensity_value(self, context):
             mr_intensity = tree.nodes.get(self.mr_intensity)
             mr_intensity.inputs[1].default_value = self.mask_ramp_intensity_value * self.intensity_value
 
+            # Flip bump is better be muted if intensity is maximum
+            mr_flip_blend = tree.nodes.get(self.mr_flip_blend)
+            if mr_flip_blend:
+                if self.intensity_value < 1.0:
+                    mr_flip_blend.mute = False
+                else: mr_flip_blend.mute = True
+
     #for mask in tex.masks:
     #    for i, c in enumerate(mask.channels):
     #        if i == ch_index and c.enable_ramp:
@@ -1782,14 +1789,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=0.05, min=0.0, max=1.0, precision=3, # step=1,
             update=Mask.update_mask_bump_distance)
 
-    mask_bump_type = EnumProperty(
-            name = 'Mask Bump Type',
-            description = 'Mask bump type',
-            items = (('DUAL_EDGE', 'Dual Edge', ''),
-                     ('SINGLE_EDGE', 'Single Edge', '')),
-            default = 'DUAL_EDGE',
-            #update=Mask.update_mask_bump_type)
-            update=Mask.update_enable_mask_bump)
+    #mask_bump_type = EnumProperty(
+    #        name = 'Mask Bump Type',
+    #        description = 'Mask bump type',
+    #        items = (('DUAL_EDGE', 'Dual Edge', ''),
+    #                 ('SINGLE_EDGE', 'Single Edge', '')),
+    #        default = 'DUAL_EDGE',
+    #        #update=Mask.update_mask_bump_type)
+    #        update=Mask.update_enable_mask_bump)
 
     mask_bump_flip = BoolProperty(
             name = 'Mask Bump Flip',
@@ -1797,6 +1804,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=False,
             #update=Mask.update_mask_bump_flip)
             update=Mask.update_enable_mask_bump)
+
+    mask_bump_second_edge_value = FloatProperty(
+            name = 'Second Edge Intensity', 
+            description = 'Second Edge intensity value',
+            #default=1.0, min=0.0, max=1.0, subtype='FACTOR',
+            #update = Mask.update_mask_bump_second_edge_value)
+            default=1.2, min=1.0, max=100.0, 
+            update = Mask.update_mask_bump_value)
 
     mb_fine_bump = StringProperty(default='')
     mb_inverse = StringProperty(default='')
@@ -1825,6 +1840,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mr_intensity_multiplier = StringProperty(default='')
     mr_intensity = StringProperty(default='')
     mr_subtract = StringProperty(default='')
+    mr_flip_blend = StringProperty(default='')
     mr_blend = StringProperty(default='')
 
     # Mask intensity pipeline

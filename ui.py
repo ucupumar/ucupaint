@@ -931,7 +931,7 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     #if ch.enable_mask_bump:
                     #    brow.prop(ch, 'mask_bump_distance', text='')
                     #if ch.sharpen_normal_transition:
-                    if ch.enable_mask_bump:
+                    if ch.enable_mask_bump and not chui.expand_mask_settings:
                         brow.prop(ch, 'mask_bump_value', text='')
 
                     #brow.menu("NODE_MT_y_tex_mask_bump_menu_special", text='', icon='SCRIPTWIN')
@@ -948,9 +948,17 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                         bbox = row.box()
                         cccol = bbox.column(align=True)
 
+                        #crow = cccol.row(align=True)
+                        #crow.label('Type:') #, icon='INFO')
+                        #crow.prop(ch, 'mask_bump_type', text='')
+
                         crow = cccol.row(align=True)
-                        crow.label('Type:') #, icon='INFO')
-                        crow.prop(ch, 'mask_bump_type', text='')
+                        crow.label('Edge 1:') #, icon='INFO')
+                        crow.prop(ch, 'mask_bump_value', text='')
+
+                        crow = cccol.row(align=True)
+                        crow.label('Edge 2:') #, icon='INFO')
+                        crow.prop(ch, 'mask_bump_second_edge_value', text='')
 
                         crow = cccol.row(align=True)
                         crow.label('Distance:') #, icon='INFO')
