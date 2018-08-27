@@ -1164,6 +1164,10 @@ def update_texture_index(self, context):
         scene.tool_settings.image_paint.canvas = None
         return
 
+    if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
+        uv_layers = obj.data.uv_textures
+    else: uv_layers = obj.data.uv_layers
+
     tex = self.textures[self.active_texture_index]
     tree = get_tree(tex)
 
@@ -1193,10 +1197,10 @@ def update_texture_index(self, context):
 
     # Update uv layer
     if obj.type == 'MESH':
-        for i, uv in enumerate(obj.data.uv_layers):
+        for i, uv in enumerate(uv_layers):
             if uv.name == uv_name:
-                if obj.data.uv_layers.active_index != i:
-                    obj.data.uv_layers.active_index = i
+                if uv_layers.active_index != i:
+                    uv_layers.active_index = i
                 break
 
 def update_channel_colorspace(self, context):

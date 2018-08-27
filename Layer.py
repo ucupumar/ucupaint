@@ -384,8 +384,8 @@ class YNewTextureLayer(bpy.types.Operator):
             self.texcoord_type = 'Generated'
 
         # Use active uv layer name by default
-        if hasattr(obj.data, 'uv_layers'):
-            uv_layers = obj.data.uv_layers
+        if hasattr(obj.data, 'uv_textures'):
+            uv_layers = obj.data.uv_textures
         else: uv_layers = obj.data.uv_layers
 
         if obj.type == 'MESH' and len(uv_layers) > 0:
@@ -1423,17 +1423,11 @@ def update_uv_name(self, context):
 
     nodes = tree.nodes
 
-    #uv_map = nodes.get(tex.uv_map)
-    #if uv_map: uv_map.uv_map = tex.uv_name
-
     uv_attr = nodes.get(tex.uv_attr)
     if uv_attr: uv_attr.attribute_name = tex.uv_name
 
     tangent = nodes.get(tex.tangent)
     if tangent: tangent.uv_map = tex.uv_name
-
-    #hacky_tangent = nodes.get(tex.hacky_tangent)
-    #if hacky_tangent: hacky_tangent.uv_map = tex.uv_name
 
     bitangent = nodes.get(tex.bitangent)
     if bitangent: bitangent.uv_map = tex.uv_name
@@ -1443,12 +1437,25 @@ def update_uv_name(self, context):
         if normal: normal.uv_map = tex.uv_name
 
     # Update uv layer
-    if obj.type == 'MESH':
-        for i, uv in enumerate(obj.data.uv_layers):
+    if obj.type == 'MESH' and not any([m for m in tex.masks if m.active_edit]):
+        if hasattr(obj.data, 'uv_textures'):
+            uv_layers = obj.data.uv_textures
+        else: uv_layers = obj.data.uv_layers
+
+        for i, uv in enumerate(uv_layers):
             if uv.name == tex.uv_name:
-                if obj.data.uv_layers.active_index != i:
-                    obj.data.uv_layers.active_index = i
+                if uv_layers.active_index != i:
+                    uv_layers.active_index = i
                 break
+
+    # Update neighbor uv if mask bump is active
+    for i, mask in enumerate(tex.masks):
+        for j, c in enumerate(mask.channels):
+            ch = tex.channels[j]
+            if ch.enable_mask_bump:
+                if Mask.set_mask_channel_bump_nodes(c):
+                    rearrange_tex_nodes(tex)
+                    reconnect_tex_nodes(tex)
 
 def update_texcoord_type(self, context):
     tl = self.id_data.tl
@@ -1497,139 +1504,18 @@ def update_texture_enable(self, context):
     tex = self
     tree = get_tree(tex)
 
-    for ch in tex.channels:
+    for i, ch in enumerate(tex.channels):
         blend = tree.nodes.get(ch.blend)
         blend.mute = not tex.enable or not ch.enable
 
-    #for mask in tex.masks:
-    #    for i, c in enumerate(mask.channels):
-    #        if c.enable_ramp:
-    #            ramp_mix = tree.nodes.get(c.ramp_mix)
-    #            ramp_mix.mute = not tex.enable or not self.enable
+        if ch.enable_mask_ramp:
+            mr_blend = tree.nodes.get(ch.mr_blend)
+            if mr_blend: mr_blend.mute = blend.mute
+
+        if ch.enable_mask_bump:
+            Mask.set_mask_bump_nodes(tex, ch, i)
 
     reconnect_tex_nodes(tex)
-
-#def create_intensity_multiplier_node(tex, tree, parent, invert=False, sharpen=False):
-#    intensity_multiplier = tree.nodes.get(parent.intensity_multiplier)
-#
-#    if not intensity_multiplier:
-#        intensity_multiplier = new_node(tree, parent, 'intensity_multiplier', 'ShaderNodeGroup', 
-#                'Intensity Multiplier')
-#
-#        if BLENDER_28_GROUP_INPUT_HACK:
-#
-#            other_im_found = False
-#            for ch in tex.channels:
-#                if ch == parent: continue
-#                other_im = tree.nodes.get(ch.intensity_multiplier)
-#                if other_im and other_im.type =='GROUP' and other_im.node_tree:
-#                    other_im_found = True
-#                    intensity_multiplier.node_tree = other_im.node_tree
-#
-#            #if not other_im_found:
-#            #    for m in tex.masks:
-#            #        for ch in m.channels:
-#            #            other_im = tree.nodes.get(ch.intensity_multiplier)
-#            #            if other_im and other_im.type =='GROUP' and other_im.node_tree:
-#            #                other_im_found = True
-#            #                intensity_multiplier.node_tree = other_im.node_tree
-#
-#            if not other_im_found:
-#                intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
-#                duplicate_lib_node_tree(intensity_multiplier)
-#        else:
-#            intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
-#
-#    if invert:
-#        intensity_multiplier.inputs[2].default_value = 1.0
-#    else: intensity_multiplier.inputs[2].default_value = 0.0
-#
-#    if sharpen:
-#        intensity_multiplier.inputs[3].default_value = 1.0
-#    else: intensity_multiplier.inputs[3].default_value = 0.0
-#
-#    if BLENDER_28_GROUP_INPUT_HACK:
-#        inp = intensity_multiplier.node_tree.nodes.get('Group Input')
-#        for i in range(2,4):
-#            for link in inp.outputs[i].links:
-#                if link.to_socket.default_value != intensity_multiplier.inputs[i].default_value:
-#                    link.to_socket.default_value = intensity_multiplier.inputs[i].default_value
-#
-#    return intensity_multiplier
-
-#def create_channel_intensity_multiplier_nodes(self, tex):
-#    tree = get_tree(tex)
-#    for ch in tex.channels:
-#        #if ch == self: continue
-#        #if ch != self and ch.intensity_multiplier_link:
-#        if ch.intensity_multiplier_link and ch != self:
-#            ch.intensity_multiplier_link = False
-#
-#        intensity_multiplier = create_intensity_multiplier_node(tex, tree, ch, self.im_invert_others, self.im_sharpen)
-#        intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
-#
-#        if BLENDER_28_GROUP_INPUT_HACK:
-#            inp = intensity_multiplier.node_tree.nodes.get('Group Input')
-#            for link in inp.outputs[1].links:
-#                if link.to_socket.default_value != self.intensity_multiplier_value:
-#                    link.to_socket.default_value = self.intensity_multiplier_value
-
-#def create_mask_intensity_multiplier_nodes(self, tex, ch_index):
-#    tree = get_tree(tex)
-#    for mask in tex.masks:
-#        for i, c in enumerate(mask.channels):
-#            if i == ch_index: continue
-#            intensity_multiplier = create_intensity_multiplier_node(tex, tree, c, self.im_invert_others, self.im_sharpen)
-#            intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
-#
-#            #if BLENDER_28_GROUP_INPUT_HACK:
-#            #    inp = intensity_multiplier.node_tree.nodes.get('Group Input')
-#            #    for link in inp.outputs[1].links:
-#            #        if link.to_socket.default_value != self.intensity_multiplier_value:
-#            #            link.to_socket.default_value = self.intensity_multiplier_value
-
-#def remove_channel_intensity_multiplier_nodes(self, tex):
-#    tree = get_tree(tex)
-#    for ch in tex.channels:
-#        if ch == self: continue
-#        remove_node(tree, ch, 'intensity_multiplier')
-#
-#def remove_mask_intensity_multiplier_nodes(self, tex, ch_index):
-#    tree = get_tree(tex)
-#    for mask in tex.masks:
-#        for i, c in enumerate(mask.channels):
-#            if i == ch_index: continue
-#            remove_node(tree, c, 'intensity_multiplier')
-
-#def update_intensity_multiplier_link(self, context):
-#    tl = self.id_data.tl
-#    if tl.halt_update: return
-#
-#    tl.halt_update = True
-#
-#    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-#    tex = tl.textures[int(m.group(1))]
-#    ch_index = int(m.group(2))
-#    root_ch = tl.channels[ch_index]
-#
-#    if self.intensity_multiplier_link:
-#
-#        if self.im_link_all_channels:
-#            create_channel_intensity_multiplier_nodes(self, tex)
-#        else: remove_channel_intensity_multiplier_nodes(self, tex)
-#
-#        if self.im_link_all_masks:
-#            create_mask_intensity_multiplier_nodes(self, tex, ch_index)
-#        else: remove_mask_intensity_multiplier_nodes(self, tex, ch_index)
-#
-#    else:
-#        remove_channel_intensity_multiplier_nodes(self, tex)
-#        remove_mask_intensity_multiplier_nodes(self, tex, ch_index)
-#
-#    reconnect_tex_nodes(tex)
-#    rearrange_tex_nodes(tex)
-#
-#    tl.halt_update = False
 
 def update_channel_intensity_value(self, context):
     tl = self.id_data.tl
@@ -1657,12 +1543,6 @@ def update_channel_intensity_value(self, context):
                 if self.intensity_value < 1.0:
                     mr_flip_blend.mute = False
                 else: mr_flip_blend.mute = True
-
-    #for mask in tex.masks:
-    #    for i, c in enumerate(mask.channels):
-    #        if i == ch_index and c.enable_ramp:
-    #            ramp_intensity = tree.nodes.get(c.ramp_intensity)
-    #            ramp_intensity.inputs[1].default_value = self.intensity_value * c.ramp_intensity_value
 
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
@@ -1839,7 +1719,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mr_alpha = StringProperty(default='')
     mr_intensity_multiplier = StringProperty(default='')
     mr_intensity = StringProperty(default='')
-    mr_subtract = StringProperty(default='')
     mr_flip_blend = StringProperty(default='')
     mr_blend = StringProperty(default='')
 

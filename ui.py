@@ -790,7 +790,7 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                 split.label('Type:') #, icon='INFO')
                 srow = split.row(align=True)
                 srow.prop(ch, 'normal_map_type', text='')
-                if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+                if not chui.expand_bump_settings and ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
                     srow.prop(ch, 'bump_distance', text='')
 
                 if tlui.expand_channels:
@@ -806,6 +806,11 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     cccol = bbox.column(align=True)
 
                     if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+
+                        brow = cccol.row(align=True)
+                        brow.label('Distance:') #, icon='INFO')
+                        brow.prop(ch, 'bump_distance', text='')
+
                         brow = cccol.row(align=True)
                         brow.label('Bump Base:') #, icon='INFO')
                         brow.prop(ch, 'bump_base_value', text='')

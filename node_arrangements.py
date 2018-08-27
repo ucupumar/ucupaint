@@ -409,7 +409,6 @@ def rearrange_mask_ramp_nodes(tree, ch, loc):
     mr_alpha = tree.nodes.get(ch.mr_alpha)
     mr_intensity_multiplier = tree.nodes.get(ch.mr_intensity_multiplier)
     mr_intensity = tree.nodes.get(ch.mr_intensity)
-    #mr_subtract = tree.nodes.get(ch.mr_subtract)
     mr_blend = tree.nodes.get(ch.mr_blend)
     mr_flip_blend = tree.nodes.get(ch.mr_flip_blend)
 
@@ -424,9 +423,6 @@ def rearrange_mask_ramp_nodes(tree, ch, loc):
 
     if check_set_node_location(mr_alpha, loc):
         loc.x += 170.0
-
-    #if check_set_node_location(mr_subtract, loc):
-    #    loc.x += 170.0
 
     if check_set_node_location(mr_intensity, loc):
         loc.x += 170.0
@@ -495,8 +491,6 @@ def rearrange_tex_nodes(tex):
         bump_base_s = nodes.get(ch.bump_base_s)
         bump_base_e = nodes.get(ch.bump_base_e)
         bump_base_w = nodes.get(ch.bump_base_w)
-
-        normal_flip = nodes.get(ch.normal_flip)
 
         intensity = nodes.get(ch.intensity)
         intensity_multiplier = nodes.get(ch.intensity_multiplier)
@@ -633,8 +627,6 @@ def rearrange_tex_nodes(tex):
         #            loc.x += 200.0
 
         #if len(tex.masks) == 0 or not ch.enable_mask_bump:
-        if check_set_node_location(normal_flip, loc):
-            loc.x += 200.0
 
         if check_set_node_location(intensity_multiplier, loc):
             loc.x += 200.0
@@ -907,15 +899,25 @@ def rearrange_tex_nodes(tex):
         loc.x = farthest_x
         loc.y = 0
 
+    bookmark_x = loc.x
+
     # Channel blends
     for i, ch in enumerate(tex.channels):
 
+        loc.x = bookmark_x
         loc.y = bookmarks_ys[i]
 
-        blend = nodes.get(ch.blend)
-        check_set_node_location(blend, loc)
+        normal_flip = nodes.get(ch.normal_flip)
+        if check_set_node_location(normal_flip, loc):
+            loc.x += 200.0
 
-    loc.x += 250
+        blend = nodes.get(ch.blend)
+        if check_set_node_location(blend, loc):
+            loc.x += 250
+
+        if loc.x > farthest_x: farthest_x = loc.x
+
+    loc.x = farthest_x
     loc.y = mid_y
     check_set_node_location(end, loc)
 
