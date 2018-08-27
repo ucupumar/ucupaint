@@ -357,6 +357,9 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 mr_alpha = nodes.get(ch.mr_alpha)
                 mr_intensity = nodes.get(ch.mr_intensity)
                 mr_blend = nodes.get(ch.mr_blend)
+
+                mr_alpha1 = nodes.get(ch.mr_alpha1)
+                mr_flip_hack = nodes.get(ch.mr_flip_hack)
                 mr_flip_blend = nodes.get(ch.mr_flip_blend)
 
                 last_mask_multiply = nodes.get(tex.masks[-1].channels[i].multiply)
@@ -374,15 +377,23 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 else:
                     create_link(tree, mr_inverse.outputs[0], mr_alpha.inputs[0])
 
-                create_link(tree, mr_alpha.outputs[0], mr_intensity.inputs[0])
+                if flip_bump:
+                    create_link(tree, mr_alpha.outputs[0], mr_alpha1.inputs[0])
+                    create_link(tree, intensity.outputs[0], mr_alpha1.inputs[1])
+                    create_link(tree, mr_alpha1.outputs[0], mr_intensity.inputs[0])
+                else:
+                    create_link(tree, mr_alpha.outputs[0], mr_intensity.inputs[0])
 
                 create_link(tree, mr_intensity.outputs[0], mr_blend.inputs[0])
 
                 if flip_bump:
                     create_link(tree, start.outputs[root_ch.io_index], mr_blend.inputs[1])
+
                     if mask_intensity_multiplier:
-                        create_link(tree, mask_intensity_multiplier.outputs[0], mr_flip_blend.inputs[0])
-                    else: create_link(tree, intensity.outputs[0], mr_flip_blend.inputs[0])
+                        create_link(tree, mask_intensity_multiplier.outputs[0], mr_flip_hack.inputs[0])
+                    else: create_link(tree, intensity.outputs[0], mr_flip_hack.inputs[0])
+
+                    create_link(tree, mr_flip_hack.outputs[0], mr_flip_blend.inputs[0])
                     create_link(tree, mr_blend.outputs[0], mr_flip_blend.inputs[1])
                     create_link(tree, start.outputs[root_ch.io_index], mr_flip_blend.inputs[2])
                 else: 

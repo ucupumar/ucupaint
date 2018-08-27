@@ -410,6 +410,9 @@ def rearrange_mask_ramp_nodes(tree, ch, loc):
     mr_intensity_multiplier = tree.nodes.get(ch.mr_intensity_multiplier)
     mr_intensity = tree.nodes.get(ch.mr_intensity)
     mr_blend = tree.nodes.get(ch.mr_blend)
+
+    mr_alpha1 = tree.nodes.get(ch.mr_alpha1)
+    mr_flip_hack = tree.nodes.get(ch.mr_flip_hack)
     mr_flip_blend = tree.nodes.get(ch.mr_flip_blend)
 
     if check_set_node_location(mr_inverse, loc):
@@ -424,10 +427,16 @@ def rearrange_mask_ramp_nodes(tree, ch, loc):
     if check_set_node_location(mr_alpha, loc):
         loc.x += 170.0
 
+    if check_set_node_location(mr_alpha1, loc):
+        loc.x += 170.0
+
     if check_set_node_location(mr_intensity, loc):
         loc.x += 170.0
 
     if check_set_node_location(mr_blend, loc):
+        loc.x += 170.0
+
+    if check_set_node_location(mr_flip_hack, loc):
         loc.x += 170.0
 
     if check_set_node_location(mr_flip_blend, loc):

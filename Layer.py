@@ -1538,11 +1538,11 @@ def update_channel_intensity_value(self, context):
             mr_intensity.inputs[1].default_value = self.mask_ramp_intensity_value * self.intensity_value
 
             # Flip bump is better be muted if intensity is maximum
-            mr_flip_blend = tree.nodes.get(self.mr_flip_blend)
-            if mr_flip_blend:
+            mr_flip_hack = tree.nodes.get(self.mr_flip_hack)
+            if mr_flip_hack:
                 if self.intensity_value < 1.0:
-                    mr_flip_blend.mute = False
-                else: mr_flip_blend.mute = True
+                    mr_flip_hack.inputs[1].default_value = 1
+                else: mr_flip_hack.inputs[1].default_value = 20
 
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
@@ -1719,8 +1719,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mr_alpha = StringProperty(default='')
     mr_intensity_multiplier = StringProperty(default='')
     mr_intensity = StringProperty(default='')
-    mr_flip_blend = StringProperty(default='')
     mr_blend = StringProperty(default='')
+
+    # For flip bump mask only
+    mr_alpha1 = StringProperty(default='')
+    mr_flip_hack = StringProperty(default='')
+    mr_flip_blend = StringProperty(default='')
 
     # Mask intensity pipeline
     mask_total = StringProperty(default='')

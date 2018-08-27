@@ -563,8 +563,11 @@ def update_enable_mask_ramp(self, context):
         mr_inverse = tree.nodes.get(ch.mr_inverse)
         mr_alpha = tree.nodes.get(ch.mr_alpha)
         mr_intensity = tree.nodes.get(ch.mr_intensity)
-        mr_flip_blend = tree.nodes.get(ch.mr_flip_blend)
         mr_blend = tree.nodes.get(ch.mr_blend)
+
+        mr_alpha1 = tree.nodes.get(ch.mr_alpha1)
+        mr_flip_hack = tree.nodes.get(ch.mr_flip_hack)
+        mr_flip_blend = tree.nodes.get(ch.mr_flip_blend)
 
         if not mr_ramp:
             mr_ramp = new_node(tree, ch, 'mr_ramp', 'ShaderNodeValToRGB', 'Mask Ramp')
@@ -584,6 +587,11 @@ def update_enable_mask_ramp(self, context):
             mr_alpha.operation = 'MULTIPLY'
             rearrange = True
 
+        if not mr_alpha1:
+            mr_alpha1 = new_node(tree, self, 'mr_alpha1', 'ShaderNodeMath', 'Mask Ramp Alpha 1')
+            mr_alpha1.operation = 'MULTIPLY'
+            rearrange = True
+
         if not mr_intensity:
             mr_intensity = new_node(tree, self, 'mr_intensity', 'ShaderNodeMath', 'Mask Ramp Intensity')
             mr_intensity.operation = 'MULTIPLY'
@@ -599,14 +607,22 @@ def update_enable_mask_ramp(self, context):
         if len(mr_blend.outputs[0].links) == 0:
             rearrange = True
 
+        if not mr_flip_hack:
+            mr_flip_hack = new_node(tree, self, 'mr_flip_hack', 'ShaderNodeMath', 'Mask Ramp Flip Hack')
+            mr_flip_hack.operation = 'POWER'
+            rearrange = True
+
         if not mr_flip_blend:
             mr_flip_blend = new_node(tree, self, 'mr_flip_blend', 'ShaderNodeMixRGB', 'Mask Ramp Flip Blend')
             rearrange = True
 
         # Flip bump is better be muted if intensity is maximum
+        #if ch.intensity_value < 1.0:
+        #    mr_flip_blend.mute = False
+        #else: mr_flip_blend.mute = True
         if ch.intensity_value < 1.0:
-            mr_flip_blend.mute = False
-        else: mr_flip_blend.mute = True
+            mr_flip_hack.inputs[1].default_value = 1
+        else: mr_flip_hack.inputs[1].default_value = 20
 
         # Check for other channel using sharpen normal transition
         for c in tex.channels:
@@ -616,7 +632,7 @@ def update_enable_mask_ramp(self, context):
                     mr_intensity_multiplier = lib.new_intensity_multiplier_node(tree, 
                             ch, 'mr_intensity_multiplier', c.mask_bump_value)
                     rearrange = True
-                mr_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+                mr_intensity_multiplier.inputs[1].default_value = c.mask_bump_second_edge_value
 
         if rearrange:
             rearrange_tex_nodes(tex)
@@ -625,8 +641,10 @@ def update_enable_mask_ramp(self, context):
         #mute_node(tree, self, 'mr_blend')
         remove_node(tree, self, 'mr_inverse')
         remove_node(tree, self, 'mr_alpha')
+        remove_node(tree, self, 'mr_alpha1')
         remove_node(tree, self, 'mr_intensity_multiplier')
         remove_node(tree, self, 'mr_intensity')
+        remove_node(tree, self, 'mr_flip_hack')
         remove_node(tree, self, 'mr_flip_blend')
         remove_node(tree, self, 'mr_blend')
         reconnect_tex_nodes(tex)
