@@ -545,6 +545,38 @@ def update_mask_ramp_blend_type(self, context):
     mr_blend = tree.nodes.get(self.mr_blend)
     mr_blend.blend_type = self.mask_ramp_blend_type
 
+def set_mask_ramp_flip_nodes(tree, ch, rearrange=False):
+    mr_alpha1 = tree.nodes.get(ch.mr_alpha1)
+    mr_flip_hack = tree.nodes.get(ch.mr_flip_hack)
+    mr_flip_blend = tree.nodes.get(ch.mr_flip_blend)
+
+    #if flip_bump:
+    if not mr_alpha1:
+        mr_alpha1 = new_node(tree, ch, 'mr_alpha1', 'ShaderNodeMath', 'Mask Ramp Alpha 1')
+        mr_alpha1.operation = 'MULTIPLY'
+        rearrange = True
+
+    if not mr_flip_hack:
+        mr_flip_hack = new_node(tree, ch, 'mr_flip_hack', 'ShaderNodeMath', 'Mask Ramp Flip Hack')
+        mr_flip_hack.operation = 'POWER'
+        rearrange = True
+
+    if not mr_flip_blend:
+        mr_flip_blend = new_node(tree, ch, 'mr_flip_blend', 'ShaderNodeMixRGB', 'Mask Ramp Flip Blend')
+        rearrange = True
+
+    # Flip bump is better be muted if intensity is maximum
+    if ch.intensity_value < 1.0:
+        mr_flip_hack.inputs[1].default_value = 1
+    else: mr_flip_hack.inputs[1].default_value = 20
+
+    return rearrange
+
+def unset_mask_ramp_flip_nodes(tree, ch):
+    remove_node(tree, ch, 'mr_alpha1')
+    remove_node(tree, ch, 'mr_flip_hack')
+    remove_node(tree, ch, 'mr_flip_blend')
+
 def update_enable_mask_ramp(self, context):
     T = time.time()
 
@@ -565,10 +597,6 @@ def update_enable_mask_ramp(self, context):
         mr_intensity = tree.nodes.get(ch.mr_intensity)
         mr_blend = tree.nodes.get(ch.mr_blend)
 
-        mr_alpha1 = tree.nodes.get(ch.mr_alpha1)
-        mr_flip_hack = tree.nodes.get(ch.mr_flip_hack)
-        mr_flip_blend = tree.nodes.get(ch.mr_flip_blend)
-
         if not mr_ramp:
             mr_ramp = new_node(tree, ch, 'mr_ramp', 'ShaderNodeValToRGB', 'Mask Ramp')
             mr_ramp.color_ramp.elements[0].color = (1,1,1,1)
@@ -587,11 +615,6 @@ def update_enable_mask_ramp(self, context):
             mr_alpha.operation = 'MULTIPLY'
             rearrange = True
 
-        if not mr_alpha1:
-            mr_alpha1 = new_node(tree, self, 'mr_alpha1', 'ShaderNodeMath', 'Mask Ramp Alpha 1')
-            mr_alpha1.operation = 'MULTIPLY'
-            rearrange = True
-
         if not mr_intensity:
             mr_intensity = new_node(tree, self, 'mr_intensity', 'ShaderNodeMath', 'Mask Ramp Intensity')
             mr_intensity.operation = 'MULTIPLY'
@@ -607,26 +630,12 @@ def update_enable_mask_ramp(self, context):
         if len(mr_blend.outputs[0].links) == 0:
             rearrange = True
 
-        if not mr_flip_hack:
-            mr_flip_hack = new_node(tree, self, 'mr_flip_hack', 'ShaderNodeMath', 'Mask Ramp Flip Hack')
-            mr_flip_hack.operation = 'POWER'
-            rearrange = True
-
-        if not mr_flip_blend:
-            mr_flip_blend = new_node(tree, self, 'mr_flip_blend', 'ShaderNodeMixRGB', 'Mask Ramp Flip Blend')
-            rearrange = True
-
-        # Flip bump is better be muted if intensity is maximum
-        #if ch.intensity_value < 1.0:
-        #    mr_flip_blend.mute = False
-        #else: mr_flip_blend.mute = True
-        if ch.intensity_value < 1.0:
-            mr_flip_hack.inputs[1].default_value = 1
-        else: mr_flip_hack.inputs[1].default_value = 20
-
         # Check for other channel using sharpen normal transition
+        flip_bump = False
         for c in tex.channels:
             if c.enable_mask_bump:
+                if c.mask_bump_flip:
+                    flip_bump = True
                 mr_intensity_multiplier = tree.nodes.get(ch.mr_intensity_multiplier)
                 if not mr_intensity_multiplier:
                     mr_intensity_multiplier = lib.new_intensity_multiplier_node(tree, 
@@ -634,19 +643,24 @@ def update_enable_mask_ramp(self, context):
                     rearrange = True
                 mr_intensity_multiplier.inputs[1].default_value = c.mask_bump_second_edge_value
 
+        # Flip bump related
+        if flip_bump:
+            rearrange = set_mask_ramp_flip_nodes(tree, ch, rearrange)
+
         if rearrange:
             rearrange_tex_nodes(tex)
             reconnect_tex_nodes(tex)
     else:
-        #mute_node(tree, self, 'mr_blend')
-        remove_node(tree, self, 'mr_inverse')
-        remove_node(tree, self, 'mr_alpha')
-        remove_node(tree, self, 'mr_alpha1')
-        remove_node(tree, self, 'mr_intensity_multiplier')
-        remove_node(tree, self, 'mr_intensity')
-        remove_node(tree, self, 'mr_flip_hack')
-        remove_node(tree, self, 'mr_flip_blend')
-        remove_node(tree, self, 'mr_blend')
+        #mute_node(tree, ch, 'mr_blend')
+        remove_node(tree, ch, 'mr_inverse')
+        remove_node(tree, ch, 'mr_alpha')
+        remove_node(tree, ch, 'mr_intensity_multiplier')
+        remove_node(tree, ch, 'mr_intensity')
+        remove_node(tree, ch, 'mr_blend')
+
+        # Remove flip bump related nodes
+        unset_mask_ramp_flip_nodes(tree, ch)
+
         reconnect_tex_nodes(tex)
         rearrange_tex_nodes(tex)
 
@@ -763,6 +777,11 @@ def set_mask_bump_nodes(tex, ch, ch_index):
             mr_intensity = tree.nodes.get(c.mr_intensity)
             if mr_intensity:
                 mr_intensity.inputs[1].default_value = c.mask_ramp_intensity_value * c.intensity_value
+
+            if ch.mask_bump_flip:
+                set_mask_ramp_flip_nodes(tree, c)
+            else:
+                unset_mask_ramp_flip_nodes(tree, c)
 
         for prop in props:
             im = tree.nodes.get(getattr(c, prop))
