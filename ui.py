@@ -713,19 +713,20 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
 
         row = ccol.row(align=True)
 
+        expandable = len(tex.masks) > 0 or len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL'
         if custom_icon_enable:
             icon_name = lib.channel_custom_icon_dict[root_ch.type]
-            if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
+            if expandable:
                 if chui.expand_content:
                     icon_name = 'uncollapsed_' + icon_name
                 else: icon_name = 'collapsed_' + icon_name
             icon_value = lib.custom_icons[icon_name].icon_id
-            if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
+            if expandable:
                 row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
             else: row.label('', icon_value=icon_value)
         else:
             icon = lib.channel_icon_dict[root_ch.type]
-            if len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL':
+            if expandable:
                 row.prop(chui, 'expand_content', text='', emboss=True, icon=icon)
             else: row.label('', icon=icon)
 
@@ -774,7 +775,6 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
 
                 row = ccol.row(align=True)
                 row.label('', icon='BLANK1')
-                #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
 
                 if custom_icon_enable:
                     if chui.expand_bump_settings:
@@ -819,106 +819,8 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     brow.label('Invert Backface Normal')
                     brow.prop(ch, 'invert_backface_normal', text='')
 
-                    #cccol.separator()
-                    #brow = cccol.row(align=True)
-                    #brow.label('Intensity Multiplier:') #, icon='INFO')
-                    #brow.prop(ch, 'intensity_multiplier_value', text='')
-                    #brow.prop(ch, 'intensity_multiplier_link', toggle=True, text='', icon='LINKED')
-
                     if tlui.expand_channels:
                         row.label('', icon='BLANK1')
-
-                #brow = ccol.row(align=True)
-                #brow.label('', icon='BLANK1')
-                #brow.label('', icon='INFO')
-                #brow.label('Distance:') #, icon='INFO')
-                #brow.prop(ch, 'bump_distance', text='')
-                #if tlui.expand_channels:
-                #    brow.label('', icon='BLANK1')
-
-                #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
-                #    row = ccol.row(align=True)
-                #    row.label('', icon='BLANK1')
-
-                #    if custom_icon_enable:
-                #        if chui.expand_intensity_settings:
-                #            icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                #        else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                #        row.prop(chui, 'expand_intensity_settings', text='', emboss=False, icon_value=icon_value)
-                #    else: 
-                #        row.prop(chui, 'expand_intensity_settings', text='', emboss=True, icon='INFO')
-
-                #    #row.label('', icon='INFO')
-                #    row.label('Intensity Multiplier:') #, icon='INFO')
-                #    row.prop(ch, 'intensity_multiplier_value', text='')
-                #    row.prop(ch, 'intensity_multiplier_link', toggle=True, text='', icon='LINKED')
-                #    if tlui.expand_channels:
-                #        row.label('', icon='BLANK1')
-                #    
-                #    if chui.expand_intensity_settings:
-                #        row = ccol.row(align=True)
-                #        row.label('', icon='BLANK1')
-                #        row.label('', icon='BLANK1')
-
-                #        bbox = row.box()
-                #        bbox.active = ch.intensity_multiplier_link
-                #        cccol = bbox.column(align=True)
-
-                #        #bbbox = cccol.box()
-                #        #brow = bbbox.row(align=True)
-                #        #brow.label('Intensity Multiplier Settings') #, icon='INFO')
-
-                #        brow = cccol.row(align=True)
-                #        brow.label('Link All Channels:') #, icon='INFO')
-                #        brow.prop(ch, 'im_link_all_channels', text='')
-
-                #        brow = cccol.row(align=True)
-                #        brow.label('Link All Masks:') #, icon='INFO')
-                #        brow.prop(ch, 'im_link_all_masks', text='')
-
-                #        brow = cccol.row(align=True)
-                #        brow.label('Invert Others:') #, icon='INFO')
-                #        brow.prop(ch, 'im_invert_others', text='')
-
-                #        brow = cccol.row(align=True)
-                #        brow.label('Sharpen:') #, icon='INFO')
-                #        brow.prop(ch, 'im_sharpen', text='')
-
-                #        if tlui.expand_channels:
-                #            row.label('', icon='BLANK1')
-
-                #row = ccol.row(align=True)
-                #row.label('', icon='BLANK1')
-
-                #if custom_icon_enable:
-                #    if chui.expand_intensity_settings:
-                #        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                #    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                #    row.prop(chui, 'expand_intensity_settings', text='', emboss=False, icon_value=icon_value)
-                #else: 
-                #    row.prop(chui, 'expand_intensity_settings', text='', emboss=True, icon='INFO')
-
-                #row.label('Sharpen:')
-                ##if ch.sharpen_normal_transition:
-                ##    row.prop(ch, 'mask_bump_value', text='')
-                #row.prop(ch, 'sharpen_normal_transition', text='')
-                #if tlui.expand_channels:
-                #    row.label('', icon='BLANK1')
-
-                #if chui.expand_intensity_settings:
-                #    row = ccol.row(align=True)
-                #    row.label('', icon='BLANK1')
-                #    row.label('', icon='BLANK1')
-
-                #    bbox = row.box()
-                #    cccol = bbox.column(align=True)
-
-                #    crow = cccol.row(align=True)
-                #    crow.label('No settings yet!') #, icon='INFO')
-                #    #crow.label('Sharpness:') #, icon='INFO')
-                #    #crow.prop(ch, 'mask_bump_value', text='')
-                #    if tlui.expand_channels:
-                #        row.label('', icon='BLANK1')
 
                 if len(tex.masks) > 0:
                     brow = ccol.row(align=True)
@@ -1083,17 +985,6 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     row.label('', icon='BLANK1')
 
                 extra_separator = True
-
-            #if hasattr(ch, 'is_mod_tree'):
-            #    row = ccol.row(align=True)
-            #    row.label('', icon='BLANK1')
-            #    row.label('', icon='INFO')
-            #    row.label('Mod Tree')
-            #    row.prop(ch, 'is_mod_tree', text='')
-            #    if tlui.expand_channels:
-            #        row.label('', icon='BLANK1')
-
-            #    extra_separator = True
 
             if hasattr(ch, 'enable_blur'):
                 row = ccol.row(align=True)

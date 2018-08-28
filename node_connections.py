@@ -163,8 +163,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     #else: 
     tangent_output = tangent.outputs[0]
 
-    flip_bump = any([c for i, c in enumerate(tex.channels) if tl.channels[i].type == 'NORMAL' 
-        and c.enable_mask_bump and c.mask_bump_flip and c.enable])
+    flip_bump = len(tex.masks) > 0 and any([c for i, c in enumerate(tex.channels) if
+        tl.channels[i].type == 'NORMAL' and c.enable_mask_bump and c.mask_bump_flip and c.enable])
 
     for i, ch in enumerate(tex.channels):
         if ch_idx != -1 and i != ch_idx: continue
