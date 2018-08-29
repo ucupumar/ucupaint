@@ -616,7 +616,7 @@ def draw_modifier_properties(context, root_ch, nodes, modifier, layout):
     #    # Shortcut only available on texture layer channel
     #    if 'YLayerChannel' in str(type(channel)):
     #        row = layout.row(align=True)
-    #        row.label('Color Shortcut:')
+    #        row.label(text='Color Shortcut:')
     #        row.prop(modifier, 'shortcut', text='')
 
     elif modifier.type == 'COLOR_RAMP':
@@ -631,9 +631,9 @@ def draw_modifier_properties(context, root_ch, nodes, modifier, layout):
         huesat = nodes.get(modifier.huesat)
         row = layout.row(align=True)
         col = row.column(align=True)
-        col.label('Hue:')
-        col.label('Saturation:')
-        col.label('Value:')
+        col.label(text='Hue:')
+        col.label(text='Saturation:')
+        col.label(text='Value:')
 
         col = row.column(align=True)
         for i in range(3):
@@ -643,8 +643,8 @@ def draw_modifier_properties(context, root_ch, nodes, modifier, layout):
         brightcon = nodes.get(modifier.brightcon)
         row = layout.row(align=True)
         col = row.column(align=True)
-        col.label('Brightness:')
-        col.label('Contrast:')
+        col.label(text='Brightness:')
+        col.label(text='Contrast:')
 
         col = row.column(align=True)
         col.prop(brightcon.inputs[1], 'default_value', text='')
@@ -655,7 +655,7 @@ def draw_modifier_properties(context, root_ch, nodes, modifier, layout):
 
         col = layout.column(align=True)
         row = col.row()
-        row.label('Clamp:')
+        row.label(text='Clamp:')
         row.prop(modifier, 'use_clamp', text='')
         if root_ch.type == 'VALUE':
             #col.prop(multiplier.inputs[3], 'default_value', text='Value')
@@ -684,7 +684,7 @@ class YTexModifierSpecialMenu(bpy.types.Menu):
         return hasattr(context, 'parent') and get_active_texture_layers_node()
 
     def draw(self, context):
-        self.layout.label('Add Modifier')
+        self.layout.label(text='Add Modifier')
         ## List the items
         for mt in modifier_type_items:
             self.layout.operator('node.y_new_texture_modifier', text=mt[1], icon='MODIFIER').type = mt[0]

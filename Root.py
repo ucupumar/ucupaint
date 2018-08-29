@@ -271,15 +271,17 @@ class YQuickSetupTLNode(bpy.types.Operator):
 
     def draw(self, context):
         #row = self.layout.row()
-        row = self.layout.split(percentage=0.35)
+        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+            row = self.layout.split(percentage=0.35)
+        else: row = self.layout.split(factor=0.35)
         col = row.column()
-        col.label('Type:')
+        col.label(text='Type:')
         ccol = col.column(align=True)
-        ccol.label('Channels:')
+        ccol.label(text='Channels:')
         if self.type == 'PRINCIPLED':
-            ccol.label('')
-        ccol.label('')
-        ccol.label('')
+            ccol.label(text='')
+        ccol.label(text='')
+        ccol.label(text='')
         col = row.column()
         col.prop(self, 'type', text='')
         ccol = col.column(align=True)
@@ -617,13 +619,15 @@ class YNewTLChannel(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        row = self.layout.split(percentage=0.4)
+        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+            row = self.layout.split(percentage=0.4)
+        else: row = self.layout.split(factor=0.4)
 
         col = row.column(align=False)
-        col.label('Name:')
-        col.label('Connect To:')
+        col.label(text='Name:')
+        col.label(text='Connect To:')
         if self.type != 'NORMAL':
-            col.label('Color Space:')
+            col.label(text='Color Space:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')

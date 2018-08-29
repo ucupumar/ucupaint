@@ -401,31 +401,33 @@ class YNewTextureLayer(bpy.types.Operator):
         obj = context.object
 
         if len(tl.channels) == 0:
-            self.layout.label('No channel found! Still want to create a texture?', icon='ERROR')
+            self.layout.label(text='No channel found! Still want to create a texture?', icon='ERROR')
             return
 
         channel = tl.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
 
-        row = self.layout.split(percentage=0.4)
+        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+            row = self.layout.split(percentage=0.4)
+        else: row = self.layout.split(factor=0.4)
         col = row.column(align=False)
 
-        col.label('Name:')
-        col.label('Channel:')
+        col.label(text='Name:')
+        col.label(text='Channel:')
         if channel and channel.type == 'NORMAL':
-            col.label('Type:')
-        col.label('')
+            col.label(text='Type:')
+        col.label(text='')
 
         if self.add_rgb_to_intensity:
-            col.label('RGB To Intensity Color:')
+            col.label(text='RGB To Intensity Color:')
 
         if self.type == 'IMAGE':
             if not self.add_rgb_to_intensity:
-                col.label('Color:')
-            col.label('')
-            col.label('Width:')
-            col.label('Height:')
+                col.label(text='Color:')
+            col.label(text='')
+            col.label(text='Width:')
+            col.label(text='Height:')
 
-        col.label('Vector:')
+        col.label(text='Vector:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -479,7 +481,8 @@ class YNewTextureLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             alpha = False if self.add_rgb_to_intensity else True
             color = (0,0,0,1) if self.add_rgb_to_intensity else self.color
-            img = bpy.data.images.new(self.name, self.width, self.height, alpha, self.hdr)
+            img = bpy.data.images.new(
+                    name=self.name, width=self.width, height=self.height, alpha=alpha, float_buffer=self.hdr)
             #img.generated_type = self.generated_type
             img.generated_type = 'BLANK'
             img.generated_color = color
@@ -615,14 +618,14 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         row = self.layout.row()
 
         col = row.column()
-        col.label('Vector:')
-        col.label('Channel:')
+        col.label(text='Vector:')
+        col.label(text='Channel:')
         if channel and channel.type == 'NORMAL':
-            col.label('Type:')
+            col.label(text='Type:')
 
         if self.add_rgb_to_intensity:
-            col.label('')
-            col.label('RGB2I Color:')
+            col.label(text='')
+            col.label(text='RGB2I Color:')
 
         col = row.column()
         crow = col.row(align=True)
@@ -630,7 +633,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
             crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
-        #col.label('')
+        #col.label(text='')
         rrow = col.row(align=True)
         rrow.prop(self, 'channel_idx', text='')
         if channel:
@@ -765,14 +768,14 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
         row = self.layout.row()
 
         col = row.column()
-        col.label('Vector:')
-        col.label('Channel:')
+        col.label(text='Vector:')
+        col.label(text='Channel:')
         if channel and channel.type == 'NORMAL':
-            col.label('Type:')
+            col.label(text='Type:')
 
         if self.add_rgb_to_intensity:
-            col.label('')
-            col.label('RGB2I Color:')
+            col.label(text='')
+            col.label(text='RGB2I Color:')
 
         col = row.column()
         crow = col.row(align=True)
@@ -780,7 +783,7 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
             crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
-        #col.label('')
+        #col.label(text='')
         rrow = col.row(align=True)
         rrow.prop(self, 'channel_idx', text='')
         if channel:
@@ -890,7 +893,7 @@ class YRemoveTextureLayer(bpy.types.Operator):
     def draw(self, context):
         obj = context.object
         if obj.mode != 'OBJECT':
-            self.layout.label('You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
+            self.layout.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
 
     def execute(self, context):
         node = get_active_texture_layers_node()
@@ -1214,9 +1217,6 @@ def update_blend_type_(root_ch, tex, ch):
         else:
             blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
             blend.blend_type = ch.blend_type
-
-        #blend.label = 'Blend'
-        #ch.blend = blend.name
 
         # Blend mute
         if tex.enable and ch.enable:

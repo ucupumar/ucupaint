@@ -279,13 +279,13 @@ class YNewTextureMask(bpy.types.Operator):
 
         row = self.layout.split(percentage=0.4)
         col = row.column(align=False)
-        col.label('Name:')
+        col.label(text='Name:')
         if self.type == 'IMAGE':
-            col.label('Width:')
-            col.label('Height:')
-            col.label('Color:')
-            col.label('')
-        col.label('Vector:')
+            col.label(text='Width:')
+            col.label(text='Height:')
+            col.label(text='Color:')
+            col.label(text='')
+        col.label(text='Vector:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
