@@ -450,8 +450,14 @@ def update_enable_texture_masks(self, context):
     tree = get_tree(tex)
     for mask in tex.masks:
         for ch in mask.channels:
+            mute = not ch.enable or not mask.enable or not tex.enable_masks
+
             multiply = tree.nodes.get(ch.multiply)
-            multiply.mute = not ch.enable or not mask.enable or not tex.enable_masks
+            multiply.mute = mute
+
+            for d in neighbor_directions:
+                mul = tree.nodes.get(getattr(ch, 'multiply_' + d))
+                if mul: mul.mute = mute
 
 def update_tex_mask_channel_enable(self, context):
     tl = self.id_data.tl
