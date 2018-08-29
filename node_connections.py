@@ -165,6 +165,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
     flip_bump = len(tex.masks) > 0 and any([c for i, c in enumerate(tex.channels) if
         tl.channels[i].type == 'NORMAL' and c.enable_mask_bump and c.mask_bump_flip and c.enable])
+    #flip_bump = len(tex.masks) > 0 and any([c for i, c in enumerate(tex.channels) if
+    #    tl.channels[i].type == 'NORMAL' and c.enable_mask_bump and c.mask_bump_flip])
 
     for i, ch in enumerate(tex.channels):
         if ch_idx != -1 and i != ch_idx: continue
@@ -401,7 +403,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     final_rgb = mr_blend.outputs[0]
 
             # Bump
-            if root_ch.type == 'NORMAL' and ch.enable_mask_bump:
+            if root_ch.type == 'NORMAL' and ch.enable_mask_bump and ch.enable:
 
                 for j, mask in enumerate(tex.masks):
                     c = mask.channels[i]

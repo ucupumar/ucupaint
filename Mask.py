@@ -138,7 +138,7 @@ def remove_mask_channel_nodes(tree, c):
     # Multiply
     remove_node(tree, c, 'multiply')
 
-def remove_mask_total_nodes(tree, tex, mask, ch_index):
+def remove_mask_total_nodes(tree, tex, mask, ch_index, clean=False):
     ch = tex.channels[ch_index]
 
     # Remove mask total and mask intensity multiplier
@@ -151,7 +151,7 @@ def remove_mask_total_nodes(tree, tex, mask, ch_index):
 
     # Remove mask_ramp
     if ch.enable_mask_ramp:
-        unset_mask_ramp_nodes(tree, ch, True)
+        unset_mask_ramp_nodes(tree, ch, clean)
 
 def remove_mask_channel(tree, tex, ch_index):
 
@@ -166,7 +166,7 @@ def remove_mask_channel(tree, tex, ch_index):
         remove_mask_channel_nodes(tree, c)
 
         # Remove remaining nodes
-        remove_mask_total_nodes(tree, tex, mask, ch_index)
+        remove_mask_total_nodes(tree, tex, mask, ch_index, True)
 
     # Remove the mask itself
     for mask in tex.masks:
@@ -661,9 +661,8 @@ def set_mask_ramp_nodes(tree, tex, ch, rearrange=False):
     # Check for other channel using sharpen normal transition
     flip_bump = False
     for c in tex.channels:
-        if c.enable_mask_bump:
-            if c.mask_bump_flip:
-                flip_bump = True
+        if c.enable_mask_bump and c.enable:
+            if c.mask_bump_flip: flip_bump = True
             mr_intensity_multiplier = tree.nodes.get(ch.mr_intensity_multiplier)
             if not mr_intensity_multiplier:
                 mr_intensity_multiplier = lib.new_intensity_multiplier_node(tree, 
@@ -726,6 +725,8 @@ def get_mask_fine_bump_distance(distance):
     return distance * scale
 
 def update_mask_bump_distance(self, context):
+    if not self.enable: return
+
     tl = self.id_data.tl
     match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
@@ -740,6 +741,8 @@ def update_mask_bump_distance(self, context):
         else: mb_fine_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
 
 def update_mask_bump_value(self, context):
+    if not self.enable: return
+
     tl = self.id_data.tl
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(m.group(1))]
@@ -823,6 +826,23 @@ def check_set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = N
                 else: im.inputs['Invert'].default_value = 0.0
 
 def set_mask_bump_nodes(tex, ch, ch_index):
+
+    tl = tex.id_data.tl
+
+    for i, c in enumerate(tex.channels):
+        if tl.channels[i].type == 'NORMAL' and c.enable_mask_bump and c != ch:
+            # Disable this mask bump if other channal already use mask bump
+            if c.enable:
+                tl.halt_update = True
+                ch.enable_mask_bump = False
+                tl.halt_update = False
+                return
+            # Disable other mask bump if other channal aren't enabled
+            else:
+                tl.halt_update = True
+                c.enable_mask_bump = False
+                tl.halt_update = False
+
     tree = get_tree(tex)
 
     mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
@@ -924,13 +944,13 @@ def update_enable_mask_bump(self, context):
     T = time.time()
 
     tl = self.id_data.tl
+    if tl.halt_update or not self.enable: return
     match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
     ch_index = int(match.group(2))
     ch = self
 
     if ch.enable_mask_bump:
-        #if ch.enable:
         set_mask_bump_nodes(tex, ch, ch_index)
     else: remove_mask_bump_nodes(tex, ch, ch_index)
 

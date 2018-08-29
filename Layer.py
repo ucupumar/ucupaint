@@ -947,20 +947,23 @@ def update_channel_enable(self, context):
     tex = tl.textures[int(m.group(1))]
     ch_index = int(m.group(2))
     root_ch = tl.channels[ch_index]
+    ch = self
 
     tree = get_tree(tex)
 
-    blend = tree.nodes.get(self.blend)
-    blend.mute = not tex.enable or not self.enable
+    blend = tree.nodes.get(ch.blend)
+    blend.mute = not tex.enable or not ch.enable
 
-    if self.enable_mask_ramp:
-        mr_blend = tree.nodes.get(self.mr_blend)
+    if ch.enable_mask_ramp:
+        mr_blend = tree.nodes.get(ch.mr_blend)
         if mr_blend: mr_blend.mute = blend.mute
 
-    #if self.enable_mask_bump:
-    #    mb_blend = tree.nodes.get(self.mb_blend)
-    #    if mb_blend: mb_blend.mute = blend.mute
-    #    #Mask.set_mask_bump_nodes(tex, self, ch_index)
+    if ch.enable_mask_bump:
+        if ch.enable:
+            Mask.set_mask_bump_nodes(tex, ch, ch_index)
+        else: Mask.remove_mask_bump_nodes(tex, ch, ch_index)
+        reconnect_tex_nodes(tex)
+        rearrange_tex_nodes(tex)
 
 def update_normal_map_type(self, context):
     tl = self.id_data.tl

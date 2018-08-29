@@ -693,6 +693,10 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
     if len(tex.channels) == 0:
         col.label('No channel found!', icon='ERROR')
 
+    # Check if theres any mask bump
+    mask_bump_found = any([c for i, c in enumerate(tex.channels) 
+        if tl.channels[i].type == 'NORMAL' and c.enable_mask_bump and c.enable])
+
     ch_count = 0
     for i, ch in enumerate(tex.channels):
 
@@ -822,7 +826,7 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     if tlui.expand_channels:
                         row.label('', icon='BLANK1')
 
-                if len(tex.masks) > 0:
+                if len(tex.masks) > 0 and (not mask_bump_found or ch.enable_mask_bump):
                     brow = ccol.row(align=True)
                     brow.label('', icon='BLANK1')
                     #brow.label('', icon='INFO')
@@ -835,13 +839,9 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                         brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MODIFIER')
                     brow.label('Mask Bump:')
 
-                    #if ch.enable_mask_bump:
-                    #    brow.prop(ch, 'mask_bump_distance', text='')
-                    #if ch.sharpen_normal_transition:
                     if ch.enable_mask_bump and not chui.expand_mask_settings:
                         brow.prop(ch, 'mask_bump_value', text='')
 
-                    #brow.menu("NODE_MT_y_tex_mask_bump_menu_special", text='', icon='SCRIPTWIN')
                     brow.prop(ch, 'enable_mask_bump', text='')
 
                     if tlui.expand_channels:
