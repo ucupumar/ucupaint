@@ -45,9 +45,6 @@ def create_texture_channel_nodes(group_tree, texture, channel):
     if root_ch.type == 'NORMAL':
         channel.normal_map_type = channel.normal_map_type
 
-    # Reconnect node inside textures
-    reconnect_tex_nodes(texture, ch_index)
-
 def channel_items(self, context):
     node = get_active_texture_layers_node()
     tl = node.node_tree.tl
@@ -232,6 +229,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     tl.active_texture_index = index
 
     # Rearrange node inside textures
+    reconnect_tex_nodes(tex)
     rearrange_tex_nodes(tex)
 
     return tex
@@ -909,6 +907,11 @@ class YRemoveTextureLayer(bpy.types.Operator):
             remove_node(source_tree, tex, 'source')
         else: remove_node(tex_tree, tex, 'source')
 
+        # Remove Mask source
+        for mask in tex.masks:
+            mask_tree = get_mask_tree(mask)
+            remove_node(mask_tree, mask, 'source')
+
         # Remove node group and tex tree
         bpy.data.node_groups.remove(get_tree(tex))
         nodes.remove(nodes.get(tex.group_node))
@@ -954,8 +957,10 @@ def update_channel_enable(self, context):
         mr_blend = tree.nodes.get(self.mr_blend)
         if mr_blend: mr_blend.mute = blend.mute
 
-    if self.enable_mask_bump:
-        Mask.set_mask_bump_nodes(tex, self, ch_index)
+    #if self.enable_mask_bump:
+    #    mb_blend = tree.nodes.get(self.mb_blend)
+    #    if mb_blend: mb_blend.mute = blend.mute
+    #    #Mask.set_mask_bump_nodes(tex, self, ch_index)
 
 def update_normal_map_type(self, context):
     tl = self.id_data.tl
@@ -1512,10 +1517,10 @@ def update_texture_enable(self, context):
             mr_blend = tree.nodes.get(ch.mr_blend)
             if mr_blend: mr_blend.mute = blend.mute
 
-        if ch.enable_mask_bump:
-            Mask.set_mask_bump_nodes(tex, ch, i)
+        #if ch.enable_mask_bump:
+        #    Mask.set_mask_bump_nodes(tex, ch, i)
 
-    reconnect_tex_nodes(tex)
+    #reconnect_tex_nodes(tex)
 
 def update_channel_intensity_value(self, context):
     tl = self.id_data.tl

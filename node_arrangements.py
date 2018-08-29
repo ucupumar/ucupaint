@@ -818,8 +818,8 @@ def rearrange_tex_nodes(tex):
 
             if loc.x > farthest_x: farthest_x = loc.x + 50
 
-
-    flip_bump = any([c for c in tex.channels if c.enable_mask_bump and c.mask_bump_flip and c.enable])
+    flip_bump = len(tex.masks) > 0 and any([c for i, c in enumerate(tex.channels) if
+        c.enable_mask_bump and c.mask_bump_flip and c.enable])
 
     loc.x = farthest_x
     loc.y = 0

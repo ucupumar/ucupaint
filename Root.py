@@ -4,7 +4,7 @@ from bpy.app.handlers import persistent
 from .common import *
 from .node_arrangements import *
 from .node_connections import *
-from . import lib, Modifier, Layer
+from . import lib, Modifier, Layer, Mask
 
 TL_GROUP_SUFFIX = ' TexLayers'
 
@@ -133,10 +133,20 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         # Add new channel
         c = t.channels.add()
 
+        # Add new channel to mask
+        tex_tree = get_tree(t)
+        for mask in t.masks:
+            mc = mask.channels.add()
+            Mask.set_mask_multiply_and_total_nodes(tex_tree, mc, c)
+
+        # Check and set mask intensity nodes
+        Mask.check_set_mask_intensity_multiplier(tex_tree, t, target_ch=c)
+
         # Add new nodes
         Layer.create_texture_channel_nodes(group_tree, t, c)
 
         # Rearrange node inside textures
+        reconnect_tex_nodes(t, channel_idx)
         rearrange_tex_nodes(t)
 
 def create_new_group_tree(mat):
@@ -893,6 +903,11 @@ class YRemoveTLChannel(bpy.types.Operator):
                 ttree.inputs.remove(ttree.inputs[channel.io_index])
                 ttree.outputs.remove(ttree.outputs[channel.io_index])
 
+            # Remove mask channel
+            #for mask in t.masks:
+            #    #print(channel_idx, len(mask.channels))
+            Mask.remove_mask_channel(ttree, t, channel_idx)
+
             t.channels.remove(channel_idx)
 
         # Remove start and end nodes
@@ -937,9 +952,10 @@ class YRemoveTLChannel(bpy.types.Operator):
         #tlup.channels.remove(channel_idx)
         #tl.temp_channels.remove(channel_idx)
 
-        # Rearrange nodes
+        # Rearrange and reconnect nodes
         for t in tl.textures:
             rearrange_tex_nodes(t)
+            reconnect_tex_nodes(t)
         rearrange_tl_nodes(group_tree)
 
         # Set new active index
