@@ -118,15 +118,15 @@ def get_neighbor_uv_tree(texcoord_type, different_uv=False):
 
 def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
     if label == '': label = 'Intensity Multiplier'
-    intensity_multiplier = new_node(tree, obj, prop, 'ShaderNodeGroup', label)
-    intensity_multiplier.node_tree = get_node_tree_lib(INTENSITY_MULTIPLIER)
-    intensity_multiplier.inputs[1].default_value = sharpness
-    intensity_multiplier.inputs['Sharpen'].default_value = 1.0
+    im = new_node(tree, obj, prop, 'ShaderNodeGroup', label)
+    im.node_tree = get_node_tree_lib(INTENSITY_MULTIPLIER)
+    im.inputs[1].default_value = sharpness
+    im.inputs['Sharpen'].default_value = 1.0
 
-    #if BLENDER_28_GROUP_INPUT_HACK:
-    #    duplicate_lib_node_tree(intensity_multiplier)
+    if BLENDER_28_GROUP_INPUT_HACK:
+        duplicate_lib_node_tree(im)
 
-    return intensity_multiplier
+    return im
 
 #@persistent
 #def load_libraries(scene):

@@ -1173,6 +1173,7 @@ def update_active_tl_channel(self, context):
     if tl.preview_mode: tl.preview_mode = True
 
 def update_texture_index(self, context):
+    T = time.time()
     scene = context.scene
     obj = context.object
     group_tree = self.id_data
@@ -1182,6 +1183,7 @@ def update_texture_index(self, context):
         self.active_texture_index >= len(self.textures) or self.active_texture_index < 0): 
         update_image_editor_image(context, None)
         scene.tool_settings.image_paint.canvas = None
+        #print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         return
 
     if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
@@ -1223,6 +1225,8 @@ def update_texture_index(self, context):
                     uv_layers.active_index = i
                 break
 
+    #print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
 def update_channel_colorspace(self, context):
     group_tree = self.id_data
     tl = group_tree.tl
@@ -1251,9 +1255,10 @@ def update_channel_colorspace(self, context):
                     else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
                     if BLENDER_28_GROUP_INPUT_HACK:
-                        inp = rgb2i.node_tree.nodes.get('Group Input')
-                        if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
-                            inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
+                        match_group_input(rgb2i, 'Gamma')
+                        #inp = rgb2i.node_tree.nodes.get('Group Input')
+                        #if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
+                        #    inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
 
     for tex in tl.textures:
         ch = tex.channels[channel_index]
@@ -1272,9 +1277,10 @@ def update_channel_colorspace(self, context):
                 else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
                 if BLENDER_28_GROUP_INPUT_HACK:
-                    inp = rgb2i.node_tree.nodes.get('Group Input')
-                    if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
-                        inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
+                    match_group_input(rgb2i, 'Gamma')
+                    #inp = rgb2i.node_tree.nodes.get('Group Input')
+                    #if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
+                    #    inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
 
 def update_channel_alpha(self, context):
     mat = get_active_material()

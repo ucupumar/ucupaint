@@ -35,6 +35,9 @@ def set_mask_channel_bump_nodes(c):
         neighbor_uv.inputs[1].default_value = 1000
         neighbor_uv.inputs[2].default_value = 1000
 
+    if BLENDER_28_GROUP_INPUT_HACK:
+        duplicate_lib_node_tree(neighbor_uv)
+
     if different_uv:
         tangent = tree.nodes.get(mask.tangent)
         bitangent = tree.nodes.get(mask.bitangent)
@@ -277,7 +280,9 @@ class YNewTextureMask(bpy.types.Operator):
     def draw(self, context):
         obj = context.object
 
-        row = self.layout.split(percentage=0.4)
+        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+            row = self.layout.split(percentage=0.4)
+        else: row = self.layout.split(factor=0.4)
         col = row.column(align=False)
         col.label(text='Name:')
         if self.type == 'IMAGE':
@@ -319,7 +324,8 @@ class YNewTextureMask(bpy.types.Operator):
         alpha = False
         img = None
         if self.type == 'IMAGE':
-            img = bpy.data.images.new(self.name, self.width, self.height, alpha, self.hdr)
+            img = bpy.data.images.new(name=self.name, 
+                    width=self.width, height=self.height, alpha=alpha, float_buffer=self.hdr)
             if self.color_option == 'WHITE':
                 img.generated_color = (1,1,1,1)
             elif self.color_option == 'BLACK':
@@ -552,6 +558,10 @@ def update_mask_hardness_enable(self, context):
         hardness = new_node(tree, self, 'hardness', 'ShaderNodeGroup', 'Mask Hardness')
         hardness.node_tree = lib.get_node_tree_lib(lib.MOD_INTENSITY_HARDNESS)
         hardness.inputs[1].default_value = self.hardness_value
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            duplicate_lib_node_tree(hardness)
+
     if not self.enable_hardness and hardness:
         remove_node(tree, self, 'hardness')
 
@@ -746,6 +756,9 @@ def update_mask_bump_distance(self, context):
             mb_fine_bump.inputs[0].default_value = -get_mask_fine_bump_distance(ch.mask_bump_distance)
         else: mb_fine_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
 
+        if BLENDER_28_GROUP_INPUT_HACK:
+            match_group_input(mb_fine_bump, 0)
+
 def update_mask_bump_value(self, context):
     if not self.enable: return
 
@@ -765,6 +778,10 @@ def update_mask_bump_value(self, context):
         mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
         mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
 
+    if BLENDER_28_GROUP_INPUT_HACK:
+        match_group_input(mask_intensity_multiplier, 1)
+        match_group_input(mb_intensity_multiplier, 1)
+
     for c in tex.channels:
         if c == ch: continue
 
@@ -772,8 +789,15 @@ def update_mask_bump_value(self, context):
         if mr_intensity_multiplier:
             mr_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
 
+            if BLENDER_28_GROUP_INPUT_HACK:
+                match_group_input(mr_intensity_multiplier, 1)
+
         im = tree.nodes.get(c.mask_intensity_multiplier)
-        if im: im.inputs[1].default_value = ch.mask_bump_value
+        if im: 
+            im.inputs[1].default_value = ch.mask_bump_value
+
+            if BLENDER_28_GROUP_INPUT_HACK:
+                match_group_input(im, 1)
 
 def check_set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = None):
 
@@ -822,6 +846,9 @@ def check_set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = N
                 im.mute = True
             elif prop == 'mr_intensity_multiplier':
                 im.inputs[1].default_value = bump_ch.mask_bump_second_edge_value
+                
+                if BLENDER_28_GROUP_INPUT_HACK:
+                    match_group_input(im, 1)
             else:
                 im.mute = False
 
@@ -830,6 +857,9 @@ def check_set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = N
                 if bump_ch.mask_bump_flip:
                     im.inputs['Invert'].default_value = 1.0
                 else: im.inputs['Invert'].default_value = 0.0
+
+                if BLENDER_28_GROUP_INPUT_HACK:
+                    match_group_input(im, 'Invert')
 
 def set_mask_bump_nodes(tex, ch, ch_index):
 
@@ -862,9 +892,15 @@ def set_mask_bump_nodes(tex, ch, ch_index):
         mb_fine_bump = new_node(tree, ch, 'mb_fine_bump', 'ShaderNodeGroup', 'Mask Fine Bump')
         mb_fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
 
+        if BLENDER_28_GROUP_INPUT_HACK:
+            duplicate_lib_node_tree(mb_fine_bump)
+
     if ch.mask_bump_flip:
         mb_fine_bump.inputs[0].default_value = -get_mask_fine_bump_distance(ch.mask_bump_distance)
     else: mb_fine_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
+
+    if BLENDER_28_GROUP_INPUT_HACK:
+        match_group_input(mb_fine_bump, 0)
 
     # Add inverse
     if not mb_inverse:
@@ -893,6 +929,10 @@ def set_mask_bump_nodes(tex, ch, ch_index):
     else:
         mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
         mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+
+    if BLENDER_28_GROUP_INPUT_HACK:
+        match_group_input(mask_intensity_multiplier, 1)
+        match_group_input(mb_intensity_multiplier, 1)
 
     # Add intensity multiplier to other channel mask
     check_set_mask_intensity_multiplier(tree, tex, bump_ch=ch)

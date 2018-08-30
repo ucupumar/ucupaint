@@ -206,9 +206,10 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
         if BLENDER_28_GROUP_INPUT_HACK:
-            inp = rgb2i.node_tree.nodes.get('Group Input')
-            if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
-                inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
+            match_group_input(rgb2i, 'Gamma')
+            #inp = rgb2i.node_tree.nodes.get('Group Input')
+            #if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
+            #    inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
 
         frame.label = 'RGB to Intensity'
         rgb2i.parent = frame
@@ -415,12 +416,12 @@ class YNewTexModifier(bpy.types.Operator):
         items = modifier_type_items,
         default = 'INVERT')
 
-    parent_type = EnumProperty(
-            name = 'Modifier Parent',
-            items = (('CHANNEL', 'Channel', '' ),
-                     ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
-                    ),
-            default = 'TEXTURE_CHANNEL')
+    #parent_type = EnumProperty(
+    #        name = 'Modifier Parent',
+    #        items = (('CHANNEL', 'Channel', '' ),
+    #                 ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
+    #                ),
+    #        default = 'TEXTURE_CHANNEL')
 
     @classmethod
     def poll(cls, context):
@@ -479,12 +480,12 @@ class YMoveTexModifier(bpy.types.Operator):
                      ('DOWN', 'Down', '')),
             default = 'UP')
 
-    parent_type = EnumProperty(
-            name = 'Modifier Parent',
-            items = (('CHANNEL', 'Channel', '' ),
-                     ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
-                    ),
-            default = 'TEXTURE_CHANNEL')
+    #parent_type = EnumProperty(
+    #        name = 'Modifier Parent',
+    #        items = (('CHANNEL', 'Channel', '' ),
+    #                 ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
+    #                ),
+    #        default = 'TEXTURE_CHANNEL')
 
     @classmethod
     def poll(cls, context):
@@ -543,12 +544,12 @@ class YRemoveTexModifier(bpy.types.Operator):
     bl_description = "Remove Texture Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
-    parent_type = EnumProperty(
-            name = 'Modifier Parent',
-            items = (('CHANNEL', 'Channel', '' ),
-                     ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
-                    ),
-            default = 'TEXTURE_CHANNEL')
+    #parent_type = EnumProperty(
+    #        name = 'Modifier Parent',
+    #        items = (('CHANNEL', 'Channel', '' ),
+    #                 ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
+    #                ),
+    #        default = 'TEXTURE_CHANNEL')
 
     @classmethod
     def poll(cls, context):
@@ -791,16 +792,17 @@ def update_invert_channel(self, context):
         else: invert.inputs[5].default_value = 0.0
 
     if BLENDER_28_GROUP_INPUT_HACK:
-        inp = invert.node_tree.nodes.get('Group Input')
+        match_group_input(invert)
+        #inp = invert.node_tree.nodes.get('Group Input')
 
-        if root_ch.type == 'VALUE':
-            end = 4
-        else: end = 6
+        #if root_ch.type == 'VALUE':
+        #    end = 4
+        #else: end = 6
 
-        for i in range(2, end):
-            for link in inp.outputs[i].links:
-                if link.to_socket.default_value != invert.inputs[i].default_value:
-                    link.to_socket.default_value = invert.inputs[i].default_value
+        #for i in range(2, end):
+        #    for link in inp.outputs[i].links:
+        #        if link.to_socket.default_value != invert.inputs[i].default_value:
+        #            link.to_socket.default_value = invert.inputs[i].default_value
 
 def update_use_clamp(self, context):
     tree = get_mod_tree(self)
@@ -810,9 +812,10 @@ def update_use_clamp(self, context):
         multiplier.inputs[2].default_value = 1.0 if self.use_clamp else 0.0
 
         if BLENDER_28_GROUP_INPUT_HACK:
-            inp = multiplier.node_tree.nodes.get('Group Input')
-            if inp.outputs[2].links[0].to_socket.default_value != multiplier.inputs[2].default_value:
-                inp.outputs[2].links[0].to_socket.default_value = multiplier.inputs[2].default_value
+            match_group_input(multiplier, 2)
+            #inp = multiplier.node_tree.nodes.get('Group Input')
+            #if inp.outputs[2].links[0].to_socket.default_value != multiplier.inputs[2].default_value:
+            #    inp.outputs[2].links[0].to_socket.default_value = multiplier.inputs[2].default_value
 
 def update_multiplier_val_input(self, context):
     tl = self.id_data.tl
@@ -836,14 +839,15 @@ def update_multiplier_val_input(self, context):
             multiplier.inputs[6].default_value = self.multiplier_a_val
 
         if BLENDER_28_GROUP_INPUT_HACK:
-            inp = multiplier.node_tree.nodes.get('Group Input')
-            if root_ch.type == 'VALUE':
-                end = 5
-            else: end = 7
-            for i in range(3, end):
-                for link in inp.outputs[i].links:
-                    if link.to_socket.default_value != multiplier.inputs[i].default_value:
-                        link.to_socket.default_value = multiplier.inputs[i].default_value
+            match_group_input(multiplier)
+            #inp = multiplier.node_tree.nodes.get('Group Input')
+            #if root_ch.type == 'VALUE':
+            #    end = 5
+            #else: end = 7
+            #for i in range(3, end):
+            #    for link in inp.outputs[i].links:
+            #        if link.to_socket.default_value != multiplier.inputs[i].default_value:
+            #            link.to_socket.default_value = multiplier.inputs[i].default_value
 
 def update_rgb2i_col(self, context):
     tree = get_mod_tree(self)
@@ -853,8 +857,9 @@ def update_rgb2i_col(self, context):
         rgb2i.inputs[2].default_value = self.rgb2i_col
 
         if BLENDER_28_GROUP_INPUT_HACK:
-            inp = rgb2i.node_tree.nodes.get('Group Input')
-            inp.outputs[2].links[0].to_socket.default_value = self.rgb2i_col
+            match_group_input(rgb2i, 2)
+            #inp = rgb2i.node_tree.nodes.get('Group Input')
+            #inp.outputs[2].links[0].to_socket.default_value = self.rgb2i_col
 
 class YTextureModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)

@@ -539,6 +539,33 @@ def duplicate_lib_node_tree(node):
     if node.node_tree.users > 1:
         node.node_tree = node.node_tree.copy()
 
+    # Make sure input match to actual node its connected to
+    for n in node.node_tree.nodes:
+        if n.type == 'GROUP_INPUT':
+            for i, inp in enumerate(node.inputs):
+                for link in n.outputs[i].links:
+                    try: link.to_socket.default_value = node.inputs[i].default_value
+                    except: pass
+
+def match_group_input(node, key=None, extra_node_names=[]):
+
+    input_node_names = ['Group Input']
+    input_node_names.extend(extra_node_names)
+
+    for name in input_node_names:
+        try:
+            n = node.node_tree.nodes.get(name)
+            if not key: outputs = n.outputs
+            else: outputs = [n.outputs[key]]
+        except: continue
+
+        for outp in outputs:
+            for link in outp.links:
+                try: 
+                    if link.to_socket.default_value != node.inputs[outp.name].default_value:
+                        link.to_socket.default_value = node.inputs[outp.name].default_value
+                except: pass
+
 # Some image_ops need this
 #def get_active_image():
 #    node = get_active_texture_layers_node()

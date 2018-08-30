@@ -440,7 +440,8 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 brow.label(text='', icon='INFO')
                 if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
                     split = brow.split(percentage=0.375)
-                else: split = brow.split(factor=0.375)
+                else: split = brow.split(factor=0.375, align=True)
+                #split = brow.row(align=False)
                 split.label(text='Space:')
                 split.prop(channel, 'colorspace', text='')
 
