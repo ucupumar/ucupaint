@@ -106,6 +106,7 @@ def rearrange_tex_frame_nodes(tex):
 
         pipeline_frame = refresh_tex_channel_frame(root_ch, ch, nodes)
         
+        ch_source = nodes.get(ch.source)
         linear = nodes.get(ch.linear)
         
         start_rgb = nodes.get(ch.start_rgb)
@@ -142,6 +143,7 @@ def rearrange_tex_frame_nodes(tex):
         blend = nodes.get(ch.blend)
 
         check_set_node_parent(linear, pipeline_frame)
+        check_set_node_parent(ch_source, pipeline_frame)
 
         check_set_node_parent(start_rgb, pipeline_frame)
         check_set_node_parent(start_alpha, pipeline_frame)
@@ -471,6 +473,7 @@ def rearrange_tex_nodes(tex):
 
     for i, ch in enumerate(tex.channels):
 
+        ch_source = nodes.get(ch.source)
         linear = nodes.get(ch.linear)
 
         start_rgb = nodes.get(ch.start_rgb)
@@ -509,6 +512,9 @@ def rearrange_tex_nodes(tex):
         loc.x = start_x
         bookmark_y = loc.y
         bookmarks_ys.append(bookmark_y)
+
+        if check_set_node_location(ch_source, loc):
+            loc.x += 200.0
 
         if check_set_node_location(linear, loc):
             loc.x += 200.0
@@ -836,12 +842,16 @@ def rearrange_tex_nodes(tex):
             rearrange_mask_ramp_nodes(tree, ch, loc)
 
         # Bump
+        mb_bump = nodes.get(ch.mb_bump)
         mb_fine_bump = nodes.get(ch.mb_fine_bump)
         mb_inverse = nodes.get(ch.mb_inverse)
         mb_intensity_multiplier = nodes.get(ch.mb_intensity_multiplier)
         mb_blend = nodes.get(ch.mb_blend)
 
         if check_set_node_location(mb_fine_bump, loc):
+            loc.x += 170.0
+
+        if check_set_node_location(mb_bump, loc):
             loc.x += 170.0
 
         if check_set_node_location(mb_inverse, loc):

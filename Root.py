@@ -1265,9 +1265,14 @@ def update_channel_colorspace(self, context):
         tree = get_tree(tex)
 
         # Check for linear node
-        linear = tree.nodes.get(ch.linear)
-        if self.colorspace == 'LINEAR' and linear:
-            ch.tex_input = 'RGB_LINEAR'
+        #linear = tree.nodes.get(ch.linear)
+        #if self.colorspace == 'LINEAR' and linear:
+        #    ch.tex_input = 'RGB_LINEAR'
+        if self.colorspace == 'LINEAR':
+            if ch.tex_input == 'RGB_SRGB':
+                ch.tex_input = 'RGB_LINEAR'
+            elif ch.tex_input == 'CUSTOM':
+                ch.tex_input = 'CUSTOM'
 
         for mod in ch.modifiers:
             if mod.type == 'RGB_TO_INTENSITY':

@@ -68,17 +68,27 @@ def tex_input_items(self, context):
 
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     if not m: return []
-    #tex = tl.textures[int(m.group(1))]
+    tex = tl.textures[int(m.group(1))]
     root_ch = tl.channels[int(m.group(2))]
 
     items = []
 
+    label = texture_type_labels[tex.type]
+
     if root_ch.colorspace == 'SRGB':
-        items.append(('RGB_LINEAR', 'Color (Linear)', ''))
-        items.append(('RGB_SRGB', 'Color (Gamma)',  ''))
-    else: items.append(('RGB_LINEAR', 'Color', ''))
+        items.append(('RGB_LINEAR', label + ' Color (Linear)', ''))
+        items.append(('RGB_SRGB', label + ' Color (Gamma)',  ''))
+    else: items.append(('RGB_LINEAR', label + ' Color', ''))
         
-    items.append(('ALPHA', 'Factor',  ''))
+    if tex.type != 'IMAGE':
+        items.append(('ALPHA', label + ' Factor',  ''))
+
+    if root_ch.type == 'RGB':
+        items.append(('CUSTOM', 'Custom Color',  ''))
+    elif root_ch.type == 'VALUE':
+        items.append(('CUSTOM', 'Custom Value',  ''))
+    elif root_ch.type == 'NORMAL':
+        items.append(('CUSTOM', 'Geometry Normal',  ''))
 
     return items
 
@@ -1397,28 +1407,54 @@ def update_bump_distance(self, context):
 #            vector_intensity_multiplier = tree.nodes.get(c.vector_intensity_multiplier)
 #            if vector_intensity_multiplier: vector_intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
+def update_custom_input(self, context):
+    tl = self.id_data.tl
+
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
+    root_ch = tl.channels[int(m.group(2))]
+    tree = get_tree(tex)
+    ch = self
+
+    ch_source = tree.nodes.get(ch.source)
+    if ch_source:
+        if root_ch.type == 'RGB':
+            col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
+            ch_source.outputs[0].default_value = col
+        elif root_ch.type == 'VALUE':
+            ch_source.outputs[0].default_value = ch.custom_value
+
 def update_tex_input(self, context):
     tl = self.id_data.tl
 
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    if not m: return
     tex = tl.textures[int(m.group(1))]
     root_ch = tl.channels[int(m.group(2))]
     tree = get_tree(tex)
+    ch = self
 
-    if tex.type == 'IMAGE': return
+    #if tex.type == 'IMAGE': return
 
-    linear = tree.nodes.get(self.linear)
-    if self.tex_input == 'RGB_SRGB' and not linear:
+    if ch.tex_input in {'RGB_SRGB', 'CUSTOM'} and root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB':
         if root_ch.type == 'VALUE':
-            linear = new_node(tree, self, 'linear', 'ShaderNodeMath', 'Linear')
+            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
             linear.operation = 'POWER'
         elif root_ch.type == 'RGB':
-            linear = new_node(tree, self, 'linear', 'ShaderNodeGamma', 'Linear')
+            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
         linear.inputs[1].default_value = 1.0 / GAMMA
+    else:
+        remove_node(tree, ch, 'linear')
 
-    if self.tex_input != 'RGB_SRGB' and linear:
-        remove_node(tree, self, 'linear')
+    if ch.tex_input == 'CUSTOM' and root_ch.type != 'NORMAL':
+        if root_ch.type == 'RGB':
+            source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', 'Custom Source')
+            col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
+            source.outputs[0].default_value = col
+        elif root_ch.type == 'VALUE':
+            source = replace_new_node(tree, ch, 'source', 'ShaderNodeValue', 'Custom Source')
+            source.outputs[0].default_value = ch.custom_value
+    else:
+        remove_node(tree, ch, 'source')
 
     reconnect_tex_nodes(tex)
     rearrange_tex_nodes(tex)
@@ -1558,7 +1594,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
 
     tex_input = EnumProperty(
-            name = 'Input from Texture',
+            name = 'Layer Input',
             #items = (('RGB', 'Color', ''),
             #         ('ALPHA', 'Alpha / Factor', '')),
             #default = 'RGB',
@@ -1571,6 +1607,18 @@ class YLayerChannel(bpy.types.PropertyGroup):
     #                 ('SRGB', 'sRGB', '')),
     #        default = 'LINEAR',
     #        update = update_tex_channel_color_space)
+
+    custom_color = FloatVectorProperty(
+            name='Custom Color Input', size=3, subtype='COLOR', 
+            default=(0.5,0.5,0.5), min=0.0, max=1.0,
+            update=update_custom_input
+            )
+
+    custom_value = FloatProperty(
+            name='Custom Input Value',
+            default=0.5, min=0.0, max=1.0, subtype='FACTOR',
+            update=update_custom_input
+            )
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
@@ -1614,6 +1662,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     linear = StringProperty(default='')
     blend = StringProperty(default='')
     intensity = StringProperty(default='')
+    source = StringProperty(default='')
 
     pipeline_frame = StringProperty(default='')
 
@@ -1679,6 +1728,15 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=0.05, min=0.0, max=1.0, precision=3, # step=1,
             update=Mask.update_mask_bump_distance)
 
+    mask_bump_type = EnumProperty(
+            name = 'Normal Map Type',
+            items = (
+                ('BUMP_MAP', 'Bump Map', ''),
+                ('FINE_BUMP_MAP', 'Fine Bump Map', ''),
+                ),
+            default = 'FINE_BUMP_MAP',
+            update=Mask.update_enable_mask_bump)
+
     #mask_bump_type = EnumProperty(
     #        name = 'Mask Bump Type',
     #        description = 'Mask bump type',
@@ -1686,6 +1744,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
     #                 ('SINGLE_EDGE', 'Single Edge', '')),
     #        default = 'DUAL_EDGE',
     #        #update=Mask.update_mask_bump_type)
+    #        update=Mask.update_enable_mask_bump)
+
+    #mask_bump_mask_only = BoolProperty(
+    #        name = 'Mask Bump Mask Only',
+    #        description = 'Mask bump mask only',
+    #        default=False,
+    #        #update=Mask.update_mask_bump_flip)
     #        update=Mask.update_enable_mask_bump)
 
     mask_bump_flip = BoolProperty(
@@ -1703,6 +1768,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=1.2, min=1.0, max=100.0, 
             update = Mask.update_mask_bump_value)
 
+    mb_bump = StringProperty(default='')
     mb_fine_bump = StringProperty(default='')
     mb_inverse = StringProperty(default='')
     mb_intensity_multiplier = StringProperty(default='')

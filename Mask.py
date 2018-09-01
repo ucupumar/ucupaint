@@ -76,6 +76,20 @@ def set_mask_channel_bump_nodes(c):
 
     return need_reconnect
 
+def remove_mask_channel_bump_nodes(tree, tex, ch_index):
+    for mask in tex.masks:
+        c = mask.channels[ch_index]
+
+        remove_node(tree, mask, 'tangent')
+        remove_node(tree, mask, 'bitangent')
+        remove_node(tree, c, 'neighbor_uv')
+
+        for d in neighbor_directions:
+            remove_node(tree, c, 'source_' + d)
+            remove_node(tree, c, 'multiply_' + d)
+
+        disable_mask_source(tex, mask, False)
+
 def set_mask_multiply_and_total_nodes(tree, c, ch):
     multiply = tree.nodes.get(c.multiply)
     if not multiply:
@@ -881,26 +895,44 @@ def set_mask_bump_nodes(tex, ch, ch_index):
 
     tree = get_tree(tex)
 
-    mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
+    if ch.mask_bump_type == 'FINE_BUMP_MAP':
+
+        # Remove standard bump first
+        remove_node(tree, ch, 'mb_bump')
+
+        # Get fine bump
+        mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
+        if not mb_fine_bump:
+            mb_fine_bump = new_node(tree, ch, 'mb_fine_bump', 'ShaderNodeGroup', 'Mask Fine Bump')
+            mb_fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
+
+            if BLENDER_28_GROUP_INPUT_HACK:
+                duplicate_lib_node_tree(mb_fine_bump)
+
+        if ch.mask_bump_flip:
+            mb_fine_bump.inputs[0].default_value = -get_mask_fine_bump_distance(ch.mask_bump_distance)
+        else: mb_fine_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            match_group_input(mb_fine_bump, 0)
+
+    elif ch.mask_bump_type == 'BUMP_MAP':
+        # Remove fine bump first
+        remove_node(tree, ch, 'mb_fine_bump')
+
+        # Get bump
+        mb_bump = tree.nodes.get(ch.mb_bump)
+        if not mb_bump:
+            mb_bump = new_node(tree, ch, 'mb_bump', 'ShaderNodeBump', 'Mask Bump')
+
+        if ch.mask_bump_flip:
+            mb_bump.inputs[1].default_value = -ch.mask_bump_distance
+        else: mb_bump.inputs[1].default_value = ch.mask_bump_distance
+
     mb_inverse = tree.nodes.get(ch.mb_inverse)
     mb_blend = tree.nodes.get(ch.mb_blend)
     mb_intensity_multiplier = tree.nodes.get(ch.mb_intensity_multiplier)
     mask_intensity_multiplier = tree.nodes.get(ch.mask_intensity_multiplier)
-
-    # Add fine bump
-    if not mb_fine_bump:
-        mb_fine_bump = new_node(tree, ch, 'mb_fine_bump', 'ShaderNodeGroup', 'Mask Fine Bump')
-        mb_fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
-
-        if BLENDER_28_GROUP_INPUT_HACK:
-            duplicate_lib_node_tree(mb_fine_bump)
-
-    if ch.mask_bump_flip:
-        mb_fine_bump.inputs[0].default_value = -get_mask_fine_bump_distance(ch.mask_bump_distance)
-    else: mb_fine_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
-
-    if BLENDER_28_GROUP_INPUT_HACK:
-        match_group_input(mb_fine_bump, 0)
 
     # Add inverse
     if not mb_inverse:
@@ -942,10 +974,13 @@ def set_mask_bump_nodes(tex, ch, ch_index):
         mb_blend = new_node(tree, ch, 'mb_blend', 'ShaderNodeGroup', 'Mask Vector Blend')
         mb_blend.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
 
-    # Add per mask channel bump related nodes
-    for mask in tex.masks:
-        c = mask.channels[ch_index]
-        set_mask_channel_bump_nodes(c)
+    if ch.mask_bump_type == 'FINE_BUMP_MAP':
+        # Add per mask channel bump related nodes
+        for mask in tex.masks:
+            c = mask.channels[ch_index]
+            set_mask_channel_bump_nodes(c)
+    elif ch.mask_bump_type == 'BUMP_MAP':
+        remove_mask_channel_bump_nodes(tree, tex, ch_index)
 
 def remove_mask_bump_nodes(tex, ch, ch_index):
     tree = get_tree(tex)
@@ -955,21 +990,23 @@ def remove_mask_bump_nodes(tex, ch, ch_index):
     remove_node(tree, ch, 'mb_intensity_multiplier')
     remove_node(tree, ch, 'mb_blend')
 
-    for mask in tex.masks:
-        disable_mask_source(tex, mask)
+    remove_mask_channel_bump_nodes(tree, tex, ch_index)
 
-        #print(len(tex.masks), mask, ch_index, len(mask.channels))
+    #for mask in tex.masks:
+    #    disable_mask_source(tex, mask)
 
-        c = mask.channels[ch_index]
+    #    #print(len(tex.masks), mask, ch_index, len(mask.channels))
 
-        remove_node(tree, mask, 'tangent')
-        remove_node(tree, mask, 'bitangent')
-        remove_node(tree, c, 'neighbor_uv')
+    #    c = mask.channels[ch_index]
 
-        for d in neighbor_directions:
-            remove_node(tree, c, 'source_' + d)
-        #for d in directions_me:
-            remove_node(tree, c, 'multiply_' + d)
+    #    remove_node(tree, mask, 'tangent')
+    #    remove_node(tree, mask, 'bitangent')
+    #    remove_node(tree, c, 'neighbor_uv')
+
+    #    for d in neighbor_directions:
+    #        remove_node(tree, c, 'source_' + d)
+    #    #for d in directions_me:
+    #        remove_node(tree, c, 'multiply_' + d)
 
     # Delete intensity multiplier from ramp
     for c in tex.channels:

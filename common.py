@@ -55,6 +55,21 @@ texture_type_items = (
         ('WAVE', 'Wave', ''),
         )
 
+texture_type_labels = {
+        'IMAGE' : 'Image',
+        #'ENVIRONMENT' : 'Environment',
+        'BRICK' : 'Brick',
+        'CHECKER' : 'Checker',
+        'GRADIENT' : 'Gradient',
+        'MAGIC' : 'Magic',
+        'MUSGRAVE' : 'Musgrave',
+        'NOISE' : 'Noise',
+        #'POINT_DENSITY' : 'Point Density',
+        #'SKY' : 'Sky',
+        'VORONOI' : 'Voronoi',
+        'WAVE' : 'Wave',
+        }
+
 texcoord_type_items = (
         ('Generated', 'Generated', ''),
         ('Normal', 'Normal', ''),
@@ -432,33 +447,49 @@ def unmute_node(tree, obj, prop):
     if node: node.mute = False
 
 def new_node(tree, obj, prop, node_id_name, label=''):
+    ''' Create new node '''
+    if not hasattr(obj, prop): return
     
-    if not hasattr(obj, prop): return None
-
+    # Create new node
     node = tree.nodes.new(node_id_name)
-    setattr(obj, prop, node.name)
-    #obj[prop] = node.name
 
-    if label != '':
-        node.label = label
+    # Set node name to object attribute
+    setattr(obj, prop, node.name)
+
+    # Set label
+    node.label = label
 
     return node
 
 def check_new_node(tree, obj, prop, node_id_name, label=''):
     ''' Check if node is available, if not, create one '''
-    if not hasattr(obj, prop): return
 
     # Try to get the node first
-    node = tree.nodes.get(getattr(obj, prop))
-    #node = tree.nodes.get(obj[prop])
-    new = False
+    try: node = tree.nodes.get(getattr(obj, prop))
+    except: return None
 
     # Create new node if not found
     if not node:
         node = new_node(tree, obj, prop, node_id_name, label)
-        new = True
 
-    return node, new
+    return node
+
+def replace_new_node(tree, obj, prop, node_id_name, label=''):
+    ''' Check if node is available, replace if available '''
+
+    # Try to get the node first
+    try: node = tree.nodes.get(getattr(obj, prop))
+    except: return None
+
+    # Remove node if found and has different id name
+    if node and node.bl_idname != node_id_name:
+        remove_node(tree, obj, prop)
+
+    # Create new node
+    if not node:
+        node = new_node(tree, obj, prop, node_id_name, label)
+
+    return node
 
 def get_tree(obj):
 
