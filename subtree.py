@@ -3,7 +3,7 @@ from .common import *
 from .node_arrangements import *
 from .node_connections import *
 
-def enable_tex_source_tree(tex):
+def enable_tex_source_tree(tex, rearrange=True):
 
     # Check if source tree is already available
     if tex.source_group != '': return
@@ -40,20 +40,22 @@ def enable_tex_source_tree(tex):
     # Remove previous source
     tex_tree.nodes.remove(source_ref)
 
-    # Reconnect outside nodes
-    reconnect_tex_nodes(tex)
+    if rearrange:
+        # Reconnect outside nodes
+        reconnect_tex_nodes(tex)
 
-    # Rearrange nodes
-    rearrange_tex_nodes(tex)
+        # Rearrange nodes
+        rearrange_tex_nodes(tex)
 
-def disable_tex_source_tree(tex):
+def disable_tex_source_tree(tex, rearrange=True):
     tl = tex.id_data.tl
 
     # Check if fine bump map is used on some of texture channels
     fine_bump_found = False
     blur_found = False
     for i, ch in enumerate(tex.channels):
-        if tl.channels[i].type == 'NORMAL' and ch.normal_map_type == 'FINE_BUMP_MAP':
+        if tl.channels[i].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP' 
+                or ch.mask_bump_type == 'FINE_BUMP_MAP'):
             fine_bump_found = True
         if hasattr(ch, 'enable_blur') and ch.enable_blur:
             blur_found =True
@@ -73,9 +75,10 @@ def disable_tex_source_tree(tex):
         bpy.data.node_groups.remove(source_group.node_tree)
         remove_node(tex_tree, tex, 'source_group')
 
-        # Reconnect outside nodes
-        reconnect_tex_nodes(tex)
+        if rearrange:
+            # Reconnect outside nodes
+            reconnect_tex_nodes(tex)
 
-        # Rearrange nodes
-        rearrange_tex_nodes(tex)
+            # Rearrange nodes
+            rearrange_tex_nodes(tex)
 

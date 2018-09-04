@@ -995,7 +995,7 @@ def update_normal_map_type(self, context):
     # Bump nodes
     bump_base = nodes.get(self.bump_base)
     bump = nodes.get(self.bump)
-    intensity_multiplier = nodes.get(self.intensity_multiplier)
+    #intensity_multiplier = nodes.get(self.intensity_multiplier)
 
     # Fine bump nodes
     neighbor_uv = nodes.get(self.neighbor_uv)
@@ -1003,7 +1003,7 @@ def update_normal_map_type(self, context):
 
     # Get fine bump sources
     sources = []
-    mod_groups = []
+    #mod_groups = []
     bump_bases = []
     neighbor_directions = ['n', 's', 'e', 'w']
     for d in neighbor_directions:
@@ -1011,7 +1011,7 @@ def update_normal_map_type(self, context):
         m = nodes.get(getattr(self, 'mod_' + d))
         b = nodes.get(getattr(self, 'bump_base_' + d))
         sources.append(s)
-        mod_groups.append(m)
+        #mod_groups.append(m)
         bump_bases.append(b)
 
     # Common nodes
@@ -1023,10 +1023,10 @@ def update_normal_map_type(self, context):
             bump_base = new_node(tree, self, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
             val = self.bump_base_value
             bump_base.inputs[1].default_value = (val, val, val, 1.0)
-        if not intensity_multiplier:
-            intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeGroup', 
-                    'Intensity Multiplier')
-            intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
+        #if not intensity_multiplier:
+        #    intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeGroup', 
+        #            'Intensity Multiplier')
+        #    intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
             #intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeMath', 'Intensity Multiplier')
             #intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
             #intensity_multiplier.use_clamp = True
@@ -1047,8 +1047,9 @@ def update_normal_map_type(self, context):
 
         # Make sure to enable source tree and modifier tree
         enable_tex_source_tree(tex)
-        Modifier.enable_modifiers_tree(self)
-        mod_tree = get_mod_tree(self)
+        Modifier.enable_modifiers_tree(self, True)
+        #mod_tree = Modifier.enable_modifiers_tree(self, False)
+        #mod_tree = get_mod_tree(self)
 
         # Get the original source
         source = get_tex_source(tex, tree)
@@ -1092,12 +1093,13 @@ def update_normal_map_type(self, context):
                 s.node_tree = get_source_tree(tex, tree)
                 s.hide = True
 
-        for i, m in enumerate(mod_groups):
-            if not m:
-                m = new_node(tree, self, 'mod_' + neighbor_directions[i], 'ShaderNodeGroup', 
-                        'mod ' + neighbor_directions[i])
-                m.node_tree = mod_tree
-                m.hide = True
+        #if mod_tree:
+        #    for i, m in enumerate(mod_groups):
+        #        if not m:
+        #            m = new_node(tree, self, 'mod_' + neighbor_directions[i], 'ShaderNodeGroup', 
+        #                    'mod ' + neighbor_directions[i])
+        #            m.node_tree = mod_tree
+        #            m.hide = True
 
         for i, b in enumerate(bump_bases):
             if not b:
@@ -1132,15 +1134,15 @@ def update_normal_map_type(self, context):
     # Try to remove source tree
     if self.normal_map_type in {'NORMAL_MAP', 'BUMP_MAP'}:
         disable_tex_source_tree(tex)
-        Modifier.disable_modifiers_tree(self)
+        Modifier.disable_modifiers_tree(self, True)
 
     # Create normal flip node
     if not normal_flip:
         normal_flip = new_node(tree, self, 'normal_flip', 'ShaderNodeGroup', 'Flip Backface Normal')
         normal_flip.node_tree = lib.get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
 
-    reconnect_tex_nodes(tex, ch_index)
     rearrange_tex_nodes(tex)
+    reconnect_tex_nodes(tex, ch_index)
 
 def update_blend_type_(root_ch, tex, ch):
     need_reconnect = False
@@ -1719,8 +1721,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mask_bump_value = FloatProperty(
         name = 'Mask Bump Value',
         description = 'Mask bump value',
-        default=5.0, min=1.0, max=100.0, 
+        default=3.0, min=1.0, max=100.0, 
         update=Mask.update_mask_bump_value)
+
+    mask_bump_second_edge_value = FloatProperty(
+            name = 'Second Edge Intensity', 
+            description = 'Second Edge intensity value',
+            default=1.2, min=1.0, max=100.0, 
+            update = Mask.update_mask_bump_value)
 
     mask_bump_distance = FloatProperty(
             name='Mask Bump Distance', 
@@ -1737,21 +1745,11 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default = 'FINE_BUMP_MAP',
             update=Mask.update_enable_mask_bump)
 
-    #mask_bump_type = EnumProperty(
-    #        name = 'Mask Bump Type',
-    #        description = 'Mask bump type',
-    #        items = (('DUAL_EDGE', 'Dual Edge', ''),
-    #                 ('SINGLE_EDGE', 'Single Edge', '')),
-    #        default = 'DUAL_EDGE',
-    #        #update=Mask.update_mask_bump_type)
-    #        update=Mask.update_enable_mask_bump)
-
-    #mask_bump_mask_only = BoolProperty(
-    #        name = 'Mask Bump Mask Only',
-    #        description = 'Mask bump mask only',
-    #        default=False,
-    #        #update=Mask.update_mask_bump_flip)
-    #        update=Mask.update_enable_mask_bump)
+    mask_bump_mask_only = BoolProperty(
+            name = 'Mask Bump Mask Only',
+            description = 'Mask bump mask only',
+            default=True,
+            update=Mask.update_enable_mask_bump)
 
     mask_bump_flip = BoolProperty(
             name = 'Mask Bump Flip',
@@ -1760,19 +1758,21 @@ class YLayerChannel(bpy.types.PropertyGroup):
             #update=Mask.update_mask_bump_flip)
             update=Mask.update_enable_mask_bump)
 
-    mask_bump_second_edge_value = FloatProperty(
-            name = 'Second Edge Intensity', 
-            description = 'Second Edge intensity value',
-            #default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            #update = Mask.update_mask_bump_second_edge_value)
-            default=1.2, min=1.0, max=100.0, 
-            update = Mask.update_mask_bump_value)
-
     mb_bump = StringProperty(default='')
     mb_fine_bump = StringProperty(default='')
     mb_inverse = StringProperty(default='')
     mb_intensity_multiplier = StringProperty(default='')
     mb_blend = StringProperty(default='')
+
+    mb_neighbor_uv = StringProperty(default='')
+    mb_source_n = StringProperty(default='')
+    mb_source_s = StringProperty(default='')
+    mb_source_e = StringProperty(default='')
+    mb_source_w = StringProperty(default='')
+    mb_mod_n = StringProperty(default='')
+    mb_mod_s = StringProperty(default='')
+    mb_mod_e = StringProperty(default='')
+    mb_mod_w = StringProperty(default='')
 
     # Mask ramp related
     enable_mask_ramp = BoolProperty(name='Enable Mask Ramp', description='Enable mask ramp', 

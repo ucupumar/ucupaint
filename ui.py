@@ -650,6 +650,10 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                         crow.prop(ch, 'mask_bump_type', text='')
 
                         crow = cccol.row(align=True)
+                        crow.label(text='Mask Only:') #, icon='INFO')
+                        crow.prop(ch, 'mask_bump_mask_only', text='')
+
+                        crow = cccol.row(align=True)
                         crow.label(text='Flip:') #, icon='INFO')
                         crow.prop(ch, 'mask_bump_flip', text='')
 

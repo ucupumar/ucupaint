@@ -1,9 +1,10 @@
 import bpy, re, time
 from bpy.props import *
-from . import lib
+from . import lib, Modifier
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
+from .subtree import *
 
 def set_mask_channel_bump_nodes(c):
     tl = c.id_data.tl
@@ -616,30 +617,36 @@ def update_mask_ramp_blend_type(self, context):
     mr_blend = tree.nodes.get(self.mr_blend)
     mr_blend.blend_type = self.mask_ramp_blend_type
 
-def set_mask_ramp_flip_nodes(tree, ch, rearrange=False):
-    mr_alpha1 = tree.nodes.get(ch.mr_alpha1)
-    mr_flip_hack = tree.nodes.get(ch.mr_flip_hack)
-    mr_flip_blend = tree.nodes.get(ch.mr_flip_blend)
+def set_mask_ramp_flip_nodes(tree, ch, rearrange=False, bump_ch=None):
 
-    #if flip_bump:
-    if not mr_alpha1:
-        mr_alpha1 = new_node(tree, ch, 'mr_alpha1', 'ShaderNodeMath', 'Mask Ramp Alpha 1')
-        mr_alpha1.operation = 'MULTIPLY'
+    if not bump_ch: return
+
+    if bump_ch.mask_bump_mask_only:
+        mr_alpha1 = tree.nodes.get(ch.mr_alpha1)
+        if not mr_alpha1:
+            mr_alpha1 = new_node(tree, ch, 'mr_alpha1', 'ShaderNodeMath', 'Mask Ramp Alpha 1')
+            mr_alpha1.operation = 'MULTIPLY'
+            rearrange = True
+    else:
+        remove_node(tree, ch, 'mr_alpha1')
         rearrange = True
 
+    mr_flip_hack = tree.nodes.get(ch.mr_flip_hack)
     if not mr_flip_hack:
         mr_flip_hack = new_node(tree, ch, 'mr_flip_hack', 'ShaderNodeMath', 'Mask Ramp Flip Hack')
         mr_flip_hack.operation = 'POWER'
-        rearrange = True
-
-    if not mr_flip_blend:
-        mr_flip_blend = new_node(tree, ch, 'mr_flip_blend', 'ShaderNodeMixRGB', 'Mask Ramp Flip Blend')
         rearrange = True
 
     # Flip bump is better be muted if intensity is maximum
     if ch.intensity_value < 1.0:
         mr_flip_hack.inputs[1].default_value = 1
     else: mr_flip_hack.inputs[1].default_value = 20
+
+
+    mr_flip_blend = tree.nodes.get(ch.mr_flip_blend)
+    if not mr_flip_blend:
+        mr_flip_blend = new_node(tree, ch, 'mr_flip_blend', 'ShaderNodeMixRGB', 'Mask Ramp Flip Blend')
+        rearrange = True
 
     return rearrange
 
@@ -690,19 +697,23 @@ def set_mask_ramp_nodes(tree, tex, ch, rearrange=False):
 
     # Check for other channel using sharpen normal transition
     flip_bump = False
+    bump_ch = None
     for c in tex.channels:
         if c.enable_mask_bump and c.enable:
+            bump_ch = c
             if c.mask_bump_flip: flip_bump = True
+
             mr_intensity_multiplier = tree.nodes.get(ch.mr_intensity_multiplier)
             if not mr_intensity_multiplier:
                 mr_intensity_multiplier = lib.new_intensity_multiplier_node(tree, 
                         ch, 'mr_intensity_multiplier', c.mask_bump_value)
                 rearrange = True
+
             mr_intensity_multiplier.inputs[1].default_value = c.mask_bump_second_edge_value
 
     # Flip bump related
     if flip_bump:
-        rearrange = set_mask_ramp_flip_nodes(tree, ch, rearrange)
+        rearrange = set_mask_ramp_flip_nodes(tree, ch, rearrange, bump_ch)
 
     return rearrange
 
@@ -773,6 +784,12 @@ def update_mask_bump_distance(self, context):
         if BLENDER_28_GROUP_INPUT_HACK:
             match_group_input(mb_fine_bump, 0)
 
+    mb_bump = tree.nodes.get(ch.mb_bump)
+    if mb_bump:
+        if ch.mask_bump_flip:
+            mb_bump.inputs[1].default_value = -ch.mask_bump_distance
+        else: mb_bump.inputs[1].default_value = ch.mask_bump_distance
+
 def update_mask_bump_value(self, context):
     if not self.enable: return
 
@@ -784,12 +801,22 @@ def update_mask_bump_value(self, context):
 
     mask_intensity_multiplier = tree.nodes.get(ch.mask_intensity_multiplier)
     mb_intensity_multiplier = tree.nodes.get(ch.mb_intensity_multiplier)
+    intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
+
+    #if intensity_multiplier:
+    #    intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
 
     if ch.mask_bump_flip:
-        mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+        if mask_intensity_multiplier:
+            mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+        if intensity_multiplier:
+            intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
         mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
     else:
-        mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
+        if mask_intensity_multiplier:
+            mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
+        if intensity_multiplier:
+            intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
         mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
 
     if BLENDER_28_GROUP_INPUT_HACK:
@@ -807,6 +834,13 @@ def update_mask_bump_value(self, context):
                 match_group_input(mr_intensity_multiplier, 1)
 
         im = tree.nodes.get(c.mask_intensity_multiplier)
+        if im: 
+            im.inputs[1].default_value = ch.mask_bump_value
+
+            if BLENDER_28_GROUP_INPUT_HACK:
+                match_group_input(im, 1)
+
+        im = tree.nodes.get(c.intensity_multiplier)
         if im: 
             im.inputs[1].default_value = ch.mask_bump_value
 
@@ -837,7 +871,14 @@ def check_set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = N
         # NOTE: Bump channel supposed to be already had a mask intensity multipler
         if c == bump_ch: continue
 
-        props = ['mask_intensity_multiplier']
+        props = []
+        if bump_ch.mask_bump_mask_only:
+            props.append('mask_intensity_multiplier')
+            remove_node(tree, c, 'intensity_multiplier')
+        else: 
+            props.append('intensity_multiplier')
+            remove_node(tree, c, 'mask_intensity_multiplier')
+
         if c.enable_mask_ramp: 
             props.append('mr_intensity_multiplier')
 
@@ -847,7 +888,7 @@ def check_set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = N
                 mr_intensity.inputs[1].default_value = c.mask_ramp_intensity_value * c.intensity_value
 
             if bump_ch.mask_bump_flip:
-                set_mask_ramp_flip_nodes(tree, c)
+                set_mask_ramp_flip_nodes(tree, c, bump_ch=bump_ch)
             else:
                 unset_mask_ramp_flip_nodes(tree, c)
 
@@ -867,7 +908,7 @@ def check_set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = N
                 im.mute = False
 
             # Invert other mask intensity multipler if mask bump flip active
-            if prop == 'mask_intensity_multiplier': #and bump_ch != c:
+            if prop in {'mask_intensity_multiplier', 'intensity_multiplier'}: #and bump_ch != c:
                 if bump_ch.mask_bump_flip:
                     im.inputs['Invert'].default_value = 1.0
                 else: im.inputs['Invert'].default_value = 0.0
@@ -897,8 +938,31 @@ def set_mask_bump_nodes(tex, ch, ch_index):
 
     if ch.mask_bump_type == 'FINE_BUMP_MAP':
 
+        enable_tex_source_tree(tex, False)
+        Modifier.enable_modifiers_tree(ch)
+
         # Remove standard bump first
         remove_node(tree, ch, 'mb_bump')
+
+        mb_neighbor_uv = tree.nodes.get(ch.mb_neighbor_uv)
+        if not mb_neighbor_uv:
+            mb_neighbor_uv = new_node(tree, ch, 'mb_neighbor_uv', 'ShaderNodeGroup', 'Mask Bump Neighbor UV')
+        mb_neighbor_uv.node_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
+        if tex.type == 'IMAGE':
+            src = get_tex_source(tex, tree)
+            mb_neighbor_uv.inputs[1].default_value = src.image.size[0]
+            mb_neighbor_uv.inputs[2].default_value = src.image.size[1]
+        else:
+            mb_neighbor_uv.inputs[1].default_value = 1000
+            mb_neighbor_uv.inputs[2].default_value = 1000
+
+        for d in neighbor_directions:
+
+            src = tree.nodes.get(getattr(ch, 'mb_source_' + d))
+            if not src:
+                src = new_node(tree, ch, 'mb_source_' + d, 'ShaderNodeGroup', 'mb_source_' + d)
+                src.node_tree = get_source_tree(tex, tree)
+                src.hide = True
 
         # Get fine bump
         mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
@@ -917,8 +981,17 @@ def set_mask_bump_nodes(tex, ch, ch_index):
             match_group_input(mb_fine_bump, 0)
 
     elif ch.mask_bump_type == 'BUMP_MAP':
+
+        disable_tex_source_tree(tex, False)
+        Modifier.disable_modifiers_tree(ch)
+
         # Remove fine bump first
         remove_node(tree, ch, 'mb_fine_bump')
+        remove_node(tree, ch, 'mb_neighbor_uv')
+        remove_node(tree, ch, 'mb_source_n')
+        remove_node(tree, ch, 'mb_source_s')
+        remove_node(tree, ch, 'mb_source_e')
+        remove_node(tree, ch, 'mb_source_w')
 
         # Get bump
         mb_bump = tree.nodes.get(ch.mb_bump)
@@ -929,47 +1002,76 @@ def set_mask_bump_nodes(tex, ch, ch_index):
             mb_bump.inputs[1].default_value = -ch.mask_bump_distance
         else: mb_bump.inputs[1].default_value = ch.mask_bump_distance
 
-    mb_inverse = tree.nodes.get(ch.mb_inverse)
-    mb_blend = tree.nodes.get(ch.mb_blend)
-    mb_intensity_multiplier = tree.nodes.get(ch.mb_intensity_multiplier)
-    mask_intensity_multiplier = tree.nodes.get(ch.mask_intensity_multiplier)
-
     # Add inverse
+    mb_inverse = tree.nodes.get(ch.mb_inverse)
     if not mb_inverse:
         mb_inverse = new_node(tree, ch, 'mb_inverse', 'ShaderNodeMath', 'Mask Bump Inverse')
         mb_inverse.operation = 'SUBTRACT'
         mb_inverse.inputs[0].default_value = 1.0
 
+    mb_intensity_multiplier = tree.nodes.get(ch.mb_intensity_multiplier)
     if not mb_intensity_multiplier:
         mb_intensity_multiplier = lib.new_intensity_multiplier_node(tree, ch, 
                 'mb_intensity_multiplier', ch.mask_bump_value)
+        #mb_intensity_multiplier.inputs['Multiplier'].default_value = ch.mask_bump_second_edge_value
 
-    if not mask_intensity_multiplier:
-        mask_intensity_multiplier = lib.new_intensity_multiplier_node(tree, ch, 
-                'mask_intensity_multiplier', ch.mask_bump_value)
+    #if BLENDER_28_GROUP_INPUT_HACK:
+    #    match_group_input(mb_intensity_multiplier, 1)
+    
+    if ch.mask_bump_mask_only:
+        mask_intensity_multiplier = tree.nodes.get(ch.mask_intensity_multiplier)
+        if not mask_intensity_multiplier:
+            mask_intensity_multiplier = lib.new_intensity_multiplier_node(tree, ch, 
+                    'mask_intensity_multiplier', ch.mask_bump_value)
 
-    if not ch.enable:
-        mb_intensity_multiplier.mute = True
-        mask_intensity_multiplier.mute = True
+        #mb_intensity_multiplier.mute = False
+        #mask_intensity_multiplier.mute = False
+
+        if ch.mask_bump_flip:
+            mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+            mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
+            mask_intensity_multiplier.inputs['Sharpen'].default_value = 0.0
+            mb_intensity_multiplier.inputs['Sharpen'].default_value = 1.0
+        else:
+            mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
+            mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+            mask_intensity_multiplier.inputs['Sharpen'].default_value = 1.0
+            mb_intensity_multiplier.inputs['Sharpen'].default_value = 0.0
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            match_group_input(mb_intensity_multiplier)
+            match_group_input(mask_intensity_multiplier)
+
+        remove_node(tree, ch, 'intensity_multiplier')
     else:
-        mb_intensity_multiplier.mute = False
-        mask_intensity_multiplier.mute = False
 
-    if ch.mask_bump_flip:
-        mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
-        mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
-    else:
-        mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
-        mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+        intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
+        if not intensity_multiplier:
+            intensity_multiplier = lib.new_intensity_multiplier_node(tree, ch, 
+                    'intensity_multiplier', ch.mask_bump_value)
 
-    if BLENDER_28_GROUP_INPUT_HACK:
-        match_group_input(mask_intensity_multiplier, 1)
-        match_group_input(mb_intensity_multiplier, 1)
+        if ch.mask_bump_flip:
+            intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+            mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
+            intensity_multiplier.inputs['Sharpen'].default_value = 0.0
+            mb_intensity_multiplier.inputs['Sharpen'].default_value = 1.0
+        else:
+            intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
+            mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+            intensity_multiplier.inputs['Sharpen'].default_value = 1.0
+            mb_intensity_multiplier.inputs['Sharpen'].default_value = 0.0
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            match_group_input(mb_intensity_multiplier)
+            match_group_input(intensity_multiplier)
+
+        remove_node(tree, ch, 'mask_intensity_multiplier')
 
     # Add intensity multiplier to other channel mask
     check_set_mask_intensity_multiplier(tree, tex, bump_ch=ch)
 
     # Add vector mix
+    mb_blend = tree.nodes.get(ch.mb_blend)
     if not mb_blend:
         mb_blend = new_node(tree, ch, 'mb_blend', 'ShaderNodeGroup', 'Mask Vector Blend')
         mb_blend.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
@@ -985,6 +1087,8 @@ def set_mask_bump_nodes(tex, ch, ch_index):
 def remove_mask_bump_nodes(tex, ch, ch_index):
     tree = get_tree(tex)
 
+    remove_node(tree, ch, 'intensity_multiplier')
+    remove_node(tree, ch, 'mb_bump')
     remove_node(tree, ch, 'mb_fine_bump')
     remove_node(tree, ch, 'mb_inverse')
     remove_node(tree, ch, 'mb_intensity_multiplier')
@@ -1011,6 +1115,7 @@ def remove_mask_bump_nodes(tex, ch, ch_index):
     # Delete intensity multiplier from ramp
     for c in tex.channels:
         #mute_node(tree, c, 'mr_intensity_multiplier')
+        remove_node(tree, c, 'intensity_multiplier')
         remove_node(tree, c, 'mr_intensity_multiplier')
         remove_node(tree, c, 'mask_intensity_multiplier')
 
@@ -1037,7 +1142,7 @@ def update_enable_mask_bump(self, context):
         set_mask_bump_nodes(tex, ch, ch_index)
     else: remove_mask_bump_nodes(tex, ch, ch_index)
 
-    reconnect_tex_nodes(tex)
+    reconnect_tex_nodes(tex, mod_reconnect=True)
     rearrange_tex_nodes(tex)
         
     if ch.enable_mask_bump:

@@ -26,77 +26,6 @@ can_be_expanded = {
         'MULTIPLIER',
         }
 
-def reconnect_between_modifier_nodes(parent):
-
-    tl = parent.id_data.tl
-    modifiers = parent.modifiers
-
-    tree = get_mod_tree(parent)
-    nodes = tree.nodes
-
-    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', parent.path_from_id())
-
-    if match and parent.mod_group != '':
-        tex = tl.textures[int(match.group(1))]
-        tex_tree = get_tree(tex)
-
-        # start and end inside modifier tree
-        parent_start = nodes.get(MODIFIER_TREE_START)
-        parent_start_rgb = parent_start.outputs[0]
-        parent_start_alpha = parent_start.outputs[1]
-
-        parent_end = nodes.get(MODIFIER_TREE_END)
-        parent_end_rgb = parent_end.inputs[0]
-        parent_end_alpha = parent_end.inputs[1]
-
-        # Connect outside tree nodes
-        mod_group = tex_tree.nodes.get(parent.mod_group)
-        start_rgb = tex_tree.nodes.get(parent.start_rgb)
-        start_alpha = tex_tree.nodes.get(parent.start_alpha)
-        end_rgb = tex_tree.nodes.get(parent.end_rgb)
-        end_alpha = tex_tree.nodes.get(parent.end_alpha)
-
-        create_link(tex_tree, start_rgb.outputs[0], mod_group.inputs[0])
-        create_link(tex_tree, start_alpha.outputs[0], mod_group.inputs[1])
-        create_link(tex_tree, mod_group.outputs[0], end_rgb.inputs[0])
-        create_link(tex_tree, mod_group.outputs[1], end_alpha.inputs[0])
-
-    else:
-        parent_start_rgb = nodes.get(parent.start_rgb).outputs[0]
-        parent_start_alpha = nodes.get(parent.start_alpha).outputs[0]
-        parent_end_rgb = nodes.get(parent.end_rgb).inputs[0]
-        parent_end_alpha = nodes.get(parent.end_alpha).inputs[0]
-
-    if len(modifiers) == 0:
-        create_link(tree, parent_start_rgb, parent_end_rgb)
-        create_link(tree, parent_start_alpha, parent_end_alpha)
-
-    for i, m in enumerate(modifiers):
-        start_rgb = nodes.get(m.start_rgb)
-        end_rgb = nodes.get(m.end_rgb)
-        start_alpha = nodes.get(m.start_alpha)
-        end_alpha = nodes.get(m.end_alpha)
-
-        # Get previous modifier
-        if i == len(modifiers)-1:
-            prev_rgb = parent_start_rgb
-            prev_alpha = parent_start_alpha
-        else:
-            prev_m = modifiers[i+1]
-            prev_rgb = nodes.get(prev_m.end_rgb)
-            prev_alpha = nodes.get(prev_m.end_alpha)
-            prev_rgb = prev_rgb.outputs[0]
-            prev_alpha = prev_alpha.outputs[0]
-
-        # Connect to previous modifier
-        create_link(tree, prev_rgb, start_rgb.inputs[0])
-        create_link(tree, prev_alpha, start_alpha.inputs[0])
-
-        if i == 0:
-            # Connect to next modifier
-            create_link(tree, end_rgb.outputs[0], parent_end_rgb)
-            create_link(tree, end_alpha.outputs[0], parent_end_alpha)
-
 def remove_modifier_start_end_nodes(m, tree):
 
     start_rgb = tree.nodes.get(m.start_rgb)
@@ -351,8 +280,10 @@ def add_new_modifier(parent, modifier_type):
     tl = parent.id_data.tl
     match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', parent.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]', parent.path_from_id())
+
     if match1: 
         root_ch = tl.channels[int(match1.group(2))]
+
     elif match2:
         root_ch = tl.channels[int(match2.group(1))]
     
@@ -369,11 +300,17 @@ def add_new_modifier(parent, modifier_type):
     #m.channel_type = root_ch.type
 
     add_modifier_nodes(m, tree)
-    reconnect_between_modifier_nodes(parent)
+
+    if match1: 
+        # Enable modifier tree if fine bump map is used
+        if parent.normal_map_type == 'FINE_BUMP_MAP' or (
+                parent.enable_mask_bump and parent.mask_bump_type == 'FINE_BUMP_MAP'):
+            enable_modifiers_tree(parent, False)
 
     return m
 
 def delete_modifier_nodes(tree, mod):
+
     # Delete the nodes
     remove_node(tree, mod, 'start_rgb')
     remove_node(tree, mod, 'start_alpha')
@@ -460,8 +397,15 @@ class YNewTexModifier(bpy.types.Operator):
             context.channel_ui.expand_content = True
 
         # Rearrange nodes
-        if tex: rearrange_tex_nodes(tex)
-        else: rearrange_tl_nodes(group_tree)
+        if tex: 
+            rearrange_tex_nodes(tex)
+            reconnect_tex_nodes(tex, mod_reconnect=True)
+        else: 
+            rearrange_tl_nodes(group_tree)
+            reconnect_tl_channel_nodes(group_tree, mod_reconnect=True)
+
+        # Reconnect modifier nodes
+        #reconnect_between_modifier_nodes(context.parent)
 
         # Update UI
         context.window_manager.tlui.need_update = True
@@ -581,8 +525,12 @@ class YRemoveTexModifier(bpy.types.Operator):
         # Delete the modifier
         parent.modifiers.remove(index)
 
-        # Reconnect nodes
-        reconnect_between_modifier_nodes(parent)
+        if tex and len(parent.modifiers) == 0:
+            disable_modifiers_tree(parent, False)
+            reconnect_tex_nodes(tex, mod_reconnect=True)
+        else:
+            # Reconnect nodes
+            reconnect_between_modifier_nodes(parent)
 
         # Rearrange nodes
         if tex:
@@ -934,7 +882,30 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     expand_content = BoolProperty(default=True)
 
-def enable_modifiers_tree(ch):
+def set_modifiers_tree_per_directions(tree, ch, mod_tree):
+
+    if ch.normal_map_type == 'FINE_BUMP_MAP':
+        for d in neighbor_directions:
+            m = tree.nodes.get(getattr(ch, 'mod_' + d))
+            if not m:
+                m = new_node(tree, ch, 'mod_' + d, 'ShaderNodeGroup', 'mod ' + d)
+                m.node_tree = mod_tree
+                m.hide = True
+
+    if ch.enable_mask_bump and ch.mask_bump_type == 'FINE_BUMP_MAP':
+        for d in neighbor_directions:
+            m = tree.nodes.get(getattr(ch, 'mb_mod_' + d))
+            if not m:
+                m = new_node(tree, ch, 'mb_mod_' + d, 'ShaderNodeGroup', 'mb_mod ' + d)
+                m.node_tree = mod_tree
+                m.hide = True
+
+def unset_modifiers_tree_per_directions(tree, ch):
+    for d in neighbor_directions:
+        remove_node(tree, ch, 'mod_' + d)
+        remove_node(tree, ch, 'mb_mod_' + d)
+
+def enable_modifiers_tree(ch, rearrange = True):
     
     group_tree = ch.id_data
     tl = group_tree.tl
@@ -944,8 +915,17 @@ def enable_modifiers_tree(ch):
     tex = tl.textures[int(m.group(1))]
     root_ch = tl.channels[int(m.group(2))]
 
+    tex_tree = get_tree(tex)
+
     # Check if modifier tree already available
-    if ch.mod_group != '': return
+    if ch.mod_group != '': 
+        mod_group = tex_tree.nodes.get(ch.mod_group)
+        mod_tree = mod_group.node_tree
+        set_modifiers_tree_per_directions(tex_tree, ch, mod_tree)
+        return mod_tree
+
+    if len(ch.modifiers) == 0:
+        return None
 
     mod_tree = bpy.data.node_groups.new('~TL Modifiers ' + root_ch.name + ' ' + tex.name, 'ShaderNodeTree')
 
@@ -960,25 +940,40 @@ def enable_modifiers_tree(ch):
     mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
     mod_tree_end.name = MODIFIER_TREE_END
 
-    tex_tree = get_tree(tex)
-
     mod_group = new_node(tex_tree, ch, 'mod_group', 'ShaderNodeGroup', tex.name + ' ' + ch.name + ' Modifiers')
     mod_group.node_tree = mod_tree
 
     for mod in ch.modifiers:
         add_modifier_nodes(mod, mod_tree, tex_tree)
 
-    reconnect_between_modifier_nodes(ch)
-    rearrange_tex_nodes(tex)
+    set_modifiers_tree_per_directions(tex_tree, ch, mod_tree)
 
-def disable_modifiers_tree(ch):
+    if rearrange:
+        rearrange_tex_nodes(tex)
+        reconnect_between_modifier_nodes(ch)
+
+    return mod_tree
+
+def disable_modifiers_tree(ch, rearrange=True):
     group_tree = ch.id_data
     tl = group_tree.tl
 
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
     if not m: return
     tex = tl.textures[int(m.group(1))]
+    ch_index = int(m.group(2))
     tex_tree = get_tree(tex)
+
+    unset_modifiers_tree_per_directions(tex_tree, ch)
+
+    # Check if fine bump map is still used
+    if len(ch.modifiers) > 0 and tl.channels[ch_index].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP' 
+            or ch.mask_bump_type == 'FINE_BUMP_MAP'):
+        return
+
+    # Check if channel use blur
+    if hasattr(ch, 'enable_blur') and ch.enable_blur:
+        return
 
     # Check if modifier tree already gone
     if ch.mod_group == '': return
@@ -1002,17 +997,11 @@ def disable_modifiers_tree(ch):
     bpy.data.node_groups.remove(mod_group.node_tree)
     remove_node(tex_tree, ch, 'mod_group')
 
-    reconnect_between_modifier_nodes(ch)
-    rearrange_tex_nodes(tex)
+    check_modifiers_tree_per_directions(tex_tree, ch)
 
-#def update_mod_tree(self, context):
-#    group_tree = self.id_data
-#
-#    if self.is_mod_tree:
-#        enable_modifiers_tree(self)
-#    else:
-#        disable_modifiers_tree(self)
-#    #print('Neve sei neve')
+    if rearrange:
+        reconnect_between_modifier_nodes(ch)
+        rearrange_tex_nodes(tex)
 
 def register():
     bpy.utils.register_class(YNewTexModifier)
