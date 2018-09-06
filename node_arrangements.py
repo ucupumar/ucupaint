@@ -302,6 +302,11 @@ def arrange_modifier_nodes(nodes, parent, loc):
 
             loc.x += 265.0
 
+            color_ramp_linear = nodes.get(m.color_ramp_linear)
+            if color_ramp_linear.location != loc: color_ramp_linear.location = loc
+
+            loc.x += 165.0
+
             color_ramp_mix_rgb = nodes.get(m.color_ramp_mix_rgb)
             if color_ramp_mix_rgb.location != loc: color_ramp_mix_rgb.location = loc
 
@@ -372,6 +377,8 @@ def rearrange_source_tree_nodes(tex):
             end = node
 
     source = source_tree.nodes.get(tex.source)
+    #solid_alpha = [n for n in source_tree.nodes if n.type == 'VALUE']
+    #if solid_alpha: solid_alpha = solid_alpha[0]
 
     loc = Vector((0, 0))
 
@@ -379,7 +386,13 @@ def rearrange_source_tree_nodes(tex):
         loc.x += 180
 
     if check_set_node_location(source, loc):
-        loc.x += 180
+        loc.y -= 180
+
+    #if check_set_node_location(solid_alpha, loc):
+    #    pass
+
+    loc.x += 180
+    loc.y = 0
 
     check_set_node_location(end, loc)
 
@@ -430,6 +443,7 @@ def rearrange_mask_bump_nodes(tree, ch, loc):
 def rearrange_mask_ramp_nodes(tree, ch, loc):
     # Ramp
     mr_ramp = tree.nodes.get(ch.mr_ramp)
+    mr_linear = tree.nodes.get(ch.mr_linear)
     mr_inverse = tree.nodes.get(ch.mr_inverse)
     mr_alpha = tree.nodes.get(ch.mr_alpha)
     mr_intensity_multiplier = tree.nodes.get(ch.mr_intensity_multiplier)
@@ -445,6 +459,9 @@ def rearrange_mask_ramp_nodes(tree, ch, loc):
 
     if check_set_node_location(mr_ramp, loc):
         loc.x += 270.0
+
+    if check_set_node_location(mr_linear, loc):
+        loc.x += 170.0
 
     if check_set_node_location(mr_intensity_multiplier, loc):
         loc.x += 170.0
@@ -492,13 +509,13 @@ def rearrange_tex_nodes(tex):
     # Get bump channel
     bump_ch = None
     flip_bump = False
-    if len(tex.masks) > 0:
-        for i, c in enumerate(tex.channels):
-            if tl.channels[i].type == 'NORMAL' and c.enable_mask_bump and c.enable:
-                bump_ch = c
-                if bump_ch.mask_bump_flip:
-                    flip_bump = True
-                break
+    #if len(tex.masks) > 0:
+    for i, c in enumerate(tex.channels):
+        if tl.channels[i].type == 'NORMAL' and c.enable_mask_bump and c.enable:
+            bump_ch = c
+            if bump_ch.mask_bump_flip:
+                flip_bump = True
+            break
 
     start_x = 250
     loc = Vector((start_x, 0))

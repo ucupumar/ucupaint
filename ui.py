@@ -60,6 +60,7 @@ def update_tl_ui():
                 c.expand_bump_settings = ch.expand_bump_settings
                 c.expand_intensity_settings = ch.expand_intensity_settings
                 c.expand_mask_settings = ch.expand_mask_settings
+                c.expand_input_settings = ch.expand_input_settings
                 c.expand_content = ch.expand_content
                 for j, mod in enumerate(ch.modifiers):
                     m = c.modifiers.add()
@@ -600,65 +601,65 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                         if tlui.expand_channels:
                             brow.label(text='', icon='BLANK1')
 
-                if len(tex.masks) > 0 and (not mask_bump_found or ch.enable_mask_bump):
-                    brow = ccol.row(align=True)
+                #if len(tex.masks) > 0 and (not mask_bump_found or ch.enable_mask_bump):
+                brow = ccol.row(align=True)
+                brow.label(text='', icon='BLANK1')
+                #brow.label(text='', icon='INFO')
+                if custom_icon_enable:
+                    if chui.expand_mask_settings:
+                        icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
+                    brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
+                else:
+                    brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
+                brow.label(text='Alpha Bump:')
+
+                if ch.enable_mask_bump and not chui.expand_mask_settings:
+                    brow.prop(ch, 'mask_bump_value', text='')
+
+                brow.prop(ch, 'enable_mask_bump', text='')
+
+                if tlui.expand_channels:
                     brow.label(text='', icon='BLANK1')
-                    #brow.label(text='', icon='INFO')
-                    if custom_icon_enable:
-                        if chui.expand_mask_settings:
-                            icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
-                        else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
-                        brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
-                    else:
-                        brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
-                    brow.label(text='Alpha Bump:')
 
-                    if ch.enable_mask_bump and not chui.expand_mask_settings:
-                        brow.prop(ch, 'mask_bump_value', text='')
+                if chui.expand_mask_settings:
+                    row = ccol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    row.label(text='', icon='BLANK1')
 
-                    brow.prop(ch, 'enable_mask_bump', text='')
+                    bbox = row.box()
+                    cccol = bbox.column(align=True)
+
+                    #crow = cccol.row(align=True)
+                    #crow.label(text='Type:') #, icon='INFO')
+                    #crow.prop(ch, 'mask_bump_type', text='')
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Edge 1:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_value', text='')
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Edge 2:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_second_edge_value', text='')
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Distance:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_distance', text='')
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Type:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_type', text='')
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Mask Only:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_mask_only', text='')
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Flip:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_flip', text='')
 
                     if tlui.expand_channels:
-                        brow.label(text='', icon='BLANK1')
-
-                    if chui.expand_mask_settings:
-                        row = ccol.row(align=True)
                         row.label(text='', icon='BLANK1')
-                        row.label(text='', icon='BLANK1')
-
-                        bbox = row.box()
-                        cccol = bbox.column(align=True)
-
-                        #crow = cccol.row(align=True)
-                        #crow.label(text='Type:') #, icon='INFO')
-                        #crow.prop(ch, 'mask_bump_type', text='')
-
-                        crow = cccol.row(align=True)
-                        crow.label(text='Edge 1:') #, icon='INFO')
-                        crow.prop(ch, 'mask_bump_value', text='')
-
-                        crow = cccol.row(align=True)
-                        crow.label(text='Edge 2:') #, icon='INFO')
-                        crow.prop(ch, 'mask_bump_second_edge_value', text='')
-
-                        crow = cccol.row(align=True)
-                        crow.label(text='Distance:') #, icon='INFO')
-                        crow.prop(ch, 'mask_bump_distance', text='')
-
-                        crow = cccol.row(align=True)
-                        crow.label(text='Type:') #, icon='INFO')
-                        crow.prop(ch, 'mask_bump_type', text='')
-
-                        crow = cccol.row(align=True)
-                        crow.label(text='Mask Only:') #, icon='INFO')
-                        crow.prop(ch, 'mask_bump_mask_only', text='')
-
-                        crow = cccol.row(align=True)
-                        crow.label(text='Flip:') #, icon='INFO')
-                        crow.prop(ch, 'mask_bump_flip', text='')
-
-                        if tlui.expand_channels:
-                            row.label(text='', icon='BLANK1')
 
                 row = ccol.row(align=True)
                 row.label(text='', icon='BLANK1')
@@ -713,12 +714,11 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
 
                 extra_separator = True
 
-            if root_ch.type in {'RGB', 'VALUE'} and len(tex.masks) > 0:
+            if root_ch.type in {'RGB', 'VALUE'}: #and len(tex.masks) > 0:
                 row = ccol.row(align=True)
                 row.label(text='', icon='BLANK1')
 
                 ramp = tex_tree.nodes.get(ch.mr_ramp)
-
                 if not ramp:
                     row.label(text='', icon='INFO')
                 else:
@@ -811,21 +811,64 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
             #if tex.type != 'IMAGE':
             row = ccol.row(align=True)
             row.label(text='', icon='BLANK1')
-            row.label(text='', icon='INFO')
+
+            #input_settings_available = root_ch.type != 'NORMAL' and (ch.tex_input == 'CUSTOM' or 
+            input_settings_available = (ch.tex_input == 'CUSTOM' or 
+                (root_ch.colorspace == 'SRGB' and tex.type != 'IMAGE'))
+
+            if input_settings_available:
+                if custom_icon_enable:
+                    if chui.expand_input_settings:
+                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                    row.prop(chui, 'expand_input_settings', text='', emboss=False, icon_value=icon_value)
+                else:
+                    row.prop(chui, 'expand_input_settings', text='', emboss=True, icon='INFO')
+            else:
+                row.label(text='', icon='INFO')
+
+            #row.label(text='', icon='INFO')
             if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
                 split = row.split(percentage=0.275)
             else: split = row.split(factor=0.275)
             split.label(text='Input:')
             srow = split.row(align=True)
             srow.prop(ch, 'tex_input', text='')
-            if ch.tex_input == 'CUSTOM': 
-                if root_ch.type == 'RGB':
+            if ch.tex_input == 'CUSTOM' and not chui.expand_input_settings: 
+                if root_ch.type in {'RGB', 'NORMAL'}:
                     srow.prop(ch, 'custom_color', text='')
                 if root_ch.type == 'VALUE':
                     srow.prop(ch, 'custom_value', text='')
 
             if tlui.expand_channels:
                 row.label(text='', icon='BLANK1')
+
+            if chui.expand_input_settings and input_settings_available:
+                row = ccol.row(align=True)
+                row.label(text='', icon='BLANK1')
+                row.label(text='', icon='BLANK1')
+                box = row.box()
+                bcol = box.column(align=False)
+
+                if ch.tex_input == 'CUSTOM':
+                    if root_ch.type in {'RGB', 'NORMAL'}:
+                        brow = bcol.row(align=True)
+                        brow.label(text='Custom Color:')
+                        brow.prop(ch, 'custom_color', text='')
+                    elif root_ch.type == 'VALUE':
+                        brow = bcol.row(align=True)
+                        brow.label(text='Custom Value:')
+                        brow.prop(ch, 'custom_value', text='')
+
+                #if ch.tex_input != 'ALPHA':
+                if (root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB' 
+                        and tex.type != 'IMAGE' and ch.tex_input != 'CUSTOM'):
+                    brow = bcol.row(align=True)
+                    brow.label(text='Gamma Space:')
+                    brow.prop(ch, 'gamma_space', text='')
+
+                if tlui.expand_channels:
+                    row.label(text='', icon='BLANK1')
 
             extra_separator = True
 
@@ -1642,6 +1685,8 @@ def update_channel_ui(self, context):
         ch.expand_intensity_settings = self.expand_intensity_settings
     if hasattr(ch, 'expand_mask_settings'):
         ch.expand_mask_settings = self.expand_mask_settings
+    if hasattr(ch, 'expand_input_settings'):
+        ch.expand_input_settings = self.expand_input_settings
 
 def update_mask_ui(self, context):
     tlui = context.window_manager.tlui
@@ -1686,6 +1731,7 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_intensity_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_base_vector = BoolProperty(default=True, update=update_channel_ui)
     expand_mask_settings = BoolProperty(default=True, update=update_channel_ui)
+    expand_input_settings = BoolProperty(default=True, update=update_channel_ui)
     modifiers = CollectionProperty(type=YModifierUI)
 
 class YMaskChannelUI(bpy.types.PropertyGroup):

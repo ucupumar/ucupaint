@@ -148,18 +148,21 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         if ref_tree:
             color_ramp_alpha_multiply_ref = ref_tree.nodes.get(m.color_ramp_alpha_multiply)
             color_ramp_ref = ref_tree.nodes.get(m.color_ramp)
+            color_ramp_linear_ref = ref_tree.nodes.get(m.color_ramp_linear)
             color_ramp_mix_alpha_ref = ref_tree.nodes.get(m.color_ramp_mix_alpha)
             color_ramp_mix_rgb_ref = ref_tree.nodes.get(m.color_ramp_mix_rgb)
 
         color_ramp_alpha_multiply = new_node(tree, m, 'color_ramp_alpha_multiply', 'ShaderNodeMixRGB', 
                 'ColorRamp Alpha Multiply')
         color_ramp = new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp')
+        color_ramp_linear = new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp')
         color_ramp_mix_alpha = new_node(tree, m, 'color_ramp_mix_alpha', 'ShaderNodeMixRGB', 'ColorRamp Mix Alpha')
         color_ramp_mix_rgb = new_node(tree, m, 'color_ramp_mix_rgb', 'ShaderNodeMixRGB', 'ColorRamp Mix RGB')
 
         if ref_tree:
             copy_node_props(color_ramp_alpha_multiply_ref, color_ramp_alpha_multiply)
             copy_node_props(color_ramp_ref, color_ramp)
+            copy_node_props(color_ramp_linear_ref, color_ramp_linear)
             copy_node_props(color_ramp_mix_alpha_ref, color_ramp_mix_alpha)
             copy_node_props(color_ramp_mix_rgb_ref, color_ramp_mix_rgb)
 
@@ -176,6 +179,10 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
             color_ramp_mix_rgb.inputs[0].default_value = 1.0
 
+            if root_ch.colorspace == 'SRGB':
+                color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
+            else: color_ramp_linear.inputs[1].default_value = 1.0
+
             # Set default color
             color_ramp.color_ramp.elements[0].color = (0,0,0,0)
 
@@ -185,7 +192,9 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         #links.new(start_rgb.outputs[0], color_ramp.inputs[0])
         #links.new(color_ramp.outputs[0], end_rgb.inputs[0])
         links.new(start_rgb.outputs[0], color_ramp_mix_rgb.inputs[1])
-        links.new(color_ramp.outputs[0], color_ramp_mix_rgb.inputs[2])
+        #links.new(color_ramp.outputs[0], color_ramp_mix_rgb.inputs[2])
+        links.new(color_ramp.outputs[0], color_ramp_linear.inputs[0])
+        links.new(color_ramp_linear.outputs[0], color_ramp_mix_rgb.inputs[2])
         links.new(color_ramp_mix_rgb.outputs[0], end_rgb.inputs[0])
 
         links.new(start_alpha.outputs[0], color_ramp_mix_alpha.inputs[1])
@@ -194,6 +203,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
         frame.label = 'Color Ramp'
         color_ramp.parent = frame
+        color_ramp_linear.parent = frame
         color_ramp_alpha_multiply.parent = frame
         color_ramp_mix_alpha.parent = frame
         color_ramp_mix_rgb.parent = frame
@@ -326,6 +336,7 @@ def delete_modifier_nodes(tree, mod):
 
     elif mod.type == 'COLOR_RAMP':
         remove_node(tree, mod, 'color_ramp')
+        remove_node(tree, mod, 'color_ramp_linear')
         remove_node(tree, mod, 'color_ramp_alpha_multiply')
         remove_node(tree, mod, 'color_ramp_mix_rgb')
         remove_node(tree, mod, 'color_ramp_mix_alpha')
@@ -654,6 +665,8 @@ def update_modifier_enable(self, context):
     elif self.type == 'COLOR_RAMP':
         color_ramp = nodes.get(self.color_ramp)
         color_ramp.mute = not self.enable
+        color_ramp_linear = nodes.get(self.color_ramp_linear)
+        color_ramp_linear.mute = not self.enable
         color_ramp_alpha_multiply = nodes.get(self.color_ramp_alpha_multiply)
         color_ramp_alpha_multiply.mute = not self.enable
         color_ramp_mix_rgb = nodes.get(self.color_ramp_mix_rgb)
@@ -847,6 +860,7 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     # Color Ramp nodes
     color_ramp = StringProperty(default='')
+    color_ramp_linear = StringProperty(default='')
     color_ramp_alpha_multiply = StringProperty(default='')
     color_ramp_mix_rgb = StringProperty(default='')
     color_ramp_mix_alpha = StringProperty(default='')
@@ -997,7 +1011,7 @@ def disable_modifiers_tree(ch, rearrange=True):
     bpy.data.node_groups.remove(mod_group.node_tree)
     remove_node(tex_tree, ch, 'mod_group')
 
-    check_modifiers_tree_per_directions(tex_tree, ch)
+    unset_modifiers_tree_per_directions(tex_tree, ch)
 
     if rearrange:
         reconnect_between_modifier_nodes(ch)

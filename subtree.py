@@ -21,6 +21,8 @@ def enable_tex_source_tree(tex, rearrange=True):
     source_tree.outputs.new('NodeSocketColor', 'Color')
     source_tree.outputs.new('NodeSocketFloat', 'Alpha')
 
+    #source_tree.outputs.new('NodeSocketFloat', 'Factor')
+
     start = source_tree.nodes.new('NodeGroupInput')
     end = source_tree.nodes.new('NodeGroupOutput')
 
@@ -31,6 +33,13 @@ def enable_tex_source_tree(tex, rearrange=True):
     # Connect internal nodes
     source_tree.links.new(start.outputs[0], source.inputs[0])
     source_tree.links.new(source.outputs[0], end.inputs[0])
+
+    # Non image texture use solid alpha
+    #if tex.type != 'IMAGE':
+    #    solid_alpha = source_tree.nodes.new('ShaderNodeValue')
+    #    solid_alpha.outputs[0].default_value = 1.0
+    #    source_tree.links.new(solid_alpha.outputs[0], end.inputs[1])
+    #else:
     source_tree.links.new(source.outputs[1], end.inputs[1])
 
     # Create source node group

@@ -868,6 +868,8 @@ class YRemoveTLChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'end_alpha')
             remove_node(ttree, ch, 'intensity')
 
+            remove_node(ttree, ch, 'source')
+
             remove_node(ttree, ch, 'pipeline_frame')
             remove_node(ttree, ch, 'normal')
             remove_node(ttree, ch, 'normal_flip')
@@ -888,6 +890,16 @@ class YRemoveTLChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'bump_base_w')
             remove_node(ttree, ch, 'fine_bump')
             remove_node(ttree, ch, 'intensity_multiplier')
+
+            remove_node(ttree, ch, 'mb_neighbor_uv')
+            remove_node(ttree, ch, 'mb_source_n')
+            remove_node(ttree, ch, 'mb_source_s')
+            remove_node(ttree, ch, 'mb_source_e')
+            remove_node(ttree, ch, 'mb_source_w')
+            remove_node(ttree, ch, 'mb_mod_n')
+            remove_node(ttree, ch, 'mb_mod_s')
+            remove_node(ttree, ch, 'mb_mod_e')
+            remove_node(ttree, ch, 'mb_mod_w')
 
             # Remove modifiers
             #if ch.mod_tree:
@@ -1264,15 +1276,29 @@ def update_channel_colorspace(self, context):
         ch = tex.channels[channel_index]
         tree = get_tree(tex)
 
+        Layer.set_tex_channel_linear_node(tree, tex, self, ch, rearrange=True)
+
         # Check for linear node
         #linear = tree.nodes.get(ch.linear)
-        #if self.colorspace == 'LINEAR' and linear:
-        #    ch.tex_input = 'RGB_LINEAR'
-        if self.colorspace == 'LINEAR':
-            if ch.tex_input == 'RGB_SRGB':
-                ch.tex_input = 'RGB_LINEAR'
-            elif ch.tex_input == 'CUSTOM':
-                ch.tex_input = 'CUSTOM'
+        #if linear:
+        #    if self.colorspace == 'LINEAR':
+        #        #ch.tex_input = 'RGB_LINEAR'
+        #        linear.inputs[1].default_value = 1.0
+        #    else: linear.inputs[1].default_value = 1.0/GAMMA
+
+        # NOTE: STILL BUGGY AS HELL
+        #if self.colorspace == 'LINEAR':
+        #    if ch.tex_input == 'RGB_SRGB':
+        #        ch.tex_input = 'RGB_LINEAR'
+        #    elif ch.tex_input == 'CUSTOM':
+        #        ch.tex_input = 'CUSTOM'
+
+        if ch.enable_mask_ramp:
+            mr_linear = tree.nodes.get(ch.mr_linear)
+            if mr_linear:
+                if self.colorspace == 'SRGB':
+                    mr_linear.inputs[1].default_value = 1.0/GAMMA
+                else: mr_linear.inputs[1].default_value = 1.0
 
         for mod in ch.modifiers:
             if mod.type == 'RGB_TO_INTENSITY':
@@ -1286,6 +1312,12 @@ def update_channel_colorspace(self, context):
                     #inp = rgb2i.node_tree.nodes.get('Group Input')
                     #if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
                     #    inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
+
+            if mod.type == 'COLOR_RAMP':
+                color_ramp_linear = tree.nodes.get(mod.color_ramp_linear)
+                if self.colorspace == 'SRGB':
+                    color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
+                else: color_ramp_linear.inputs[1].default_value = 1.0
 
 def update_channel_alpha(self, context):
     mat = get_active_material()

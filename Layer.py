@@ -75,20 +75,18 @@ def tex_input_items(self, context):
 
     label = texture_type_labels[tex.type]
 
-    if root_ch.colorspace == 'SRGB':
-        items.append(('RGB_LINEAR', label + ' Color (Linear)', ''))
-        items.append(('RGB_SRGB', label + ' Color (Gamma)',  ''))
-    else: items.append(('RGB_LINEAR', label + ' Color', ''))
+    items.append(('RGB', label + ' Color',  ''))
         
-    if tex.type != 'IMAGE':
-        items.append(('ALPHA', label + ' Factor',  ''))
+    if tex.type == 'IMAGE':
+        items.append(('ALPHA', label + ' Alpha',  ''))
+    else: items.append(('ALPHA', label + ' Factor',  ''))
 
-    if root_ch.type == 'RGB':
+    if root_ch.type in {'RGB', 'NORMAL'}:
         items.append(('CUSTOM', 'Custom Color',  ''))
     elif root_ch.type == 'VALUE':
         items.append(('CUSTOM', 'Custom Value',  ''))
-    elif root_ch.type == 'NORMAL':
-        items.append(('CUSTOM', 'Geometry Normal',  ''))
+    #elif root_ch.type == 'NORMAL':
+    #    items.append(('CUSTOM', 'Geometry Normal',  ''))
 
     return items
 
@@ -198,6 +196,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     ## Add channels
     shortcut_created = False
     for i, ch in enumerate(tl.channels):
+
         # Add new channel to current texture
         c = tex.channels.add()
 
@@ -234,6 +233,11 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
             if c.enable and ch.type == 'RGB' and not shortcut_created:
                 m.shortcut = True
                 shortcut_created = True
+
+        # Set linear node of texture channel
+        if ch.type == 'NORMAL':
+            set_tex_channel_linear_node(tree, tex, ch, c, custom_value=(0.5,0.5,1,1))
+        else: set_tex_channel_linear_node(tree, tex, ch, c)
 
     # Refresh paint image by updating the index
     tl.active_texture_index = index
@@ -301,6 +305,21 @@ class YRefreshNeighborUV(bpy.types.Operator):
             #inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
 
         return {'FINISHED'}
+
+#def set_default_tex_input(tex):
+#    tl = tex.id_data.tl
+#
+#    for i, root_ch in enumerate(tl.channels):
+#        ch = tex.channels[i]
+#
+#        if root_ch.colorspace == 'SRGB':
+#
+#            if tex.type in {'CHECKER', 'IMAGE'}:
+#                ch.tex_input = 'RGB_SRGB'
+#            else: ch.tex_input = 'RGB_LINEAR'
+#
+#        else:
+#            ch.tex_input = 'RGB_LINEAR'
 
 class YNewTextureLayer(bpy.types.Operator):
     bl_idname = "node.y_new_texture_layer"
@@ -509,10 +528,11 @@ class YNewTextureLayer(bpy.types.Operator):
         tl.halt_update = False
 
         # Some texture type better be at sRGB colorspace
-        if tex.type in {'CHECKER'}:
-            for i, root_ch in enumerate(tl.channels):
-                if root_ch.colorspace == 'SRGB':
-                    tex.channels[i].tex_input = 'RGB_SRGB'
+        #if tex.type in {'CHECKER'}:
+        #    for i, root_ch in enumerate(tl.channels):
+        #        if root_ch.colorspace == 'SRGB':
+        #            tex.channels[i].tex_input = 'RGB_SRGB'
+        #set_default_tex_input(tex)
 
         # Reconnect and rearrange nodes
         reconnect_tl_tex_nodes(node.node_tree)
@@ -1022,6 +1042,7 @@ def update_normal_map_type(self, context):
         if not bump_base:
             bump_base = new_node(tree, self, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
             val = self.bump_base_value
+            bump_base.inputs[0].default_value = 1.0
             bump_base.inputs[1].default_value = (val, val, val, 1.0)
         #if not intensity_multiplier:
         #    intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeGroup', 
@@ -1409,6 +1430,40 @@ def update_bump_distance(self, context):
 #            vector_intensity_multiplier = tree.nodes.get(c.vector_intensity_multiplier)
 #            if vector_intensity_multiplier: vector_intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
 
+def set_tex_channel_linear_node(tree, tex, root_ch, ch, custom_value=None, rearrange=False):
+    if root_ch.type != 'NORMAL' and (ch.tex_input == 'CUSTOM' or (
+        root_ch.colorspace == 'SRGB' and tex.type != 'IMAGE' and not ch.gamma_space)):
+        if root_ch.type == 'VALUE':
+            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
+            if custom_value: linear.inputs[0].default_value = custom_value
+            else: linear.inputs[0].default_value = ch.custom_value
+            linear.inputs[1].default_value = 1.0
+            linear.operation = 'POWER'
+        elif root_ch.type == 'RGB':
+            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
+            if custom_value: col = custom_value
+            else: col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
+            linear.inputs[0].default_value = col
+
+        if root_ch.colorspace == 'SRGB' and (ch.tex_input == 'CUSTOM' or not ch.gamma_space):
+            linear.inputs[1].default_value = 1.0 / GAMMA
+        else: linear.inputs[1].default_value = 1.0
+
+    else:
+        remove_node(tree, ch, 'linear')
+
+    if root_ch.type == 'NORMAL' and ch.tex_input == 'CUSTOM':
+        source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', 'Custom')
+        if custom_value: col = custom_value
+        else: col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
+        source.outputs[0].default_value = col
+    else:
+        remove_node(tree, ch, 'source')
+
+    if rearrange:
+        rearrange_tex_nodes(tex)
+        reconnect_tex_nodes(tex)
+
 def update_custom_input(self, context):
     tl = self.id_data.tl
 
@@ -1420,11 +1475,19 @@ def update_custom_input(self, context):
 
     ch_source = tree.nodes.get(ch.source)
     if ch_source:
-        if root_ch.type == 'RGB':
+        if root_ch.type in {'RGB', 'NORMAL'}:
             col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
             ch_source.outputs[0].default_value = col
         elif root_ch.type == 'VALUE':
             ch_source.outputs[0].default_value = ch.custom_value
+
+    linear = tree.nodes.get(ch.linear)
+    if linear:
+        if root_ch.type == 'RGB':
+            col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
+            linear.inputs[0].default_value = col
+        elif root_ch.type == 'VALUE':
+            linear.inputs[0].default_value = ch.custom_value
 
 def update_tex_input(self, context):
     tl = self.id_data.tl
@@ -1435,28 +1498,7 @@ def update_tex_input(self, context):
     tree = get_tree(tex)
     ch = self
 
-    #if tex.type == 'IMAGE': return
-
-    if ch.tex_input in {'RGB_SRGB', 'CUSTOM'} and root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB':
-        if root_ch.type == 'VALUE':
-            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
-            linear.operation = 'POWER'
-        elif root_ch.type == 'RGB':
-            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
-        linear.inputs[1].default_value = 1.0 / GAMMA
-    else:
-        remove_node(tree, ch, 'linear')
-
-    if ch.tex_input == 'CUSTOM' and root_ch.type != 'NORMAL':
-        if root_ch.type == 'RGB':
-            source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', 'Custom Source')
-            col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
-            source.outputs[0].default_value = col
-        elif root_ch.type == 'VALUE':
-            source = replace_new_node(tree, ch, 'source', 'ShaderNodeValue', 'Custom Source')
-            source.outputs[0].default_value = ch.custom_value
-    else:
-        remove_node(tree, ch, 'source')
+    set_tex_channel_linear_node(tree, tex, root_ch, ch)
 
     reconnect_tex_nodes(tex)
     rearrange_tex_nodes(tex)
@@ -1601,6 +1643,15 @@ class YLayerChannel(bpy.types.PropertyGroup):
             #         ('ALPHA', 'Alpha / Factor', '')),
             #default = 'RGB',
             items = tex_input_items,
+            update = update_tex_input)
+
+    # Original tex input, useful for updating color space
+    #ori_tex_input = StringProperty(default='')
+
+    gamma_space = BoolProperty(
+            name='Gamma Space',
+            description='Make sure texture input is in linear space',
+            default = False,
             update = update_tex_input)
 
     #color_space = EnumProperty(
@@ -1791,6 +1842,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Mask ramp nodes
     mr_ramp = StringProperty(default='')
+    mr_linear = StringProperty(default='')
     mr_inverse = StringProperty(default='')
     mr_alpha = StringProperty(default='')
     mr_intensity_multiplier = StringProperty(default='')
@@ -1811,6 +1863,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     expand_intensity_settings = BoolProperty(default=False)
     expand_content = BoolProperty(default=False)
     expand_mask_settings = BoolProperty(default=False)
+    expand_input_settings = BoolProperty(default=False)
 
 class YTextureLayer(bpy.types.PropertyGroup):
     name = StringProperty(default='')

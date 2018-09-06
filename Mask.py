@@ -164,12 +164,12 @@ def remove_mask_total_nodes(tree, tex, mask, ch_index, clean=False):
     remove_node(tree, ch, 'mask_intensity_multiplier')
 
     # Then remove mask bump
-    if ch.enable_mask_bump:
-        remove_mask_bump_nodes(tex, ch, ch_index)
+    #if ch.enable_mask_bump:
+    #    remove_mask_bump_nodes(tex, ch, ch_index)
 
-    # Remove mask_ramp
-    if ch.enable_mask_ramp:
-        unset_mask_ramp_nodes(tree, ch, clean)
+    ## Remove mask_ramp
+    #if ch.enable_mask_ramp:
+    #    unset_mask_ramp_nodes(tree, ch, clean)
 
 def remove_mask_channel(tree, tex, ch_index):
 
@@ -642,7 +642,6 @@ def set_mask_ramp_flip_nodes(tree, ch, rearrange=False, bump_ch=None):
         mr_flip_hack.inputs[1].default_value = 1
     else: mr_flip_hack.inputs[1].default_value = 20
 
-
     mr_flip_blend = tree.nodes.get(ch.mr_flip_blend)
     if not mr_flip_blend:
         mr_flip_blend = new_node(tree, ch, 'mr_flip_blend', 'ShaderNodeMixRGB', 'Mask Ramp Flip Blend')
@@ -656,7 +655,13 @@ def unset_mask_ramp_flip_nodes(tree, ch):
     remove_node(tree, ch, 'mr_flip_blend')
 
 def set_mask_ramp_nodes(tree, tex, ch, rearrange=False):
+
+    tl = ch.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+    root_ch = tl.channels[int(match.group(2))]
+
     mr_ramp = tree.nodes.get(ch.mr_ramp)
+    mr_linear = tree.nodes.get(ch.mr_linear)
     mr_inverse = tree.nodes.get(ch.mr_inverse)
     mr_alpha = tree.nodes.get(ch.mr_alpha)
     mr_intensity = tree.nodes.get(ch.mr_intensity)
@@ -667,6 +672,12 @@ def set_mask_ramp_nodes(tree, tex, ch, rearrange=False):
         mr_ramp.color_ramp.elements[0].color = (1,1,1,1)
         mr_ramp.color_ramp.elements[1].color = (0.0,0.0,0.0,1)
         rearrange = True
+
+    if not mr_linear:
+        mr_linear = new_node(tree, ch, 'mr_linear', 'ShaderNodeGamma', 'Mask Ramp Linear')
+        if root_ch.colorspace == 'SRGB':
+            mr_linear.inputs[1].default_value = 1.0/GAMMA
+        else: mr_linear.inputs[1].default_value = 1.0
 
     if not mr_inverse:
         mr_inverse = new_node(tree, ch, 'mr_inverse', 'ShaderNodeMath', 'Mask Ramp Inverse')
@@ -719,6 +730,7 @@ def set_mask_ramp_nodes(tree, tex, ch, rearrange=False):
 
 def unset_mask_ramp_nodes(tree, ch, clean=False):
     #mute_node(tree, ch, 'mr_blend')
+    remove_node(tree, ch, 'mr_linear')
     remove_node(tree, ch, 'mr_inverse')
     remove_node(tree, ch, 'mr_alpha')
     remove_node(tree, ch, 'mr_intensity_multiplier')
@@ -850,7 +862,7 @@ def update_mask_bump_value(self, context):
 def check_set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = None):
 
     # No need to add mask intensity multiplier if there is no mask
-    if len(tex.masks) == 0: return
+    #if len(tex.masks) == 0: return
 
     # If bump channel isn't set
     if not bump_ch:
