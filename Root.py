@@ -913,7 +913,7 @@ class YRemoveTLChannel(bpy.types.Operator):
             # Remove mask bump, ramp, and channel
             #for mask in t.masks:
             #    #print(channel_idx, len(mask.channels))
-            Mask.unset_mask_ramp_nodes(ttree, ch, True)
+            Mask.remove_mask_ramp_nodes(ttree, ch, True)
             Mask.remove_mask_bump_nodes(t, ch, channel_idx)
             Mask.remove_mask_channel(ttree, t, channel_idx)
 
