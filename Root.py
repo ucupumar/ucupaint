@@ -869,6 +869,7 @@ class YRemoveTLChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'intensity')
 
             remove_node(ttree, ch, 'source')
+            remove_node(ttree, ch, 'linear')
 
             remove_node(ttree, ch, 'pipeline_frame')
             remove_node(ttree, ch, 'normal')
@@ -891,16 +892,6 @@ class YRemoveTLChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'fine_bump')
             remove_node(ttree, ch, 'intensity_multiplier')
 
-            remove_node(ttree, ch, 'mb_neighbor_uv')
-            remove_node(ttree, ch, 'mb_source_n')
-            remove_node(ttree, ch, 'mb_source_s')
-            remove_node(ttree, ch, 'mb_source_e')
-            remove_node(ttree, ch, 'mb_source_w')
-            remove_node(ttree, ch, 'mb_mod_n')
-            remove_node(ttree, ch, 'mb_mod_s')
-            remove_node(ttree, ch, 'mb_mod_e')
-            remove_node(ttree, ch, 'mb_mod_w')
-
             # Remove modifiers
             #if ch.mod_tree:
             if ch.mod_group != '':
@@ -919,9 +910,11 @@ class YRemoveTLChannel(bpy.types.Operator):
                 ttree.inputs.remove(ttree.inputs[channel.io_index])
                 ttree.outputs.remove(ttree.outputs[channel.io_index])
 
-            # Remove mask channel
+            # Remove mask bump, ramp, and channel
             #for mask in t.masks:
             #    #print(channel_idx, len(mask.channels))
+            Mask.unset_mask_ramp_nodes(ttree, ch, True)
+            Mask.remove_mask_bump_nodes(t, ch, channel_idx)
             Mask.remove_mask_channel(ttree, t, channel_idx)
 
             t.channels.remove(channel_idx)

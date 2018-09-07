@@ -1106,6 +1106,16 @@ def remove_mask_bump_nodes(tex, ch, ch_index):
     remove_node(tree, ch, 'mb_intensity_multiplier')
     remove_node(tree, ch, 'mb_blend')
 
+    remove_node(tree, ch, 'mb_neighbor_uv')
+    remove_node(tree, ch, 'mb_source_n')
+    remove_node(tree, ch, 'mb_source_s')
+    remove_node(tree, ch, 'mb_source_e')
+    remove_node(tree, ch, 'mb_source_w')
+    remove_node(tree, ch, 'mb_mod_n')
+    remove_node(tree, ch, 'mb_mod_s')
+    remove_node(tree, ch, 'mb_mod_e')
+    remove_node(tree, ch, 'mb_mod_w')
+
     remove_mask_channel_bump_nodes(tree, tex, ch_index)
 
     #for mask in tex.masks:
