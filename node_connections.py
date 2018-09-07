@@ -376,11 +376,22 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = False):
                 create_link(tree, bump_base.outputs[0], fine_bump.inputs[1])
 
                 if mod_n:
-                    #print('aaaaaaaaaa')
-                    create_link(tree, source_n.outputs[source_index], mod_n.inputs[0])
-                    create_link(tree, source_s.outputs[source_index], mod_s.inputs[0])
-                    create_link(tree, source_e.outputs[source_index], mod_e.inputs[0])
-                    create_link(tree, source_w.outputs[source_index], mod_w.inputs[0])
+                    if ch.tex_input == 'CUSTOM':
+                        if linear:
+                            create_link(tree, linear.outputs[0], mod_n.inputs[0])
+                            create_link(tree, linear.outputs[0], mod_s.inputs[0])
+                            create_link(tree, linear.outputs[0], mod_e.inputs[0])
+                            create_link(tree, linear.outputs[0], mod_w.inputs[0])
+                        elif ch_source:
+                            create_link(tree, ch_source.outputs[0], mod_n.inputs[0])
+                            create_link(tree, ch_source.outputs[0], mod_s.inputs[0])
+                            create_link(tree, ch_source.outputs[0], mod_e.inputs[0])
+                            create_link(tree, ch_source.outputs[0], mod_w.inputs[0])
+                    else:
+                        create_link(tree, source_n.outputs[source_index], mod_n.inputs[0])
+                        create_link(tree, source_s.outputs[source_index], mod_s.inputs[0])
+                        create_link(tree, source_e.outputs[source_index], mod_e.inputs[0])
+                        create_link(tree, source_w.outputs[source_index], mod_w.inputs[0])
 
                     if tex.type != 'IMAGE':
                         create_link(tree, solid_alpha.outputs[0], mod_n.inputs[1])
@@ -402,34 +413,47 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = False):
                     create_link(tree, mod_s.outputs[1], bump_base_s.inputs[0])
                     create_link(tree, mod_e.outputs[1], bump_base_e.inputs[0])
                     create_link(tree, mod_w.outputs[1], bump_base_w.inputs[0])
-                elif tex.type == 'IMAGE':
-                    create_link(tree, source_n.outputs[source_index], bump_base_n.inputs[2])
-                    create_link(tree, source_s.outputs[source_index], bump_base_s.inputs[2])
-                    create_link(tree, source_e.outputs[source_index], bump_base_e.inputs[2])
-                    create_link(tree, source_w.outputs[source_index], bump_base_w.inputs[2])
-
-                    #if tex.type != 'IMAGE':
-                    #    create_link(tree, solid_alpha.outputs[0], bump_base_n.inputs[0])
-                    #    create_link(tree, solid_alpha.outputs[0], bump_base_s.inputs[0])
-                    #    create_link(tree, solid_alpha.outputs[0], bump_base_e.inputs[0])
-                    #    create_link(tree, solid_alpha.outputs[0], bump_base_w.inputs[0])
-                    #else:
-                    #if tex.type == 'IMAGE':
-                    create_link(tree, source_n.outputs[1], bump_base_n.inputs[0])
-                    create_link(tree, source_s.outputs[1], bump_base_s.inputs[0])
-                    create_link(tree, source_e.outputs[1], bump_base_e.inputs[0])
-                    create_link(tree, source_w.outputs[1], bump_base_w.inputs[0])
-
-                if len(ch.modifiers) == 0 and tex.type != 'IMAGE':
-                    create_link(tree, source_n.outputs[source_index], fine_bump.inputs[2])
-                    create_link(tree, source_s.outputs[source_index], fine_bump.inputs[3])
-                    create_link(tree, source_e.outputs[source_index], fine_bump.inputs[4])
-                    create_link(tree, source_w.outputs[source_index], fine_bump.inputs[5])
                 else:
-                    create_link(tree, bump_base_n.outputs[0], fine_bump.inputs[2])
-                    create_link(tree, bump_base_s.outputs[0], fine_bump.inputs[3])
-                    create_link(tree, bump_base_e.outputs[0], fine_bump.inputs[4])
-                    create_link(tree, bump_base_w.outputs[0], fine_bump.inputs[5])
+                #elif tex.type == 'IMAGE':
+                    if ch.tex_input == 'CUSTOM':
+                        if linear:
+                            create_link(tree, linear.outputs[0], bump_base_n.inputs[2])
+                            create_link(tree, linear.outputs[0], bump_base_s.inputs[2])
+                            create_link(tree, linear.outputs[0], bump_base_e.inputs[2])
+                            create_link(tree, linear.outputs[0], bump_base_w.inputs[2])
+                        elif ch_source:
+                            create_link(tree, ch_source.outputs[0], bump_base_n.inputs[2])
+                            create_link(tree, ch_source.outputs[0], bump_base_s.inputs[2])
+                            create_link(tree, ch_source.outputs[0], bump_base_e.inputs[2])
+                            create_link(tree, ch_source.outputs[0], bump_base_w.inputs[2])
+                    else:
+                        create_link(tree, source_n.outputs[source_index], bump_base_n.inputs[2])
+                        create_link(tree, source_s.outputs[source_index], bump_base_s.inputs[2])
+                        create_link(tree, source_e.outputs[source_index], bump_base_e.inputs[2])
+                        create_link(tree, source_w.outputs[source_index], bump_base_w.inputs[2])
+
+                    if tex.type != 'IMAGE':
+                        create_link(tree, solid_alpha.outputs[0], bump_base_n.inputs[0])
+                        create_link(tree, solid_alpha.outputs[0], bump_base_s.inputs[0])
+                        create_link(tree, solid_alpha.outputs[0], bump_base_e.inputs[0])
+                        create_link(tree, solid_alpha.outputs[0], bump_base_w.inputs[0])
+                    else:
+                    #if tex.type == 'IMAGE':
+                        create_link(tree, source_n.outputs[1], bump_base_n.inputs[0])
+                        create_link(tree, source_s.outputs[1], bump_base_s.inputs[0])
+                        create_link(tree, source_e.outputs[1], bump_base_e.inputs[0])
+                        create_link(tree, source_w.outputs[1], bump_base_w.inputs[0])
+
+                #if len(ch.modifiers) == 0 and tex.type != 'IMAGE':
+                #    create_link(tree, source_n.outputs[source_index], fine_bump.inputs[2])
+                #    create_link(tree, source_s.outputs[source_index], fine_bump.inputs[3])
+                #    create_link(tree, source_e.outputs[source_index], fine_bump.inputs[4])
+                #    create_link(tree, source_w.outputs[source_index], fine_bump.inputs[5])
+                #else:
+                create_link(tree, bump_base_n.outputs[0], fine_bump.inputs[2])
+                create_link(tree, bump_base_s.outputs[0], fine_bump.inputs[3])
+                create_link(tree, bump_base_e.outputs[0], fine_bump.inputs[4])
+                create_link(tree, bump_base_w.outputs[0], fine_bump.inputs[5])
 
                 create_link(tree, tangent_output, fine_bump.inputs[6])
                 create_link(tree, bitangent.outputs[0], fine_bump.inputs[7])
@@ -591,10 +615,22 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = False):
                 create_link(tree, mb_neighbor_uv.outputs[3], mb_source_w.inputs[0])
 
                 if mb_mod_n:
-                    create_link(tree, mb_source_n.outputs[0], mb_mod_n.inputs[0])
-                    create_link(tree, mb_source_s.outputs[0], mb_mod_s.inputs[0])
-                    create_link(tree, mb_source_e.outputs[0], mb_mod_e.inputs[0])
-                    create_link(tree, mb_source_w.outputs[0], mb_mod_w.inputs[0])
+                    if ch.tex_input == 'CUSTOM':
+                        if linear:
+                            create_link(tree, linear.outputs[0], mb_mod_n.inputs[0])
+                            create_link(tree, linear.outputs[0], mb_mod_s.inputs[0])
+                            create_link(tree, linear.outputs[0], mb_mod_e.inputs[0])
+                            create_link(tree, linear.outputs[0], mb_mod_w.inputs[0])
+                        elif ch_source:
+                            create_link(tree, ch_source.outputs[0], mb_mod_n.inputs[0])
+                            create_link(tree, ch_source.outputs[0], mb_mod_s.inputs[0])
+                            create_link(tree, ch_source.outputs[0], mb_mod_e.inputs[0])
+                            create_link(tree, ch_source.outputs[0], mb_mod_w.inputs[0])
+                    else:
+                        create_link(tree, mb_source_n.outputs[0], mb_mod_n.inputs[0])
+                        create_link(tree, mb_source_s.outputs[0], mb_mod_s.inputs[0])
+                        create_link(tree, mb_source_e.outputs[0], mb_mod_e.inputs[0])
+                        create_link(tree, mb_source_w.outputs[0], mb_mod_w.inputs[0])
 
                     if tex.type != 'IMAGE':
                         create_link(tree, solid_alpha.outputs[0], mb_mod_n.inputs[1])
