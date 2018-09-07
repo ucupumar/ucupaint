@@ -676,12 +676,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = False):
                     create_link(tree, c_source_e.outputs[0], c_multiply_e.inputs[1])
                     create_link(tree, c_source_w.outputs[0], c_multiply_w.inputs[1])
 
-            #if len(tex.masks) > 0:
-            if ch.mask_bump_mask_only:
-                last_multiply = nodes.get(tex.masks[-1].channels[i].multiply)
-                intensity_output = last_multiply.outputs[0]
-            elif mask_total:
-                intensity_output = mask_total.outputs[0]
+            if len(tex.masks) > 0:
+                if ch.mask_bump_mask_only:
+                    last_multiply = nodes.get(tex.masks[-1].channels[i].multiply)
+                    intensity_output = last_multiply.outputs[0]
+                else:
+                    intensity_output = mask_total.outputs[0]
             else:
                 intensity_output = end_alpha.outputs[0]
 
