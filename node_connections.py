@@ -540,8 +540,11 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = False):
             else:
                 multiply_input = end_alpha.outputs[0]
 
-            create_link(tree, multiply_input, mr_inverse.inputs[1])
-            create_link(tree, mr_inverse.outputs[0], mr_ramp.inputs[0])
+            if flip_bump:
+                create_link(tree, multiply_input, mr_ramp.inputs[0])
+            else:
+                create_link(tree, multiply_input, mr_inverse.inputs[1])
+                create_link(tree, mr_inverse.outputs[0], mr_ramp.inputs[0])
 
             create_link(tree, mr_ramp.outputs[0], mr_linear.inputs[0])
             create_link(tree, mr_linear.outputs[0], mr_blend.inputs[2])

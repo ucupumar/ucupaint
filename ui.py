@@ -608,8 +608,8 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                 #brow.label(text='', icon='INFO')
                 if custom_icon_enable:
                     if chui.expand_mask_settings:
-                        icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
-                    else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
+                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
                     brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
                 else:
                     brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
@@ -725,8 +725,8 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                 else:
                     if custom_icon_enable:
                         if chui.expand_mask_settings:
-                            icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
-                        else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
+                            icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                        else: icon_value = lib.custom_icons["collapsed_input"].icon_id
                         row.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
                     else:
                         row.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
