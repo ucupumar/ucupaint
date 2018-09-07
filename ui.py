@@ -541,7 +541,8 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
 
         row = ccol.row(align=True)
 
-        expandable = len(tex.masks) > 0 or len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL'
+        #expandable = len(tex.masks) > 0 or len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL'
+        expandable = True
         if custom_icon_enable:
             icon_name = lib.channel_custom_icon_dict[root_ch.type]
             if expandable:
