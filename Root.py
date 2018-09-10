@@ -1294,6 +1294,7 @@ def update_channel_colorspace(self, context):
                 else: mr_linear.inputs[1].default_value = 1.0
 
         for mod in ch.modifiers:
+
             if mod.type == 'RGB_TO_INTENSITY':
                 rgb2i = tree.nodes.get(mod.rgb2i)
                 if self.colorspace == 'LINEAR':
@@ -1302,9 +1303,15 @@ def update_channel_colorspace(self, context):
 
                 if BLENDER_28_GROUP_INPUT_HACK:
                     match_group_input(rgb2i, 'Gamma')
-                    #inp = rgb2i.node_tree.nodes.get('Group Input')
-                    #if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
-                    #    inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
+
+            if mod.type == 'OVERRIDE_COLOR':
+                oc = tree.nodes.get(mod.oc)
+                if self.colorspace == 'LINEAR':
+                    oc.inputs['Gamma'].default_value = 1.0
+                else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
+
+                if BLENDER_28_GROUP_INPUT_HACK:
+                    match_group_input(oc, 'Gamma')
 
             if mod.type == 'COLOR_RAMP':
                 color_ramp_linear = tree.nodes.get(mod.color_ramp_linear)

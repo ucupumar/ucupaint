@@ -830,69 +830,71 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
 
                 extra_separator = True
 
-            #if tex.type != 'IMAGE':
-            row = ccol.row(align=True)
-            row.label(text='', icon='BLANK1')
-
-            #input_settings_available = root_ch.type != 'NORMAL' and (ch.tex_input == 'CUSTOM' or 
-            input_settings_available = (ch.tex_input == 'CUSTOM' or 
-                (root_ch.colorspace == 'SRGB' and tex.type != 'IMAGE'))
-
-            if input_settings_available:
-                if custom_icon_enable:
-                    if chui.expand_input_settings:
-                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                    row.prop(chui, 'expand_input_settings', text='', emboss=False, icon_value=icon_value)
-                else:
-                    row.prop(chui, 'expand_input_settings', text='', emboss=True, icon='INFO')
-            else:
-                row.label(text='', icon='INFO')
-
-            #row.label(text='', icon='INFO')
-            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                split = row.split(percentage=0.275)
-            else: split = row.split(factor=0.275)
-            split.label(text='Input:')
-            srow = split.row(align=True)
-            srow.prop(ch, 'tex_input', text='')
-            if ch.tex_input == 'CUSTOM' and not chui.expand_input_settings: 
-                if root_ch.type in {'RGB', 'NORMAL'}:
-                    srow.prop(ch, 'custom_color', text='')
-                if root_ch.type == 'VALUE':
-                    srow.prop(ch, 'custom_value', text='')
-
-            if tlui.expand_channels:
-                row.label(text='', icon='BLANK1')
-
-            if chui.expand_input_settings and input_settings_available:
+            if tex.type not in {'IMAGE', 'VCOL'}:
                 row = ccol.row(align=True)
                 row.label(text='', icon='BLANK1')
-                row.label(text='', icon='BLANK1')
-                box = row.box()
-                bcol = box.column(align=False)
 
-                if ch.tex_input == 'CUSTOM':
-                    if root_ch.type in {'RGB', 'NORMAL'}:
-                        brow = bcol.row(align=True)
-                        brow.label(text='Custom Color:')
-                        brow.prop(ch, 'custom_color', text='')
-                    elif root_ch.type == 'VALUE':
-                        brow = bcol.row(align=True)
-                        brow.label(text='Custom Value:')
-                        brow.prop(ch, 'custom_value', text='')
+                #input_settings_available = root_ch.type != 'NORMAL' and (ch.tex_input == 'CUSTOM' or 
+                #input_settings_available = (ch.tex_input == 'CUSTOM' or 
+                #    (root_ch.colorspace == 'SRGB' and tex.type != 'IMAGE'))
+                input_settings_available = (ch.tex_input != 'ALPHA' 
+                        and root_ch.colorspace == 'SRGB' and root_ch.type != 'NORMAL' )
 
-                #if ch.tex_input != 'ALPHA':
-                if (root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB' 
-                        and tex.type != 'IMAGE' and ch.tex_input != 'CUSTOM'):
-                    brow = bcol.row(align=True)
-                    brow.label(text='Gamma Space:')
-                    brow.prop(ch, 'gamma_space', text='')
+                if input_settings_available:
+                    if custom_icon_enable:
+                        if chui.expand_input_settings:
+                            icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                        else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                        row.prop(chui, 'expand_input_settings', text='', emboss=False, icon_value=icon_value)
+                    else:
+                        row.prop(chui, 'expand_input_settings', text='', emboss=True, icon='INFO')
+                else:
+                    row.label(text='', icon='INFO')
+
+                #row.label(text='', icon='INFO')
+                if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+                    split = row.split(percentage=0.275)
+                else: split = row.split(factor=0.275)
+                split.label(text='Input:')
+                srow = split.row(align=True)
+                srow.prop(ch, 'tex_input', text='')
+                #if ch.tex_input == 'CUSTOM' and not chui.expand_input_settings: 
+                #    if root_ch.type in {'RGB', 'NORMAL'}:
+                #        srow.prop(ch, 'custom_color', text='')
+                #    if root_ch.type == 'VALUE':
+                #        srow.prop(ch, 'custom_value', text='')
 
                 if tlui.expand_channels:
                     row.label(text='', icon='BLANK1')
 
-            extra_separator = True
+                if chui.expand_input_settings and input_settings_available:
+                    row = ccol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    row.label(text='', icon='BLANK1')
+                    box = row.box()
+                    bcol = box.column(align=False)
+
+                    #if ch.tex_input == 'CUSTOM':
+                    #    if root_ch.type in {'RGB', 'NORMAL'}:
+                    #        brow = bcol.row(align=True)
+                    #        brow.label(text='Custom Color:')
+                    #        brow.prop(ch, 'custom_color', text='')
+                    #    elif root_ch.type == 'VALUE':
+                    #        brow = bcol.row(align=True)
+                    #        brow.label(text='Custom Value:')
+                    #        brow.prop(ch, 'custom_value', text='')
+
+                    #if ch.tex_input != 'ALPHA' and root_ch.colorspace == 'SRGB':
+                    #if (root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB' 
+                    #        and tex.type != 'IMAGE' and ch.tex_input != 'CUSTOM'):
+                    brow = bcol.row(align=True)
+                    brow.label(text='Gamma Space:')
+                    brow.prop(ch, 'gamma_space', text='')
+
+                    if tlui.expand_channels:
+                        row.label(text='', icon='BLANK1')
+
+                extra_separator = True
 
             if hasattr(ch, 'enable_blur'):
                 row = ccol.row(align=True)
