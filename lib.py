@@ -22,6 +22,8 @@ GET_BITANGENT ='~TL Get Bitangent'
 
 # Modifier tree names
 MOD_RGB2INT = '~TL Mod RGB To Intensity'
+MOD_INT2RGB = '~TL Mod Intensity To RGB'
+MOD_OVERRIDE_COLOR = '~TL Mod Override Color'
 MOD_INVERT = '~TL Mod Invert'
 MOD_INVERT_VALUE = '~TL Mod Invert Value'
 MOD_MULTIPLIER = '~TL Mod Multiplier'

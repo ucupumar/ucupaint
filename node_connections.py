@@ -234,10 +234,11 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = False):
     geometry = nodes.get(tex.geometry)
 
     # Texcoord
-    if tex.texcoord_type == 'UV':
-        #create_link(tree, uv_map.outputs[0], source.inputs[0])
-        create_link(tree, uv_attr.outputs[1], source.inputs[0])
-    else: create_link(tree, texcoord.outputs[tex.texcoord_type], source.inputs[0])
+    if tex.type != 'VCOL':
+        if tex.texcoord_type == 'UV':
+            #create_link(tree, uv_map.outputs[0], source.inputs[0])
+            create_link(tree, uv_attr.outputs[1], source.inputs[0])
+        else: create_link(tree, texcoord.outputs[tex.texcoord_type], source.inputs[0])
 
     # Get bitangent from tangent
     #if hacky_tangent:

@@ -53,6 +53,7 @@ texture_type_items = (
         #('SKY', 'Sky', ''),
         ('VORONOI', 'Voronoi', ''),
         ('WAVE', 'Wave', ''),
+        ('VCOL', 'Vertex Color', ''),
         )
 
 texture_type_labels = {
@@ -68,6 +69,7 @@ texture_type_labels = {
         #'SKY' : 'Sky',
         'VORONOI' : 'Voronoi',
         'WAVE' : 'Wave',
+        'VCOL' : 'Vertex Color',
         }
 
 texcoord_type_items = (
@@ -128,6 +130,7 @@ texture_node_bl_idnames = {
         'SKY' : 'ShaderNodeTexSky',
         'VORONOI' : 'ShaderNodeTexVoronoi',
         'WAVE' : 'ShaderNodeTexWave',
+        'VCOL' : 'ShaderNodeAttribute',
         }
 
 GAMMA = 2.2

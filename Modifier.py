@@ -6,19 +6,34 @@ from .node_arrangements import *
 from . import lib
 
 modifier_type_items = (
-        ('INVERT', 'Invert', '', 'MODIFIER', 0),
-        ('RGB_TO_INTENSITY', 'RGB to Intensity', '', 'MODIFIER', 1),
-        ('COLOR_RAMP', 'Color Ramp', '', 'MODIFIER', 2),
-        ('RGB_CURVE', 'RGB Curve', '', 'MODIFIER', 3),
-        ('HUE_SATURATION', 'Hue Saturation', '', 'MODIFIER', 4),
-        ('BRIGHT_CONTRAST', 'Brightness Contrast', '', 'MODIFIER', 5),
-        ('MULTIPLIER', 'Multiplier', '', 'MODIFIER', 6),
+        ('INVERT', 'Invert', 
+            'Invert input RGB and/or Alpha', 'MODIFIER', 0),
+
+        ('RGB_TO_INTENSITY', 'RGB to Intensity',
+            'Input RGB will be used as alpha output, Output RGB will be replaced using custom color.', 
+            'MODIFIER', 1),
+
+        ('INTENSITY_TO_RGB', 'Intensity to RGB',
+            'Input alpha will be used as RGB output, Output Alpha will use solid value of one.', 
+            'MODIFIER', 2),
+
+        ('OVERRIDE_COLOR', 'Override Color',
+            'Input RGB will be replaced with custom RGB', 
+            'MODIFIER', 3),
+
+        ('COLOR_RAMP', 'Color Ramp', '', 'MODIFIER', 4),
+        ('RGB_CURVE', 'RGB Curve', '', 'MODIFIER', 5),
+        ('HUE_SATURATION', 'Hue Saturation', '', 'MODIFIER', 6),
+        ('BRIGHT_CONTRAST', 'Brightness Contrast', '', 'MODIFIER', 7),
+        ('MULTIPLIER', 'Multiplier', '', 'MODIFIER', 8),
         #('GRAYSCALE_TO_NORMAL', 'Grayscale To Normal', ''),
         #('MASK', 'Mask', ''),
         )
 
 can_be_expanded = {
         'INVERT', 
+        'RGB_TO_INTENSITY', 
+        'OVERRIDE_COLOR', 
         'COLOR_RAMP',
         'RGB_CURVE',
         'HUE_SATURATION',
@@ -136,12 +151,78 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
         if BLENDER_28_GROUP_INPUT_HACK:
             match_group_input(rgb2i, 'Gamma')
-            #inp = rgb2i.node_tree.nodes.get('Group Input')
-            #if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
-            #    inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
 
         frame.label = 'RGB to Intensity'
         rgb2i.parent = frame
+
+    elif m.type == 'INTENSITY_TO_RGB':
+
+        if ref_tree:
+            i2rgb_ref = ref_tree.nodes.get(m.i2rgb)
+
+        i2rgb = new_node(tree, m, 'i2rgb', 'ShaderNodeGroup', 'Intensity to RGB')
+
+        if ref_tree:
+            copy_node_props(i2rgb_ref, i2rgb)
+            ref_tree.nodes.remove(i2rgb_ref)
+        else:
+            i2rgb.node_tree = lib.get_node_tree_lib(lib.MOD_INT2RGB)
+
+            if BLENDER_28_GROUP_INPUT_HACK:
+                duplicate_lib_node_tree(i2rgb)
+
+        links.new(start_rgb.outputs[0], i2rgb.inputs[0])
+        links.new(start_alpha.outputs[0], i2rgb.inputs[1])
+
+        links.new(i2rgb.outputs[0], end_rgb.inputs[0])
+        links.new(i2rgb.outputs[1], end_alpha.inputs[0])
+
+        #if non_color:
+        #    i2rgb.inputs['Gamma'].default_value = 1.0
+        #else: i2rgb.inputs['Gamma'].default_value = 1.0/GAMMA
+
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(i2rgb, 'Gamma')
+
+        frame.label = 'Intensity to RGB'
+        i2rgb.parent = frame
+
+    elif m.type == 'OVERRIDE_COLOR':
+
+        if ref_tree:
+            oc_ref = ref_tree.nodes.get(m.oc)
+
+        oc = new_node(tree, m, 'oc', 'ShaderNodeGroup', 'Override Color')
+
+        if ref_tree:
+            copy_node_props(oc_ref, oc)
+            ref_tree.nodes.remove(oc_ref)
+        else:
+            oc.node_tree = lib.get_node_tree_lib(lib.MOD_OVERRIDE_COLOR)
+
+            if BLENDER_28_GROUP_INPUT_HACK:
+                duplicate_lib_node_tree(oc)
+
+            if root_ch.type == 'RGB':
+                m.oc_col = (1.0, 0.0, 1.0, 1.0)
+            elif root_ch.type == 'NORMAL':
+                m.oc_use_normal_base = True
+        
+        links.new(start_rgb.outputs[0], oc.inputs[0])
+        links.new(start_alpha.outputs[0], oc.inputs[1])
+
+        links.new(oc.outputs[0], end_rgb.inputs[0])
+        links.new(oc.outputs[1], end_alpha.inputs[0])
+
+        if non_color:
+            oc.inputs['Gamma'].default_value = 1.0
+        else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            match_group_input(oc, 'Gamma')
+
+        frame.label = 'Override Color'
+        oc.parent = frame
 
     elif m.type == 'COLOR_RAMP':
 
@@ -331,6 +412,12 @@ def delete_modifier_nodes(tree, mod):
     if mod.type == 'RGB_TO_INTENSITY':
         remove_node(tree, mod, 'rgb2i')
 
+    elif mod.type == 'INTENSITY_TO_RGB':
+        remove_node(tree, mod, 'i2rgb')
+
+    elif mod.type == 'OVERRIDE_COLOR':
+        remove_node(tree, mod, 'oc')
+
     elif mod.type == 'INVERT':
         remove_node(tree, mod, 'invert')
 
@@ -393,8 +480,8 @@ class YNewTexModifier(bpy.types.Operator):
             mod = add_new_modifier(context.parent, self.type)
             nodes = group_tree.nodes
 
-        if self.type == 'RGB_TO_INTENSITY' and root_ch.type == 'RGB':
-            mod.rgb2i_col = (1,0,1,1)
+        #if self.type == 'RGB_TO_INTENSITY' and root_ch.type == 'RGB':
+        #    mod.rgb2i_col = (1,0,1,1)
 
         # If RGB to intensity is added, bump base is better be 0.0
         if tex and self.type == 'RGB_TO_INTENSITY':
@@ -553,7 +640,7 @@ class YRemoveTexModifier(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def draw_modifier_properties(context, root_ch, nodes, modifier, layout):
+def draw_modifier_properties(context, root_ch, nodes, modifier, layout, is_tex_ch=False):
 
     #if modifier.type not in {'INVERT'}:
     #    label = [mt[1] for mt in modifier_type_items if modifier.type == mt[0]][0]
@@ -571,13 +658,34 @@ def draw_modifier_properties(context, root_ch, nodes, modifier, layout):
             row.prop(modifier, 'invert_b_enable', text='B', toggle=True)
             row.prop(modifier, 'invert_a_enable', text='A', toggle=True)
 
-    #elif modifier.type == 'RGB_TO_INTENSITY':
+    elif modifier.type == 'RGB_TO_INTENSITY':
+        col = layout.column(align=True)
+        row = col.row()
+        row.label(text='Color:')
+        row.prop(modifier, 'rgb2i_col', text='')
 
-    #    # Shortcut only available on texture layer channel
-    #    if 'YLayerChannel' in str(type(channel)):
-    #        row = layout.row(align=True)
-    #        row.label(text='Color Shortcut:')
-    #        row.prop(modifier, 'shortcut', text='')
+        # Shortcut only available on texture layer channel
+        #if 'YLayerChannel' in str(type(channel)):
+        if is_tex_ch:
+            row = col.row(align=True)
+            row.label(text='Shortcut on texture list:')
+            row.prop(modifier, 'shortcut', text='')
+
+    elif modifier.type == 'OVERRIDE_COLOR':
+        col = layout.column(align=True)
+        if root_ch.type == 'NORMAL':
+            row = col.row()
+            row.label(text='Use Normal Base:')
+            row.prop(modifier, 'oc_use_normal_base', text='')
+
+        if not modifier.oc_use_normal_base:
+            row = col.row()
+            row.label(text='Color:')
+            row.prop(modifier, 'oc_col', text='')
+
+            row = col.row()
+            row.label(text='Shortcut on texture list:')
+            row.prop(modifier, 'shortcut', text='')
 
     elif modifier.type == 'COLOR_RAMP':
         color_ramp = nodes.get(modifier.color_ramp)
@@ -658,6 +766,14 @@ def update_modifier_enable(self, context):
         rgb2i = nodes.get(self.rgb2i)
         rgb2i.mute = not self.enable
 
+    if self.type == 'INTENSITY_TO_RGB':
+        i2rgb = nodes.get(self.i2rgb)
+        i2rgb.mute = not self.enable
+
+    if self.type == 'OVERRIDE_COLOR':
+        oc = nodes.get(self.oc)
+        oc.mute = not self.enable
+
     elif self.type == 'INVERT':
         invert = nodes.get(self.invert)
         invert.mute = not self.enable
@@ -691,28 +807,25 @@ def update_modifier_enable(self, context):
         multiplier.mute = not self.enable
 
 def update_modifier_shortcut(self, context):
+
     tl = self.id_data.tl
 
     if self.shortcut:
-        mod_found = False
-        # Check if modifier on group channel
-        channel = tl.channels[tl.active_channel_index]
-        for mod in channel.modifiers:
-            if mod == self:
-                mod_found = True
-                break
 
-        if mod_found:
-            # Disable other shortcuts
+        match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+        match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+
+        if match1:
+            tex = tl.textures[int(match1.group(1))]
+            for ch in tex.channels:
+                for mod in ch.modifiers:
+                    if mod != self:
+                        mod.shortcut = False
+
+        elif match2:
+            channel = tl.channels[int(match2.group(1))]
             for mod in channel.modifiers:
-                if mod != self: mod.shortcut = False
-            return
-
-        # Check texture channels
-        tex = tl.textures[tl.active_texture_index]
-        for ch in tex.channels:
-            for mod in ch.modifiers:
-                if mod != self:
+                if mod != self: 
                     mod.shortcut = False
 
 def update_invert_channel(self, context):
@@ -819,8 +932,45 @@ def update_rgb2i_col(self, context):
 
         if BLENDER_28_GROUP_INPUT_HACK:
             match_group_input(rgb2i, 2)
-            #inp = rgb2i.node_tree.nodes.get('Group Input')
-            #inp.outputs[2].links[0].to_socket.default_value = self.rgb2i_col
+
+def update_oc_col(self, context):
+    tree = get_mod_tree(self)
+
+    if self.type == 'OVERRIDE_COLOR': #and not self.oc_use_normal_base:
+        oc = tree.nodes.get(self.oc)
+        oc.inputs[2].default_value = self.oc_col
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            match_group_input(oc, 2)
+
+def update_oc_use_normal_base(self, context):
+    tree = get_mod_tree(self)
+
+    if self.type != 'OVERRIDE_COLOR': return 
+    
+    if self.oc_use_normal_base:
+
+        tl = self.id_data.tl
+        match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+        #match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+        if match1: 
+            tex = tl.textures[int(match1.group(1))]
+            ch = tex.channels[int(match1.group(2))]
+            root_ch = tl.channels[int(match1.group(2))]
+        #elif match2:
+        #    root_ch = tl.channels[int(match2.group(1))]
+        else: return
+
+        if root_ch.type == 'NORMAL':
+            oc = tree.nodes.get(self.oc)
+            if ch.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
+                val = ch.bump_base_value
+                val = (val, val, val, 1.0)
+            else: 
+                val = (0.5, 0.5, 1.0, 1.0)
+
+            #oc.inputs[2].default_value = val
+            self.oc_col = val
 
 class YTextureModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)
@@ -845,6 +995,22 @@ class YTextureModifier(bpy.types.PropertyGroup):
     rgb2i_col = FloatVectorProperty(name='RGB to Intensity Color', size=4, subtype='COLOR', 
             default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0,
             update=update_rgb2i_col)
+
+    # Intensity to RGB nodes
+    i2rgb = StringProperty(default='')
+
+    # Override Color nodes
+    oc = StringProperty(default='')
+
+    oc_col = FloatVectorProperty(name='Override Color', size=4, subtype='COLOR', 
+            default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0,
+            update=update_oc_col)
+
+    oc_use_normal_base = BoolProperty(
+            name = 'Use Normal Base',
+            description = 'Use normal base instead of custom color',
+            default=False,
+            update=update_oc_use_normal_base)
 
     # Invert nodes
     invert = StringProperty(default='')

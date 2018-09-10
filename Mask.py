@@ -220,6 +220,60 @@ def remove_mask(tex, mask):
         for i, ch in enumerate(tex.channels):
             remove_mask_total_nodes(tree, tex, mask, i)
 
+class YNewVColMask(bpy.types.Operator):
+    bl_idname = "node.y_new_vertex_color_mask"
+    bl_label = "New Vertex Color Mask"
+    bl_description = "New Vertex Color Mask"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name = StringProperty(default='')
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        # HACK: For some reason, checking context.texture on poll will cause problem
+        # This method below is to get around that
+        self.auto_cancel = False
+        if not hasattr(context, 'texture'):
+            self.auto_cancel = True
+            return self.execute(context)
+
+        obj = context.object
+        self.texture = context.texture
+        #tex = context.texture
+        mat = get_active_material()
+
+        # Set unique names
+        name = 'Mask ' + mat.name + ' VCol'
+        items = obj.data.vertex_colors
+        self.name = get_unique_name(name, items)
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+            row = self.layout.split(percentage=0.4)
+        else: row = self.layout.split(factor=0.4)
+
+        col = row.column(align=False)
+        col.label(text='Name:')
+
+        col = row.column(align=False)
+        col.prop(self, 'name', text='')
+
+    def execute(self, context):
+        if self.auto_cancel: return {'CANCELLED'}
+
+        obj = context.object
+        tex = self.texture
+        vcol = obj.data.vertex_colors.new(self.name)
+
+        # Add new mask
+
+        return {'FINISHED'}
+
 class YNewTextureMask(bpy.types.Operator):
     bl_idname = "node.y_new_texture_mask"
     bl_label = "New Texture Mask"
@@ -1125,22 +1179,6 @@ def remove_mask_bump_nodes(tex, ch, ch_index):
 
     remove_mask_channel_bump_nodes(tree, tex, ch_index)
 
-    #for mask in tex.masks:
-    #    disable_mask_source(tex, mask)
-
-    #    #print(len(tex.masks), mask, ch_index, len(mask.channels))
-
-    #    c = mask.channels[ch_index]
-
-    #    remove_node(tree, mask, 'tangent')
-    #    remove_node(tree, mask, 'bitangent')
-    #    remove_node(tree, c, 'neighbor_uv')
-
-    #    for d in neighbor_directions:
-    #        remove_node(tree, c, 'source_' + d)
-    #    #for d in directions_me:
-    #        remove_node(tree, c, 'multiply_' + d)
-
     # Delete intensity multiplier from ramp
     for c in tex.channels:
         #mute_node(tree, c, 'mr_intensity_multiplier')
@@ -1336,12 +1374,14 @@ class YTextureMask(bpy.types.PropertyGroup):
     expand_vector = BoolProperty(default=False)
 
 def register():
+    bpy.utils.register_class(YNewVColMask)
     bpy.utils.register_class(YNewTextureMask)
     bpy.utils.register_class(YRemoveTextureMask)
     bpy.utils.register_class(YTextureMaskChannel)
     bpy.utils.register_class(YTextureMask)
 
 def unregister():
+    bpy.utils.unregister_class(YNewVColMask)
     bpy.utils.unregister_class(YNewTextureMask)
     bpy.utils.unregister_class(YRemoveTextureMask)
     bpy.utils.unregister_class(YTextureMaskChannel)

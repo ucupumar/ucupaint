@@ -333,8 +333,11 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                     return
 
                 brow = bcol.row(align=True)
+
+                can_be_expanded = m.type in Modifier.can_be_expanded
+
                 #brow.active = m.enable
-                if m.type in Modifier.can_be_expanded:
+                if can_be_expanded:
                     if custom_icon_enable:
                         if modui.expand_content:
                             icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
@@ -347,9 +350,15 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                     brow.label(text='', icon='MODIFIER')
                     brow.label(text=m.name)
 
-                if m.type == 'RGB_TO_INTENSITY':
-                    brow.prop(m, 'rgb2i_col', text='', icon='COLOR')
-                    brow.separator()
+                if not modui.expand_content:
+
+                    if m.type == 'RGB_TO_INTENSITY':
+                        brow.prop(m, 'rgb2i_col', text='', icon='COLOR')
+                        brow.separator()
+
+                    if m.type == 'OVERRIDE_COLOR':
+                        brow.prop(m, 'oc_col', text='', icon='COLOR')
+                        brow.separator()
 
                 #brow.context_pointer_set('texture', tex)
                 brow.context_pointer_set('parent', channel)
@@ -357,13 +366,13 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 brow.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
                 brow.prop(m, 'enable', text='')
 
-                if modui.expand_content and m.type in Modifier.can_be_expanded:
+                if modui.expand_content and can_be_expanded:
                     row = bcol.row(align=True)
                     #row.label(text='', icon='BLANK1')
                     row.label(text='', icon='BLANK1')
                     bbox = row.box()
                     bbox.active = m.enable
-                    Modifier.draw_modifier_properties(context, channel, nodes, m, bbox)
+                    Modifier.draw_modifier_properties(context, channel, nodes, m, bbox, False)
                     row.label(text='', icon='BLANK1')
 
             #if len(channel.modifiers) > 0:
@@ -446,7 +455,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 split.label(text='Space:')
                 split.prop(channel, 'colorspace', text='')
 
-def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_enable):
+def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom_icon_enable):
     obj = context.object
     tl = tex.id_data.tl
     tlui = context.window_manager.tlui
@@ -472,6 +481,9 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
         row.label(text=image.name)
         #row.operator("node.y_reload_image", text="", icon='FILE_REFRESH')
         #row.separator()
+    elif vcol:
+        row.label(text='', icon='GROUP_VCOL')
+        row.label(text=vcol.name)
     else:
         title = source.bl_idname.replace('ShaderNodeTex', '')
         #row.label(text=title + ' Properties:', icon='TEXTURE')
@@ -495,7 +507,7 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
         row.prop(tlui, 'expand_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
     else: row.prop(tlui, 'expand_channels', text='', emboss=True, icon = 'GROUP_VERTEX')
 
-    if texui.expand_content:
+    if tex.type != 'VCOL' and texui.expand_content:
         rrow = ccol.row(align=True)
         rrow.label(text='', icon='BLANK1')
         bbox = rrow.box()
@@ -769,7 +781,10 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                     tlui.need_update = True
                     return
 
-                if m.type in Modifier.can_be_expanded:
+                can_be_expanded = m.type in Modifier.can_be_expanded #or (
+                        #m.type == 'OVERRIDE_COLOR' and root_ch.type == 'NORMAL')
+
+                if can_be_expanded:
                     if custom_icon_enable:
                         if modui.expand_content:
                             icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
@@ -783,9 +798,15 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                 #row.label(text=m.name + ' (' + str(m.texture_index) + ')')
                 row.label(text=m.name)
 
-                if m.type == 'RGB_TO_INTENSITY':
-                    row.prop(m, 'rgb2i_col', text='', icon='COLOR')
-                    row.separator()
+                if not modui.expand_content:
+
+                    if m.type == 'RGB_TO_INTENSITY':
+                        row.prop(m, 'rgb2i_col', text='', icon='COLOR')
+                        row.separator()
+
+                    if m.type == 'OVERRIDE_COLOR' and not m.oc_use_normal_base:
+                        row.prop(m, 'oc_col', text='', icon='COLOR')
+                        row.separator()
 
                 row.context_pointer_set('texture', tex)
                 row.context_pointer_set('parent', ch)
@@ -796,13 +817,13 @@ def draw_texture_ui(context, layout, tex, source, image, is_a_mesh, custom_icon_
                 if tlui.expand_channels:
                     row.label(text='', icon='BLANK1')
 
-                if modui.expand_content and m.type in Modifier.can_be_expanded:
+                if modui.expand_content and can_be_expanded:
                     row = ccol.row(align=True)
                     row.label(text='', icon='BLANK1')
                     row.label(text='', icon='BLANK1')
                     bbox = row.box()
                     bbox.active = m.enable
-                    Modifier.draw_modifier_properties(context, root_ch, mod_tree.nodes, m, bbox)
+                    Modifier.draw_modifier_properties(context, root_ch, mod_tree.nodes, m, bbox, True)
 
                     if tlui.expand_channels:
                         row.label(text='', icon='BLANK1')
@@ -1134,6 +1155,7 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
     tex = None
     source = None
     image = None
+    vcol = None
     mask_image = None
     mask = None
     mask_idx = 0
@@ -1159,6 +1181,8 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
             source = get_tex_source(tex, tex_tree)
             if tex.type == 'IMAGE':
                 image = source.image
+            elif tex.type == 'VCOL':
+                vcol = obj.data.vertex_colors.get(source.attribute_name)
 
     # Set pointer for active texture and image
     if tex: box.context_pointer_set('texture', tex)
@@ -1182,7 +1206,7 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
     #    draw_mask_ui(context, box, tex, mask, mask_idx, source, image, is_a_mesh, custom_icon_enable)
     #elif tex:
     if tex:
-        draw_texture_ui(context, box, tex, source, image, is_a_mesh, custom_icon_enable)
+        draw_texture_ui(context, box, tex, source, image, vcol, is_a_mesh, custom_icon_enable)
 
 def main_draw(self, context):
 
@@ -1348,15 +1372,20 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         nodes = group_tree.nodes
         tex = item
         tex_tree = get_tree(tex)
+        obj = context.object
 
         master = layout.row(align=True)
         row = master.row(align=True)
 
         # Try to get image
         image = None
+        vcol = None
         if tex.type == 'IMAGE':
             source = get_tex_source(tex, tex_tree)
             image = source.image
+        elif tex.type == 'VCOL':
+            source = get_tex_source(tex, tex_tree)
+            vcol = obj.data.vertex_colors.get(source.attribute_name)
 
         # Try to get image masks
         image_masks = []
@@ -1370,14 +1399,17 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         # Image icon
         if len(image_masks) == 0:
             if image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+            elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
             else: row.prop(tex, 'name', text='', emboss=False, icon='TEXTURE')
         else:
             if active_mask:
                 row.active = False
                 if image: row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=image.preview.icon_id)
+                elif vcol: row.prop(active_mask, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
                 else: row.prop(active_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
             else:
                 if image: row.label(text='', icon_value=image.preview.icon_id)
+                elif vcol: row.label(text='', icon='GROUP_VCOL')
                 else: row.label(text='', icon='TEXTURE')
 
         # Image mask icons
@@ -1437,13 +1469,22 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         shortcut_found = False
         for ch in tex.channels:
             for mod in ch.modifiers:
-                if mod.shortcut:
-                    shortcut_found = True
+                if mod.shortcut and mod.enable:
+
                     if mod.type == 'RGB_TO_INTENSITY':
                         rrow = row.row()
                         mod_tree = get_mod_tree(mod)
                         rrow.prop(mod, 'rgb2i_col', text='', icon='COLOR')
-                    break
+                        shortcut_found = True
+                        break
+
+                    elif mod.type == 'OVERRIDE_COLOR':
+                        rrow = row.row()
+                        mod_tree = get_mod_tree(mod)
+                        rrow.prop(mod, 'oc_col', text='', icon='COLOR')
+                        shortcut_found = True
+                        break
+
             if shortcut_found:
                 break
 
@@ -1497,6 +1538,10 @@ class YNewTexMenu(bpy.types.Menu):
         col.operator("node.y_new_texture_layer", text='New Image', icon='IMAGE_DATA').type = 'IMAGE'
         col.operator("node.y_open_image_to_layer", text='Open Image', icon='IMASEL')
         col.operator("node.y_open_available_image_to_layer", text='Open Available Image', icon='IMASEL')
+        col.separator()
+
+        col.label(text='Vertex Color:')
+        col.operator("node.y_new_texture_layer", icon='GROUP_VCOL', text='Vertex Color').type = 'VCOL'
         col.separator()
 
         #col = row.column()
@@ -1560,9 +1605,9 @@ class YModifierMenu(bpy.types.Menu):
         col.separator()
         op = col.operator('node.y_remove_texture_modifier', icon='ZOOMOUT', text='Remove Modifier')
 
-        if hasattr(context, 'texture') and context.modifier.type == 'RGB_TO_INTENSITY':
-            col.separator()
-            col.prop(context.modifier, 'shortcut', text='Shortcut on texture list')
+        #if hasattr(context, 'texture') and context.modifier.type in {'RGB_TO_INTENSITY', 'OVERRIDE_COLOR'}:
+        #    col.separator()
+        #    col.prop(context.modifier, 'shortcut', text='Shortcut on texture list')
 
 class YAddTexMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_add_texture_mask_menu"
@@ -1587,9 +1632,13 @@ class YAddTexMaskMenu(bpy.types.Menu):
         col.label(text='Open Image as Mask', icon='IMASEL')
         col.label(text='Open Available Image as Mask', icon='IMASEL')
         #col.label(text='Not implemented yet!', icon='ERROR')
-        #col.separator()
+        col.separator()
         #col.label(text='Open Mask:')
         #col.label(text='Open Other Mask', icon='MOD_MASK')
+
+        col.label(text='Vertex Color Mask:')
+        col.operator('node.y_new_vertex_color_mask', text='New Vertex Color Mask', icon='GROUP_VCOL')
+        col.label(text='Open Available Vertex Color as Mask', icon='GROUP_VCOL')
 
         col = row.column(align=True)
         #col.separator()

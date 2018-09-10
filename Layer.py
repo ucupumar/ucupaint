@@ -9,6 +9,7 @@ from .node_connections import *
 from .subtree import *
 
 DEFAULT_NEW_IMG_SUFFIX = ' Tex'
+DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
 
 def create_texture_channel_nodes(group_tree, texture, channel):
 
@@ -105,7 +106,7 @@ def normal_map_type_items(self, context):
     return items
 
 def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, normal_map_type, 
-        texcoord_type, uv_name='', image=None, add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1)):
+        texcoord_type, uv_name='', image=None, vcol=None, add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1)):
 
     group_node = get_active_texture_layers_node()
     group_tree = group_node.node_tree
@@ -153,7 +154,10 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
 
         # Add new image if it's image texture
         source.image = image
-    #else:
+
+    elif tex_type == 'VCOL':
+        source.attribute_name = vcol.name
+
     # Solid alpha can be useful for many things
     solid_alpha = new_node(tree, tex, 'solid_alpha', 'ShaderNodeValue', 'Solid Alpha')
     solid_alpha.outputs[0].default_value = 1.0
@@ -397,12 +401,15 @@ class YNewTextureLayer(bpy.types.Operator):
         if channel and channel.type == 'RGB':
             self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
 
-        if self.type != 'IMAGE':
-            name = [i[1] for i in texture_type_items if i[0] == self.type][0]
-            items = tl.textures
-        else:
+        if self.type == 'IMAGE':
             name = obj.active_material.name + DEFAULT_NEW_IMG_SUFFIX
             items = bpy.data.images
+        elif self.type == 'VCOL':
+            name = obj.active_material.name + DEFAULT_NEW_VCOL_SUFFIX
+            items = obj.data.vertex_colors
+        else:
+            name = [i[1] for i in texture_type_items if i[0] == self.type][0]
+            items = tl.textures
             
         # Default normal map type is fine bump map
         self.normal_map_type = 'FINE_BUMP_MAP'
@@ -459,7 +466,8 @@ class YNewTextureLayer(bpy.types.Operator):
             col.label(text='Width:')
             col.label(text='Height:')
 
-        col.label(text='Vector:')
+        if self.type != 'VCOL':
+            col.label(text='Vector:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -486,15 +494,17 @@ class YNewTextureLayer(bpy.types.Operator):
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
 
-        crow = col.row(align=True)
-        crow.prop(self, 'texcoord_type', text='')
-        if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+        if self.type != 'VCOL':
+            crow = col.row(align=True)
+            crow.prop(self, 'texcoord_type', text='')
+            if obj.type == 'MESH' and self.texcoord_type == 'UV':
+                crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
     def execute(self, context):
 
         T = time.time()
 
+        obj = context.object
         node = get_active_texture_layers_node()
         tl = node.node_tree.tl
         tlui = context.window_manager.tlui
@@ -502,6 +512,8 @@ class YNewTextureLayer(bpy.types.Operator):
         # Check if texture with same name is already available
         if self.type == 'IMAGE':
             same_name = [i for i in bpy.data.images if i.name == self.name]
+        elif self.type == 'VCOL':
+            same_name = [i for i in obj.data.vertex_colors if i.name == self.name]
         else: same_name = [t for t in tl.textures if t.name == self.name]
         if same_name:
             if self.type == 'IMAGE':
@@ -521,18 +533,15 @@ class YNewTextureLayer(bpy.types.Operator):
             img.use_alpha = False if self.add_rgb_to_intensity else True
             update_image_editor_image(context, img)
 
+        vcol = None
+        if self.type == 'VCOL':
+            vcol = obj.data.vertex_colors.new(self.name)
+
         tl.halt_update = True
         tex = add_new_texture(self.name, self.type, int(self.channel_idx), self.blend_type, self.normal_blend, 
-                self.normal_map_type, self.texcoord_type, self.uv_map, img, 
+                self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol,
                 self.add_rgb_to_intensity, self.rgb_to_intensity_color)
         tl.halt_update = False
-
-        # Some texture type better be at sRGB colorspace
-        #if tex.type in {'CHECKER'}:
-        #    for i, root_ch in enumerate(tl.channels):
-        #        if root_ch.colorspace == 'SRGB':
-        #            tex.channels[i].tex_input = 'RGB_SRGB'
-        #set_default_tex_input(tex)
 
         # Reconnect and rearrange nodes
         reconnect_tl_tex_nodes(node.node_tree)
@@ -698,7 +707,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
             add_new_texture(image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map,
-                    image, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
+                    image, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
         node.node_tree.tl.halt_update = False
 
@@ -843,7 +852,7 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
         image = bpy.data.images.get(self.image_name)
         add_new_texture(image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                 self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map, 
-                image, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
+                image, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
         node.node_tree.tl.halt_update = False
 
@@ -1044,14 +1053,6 @@ def update_normal_map_type(self, context):
             val = self.bump_base_value
             bump_base.inputs[0].default_value = 1.0
             bump_base.inputs[1].default_value = (val, val, val, 1.0)
-        #if not intensity_multiplier:
-        #    intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeGroup', 
-        #            'Intensity Multiplier')
-        #    intensity_multiplier.node_tree = lib.get_node_tree_lib(lib.INTENSITY_MULTIPLIER)
-            #intensity_multiplier = new_node(tree, self, 'intensity_multiplier', 'ShaderNodeMath', 'Intensity Multiplier')
-            #intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
-            #intensity_multiplier.use_clamp = True
-            #intensity_multiplier.operation = 'MULTIPLY'
 
     if self.normal_map_type == 'NORMAL_MAP':
         if not normal:
@@ -1161,6 +1162,15 @@ def update_normal_map_type(self, context):
     if not normal_flip:
         normal_flip = new_node(tree, self, 'normal_flip', 'ShaderNodeGroup', 'Flip Backface Normal')
         normal_flip.node_tree = lib.get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
+
+    # Update override color modifier
+    for mod in self.modifiers:
+        if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
+            if self.normal_map_type == 'NORMAL_MAP':
+                mod.oc_col = (0.5, 0.5, 1.0, 1.0)
+            else:
+                val = self.bump_base_value
+                mod.oc_col = (val, val, val, 1.0)
 
     rearrange_tex_nodes(tex)
     reconnect_tex_nodes(tex, ch_index)
@@ -1297,12 +1307,17 @@ def update_bump_base_value(self, context):
 
     bump_base = tree.nodes.get(self.bump_base)
     val = self.bump_base_value
-    bump_base.inputs[1].default_value = (val, val, val, 1.0)
+    col = (val, val, val, 1.0)
+    bump_base.inputs[1].default_value = col
 
     neighbor_directions = ['n', 's', 'e', 'w']
     for d in neighbor_directions:
         b = tree.nodes.get(getattr(self, 'bump_base_' + d))
-        if b: b.inputs[1].default_value = (val, val, val, 1.0)
+        if b: b.inputs[1].default_value = col
+
+    for mod in self.modifiers:
+        if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
+            mod.oc_col = col
 
 def update_bump_distance(self, context):
     tl = self.id_data.tl

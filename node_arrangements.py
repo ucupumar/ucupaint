@@ -290,6 +290,18 @@ def arrange_modifier_nodes(nodes, parent, loc):
 
             loc.x += 165.0
 
+        elif m.type == 'INTENSITY_TO_RGB':
+            i2rgb = nodes.get(m.i2rgb)
+            if i2rgb.location != loc: i2rgb.location = loc
+
+            loc.x += 165.0
+
+        elif m.type == 'OVERRIDE_COLOR':
+            oc = nodes.get(m.oc)
+            if oc.location != loc: oc.location = loc
+
+            loc.x += 165.0
+
         elif m.type == 'COLOR_RAMP':
 
             color_ramp_alpha_multiply = nodes.get(m.color_ramp_alpha_multiply)
@@ -659,6 +671,10 @@ def rearrange_tex_nodes(tex):
         elif any([m for m in ch.modifiers if m.type == 'COLOR_RAMP']):
             loc.y -= 315
         elif any([m for m in ch.modifiers if m.type == 'RGB_TO_INTENSITY']):
+            loc.y -= 270
+        elif any([m for m in ch.modifiers if m.type == 'INTENSITY_TO_RGB']):
+            loc.y -= 270
+        elif any([m for m in ch.modifiers if m.type == 'OVERRIDE_COLOR']):
             loc.y -= 270
         elif any([m for m in ch.modifiers if m.type == 'HUE_SATURATION']):
             loc.y -= 265
@@ -1127,6 +1143,10 @@ def rearrange_tl_nodes(group_tree):
         elif any([m for m in channel.modifiers if m.type == 'COLOR_RAMP']):
             loc.y -= 315
         elif any([m for m in channel.modifiers if m.type == 'RGB_TO_INTENSITY']):
+            loc.y -= 270
+        elif any([m for m in channel.modifiers if m.type == 'INTENSITY_TO_RGB']):
+            loc.y -= 270
+        elif any([m for m in channel.modifiers if m.type == 'OVERRIDE_COLOR']):
             loc.y -= 270
         elif any([m for m in channel.modifiers if m.type == 'HUE_SATURATION']):
             loc.y -= 265
