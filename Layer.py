@@ -90,17 +90,43 @@ def tex_input_items(self, context):
 
     return items
 
+def mask_bump_type_items(self, context):
+
+    tl = self.id_data.tl
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    if not m: return []
+    tex = tl.textures[int(m.group(1))]
+    root_ch = tl.channels[int(m.group(2))]
+
+    items = []
+
+    items.append(('BUMP_MAP', 'Bump Map', ''))
+    items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
+
+    return items
+
 def normal_map_type_items(self, context):
+
+    try:
+        m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+        tl = self.id_data.tl
+        tex = tl.textures[int(m.group(1))]
+        tex_type = tex.type
+    except:
+        tex_type = self.type
+
     items = []
 
     if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-        items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 0))
-        items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 1))
-        items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 2))
+        items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 0))
+        items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 1))
+        if tex_type != 'VCOL':
+            items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 2))
     else: # Blender 2.8
-        items.append(('BUMP_MAP', 'Bump Map', ''))
-        items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
         items.append(('NORMAL_MAP', 'Normal Map', ''))
+        items.append(('BUMP_MAP', 'Bump Map', ''))
+        if tex_type != 'VCOL':
+            items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
 
     return items
 
@@ -412,7 +438,9 @@ class YNewTextureLayer(bpy.types.Operator):
             items = tl.textures
             
         # Default normal map type is fine bump map
-        self.normal_map_type = 'FINE_BUMP_MAP'
+        if self.type != 'VCOL':
+            self.normal_map_type = 'FINE_BUMP_MAP'
+        else: self.normal_map_type = 'BUMP_MAP'
 
         self.name = get_unique_name(name, items)
 
@@ -1486,30 +1514,30 @@ def set_tex_channel_linear_node(tree, tex, root_ch, ch, rearrange=False):
         rearrange_tex_nodes(tex)
         reconnect_tex_nodes(tex)
 
-def update_custom_input(self, context):
-    tl = self.id_data.tl
-
-    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(m.group(1))]
-    root_ch = tl.channels[int(m.group(2))]
-    tree = get_tree(tex)
-    ch = self
-
-    ch_source = tree.nodes.get(ch.source)
-    if ch_source:
-        if root_ch.type in {'RGB', 'NORMAL'}:
-            col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
-            ch_source.outputs[0].default_value = col
-        elif root_ch.type == 'VALUE':
-            ch_source.outputs[0].default_value = ch.custom_value
-
-    linear = tree.nodes.get(ch.linear)
-    if linear:
-        if root_ch.type == 'RGB':
-            col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
-            linear.inputs[0].default_value = col
-        elif root_ch.type == 'VALUE':
-            linear.inputs[0].default_value = ch.custom_value
+#def update_custom_input(self, context):
+#    tl = self.id_data.tl
+#
+#    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+#    tex = tl.textures[int(m.group(1))]
+#    root_ch = tl.channels[int(m.group(2))]
+#    tree = get_tree(tex)
+#    ch = self
+#
+#    ch_source = tree.nodes.get(ch.source)
+#    if ch_source:
+#        if root_ch.type in {'RGB', 'NORMAL'}:
+#            col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
+#            ch_source.outputs[0].default_value = col
+#        elif root_ch.type == 'VALUE':
+#            ch_source.outputs[0].default_value = ch.custom_value
+#
+#    linear = tree.nodes.get(ch.linear)
+#    if linear:
+#        if root_ch.type == 'RGB':
+#            col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
+#            linear.inputs[0].default_value = col
+#        elif root_ch.type == 'VALUE':
+#            linear.inputs[0].default_value = ch.custom_value
 
 def update_tex_input(self, context):
     tl = self.id_data.tl
@@ -1549,7 +1577,7 @@ def update_uv_name(self, context):
         if normal: normal.uv_map = tex.uv_name
 
     # Update uv layer
-    if obj.type == 'MESH' and not any([m for m in tex.masks if m.active_edit]):
+    if obj.type == 'MESH' and not any([m for m in tex.masks if m.active_image_edit]):
         if hasattr(obj.data, 'uv_textures'):
             uv_layers = obj.data.uv_textures
         else: uv_layers = obj.data.uv_layers
@@ -1680,17 +1708,17 @@ class YLayerChannel(bpy.types.PropertyGroup):
     #        default = 'LINEAR',
     #        update = update_tex_channel_color_space)
 
-    custom_color = FloatVectorProperty(
-            name='Custom Color Input', size=3, subtype='COLOR', 
-            default=(0.5,0.5,0.5), min=0.0, max=1.0,
-            update=update_custom_input
-            )
+    #custom_color = FloatVectorProperty(
+    #        name='Custom Color Input', size=3, subtype='COLOR', 
+    #        default=(0.5,0.5,0.5), min=0.0, max=1.0,
+    #        update=update_custom_input
+    #        )
 
-    custom_value = FloatProperty(
-            name='Custom Input Value',
-            default=0.5, min=0.0, max=1.0, subtype='FACTOR',
-            update=update_custom_input
-            )
+    #custom_value = FloatProperty(
+    #        name='Custom Input Value',
+    #        default=0.5, min=0.0, max=1.0, subtype='FACTOR',
+    #        update=update_custom_input
+    #        )
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
@@ -1808,11 +1836,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     mask_bump_type = EnumProperty(
             name = 'Normal Map Type',
-            items = (
-                ('BUMP_MAP', 'Bump Map', ''),
-                ('FINE_BUMP_MAP', 'Fine Bump Map', ''),
-                ),
-            default = 'FINE_BUMP_MAP',
+            items = mask_bump_type_items,
+            #items = (
+            #    ('BUMP_MAP', 'Bump Map', ''),
+            #    ('FINE_BUMP_MAP', 'Fine Bump Map', ''),
+            #    ),
+            #default = 'FINE_BUMP_MAP',
             update=Mask.update_enable_mask_bump)
 
     mask_bump_mask_only = BoolProperty(

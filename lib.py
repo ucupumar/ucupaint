@@ -13,6 +13,7 @@ NEIGHBOR_UV_TANGENT ='~TL Neighbor UV (Tangent)'
 NEIGHBOR_UV_OBJECT ='~TL Neighbor UV (Object)'
 NEIGHBOR_UV_CAMERA ='~TL Neighbor UV (Camera)'
 NEIGHBOR_UV_OTHER_UV ='~TL Neighbor UV (Other UV)'
+NEIGHBOR_FAKE ='~TL Fake Neighbor'
 FINE_BUMP ='~TL Fine Bump'
 
 VECTOR_MIX ='~TL Vector Mix'

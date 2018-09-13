@@ -304,13 +304,21 @@ def update_image_editor_image(context, image):
                     area.spaces[0].image = image
 
 # Check if name already available on the list
-def get_unique_name(name, items):
-    unique_name = name
-    name_found = [item for item in items if item.name == name]
+def get_unique_name(name, items, surname = ''):
+
+    if surname != '':
+        unique_name = name + ' ' + surname
+    else: unique_name = name
+
+    name_found = [item for item in items if item.name == unique_name]
     if name_found:
         i = 1
         while True:
-            new_name = name + ' ' + str(i)
+
+            if surname != '':
+                new_name = name + ' ' + str(i) + ' ' + surname
+            else: new_name = name + ' ' + str(i)
+
             name_found = [item for item in items if item.name == new_name]
             if not name_found:
                 unique_name = new_name

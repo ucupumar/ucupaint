@@ -1095,6 +1095,8 @@ def enable_modifiers_tree(ch, rearrange = True):
     tex = tl.textures[int(m.group(1))]
     root_ch = tl.channels[int(m.group(2))]
 
+    if tex.type == 'VCOL': return
+
     tex_tree = get_tree(tex)
 
     # Check if modifier tree already available
@@ -1143,6 +1145,8 @@ def disable_modifiers_tree(ch, rearrange=True):
     tex = tl.textures[int(m.group(1))]
     ch_index = int(m.group(2))
     tex_tree = get_tree(tex)
+
+    if tex.type == 'VCOL': return
 
     unset_modifiers_tree_per_directions(tex_tree, ch)
 

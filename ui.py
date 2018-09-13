@@ -916,47 +916,52 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
     if not tlui.expand_channels and ch_count == 0:
         col.label(text='No active channel!')
 
-    #col.separator()
-    ccol = col.column()
-    ccol = col.column()
-    row = ccol.row(align=True)
 
-    if custom_icon_enable:
-        if texui.expand_vector:
-            icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
-        else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-        row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
-    else:
-        row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
+    # Vector
 
-    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-        split = row.split(percentage=0.275, align=True)
-    else: split = row.split(factor=0.275, align=True)
-    split.label(text='Vector:')
-    if is_a_mesh and tex.texcoord_type == 'UV':
-        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-            ssplit = split.split(percentage=0.33, align=True)
-        else: ssplit = split.split(factor=0.33, align=True)
-        #ssplit = split.split(percentage=0.33, align=True)
-        ssplit.prop(tex, 'texcoord_type', text='')
-        ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-    else:
-        split.prop(tex, 'texcoord_type', text='')
+    if tex.type != 'VCOL':
 
-    #if tlui.expand_channels:
-    #    row.label(text='', icon='BLANK1')
-
-    if texui.expand_vector:
+        #col.separator()
+        ccol = col.column()
+        ccol = col.column()
         row = ccol.row(align=True)
-        row.label(text='', icon='BLANK1')
-        bbox = row.box()
-        crow = row.column()
-        bbox.prop(source.texture_mapping, 'translation', text='Offset')
-        bbox.prop(source.texture_mapping, 'rotation')
-        bbox.prop(source.texture_mapping, 'scale')
+
+        if custom_icon_enable:
+            if texui.expand_vector:
+                icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+            row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+        else:
+            row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
+
+        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+            split = row.split(percentage=0.275, align=True)
+        else: split = row.split(factor=0.275, align=True)
+        split.label(text='Vector:')
+        if is_a_mesh and tex.texcoord_type == 'UV':
+            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+                ssplit = split.split(percentage=0.33, align=True)
+            else: ssplit = split.split(factor=0.33, align=True)
+            #ssplit = split.split(percentage=0.33, align=True)
+            ssplit.prop(tex, 'texcoord_type', text='')
+            ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+        else:
+            split.prop(tex, 'texcoord_type', text='')
 
         #if tlui.expand_channels:
         #    row.label(text='', icon='BLANK1')
+
+        if texui.expand_vector:
+            row = ccol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            bbox = row.box()
+            crow = row.column()
+            bbox.prop(source.texture_mapping, 'translation', text='Offset')
+            bbox.prop(source.texture_mapping, 'rotation')
+            bbox.prop(source.texture_mapping, 'scale')
+
+            #if tlui.expand_channels:
+            #    row.label(text='', icon='BLANK1')
 
     # Masks
 
@@ -993,7 +998,9 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
         else: row.label(text=mask.name)
 
         if mask.type == 'IMAGE':
-            row.prop(mask, 'active_edit', text='', toggle=True, icon='IMAGE_DATA')
+            row.prop(mask, 'active_image_edit', text='', toggle=True, icon='IMAGE_DATA')
+        elif mask.type == 'VCOL':
+            row.prop(mask, 'active_image_edit', text='', toggle=True, icon='GROUP_VCOL')
 
         #row.separator()
         row.context_pointer_set('mask', mask)
@@ -1168,7 +1175,7 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
         if tex:
             # Check for active mask
             for i, m in enumerate(tex.masks):
-                if m.active_edit:
+                if m.active_image_edit:
                     mask = m
                     mask_idx = i
                     if m.type == 'IMAGE':
@@ -1381,10 +1388,12 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
 
         # Try to get image
         image = None
-        vcol = None
         if tex.type == 'IMAGE':
             source = get_tex_source(tex, tex_tree)
             image = source.image
+
+        # Try to get vertex color
+        vcol = None
         elif tex.type == 'VCOL':
             source = get_tex_source(tex, tex_tree)
             vcol = obj.data.vertex_colors.get(source.attribute_name)
@@ -1395,7 +1404,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         for m in tex.masks:
             if m.type == 'IMAGE':
                 image_masks.append(m)
-                if m.active_edit:
+                if m.active_image_edit:
                     active_mask = m
 
         # Image icon
@@ -1406,9 +1415,9 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         else:
             if active_mask:
                 row.active = False
-                if image: row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=image.preview.icon_id)
-                elif vcol: row.prop(active_mask, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
-                else: row.prop(active_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
+                if image: row.prop(active_mask, 'active_image_edit', text='', emboss=False, icon_value=image.preview.icon_id)
+                elif vcol: row.prop(active_mask, 'active_image_edit', text='', emboss=False, icon='GROUP_VCOL')
+                else: row.prop(active_mask, 'active_image_edit', text='', emboss=False, icon='TEXTURE')
             else:
                 if image: row.label(text='', icon_value=image.preview.icon_id)
                 elif vcol: row.label(text='', icon='GROUP_VCOL')
@@ -1420,12 +1429,12 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
             mask_tree = get_mask_tree(m)
             src = mask_tree.nodes.get(m.source)
             row = master.row(align=True)
-            row.active = m.active_edit
-            if m.active_edit:
+            row.active = m.active_image_edit
+            if m.active_image_edit:
                 active_mask_image = src.image
                 row.label(text='', icon_value=src.image.preview.icon_id)
             else:
-                row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                row.prop(m, 'active_image_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
 
         # Active image/tex label
         if len(image_masks) > 0:
@@ -1442,30 +1451,15 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         else: active_image = None
 
         if active_image:
-            # Asterisk icon to indicate dirty image and also for saving/packing
+            # Asterisk icon to indicate dirty image
             if active_image.is_dirty:
-                #if active_image.packed_file or active_image.filepath == '':
-                #    row.operator('node.y_pack_image', text='', icon_value=lib.custom_icons['asterisk'].icon_id, emboss=False)
-                #else: row.operator('node.y_save_image', text='', icon_value=lib.custom_icons['asterisk'].icon_id, emboss=False)
                 if hasattr(lib, 'custom_icons'):
                     row.label(text='', icon_value=lib.custom_icons['asterisk'].icon_id)
-                else:
-                    row.label(text='', icon='PARTICLES')
+                else: row.label(text='', icon='PARTICLES')
 
             # Indicate packed image
             if active_image.packed_file:
                 row.label(text='', icon='PACKAGE')
-
-        #blend = nodes.get(tex.channels[channel_idx].blend)
-        #row.prop(blend, 'blend_type', text ='')
-
-        #intensity = nodes.get(tex.channels[channel_idx].intensity)
-        #row.prop(intensity.inputs[0], 'default_value', text='')
-
-        #row = master.row()
-        #if tex.enable: row.active = True
-        #else: row.active = False
-        #row.prop(tex.channels[channel_idx], 'enable', text='')
 
         # Modifier shortcut
         shortcut_found = False
@@ -1493,10 +1487,6 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         # Mask visibility
         if len(tex.masks) > 0:
             row = master.row()
-            #if active_mask:
-            #    row.active = active_mask.enable
-            #    row.prop(active_mask, 'enable', emboss=False, text='', icon='MOD_MASK')
-            #else:
             row.active = tex.enable_masks
             row.prop(tex, 'enable_masks', emboss=False, text='', icon='MOD_MASK')
 
@@ -1639,7 +1629,7 @@ class YAddTexMaskMenu(bpy.types.Menu):
         #col.label(text='Open Other Mask', icon='MOD_MASK')
 
         col.label(text='Vertex Color Mask:')
-        col.operator('node.y_new_vertex_color_mask', text='New Vertex Color Mask', icon='GROUP_VCOL')
+        col.operator('node.y_new_texture_mask', text='New Vertex Color Mask', icon='GROUP_VCOL').type = 'VCOL'
         col.label(text='Open Available Vertex Color as Mask', icon='GROUP_VCOL')
 
         col = row.column(align=True)

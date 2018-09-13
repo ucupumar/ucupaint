@@ -6,7 +6,7 @@ from .node_connections import *
 def enable_tex_source_tree(tex, rearrange=True):
 
     # Check if source tree is already available
-    if tex.source_group != '': return
+    if tex.source_group != '' or tex.type == 'VCOL': return
 
     tex_tree = get_tree(tex)
 
@@ -57,6 +57,9 @@ def enable_tex_source_tree(tex, rearrange=True):
         rearrange_tex_nodes(tex)
 
 def disable_tex_source_tree(tex, rearrange=True):
+
+    if tex.type == 'VCOL': return
+
     tl = tex.id_data.tl
 
     # Check if fine bump map is used on some of texture channels

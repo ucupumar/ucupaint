@@ -1205,7 +1205,7 @@ def update_texture_index(self, context):
     image = None
 
     for mask in tex.masks:
-        if mask.type == 'IMAGE' and mask.active_edit:
+        if mask.type == 'IMAGE' and mask.active_image_edit:
             uv_name = mask.uv_name
             mask_tree = get_mask_tree(mask)
             source = mask_tree.nodes.get(mask.source)
