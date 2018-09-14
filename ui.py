@@ -795,7 +795,6 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
                 else:
                     row.label(text='', icon='MODIFIER')
 
-                #row.label(text=m.name + ' (' + str(m.texture_index) + ')')
                 row.label(text=m.name)
 
                 if not modui.expand_content:
@@ -834,9 +833,6 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
                 row = ccol.row(align=True)
                 row.label(text='', icon='BLANK1')
 
-                #input_settings_available = root_ch.type != 'NORMAL' and (ch.tex_input == 'CUSTOM' or 
-                #input_settings_available = (ch.tex_input == 'CUSTOM' or 
-                #    (root_ch.colorspace == 'SRGB' and tex.type != 'IMAGE'))
                 input_settings_available = (ch.tex_input != 'ALPHA' 
                         and root_ch.colorspace == 'SRGB' and root_ch.type != 'NORMAL' )
 
@@ -858,11 +854,6 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
                 split.label(text='Input:')
                 srow = split.row(align=True)
                 srow.prop(ch, 'tex_input', text='')
-                #if ch.tex_input == 'CUSTOM' and not chui.expand_input_settings: 
-                #    if root_ch.type in {'RGB', 'NORMAL'}:
-                #        srow.prop(ch, 'custom_color', text='')
-                #    if root_ch.type == 'VALUE':
-                #        srow.prop(ch, 'custom_value', text='')
 
                 if tlui.expand_channels:
                     row.label(text='', icon='BLANK1')
@@ -874,19 +865,6 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
                     box = row.box()
                     bcol = box.column(align=False)
 
-                    #if ch.tex_input == 'CUSTOM':
-                    #    if root_ch.type in {'RGB', 'NORMAL'}:
-                    #        brow = bcol.row(align=True)
-                    #        brow.label(text='Custom Color:')
-                    #        brow.prop(ch, 'custom_color', text='')
-                    #    elif root_ch.type == 'VALUE':
-                    #        brow = bcol.row(align=True)
-                    #        brow.label(text='Custom Value:')
-                    #        brow.prop(ch, 'custom_value', text='')
-
-                    #if ch.tex_input != 'ALPHA' and root_ch.colorspace == 'SRGB':
-                    #if (root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB' 
-                    #        and tex.type != 'IMAGE' and ch.tex_input != 'CUSTOM'):
                     brow = bcol.row(align=True)
                     brow.label(text='Gamma Space:')
                     brow.prop(ch, 'gamma_space', text='')
@@ -998,9 +976,9 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
         else: row.label(text=mask.name)
 
         if mask.type == 'IMAGE':
-            row.prop(mask, 'active_image_edit', text='', toggle=True, icon='IMAGE_DATA')
+            row.prop(mask, 'active_edit', text='', toggle=True, icon='IMAGE_DATA')
         elif mask.type == 'VCOL':
-            row.prop(mask, 'active_image_edit', text='', toggle=True, icon='GROUP_VCOL')
+            row.prop(mask, 'active_edit', text='', toggle=True, icon='GROUP_VCOL')
 
         #row.separator()
         row.context_pointer_set('mask', mask)
@@ -1160,6 +1138,42 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
         box.prop(tlui, 'make_image_single_user')
         return
 
+    # Check source for missing data
+    missing_data = False
+    for tex in tl.textures:
+        if tex.type in {'IMAGE' , 'VCOL'}:
+            src = get_tex_source(tex)
+
+            if ((tex.type == 'IMAGE' and not src.image) or 
+                (tex.type == 'VCOL' and obj.type == 'MESH' 
+                    and not obj.data.vertex_colors.get(src.attribute_name))
+                ):
+                missing_data = True
+                break
+
+            # Also check mask source
+            for mask in tex.masks:
+                if mask.type in {'IMAGE' , 'VCOL'}:
+                    mask_src = get_mask_source(mask)
+
+                    if ((mask.type == 'IMAGE' and not mask_src.image) or 
+                        (mask.type == 'VCOL' and obj.type == 'MESH' 
+                            and not obj.data.vertex_colors.get(mask_src.attribute_name))
+                        ):
+                        missing_data = True
+                        break
+
+            if missing_data:
+                break
+    
+    # Show missing data button
+    if missing_data:
+        row = box.row(align=True)
+        row.alert = True
+        row.operator("node.y_fix_missing_data", icon='ERROR')
+        row.alert = False
+        return
+
     # Get texture, image and set context pointer
     tex = None
     source = None
@@ -1175,7 +1189,7 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
         if tex:
             # Check for active mask
             for i, m in enumerate(tex.masks):
-                if m.active_image_edit:
+                if m.active_edit:
                     mask = m
                     mask_idx = i
                     if m.type == 'IMAGE':
@@ -1190,7 +1204,7 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
             source = get_tex_source(tex, tex_tree)
             if tex.type == 'IMAGE':
                 image = source.image
-            elif tex.type == 'VCOL':
+            elif tex.type == 'VCOL' and obj.type == 'MESH':
                 vcol = obj.data.vertex_colors.get(source.attribute_name)
 
     # Set pointer for active texture and image
@@ -1393,54 +1407,75 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
             image = source.image
 
         # Try to get vertex color
-        vcol = None
-        elif tex.type == 'VCOL':
-            source = get_tex_source(tex, tex_tree)
-            vcol = obj.data.vertex_colors.get(source.attribute_name)
+        #vcol = None
+        #if tex.type == 'VCOL':
+        #    source = get_tex_source(tex, tex_tree)
+        #    vcol = obj.data.vertex_colors.get(source.attribute_name)
 
         # Try to get image masks
-        image_masks = []
-        active_mask = None
+        editable_masks = []
+        active_image_mask = None
         for m in tex.masks:
-            if m.type == 'IMAGE':
-                image_masks.append(m)
-                if m.active_image_edit:
-                    active_mask = m
+            if m.type in {'IMAGE', 'VCOL'}:
+                editable_masks.append(m)
+                if m.active_edit:
+                    active_image_mask = m
 
         # Image icon
-        if len(image_masks) == 0:
+        if len(editable_masks) == 0:
             if image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
-            elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
+            #elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
+            elif tex.type == 'VCOL': row.prop(tex, 'name', text='', emboss=False, icon='GROUP_VCOL')
             else: row.prop(tex, 'name', text='', emboss=False, icon='TEXTURE')
         else:
-            if active_mask:
+            if active_image_mask:
                 row.active = False
-                if image: row.prop(active_mask, 'active_image_edit', text='', emboss=False, icon_value=image.preview.icon_id)
-                elif vcol: row.prop(active_mask, 'active_image_edit', text='', emboss=False, icon='GROUP_VCOL')
-                else: row.prop(active_mask, 'active_image_edit', text='', emboss=False, icon='TEXTURE')
+                if image: 
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, 
+                            icon_value=image.preview.icon_id)
+                #elif vcol: 
+                elif tex.type == 'VCOL': 
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
+                else: 
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
             else:
-                if image: row.label(text='', icon_value=image.preview.icon_id)
-                elif vcol: row.label(text='', icon='GROUP_VCOL')
-                else: row.label(text='', icon='TEXTURE')
+                if image: 
+                    row.label(text='', icon_value=image.preview.icon_id)
+                #elif vcol: 
+                elif tex.type == 'VCOL': 
+                    row.label(text='', icon='GROUP_VCOL')
+                else: 
+                    row.label(text='', icon='TEXTURE')
 
         # Image mask icons
         active_mask_image = None
-        for m in image_masks:
+        active_vcol_mask = None
+        for m in editable_masks:
             mask_tree = get_mask_tree(m)
-            src = mask_tree.nodes.get(m.source)
             row = master.row(align=True)
-            row.active = m.active_image_edit
-            if m.active_image_edit:
-                active_mask_image = src.image
-                row.label(text='', icon_value=src.image.preview.icon_id)
+            row.active = m.active_edit
+            if m.active_edit:
+                if m.type == 'IMAGE':
+                    src = mask_tree.nodes.get(m.source)
+                    active_mask_image = src.image
+                    row.label(text='', icon_value=src.image.preview.icon_id)
+                elif m.type == 'VCOL':
+                    active_vcol_mask = m
+                    row.label(text='', icon='GROUP_VCOL')
             else:
-                row.prop(m, 'active_image_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                if m.type == 'IMAGE':
+                    src = mask_tree.nodes.get(m.source)
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                elif m.type == 'VCOL':
+                    row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
 
         # Active image/tex label
-        if len(image_masks) > 0:
+        if len(editable_masks) > 0:
             row = master.row(align=True)
             if active_mask_image:
                 row.prop(active_mask_image, 'name', text='', emboss=False)
+            elif active_vcol_mask:
+                row.prop(active_vcol_mask, 'name', text='', emboss=False)
             else: 
                 if image: row.prop(image, 'name', text='', emboss=False)
                 else: row.prop(tex, 'name', text='', emboss=False)

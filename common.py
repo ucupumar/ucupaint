@@ -419,13 +419,13 @@ def get_active_texture_layers_node():
 
     return None
 
-def remove_node(tree, obj, prop, remove_data=True):
-    if not hasattr(obj, prop): return
-    #if prop not in obj: return
+def remove_node(tree, entity, prop, remove_data=True, obj=None):
+    if not hasattr(entity, prop): return
+    #if prop not in entity: return
 
     scene = bpy.context.scene
-    node = tree.nodes.get(getattr(obj, prop))
-    #node = tree.nodes.get(obj[prop])
+    node = tree.nodes.get(getattr(entity, prop))
+    #node = tree.nodes.get(entity[prop])
 
     if node: 
         if remove_data:
@@ -437,93 +437,98 @@ def remove_node(tree, obj, prop, remove_data=True):
                         (scene.tool_settings.image_paint.canvas != image and image.users == 1)):
                         bpy.data.images.remove(image)
 
-            if node.bl_idname == 'ShaderNodeGroup':
+            elif node.bl_idname == 'ShaderNodeGroup':
                 if node.node_tree and node.node_tree.users == 1:
                     bpy.data.node_groups.remove(node.node_tree)
+
+            elif (obj and obj.type == 'MESH' #and obj.active_material and obj.active_material.users == 1
+                    and hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == 'ShaderNodeAttribute'):
+                vcol = obj.data.vertex_colors.get(node.attribute_name)
+                obj.data.vertex_colors.remove(vcol)
 
         # Remove the node itself
         tree.nodes.remove(node)
 
-    setattr(obj, prop, '')
-    #obj[prop] = ''
+    setattr(entity, prop, '')
+    #entity[prop] = ''
 
-def mute_node(tree, obj, prop):
-    if not hasattr(obj, prop): return
-    node = tree.nodes.get(getattr(obj, prop))
+def mute_node(tree, entity, prop):
+    if not hasattr(entity, prop): return
+    node = tree.nodes.get(getattr(entity, prop))
     if node: node.mute = True
 
-def unmute_node(tree, obj, prop):
-    if not hasattr(obj, prop): return
-    node = tree.nodes.get(getattr(obj, prop))
+def unmute_node(tree, entity, prop):
+    if not hasattr(entity, prop): return
+    node = tree.nodes.get(getattr(entity, prop))
     if node: node.mute = False
 
-def new_node(tree, obj, prop, node_id_name, label=''):
+def new_node(tree, entity, prop, node_id_name, label=''):
     ''' Create new node '''
-    if not hasattr(obj, prop): return
+    if not hasattr(entity, prop): return
     
     # Create new node
     node = tree.nodes.new(node_id_name)
 
     # Set node name to object attribute
-    setattr(obj, prop, node.name)
+    setattr(entity, prop, node.name)
 
     # Set label
     node.label = label
 
     return node
 
-def check_new_node(tree, obj, prop, node_id_name, label=''):
+def check_new_node(tree, entity, prop, node_id_name, label=''):
     ''' Check if node is available, if not, create one '''
 
     # Try to get the node first
-    try: node = tree.nodes.get(getattr(obj, prop))
+    try: node = tree.nodes.get(getattr(entity, prop))
     except: return None
 
     # Create new node if not found
     if not node:
-        node = new_node(tree, obj, prop, node_id_name, label)
+        node = new_node(tree, entity, prop, node_id_name, label)
 
     return node
 
-def replace_new_node(tree, obj, prop, node_id_name, label=''):
+def replace_new_node(tree, entity, prop, node_id_name, label=''):
     ''' Check if node is available, replace if available '''
 
     # Try to get the node first
-    try: node = tree.nodes.get(getattr(obj, prop))
+    try: node = tree.nodes.get(getattr(entity, prop))
     except: return None
 
     # Remove node if found and has different id name
     if node and node.bl_idname != node_id_name:
-        remove_node(tree, obj, prop)
+        remove_node(tree, entity, prop)
 
     # Create new node
     if not node:
-        node = new_node(tree, obj, prop, node_id_name, label)
+        node = new_node(tree, entity, prop, node_id_name, label)
 
     return node
 
-def get_tree(obj):
+def get_tree(entity):
 
-    #m = re.match(r'tl\.textures\[(\d+)\]', obj.path_from_id())
+    #m = re.match(r'tl\.textures\[(\d+)\]', entity.path_from_id())
     #if not m: return None
-    if not hasattr(obj.id_data, 'tl') or not hasattr(obj, 'group_node'): return None
+    if not hasattr(entity.id_data, 'tl') or not hasattr(entity, 'group_node'): return None
 
-    tree = obj.id_data
+    tree = entity.id_data
     tl = tree.tl
 
-    group_node = tree.nodes.get(obj.group_node)
+    group_node = tree.nodes.get(entity.group_node)
     if not group_node or group_node.type != 'GROUP': return None
     return group_node.node_tree
 
-def get_mod_tree(obj):
+def get_mod_tree(entity):
 
-    m1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', obj.path_from_id())
-    m2 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', obj.path_from_id())
-    #m2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', obj.path_from_id())
+    m1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', entity.path_from_id())
+    m2 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', entity.path_from_id())
+    #m2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', entity.path_from_id())
     if not m1 and not m2:
-        return obj.id_data
+        return entity.id_data
 
-    tl = obj.id_data.tl
+    tl = entity.id_data.tl
     tex = tl.textures[int(m1.group(1))]
     ch = tex.channels[int(m1.group(2))]
     tex_tree = get_tree(tex)
@@ -547,6 +552,10 @@ def get_mask_tree(mask):
     group_node = tex_tree.nodes.get(mask.group_node)
     if not group_node or group_node.type != 'GROUP': return tex_tree
     return group_node.node_tree
+
+def get_mask_source(mask):
+    tree = get_mask_tree(mask)
+    return tree.nodes.get(mask.source)
 
 def get_source_tree(tex, tree=None):
     if not tree: tree = get_tree(tex)
@@ -574,6 +583,38 @@ def get_neighbor_uv_space_input(texcoord_type):
         return 1.0 # Object Space
     if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
         return 2.0 # View Space
+
+def change_texture_name(tl, obj, src, tex, texes):
+    if tl.halt_update: return
+
+    tl.halt_update = True
+
+    if tex.type == 'VCOL' and obj.type == 'MESH':
+
+        # Get vertex color from node
+        vcol = obj.data.vertex_colors.get(src.attribute_name)
+
+        # Temporarily change its name to temp name so it won't affect unique name
+        vcol.name = '___TEMP___'
+
+        # Get unique name
+        tex.name = get_unique_name(tex.name, obj.data.vertex_colors) 
+
+        # Set vertex color name and attribute node
+        vcol.name = tex.name
+        src.attribute_name = tex.name
+
+    elif tex.type == 'IMAGE':
+        src.image.name = '___TEMP___'
+        tex.name = get_unique_name(tex.name, bpy.data.images) 
+        src.image.name = tex.name
+
+    else:
+        name = tex.name
+        tex.name = '___TEMP___'
+        tex.name = get_unique_name(name, texes) 
+
+    tl.halt_update = False
 
 # BLENDER_28_GROUP_INPUT_HACK
 def duplicate_lib_node_tree(node):

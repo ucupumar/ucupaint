@@ -197,13 +197,13 @@ def remove_mask_channel(tree, tex, ch_index):
     for mask in tex.masks:
         mask.channels.remove(ch_index)
 
-def remove_mask(tex, mask):
+def remove_mask(tex, mask, obj):
 
     tree = get_tree(tex)
 
     # Remove mask nodes
     mask_tree = get_mask_tree(mask)
-    remove_node(mask_tree, mask, 'source')
+    remove_node(mask_tree, mask, 'source', obj=obj)
     remove_node(mask_tree, mask, 'hardness')
 
     remove_node(tree, mask, 'group_node')
@@ -338,7 +338,7 @@ class YNewTextureMask(bpy.types.Operator):
             name = 'Mask'
             items = bpy.data.images
             self.name = get_unique_name(name, items, surname)
-        elif self.type == 'VCOL':
+        elif self.type == 'VCOL' and obj.type == 'MESH':
             name = 'Mask VCol'
             items = obj.data.vertex_colors
             self.name = get_unique_name(name, items, surname)
@@ -393,19 +393,29 @@ class YNewTextureMask(bpy.types.Operator):
     def execute(self, context):
         if self.auto_cancel: return {'CANCELLED'}
 
+        obj = context.object
         tlui = context.window_manager.tlui
         tex = self.texture
+
+        # Check if object is not a mesh
+        if self.type == 'VCOL' and obj.type != 'MESH':
+            self.report({'ERROR'}, "Vertex color mask only works with mesh object!")
+            return {'CANCELLED'}
 
         # Check if texture with same name is already available
         if self.type == 'IMAGE':
             same_name = [i for i in bpy.data.images if i.name == self.name]
+        elif self.type == 'VCOL':
+            same_name = [i for i in obj.data.vertex_colors if i.name == self.name]
         else: same_name = [m for m in tex.masks if m.name == self.name]
         if same_name:
             if self.type == 'IMAGE':
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
+            elif self.type == 'VCOL':
+                self.report({'ERROR'}, "Vertex Color named '" + self.name +"' is already available!")
             else: self.report({'ERROR'}, "Mask named '" + self.name +"' is already available!")
             return {'CANCELLED'}
-
+        
         alpha = False
         img = None
         vcol = None
@@ -422,7 +432,6 @@ class YNewTextureMask(bpy.types.Operator):
 
         # New vertex color
         elif self.type == 'VCOL':
-            obj = context.object
             vcol = obj.data.vertex_colors.new(self.name)
 
         # Add new mask
@@ -430,7 +439,7 @@ class YNewTextureMask(bpy.types.Operator):
 
         # Enable edit mask
         if self.type == 'IMAGE':
-            mask.active_image_edit = True
+            mask.active_edit = True
 
         reconnect_tex_nodes(tex)
         rearrange_tex_nodes(tex)
@@ -454,8 +463,9 @@ class YRemoveTextureMask(bpy.types.Operator):
         mask = context.mask
         tex = context.texture
         tree = get_tree(tex)
+        obj = context.object
 
-        remove_mask(tex, mask)
+        remove_mask(tex, mask, obj)
 
         reconnect_tex_nodes(tex)
         rearrange_tex_nodes(tex)
@@ -463,7 +473,7 @@ class YRemoveTextureMask(bpy.types.Operator):
         # Seach for active edit mask
         found_active_edit = False
         for m in tex.masks:
-            if m.active_image_edit:
+            if m.active_edit:
                 found_active_edit = True
                 break
 
@@ -523,9 +533,9 @@ def update_mask_active_image_edit(self, context):
     if self.halt_update: return
 
     # Only image mask can be edited
-    if self.active_image_edit and self.type != 'IMAGE':
+    if self.active_edit and self.type not in {'IMAGE', 'VCOL'}:
         self.halt_update = True
-        self.active_image_edit = False
+        self.active_edit = False
         self.halt_update = False
         return
 
@@ -536,11 +546,11 @@ def update_mask_active_image_edit(self, context):
     tex = tl.textures[int(match.group(1))]
     mask_idx = int(match.group(2))
 
-    if self.active_image_edit: 
+    if self.active_edit: 
         for m in tex.masks:
             if m == self: continue
             m.halt_update = True
-            m.active_image_edit = False
+            m.active_edit = False
             m.halt_update = False
 
     # Refresh
@@ -600,7 +610,7 @@ def update_tex_mask_enable(self, context):
             mul = tree.nodes.get(getattr(ch, 'multiply_' + d))
             if mul: mul.mute = mute
 
-    self.active_image_edit = self.enable and self.type == 'IMAGE'
+    self.active_edit = self.enable and self.type == 'IMAGE'
 
 def update_mask_texcoord_type(self, context):
     tl = self.id_data.tl
@@ -624,7 +634,7 @@ def update_mask_uv_name(self, context):
     uv_map.uv_map = self.uv_name
 
     # Update uv layer
-    if self.active_image_edit and obj.type == 'MESH':
+    if self.active_edit and obj.type == 'MESH':
 
         if hasattr(obj.data, 'uv_textures'):
             uv_layers = obj.data.uv_textures
@@ -1248,6 +1258,15 @@ def update_enable_mask_bump(self, context):
         print('INFO: Mask bump is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     else: print('INFO: Mask bump is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
+def update_mask_name(self, context):
+
+    tl = self.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(match.group(1))]
+    src = get_mask_source(self)
+
+    change_texture_name(tl, context.object, src, self, tex.masks)
+
 def enable_mask_source(tex, mask, reconnect = True):
 
     # Check if source tree is already available
@@ -1350,6 +1369,8 @@ class YTextureMaskChannel(bpy.types.PropertyGroup):
 
 class YTextureMask(bpy.types.PropertyGroup):
 
+    name = StringProperty(default='', update=update_mask_name)
+
     halt_update = BoolProperty(default=False)
     
     group_node = StringProperty(default='')
@@ -1366,7 +1387,7 @@ class YTextureMask(bpy.types.PropertyGroup):
 
     hardness_value = FloatProperty(default=1.0, min=1.0, update=update_mask_hardness_value)
 
-    active_image_edit = BoolProperty(
+    active_edit = BoolProperty(
             name='Active image for editing', 
             description='Active image for editing', 
             default=False,

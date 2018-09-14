@@ -430,7 +430,7 @@ class YNewTextureLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             name = obj.active_material.name + DEFAULT_NEW_IMG_SUFFIX
             items = bpy.data.images
-        elif self.type == 'VCOL':
+        elif self.type == 'VCOL' and obj.type == 'MESH':
             name = obj.active_material.name + DEFAULT_NEW_VCOL_SUFFIX
             items = obj.data.vertex_colors
         else:
@@ -447,14 +447,14 @@ class YNewTextureLayer(bpy.types.Operator):
         if obj.type != 'MESH':
             #self.texcoord_type = 'Object'
             self.texcoord_type = 'Generated'
+        else:
+            # Use active uv layer name by default
+            if hasattr(obj.data, 'uv_textures'):
+                uv_layers = obj.data.uv_textures
+            else: uv_layers = obj.data.uv_layers
 
-        # Use active uv layer name by default
-        if hasattr(obj.data, 'uv_textures'):
-            uv_layers = obj.data.uv_textures
-        else: uv_layers = obj.data.uv_layers
-
-        if obj.type == 'MESH' and len(uv_layers) > 0:
-            self.uv_map = uv_layers.active.name
+            if obj.type == 'MESH' and len(uv_layers) > 0:
+                self.uv_map = uv_layers.active.name
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -537,6 +537,11 @@ class YNewTextureLayer(bpy.types.Operator):
         tl = node.node_tree.tl
         tlui = context.window_manager.tlui
 
+        # Check if object is not a mesh
+        if self.type == 'VCOL' and obj.type != 'MESH':
+            self.report({'ERROR'}, "Vertex color layer only works with mesh object!")
+            return {'CANCELLED'}
+
         # Check if texture with same name is already available
         if self.type == 'IMAGE':
             same_name = [i for i in bpy.data.images if i.name == self.name]
@@ -546,6 +551,8 @@ class YNewTextureLayer(bpy.types.Operator):
         if same_name:
             if self.type == 'IMAGE':
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
+            elif self.type == 'VCOL':
+                self.report({'ERROR'}, "Vertex Color named '" + self.name +"' is already available!")
             self.report({'ERROR'}, "Texture named '" + self.name +"' is already available!")
             return {'CANCELLED'}
 
@@ -970,6 +977,7 @@ class YRemoveTextureLayer(bpy.types.Operator):
         group_tree = node.node_tree
         nodes = group_tree.nodes
         tl = group_tree.tl
+        obj = context.object
 
         tex = tl.textures[tl.active_texture_index]
         tex_tree = get_tree(tex)
@@ -977,13 +985,13 @@ class YRemoveTextureLayer(bpy.types.Operator):
         # Remove the source first to remove image
         source_tree = get_source_tree(tex, tex_tree)
         if source_tree:
-            remove_node(source_tree, tex, 'source')
-        else: remove_node(tex_tree, tex, 'source')
+            remove_node(source_tree, tex, 'source', obj=obj)
+        else: remove_node(tex_tree, tex, 'source', obj=obj)
 
         # Remove Mask source
         for mask in tex.masks:
             mask_tree = get_mask_tree(mask)
-            remove_node(mask_tree, mask, 'source')
+            remove_node(mask_tree, mask, 'source', obj=obj)
 
         # Remove node group and tex tree
         bpy.data.node_groups.remove(get_tree(tex))
@@ -1577,7 +1585,7 @@ def update_uv_name(self, context):
         if normal: normal.uv_map = tex.uv_name
 
     # Update uv layer
-    if obj.type == 'MESH' and not any([m for m in tex.masks if m.active_image_edit]):
+    if obj.type == 'MESH' and not any([m for m in tex.masks if m.active_edit]):
         if hasattr(obj.data, 'uv_textures'):
             uv_layers = obj.data.uv_textures
         else: uv_layers = obj.data.uv_layers
@@ -1683,6 +1691,11 @@ def update_channel_intensity_value(self, context):
                 if self.intensity_value < 1.0:
                     mr_flip_hack.inputs[1].default_value = 1
                 else: mr_flip_hack.inputs[1].default_value = 20
+
+def update_texture_name(self, context):
+    tl = self.id_data.tl
+    src = get_tex_source(self)
+    change_texture_name(tl, context.object, src, self, tl.textures)
 
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
@@ -1914,7 +1927,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     expand_input_settings = BoolProperty(default=False)
 
 class YTextureLayer(bpy.types.PropertyGroup):
-    name = StringProperty(default='')
+    name = StringProperty(default='', update=update_texture_name)
     enable = BoolProperty(
             name = 'Enable Texture', description = 'Enable texture',
             default=True, update=update_texture_enable)

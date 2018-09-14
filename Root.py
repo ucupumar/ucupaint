@@ -1072,6 +1072,58 @@ class YFixDuplicatedTextures(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def fix_missing_vcol(obj, name, src):
+    vcol = obj.data.vertex_colors.new(name)
+    src.attribute_name = name
+
+def fix_missing_img(name, src, is_mask=False):
+    img = bpy.data.images.new(name=name, 
+            width=1024, height=1024, alpha= not is_mask, float_buffer=False)
+    if is_mask:
+        img.generated_color = (1,1,1,1)
+    else: img.generated_color = (0,0,0,0)
+    src.image = img
+
+class YFixMissingData(bpy.types.Operator):
+    bl_idname = "node.y_fix_missing_data"
+    bl_label = "Fix Missing Data"
+    bl_description = "Fix missing image/vertex color data"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        group_node = get_active_texture_layers_node()
+        tree = group_node.node_tree
+        tl = tree.tl
+        obj = context.object
+
+        for tex in tl.textures:
+            if tex.type in {'IMAGE' , 'VCOL'}:
+                src = get_tex_source(tex)
+
+                if tex.type == 'IMAGE' and not src.image:
+                    fix_missing_img(tex.name, src, False)
+
+                elif (tex.type == 'VCOL' and obj.type == 'MESH' 
+                        and not obj.data.vertex_colors.get(src.attribute_name)):
+                    fix_missing_vcol(obj, tex.name, src)
+
+            for mask in tex.masks:
+                if mask.type in {'IMAGE' , 'VCOL'}:
+                    mask_src = get_mask_source(mask)
+
+                    if mask.type == 'IMAGE' and not mask_src.image:
+                        fix_missing_img(mask.name, mask_src, True)
+
+                    elif (mask.type == 'VCOL' and obj.type == 'MESH' 
+                            and not obj.data.vertex_colors.get(mask_src.attribute_name)):
+                        fix_missing_vcol(obj, mask.name, mask_src)
+
+        return {'FINISHED'}
+
 def update_channel_name(self, context):
     group_tree = self.id_data
     tl = group_tree.tl
@@ -1191,10 +1243,6 @@ def update_texture_index(self, context):
         #print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         return
 
-    if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
-        uv_layers = obj.data.uv_textures
-    else: uv_layers = obj.data.uv_layers
-
     tex = self.textures[self.active_texture_index]
     tree = get_tree(tex)
 
@@ -1203,34 +1251,49 @@ def update_texture_index(self, context):
 
     uv_name = ''
     image = None
+    vcol = None
 
     for mask in tex.masks:
-        if mask.type == 'IMAGE' and mask.active_image_edit:
-            uv_name = mask.uv_name
-            mask_tree = get_mask_tree(mask)
-            source = mask_tree.nodes.get(mask.source)
-            image = source.image
+        if mask.active_edit:
+            source = get_mask_source(mask)
+            if mask.type == 'IMAGE':
+                uv_name = mask.uv_name
+                image = source.image
+            elif mask.type == 'VCOL' and obj.type == 'MESH':
+                vcol = obj.data.vertex_colors.get(source.attribute_name)
 
     if not image and tex.type == 'IMAGE':
         uv_name = tex.uv_name
         source = get_tex_source(tex, tree)
         image = source.image
 
+    if not vcol and tex.type == 'VCOL' and obj.type == 'MESH':
+        source = get_tex_source(tex, tree)
+        vcol = obj.data.vertex_colors.get(source.attribute_name)
+
     # Update image editor
     update_image_editor_image(context, image)
+
+    # Update active vertex color
+    if vcol and obj.data.vertex_colors.active != vcol:
+        obj.data.vertex_colors.active = vcol
 
     # Update tex paint
     scene.tool_settings.image_paint.canvas = image
 
     # Update uv layer
     if obj.type == 'MESH':
+        if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
+            uv_layers = obj.data.uv_textures
+        else: uv_layers = obj.data.uv_layers
+
         for i, uv in enumerate(uv_layers):
             if uv.name == uv_name:
                 if uv_layers.active_index != i:
                     uv_layers.active_index = i
                 break
 
-    #print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_channel_colorspace(self, context):
     group_tree = self.id_data
@@ -1688,6 +1751,7 @@ def register():
     bpy.utils.register_class(YAddSimpleUVs)
     bpy.utils.register_class(YRenameTLTree)
     bpy.utils.register_class(YFixDuplicatedTextures)
+    bpy.utils.register_class(YFixMissingData)
     bpy.utils.register_class(YNodeConnections)
     bpy.utils.register_class(YRootChannel)
     bpy.utils.register_class(YTextureLayersRoot)
@@ -1711,6 +1775,7 @@ def unregister():
     bpy.utils.unregister_class(YAddSimpleUVs)
     bpy.utils.unregister_class(YRenameTLTree)
     bpy.utils.unregister_class(YFixDuplicatedTextures)
+    bpy.utils.unregister_class(YFixMissingData)
     bpy.utils.unregister_class(YNodeConnections)
     bpy.utils.unregister_class(YRootChannel)
     bpy.utils.unregister_class(YTextureLayersRoot)
