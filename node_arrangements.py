@@ -11,6 +11,13 @@ def check_set_node_location(node, loc):
         return True
     return False
 
+def check_set_node_width(node, width):
+    if node:
+        if node.width != width:
+            node.width = width
+        return True
+    return False
+
 def check_set_node_parent(child, parent):
     if child and child.parent != parent:
         child.parent = parent
@@ -529,7 +536,7 @@ def rearrange_tex_nodes(tex):
                 flip_bump = True
             break
 
-    start_x = 250
+    start_x = 350
     loc = Vector((start_x, 0))
 
     farthest_x = 0
@@ -782,7 +789,7 @@ def rearrange_tex_nodes(tex):
             #loc.x += 200
             loc.y -= 180
 
-        loc.x += 200
+        loc.x += 280
         loc.y = mid_y
 
         if check_set_node_location(mask_hardness, loc):

@@ -432,7 +432,7 @@ class YNewTextureMask(bpy.types.Operator):
 
         # New vertex color
         elif self.type == 'VCOL':
-            vcol = obj.data.vertex_colors.new(self.name)
+            vcol = obj.data.vertex_colors.new(name=self.name)
 
         # Add new mask
         mask = add_new_mask(tex, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol)

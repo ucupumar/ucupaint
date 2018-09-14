@@ -105,16 +105,7 @@ def mask_bump_type_items(self, context):
 
     return items
 
-def normal_map_type_items(self, context):
-
-    try:
-        m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-        tl = self.id_data.tl
-        tex = tl.textures[int(m.group(1))]
-        tex_type = tex.type
-    except:
-        tex_type = self.type
-
+def normal_map_type_items_(tex_type):
     items = []
 
     if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
@@ -129,6 +120,18 @@ def normal_map_type_items(self, context):
             items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
 
     return items
+
+def tex_channel_normal_map_type_items(self, context):
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tl = self.id_data.tl
+    tex = tl.textures[int(m.group(1))]
+    return normal_map_type_items_(tex.type)
+
+def new_tex_channel_normal_map_type_items(self, context):
+    return normal_map_type_items_(self.type)
+
+def img_normal_map_type_items(self, context):
+    return normal_map_type_items_('IMAGE')
 
 def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1)):
@@ -406,7 +409,7 @@ class YNewTextureLayer(bpy.types.Operator):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this texture',
-            items = normal_map_type_items)
+            items = new_tex_channel_normal_map_type_items)
             #default = 'BUMP_MAP')
 
     @classmethod
@@ -570,7 +573,7 @@ class YNewTextureLayer(bpy.types.Operator):
 
         vcol = None
         if self.type == 'VCOL':
-            vcol = obj.data.vertex_colors.new(self.name)
+            vcol = obj.data.vertex_colors.new(name=self.name)
 
         tl.halt_update = True
         tex = add_new_texture(self.name, self.type, int(self.channel_idx), self.blend_type, self.normal_blend, 
@@ -645,7 +648,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this texture',
-            items = normal_map_type_items)
+            items = img_normal_map_type_items)
             #default = 'NORMAL_MAP')
 
     rgb_to_intensity_color = FloatVectorProperty(
@@ -795,7 +798,7 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this texture',
-            items = normal_map_type_items)
+            items = img_normal_map_type_items)
             #default = 'BUMP_MAP')
 
     image_name = StringProperty(name="Image")
@@ -1735,7 +1738,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
-            items = normal_map_type_items,
+            items = tex_channel_normal_map_type_items,
             #default = 'BUMP_MAP',
             update = update_normal_map_type)
 
