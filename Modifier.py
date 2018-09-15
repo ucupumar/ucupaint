@@ -468,17 +468,23 @@ class YNewTexModifier(bpy.types.Operator):
         tl = group_tree.tl
 
         tex = None
-        m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
-        if m:
-            tex = tl.textures[int(m.group(1))]
-            root_ch = tl.channels[int(m.group(2))]
+        m1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+        m2 = re.match(r'tl\.channels\[(\d+)\]', context.parent.path_from_id())
+        m3 = re.match(r'tl\.textures\[(\d+)\]', context.parent.path_from_id())
+        if m1:
+            tex = tl.textures[int(m1.group(1))]
+            #root_ch = tl.channels[int(m1.group(2))]
             mod = add_new_modifier(context.parent, self.type)
-            tree = get_tree(tex)
-            nodes = tree.nodes
-        else:
-            root_ch = context.parent
+            #tree = get_tree(tex)
+            #nodes = tree.nodes
+        elif m2:
+            #root_ch = context.parent
             mod = add_new_modifier(context.parent, self.type)
-            nodes = group_tree.nodes
+            #nodes = group_tree.nodes
+        elif m3:
+            #tree = get_tree(self)
+            #nodes = tree.nodes
+            pass
 
         #if self.type == 'RGB_TO_INTENSITY' and root_ch.type == 'RGB':
         #    mod.rgb2i_col = (1,0,1,1)

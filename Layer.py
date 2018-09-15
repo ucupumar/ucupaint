@@ -1971,6 +1971,9 @@ class YTextureLayer(bpy.types.PropertyGroup):
     bitangent = StringProperty(default='')
     geometry = StringProperty(default='')
 
+    # Modifiers
+    modifiers = CollectionProperty(type=Modifier.YTextureModifier)
+
     # Mask
     enable_masks = BoolProperty(name='Enable Texture Masks', description='Enable texture masks',
             default=True, update=Mask.update_enable_texture_masks)

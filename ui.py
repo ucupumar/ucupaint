@@ -316,8 +316,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
             if custom_icon_enable:
                 icon_value = lib.custom_icons["add_modifier"].icon_id
                 row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
-            else:
-                row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
+            else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
 
         if chui.expand_content:
 
@@ -500,6 +499,13 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
         row.menu('NODE_MT_y_add_texture_mask_menu', text='', icon_value = lib.custom_icons['add_mask'].icon_id)
     else: row.menu("NODE_MT_y_add_texture_mask_menu", text='', icon='MOD_MASK')
 
+    row.context_pointer_set('parent', tex)
+    #row.context_pointer_set('channel_ui', chui)
+    if custom_icon_enable:
+        icon_value = lib.custom_icons["add_modifier"].icon_id
+        row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
+    else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
+
     #row.separator()
     #row = row.row()
 
@@ -588,8 +594,7 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
         if custom_icon_enable:
             icon_value = lib.custom_icons["add_modifier"].icon_id
             row.menu('NODE_MT_y_texture_modifier_specials', text='', icon_value=icon_value)
-        else:
-            row.menu('NODE_MT_y_texture_modifier_specials', text='', icon='MODIFIER')
+        else: row.menu('NODE_MT_y_texture_modifier_specials', text='', icon='MODIFIER')
 
         if tlui.expand_channels:
             row.prop(ch, 'enable', text='')
@@ -1003,21 +1008,24 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
             # Source row
             rrow = rcol.row(align=True)
 
-            if custom_icon_enable:
-                suffix = 'image' if mask.type == 'IMAGE' else 'texture'
-                if maskui.expand_source:
-                    icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
-                else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
-                rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+            if mask.type == 'VCOL':
+                rrow.label(text='', icon='GROUP_VCOL')
             else:
-                icon = 'IMAGE_DATA' if mask.type == 'IMAGE' else 'TEXTURE'
-                rrow.prop(maskui, 'expand_source', text='', emboss=True, icon=icon)
+                if custom_icon_enable:
+                    suffix = 'image' if mask.type == 'IMAGE' else 'texture'
+                    if maskui.expand_source:
+                        icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
+                    rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+                else:
+                    icon = 'IMAGE_DATA' if mask.type == 'IMAGE' else 'TEXTURE'
+                    rrow.prop(maskui, 'expand_source', text='', emboss=True, icon=icon)
 
             if mask_image:
                 rrow.label(text='Source: ' + mask_image.name)
             else: rrow.label(text='Source: ' + mask.name)
 
-            if maskui.expand_source:
+            if maskui.expand_source and mask.type != 'VCOL':
                 rrow = rcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
@@ -1026,40 +1034,41 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
                 else: draw_tex_props(mask_source, rbox)
 
             # Vector row
-            rrow = rcol.row(align=True)
-
-            if custom_icon_enable:
-                if maskui.expand_vector:
-                    icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-                rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
-            else:
-                rrow.prop(maskui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
-
-            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                splits = rrow.split(percentage=0.3)
-            else: splits = rrow.split(factor=0.3)
-            #splits = rrow.split(percentage=0.3)
-            splits.label(text='Vector:')
-            if mask.texcoord_type != 'UV':
-                splits.prop(mask, 'texcoord_type', text='')
-            else:
-                if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                    rrrow = splits.split(percentage=0.35, align=True)
-                else: rrrow = splits.split(factor=0.35, align=True)
-                #rrrow = splits.split(percentage=0.35, align=True)
-                rrrow.prop(mask, 'texcoord_type', text='')
-                rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-
-            if maskui.expand_vector:
+            if mask.type != 'VCOL':
                 rrow = rcol.row(align=True)
-                rrow.label(text='', icon='BLANK1')
-                rbox = rrow.box()
-                rbox.prop(mask_source.texture_mapping, 'translation', text='Offset')
-                rbox.prop(mask_source.texture_mapping, 'rotation')
-                rbox.prop(mask_source.texture_mapping, 'scale')
 
-            row.label(text='', icon='BLANK1')
+                if custom_icon_enable:
+                    if maskui.expand_vector:
+                        icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+                    rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+                else:
+                    rrow.prop(maskui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
+
+                if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+                    splits = rrow.split(percentage=0.3)
+                else: splits = rrow.split(factor=0.3)
+                #splits = rrow.split(percentage=0.3)
+                splits.label(text='Vector:')
+                if mask.texcoord_type != 'UV':
+                    splits.prop(mask, 'texcoord_type', text='')
+                else:
+                    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+                        rrrow = splits.split(percentage=0.35, align=True)
+                    else: rrrow = splits.split(factor=0.35, align=True)
+                    #rrrow = splits.split(percentage=0.35, align=True)
+                    rrrow.prop(mask, 'texcoord_type', text='')
+                    rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+
+                if maskui.expand_vector:
+                    rrow = rcol.row(align=True)
+                    rrow.label(text='', icon='BLANK1')
+                    rbox = rrow.box()
+                    rbox.prop(mask_source.texture_mapping, 'translation', text='Offset')
+                    rbox.prop(mask_source.texture_mapping, 'rotation')
+                    rbox.prop(mask_source.texture_mapping, 'scale')
+
+                row.label(text='', icon='BLANK1')
 
             # Hardness row
             if mask.enable_hardness:
