@@ -276,7 +276,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     tl.active_texture_index = index
 
     # Rearrange node inside textures
-    reconnect_tex_nodes(tex)
+    reconnect_tex_nodes(tex, mod_reconnect=True)
     rearrange_tex_nodes(tex)
 
     return tex

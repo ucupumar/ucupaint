@@ -752,7 +752,7 @@ class YTexModifierSpecialMenu(bpy.types.Menu):
         return hasattr(context, 'parent') and get_active_texture_layers_node()
 
     def draw(self, context):
-        self.layout.label(text='Add Modifier')
+        self.layout.label(text='Add Channel Modifier')
         ## List the items
         for mt in modifier_type_items:
             self.layout.operator('node.y_new_texture_modifier', text=mt[1], icon='MODIFIER').type = mt[0]

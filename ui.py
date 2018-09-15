@@ -625,7 +625,7 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
                     brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
                 else:
                     brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
-                brow.label(text='Alpha Bump:')
+                brow.label(text='Intensity Bump:')
 
                 if ch.enable_mask_bump and not chui.expand_mask_settings:
                     brow.prop(ch, 'mask_bump_value', text='')
@@ -742,7 +742,7 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
                         row.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
                     else:
                         row.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
-                row.label(text='Alpha Ramp:')
+                row.label(text='Intensity Ramp:')
                 if ch.enable_mask_ramp and not chui.expand_mask_settings:
                     row.prop(ch, 'mask_ramp_intensity_value', text='')
                 row.prop(ch, 'enable_mask_ramp', text='')
