@@ -1983,6 +1983,7 @@ class YTextureLayer(bpy.types.PropertyGroup):
     expand_content = BoolProperty(default=False)
     expand_vector = BoolProperty(default=False)
     expand_masks = BoolProperty(default=False)
+    expand_source = BoolProperty(default=False)
 
 def register():
     bpy.utils.register_class(YRefreshNeighborUV)

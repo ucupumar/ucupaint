@@ -50,6 +50,7 @@ def update_tl_ui():
             tex = tl.textures[tl.active_texture_index]
             tlui.tex_ui.expand_content = tex.expand_content
             tlui.tex_ui.expand_vector = tex.expand_vector
+            tlui.tex_ui.expand_source = tex.expand_source
             tlui.tex_ui.expand_masks = tex.expand_masks
             tlui.tex_ui.channels.clear()
             tlui.tex_ui.masks.clear()
@@ -516,15 +517,82 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
     if tex.type != 'VCOL' and texui.expand_content:
         rrow = ccol.row(align=True)
         rrow.label(text='', icon='BLANK1')
-        bbox = rrow.box()
+        rcol = rrow.column(align=False)
+
+        # Source
+
+        row = rcol.row(align=True)
+
+        if custom_icon_enable:
+            suffix = 'image' if tex.type == 'IMAGE' else 'texture'
+            if texui.expand_source:
+                icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
+            else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
+            row.prop(texui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+        else:
+            icon = 'IMAGE_DATA' if tex.type == 'IMAGE' else 'TEXTURE'
+            row.prop(texui, 'expand_source', text='', emboss=True, icon=icon)
+
         if image:
-            draw_image_props(source, bbox)
-        else: draw_tex_props(source, bbox)
+            row.label(text='Source: ' + image.name)
+        else: row.label(text='Source: ' + tex.name)
+
+        if texui.expand_source:
+            row = rcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            bbox = row.box()
+            if image:
+                draw_image_props(source, bbox)
+            else: draw_tex_props(source, bbox)
+
+        # Vector
+
+        #col.separator()
+        #ccol = col.column()
+        #rrcol = rcol.column()
+        row = rcol.row(align=True)
+
+        if custom_icon_enable:
+            if texui.expand_vector:
+                icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+            row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+        else:
+            row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
+
+        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+            split = row.split(percentage=0.275, align=True)
+        else: split = row.split(factor=0.275, align=True)
+        split.label(text='Vector:')
+        if is_a_mesh and tex.texcoord_type == 'UV':
+            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+                ssplit = split.split(percentage=0.33, align=True)
+            else: ssplit = split.split(factor=0.33, align=True)
+            #ssplit = split.split(percentage=0.33, align=True)
+            ssplit.prop(tex, 'texcoord_type', text='')
+            ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+        else:
+            split.prop(tex, 'texcoord_type', text='')
+
+        #if tlui.expand_channels:
+        #    row.label(text='', icon='BLANK1')
+
+        if texui.expand_vector:
+            row = rcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            bbox = row.box()
+            crow = row.column()
+            bbox.prop(source.texture_mapping, 'translation', text='Offset')
+            bbox.prop(source.texture_mapping, 'rotation')
+            bbox.prop(source.texture_mapping, 'scale')
+
+            #if tlui.expand_channels:
+            #    row.label(text='', icon='BLANK1')
+
+        ccol.separator()
 
         if tlui.expand_channels:
             rrow.label(text='', icon='BLANK1')
-
-        ccol.separator()
 
     #row = ccol.row(align=True)
     #if custom_icon_enable:
@@ -898,53 +966,6 @@ def draw_texture_ui(context, layout, tex, source, image, vcol, is_a_mesh, custom
 
     if not tlui.expand_channels and ch_count == 0:
         col.label(text='No active channel!')
-
-
-    # Vector
-
-    if tex.type != 'VCOL':
-
-        #col.separator()
-        ccol = col.column()
-        ccol = col.column()
-        row = ccol.row(align=True)
-
-        if custom_icon_enable:
-            if texui.expand_vector:
-                icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-            row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
-
-        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-            split = row.split(percentage=0.275, align=True)
-        else: split = row.split(factor=0.275, align=True)
-        split.label(text='Vector:')
-        if is_a_mesh and tex.texcoord_type == 'UV':
-            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                ssplit = split.split(percentage=0.33, align=True)
-            else: ssplit = split.split(factor=0.33, align=True)
-            #ssplit = split.split(percentage=0.33, align=True)
-            ssplit.prop(tex, 'texcoord_type', text='')
-            ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-        else:
-            split.prop(tex, 'texcoord_type', text='')
-
-        #if tlui.expand_channels:
-        #    row.label(text='', icon='BLANK1')
-
-        if texui.expand_vector:
-            row = ccol.row(align=True)
-            row.label(text='', icon='BLANK1')
-            bbox = row.box()
-            crow = row.column()
-            bbox.prop(source.texture_mapping, 'translation', text='Offset')
-            bbox.prop(source.texture_mapping, 'rotation')
-            bbox.prop(source.texture_mapping, 'scale')
-
-            #if tlui.expand_channels:
-            #    row.label(text='', icon='BLANK1')
 
     # Masks
 
@@ -1836,6 +1857,7 @@ class YTextureUI(bpy.types.PropertyGroup):
     expand_content = BoolProperty(default=False, update=update_texture_ui)
     expand_vector = BoolProperty(default=False, update=update_texture_ui)
     expand_masks = BoolProperty(default=False, update=update_texture_ui)
+    expand_source = BoolProperty(default=False, update=update_texture_ui)
 
     channels = CollectionProperty(type=YChannelUI)
     masks = CollectionProperty(type=YMaskUI)
