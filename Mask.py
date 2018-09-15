@@ -1338,7 +1338,7 @@ def disable_mask_source(tex, mask, reconnect=False):
 
     # Remove previous source
     remove_node(tex_tree, mask, 'group_node')
-    bpy.data.node_groups.remove(mask_tree)
+    #bpy.data.node_groups.remove(mask_tree)
 
     if reconnect:
         # Reconnect outside nodes
