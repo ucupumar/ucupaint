@@ -24,7 +24,9 @@ def enable_tex_source_tree(tex, rearrange=True):
     #source_tree.outputs.new('NodeSocketFloat', 'Factor')
 
     start = source_tree.nodes.new('NodeGroupInput')
+    start.name = TREE_START
     end = source_tree.nodes.new('NodeGroupOutput')
+    end.name = TREE_END
 
     # Copy source from reference
     source = new_node(source_tree, tex, 'source', source_ref.bl_idname)

@@ -30,11 +30,11 @@ def reconnect_between_modifier_nodes(parent):
         tex_tree = get_tree(tex)
 
         # start and end inside modifier tree
-        parent_start = nodes.get(MODIFIER_TREE_START)
+        parent_start = nodes.get(TREE_START)
         parent_start_rgb = parent_start.outputs[0]
         parent_start_alpha = parent_start.outputs[1]
 
-        parent_end = nodes.get(MODIFIER_TREE_END)
+        parent_end = nodes.get(TREE_END)
         parent_end_rgb = parent_end.inputs[0]
         parent_end_alpha = parent_end.inputs[1]
 

@@ -1764,6 +1764,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Modifiers
     modifiers = CollectionProperty(type=Modifier.YTextureModifier)
+    mirror_modifiers = CollectionProperty(type=Modifier.YTextureModifier)
 
     # For some occasion, modifiers are stored in a tree
     mod_group = StringProperty(default='')
@@ -1983,6 +1984,7 @@ class YTextureLayer(bpy.types.PropertyGroup):
     expand_content = BoolProperty(default=False)
     expand_vector = BoolProperty(default=False)
     expand_masks = BoolProperty(default=False)
+    expand_channels = BoolProperty(default=True)
     expand_source = BoolProperty(default=False)
 
 def register():

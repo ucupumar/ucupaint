@@ -63,14 +63,27 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
     match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
+    match3 = re.match(r'tl\.textures\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
     if match1:
         root_ch = tl.channels[int(match1.group(2))]
+
+        # Get non color flag and channel type
+        non_color = root_ch.colorspace == 'LINEAR'
+        channel_type = root_ch.type
+        
     elif match2: 
         root_ch = tl.channels[int(match2.group(1))]
-    else: return None
 
-    # Get non color flag
-    non_color = root_ch.colorspace == 'LINEAR'
+        # Get non color flag and channel type
+        non_color = root_ch.colorspace == 'LINEAR'
+        channel_type = root_ch.type
+
+    elif match3: 
+        # Texture modifier always use linear colorspace and rgb channel type
+        non_color = True
+        channel_type = 'RGB'
+
+    else: return None
 
     # Remove previous start and end if ref tree is passed
     if ref_tree:
@@ -104,7 +117,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             copy_node_props(invert_ref, invert)
             ref_tree.nodes.remove(invert_ref)
         else:
-            if root_ch.type == 'VALUE':
+            if channel_type == 'VALUE':
                 invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT_VALUE)
             else: invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT)
 
@@ -136,7 +149,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             if BLENDER_28_GROUP_INPUT_HACK:
                 duplicate_lib_node_tree(rgb2i)
 
-            if root_ch.type == 'RGB':
+            if channel_type == 'RGB':
                 m.rgb2i_col = (1.0, 0.0, 1.0, 1.0)
         
         links.new(start_rgb.outputs[0], rgb2i.inputs[0])
@@ -203,9 +216,9 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             if BLENDER_28_GROUP_INPUT_HACK:
                 duplicate_lib_node_tree(oc)
 
-            if root_ch.type == 'RGB':
+            if channel_type == 'RGB':
                 m.oc_col = (1.0, 0.0, 1.0, 1.0)
-            elif root_ch.type == 'NORMAL':
+            elif channel_type == 'NORMAL':
                 m.oc_use_normal_base = True
         
         links.new(start_rgb.outputs[0], oc.inputs[0])
@@ -260,9 +273,10 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
             color_ramp_mix_rgb.inputs[0].default_value = 1.0
 
-            if root_ch.colorspace == 'SRGB':
-                color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
-            else: color_ramp_linear.inputs[1].default_value = 1.0
+            #if root_ch.colorspace == 'SRGB':
+            if non_color:
+                color_ramp_linear.inputs[1].default_value = 1.0
+            else: color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
 
             # Set default color
             color_ramp.color_ramp.elements[0].color = (0,0,0,0)
@@ -351,7 +365,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             copy_node_props(multiplier_ref, multiplier)
             ref_tree.nodes.remove(multiplier_ref)
         else:
-            if root_ch.type == 'VALUE':
+            if channel_type == 'VALUE':
                 multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER_VALUE)
             else: multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER)
 
@@ -370,13 +384,17 @@ def add_new_modifier(parent, modifier_type):
 
     tl = parent.id_data.tl
     match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', parent.path_from_id())
-    match2 = re.match(r'tl\.channels\[(\d+)\]', parent.path_from_id())
+    #match2 = re.match(r'tl\.channels\[(\d+)\]', parent.path_from_id())
+    #match3 = re.match(r'tl\.textures\[(\d+)\]', parent.path_from_id())
 
-    if match1: 
-        root_ch = tl.channels[int(match1.group(2))]
+    #if match1: 
+    #    root_ch = tl.channels[int(match1.group(2))]
 
-    elif match2:
-        root_ch = tl.channels[int(match2.group(1))]
+    #elif match2:
+    #    root_ch = tl.channels[int(match2.group(1))]
+
+    #elif match3:
+    #    pass
     
     tree = get_mod_tree(parent)
     modifiers = parent.modifiers
@@ -484,7 +502,8 @@ class YNewTexModifier(bpy.types.Operator):
         elif m3:
             #tree = get_tree(self)
             #nodes = tree.nodes
-            pass
+            tex = tl.textures[int(m3.group(1))]
+            mod = add_new_modifier(context.parent, self.type)
 
         #if self.type == 'RGB_TO_INTENSITY' and root_ch.type == 'RGB':
         #    mod.rgb2i_col = (1,0,1,1)
@@ -501,7 +520,7 @@ class YNewTexModifier(bpy.types.Operator):
             context.channel_ui.expand_content = True
 
         # Rearrange nodes
-        if tex: 
+        if tex:
             rearrange_tex_nodes(tex)
             reconnect_tex_nodes(tex, mod_reconnect=True)
         else: 
@@ -1124,9 +1143,9 @@ def enable_modifiers_tree(ch, rearrange = True):
 
     # New inputs and outputs
     mod_tree_start = mod_tree.nodes.new('NodeGroupInput')
-    mod_tree_start.name = MODIFIER_TREE_START
+    mod_tree_start.name = TREE_START
     mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
-    mod_tree_end.name = MODIFIER_TREE_END
+    mod_tree_end.name = TREE_END
 
     mod_group = new_node(tex_tree, ch, 'mod_group', 'ShaderNodeGroup', tex.name + ' ' + ch.name + ' Modifiers')
     mod_group.node_tree = mod_tree
