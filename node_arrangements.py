@@ -1,10 +1,10 @@
-import bpy
+import bpy, time
 from mathutils import *
 from .common import *
 
 INFO_PREFIX = '__ytl_info_'
 
-NO_MODIFIER_Y_OFFSET = 235
+NO_MODIFIER_Y_OFFSET = 200
 FINE_BUMP_Y_OFFSET = 300
 
 default_y_offsets = {
@@ -15,9 +15,9 @@ default_y_offsets = {
 
 mod_y_offsets = {
         'INVERT' : 330,
-        'RGB_TO_INTENSITY' : 270,
-        'INTENSITY_TO_RGB' : 270,
-        'OVERRIDE_COLOR' : 270,
+        'RGB_TO_INTENSITY' : 280,
+        'INTENSITY_TO_RGB' : 280,
+        'OVERRIDE_COLOR' : 280,
         'COLOR_RAMP' : 315,
         'RGB_CURVE' : 390,
         'HUE_SATURATION' : 265,
@@ -26,8 +26,8 @@ mod_y_offsets = {
         }
 
 value_mod_y_offsets = {
-        'INVERT' : 250,
-        'MULTIPLIER' :  250,
+        'INVERT' : 270,
+        'MULTIPLIER' :  270,
         }
 
 def get_mod_y_offsets(mod, is_value=False):
@@ -55,122 +55,165 @@ def check_set_node_parent(tree, child_name, parent_node):
     if child and child.parent != parent_node:
         child.parent = parent_node
 
-def check_set_node_label(node, label):
+def set_node_label(node, label):
     if node and node.label != label:
         node.label = label
 
-def refresh_tl_channel_frame(ch, nodes):
+#def refresh_tl_channel_frame(ch, nodes):
+#
+#    start_frame = nodes.get(ch.start_frame)
+#    if not start_frame:
+#        start_frame = nodes.new('NodeFrame')
+#        ch.start_frame = start_frame.name
+#
+#    set_node_label(start_frame, ch.name + ' Start')
+#
+#    end_frame = nodes.get(ch.end_frame)
+#    if not end_frame:
+#        end_frame = nodes.new('NodeFrame')
+#        ch.end_frame = end_frame.name
+#
+#    set_node_label(end_frame, ch.name + ' End')
+#
+#    return start_frame, end_frame
 
-    start_frame = nodes.get(ch.start_frame)
-    if not start_frame:
-        start_frame = nodes.new('NodeFrame')
-        ch.start_frame = start_frame.name
+def get_frame(tree, name, suffix='', label=''):
 
-    check_set_node_label(start_frame, ch.name + ' Start')
+    frame_name = name + suffix
 
-    end_frame = nodes.get(ch.end_frame)
-    if not end_frame:
-        end_frame = nodes.new('NodeFrame')
-        ch.end_frame = end_frame.name
+    frame = tree.nodes.get(frame_name)
+    if not frame:
+        frame = tree.nodes.new('NodeFrame')
+        frame.name = frame_name
 
-    check_set_node_label(end_frame, ch.name + ' End')
+    if frame.label != label:
+        frame.label = label
 
-    return start_frame, end_frame
+    return frame
 
-def refresh_tex_channel_frame(root_ch, ch, nodes):
+def clean_unused_frames(tree):
 
-    pipeline_frame = nodes.get(ch.pipeline_frame)
-    if not pipeline_frame:
-        pipeline_frame = nodes.new('NodeFrame')
-        ch.pipeline_frame = pipeline_frame.name
+    #T = time.time()
 
-    check_set_node_label(pipeline_frame, root_ch.name + ' Pipeline')
+    # Collect all parents and frames
+    parents = []
+    frames = []
+    for node in tree.nodes:
+        if node.parent and node.parent not in parents:
+            parents.append(node.parent)
+        if node.type == 'FRAME' and not node.name.startswith(INFO_PREFIX):
+            frames.append(node)
 
-    blend = nodes.get(ch.blend)
-    if blend:
-        check_set_node_label(blend, root_ch.name + ' Blend')
+    # Remove frame with no child
+    for frame in frames:
+        if frame not in parents:
+            tree.nodes.remove(frame)
 
-    return pipeline_frame
+    #print('INFO: Unused frames cleaned at ', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-def rearrange_tl_frame_nodes(group_tree):
-    tl = group_tree.tl
-    nodes = group_tree.nodes
+def rearrange_tl_frame_nodes(tl):
+    tree = tl.id_data
+    nodes = tree.nodes
 
     # Channel loops
-    for ch in tl.channels:
+    for i, ch in enumerate(tl.channels):
 
-        start_frame, end_frame = refresh_tl_channel_frame(ch, nodes)
-
-        # Start Frame
-        check_set_node_parent(group_tree, ch.start_entry, start_frame)
-        check_set_node_parent(group_tree, ch.start_linear, start_frame)
-        check_set_node_parent(group_tree, ch.start_alpha_entry, start_frame)
-        check_set_node_parent(group_tree, ch.start_normal_filter, start_frame)
+        ## Start Frame
+        #frame = get_frame(tree, '__start__', str(i), ch.name + ' Start')
+        #check_set_node_parent(tree, ch.start_linear, frame)
+        #check_set_node_parent(tree, ch.start_normal_filter, frame)
 
         # End Frame
-        check_set_node_parent(group_tree, ch.end_entry, end_frame)
-        check_set_node_parent(group_tree, ch.end_alpha_entry, end_frame)
-        check_set_node_parent(group_tree, ch.start_rgb, end_frame)
-        check_set_node_parent(group_tree, ch.start_alpha, end_frame)
-        check_set_node_parent(group_tree, ch.end_rgb, end_frame)
-        check_set_node_parent(group_tree, ch.end_alpha, end_frame)
-        check_set_node_parent(group_tree, ch.end_linear, end_frame)
+        #frame = get_frame(tree, '__end__', str(i), ch.name + ' End')
+        #check_set_node_parent(tree, ch.start_rgb, frame)
+        #check_set_node_parent(tree, ch.start_alpha, frame)
+        #check_set_node_parent(tree, ch.end_rgb, frame)
+        #check_set_node_parent(tree, ch.end_alpha, frame)
+        #check_set_node_parent(tree, ch.end_linear, frame)
 
         # Modifiers
+        frame = get_frame(tree, '__modifiers__', str(i), ch.name + ' Final Modifiers')
         for mod in ch.modifiers:
-            frame = nodes.get(mod.frame)
-            check_set_node_parent(group_tree, mod.frame, end_frame)
+            check_set_node_parent(tree, mod.frame, frame)
 
-def rearrange_tex_frame_nodes(tex):
-    tl = get_active_texture_layers_node().node_tree.tl
-    tree = get_tree(tex)
-    nodes = tree.nodes
+    clean_unused_frames(tree)
+
+def rearrange_tex_frame_nodes(tex, tree=None):
+    tl = tex.id_data.tl
+    if not tree: tree = get_tree(tex)
+    #nodes = tree.nodes
 
     # Texture channels
     for i, ch in enumerate(tex.channels):
         root_ch = tl.channels[i]
 
-        pipeline_frame = refresh_tex_channel_frame(root_ch, ch, nodes)
-        
-        check_set_node_parent(tree, ch.linear, pipeline_frame)
-        check_set_node_parent(tree, ch.source, pipeline_frame)
-
-        check_set_node_parent(tree, ch.start_rgb, pipeline_frame)
-        check_set_node_parent(tree, ch.start_alpha, pipeline_frame)
-        check_set_node_parent(tree, ch.end_rgb, pipeline_frame)
-        check_set_node_parent(tree, ch.end_alpha, pipeline_frame)
-
-        check_set_node_parent(tree, ch.bump_base, pipeline_frame)
-        check_set_node_parent(tree, ch.bump, pipeline_frame)
-        check_set_node_parent(tree, ch.normal, pipeline_frame)
-        #check_set_node_parent(tree, ch.normal_flip, pipeline_frame)
-
-        check_set_node_parent(tree, ch.neighbor_uv, pipeline_frame)
-        check_set_node_parent(tree, ch.fine_bump, pipeline_frame)
-        check_set_node_parent(tree, ch.source_n, pipeline_frame)
-        check_set_node_parent(tree, ch.source_s, pipeline_frame)
-        check_set_node_parent(tree, ch.source_e, pipeline_frame)
-        check_set_node_parent(tree, ch.source_w, pipeline_frame)
-        check_set_node_parent(tree, ch.mod_n, pipeline_frame)
-        check_set_node_parent(tree, ch.mod_s, pipeline_frame)
-        check_set_node_parent(tree, ch.mod_e, pipeline_frame)
-        check_set_node_parent(tree, ch.mod_w, pipeline_frame)
-        check_set_node_parent(tree, ch.bump_base_n, pipeline_frame)
-        check_set_node_parent(tree, ch.bump_base_s, pipeline_frame)
-        check_set_node_parent(tree, ch.bump_base_e, pipeline_frame)
-        check_set_node_parent(tree, ch.bump_base_w, pipeline_frame)
-
-        #check_set_node_parent(tree, ch.intensity_multiplier, pipeline_frame)
-        #check_set_node_parent(tree, ch.intensity, pipeline_frame)
-
         # Modifiers
-        if ch.mod_group != '':
-            mod_group = nodes.get(ch.mod_group)
-            check_set_node_parent(tree, ch.mod_group, pipeline_frame)
-        else:
-            for mod in ch.modifiers:
-                frame = nodes.get(mod.frame)
-                check_set_node_parent(tree, mod.frame, pipeline_frame)
+        if len(ch.modifiers) > 0:
+
+            frame = get_frame(tree, '__modifier__', str(i), root_ch.name + ' Modifiers')
+
+            check_set_node_parent(tree, ch.start_rgb, frame)
+            check_set_node_parent(tree, ch.start_alpha, frame)
+            check_set_node_parent(tree, ch.end_rgb, frame)
+            check_set_node_parent(tree, ch.end_alpha, frame)
+
+            # Modifiers
+            if ch.mod_group != '':
+                mod_group = tree.nodes.get(ch.mod_group)
+                check_set_node_parent(tree, ch.mod_group, frame)
+            else:
+                for mod in ch.modifiers:
+                    check_set_node_parent(tree, mod.frame, frame)
+
+        #check_set_node_parent(tree, ch.linear, frame)
+        #check_set_node_parent(tree, ch.source, frame)
+
+        # Normal process
+
+        if root_ch.type == 'NORMAL':
+
+            frame = get_frame(tree, '__normal_process__', str(i), root_ch.name + ' Process')
+
+            check_set_node_parent(tree, ch.bump_base, frame)
+            check_set_node_parent(tree, ch.bump, frame)
+            check_set_node_parent(tree, ch.normal, frame)
+
+            check_set_node_parent(tree, ch.neighbor_uv, frame)
+            check_set_node_parent(tree, ch.fine_bump, frame)
+            check_set_node_parent(tree, ch.source_n, frame)
+            check_set_node_parent(tree, ch.source_s, frame)
+            check_set_node_parent(tree, ch.source_e, frame)
+            check_set_node_parent(tree, ch.source_w, frame)
+            check_set_node_parent(tree, ch.mod_n, frame)
+            check_set_node_parent(tree, ch.mod_s, frame)
+            check_set_node_parent(tree, ch.mod_e, frame)
+            check_set_node_parent(tree, ch.mod_w, frame)
+            check_set_node_parent(tree, ch.bump_base_n, frame)
+            check_set_node_parent(tree, ch.bump_base_s, frame)
+            check_set_node_parent(tree, ch.bump_base_e, frame)
+            check_set_node_parent(tree, ch.bump_base_w, frame)
+
+        # Blend
+        frame = get_frame(tree, '__blend__', str(i), root_ch.name + ' Blend')
+        check_set_node_parent(tree, ch.intensity, frame)
+        check_set_node_parent(tree, ch.blend, frame)
+        check_set_node_parent(tree, ch.normal_flip, frame)
+        check_set_node_parent(tree, ch.intensity_multiplier, frame)
+
+    # Masks
+    for i, mask in enumerate(tex.masks):
+        frame = get_frame(tree, MASK_FRAME_PREFIX, str(i), mask.name)
+
+        if mask.group_node != '':
+            check_set_node_parent(tree, mask.group_node, frame)
+        else: check_set_node_parent(tree, mask.source, frame)
+
+        check_set_node_parent(tree, mask.final, frame)
+        check_set_node_parent(tree, mask.uv_map, frame)
+        for c in mask.channels:
+            check_set_node_parent(tree, c.multiply, frame)
+
+    clean_unused_frames(tree)
 
 def create_info_nodes(group_tree, tex=None):
     tl = group_tree.tl
@@ -234,11 +277,19 @@ def create_info_nodes(group_tree, tex=None):
 def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=False):
 
     ori_y = loc.y
-
     offset_y = 0
 
     if check_set_node_loc(tree, TREE_START, loc):
         loc.x += 200
+
+    loc.y -= 35
+    if check_set_node_loc(tree, parent.start_rgb, loc):
+        loc.y -= 35
+    else: loc.y += 35
+
+    if check_set_node_loc(tree, parent.start_alpha, loc):
+        loc.x += 100
+        loc.y = ori_y
 
     # Modifier loops
     for m in reversed(parent.modifiers):
@@ -312,6 +363,15 @@ def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=Fa
 
         loc.y = ori_y
         loc.x += 100
+
+    loc.y -= 35
+    if check_set_node_loc(tree, parent.end_rgb, loc):
+        loc.y -= 35
+    else: loc.y += 35
+
+    if check_set_node_loc(tree, parent.end_alpha, loc):
+        loc.x += 100
+        loc.y = ori_y
 
     if check_set_node_loc(tree, TREE_END, loc):
         loc.x += 200
@@ -421,6 +481,37 @@ def rearrange_tex_nodes(tex):
             break
 
     #start_x = 350
+    #loc = Vector((350, 0))
+
+    # Back to source nodes
+    loc = Vector((0, 0))
+
+    if tex.source_group != '' and check_set_node_loc(tree, tex.source_group, loc):
+        rearrange_source_tree_nodes(tex)
+        loc.y -= 140
+
+    elif check_set_node_loc(tree, tex.source, loc):
+        loc.y -= 260
+
+    if check_set_node_loc(tree, tex.solid_alpha, loc):
+        loc.y -= 90
+
+    if check_set_node_loc(tree, tex.uv_attr, loc):
+        loc.y -= 140
+
+    if check_set_node_loc(tree, tex.texcoord, loc):
+        loc.y -= 240
+
+    if check_set_node_loc(tree, tex.tangent, loc):
+        loc.y -= 160
+
+    if check_set_node_loc(tree, tex.bitangent, loc):
+        loc.y -= 160
+
+    if check_set_node_loc(tree, tex.geometry, loc):
+        #loc.y += 160
+        pass
+
     loc = Vector((350, 0))
 
     # Texture modifiers
@@ -430,8 +521,6 @@ def rearrange_tex_nodes(tex):
     farthest_x = 0
     bookmarks_ys = []
 
-    offset_y = NO_MODIFIER_Y_OFFSET
-
     for i, ch in enumerate(tex.channels):
 
         root_ch = tl.channels[i]
@@ -439,6 +528,8 @@ def rearrange_tex_nodes(tex):
         loc.x = start_x
         bookmark_y = loc.y
         bookmarks_ys.append(bookmark_y)
+        offset_y = NO_MODIFIER_Y_OFFSET
+        #offset_y = 0
 
         #if check_set_node_loc(tree, ch.source, loc):
         #    loc.x += 200.0
@@ -446,21 +537,12 @@ def rearrange_tex_nodes(tex):
         if check_set_node_loc(tree, ch.linear, loc):
             loc.x += 200.0
 
-        loc.y -= 35
-        check_set_node_loc(tree, ch.start_rgb, loc)
-
-        loc.y -= 35
-        check_set_node_loc(tree, ch.start_alpha, loc)
-
-        loc.x += 50
-        loc.y = bookmark_y
-
         # Modifier loop
         if ch.mod_group != '':
             mod_group = nodes.get(ch.mod_group)
             arrange_modifier_nodes(mod_group.node_tree, ch, Vector((0,0)))
             check_set_node_loc(tree, ch.mod_group, loc)
-            loc.x += 200
+            loc.x += 220
         else:
             loc, mod_offset_y = arrange_modifier_nodes(tree, ch, loc, 
                     is_value = root_ch.type == 'VALUE', return_y_offset = True)
@@ -468,23 +550,14 @@ def rearrange_tex_nodes(tex):
             if offset_y < mod_offset_y:
                 offset_y = mod_offset_y
 
-        loc.y -= 35
-        check_set_node_loc(tree, ch.end_rgb, loc)
-
-        loc.y -= 35
-        check_set_node_loc(tree, ch.end_alpha, loc)
-
-        loc.x += 50
-        loc.y = bookmark_y
-
         if check_set_node_loc(tree, ch.bump_base, loc):
             loc.x += 200.0
 
         if check_set_node_loc(tree, ch.bump, loc):
-            loc.x += 200.0
+            loc.x += 250.0
 
         if check_set_node_loc(tree, ch.normal, loc):
-            loc.x += 200.0
+            loc.x += 250.0
 
         if check_set_node_loc(tree, ch.neighbor_uv, loc):
             loc.x += 200.0
@@ -526,22 +599,23 @@ def rearrange_tex_nodes(tex):
 
         if check_set_node_loc(tree, ch.bump_base_w, loc):
             loc.y = bookmark_y
-            loc.x += 200.0
+            loc.x += 150.0
 
         if check_set_node_loc(tree, ch.fine_bump, loc):
-            loc.x += 200.0
+            loc.x += 250.0
 
         if loc.x > farthest_x: farthest_x = loc.x
 
-        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'FINE_BUMP_MAP' and offset_y < FINE_BUMP_Y_OFFSET:
-            offset_y = FINE_BUMP_Y_OFFSET
+        if root_ch.type == 'NORMAL': #and ch.normal_map_type == 'FINE_BUMP_MAP' and offset_y < FINE_BUMP_Y_OFFSET:
+            if offset_y < FINE_BUMP_Y_OFFSET:
+                offset_y = FINE_BUMP_Y_OFFSET
 
         loc.y -= offset_y
 
         # If next channel had modifier
         if i+1 < len(tex.channels):
             next_ch = tex.channels[i+1]
-            if len(next_ch.modifiers) > 0:
+            if len(next_ch.modifiers) > 0 and next_ch.mod_group == '':
                 loc.y -= 35
 
     if bookmarks_ys:
@@ -589,10 +663,15 @@ def rearrange_tex_nodes(tex):
 
         if loc.x > farthest_x: farthest_x = loc.x
 
+    y_step = 200
+    y_mid = -(len(tex.channels) * y_step / 2)
+
     # Masks
     for i, mask in enumerate(tex.masks):
 
-        loc.y = mid_y
+        #loc.y = mid_y
+        #loc.y = y_mid
+        loc.y = 0
         loc.x = farthest_x
 
         #if check_set_node_loc(tree, mask.source, loc):
@@ -615,7 +694,9 @@ def rearrange_tex_nodes(tex):
             loc.y -= 180
 
         loc.x += 280
-        loc.y = mid_y
+        #loc.y = mid_y
+        loc.y = 0
+        #loc.y = y_mid
 
         if check_set_node_loc(tree, mask.hardness, loc):
             loc.x += 200
@@ -628,49 +709,63 @@ def rearrange_tex_nodes(tex):
         #loc.y -= 235
 
         bookmark_x = loc.x
+        loc.y = 0
+
+        y_offset = y_step
 
         # Mask channels
         for j, c in enumerate(mask.channels):
 
             loc.x = bookmark_x
-            loc.y = bookmarks_ys[j]
+            #loc.y = bookmarks_ys[j]
 
             if check_set_node_loc(tree, c.multiply, loc):
-                loc.x += 200.0
+                #loc.x += 200.0
+                pass
 
             # Bump stuff
+            loc.y -= 200
             if check_set_node_loc(tree, c.neighbor_uv, loc):
-                loc.x += 180.0
+                loc.x += 180
+                #loc.y -= 200
+                y_offset = 270
+            else: 
+                loc.y += 200
+                loc.x += 200.0
 
+            save_y = loc.y
             save_x = loc.x
 
             if check_set_node_loc(tree, c.source_n, loc):
-                loc.x += 120.0
-
-            if check_set_node_loc(tree, c.multiply_n, loc):
-                loc.y -= 40.0
-                loc.x = save_x
+                loc.y -= 40
 
             if check_set_node_loc(tree, c.source_s, loc):
-                loc.x += 120.0
-
-            if check_set_node_loc(tree, c.multiply_s, loc):
-                loc.y -= 40.0
-                loc.x = save_x
+                loc.y -= 40
 
             if check_set_node_loc(tree, c.source_e, loc):
-                loc.x += 120.0
-
-            if check_set_node_loc(tree, c.multiply_e, loc):
-                loc.y -= 40.0
-                loc.x = save_x
+                loc.y -= 40
 
             if check_set_node_loc(tree, c.source_w, loc):
-                loc.x += 120.0
+                #loc.y -= 40
+                loc.x += 120
+
+            loc.y = save_y
+
+            if check_set_node_loc(tree, c.multiply_n, loc):
+                loc.y -= 40
+
+            if check_set_node_loc(tree, c.multiply_s, loc):
+                loc.y -= 40
+
+            if check_set_node_loc(tree, c.multiply_e, loc):
+                loc.y -= 40
 
             if check_set_node_loc(tree, c.multiply_w, loc):
-                loc.y = bookmarks_ys[j]
-                loc.x += 140.0
+                #loc.y -= 40
+                loc.x += 120
+
+            loc.y = save_y
+            loc.y -= y_offset
 
             if loc.x > farthest_x: farthest_x = loc.x + 50
 
@@ -681,7 +776,7 @@ def rearrange_tex_nodes(tex):
     for i, ch in enumerate(tex.channels):
 
         loc.x = bookmark_x
-        loc.y = bookmarks_ys[i]
+        #loc.y = bookmarks_ys[i]
 
         if bump_ch and not flip_bump and bump_ch.mask_bump_mask_only:
             rearrange_mask_ramp_nodes(tree, ch, loc)
@@ -690,6 +785,8 @@ def rearrange_tex_nodes(tex):
             rearrange_mask_bump_nodes(tree, ch, loc)
 
         if loc.x > farthest_x: farthest_x = loc.x
+
+        loc.y -= y_step
 
     loc.x = farthest_x
     loc.y = 0
@@ -712,12 +809,14 @@ def rearrange_tex_nodes(tex):
     for i, ch in enumerate(tex.channels):
 
         loc.x = bookmark_x
-        loc.y = bookmarks_ys[i]
+        #loc.y = bookmarks_ys[i]
 
         if check_set_node_loc(tree, ch.mask_total, loc):
             loc.x += 200.0
 
         if loc.x > farthest_x: farthest_x = loc.x
+
+        loc.y -= y_step
 
     loc.x = farthest_x
     loc.y = 0
@@ -726,7 +825,7 @@ def rearrange_tex_nodes(tex):
     for i, ch in enumerate(tex.channels):
 
         loc.x = bookmark_x
-        loc.y = bookmarks_ys[i]
+        #loc.y = bookmarks_ys[i]
 
         #if bump_ch and not flip_bump and not bump_ch.mask_bump_mask_only:
         if not flip_bump and (not bump_ch or (bump_ch and not bump_ch.mask_bump_mask_only)):
@@ -736,10 +835,12 @@ def rearrange_tex_nodes(tex):
             rearrange_mask_bump_nodes(tree, ch, loc)
 
         if loc.x > farthest_x: farthest_x = loc.x
+        loc.y -= y_step
 
     #loc.x += 200
     loc.x = farthest_x
-    loc.y = mid_y
+    #loc.y = y_mid
+    loc.y = 0
 
     # Start node
     check_set_node_loc(tree, tex.start, loc)
@@ -768,7 +869,9 @@ def rearrange_tex_nodes(tex):
     for i, ch in enumerate(tex.channels):
 
         loc.x = bookmark_x
-        loc.y = bookmarks_ys[i]
+        #loc.y = bookmarks_ys[i]
+
+        y_offset = 240
 
         if check_set_node_loc(tree, ch.intensity_multiplier, loc):
             loc.x += 200.0
@@ -779,54 +882,35 @@ def rearrange_tex_nodes(tex):
         if check_set_node_loc(tree, ch.intensity, loc):
             loc.x += 200.0
 
+        save_y = loc.y
+        save_x = loc.x
+
+        loc.y -= 170
+        loc.x -= 200
         if check_set_node_loc(tree, ch.normal_flip, loc):
             loc.x += 200.0
+            loc.y = save_y
+            y_offset += 130
+
+        loc.y = save_y
+        loc.x = save_x
 
         if check_set_node_loc(tree, ch.blend, loc):
             loc.x += 250
 
         if loc.x > farthest_x: farthest_x = loc.x
 
+        #loc.y -= y_step
+        #loc.y -= 240
+        loc.y -= y_offset
+
     loc.x = farthest_x
-    loc.y = mid_y
+    #loc.y = mid_y
+    #loc.y = y_mid
+    loc.y = 0
     check_set_node_loc(tree, tex.end, loc)
 
-    # Back to source nodes
-    loc = Vector((0, mid_y))
-
-    if tex.source_group != '' and check_set_node_loc(tree, tex.source_group, loc):
-        rearrange_source_tree_nodes(tex)
-        loc.y -= 140
-
-    elif check_set_node_loc(tree, tex.source, loc):
-        loc.y -= 260
-
-    if check_set_node_loc(tree, tex.solid_alpha, loc):
-        loc.y -= 90
-
-    #if check_set_node_loc(tree, tex.uv_map, loc):
-    #    loc.y -= 115
-
-    if check_set_node_loc(tree, tex.uv_attr, loc):
-        loc.y -= 140
-
-    if check_set_node_loc(tree, tex.texcoord, loc):
-        loc.y -= 240
-
-    if check_set_node_loc(tree, tex.tangent, loc):
-        loc.y -= 160
-
-    #if check_set_node_loc(tree, tex.hacky_tangent, loc):
-    #    loc.y -= 160
-
-    if check_set_node_loc(tree, tex.bitangent, loc):
-        loc.y -= 160
-
-    if check_set_node_loc(tree, tex.geometry, loc):
-        #loc.y += 160
-        pass
-
-    rearrange_tex_frame_nodes(tex)
+    rearrange_tex_frame_nodes(tex, tree)
 
 def rearrange_tl_nodes(group_tree):
 
@@ -843,119 +927,62 @@ def rearrange_tl_nodes(group_tree):
     loc.x += 200
     ori_x = loc.x
 
+    num_channels = len(tl.channels)
+
     # Start nodes
     for i, channel in enumerate(tl.channels):
 
-        bookmark_y = loc.y
-        loc.x = ori_x
-
         # Start nodes
-        check_set_node_loc(group_tree, channel.start_linear, loc)
-        check_set_node_loc(group_tree, channel.start_normal_filter, loc)
+        if check_set_node_loc(group_tree, channel.start_linear, loc):
+            if channel.type == 'RGB':
+                loc.y -= 110
+            elif channel.type == 'VALUE':
+                loc.y -= 170
 
-        # Start entry
-        loc.x += 200
-        loc.y -= 35
-        check_set_node_loc(group_tree, channel.start_entry, loc)
+        if check_set_node_loc(group_tree, channel.start_normal_filter, loc):
+            loc.y -= 120
 
-        loc.y -= 35
-        check_set_node_loc(group_tree, channel.start_alpha_entry, loc)
+        if i == num_channels-1:
+            check_set_node_loc(group_tree, tl.solid_alpha, loc)
+            loc.x += 200
 
-        loc.y = bookmark_y
-
-        if channel.type == 'RGB':
-            loc.y -= 165
-        elif channel.type == 'VALUE':
-            loc.y -= 220
-        elif channel.type == 'NORMAL':
-            loc.y -= 175
-
-    # Rearrange solid alpha node
-    if len(tl.channels) > 0:
-        loc.y += 30
-    loc.x = ori_x
-    check_set_node_loc(group_tree, tl.solid_alpha, loc)
-
-    #if len(tl.textures) == 0 and len(tl.channels) == 0:
-    #    loc.x = ori_x + 200.0
-    if len(tl.textures) == 0:
-        loc.x = ori_x + 300.0
-    else: 
-        loc.x = ori_x + 280.0
-    ori_x = loc.x
     loc.y = 0.0
 
     # Texture nodes
     for i, t in enumerate(reversed(tl.textures)):
+        if check_set_node_loc(group_tree, t.group_node, loc):
+            loc.x += 200
 
-        check_set_node_loc(group_tree, t.group_node, loc)
+    farthest_x = ori_x = loc.x
 
-        if i == len(tl.textures)-1:
-            loc.x += 220
-        else: loc.x += 190
-
-    ori_x = loc.x
-    farthest_x = loc.x
-
-    # End nodes
+    # Modifiers
     for i, channel in enumerate(tl.channels):
 
         loc.x = ori_x
-        bookmark_y = loc.y
-        loc.y -= 35.0
-
-        check_set_node_loc(group_tree, channel.end_entry, loc)
-
-        loc.y -= 35.0
-        check_set_node_loc(group_tree, channel.end_alpha_entry, loc)
-
-        loc.x += 120.0
-        loc.y = bookmark_y
-        loc.y -= 35
-
-        check_set_node_loc(group_tree, channel.start_rgb, loc)
-
-        loc.y -= 35
-        check_set_node_loc(group_tree, channel.start_alpha, loc)
-
-        loc.x += 70
-        loc.y = bookmark_y
 
         loc, offset_y = arrange_modifier_nodes(group_tree, channel, loc, 
                 is_value = channel.type == 'VALUE', return_y_offset = True)
-        loc.y -= 35
-
-        check_set_node_loc(group_tree, channel.end_rgb, loc)
-
-        loc.y -= 35
-        check_set_node_loc(group_tree, channel.end_alpha, loc)
-
-        loc.x += 100
-        loc.y = bookmark_y
-
-        if check_set_node_loc(group_tree, channel.end_linear, loc):
-            loc.x += 200
 
         if loc.x > farthest_x: farthest_x = loc.x
-
-        if offset_y < default_y_offsets[channel.type]:
-            offset_y = default_y_offsets[channel.type]
-
         loc.y -= offset_y
 
-        if i+1 < len(tl.channels):
-            next_ch = tl.channels[i+1]
-            if next_ch.type == 'NORMAL':
-                loc.y += 25
-            if len(next_ch.modifiers) > 0:
-                loc.y -= 35
-
     loc.x = farthest_x
+    loc.y = 0.0
+
+    # End nodes
+    for i, channel in enumerate(tl.channels):
+        if check_set_node_loc(group_tree, channel.end_linear, loc):
+            if channel.type == 'RGB':
+                loc.y -= 110
+            elif channel.type == 'VALUE':
+                loc.y -= 170
+
+    loc.x += 200
     loc.y = 0.0
 
     # End node
     check_set_node_loc(group_tree, tl.end, loc)
 
     # Rearrange frames
-    rearrange_tl_frame_nodes(group_tree)
+    rearrange_tl_frame_nodes(tl)
 

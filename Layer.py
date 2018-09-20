@@ -29,10 +29,10 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         out = tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], root_ch.name + ' Alpha')
 
     # Modifier pipeline nodes
-    start_rgb = new_node(tree, channel, 'start_rgb', 'NodeReroute', 'Start RGB')
-    start_alpha = new_node(tree, channel, 'start_alpha', 'NodeReroute', 'Start Alpha')
-    end_rgb = new_node(tree, channel, 'end_rgb', 'NodeReroute', 'End RGB')
-    end_alpha = new_node(tree, channel, 'end_alpha', 'NodeReroute', 'End Alpha')
+    #start_rgb = new_node(tree, channel, 'start_rgb', 'NodeReroute', 'Start RGB')
+    #start_alpha = new_node(tree, channel, 'start_alpha', 'NodeReroute', 'Start Alpha')
+    #end_rgb = new_node(tree, channel, 'end_rgb', 'NodeReroute', 'End RGB')
+    #end_alpha = new_node(tree, channel, 'end_alpha', 'NodeReroute', 'End Alpha')
 
     # Intensity nodes
     intensity = new_node(tree, channel, 'intensity', 'ShaderNodeMath', 'Intensity')
@@ -582,7 +582,8 @@ class YNewTextureLayer(bpy.types.Operator):
         tl.halt_update = False
 
         # Reconnect and rearrange nodes
-        reconnect_tl_tex_nodes(node.node_tree)
+        #reconnect_tl_tex_nodes(node.node_tree)
+        reconnect_tl_nodes(node.node_tree)
         rearrange_tl_nodes(node.node_tree)
 
         # Update UI
@@ -750,7 +751,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         node.node_tree.tl.halt_update = False
 
         # Reconnect and rearrange nodes
-        reconnect_tl_tex_nodes(node.node_tree)
+        #reconnect_tl_tex_nodes(node.node_tree)
+        reconnect_tl_nodes(node.node_tree)
         rearrange_tl_nodes(node.node_tree)
 
         # Update UI
@@ -895,7 +897,8 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
         node.node_tree.tl.halt_update = False
 
         # Reconnect and rearrange nodes
-        reconnect_tl_tex_nodes(node.node_tree)
+        #reconnect_tl_tex_nodes(node.node_tree)
+        reconnect_tl_nodes(node.node_tree)
         rearrange_tl_nodes(node.node_tree)
 
         # Update UI
@@ -945,7 +948,8 @@ class YMoveTextureLayer(bpy.types.Operator):
         tl.active_texture_index = swap_idx
 
         # Refresh texture channel blend nodes
-        reconnect_tl_tex_nodes(group_tree)
+        #reconnect_tl_tex_nodes(group_tree)
+        reconnect_tl_nodes(group_tree)
         rearrange_tl_nodes(group_tree)
 
         # Update UI
@@ -1013,7 +1017,8 @@ class YRemoveTextureLayer(bpy.types.Operator):
             tl.active_texture_index = tl.active_texture_index
 
         # Refresh texture channel blend nodes
-        reconnect_tl_tex_nodes(group_tree)
+        #reconnect_tl_tex_nodes(group_tree)
+        reconnect_tl_nodes(group_tree)
         rearrange_tl_nodes(group_tree)
 
         # Update UI
@@ -1086,7 +1091,7 @@ def update_normal_map_type(self, context):
     normal_flip = nodes.get(self.normal_flip)
 
     # Bump base is available on standard and fine bump
-    if self.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+    if self.normal_map_type in {'BUMP_MAP'}: #, 'FINE_BUMP_MAP'}:
         if not bump_base:
             bump_base = new_node(tree, self, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
             val = self.bump_base_value
@@ -1166,12 +1171,16 @@ def update_normal_map_type(self, context):
             if not b:
                 b = new_node(tree, self, 'bump_base_' + neighbor_directions[i], 'ShaderNodeMixRGB', 
                         'bump base ' + neighbor_directions[i])
-                copy_node_props(bump_base, b, ['parent'])
+                #copy_node_props(bump_base, b, ['parent'])
+                val = self.bump_base_value
+                vals = (val, val, val, 1.0)
+                b.inputs[1].default_value = vals
                 b.hide = True
 
     # Remove bump nodes
     if self.normal_map_type != 'BUMP_MAP':
         remove_node(tree, self, 'bump')
+        remove_node(tree, self, 'bump_base')
 
     # Remove normal nodes
     if self.normal_map_type != 'NORMAL_MAP':
@@ -1187,10 +1196,10 @@ def update_normal_map_type(self, context):
             remove_node(tree, self, 'mod_' + d)
             remove_node(tree, self, 'bump_base_' + d)
 
-    # Remove bump base
-    if self.normal_map_type not in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
-        remove_node(tree, self, 'bump_base')
-        #remove_node(tree, self, 'intensity_multiplier')
+    ## Remove bump base
+    #if self.normal_map_type not in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+    #    remove_node(tree, self, 'bump_base')
+    #    #remove_node(tree, self, 'intensity_multiplier')
 
     # Try to remove source tree
     if self.normal_map_type in {'NORMAL_MAP', 'BUMP_MAP'}:
@@ -1974,6 +1983,11 @@ class YTextureLayer(bpy.types.PropertyGroup):
 
     # Modifiers
     modifiers = CollectionProperty(type=Modifier.YTextureModifier)
+
+    start_rgb = StringProperty(default='')
+    start_alpha = StringProperty(default='')
+    end_rgb = StringProperty(default='')
+    end_alpha = StringProperty(default='')
 
     # Mask
     enable_masks = BoolProperty(name='Enable Texture Masks', description='Enable texture masks',

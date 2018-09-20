@@ -55,6 +55,19 @@ def remove_modifier_start_end_nodes(m, tree):
     tree.nodes.remove(end_alpha)
     tree.nodes.remove(frame)
 
+def set_modifier_pipeline_nodes(tree, parent):
+    if len(parent.modifiers) > 0:
+        check_new_node(tree, parent, 'start_rgb', 'NodeReroute', 'Start RGB')
+        check_new_node(tree, parent, 'start_alpha', 'NodeReroute', 'Start Alpha')
+        check_new_node(tree, parent, 'end_rgb', 'NodeReroute', 'End RGB')
+        check_new_node(tree, parent, 'end_alpha', 'NodeReroute', 'End Alpha')
+
+def unset_modifier_pipeline_nodes(tree, parent):
+    remove_node(tree, parent, 'start_rgb')
+    remove_node(tree, parent, 'start_alpha')
+    remove_node(tree, parent, 'end_rgb')
+    remove_node(tree, parent, 'end_alpha')
+
 def add_modifier_nodes(m, tree, ref_tree=None):
 
     tl = m.id_data.tl
@@ -408,6 +421,8 @@ def add_new_modifier(parent, modifier_type):
     m.type = modifier_type
     #m.channel_type = root_ch.type
 
+    set_modifier_pipeline_nodes(tree, parent)
+
     add_modifier_nodes(m, tree)
 
     if match1: 
@@ -525,7 +540,7 @@ class YNewTexModifier(bpy.types.Operator):
             reconnect_tex_nodes(tex, mod_reconnect=True)
         else: 
             rearrange_tl_nodes(group_tree)
-            reconnect_tl_channel_nodes(group_tree, mod_reconnect=True)
+            reconnect_tl_nodes(group_tree, mod_reconnect=True)
 
         # Reconnect modifier nodes
         #reconnect_between_modifier_nodes(context.parent)
@@ -648,12 +663,17 @@ class YRemoveTexModifier(bpy.types.Operator):
         # Delete the modifier
         parent.modifiers.remove(index)
 
+        # Delete modifier pipeline if no modifier left
+        if len(parent.modifiers) == 0:
+            unset_modifier_pipeline_nodes(tree, parent)
+
         if tex and len(parent.modifiers) == 0:
             disable_modifiers_tree(parent, False)
             reconnect_tex_nodes(tex, mod_reconnect=True)
         else:
             # Reconnect nodes
-            reconnect_between_modifier_nodes(parent)
+            #reconnect_between_modifier_nodes(parent)
+            reconnect_tl_nodes(group_tree, mod_reconnect=True)
 
         # Rearrange nodes
         if tex:
@@ -665,7 +685,7 @@ class YRemoveTexModifier(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def draw_modifier_properties(context, root_ch, nodes, modifier, layout, is_tex_ch=False):
+def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_tex_ch=False):
 
     #if modifier.type not in {'INVERT'}:
     #    label = [mt[1] for mt in modifier_type_items if modifier.type == mt[0]][0]
@@ -674,7 +694,7 @@ def draw_modifier_properties(context, root_ch, nodes, modifier, layout, is_tex_c
     if modifier.type == 'INVERT':
         row = layout.row(align=True)
         invert = nodes.get(modifier.invert)
-        if root_ch.type == 'VALUE':
+        if channel_type == 'VALUE':
             row.prop(modifier, 'invert_r_enable', text='Value', toggle=True)
             row.prop(modifier, 'invert_a_enable', text='Alpha', toggle=True)
         else:
@@ -698,7 +718,7 @@ def draw_modifier_properties(context, root_ch, nodes, modifier, layout, is_tex_c
 
     elif modifier.type == 'OVERRIDE_COLOR':
         col = layout.column(align=True)
-        if root_ch.type == 'NORMAL':
+        if channel_type == 'NORMAL':
             row = col.row()
             row.label(text='Use Normal Base:')
             row.prop(modifier, 'oc_use_normal_base', text='')
@@ -750,7 +770,7 @@ def draw_modifier_properties(context, root_ch, nodes, modifier, layout, is_tex_c
         row = col.row()
         row.label(text='Clamp:')
         row.prop(modifier, 'use_clamp', text='')
-        if root_ch.type == 'VALUE':
+        if channel_type == 'VALUE':
             #col.prop(multiplier.inputs[3], 'default_value', text='Value')
             #col.prop(multiplier.inputs[4], 'default_value', text='Alpha')
             col.prop(modifier, 'multiplier_r_val', text='Value')
@@ -777,7 +797,7 @@ class YTexModifierSpecialMenu(bpy.types.Menu):
         return hasattr(context, 'parent') and get_active_texture_layers_node()
 
     def draw(self, context):
-        self.layout.label(text='Add Channel Modifier')
+        self.layout.label(text='Add Modifier')
         ## List the items
         for mt in modifier_type_items:
             self.layout.operator('node.y_new_texture_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
@@ -920,17 +940,22 @@ def update_multiplier_val_input(self, context):
     tl = self.id_data.tl
     match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'tl\.textures\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1: 
         root_ch = tl.channels[int(match1.group(2))]
+        channel_type = root_ch.type
     elif match2:
         root_ch = tl.channels[int(match2.group(1))]
+        channel_type = root_ch.type
+    elif match3:
+        channel_type = 'RGB'
 
     tree = get_mod_tree(self)
 
     if self.type == 'MULTIPLIER':
         multiplier = tree.nodes.get(self.multiplier)
         multiplier.inputs[3].default_value = self.multiplier_r_val
-        if root_ch.type == 'VALUE':
+        if channel_type == 'VALUE':
             multiplier.inputs[4].default_value = self.multiplier_a_val
         else:
             multiplier.inputs[4].default_value = self.multiplier_g_val
@@ -939,14 +964,6 @@ def update_multiplier_val_input(self, context):
 
         if BLENDER_28_GROUP_INPUT_HACK:
             match_group_input(multiplier)
-            #inp = multiplier.node_tree.nodes.get('Group Input')
-            #if root_ch.type == 'VALUE':
-            #    end = 5
-            #else: end = 7
-            #for i in range(3, end):
-            #    for link in inp.outputs[i].links:
-            #        if link.to_socket.default_value != multiplier.inputs[i].default_value:
-            #            link.to_socket.default_value = multiplier.inputs[i].default_value
 
 def update_rgb2i_col(self, context):
     tree = get_mod_tree(self)
@@ -1106,9 +1123,13 @@ def set_modifiers_tree_per_directions(tree, ch, mod_tree):
                 m.hide = True
 
 def unset_modifiers_tree_per_directions(tree, ch):
-    for d in neighbor_directions:
-        remove_node(tree, ch, 'mod_' + d)
-        remove_node(tree, ch, 'mb_mod_' + d)
+    if ch.normal_map_type != 'FINE_BUMP_MAP' or len(ch.modifiers) == 0:
+        for d in neighbor_directions:
+            remove_node(tree, ch, 'mod_' + d)
+
+    if ch.mask_bump_type != 'FINE_BUMP_MAP' or len(ch.modifiers) == 0:
+        for d in neighbor_directions:
+            remove_node(tree, ch, 'mb_mod_' + d)
 
 def enable_modifiers_tree(ch, rearrange = True):
     
@@ -1120,7 +1141,8 @@ def enable_modifiers_tree(ch, rearrange = True):
     tex = tl.textures[int(m.group(1))]
     root_ch = tl.channels[int(m.group(2))]
 
-    if tex.type == 'VCOL': return
+    if tex.type == 'VCOL' or len(ch.modifiers) == 0:
+        return None
 
     tex_tree = get_tree(tex)
 
@@ -1130,9 +1152,6 @@ def enable_modifiers_tree(ch, rearrange = True):
         mod_tree = mod_group.node_tree
         set_modifiers_tree_per_directions(tex_tree, ch, mod_tree)
         return mod_tree
-
-    if len(ch.modifiers) == 0:
-        return None
 
     mod_tree = bpy.data.node_groups.new('~TL Modifiers ' + root_ch.name + ' ' + tex.name, 'ShaderNodeTree')
 
@@ -1153,7 +1172,11 @@ def enable_modifiers_tree(ch, rearrange = True):
     for mod in ch.modifiers:
         add_modifier_nodes(mod, mod_tree, tex_tree)
 
+    # Set modfier nodes per direction
     set_modifiers_tree_per_directions(tex_tree, ch, mod_tree)
+
+    # Remove modifier pipeline
+    unset_modifier_pipeline_nodes(tex_tree, ch)
 
     if rearrange:
         rearrange_tex_nodes(tex)
@@ -1173,6 +1196,7 @@ def disable_modifiers_tree(ch, rearrange=True):
 
     if tex.type == 'VCOL': return
 
+    # Remove modifier nodes per direction
     unset_modifiers_tree_per_directions(tex_tree, ch)
 
     # Check if fine bump map is still used
@@ -1206,7 +1230,8 @@ def disable_modifiers_tree(ch, rearrange=True):
     bpy.data.node_groups.remove(mod_group.node_tree)
     remove_node(tex_tree, ch, 'mod_group')
 
-    unset_modifiers_tree_per_directions(tex_tree, ch)
+    # Set back modifier pipeline
+    set_modifier_pipeline_nodes(tex_tree, ch)
 
     if rearrange:
         reconnect_between_modifier_nodes(ch)

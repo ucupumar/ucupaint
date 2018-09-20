@@ -114,18 +114,18 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
         start_normal_filter.node_tree = lib.get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
 
-    start_entry = new_node(group_tree, channel, 'start_entry', 'NodeReroute', 'Start Entry')
-    end_entry = new_node(group_tree, channel, 'end_entry', 'NodeReroute', 'End Entry')
+    #start_entry = new_node(group_tree, channel, 'start_entry', 'NodeReroute', 'Start Entry')
+    #end_entry = new_node(group_tree, channel, 'end_entry', 'NodeReroute', 'End Entry')
 
-    if channel.type == 'RGB':
-        start_alpha_entry = new_node(group_tree, channel, 'start_alpha_entry', 'NodeReroute', 'Start Alpha Entry')
-        end_alpha_entry = new_node(group_tree, channel, 'end_alpha_entry', 'NodeReroute', 'End Alpha Entry')
+    #if channel.type == 'RGB':
+    #    start_alpha_entry = new_node(group_tree, channel, 'start_alpha_entry', 'NodeReroute', 'Start Alpha Entry')
+    #    end_alpha_entry = new_node(group_tree, channel, 'end_alpha_entry', 'NodeReroute', 'End Alpha Entry')
 
     # Modifier pipeline
-    start_rgb = new_node(group_tree, channel, 'start_rgb', 'NodeReroute', 'Start RGB')
-    start_alpha = new_node(group_tree, channel, 'start_alpha', 'NodeReroute', 'Start Alpha')
-    end_rgb = new_node(group_tree, channel, 'end_rgb', 'NodeReroute', 'End RGB')
-    end_alpha = new_node(group_tree, channel, 'end_alpha', 'NodeReroute', 'End Alpha')
+    #start_rgb = new_node(group_tree, channel, 'start_rgb', 'NodeReroute', 'Start RGB')
+    #start_alpha = new_node(group_tree, channel, 'start_alpha', 'NodeReroute', 'Start Alpha')
+    #end_rgb = new_node(group_tree, channel, 'end_rgb', 'NodeReroute', 'End RGB')
+    #end_alpha = new_node(group_tree, channel, 'end_alpha', 'NodeReroute', 'End Alpha')
 
     # Link between textures
     for i, t in reversed(list(enumerate(tl.textures))):
@@ -184,7 +184,7 @@ def create_new_group_tree(mat):
 
     # Link start and end node then rearrange the nodes
     #create_tl_channel_nodes(group_tree, channel, 0)
-    reconnect_tl_channel_nodes(group_tree)
+    reconnect_tl_nodes(group_tree)
 
     # Add ui for this tree
     #add_ui(group_tree.tl)
@@ -215,8 +215,8 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
 
     # Link new channel
     create_tl_channel_nodes(group_tree, channel, last_index)
-    reconnect_tl_channel_nodes(group_tree, last_index)
-    reconnect_tl_tex_nodes(group_tree, last_index)
+    reconnect_tl_nodes(group_tree, last_index)
+    #reconnect_tl_tex_nodes(group_tree, last_index)
 
     for tex in tl.textures:
         # New channel is disabled in texture by default
@@ -920,12 +920,12 @@ class YRemoveTLChannel(bpy.types.Operator):
             t.channels.remove(channel_idx)
 
         # Remove start and end nodes
-        remove_node(group_tree, channel, 'start_entry')
-        remove_node(group_tree, channel, 'end_entry')
+        #remove_node(group_tree, channel, 'start_entry')
+        #remove_node(group_tree, channel, 'end_entry')
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
-        remove_node(group_tree, channel, 'start_alpha_entry')
-        remove_node(group_tree, channel, 'end_alpha_entry')
+        #remove_node(group_tree, channel, 'start_alpha_entry')
+        #remove_node(group_tree, channel, 'end_alpha_entry')
         remove_node(group_tree, channel, 'start_normal_filter')
 
         # Remove channel modifiers
@@ -1125,6 +1125,8 @@ class YFixMissingData(bpy.types.Operator):
         return {'FINISHED'}
 
 def update_channel_name(self, context):
+    T = time.time()
+
     group_tree = self.id_data
     tl = group_tree.tl
 
@@ -1148,11 +1150,11 @@ def update_channel_name(self, context):
                     tree.inputs[self.io_index+1].name = self.name + ' Alpha'
                     tree.outputs[self.io_index+1].name = self.name + ' Alpha'
 
-            for i, ch in enumerate(tex.channels):
-                if tl.channels[i] == self:
-                    refresh_tex_channel_frame(self, ch, tree.nodes)
+            rearrange_tex_frame_nodes(tex, tree)
         
-        refresh_tl_channel_frame(self, group_tree.nodes)
+        rearrange_tl_frame_nodes(tl)
+
+    print('INFO: Channel renamed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_preview_mode(self, context):
     try:
@@ -1391,24 +1393,24 @@ def update_channel_alpha(self, context):
     inputs = group_tree.inputs
     outputs = group_tree.outputs
 
-    start_alpha_entry = nodes.get(self.start_alpha_entry)
-    end_alpha_entry = nodes.get(self.end_alpha_entry)
-    if not start_alpha_entry: return
+    #start_alpha_entry = nodes.get(self.start_alpha_entry)
+    #end_alpha_entry = nodes.get(self.end_alpha_entry)
+    #if not start_alpha_entry: return
 
-    start = nodes.get(tl.start)
-    end = nodes.get(tl.end)
-    end_alpha = nodes.get(self.end_alpha)
+    #start = nodes.get(tl.start)
+    #end = nodes.get(tl.end)
+    #end_alpha = nodes.get(self.end_alpha)
 
-    alpha_io_found = False
-    for out in start.outputs:
-        for link in out.links:
-            if link.to_socket == start_alpha_entry.inputs[0]:
-                alpha_io_found = True
-                break
-        if alpha_io_found: break
+    #alpha_io_found = False
+    #for out in start.outputs:
+    #    for link in out.links:
+    #        if link.to_socket == start_alpha_entry.inputs[0]:
+    #            alpha_io_found = True
+    #            break
+    #    if alpha_io_found: break
     
     # Create alpha IO
-    if self.alpha and not alpha_io_found:
+    if self.alpha: #and not alpha_io_found:
 
         # Set material to use alpha blend
         if hasattr(mat, 'blend_method'): # Blender 2.8
@@ -1431,8 +1433,11 @@ def update_channel_alpha(self, context):
         inputs.move(last_index, alpha_index)
         outputs.move(last_index, alpha_index)
 
-        links.new(start.outputs[alpha_index], start_alpha_entry.inputs[0])
-        links.new(end_alpha.outputs[0], end.inputs[alpha_index])
+        #links.new(start.outputs[alpha_index], start_alpha_entry.inputs[0])
+        #if end_alpha:
+        #    links.new(end_alpha.outputs[0], end.inputs[alpha_index])
+        #elif end_alpha_entry:
+        #    links.new(end_alpha_entry.outputs[0], end.inputs[alpha_index])
 
         # Set node default_value
         node = get_active_texture_layers_node()
@@ -1482,12 +1487,13 @@ def update_channel_alpha(self, context):
         self.ori_alpha_to.clear()
 
         # Reconnect link between textures
-        reconnect_tl_tex_nodes(group_tree)
+        #reconnect_tl_tex_nodes(group_tree)
+        reconnect_tl_nodes(group_tree, mod_reconnect=True)
 
         tl.refresh_tree = True
 
     # Remove alpha IO
-    elif not self.alpha and alpha_io_found:
+    elif not self.alpha: #and alpha_io_found:
 
         # Set material to use opaque
         if hasattr(mat, 'blend_method'): # Blender 2.8
@@ -1517,8 +1523,8 @@ def update_channel_alpha(self, context):
         outputs.remove(outputs[self.io_index+1])
 
         # Relink inside tree
-        solid_alpha = nodes.get(tl.solid_alpha)
-        links.new(solid_alpha.outputs[0], start_alpha_entry.inputs[0])
+        #solid_alpha = nodes.get(tl.solid_alpha)
+        #links.new(solid_alpha.outputs[0], start_alpha_entry.inputs[0])
 
         # Shift other IO index
         for ch in tl.channels:
@@ -1539,7 +1545,8 @@ def update_channel_alpha(self, context):
                     rearrange_tex_nodes(tex)
 
         # Reconnect solid alpha to end alpha
-        links.new(start_alpha_entry.outputs[0], end_alpha_entry.inputs[0])
+        #links.new(start_alpha_entry.outputs[0], end_alpha_entry.inputs[0])
+        reconnect_tl_nodes(group_tree, mod_reconnect=True)
 
         tl.refresh_tree = True
 
@@ -1638,12 +1645,12 @@ class YRootChannel(bpy.types.PropertyGroup):
 
     # Node names
     start_linear = StringProperty(default='')
-    start_entry = StringProperty(default='')
-    start_alpha_entry = StringProperty(default='')
+    #start_entry = StringProperty(default='')
+    #start_alpha_entry = StringProperty(default='')
     start_normal_filter = StringProperty(default='')
 
-    end_entry = StringProperty(default='')
-    end_alpha_entry = StringProperty(default='')
+    #end_entry = StringProperty(default='')
+    #end_alpha_entry = StringProperty(default='')
     end_linear = StringProperty(default='')
 
     start_frame = StringProperty(default='')
