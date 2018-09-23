@@ -41,33 +41,6 @@ can_be_expanded = {
         'MULTIPLIER',
         }
 
-def remove_modifier_start_end_nodes(m, tree):
-
-    start_rgb = tree.nodes.get(m.start_rgb)
-    start_alpha = tree.nodes.get(m.start_alpha)
-    end_rgb = tree.nodes.get(m.end_rgb)
-    end_alpha = tree.nodes.get(m.end_alpha)
-    frame = tree.nodes.get(m.frame)
-
-    tree.nodes.remove(start_rgb)
-    tree.nodes.remove(start_alpha)
-    tree.nodes.remove(end_rgb)
-    tree.nodes.remove(end_alpha)
-    tree.nodes.remove(frame)
-
-def set_modifier_pipeline_nodes(tree, parent):
-    if len(parent.modifiers) > 0:
-        check_new_node(tree, parent, 'start_rgb', 'NodeReroute', 'Start RGB')
-        check_new_node(tree, parent, 'start_alpha', 'NodeReroute', 'Start Alpha')
-        check_new_node(tree, parent, 'end_rgb', 'NodeReroute', 'End RGB')
-        check_new_node(tree, parent, 'end_alpha', 'NodeReroute', 'End Alpha')
-
-def unset_modifier_pipeline_nodes(tree, parent):
-    remove_node(tree, parent, 'start_rgb')
-    remove_node(tree, parent, 'start_alpha')
-    remove_node(tree, parent, 'end_rgb')
-    remove_node(tree, parent, 'end_alpha')
-
 def add_modifier_nodes(m, tree, ref_tree=None):
 
     tl = m.id_data.tl
@@ -99,24 +72,20 @@ def add_modifier_nodes(m, tree, ref_tree=None):
     else: return None
 
     # Remove previous start and end if ref tree is passed
-    if ref_tree:
-        remove_modifier_start_end_nodes(m, ref_tree)
+    #if ref_tree:
+    #    remove_modifier_start_end_nodes(m, ref_tree)
 
     # Create new pipeline nodes
-    start_rgb = new_node(tree, m, 'start_rgb', 'NodeReroute', 'Start RGB')
-    end_rgb = new_node(tree, m, 'end_rgb', 'NodeReroute', 'End RGB')
-    start_alpha = new_node(tree, m, 'start_alpha', 'NodeReroute', 'Start Alpha')
-    end_alpha = new_node(tree, m, 'end_alpha', 'NodeReroute', 'End Alpha')
+    #start_rgb = new_node(tree, m, 'start_rgb', 'NodeReroute', 'Start RGB')
+    #end_rgb = new_node(tree, m, 'end_rgb', 'NodeReroute', 'End RGB')
+    #start_alpha = new_node(tree, m, 'start_alpha', 'NodeReroute', 'Start Alpha')
+    #end_alpha = new_node(tree, m, 'end_alpha', 'NodeReroute', 'End Alpha')
     frame = new_node(tree, m, 'frame', 'NodeFrame')
 
-    start_rgb.parent = frame
-    start_alpha.parent = frame
-    end_rgb.parent = frame
-    end_alpha.parent = frame
-
-    # Link new nodes
-    links.new(start_rgb.outputs[0], end_rgb.inputs[0])
-    links.new(start_alpha.outputs[0], end_alpha.inputs[0])
+    #start_rgb.parent = frame
+    #start_alpha.parent = frame
+    #end_rgb.parent = frame
+    #end_alpha.parent = frame
 
     # Create the nodes
     if m.type == 'INVERT':
@@ -136,12 +105,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
             if BLENDER_28_GROUP_INPUT_HACK:
                 duplicate_lib_node_tree(invert)
-
-        links.new(start_rgb.outputs[0], invert.inputs[0])
-        links.new(invert.outputs[0], end_rgb.inputs[0])
-
-        links.new(start_alpha.outputs[0], invert.inputs[1])
-        links.new(invert.outputs[1], end_alpha.inputs[0])
 
         frame.label = 'Invert'
         invert.parent = frame
@@ -165,12 +128,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             if channel_type == 'RGB':
                 m.rgb2i_col = (1.0, 0.0, 1.0, 1.0)
         
-        links.new(start_rgb.outputs[0], rgb2i.inputs[0])
-        links.new(start_alpha.outputs[0], rgb2i.inputs[1])
-
-        links.new(rgb2i.outputs[0], end_rgb.inputs[0])
-        links.new(rgb2i.outputs[1], end_alpha.inputs[0])
-
         if non_color:
             rgb2i.inputs['Gamma'].default_value = 1.0
         else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
@@ -196,12 +153,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
             if BLENDER_28_GROUP_INPUT_HACK:
                 duplicate_lib_node_tree(i2rgb)
-
-        links.new(start_rgb.outputs[0], i2rgb.inputs[0])
-        links.new(start_alpha.outputs[0], i2rgb.inputs[1])
-
-        links.new(i2rgb.outputs[0], end_rgb.inputs[0])
-        links.new(i2rgb.outputs[1], end_alpha.inputs[0])
 
         #if non_color:
         #    i2rgb.inputs['Gamma'].default_value = 1.0
@@ -234,12 +185,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             elif channel_type == 'NORMAL':
                 m.oc_use_normal_base = True
         
-        links.new(start_rgb.outputs[0], oc.inputs[0])
-        links.new(start_alpha.outputs[0], oc.inputs[1])
-
-        links.new(oc.outputs[0], end_rgb.inputs[0])
-        links.new(oc.outputs[1], end_alpha.inputs[0])
-
         if non_color:
             oc.inputs['Gamma'].default_value = 1.0
         else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
@@ -286,28 +231,12 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
             color_ramp_mix_rgb.inputs[0].default_value = 1.0
 
-            #if root_ch.colorspace == 'SRGB':
             if non_color:
                 color_ramp_linear.inputs[1].default_value = 1.0
             else: color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
 
             # Set default color
             color_ramp.color_ramp.elements[0].color = (0,0,0,0)
-
-        links.new(start_rgb.outputs[0], color_ramp_alpha_multiply.inputs[1])
-        links.new(start_alpha.outputs[0], color_ramp_alpha_multiply.inputs[2])
-        links.new(color_ramp_alpha_multiply.outputs[0], color_ramp.inputs[0])
-        #links.new(start_rgb.outputs[0], color_ramp.inputs[0])
-        #links.new(color_ramp.outputs[0], end_rgb.inputs[0])
-        links.new(start_rgb.outputs[0], color_ramp_mix_rgb.inputs[1])
-        #links.new(color_ramp.outputs[0], color_ramp_mix_rgb.inputs[2])
-        links.new(color_ramp.outputs[0], color_ramp_linear.inputs[0])
-        links.new(color_ramp_linear.outputs[0], color_ramp_mix_rgb.inputs[2])
-        links.new(color_ramp_mix_rgb.outputs[0], end_rgb.inputs[0])
-
-        links.new(start_alpha.outputs[0], color_ramp_mix_alpha.inputs[1])
-        links.new(color_ramp.outputs[1], color_ramp_mix_alpha.inputs[2])
-        links.new(color_ramp_mix_alpha.outputs[0], end_alpha.inputs[0])
 
         frame.label = 'Color Ramp'
         color_ramp.parent = frame
@@ -327,9 +256,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             copy_node_props(rgb_curve_ref, rgb_curve)
             ref_tree.nodes.remove(rgb_curve_ref)
 
-        links.new(start_rgb.outputs[0], rgb_curve.inputs[1])
-        links.new(rgb_curve.outputs[0], end_rgb.inputs[0])
-
         frame.label = 'RGB Curve'
         rgb_curve.parent = frame
 
@@ -344,9 +270,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             copy_node_props(huesat_ref, huesat)
             ref_tree.nodes.remove(huesat_ref)
 
-        links.new(start_rgb.outputs[0], huesat.inputs[4])
-        links.new(huesat.outputs[0], end_rgb.inputs[0])
-
         frame.label = 'Hue Saturation Value'
         huesat.parent = frame
 
@@ -360,9 +283,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         if ref_tree:
             copy_node_props(brightcon_ref, brightcon)
             ref_tree.nodes.remove(brightcon_ref)
-
-        links.new(start_rgb.outputs[0], brightcon.inputs[0])
-        links.new(brightcon.outputs[0], end_rgb.inputs[0])
 
         frame.label = 'Brightness Contrast'
         brightcon.parent = frame
@@ -385,13 +305,13 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             if BLENDER_28_GROUP_INPUT_HACK:
                 duplicate_lib_node_tree(multiplier)
 
-        links.new(start_rgb.outputs[0], multiplier.inputs[0])
-        links.new(start_alpha.outputs[0], multiplier.inputs[1])
-        links.new(multiplier.outputs[0], end_rgb.inputs[0])
-        links.new(multiplier.outputs[1], end_alpha.inputs[0])
-
         frame.label = 'Multiplier'
         multiplier.parent = frame
+
+    #rgb, alpha = reconnect_modifier_nodes(tree, m, start_rgb.outputs[0], start_alpha.outputs[0])
+
+    #create_link(tree, rgb, end_rgb.inputs[0])
+    #create_link(tree, alpha, end_alpha.inputs[0])
 
 def add_new_modifier(parent, modifier_type):
 
@@ -420,8 +340,6 @@ def add_new_modifier(parent, modifier_type):
     m = modifiers[0]
     m.type = modifier_type
     #m.channel_type = root_ch.type
-
-    set_modifier_pipeline_nodes(tree, parent)
 
     add_modifier_nodes(m, tree)
 
@@ -609,7 +527,8 @@ class YMoveTexModifier(bpy.types.Operator):
         parent.modifiers.move(index, new_index)
 
         # Reconnect modifier nodes
-        reconnect_between_modifier_nodes(parent)
+        #reconnect_between_modifier_nodes(parent)
+        reconnect_tex_nodes(tex, mod_reconnect=True)
 
         # Rearrange nodes
         if tex: rearrange_tex_nodes(tex)
@@ -664,10 +583,10 @@ class YRemoveTexModifier(bpy.types.Operator):
         parent.modifiers.remove(index)
 
         # Delete modifier pipeline if no modifier left
-        if len(parent.modifiers) == 0:
-            unset_modifier_pipeline_nodes(tree, parent)
+        #if len(parent.modifiers) == 0:
+        #    unset_modifier_pipeline_nodes(tree, parent)
 
-        if tex and len(parent.modifiers) == 0:
+        if tex: # and len(parent.modifiers) == 0:
             disable_modifiers_tree(parent, False)
             reconnect_tex_nodes(tex, mod_reconnect=True)
         else:
@@ -1110,7 +1029,7 @@ def set_modifiers_tree_per_directions(tree, ch, mod_tree):
         for d in neighbor_directions:
             m = tree.nodes.get(getattr(ch, 'mod_' + d))
             if not m:
-                m = new_node(tree, ch, 'mod_' + d, 'ShaderNodeGroup', 'mod ' + d)
+                m = new_node(tree, ch, 'mod_' + d, 'ShaderNodeGroup', 'mod_' + d)
                 m.node_tree = mod_tree
                 m.hide = True
 
@@ -1118,20 +1037,11 @@ def set_modifiers_tree_per_directions(tree, ch, mod_tree):
         for d in neighbor_directions:
             m = tree.nodes.get(getattr(ch, 'mb_mod_' + d))
             if not m:
-                m = new_node(tree, ch, 'mb_mod_' + d, 'ShaderNodeGroup', 'mb_mod ' + d)
+                m = new_node(tree, ch, 'mb_mod_' + d, 'ShaderNodeGroup', 'mb_mod_' + d)
                 m.node_tree = mod_tree
                 m.hide = True
 
-def unset_modifiers_tree_per_directions(tree, ch):
-    if ch.normal_map_type != 'FINE_BUMP_MAP' or len(ch.modifiers) == 0:
-        for d in neighbor_directions:
-            remove_node(tree, ch, 'mod_' + d)
-
-    if ch.mask_bump_type != 'FINE_BUMP_MAP' or len(ch.modifiers) == 0:
-        for d in neighbor_directions:
-            remove_node(tree, ch, 'mb_mod_' + d)
-
-def enable_modifiers_tree(ch, rearrange = True):
+def enable_modifiers_tree(ch, rearrange = False):
     
     group_tree = ch.id_data
     tl = group_tree.tl
@@ -1148,10 +1058,7 @@ def enable_modifiers_tree(ch, rearrange = True):
 
     # Check if modifier tree already available
     if ch.mod_group != '': 
-        mod_group = tex_tree.nodes.get(ch.mod_group)
-        mod_tree = mod_group.node_tree
-        set_modifiers_tree_per_directions(tex_tree, ch, mod_tree)
-        return mod_tree
+        return 
 
     mod_tree = bpy.data.node_groups.new('~TL Modifiers ' + root_ch.name + ' ' + tex.name, 'ShaderNodeTree')
 
@@ -1166,25 +1073,30 @@ def enable_modifiers_tree(ch, rearrange = True):
     mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
     mod_tree_end.name = TREE_END
 
-    mod_group = new_node(tex_tree, ch, 'mod_group', 'ShaderNodeGroup', tex.name + ' ' + ch.name + ' Modifiers')
+    #mod_group = new_node(tex_tree, ch, 'mod_group', 'ShaderNodeGroup', tex.name + ' ' + ch.name + ' Modifiers')
+    mod_group = new_node(tex_tree, ch, 'mod_group', 'ShaderNodeGroup', 'mod_group')
+    mod_n = new_node(tex_tree, ch, 'mod_n', 'ShaderNodeGroup', 'mod_n')
+    mod_s = new_node(tex_tree, ch, 'mod_s', 'ShaderNodeGroup', 'mod_s')
+    mod_e = new_node(tex_tree, ch, 'mod_e', 'ShaderNodeGroup', 'mod_e')
+    mod_w = new_node(tex_tree, ch, 'mod_w', 'ShaderNodeGroup', 'mod_w')
+
     mod_group.node_tree = mod_tree
+    mod_n.node_tree = mod_tree
+    mod_s.node_tree = mod_tree
+    mod_e.node_tree = mod_tree
+    mod_w.node_tree = mod_tree
 
     for mod in ch.modifiers:
         add_modifier_nodes(mod, mod_tree, tex_tree)
 
-    # Set modfier nodes per direction
-    set_modifiers_tree_per_directions(tex_tree, ch, mod_tree)
-
-    # Remove modifier pipeline
-    unset_modifier_pipeline_nodes(tex_tree, ch)
-
     if rearrange:
+        #reconnect_between_modifier_nodes(ch)
         rearrange_tex_nodes(tex)
-        reconnect_between_modifier_nodes(ch)
+        reconnect_tex_nodes(tex, mod_reconnect=True)
 
     return mod_tree
 
-def disable_modifiers_tree(ch, rearrange=True):
+def disable_modifiers_tree(ch, rearrange=False):
     group_tree = ch.id_data
     tl = group_tree.tl
 
@@ -1196,12 +1108,9 @@ def disable_modifiers_tree(ch, rearrange=True):
 
     if tex.type == 'VCOL': return
 
-    # Remove modifier nodes per direction
-    unset_modifiers_tree_per_directions(tex_tree, ch)
-
     # Check if fine bump map is still used
-    if len(ch.modifiers) > 0 and tl.channels[ch_index].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP' 
-            or ch.mask_bump_type == 'FINE_BUMP_MAP'):
+    if len(ch.modifiers) > 0 and tl.channels[ch_index].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP'
+            or (ch.enable_mask_bump and ch.mask_bump_type == 'FINE_BUMP_MAP')):
         return
 
     # Check if channel use blur
@@ -1214,28 +1123,21 @@ def disable_modifiers_tree(ch, rearrange=True):
     # Get modifier group
     mod_group = tex_tree.nodes.get(ch.mod_group)
 
-    # Check if texture channels has fine bump
-    #fine_bump_found = False
-    #for i, ch in enumerate(tex.channels):
-    #    if tl.channels[i].type == 'NORMAL' and ch.normal_map_type == 'FINE_BUMP_MAP':
-    #        fine_bump_found = True
-
-    #if fine_bump_found: return
-
     # Add new copied modifier nodes on texture tree
     for mod in ch.modifiers:
         add_modifier_nodes(mod, tex_tree, mod_group.node_tree)
 
     # Remove modifier tree
-    bpy.data.node_groups.remove(mod_group.node_tree)
     remove_node(tex_tree, ch, 'mod_group')
-
-    # Set back modifier pipeline
-    set_modifier_pipeline_nodes(tex_tree, ch)
+    remove_node(tex_tree, ch, 'mod_n')
+    remove_node(tex_tree, ch, 'mod_s')
+    remove_node(tex_tree, ch, 'mod_e')
+    remove_node(tex_tree, ch, 'mod_w')
 
     if rearrange:
-        reconnect_between_modifier_nodes(ch)
+        #reconnect_between_modifier_nodes(ch)
         rearrange_tex_nodes(tex)
+        reconnect_tex_nodes(tex, mod_reconnect=True)
 
 def register():
     bpy.utils.register_class(YNewTexModifier)

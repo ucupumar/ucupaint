@@ -1068,23 +1068,15 @@ def update_normal_map_type(self, context):
     # Bump nodes
     bump_base = nodes.get(self.bump_base)
     bump = nodes.get(self.bump)
-    #intensity_multiplier = nodes.get(self.intensity_multiplier)
 
     # Fine bump nodes
-    neighbor_uv = nodes.get(self.neighbor_uv)
     fine_bump = nodes.get(self.fine_bump)
 
     # Get fine bump sources
-    sources = []
-    #mod_groups = []
     bump_bases = []
     neighbor_directions = ['n', 's', 'e', 'w']
     for d in neighbor_directions:
-        s = nodes.get(getattr(self, 'source_' + d))
-        m = nodes.get(getattr(self, 'mod_' + d))
         b = nodes.get(getattr(self, 'bump_base_' + d))
-        sources.append(s)
-        #mod_groups.append(m)
         bump_bases.append(b)
 
     # Common nodes
@@ -1112,37 +1104,8 @@ def update_normal_map_type(self, context):
     elif self.normal_map_type == 'FINE_BUMP_MAP':
 
         # Make sure to enable source tree and modifier tree
-        enable_tex_source_tree(tex)
-        Modifier.enable_modifiers_tree(self, True)
-        #mod_tree = Modifier.enable_modifiers_tree(self, False)
-        #mod_tree = get_mod_tree(self)
-
-        # Get the original source
-        source = get_tex_source(tex, tree)
-
-        if not neighbor_uv:
-            neighbor_uv = new_node(tree, self, 'neighbor_uv', 'ShaderNodeGroup', 'Neighbor UV')
-            #neighbor_uv.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_UV)
-            neighbor_uv.node_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
-
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(neighbor_uv)
-
-        if tex.type == 'IMAGE' and source.image:
-            neighbor_uv.inputs[1].default_value = source.image.size[0]
-            neighbor_uv.inputs[2].default_value = source.image.size[1]
-        else:
-            neighbor_uv.inputs[1].default_value = 1000
-            neighbor_uv.inputs[2].default_value = 1000
-
-        #neighbor_uv.inputs['Space'].default_value = get_neighbor_uv_space_input(tex.texcoord_type)
-
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(neighbor_uv, 'ResX')
-            match_group_input(neighbor_uv, 'ResY')
-            #inp = neighbor_uv.node_tree.nodes.get('Group Input')
-            #inp.outputs['ResX'].links[0].to_socket.default_value = neighbor_uv.inputs['ResX'].default_value
-            #inp.outputs['ResY'].links[0].to_socket.default_value = neighbor_uv.inputs['ResY'].default_value
+        enable_tex_source_tree(tex, False)
+        Modifier.enable_modifiers_tree(self, False)
 
         if not fine_bump:
             fine_bump = new_node(tree, self, 'fine_bump', 'ShaderNodeGroup', 'Fine Bump')
@@ -1152,26 +1115,10 @@ def update_normal_map_type(self, context):
             if BLENDER_28_GROUP_INPUT_HACK:
                 duplicate_lib_node_tree(fine_bump)
 
-        for i, s in enumerate(sources):
-            if not s:
-                s = new_node(tree, self, 'source_' + neighbor_directions[i], 'ShaderNodeGroup', 
-                        'source ' + neighbor_directions[i])
-                s.node_tree = get_source_tree(tex, tree)
-                s.hide = True
-
-        #if mod_tree:
-        #    for i, m in enumerate(mod_groups):
-        #        if not m:
-        #            m = new_node(tree, self, 'mod_' + neighbor_directions[i], 'ShaderNodeGroup', 
-        #                    'mod ' + neighbor_directions[i])
-        #            m.node_tree = mod_tree
-        #            m.hide = True
-
         for i, b in enumerate(bump_bases):
             if not b:
                 b = new_node(tree, self, 'bump_base_' + neighbor_directions[i], 'ShaderNodeMixRGB', 
                         'bump base ' + neighbor_directions[i])
-                #copy_node_props(bump_base, b, ['parent'])
                 val = self.bump_base_value
                 vals = (val, val, val, 1.0)
                 b.inputs[1].default_value = vals
@@ -1188,23 +1135,12 @@ def update_normal_map_type(self, context):
 
     # Remove fine bump nodes
     if self.normal_map_type != 'FINE_BUMP_MAP':
-        remove_node(tree, self, 'neighbor_uv')
         remove_node(tree, self, 'fine_bump')
-        
         for d in neighbor_directions:
-            remove_node(tree, self, 'source_' + d)
-            remove_node(tree, self, 'mod_' + d)
             remove_node(tree, self, 'bump_base_' + d)
 
-    ## Remove bump base
-    #if self.normal_map_type not in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
-    #    remove_node(tree, self, 'bump_base')
-    #    #remove_node(tree, self, 'intensity_multiplier')
-
-    # Try to remove source tree
-    if self.normal_map_type in {'NORMAL_MAP', 'BUMP_MAP'}:
-        disable_tex_source_tree(tex)
-        Modifier.disable_modifiers_tree(self, True)
+        disable_tex_source_tree(tex, False)
+        Modifier.disable_modifiers_tree(self, False)
 
     # Create normal flip node
     if not normal_flip:
@@ -1221,7 +1157,8 @@ def update_normal_map_type(self, context):
                 mod.oc_col = (val, val, val, 1.0)
 
     rearrange_tex_nodes(tex)
-    reconnect_tex_nodes(tex, ch_index)
+    #reconnect_tex_nodes(tex, ch_index)
+    reconnect_tex_nodes(tex)
 
 def update_blend_type_(root_ch, tex, ch):
     need_reconnect = False
@@ -1775,9 +1712,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     modifiers = CollectionProperty(type=Modifier.YTextureModifier)
     mirror_modifiers = CollectionProperty(type=Modifier.YTextureModifier)
 
-    # For some occasion, modifiers are stored in a tree
-    mod_group = StringProperty(default='')
-
     # Blur
     #enable_blur = BoolProperty(default=False, update=Blur.update_tex_channel_blur)
     #blur = PointerProperty(type=Blur.YTextureBlur)
@@ -1823,6 +1757,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     source_e = StringProperty(default='')
     source_w = StringProperty(default='')
 
+    # For some occasion, modifiers are stored in a tree
+    mod_group = StringProperty(default='')
     mod_n = StringProperty(default='')
     mod_s = StringProperty(default='')
     mod_e = StringProperty(default='')
@@ -1969,13 +1905,20 @@ class YTextureLayer(bpy.types.PropertyGroup):
 
     # Sources
     source = StringProperty(default='')
+    source_n = StringProperty(default='')
+    source_s = StringProperty(default='')
+    source_e = StringProperty(default='')
+    source_w = StringProperty(default='')
     source_group = StringProperty(default='')
 
-    # Node names
+    # UV
+    uv_neighbor = StringProperty(default='')
+    uv_attr = StringProperty(default='')
+
+    # Other Vectors
     solid_alpha = StringProperty(default='')
     texcoord = StringProperty(default='')
     #uv_map = StringProperty(default='')
-    uv_attr = StringProperty(default='')
     tangent = StringProperty(default='')
     hacky_tangent = StringProperty(default='')
     bitangent = StringProperty(default='')

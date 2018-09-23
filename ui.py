@@ -701,9 +701,9 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
         if root_ch.type == 'NORMAL':
 
             if ch.normal_map_type == 'FINE_BUMP_MAP' and image:
-                neighbor_uv = tex_tree.nodes.get(ch.neighbor_uv)
-                cur_x = neighbor_uv.inputs[1].default_value 
-                cur_y = neighbor_uv.inputs[1].default_value 
+                uv_neighbor = tex_tree.nodes.get(tex.uv_neighbor)
+                cur_x = uv_neighbor.inputs[1].default_value 
+                cur_y = uv_neighbor.inputs[1].default_value 
                 if cur_x != image.size[0] or cur_y != image.size[1]:
                     brow = mcol.row(align=True)
                     brow.alert = True
@@ -1068,15 +1068,15 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
                 rbox.prop(mask_source.texture_mapping, 'scale')
 
         # Hardness row
-        if mask.enable_hardness:
-            rrow = rrcol.row(align=True)
-            rrow.label(text='', icon='MODIFIER')
-            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                splits = rrow.split(percentage=0.4)
-            else: splits = rrow.split(factor=0.4)
-            #splits = rrow.split(percentage=0.4)
-            splits.label(text='Hardness:')
-            splits.prop(mask, 'hardness_value', text='')
+        #if mask.enable_hardness:
+        #    rrow = rrcol.row(align=True)
+        #    rrow.label(text='', icon='MODIFIER')
+        #    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+        #        splits = rrow.split(percentage=0.4)
+        #    else: splits = rrow.split(factor=0.4)
+        #    #splits = rrow.split(percentage=0.4)
+        #    splits.label(text='Hardness:')
+        #    splits.prop(mask, 'hardness_value', text='')
 
         # Mask Channels row
         rrow = rrcol.row(align=True)
@@ -1712,7 +1712,7 @@ class YTexMaskMenuSpecial(bpy.types.Menu):
             source = mask_tree.nodes.get(mask.source)
             col.context_pointer_set('image', source.image)
             col.operator('node.y_invert_image', text='Invert Image', icon='IMAGE_ALPHA')
-        col.prop(mask, 'enable_hardness', text='Hardness')
+        #col.prop(mask, 'enable_hardness', text='Hardness')
         col.separator()
         col.operator('node.y_remove_texture_mask', text='Remove Mask', icon='ZOOMOUT')
 

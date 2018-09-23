@@ -35,11 +35,13 @@ def get_mod_y_offsets(mod, is_value=False):
         return value_mod_y_offsets[mod.type]
     return mod_y_offsets[mod.type]
 
-def check_set_node_loc(tree, node_name, loc):
+def check_set_node_loc(tree, node_name, loc, hide=False):
     node = tree.nodes.get(node_name)
     if node:
         if node.location != loc:
             node.location = loc
+        if node.hide != hide:
+            node.hide = hide
         return True
     return False
 
@@ -159,8 +161,11 @@ def rearrange_tex_frame_nodes(tex, tree=None):
 
             # Modifiers
             if ch.mod_group != '':
-                mod_group = tree.nodes.get(ch.mod_group)
                 check_set_node_parent(tree, ch.mod_group, frame)
+                check_set_node_parent(tree, ch.mod_n, frame)
+                check_set_node_parent(tree, ch.mod_s, frame)
+                check_set_node_parent(tree, ch.mod_e, frame)
+                check_set_node_parent(tree, ch.mod_w, frame)
             else:
                 for mod in ch.modifiers:
                     check_set_node_parent(tree, mod.frame, frame)
@@ -180,14 +185,6 @@ def rearrange_tex_frame_nodes(tex, tree=None):
 
             check_set_node_parent(tree, ch.neighbor_uv, frame)
             check_set_node_parent(tree, ch.fine_bump, frame)
-            check_set_node_parent(tree, ch.source_n, frame)
-            check_set_node_parent(tree, ch.source_s, frame)
-            check_set_node_parent(tree, ch.source_e, frame)
-            check_set_node_parent(tree, ch.source_w, frame)
-            check_set_node_parent(tree, ch.mod_n, frame)
-            check_set_node_parent(tree, ch.mod_s, frame)
-            check_set_node_parent(tree, ch.mod_e, frame)
-            check_set_node_parent(tree, ch.mod_w, frame)
             check_set_node_parent(tree, ch.bump_base_n, frame)
             check_set_node_parent(tree, ch.bump_base_s, frame)
             check_set_node_parent(tree, ch.bump_base_e, frame)
@@ -202,16 +199,26 @@ def rearrange_tex_frame_nodes(tex, tree=None):
 
     # Masks
     for i, mask in enumerate(tex.masks):
-        frame = get_frame(tree, MASK_FRAME_PREFIX, str(i), mask.name)
+        frame = get_frame(tree, '__mask__', str(i), mask.name)
 
         if mask.group_node != '':
             check_set_node_parent(tree, mask.group_node, frame)
         else: check_set_node_parent(tree, mask.source, frame)
 
-        check_set_node_parent(tree, mask.final, frame)
         check_set_node_parent(tree, mask.uv_map, frame)
+        check_set_node_parent(tree, mask.uv_neighbor, frame)
+
+        check_set_node_parent(tree, mask.source_n, frame)
+        check_set_node_parent(tree, mask.source_s, frame)
+        check_set_node_parent(tree, mask.source_e, frame)
+        check_set_node_parent(tree, mask.source_w, frame)
+
         for c in mask.channels:
             check_set_node_parent(tree, c.multiply, frame)
+            check_set_node_parent(tree, c.multiply_n, frame)
+            check_set_node_parent(tree, c.multiply_s, frame)
+            check_set_node_parent(tree, c.multiply_e, frame)
+            check_set_node_parent(tree, c.multiply_w, frame)
 
     clean_unused_frames(tree)
 
@@ -404,9 +411,6 @@ def rearrange_mask_tree_nodes(mask):
     if check_set_node_loc(tree, mask.source, loc):
         loc.x += 180
 
-    if check_set_node_loc(tree, mask.hardness, loc):
-        loc.x += 180
-
     if check_set_node_loc(tree, MASK_TREE_END, loc):
         loc.x += 180
 
@@ -486,18 +490,33 @@ def rearrange_tex_nodes(tex):
     # Back to source nodes
     loc = Vector((0, 0))
 
-    if tex.source_group != '' and check_set_node_loc(tree, tex.source_group, loc):
+    if tex.source_group != '' and check_set_node_loc(tree, tex.source_group, loc, hide=True):
         rearrange_source_tree_nodes(tex)
-        loc.y -= 140
+        loc.y -= 40
 
-    elif check_set_node_loc(tree, tex.source, loc):
+    elif check_set_node_loc(tree, tex.source, loc, hide=False):
         loc.y -= 260
 
-    if check_set_node_loc(tree, tex.solid_alpha, loc):
-        loc.y -= 90
+    if check_set_node_loc(tree, tex.source_n, loc, hide=True):
+        loc.y -= 40
+
+    if check_set_node_loc(tree, tex.source_s, loc, hide=True):
+        loc.y -= 40
+
+    if check_set_node_loc(tree, tex.source_e, loc, hide=True):
+        loc.y -= 40
+
+    if check_set_node_loc(tree, tex.source_w, loc, hide=True):
+        loc.y -= 40
+
+    if check_set_node_loc(tree, tex.uv_neighbor, loc):
+        loc.y -= 230
 
     if check_set_node_loc(tree, tex.uv_attr, loc):
         loc.y -= 140
+
+    if check_set_node_loc(tree, tex.solid_alpha, loc):
+        loc.y -= 90
 
     if check_set_node_loc(tree, tex.texcoord, loc):
         loc.y -= 240
@@ -532,17 +551,17 @@ def rearrange_tex_nodes(tex):
         #offset_y = 0
 
         #if check_set_node_loc(tree, ch.source, loc):
-        #    loc.x += 200.0
+        #    loc.x += 200
 
         if check_set_node_loc(tree, ch.linear, loc):
-            loc.x += 200.0
+            loc.x += 200
 
         # Modifier loop
         if ch.mod_group != '':
             mod_group = nodes.get(ch.mod_group)
             arrange_modifier_nodes(mod_group.node_tree, ch, Vector((0,0)))
-            check_set_node_loc(tree, ch.mod_group, loc)
-            loc.x += 220
+            check_set_node_loc(tree, ch.mod_group, loc, hide=True)
+            loc.y -= 40
         else:
             loc, mod_offset_y = arrange_modifier_nodes(tree, ch, loc, 
                     is_value = root_ch.type == 'VALUE', return_y_offset = True)
@@ -550,59 +569,48 @@ def rearrange_tex_nodes(tex):
             if offset_y < mod_offset_y:
                 offset_y = mod_offset_y
 
+        if check_set_node_loc(tree, ch.mod_n, loc, hide=True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, ch.mod_s, loc, hide=True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, ch.mod_e, loc, hide=True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, ch.mod_w, loc, hide=True):
+            loc.y = bookmark_y
+            loc.x += 160
+
         if check_set_node_loc(tree, ch.bump_base, loc):
-            loc.x += 200.0
+            loc.x += 200
 
         if check_set_node_loc(tree, ch.bump, loc):
-            loc.x += 250.0
+            loc.x += 250
 
         if check_set_node_loc(tree, ch.normal, loc):
-            loc.x += 250.0
+            loc.x += 250
 
-        if check_set_node_loc(tree, ch.neighbor_uv, loc):
-            loc.x += 200.0
+        #if check_set_node_loc(tree, ch.neighbor_uv, loc):
+        #    loc.x += 200
 
-        if check_set_node_loc(tree, ch.source_n, loc):
-            loc.y -= 40.0
+        loc.y -= 40
+        if check_set_node_loc(tree, ch.bump_base_n, loc, hide=True):
+            loc.y -= 40
+        else: loc.y += 40
 
-        if check_set_node_loc(tree, ch.source_s, loc):
-            loc.y -= 40.0
+        if check_set_node_loc(tree, ch.bump_base_s, loc, hide=True):
+            loc.y -= 40
 
-        if check_set_node_loc(tree, ch.source_e, loc):
-            loc.y -= 40.0
+        if check_set_node_loc(tree, ch.bump_base_e, loc, hide=True):
+            loc.y -= 40
 
-        if check_set_node_loc(tree, ch.source_w, loc):
+        if check_set_node_loc(tree, ch.bump_base_w, loc, hide=True):
             loc.y = bookmark_y
-            loc.x += 120.0
-
-        if check_set_node_loc(tree, ch.mod_n, loc):
-            loc.y -= 40.0
-
-        if check_set_node_loc(tree, ch.mod_s, loc):
-            loc.y -= 40.0
-
-        if check_set_node_loc(tree, ch.mod_e, loc):
-            loc.y -= 40.0
-
-        if check_set_node_loc(tree, ch.mod_w, loc):
-            loc.y = bookmark_y
-            loc.x += 120.0
-
-        if check_set_node_loc(tree, ch.bump_base_n, loc):
-            loc.y -= 40.0
-
-        if check_set_node_loc(tree, ch.bump_base_s, loc):
-            loc.y -= 40.0
-
-        if check_set_node_loc(tree, ch.bump_base_e, loc):
-            loc.y -= 40.0
-
-        if check_set_node_loc(tree, ch.bump_base_w, loc):
-            loc.y = bookmark_y
-            loc.x += 150.0
+            loc.x += 120
 
         if check_set_node_loc(tree, ch.fine_bump, loc):
-            loc.x += 250.0
+            loc.x += 250
 
         if loc.x > farthest_x: farthest_x = loc.x
 
@@ -626,42 +634,42 @@ def rearrange_tex_nodes(tex):
     loc.y = 0
     bookmark_x = loc.x
 
-    # Source mask bump
-    for i, ch in enumerate(tex.channels):
+    ## Source mask bump
+    #for i, ch in enumerate(tex.channels):
 
-        loc.x = bookmark_x
-        loc.y = bookmarks_ys[i]
+    #    loc.x = bookmark_x
+    #    loc.y = bookmarks_ys[i]
 
-        if check_set_node_loc(tree, ch.mb_neighbor_uv, loc):
-            loc.x += 200.0
+    #    if check_set_node_loc(tree, ch.mb_neighbor_uv, loc):
+    #        loc.x += 200.0
 
-        if check_set_node_loc(tree, ch.mb_source_n, loc):
-            loc.y -= 40.0
+    #    if check_set_node_loc(tree, ch.mb_source_n, loc):
+    #        loc.y -= 40.0
 
-        if check_set_node_loc(tree, ch.mb_source_s, loc):
-            loc.y -= 40.0
+    #    if check_set_node_loc(tree, ch.mb_source_s, loc):
+    #        loc.y -= 40.0
 
-        if check_set_node_loc(tree, ch.mb_source_e, loc):
-            loc.y -= 40.0
+    #    if check_set_node_loc(tree, ch.mb_source_e, loc):
+    #        loc.y -= 40.0
 
-        if check_set_node_loc(tree, ch.mb_source_w, loc):
-            loc.y = bookmarks_ys[i]
-            loc.x += 120.0
+    #    if check_set_node_loc(tree, ch.mb_source_w, loc):
+    #        loc.y = bookmarks_ys[i]
+    #        loc.x += 120.0
 
-        if check_set_node_loc(tree, ch.mb_mod_n, loc):
-            loc.y -= 40.0
+    #    if check_set_node_loc(tree, ch.mb_mod_n, loc):
+    #        loc.y -= 40.0
 
-        if check_set_node_loc(tree, ch.mb_mod_s, loc):
-            loc.y -= 40.0
+    #    if check_set_node_loc(tree, ch.mb_mod_s, loc):
+    #        loc.y -= 40.0
 
-        if check_set_node_loc(tree, ch.mb_mod_e, loc):
-            loc.y -= 40.0
+    #    if check_set_node_loc(tree, ch.mb_mod_e, loc):
+    #        loc.y -= 40.0
 
-        if check_set_node_loc(tree, ch.mb_mod_w, loc):
-            #loc.y = bookmarks_ys[i]
-            loc.x += 150.0
+    #    if check_set_node_loc(tree, ch.mb_mod_w, loc):
+    #        #loc.y = bookmarks_ys[i]
+    #        loc.x += 150.0
 
-        if loc.x > farthest_x: farthest_x = loc.x
+    #    if loc.x > farthest_x: farthest_x = loc.x
 
     y_step = 200
     y_mid = -(len(tex.channels) * y_step / 2)
@@ -669,44 +677,42 @@ def rearrange_tex_nodes(tex):
     # Masks
     for i, mask in enumerate(tex.masks):
 
-        #loc.y = mid_y
-        #loc.y = y_mid
         loc.y = 0
         loc.x = farthest_x
 
-        #if check_set_node_loc(tree, mask.source, loc):
-        if mask.group_node != '' and check_set_node_loc(tree, mask.group_node, loc):
+        if mask.group_node != '' and check_set_node_loc(tree, mask.group_node, loc, True):
             rearrange_mask_tree_nodes(mask)
-            #loc.x += 200
-            loc.y -= 140
+            loc.y -= 40
+
         elif check_set_node_loc(tree, mask.source, loc):
             loc.y -= 270
+
+        if check_set_node_loc(tree, mask.source_n, loc, True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, mask.source_s, loc, True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, mask.source_e, loc, True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, mask.source_w, loc, True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, mask.uv_neighbor, loc):
+            loc.y -= 220
 
         if check_set_node_loc(tree, mask.uv_map, loc):
             loc.y -= 130
 
         if check_set_node_loc(tree, mask.tangent, loc):
-            #loc.x += 200
             loc.y -= 170
 
         if check_set_node_loc(tree, mask.bitangent, loc):
-            #loc.x += 200
             loc.y -= 180
 
         loc.x += 280
-        #loc.y = mid_y
         loc.y = 0
-        #loc.y = y_mid
-
-        if check_set_node_loc(tree, mask.hardness, loc):
-            loc.x += 200
-
-        if mask.final != '':
-            loc.y -= 35
-            check_set_node_loc(tree, mask.final, loc)
-            loc.x += 50
-
-        #loc.y -= 235
 
         bookmark_x = loc.x
         loc.y = 0
@@ -717,59 +723,33 @@ def rearrange_tex_nodes(tex):
         for j, c in enumerate(mask.channels):
 
             loc.x = bookmark_x
-            #loc.y = bookmarks_ys[j]
 
-            if check_set_node_loc(tree, c.multiply, loc):
-                #loc.x += 200.0
-                pass
+            mul_n = tree.nodes.get(c.multiply_n)
+            if not mul_n:
 
-            # Bump stuff
-            loc.y -= 200
-            if check_set_node_loc(tree, c.neighbor_uv, loc):
-                loc.x += 180
-                #loc.y -= 200
-                y_offset = 270
-            else: 
-                loc.y += 200
-                loc.x += 200.0
+                if check_set_node_loc(tree, c.multiply, loc):
+                    loc.y -= 200.0
+            else:
 
-            save_y = loc.y
-            save_x = loc.x
+                if check_set_node_loc(tree, c.multiply, loc, True):
+                    loc.y -= 40
 
-            if check_set_node_loc(tree, c.source_n, loc):
-                loc.y -= 40
+                if check_set_node_loc(tree, c.multiply_n, loc, True):
+                    loc.y -= 40
 
-            if check_set_node_loc(tree, c.source_s, loc):
-                loc.y -= 40
+                if check_set_node_loc(tree, c.multiply_s, loc, True):
+                    loc.y -= 40
 
-            if check_set_node_loc(tree, c.source_e, loc):
-                loc.y -= 40
+                if check_set_node_loc(tree, c.multiply_e, loc, True):
+                    loc.y -= 40
 
-            if check_set_node_loc(tree, c.source_w, loc):
-                #loc.y -= 40
-                loc.x += 120
+                if check_set_node_loc(tree, c.multiply_w, loc, True):
+                    loc.y -= 40
 
-            loc.y = save_y
+        loc.x += 230
+        if loc.x > farthest_x: farthest_x = loc.x
 
-            if check_set_node_loc(tree, c.multiply_n, loc):
-                loc.y -= 40
-
-            if check_set_node_loc(tree, c.multiply_s, loc):
-                loc.y -= 40
-
-            if check_set_node_loc(tree, c.multiply_e, loc):
-                loc.y -= 40
-
-            if check_set_node_loc(tree, c.multiply_w, loc):
-                #loc.y -= 40
-                loc.x += 120
-
-            loc.y = save_y
-            loc.y -= y_offset
-
-            if loc.x > farthest_x: farthest_x = loc.x + 50
-
-    loc.x = farthest_x
+    #loc.x = farthest_x
     loc.y = 0
     bookmark_x = loc.x
 
@@ -785,7 +765,6 @@ def rearrange_tex_nodes(tex):
             rearrange_mask_bump_nodes(tree, ch, loc)
 
         if loc.x > farthest_x: farthest_x = loc.x
-
         loc.y -= y_step
 
     loc.x = farthest_x
@@ -795,12 +774,13 @@ def rearrange_tex_nodes(tex):
     for i, ch in enumerate(tex.channels):
 
         loc.x = bookmark_x
-        loc.y = bookmarks_ys[i]
+        #loc.y = bookmarks_ys[i]
 
         if check_set_node_loc(tree, ch.mask_intensity_multiplier, loc):
             loc.x += 200.0
 
         if loc.x > farthest_x: farthest_x = loc.x
+        loc.y -= y_step
 
     loc.x = farthest_x
     loc.y = 0
