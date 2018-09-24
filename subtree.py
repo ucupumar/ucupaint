@@ -1,8 +1,20 @@
 import bpy
-from . import lib
+from . import lib, Modifier
 from .common import *
 from .node_arrangements import *
 from .node_connections import *
+
+def move_mod_group(tex, from_tree, to_tree):
+    mod_group = from_tree.nodes.get(tex.mod_group)
+    if mod_group:
+        mod_tree = mod_group.node_tree
+        remove_node(from_tree, tex, 'mod_group', remove_data=False)
+        remove_node(from_tree, tex, 'mod_group_1', remove_data=False)
+
+        mod_group = new_node(to_tree, tex, 'mod_group', 'ShaderNodeGroup', 'mod_group')
+        mod_group.node_tree = mod_tree
+        mod_group_1 = new_node(to_tree, tex, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
+        mod_group_1.node_tree = mod_tree
 
 def enable_tex_source_tree(tex, rearrange=True):
 
@@ -26,17 +38,25 @@ def enable_tex_source_tree(tex, rearrange=True):
         #source_tree.outputs.new('NodeSocketFloat', 'Factor')
 
         start = source_tree.nodes.new('NodeGroupInput')
-        start.name = TREE_START
+        start.name = SOURCE_TREE_START
         end = source_tree.nodes.new('NodeGroupOutput')
-        end.name = TREE_END
+        end.name = SOURCE_TREE_END
+
+        if tex.type != 'IMAGE':
+            source_tree.outputs.new('NodeSocketColor', 'Color 1')
+            source_tree.outputs.new('NodeSocketFloat', 'Alpha 1')
+
+            solid = source_tree.nodes.new('ShaderNodeValue')
+            solid.outputs[0].default_value = 1.0
+            solid.name = SOURCE_SOLID_VALUE
 
         # Copy source from reference
         source = new_node(source_tree, tex, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
 
         # Connect internal nodes
-        source_tree.links.new(start.outputs[0], source.inputs[0])
-        source_tree.links.new(source.outputs[0], end.inputs[0])
+        #source_tree.links.new(start.outputs[0], source.inputs[0])
+        #source_tree.links.new(source.outputs[0], end.inputs[0])
 
         # Non image texture use solid alpha
         #if tex.type != 'IMAGE':
@@ -44,7 +64,7 @@ def enable_tex_source_tree(tex, rearrange=True):
         #    solid_alpha.outputs[0].default_value = 1.0
         #    source_tree.links.new(solid_alpha.outputs[0], end.inputs[1])
         #else:
-        source_tree.links.new(source.outputs[1], end.inputs[1])
+        #source_tree.links.new(source.outputs[1], end.inputs[1])
 
         # Create source node group
         source_group = new_node(tex_tree, tex, 'source_group', 'ShaderNodeGroup', 'source_group')
@@ -61,6 +81,13 @@ def enable_tex_source_tree(tex, rearrange=True):
 
         # Remove previous source
         tex_tree.nodes.remove(source_ref)
+    
+        # Bring modifiers to source tree
+        if tex.type == 'IMAGE':
+            for mod in tex.modifiers:
+                Modifier.add_modifier_nodes(mod, source_tree, tex_tree)
+        else:
+            move_mod_group(tex, tex_tree, source_tree)
 
     # Create uv neighbor
     uv_neighbor = check_new_node(tex_tree, tex, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV')
@@ -117,6 +144,13 @@ def disable_tex_source_tree(tex, rearrange=True):
         # Create new source
         source = new_node(tex_tree, tex, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
+        # Bring back layer modifier to original tree
+        if tex.type == 'IMAGE':
+            for mod in tex.modifiers:
+                Modifier.add_modifier_nodes(mod, tex_tree, source_group.node_tree)
+        else:
+            move_mod_group(tex, source_group.node_tree, tex_tree)
 
         # Remove previous source
         remove_node(tex_tree, tex, 'source_group')

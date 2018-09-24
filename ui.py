@@ -480,7 +480,16 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
             row.prop(texui, 'expand_content', text='', emboss=True, icon='IMAGE_DATA')
         row.label(text=image.name)
     elif vcol:
-        row.label(text='', icon='GROUP_VCOL')
+        if len(tex.modifiers) > 0:
+            if custom_icon_enable:
+                if texui.expand_content:
+                    icon_value = lib.custom_icons["uncollapsed_vcol"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_vcol"].icon_id
+                row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            else:
+                row.prop(texui, 'expand_content', text='', emboss=True, icon='GROUP_VCOL')
+        else:
+            row.label(text='', icon='GROUP_VCOL')
         row.label(text=vcol.name)
     else:
         title = source.bl_idname.replace('ShaderNodeTex', '')
@@ -499,7 +508,8 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
         row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
     else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
 
-    if tex.type == 'VCOL' or not texui.expand_content: return
+    if tex.type == 'VCOL' and len(tex.modifiers) == 0: return
+    if not texui.expand_content: return
 
     rrow = layout.row(align=True)
     rrow.label(text='', icon='BLANK1')
@@ -508,63 +518,64 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
     draw_modifier_stack(context, tex, 'RGB', rcol, 
             texui, custom_icon_enable, tex)
 
-    row = rcol.row(align=True)
-
-    if custom_icon_enable:
-        suffix = 'image' if tex.type == 'IMAGE' else 'texture'
-        if texui.expand_source:
-            icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
-        else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
-        row.prop(texui, 'expand_source', text='', emboss=False, icon_value=icon_value)
-    else:
-        icon = 'IMAGE_DATA' if tex.type == 'IMAGE' else 'TEXTURE'
-        row.prop(texui, 'expand_source', text='', emboss=True, icon=icon)
-
-    if image:
-        row.label(text='Source: ' + image.name)
-    else: row.label(text='Source: ' + tex.name)
-
-    if texui.expand_source:
+    if tex.type != 'VCOL':
         row = rcol.row(align=True)
-        row.label(text='', icon='BLANK1')
-        bbox = row.box()
+
+        if custom_icon_enable:
+            suffix = 'image' if tex.type == 'IMAGE' else 'texture'
+            if texui.expand_source:
+                icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
+            else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
+            row.prop(texui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+        else:
+            icon = 'IMAGE_DATA' if tex.type == 'IMAGE' else 'TEXTURE'
+            row.prop(texui, 'expand_source', text='', emboss=True, icon=icon)
+
         if image:
-            draw_image_props(source, bbox)
-        else: draw_tex_props(source, bbox)
+            row.label(text='Source: ' + image.name)
+        else: row.label(text='Source: ' + tex.name)
 
-    # Vector
-    row = rcol.row(align=True)
+        if texui.expand_source:
+            row = rcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            bbox = row.box()
+            if image:
+                draw_image_props(source, bbox)
+            else: draw_tex_props(source, bbox)
 
-    if custom_icon_enable:
-        if texui.expand_vector:
-            icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
-        else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-        row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
-    else:
-        row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
-
-    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-        split = row.split(percentage=0.275, align=True)
-    else: split = row.split(factor=0.275, align=True)
-    split.label(text='Vector:')
-    if is_a_mesh and tex.texcoord_type == 'UV':
-        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-            ssplit = split.split(percentage=0.33, align=True)
-        else: ssplit = split.split(factor=0.33, align=True)
-        #ssplit = split.split(percentage=0.33, align=True)
-        ssplit.prop(tex, 'texcoord_type', text='')
-        ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-    else:
-        split.prop(tex, 'texcoord_type', text='')
-
-    if texui.expand_vector:
+        # Vector
         row = rcol.row(align=True)
-        row.label(text='', icon='BLANK1')
-        bbox = row.box()
-        crow = row.column()
-        bbox.prop(source.texture_mapping, 'translation', text='Offset')
-        bbox.prop(source.texture_mapping, 'rotation')
-        bbox.prop(source.texture_mapping, 'scale')
+
+        if custom_icon_enable:
+            if texui.expand_vector:
+                icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+            row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+        else:
+            row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
+
+        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+            split = row.split(percentage=0.275, align=True)
+        else: split = row.split(factor=0.275, align=True)
+        split.label(text='Vector:')
+        if is_a_mesh and tex.texcoord_type == 'UV':
+            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+                ssplit = split.split(percentage=0.33, align=True)
+            else: ssplit = split.split(factor=0.33, align=True)
+            #ssplit = split.split(percentage=0.33, align=True)
+            ssplit.prop(tex, 'texcoord_type', text='')
+            ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+        else:
+            split.prop(tex, 'texcoord_type', text='')
+
+        if texui.expand_vector:
+            row = rcol.row(align=True)
+            row.label(text='', icon='BLANK1')
+            bbox = row.box()
+            crow = row.column()
+            bbox.prop(source.texture_mapping, 'translation', text='Offset')
+            bbox.prop(source.texture_mapping, 'rotation')
+            bbox.prop(source.texture_mapping, 'scale')
 
     layout.separator()
 

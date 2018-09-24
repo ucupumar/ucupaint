@@ -9,8 +9,12 @@ TEXGROUP_PREFIX = '~TL Tex '
 MASKGROUP_PREFIX = '~TL Mask '
 ADDON_NAME = 'yTexLayers'
 
-TREE_START = '___start___'
-TREE_END = '___end___'
+SOURCE_TREE_START = '__source_start_'
+SOURCE_TREE_END = '__source_end_'
+SOURCE_SOLID_VALUE = '__source_solid_'
+
+MOD_TREE_START = '__mod_start_'
+MOD_TREE_END = '__mod_end_'
 
 MASK_TREE_START = '__mask_start_'
 MASK_TREE_END = '__mask_end_'
@@ -532,20 +536,28 @@ def get_mod_tree(entity):
     if m:
         tex = tl.textures[int(m.group(1))]
         ch = tex.channels[int(m.group(2))]
-        tex_tree = get_tree(tex)
+        tree = get_tree(tex)
 
-        mod_group = tex_tree.nodes.get(ch.mod_group)
-        if not mod_group or mod_group.type != 'GROUP':
-            return tex_tree
+        mod_group = tree.nodes.get(ch.mod_group)
+        if mod_group and mod_group.type == 'GROUP':
+            return mod_group.node_tree
 
-        return mod_group.node_tree
+        return tree
 
     m = re.match(r'^tl\.textures\[(\d+)\].*', entity.path_from_id())
     if m:
         tex = tl.textures[int(m.group(1))]
-        tex_tree = get_tree(tex)
+        tree = get_tree(tex)
 
-        return tex_tree
+        source_group = tree.nodes.get(tex.source_group)
+        if source_group and source_group.type == 'GROUP': 
+            tree = source_group.node_tree
+
+        mod_group = tree.nodes.get(tex.mod_group)
+        if mod_group and mod_group.type == 'GROUP':
+            return mod_group.node_tree
+
+        return tree
 
 def get_mask_tree(mask):
 

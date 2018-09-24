@@ -1290,10 +1290,11 @@ def update_bump_base_value(self, context):
     tex = tl.textures[int(m.group(1))]
     tree = get_tree(tex)
 
-    bump_base = tree.nodes.get(self.bump_base)
     val = self.bump_base_value
     col = (val, val, val, 1.0)
-    bump_base.inputs[1].default_value = col
+
+    bump_base = tree.nodes.get(self.bump_base)
+    if bump_base: bump_base.inputs[1].default_value = col
 
     neighbor_directions = ['n', 's', 'e', 'w']
     for d in neighbor_directions:
@@ -1710,7 +1711,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Modifiers
     modifiers = CollectionProperty(type=Modifier.YTextureModifier)
-    mirror_modifiers = CollectionProperty(type=Modifier.YTextureModifier)
 
     # Blur
     #enable_blur = BoolProperty(default=False, update=Blur.update_tex_channel_blur)
@@ -1926,6 +1926,8 @@ class YTextureLayer(bpy.types.PropertyGroup):
 
     # Modifiers
     modifiers = CollectionProperty(type=Modifier.YTextureModifier)
+    mod_group = StringProperty(default='')
+    mod_group_1 = StringProperty(default='')
 
     start_rgb = StringProperty(default='')
     start_alpha = StringProperty(default='')

@@ -45,7 +45,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
     tl = m.id_data.tl
     nodes = tree.nodes
-    links = tree.links
+    #links = tree.links
 
     match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
@@ -97,6 +97,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
         if ref_tree:
             copy_node_props(invert_ref, invert)
+            if invert_ref.parent:
+                ref_tree.nodes.remove(invert_ref.parent)
             ref_tree.nodes.remove(invert_ref)
         else:
             if channel_type == 'VALUE':
@@ -118,6 +120,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
         if ref_tree:
             copy_node_props(rgb2i_ref, rgb2i)
+            if rgb2i_ref.parent:
+                ref_tree.nodes.remove(rgb2i_ref.parent)
             ref_tree.nodes.remove(rgb2i_ref)
         else:
             rgb2i.node_tree = lib.get_node_tree_lib(lib.MOD_RGB2INT)
@@ -147,6 +151,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
         if ref_tree:
             copy_node_props(i2rgb_ref, i2rgb)
+            if i2rgb_ref.parent:
+                ref_tree.nodes.remove(i2rgb_ref.parent)
             ref_tree.nodes.remove(i2rgb_ref)
         else:
             i2rgb.node_tree = lib.get_node_tree_lib(lib.MOD_INT2RGB)
@@ -173,6 +179,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
         if ref_tree:
             copy_node_props(oc_ref, oc)
+            if oc_ref.parent:
+                ref_tree.nodes.remove(oc_ref.parent)
             ref_tree.nodes.remove(oc_ref)
         else:
             oc.node_tree = lib.get_node_tree_lib(lib.MOD_OVERRIDE_COLOR)
@@ -218,8 +226,12 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             copy_node_props(color_ramp_mix_alpha_ref, color_ramp_mix_alpha)
             copy_node_props(color_ramp_mix_rgb_ref, color_ramp_mix_rgb)
 
+            if color_ramp_ref.parent:
+                ref_tree.nodes.remove(color_ramp_ref.parent)
+
             ref_tree.nodes.remove(color_ramp_alpha_multiply_ref)
             ref_tree.nodes.remove(color_ramp_ref)
+            ref_tree.nodes.remove(color_ramp_linear_ref)
             ref_tree.nodes.remove(color_ramp_mix_alpha_ref)
             ref_tree.nodes.remove(color_ramp_mix_rgb_ref)
         else:
@@ -254,6 +266,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
         if ref_tree:
             copy_node_props(rgb_curve_ref, rgb_curve)
+            if rgb_curve_ref.parent:
+                ref_tree.nodes.remove(rgb_curve_ref.parent)
             ref_tree.nodes.remove(rgb_curve_ref)
 
         frame.label = 'RGB Curve'
@@ -268,6 +282,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
         if ref_tree:
             copy_node_props(huesat_ref, huesat)
+            if huesat_ref.parent:
+                ref_tree.nodes.remove(huesat_ref.parent)
             ref_tree.nodes.remove(huesat_ref)
 
         frame.label = 'Hue Saturation Value'
@@ -282,6 +298,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
         if ref_tree:
             copy_node_props(brightcon_ref, brightcon)
+            if brightcon_ref.parent:
+                ref_tree.nodes.remove(brightcon_ref.parent)
             ref_tree.nodes.remove(brightcon_ref)
 
         frame.label = 'Brightness Contrast'
@@ -296,6 +314,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
         if ref_tree:
             copy_node_props(multiplier_ref, multiplier)
+            if multiplier_ref.parent:
+                ref_tree.nodes.remove(multiplier_ref.parent)
             ref_tree.nodes.remove(multiplier_ref)
         else:
             if channel_type == 'VALUE':
@@ -316,18 +336,9 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 def add_new_modifier(parent, modifier_type):
 
     tl = parent.id_data.tl
-    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', parent.path_from_id())
-    #match2 = re.match(r'tl\.channels\[(\d+)\]', parent.path_from_id())
-    #match3 = re.match(r'tl\.textures\[(\d+)\]', parent.path_from_id())
-
-    #if match1: 
-    #    root_ch = tl.channels[int(match1.group(2))]
-
-    #elif match2:
-    #    root_ch = tl.channels[int(match2.group(1))]
-
-    #elif match3:
-    #    pass
+    match1 = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^tl\.textures\[(\d+)\]$', parent.path_from_id())
+    #match3 = re.match(r'tl\.channels\[(\d+)\]', parent.path_from_id())
     
     tree = get_mod_tree(parent)
     modifiers = parent.modifiers
@@ -346,8 +357,11 @@ def add_new_modifier(parent, modifier_type):
     if match1: 
         # Enable modifier tree if fine bump map is used
         if parent.normal_map_type == 'FINE_BUMP_MAP' or (
+                #parent.enable and 
                 parent.enable_mask_bump and parent.mask_bump_type == 'FINE_BUMP_MAP'):
-            enable_modifiers_tree(parent, False)
+            enable_modifiers_tree(parent)
+    elif match2 and parent.type not in {'IMAGE', 'VCOL'}:
+        enable_modifiers_tree(parent)
 
     return m
 
@@ -586,8 +600,9 @@ class YRemoveTexModifier(bpy.types.Operator):
         #if len(parent.modifiers) == 0:
         #    unset_modifier_pipeline_nodes(tree, parent)
 
-        if tex: # and len(parent.modifiers) == 0:
-            disable_modifiers_tree(parent, False)
+        if tex:
+            if len(parent.modifiers) == 0:
+                disable_modifiers_tree(parent, False)
             reconnect_tex_nodes(tex, mod_reconnect=True)
         else:
             # Reconnect nodes
@@ -1023,44 +1038,34 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     expand_content = BoolProperty(default=True)
 
-def set_modifiers_tree_per_directions(tree, ch, mod_tree):
-
-    if ch.normal_map_type == 'FINE_BUMP_MAP':
-        for d in neighbor_directions:
-            m = tree.nodes.get(getattr(ch, 'mod_' + d))
-            if not m:
-                m = new_node(tree, ch, 'mod_' + d, 'ShaderNodeGroup', 'mod_' + d)
-                m.node_tree = mod_tree
-                m.hide = True
-
-    if ch.enable_mask_bump and ch.mask_bump_type == 'FINE_BUMP_MAP':
-        for d in neighbor_directions:
-            m = tree.nodes.get(getattr(ch, 'mb_mod_' + d))
-            if not m:
-                m = new_node(tree, ch, 'mb_mod_' + d, 'ShaderNodeGroup', 'mb_mod_' + d)
-                m.node_tree = mod_tree
-                m.hide = True
-
-def enable_modifiers_tree(ch, rearrange = False):
+def enable_modifiers_tree(parent, rearrange = False):
     
-    group_tree = ch.id_data
+    group_tree = parent.id_data
     tl = group_tree.tl
 
-    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
-    if not m: return
-    tex = tl.textures[int(m.group(1))]
-    root_ch = tl.channels[int(m.group(2))]
+    match1 = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^tl\.textures\[(\d+)\]$', parent.path_from_id())
+    if match1:
+        tex = tl.textures[int(match1.group(1))]
+        root_ch = tl.channels[int(match1.group(2))]
+        name = root_ch.name + ' ' + tex.name
+    elif match2:
+        tex = parent
+        name = tex.name
+        if tex.type in {'IMAGE', 'VCOL'}:
+            return
+    else:
+        return
 
-    if tex.type == 'VCOL' or len(ch.modifiers) == 0:
+    if len(parent.modifiers) == 0:
         return None
 
-    tex_tree = get_tree(tex)
-
     # Check if modifier tree already available
-    if ch.mod_group != '': 
+    if parent.mod_group != '': 
         return 
 
-    mod_tree = bpy.data.node_groups.new('~TL Modifiers ' + root_ch.name + ' ' + tex.name, 'ShaderNodeTree')
+    # Create modifier tree
+    mod_tree = bpy.data.node_groups.new('~TL Modifiers ' + name, 'ShaderNodeTree')
 
     mod_tree.inputs.new('NodeSocketColor', 'RGB')
     mod_tree.inputs.new('NodeSocketFloat', 'Alpha')
@@ -1069,73 +1074,94 @@ def enable_modifiers_tree(ch, rearrange = False):
 
     # New inputs and outputs
     mod_tree_start = mod_tree.nodes.new('NodeGroupInput')
-    mod_tree_start.name = TREE_START
+    mod_tree_start.name = MOD_TREE_START
     mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
-    mod_tree_end.name = TREE_END
+    mod_tree_end.name = MOD_TREE_END
 
-    #mod_group = new_node(tex_tree, ch, 'mod_group', 'ShaderNodeGroup', tex.name + ' ' + ch.name + ' Modifiers')
-    mod_group = new_node(tex_tree, ch, 'mod_group', 'ShaderNodeGroup', 'mod_group')
-    mod_n = new_node(tex_tree, ch, 'mod_n', 'ShaderNodeGroup', 'mod_n')
-    mod_s = new_node(tex_tree, ch, 'mod_s', 'ShaderNodeGroup', 'mod_s')
-    mod_e = new_node(tex_tree, ch, 'mod_e', 'ShaderNodeGroup', 'mod_e')
-    mod_w = new_node(tex_tree, ch, 'mod_w', 'ShaderNodeGroup', 'mod_w')
+    if match2 and tex.source_group != '':
+        tex_tree = get_source_tree(tex)
+    else: tex_tree = get_tree(tex)
 
+    # Create main modifier group
+    mod_group = new_node(tex_tree, parent, 'mod_group', 'ShaderNodeGroup', 'mod_group')
     mod_group.node_tree = mod_tree
-    mod_n.node_tree = mod_tree
-    mod_s.node_tree = mod_tree
-    mod_e.node_tree = mod_tree
-    mod_w.node_tree = mod_tree
 
-    for mod in ch.modifiers:
+    if match1:
+        # Create modifier group neighbor
+        mod_n = new_node(tex_tree, parent, 'mod_n', 'ShaderNodeGroup', 'mod_n')
+        mod_s = new_node(tex_tree, parent, 'mod_s', 'ShaderNodeGroup', 'mod_s')
+        mod_e = new_node(tex_tree, parent, 'mod_e', 'ShaderNodeGroup', 'mod_e')
+        mod_w = new_node(tex_tree, parent, 'mod_w', 'ShaderNodeGroup', 'mod_w')
+        mod_n.node_tree = mod_tree
+        mod_s.node_tree = mod_tree
+        mod_e.node_tree = mod_tree
+        mod_w.node_tree = mod_tree
+    elif match2:
+        mod_group_1 = new_node(tex_tree, parent, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
+        mod_group_1.node_tree = mod_tree
+
+    for mod in parent.modifiers:
         add_modifier_nodes(mod, mod_tree, tex_tree)
 
     if rearrange:
-        #reconnect_between_modifier_nodes(ch)
         rearrange_tex_nodes(tex)
         reconnect_tex_nodes(tex, mod_reconnect=True)
 
     return mod_tree
 
-def disable_modifiers_tree(ch, rearrange=False):
-    group_tree = ch.id_data
+def disable_modifiers_tree(parent, rearrange=False):
+    group_tree = parent.id_data
     tl = group_tree.tl
 
-    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
-    if not m: return
-    tex = tl.textures[int(m.group(1))]
-    ch_index = int(m.group(2))
-    tex_tree = get_tree(tex)
+    match1 = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^tl\.textures\[(\d+)\]$', parent.path_from_id())
+    if match1: 
+        tex = tl.textures[int(match1.group(1))]
+        root_ch = tl.channels[int(match1.group(2))]
 
-    if tex.type == 'VCOL': return
+        # Check if fine bump map is still used
+        if len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and (
+                parent.normal_map_type == 'FINE_BUMP_MAP'
+                or (parent.enable_mask_bump and parent.mask_bump_type == 'FINE_BUMP_MAP')):
+            return
 
-    # Check if fine bump map is still used
-    if len(ch.modifiers) > 0 and tl.channels[ch_index].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP'
-            or (ch.enable_mask_bump and ch.mask_bump_type == 'FINE_BUMP_MAP')):
-        return
-
-    # Check if channel use blur
-    if hasattr(ch, 'enable_blur') and ch.enable_blur:
+        # Check if channel use blur
+        if hasattr(parent, 'enable_blur') and parent.enable_blur:
+            return
+    elif match2:
+        tex = parent
+        if tex.type in {'IMAGE', 'VCOL'}:
+            return
+    else:
         return
 
     # Check if modifier tree already gone
-    if ch.mod_group == '': return
+    if parent.mod_group == '': return
+
+    if match2 and tex.source_group != '':
+        tex_tree = get_source_tree(tex)
+    else: tex_tree = get_tree(tex)
 
     # Get modifier group
-    mod_group = tex_tree.nodes.get(ch.mod_group)
+    mod_group = tex_tree.nodes.get(parent.mod_group)
 
     # Add new copied modifier nodes on texture tree
-    for mod in ch.modifiers:
+    for mod in parent.modifiers:
         add_modifier_nodes(mod, tex_tree, mod_group.node_tree)
 
     # Remove modifier tree
-    remove_node(tex_tree, ch, 'mod_group')
-    remove_node(tex_tree, ch, 'mod_n')
-    remove_node(tex_tree, ch, 'mod_s')
-    remove_node(tex_tree, ch, 'mod_e')
-    remove_node(tex_tree, ch, 'mod_w')
+    remove_node(tex_tree, parent, 'mod_group')
+
+    if match1:
+        # Remove modifier group neighbor
+        remove_node(tex_tree, parent, 'mod_n')
+        remove_node(tex_tree, parent, 'mod_s')
+        remove_node(tex_tree, parent, 'mod_e')
+        remove_node(tex_tree, parent, 'mod_w')
+    elif match2:
+        remove_node(tex_tree, parent, 'mod_group_1')
 
     if rearrange:
-        #reconnect_between_modifier_nodes(ch)
         rearrange_tex_nodes(tex)
         reconnect_tex_nodes(tex, mod_reconnect=True)
 

@@ -118,7 +118,7 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
 
         # Get nodes inside modifier group tree and repoint it
         mod_tree = mod_group.node_tree
-        start = mod_tree.nodes.get(TREE_START)
+        start = mod_tree.nodes.get(MOD_TREE_START)
         rgb = start.outputs[0]
         alpha = start.outputs[1]
     else:
@@ -131,7 +131,7 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
     if mod_group:
 
         # Connect to end node
-        end = mod_tree.nodes.get(TREE_END)
+        end = mod_tree.nodes.get(MOD_TREE_END)
         create_link(mod_tree, rgb, end.inputs[0])
         create_link(mod_tree, alpha, end.inputs[1])
 
@@ -189,22 +189,54 @@ def reconnect_tl_nodes(tree, ch_idx=-1, mod_reconnect=False):
         if ch.type == 'RGB' and ch.alpha:
             create_link(tree, alpha, end.inputs[ch.io_index+1])
 
+def reconnect_source_internal_nodes(tex):
+    tree = get_source_tree(tex)
+
+    source = tree.nodes.get(tex.source)
+    start = tree.nodes.get(SOURCE_TREE_START)
+    solid = tree.nodes.get(SOURCE_SOLID_VALUE)
+    end = tree.nodes.get(SOURCE_TREE_END)
+
+    #if tex.type != 'VCOL':
+    #    create_link(tree, start.outputs[0], source.inputs[0])
+    create_link(tree, start.outputs[0], source.inputs[0])
+
+    rgb = source.outputs[0]
+    alpha = source.outputs[1]
+    if tex.type not in {'IMAGE', 'VCOL'}:
+        rgb_1 = source.outputs[1]
+        alpha = solid.outputs[0]
+        alpha_1 = solid.outputs[0]
+
+        mod_group = tree.nodes.get(tex.mod_group)
+        if mod_group:
+            rgb, alpha = reconnect_all_modifier_nodes(tree, tex, rgb, alpha, mod_group)
+
+        mod_group_1 = tree.nodes.get(tex.mod_group_1)
+        if mod_group_1:
+            rgb_1 = create_link(tree, rgb_1, mod_group_1.inputs[0])[0]
+            alpha_1 = create_link(tree, alpha_1, mod_group_1.inputs[1])[1]
+
+        create_link(tree, rgb_1, end.inputs[2])
+        create_link(tree, alpha_1, end.inputs[3])
+
+    if tex.type in {'IMAGE', 'VCOL'}:
+        rgb, alpha = reconnect_all_modifier_nodes(tree, tex, rgb, alpha)
+
+    create_link(tree, rgb, end.inputs[0])
+    create_link(tree, alpha, end.inputs[1])
+
 def reconnect_mask_internal_nodes(mask):
 
     tree = get_mask_tree(mask)
 
     source = tree.nodes.get(mask.source)
-    #hardness = tree.nodes.get(mask.hardness)
     start = tree.nodes.get(MASK_TREE_START)
     end = tree.nodes.get(MASK_TREE_END)
 
     if mask.type != 'VCOL':
         create_link(tree, start.outputs[0], source.inputs[0])
 
-    #if hardness:
-    #    create_link(tree, source.outputs[0], hardness.inputs[0])
-    #    create_link(tree, hardness.outputs[0], end.inputs[0])
-    #else: 
     create_link(tree, source.outputs[0], end.inputs[0])
 
 def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
@@ -216,8 +248,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
     start = nodes.get(tex.start)
     end = nodes.get(tex.end)
 
-    if tex.source_group != '':
-        source = nodes.get(tex.source_group)
+    source_group = nodes.get(tex.source_group)
+
+    #if tex.source_group != '':
+    if source_group:
+        source = source_group
+        reconnect_source_internal_nodes(tex)
     else: source = nodes.get(tex.source)
 
     # Direction sources
@@ -259,14 +295,33 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
 
     # RGB
     start_rgb = source.outputs[0]
+    start_rgb_1 = source.outputs[1]
 
     # Alpha
     if tex.type == 'IMAGE':
         start_alpha = source.outputs[1]
     else: start_alpha = solid_alpha.outputs[0]
+    start_alpha_1 = solid_alpha.outputs[0]
 
-    # Layer source modifier
-    start_rgb, start_alpha = reconnect_all_modifier_nodes(tree, tex, start_rgb, start_alpha)
+    if source_group:
+        start_rgb_1 = source_group.outputs[2]
+        start_alpha_1 = source_group.outputs[3]
+    else:
+        # Layer source modifier
+        mod_group = nodes.get(tex.mod_group)
+        start_rgb, start_alpha = reconnect_all_modifier_nodes(
+                tree, tex, start_rgb, start_alpha, mod_group)
+
+        if tex.type not in {'IMAGE', 'VCOL'}:
+            mod_group_1 = nodes.get(tex.mod_group_1)
+            start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
+                    tree, tex, source.outputs[1], solid_alpha.outputs[0], mod_group_1)
+
+    # UV neighbor vertex color
+    if tex.type == 'VCOL' and uv_neighbor:
+        create_link(tree, start_rgb, uv_neighbor.inputs[0])
+        create_link(tree, tangent.outputs[0], uv_neighbor.inputs['Tangent'])
+        create_link(tree, bitangent.outputs[0], uv_neighbor.inputs['Bitangent'])
 
     # Get bump channel
     bump_ch = None
@@ -392,11 +447,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
         rgb = start_rgb
         alpha = start_alpha
 
-        if ch.tex_input == 'ALPHA':
-            source_index = 1
-        else: source_index = 0
-
-        rgb = source.outputs[source_index]
+        if tex.type not in {'IMAGE', 'VCOL'}:
+            if ch.tex_input == 'ALPHA':
+                rgb = start_rgb_1
+                alpha = start_alpha_1
 
         if linear:
             create_link(tree, rgb, linear.inputs[0])
@@ -419,16 +473,19 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
 
             # Get neighbor rgb
             if source_n:
+                if tex.type not in {'IMAGE', 'VCOL'} and ch.tex_input == 'ALPHA':
+                    source_index = 2
+                else: source_index = 0
+
                 rgb_n = source_n.outputs[source_index]
                 rgb_s = source_s.outputs[source_index]
                 rgb_e = source_e.outputs[source_index]
                 rgb_w = source_w.outputs[source_index]
 
-                if tex.type == 'IMAGE':
-                    alpha_n = source_n.outputs[1]
-                    alpha_s = source_s.outputs[1]
-                    alpha_e = source_e.outputs[1]
-                    alpha_w = source_w.outputs[1]
+                alpha_n = source_n.outputs[source_index+1]
+                alpha_s = source_s.outputs[source_index+1]
+                alpha_e = source_e.outputs[source_index+1]
+                alpha_w = source_w.outputs[source_index+1]
 
             if tex.type == 'VCOL' and uv_neighbor:
                 rgb_n = uv_neighbor.outputs['n']

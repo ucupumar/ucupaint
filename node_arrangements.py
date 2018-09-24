@@ -205,8 +205,10 @@ def rearrange_tex_frame_nodes(tex, tree=None):
             check_set_node_parent(tree, mask.group_node, frame)
         else: check_set_node_parent(tree, mask.source, frame)
 
-        check_set_node_parent(tree, mask.uv_map, frame)
         check_set_node_parent(tree, mask.uv_neighbor, frame)
+        check_set_node_parent(tree, mask.uv_map, frame)
+        check_set_node_parent(tree, mask.tangent, frame)
+        check_set_node_parent(tree, mask.bitangent, frame)
 
         check_set_node_parent(tree, mask.source_n, frame)
         check_set_node_parent(tree, mask.source_s, frame)
@@ -286,7 +288,7 @@ def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=Fa
     ori_y = loc.y
     offset_y = 0
 
-    if check_set_node_loc(tree, TREE_START, loc):
+    if check_set_node_loc(tree, MOD_TREE_START, loc):
         loc.x += 200
 
     loc.y -= 35
@@ -380,7 +382,7 @@ def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=Fa
         loc.x += 100
         loc.y = ori_y
 
-    if check_set_node_loc(tree, TREE_END, loc):
+    if check_set_node_loc(tree, MOD_TREE_END, loc):
         loc.x += 200
 
     if return_y_offset:
@@ -393,13 +395,28 @@ def rearrange_source_tree_nodes(tex):
 
     loc = Vector((0, 0))
 
-    if check_set_node_loc(source_tree, TREE_START, loc):
+    if check_set_node_loc(source_tree, SOURCE_TREE_START, loc):
         loc.x += 180
+
+    loc.y -= 300
+    check_set_node_loc(source_tree, SOURCE_SOLID_VALUE, loc)
+    loc.y += 300
 
     if check_set_node_loc(source_tree, tex.source, loc):
-        loc.x += 180
+        loc.x += 200
 
-    check_set_node_loc(source_tree, TREE_END, loc)
+    if tex.type in {'IMAGE', 'VCOL'}:
+        arrange_modifier_nodes(source_tree, tex, loc)
+    else:
+        if check_set_node_loc(source_tree, tex.mod_group, loc, True):
+            mod_group = source_tree.nodes.get(tex.mod_group)
+            arrange_modifier_nodes(mod_group.node_tree, tex, loc=Vector((0,0)))
+            loc.y -= 40
+        if check_set_node_loc(source_tree, tex.mod_group_1, loc, True):
+            loc.y += 40
+            loc.x += 150
+
+    check_set_node_loc(source_tree, SOURCE_TREE_END, loc)
 
 def rearrange_mask_tree_nodes(mask):
     tree = get_mask_tree(mask)
@@ -534,7 +551,17 @@ def rearrange_tex_nodes(tex):
     loc = Vector((350, 0))
 
     # Texture modifiers
-    loc = arrange_modifier_nodes(tree, tex, loc)
+    if tex.source_group == '':
+        if tex.mod_group != '':
+            mod_group = nodes.get(tex.mod_group)
+            arrange_modifier_nodes(mod_group.node_tree, tex, loc.copy())
+            check_set_node_loc(tree, tex.mod_group, loc, hide=True)
+            loc.y -= 40
+            check_set_node_loc(tree, tex.mod_group_1, loc, hide=True)
+            loc.y += 40
+            loc.x += 200
+        else:
+            loc = arrange_modifier_nodes(tree, tex, loc)
 
     start_x = loc.x
     farthest_x = 0
@@ -700,7 +727,7 @@ def rearrange_tex_nodes(tex):
             loc.y -= 40
 
         if check_set_node_loc(tree, mask.uv_neighbor, loc):
-            loc.y -= 220
+            loc.y -= 320
 
         if check_set_node_loc(tree, mask.uv_map, loc):
             loc.y -= 130

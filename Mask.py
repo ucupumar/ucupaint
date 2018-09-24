@@ -731,13 +731,15 @@ def update_mask_bump_value(self, context):
             mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
         if intensity_multiplier:
             intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
-        mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
+        if mb_intensity_multiplier:
+            mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
     else:
         if mask_intensity_multiplier:
             mask_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
         if intensity_multiplier:
             intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
-        mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+        if mb_intensity_multiplier:
+            mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
 
     if BLENDER_28_GROUP_INPUT_HACK:
         match_group_input(mask_intensity_multiplier, 1)
