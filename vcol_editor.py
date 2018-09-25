@@ -1,5 +1,26 @@
 import bpy, bmesh
+from mathutils import *
 from bpy.props import *
+
+def linear_to_srgb_per_element(e):
+    if e > 0.0031308:
+        return 1.055 * (pow(e, (1.0 / 2.4))) - 0.055
+    else: 
+        return 12.92 * e
+
+def linear_to_srgb(inp):
+
+    if type(inp) == float:
+        return linear_to_srgb_per_element(inp)
+
+    elif type(inp) == Color:
+
+        c = inp.copy()
+
+        for i in range(3):
+            c[i] = linear_to_srgb_per_element(c[i])
+
+        return c
 
 class YVcolFill(bpy.types.Operator):
     bl_idname = "mesh.y_vcol_fill"
@@ -56,7 +77,7 @@ class YVcolFill(bpy.types.Operator):
         elif self.color_option == 'BLACK':
             color = (0,0,0)
         else:
-            color = context.scene.ve_edit.color
+            color = linear_to_srgb(context.scene.ve_edit.color)
 
         #for idx in face_indices:
         #    poly = mesh.polygons[idx]
