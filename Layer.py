@@ -574,6 +574,7 @@ class YNewTextureLayer(bpy.types.Operator):
         vcol = None
         if self.type == 'VCOL':
             vcol = obj.data.vertex_colors.new(name=self.name)
+            set_obj_vertex_colors(obj, vcol, (1.0, 1.0, 1.0))
 
         tl.halt_update = True
         tex = add_new_texture(self.name, self.type, int(self.channel_idx), self.blend_type, self.normal_blend, 

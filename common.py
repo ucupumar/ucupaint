@@ -635,6 +635,13 @@ def change_texture_name(tl, obj, src, tex, texes):
 
     tl.halt_update = False
 
+def set_obj_vertex_colors(obj, vcol, color):
+    if obj.type != 'MESH': return
+
+    for poly in obj.data.polygons:
+        for loop_index in poly.loop_indices:
+            vcol.data[loop_index].color = color
+
 # BLENDER_28_GROUP_INPUT_HACK
 def duplicate_lib_node_tree(node):
     node.node_tree.name += '_Copy'

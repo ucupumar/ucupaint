@@ -214,8 +214,13 @@ class YNewTextureMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.label(text='Width:')
             col.label(text='Height:')
+
+        if self.type in {'VCOL', 'IMAGE'}:
             col.label(text='Color:')
+
+        if self.type == 'IMAGE':
             col.label(text='')
+
         if self.type != 'VCOL':
             col.label(text='Vector:')
 
@@ -224,7 +229,11 @@ class YNewTextureMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
+
+        if self.type in {'VCOL', 'IMAGE'}:
             col.prop(self, 'color_option', text='')
+
+        if self.type == 'IMAGE':
             col.prop(self, 'hdr')
 
         if self.type != 'VCOL':
@@ -276,12 +285,16 @@ class YNewTextureMask(bpy.types.Operator):
         # New vertex color
         elif self.type == 'VCOL':
             vcol = obj.data.vertex_colors.new(name=self.name)
+            if self.color_option == 'WHITE':
+                set_obj_vertex_colors(obj, vcol, (1.0, 1.0, 1.0))
+            elif self.color_option == 'BLACK':
+                set_obj_vertex_colors(obj, vcol, (0.0, 0.0, 0.0))
 
         # Add new mask
         mask = add_new_mask(tex, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol)
 
         # Enable edit mask
-        if self.type == 'IMAGE':
+        if self.type in {'IMAGE', 'VCOL'}:
             mask.active_edit = True
 
         rearrange_tex_nodes(tex)
