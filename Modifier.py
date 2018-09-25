@@ -812,10 +812,15 @@ def update_invert_channel(self, context):
     tl = self.id_data.tl
     match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'tl\.textures\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1: 
         root_ch = tl.channels[int(match1.group(2))]
+        channel_type = root_ch.type
     elif match2:
         root_ch = tl.channels[int(match2.group(1))]
+        channel_type = root_ch.type
+    elif match3:
+        channel_type = 'RGB'
 
     tree = get_mod_tree(self)
     invert = tree.nodes.get(self.invert)
@@ -824,7 +829,7 @@ def update_invert_channel(self, context):
         invert.inputs[2].default_value = 1.0
     else: invert.inputs[2].default_value = 0.0
 
-    if root_ch.type == 'VALUE':
+    if channel_type == 'VALUE':
 
         if self.invert_a_enable:
             invert.inputs[3].default_value = 1.0
