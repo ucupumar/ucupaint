@@ -185,7 +185,7 @@ def get_addon_filepath():
         if folders:
             return filepath + sep + folders[0] + sep
 
-    return 'ERROR: No path found for yPanel!'
+    return 'ERROR: No path found for yTexLayers!'
 
 def srgb_to_linear_per_element(e):
     if e <= 0.03928:

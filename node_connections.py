@@ -303,7 +303,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
     else: start_alpha = solid_alpha.outputs[0]
     start_alpha_1 = solid_alpha.outputs[0]
 
-    if source_group:
+    if source_group and tex.type not in {'IMAGE', 'VCOL'}:
         start_rgb_1 = source_group.outputs[2]
         start_alpha_1 = source_group.outputs[3]
     else:

@@ -303,7 +303,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_e
                 row.prop(m, 'rgb2i_col', text='', icon='COLOR')
                 row.separator()
 
-            if m.type == 'OVERRIDE_COLOR':
+            if m.type == 'OVERRIDE_COLOR' and not m.oc_use_normal_base:
                 row.prop(m, 'oc_col', text='', icon='COLOR')
                 row.separator()
 
@@ -1533,7 +1533,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                         shortcut_found = True
                         break
 
-                    elif mod.type == 'OVERRIDE_COLOR':
+                    elif mod.type == 'OVERRIDE_COLOR' and not mod.oc_use_normal_base:
                         rrow = row.row()
                         mod_tree = get_mod_tree(mod)
                         rrow.prop(mod, 'oc_col', text='', icon='COLOR')

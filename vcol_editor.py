@@ -69,7 +69,6 @@ class YVcolFill(bpy.types.Operator):
                     vert_indices.append(vert.index)
 
         bpy.ops.object.mode_set(mode='OBJECT')
-        #obj.update_from_editmode()
         vcol = obj.data.vertex_colors.active
 
         if self.color_option == 'WHITE':
@@ -78,12 +77,6 @@ class YVcolFill(bpy.types.Operator):
             color = (0,0,0)
         else:
             color = linear_to_srgb(context.scene.ve_edit.color)
-
-        #for idx in face_indices:
-        #    poly = mesh.polygons[idx]
-        #    #print(poly.index)
-        #    for loop_index in poly.loop_indices:
-        #        vcol.data[loop_index].color = (0,0,0)
 
         if ve.fill_mode == 'FACE':
             for loop_index in loop_indices:
@@ -140,11 +133,12 @@ def vcol_editor_draw(self, context):
     ccol.operator("mesh.y_vcol_fill", icon='BRUSH_DATA', text='Fill with Black').color_option = 'BLACK'
 
     col.separator()
-    col.operator("mesh.y_vcol_fill", icon='BRUSH_DATA', text='Fill with Color').color_option = 'CUSTOM'
-    col.separator()
-    col.template_color_picker(ve, 'color', value_slider=True)
+    ccol = col.column(align=True)
+    ccol.operator("mesh.y_vcol_fill", icon='BRUSH_DATA', text='Fill with Color').color_option = 'CUSTOM'
+    #col.separator()
+    #col.template_color_picker(ve, 'color', value_slider=True)
 
-    col.prop(ve, "color", text="")
+    ccol.prop(ve, "color", text="")
 
     col.separator()
 
