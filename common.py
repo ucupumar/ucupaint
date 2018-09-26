@@ -494,8 +494,10 @@ def check_new_node(tree, entity, prop, node_id_name, label=''):
 
     return node
 
-def replace_new_node(tree, entity, prop, node_id_name, label=''):
+def replace_new_node(tree, entity, prop, node_id_name, label='', replaced_status=False):
     ''' Check if node is available, replace if available '''
+
+    replaced = False
 
     # Try to get the node first
     try: node = tree.nodes.get(getattr(entity, prop))
@@ -504,10 +506,15 @@ def replace_new_node(tree, entity, prop, node_id_name, label=''):
     # Remove node if found and has different id name
     if node and node.bl_idname != node_id_name:
         remove_node(tree, entity, prop)
+        node = None
 
     # Create new node
     if not node:
         node = new_node(tree, entity, prop, node_id_name, label)
+        replaced = True
+
+    if replaced_status:
+        return node, replaced
 
     return node
 
@@ -642,6 +649,24 @@ def set_obj_vertex_colors(obj, vcol, color):
         for loop_index in poly.loop_indices:
             vcol.data[loop_index].color = color
 
+def force_bump_base_value(tree, ch, value):
+    col = (value, value, value, 1.0)
+
+    bump_base = tree.nodes.get(ch.bump_base)
+    if bump_base: bump_base.inputs[1].default_value = col
+
+    neighbor_directions = ['n', 's', 'e', 'w']
+    for d in neighbor_directions:
+        b = tree.nodes.get(getattr(ch, 'bump_base_' + d))
+        if b: b.inputs[1].default_value = col
+
+    for mod in ch.modifiers:
+        if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
+            mod.oc_col = col
+
+def update_bump_base_value_(tree, ch):
+    force_bump_base_value(tree, ch, ch.bump_base_value)
+    
 # BLENDER_28_GROUP_INPUT_HACK
 def duplicate_lib_node_tree(node):
     node.node_tree.name += '_Copy'

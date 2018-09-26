@@ -942,16 +942,21 @@ def update_oc_use_normal_base(self, context):
         #    root_ch = tl.channels[int(match2.group(1))]
         else: return
 
-        if root_ch.type == 'NORMAL':
-            oc = tree.nodes.get(self.oc)
-            if ch.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
-                val = ch.bump_base_value
-                val = (val, val, val, 1.0)
-            else: 
-                val = (0.5, 0.5, 1.0, 1.0)
+        if root_ch.type != 'NORMAL': return
 
-            #oc.inputs[2].default_value = val
-            self.oc_col = val
+        if ch.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
+            #if ch.enable_mask_bump:
+            #    val = 1.0
+            #else: 
+            val = ch.bump_base_value
+            val = (val, val, val, 1.0)
+        else: 
+            val = (0.5, 0.5, 1.0, 1.0)
+
+        #oc = tree.nodes.get(self.oc)
+        #if oc: oc.inputs[2].default_value = val
+
+        self.oc_col = val
 
 class YTextureModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)

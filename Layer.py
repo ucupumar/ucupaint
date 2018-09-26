@@ -1067,29 +1067,29 @@ def update_normal_map_type(self, context):
     normal = nodes.get(self.normal)
 
     # Bump nodes
-    bump_base = nodes.get(self.bump_base)
+    #bump_base = nodes.get(self.bump_base)
     bump = nodes.get(self.bump)
 
     # Fine bump nodes
     fine_bump = nodes.get(self.fine_bump)
 
     # Get fine bump sources
-    bump_bases = []
-    neighbor_directions = ['n', 's', 'e', 'w']
-    for d in neighbor_directions:
-        b = nodes.get(getattr(self, 'bump_base_' + d))
-        bump_bases.append(b)
+    #bump_bases = []
+    #neighbor_directions = ['n', 's', 'e', 'w']
+    #for d in neighbor_directions:
+    #    b = nodes.get(getattr(self, 'bump_base_' + d))
+    #    bump_bases.append(b)
 
     # Common nodes
     normal_flip = nodes.get(self.normal_flip)
 
     # Bump base is available on standard and fine bump
-    if self.normal_map_type in {'BUMP_MAP'}: #, 'FINE_BUMP_MAP'}:
-        if not bump_base:
-            bump_base = new_node(tree, self, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
-            val = self.bump_base_value
-            bump_base.inputs[0].default_value = 1.0
-            bump_base.inputs[1].default_value = (val, val, val, 1.0)
+    #if self.normal_map_type in {'BUMP_MAP'}: #, 'FINE_BUMP_MAP'}:
+    #    if not bump_base:
+    #        bump_base = new_node(tree, self, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
+    #        val = self.bump_base_value
+    #        bump_base.inputs[0].default_value = 1.0
+    #        bump_base.inputs[1].default_value = (val, val, val, 1.0)
 
     if self.normal_map_type == 'NORMAL_MAP':
         if not normal:
@@ -1116,19 +1116,19 @@ def update_normal_map_type(self, context):
             if BLENDER_28_GROUP_INPUT_HACK:
                 duplicate_lib_node_tree(fine_bump)
 
-        for i, b in enumerate(bump_bases):
-            if not b:
-                b = new_node(tree, self, 'bump_base_' + neighbor_directions[i], 'ShaderNodeMixRGB', 
-                        'bump base ' + neighbor_directions[i])
-                val = self.bump_base_value
-                vals = (val, val, val, 1.0)
-                b.inputs[1].default_value = vals
-                b.hide = True
+        #for i, b in enumerate(bump_bases):
+        #    if not b:
+        #        b = new_node(tree, self, 'bump_base_' + neighbor_directions[i], 'ShaderNodeMixRGB', 
+        #                'bump base ' + neighbor_directions[i])
+        #        val = self.bump_base_value
+        #        vals = (val, val, val, 1.0)
+        #        b.inputs[1].default_value = vals
+        #        b.hide = True
 
     # Remove bump nodes
     if self.normal_map_type != 'BUMP_MAP':
         remove_node(tree, self, 'bump')
-        remove_node(tree, self, 'bump_base')
+        #remove_node(tree, self, 'bump_base')
 
     # Remove normal nodes
     if self.normal_map_type != 'NORMAL_MAP':
@@ -1137,8 +1137,8 @@ def update_normal_map_type(self, context):
     # Remove fine bump nodes
     if self.normal_map_type != 'FINE_BUMP_MAP':
         remove_node(tree, self, 'fine_bump')
-        for d in neighbor_directions:
-            remove_node(tree, self, 'bump_base_' + d)
+        #for d in neighbor_directions:
+        #    remove_node(tree, self, 'bump_base_' + d)
 
         disable_tex_source_tree(tex, False)
         Modifier.disable_modifiers_tree(self, False)
@@ -1156,6 +1156,9 @@ def update_normal_map_type(self, context):
             else:
                 val = self.bump_base_value
                 mod.oc_col = (val, val, val, 1.0)
+
+    # Check bump base
+    check_create_bump_base(tree, self)
 
     rearrange_tex_nodes(tex)
     #reconnect_tex_nodes(tex, ch_index)
@@ -1291,20 +1294,7 @@ def update_bump_base_value(self, context):
     tex = tl.textures[int(m.group(1))]
     tree = get_tree(tex)
 
-    val = self.bump_base_value
-    col = (val, val, val, 1.0)
-
-    bump_base = tree.nodes.get(self.bump_base)
-    if bump_base: bump_base.inputs[1].default_value = col
-
-    neighbor_directions = ['n', 's', 'e', 'w']
-    for d in neighbor_directions:
-        b = tree.nodes.get(getattr(self, 'bump_base_' + d))
-        if b: b.inputs[1].default_value = col
-
-    for mod in self.modifiers:
-        if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
-            mod.oc_col = col
+    update_bump_base_value_(tree, self)
 
 def update_bump_distance(self, context):
     tl = self.id_data.tl
@@ -1734,8 +1724,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     end_alpha = StringProperty(default='')
 
     # Normal related
-    bump_base = StringProperty(default='')
     bump = StringProperty(default='')
+    fine_bump = StringProperty(default='')
     normal = StringProperty(default='')
     normal_flip = StringProperty(default='')
 
@@ -1765,12 +1755,19 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mod_e = StringProperty(default='')
     mod_w = StringProperty(default='')
 
+    # Bump bases
+    bump_base = StringProperty(default='')
     bump_base_n = StringProperty(default='')
     bump_base_s = StringProperty(default='')
     bump_base_e = StringProperty(default='')
     bump_base_w = StringProperty(default='')
 
-    fine_bump = StringProperty(default='')
+    # Bump hack
+    #bump_hack = StringProperty(default='')
+    #bump_hack_n = StringProperty(default='')
+    #bump_hack_s = StringProperty(default='')
+    #bump_hack_e = StringProperty(default='')
+    #bump_hack_w = StringProperty(default='')
 
     # Intensity Stuff
     intensity_multiplier = StringProperty(default='')

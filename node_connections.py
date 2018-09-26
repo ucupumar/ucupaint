@@ -518,25 +518,26 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
 
             elif ch.normal_map_type == 'BUMP_MAP':
 
-                bump_base = nodes.get(ch.bump_base)
                 bump = nodes.get(ch.bump)
-                create_link(tree, rgb, bump_base.inputs[2])
-                create_link(tree, alpha, bump_base.inputs[0])
+                bump_base = nodes.get(ch.bump_base)
+                create_link(tree, rgb, bump_base.inputs['Color2'])
+                create_link(tree, alpha, bump_base.inputs['Fac'])
+
                 create_link(tree, bump_base.outputs[0], bump.inputs[2])
 
                 rgb = bump.outputs[0]
 
             elif ch.normal_map_type == 'FINE_BUMP_MAP':
 
-                create_link(tree, alpha_n, bump_base_n.inputs[0])
-                create_link(tree, alpha_s, bump_base_s.inputs[0])
-                create_link(tree, alpha_e, bump_base_e.inputs[0])
-                create_link(tree, alpha_w, bump_base_w.inputs[0])
+                create_link(tree, alpha_n, bump_base_n.inputs['Fac'])
+                create_link(tree, alpha_s, bump_base_s.inputs['Fac'])
+                create_link(tree, alpha_e, bump_base_e.inputs['Fac'])
+                create_link(tree, alpha_w, bump_base_w.inputs['Fac'])
 
-                rgb_n = create_link(tree, rgb_n, bump_base_n.inputs[2])[0]
-                rgb_s = create_link(tree, rgb_s, bump_base_s.inputs[2])[0]
-                rgb_e = create_link(tree, rgb_e, bump_base_e.inputs[2])[0]
-                rgb_w = create_link(tree, rgb_w, bump_base_w.inputs[2])[0]
+                rgb_n = create_link(tree, rgb_n, bump_base_n.inputs['Color2'])[0]
+                rgb_s = create_link(tree, rgb_s, bump_base_s.inputs['Color2'])[0]
+                rgb_e = create_link(tree, rgb_e, bump_base_e.inputs['Color2'])[0]
+                rgb_w = create_link(tree, rgb_w, bump_base_w.inputs['Color2'])[0]
 
                 create_link(tree, rgb_n, fine_bump.inputs['n'])
                 create_link(tree, rgb_s, fine_bump.inputs['s'])

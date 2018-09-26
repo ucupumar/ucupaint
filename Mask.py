@@ -869,6 +869,9 @@ def set_mask_bump_nodes(tex, ch, ch_index):
 
     tree = get_tree(tex)
 
+    # Force bump base to 1.0 if mask_bump is enabled
+    #force_bump_base_value(tree, ch, 1.0)
+
     if ch.mask_bump_type == 'FINE_BUMP_MAP':
 
         enable_tex_source_tree(tex, False)
@@ -909,6 +912,10 @@ def set_mask_bump_nodes(tex, ch, ch_index):
         if ch.mask_bump_flip:
             mb_bump.inputs[1].default_value = -ch.mask_bump_distance
         else: mb_bump.inputs[1].default_value = ch.mask_bump_distance
+
+        # Replace bump base node to hack
+        #bump_base = replace_new_node(tree, ch, 'bump_base', 'ShaderNodeGroup', 'Bump Hack')
+        #bump_base.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_HACK)
 
     # Add inverse
     mb_inverse = tree.nodes.get(ch.mb_inverse)
@@ -1008,6 +1015,16 @@ def remove_mask_bump_nodes(tex, ch, ch_index):
     disable_tex_source_tree(tex, False)
     Modifier.disable_modifiers_tree(ch)
 
+    # Recover bump base value
+    #update_bump_base_value_(tree, ch)
+
+    # Replace bump base
+    #if ch.mask_bump_type == 'BUMP_MAP':
+    #    bump_base = replace_new_node(tree, ch, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
+    #    val = ch.bump_base_value
+    #    bump_base.inputs[0].default_value = 1.0
+    #    bump_base.inputs[1].default_value = (val, val, val, 1.0)
+
     remove_node(tree, ch, 'intensity_multiplier')
     remove_node(tree, ch, 'mb_bump')
     remove_node(tree, ch, 'mb_fine_bump')
@@ -1042,10 +1059,14 @@ def update_enable_mask_bump(self, context):
     tex = tl.textures[int(match.group(1))]
     ch_index = int(match.group(2))
     ch = self
+    tree = get_tree(tex)
 
     if ch.enable_mask_bump:
         set_mask_bump_nodes(tex, ch, ch_index)
     else: remove_mask_bump_nodes(tex, ch, ch_index)
+
+    # Check bump base
+    check_create_bump_base(tree, ch)
 
     rearrange_tex_nodes(tex)
     reconnect_tex_nodes(tex, mod_reconnect=True)

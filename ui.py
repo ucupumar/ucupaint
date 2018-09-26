@@ -813,9 +813,10 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     brow.label(text='Distance:') #, icon='INFO')
                     brow.prop(ch, 'bump_distance', text='')
 
-                    brow = cccol.row(align=True)
-                    brow.label(text='Bump Base:') #, icon='INFO')
-                    brow.prop(ch, 'bump_base_value', text='')
+                    if not ch.enable_mask_bump:
+                        brow = cccol.row(align=True)
+                        brow.label(text='Bump Base:') #, icon='INFO')
+                        brow.prop(ch, 'bump_base_value', text='')
 
                 brow = cccol.row(align=True)
                 brow.label(text='Invert Backface Normal')

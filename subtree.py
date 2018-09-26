@@ -168,3 +168,53 @@ def disable_tex_source_tree(tex, rearrange=True):
         # Rearrange nodes
         rearrange_tex_nodes(tex)
 
+def check_create_bump_base(tree, ch):
+
+    if ch.normal_map_type == 'FINE_BUMP_MAP':
+
+        # Delete standard bump base first
+        remove_node(tree, ch, 'bump_base')
+
+        for d in neighbor_directions:
+
+            if ch.enable_mask_bump:
+                # Mask bump uses hack
+                bb, replaced = replace_new_node(tree, ch, 'bump_base_' + d, 'ShaderNodeGroup', 'bump_hack_' + d, True)
+                if replaced:
+                    bb.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_HACK)
+
+            else:
+                # Check standard bump base
+                bb, replaced = replace_new_node(tree, ch, 'bump_base_' + d, 'ShaderNodeMixRGB', 'bump_base_' + d, True)
+                if replaced:
+                    val = ch.bump_base_value
+                    bb.inputs[0].default_value = 1.0
+                    bb.inputs[1].default_value = (val, val, val, 1.0)
+
+    elif ch.normal_map_type == 'BUMP_MAP':
+
+        # Delete fine bump bump bases first
+        for d in neighbor_directions:
+            remove_node(tree, ch, 'bump_base_' + d)
+
+        if ch.enable_mask_bump:
+
+            # Mask bump uses hack
+            bump_base, replaced = replace_new_node(tree, ch, 'bump_base', 'ShaderNodeGroup', 'Bump Hack', True)
+            if replaced:
+                bump_base.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_HACK)
+
+        else:
+            # Check standard bump base
+            bump_base, replaced = replace_new_node(tree, ch, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base', True)
+            if replaced:
+                val = ch.bump_base_value
+                bump_base.inputs[0].default_value = 1.0
+                bump_base.inputs[1].default_value = (val, val, val, 1.0)
+
+    else:
+        # Delete all bump bases
+        remove_node(tree, ch, 'bump_base')
+        for d in neighbor_directions:
+            remove_node(tree, ch, 'bump_base_' + d)
+

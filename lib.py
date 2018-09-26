@@ -5,6 +5,7 @@ from bpy.app.handlers import persistent
 # Node tree names
 OVERLAY_NORMAL = '~TL Overlay Normal'
 STRAIGHT_OVER = '~TL Straight Over Mix'
+STRAIGHT_OVER_HACK = '~TL Straight Over Hack'
 CHECK_INPUT_NORMAL = '~TL Check Input Normal'
 FLIP_BACKFACE_NORMAL = '~TL Flip Backface Normal'
 
