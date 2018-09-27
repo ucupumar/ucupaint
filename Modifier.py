@@ -358,7 +358,7 @@ def add_new_modifier(parent, modifier_type):
         # Enable modifier tree if fine bump map is used
         if parent.normal_map_type == 'FINE_BUMP_MAP' or (
                 #parent.enable and 
-                parent.enable_mask_bump and parent.mask_bump_type == 'FINE_BUMP_MAP'):
+                parent.enable_mask_bump and parent.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
             enable_modifiers_tree(parent)
     elif match2 and parent.type not in {'IMAGE', 'VCOL'}:
         enable_modifiers_tree(parent)
@@ -1132,7 +1132,7 @@ def disable_modifiers_tree(parent, rearrange=False):
         # Check if fine bump map is still used
         if len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and (
                 parent.normal_map_type == 'FINE_BUMP_MAP'
-                or (parent.enable_mask_bump and parent.mask_bump_type == 'FINE_BUMP_MAP')):
+                or (parent.enable_mask_bump and parent.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})):
             return
 
         # Check if channel use blur

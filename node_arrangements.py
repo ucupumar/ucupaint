@@ -437,6 +437,9 @@ def rearrange_mask_bump_nodes(tree, ch, loc):
     if check_set_node_loc(tree, ch.mb_fine_bump, loc):
         loc.x += 170.0
 
+    if check_set_node_loc(tree, ch.mb_curved_bump, loc):
+        loc.x += 170.0
+
     if check_set_node_loc(tree, ch.mb_bump, loc):
         loc.x += 170.0
 

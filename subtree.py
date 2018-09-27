@@ -128,7 +128,7 @@ def disable_tex_source_tree(tex, rearrange=True):
     blur_found = False
     for i, ch in enumerate(tex.channels):
         if tl.channels[i].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP' 
-                or (ch.enable_mask_bump and ch.mask_bump_type == 'FINE_BUMP_MAP')):
+                or (ch.enable_mask_bump and ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})):
             fine_bump_found = True
         if hasattr(ch, 'enable_blur') and ch.enable_blur:
             blur_found =True

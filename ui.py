@@ -732,7 +732,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
             else:
                 brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
-            brow.label(text='Intensity Bump:')
+            brow.label(text='Transition Bump:')
 
             if ch.enable_mask_bump and not chui.expand_mask_settings:
                 brow.prop(ch, 'mask_bump_value', text='')
@@ -766,13 +766,18 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 crow.label(text='Type:') #, icon='INFO')
                 crow.prop(ch, 'mask_bump_type', text='')
 
-                crow = cccol.row(align=True)
-                crow.label(text='Mask Only:') #, icon='INFO')
-                crow.prop(ch, 'mask_bump_mask_only', text='')
+                if ch.mask_bump_type == 'CURVED_BUMP_MAP':
+                    crow = cccol.row(align=True)
+                    crow.label(text='Offset:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_curved_offset', text='')
 
                 crow = cccol.row(align=True)
                 crow.label(text='Flip:') #, icon='INFO')
                 crow.prop(ch, 'mask_bump_flip', text='')
+
+                crow = cccol.row(align=True)
+                crow.label(text='Mask Only:') #, icon='INFO')
+                crow.prop(ch, 'mask_bump_mask_only', text='')
 
                 row.label(text='', icon='BLANK1')
 
@@ -840,7 +845,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     row.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
                 else:
                     row.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
-            row.label(text='Intensity Ramp:')
+            row.label(text='Transition Ramp:')
             if ch.enable_mask_ramp and not chui.expand_mask_settings:
                 row.prop(ch, 'mask_ramp_intensity_value', text='')
             row.prop(ch, 'enable_mask_ramp', text='')

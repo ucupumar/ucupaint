@@ -395,7 +395,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
 
             # Direction multiplies
             if (root_ch.type == 'NORMAL' and ch.enable_mask_bump 
-                    and ch.enable and ch.mask_bump_type == 'FINE_BUMP_MAP'):
+                    and ch.enable and ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
                 mul_n = nodes.get(c.multiply_n)
                 mul_s = nodes.get(c.multiply_s)
                 mul_e = nodes.get(c.multiply_e)
@@ -578,7 +578,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
                 mb_bump = nodes.get(ch.mb_bump)
                 create_link(tree, alpha_input, mb_bump.inputs['Height'])
 
-            elif ch.mask_bump_type == 'FINE_BUMP_MAP':
+            elif ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}:
 
                 if ch.mask_bump_mask_only:
                     malpha_n = solid_alpha.outputs[0]
@@ -603,7 +603,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
                     malpha_e = create_link(tree, malpha_e, mul_e.inputs[0])[0]
                     malpha_w = create_link(tree, malpha_w, mul_w.inputs[0])[0]
 
-                mb_bump = nodes.get(ch.mb_fine_bump)
+                if ch.mask_bump_type == 'FINE_BUMP_MAP':
+                    mb_bump = nodes.get(ch.mb_fine_bump)
+                else: 
+                    mb_bump = nodes.get(ch.mb_curved_bump)
+                    create_link(tree, alpha_input, mb_bump.inputs['Alpha'])
+
                 create_link(tree, malpha_n, mb_bump.inputs['n'])
                 create_link(tree, malpha_s, mb_bump.inputs['s'])
                 create_link(tree, malpha_e, mb_bump.inputs['e'])

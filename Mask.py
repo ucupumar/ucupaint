@@ -708,20 +708,30 @@ def update_mask_bump_distance(self, context):
     ch = self
     tree = get_tree(tex)
 
-    mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
-    if mb_fine_bump:
-        if ch.mask_bump_flip:
-            mb_fine_bump.inputs[0].default_value = -get_mask_fine_bump_distance(ch.mask_bump_distance)
-        else: mb_fine_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
+    if ch.mask_bump_type == 'CURVED_BUMP_MAP':
+        mb_curved_bump = tree.nodes.get(ch.mb_curved_bump)
+        if mb_curved_bump:
+            mb_curved_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(mb_fine_bump, 0)
+            if BLENDER_28_GROUP_INPUT_HACK:
+                match_group_input(mb_curved_bump, 0)
 
-    mb_bump = tree.nodes.get(ch.mb_bump)
-    if mb_bump:
-        if ch.mask_bump_flip:
-            mb_bump.inputs[1].default_value = -ch.mask_bump_distance
-        else: mb_bump.inputs[1].default_value = ch.mask_bump_distance
+    elif ch.mask_bump_type == 'FINE_BUMP_MAP':
+        mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
+        if mb_fine_bump:
+            if ch.mask_bump_flip:
+                mb_fine_bump.inputs[0].default_value = -get_mask_fine_bump_distance(ch.mask_bump_distance)
+            else: mb_fine_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
+
+            if BLENDER_28_GROUP_INPUT_HACK:
+                match_group_input(mb_fine_bump, 0)
+
+    elif ch.mask_bump_type == 'BUMP_MAP':
+        mb_bump = tree.nodes.get(ch.mb_bump)
+        if mb_bump:
+            if ch.mask_bump_flip:
+                mb_bump.inputs[1].default_value = -ch.mask_bump_distance
+            else: mb_bump.inputs[1].default_value = ch.mask_bump_distance
 
 def update_mask_bump_value(self, context):
     if not self.enable: return
@@ -782,6 +792,18 @@ def update_mask_bump_value(self, context):
             if BLENDER_28_GROUP_INPUT_HACK:
                 match_group_input(im, 1)
 
+def update_mask_bump_curved_offset(self, context):
+
+    tl = self.id_data.tl
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
+    tree = get_tree(tex)
+    ch = self
+
+    mb_curved_bump = tree.nodes.get(ch.mb_curved_bump)
+    if mb_curved_bump:
+        mb_curved_bump.inputs['Offset'].default_value = ch.mask_bump_curved_offset
+
 def check_set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = None):
 
     # No need to add mask intensity multiplier if there is no mask
@@ -820,7 +842,9 @@ def check_set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = N
             # Fix intensity value
             mr_intensity = tree.nodes.get(c.mr_intensity)
             if mr_intensity:
-                mr_intensity.inputs[1].default_value = c.mask_ramp_intensity_value * c.intensity_value
+                if bump_ch.mask_bump_flip:
+                    mr_intensity.inputs[1].default_value = c.mask_ramp_intensity_value * c.intensity_value
+                else: mr_intensity.inputs[1].default_value = c.mask_ramp_intensity_value
 
             # Flip mask bump related nodes
             check_mask_ramp_flip_nodes(tree, c, bump_ch)
@@ -877,9 +901,6 @@ def set_mask_bump_nodes(tex, ch, ch_index):
         enable_tex_source_tree(tex, False)
         Modifier.enable_modifiers_tree(ch)
 
-        # Remove standard bump first
-        remove_node(tree, ch, 'mb_bump')
-
         # Get fine bump
         mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
         if not mb_fine_bump:
@@ -896,13 +917,49 @@ def set_mask_bump_nodes(tex, ch, ch_index):
         if BLENDER_28_GROUP_INPUT_HACK:
             match_group_input(mb_fine_bump, 0)
 
-    elif ch.mask_bump_type == 'BUMP_MAP':
+    else:
+        remove_node(tree, ch, 'mb_fine_bump')
+
+    if ch.mask_bump_type == 'CURVED_BUMP_MAP':
+
+        enable_tex_source_tree(tex, False)
+        Modifier.enable_modifiers_tree(ch)
+
+        # Get curved fine bump
+        mb_curved_bump = tree.nodes.get(ch.mb_curved_bump)
+
+        if not mb_curved_bump:
+            mb_curved_bump = new_node(tree, ch, 'mb_curved_bump', 'ShaderNodeGroup', 'Mask Fine Bump')
+        elif BLENDER_28_GROUP_INPUT_HACK and mb_curved_bump.node_tree:
+            # Remove prev tree
+            bpy.data.node_groups.remove(mb_curved_bump.node_tree)
+
+        if ch.mask_bump_flip:
+            mb_curved_bump.node_tree = lib.get_node_tree_lib(lib.FLIP_CURVED_FINE_BUMP)
+        else:
+            mb_curved_bump.node_tree = lib.get_node_tree_lib(lib.CURVED_FINE_BUMP)
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            duplicate_lib_node_tree(mb_curved_bump)
+
+        #if ch.mask_bump_flip:
+        #    mb_curved_bump.inputs[0].default_value = -get_mask_fine_bump_distance(ch.mask_bump_distance)
+        #else: 
+        mb_curved_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
+
+        mb_curved_bump.inputs['Offset'].default_value = ch.mask_bump_curved_offset
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            match_group_input(mb_curved_bump, 0)
+            match_group_input(mb_curved_bump, 'Offset')
+
+    else:
+        remove_node(tree, ch, 'mb_curved_bump')
+
+    if ch.mask_bump_type == 'BUMP_MAP':
 
         disable_tex_source_tree(tex, False)
         Modifier.disable_modifiers_tree(ch)
-
-        # Remove fine bump first
-        remove_node(tree, ch, 'mb_fine_bump')
 
         # Get bump
         mb_bump = tree.nodes.get(ch.mb_bump)
@@ -916,6 +973,8 @@ def set_mask_bump_nodes(tex, ch, ch_index):
         # Replace bump base node to hack
         #bump_base = replace_new_node(tree, ch, 'bump_base', 'ShaderNodeGroup', 'Bump Hack')
         #bump_base.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_HACK)
+    else:
+        remove_node(tree, ch, 'mb_bump')
 
     # Add inverse
     mb_inverse = tree.nodes.get(ch.mb_inverse)
@@ -991,7 +1050,7 @@ def set_mask_bump_nodes(tex, ch, ch_index):
         mb_blend = new_node(tree, ch, 'mb_blend', 'ShaderNodeGroup', 'Mask Vector Blend')
         mb_blend.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
 
-    if ch.mask_bump_type == 'FINE_BUMP_MAP':
+    if ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}:
         # Add per mask channel bump related nodes
         for mask in tex.masks:
             enable_mask_source_tree(tex, mask, False)
@@ -1028,6 +1087,7 @@ def remove_mask_bump_nodes(tex, ch, ch_index):
     remove_node(tree, ch, 'intensity_multiplier')
     remove_node(tree, ch, 'mb_bump')
     remove_node(tree, ch, 'mb_fine_bump')
+    remove_node(tree, ch, 'mb_curved_bump')
     remove_node(tree, ch, 'mb_inverse')
     remove_node(tree, ch, 'mb_intensity_multiplier')
     remove_node(tree, ch, 'mb_blend')

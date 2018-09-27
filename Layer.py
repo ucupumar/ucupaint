@@ -1795,12 +1795,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update=Mask.update_mask_bump_distance)
 
     mask_bump_type = EnumProperty(
-            name = 'Normal Map Type',
-            items = mask_bump_type_items,
-            #items = (
-            #    ('BUMP_MAP', 'Bump Map', ''),
-            #    ('FINE_BUMP_MAP', 'Fine Bump Map', ''),
-            #    ),
+            name = 'Bump Type',
+            #items = mask_bump_type_items,
+            items = (
+                ('BUMP_MAP', 'Bump', ''),
+                ('FINE_BUMP_MAP', 'Fine Bump', ''),
+                ('CURVED_BUMP_MAP', 'Curved Bump', ''),
+                ),
             #default = 'FINE_BUMP_MAP',
             update=Mask.update_enable_mask_bump)
 
@@ -1817,8 +1818,16 @@ class YLayerChannel(bpy.types.PropertyGroup):
             #update=Mask.update_mask_bump_flip)
             update=Mask.update_enable_mask_bump)
 
+    mask_bump_curved_offset = FloatProperty(
+            name = 'Mask Bump Curved Offst',
+            description = 'Mask bump curved offset',
+            default=0.02, min=0.0, max=0.1,
+            #update=Mask.update_mask_bump_flip)
+            update=Mask.update_mask_bump_curved_offset)
+
     mb_bump = StringProperty(default='')
     mb_fine_bump = StringProperty(default='')
+    mb_curved_bump = StringProperty(default='')
     mb_inverse = StringProperty(default='')
     mb_intensity_multiplier = StringProperty(default='')
     mb_blend = StringProperty(default='')
