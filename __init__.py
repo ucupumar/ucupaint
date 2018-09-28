@@ -4,12 +4,21 @@
 # - Global mask setting
 #   - Bump
 #   - Ramp
-# - Mask switcher on the list
+# - Mask switcher on the list (V)
 # - Texture group/folder
 # - Eraser brush (check for ypanel implementation)
 # - Check for more consistent class names and properties
 #
 # TODO:
+# - Replace total mask node and implement transition bump/ramp chain system
+# - Flip bump mode
+#   - Crease
+#   - Force Transparent
+# - Color layer (?)
+# - Upper layer affect below layer (?):
+#    - Refraction (?)
+#    - Blur (?)
+# - Bump root channel (??)
 # - Matcap view on Normal preview
 # - Per texture preview
 # - Bake channel
@@ -18,15 +27,15 @@
 # - Blur UV (?)
 # - Texture Group bake proxy
 # - Eevee support
-# - Armory support
+# - Armory support (X, proper bake system is better be the solution)
 #
 # TODO OPT:
 # - Lazy node calling (can be useful to prevent missing error)
 #
 # BUGS:
 # - Fine bump still produces wrong result when using non UV texture mapping (V)
-# - Sharp bump can cause bleed on color channel
-# - Value channel should output only grayscale
+# - Sharp bump can cause bleed on color channel (V)
+# - Value channel should output only grayscale (V)
 # - Musgrave fine bump cannot read below 0.0
 #
 # KNOWN ISSUES:
