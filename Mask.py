@@ -711,7 +711,9 @@ def update_mask_bump_distance(self, context):
     if ch.mask_bump_type == 'CURVED_BUMP_MAP':
         mb_curved_bump = tree.nodes.get(ch.mb_curved_bump)
         if mb_curved_bump:
-            mb_curved_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
+            if ch.mask_bump_flip:
+                mb_curved_bump.inputs[0].default_value = -get_mask_fine_bump_distance(ch.mask_bump_distance)
+            else: mb_curved_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
 
             if BLENDER_28_GROUP_INPUT_HACK:
                 match_group_input(mb_curved_bump, 0)
@@ -942,10 +944,9 @@ def set_mask_bump_nodes(tex, ch, ch_index):
         if BLENDER_28_GROUP_INPUT_HACK:
             duplicate_lib_node_tree(mb_curved_bump)
 
-        #if ch.mask_bump_flip:
-        #    mb_curved_bump.inputs[0].default_value = -get_mask_fine_bump_distance(ch.mask_bump_distance)
-        #else: 
-        mb_curved_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
+        if ch.mask_bump_flip:
+            mb_curved_bump.inputs[0].default_value = -get_mask_fine_bump_distance(ch.mask_bump_distance)
+        else: mb_curved_bump.inputs[0].default_value = get_mask_fine_bump_distance(ch.mask_bump_distance)
 
         mb_curved_bump.inputs['Offset'].default_value = ch.mask_bump_curved_offset
 
