@@ -795,7 +795,7 @@ def rearrange_tex_nodes(tex):
         loc.x = bookmark_x
 
         # Transition ramp
-        if not bump_ch:
+        if not bump_ch and ch.enable_mask_ramp:
             rearrange_mask_ramp_nodes(tree, ch, loc)
 
         # Leftover ramp node
