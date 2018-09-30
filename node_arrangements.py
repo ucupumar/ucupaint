@@ -675,7 +675,7 @@ def rearrange_tex_nodes(tex):
             if check_set_node_loc(tree, ch.intensity_multiplier, loc, False):
                 loc.y -= 200
 
-            if ch.enable and ch.enable_mask_ramp:
+            if ch.enable_mask_ramp:
                 rearrange_mask_ramp_nodes(tree, ch, loc, not flip_bump)
                 loc.y -= 230
 
@@ -773,7 +773,7 @@ def rearrange_tex_nodes(tex):
                     loc.y -= 200
 
                 #if not flip_bump and ch.enable and ch.enable_mask_ramp:
-                if ch.enable and ch.enable_mask_ramp:
+                if ch.enable_mask_ramp:
                     rearrange_mask_ramp_nodes(tree, ch, loc, not flip_bump)
                     loc.y -= 230
 
