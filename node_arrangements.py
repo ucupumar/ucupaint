@@ -796,8 +796,11 @@ def rearrange_tex_nodes(tex):
 
         # Transition ramp
         if not bump_ch:
-        #if not flip_bump:
             rearrange_mask_ramp_nodes(tree, ch, loc)
+
+        # Leftover ramp node
+        if not ch.enable_mask_ramp and check_set_node_loc(tree, ch.mr_ramp, loc):
+            loc.x += 270.0
 
         # Transition bump
         #rearrange_mask_bump_nodes(tree, ch, loc)
@@ -832,7 +835,6 @@ def rearrange_tex_nodes(tex):
 
         # Flipped transition ramp
         if bump_ch and flip_bump:
-            #rearrange_mask_ramp_nodes(tree, ch, loc)
             rearrange_mask_ramp_blending_nodes(tree, ch, loc)
 
         if check_set_node_loc(tree, ch.intensity, loc):

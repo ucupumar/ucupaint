@@ -1052,6 +1052,10 @@ def update_channel_enable(self, context):
         if ch.enable:
             Mask.set_mask_bump_nodes(tex, ch, ch_index)
         else: Mask.remove_mask_bump_nodes(tex, ch, ch_index)
+
+        # Set mask multiply nodes
+        Mask.set_mask_multiply_nodes(tex, tree)
+
         reconnect_tex_nodes(tex)
         rearrange_tex_nodes(tex)
 
@@ -1814,7 +1818,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mask_bump_chain = IntProperty(
             name = 'Mask bump chain',
             description = 'Number of mask affected by transition bump',
-            default=1, min=0, max=10,
+            default=10, min=0, max=10,
             update=Mask.update_mask_bump_chain)
 
     mask_bump_flip = BoolProperty(

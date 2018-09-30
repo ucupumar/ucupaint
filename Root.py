@@ -143,7 +143,7 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         Mask.set_mask_multiply_nodes(t, tex_tree)
 
         # Check and set mask intensity nodes
-        Mask.check_set_mask_intensity_multiplier(tex_tree, t, target_ch=c)
+        Mask.set_mask_intensity_multiplier(tex_tree, t, target_ch=c)
 
         # Add new nodes
         Layer.create_texture_channel_nodes(group_tree, t, c)
@@ -916,8 +916,10 @@ class YRemoveTLChannel(bpy.types.Operator):
             # Remove mask bump, ramp, and channel
             #for mask in t.masks:
             #    #print(channel_idx, len(mask.channels))
-            Mask.remove_mask_ramp_nodes(ttree, ch, True)
-            Mask.remove_mask_bump_nodes(t, ch, channel_idx)
+            if channel.type == 'NORMAL' and ch.enable_mask_bump:
+                Mask.remove_mask_bump_nodes(t, ch, channel_idx)
+            elif channel.type in {'RGB', 'VALUE'} and ch.enable_mask_ramp:
+                Mask.remove_mask_ramp_nodes(ttree, ch, True)
             Mask.remove_mask_channel(ttree, t, channel_idx)
 
             t.channels.remove(channel_idx)

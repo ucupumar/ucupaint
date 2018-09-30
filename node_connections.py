@@ -553,7 +553,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
 
         # For transition input
         transition_input = alpha
-        if chain == 0:
+        if chain == 0 and intensity_multiplier:
             alpha = create_link(tree, alpha, intensity_multiplier.inputs[0])[0]
 
         # Mask multiplies
@@ -564,6 +564,9 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
             if j == chain-1 and intensity_multiplier:
                 transition_input = alpha
                 alpha = create_link(tree, alpha, intensity_multiplier.inputs[0])[0]
+
+        if not bump_ch:
+            transition_input = alpha
 
         # Mask multiply directions and alpha fine bump
         if root_ch.type == 'NORMAL' and ch.enable_mask_bump and ch.enable:
@@ -658,6 +661,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
                 mr_flip_hack = nodes.get(ch.mr_flip_hack)
                 mr_flip_blend = nodes.get(ch.mr_flip_blend)
 
+                #create_link(tree, mr_alpha.outputs[0], mr_intensity.inputs[0])
+                #hack_input = mr_intensity.outputs[0]
                 hack_input = mr_alpha.outputs[0]
 
                 for j, mask in enumerate(tex.masks):
@@ -671,8 +676,11 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
                         hack_input = create_link(tree, hack_input, mul_n.inputs[0])[0]
                         create_link(tree, mask_source.outputs[0], mul_n.inputs[1])
 
+                #create_link(tree, hack_input, mr_blend.inputs[0])
                 create_link(tree, hack_input, mr_intensity.inputs[0])
-                create_link(tree, mr_intensity.outputs[0], mr_flip_hack.inputs[0])
+                create_link(tree, mr_intensity.outputs[0], mr_blend.inputs[0])
+
+                create_link(tree, intensity_multiplier.outputs[0], mr_flip_hack.inputs[0])
                 create_link(tree, mr_flip_hack.outputs[0], mr_flip_blend.inputs[0])
 
                 create_link(tree, start.outputs[root_ch.io_index], mr_blend.inputs[1])

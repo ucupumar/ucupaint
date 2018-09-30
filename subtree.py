@@ -16,7 +16,7 @@ def move_mod_group(tex, from_tree, to_tree):
         mod_group_1 = new_node(to_tree, tex, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
         mod_group_1.node_tree = mod_tree
 
-def enable_tex_source_tree(tex, rearrange=True):
+def enable_tex_source_tree(tex, rearrange=False):
 
     # Check if source tree is already available
     if tex.type != 'VCOL' and tex.source_group != '': return
@@ -53,18 +53,6 @@ def enable_tex_source_tree(tex, rearrange=True):
         # Copy source from reference
         source = new_node(source_tree, tex, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
-
-        # Connect internal nodes
-        #source_tree.links.new(start.outputs[0], source.inputs[0])
-        #source_tree.links.new(source.outputs[0], end.inputs[0])
-
-        # Non image texture use solid alpha
-        #if tex.type != 'IMAGE':
-        #    solid_alpha = source_tree.nodes.new('ShaderNodeValue')
-        #    solid_alpha.outputs[0].default_value = 1.0
-        #    source_tree.links.new(solid_alpha.outputs[0], end.inputs[1])
-        #else:
-        #source_tree.links.new(source.outputs[1], end.inputs[1])
 
         # Create source node group
         source_group = new_node(tex_tree, tex, 'source_group', 'ShaderNodeGroup', 'source_group')

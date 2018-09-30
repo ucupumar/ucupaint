@@ -751,6 +751,10 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 #crow.prop(ch, 'mask_bump_type', text='')
 
                 crow = cccol.row(align=True)
+                crow.label(text='Type:') #, icon='INFO')
+                crow.prop(ch, 'mask_bump_type', text='')
+
+                crow = cccol.row(align=True)
                 crow.label(text='Edge 1:') #, icon='INFO')
                 crow.prop(ch, 'mask_bump_value', text='')
 
@@ -765,10 +769,6 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 crow = cccol.row(align=True)
                 crow.label(text='Affected Masks:') #, icon='INFO')
                 crow.prop(ch, 'mask_bump_chain', text='')
-
-                crow = cccol.row(align=True)
-                crow.label(text='Type:') #, icon='INFO')
-                crow.prop(ch, 'mask_bump_type', text='')
 
                 if ch.mask_bump_type == 'CURVED_BUMP_MAP':
                     crow = cccol.row(align=True)

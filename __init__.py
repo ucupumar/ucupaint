@@ -10,7 +10,7 @@
 # - Check for more consistent class names and properties
 #
 # TODO:
-# - Replace total mask node and implement transition bump/ramp chain system
+# - Replace total mask node and implement transition bump/ramp chain system (V)
 # - Flip bump mode
 #   - Crease
 #   - Force Transparent
