@@ -17,7 +17,7 @@
 # - Color layer (?)
 # - Upper layer affect below layer (?):
 #    - Refraction (?)
-#    - Blur (?)
+#    - Blur (X?, Already covered by native SSS)
 # - Bump root channel (??)
 # - Matcap view on Normal preview
 # - Per texture preview

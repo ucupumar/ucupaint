@@ -763,6 +763,10 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 crow.prop(ch, 'mask_bump_distance', text='')
 
                 crow = cccol.row(align=True)
+                crow.label(text='Affected Masks:') #, icon='INFO')
+                crow.prop(ch, 'mask_bump_chain', text='')
+
+                crow = cccol.row(align=True)
                 crow.label(text='Type:') #, icon='INFO')
                 crow.prop(ch, 'mask_bump_type', text='')
 
@@ -775,9 +779,9 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 crow.label(text='Flip:') #, icon='INFO')
                 crow.prop(ch, 'mask_bump_flip', text='')
 
-                crow = cccol.row(align=True)
-                crow.label(text='Mask Only:') #, icon='INFO')
-                crow.prop(ch, 'mask_bump_mask_only', text='')
+                #crow = cccol.row(align=True)
+                #crow.label(text='Mask Only:') #, icon='INFO')
+                #crow.prop(ch, 'mask_bump_mask_only', text='')
 
                 row.label(text='', icon='BLANK1')
 
@@ -1730,6 +1734,12 @@ class YTexMaskMenuSpecial(bpy.types.Menu):
             col.context_pointer_set('image', source.image)
             col.operator('node.y_invert_image', text='Invert Image', icon='IMAGE_ALPHA')
         #col.prop(mask, 'enable_hardness', text='Hardness')
+        col.separator()
+        op = col.operator('node.y_move_texture_mask', icon='TRIA_UP', text='Move Mask Up')
+        op.direction = 'UP'
+
+        op = col.operator('node.y_move_texture_mask', icon='TRIA_DOWN', text='Move Mask Down')
+        op.direction = 'DOWN'
         col.separator()
         col.operator('node.y_remove_texture_mask', text='Remove Mask', icon='ZOOMOUT')
 

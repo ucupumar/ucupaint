@@ -451,6 +451,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
                 obj.data.vertex_colors.remove(vcol)
 
         # Remove the node itself
+        #print('Node ' + prop + ' from ' + str(entity) + ' removed!')
         tree.nodes.remove(node)
 
     setattr(entity, prop, '')
@@ -667,6 +668,17 @@ def force_bump_base_value(tree, ch, value):
 def update_bump_base_value_(tree, ch):
     force_bump_base_value(tree, ch, ch.bump_base_value)
     
+def get_transition_bump_channel(tex):
+    tl = tex.id_data.tl
+
+    bump_ch = None
+    for i, ch in enumerate(tex.channels):
+        if tl.channels[i].type == 'NORMAL' and ch.enable and ch.enable_mask_bump:
+            bump_ch = ch
+            break
+
+    return bump_ch
+
 # BLENDER_28_GROUP_INPUT_HACK
 def duplicate_lib_node_tree(node):
     node.node_tree.name += '_Copy'

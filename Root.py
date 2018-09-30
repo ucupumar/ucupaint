@@ -137,7 +137,10 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         tex_tree = get_tree(t)
         for mask in t.masks:
             mc = mask.channels.add()
-            Mask.set_mask_multiply_and_total_nodes(tex_tree, mc, c)
+            #Mask.set_mask_multiply_and_total_nodes(tex_tree, mc, c)
+
+        # Set mask multiply nodes
+        Mask.set_mask_multiply_nodes(t, tex_tree)
 
         # Check and set mask intensity nodes
         Mask.check_set_mask_intensity_multiplier(tex_tree, t, target_ch=c)
@@ -960,6 +963,11 @@ class YRemoveTLChannel(bpy.types.Operator):
         tl.channels.remove(channel_idx)
         #tlup.channels.remove(channel_idx)
         #tl.temp_channels.remove(channel_idx)
+
+        # Check consistency of mask multiply nodes
+        for t in tl.textures:
+            ttree = get_tree(t)
+            Mask.set_mask_multiply_nodes(t, ttree)
 
         # Rearrange and reconnect nodes
         for t in tl.textures:

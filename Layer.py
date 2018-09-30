@@ -1811,6 +1811,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=False,
             update=Mask.update_enable_mask_bump)
 
+    mask_bump_chain = IntProperty(
+            name = 'Mask bump chain',
+            description = 'Number of mask affected by transition bump',
+            default=1, min=0, max=10,
+            update=Mask.update_mask_bump_chain)
+
     mask_bump_flip = BoolProperty(
             name = 'Mask Bump Flip',
             description = 'Mask bump flip',
