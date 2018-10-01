@@ -134,6 +134,12 @@ def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
     if BLENDER_28_GROUP_INPUT_HACK:
         duplicate_lib_node_tree(im)
 
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', obj.path_from_id())
+    if m:
+        tl = obj.id_data.tl
+        root_ch = tl.channels[int(m.group(2))]
+        print(root_ch.name, prop)
+
     return im
 
 #@persistent

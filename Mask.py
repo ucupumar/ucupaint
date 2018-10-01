@@ -841,13 +841,13 @@ def set_mask_intensity_multiplier(tree, tex, bump_ch = None, target_ch = None):
             # Flip mask bump related nodes
             check_mask_ramp_flip_nodes(tree, c, bump_ch)
 
-        im = tree.nodes.get(c.mr_intensity_multiplier)
-        if not im:
-            im = lib.new_intensity_multiplier_node(tree, c, 'mr_intensity_multiplier', bump_ch.mask_bump_value)
+            im = tree.nodes.get(c.mr_intensity_multiplier)
+            if not im:
+                im = lib.new_intensity_multiplier_node(tree, c, 'mr_intensity_multiplier', bump_ch.mask_bump_value)
 
-        im.inputs[1].default_value = bump_ch.mask_bump_second_edge_value
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(im, 1)
+            im.inputs[1].default_value = bump_ch.mask_bump_second_edge_value
+            if BLENDER_28_GROUP_INPUT_HACK:
+                match_group_input(im, 1)
 
         im = tree.nodes.get(c.intensity_multiplier)
         if not im:
