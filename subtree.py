@@ -156,6 +156,161 @@ def disable_tex_source_tree(tex, rearrange=True):
         # Rearrange nodes
         rearrange_tex_nodes(tex)
 
+def set_mask_uv_neighbor(tree, tex, mask):
+
+    need_reconnect = False
+
+    uv_neighbor = tree.nodes.get(mask.uv_neighbor)
+    if not uv_neighbor:
+        uv_neighbor = new_node(tree, mask, 'uv_neighbor', 'ShaderNodeGroup', 'Mask UV Neighbor')
+        need_reconnect = True
+
+    if mask.type == 'VCOL':
+        uv_neighbor.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_FAKE)
+    else:
+
+        different_uv = mask.texcoord_type == 'UV' and tex.uv_name != mask.uv_name
+
+        # Check number of input
+        prev_num_inputs = len(uv_neighbor.inputs)
+
+        # If hack is active, remove old tree first
+        if BLENDER_28_GROUP_INPUT_HACK and uv_neighbor.node_tree:
+            bpy.data.node_groups.remove(uv_neighbor.node_tree)
+
+        # Get new uv neighbor tree
+        uv_neighbor.node_tree = lib.get_neighbor_uv_tree(mask.texcoord_type, different_uv)
+
+        # Check current number of input
+        cur_num_inputs = len(uv_neighbor.inputs)
+
+        # Need reconnect of number of inputs different
+        if prev_num_inputs != cur_num_inputs:
+            need_reconnect = True
+
+        if mask.type == 'IMAGE':
+            src = get_mask_source(mask)
+            uv_neighbor.inputs[1].default_value = src.image.size[0]
+            uv_neighbor.inputs[2].default_value = src.image.size[1]
+        else:
+            uv_neighbor.inputs[1].default_value = 1000
+            uv_neighbor.inputs[2].default_value = 1000
+
+        if BLENDER_28_GROUP_INPUT_HACK:
+            duplicate_lib_node_tree(uv_neighbor)
+
+        if different_uv:
+            tangent = tree.nodes.get(mask.tangent)
+            bitangent = tree.nodes.get(mask.bitangent)
+
+            if not tangent:
+                tangent = new_node(tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Mask Tangent')
+                tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+                need_reconnect = True
+
+            if not bitangent:
+                bitangent = new_node(tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Mask Bitangent')
+                bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+                need_reconnect = True
+
+            tangent.uv_map = mask.uv_name
+            bitangent.uv_map = mask.uv_name
+        else:
+            remove_node(tree, mask, 'tangent')
+            remove_node(tree, mask, 'bitangent')
+
+    return need_reconnect
+
+def enable_mask_source_tree(tex, mask, reconnect = False):
+
+    # Check if source tree is already available
+    if mask.type != 'VCOL' and mask.group_node != '': return
+
+    tex_tree = get_tree(tex)
+
+    if mask.type != 'VCOL':
+        # Get current source for reference
+        source_ref = tex_tree.nodes.get(mask.source)
+
+        # Create mask tree
+        mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
+
+        # Create input and outputs
+        mask_tree.inputs.new('NodeSocketVector', 'Vector')
+        #mask_tree.outputs.new('NodeSocketColor', 'Color')
+        mask_tree.outputs.new('NodeSocketFloat', 'Value')
+
+        start = mask_tree.nodes.new('NodeGroupInput')
+        start.name = MASK_TREE_START
+        end = mask_tree.nodes.new('NodeGroupOutput')
+        end.name = MASK_TREE_END
+
+        # Copy nodes from reference
+        source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)
+        copy_node_props(source_ref, source)
+
+        # Create source node group
+        group_node = new_node(tex_tree, mask, 'group_node', 'ShaderNodeGroup', 'source_group')
+        source_n = new_node(tex_tree, mask, 'source_n', 'ShaderNodeGroup', 'source_n')
+        source_s = new_node(tex_tree, mask, 'source_s', 'ShaderNodeGroup', 'source_s')
+        source_e = new_node(tex_tree, mask, 'source_e', 'ShaderNodeGroup', 'source_e')
+        source_w = new_node(tex_tree, mask, 'source_w', 'ShaderNodeGroup', 'source_w')
+
+        group_node.node_tree = mask_tree
+        source_n.node_tree = mask_tree
+        source_s.node_tree = mask_tree
+        source_e.node_tree = mask_tree
+        source_w.node_tree = mask_tree
+
+        # Remove previous nodes
+        tex_tree.nodes.remove(source_ref)
+
+    # Create uv neighbor
+    set_mask_uv_neighbor(tex_tree, tex, mask)
+
+    if reconnect:
+        # Reconnect outside nodes
+        reconnect_tex_nodes(tex)
+
+        # Rearrange nodes
+        rearrange_tex_nodes(tex)
+
+def disable_mask_source_tree(tex, mask, reconnect=False):
+
+    # Check if source tree is already gone
+    if mask.type != 'VCOL' and mask.group_node == '': return
+
+    tex_tree = get_tree(tex)
+
+    if mask.type != 'VCOL':
+
+        mask_tree = get_mask_tree(mask)
+
+        source_ref = mask_tree.nodes.get(mask.source)
+        group_node = tex_tree.nodes.get(mask.group_node)
+
+        # Create new nodes
+        source = new_node(tex_tree, mask, 'source', source_ref.bl_idname)
+        copy_node_props(source_ref, source)
+
+        # Remove previous source
+        remove_node(tex_tree, mask, 'group_node')
+        remove_node(tex_tree, mask, 'source_n')
+        remove_node(tex_tree, mask, 'source_s')
+        remove_node(tex_tree, mask, 'source_e')
+        remove_node(tex_tree, mask, 'source_w')
+        remove_node(tex_tree, mask, 'tangent')
+        remove_node(tex_tree, mask, 'bitangent')
+
+    remove_node(tex_tree, mask, 'uv_neighbor')
+
+    if reconnect:
+        # Reconnect outside nodes
+        reconnect_tex_nodes(tex)
+
+        # Rearrange nodes
+        rearrange_tex_nodes(tex)
+
 def check_create_bump_base(tree, ch):
 
     if ch.normal_map_type == 'FINE_BUMP_MAP':
@@ -205,4 +360,51 @@ def check_create_bump_base(tree, ch):
         remove_node(tree, ch, 'bump_base')
         for d in neighbor_directions:
             remove_node(tree, ch, 'bump_base_' + d)
+
+def set_mask_multiply_nodes(tex, tree, bump_ch=None):
+
+    tl = tex.id_data.tl
+
+    if not bump_ch: bump_ch = get_transition_bump_channel(tex)
+
+    chain = -1
+    flip_bump = False
+    if bump_ch:
+        chain = min(bump_ch.mask_bump_chain, len(tex.masks))
+        flip_bump = bump_ch.mask_bump_flip
+
+    for i, mask in enumerate(tex.masks):
+        for j, c in enumerate(mask.channels):
+
+            multiply = tree.nodes.get(c.multiply)
+            if not multiply:
+                multiply = new_node(tree, c, 'multiply', 'ShaderNodeMath', 'Mask Multiply')
+                multiply.operation = 'MULTIPLY'
+                multiply.mute = not c.enable or not mask.enable or not tex.enable_masks
+
+            ch = tex.channels[j]
+            root_ch = tl.channels[j]
+
+            if root_ch.type == 'NORMAL':
+
+                if bump_ch == ch and ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'} and i < chain:
+                    for d in neighbor_directions:
+                        mul = tree.nodes.get(getattr(c, 'multiply_' + d))
+                        if not mul:
+                            mul = new_node(tree, c, 'multiply_' + d, 'ShaderNodeMath', 'mul_' + d)
+                            mul.operation = 'MULTIPLY'
+                            mul.mute = not c.enable or not mask.enable or not tex.enable_masks
+                else:
+                    for d in neighbor_directions:
+                        remove_node(tree, c, 'multiply_' + d)
+
+            else: 
+                if bump_ch and flip_bump and ch.enable_mask_ramp and i >= chain:
+                    multiply_n = tree.nodes.get(c.multiply_n)
+                    if not multiply_n:
+                        multiply_n = new_node(tree, c, 'multiply_n', 'ShaderNodeMath', 'mul_extra')
+                        multiply_n.operation = 'MULTIPLY'
+                        multiply_n.mute = not c.enable or not mask.enable or not tex.enable_masks
+                else:
+                    remove_node(tree, c, 'multiply_n')
 

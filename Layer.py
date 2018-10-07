@@ -2,7 +2,7 @@ import bpy, time, re
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
-from . import Modifier, lib, Blur, Mask
+from . import Modifier, lib, Blur, Mask, transition
 from .common import *
 from .node_arrangements import *
 from .node_connections import *
@@ -1050,11 +1050,11 @@ def update_channel_enable(self, context):
 
     if ch.enable_mask_bump:
         if ch.enable:
-            Mask.set_mask_bump_nodes(tex, ch, ch_index)
+            transition.set_transition_bump_nodes(tex, ch, ch_index)
         else: Mask.remove_mask_bump_nodes(tex, ch, ch_index)
 
         # Set mask multiply nodes
-        Mask.set_mask_multiply_nodes(tex, tree)
+        set_mask_multiply_nodes(tex, tree)
 
         reconnect_tex_nodes(tex)
         rearrange_tex_nodes(tex)
@@ -1321,111 +1321,6 @@ def update_bump_distance(self, context):
                 #inp = fine_bump.node_tree.nodes.get('Group Input')
                 #inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
 
-#def update_sharpen_normal_transition(self, context):
-#    T = time.time()
-#
-#    tl = self.id_data.tl
-#    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-#    tex = tl.textures[int(m.group(1))]
-#    tree = get_tree(tex)
-#    ch = self
-#
-#    if ch.sharpen_normal_transition:
-#        props = ['intensity_multiplier', 'mask_intensity_multiplier']
-#        if ch.enable_mask_bump:
-#            props.append('mb_intensity_multiplier')
-#
-#        rearrange = False
-#
-#        for prop in props:
-#            im = tree.nodes.get(getattr(ch, prop))
-#            if not im:
-#                im = lib.new_intensity_multiplier_node(tree, ch, prop, ch.mask_bump_value)
-#                rearrange = True
-#            im.mute = False
-#
-#        for c in tex.channels:
-#            if c == ch: continue
-#            props = ['intensity_multiplier', 'mask_intensity_multiplier']
-#
-#            if c.enable_mask_ramp and ch.enable_mask_bump:
-#                props.append('mr_intensity_multiplier')
-#
-#            for prop in props:
-#                im = tree.nodes.get(getattr(c, prop))
-#                if not im:
-#                    im = lib.new_intensity_multiplier_node(tree, c, prop, ch.mask_bump_value)
-#                    rearrange = True
-#                im.mute = False
-#
-#        if rearrange:
-#            #Ti = time.time()
-#            reconnect_tex_nodes(tex)
-#            rearrange_tex_nodes(tex)
-#            #print('{:0.2f}'.format((time.time() - Ti) * 1000), 'ms')
-#
-#    else:
-#        remove_node(tree, ch, 'intensity_multiplier')
-#        remove_node(tree, ch, 'mb_intensity_multiplier')
-#        remove_node(tree, ch, 'mask_intensity_multiplier')
-#        #mute_node(tree, ch, 'intensity_multiplier')
-#        #mute_node(tree, ch, 'mb_intensity_multiplier')
-#        #mute_node(tree, ch, 'mask_intensity_multiplier')
-#
-#        for c in tex.channels:
-#            remove_node(tree, c, 'intensity_multiplier')
-#            remove_node(tree, c, 'mr_intensity_multiplier')
-#            remove_node(tree, c, 'mask_intensity_multiplier')
-#            #mute_node(tree, c, 'intensity_multiplier')
-#            #mute_node(tree, c, 'mr_intensity_multiplier')
-#            #mute_node(tree, c, 'mask_intensity_multiplier')
-#
-#        reconnect_tex_nodes(tex)
-#        rearrange_tex_nodes(tex)
-#
-#    if ch.sharpen_normal_transition:
-#        print('INFO: Normal transition is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-#    else: print('INFO: Normal transition is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-
-#def update_intensity_multiplier(self, context):
-#    tl = self.id_data.tl
-#    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-#    tex = tl.textures[int(m.group(1))]
-#    tree = get_tree(tex)
-#
-#    if self.intensity_multiplier_link:
-#        for i, ch in enumerate(tex.channels):
-#
-#            intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
-#            if intensity_multiplier: 
-#                intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
-#
-#                if BLENDER_28_GROUP_INPUT_HACK and intensity_multiplier.type =='GROUP':
-#                    inp = intensity_multiplier.node_tree.nodes.get('Group Input')
-#                    for link in inp.outputs[1].links:
-#                        if link.to_socket.default_value != self.intensity_multiplier_value:
-#                            link.to_socket.default_value = self.intensity_multiplier_value
-#    else:
-#        intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
-#        if intensity_multiplier: 
-#            intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
-#
-#    for mask in tex.masks:
-#        for c in mask.channels:
-#            #if c.enable_bump:
-#            intensity_multiplier = tree.nodes.get(c.intensity_multiplier)
-#            if intensity_multiplier: 
-#                intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
-#
-#                if BLENDER_28_GROUP_INPUT_HACK and intensity_multiplier.type =='GROUP':
-#                    inp = intensity_multiplier.node_tree.nodes.get('Group Input')
-#                    for link in inp.outputs[1].links:
-#                        if link.to_socket.default_value != self.intensity_multiplier_value:
-#                            link.to_socket.default_value = self.intensity_multiplier_value
-#
-#            vector_intensity_multiplier = tree.nodes.get(c.vector_intensity_multiplier)
-#            if vector_intensity_multiplier: vector_intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
-
 #def set_tex_channel_linear_node(tree, tex, root_ch, ch, custom_value=None, rearrange=False):
 def set_tex_channel_linear_node(tree, tex, root_ch, ch, rearrange=False):
 
@@ -1606,7 +1501,7 @@ def update_texture_enable(self, context):
             if mr_blend: mr_blend.mute = blend.mute
 
         #if ch.enable_mask_bump:
-        #    Mask.set_mask_bump_nodes(tex, ch, i)
+        #    transition.set_transition_bump_nodes(tex, ch, i)
 
     #reconnect_tex_nodes(tex)
 
@@ -1778,25 +1673,25 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Mask bump related
     enable_mask_bump = BoolProperty(name='Enable Mask Bump', description='Enable mask bump',
-            default=False, update=Mask.update_enable_mask_bump)
+            default=False, update=transition.update_enable_transition_bump)
 
     mask_bump_value = FloatProperty(
         name = 'Mask Bump Value',
         description = 'Mask bump value',
         default=3.0, min=1.0, max=100.0, 
-        update=Mask.update_mask_bump_value)
+        update=transition.update_transition_bump_value)
 
     mask_bump_second_edge_value = FloatProperty(
             name = 'Second Edge Intensity', 
             description = 'Second Edge intensity value',
             default=1.2, min=1.0, max=100.0, 
-            update = Mask.update_mask_bump_value)
+            update=transition.update_transition_bump_value)
 
     mask_bump_distance = FloatProperty(
             name='Mask Bump Distance', 
             description= 'Distance of mask bump', 
             default=0.05, min=0.0, max=1.0, precision=3, # step=1,
-            update=Mask.update_mask_bump_distance)
+            update=transition.update_transition_bump_distance)
 
     mask_bump_type = EnumProperty(
             name = 'Bump Type',
@@ -1807,33 +1702,33 @@ class YLayerChannel(bpy.types.PropertyGroup):
                 ('CURVED_BUMP_MAP', 'Curved Bump', ''),
                 ),
             #default = 'FINE_BUMP_MAP',
-            update=Mask.update_enable_mask_bump)
+            update=transition.update_enable_transition_bump)
 
     mask_bump_mask_only = BoolProperty(
             name = 'Mask Bump Mask Only',
             description = 'Mask bump mask only',
             default=False,
-            update=Mask.update_enable_mask_bump)
+            update=transition.update_enable_transition_bump)
 
     mask_bump_chain = IntProperty(
             name = 'Mask bump chain',
             description = 'Number of mask affected by transition bump',
             default=10, min=0, max=10,
-            update=Mask.update_mask_bump_chain)
+            update=transition.update_transition_bump_chain)
 
     mask_bump_flip = BoolProperty(
             name = 'Mask Bump Flip',
             description = 'Mask bump flip',
             default=False,
             #update=Mask.update_mask_bump_flip)
-            update=Mask.update_enable_mask_bump)
+            update=transition.update_enable_transition_bump)
 
     mask_bump_curved_offset = FloatProperty(
             name = 'Mask Bump Curved Offst',
             description = 'Mask bump curved offset',
             default=0.02, min=0.0, max=0.1,
             #update=Mask.update_mask_bump_flip)
-            update=Mask.update_mask_bump_curved_offset)
+            update=transition.update_transition_bump_curved_offset)
 
     mb_bump = StringProperty(default='')
     mb_fine_bump = StringProperty(default='')
@@ -1852,22 +1747,22 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mb_mod_e = StringProperty(default='')
     mb_mod_w = StringProperty(default='')
 
-    # Mask ramp related
-    enable_mask_ramp = BoolProperty(name='Enable Mask Ramp', description='Enable mask ramp', 
-            default=False, update=Mask.update_enable_mask_ramp)
+    # Transition ramp related
+    enable_mask_ramp = BoolProperty(name='Enable Transition Ramp', description='Enable alpha transition ramp', 
+            default=False, update=transition.update_enable_transition_ramp)
 
     mask_ramp_intensity_value = FloatProperty(
             name = 'Channel Intensity Factor', 
             description = 'Channel Intensity Factor',
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update = Mask.update_mask_ramp_intensity_value)
+            update=transition.update_transition_ramp_intensity_value)
 
     mask_ramp_blend_type = EnumProperty(
-        name = 'Ramp Blend Type',
+        name = 'Transition Ramp Blend Type',
         items = blend_type_items,
-        default = 'MIX', update = Mask.update_mask_ramp_blend_type)
+        default = 'MIX', update=transition.update_transition_ramp_blend_type)
 
-    # Mask ramp nodes
+    # Transition ramp nodes
     mr_ramp = StringProperty(default='')
     mr_linear = StringProperty(default='')
     mr_inverse = StringProperty(default='')
@@ -1876,14 +1771,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mr_intensity = StringProperty(default='')
     mr_blend = StringProperty(default='')
 
-    # For flip bump mask only
+    # For flip transition bump
     mr_alpha1 = StringProperty(default='')
     mr_flip_hack = StringProperty(default='')
     mr_flip_blend = StringProperty(default='')
-
-    # Mask intensity pipeline
-    mask_total = StringProperty(default='')
-    mask_intensity_multiplier = StringProperty(default='')
 
     # For UI
     expand_bump_settings = BoolProperty(default=False)

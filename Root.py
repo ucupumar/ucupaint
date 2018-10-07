@@ -2,9 +2,10 @@ import bpy, time, re
 from bpy.props import *
 from bpy.app.handlers import persistent
 from .common import *
+from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
-from . import lib, Modifier, Layer, Mask
+from . import lib, Modifier, Layer, Mask, transition
 
 TL_GROUP_SUFFIX = ' TexLayers'
 
@@ -140,7 +141,7 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
             #Mask.set_mask_multiply_and_total_nodes(tex_tree, mc, c)
 
         # Set mask multiply nodes
-        Mask.set_mask_multiply_nodes(t, tex_tree)
+        set_mask_multiply_nodes(t, tex_tree)
 
         # Check and set mask intensity nodes
         Mask.set_mask_intensity_multiplier(tex_tree, t, target_ch=c)
@@ -913,15 +914,16 @@ class YRemoveTLChannel(bpy.types.Operator):
                 ttree.inputs.remove(ttree.inputs[channel.io_index])
                 ttree.outputs.remove(ttree.outputs[channel.io_index])
 
-            # Remove mask bump, ramp, and channel
-            #for mask in t.masks:
-            #    #print(channel_idx, len(mask.channels))
+            # Remove transition bump and ramp
             if channel.type == 'NORMAL' and ch.enable_mask_bump:
-                Mask.remove_mask_bump_nodes(t, ch, channel_idx)
+                transition.remove_transition_bump_nodes(t, ch, channel_idx)
             elif channel.type in {'RGB', 'VALUE'} and ch.enable_mask_ramp:
-                Mask.remove_mask_ramp_nodes(ttree, ch, True)
+                transition.remove_transition_ramp_nodes(ttree, ch, True)
+
+            # Remove mask channel
             Mask.remove_mask_channel(ttree, t, channel_idx)
 
+            # Remove layer channel
             t.channels.remove(channel_idx)
 
         # Remove start and end nodes
@@ -969,7 +971,7 @@ class YRemoveTLChannel(bpy.types.Operator):
         # Check consistency of mask multiply nodes
         for t in tl.textures:
             ttree = get_tree(t)
-            Mask.set_mask_multiply_nodes(t, ttree)
+            set_mask_multiply_nodes(t, ttree)
 
         # Rearrange and reconnect nodes
         for t in tl.textures:

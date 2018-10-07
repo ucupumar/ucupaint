@@ -438,9 +438,6 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
 
         normal_flip = nodes.get(ch.normal_flip)
 
-        #mask_intensity_multiplier = nodes.get(ch.mask_intensity_multiplier)
-        #mask_total = nodes.get(ch.mask_total)
-
         intensity = nodes.get(ch.intensity)
         intensity_multiplier = nodes.get(ch.intensity_multiplier)
         blend = nodes.get(ch.blend)
