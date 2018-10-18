@@ -60,7 +60,7 @@ def check_transition_ramp_flip_nodes(tree, ch, bump_ch=None, rearrange=False):
 
     return rearrange
 
-def set_transition_intensity_multiplier(tree, tex, bump_ch = None, target_ch = None):
+def set_transition_bump_influences_to_other_channels(tree, tex, bump_ch = None, target_ch = None):
 
     # Bump channel must available
     if not bump_ch: bump_ch = get_transition_bump_channel(tex)
@@ -95,6 +95,9 @@ def set_transition_intensity_multiplier(tree, tex, bump_ch = None, target_ch = N
             if BLENDER_28_GROUP_INPUT_HACK:
                 match_group_input(im, 1)
 
+        if c.enable_transition_ao:
+            set_transition_ao_nodes(tree, tex, c, bump_ch)
+
         im = tree.nodes.get(c.intensity_multiplier)
         if not im:
             im = lib.new_intensity_multiplier_node(tree, c, 'intensity_multiplier', bump_ch.mask_bump_value)
@@ -106,6 +109,52 @@ def set_transition_intensity_multiplier(tree, tex, bump_ch = None, target_ch = N
 
         if BLENDER_28_GROUP_INPUT_HACK:
             match_group_input(im, 'Invert')
+
+def set_transition_ao_nodes(tree, tex, ch, bump_ch):
+
+    tl = ch.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+    root_ch = tl.channels[int(match.group(2))]
+
+    if bump_ch and ch.enable_transition_ao:
+
+        tao = tree.nodes.get(ch.tao)
+
+        # Check if node tree isn't match
+        if tao:
+            using_flip = tao.node_tree.name.startswith(lib.TRANSITION_AO_FLIP)
+            if (using_flip and not bump_ch.mask_bump_flip) or (not using_flip and bump_ch.mask_bump_flip):
+                remove_node(tree, ch, 'tao')
+                tao = None
+
+        if not tao:
+            tao = new_node(tree, ch, 'tao', 'ShaderNodeGroup', 'Transition AO')
+            if bump_ch.mask_bump_flip:
+                tao.node_tree = lib.get_node_tree_lib(lib.TRANSITION_AO_FLIP)
+            else: tao.node_tree = lib.get_node_tree_lib(lib.TRANSITION_AO)
+
+            col = (ch.transition_ao_color.r, ch.transition_ao_color.g, ch.transition_ao_color.b, 1.0)
+            tao.inputs['AO Color'].default_value = col
+
+            if bump_ch.mask_bump_flip:
+                tao.inputs['Edge'].default_value = -ch.transition_ao_edge
+            else: tao.inputs['Edge'].default_value = ch.transition_ao_edge
+
+            tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
+            #tao.inputs['Gamma'].default_value = 1.0
+            if root_ch.colorspace == 'SRGB':
+                tao.inputs['Gamma'].default_value = 1.0/GAMMA
+            else: tao.inputs['Gamma'].default_value = 1.0
+
+            if BLENDER_28_GROUP_INPUT_HACK:
+                duplicate_lib_node_tree(tao)
+                match_group_input(tao)
+
+    else:
+        remove_transition_ao_nodes(tree, tex, ch)
+
+def remove_transition_ao_nodes(tree, tex, ch):
+    remove_node(tree, ch, 'tao')
 
 def set_transition_ramp_nodes(tree, tex, ch, rearrange=False):
 
@@ -316,7 +365,7 @@ def set_transition_bump_nodes(tex, ch, ch_index):
         match_group_input(intensity_multiplier)
 
     # Add intensity multiplier to other channel
-    set_transition_intensity_multiplier(tree, tex, bump_ch=ch)
+    set_transition_bump_influences_to_other_channels(tree, tex, bump_ch=ch)
 
     # Add vector mix
     mb_blend = tree.nodes.get(ch.mb_blend)
@@ -507,13 +556,74 @@ def update_transition_bump_curved_offset(self, context):
     if mb_curved_bump:
         mb_curved_bump.inputs['Offset'].default_value = ch.mask_bump_curved_offset
 
+def update_transition_ao_intensity(self, context):
+
+    tl = self.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(match.group(1))]
+    ch = self
+    tree = get_tree(tex)
+
+    tao = tree.nodes.get(ch.tao)
+    if tao:
+        tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
+
+def update_transition_ao_edge(self, context):
+
+    tl = self.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(match.group(1))]
+    ch = self
+    tree = get_tree(tex)
+
+    bump_ch = get_transition_bump_channel(tex)
+
+    tao = tree.nodes.get(ch.tao)
+    if tao and bump_ch:
+        if bump_ch.mask_bump_flip:
+            tao.inputs['Edge'].default_value = -ch.transition_ao_edge
+        else: tao.inputs['Edge'].default_value = ch.transition_ao_edge
+
+def update_transition_ao_color(self, context):
+
+    tl = self.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(match.group(1))]
+    ch = self
+    tree = get_tree(tex)
+
+    tao = tree.nodes.get(ch.tao)
+    if tao:
+        col = (ch.transition_ao_color.r, ch.transition_ao_color.g, ch.transition_ao_color.b, 1.0)
+        tao.inputs['AO Color'].default_value = col
+
+def update_enable_transition_ao(self, context):
+
+    tl = self.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(match.group(1))]
+    ch = self
+
+    tree = get_tree(tex)
+
+    # Get transition bump
+    bump_ch = get_transition_bump_channel(tex)
+
+    set_transition_ao_nodes(tree, tex, ch, bump_ch)
+
+    # Update mask multiply
+    set_mask_multiply_nodes(tex, tree)
+
+    rearrange_tex_nodes(tex)
+    reconnect_tex_nodes(tex)
+
 def update_enable_transition_ramp(self, context):
     T = time.time()
 
     tl = self.id_data.tl
     match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
-    ch = tex.channels[int(match.group(2))]
+    ch = self
 
     tree = get_tree(tex)
 

@@ -399,7 +399,9 @@ def set_mask_multiply_nodes(tex, tree, bump_ch=None):
                         remove_node(tree, c, 'multiply_' + d)
 
             else: 
-                if bump_ch and flip_bump and ch.enable_mask_ramp and i >= chain:
+                if (bump_ch and i >= chain and (
+                    (flip_bump and ch.enable_mask_ramp) or (not flip_bump and ch.enable_transition_ao)
+                    )):
                     multiply_n = tree.nodes.get(c.multiply_n)
                     if not multiply_n:
                         multiply_n = new_node(tree, c, 'multiply_n', 'ShaderNodeMath', 'mul_extra')

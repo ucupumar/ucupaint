@@ -675,6 +675,9 @@ def rearrange_tex_nodes(tex):
             if check_set_node_loc(tree, ch.intensity_multiplier, loc, False):
                 loc.y -= 200
 
+            if flip_bump and check_set_node_loc(tree, ch.tao, loc, False):
+                loc.y -= 230
+
             if ch.enable_mask_ramp:
                 rearrange_mask_ramp_nodes(tree, ch, loc, not flip_bump)
                 loc.y -= 230
@@ -772,6 +775,9 @@ def rearrange_tex_nodes(tex):
                 if check_set_node_loc(tree, ch.intensity_multiplier, loc, False):
                     loc.y -= 200
 
+                if flip_bump and check_set_node_loc(tree, ch.tao, loc, False):
+                    loc.y -= 230
+
                 #if not flip_bump and ch.enable and ch.enable_mask_ramp:
                 if ch.enable_mask_ramp:
                     rearrange_mask_ramp_nodes(tree, ch, loc, not flip_bump)
@@ -832,6 +838,9 @@ def rearrange_tex_nodes(tex):
         #if ch != bump_ch or (ch == bump_ch and chain == len(tex.masks)):
         #    if check_set_node_loc(tree, ch.intensity_multiplier, loc):
         #        loc.x += 200.0
+
+        if not flip_bump and check_set_node_loc(tree, ch.tao, loc):
+            loc.x += 200.0
 
         # Flipped transition ramp
         if bump_ch and flip_bump:

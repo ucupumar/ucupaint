@@ -1370,6 +1370,13 @@ def update_channel_colorspace(self, context):
                     mr_linear.inputs[1].default_value = 1.0/GAMMA
                 else: mr_linear.inputs[1].default_value = 1.0
 
+        if ch.enable_transition_ao:
+            tao = tree.nodes.get(ch.tao)
+            if tao:
+                if self.colorspace == 'SRGB':
+                    tao.inputs['Gamma'].default_value = 1.0/GAMMA
+                else: tao.inputs['Gamma'].default_value = 1.0
+
         for mod in ch.modifiers:
 
             if mod.type == 'RGB_TO_INTENSITY':

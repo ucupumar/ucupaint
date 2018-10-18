@@ -68,6 +68,8 @@ def update_tl_ui():
                 c.expand_bump_settings = ch.expand_bump_settings
                 c.expand_intensity_settings = ch.expand_intensity_settings
                 c.expand_mask_settings = ch.expand_mask_settings
+                c.expand_transition_ramp_settings = ch.expand_transition_ramp_settings
+                c.expand_transition_ao_settings = ch.expand_transition_ao_settings
                 c.expand_input_settings = ch.expand_input_settings
                 c.expand_content = ch.expand_content
                 for mod in ch.modifiers:
@@ -320,7 +322,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_e
             box = row.box()
             box.active = m.enable
             Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, box, False)
-            row.label(text='', icon='BLANK1')
+            #row.label(text='', icon='BLANK1')
 
 def draw_root_channels_ui(context, layout, node, custom_icon_enable):
     group_tree = node.node_tree
@@ -641,8 +643,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
         rcol.label(text='No channel found!', icon='ERROR')
 
     # Check if theres any mask bump
-    mask_bump_found = any([c for i, c in enumerate(tex.channels) 
-        if tl.channels[i].type == 'NORMAL' and c.enable_mask_bump and c.enable])
+    bump_ch_found = True if get_transition_bump_channel(tex) else False
 
     ch_count = 0
     extra_separator = False
@@ -722,7 +723,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     brow.context_pointer_set('image', image)
                     brow.operator('node.y_refresh_neighbor_uv', icon='ERROR')
 
-            #if len(tex.masks) > 0 and (not mask_bump_found or ch.enable_mask_bump):
+            #if len(tex.masks) > 0 and (not bump_ch_found or ch.enable_mask_bump):
             brow = mcol.row(align=True)
             #brow.label(text='', icon='INFO')
             if custom_icon_enable:
@@ -783,7 +784,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 #crow.label(text='Mask Only:') #, icon='INFO')
                 #crow.prop(ch, 'mask_bump_mask_only', text='')
 
-                row.label(text='', icon='BLANK1')
+                #row.label(text='', icon='BLANK1')
 
             row = mcol.row(align=True)
 
@@ -806,7 +807,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
             if not chui.expand_bump_settings and ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
                 srow.prop(ch, 'bump_distance', text='')
 
-            row.label(text='', icon='BLANK1')
+            #row.label(text='', icon='BLANK1')
 
             #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} and chui.expand_bump_settings:
             if chui.expand_bump_settings:
@@ -831,11 +832,13 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 brow.label(text='Invert Backface Normal')
                 brow.prop(ch, 'invert_backface_normal', text='')
 
-                row.label(text='', icon='BLANK1')
+                #row.label(text='', icon='BLANK1')
 
             extra_separator = True
 
-        if root_ch.type in {'RGB', 'VALUE'}: #and len(tex.masks) > 0:
+        if root_ch.type in {'RGB', 'VALUE'}:
+
+            # Transition Ramp
             row = mcol.row(align=True)
 
             ramp = tex_tree.nodes.get(ch.mr_ramp)
@@ -843,18 +846,18 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 row.label(text='', icon='INFO')
             else:
                 if custom_icon_enable:
-                    if chui.expand_mask_settings:
+                    if chui.expand_transition_ramp_settings:
                         icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                     else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                    row.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
+                    row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=False, icon_value=icon_value)
                 else:
-                    row.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
+                    row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=True, icon='MOD_MASK')
             row.label(text='Transition Ramp:')
-            if ch.enable_mask_ramp and not chui.expand_mask_settings:
+            if ch.enable_mask_ramp and not chui.expand_transition_ramp_settings:
                 row.prop(ch, 'mask_ramp_intensity_value', text='')
             row.prop(ch, 'enable_mask_ramp', text='')
 
-            if ramp and chui.expand_mask_settings:
+            if ramp and chui.expand_transition_ramp_settings:
                 row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
                 box = row.box()
@@ -865,7 +868,39 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 brow.prop(ch, 'mask_ramp_intensity_value', text='')
                 #brow.prop(ch, 'ramp_intensity_value', text='')
                 bcol.template_color_ramp(ramp, "color_ramp", expand=True)
+                #row.label(text='', icon='BLANK1')
+
+            # Transition AO
+            row = mcol.row(align=True)
+            row.active = bump_ch_found
+            if custom_icon_enable:
+                if chui.expand_transition_ao_settings:
+                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                row.prop(chui, 'expand_transition_ao_settings', text='', emboss=False, icon_value=icon_value)
+            else:
+                row.prop(chui, 'expand_transition_ao_settings', text='', emboss=True, icon='MOD_MASK')
+            row.label(text='Transition AO:')
+            if ch.enable_transition_ao and not chui.expand_transition_ao_settings:
+                row.prop(ch, 'transition_ao_intensity', text='')
+            row.prop(ch, 'enable_transition_ao', text='')
+
+            if chui.expand_transition_ao_settings:
+                row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
+                box = row.box()
+                box.active = bump_ch_found
+                bcol = box.column(align=False)
+                brow = bcol.row(align=True)
+                brow.label(text='Intensity:')
+                brow.prop(ch, 'transition_ao_intensity', text='')
+                brow = bcol.row(align=True)
+                brow.label(text='Edge:')
+                brow.prop(ch, 'transition_ao_edge', text='')
+                brow = bcol.row(align=True)
+                brow.label(text='Color:')
+                brow.prop(ch, 'transition_ao_color', text='')
+                #row.label(text='', icon='BLANK1')
 
             extra_separator = True
 
@@ -1805,6 +1840,10 @@ def update_channel_ui(self, context):
         ch.expand_intensity_settings = self.expand_intensity_settings
     if hasattr(ch, 'expand_mask_settings'):
         ch.expand_mask_settings = self.expand_mask_settings
+    if hasattr(ch, 'expand_transition_ramp_settings'):
+        ch.expand_transition_ramp_settings = self.expand_transition_ramp_settings
+    if hasattr(ch, 'expand_transition_ao_settings'):
+        ch.expand_transition_ao_settings = self.expand_transition_ao_settings
     if hasattr(ch, 'expand_input_settings'):
         ch.expand_input_settings = self.expand_input_settings
 
@@ -1851,6 +1890,8 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_intensity_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_base_vector = BoolProperty(default=True, update=update_channel_ui)
     expand_mask_settings = BoolProperty(default=True, update=update_channel_ui)
+    expand_transition_ramp_settings = BoolProperty(default=True, update=update_channel_ui)
+    expand_transition_ao_settings = BoolProperty(default=True, update=update_channel_ui)
     expand_input_settings = BoolProperty(default=True, update=update_channel_ui)
     modifiers = CollectionProperty(type=YModifierUI)
 

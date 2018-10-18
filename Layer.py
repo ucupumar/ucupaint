@@ -1776,11 +1776,33 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mr_flip_hack = StringProperty(default='')
     mr_flip_blend = StringProperty(default='')
 
+    # Transition AO related
+    enable_transition_ao = BoolProperty(name='Enable Transition AO', 
+            description='Enable alpha transition Ambient Occlusion (Need active transition bump)', default=False,
+            update=transition.update_enable_transition_ao)
+
+    transition_ao_edge = FloatProperty(name='Transition AO Edge',
+            #description='Transition AO edge power (higher value means less AO)', min=1.0, max=100.0, default=4.0,
+            description='Transition AO edge power', min=1.0, max=100.0, default=4.0,
+            update=transition.update_transition_ao_edge)
+
+    transition_ao_intensity = FloatProperty(name='Transition AO Intensity',
+            description='Transition AO intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.5,
+            update=transition.update_transition_ao_intensity)
+
+    transition_ao_color = FloatVectorProperty(name='Transition AO Color', description='Transition AO Color', 
+            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.0, 0.0, 0.0),
+            update=transition.update_transition_ao_color)
+
+    tao = StringProperty(default='')
+
     # For UI
     expand_bump_settings = BoolProperty(default=False)
     expand_intensity_settings = BoolProperty(default=False)
     expand_content = BoolProperty(default=False)
     expand_mask_settings = BoolProperty(default=False)
+    expand_transition_ramp_settings = BoolProperty(default=False)
+    expand_transition_ao_settings = BoolProperty(default=False)
     expand_input_settings = BoolProperty(default=False)
 
 class YTextureLayer(bpy.types.PropertyGroup):
