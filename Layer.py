@@ -1049,15 +1049,22 @@ def update_channel_enable(self, context):
         if mr_blend: mr_blend.mute = blend.mute
 
     if ch.enable_mask_bump:
-        if ch.enable:
-            transition.set_transition_bump_nodes(tex, ch, ch_index)
-        else: Mask.remove_mask_bump_nodes(tex, ch, ch_index)
+        transition.check_transition_bump_nodes(tex, tree, ch, ch_index)
+        #if ch.enable:
+        #    transition.set_transition_bump_nodes(tex, ch, ch_index)
+        #else: transition.remove_transition_bump_nodes(tex, ch, ch_index)
 
-        # Set mask multiply nodes
-        set_mask_multiply_nodes(tex, tree)
+        ## Add intensity multiplier to other channel
+        #check_transition_bump_influences_to_other_channels(tree, tex, bump_ch=ch)
 
-        reconnect_tex_nodes(tex)
-        rearrange_tex_nodes(tex)
+        ## Check bump base
+        #check_create_bump_base(tree, ch)
+
+        ## Set mask multiply nodes
+        #set_mask_multiply_nodes(tex, tree)
+
+        #reconnect_tex_nodes(tex)
+        #rearrange_tex_nodes(tex)
 
 def update_normal_map_type(self, context):
     tl = self.id_data.tl
@@ -1437,13 +1444,14 @@ def update_uv_name(self, context):
                 break
 
     # Update neighbor uv if mask bump is active
+    rearrange = False
     for i, mask in enumerate(tex.masks):
-        for j, c in enumerate(mask.channels):
-            ch = tex.channels[j]
-            if ch.enable_mask_bump:
-                if Mask.set_mask_channel_bump_nodes(c):
-                    rearrange_tex_nodes(tex)
-                    reconnect_tex_nodes(tex)
+        if set_mask_uv_neighbor(tree, tex, mask):
+            rearrange = True
+
+    if rearrange:
+        rearrange_tex_nodes(tex)
+        reconnect_tex_nodes(tex)
 
 def update_texcoord_type(self, context):
     tl = self.id_data.tl
@@ -1487,7 +1495,6 @@ def update_texcoord_type(self, context):
     reconnect_tex_nodes(self)
 
 def update_texture_enable(self, context):
-    #print(self.id_data, self.id_data.users)
     group_tree = self.id_data
     tex = self
     tree = get_tree(tex)
@@ -1499,11 +1506,6 @@ def update_texture_enable(self, context):
         if ch.enable_mask_ramp:
             mr_blend = tree.nodes.get(ch.mr_blend)
             if mr_blend: mr_blend.mute = blend.mute
-
-        #if ch.enable_mask_bump:
-        #    transition.set_transition_bump_nodes(tex, ch, i)
-
-    #reconnect_tex_nodes(tex)
 
 def update_channel_intensity_value(self, context):
     tl = self.id_data.tl

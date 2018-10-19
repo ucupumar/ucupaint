@@ -1,4 +1,4 @@
-import bpy
+import bpy, re
 from . import lib, Modifier
 from .common import *
 from .node_arrangements import *
@@ -157,6 +157,20 @@ def disable_tex_source_tree(tex, rearrange=True):
         rearrange_tex_nodes(tex)
 
 def set_mask_uv_neighbor(tree, tex, mask):
+
+    # NOTE: Checking transition bump everytime this function called is not that tidy
+    # Check if transition bump channel is available
+    bump_ch = get_transition_bump_channel(tex)
+    if not bump_ch or bump_ch.mask_bump_type == 'BUMP_MAP':
+        return False
+
+    # Check transition bump chain
+    if bump_ch:
+        chain = min(bump_ch.mask_bump_chain, len(tex.masks))
+        match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        mask_idx = int(match.group(2))
+        if mask_idx >= chain:
+            return False
 
     need_reconnect = False
 

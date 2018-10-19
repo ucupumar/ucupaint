@@ -34,12 +34,6 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None, vco
         ch = tex.channels[i]
         c = mask.channels.add()
 
-        if ch.enable_mask_bump:
-            transition.set_transition_bump_nodes(tex, ch, i)
-
-        if ch.enable_mask_ramp:
-            transition.set_transition_ramp_nodes(tree, tex, ch)
-
     set_mask_multiply_nodes(tex, tree)
 
     tl.halt_update = False

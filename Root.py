@@ -138,13 +138,12 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         tex_tree = get_tree(t)
         for mask in t.masks:
             mc = mask.channels.add()
-            #Mask.set_mask_multiply_and_total_nodes(tex_tree, mc, c)
+
+        # Check and set mask intensity nodes
+        transition.check_transition_bump_influences_to_other_channels(tex_tree, t, target_ch=c)
 
         # Set mask multiply nodes
         set_mask_multiply_nodes(t, tex_tree)
-
-        # Check and set mask intensity nodes
-        Mask.set_mask_intensity_multiplier(tex_tree, t, target_ch=c)
 
         # Add new nodes
         Layer.create_texture_channel_nodes(group_tree, t, c)
@@ -916,7 +915,8 @@ class YRemoveTLChannel(bpy.types.Operator):
 
             # Remove transition bump and ramp
             if channel.type == 'NORMAL' and ch.enable_mask_bump:
-                transition.remove_transition_bump_nodes(t, ch, channel_idx)
+                transition.remove_transition_bump_nodes(t, ttree, ch, channel_idx)
+                #transition.remove_transition_bump_influence_nodes_to_other_channels(t, ttree)
             elif channel.type in {'RGB', 'VALUE'} and ch.enable_mask_ramp:
                 transition.remove_transition_ramp_nodes(ttree, ch, True)
 
