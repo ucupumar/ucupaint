@@ -145,6 +145,8 @@ def reconnect_tl_nodes(tree, ch_idx=-1, mod_reconnect=False):
     tl = tree.tl
     nodes = tree.nodes
 
+    #print('Reconnect tree ' + tree.name)
+
     start = nodes.get(tl.start)
     end = nodes.get(tl.end)
     solid_alpha = nodes.get(tl.solid_alpha)
@@ -240,7 +242,11 @@ def reconnect_mask_internal_nodes(mask):
     create_link(tree, source.outputs[0], end.inputs[0])
 
 def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
-    tl =  get_active_texture_layers_node().node_tree.tl
+    #tl =  get_active_texture_layers_node().node_tree.tl
+    tl = tex.id_data.tl
+
+    #print('Reconnect texture ' + tex.name)
+    if tl.halt_reconnect: return
 
     tree = get_tree(tex)
     nodes = tree.nodes
@@ -273,7 +279,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1, mod_reconnect = True):
     geometry = nodes.get(tex.geometry)
 
     # Texcoord
-    if tex.type != 'VCOL':
+    if tex.type not in {'VCOL', 'BACKGROUND'}:
         if tex.texcoord_type == 'UV':
             vector = uv_attr.outputs[1]
         else: vector = texcoord.outputs[tex.texcoord_type]

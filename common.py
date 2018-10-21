@@ -58,6 +58,23 @@ texture_type_items = (
         ('VORONOI', 'Voronoi', ''),
         ('WAVE', 'Wave', ''),
         ('VCOL', 'Vertex Color', ''),
+        ('BACKGROUND', 'Background', ''),
+        )
+
+mask_type_items = (
+        ('IMAGE', 'Image', ''),
+        #('ENVIRONMENT', 'Environment', ''),
+        ('BRICK', 'Brick', ''),
+        ('CHECKER', 'Checker', ''),
+        ('GRADIENT', 'Gradient', ''),
+        ('MAGIC', 'Magic', ''),
+        ('MUSGRAVE', 'Musgrave', ''),
+        ('NOISE', 'Noise', ''),
+        #('POINT_DENSITY', 'Point Density', ''),
+        #('SKY', 'Sky', ''),
+        ('VORONOI', 'Voronoi', ''),
+        ('WAVE', 'Wave', ''),
+        ('VCOL', 'Vertex Color', ''),
         )
 
 texture_type_labels = {
@@ -74,6 +91,7 @@ texture_type_labels = {
         'VORONOI' : 'Voronoi',
         'WAVE' : 'Wave',
         'VCOL' : 'Vertex Color',
+        'BACKGROUND' : 'Background',
         }
 
 texcoord_type_items = (
@@ -135,6 +153,7 @@ texture_node_bl_idnames = {
         'VORONOI' : 'ShaderNodeTexVoronoi',
         'WAVE' : 'ShaderNodeTexWave',
         'VCOL' : 'ShaderNodeAttribute',
+        'BACKGROUND' : 'NodeGroupInput',
         }
 
 GAMMA = 2.2
@@ -711,6 +730,14 @@ def match_group_input(node, key=None, extra_node_names=[]):
                     if link.to_socket.default_value != node.inputs[outp.name].default_value:
                         link.to_socket.default_value = node.inputs[outp.name].default_value
                 except: pass
+
+#def get_io_index(tex, root_ch, alpha=False):
+#    if alpha:
+#        return root_ch.io_index+1
+#    return root_ch.io_index
+#
+#def get_alpha_io_index(tex, root_ch):
+#    return get_io_index(tex, root_ch, alpha=True)
 
 # Some image_ops need this
 #def get_active_image():

@@ -146,7 +146,7 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         set_mask_multiply_nodes(t, tex_tree)
 
         # Add new nodes
-        Layer.create_texture_channel_nodes(group_tree, t, c)
+        Layer.create_texture_channel_nodes(group_tree, t, channel, c)
 
         # Rearrange node inside textures
         reconnect_tex_nodes(t, channel_idx)
@@ -1244,7 +1244,7 @@ def update_active_tl_channel(self, context):
     if tl.preview_mode: tl.preview_mode = True
 
 def update_texture_index(self, context):
-    T = time.time()
+    #T = time.time()
     scene = context.scene
     obj = context.object
     group_tree = self.id_data
@@ -1307,7 +1307,7 @@ def update_texture_index(self, context):
                     uv_layers.active_index = i
                 break
 
-    print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    #print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_channel_colorspace(self, context):
     group_tree = self.id_data
@@ -1724,6 +1724,9 @@ class YTextureLayersRoot(bpy.types.PropertyGroup):
 
     # Useful to suspend update when adding new stuff
     halt_update = BoolProperty(default=False)
+
+    # Useful to suspend node rearrangements and reconnections when adding new stuff
+    halt_reconnect = BoolProperty(default=False)
 
     # Index pointer to the UI
     #ui_index = IntProperty(default=0)

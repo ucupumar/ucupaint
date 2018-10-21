@@ -1640,8 +1640,14 @@ class YNewTexMenu(bpy.types.Menu):
         col.operator("node.y_new_texture_layer", icon='GROUP_VCOL', text='Vertex Color').type = 'VCOL'
         col.separator()
 
+        col.label(text='Background:')
+        col.operator("node.y_new_texture_layer", icon='MOD_MASK', text='Background w/ Image Mask').type = 'BACKGROUND'
+        col.operator("node.y_new_texture_layer", icon='MOD_MASK', text='Background w/ Vertex Color Mask').type = 'BACKGROUND'
+        col.separator()
+
         #col = row.column()
         col.label(text='Generated:')
+        col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Brick').type = 'BRICK'
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Checker').type = 'CHECKER'
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Gradient').type = 'GRADIENT'
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Magic').type = 'MAGIC'
@@ -1739,6 +1745,7 @@ class YAddTexMaskMenu(bpy.types.Menu):
         col = row.column(align=True)
         #col.separator()
         col.label(text='Generated Mask:')
+        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Brick').type = 'BRICK'
         col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Checker').type = 'CHECKER'
         col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Gradient').type = 'GRADIENT'
         col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Magic').type = 'MAGIC'

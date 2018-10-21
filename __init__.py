@@ -14,7 +14,7 @@
 # - Flip bump mode
 #   - Crease
 #   - Force Transparent
-#   - AO (?)
+#   - AO (V)
 # - Color layer (?)
 # - Upper layer affect below layer (?):
 #    - Refraction (?)

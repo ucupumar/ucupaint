@@ -92,7 +92,7 @@ class YNewTextureMask(bpy.types.Operator):
 
     type = EnumProperty(
             name = 'Mask Type',
-            items = texture_type_items,
+            items = mask_type_items,
             default = 'IMAGE')
 
     width = IntProperty(name='Width', default = 1024, min=1, max=16384)
@@ -144,8 +144,8 @@ class YNewTextureMask(bpy.types.Operator):
             items = obj.data.vertex_colors
             self.name = get_unique_name(name, items, surname)
         else:
-            #name += ' ' + [i[1] for i in texture_type_items if i[0] == self.type][0]
-            name = 'Mask ' + [i[1] for i in texture_type_items if i[0] == self.type][0]
+            #name += ' ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
+            name = 'Mask ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
             items = tex.masks
             self.name = get_unique_name(name, items)
         #name = 'Mask ' + name #+ ' ' + surname
@@ -531,7 +531,7 @@ class YTextureMask(bpy.types.PropertyGroup):
 
     type = EnumProperty(
             name = 'Mask Type',
-            items = texture_type_items,
+            items = mask_type_items,
             default = 'IMAGE')
 
     texcoord_type = EnumProperty(

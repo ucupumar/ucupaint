@@ -11,14 +11,9 @@ from .subtree import *
 DEFAULT_NEW_IMG_SUFFIX = ' Tex'
 DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
 
-def create_texture_channel_nodes(group_tree, texture, channel):
+def create_texture_channel_nodes(group_tree, texture, root_ch, ch):
 
     tl = group_tree.tl
-    #nodes = group_tree.nodes
-
-    ch_index = [i for i, c in enumerate(texture.channels) if c == channel][0]
-    root_ch = tl.channels[ch_index]
-
     tree = get_tree(texture)
 
     # Tree input and output
@@ -28,23 +23,26 @@ def create_texture_channel_nodes(group_tree, texture, channel):
         inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], root_ch.name + ' Alpha')
         out = tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], root_ch.name + ' Alpha')
 
-    # Modifier pipeline nodes
-    #start_rgb = new_node(tree, channel, 'start_rgb', 'NodeReroute', 'Start RGB')
-    #start_alpha = new_node(tree, channel, 'start_alpha', 'NodeReroute', 'Start Alpha')
-    #end_rgb = new_node(tree, channel, 'end_rgb', 'NodeReroute', 'End RGB')
-    #end_alpha = new_node(tree, channel, 'end_alpha', 'NodeReroute', 'End Alpha')
+    # Background texture has extra inputs
+    if texture.type == 'BACKGROUND':
+        inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], root_ch.name + ' Background')
+        if root_ch.alpha:
+            inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], root_ch.name + ' Alpha Background')
 
     # Intensity nodes
-    intensity = new_node(tree, channel, 'intensity', 'ShaderNodeMath', 'Intensity')
+    intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
     intensity.operation = 'MULTIPLY'
     intensity.inputs[1].default_value = 1.0
 
-    # Update texture channel blend type
-    update_blend_type_(root_ch, texture, channel)
+    # Update texture ch blend type
+    update_blend_type_(root_ch, texture, ch)
 
     # Normal related nodes created by set it's normal map type
+    #if root_ch.type == 'NORMAL' and texture.type != 'BACKGROUND':
     if root_ch.type == 'NORMAL':
-        channel.normal_map_type = channel.normal_map_type
+    #    #ch.normal_map_type = ch.normal_map_type
+    #    #update_normal_map_type(ch, bpy.context)
+        check_channel_normal_map_nodes(tree, texture, root_ch, ch)
 
 def channel_items(self, context):
     node = get_active_texture_layers_node()
@@ -133,14 +131,13 @@ def new_tex_channel_normal_map_type_items(self, context):
 def img_normal_map_type_items(self, context):
     return normal_map_type_items_('IMAGE')
 
-def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, normal_map_type, 
+def add_new_texture(group_tree, tex_name, tex_type, channel_idx, blend_type, normal_blend, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1)):
 
-    group_node = get_active_texture_layers_node()
-    group_tree = group_node.node_tree
-    nodes = group_tree.nodes
-    links = group_tree.links
     tl = group_tree.tl
+
+    # Halt rearrangements and reconnections until all nodes already created
+    tl.halt_reconnect = True
 
     # Add texture to group
     tex = tl.textures.add()
@@ -233,7 +230,7 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
         c = tex.channels.add()
 
         # Add blend and other nodes
-        create_texture_channel_nodes(group_tree, tex, c)
+        create_texture_channel_nodes(group_tree, tex, ch, c)
 
         # Set some props to selected channel
         if channel_idx == i or channel_idx == -1:
@@ -275,9 +272,12 @@ def add_new_texture(tex_name, tex_type, channel_idx, blend_type, normal_blend, n
     # Refresh paint image by updating the index
     tl.active_texture_index = index
 
+    # Unhalt rearrangements and reconnections since all nodes already created
+    tl.halt_reconnect = False
+
     # Rearrange node inside textures
-    reconnect_tex_nodes(tex, mod_reconnect=True)
     rearrange_tex_nodes(tex)
+    reconnect_tex_nodes(tex)
 
     return tex
 
@@ -577,7 +577,8 @@ class YNewTextureLayer(bpy.types.Operator):
             set_obj_vertex_colors(obj, vcol, (1.0, 1.0, 1.0))
 
         tl.halt_update = True
-        tex = add_new_texture(self.name, self.type, int(self.channel_idx), self.blend_type, self.normal_blend, 
+        tex = add_new_texture(node.node_tree, self.name, self.type, 
+                int(self.channel_idx), self.blend_type, self.normal_blend, 
                 self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol,
                 self.add_rgb_to_intensity, self.rgb_to_intensity_color)
         tl.halt_update = False
@@ -745,7 +746,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
-            add_new_texture(image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
+            add_new_texture(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map,
                     image, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
@@ -891,7 +892,7 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
         node.node_tree.tl.halt_update = True
 
         image = bpy.data.images.get(self.image_name)
-        add_new_texture(image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
+        add_new_texture(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                 self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map, 
                 image, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
@@ -925,6 +926,8 @@ class YMoveTextureLayer(bpy.types.Operator):
         return group_node and len(group_node.node_tree.tl.textures) > 0
 
     def execute(self, context):
+        T = time.time()
+
         node = get_active_texture_layers_node()
         group_tree = node.node_tree
         nodes = group_tree.nodes
@@ -956,6 +959,8 @@ class YMoveTextureLayer(bpy.types.Operator):
         # Update UI
         context.window_manager.tlui.need_update = True
 
+        print('INFO: Texture', tex.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
         return {'FINISHED'}
 
 class YRemoveTextureLayer(bpy.types.Operator):
@@ -981,6 +986,8 @@ class YRemoveTextureLayer(bpy.types.Operator):
             self.layout.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
 
     def execute(self, context):
+        T = time.time()
+
         node = get_active_texture_layers_node()
         group_tree = node.node_tree
         nodes = group_tree.nodes
@@ -989,6 +996,8 @@ class YRemoveTextureLayer(bpy.types.Operator):
 
         tex = tl.textures[tl.active_texture_index]
         tex_tree = get_tree(tex)
+
+        tex_name = tex.name
 
         # Remove the source first to remove image
         source_tree = get_source_tree(tex, tex_tree)
@@ -1028,6 +1037,8 @@ class YRemoveTextureLayer(bpy.types.Operator):
         # Refresh normal map
         tl.refresh_tree = True
 
+        print('INFO: Texture', tex_name, 'is deleted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
         return {'FINISHED'}
 
 def update_channel_enable(self, context):
@@ -1050,129 +1061,89 @@ def update_channel_enable(self, context):
 
     if ch.enable_mask_bump:
         transition.check_transition_bump_nodes(tex, tree, ch, ch_index)
-        #if ch.enable:
-        #    transition.set_transition_bump_nodes(tex, ch, ch_index)
-        #else: transition.remove_transition_bump_nodes(tex, ch, ch_index)
 
-        ## Add intensity multiplier to other channel
-        #check_transition_bump_influences_to_other_channels(tree, tex, bump_ch=ch)
+def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
-        ## Check bump base
-        #check_create_bump_base(tree, ch)
+    if root_ch.type != 'NORMAL': return
+    if tex.type == 'BACKGROUND' : return
 
-        ## Set mask multiply nodes
-        #set_mask_multiply_nodes(tex, tree)
+    # Normal nodes
+    if ch.normal_map_type == 'NORMAL_MAP':
 
-        #reconnect_tex_nodes(tex)
-        #rearrange_tex_nodes(tex)
+        normal = tree.nodes.get(ch.normal)
+        if not normal:
+            normal = new_node(tree, ch, 'normal', 'ShaderNodeNormalMap')
+            normal.uv_map = tex.uv_name
+
+    # Bump nodes
+    elif ch.normal_map_type == 'BUMP_MAP':
+
+        bump = tree.nodes.get(ch.bump)
+        if not bump:
+            bump = new_node(tree, ch, 'bump', 'ShaderNodeBump')
+            bump.inputs[1].default_value = ch.bump_distance
+
+    # Fine bump nodes
+    elif ch.normal_map_type == 'FINE_BUMP_MAP':
+
+        fine_bump = tree.nodes.get(ch.fine_bump)
+
+        # Make sure to enable source tree and modifier tree
+        enable_tex_source_tree(tex, False)
+        Modifier.enable_modifiers_tree(ch, False)
+
+        if not fine_bump:
+            fine_bump = new_node(tree, ch, 'fine_bump', 'ShaderNodeGroup', 'Fine Bump')
+            fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
+            fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, ch.bump_distance)
+
+            if BLENDER_28_GROUP_INPUT_HACK:
+                duplicate_lib_node_tree(fine_bump)
+
+    # Remove bump nodes
+    if ch.normal_map_type != 'BUMP_MAP':
+        remove_node(tree, ch, 'bump')
+
+    # Remove normal nodes
+    if ch.normal_map_type != 'NORMAL_MAP':
+        remove_node(tree, ch, 'normal')
+
+    # Remove fine bump nodes
+    if ch.normal_map_type != 'FINE_BUMP_MAP':
+        remove_node(tree, ch, 'fine_bump')
+
+        disable_tex_source_tree(tex, False)
+        Modifier.disable_modifiers_tree(ch, False)
+
+    # Create normal flip node
+    normal_flip = tree.nodes.get(ch.normal_flip)
+    if not normal_flip:
+        normal_flip = new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 'Flip Backface Normal')
+        normal_flip.node_tree = lib.get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
+
+    # Update override color modifier
+    for mod in ch.modifiers:
+        if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
+            if ch.normal_map_type == 'NORMAL_MAP':
+                mod.oc_col = (0.5, 0.5, 1.0, 1.0)
+            else:
+                val = ch.bump_base_value
+                mod.oc_col = (val, val, val, 1.0)
+
+    # Check bump base
+    check_create_bump_base(tree, ch)
 
 def update_normal_map_type(self, context):
     tl = self.id_data.tl
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(m.group(1))]
-    ch_index = int(m.group(2))
+    root_ch = tl.channels[int(m.group(2))]
     tree = get_tree(tex)
-    nodes = tree.nodes
 
-    # Normal nodes
-    normal = nodes.get(self.normal)
+    check_channel_normal_map_nodes(tree, tex, root_ch, self)
 
-    # Bump nodes
-    #bump_base = nodes.get(self.bump_base)
-    bump = nodes.get(self.bump)
-
-    # Fine bump nodes
-    fine_bump = nodes.get(self.fine_bump)
-
-    # Get fine bump sources
-    #bump_bases = []
-    #neighbor_directions = ['n', 's', 'e', 'w']
-    #for d in neighbor_directions:
-    #    b = nodes.get(getattr(self, 'bump_base_' + d))
-    #    bump_bases.append(b)
-
-    # Common nodes
-    normal_flip = nodes.get(self.normal_flip)
-
-    # Bump base is available on standard and fine bump
-    #if self.normal_map_type in {'BUMP_MAP'}: #, 'FINE_BUMP_MAP'}:
-    #    if not bump_base:
-    #        bump_base = new_node(tree, self, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
-    #        val = self.bump_base_value
-    #        bump_base.inputs[0].default_value = 1.0
-    #        bump_base.inputs[1].default_value = (val, val, val, 1.0)
-
-    if self.normal_map_type == 'NORMAL_MAP':
-        if not normal:
-            normal = new_node(tree, self, 'normal', 'ShaderNodeNormalMap')
-            normal.uv_map = tex.uv_name
-
-    elif self.normal_map_type == 'BUMP_MAP':
-
-        if not bump:
-            bump = new_node(tree, self, 'bump', 'ShaderNodeBump')
-            bump.inputs[1].default_value = self.bump_distance
-
-    elif self.normal_map_type == 'FINE_BUMP_MAP':
-
-        # Make sure to enable source tree and modifier tree
-        enable_tex_source_tree(tex, False)
-        Modifier.enable_modifiers_tree(self, False)
-
-        if not fine_bump:
-            fine_bump = new_node(tree, self, 'fine_bump', 'ShaderNodeGroup', 'Fine Bump')
-            fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
-            fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
-
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(fine_bump)
-
-        #for i, b in enumerate(bump_bases):
-        #    if not b:
-        #        b = new_node(tree, self, 'bump_base_' + neighbor_directions[i], 'ShaderNodeMixRGB', 
-        #                'bump base ' + neighbor_directions[i])
-        #        val = self.bump_base_value
-        #        vals = (val, val, val, 1.0)
-        #        b.inputs[1].default_value = vals
-        #        b.hide = True
-
-    # Remove bump nodes
-    if self.normal_map_type != 'BUMP_MAP':
-        remove_node(tree, self, 'bump')
-        #remove_node(tree, self, 'bump_base')
-
-    # Remove normal nodes
-    if self.normal_map_type != 'NORMAL_MAP':
-        remove_node(tree, self, 'normal')
-
-    # Remove fine bump nodes
-    if self.normal_map_type != 'FINE_BUMP_MAP':
-        remove_node(tree, self, 'fine_bump')
-        #for d in neighbor_directions:
-        #    remove_node(tree, self, 'bump_base_' + d)
-
-        disable_tex_source_tree(tex, False)
-        Modifier.disable_modifiers_tree(self, False)
-
-    # Create normal flip node
-    if not normal_flip:
-        normal_flip = new_node(tree, self, 'normal_flip', 'ShaderNodeGroup', 'Flip Backface Normal')
-        normal_flip.node_tree = lib.get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
-
-    # Update override color modifier
-    for mod in self.modifiers:
-        if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
-            if self.normal_map_type == 'NORMAL_MAP':
-                mod.oc_col = (0.5, 0.5, 1.0, 1.0)
-            else:
-                val = self.bump_base_value
-                mod.oc_col = (val, val, val, 1.0)
-
-    # Check bump base
-    check_create_bump_base(tree, self)
-
+    #if not tl.halt_reconnect:
     rearrange_tex_nodes(tex)
-    #reconnect_tex_nodes(tex, ch_index)
     reconnect_tex_nodes(tex)
 
 def update_blend_type_(root_ch, tex, ch):
@@ -1274,6 +1245,7 @@ def update_blend_type_(root_ch, tex, ch):
     # Check alpha tex input output connection
     start = nodes.get(tex.start)
     if (root_ch.type == 'RGB' and root_ch.alpha and ch.blend_type != 'MIX' and 
+        #len(start.outputs[get_alpha_io_index(tex, root_ch)].links) == 0):
         len(start.outputs[root_ch.io_index+1].links) == 0):
         need_reconnect = True
 
@@ -1286,7 +1258,7 @@ def update_blend_type(self, context):
     ch_index = int(m.group(2))
     root_ch = tl.channels[ch_index]
 
-    if update_blend_type_(root_ch, tex, self):
+    if update_blend_type_(root_ch, tex, self): # and not tl.halt_reconnect:
         reconnect_tex_nodes(tex, ch_index)
         rearrange_tex_nodes(tex)
 
@@ -1328,8 +1300,7 @@ def update_bump_distance(self, context):
                 #inp = fine_bump.node_tree.nodes.get('Group Input')
                 #inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
 
-#def set_tex_channel_linear_node(tree, tex, root_ch, ch, custom_value=None, rearrange=False):
-def set_tex_channel_linear_node(tree, tex, root_ch, ch, rearrange=False):
+def set_tex_channel_linear_node(tree, tex, root_ch, ch):
 
     #if custom_value: 
     #    if root_ch.type in {'RGB', 'NORMAL'}:
@@ -1337,7 +1308,7 @@ def set_tex_channel_linear_node(tree, tex, root_ch, ch, rearrange=False):
     #    else: ch.custom_value = custom_value
 
     if (root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB' 
-            and tex.type != 'IMAGE' and ch.tex_input == 'RGB' and not ch.gamma_space):
+            and tex.type not in {'IMAGE', 'BACKGROUND'} and ch.tex_input == 'RGB' and not ch.gamma_space):
         if root_ch.type == 'VALUE':
             linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
             #linear.inputs[0].default_value = ch.custom_value
@@ -1364,10 +1335,6 @@ def set_tex_channel_linear_node(tree, tex, root_ch, ch, rearrange=False):
     #    source.outputs[0].default_value = col
     #else:
     #    remove_node(tree, ch, 'source')
-
-    if rearrange:
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
 
 #def update_custom_input(self, context):
 #    tl = self.id_data.tl
@@ -1405,6 +1372,7 @@ def update_tex_input(self, context):
 
     set_tex_channel_linear_node(tree, tex, root_ch, ch)
 
+    #if not tl.halt_reconnect:
     reconnect_tex_nodes(tex)
     rearrange_tex_nodes(tex)
 
@@ -1449,7 +1417,7 @@ def update_uv_name(self, context):
         if set_mask_uv_neighbor(tree, tex, mask):
             rearrange = True
 
-    if rearrange:
+    if rearrange: #and not tl.halt_reconnect:
         rearrange_tex_nodes(tex)
         reconnect_tex_nodes(tex)
 
@@ -1480,18 +1448,8 @@ def update_texcoord_type(self, context):
 
                     if BLENDER_28_GROUP_INPUT_HACK:
                         duplicate_lib_node_tree(neighbor_uv)
-                        #inp = neighbor_uv.node_tree.nodes.get('Group Input')
-                        #inp.outputs['ResX'].links[0].to_socket.default_value = neighbor_uv.inputs['ResX'].default_value
-                        #inp.outputs['ResY'].links[0].to_socket.default_value = neighbor_uv.inputs['ResY'].default_value
 
-                #neighbor_uv.inputs['Space'].default_value = get_neighbor_uv_space_input(tex.texcoord_type)
-
-                #if BLENDER_28_GROUP_INPUT_HACK:
-                #    inp = neighbor_uv.node_tree.nodes.get('Group Input')
-                #    inp.outputs['Space'].links[0].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
-                #    inp.outputs['Space'].links[1].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
-                #    inp.outputs['Space'].links[2].to_socket.default_value = neighbor_uv.inputs['Space'].default_value
-
+    #if not tl.halt_reconnect:
     reconnect_tex_nodes(self)
 
 def update_texture_enable(self, context):
@@ -1555,25 +1513,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
             description='Make sure texture input is in linear space',
             default = False,
             update = update_tex_input)
-
-    #color_space = EnumProperty(
-    #        name = 'Input Color Space',
-    #        items = (('LINEAR', 'Linear', ''),
-    #                 ('SRGB', 'sRGB', '')),
-    #        default = 'LINEAR',
-    #        update = update_tex_channel_color_space)
-
-    #custom_color = FloatVectorProperty(
-    #        name='Custom Color Input', size=3, subtype='COLOR', 
-    #        default=(0.5,0.5,0.5), min=0.0, max=1.0,
-    #        update=update_custom_input
-    #        )
-
-    #custom_value = FloatProperty(
-    #        name='Custom Input Value',
-    #        default=0.5, min=0.0, max=1.0, subtype='FACTOR',
-    #        update=update_custom_input
-    #        )
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
@@ -1870,6 +1809,10 @@ class YTextureLayer(bpy.types.PropertyGroup):
     enable_masks = BoolProperty(name='Enable Texture Masks', description='Enable texture masks',
             default=True, update=Mask.update_enable_texture_masks)
     masks = CollectionProperty(type=Mask.YTextureMask)
+
+    ## Transition 
+    #enable_transition_bg = BoolProperty(name='Enable Transition to Background', 
+    #        description='Enable transition to background (Useful to force transparency)', default=False)
 
     # UI related
     expand_content = BoolProperty(default=False)
