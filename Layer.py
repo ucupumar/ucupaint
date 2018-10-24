@@ -11,38 +11,91 @@ from .subtree import *
 DEFAULT_NEW_IMG_SUFFIX = ' Tex'
 DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
 
-def create_texture_channel_nodes(group_tree, texture, root_ch, ch):
+def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
 
-    tl = group_tree.tl
-    tree = get_tree(texture)
+    tl = tex.id_data.tl
+    if not tree: tree = get_tree(tex)
 
-    # Tree input and output
-    inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], root_ch.name)
-    out = tree.outputs.new(channel_socket_output_bl_idnames[root_ch.type], root_ch.name)
-    if root_ch.alpha:
-        inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], root_ch.name + ' Alpha')
-        out = tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], root_ch.name + ' Alpha')
+    correct_index = 0
+    
+    # Tree input and outputs
+    for i, ch in enumerate(tex.channels):
+        root_ch = tl.channels[i]
 
-    # Background texture has extra inputs
-    if texture.type == 'BACKGROUND':
-        inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], root_ch.name + ' Background')
-        if root_ch.alpha:
-            inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], root_ch.name + ' Alpha Background')
+        inp = tree.inputs.get(root_ch.name)
+        if not inp:
+            inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], root_ch.name)
+        fix_io_index(inp, tree.inputs, correct_index)
 
-    # Intensity nodes
-    intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
-    intensity.operation = 'MULTIPLY'
-    intensity.inputs[1].default_value = 1.0
+        outp = tree.outputs.get(root_ch.name)
+        if not outp:
+            outp = tree.outputs.new(channel_socket_output_bl_idnames[root_ch.type], root_ch.name)
+        fix_io_index(outp, tree.outputs, correct_index)
 
-    # Update texture ch blend type
-    update_blend_type_(root_ch, texture, ch)
+        correct_index += 1
 
-    # Normal related nodes created by set it's normal map type
-    #if root_ch.type == 'NORMAL' and texture.type != 'BACKGROUND':
-    if root_ch.type == 'NORMAL':
-    #    #ch.normal_map_type = ch.normal_map_type
-    #    #update_normal_map_type(ch, bpy.context)
-        check_channel_normal_map_nodes(tree, texture, root_ch, ch)
+        if root_ch.type  == 'RGB' and root_ch.alpha:
+
+            name = root_ch.name + ' Alpha'
+
+            inp = tree.inputs.get(name)
+            if not inp:
+                inp = tree.inputs.new('NodeSocketFloatFactor', name)
+
+                inp.min_value = 0.0
+                inp.max_value = 1.0
+                inp.default_value = 0.0
+
+            fix_io_index(inp, tree.inputs, correct_index)
+
+            outp = tree.outputs.get(name)
+            if not outp:
+                outp = tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], name)
+            fix_io_index(outp, tree.outputs, correct_index)
+
+            correct_index += 1
+
+    # Tree background inputs
+    if tex.type == 'BACKGROUND':
+
+        for i, ch in enumerate(tex.channels):
+            root_ch = tl.channels[i]
+
+            name = root_ch.name + ' Background'
+            inp = tree.inputs.get(name)
+            if not inp:
+                inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], name)
+            fix_io_index(inp, tree.inputs, correct_index)
+
+            correct_index += 1
+
+            if root_ch.alpha:
+
+                name = root_ch.name + ' Alpha Background'
+                inp = tree.inputs.get(name)
+                if not inp:
+                    inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], name)
+                fix_io_index(inp, tree.inputs, correct_index)
+
+                correct_index += 1
+
+    # Channel nodes
+    for i, ch in enumerate(tex.channels):
+        root_ch = tl.channels[i]
+
+        # Intensity nodes
+        intensity = tree.nodes.get(ch.intensity)
+        if not intensity:
+            intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
+            intensity.operation = 'MULTIPLY'
+            intensity.inputs[1].default_value = 1.0
+
+        # Update texture ch blend type
+        check_blend_type_nodes(root_ch, tex, ch)
+
+        # Normal related nodes created by set it's normal map type
+        if root_ch.type == 'NORMAL':
+            check_channel_normal_map_nodes(tree, tex, root_ch, ch)
 
 def channel_items(self, context):
     node = get_active_texture_layers_node()
@@ -68,7 +121,7 @@ def tex_input_items(self, context):
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     if not m: return []
     tex = tl.textures[int(m.group(1))]
-    root_ch = tl.channels[int(m.group(2))]
+    #root_ch = tl.channels[int(m.group(2))]
 
     items = []
 
@@ -131,8 +184,12 @@ def new_tex_channel_normal_map_type_items(self, context):
 def img_normal_map_type_items(self, context):
     return normal_map_type_items_('IMAGE')
 
-def add_new_texture(group_tree, tex_name, tex_type, channel_idx, blend_type, normal_blend, normal_map_type, 
-        texcoord_type, uv_name='', image=None, vcol=None, add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1)):
+def add_new_texture(group_tree, tex_name, tex_type, channel_idx, 
+        blend_type, normal_blend, normal_map_type, 
+        texcoord_type, uv_name='', image=None, vcol=None, 
+        add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1),
+        add_mask=False, mask_type='IMAGE'
+        ):
 
     tl = group_tree.tl
 
@@ -222,36 +279,39 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx, blend_type, nor
     # Set tex coordinate type
     tex.texcoord_type = texcoord_type
 
-    ## Add channels
+    # Add channels to current texture
+    for root_ch in tl.channels:
+        ch = tex.channels.add()
+
+    # Check and create layer channel nodes
+    check_all_texture_channel_io_and_nodes(tex, tree)
+
+    # Fill channel layer props
     shortcut_created = False
-    for i, ch in enumerate(tl.channels):
+    for i, ch in enumerate(tex.channels):
 
-        # Add new channel to current texture
-        c = tex.channels.add()
-
-        # Add blend and other nodes
-        create_texture_channel_nodes(group_tree, tex, ch, c)
+        root_ch = tl.channels[i]
 
         # Set some props to selected channel
         if channel_idx == i or channel_idx == -1:
-            c.enable = True
-            if ch.type == 'NORMAL':
-                c.normal_blend = normal_blend
+            ch.enable = True
+            if root_ch.type == 'NORMAL':
+                ch.normal_blend = normal_blend
             else:
-                c.blend_type = blend_type
+                ch.blend_type = blend_type
         else: 
-            c.enable = False
+            ch.enable = False
 
-        if ch.type == 'NORMAL':
-            c.normal_map_type = normal_map_type
+        if root_ch.type == 'NORMAL':
+            ch.normal_map_type = normal_map_type
 
         if add_rgb_to_intensity:
 
             # If RGB to intensity is selected, bump base is better be 0.0
-            if ch.type == 'NORMAL':
-                c.bump_base_value = 0.0
+            if root_ch.type == 'NORMAL':
+                ch.bump_base_value = 0.0
 
-            m = Modifier.add_new_modifier(c, 'RGB_TO_INTENSITY')
+            m = Modifier.add_new_modifier(ch, 'RGB_TO_INTENSITY')
             if channel_idx == i or channel_idx == -1:
                 col = (rgb_to_intensity_color[0], rgb_to_intensity_color[1], rgb_to_intensity_color[2], 1)
                 mod_tree = get_mod_tree(m)
@@ -259,18 +319,47 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx, blend_type, nor
                 #rgb2i = mod_tree.nodes.get(m.rgb2i)
                 #rgb2i.inputs[2].default_value = col
 
-            if c.enable and ch.type == 'RGB' and not shortcut_created:
+            if ch.enable and root_ch.type == 'RGB' and not shortcut_created:
                 m.shortcut = True
                 shortcut_created = True
 
         # Set linear node of texture channel
-        #if ch.type == 'NORMAL':
-        #    set_tex_channel_linear_node(tree, tex, ch, c, custom_value=(0.5,0.5,1))
-        #else: set_tex_channel_linear_node(tree, tex, ch, c)
-        set_tex_channel_linear_node(tree, tex, ch, c)
+        #if root_ch.type == 'NORMAL':
+        #    set_tex_channel_linear_node(tree, tex, root_ch, ch, custom_value=(0.5,0.5,1))
+        #else: set_tex_channel_linear_node(tree, tex, root_ch, ch)
+        set_tex_channel_linear_node(tree, tex, root_ch, ch)
 
     # Refresh paint image by updating the index
     tl.active_texture_index = index
+
+    if add_mask:
+
+        mask_name = 'Mask ' + tex.name
+        mask_image = None
+        mask_vcol = None
+
+        if mask_type == 'IMAGE':
+            mask_image = bpy.data.images.new(mask_name, 
+                    width=1024, height=1024, alpha=False, float_buffer=False)
+            #if self.color_option == 'WHITE':
+            #    mask_image.generated_color = (1,1,1,1)
+            #elif self.color_option == 'BLACK':
+            #    mask_image.generated_color = (0,0,0,1)
+            mask_image.generated_color = (0,0,0,1)
+            mask_image.use_alpha = False
+
+        # New vertex color
+        elif mask_type == 'VCOL':
+            obj = bpy.context.object
+            mask_vcol = obj.data.vertex_colors.new(name=mask_name)
+            #if self.color_option == 'WHITE':
+            #    set_obj_vertex_colors(obj, mask_vcol, (1.0, 1.0, 1.0))
+            #elif self.color_option == 'BLACK':
+            #    set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
+            set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
+
+        mask = Mask.add_new_mask(tex, mask_name, mask_type, texcoord_type, uv_name, mask_image, mask_vcol)
+        mask.active_edit = True
 
     # Unhalt rearrangements and reconnections since all nodes already created
     tl.halt_reconnect = False
@@ -403,6 +492,18 @@ class YNewTextureLayer(bpy.types.Operator):
 
     rgb_to_intensity_color = FloatVectorProperty(
             name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
+
+    add_mask = BoolProperty(
+            name = 'Add Mask',
+            description = 'Add mask to new layer',
+            default = False)
+
+    mask_type = EnumProperty(
+            name = 'Mask Type',
+            description = 'Mask type',
+            items = (('IMAGE', 'Image', ''),
+                ('VCOL', 'Vertex Color', '')),
+            default = 'IMAGE')
 
     uv_map = StringProperty(default='')
 
@@ -580,7 +681,8 @@ class YNewTextureLayer(bpy.types.Operator):
         tex = add_new_texture(node.node_tree, self.name, self.type, 
                 int(self.channel_idx), self.blend_type, self.normal_blend, 
                 self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol,
-                self.add_rgb_to_intensity, self.rgb_to_intensity_color)
+                self.add_rgb_to_intensity, self.rgb_to_intensity_color,
+                self.add_mask, self.mask_type)
         tl.halt_update = False
 
         # Reconnect and rearrange nodes
@@ -1146,7 +1248,7 @@ def update_normal_map_type(self, context):
     rearrange_tex_nodes(tex)
     reconnect_tex_nodes(tex)
 
-def update_blend_type_(root_ch, tex, ch):
+def check_blend_type_nodes(root_ch, tex, ch):
     need_reconnect = False
 
     tree = get_tree(tex)
@@ -1174,45 +1276,11 @@ def update_blend_type_(root_ch, tex, ch):
     # Create blend node if its missing
     if not blend:
         if root_ch.type == 'RGB':
-            #if ch.blend_type == 'MIX':
             if root_ch.alpha and ch.blend_type == 'MIX':
                 blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
-
-                #if BLENDER_28_GROUP_INPUT_HACK:
-
-                #    tl = tex.id_data.tl
-
-                #    # Get index
-                #    ch_index = 0
-                #    for i, c in enumerate(tl.channels):
-                #        if c == root_ch:
-                #            ch_index = i
-                #            break
-
-                #    # Search for other blend already using lib tree
-                #    other_blend = None
-
-                #    for t in tl.textures:
-                #        ttree = get_tree(t)
-                #        for i, c in enumerate(t.channels):
-                #            if i == ch_index:
-                #                b = ttree.nodes.get(c.blend)
-                #                if b and b.type == 'GROUP' and b.node_tree:
-                #                    other_blend = b
-                #                    blend.node_tree = other_blend.node_tree
-                #                    break
-                #        if other_blend: break
-
-                #    # Use copy from library if other blend with lib tree aren't available
-                #    if not other_blend:
-                #        blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
-                #        duplicate_lib_node_tree(blend)
-
-                #        inp = blend.node_tree.nodes.get('Group Input')
-                #        inp.outputs['Alpha1'].links[0].to_socket.default_value = root_ch.val_input
-
-                #else:
-                blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
+                if tex.type == 'BACKGROUND':
+                    blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_BG)
+                else: blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
                 if BLENDER_28_GROUP_INPUT_HACK:
                     duplicate_lib_node_tree(blend)
 
@@ -1258,7 +1326,7 @@ def update_blend_type(self, context):
     ch_index = int(m.group(2))
     root_ch = tl.channels[ch_index]
 
-    if update_blend_type_(root_ch, tex, self): # and not tl.halt_reconnect:
+    if check_blend_type_nodes(root_ch, tex, self): # and not tl.halt_reconnect:
         reconnect_tex_nodes(tex, ch_index)
         rearrange_tex_nodes(tex)
 
@@ -1329,6 +1397,9 @@ def set_tex_channel_linear_node(tree, tex, root_ch, ch):
     else:
         remove_node(tree, ch, 'linear')
 
+    rearrange_tex_nodes(tex)
+    reconnect_tex_nodes(tex)
+
     #if root_ch.type == 'NORMAL' and ch.tex_input == 'CUSTOM':
     #    source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', 'Custom')
     #    col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
@@ -1371,10 +1442,6 @@ def update_tex_input(self, context):
     ch = self
 
     set_tex_channel_linear_node(tree, tex, root_ch, ch)
-
-    #if not tl.halt_reconnect:
-    reconnect_tex_nodes(tex)
-    rearrange_tex_nodes(tex)
 
 def update_uv_name(self, context):
     obj = context.object

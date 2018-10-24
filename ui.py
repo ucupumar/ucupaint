@@ -1641,8 +1641,17 @@ class YNewTexMenu(bpy.types.Menu):
         col.separator()
 
         col.label(text='Background:')
-        col.operator("node.y_new_texture_layer", icon='MOD_MASK', text='Background w/ Image Mask').type = 'BACKGROUND'
-        col.operator("node.y_new_texture_layer", icon='MOD_MASK', text='Background w/ Vertex Color Mask').type = 'BACKGROUND'
+
+        c = col.operator("node.y_new_texture_layer", icon='MOD_MASK', text='Background w/ Image Mask')
+        c.type = 'BACKGROUND'
+        c.add_mask = True
+        c.mask_type = 'IMAGE'
+
+        c = col.operator("node.y_new_texture_layer", icon='MOD_MASK', text='Background w/ Vertex Color Mask')
+        c.type = 'BACKGROUND'
+        c.add_mask = True
+        c.mask_type = 'VCOL'
+
         col.separator()
 
         #col = row.column()

@@ -469,10 +469,10 @@ class YNewTexModifier(bpy.types.Operator):
         # Rearrange nodes
         if tex:
             rearrange_tex_nodes(tex)
-            reconnect_tex_nodes(tex, mod_reconnect=True)
+            reconnect_tex_nodes(tex)
         else: 
             rearrange_tl_nodes(group_tree)
-            reconnect_tl_nodes(group_tree, mod_reconnect=True)
+            reconnect_tl_nodes(group_tree)
 
         # Reconnect modifier nodes
         #reconnect_between_modifier_nodes(context.parent)
@@ -542,7 +542,7 @@ class YMoveTexModifier(bpy.types.Operator):
 
         # Reconnect modifier nodes
         #reconnect_between_modifier_nodes(parent)
-        reconnect_tex_nodes(tex, mod_reconnect=True)
+        reconnect_tex_nodes(tex)
 
         # Rearrange nodes
         if tex: rearrange_tex_nodes(tex)
@@ -603,11 +603,11 @@ class YRemoveTexModifier(bpy.types.Operator):
         if tex:
             if len(parent.modifiers) == 0:
                 disable_modifiers_tree(parent, False)
-            reconnect_tex_nodes(tex, mod_reconnect=True)
+            reconnect_tex_nodes(tex)
         else:
             # Reconnect nodes
             #reconnect_between_modifier_nodes(parent)
-            reconnect_tl_nodes(group_tree, mod_reconnect=True)
+            reconnect_tl_nodes(group_tree)
 
         # Rearrange nodes
         if tex:
@@ -1115,7 +1115,7 @@ def enable_modifiers_tree(parent, rearrange = False):
 
     if rearrange:
         rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex, mod_reconnect=True)
+        reconnect_tex_nodes(tex)
 
     return mod_tree
 
@@ -1173,7 +1173,7 @@ def disable_modifiers_tree(parent, rearrange=False):
 
     if rearrange:
         rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex, mod_reconnect=True)
+        reconnect_tex_nodes(tex)
 
 def register():
     bpy.utils.register_class(YNewTexModifier)

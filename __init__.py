@@ -37,6 +37,7 @@
 # - Fine bump still produces wrong result when using non UV texture mapping (V)
 # - Sharp bump can cause bleed on color channel (V)
 # - Value channel should output only grayscale (V)
+# - Wrong result after adding texture modifier (V, need more testing)
 # - Musgrave fine bump cannot read below 0.0
 #
 # KNOWN ISSUES:

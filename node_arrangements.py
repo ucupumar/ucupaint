@@ -490,12 +490,12 @@ def rearrange_mask_ramp_nodes(tree, ch, loc, include_blending=True):
     if include_blending:
         rearrange_mask_ramp_blending_nodes(tree, ch, loc)
 
-def rearrange_tex_nodes(tex):
+def rearrange_tex_nodes(tex, tree=None):
     tl = tex.id_data.tl
 
     if tl.halt_reconnect: return
 
-    tree = get_tree(tex)
+    if not tree: tree = get_tree(tex)
     nodes = tree.nodes
 
     #print('Rearrange texture ' + tex.name)

@@ -731,6 +731,11 @@ def match_group_input(node, key=None, extra_node_names=[]):
                         link.to_socket.default_value = node.inputs[outp.name].default_value
                 except: pass
 
+def fix_io_index(item, items, correct_index):
+    cur_index = [i for i, it in enumerate(items) if it == item]
+    if cur_index and cur_index[0] != correct_index:
+        items.move(cur_index[0], correct_index)
+
 #def get_io_index(tex, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1
