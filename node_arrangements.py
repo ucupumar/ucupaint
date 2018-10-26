@@ -508,7 +508,7 @@ def rearrange_tex_nodes(tex, tree=None):
     chain = -1
     bump_ch = get_transition_bump_channel(tex)
     if bump_ch:
-        flip_bump = bump_ch.mask_bump_flip
+        flip_bump = bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'
         chain = min(len(tex.masks), bump_ch.mask_bump_chain)
 
     #start_x = 350

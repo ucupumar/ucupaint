@@ -17,6 +17,8 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
     if not tree: tree = get_tree(tex)
 
     correct_index = 0
+    valid_inputs = []
+    valid_outputs = []
     
     # Tree input and outputs
     for i, ch in enumerate(tex.channels):
@@ -26,34 +28,39 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
         if not inp:
             inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], root_ch.name)
         fix_io_index(inp, tree.inputs, correct_index)
+        valid_inputs.append(inp)
 
         outp = tree.outputs.get(root_ch.name)
         if not outp:
             outp = tree.outputs.new(channel_socket_output_bl_idnames[root_ch.type], root_ch.name)
         fix_io_index(outp, tree.outputs, correct_index)
+        valid_outputs.append(outp)
 
         correct_index += 1
 
+        name = root_ch.name + ' Alpha'
+        inp = tree.inputs.get(name)
+        outp = tree.outputs.get(name)
+
         if root_ch.type  == 'RGB' and root_ch.alpha:
 
-            name = root_ch.name + ' Alpha'
-
-            inp = tree.inputs.get(name)
             if not inp:
                 inp = tree.inputs.new('NodeSocketFloatFactor', name)
-
                 inp.min_value = 0.0
                 inp.max_value = 1.0
                 inp.default_value = 0.0
-
             fix_io_index(inp, tree.inputs, correct_index)
+            valid_inputs.append(inp)
 
-            outp = tree.outputs.get(name)
             if not outp:
                 outp = tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], name)
             fix_io_index(outp, tree.outputs, correct_index)
+            valid_outputs.append(outp)
 
             correct_index += 1
+        else:
+            if inp: tree.inputs.remove(inp)
+            if outp: tree.inputs.remove(outp)
 
     # Tree background inputs
     if tex.type == 'BACKGROUND':
@@ -66,18 +73,32 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
             if not inp:
                 inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], name)
             fix_io_index(inp, tree.inputs, correct_index)
+            valid_inputs.append(inp)
 
             correct_index += 1
 
+            name = root_ch.name + ' Alpha Background'
+            inp = tree.inputs.get(name)
+
             if root_ch.alpha:
 
-                name = root_ch.name + ' Alpha Background'
-                inp = tree.inputs.get(name)
                 if not inp:
                     inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], name)
                 fix_io_index(inp, tree.inputs, correct_index)
+                valid_inputs.append(inp)
 
                 correct_index += 1
+            else:
+                if inp: tree.inputs.remove(inp)
+
+    # Check for invalid io
+    for inp in tree.inputs:
+        if inp not in valid_inputs:
+            tree.inputs.remove(inp)
+
+    for outp in tree.outputs:
+        if outp not in valid_outputs:
+            tree.outputs.remove(outp)
 
     # Channel nodes
     for i, ch in enumerate(tex.channels):
@@ -1233,7 +1254,7 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
                 mod.oc_col = (val, val, val, 1.0)
 
     # Check bump base
-    check_create_bump_base(tree, ch)
+    check_create_bump_base(tex, tree, ch)
 
 def update_normal_map_type(self, context):
     tl = self.id_data.tl

@@ -331,9 +331,6 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     start_rgb = source.outputs[0]
     start_rgb_1 = source.outputs[1]
 
-    if tex.type == 'BACKGROUND':
-        pass
-
     # Alpha
     if tex.type == 'IMAGE' or source_group:
         start_alpha = source.outputs[1]
@@ -368,9 +365,11 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     fine_bump_ch = False
     bump_ch = get_transition_bump_channel(tex)
     if bump_ch:
-        flip_bump = bump_ch.mask_bump_flip
+        flip_bump = bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'
         chain = min(len(tex.masks), bump_ch.mask_bump_chain)
         fine_bump_ch = bump_ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
+    #elif tex.type == 'BACKGROUND':
+    #    flip_bump = True
 
     # Layer Masks
     for i, mask in enumerate(tex.masks):
@@ -691,7 +690,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             rgb = mb_blend.outputs[0]
 
         # Transition AO
-        if root_ch.type in {'RGB', 'VALUE'} and bump_ch and ch.enable_transition_ao:
+        if root_ch.type in {'RGB', 'VALUE'} and bump_ch and ch.enable_transition_ao and tex.type != 'BACKGROUND':
             tao = nodes.get(ch.tao)
 
             if flip_bump:

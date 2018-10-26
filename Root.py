@@ -27,29 +27,12 @@ colorspace_items = (
         
 )
 
-#def add_io_from_new_channel(group_tree, channel):
-#    # New channel should be the last item
-#    #channel = group_tree.tl.channels[-1]
-#
-#    inp = group_tree.inputs.new(channel_socket_input_bl_idnames[channel.type], channel.name)
-#    out = group_tree.outputs.new(channel_socket_output_bl_idnames[channel.type], channel.name)
-#
-#    #group_tree.inputs.move(index,new_index)
-#    #group_tree.outputs.move(index,new_index)
-#
-#    if channel.type == 'VALUE':
-#        inp.min_value = 0.0
-#        inp.max_value = 1.0
-#    elif channel.type == 'RGB':
-#        inp.default_value = (1,1,1,1)
-#    elif channel.type == 'NORMAL':
-#        # Use 999 as normal z value so it will fallback to use geometry normal at checking process
-#        inp.default_value = (999,999,999) 
-
 def check_all_channel_ios(tl):
     group_tree = tl.id_data
 
     correct_index = 0
+    valid_inputs = []
+    valid_outputs = []
 
     for ch in tl.channels:
 
@@ -57,45 +40,72 @@ def check_all_channel_ios(tl):
         if not inp:
             inp = group_tree.inputs.new(channel_socket_input_bl_idnames[ch.type], ch.name)
 
-            if channel.type == 'VALUE':
+            if ch.type == 'VALUE':
                 inp.min_value = 0.0
                 inp.max_value = 1.0
-            elif channel.type == 'RGB':
+            elif ch.type == 'RGB':
                 inp.default_value = (1,1,1,1)
-            elif channel.type == 'NORMAL':
+            elif ch.type == 'NORMAL':
                 # Use 999 as normal z value so it will fallback to use geometry normal at checking process
                 inp.default_value = (999,999,999) 
 
         fix_io_index(inp, group_tree.inputs, correct_index)
+        valid_inputs.append(inp)
 
         out = group_tree.outputs.get(ch.name)
         if not out:
             out = group_tree.outputs.new(channel_socket_output_bl_idnames[ch.type], ch.name)
         fix_io_index(out, group_tree.outputs, correct_index)
+        valid_outputs.append(out)
 
         if ch.io_index != correct_index:
             ch.io_index = correct_index
 
         correct_index += 1
 
+        name = ch.name + ' Alpha'
+        inp = group_tree.inputs.get(name)
+        out = group_tree.outputs.get(name)
+
         if ch.type == 'RGB' and ch.alpha:
 
-            name = ch.name + ' Alpha'
-
-            inp = group_tree.inputs.get(name)
             if not inp:
                 inp = group_tree.inputs.new('NodeSocketFloatFactor', name)
                 inp.min_value = 0.0
                 inp.max_value = 1.0
                 inp.default_value = 0.0
             fix_io_index(inp, group_tree.inputs, correct_index)
+            valid_inputs.append(inp)
 
-            out = group_tree.outputs.get(name)
             if not out:
                 out = group_tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], name)
             fix_io_index(out, group_tree.outputs, correct_index)
+            valid_outputs.append(out)
 
             correct_index += 1
+
+        else:
+            if inp: group_tree.inputs.remove(inp)
+            if out: group_tree.outputs.remove(out)
+
+    # Check for invalid io
+    for inp in group_tree.inputs:
+        if inp not in valid_inputs:
+            group_tree.inputs.remove(inp)
+
+    for outp in group_tree.outputs:
+        if outp not in valid_outputs:
+            group_tree.outputs.remove(outp)
+
+    # Move tex IO
+    for tex in tl.textures:
+        Layer.check_all_texture_channel_io_and_nodes(tex)
+        rearrange_tex_nodes(tex)
+        reconnect_tex_nodes(tex)
+
+    # Rearrange nodes
+    rearrange_tl_nodes(group_tree)
+    reconnect_tl_nodes(group_tree)
 
 def set_input_default_value(group_node, channel, custom_value=None):
     #channel = group_node.node_tree.tl.channels[index]
@@ -165,7 +175,6 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         start_normal_filter.node_tree = lib.get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
 
     # Link between textures
-    #for i, t in reversed(list(enumerate(tl.textures))):
     for t in tl.textures:
 
         # Add new channel
@@ -177,18 +186,13 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
             mc = mask.channels.add()
 
         # Check and set mask intensity nodes
-        transition.check_transition_bump_influences_to_other_channels(tex_tree, t, target_ch=c)
+        transition.check_transition_bump_influences_to_other_channels(t, tex_tree, target_ch=c)
 
         # Set mask multiply nodes
         set_mask_multiply_nodes(t, tex_tree)
 
         # Add new nodes
-        #Layer.check_texture_channel_nodes(t, tex_tree, channel, c)
-        Layer.check_all_texture_channel_nodes(t, tex_tree, specific_ch=c)
-
-        # Rearrange node inside textures
-        #reconnect_tex_nodes(t, ch_idx=channel_idx)
-        #rearrange_tex_nodes(t)
+        Layer.check_all_texture_channel_io_and_nodes(t, tex_tree, specific_ch=c)
 
 def create_new_group_tree(mat):
 
@@ -209,9 +213,6 @@ def create_new_group_tree(mat):
     #group_tree.tl.temp_channels.add() # Also add temp channel
     #tlup.channels.add()
 
-    #add_io_from_new_channel(group_tree, channel)
-    #channel.io_index = 0
-
     # Create start and end node
     start = new_node(group_tree, group_tree.tl, 'start', 'NodeGroupInput', 'Start')
     end = new_node(group_tree, group_tree.tl, 'end', 'NodeGroupOutput', 'End')
@@ -222,13 +223,6 @@ def create_new_group_tree(mat):
 
     # Create info nodes
     create_info_nodes(group_tree)
-
-    # Link start and end node then rearrange the nodes
-    #create_tl_channel_nodes(group_tree, channel, 0)
-    reconnect_tl_nodes(group_tree)
-
-    # Add ui for this tree
-    #add_ui(group_tree.tl)
 
     return group_tree
 
@@ -241,9 +235,6 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
     channel = tl.channels.add()
     channel.name = name
     channel.type = channel_type
-
-    # Add input and output to the tree
-    #add_io_from_new_channel(group_tree, channel)
 
     # Get last index
     last_index = len(tl.channels)-1
@@ -258,8 +249,6 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
 
     # Link new channel
     create_tl_channel_nodes(group_tree, channel, last_index)
-    reconnect_tl_nodes(group_tree, last_index)
-    #reconnect_tl_tex_nodes(group_tree, last_index)
 
     for tex in tl.textures:
         # New channel is disabled in texture by default
@@ -270,15 +259,7 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
 
-    # Add ui for this tree
-    #add_ui(channel)
-
     tl.halt_reconnect = False
-
-    # Rearrange and reconnect tex
-    #for tex in tl.textures:
-    #    rearrange_tex_nodes(tex) #, last_index)
-    #    reconnect_tex_nodes(tex, ch_idx=last_index)
 
     return channel
 
@@ -474,9 +455,6 @@ class YQuickSetupTLNode(bpy.types.Operator):
         # Update io
         check_all_channel_ios(tl)
 
-        # Rearrange nodes
-        rearrange_tl_nodes(group_tree)
-
         # Set new tl node location
         if output:
             node.location = main_bsdf.location.copy()
@@ -556,9 +534,6 @@ class YNewTLNode(bpy.types.Operator):
 
         # Set the location of new node
         node.location = space.cursor_location
-
-        # Rearrange nodes
-        rearrange_tl_nodes(group_tree)
 
         # Update UI
         context.window_manager.tlui.need_update = True
@@ -721,14 +696,6 @@ class YNewTLChannel(bpy.types.Operator):
         # Update io
         check_all_channel_ios(tl)
 
-        # Rearrange tex
-        for tex in tl.textures:
-            rearrange_tex_nodes(tex)
-            reconnect_tex_nodes(tex)
-
-        # Rearrange nodes
-        rearrange_tl_nodes(group_tree)
-
         # Connect to other inputs
         item = self.input_coll.get(self.connect_to)
         inp = None
@@ -863,26 +830,6 @@ class YMoveTLChannel(bpy.types.Operator):
 
         # Move IO
         check_all_channel_ios(tl)
-
-        # Move tex IO
-        for tex in tl.textures:
-            tree = get_tree(tex)
-            #swap_channel_io(channel, swap_ch, io_index, io_index_swap, tree.inputs, tree.outputs)
-            Layer.check_all_texture_channel_io_and_nodes(tex, tree)
-
-        # Reindex IO
-        i = 0
-        for ch in tl.channels:
-            ch.io_index = i
-            i += 1
-            if ch.type == 'RGB' and ch.alpha: i += 1
-
-        # Rearrange nodes
-        for tex in tl.textures:
-            rearrange_tex_nodes(tex)
-            #if tex.type == 'BACKGROUND':
-            reconnect_tex_nodes(tex)
-        rearrange_tl_nodes(group_tree)
 
         # Set active index
         tl.active_channel_index = new_index
@@ -1035,14 +982,14 @@ class YRemoveTLChannel(bpy.types.Operator):
 
         # Check consistency of mask multiply nodes
         for t in tl.textures:
-            ttree = get_tree(t)
-            set_mask_multiply_nodes(t, ttree)
+            set_mask_multiply_nodes(t)
 
         # Rearrange and reconnect nodes
-        for t in tl.textures:
-            rearrange_tex_nodes(t)
-            reconnect_tex_nodes(t)
-        rearrange_tl_nodes(group_tree)
+        check_all_channel_ios(tl)
+        #for t in tl.textures:
+        #    rearrange_tex_nodes(t)
+        #    reconnect_tex_nodes(t)
+        #rearrange_tl_nodes(group_tree)
 
         # Set new active index
         if (tl.active_channel_index == len(tl.channels) and
@@ -1207,6 +1154,9 @@ def update_channel_name(self, context):
     group_tree = self.id_data
     tl = group_tree.tl
 
+    #check_all_channel_ios(tl)
+    bg_input_offset = get_channel_inputs_length(tl)
+
     if self.io_index == -1: return
 
     if self.io_index < len(group_tree.inputs):
@@ -1226,6 +1176,12 @@ def update_channel_name(self, context):
                 if self.type == 'RGB' and self.alpha:
                     tree.inputs[self.io_index+1].name = self.name + ' Alpha'
                     tree.outputs[self.io_index+1].name = self.name + ' Alpha'
+
+                if tex.type == 'BACKGROUND':
+                    tree.inputs[self.io_index + bg_input_offset].name = self.name + ' Background'
+
+                    if self.type == 'RGB' and self.alpha:
+                        tree.inputs[self.io_index + bg_input_offset + 1].name = self.name + ' Alpha Background'
 
             rearrange_tex_frame_nodes(tex, tree)
         
@@ -1476,93 +1432,7 @@ def update_channel_alpha(self, context):
     inputs = group_tree.inputs
     outputs = group_tree.outputs
 
-    # Create alpha IO
-    if self.alpha:
-
-        # Set material to use alpha blend
-        if hasattr(mat, 'blend_method'): # Blender 2.8
-            mat.blend_method = 'BLEND'
-        else: # Blender 2.7
-            mat.game_settings.alpha_blend = 'ALPHA'
-
-        #name = self.name + ' Alpha'
-        #inp = inputs.new('NodeSocketFloatFactor', name)
-        #out = outputs.new('NodeSocketFloat', name)
-
-        ## Set min max
-        #inp.min_value = 0.0
-        #inp.max_value = 1.0
-        #inp.default_value = 0.0
-
-        #last_index = len(inputs)-1
-        alpha_index = self.io_index+1
-
-        #inputs.move(last_index, alpha_index)
-        #outputs.move(last_index, alpha_index)
-
-        check_all_channel_ios(tl)
-
-        # Set node default_value
-        node = get_active_texture_layers_node()
-        #node.inputs[alpha_index].default_value = 0.0
-        node.inputs[alpha_index].default_value = 0.0
-
-        ## Shift other IO index
-        #for ch in tl.channels:
-        #    if ch.io_index >= alpha_index:
-        #        ch.io_index += 1
-
-        # Add socket to texture tree
-        for tex in tl.textures:
-            Layer.check_all_texture_channel_io_and_nodes(tex)
-            rearrange_tex_nodes(tex)
-            reconnect_tex_nodes(tex)
-
-            #tree = get_tree(tex)
-
-            #ti = tree.inputs.new('NodeSocketFloatFactor', name)
-            #to = tree.outputs.new('NodeSocketFloat', name)
-
-            #tree.inputs.move(last_index, alpha_index)
-            #tree.outputs.move(last_index, alpha_index)
-
-            ## Update texture blend nodes
-            #for i, ch in enumerate(tex.channels):
-            #    root_ch = tl.channels[i]
-            #    if Layer.check_blend_type_nodes(root_ch, tex, ch):
-            #        reconnect_tex_nodes(tex, ch_idx=i)
-            #        rearrange_tex_nodes(tex)
-        
-        # Reconnect link between textures
-        #reconnect_tl_tex_nodes(group_tree)
-        reconnect_tl_nodes(group_tree)
-
-        # Try to relink to original connections
-        tree = context.object.active_material.node_tree
-        try:
-            node_from = tree.nodes.get(self.ori_alpha_from.node)
-            socket_from = node_from.outputs[self.ori_alpha_from.socket]
-            tree.links.new(socket_from, node.inputs[alpha_index])
-        except: pass
-
-        for con in self.ori_alpha_to:
-            try:
-                node_to = tree.nodes.get(con.node)
-                socket_to = node_to.inputs[con.socket]
-                if len(socket_to.links) < 1:
-                    tree.links.new(node.outputs[alpha_index], socket_to)
-            except: pass
-
-        # Reset memory
-        self.ori_alpha_from.node = ''
-        self.ori_alpha_from.socket = ''
-        self.ori_alpha_to.clear()
-
-        tl.refresh_tree = True
-
-    # Remove alpha IO
-    elif not self.alpha:
-
+    if not self.alpha:
         # Set material to use opaque
         if hasattr(mat, 'blend_method'): # Blender 2.8
             mat.blend_method = 'OPAQUE'
@@ -1587,31 +1457,46 @@ def update_channel_alpha(self, context):
             con.node = link.to_node.name
             con.socket = link.to_socket.name
 
-        inputs.remove(inputs[self.io_index+1])
-        outputs.remove(outputs[self.io_index+1])
+    # Update channel io
+    check_all_channel_ios(tl)
 
-        # Shift other IO index
-        for ch in tl.channels:
-            if ch.io_index > self.io_index:
-                ch.io_index -= 1
+    if self.alpha:
 
-        # Remove socket from texture tree
-        for tex in tl.textures:
-            tree = get_tree(tex)
-            tree.inputs.remove(tree.inputs[self.io_index+1])
-            tree.outputs.remove(tree.outputs[self.io_index+1])
+        # Set material to use alpha blend
+        if hasattr(mat, 'blend_method'): # Blender 2.8
+            mat.blend_method = 'BLEND'
+        else: # Blender 2.7
+            mat.game_settings.alpha_blend = 'ALPHA'
 
-            # Update texture blend nodes
-            for i, ch in enumerate(tex.channels):
-                root_ch = tl.channels[i]
-                if Layer.check_blend_type_nodes(root_ch, tex, ch):
-                    reconnect_tex_nodes(tex, ch_idx=i)
-                    rearrange_tex_nodes(tex)
+        # Get alpha index
+        alpha_index = self.io_index+1
 
-        # Reconnect solid alpha to end alpha
-        reconnect_tl_nodes(group_tree)
+        # Set node default_value
+        node = get_active_texture_layers_node()
+        node.inputs[alpha_index].default_value = 0.0
 
-        tl.refresh_tree = True
+        # Try to relink to original connections
+        tree = context.object.active_material.node_tree
+        try:
+            node_from = tree.nodes.get(self.ori_alpha_from.node)
+            socket_from = node_from.outputs[self.ori_alpha_from.socket]
+            tree.links.new(socket_from, node.inputs[alpha_index])
+        except: pass
+
+        for con in self.ori_alpha_to:
+            try:
+                node_to = tree.nodes.get(con.node)
+                socket_to = node_to.inputs[con.socket]
+                if len(socket_to.links) < 1:
+                    tree.links.new(node.outputs[alpha_index], socket_to)
+            except: pass
+
+        # Reset memory
+        self.ori_alpha_from.node = ''
+        self.ori_alpha_from.socket = ''
+        self.ori_alpha_to.clear()
+
+    tl.refresh_tree = True
 
 def update_col_input(self, context):
     group_node = get_active_texture_layers_node()

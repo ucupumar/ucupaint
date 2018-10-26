@@ -20,6 +20,7 @@ def enable_tex_source_tree(tex, rearrange=False):
 
     # Check if source tree is already available
     if tex.type != 'VCOL' and tex.source_group != '': return
+    if tex.type == 'BACKGROUND': return
 
     tex_tree = get_tree(tex)
 
@@ -325,9 +326,9 @@ def disable_mask_source_tree(tex, mask, reconnect=False):
         # Rearrange nodes
         rearrange_tex_nodes(tex)
 
-def check_create_bump_base(tree, ch):
+def check_create_bump_base(tex, tree, ch):
 
-    if ch.normal_map_type == 'FINE_BUMP_MAP':
+    if tex.type != 'BACKGROUND' and ch.normal_map_type == 'FINE_BUMP_MAP':
 
         # Delete standard bump base first
         remove_node(tree, ch, 'bump_base')
@@ -348,7 +349,7 @@ def check_create_bump_base(tree, ch):
                     bb.inputs[0].default_value = 1.0
                     bb.inputs[1].default_value = (val, val, val, 1.0)
 
-    elif ch.normal_map_type == 'BUMP_MAP':
+    elif tex.type != 'BACKGROUND' and ch.normal_map_type == 'BUMP_MAP':
 
         # Delete fine bump bump bases first
         for d in neighbor_directions:
@@ -375,10 +376,10 @@ def check_create_bump_base(tree, ch):
         for d in neighbor_directions:
             remove_node(tree, ch, 'bump_base_' + d)
 
-def set_mask_multiply_nodes(tex, tree, bump_ch=None):
+def set_mask_multiply_nodes(tex, tree=None, bump_ch=None):
 
     tl = tex.id_data.tl
-
+    if not tree: tree = get_tree(tex)
     if not bump_ch: bump_ch = get_transition_bump_channel(tex)
 
     chain = -1
