@@ -345,10 +345,16 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
         # Layer source modifier
         mod_group = nodes.get(tex.mod_group)
-        start_rgb, start_alpha = reconnect_all_modifier_nodes(
-                tree, tex, start_rgb, start_alpha, mod_group)
 
-        if tex.type not in {'IMAGE', 'VCOL'}:
+        # Background layer won't use modifier outputs
+        if tex.type == 'BACKGROUND':
+            #reconnect_all_modifier_nodes(tree, tex, start_rgb, start_alpha, mod_group)
+            pass
+        else:
+            start_rgb, start_alpha = reconnect_all_modifier_nodes(
+                    tree, tex, start_rgb, start_alpha, mod_group)
+
+        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
             mod_group_1 = nodes.get(tex.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
                     tree, tex, source.outputs[1], solid_alpha.outputs[0], mod_group_1)
@@ -468,6 +474,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         bg_alpha = None
         if tex.type == 'BACKGROUND':
             rgb = source.outputs[root_ch.io_index+bg_input_offset]
+            alpha = solid_alpha.outputs[0]
             if root_ch.alpha:
                 #alpha = source.outputs[root_ch.io_index+1+bg_input_offset]
                 bg_alpha = source.outputs[root_ch.io_index+1+bg_input_offset]
@@ -510,7 +517,13 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             rgb = linear.outputs[0]
 
         mod_group = nodes.get(ch.mod_group)
-        rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
+
+        # Background layer won't use modifier outputs
+        if tex.type == 'BACKGROUND':
+            #reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
+            pass
+        else:
+            rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
 
         if root_ch.type == 'NORMAL':
 

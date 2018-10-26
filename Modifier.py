@@ -336,9 +336,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 def add_new_modifier(parent, modifier_type):
 
     tl = parent.id_data.tl
-    match1 = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
-    match2 = re.match(r'^tl\.textures\[(\d+)\]$', parent.path_from_id())
-    #match3 = re.match(r'tl\.channels\[(\d+)\]', parent.path_from_id())
     
     tree = get_mod_tree(parent)
     modifiers = parent.modifiers
@@ -354,13 +351,16 @@ def add_new_modifier(parent, modifier_type):
 
     add_modifier_nodes(m, tree)
 
+    match1 = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^tl\.textures\[(\d+)\]$', parent.path_from_id())
+    #match3 = re.match(r'tl\.channels\[(\d+)\]', parent.path_from_id())
     if match1: 
         # Enable modifier tree if fine bump map is used
         if parent.normal_map_type == 'FINE_BUMP_MAP' or (
                 #parent.enable and 
                 parent.enable_mask_bump and parent.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
             enable_modifiers_tree(parent)
-    elif match2 and parent.type not in {'IMAGE', 'VCOL'}:
+    elif match2 and parent.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
         enable_modifiers_tree(parent)
 
     return m
@@ -416,13 +416,6 @@ class YNewTexModifier(bpy.types.Operator):
         items = modifier_type_items,
         default = 'INVERT')
 
-    #parent_type = EnumProperty(
-    #        name = 'Modifier Parent',
-    #        items = (('CHANNEL', 'Channel', '' ),
-    #                 ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
-    #                ),
-    #        default = 'TEXTURE_CHANNEL')
-
     @classmethod
     def poll(cls, context):
         return get_active_texture_layers_node() and hasattr(context, 'parent')
@@ -432,25 +425,11 @@ class YNewTexModifier(bpy.types.Operator):
         group_tree = node.node_tree
         tl = group_tree.tl
 
-        tex = None
-        m1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
-        m2 = re.match(r'tl\.channels\[(\d+)\]', context.parent.path_from_id())
-        m3 = re.match(r'tl\.textures\[(\d+)\]', context.parent.path_from_id())
-        if m1:
-            tex = tl.textures[int(m1.group(1))]
-            #root_ch = tl.channels[int(m1.group(2))]
-            mod = add_new_modifier(context.parent, self.type)
-            #tree = get_tree(tex)
-            #nodes = tree.nodes
-        elif m2:
-            #root_ch = context.parent
-            mod = add_new_modifier(context.parent, self.type)
-            #nodes = group_tree.nodes
-        elif m3:
-            #tree = get_tree(self)
-            #nodes = tree.nodes
-            tex = tl.textures[int(m3.group(1))]
-            mod = add_new_modifier(context.parent, self.type)
+        m = re.match(r'^tl\.textures\[(\d+)\]', context.parent.path_from_id())
+        if m: tex = tl.textures[int(m.group(1))]
+        else: tex = None
+
+        mod = add_new_modifier(context.parent, self.type)
 
         #if self.type == 'RGB_TO_INTENSITY' and root_ch.type == 'RGB':
         #    mod.rgb2i_col = (1,0,1,1)
@@ -1059,10 +1038,12 @@ def enable_modifiers_tree(parent, rearrange = False):
         tex = tl.textures[int(match1.group(1))]
         root_ch = tl.channels[int(match1.group(2))]
         name = root_ch.name + ' ' + tex.name
+        if tex.type == 'BACKGROUND':
+            return
     elif match2:
         tex = parent
         name = tex.name
-        if tex.type in {'IMAGE', 'VCOL'}:
+        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND'}:
             return
     else:
         return
@@ -1140,7 +1121,7 @@ def disable_modifiers_tree(parent, rearrange=False):
             return
     elif match2:
         tex = parent
-        if tex.type in {'IMAGE', 'VCOL'}:
+        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND'}:
             return
     else:
         return

@@ -386,7 +386,7 @@ def set_mask_multiply_nodes(tex, tree=None, bump_ch=None):
     flip_bump = False
     if bump_ch:
         chain = min(bump_ch.mask_bump_chain, len(tex.masks))
-        flip_bump = bump_ch.mask_bump_flip
+        flip_bump = bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'
 
     for i, mask in enumerate(tex.masks):
         for j, c in enumerate(mask.channels):
