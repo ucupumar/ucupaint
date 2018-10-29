@@ -611,7 +611,7 @@ def get_source_tree(tex, tree=None):
         source_group = tree.nodes.get(tex.source_group)
         return source_group.node_tree
 
-    return None
+    return tree
 
 def get_tex_source(tex, tree=None):
     if not tree: tree = get_tree(tex)

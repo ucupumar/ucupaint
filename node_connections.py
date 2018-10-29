@@ -583,14 +583,18 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
             if tex.type != 'BACKGROUND':
 
-                if ch.normal_map_type == 'NORMAL_MAP':
+                normal_map_type = ch.normal_map_type
+                if tex.type == 'VCOL' and ch.normal_map_type == 'FINE_BUMP_MAP':
+                    normal_map_type = 'BUMP_MAP'
+
+                if normal_map_type == 'NORMAL_MAP':
 
                     normal = nodes.get(ch.normal)
                     create_link(tree, rgb, normal.inputs[1])
 
                     rgb = normal.outputs[0]
 
-                elif ch.normal_map_type == 'BUMP_MAP':
+                elif normal_map_type == 'BUMP_MAP':
 
                     bump = nodes.get(ch.bump)
                     bump_base = nodes.get(ch.bump_base)
@@ -601,7 +605,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
                     rgb = bump.outputs[0]
 
-                elif ch.normal_map_type == 'FINE_BUMP_MAP':
+                elif normal_map_type == 'FINE_BUMP_MAP':
 
                     fine_bump = nodes.get(ch.fine_bump)
                     bump_base_n = nodes.get(ch.bump_base_n)

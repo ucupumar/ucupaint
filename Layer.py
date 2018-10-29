@@ -183,13 +183,13 @@ def normal_map_type_items_(tex_type):
     if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
         items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 0))
         items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 1))
-        if tex_type != 'VCOL':
-            items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 2))
+        #if tex_type != 'VCOL':
+        items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 2))
     else: # Blender 2.8
         items.append(('NORMAL_MAP', 'Normal Map', ''))
         items.append(('BUMP_MAP', 'Bump Map', ''))
-        if tex_type != 'VCOL':
-            items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
+        #if tex_type != 'VCOL':
+        items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
 
     return items
 
@@ -428,24 +428,21 @@ class YRefreshNeighborUV(bpy.types.Operator):
     def execute(self, context):
         tree = get_tree(context.texture)
 
-        neighbor_uv = tree.nodes.get(context.parent.neighbor_uv)
-        neighbor_uv.inputs[1].default_value = context.image.size[0]
-        neighbor_uv.inputs[2].default_value = context.image.size[1]
+        uv_neighbor = tree.nodes.get(context.texture.uv_neighbor)
+        uv_neighbor.inputs[1].default_value = context.image.size[0]
+        uv_neighbor.inputs[2].default_value = context.image.size[1]
         
         if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(neighbor_uv, 1)
-            match_group_input(neighbor_uv, 2)
-            #inp = neighbor_uv.node_tree.nodes.get('Group Input')
-            #inp.outputs[1].links[0].to_socket.default_value = neighbor_uv.inputs[1].default_value
-            #inp.outputs[2].links[0].to_socket.default_value = neighbor_uv.inputs[2].default_value
+            match_group_input(uv_neighbor, 1)
+            match_group_input(uv_neighbor, 2)
 
-        fine_bump = tree.nodes.get(context.parent.fine_bump)
-        fine_bump.inputs[0].default_value = get_fine_bump_distance(context.texture, context.channel.bump_distance)
+        #fine_bump = tree.nodes.get(context.parent.fine_bump)
+        #fine_bump.inputs[0].default_value = get_fine_bump_distance(context.texture, context.channel.bump_distance)
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(fine_bump, 0)
-            #inp = fine_bump.node_tree.nodes.get('Group Input')
-            #inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(fine_bump, 0)
+        #    #inp = fine_bump.node_tree.nodes.get('Group Input')
+        #    #inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
 
         return {'FINISHED'}
 
@@ -1164,6 +1161,191 @@ class YRemoveTextureLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YReplaceLayerType(bpy.types.Operator):
+    bl_idname = "node.y_replace_layer_type"
+    bl_label = "Replace Layer Type"
+    bl_description = "Replace Layer Type"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    type = EnumProperty(
+            name = 'Layer Type',
+            items = texture_type_items,
+            default = 'IMAGE')
+
+    item_name = StringProperty(name="Item")
+    item_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_texture_layers_node()
+        return context.object and group_node and len(group_node.node_tree.tl.textures) > 0
+
+    def invoke(self, context, event):
+        obj = context.object
+        self.texture = context.texture
+        if self.type in {'IMAGE', 'VCOL'}:
+
+            self.item_coll.clear()
+            self.item_name = ''
+
+            # Update image names
+            if self.type == 'IMAGE':
+                for img in bpy.data.images:
+                    self.item_coll.add().name = img.name
+            else:
+                for vcol in obj.data.vertex_colors:
+                    self.item_coll.add().name = vcol.name
+
+            return context.window_manager.invoke_props_dialog(self)#, width=400)
+
+        return self.execute(context)
+
+    def draw(self, context):
+        layout = self.layout
+
+        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+            split = layout.split(percentage=0.35)
+        else: split = layout.split(factor=0.35, align=True)
+
+        #row = self.layout.row()
+        if self.type == 'IMAGE':
+            split.label(text='Image:')
+            split.prop_search(self, "item_name", self, "item_coll", text='', icon='IMAGE_DATA')
+        else:
+            split.label(text='Vertex Color:')
+            split.prop_search(self, "item_name", self, "item_coll", text='', icon='GROUP_VCOL')
+
+    def execute(self, context):
+
+        T = time.time()
+
+        tex = self.texture
+        tl = tex.id_data.tl
+
+        if self.type == tex.type: return {'CANCELLED'}
+
+        tl.halt_reconnect = True
+
+        # Standard bump map is easier to convert
+        fine_bump_channels = [ch for ch in tex.channels if ch.normal_map_type == 'FINE_BUMP_MAP']
+        for ch in fine_bump_channels:
+            ch.normal_map_type = 'BUMP_MAP'
+
+        # Disable transition will also helps
+        transition_channels = [ch for ch in tex.channels if ch.enable_mask_bump]
+        for ch in transition_channels:
+            ch.enable_mask_bump = False
+
+        # Current source
+        tree = get_tree(tex)
+        source_tree = get_source_tree(tex)
+        source = source_tree.nodes.get(tex.source)
+
+        # Save source to cache if it's not image, vertex color, or background
+        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+            #if tex.source_group != '':
+            #    # Create new cache outside source tree
+            #    new_cache = new_node(tree, tex, 'cache_' + tex.type.lower(), source.bl_idname)
+            #    copy_node_props(source, new_cache)
+
+            #    # Remove source from source tree
+            #    remove_node(source_tree, tex, 'source')
+            #else:
+            setattr(tex, 'cache_' + tex.type.lower(), source.name)
+            # Remove uv input link
+            if any(source.inputs) and any(source.inputs[0].links):
+                tree.links.remove(source.inputs[0].links[0])
+            source.label = ''
+        else:
+            remove_node(source_tree, tex, 'source', remove_data=False)
+
+        # Update source tree io
+        #if tex.source_group != '':
+        #    refresh_source_tree_ios(source_tree, self.type)
+
+        # Disable modifier tree
+        if (tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'} and 
+                self.type in {'IMAGE', 'VCOL', 'BACKGROUND'}):
+            Modifier.disable_modifiers_tree(tex)
+
+        # Try to get available cache
+        cache = None
+        if self.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+            cache = tree.nodes.get(getattr(tex, 'cache_' + self.type.lower()))
+
+        if cache:
+            #if tex.source_group != '':
+            #    # New source inside source tree
+            #    source = new_node(source_tree, tex, 'source', cache.bl_idname)
+            #    copy_node_props(cache, source)
+
+            #    # Remove cache outside source tree
+            #    remove_node(tree, tex, 'cache_' + self.type.lower())
+            #else:
+            tex.source = cache.name
+            setattr(tex, 'cache_' + self.type.lower(), '')
+            cache.label = 'Source'
+        else:
+            source = new_node(source_tree, tex, 'source', texture_node_bl_idnames[self.type], 'Source')
+
+            if self.type == 'IMAGE':
+                image = bpy.data.images.get(self.item_name)
+                source.image = image
+            elif self.type == 'VCOL':
+                source.attribute_name = self.item_name
+
+        uv_neighbor = tree.nodes.get(tex.uv_neighbor)
+        if uv_neighbor:
+            if self.type == 'IMAGE':
+                uv_neighbor.inputs[1].default_value = source.image.size[0]
+                uv_neighbor.inputs[2].default_value = source.image.size[1]
+            else:
+                uv_neighbor.inputs[1].default_value = 1000
+                uv_neighbor.inputs[2].default_value = 1000
+                
+            if BLENDER_28_GROUP_INPUT_HACK:
+                match_group_input(uv_neighbor, 1)
+                match_group_input(uv_neighbor, 2)
+
+        tex.type = self.type
+
+        # Enable modifiers tree if generated texture is used
+        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+            Modifier.enable_modifiers_tree(tex)
+
+        # Update group ios
+        check_all_texture_channel_io_and_nodes(tex, tree)
+        if tex.type == 'BACKGROUND':
+            # Remove bump and its base
+            for ch in tex.channels:
+                remove_node(tree, ch, 'bump_base')
+                remove_node(tree, ch, 'bump')
+
+        # Update linear stuff
+        for i, ch in enumerate(tex.channels):
+            root_ch = tl.channels[i]
+            set_tex_channel_linear_node(tree, tex, root_ch, ch)
+
+        # Back to use fine bump if conversion happen
+        for ch in fine_bump_channels:
+            ch.normal_map_type = 'FINE_BUMP_MAP'
+
+        # Bring back transition
+        for ch in transition_channels:
+            ch.enable_mask_bump = True
+
+        tl.halt_reconnect = False
+
+        rearrange_tex_nodes(tex)
+        reconnect_tex_nodes(tex)
+
+        if tex.type == 'BACKGROUND':
+            reconnect_tl_nodes(tex.id_data)
+
+        print('INFO: Layer', tex.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
+        return {'FINISHED'}
+
 def update_channel_enable(self, context):
     tl = self.id_data.tl
 
@@ -1190,8 +1372,12 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
     if root_ch.type != 'NORMAL': return
     if tex.type == 'BACKGROUND' : return
 
+    normal_map_type = ch.normal_map_type
+    if tex.type == 'VCOL' and ch.normal_map_type == 'FINE_BUMP_MAP':
+        normal_map_type = 'BUMP_MAP'
+
     # Normal nodes
-    if ch.normal_map_type == 'NORMAL_MAP':
+    if normal_map_type == 'NORMAL_MAP':
 
         normal = tree.nodes.get(ch.normal)
         if not normal:
@@ -1199,7 +1385,7 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
             normal.uv_map = tex.uv_name
 
     # Bump nodes
-    elif ch.normal_map_type == 'BUMP_MAP':
+    elif normal_map_type == 'BUMP_MAP':
 
         bump = tree.nodes.get(ch.bump)
         if not bump:
@@ -1207,7 +1393,7 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
             bump.inputs[1].default_value = ch.bump_distance
 
     # Fine bump nodes
-    elif ch.normal_map_type == 'FINE_BUMP_MAP':
+    elif normal_map_type == 'FINE_BUMP_MAP':
 
         fine_bump = tree.nodes.get(ch.fine_bump)
 
@@ -1224,15 +1410,15 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
                 duplicate_lib_node_tree(fine_bump)
 
     # Remove bump nodes
-    if ch.normal_map_type != 'BUMP_MAP':
+    if normal_map_type != 'BUMP_MAP':
         remove_node(tree, ch, 'bump')
 
     # Remove normal nodes
-    if ch.normal_map_type != 'NORMAL_MAP':
+    if normal_map_type != 'NORMAL_MAP':
         remove_node(tree, ch, 'normal')
 
     # Remove fine bump nodes
-    if ch.normal_map_type != 'FINE_BUMP_MAP':
+    if normal_map_type != 'FINE_BUMP_MAP':
         remove_node(tree, ch, 'fine_bump')
 
         disable_tex_source_tree(tex, False)
@@ -1247,7 +1433,7 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
     # Update override color modifier
     for mod in ch.modifiers:
         if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
-            if ch.normal_map_type == 'NORMAL_MAP':
+            if normal_map_type == 'NORMAL_MAP':
                 mod.oc_col = (0.5, 0.5, 1.0, 1.0)
             else:
                 val = ch.bump_base_value
@@ -1278,10 +1464,10 @@ def check_blend_type_nodes(root_ch, tex, ch):
 
     # Check blend type
     if blend:
-        if root_ch.type == 'RGB':
-            if ((root_ch.alpha and ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
-                (not root_ch.alpha and blend.bl_idname == 'ShaderNodeGroup') or
-                (ch.blend_type != 'MIX' and blend.bl_idname == 'ShaderNodeGroup')):
+        if root_ch.type == 'RGB' and root_ch.alpha:
+            #if ((root_ch.alpha and ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
+            #    (not root_ch.alpha and blend.bl_idname == 'ShaderNodeGroup') or
+            #    (ch.blend_type != 'MIX' and blend.bl_idname == 'ShaderNodeGroup')):
                 #nodes.remove(blend)
                 remove_node(tree, ch, 'blend')
                 blend = None
@@ -1519,23 +1705,23 @@ def update_texcoord_type(self, context):
     # Generated, Normal, and object are using Object Space
     # Camera and Window are using View Space
     # Reflection actually aren't using view space, but whatever, no one use bump map in reflection texcoord
-    for i, ch in enumerate(tex.channels):
-        root_ch = tl.channels[i]
-        if root_ch.type == 'NORMAL':
+    #for i, ch in enumerate(tex.channels):
+    #    root_ch = tl.channels[i]
+    #    if root_ch.type == 'NORMAL':
 
-            neighbor_uv = tree.nodes.get(ch.neighbor_uv)
-            if neighbor_uv:
-                cur_tree = neighbor_uv.node_tree
-                sel_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
+    uv_neighbor = tree.nodes.get(tex.uv_neighbor)
+    if uv_neighbor:
+        cur_tree = uv_neighbor.node_tree
+        sel_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
 
-                if sel_tree != cur_tree:
-                    neighbor_uv.node_tree = sel_tree
+        if sel_tree != cur_tree:
+            uv_neighbor.node_tree = sel_tree
 
-                    if cur_tree.users == 0:
-                        bpy.data.node_groups.remove(cur_tree)
+            if cur_tree.users == 0:
+                bpy.data.node_groups.remove(cur_tree)
 
-                    if BLENDER_28_GROUP_INPUT_HACK:
-                        duplicate_lib_node_tree(neighbor_uv)
+            if BLENDER_28_GROUP_INPUT_HACK:
+                duplicate_lib_node_tree(uv_neighbor)
 
     #if not tl.halt_reconnect:
     reconnect_tex_nodes(self)
@@ -1870,6 +2056,16 @@ class YTextureLayer(bpy.types.PropertyGroup):
     source_w = StringProperty(default='')
     source_group = StringProperty(default='')
 
+    # Layer type cache
+    cache_brick = StringProperty(default='')
+    cache_checker = StringProperty(default='')
+    cache_gradient = StringProperty(default='')
+    cache_magic = StringProperty(default='')
+    cache_musgrave = StringProperty(default='')
+    cache_noise = StringProperty(default='')
+    cache_voronoi = StringProperty(default='')
+    cache_wave = StringProperty(default='')
+
     # UV
     uv_neighbor = StringProperty(default='')
     uv_attr = StringProperty(default='')
@@ -1916,6 +2112,7 @@ def register():
     bpy.utils.register_class(YOpenAvailableImageToLayer)
     bpy.utils.register_class(YMoveTextureLayer)
     bpy.utils.register_class(YRemoveTextureLayer)
+    bpy.utils.register_class(YReplaceLayerType)
     bpy.utils.register_class(YLayerChannel)
     bpy.utils.register_class(YTextureLayer)
 
@@ -1926,5 +2123,6 @@ def unregister():
     bpy.utils.unregister_class(YOpenAvailableImageToLayer)
     bpy.utils.unregister_class(YMoveTextureLayer)
     bpy.utils.unregister_class(YRemoveTextureLayer)
+    bpy.utils.unregister_class(YReplaceLayerType)
     bpy.utils.unregister_class(YLayerChannel)
     bpy.utils.unregister_class(YTextureLayer)

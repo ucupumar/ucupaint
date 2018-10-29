@@ -505,10 +505,12 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
         row.label(text=title)
 
     row.context_pointer_set('parent', tex)
-    if custom_icon_enable:
-        icon_value = lib.custom_icons["add_modifier"].icon_id
-        row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
-    else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
+    row.context_pointer_set('texture', tex)
+    #if custom_icon_enable:
+    #    icon_value = lib.custom_icons["add_modifier"].icon_id
+    #    row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
+    #else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
+    row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
 
     if tex.type == 'VCOL' and len(tex.modifiers) == 0: return
     if not texui.expand_content: return
@@ -517,7 +519,9 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
     rrow.label(text='', icon='BLANK1')
     rcol = rrow.column(align=False)
 
-    draw_modifier_stack(context, tex, 'RGB', rcol, 
+    modcol = rcol.column()
+    modcol.active = tex.type != 'BACKGROUND'
+    draw_modifier_stack(context, tex, 'RGB', modcol, 
             texui, custom_icon_enable, tex)
 
     if tex.type != 'VCOL':
@@ -777,6 +781,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     crow.prop(ch, 'mask_bump_curved_offset', text='')
 
                 crow = cccol.row(align=True)
+                crow.active = tex.type != 'BACKGROUND'
                 crow.label(text='Flip:') #, icon='INFO')
                 crow.prop(ch, 'mask_bump_flip', text='')
 
@@ -872,7 +877,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
             # Transition AO
             row = mcol.row(align=True)
-            row.active = bump_ch_found
+            row.active = bump_ch_found and tex.type != 'BACKGROUND'
             if custom_icon_enable:
                 if chui.expand_transition_ao_settings:
                     icon_value = lib.custom_icons["uncollapsed_input"].icon_id
@@ -889,7 +894,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 row = mcol.row(align=True)
                 row.label(text='', icon='BLANK1')
                 box = row.box()
-                box.active = bump_ch_found
+                box.active = bump_ch_found and tex.type != 'BACKGROUND'
                 bcol = box.column(align=False)
                 brow = bcol.row(align=True)
                 brow.label(text='Intensity:')
@@ -904,10 +909,12 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
             extra_separator = True
 
-        draw_modifier_stack(context, ch, root_ch.type, mcol, 
+        modcol = mcol.column()
+        modcol.active = tex.type != 'BACKGROUND'
+        draw_modifier_stack(context, ch, root_ch.type, modcol, 
                 tlui.tex_ui.channels[i], custom_icon_enable, tex)
 
-        if tex.type not in {'IMAGE', 'VCOL'}:
+        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
             row = mcol.row(align=True)
 
             input_settings_available = (ch.tex_input != 'ALPHA' 
@@ -1794,6 +1801,60 @@ class YTexMaskMenuSpecial(bpy.types.Menu):
         col.separator()
         col.operator('node.y_remove_texture_mask', text='Remove Mask', icon='ZOOMOUT')
 
+class YTexModifierSpecialMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_texture_modifier_specials"
+    bl_label = "Texture Channel Modifiers"
+    bl_description = 'Add New Modifier'
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'parent') and get_active_texture_layers_node()
+
+    def draw(self, context):
+        self.layout.label(text='Add Modifier')
+        ## List the items
+        for mt in Modifier.modifier_type_items:
+            self.layout.operator('node.y_new_texture_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
+
+class YLayerSpecialMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_layer_special_menu"
+    bl_label = "Layer Special Menu"
+    bl_description = 'Layer Special Menu'
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'parent') and get_active_texture_layers_node()
+
+    def draw(self, context):
+        row = self.layout.row()
+
+        col = row.column()
+        col.label(text='Add Modifier')
+        ## List the modifiers
+        for mt in Modifier.modifier_type_items:
+            col.operator('node.y_new_texture_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
+
+        col = row.column()
+        col.label(text='Change Layer Type')
+        #col.operator('node.y_replace_layer_type', text='Image (Open Image)', icon='IMAGE_DATA').type = 'IMAGE'
+        #col.operator('node.y_replace_layer_type', text='Image (Select Available Image)', icon='IMAGE_DATA').type = 'IMAGE'
+        col.operator('node.y_replace_layer_type', text='Image', icon='IMAGE_DATA').type = 'IMAGE'
+
+        col.operator('node.y_replace_layer_type', text='Vertex Color', icon='GROUP_VCOL').type = 'VCOL'
+        col.operator('node.y_replace_layer_type', text='Background', icon='TEXTURE').type = 'BACKGROUND'
+
+        col.separator()
+        #for tt in texture_type_items:
+        #    col.operator('node.y_replace_layer_type', text=tt[1], icon='TEXTURE').type = tt[0]
+        col.operator('node.y_replace_layer_type', text='Brick', icon='TEXTURE').type = 'BRICK'
+        col.operator('node.y_replace_layer_type', text='Checker', icon='TEXTURE').type = 'CHECKER'
+        col.operator('node.y_replace_layer_type', text='Gradient', icon='TEXTURE').type = 'GRADIENT'
+        col.operator('node.y_replace_layer_type', text='Magic', icon='TEXTURE').type = 'MAGIC'
+        col.operator('node.y_replace_layer_type', text='Musgrave', icon='TEXTURE').type = 'MUSGRAVE'
+        col.operator('node.y_replace_layer_type', text='Noise', icon='TEXTURE').type = 'NOISE'
+        col.operator('node.y_replace_layer_type', text='Voronoi', icon='TEXTURE').type = 'VORONOI'
+        col.operator('node.y_replace_layer_type', text='Wave', icon='TEXTURE').type = 'WAVE'
+
 def update_modifier_ui(self, context):
     tlui = context.window_manager.tlui
     if tlui.halt_prop_update: return
@@ -2042,6 +2103,8 @@ def register():
     bpy.utils.register_class(YModifierMenu)
     bpy.utils.register_class(YAddTexMaskMenu)
     bpy.utils.register_class(YTexMaskMenuSpecial)
+    bpy.utils.register_class(YTexModifierSpecialMenu)
+    bpy.utils.register_class(YLayerSpecialMenu)
     #bpy.utils.register_class(YTexMaskBumpMenuSpecial)
     #bpy.utils.register_class(YTexMaskRampMenuSpecial)
     bpy.utils.register_class(YModifierUI)
@@ -2075,6 +2138,8 @@ def unregister():
     bpy.utils.unregister_class(YModifierMenu)
     bpy.utils.unregister_class(YAddTexMaskMenu)
     bpy.utils.unregister_class(YTexMaskMenuSpecial)
+    bpy.utils.unregister_class(YTexModifierSpecialMenu)
+    bpy.utils.unregister_class(YLayerSpecialMenu)
     #bpy.utils.unregister_class(YTexMaskBumpMenuSpecial)
     #bpy.utils.unregister_class(YTexMaskRampMenuSpecial)
     bpy.utils.unregister_class(YModifierUI)

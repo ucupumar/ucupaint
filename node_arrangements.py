@@ -522,7 +522,24 @@ def rearrange_tex_nodes(tex, tree=None):
         loc.y -= 40
 
     elif check_set_node_loc(tree, tex.source, loc, hide=False):
-        loc.y -= 260
+        if tex.type == 'BRICK':
+            loc.y -= 400
+        elif tex.type == 'CHECKER':
+            loc.y -= 170
+        elif tex.type == 'GRADIENT':
+            loc.y -= 140
+        elif tex.type == 'MAGIC':
+            loc.y -= 180
+        elif tex.type == 'MUSGRAVE':
+            loc.y -= 270
+        elif tex.type == 'NOISE':
+            loc.y -= 170
+        elif tex.type == 'VORONOI':
+            loc.y -= 170
+        elif tex.type == 'VORONOI':
+            loc.y -= 260
+        else:
+            loc.y -= 260
 
     if check_set_node_loc(tree, tex.source_n, loc, hide=True):
         loc.y -= 40
@@ -555,8 +572,34 @@ def rearrange_tex_nodes(tex, tree=None):
         loc.y -= 160
 
     if check_set_node_loc(tree, tex.geometry, loc):
-        #loc.y += 160
-        pass
+        loc.y -= 210
+
+    loc = Vector((-300, 0))
+
+    # Caches
+    if check_set_node_loc(tree, tex.cache_brick, loc, hide=False):
+        loc.y -= 400
+
+    if check_set_node_loc(tree, tex.cache_checker, loc, hide=False):
+        loc.y -= 170
+
+    if check_set_node_loc(tree, tex.cache_gradient, loc, hide=False):
+        loc.y -= 140
+
+    if check_set_node_loc(tree, tex.cache_magic, loc, hide=False):
+        loc.y -= 180
+
+    if check_set_node_loc(tree, tex.cache_musgrave, loc, hide=False):
+        loc.y -= 270
+
+    if check_set_node_loc(tree, tex.cache_noise, loc, hide=False):
+        loc.y -= 170
+
+    if check_set_node_loc(tree, tex.cache_voronoi, loc, hide=False):
+        loc.y -= 170
+
+    if check_set_node_loc(tree, tex.cache_wave, loc, hide=False):
+        loc.y -= 260
 
     loc = Vector((350, 0))
 

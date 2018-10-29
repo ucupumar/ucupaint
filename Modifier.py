@@ -357,7 +357,6 @@ def add_new_modifier(parent, modifier_type):
     if match1: 
         # Enable modifier tree if fine bump map is used
         if parent.normal_map_type == 'FINE_BUMP_MAP' or (
-                #parent.enable and 
                 parent.enable_mask_bump and parent.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
             enable_modifiers_tree(parent)
     elif match2 and parent.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
@@ -699,21 +698,6 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
             col.separator()
             #col.prop(multiplier.inputs[6], 'default_value', text='Alpha')
             col.prop(modifier, 'multiplier_a_val', text='Alpha')
-
-class YTexModifierSpecialMenu(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_texture_modifier_specials"
-    bl_label = "Texture Channel Modifiers"
-    bl_description = 'Add New Modifier'
-
-    @classmethod
-    def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_texture_layers_node()
-
-    def draw(self, context):
-        self.layout.label(text='Add Modifier')
-        ## List the items
-        for mt in modifier_type_items:
-            self.layout.operator('node.y_new_texture_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
 
 def update_modifier_enable(self, context):
 
@@ -1160,12 +1144,10 @@ def register():
     bpy.utils.register_class(YNewTexModifier)
     bpy.utils.register_class(YMoveTexModifier)
     bpy.utils.register_class(YRemoveTexModifier)
-    bpy.utils.register_class(YTexModifierSpecialMenu)
     bpy.utils.register_class(YTextureModifier)
 
 def unregister():
     bpy.utils.unregister_class(YNewTexModifier)
     bpy.utils.unregister_class(YMoveTexModifier)
     bpy.utils.unregister_class(YRemoveTexModifier)
-    bpy.utils.unregister_class(YTexModifierSpecialMenu)
     bpy.utils.unregister_class(YTextureModifier)
