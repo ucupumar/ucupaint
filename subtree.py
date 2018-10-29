@@ -57,6 +57,7 @@ def enable_tex_source_tree(tex, rearrange=False):
     if tex.type != 'VCOL':
         # Get current source for reference
         source_ref = tex_tree.nodes.get(tex.source)
+        mapping_ref = tex_tree.nodes.get(tex.mapping)
 
         # Create source tree
         source_tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + tex.name + ' Source', 'ShaderNodeTree')
@@ -73,6 +74,8 @@ def enable_tex_source_tree(tex, rearrange=False):
         # Copy source from reference
         source = new_node(source_tree, tex, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+        mapping = new_node(source_tree, tex, 'mapping', 'ShaderNodeMapping')
+        if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Create source node group
         source_group = new_node(tex_tree, tex, 'source_group', 'ShaderNodeGroup', 'source_group')
@@ -89,6 +92,7 @@ def enable_tex_source_tree(tex, rearrange=False):
 
         # Remove previous source
         tex_tree.nodes.remove(source_ref)
+        if mapping_ref: tex_tree.nodes.remove(mapping_ref)
     
         # Bring modifiers to source tree
         if tex.type == 'IMAGE':
@@ -148,10 +152,13 @@ def disable_tex_source_tree(tex, rearrange=True):
     if tex.type != 'VCOL':
         source_group = tex_tree.nodes.get(tex.source_group)
         source_ref = source_group.node_tree.nodes.get(tex.source)
+        mapping_ref = source_group.node_tree.nodes.get(tex.mapping)
 
         # Create new source
         source = new_node(tex_tree, tex, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+        mapping = new_node(tex_tree, tex, 'mapping', 'ShaderNodeMapping')
+        if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Bring back layer modifier to original tree
         if tex.type == 'IMAGE':

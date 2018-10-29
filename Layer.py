@@ -100,6 +100,12 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
         if outp not in valid_outputs:
             tree.outputs.remove(outp)
 
+    # Mapping node
+    source_tree = get_source_tree(tex, tree)
+    mapping = source_tree.nodes.get(tex.mapping)
+    if not mapping:
+        mapping = new_node(source_tree, tex, 'mapping', 'ShaderNodeMapping', 'Mapping')
+
     # Channel nodes
     for i, ch in enumerate(tex.channels):
         root_ch = tl.channels[i]
@@ -1243,14 +1249,6 @@ class YReplaceLayerType(bpy.types.Operator):
 
         # Save source to cache if it's not image, vertex color, or background
         if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
-            #if tex.source_group != '':
-            #    # Create new cache outside source tree
-            #    new_cache = new_node(tree, tex, 'cache_' + tex.type.lower(), source.bl_idname)
-            #    copy_node_props(source, new_cache)
-
-            #    # Remove source from source tree
-            #    remove_node(source_tree, tex, 'source')
-            #else:
             setattr(tex, 'cache_' + tex.type.lower(), source.name)
             # Remove uv input link
             if any(source.inputs) and any(source.inputs[0].links):
@@ -1258,10 +1256,6 @@ class YReplaceLayerType(bpy.types.Operator):
             source.label = ''
         else:
             remove_node(source_tree, tex, 'source', remove_data=False)
-
-        # Update source tree io
-        #if tex.source_group != '':
-        #    refresh_source_tree_ios(source_tree, self.type)
 
         # Disable modifier tree
         if (tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'} and 
@@ -1274,14 +1268,6 @@ class YReplaceLayerType(bpy.types.Operator):
             cache = tree.nodes.get(getattr(tex, 'cache_' + self.type.lower()))
 
         if cache:
-            #if tex.source_group != '':
-            #    # New source inside source tree
-            #    source = new_node(source_tree, tex, 'source', cache.bl_idname)
-            #    copy_node_props(cache, source)
-
-            #    # Remove cache outside source tree
-            #    remove_node(tree, tex, 'cache_' + self.type.lower())
-            #else:
             tex.source = cache.name
             setattr(tex, 'cache_' + self.type.lower(), '')
             cache.label = 'Source'
@@ -1291,6 +1277,7 @@ class YReplaceLayerType(bpy.types.Operator):
             if self.type == 'IMAGE':
                 image = bpy.data.images.get(self.item_name)
                 source.image = image
+                source.color_space = 'NONE'
             elif self.type == 'VCOL':
                 source.attribute_name = self.item_name
 
@@ -2069,6 +2056,7 @@ class YTextureLayer(bpy.types.PropertyGroup):
     # UV
     uv_neighbor = StringProperty(default='')
     uv_attr = StringProperty(default='')
+    mapping = StringProperty(default='')
 
     # Other Vectors
     solid_alpha = StringProperty(default='')

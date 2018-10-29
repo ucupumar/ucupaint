@@ -493,6 +493,18 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
         else:
             row.label(text='', icon='GROUP_VCOL')
         row.label(text=vcol.name)
+    elif tex.type == 'BACKGROUND':
+        if len(tex.modifiers) > 0:
+            if custom_icon_enable:
+                if texui.expand_content:
+                    icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
+                row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            else:
+                row.prop(texui, 'expand_content', text='', emboss=True, icon='TEXTURE')
+        else:
+            row.label(text='', icon='TEXTURE')
+        row.label(text=tex.name)
     else:
         title = source.bl_idname.replace('ShaderNodeTex', '')
         if custom_icon_enable:
@@ -512,7 +524,7 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
     #else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
     row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
 
-    if tex.type == 'VCOL' and len(tex.modifiers) == 0: return
+    if tex.type in {'VCOL', 'BACKGROUND'} and len(tex.modifiers) == 0: return
     if not texui.expand_content: return
 
     rrow = layout.row(align=True)
@@ -524,7 +536,7 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
     draw_modifier_stack(context, tex, 'RGB', modcol, 
             texui, custom_icon_enable, tex)
 
-    if tex.type != 'VCOL':
+    if tex.type not in {'VCOL', 'BACKGROUND'}:
         row = rcol.row(align=True)
 
         if custom_icon_enable:
@@ -579,9 +591,14 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
             row.label(text='', icon='BLANK1')
             bbox = row.box()
             crow = row.column()
-            bbox.prop(source.texture_mapping, 'translation', text='Offset')
-            bbox.prop(source.texture_mapping, 'rotation')
-            bbox.prop(source.texture_mapping, 'scale')
+            mapping = get_tex_mapping(tex)
+            if mapping:
+                bbox.prop(mapping, 'translation', text='Offset')
+                bbox.prop(mapping, 'rotation')
+                bbox.prop(mapping, 'scale')
+            #bbox.prop(source.texture_mapping, 'translation', text='Offset')
+            #bbox.prop(source.texture_mapping, 'rotation')
+            #bbox.prop(source.texture_mapping, 'scale')
 
     layout.separator()
 

@@ -542,14 +542,16 @@ def get_tree(entity):
 
     #m = re.match(r'tl\.textures\[(\d+)\]', entity.path_from_id())
     #if not m: return None
-    if not hasattr(entity.id_data, 'tl') or not hasattr(entity, 'group_node'): return None
+    #if not hasattr(entity.id_data, 'tl') or not hasattr(entity, 'group_node'): return None
 
-    tree = entity.id_data
-    tl = tree.tl
-
-    group_node = tree.nodes.get(entity.group_node)
-    if not group_node or group_node.type != 'GROUP': return None
-    return group_node.node_tree
+    try:
+        tree = entity.id_data
+        tl = tree.tl
+        group_node = tree.nodes.get(entity.group_node)
+        #if not group_node or group_node.type != 'GROUP': return None
+        return group_node.node_tree
+    except: 
+        return None
 
 def get_mod_tree(entity):
 
@@ -621,6 +623,10 @@ def get_tex_source(tex, tree=None):
     if tree: return tree.nodes.get(tex.source)
 
     return None
+
+def get_tex_mapping(tex):
+    tree = get_source_tree(tex)
+    return tree.nodes.get(tex.mapping)
 
 def get_neighbor_uv_space_input(texcoord_type):
     if texcoord_type == 'UV':

@@ -402,6 +402,9 @@ def rearrange_source_tree_nodes(tex):
     check_set_node_loc(source_tree, SOURCE_SOLID_VALUE, loc)
     loc.y += 300
 
+    if check_set_node_loc(source_tree, tex.mapping, loc):
+        loc.x += 380
+
     if check_set_node_loc(source_tree, tex.source, loc):
         loc.x += 200
 
@@ -553,6 +556,9 @@ def rearrange_tex_nodes(tex, tree=None):
     if check_set_node_loc(tree, tex.source_w, loc, hide=True):
         loc.y -= 40
 
+    if tex.source_group == '' and check_set_node_loc(tree, tex.mapping, loc):
+        loc.y -= 290
+
     if check_set_node_loc(tree, tex.uv_neighbor, loc):
         loc.y -= 230
 
@@ -601,7 +607,7 @@ def rearrange_tex_nodes(tex, tree=None):
     if check_set_node_loc(tree, tex.cache_wave, loc, hide=False):
         loc.y -= 260
 
-    loc = Vector((350, 0))
+    loc = Vector((380, 0))
 
     # Texture modifiers
     if tex.source_group == '':

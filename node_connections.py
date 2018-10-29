@@ -222,13 +222,18 @@ def reconnect_source_internal_nodes(tex):
     tree = get_source_tree(tex)
 
     source = tree.nodes.get(tex.source)
+    mapping = tree.nodes.get(tex.mapping)
     start = tree.nodes.get(SOURCE_TREE_START)
     solid = tree.nodes.get(SOURCE_SOLID_VALUE)
     end = tree.nodes.get(SOURCE_TREE_END)
 
     #if tex.type != 'VCOL':
     #    create_link(tree, start.outputs[0], source.inputs[0])
-    create_link(tree, start.outputs[0], source.inputs[0])
+    if mapping:
+        create_link(tree, start.outputs[0], mapping.inputs[0])
+        create_link(tree, mapping.outputs[0], source.inputs[0])
+    else:
+        create_link(tree, start.outputs[0], source.inputs[0])
 
     rgb = source.outputs[0]
     alpha = source.outputs[1]
@@ -300,6 +305,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     uv_attr = nodes.get(tex.uv_attr)
     uv_neighbor = nodes.get(tex.uv_neighbor)
 
+    mapping = nodes.get(tex.mapping)
     texcoord = nodes.get(tex.texcoord)
     solid_alpha = nodes.get(tex.solid_alpha)
     tangent = nodes.get(tex.tangent)
@@ -312,7 +318,11 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             vector = uv_attr.outputs[1]
         else: vector = texcoord.outputs[tex.texcoord_type]
 
-        create_link(tree, vector, source.inputs[0])
+        if source_group or not mapping:
+            create_link(tree, vector, source.inputs[0])
+        elif mapping:
+            create_link(tree, vector, mapping.inputs[0])
+            create_link(tree, mapping.outputs[0], source.inputs[0])
 
         if uv_neighbor: 
             create_link(tree, vector, uv_neighbor.inputs[0])
