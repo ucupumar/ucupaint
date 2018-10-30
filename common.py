@@ -59,6 +59,7 @@ texture_type_items = (
         ('WAVE', 'Wave', ''),
         ('VCOL', 'Vertex Color', ''),
         ('BACKGROUND', 'Background', ''),
+        ('COLOR', 'Solid Color', ''),
         )
 
 mask_type_items = (
@@ -92,6 +93,7 @@ texture_type_labels = {
         'WAVE' : 'Wave',
         'VCOL' : 'Vertex Color',
         'BACKGROUND' : 'Background',
+        'COLOR' : 'Solid Color',
         }
 
 texcoord_type_items = (
@@ -154,6 +156,7 @@ texture_node_bl_idnames = {
         'WAVE' : 'ShaderNodeTexWave',
         'VCOL' : 'ShaderNodeAttribute',
         'BACKGROUND' : 'NodeGroupInput',
+        'COLOR' : 'ShaderNodeRGB',
         }
 
 GAMMA = 2.2

@@ -270,6 +270,16 @@ def draw_tex_props(source, layout):
         for i in range (1,5):
             col.prop(source.inputs[i], 'default_value', text='')
 
+def draw_solid_color_props(tex, source, layout):
+    col = layout.column()
+    #col.label(text='Ewsom')
+    row = col.row()
+    row.label(text='Color:')
+    row.prop(source.outputs[0], 'default_value', text='')
+    row = col.row()
+    row.label(text='Shortcut on list:')
+    row.prop(tex, 'color_shortcut', text='')
+
 def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_enable, tex=None, extra_blank=False):
 
     tlui = context.window_manager.tlui
@@ -505,6 +515,15 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
         else:
             row.label(text='', icon='TEXTURE')
         row.label(text=tex.name)
+    elif tex.type == 'COLOR':
+        if custom_icon_enable:
+            if texui.expand_content:
+                icon_value = lib.custom_icons["uncollapsed_color"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_color"].icon_id
+            row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        else:
+            row.prop(texui, 'expand_content', text='', emboss=True, icon='COLOR')
+        row.label(text=tex.name)
     else:
         title = source.bl_idname.replace('ShaderNodeTex', '')
         if custom_icon_enable:
@@ -540,7 +559,13 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
         row = rcol.row(align=True)
 
         if custom_icon_enable:
-            suffix = 'image' if tex.type == 'IMAGE' else 'texture'
+            if tex.type == 'IMAGE':
+                suffix = 'image'
+            elif tex.type == 'COLOR':
+                suffix = 'color'
+            else:
+                suffix = 'texture'
+            #suffix = 'image' if tex.type == 'IMAGE' else 'texture'
             if texui.expand_source:
                 icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
             else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
@@ -559,46 +584,49 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
             bbox = row.box()
             if image:
                 draw_image_props(source, bbox)
+            elif tex.type == 'COLOR':
+                draw_solid_color_props(tex, source, bbox)
             else: draw_tex_props(source, bbox)
 
         # Vector
-        row = rcol.row(align=True)
-
-        if custom_icon_enable:
-            if texui.expand_vector:
-                icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-            row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
-
-        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-            split = row.split(percentage=0.275, align=True)
-        else: split = row.split(factor=0.275, align=True)
-        split.label(text='Vector:')
-        if is_a_mesh and tex.texcoord_type == 'UV':
-            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                ssplit = split.split(percentage=0.33, align=True)
-            else: ssplit = split.split(factor=0.33, align=True)
-            #ssplit = split.split(percentage=0.33, align=True)
-            ssplit.prop(tex, 'texcoord_type', text='')
-            ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-        else:
-            split.prop(tex, 'texcoord_type', text='')
-
-        if texui.expand_vector:
+        if tex.type != 'COLOR':
             row = rcol.row(align=True)
-            row.label(text='', icon='BLANK1')
-            bbox = row.box()
-            crow = row.column()
-            mapping = get_tex_mapping(tex)
-            if mapping:
-                bbox.prop(mapping, 'translation', text='Offset')
-                bbox.prop(mapping, 'rotation')
-                bbox.prop(mapping, 'scale')
-            #bbox.prop(source.texture_mapping, 'translation', text='Offset')
-            #bbox.prop(source.texture_mapping, 'rotation')
-            #bbox.prop(source.texture_mapping, 'scale')
+
+            if custom_icon_enable:
+                if texui.expand_vector:
+                    icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+                row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+            else:
+                row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
+
+            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+                split = row.split(percentage=0.275, align=True)
+            else: split = row.split(factor=0.275, align=True)
+            split.label(text='Vector:')
+            if is_a_mesh and tex.texcoord_type == 'UV':
+                if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+                    ssplit = split.split(percentage=0.33, align=True)
+                else: ssplit = split.split(factor=0.33, align=True)
+                #ssplit = split.split(percentage=0.33, align=True)
+                ssplit.prop(tex, 'texcoord_type', text='')
+                ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+            else:
+                split.prop(tex, 'texcoord_type', text='')
+
+            if texui.expand_vector:
+                row = rcol.row(align=True)
+                row.label(text='', icon='BLANK1')
+                bbox = row.box()
+                crow = row.column()
+                mapping = get_tex_mapping(tex)
+                if mapping:
+                    bbox.prop(mapping, 'translation', text='Offset')
+                    bbox.prop(mapping, 'rotation')
+                    bbox.prop(mapping, 'scale')
+                #bbox.prop(source.texture_mapping, 'translation', text='Offset')
+                #bbox.prop(source.texture_mapping, 'rotation')
+                #bbox.prop(source.texture_mapping, 'scale')
 
     layout.separator()
 
@@ -1519,6 +1547,8 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
             if image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
             #elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
             elif tex.type == 'VCOL': row.prop(tex, 'name', text='', emboss=False, icon='GROUP_VCOL')
+            elif tex.type == 'COLOR': row.prop(tex, 'name', text='', emboss=False, icon='COLOR')
+            elif tex.type == 'BACKGROUND': row.prop(tex, 'name', text='', emboss=False, icon='IMAGE_RGB_ALPHA')
             else: row.prop(tex, 'name', text='', emboss=False, icon='TEXTURE')
         else:
             if active_image_mask:
@@ -1529,6 +1559,10 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                 #elif vcol: 
                 elif tex.type == 'VCOL': 
                     row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
+                elif tex.type == 'COLOR': 
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='COLOR')
+                elif tex.type == 'BACKGROUND': 
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='IMAGE_RGB_ALPHA')
                 else: 
                     row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
             else:
@@ -1537,6 +1571,10 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                 #elif vcol: 
                 elif tex.type == 'VCOL': 
                     row.label(text='', icon='GROUP_VCOL')
+                elif tex.type == 'COLOR': 
+                    row.label(text='', icon='COLOR')
+                elif tex.type == 'BACKGROUND': 
+                    row.label(text='', icon='IMAGE_RGB_ALPHA')
                 else: 
                     row.label(text='', icon='TEXTURE')
 
@@ -1591,10 +1629,17 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
 
         # Modifier shortcut
         shortcut_found = False
-        for ch in tex.channels:
-            for mod in ch.modifiers:
-                if mod.shortcut and mod.enable:
 
+        if tex.type == 'COLOR' and tex.color_shortcut:
+            src = get_tex_source(tex, tex_tree)
+            rrow = row.row()
+            rrow.prop(src.outputs[0], 'default_value', text='', icon='COLOR')
+            shortcut_found = True
+
+        if not shortcut_found:
+
+            for mod in tex.modifiers:
+                if mod.shortcut and mod.enable:
                     if mod.type == 'RGB_TO_INTENSITY':
                         rrow = row.row()
                         mod_tree = get_mod_tree(mod)
@@ -1609,8 +1654,28 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                         shortcut_found = True
                         break
 
-            if shortcut_found:
-                break
+        if not shortcut_found:
+
+            for ch in tex.channels:
+                for mod in ch.modifiers:
+                    if mod.shortcut and mod.enable:
+
+                        if mod.type == 'RGB_TO_INTENSITY':
+                            rrow = row.row()
+                            mod_tree = get_mod_tree(mod)
+                            rrow.prop(mod, 'rgb2i_col', text='', icon='COLOR')
+                            shortcut_found = True
+                            break
+
+                        elif mod.type == 'OVERRIDE_COLOR' and not mod.oc_use_normal_base:
+                            rrow = row.row()
+                            mod_tree = get_mod_tree(mod)
+                            rrow.prop(mod, 'oc_col', text='', icon='COLOR')
+                            shortcut_found = True
+                            break
+
+                if shortcut_found:
+                    break
 
         # Mask visibility
         if len(tex.masks) > 0:
@@ -1664,14 +1729,27 @@ class YNewTexMenu(bpy.types.Menu):
         col.operator("node.y_new_texture_layer", icon='GROUP_VCOL', text='Vertex Color').type = 'VCOL'
         col.separator()
 
-        col.label(text='Background:')
+        col.label(text='Solid Color:')
 
-        c = col.operator("node.y_new_texture_layer", icon='MOD_MASK', text='Background w/ Image Mask')
+        c = col.operator("node.y_new_texture_layer", icon='COLOR', text='Solid Color w/ Image Mask')
+        c.type = 'COLOR'
+        c.add_mask = True
+        c.mask_type = 'IMAGE'
+
+        c = col.operator("node.y_new_texture_layer", icon='COLOR', text='Solid Color w/ Vertex Color Mask')
+        c.type = 'COLOR'
+        c.add_mask = True
+        c.mask_type = 'VCOL'
+
+        col.separator()
+
+        col.label(text='Background:')
+        c = col.operator("node.y_new_texture_layer", icon='IMAGE_RGB_ALPHA', text='Background w/ Image Mask')
         c.type = 'BACKGROUND'
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
-        c = col.operator("node.y_new_texture_layer", icon='MOD_MASK', text='Background w/ Vertex Color Mask')
+        c = col.operator("node.y_new_texture_layer", icon='IMAGE_RGB_ALPHA', text='Background w/ Vertex Color Mask')
         c.type = 'BACKGROUND'
         c.add_mask = True
         c.mask_type = 'VCOL'
@@ -1858,7 +1936,8 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col.operator('node.y_replace_layer_type', text='Image', icon='IMAGE_DATA').type = 'IMAGE'
 
         col.operator('node.y_replace_layer_type', text='Vertex Color', icon='GROUP_VCOL').type = 'VCOL'
-        col.operator('node.y_replace_layer_type', text='Background', icon='TEXTURE').type = 'BACKGROUND'
+        col.operator('node.y_replace_layer_type', text='Solid Color', icon='COLOR').type = 'COLOR'
+        col.operator('node.y_replace_layer_type', text='Background', icon='IMAGE_RGB_ALPHA').type = 'BACKGROUND'
 
         col.separator()
         #for tt in texture_type_items:

@@ -583,6 +583,9 @@ def rearrange_tex_nodes(tex, tree=None):
     loc = Vector((-300, 0))
 
     # Caches
+    if check_set_node_loc(tree, tex.cache_color, loc, hide=False):
+        loc.y -= 200
+
     if check_set_node_loc(tree, tex.cache_brick, loc, hide=False):
         loc.y -= 400
 

@@ -92,6 +92,8 @@ def load_custom_icons():
     custom_icons.load('uncollapsed_mask', filepath + 'uncollapsed_mask_icon.png', 'IMAGE')
     custom_icons.load('collapsed_vcol', filepath + 'collapsed_vcol_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_vcol', filepath + 'uncollapsed_vcol_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_color', filepath + 'collapsed_color_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_color', filepath + 'uncollapsed_color_icon.png', 'IMAGE')
 
     custom_icons.load('collapsed_channels', filepath + 'collapsed_channels_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_channels', filepath + 'uncollapsed_channels_icon.png', 'IMAGE')

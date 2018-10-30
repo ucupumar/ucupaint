@@ -566,7 +566,7 @@ class YNewTextureLayer(bpy.types.Operator):
             items = tl.textures
             
         # Default normal map type is fine bump map
-        if self.type != 'VCOL':
+        if self.type not in {'VCOL', 'COLOR'}:
             self.normal_map_type = 'FINE_BUMP_MAP'
         else: self.normal_map_type = 'BUMP_MAP'
 
@@ -1258,8 +1258,8 @@ class YReplaceLayerType(bpy.types.Operator):
             remove_node(source_tree, tex, 'source', remove_data=False)
 
         # Disable modifier tree
-        if (tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'} and 
-                self.type in {'IMAGE', 'VCOL', 'BACKGROUND'}):
+        if (tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'} and 
+                self.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}):
             Modifier.disable_modifiers_tree(tex)
 
         # Try to get available cache
@@ -1360,7 +1360,7 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
     if tex.type == 'BACKGROUND' : return
 
     normal_map_type = ch.normal_map_type
-    if tex.type == 'VCOL' and ch.normal_map_type == 'FINE_BUMP_MAP':
+    if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
         normal_map_type = 'BUMP_MAP'
 
     # Normal nodes
@@ -1451,21 +1451,23 @@ def check_blend_type_nodes(root_ch, tex, ch):
 
     # Check blend type
     if blend:
-        if root_ch.type == 'RGB' and root_ch.alpha:
-            #if ((root_ch.alpha and ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
-            #    (not root_ch.alpha and blend.bl_idname == 'ShaderNodeGroup') or
-            #    (ch.blend_type != 'MIX' and blend.bl_idname == 'ShaderNodeGroup')):
-                #nodes.remove(blend)
-                remove_node(tree, ch, 'blend')
-                blend = None
-                need_reconnect = True
-        elif root_ch.type == 'NORMAL':
-            #if ((ch.normal_blend == 'MIX' and blend.bl_idname == 'ShaderNodeGroup') or
-            #    (ch.normal_blend in {'OVERLAY'} and blend.bl_idname == 'ShaderNodeMixRGB')):
-            #nodes.remove(blend)
-            remove_node(tree, ch, 'blend')
-            blend = None
-            need_reconnect = True
+        #if ((root_ch.alpha and ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
+        #    (not root_ch.alpha and blend.bl_idname == 'ShaderNodeGroup') or
+        #    (ch.blend_type != 'MIX' and blend.bl_idname == 'ShaderNodeGroup')):
+        #    #nodes.remove(blend)
+        #    remove_node(tree, ch, 'blend')
+        #    blend = None
+        #    need_reconnect = True
+        #elif root_ch.type == 'NORMAL':
+        #    #if ((ch.normal_blend == 'MIX' and blend.bl_idname == 'ShaderNodeGroup') or
+        #    #    (ch.normal_blend in {'OVERLAY'} and blend.bl_idname == 'ShaderNodeMixRGB')):
+        #    #nodes.remove(blend)
+        #    remove_node(tree, ch, 'blend')
+        #    blend = None
+        #    need_reconnect = True
+        remove_node(tree, ch, 'blend')
+        blend = None
+        need_reconnect = True
 
     # Create blend node if its missing
     if not blend:
@@ -1547,11 +1549,15 @@ def update_bump_distance(self, context):
     tex = tl.textures[int(m.group(1))]
     tree = get_tree(tex)
 
-    if self.normal_map_type == 'BUMP_MAP':
+    normal_map_type = self.normal_map_type
+    if tex.type in {'VCOL', 'COLOR'} and self.normal_map_type == 'FINE_BUMP_MAP':
+        normal_map_type = 'BUMP_MAP'
+
+    if normal_map_type == 'BUMP_MAP':
         bump = tree.nodes.get(self.bump)
         if bump: bump.inputs[1].default_value = self.bump_distance
 
-    elif self.normal_map_type == 'FINE_BUMP_MAP':
+    elif normal_map_type == 'FINE_BUMP_MAP':
 
         fine_bump = tree.nodes.get(self.fine_bump)
         if fine_bump: 
@@ -2007,6 +2013,19 @@ class YLayerChannel(bpy.types.PropertyGroup):
     expand_transition_ao_settings = BoolProperty(default=False)
     expand_input_settings = BoolProperty(default=False)
 
+def update_layer_color_chortcut(self, context):
+    tex = self
+
+    # If color shortcut is active, disable other shortcut
+    if tex.type == 'COLOR' and tex.color_shortcut:
+
+        for m in tex.modifiers:
+            m.shortcut = False
+
+        for ch in tex.channels:
+            for m in ch.modifiers:
+                m.shortcut = False
+
 class YTextureLayer(bpy.types.PropertyGroup):
     name = StringProperty(default='', update=update_texture_name)
     enable = BoolProperty(
@@ -2023,6 +2042,12 @@ class YTextureLayer(bpy.types.PropertyGroup):
             name = 'Texture Type',
             items = texture_type_items,
             default = 'IMAGE')
+
+    color_shortcut = BoolProperty(
+            name = 'Color Shortcut on the list',
+            description = 'Display color shortcut on the list',
+            default=True,
+            update=update_layer_color_chortcut)
 
     texcoord_type = EnumProperty(
         name = 'Texture Coordinate Type',
@@ -2052,6 +2077,7 @@ class YTextureLayer(bpy.types.PropertyGroup):
     cache_noise = StringProperty(default='')
     cache_voronoi = StringProperty(default='')
     cache_wave = StringProperty(default='')
+    cache_color = StringProperty(default='')
 
     # UV
     uv_neighbor = StringProperty(default='')

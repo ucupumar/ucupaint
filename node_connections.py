@@ -313,7 +313,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     geometry = nodes.get(tex.geometry)
 
     # Texcoord
-    if tex.type not in {'VCOL', 'BACKGROUND'}:
+    if tex.type not in {'VCOL', 'BACKGROUND', 'COLOR'}:
         if tex.texcoord_type == 'UV':
             vector = uv_attr.outputs[1]
         else: vector = texcoord.outputs[tex.texcoord_type]
@@ -339,7 +339,9 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
     # RGB
     start_rgb = source.outputs[0]
-    start_rgb_1 = source.outputs[1]
+    start_rgb_1 = None
+    if tex.type != 'COLOR':
+        start_rgb_1 = source.outputs[1]
 
     # Alpha
     if tex.type == 'IMAGE' or source_group:
@@ -364,7 +366,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             start_rgb, start_alpha = reconnect_all_modifier_nodes(
                     tree, tex, start_rgb, start_alpha, mod_group)
 
-        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
             mod_group_1 = nodes.get(tex.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
                     tree, tex, source.outputs[1], solid_alpha.outputs[0], mod_group_1)
@@ -510,7 +512,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         #        rgb = source.outputs[prev_offset+1]
         #        prev_offset += 2
 
-        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
             if ch.tex_input == 'ALPHA':
                 rgb = start_rgb_1
                 alpha = start_alpha_1
@@ -594,7 +596,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             if tex.type != 'BACKGROUND':
 
                 normal_map_type = ch.normal_map_type
-                if tex.type == 'VCOL' and ch.normal_map_type == 'FINE_BUMP_MAP':
+                if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
                     normal_map_type = 'BUMP_MAP'
 
                 if normal_map_type == 'NORMAL_MAP':

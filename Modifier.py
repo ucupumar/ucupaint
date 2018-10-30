@@ -752,23 +752,34 @@ def update_modifier_shortcut(self, context):
 
     tl = self.id_data.tl
 
-    if self.shortcut:
+    mod = self
 
-        match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-        match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    if mod.shortcut:
 
-        if match1:
+        match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+        match2 = re.match(r'tl\.textures\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+        match3 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+
+
+        if match1 or match2:
+
             tex = tl.textures[int(match1.group(1))]
-            for ch in tex.channels:
-                for mod in ch.modifiers:
-                    if mod != self:
-                        mod.shortcut = False
+            tex.color_shortcut = False
 
-        elif match2:
+            for m in tex.modifiers:
+                if m != mod:
+                    m.shortcut = False
+
+            for ch in tex.channels:
+                for m in ch.modifiers:
+                    if m != mod:
+                        m.shortcut = False
+
+        elif match3:
             channel = tl.channels[int(match2.group(1))]
-            for mod in channel.modifiers:
-                if mod != self: 
-                    mod.shortcut = False
+            for m in channel.modifiers:
+                if m != mod: 
+                    m.shortcut = False
 
 def update_invert_channel(self, context):
 
@@ -1027,7 +1038,7 @@ def enable_modifiers_tree(parent, rearrange = False):
     elif match2:
         tex = parent
         name = tex.name
-        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
             return
     else:
         return
@@ -1105,7 +1116,7 @@ def disable_modifiers_tree(parent, rearrange=False):
             return
     elif match2:
         tex = parent
-        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
             return
     else:
         return

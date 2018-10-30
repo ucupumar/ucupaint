@@ -355,7 +355,7 @@ def disable_mask_source_tree(tex, mask, reconnect=False):
 def check_create_bump_base(tex, tree, ch):
 
     normal_map_type = ch.normal_map_type
-    if tex.type == 'VCOL' and ch.normal_map_type == 'FINE_BUMP_MAP':
+    if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
         normal_map_type = 'BUMP_MAP'
 
     if tex.type not in 'BACKGROUND' and normal_map_type == 'FINE_BUMP_MAP':
