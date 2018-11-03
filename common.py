@@ -60,6 +60,7 @@ texture_type_items = (
         ('VCOL', 'Vertex Color', ''),
         ('BACKGROUND', 'Background', ''),
         ('COLOR', 'Solid Color', ''),
+        ('GROUP', 'Group', ''),
         )
 
 mask_type_items = (
@@ -94,6 +95,7 @@ texture_type_labels = {
         'VCOL' : 'Vertex Color',
         'BACKGROUND' : 'Background',
         'COLOR' : 'Solid Color',
+        'GROUP' : 'Layer Group',
         }
 
 texcoord_type_items = (
@@ -157,6 +159,7 @@ texture_node_bl_idnames = {
         'VCOL' : 'ShaderNodeAttribute',
         'BACKGROUND' : 'NodeGroupInput',
         'COLOR' : 'ShaderNodeRGB',
+        'GROUP' : 'NodeGroupInput',
         }
 
 GAMMA = 2.2
@@ -744,6 +747,262 @@ def fix_io_index(item, items, correct_index):
     cur_index = [i for i, it in enumerate(items) if it == item]
     if cur_index and cur_index[0] != correct_index:
         items.move(cur_index[0], correct_index)
+
+def get_layer_depth(tex):
+
+    tl = tex.id_data.tl
+
+    upmost_found = False
+    depth = 0
+    cur_tex = tex
+    parent_tex = tex
+
+    while True:
+        if cur_tex.parent_idx != -1:
+
+            try: layer = tl.textures[cur_tex.parent_idx]
+            except: break
+
+            if layer.type == 'GROUP':
+                parent_tex = layer
+                depth += 1
+
+        if parent_tex == cur_tex:
+            break
+
+        cur_tex = parent_tex
+
+    return depth
+
+def is_top_member(tex):
+    
+    if tex.parent_idx == -1:
+        return False
+
+    tl = tex.id_data.tl
+
+    for i, t in enumerate(tl.textures):
+        if t == tex:
+            if tex.parent_idx == i-1:
+                return True
+            else: return False
+
+    return False
+
+def is_bottom_member(tex):
+
+    if tex.parent_idx == -1:
+        return False
+
+    tl = tex.id_data.tl
+
+    tex_idx = -1
+    last_member_idx = -1
+    for i, t in enumerate(tl.textures):
+        if t == tex:
+            tex_idx = i
+        if t.parent_idx == tex.parent_idx:
+            last_member_idx = i
+
+    if tex_idx == last_member_idx:
+        return True
+
+    return False
+
+#def get_upmost_parent_idx(tex, idx_limit = -1):
+#
+#    tl = tex.id_data.tl
+#
+#    cur_tex = tex
+#    parent_tex = tex
+#    parent_idx = -1
+#
+#    while True:
+#        if cur_tex.parent_idx != -1 and cur_tex.parent_idx != idx_limit:
+#
+#            try: layer = tl.textures[cur_tex.parent_idx]
+#            except: break
+#
+#            if layer.type == 'GROUP':
+#                parent_tex = layer
+#                parent_idx = cur_tex.parent_idx
+#
+#        if parent_tex == cur_tex:
+#            break
+#
+#        cur_tex = parent_tex
+#
+#    return parent_idx
+
+def get_tex_index(tex):
+    tl = tex.id_data.tl
+
+    for i, t in enumerate(tl.textures):
+        if tex == t:
+            return i
+
+def get_tex_index_by_name(tl, name):
+
+    for i, t in enumerate(tl.textures):
+        if name == t.name:
+            return i
+
+    return -1
+
+def get_parent_dict(tl):
+    parent_dict = {}
+    for t in tl.textures:
+        if t.parent_idx != -1:
+            try: parent_dict[t.name] = tl.textures[t.parent_idx].name
+            except: parent_dict[t.name] = None
+        else: parent_dict[t.name] = None
+
+    return parent_dict
+
+def set_parent_dict_val(tl, parent_dict, name, target_idx):
+
+    if target_idx != -1:
+        parent_dict[name] = tl.textures[target_idx].name
+    else: parent_dict[name] = None
+
+    return parent_dict
+
+def get_list_of_direct_childrens(tex):
+    tl = tex.id_data.tl
+
+    if tex.type != 'GROUP':
+        return []
+
+    tex_idx = get_tex_index(tex)
+
+    childs = []
+    for t in tl.textures:
+        if t.parent_idx == tex_idx:
+            childs.append(t)
+
+    return childs
+
+def get_list_of_parent_ids(tex):
+
+    tl = tex.id_data.tl
+
+    cur_tex = tex
+    parent_tex = tex
+    parent_list = []
+
+    while True:
+        if cur_tex.parent_idx != -1:
+
+            try: layer = tl.textures[cur_tex.parent_idx]
+            except: break
+
+            if layer.type == 'GROUP':
+                parent_tex = layer
+                parent_list.append(cur_tex.parent_idx)
+
+        if parent_tex == cur_tex:
+            break
+
+        cur_tex = parent_tex
+
+    return parent_list
+
+def get_last_chained_up_layer_ids(tex, idx_limit):
+
+    tl = tex.id_data.tl
+    tex_idx = get_tex_index(tex)
+
+    cur_tex = tex
+    parent_tex = tex
+    parent_idx = tex_idx
+
+    while True:
+        if cur_tex.parent_idx != -1 and cur_tex.parent_idx != idx_limit:
+
+            try: layer = tl.textures[cur_tex.parent_idx]
+            except: break
+
+            if layer.type == 'GROUP':
+                parent_tex = layer
+                parent_idx = cur_tex.parent_idx
+
+        if parent_tex == cur_tex:
+            break
+
+        cur_tex = parent_tex
+
+    return parent_idx
+
+def has_childrens(tex):
+
+    tl = tex.id_data.tl
+
+    if tex.type != 'GROUP':
+        return False
+
+    tex_idx = get_tex_index(tex)
+
+    if tex_idx < len(tl.textures)-1:
+        neighbor_tex = tl.textures[tex_idx+1]
+        if neighbor_tex.parent_idx == tex_idx:
+            return True
+
+    return False
+
+def get_last_child_idx(tex): #, very_last=False):
+
+    tl = tex.id_data.tl
+    tex_idx = get_tex_index(tex)
+
+    if tex.type != 'GROUP': 
+        return tex_idx
+
+    for i, t in reversed(list(enumerate(tl.textures))):
+        if i > tex_idx and tex_idx in get_list_of_parent_ids(t):
+            return i
+
+    return tex_idx
+
+def get_upper_neighbor(tex):
+
+    tl = tex.id_data.tl
+    tex_idx = get_tex_index(tex)
+
+    if tex_idx == 0:
+        return None, None
+
+    if tex.parent_idx == tex_idx-1:
+        return tex_idx-1, tl.textures[tex_idx-1]
+
+    upper_tex = tl.textures[tex_idx-1]
+
+    neighbor_idx = get_last_chained_up_layer_ids(upper_tex, tex.parent_idx)
+    neighbor_tex = tl.textures[neighbor_idx]
+
+    return neighbor_idx, neighbor_tex
+
+def get_lower_neighbor(tex):
+
+    tl = tex.id_data.tl
+    tex_idx = get_tex_index(tex)
+    last_index = len(tl.textures)-1
+
+    if tex_idx == last_index:
+        return None, None
+
+    if tex.type == 'GROUP':
+        last_child_idx = get_last_child_idx(tex)
+
+        if last_child_idx == last_index:
+            return None, None
+
+        neighbor_idx = last_child_idx + 1
+    else:
+        neighbor_idx = tex_idx+1
+
+    neighbor_tex = tl.textures[neighbor_idx]
+
+    return neighbor_idx, neighbor_tex
 
 #def get_io_index(tex, root_ch, alpha=False):
 #    if alpha:

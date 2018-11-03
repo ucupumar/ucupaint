@@ -94,7 +94,7 @@ def draw_image_props(source, layout):
     image = source.image
 
     col = layout.column()
-    col.template_ID(source, "image", unlink='node.y_remove_texture_layer')
+    col.template_ID(source, "image", unlink='node.y_remove_layer')
     if image.source == 'GENERATED':
         col.label(text='Generated image settings:')
         row = col.row()
@@ -1332,9 +1332,43 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
 
     rcol = row.column(align=True)
     rcol.menu("NODE_MT_y_new_texture_layer_menu", text='', icon='ZOOMIN')
-    rcol.operator("node.y_remove_texture_layer", icon='ZOOMOUT', text='')
-    rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_UP').direction = 'UP'
-    rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_DOWN').direction = 'DOWN'
+
+    if has_childrens(tex):
+        rcol.operator("node.y_remove_layer_menu", icon='ZOOMOUT', text='')
+    else: 
+        c = rcol.operator("node.y_remove_layer", icon='ZOOMOUT', text='')
+        c.remove_childs = False
+
+    if is_top_member(tex):
+        c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_UP')
+        c.direction = 'UP'
+        c.move_out = True
+    else:
+        upper_idx, upper_tex = get_upper_neighbor(tex)
+
+        if upper_tex and (upper_tex.type == 'GROUP' or upper_tex.parent_idx != tex.parent_idx):
+            c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_UP')
+            c.direction = 'UP'
+            c.move_out = False
+        else: 
+            c = rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_UP')
+            c.direction = 'UP'
+
+    if is_bottom_member(tex):
+        c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_DOWN')
+        c.direction = 'DOWN'
+        c.move_out = True
+    else:
+        lower_idx, lower_tex = get_lower_neighbor(tex)
+
+        if lower_tex and (lower_tex.type == 'GROUP' and lower_tex.parent_idx == tex.parent_idx):
+            c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_DOWN')
+            c.direction = 'DOWN'
+            c.move_out = False
+        else: 
+            c = rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_DOWN')
+            c.direction = 'DOWN'
+
     rcol.menu("NODE_MT_y_texture_specials", text='', icon='DOWNARROW_HLT')
 
     if tex:
@@ -1542,6 +1576,11 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                 if m.active_edit:
                     active_image_mask = m
 
+        if tex.parent_idx != -1:
+            depth = get_layer_depth(tex)
+            for i in range(depth):
+                row.label(text='', icon='BLANK1')
+
         # Image icon
         if len(editable_masks) == 0:
             if image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
@@ -1549,6 +1588,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
             elif tex.type == 'VCOL': row.prop(tex, 'name', text='', emboss=False, icon='GROUP_VCOL')
             elif tex.type == 'COLOR': row.prop(tex, 'name', text='', emboss=False, icon='COLOR')
             elif tex.type == 'BACKGROUND': row.prop(tex, 'name', text='', emboss=False, icon='IMAGE_RGB_ALPHA')
+            elif tex.type == 'GROUP': row.prop(tex, 'name', text='', emboss=False, icon='FILE_FOLDER')
             else: row.prop(tex, 'name', text='', emboss=False, icon='TEXTURE')
         else:
             if active_image_mask:
@@ -1563,6 +1603,8 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                     row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='COLOR')
                 elif tex.type == 'BACKGROUND': 
                     row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='IMAGE_RGB_ALPHA')
+                elif tex.type == 'GROUP': 
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='FILE_FOLDER')
                 else: 
                     row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
             else:
@@ -1575,6 +1617,8 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                     row.label(text='', icon='COLOR')
                 elif tex.type == 'BACKGROUND': 
                     row.label(text='', icon='IMAGE_RGB_ALPHA')
+                elif tex.type == 'GROUP': 
+                    row.label(text='', icon='FILE_FOLDER')
                 else: 
                     row.label(text='', icon='TEXTURE')
 
@@ -1599,6 +1643,9 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                 elif m.type == 'VCOL':
                     row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
+
+        # Debug parent
+        #row.label(text=str(index) + ' (' + str(tex.parent_idx) + ')')
 
         # Active image/tex label
         if len(editable_masks) > 0:
@@ -1719,17 +1766,20 @@ class YNewTexMenu(bpy.types.Menu):
         #col = row.column()
         col = self.layout.column(align=True)
         #col.context_pointer_set('group_node', context.group_node)
-        col.label(text='Image:')
+        #col.label(text='Image:')
         col.operator("node.y_new_texture_layer", text='New Image', icon='IMAGE_DATA').type = 'IMAGE'
         col.operator("node.y_open_image_to_layer", text='Open Image', icon='IMASEL')
         col.operator("node.y_open_available_image_to_layer", text='Open Available Image', icon='IMASEL')
         col.separator()
 
-        col.label(text='Vertex Color:')
+        col.operator("node.y_new_texture_layer", icon='FILE_FOLDER', text='Layer Group').type = 'GROUP'
+        col.separator()
+
+        #col.label(text='Vertex Color:')
         col.operator("node.y_new_texture_layer", icon='GROUP_VCOL', text='Vertex Color').type = 'VCOL'
         col.separator()
 
-        col.label(text='Solid Color:')
+        #col.label(text='Solid Color:')
 
         c = col.operator("node.y_new_texture_layer", icon='COLOR', text='Solid Color w/ Image Mask')
         c.type = 'COLOR'
@@ -1743,7 +1793,7 @@ class YNewTexMenu(bpy.types.Menu):
 
         col.separator()
 
-        col.label(text='Background:')
+        #col.label(text='Background:')
         c = col.operator("node.y_new_texture_layer", icon='IMAGE_RGB_ALPHA', text='Background w/ Image Mask')
         c.type = 'BACKGROUND'
         c.add_mask = True
@@ -1950,6 +2000,18 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col.operator('node.y_replace_layer_type', text='Noise', icon='TEXTURE').type = 'NOISE'
         col.operator('node.y_replace_layer_type', text='Voronoi', icon='TEXTURE').type = 'VORONOI'
         col.operator('node.y_replace_layer_type', text='Wave', icon='TEXTURE').type = 'WAVE'
+
+#class YLayerMoveOption(bpy.types.Menu):
+#    bl_idname = "NODE_MT_y_layer_move_option"
+#    bl_label = "Layer Move Option"
+#    bl_description = 'Layer Move Option'
+#
+#    @classmethod
+#    def poll(cls, context):
+#        return hasattr(context, 'parent') and get_active_texture_layers_node()
+#
+#    def draw(self, context):
+#        pass
 
 def update_modifier_ui(self, context):
     tlui = context.window_manager.tlui
@@ -2201,6 +2263,7 @@ def register():
     bpy.utils.register_class(YTexMaskMenuSpecial)
     bpy.utils.register_class(YTexModifierSpecialMenu)
     bpy.utils.register_class(YLayerSpecialMenu)
+    #bpy.utils.register_class(YLayerMoveOption)
     #bpy.utils.register_class(YTexMaskBumpMenuSpecial)
     #bpy.utils.register_class(YTexMaskRampMenuSpecial)
     bpy.utils.register_class(YModifierUI)
@@ -2236,6 +2299,7 @@ def unregister():
     bpy.utils.unregister_class(YTexMaskMenuSpecial)
     bpy.utils.unregister_class(YTexModifierSpecialMenu)
     bpy.utils.unregister_class(YLayerSpecialMenu)
+    #bpy.utils.unregister_class(YLayerMoveOption)
     #bpy.utils.unregister_class(YTexMaskBumpMenuSpecial)
     #bpy.utils.unregister_class(YTexMaskRampMenuSpecial)
     bpy.utils.unregister_class(YModifierUI)

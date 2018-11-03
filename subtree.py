@@ -49,8 +49,8 @@ def refresh_source_tree_ios(source_tree, tex_type):
 def enable_tex_source_tree(tex, rearrange=False):
 
     # Check if source tree is already available
+    if tex.type in {'BACKGROUND', 'COLOR', 'GROUP'}: return
     if tex.type != 'VCOL' and tex.source_group != '': return
-    if tex.type in {'BACKGROUND', 'COLOR'}: return
 
     tex_tree = get_tree(tex)
 

@@ -63,12 +63,14 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
             if outp: tree.inputs.remove(outp)
 
     # Tree background inputs
-    if tex.type == 'BACKGROUND':
+    if tex.type in {'BACKGROUND', 'GROUP'}:
+
+        suffix = ' Background' if tex.type == 'BACKGROUND' else ' Group'
 
         for i, ch in enumerate(tex.channels):
             root_ch = tl.channels[i]
 
-            name = root_ch.name + ' Background'
+            name = root_ch.name + suffix
             inp = tree.inputs.get(name)
             if not inp:
                 inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], name)
@@ -77,7 +79,7 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
 
             correct_index += 1
 
-            name = root_ch.name + ' Alpha Background'
+            name = root_ch.name + ' Alpha' + suffix
             inp = tree.inputs.get(name)
 
             if root_ch.alpha:
@@ -101,10 +103,11 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
             tree.outputs.remove(outp)
 
     # Mapping node
-    source_tree = get_source_tree(tex, tree)
-    mapping = source_tree.nodes.get(tex.mapping)
-    if not mapping:
-        mapping = new_node(source_tree, tex, 'mapping', 'ShaderNodeMapping', 'Mapping')
+    if tex.type not in {'BACKGROUND', 'VCOL', 'GROUP', 'COLOR'}:
+        source_tree = get_source_tree(tex, tree)
+        mapping = source_tree.nodes.get(tex.mapping)
+        if not mapping:
+            mapping = new_node(source_tree, tex, 'mapping', 'ShaderNodeMapping', 'Mapping')
 
     # Channel nodes
     for i, ch in enumerate(tex.channels):
@@ -223,6 +226,25 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
     # Halt rearrangements and reconnections until all nodes already created
     tl.halt_reconnect = True
 
+    # Get parent dict
+    parent_dict = get_parent_dict(tl)
+
+    # Get active tex
+    try: active_tex = tl.textures[tl.active_texture_index]
+    except: active_tex = None
+
+    # Get a possible parent layer group
+    parent_tex = None
+    if active_tex: 
+        if active_tex.type == 'GROUP':
+            parent_tex = active_tex
+        elif active_tex.parent_idx != -1:
+            parent_tex = tl.textures[active_tex.parent_idx]
+
+    # Get parent index
+    if parent_tex: parent_idx = get_tex_index(parent_tex)
+    else: parent_idx = -1
+
     # Add texture to group
     tex = tl.textures.add()
     tex.type = tex_type
@@ -234,9 +256,20 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
 
     # Move new texture to current index
     last_index = len(tl.textures)-1
-    index = tl.active_texture_index
+    if active_tex and active_tex.type == 'GROUP':
+        index = tl.active_texture_index + 1
+    else: index = tl.active_texture_index
+
+    # Set parent index
+    parent_dict = set_parent_dict_val(tl, parent_dict, tex.name, parent_idx)
+
     tl.textures.move(last_index, index)
     tex = tl.textures[index] # Repoint to new index
+
+    # Remap other textures parent
+    #for i, t in enumerate(tl.textures):
+    #    if i > index and t.parent_idx != -1:
+    #        t.parent_idx += 1
 
     # New texture tree
     tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + tex_name, 'ShaderNodeTree')
@@ -387,6 +420,10 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
 
         mask = Mask.add_new_mask(tex, mask_name, mask_type, texcoord_type, uv_name, mask_image, mask_vcol)
         mask.active_edit = True
+
+    # Remap parents
+    for t in tl.textures:
+        t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
 
     # Unhalt rearrangements and reconnections since all nodes already created
     tl.halt_reconnect = False
@@ -1034,6 +1071,93 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YMoveInOutLayerGroup(bpy.types.Operator):
+    bl_idname = "node.y_move_in_out_layer_group"
+    bl_label = "Move In/Out Texture Layer Group"
+    bl_description = "Move in or out texture layer group"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    direction = EnumProperty(
+            name = 'Direction',
+            items = (('UP', 'Up', ''),
+                     ('DOWN', 'Down', '')),
+            default = 'UP')
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_texture_layers_node()
+        return group_node and len(group_node.node_tree.tl.textures) > 0
+
+    def execute(self, context):
+        T = time.time()
+
+        node = get_active_texture_layers_node()
+        tl = node.node_tree.tl
+
+        num_tex = len(tl.textures)
+        tex_idx = tl.active_texture_index
+        tex = tl.textures[tex_idx]
+
+        # Remember parent
+        parent_dict = get_parent_dict(tl)
+        
+        # Move image slot
+        if self.direction == 'UP':
+            neighbor_idx, neighbor_tex = get_upper_neighbor(tex)
+        elif self.direction == 'DOWN' and tex_idx < num_tex-1:
+            neighbor_idx, neighbor_tex = get_lower_neighbor(tex)
+        else:
+            neighbor_idx = -1
+            neighbor_tex = None
+
+        # Move outside up
+        if is_top_member(tex) and self.direction == 'UP':
+            print('Case 1')
+
+            parent_dict = set_parent_dict_val(tl, parent_dict, tex.name, neighbor_tex.parent_idx)
+
+            last_member_idx = get_last_child_idx(tex)
+            tl.textures.move(neighbor_idx, last_member_idx)
+
+            tl.active_texture_index = neighbor_idx
+
+        # Move outside down
+        elif is_bottom_member(tex) and self.direction == 'DOWN':
+            print('Case 2')
+
+            parent_dict = set_parent_dict_val(tl, parent_dict, tex.name, neighbor_tex.parent_idx)
+
+        elif neighbor_tex and neighbor_tex.type == 'GROUP':
+
+            # Move inside up
+            if self.direction == 'UP':
+                print('Case 3')
+
+                parent_dict = set_parent_dict_val(tl, parent_dict, tex.name, neighbor_idx)
+
+            # Move inside down
+            elif self.direction == 'DOWN':
+                print('Case 4')
+
+                parent_dict = set_parent_dict_val(tl, parent_dict, tex.name, neighbor_idx)
+
+                tl.textures.move(neighbor_idx, tex_idx)
+                tl.active_texture_index = tex_idx+1
+
+        # Remap parents
+        for t in tl.textures:
+            t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
+
+        # Refresh texture channel blend nodes
+        reconnect_tl_nodes(node.node_tree)
+        rearrange_tl_nodes(node.node_tree)
+
+        # Update UI
+        context.window_manager.tlui.need_update = True
+
+        print('INFO: Texture', tex.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        return {'FINISHED'}
+
 class YMoveTextureLayer(bpy.types.Operator):
     bl_idname = "node.y_move_texture_layer"
     bl_label = "Move Texture Layer"
@@ -1055,32 +1179,115 @@ class YMoveTextureLayer(bpy.types.Operator):
         T = time.time()
 
         node = get_active_texture_layers_node()
-        group_tree = node.node_tree
-        nodes = group_tree.nodes
-        tl = group_tree.tl
+        tl = node.node_tree.tl
 
         num_tex = len(tl.textures)
         tex_idx = tl.active_texture_index
         tex = tl.textures[tex_idx]
+
+        # Get last member of group if selected layer is a group
+        last_member_idx = get_last_child_idx(tex)
         
-        # Move image slot
-        if self.direction == 'UP' and tex_idx > 0:
-            swap_idx = tex_idx-1
-        elif self.direction == 'DOWN' and tex_idx < num_tex-1:
-            swap_idx = tex_idx+1
-        else:
+        # Get neighbor
+        neighbor_idx = None
+        neighbor_tex = None
+
+        if self.direction == 'UP':
+            neighbor_idx, neighbor_tex = get_upper_neighbor(tex)
+
+        elif self.direction == 'DOWN':
+            neighbor_idx, neighbor_tex = get_lower_neighbor(tex)
+
+        if not neighbor_tex:
             return {'CANCELLED'}
 
-        swap_tex = tl.textures[swap_idx]
+        # Remember all parents
+        parent_dict = get_parent_dict(tl)
 
-        # Swap texture
-        tl.textures.move(tex_idx, swap_idx)
-        tl.active_texture_index = swap_idx
+        if tex.type == 'GROUP' and neighbor_tex.type != 'GROUP':
+
+            # Group layer UP to standard layer
+            if self.direction == 'UP':
+                #print('Case A')
+
+                # Swap texture
+                tl.textures.move(neighbor_idx, last_member_idx)
+                tl.active_texture_index = neighbor_idx
+
+            # Group layer DOWN to standard layer
+            elif self.direction == 'DOWN':
+                #print('Case B')
+
+                # Swap texture
+                tl.textures.move(neighbor_idx, tex_idx)
+                tl.active_texture_index = tex_idx+1
+
+        elif tex.type == 'GROUP' and neighbor_tex.type == 'GROUP':
+
+            # Group layer UP to group layer
+            if self.direction == 'UP':
+                #print('Case C')
+
+                # Swap all related layers
+                for i in range(last_member_idx+1 - tex_idx):
+                    tl.textures.move(tex_idx+i, neighbor_idx+i)
+
+                tl.active_texture_index = neighbor_idx
+
+            # Group layer DOWN to group layer
+            elif self.direction == 'DOWN':
+                #print('Case D')
+
+                last_neighbor_member_idx = get_last_child_idx(neighbor_tex)
+                num_members = last_neighbor_member_idx+1 - neighbor_idx
+
+                # Swap all related layers
+                for i in range(num_members):
+                    tl.textures.move(neighbor_idx+i, tex_idx+i)
+
+                tl.active_texture_index = tex_idx+num_members
+
+        elif tex.type != 'GROUP' and neighbor_tex.type == 'GROUP':
+
+            # Standard layer UP to Group Layer
+            if self.direction == 'UP':
+                #print('Case E')
+
+                # Swap texture
+                tl.textures.move(tex_idx, neighbor_idx)
+                tl.active_texture_index = neighbor_idx
+
+                start_remap = neighbor_idx + 2
+                end_remap = tex_idx + 1
+
+            # Standard layer DOWN to Group Layer
+            elif self.direction == 'DOWN':
+                #print('Case F')
+
+                last_neighbor_member_idx = get_last_child_idx(neighbor_tex)
+
+                # Swap texture
+                tl.textures.move(tex_idx, last_neighbor_member_idx)
+                tl.active_texture_index = last_neighbor_member_idx
+
+                start_remap = tex_idx + 1
+                end_remap = last_neighbor_member_idx
+
+        # Standard layer to standard Layer
+        else:
+            #print('Case G')
+
+            # Swap texture
+            tl.textures.move(tex_idx, neighbor_idx)
+            tl.active_texture_index = neighbor_idx
+
+        # Remap parents
+        for t in tl.textures:
+            t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
 
         # Refresh texture channel blend nodes
-        #reconnect_tl_tex_nodes(group_tree)
-        reconnect_tl_nodes(group_tree)
-        rearrange_tl_nodes(group_tree)
+        reconnect_tl_nodes(node.node_tree)
+        rearrange_tl_nodes(node.node_tree)
 
         # Update UI
         context.window_manager.tlui.need_update = True
@@ -1089,11 +1296,122 @@ class YMoveTextureLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YRemoveTextureLayer(bpy.types.Operator):
-    bl_idname = "node.y_remove_texture_layer"
-    bl_label = "Remove Texture Layer"
-    bl_description = "New Texture Layer"
+def draw_move_up_in_layer_group(self, context):
+    col = self.layout.column()
+
+    c = col.operator("node.y_move_texture_layer", text='Move Up (skip group)', icon='TRIA_UP')
+    c.direction = 'UP'
+
+    c = col.operator("node.y_move_in_out_layer_group", text='Move inside group', icon='TRIA_UP')
+    c.direction = 'UP'
+
+def draw_move_down_in_layer_group(self, context):
+    col = self.layout.column()
+
+    c = col.operator("node.y_move_texture_layer", text='Move Down (skip group)', icon='TRIA_DOWN')
+    c.direction = 'DOWN'
+
+    c = col.operator("node.y_move_in_out_layer_group", text='Move inside group', icon='TRIA_DOWN')
+    c.direction = 'DOWN'
+
+def draw_move_up_out_layer_group(self, context):
+    col = self.layout.column()
+    c = col.operator("node.y_move_in_out_layer_group", text='Move outside group', icon='TRIA_UP')
+    c.direction = 'UP'
+
+def draw_move_down_out_layer_group(self, context):
+    col = self.layout.column()
+    c = col.operator("node.y_move_in_out_layer_group", text='Move outside group', icon='TRIA_DOWN')
+    c.direction = 'DOWN'
+
+class YMoveInOutLayerGroupMenu(bpy.types.Operator):
+    bl_idname = "node.y_move_in_out_layer_group_menu"
+    bl_label = "Move In/Out Layer Group"
+    bl_description = "Move inside or outside layer group"
+    #bl_options = {'REGISTER', 'UNDO'}
+
+    direction = EnumProperty(
+            name = 'Direction',
+            items = (('UP', 'Up', ''),
+                     ('DOWN', 'Down', '')),
+            default = 'UP')
+
+    move_out = BoolProperty(default=False)
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_texture_layers_node()
+        return group_node and len(group_node.node_tree.tl.textures) > 0
+
+    def execute(self, context):
+        wm = bpy.context.window_manager
+
+        if self.move_out:
+            if self.direction == 'UP':
+                wm.popup_menu(draw_move_up_out_layer_group, title="Options")
+            elif self.direction == 'DOWN':
+                wm.popup_menu(draw_move_down_out_layer_group, title="Options")
+        else:
+            if self.direction == 'UP':
+                wm.popup_menu(draw_move_up_in_layer_group, title="Options")
+            elif self.direction == 'DOWN':
+                wm.popup_menu(draw_move_down_in_layer_group, title="Options")
+        return {'FINISHED'}
+
+def remove_tex(tl, index):
+    group_tree = tl.id_data
+    obj = bpy.context.object
+    tex = tl.textures[index]
+    tex_tree = get_tree(tex)
+
+    # Remove the source first to remove image
+    source_tree = get_source_tree(tex, tex_tree)
+    remove_node(source_tree, tex, 'source', obj=obj)
+
+    # Remove Mask source
+    for mask in tex.masks:
+        mask_tree = get_mask_tree(mask)
+        remove_node(mask_tree, mask, 'source', obj=obj)
+
+    # Remove node group and tex tree
+    bpy.data.node_groups.remove(tex_tree)
+    group_tree.nodes.remove(group_tree.nodes.get(tex.group_node))
+
+    # Delete the texture
+    tl.textures.remove(index)
+
+def draw_remove_group(self, context):
+    col = self.layout.column()
+
+    c = col.operator("node.y_remove_layer", text='Remove parent only', icon='PANEL_CLOSE')
+    c.remove_childs = False
+
+    c = col.operator("node.y_remove_layer", text='Remove parent with all its childrens', icon='PANEL_CLOSE')
+    c.remove_childs = True
+
+class YRemoveLayerMenu(bpy.types.Operator):
+    bl_idname = "node.y_remove_layer_menu"
+    bl_label = "Remove Layer Menu"
+    bl_description = "Remove Layer Menu"
+    #bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_texture_layers_node()
+        return context.object and group_node and len(group_node.node_tree.tl.textures) > 0
+
+    def execute(self, context):
+        wm = bpy.context.window_manager
+        wm.popup_menu(draw_remove_group, title="Options")
+        return {'FINISHED'}
+
+class YRemoveLayer(bpy.types.Operator):
+    bl_idname = "node.y_remove_layer"
+    bl_label = "Remove Layer"
+    bl_description = "Remove Layer"
     bl_options = {'REGISTER', 'UNDO'}
+
+    remove_childs = BoolProperty(name='Remove Childs', description='Remove layer childrens', default=False)
 
     @classmethod
     def poll(cls, context):
@@ -1116,32 +1434,25 @@ class YRemoveTextureLayer(bpy.types.Operator):
 
         node = get_active_texture_layers_node()
         group_tree = node.node_tree
-        nodes = group_tree.nodes
         tl = group_tree.tl
-        obj = context.object
-
         tex = tl.textures[tl.active_texture_index]
-        tex_tree = get_tree(tex)
-
         tex_name = tex.name
+        tex_idx = get_tex_index(tex)
 
-        # Remove the source first to remove image
-        source_tree = get_source_tree(tex, tex_tree)
-        if source_tree:
-            remove_node(source_tree, tex, 'source', obj=obj)
-        else: remove_node(tex_tree, tex, 'source', obj=obj)
+        # Remember parents
+        parent_dict = get_parent_dict(tl)
 
-        # Remove Mask source
-        for mask in tex.masks:
-            mask_tree = get_mask_tree(mask)
-            remove_node(mask_tree, mask, 'source', obj=obj)
+        if self.remove_childs:
+            last_idx = get_last_child_idx(tex)
+            for i in reversed(range(tex_idx, last_idx+1)):
+                remove_tex(tl, i)
+        else:
+            # Repoint its children parent
+            for t in get_list_of_direct_childrens(tex):
+                parent_dict = set_parent_dict_val(tl, parent_dict, t.name, tex.parent_idx)
 
-        # Remove node group and tex tree
-        bpy.data.node_groups.remove(get_tree(tex))
-        nodes.remove(nodes.get(tex.group_node))
-
-        # Delete the texture
-        tl.textures.remove(tl.active_texture_index)
+            # Remove tex
+            remove_tex(tl, tex_idx)
 
         # Set new active index
         if (tl.active_texture_index == len(tl.textures) and
@@ -1152,8 +1463,11 @@ class YRemoveTextureLayer(bpy.types.Operator):
             # Force update the index to refesh paint image
             tl.active_texture_index = tl.active_texture_index
 
+        # Remap parents
+        for t in tl.textures:
+            t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
+
         # Refresh texture channel blend nodes
-        #reconnect_tl_tex_nodes(group_tree)
         reconnect_tl_nodes(group_tree)
         rearrange_tl_nodes(group_tree)
 
@@ -1357,7 +1671,7 @@ def update_channel_enable(self, context):
 def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
     if root_ch.type != 'NORMAL': return
-    if tex.type == 'BACKGROUND' : return
+    if tex.type in {'BACKGROUND', 'GROUP'} : return
 
     normal_map_type = ch.normal_map_type
     if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
@@ -1576,7 +1890,7 @@ def set_tex_channel_linear_node(tree, tex, root_ch, ch):
     #    else: ch.custom_value = custom_value
 
     if (root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB' 
-            and tex.type not in {'IMAGE', 'BACKGROUND'} and ch.tex_input == 'RGB' and not ch.gamma_space):
+            and tex.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} and ch.tex_input == 'RGB' and not ch.gamma_space):
         if root_ch.type == 'VALUE':
             linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
             #linear.inputs[0].default_value = ch.custom_value
@@ -2060,6 +2374,9 @@ class YTextureLayer(bpy.types.PropertyGroup):
 
     uv_name = StringProperty(default='', update=update_uv_name)
 
+    # Parent index
+    parent_idx = IntProperty(default=-1)
+
     # Sources
     source = StringProperty(default='')
     source_n = StringProperty(default='')
@@ -2125,7 +2442,10 @@ def register():
     bpy.utils.register_class(YOpenImageToLayer)
     bpy.utils.register_class(YOpenAvailableImageToLayer)
     bpy.utils.register_class(YMoveTextureLayer)
-    bpy.utils.register_class(YRemoveTextureLayer)
+    bpy.utils.register_class(YMoveInOutLayerGroup)
+    bpy.utils.register_class(YMoveInOutLayerGroupMenu)
+    bpy.utils.register_class(YRemoveLayer)
+    bpy.utils.register_class(YRemoveLayerMenu)
     bpy.utils.register_class(YReplaceLayerType)
     bpy.utils.register_class(YLayerChannel)
     bpy.utils.register_class(YTextureLayer)
@@ -2136,7 +2456,10 @@ def unregister():
     bpy.utils.unregister_class(YOpenImageToLayer)
     bpy.utils.unregister_class(YOpenAvailableImageToLayer)
     bpy.utils.unregister_class(YMoveTextureLayer)
-    bpy.utils.unregister_class(YRemoveTextureLayer)
+    bpy.utils.unregister_class(YMoveInOutLayerGroup)
+    bpy.utils.unregister_class(YMoveInOutLayerGroupMenu)
+    bpy.utils.unregister_class(YRemoveLayer)
+    bpy.utils.unregister_class(YRemoveLayerMenu)
     bpy.utils.unregister_class(YReplaceLayerType)
     bpy.utils.unregister_class(YLayerChannel)
     bpy.utils.unregister_class(YTextureLayer)

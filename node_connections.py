@@ -163,7 +163,7 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
     num_tex = len(tl.textures)
 
     # Offsets for background layer
-    bg_input_offset = get_channel_inputs_length(tl)
+    input_offset = get_channel_inputs_length(tl)
 
     for i, ch in enumerate(tl.channels):
         if ch_idx != -1 and i != ch_idx: continue
@@ -202,7 +202,7 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
 
             if tex.type == 'BACKGROUND':
 
-                bg_index = bg_input_offset + ch.io_index
+                bg_index = input_offset + ch.io_index
 
                 create_link(tree, bg_rgb, node.inputs[bg_index])
                 if ch.type =='RGB' and ch.alpha:
@@ -313,7 +313,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     geometry = nodes.get(tex.geometry)
 
     # Texcoord
-    if tex.type not in {'VCOL', 'BACKGROUND', 'COLOR'}:
+    if tex.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
         if tex.texcoord_type == 'UV':
             vector = uv_attr.outputs[1]
         else: vector = texcoord.outputs[tex.texcoord_type]
@@ -473,7 +473,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     # Offset for background layer
     #prev_offset = 0
     # Offsets for background layer
-    bg_input_offset = get_channel_inputs_length(tl)
+    input_offset = get_channel_inputs_length(tl)
 
     # Layer Channels
     for i, ch in enumerate(tex.channels):
@@ -484,17 +484,22 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         rgb = start_rgb
         alpha = start_alpha
         bg_alpha = None
-        if tex.type == 'BACKGROUND':
-            rgb = source.outputs[root_ch.io_index+bg_input_offset]
+        if tex.type in {'BACKGROUND', 'GROUP'}:
+            rgb = source.outputs[root_ch.io_index + input_offset]
             alpha = solid_alpha.outputs[0]
-            if root_ch.alpha:
-                #alpha = source.outputs[root_ch.io_index+1+bg_input_offset]
-                bg_alpha = source.outputs[root_ch.io_index+1+bg_input_offset]
+
+            if tex.type == 'GROUP' and root_ch.alpha:
+                alpha = source.outputs[root_ch.io_index + input_offset + 1]
+
+            elif tex.type == 'BACKGROUND':
+                if root_ch.alpha:
+                    #alpha = source.outputs[root_ch.io_index+1 + input_offset]
+                    bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
 
         # Input RGB from layer below
         #if tex.type == 'BACKGROUND':
-        #    input_rgb = start.outputs[root_ch.io_index + bg_input_offset]
-        #    input_alpha = start.outputs[root_ch.io_index+1 + bg_input_offset]
+        #    input_rgb = start.outputs[root_ch.io_index + input_offset]
+        #    input_alpha = start.outputs[root_ch.io_index+1 + input_offset]
         #else:
         input_rgb = start.outputs[root_ch.io_index]
         input_alpha = start.outputs[root_ch.io_index+1]
@@ -593,7 +598,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, tangent.outputs[0], blend.inputs['Tangent'])
                 create_link(tree, bitangent.outputs[0], blend.inputs['Bitangent'])
 
-            if tex.type != 'BACKGROUND':
+            if tex.type not in {'BACKGROUND', 'GROUP'}:
 
                 normal_map_type = ch.normal_map_type
                 if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
