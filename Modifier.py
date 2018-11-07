@@ -105,8 +105,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
                 invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT_VALUE)
             else: invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(invert)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    duplicate_lib_node_tree(invert)
 
         frame.label = 'Invert'
         invert.parent = frame
@@ -126,8 +126,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         else:
             rgb2i.node_tree = lib.get_node_tree_lib(lib.MOD_RGB2INT)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(rgb2i)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    duplicate_lib_node_tree(rgb2i)
 
             if channel_type == 'RGB':
                 m.rgb2i_col = (1.0, 0.0, 1.0, 1.0)
@@ -136,8 +136,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             rgb2i.inputs['Gamma'].default_value = 1.0
         else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(rgb2i, 'Gamma')
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(rgb2i, 'Gamma')
 
         frame.label = 'RGB to Intensity'
         rgb2i.parent = frame
@@ -157,8 +157,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         else:
             i2rgb.node_tree = lib.get_node_tree_lib(lib.MOD_INT2RGB)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(i2rgb)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    duplicate_lib_node_tree(i2rgb)
 
         #if non_color:
         #    i2rgb.inputs['Gamma'].default_value = 1.0
@@ -185,8 +185,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         else:
             oc.node_tree = lib.get_node_tree_lib(lib.MOD_OVERRIDE_COLOR)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(oc)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    duplicate_lib_node_tree(oc)
 
             if channel_type == 'RGB':
                 m.oc_col = (1.0, 0.0, 1.0, 1.0)
@@ -197,8 +197,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             oc.inputs['Gamma'].default_value = 1.0
         else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(oc, 'Gamma')
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(oc, 'Gamma')
 
         frame.label = 'Override Color'
         oc.parent = frame
@@ -322,8 +322,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
                 multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER_VALUE)
             else: multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(multiplier)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    duplicate_lib_node_tree(multiplier)
 
         frame.label = 'Multiplier'
         multiplier.parent = frame
@@ -823,18 +823,8 @@ def update_invert_channel(self, context):
             invert.inputs[5].default_value = 1.0
         else: invert.inputs[5].default_value = 0.0
 
-    if BLENDER_28_GROUP_INPUT_HACK:
-        match_group_input(invert)
-        #inp = invert.node_tree.nodes.get('Group Input')
-
-        #if root_ch.type == 'VALUE':
-        #    end = 4
-        #else: end = 6
-
-        #for i in range(2, end):
-        #    for link in inp.outputs[i].links:
-        #        if link.to_socket.default_value != invert.inputs[i].default_value:
-        #            link.to_socket.default_value = invert.inputs[i].default_value
+    #if BLENDER_28_GROUP_INPUT_HACK:
+    #    match_group_input(invert)
 
 def update_use_clamp(self, context):
     tree = get_mod_tree(self)
@@ -843,11 +833,8 @@ def update_use_clamp(self, context):
         multiplier = tree.nodes.get(self.multiplier)
         multiplier.inputs[2].default_value = 1.0 if self.use_clamp else 0.0
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(multiplier, 2)
-            #inp = multiplier.node_tree.nodes.get('Group Input')
-            #if inp.outputs[2].links[0].to_socket.default_value != multiplier.inputs[2].default_value:
-            #    inp.outputs[2].links[0].to_socket.default_value = multiplier.inputs[2].default_value
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(multiplier, 2)
 
 def update_multiplier_val_input(self, context):
     tl = self.id_data.tl
@@ -875,8 +862,8 @@ def update_multiplier_val_input(self, context):
             multiplier.inputs[5].default_value = self.multiplier_b_val
             multiplier.inputs[6].default_value = self.multiplier_a_val
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(multiplier)
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(multiplier)
 
 def update_rgb2i_col(self, context):
     tree = get_mod_tree(self)
@@ -885,8 +872,8 @@ def update_rgb2i_col(self, context):
         rgb2i = tree.nodes.get(self.rgb2i)
         rgb2i.inputs[2].default_value = self.rgb2i_col
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(rgb2i, 2)
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(rgb2i, 2)
 
 def update_oc_col(self, context):
     tree = get_mod_tree(self)
@@ -895,8 +882,8 @@ def update_oc_col(self, context):
         oc = tree.nodes.get(self.oc)
         oc.inputs[2].default_value = self.oc_col
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(oc, 2)
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(oc, 2)
 
 def update_oc_use_normal_base(self, context):
     tree = get_mod_tree(self)

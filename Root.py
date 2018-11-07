@@ -114,31 +114,34 @@ def set_input_default_value(group_node, channel, custom_value=None):
         if channel.type == 'RGB' and len(custom_value) == 3:
             custom_value = (custom_value[0], custom_value[1], custom_value[2], 1)
 
-        if BLENDER_28_GROUP_INPUT_HACK and channel.type in {'RGB', 'VALUE'}:
-            if channel.type == 'RGB':
-                channel.col_input = custom_value
-                channel.val_input = 0.0
-            elif channel.type == 'VALUE':
-                channel.val_input = custom_value
-        else:
-            group_node.inputs[channel.io_index].default_value = custom_value
+        #if BLENDER_28_GROUP_INPUT_HACK and channel.type in {'RGB', 'VALUE'}:
+        #    if channel.type == 'RGB':
+        #        channel.col_input = custom_value
+        #        channel.val_input = 0.0
+        #    elif channel.type == 'VALUE':
+        #        channel.val_input = custom_value
+        #else:
+        group_node.inputs[channel.io_index].default_value = custom_value
         return
     
     # Set default value
     if channel.type == 'RGB':
-        if BLENDER_28_GROUP_INPUT_HACK:
-            channel.col_input = (1,1,1,1)
-            channel.val_input = 0.0
-        else: group_node.inputs[channel.io_index].default_value = (1,1,1,1)
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    channel.col_input = (1,1,1,1)
+        #    channel.val_input = 0.0
+        #else: 
+        group_node.inputs[channel.io_index].default_value = (1,1,1,1)
 
         if channel.alpha:
-            if BLENDER_28_GROUP_INPUT_HACK:
-                channel.val_input = 1.0
-            else: group_node.inputs[channel.io_index+1].default_value = 1.0
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    channel.val_input = 1.0
+            #else: 
+            group_node.inputs[channel.io_index+1].default_value = 1.0
     if channel.type == 'VALUE':
-        if BLENDER_28_GROUP_INPUT_HACK:
-            channel.val_input = 0.0
-        else: group_node.inputs[channel.io_index].default_value = 0.0
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    channel.val_input = 0.0
+        #else: 
+        group_node.inputs[channel.io_index].default_value = 0.0
     if channel.type == 'NORMAL':
         # Use 999 as normal z value so it will fallback to use geometry normal at checking process
         group_node.inputs[channel.io_index].default_value = (999,999,999)
@@ -1387,11 +1390,8 @@ def update_channel_colorspace(self, context):
                         rgb2i.inputs['Gamma'].default_value = 1.0
                     else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
-                    if BLENDER_28_GROUP_INPUT_HACK:
-                        match_group_input(rgb2i, 'Gamma')
-                        #inp = rgb2i.node_tree.nodes.get('Group Input')
-                        #if inp.outputs[3].links[0].to_socket.default_value != rgb2i.inputs['Gamma'].default_value:
-                        #    inp.outputs[3].links[0].to_socket.default_value = rgb2i.inputs['Gamma'].default_value
+                    #if BLENDER_28_GROUP_INPUT_HACK:
+                    #    match_group_input(rgb2i, 'Gamma')
 
     for tex in tl.textures:
         ch = tex.channels[channel_index]
@@ -1436,8 +1436,8 @@ def update_channel_colorspace(self, context):
                     rgb2i.inputs['Gamma'].default_value = 1.0
                 else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
-                if BLENDER_28_GROUP_INPUT_HACK:
-                    match_group_input(rgb2i, 'Gamma')
+                #if BLENDER_28_GROUP_INPUT_HACK:
+                #    match_group_input(rgb2i, 'Gamma')
 
             if mod.type == 'OVERRIDE_COLOR':
                 oc = tree.nodes.get(mod.oc)
@@ -1445,8 +1445,8 @@ def update_channel_colorspace(self, context):
                     oc.inputs['Gamma'].default_value = 1.0
                 else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
 
-                if BLENDER_28_GROUP_INPUT_HACK:
-                    match_group_input(oc, 'Gamma')
+                #if BLENDER_28_GROUP_INPUT_HACK:
+                #    match_group_input(oc, 'Gamma')
 
             if mod.type == 'COLOR_RAMP':
                 color_ramp_linear = tree.nodes.get(mod.color_ramp_linear)
@@ -1473,10 +1473,10 @@ def update_channel_alpha(self, context):
         inp = node.inputs[self.io_index+1]
         outp = node.outputs[self.io_index+1]
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            # In case blend_found isn't found
-            for link in outp.links:
-                link.to_socket.default_value = 1.0
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    # In case blend_found isn't found
+        #    for link in outp.links:
+        #        link.to_socket.default_value = 1.0
 
         # Remember the connections
         if len(inp.links) > 0:
@@ -1528,56 +1528,56 @@ def update_channel_alpha(self, context):
 
     tl.refresh_tree = True
 
-def update_col_input(self, context):
-    group_node = get_active_texture_layers_node()
-    group_tree = group_node.node_tree
-    tl = group_tree.tl
+#def update_col_input(self, context):
+#    group_node = get_active_texture_layers_node()
+#    group_tree = group_node.node_tree
+#    tl = group_tree.tl
+#
+#    #if tl.halt_update: return
+#    if self.type != 'RGB': return
+#
+#    group_node.inputs[self.io_index].default_value = self.col_input
+#
+#    # Get start
+#    start_linear = group_tree.nodes.get(self.start_linear)
+#    if start_linear: start_linear.inputs[0].default_value = self.col_input
 
-    #if tl.halt_update: return
-    if self.type != 'RGB': return
-
-    group_node.inputs[self.io_index].default_value = self.col_input
-
-    # Get start
-    start_linear = group_tree.nodes.get(self.start_linear)
-    if start_linear: start_linear.inputs[0].default_value = self.col_input
-
-def update_val_input(self, context):
-    group_node = get_active_texture_layers_node()
-    group_tree = group_node.node_tree
-    tl = group_tree.tl
-
-    #if tl.halt_update: return
-    if self.type == 'VALUE':
-        group_node.inputs[self.io_index].default_value = self.val_input
-
-        # Get start
-        start_linear = group_tree.nodes.get(self.start_linear)
-        if start_linear: start_linear.inputs[0].default_value = self.val_input
-
-    elif self.alpha and self.type == 'RGB':
-        group_node.inputs[self.io_index+1].default_value = self.val_input
-
-        # Get index
-        m = re.match(r'tl\.channels\[(\d+)\]', self.path_from_id())
-        ch_index = int(m.group(1))
-
-        blend_found = False
-        for tex in tl.textures:
-            for i, ch in enumerate(tex.channels):
-                if i == ch_index:
-                    tree = get_tree(tex)
-                    blend = tree.nodes.get(ch.blend)
-                    if blend and blend.type =='GROUP':
-                        inp = blend.node_tree.nodes.get('Group Input')
-                        inp.outputs['Alpha1'].links[0].to_socket.default_value = self.val_input
-                        blend_found = True
-                        break
-            if blend_found: break
-
-        # In case blend_found isn't found
-        for link in group_node.outputs[self.io_index+1].links:
-            link.to_socket.default_value = self.val_input
+#def update_val_input(self, context):
+#    group_node = get_active_texture_layers_node()
+#    group_tree = group_node.node_tree
+#    tl = group_tree.tl
+#
+#    #if tl.halt_update: return
+#    if self.type == 'VALUE':
+#        group_node.inputs[self.io_index].default_value = self.val_input
+#
+#        # Get start
+#        start_linear = group_tree.nodes.get(self.start_linear)
+#        if start_linear: start_linear.inputs[0].default_value = self.val_input
+#
+#    elif self.alpha and self.type == 'RGB':
+#        group_node.inputs[self.io_index+1].default_value = self.val_input
+#
+#        # Get index
+#        m = re.match(r'tl\.channels\[(\d+)\]', self.path_from_id())
+#        ch_index = int(m.group(1))
+#
+#        blend_found = False
+#        for tex in tl.textures:
+#            for i, ch in enumerate(tex.channels):
+#                if i == ch_index:
+#                    tree = get_tree(tex)
+#                    blend = tree.nodes.get(ch.blend)
+#                    if blend and blend.type =='GROUP':
+#                        inp = blend.node_tree.nodes.get('Group Input')
+#                        inp.outputs['Alpha1'].links[0].to_socket.default_value = self.val_input
+#                        blend_found = True
+#                        break
+#            if blend_found: break
+#
+#        # In case blend_found isn't found
+#        for link in group_node.outputs[self.io_index+1].links:
+#            link.to_socket.default_value = self.val_input
 
 class YNodeConnections(bpy.types.PropertyGroup):
     node = StringProperty(default='')
@@ -1598,12 +1598,12 @@ class YRootChannel(bpy.types.PropertyGroup):
             default = 'RGB')
 
     # Blender 2.8 need these
-    col_input = FloatVectorProperty(name='Color Input', size=4, subtype='COLOR', 
-            default=(0.0,0.0,0.0,1.0), min=0.0, max=1.0,
-            update=update_col_input)
+    #col_input = FloatVectorProperty(name='Color Input', size=4, subtype='COLOR', 
+    #        default=(0.0,0.0,0.0,1.0), min=0.0, max=1.0,
+    #        update=update_col_input)
 
-    val_input = FloatProperty(default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-            update=update_val_input)
+    #val_input = FloatProperty(default=1.0, min=0.0, max=1.0, subtype='FACTOR',
+    #        update=update_val_input)
 
     # Input output index
     io_index = IntProperty(default=-1)

@@ -481,9 +481,9 @@ class YRefreshNeighborUV(bpy.types.Operator):
         uv_neighbor.inputs[1].default_value = context.image.size[0]
         uv_neighbor.inputs[2].default_value = context.image.size[1]
         
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(uv_neighbor, 1)
-            match_group_input(uv_neighbor, 2)
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(uv_neighbor, 1)
+        #    match_group_input(uv_neighbor, 2)
 
         #fine_bump = tree.nodes.get(context.parent.fine_bump)
         #fine_bump.inputs[0].default_value = get_fine_bump_distance(context.texture, context.channel.bump_distance)
@@ -1643,9 +1643,9 @@ class YReplaceLayerType(bpy.types.Operator):
                 uv_neighbor.inputs[1].default_value = 1000
                 uv_neighbor.inputs[2].default_value = 1000
                 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                match_group_input(uv_neighbor, 1)
-                match_group_input(uv_neighbor, 2)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    match_group_input(uv_neighbor, 1)
+            #    match_group_input(uv_neighbor, 2)
 
         tex.type = self.type
 
@@ -1756,8 +1756,8 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
             fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
             fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, ch.bump_distance)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(fine_bump)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    duplicate_lib_node_tree(fine_bump)
 
     # Remove bump nodes
     if normal_map_type != 'BUMP_MAP':
@@ -1948,10 +1948,8 @@ def update_bump_distance(self, context):
         if fine_bump: 
             fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                match_group_input(fine_bump, 0)
-                #inp = fine_bump.node_tree.nodes.get('Group Input')
-                #inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    match_group_input(fine_bump, 0)
 
 def set_tex_channel_linear_node(tree, tex, root_ch, ch):
 
@@ -2098,8 +2096,8 @@ def update_texcoord_type(self, context):
             if cur_tree.users == 0:
                 bpy.data.node_groups.remove(cur_tree)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(uv_neighbor)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    duplicate_lib_node_tree(uv_neighbor)
 
     #if not tl.halt_reconnect:
     reconnect_tex_nodes(self)

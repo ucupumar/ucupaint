@@ -103,8 +103,8 @@ def check_transition_bump_influences_to_other_channels(tex, tree=None, target_ch
                     im = lib.new_intensity_multiplier_node(tree, c, 'mr_intensity_multiplier', bump_ch.mask_bump_value)
 
                 im.inputs[1].default_value = bump_ch.mask_bump_second_edge_value
-                if BLENDER_28_GROUP_INPUT_HACK:
-                    match_group_input(im, 1)
+                #if BLENDER_28_GROUP_INPUT_HACK:
+                #    match_group_input(im, 1)
 
         if bump_ch:
             im = tree.nodes.get(c.intensity_multiplier)
@@ -116,8 +116,8 @@ def check_transition_bump_influences_to_other_channels(tex, tree=None, target_ch
                 im.inputs['Invert'].default_value = 1.0
             else: im.inputs['Invert'].default_value = 0.0
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                match_group_input(im, 'Invert')
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    match_group_input(im, 'Invert')
 
 def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
 
@@ -161,9 +161,9 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
                 tao.inputs['Gamma'].default_value = 1.0/GAMMA
             else: tao.inputs['Gamma'].default_value = 1.0
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(tao)
-                match_group_input(tao)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    duplicate_lib_node_tree(tao)
+            #    match_group_input(tao)
 
 def set_transition_ramp_nodes(tree, tex, ch, rearrange=False):
 
@@ -273,15 +273,15 @@ def set_transition_bump_nodes(tex, tree, ch, ch_index):
             mb_fine_bump = new_node(tree, ch, 'mb_fine_bump', 'ShaderNodeGroup', 'Transition Fine Bump')
             mb_fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                duplicate_lib_node_tree(mb_fine_bump)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    duplicate_lib_node_tree(mb_fine_bump)
 
         if ch.mask_bump_flip or tex.type == 'BACKGROUND':
             mb_fine_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance)
         else: mb_fine_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.mask_bump_distance)
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(mb_fine_bump, 0)
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(mb_fine_bump, 0)
 
     else:
         remove_node(tree, ch, 'mb_fine_bump')
@@ -296,17 +296,17 @@ def set_transition_bump_nodes(tex, tree, ch, ch_index):
 
         if not mb_curved_bump:
             mb_curved_bump = new_node(tree, ch, 'mb_curved_bump', 'ShaderNodeGroup', 'Transition Curved Bump')
-        elif BLENDER_28_GROUP_INPUT_HACK and mb_curved_bump.node_tree:
-            # Remove prev tree
-            bpy.data.node_groups.remove(mb_curved_bump.node_tree)
+        #elif BLENDER_28_GROUP_INPUT_HACK and mb_curved_bump.node_tree:
+        #    # Remove prev tree
+        #    bpy.data.node_groups.remove(mb_curved_bump.node_tree)
 
         if ch.mask_bump_flip or tex.type == 'BACKGROUND':
             mb_curved_bump.node_tree = lib.get_node_tree_lib(lib.FLIP_CURVED_FINE_BUMP)
         else:
             mb_curved_bump.node_tree = lib.get_node_tree_lib(lib.CURVED_FINE_BUMP)
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            duplicate_lib_node_tree(mb_curved_bump)
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    duplicate_lib_node_tree(mb_curved_bump)
 
         if ch.mask_bump_flip or tex.type == 'BACKGROUND':
             mb_curved_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance, True)
@@ -314,9 +314,9 @@ def set_transition_bump_nodes(tex, tree, ch, ch_index):
 
         mb_curved_bump.inputs['Offset'].default_value = ch.mask_bump_curved_offset
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(mb_curved_bump, 0)
-            match_group_input(mb_curved_bump, 'Offset')
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(mb_curved_bump, 0)
+        #    match_group_input(mb_curved_bump, 'Offset')
 
     else:
         remove_node(tree, ch, 'mb_curved_bump')
@@ -366,9 +366,9 @@ def set_transition_bump_nodes(tex, tree, ch, ch_index):
         intensity_multiplier.inputs['Sharpen'].default_value = 1.0
         mb_intensity_multiplier.inputs['Sharpen'].default_value = 0.0
 
-    if BLENDER_28_GROUP_INPUT_HACK:
-        match_group_input(mb_intensity_multiplier)
-        match_group_input(intensity_multiplier)
+    #if BLENDER_28_GROUP_INPUT_HACK:
+    #    match_group_input(mb_intensity_multiplier)
+    #    match_group_input(intensity_multiplier)
 
     # Add vector mix
     mb_blend = tree.nodes.get(ch.mb_blend)
@@ -479,8 +479,8 @@ def update_transition_bump_value(self, context):
         if mb_intensity_multiplier:
             mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
 
-    if BLENDER_28_GROUP_INPUT_HACK:
-        match_group_input(mb_intensity_multiplier, 1)
+    #if BLENDER_28_GROUP_INPUT_HACK:
+    #    match_group_input(mb_intensity_multiplier, 1)
 
     for c in tex.channels:
         if c == ch: continue
@@ -489,15 +489,15 @@ def update_transition_bump_value(self, context):
         if im:
             im.inputs[1].default_value = ch.mask_bump_second_edge_value
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                match_group_input(im, 1)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    match_group_input(im, 1)
 
         im = tree.nodes.get(c.intensity_multiplier)
         if im: 
             im.inputs[1].default_value = ch.mask_bump_value
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                match_group_input(im, 1)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    match_group_input(im, 1)
 
 def update_transition_bump_distance(self, context):
     if not self.enable: return
@@ -516,8 +516,8 @@ def update_transition_bump_distance(self, context):
                 mb_curved_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance, True)
             else: mb_curved_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.mask_bump_distance, True)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                match_group_input(mb_curved_bump, 0)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    match_group_input(mb_curved_bump, 0)
 
     elif ch.mask_bump_type == 'FINE_BUMP_MAP':
         mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
@@ -526,8 +526,8 @@ def update_transition_bump_distance(self, context):
                 mb_fine_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance)
             else: mb_fine_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.mask_bump_distance)
 
-            if BLENDER_28_GROUP_INPUT_HACK:
-                match_group_input(mb_fine_bump, 0)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    match_group_input(mb_fine_bump, 0)
 
     elif ch.mask_bump_type == 'BUMP_MAP':
         mb_bump = tree.nodes.get(ch.mb_bump)

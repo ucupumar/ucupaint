@@ -108,8 +108,8 @@ def enable_tex_source_tree(tex, rearrange=False):
     else: 
         uv_neighbor.node_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            duplicate_lib_node_tree(uv_neighbor)
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    duplicate_lib_node_tree(uv_neighbor)
 
         if tex.type == 'IMAGE' and source.image:
             uv_neighbor.inputs[1].default_value = source.image.size[0]
@@ -118,9 +118,9 @@ def enable_tex_source_tree(tex, rearrange=False):
             uv_neighbor.inputs[1].default_value = 1000
             uv_neighbor.inputs[2].default_value = 1000
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            match_group_input(uv_neighbor, 'ResX')
-            match_group_input(uv_neighbor, 'ResY')
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    match_group_input(uv_neighbor, 'ResX')
+        #    match_group_input(uv_neighbor, 'ResY')
 
     if rearrange:
         # Reconnect outside nodes
@@ -216,8 +216,8 @@ def set_mask_uv_neighbor(tree, tex, mask):
         prev_num_inputs = len(uv_neighbor.inputs)
 
         # If hack is active, remove old tree first
-        if BLENDER_28_GROUP_INPUT_HACK and uv_neighbor.node_tree:
-            bpy.data.node_groups.remove(uv_neighbor.node_tree)
+        #if BLENDER_28_GROUP_INPUT_HACK and uv_neighbor.node_tree:
+        #    bpy.data.node_groups.remove(uv_neighbor.node_tree)
 
         # Get new uv neighbor tree
         uv_neighbor.node_tree = lib.get_neighbor_uv_tree(mask.texcoord_type, different_uv)
@@ -237,8 +237,8 @@ def set_mask_uv_neighbor(tree, tex, mask):
             uv_neighbor.inputs[1].default_value = 1000
             uv_neighbor.inputs[2].default_value = 1000
 
-        if BLENDER_28_GROUP_INPUT_HACK:
-            duplicate_lib_node_tree(uv_neighbor)
+        #if BLENDER_28_GROUP_INPUT_HACK:
+        #    duplicate_lib_node_tree(uv_neighbor)
 
         if different_uv:
             tangent = tree.nodes.get(mask.tangent)

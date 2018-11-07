@@ -3,7 +3,7 @@ from mathutils import *
 from bpy.app.handlers import persistent
 #from .__init__ import bl_info
 
-BLENDER_28_GROUP_INPUT_HACK = True
+BLENDER_28_GROUP_INPUT_HACK = False
 
 TEXGROUP_PREFIX = '~TL Tex '
 MASKGROUP_PREFIX = '~TL Mask '
@@ -677,9 +677,13 @@ def change_texture_name(tl, obj, src, tex, texes):
 def set_obj_vertex_colors(obj, vcol, color):
     if obj.type != 'MESH': return
 
+    if bpy.app.version_string.startswith('2.8'):
+        col = (color[0], color[1], color[2], 1.0)
+    else: col = color
+
     for poly in obj.data.polygons:
         for loop_index in poly.loop_indices:
-            vcol.data[loop_index].color = color
+            vcol.data[loop_index].color = col
 
 def force_bump_base_value(tree, ch, value):
     col = (value, value, value, 1.0)

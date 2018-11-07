@@ -438,13 +438,13 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 #    brow.prop(inp,'default_value', text='')
                 pass
             elif len(inp.links) == 0:
-                if BLENDER_28_GROUP_INPUT_HACK:
-                    if channel.type == 'RGB':
-                        brow.prop(channel,'col_input', text='')
-                    elif channel.type == 'VALUE':
-                        brow.prop(channel,'val_input', text='')
-                else:
-                    brow.prop(inp,'default_value', text='')
+                #if BLENDER_28_GROUP_INPUT_HACK:
+                #    if channel.type == 'RGB':
+                #        brow.prop(channel,'col_input', text='')
+                #    elif channel.type == 'VALUE':
+                #        brow.prop(channel,'val_input', text='')
+                #else:
+                brow.prop(inp,'default_value', text='')
             else:
                 brow.label(text='', icon='LINKED')
 
@@ -460,10 +460,10 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                     #brow.label(text='', icon='BLANK1')
                     brow.label(text='Base Alpha:')
                     if len(node.inputs[channel.io_index+1].links)==0:
-                        if BLENDER_28_GROUP_INPUT_HACK:
-                            brow.prop(channel,'val_input', text='')
-                        else:
-                            brow.prop(inp_alpha, 'default_value', text='')
+                        #if BLENDER_28_GROUP_INPUT_HACK:
+                        #    brow.prop(channel,'val_input', text='')
+                        #else:
+                        brow.prop(inp_alpha, 'default_value', text='')
                     else:
                         brow.label(text='', icon='LINKED')
                 else:
@@ -1597,28 +1597,29 @@ class NODE_UL_y_tl_channels(bpy.types.UIList):
             row = row.row(align=True)
 
         if len(inputs[item.io_index].links) == 0:
-            if BLENDER_28_GROUP_INPUT_HACK:
-                if item.type == 'VALUE':
-                    row.prop(item, 'val_input', text='') #, emboss=False)
-                elif item.type == 'RGB':
-                    row.prop(item, 'col_input', text='', icon='COLOR') #, emboss=False)
-            else:
-                if item.type == 'VALUE':
-                    row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
-                elif item.type == 'RGB':
-                    row.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
-                #elif item.type == 'NORMAL':
-                #    socket = inputs[item.io_index]
-                #    socket.draw(context, row, group_node, iface_(socket.name, socket.bl_rna.translation_context))
-                #    #row.prop(inputs[item.io_index], 'default_value', text='', expand=False)
+            #if BLENDER_28_GROUP_INPUT_HACK:
+            #    if item.type == 'VALUE':
+            #        row.prop(item, 'val_input', text='') #, emboss=False)
+            #    elif item.type == 'RGB':
+            #        row.prop(item, 'col_input', text='', icon='COLOR') #, emboss=False)
+            #else:
+            if item.type == 'VALUE':
+                row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
+            elif item.type == 'RGB':
+                row.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
+            #elif item.type == 'NORMAL':
+            #    socket = inputs[item.io_index]
+            #    socket.draw(context, row, group_node, iface_(socket.name, socket.bl_rna.translation_context))
+            #    #row.prop(inputs[item.io_index], 'default_value', text='', expand=False)
         else:
             row.label(text='', icon='LINKED')
 
         if item.type=='RGB' and item.alpha:
             if len(inputs[item.io_index+1].links) == 0:
-                if BLENDER_28_GROUP_INPUT_HACK:
-                    row.prop(item,'val_input', text='')
-                else: row.prop(inputs[item.io_index+1], 'default_value', text='')
+                #if BLENDER_28_GROUP_INPUT_HACK:
+                #    row.prop(item,'val_input', text='')
+                #else: 
+                row.prop(inputs[item.io_index+1], 'default_value', text='')
             else: row.label(text='', icon='LINKED')
 
 class NODE_UL_y_tl_textures(bpy.types.UIList):
