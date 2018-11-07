@@ -1,4 +1,4 @@
-import bpy, re
+import bpy, re, time
 from bpy.props import *
 from bpy.app.handlers import persistent
 from . import lib, Modifier
@@ -959,7 +959,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
         draw_modifier_stack(context, ch, root_ch.type, modcol, 
                 tlui.tex_ui.channels[i], custom_icon_enable, tex)
 
-        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
             row = mcol.row(align=True)
 
             input_settings_available = (ch.tex_input != 'ALPHA' 
@@ -994,7 +994,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 brow.label(text='Gamma Space:')
                 brow.prop(ch, 'gamma_space', text='')
 
-            row.label(text='', icon='BLANK1')
+            #row.label(text='', icon='BLANK1')
 
             extra_separator = True
 
@@ -1131,6 +1131,15 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
         if mask_image:
             rrow.label(text='Source: ' + mask_image.name)
         else: rrow.label(text='Source: ' + mask.name)
+
+        rrow = rrcol.row(align=True)
+        rrow.label(text='', icon='IMAGE_ZDEPTH')
+        #if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+        #    rrrow = rrow.split(percentage=0.35, align=True)
+        #else: rrrow = rrow.split(factor=0.35, align=True)
+        rrow.label(text='Blend:')
+        rrow.prop(mask, 'blend_type', text='')
+        rrow.prop(mask, 'intensity_value', text='')
 
         if maskui.expand_source and mask.type != 'VCOL':
             rrow = rrcol.row(align=True)
@@ -1388,6 +1397,13 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
 
 def main_draw(self, context):
 
+    wm = context.window_manager
+
+    # Timer
+    if wm.tltimer.time != '':
+        print('INFO: Scene is updated at', '{:0.2f}'.format((time.time() - float(wm.tltimer.time)) * 1000), 'ms!')
+        wm.tltimer.time = ''
+
     # Update ui props first
     update_tl_ui()
 
@@ -1419,7 +1435,7 @@ def main_draw(self, context):
     group_tree = node.node_tree
     nodes = group_tree.nodes
     tl = group_tree.tl
-    tlui = context.window_manager.tlui
+    tlui = wm.tlui
 
     icon = 'TRIA_DOWN' if tlui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -1436,6 +1452,36 @@ def main_draw(self, context):
 
     if tlui.show_textures:
         draw_textures_ui(context, layout, node, custom_icon_enable)
+
+    # Stats
+
+    num_imgs = 0
+    num_vcols = 0
+    num_gen_texs = 0
+    for tex in tl.textures:
+        if not tex.enable: continue
+        if tex.type == 'IMAGE':
+            num_imgs += 1
+        elif tex.type == 'VCOL':
+            num_vcols += 1
+        elif tex.type not in {'COLOR', 'BACKGROUND', 'GROUP'}:
+            num_gen_texs += 1
+
+        if not tex.enable_masks: continue
+
+        for mask in tex.masks:
+            if not mask.enable: continue
+            if mask.type == 'IMAGE':
+                num_imgs += 1
+            elif mask.type == 'VCOL':
+                num_vcols += 1
+            else:
+                num_gen_texs += 1
+
+    col = layout.column(align=True)
+    col.label(text='Number of Images: ' + str(num_imgs))
+    col.label(text='Number of Vertex Colors: ' + str(num_vcols))
+    col.label(text='Number of generated Textures: ' + str(num_gen_texs))
 
     # Hide support this addon panel for now
     return
@@ -1645,7 +1691,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                     row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
 
         # Debug parent
-        #row.label(text=str(index) + ' (' + str(tex.parent_idx) + ')')
+        row.label(text=str(index) + ' (' + str(tex.parent_idx) + ')')
 
         # Active image/tex label
         if len(editable_masks) > 0:

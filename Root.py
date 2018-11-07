@@ -672,6 +672,7 @@ class YNewTLChannel(bpy.types.Operator):
         T = time.time()
 
         #node = context.active_node
+        wm = context.window_manager
         mat = get_active_material()
         node = get_active_texture_layers_node()
         group_tree = node.node_tree
@@ -724,9 +725,9 @@ class YNewTLChannel(bpy.types.Operator):
         group_tree.tl.active_channel_index = last_index
 
         # Update UI
-        context.window_manager.tlui.need_update = True
-
+        wm.tlui.need_update = True
         print('INFO: Channel', channel.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -784,6 +785,9 @@ class YMoveTLChannel(bpy.types.Operator):
         return group_node and len(group_node.node_tree.tl.channels) > 0
 
     def execute(self, context):
+        T = time.time()
+
+        wm = context.window_manager
         group_node = get_active_texture_layers_node()
         group_tree = group_node.node_tree
         tl = group_tree.tl
@@ -838,7 +842,9 @@ class YMoveTLChannel(bpy.types.Operator):
         #repoint_channel_index(tl)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        wm.tlui.need_update = True
+        print('INFO: Channel', channel.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -854,6 +860,9 @@ class YRemoveTLChannel(bpy.types.Operator):
         return group_node and len(group_node.node_tree.tl.channels) > 0
 
     def execute(self, context):
+        T = time.time()
+
+        wm = context.window_manager
         group_node = get_active_texture_layers_node()
         group_tree = group_node.node_tree
         tl = group_tree.tl
@@ -1000,7 +1009,9 @@ class YRemoveTLChannel(bpy.types.Operator):
         #repoint_channel_index(tl)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        wm.tlui.need_update = True
+        print('INFO: Channel', channel_name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1151,43 +1162,31 @@ class YFixMissingData(bpy.types.Operator):
 def update_channel_name(self, context):
     T = time.time()
 
+    wm = context.window_manager
     group_tree = self.id_data
     tl = group_tree.tl
 
-    #check_all_channel_ios(tl)
-    bg_input_offset = get_channel_inputs_length(tl)
+    group_tree.inputs[self.io_index].name = self.name
+    group_tree.outputs[self.io_index].name = self.name
 
-    if self.io_index == -1: return
+    if self.type == 'RGB' and self.alpha:
+        group_tree.inputs[self.io_index+1].name = self.name + ' Alpha'
+        group_tree.outputs[self.io_index+1].name = self.name + ' Alpha'
 
-    if self.io_index < len(group_tree.inputs):
-        group_tree.inputs[self.io_index].name = self.name
-        group_tree.outputs[self.io_index].name = self.name
+    for tex in tl.textures:
+        tree = get_tree(tex)
+        Layer.check_all_texture_channel_io_and_nodes(tex, tree)
+        rearrange_tex_nodes(tex)
+        reconnect_tex_nodes(tex)
 
-        if self.type == 'RGB' and self.alpha:
-            group_tree.inputs[self.io_index+1].name = self.name + ' Alpha'
-            group_tree.outputs[self.io_index+1].name = self.name + ' Alpha'
-
-        for tex in tl.textures:
-            tree = get_tree(tex)
-            if self.io_index < len(tree.inputs):
-                tree.inputs[self.io_index].name = self.name
-                tree.outputs[self.io_index].name = self.name
-
-                if self.type == 'RGB' and self.alpha:
-                    tree.inputs[self.io_index+1].name = self.name + ' Alpha'
-                    tree.outputs[self.io_index+1].name = self.name + ' Alpha'
-
-                if tex.type == 'BACKGROUND':
-                    tree.inputs[self.io_index + bg_input_offset].name = self.name + ' Background'
-
-                    if self.type == 'RGB' and self.alpha:
-                        tree.inputs[self.io_index + bg_input_offset + 1].name = self.name + ' Alpha Background'
-
-            rearrange_tex_frame_nodes(tex, tree)
-        
-        rearrange_tl_frame_nodes(tl)
+        rearrange_tex_frame_nodes(tex, tree)
+    
+    rearrange_tl_frame_nodes(tl)
+    rearrange_tl_nodes(group_tree)
+    reconnect_tl_nodes(group_tree)
 
     print('INFO: Channel renamed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    wm.tltimer.time = str(time.time())
 
 def update_preview_mode(self, context):
     try:
@@ -1668,6 +1667,9 @@ class YMaterialTLProps(bpy.types.PropertyGroup):
     ori_output = StringProperty(default='')
     active_tl_node = StringProperty(default='')
 
+class YTLTimer(bpy.types.PropertyGroup):
+    time = StringProperty(default='')
+
 @persistent
 def ytl_hacks_and_scene_updates(scene):
     # Get active tl node
@@ -1715,10 +1717,12 @@ def register():
     bpy.utils.register_class(YRootChannel)
     bpy.utils.register_class(YTextureLayersRoot)
     bpy.utils.register_class(YMaterialTLProps)
+    bpy.utils.register_class(YTLTimer)
 
     # TL Props
     bpy.types.ShaderNodeTree.tl = PointerProperty(type=YTextureLayersRoot)
     bpy.types.Material.tl = PointerProperty(type=YMaterialTLProps)
+    bpy.types.WindowManager.tltimer = PointerProperty(type=YTLTimer)
 
     # Handlers
     if hasattr(bpy.app.handlers, 'scene_update_pre'):
@@ -1739,6 +1743,7 @@ def unregister():
     bpy.utils.unregister_class(YRootChannel)
     bpy.utils.unregister_class(YTextureLayersRoot)
     bpy.utils.unregister_class(YMaterialTLProps)
+    bpy.utils.unregister_class(YTLTimer)
 
     # Remove handlers
     if hasattr(bpy.app.handlers, 'scene_update_pre'):

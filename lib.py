@@ -5,6 +5,8 @@ from bpy.app.handlers import persistent
 # Node tree names
 OVERLAY_NORMAL = '~TL Overlay Normal'
 STRAIGHT_OVER = '~TL Straight Over Mix'
+STRAIGHT_OVER_BW = '~TL Straight Over Grayscale Mix'
+STRAIGHT_OVER_VEC = '~TL Straight Over Vector Mix'
 STRAIGHT_OVER_BG = '~TL Straight Over Background Mix'
 STRAIGHT_OVER_HACK = '~TL Straight Over Hack'
 CHECK_INPUT_NORMAL = '~TL Check Input Normal'

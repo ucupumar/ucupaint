@@ -11,7 +11,7 @@ from .subtree import *
 DEFAULT_NEW_IMG_SUFFIX = ' Tex'
 DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
 
-def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
+def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, has_parent=False):
 
     tl = tex.id_data.tl
     if not tree: tree = get_tree(tex)
@@ -19,6 +19,8 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
     correct_index = 0
     valid_inputs = []
     valid_outputs = []
+
+    has_parent = tex.parent_idx != -1
     
     # Tree input and outputs
     for i, ch in enumerate(tex.channels):
@@ -42,7 +44,7 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
         inp = tree.inputs.get(name)
         outp = tree.outputs.get(name)
 
-        if root_ch.type  == 'RGB' and root_ch.alpha:
+        if (root_ch.type == 'RGB' and root_ch.alpha) or has_parent:#(tex.type == 'GROUP' and has_parent):
 
             if not inp:
                 inp = tree.inputs.new('NodeSocketFloatFactor', name)
@@ -82,7 +84,7 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None):
             name = root_ch.name + ' Alpha' + suffix
             inp = tree.inputs.get(name)
 
-            if root_ch.alpha:
+            if root_ch.alpha or tex.type == 'GROUP':
 
                 if not inp:
                     inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], name)
@@ -242,8 +244,12 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
             parent_tex = tl.textures[active_tex.parent_idx]
 
     # Get parent index
-    if parent_tex: parent_idx = get_tex_index(parent_tex)
-    else: parent_idx = -1
+    if parent_tex: 
+        parent_idx = get_tex_index(parent_tex)
+        has_parent = True
+    else: 
+        parent_idx = -1
+        has_parent = False
 
     # Add texture to group
     tex = tl.textures.add()
@@ -270,6 +276,10 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
     #for i, t in enumerate(tl.textures):
     #    if i > index and t.parent_idx != -1:
     #        t.parent_idx += 1
+
+    # Remap parents
+    for t in tl.textures:
+        t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
 
     # New texture tree
     tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + tex_name, 'ShaderNodeTree')
@@ -344,7 +354,7 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
         ch = tex.channels.add()
 
     # Check and create layer channel nodes
-    check_all_texture_channel_io_and_nodes(tex, tree)
+    check_all_texture_channel_io_and_nodes(tex, tree) #, has_parent=has_parent)
 
     # Fill channel layer props
     shortcut_created = False
@@ -420,10 +430,6 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
 
         mask = Mask.add_new_mask(tex, mask_name, mask_type, texcoord_type, uv_name, mask_image, mask_vcol)
         mask.active_edit = True
-
-    # Remap parents
-    for t in tl.textures:
-        t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
 
     # Unhalt rearrangements and reconnections since all nodes already created
     tl.halt_reconnect = False
@@ -697,6 +703,7 @@ class YNewTextureLayer(bpy.types.Operator):
 
         T = time.time()
 
+        wm = context.window_manager
         obj = context.object
         node = get_active_texture_layers_node()
         tl = node.node_tree.tl
@@ -757,6 +764,7 @@ class YNewTextureLayer(bpy.types.Operator):
         tlui.need_update = True
 
         print('INFO: Texture', tex.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -897,6 +905,9 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         self.layout.prop(self, 'relative')
 
     def execute(self, context):
+        T = time.time()
+
+        wm = context.window_manager
         node = get_active_texture_layers_node()
 
         import_list, directory = self.generate_paths()
@@ -921,7 +932,9 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         rearrange_tl_nodes(node.node_tree)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        wm.tlui.need_update = True
+        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1046,6 +1059,9 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
             col.prop(self, 'rgb_to_intensity_color', text='')
 
     def execute(self, context):
+        T = time.time()
+
+        wm = context.window_manager
         node = get_active_texture_layers_node()
 
         if self.image_name == '':
@@ -1067,7 +1083,9 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
         rearrange_tl_nodes(node.node_tree)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        wm.tlui.need_update = True
+        print('INFO: Image', self.image_name, 'is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1091,6 +1109,7 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
     def execute(self, context):
         T = time.time()
 
+        wm = context.window_manager
         node = get_active_texture_layers_node()
         tl = node.node_tree.tl
 
@@ -1112,7 +1131,7 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
         # Move outside up
         if is_top_member(tex) and self.direction == 'UP':
-            print('Case 1')
+            #print('Case 1')
 
             parent_dict = set_parent_dict_val(tl, parent_dict, tex.name, neighbor_tex.parent_idx)
 
@@ -1123,21 +1142,21 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
         # Move outside down
         elif is_bottom_member(tex) and self.direction == 'DOWN':
-            print('Case 2')
+            #print('Case 2')
 
-            parent_dict = set_parent_dict_val(tl, parent_dict, tex.name, neighbor_tex.parent_idx)
+            parent_dict = set_parent_dict_val(tl, parent_dict, tex.name, tl.textures[tex.parent_idx].parent_idx)
 
         elif neighbor_tex and neighbor_tex.type == 'GROUP':
 
             # Move inside up
             if self.direction == 'UP':
-                print('Case 3')
+                #print('Case 3')
 
                 parent_dict = set_parent_dict_val(tl, parent_dict, tex.name, neighbor_idx)
 
             # Move inside down
             elif self.direction == 'DOWN':
-                print('Case 4')
+                #print('Case 4')
 
                 parent_dict = set_parent_dict_val(tl, parent_dict, tex.name, neighbor_idx)
 
@@ -1148,14 +1167,23 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
         for t in tl.textures:
             t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
 
+        tex = tl.textures[tl.active_texture_index]
+        #has_parent = tex.parent_idx != -1
+
+        #if tex.type == 'GROUP' or has_parent:
+        check_all_texture_channel_io_and_nodes(tex) #, has_parent=has_parent)
+        rearrange_tex_nodes(tex)
+        reconnect_tex_nodes(tex)
+
         # Refresh texture channel blend nodes
-        reconnect_tl_nodes(node.node_tree)
         rearrange_tl_nodes(node.node_tree)
+        reconnect_tl_nodes(node.node_tree)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
-
+        wm.tlui.need_update = True
         print('INFO: Texture', tex.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
+
         return {'FINISHED'}
 
 class YMoveTextureLayer(bpy.types.Operator):
@@ -1178,6 +1206,7 @@ class YMoveTextureLayer(bpy.types.Operator):
     def execute(self, context):
         T = time.time()
 
+        wm = context.window_manager
         node = get_active_texture_layers_node()
         tl = node.node_tree.tl
 
@@ -1214,6 +1243,9 @@ class YMoveTextureLayer(bpy.types.Operator):
                 tl.textures.move(neighbor_idx, last_member_idx)
                 tl.active_texture_index = neighbor_idx
 
+                #affected_start = neighbor_idx
+                #affected_end = last_member_idx+1
+
             # Group layer DOWN to standard layer
             elif self.direction == 'DOWN':
                 #print('Case B')
@@ -1221,6 +1253,9 @@ class YMoveTextureLayer(bpy.types.Operator):
                 # Swap texture
                 tl.textures.move(neighbor_idx, tex_idx)
                 tl.active_texture_index = tex_idx+1
+
+                #affected_start = neighbor_idx
+                #affected_end = tex_idx+1
 
         elif tex.type == 'GROUP' and neighbor_tex.type == 'GROUP':
 
@@ -1290,9 +1325,10 @@ class YMoveTextureLayer(bpy.types.Operator):
         rearrange_tl_nodes(node.node_tree)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        wm.tlui.need_update = True
 
         print('INFO: Texture', tex.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1432,6 +1468,7 @@ class YRemoveLayer(bpy.types.Operator):
     def execute(self, context):
         T = time.time()
 
+        wm = context.window_manager
         node = get_active_texture_layers_node()
         group_tree = node.node_tree
         tl = group_tree.tl
@@ -1472,12 +1509,13 @@ class YRemoveLayer(bpy.types.Operator):
         rearrange_tl_nodes(group_tree)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        wm.tlui.need_update = True
 
         # Refresh normal map
         tl.refresh_tree = True
 
         print('INFO: Texture', tex_name, 'is deleted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1539,6 +1577,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         T = time.time()
 
+        wm = context.window_manager
         tex = self.texture
         tl = tex.id_data.tl
 
@@ -1644,6 +1683,7 @@ class YReplaceLayerType(bpy.types.Operator):
             reconnect_tl_nodes(tex.id_data)
 
         print('INFO: Layer', tex.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1763,6 +1803,8 @@ def check_blend_type_nodes(root_ch, tex, ch):
     nodes = tree.nodes
     blend = nodes.get(ch.blend)
 
+    has_parent = tex.parent_idx != -1
+
     # Check blend type
     if blend:
         #if ((root_ch.alpha and ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
@@ -1785,14 +1827,27 @@ def check_blend_type_nodes(root_ch, tex, ch):
 
     # Create blend node if its missing
     if not blend:
-        if root_ch.type == 'RGB':
+        if has_parent and ch.blend_type == 'MIX':
+
+            blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
+
+            if root_ch.type == 'RGB':
+                if tex.type == 'BACKGROUND':
+                    blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_BG)
+                else: blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
+            elif root_ch.type == 'VALUE':
+                blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_BW)
+            elif root_ch.type == 'NORMAL':
+                blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_VEC)
+
+        elif root_ch.type == 'RGB':
             if root_ch.alpha and ch.blend_type == 'MIX':
                 blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
                 if tex.type == 'BACKGROUND':
                     blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_BG)
                 else: blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
-                if BLENDER_28_GROUP_INPUT_HACK:
-                    duplicate_lib_node_tree(blend)
+                #if BLENDER_28_GROUP_INPUT_HACK:
+                #    duplicate_lib_node_tree(blend)
 
             else:
                 blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
@@ -2041,10 +2096,18 @@ def update_texture_enable(self, context):
     for i, ch in enumerate(tex.channels):
         blend = tree.nodes.get(ch.blend)
         blend.mute = not tex.enable or not ch.enable
+        #mute = not tex.enable or not ch.enable
+        #intensity = tree.nodes.get(ch.intensity)
+        #if intensity:
+        #    intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
         if ch.enable_mask_ramp:
             mr_blend = tree.nodes.get(ch.mr_blend)
             if mr_blend: mr_blend.mute = blend.mute
+            #mr_intensity = tree.nodes.get(ch.mr_intensity)
+            #if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+
+    context.window_manager.tltimer.time = str(time.time())
 
 def update_channel_intensity_value(self, context):
     tl = self.id_data.tl
@@ -2102,17 +2165,15 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update = update_normal_map_type)
 
     blend_type = EnumProperty(
-        name = 'Blend',
-        #items = vector_and_blend_type_items)
-        items = blend_type_items,
-        default = 'MIX',
-        update = update_blend_type)
+            name = 'Blend',
+            items = blend_type_items,
+            default = 'MIX',
+            update = update_blend_type)
 
     normal_blend = EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX',
-            #update = update_vector_blend)
             update = update_blend_type)
 
     intensity_value = FloatProperty(

@@ -422,9 +422,16 @@ def set_mask_multiply_nodes(tex, tree=None, bump_ch=None):
         for j, c in enumerate(mask.channels):
 
             multiply = tree.nodes.get(c.multiply)
+            #if multiply:
+            #    remove_node(tree, c, 'multiply')
+            #    multiply = None
+
             if not multiply:
-                multiply = new_node(tree, c, 'multiply', 'ShaderNodeMath', 'Mask Multiply')
-                multiply.operation = 'MULTIPLY'
+                #multiply = new_node(tree, c, 'multiply', 'ShaderNodeMath', 'Mask Multiply')
+                #multiply.operation = 'MULTIPLY'
+                multiply = new_node(tree, c, 'multiply', 'ShaderNodeMixRGB', 'Mask Blend')
+                multiply.blend_type = mask.blend_type
+                multiply.inputs[0].default_value = mask.intensity_value
                 multiply.mute = not c.enable or not mask.enable or not tex.enable_masks
 
             ch = tex.channels[j]
@@ -435,9 +442,16 @@ def set_mask_multiply_nodes(tex, tree=None, bump_ch=None):
                 if bump_ch == ch and ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'} and i < chain:
                     for d in neighbor_directions:
                         mul = tree.nodes.get(getattr(c, 'multiply_' + d))
+                        #if mul:
+                        #    remove_node(tree, c, 'multiply_' + d)
+                        #    mul = None
+
                         if not mul:
-                            mul = new_node(tree, c, 'multiply_' + d, 'ShaderNodeMath', 'mul_' + d)
-                            mul.operation = 'MULTIPLY'
+                            #mul = new_node(tree, c, 'multiply_' + d, 'ShaderNodeMath', 'mul_' + d)
+                            #mul.operation = 'MULTIPLY'
+                            mul = new_node(tree, c, 'multiply_' + d, 'ShaderNodeMixRGB', 'Mask Blend ' + d.upper())
+                            mul.blend_type = mask.blend_type
+                            mul.inputs[0].default_value = mask.intensity_value
                             mul.mute = not c.enable or not mask.enable or not tex.enable_masks
                 else:
                     for d in neighbor_directions:
@@ -448,9 +462,16 @@ def set_mask_multiply_nodes(tex, tree=None, bump_ch=None):
                     (flip_bump and ch.enable_mask_ramp) or (not flip_bump and ch.enable_transition_ao)
                     )):
                     multiply_n = tree.nodes.get(c.multiply_n)
+                    #if multiply_n:
+                    #    remove_node(tree, c, 'multiply_n')
+                    #    multiply_n = None
+
                     if not multiply_n:
-                        multiply_n = new_node(tree, c, 'multiply_n', 'ShaderNodeMath', 'mul_extra')
-                        multiply_n.operation = 'MULTIPLY'
+                        #multiply_n = new_node(tree, c, 'multiply_n', 'ShaderNodeMath', 'mul_extra')
+                        #multiply_n.operation = 'MULTIPLY'
+                        multiply_n = new_node(tree, c, 'multiply_n', 'ShaderNodeMixRGB', 'Mask Blend N')
+                        multiply_n.blend_type = mask.blend_type
+                        multiply_n.inputs[0].default_value = mask.intensity_value
                         multiply_n.mute = not c.enable or not mask.enable or not tex.enable_masks
                 else:
                     remove_node(tree, c, 'multiply_n')

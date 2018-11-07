@@ -45,6 +45,26 @@ def check_set_node_loc(tree, node_name, loc, hide=False):
         return True
     return False
 
+def check_set_node_loc_x(tree, node_name, loc_x): #, hide=False):
+    node = tree.nodes.get(node_name)
+    if node:
+        if node.location.x != loc_x:
+            node.location.x = loc_x
+        #if node.hide != hide:
+        #    node.hide = hide
+        return True
+    return False
+
+def check_set_node_loc_y(tree, node_name, loc_y): #, hide=False):
+    node = tree.nodes.get(node_name)
+    if node:
+        if node.location.y != loc_y:
+            node.location.y = loc_y
+        #if node.hide != hide:
+        #    node.hide = hide
+        return True
+    return False
+
 def check_set_node_width(node, width):
     if node:
         if node.width != width:
@@ -970,12 +990,47 @@ def rearrange_tl_nodes(group_tree):
             check_set_node_loc(group_tree, tl.solid_alpha, loc)
             loc.x += 200
 
+    #groups = []
+    #for i, t in enumerate(reversed(tl.textures)):
+    #    if t.type == 'GROUP':
+    #        pass
+
     loc.y = 0.0
 
     # Texture nodes
     for i, t in enumerate(reversed(tl.textures)):
+
+        parent_ids = get_list_of_parent_ids(t)
+
+        #for pid in parent_ids:
+        #    pass
+
+        loc.y = len(parent_ids) * -250
+
         if check_set_node_loc(group_tree, t.group_node, loc):
+        #if check_set_node_loc_x(group_tree, t.group_node, loc.x):
             loc.x += 200
+
+    #stack = []
+    #for i, t in enumerate(tl.textures):
+    #    if stack and stack[-1] == t.parent_idx:
+    #        loc.y += 300
+    #        stack.pop()
+
+    #    if t.type == 'GROUP':
+    #        if check_set_node_loc_y(group_tree, t.group_node, loc.y):
+    #            loc.y -= 300
+    #            if t.parent_idx not in stack: stack.append(t.parent_idx)
+    #    elif check_set_node_loc_y(group_tree, t.group_node, loc.y):
+    #        pass
+
+    #    #    if check_set_node_loc_y(group_tree, t.group_node, loc.y):
+    #    #        print(t.name)
+    #    #        loc.y -= 300
+    #    #        if t.parent_idx not in stack: stack.append(t.parent_idx)
+    #    #if stack and stack[-1] == t.parent_idx:
+    #    #    loc.y += 300
+    #    #    stack.pop()
 
     farthest_x = ori_x = loc.x
 

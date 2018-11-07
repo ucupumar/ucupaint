@@ -486,6 +486,36 @@ def update_mask_name(self, context):
 
     change_texture_name(tl, context.object, src, self, tex.masks)
 
+def update_mask_blend_type(self, context):
+
+    tl = self.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(match.group(1))]
+    tree = get_tree(tex)
+    mask = self
+
+    for c in mask.channels:
+        mul = tree.nodes.get(c.multiply)
+        if mul: mul.blend_type = mask.blend_type
+        for d in neighbor_directions:
+            mul = tree.nodes.get(getattr(c, 'multiply_' + d))
+            if mul: mul.blend_type = mask.blend_type
+
+def update_mask_intensity_value(self, context):
+
+    tl = self.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(match.group(1))]
+    tree = get_tree(tex)
+    mask = self
+
+    for c in mask.channels:
+        mul = tree.nodes.get(c.multiply)
+        if mul: mul.inputs[0].default_value = mask.intensity_value
+        for d in neighbor_directions:
+            mul = tree.nodes.get(getattr(c, 'multiply_' + d))
+            if mul: mul.inputs[0].default_value = mask.intensity_value
+
 class YTextureMaskChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_tex_mask_channel_enable)
 
@@ -541,6 +571,18 @@ class YTextureMask(bpy.types.PropertyGroup):
         update=update_mask_texcoord_type)
 
     uv_name = StringProperty(default='', update=update_mask_uv_name)
+
+    blend_type = EnumProperty(
+        name = 'Blend',
+        items = blend_type_items,
+        default = 'MULTIPLY',
+        update = update_mask_blend_type)
+
+    intensity_value = FloatProperty(
+            name = 'Mask Intensity Factor', 
+            description = 'Mask Intensity Factor',
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
+            update = update_mask_intensity_value)
 
     channels = CollectionProperty(type=YTextureMaskChannel)
 

@@ -15,6 +15,10 @@ def break_link(tree, out, inp):
             return True
     return False
 
+def break_input_link(tree, inp):
+    for link in inp.links:
+        tree.links.remove(link)
+
 def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
 
     rgb = start_rgb
@@ -141,14 +145,47 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
 
     return rgb, alpha
 
-def get_channel_inputs_length(tl):
+def get_channel_inputs_length(tl, tex=None):
     length = 0
     for ch in tl.channels:
-        if ch.type == 'RGB' and ch.alpha:
+        #if (ch.type == 'RGB' and ch.alpha) or (tex and tex.type == 'GROUP' and tex.parent_idx != -1):
+        if (ch.type == 'RGB' and ch.alpha) or (tex and tex.parent_idx != -1):
             length += 2
         else: length += 1
 
     return length
+
+def remove_all_prev_inputs(tex):
+    tree = tex.id_data
+    tl = tree.tl
+    node = tree.nodes.get(tex.group_node)
+
+    #for inp in node.inputs:
+    #    break_input_link(tree, inp)
+
+    for i in range(len(tex.channels)*2):
+        break_input_link(tree, node.inputs[i])
+
+    #input_offset = get_channel_inputs_length(tl, tex)
+    #for i in range(input_offset):
+    #    break_input_link(tree, node.inputs[i])
+
+def remove_all_children_inputs(tex):
+
+    tree = tex.id_data
+    tl = tree.tl
+    node = tree.nodes.get(tex.group_node)
+
+    if tex.type != 'GROUP':
+        return
+
+    if tex.parent_idx == -1:
+        offset = get_channel_inputs_length(tl)
+    else: offset = len(tex.channels)*2
+
+    for i, inp in enumerate(node.inputs):
+        if i >= offset:
+            break_input_link(tree, inp)
 
 def reconnect_tl_nodes(tree, ch_idx=-1):
     tl = tree.tl
@@ -161,9 +198,6 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
     solid_alpha = nodes.get(tl.solid_alpha)
 
     num_tex = len(tl.textures)
-
-    # Offsets for background layer
-    input_offset = get_channel_inputs_length(tl)
 
     for i, ch in enumerate(tl.channels):
         if ch_idx != -1 and i != ch_idx: continue
@@ -190,7 +224,20 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
 
         # Layers loop
         for j, tex in reversed(list(enumerate(tl.textures))):
+
             node = nodes.get(tex.group_node)
+
+            if tex.type == 'BACKGROUND':
+
+                # Offsets for background layer
+                input_offset = get_channel_inputs_length(tl, tex)
+                bg_index = input_offset + ch.io_index
+
+                create_link(tree, bg_rgb, node.inputs[bg_index])
+                if ch.type =='RGB' and ch.alpha:
+                    create_link(tree, bg_alpha, node.inputs[bg_index+1])
+
+            if tex.parent_idx != -1: continue
 
             create_link(tree, rgb, node.inputs[ch.io_index])
             if ch.type =='RGB' and ch.alpha:
@@ -199,14 +246,6 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
             rgb = node.outputs[ch.io_index]
             if ch.type =='RGB' and ch.alpha:
                 alpha = node.outputs[ch.io_index+1]
-
-            if tex.type == 'BACKGROUND':
-
-                bg_index = input_offset + ch.io_index
-
-                create_link(tree, bg_rgb, node.inputs[bg_index])
-                if ch.type =='RGB' and ch.alpha:
-                    create_link(tree, bg_alpha, node.inputs[bg_index+1])
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha)
 
@@ -217,6 +256,52 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
         create_link(tree, rgb, end.inputs[ch.io_index])
         if ch.type == 'RGB' and ch.alpha:
             create_link(tree, alpha, end.inputs[ch.io_index+1])
+
+    # List of last members
+    last_members = []
+    for tex in tl.textures:
+        if is_bottom_member(tex):
+            last_members.append(tex)
+
+            # Remove input links from bottom member
+            remove_all_prev_inputs(tex)
+
+        if tex.type == 'GROUP' and not has_childrens(tex):
+            remove_all_children_inputs(tex)
+
+    #print(last_members)
+
+    # Group stuff
+    for tex in last_members:
+
+        node = nodes.get(tex.group_node)
+
+        cur_tex = tex
+        cur_node = node
+
+        while True:
+            # Get upper tex
+            upper_idx, upper_tex = get_upper_neighbor(cur_tex)
+            upper_node = nodes.get(upper_tex.group_node)
+
+            #print(upper_tex.name)
+
+            # Connect
+            if upper_tex.parent_idx == cur_tex.parent_idx:
+                for i, outp in enumerate(cur_node.outputs):
+                    create_link(tree, outp, upper_node.inputs[i])
+            else:
+
+                input_offset = get_channel_inputs_length(tl, upper_tex)
+                for i, outp in enumerate(cur_node.outputs):
+                    create_link(tree, outp, upper_node.inputs[input_offset+i])
+
+                break
+
+            cur_tex = upper_tex
+            cur_node = upper_node
+
+        #print(upper_tex.name)
 
 def reconnect_source_internal_nodes(tex):
     tree = get_source_tree(tex)
@@ -447,7 +532,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             ch = tex.channels[j]
 
             mask_multiply = nodes.get(c.multiply)
-            create_link(tree, mask_source.outputs[0], mask_multiply.inputs[1])
+            create_link(tree, mask_source.outputs[0], mask_multiply.inputs[2])
 
             # Direction multiplies
             #if (root_ch.type == 'NORMAL' and ch.enable_mask_bump 
@@ -460,20 +545,21 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 mul_w = nodes.get(c.multiply_w)
 
                 if mask.type == 'VCOL':
-                    create_link(tree, mask_uv_neighbor.outputs['n'], mul_n.inputs[1])
-                    create_link(tree, mask_uv_neighbor.outputs['s'], mul_s.inputs[1])
-                    create_link(tree, mask_uv_neighbor.outputs['e'], mul_e.inputs[1])
-                    create_link(tree, mask_uv_neighbor.outputs['w'], mul_w.inputs[1])
+                    create_link(tree, mask_uv_neighbor.outputs['n'], mul_n.inputs[2])
+                    create_link(tree, mask_uv_neighbor.outputs['s'], mul_s.inputs[2])
+                    create_link(tree, mask_uv_neighbor.outputs['e'], mul_e.inputs[2])
+                    create_link(tree, mask_uv_neighbor.outputs['w'], mul_w.inputs[2])
                 else:
-                    create_link(tree, mask_source_n.outputs[0], mul_n.inputs[1])
-                    create_link(tree, mask_source_s.outputs[0], mul_s.inputs[1])
-                    create_link(tree, mask_source_e.outputs[0], mul_e.inputs[1])
-                    create_link(tree, mask_source_w.outputs[0], mul_w.inputs[1])
+                    create_link(tree, mask_source_n.outputs[0], mul_n.inputs[2])
+                    create_link(tree, mask_source_s.outputs[0], mul_s.inputs[2])
+                    create_link(tree, mask_source_e.outputs[0], mul_e.inputs[2])
+                    create_link(tree, mask_source_w.outputs[0], mul_w.inputs[2])
 
     # Offset for background layer
     #prev_offset = 0
     # Offsets for background layer
-    input_offset = get_channel_inputs_length(tl)
+    input_offset = get_channel_inputs_length(tl, tex)
+    has_parent = tex.parent_idx != -1
 
     # Layer Channels
     for i, ch in enumerate(tex.channels):
@@ -488,8 +574,9 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             rgb = source.outputs[root_ch.io_index + input_offset]
             alpha = solid_alpha.outputs[0]
 
-            if tex.type == 'GROUP' and root_ch.alpha:
-                alpha = source.outputs[root_ch.io_index + input_offset + 1]
+            if tex.type == 'GROUP': # and root_ch.alpha:
+                rgb = source.outputs[i*2 + input_offset]
+                alpha = source.outputs[i*2 + input_offset + 1]
 
             elif tex.type == 'BACKGROUND':
                 if root_ch.alpha:
@@ -498,18 +585,22 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
         # Input RGB from layer below
         #if tex.type == 'BACKGROUND':
-        #    input_rgb = start.outputs[root_ch.io_index + input_offset]
-        #    input_alpha = start.outputs[root_ch.io_index+1 + input_offset]
+        #    prev_rgb = start.outputs[root_ch.io_index + input_offset]
+        #    prev_alpha = start.outputs[root_ch.io_index+1 + input_offset]
         #else:
-        input_rgb = start.outputs[root_ch.io_index]
-        input_alpha = start.outputs[root_ch.io_index+1]
+        if has_parent:
+            prev_rgb = start.outputs[i*2]
+            prev_alpha = start.outputs[i*2+1]
+        else:
+            prev_rgb = start.outputs[root_ch.io_index]
+            prev_alpha = start.outputs[root_ch.io_index+1]
 
         #if tex.type == 'BACKGROUND':
 
-        #    input_rgb = start.outputs[prev_offset]
+        #    prev_rgb = start.outputs[prev_offset]
 
         #    if root_ch.alpha:
-        #        input_alpha = start.outputs[prev_offset+1]
+        #        prev_alpha = start.outputs[prev_offset+1]
         #        rgb = source.outputs[prev_offset+2]
         #        alpha = source.outputs[prev_offset+3]
         #        prev_offset += 4
@@ -658,7 +749,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         # Mask multiplies
         for j, mask in enumerate(tex.masks):
             mask_multiply = nodes.get(mask.channels[i].multiply)
-            alpha = create_link(tree, alpha, mask_multiply.inputs[0])[0]
+            alpha = create_link(tree, alpha, mask_multiply.inputs[1])[0]
 
             if j == chain-1 and intensity_multiplier:
                 transition_input = alpha
@@ -688,10 +779,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     mul_e = nodes.get(c.multiply_e)
                     mul_w = nodes.get(c.multiply_w)
 
-                    malpha_n = create_link(tree, malpha_n, mul_n.inputs[0])[0]
-                    malpha_s = create_link(tree, malpha_s, mul_s.inputs[0])[0]
-                    malpha_e = create_link(tree, malpha_e, mul_e.inputs[0])[0]
-                    malpha_w = create_link(tree, malpha_w, mul_w.inputs[0])[0]
+                    malpha_n = create_link(tree, malpha_n, mul_n.inputs[1])[0]
+                    malpha_s = create_link(tree, malpha_s, mul_s.inputs[1])[0]
+                    malpha_e = create_link(tree, malpha_e, mul_e.inputs[1])[0]
+                    malpha_w = create_link(tree, malpha_w, mul_w.inputs[1])[0]
 
                 if ch.mask_bump_type == 'FINE_BUMP_MAP':
                     mb_bump = nodes.get(ch.mb_fine_bump)
@@ -731,7 +822,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, rgb, tao.inputs[0])
                 rgb = tao.outputs[0]
             else: 
-                create_link(tree, input_rgb, tao.inputs[0])
+                create_link(tree, prev_rgb, tao.inputs[0])
                 create_link(tree, intensity_multiplier.outputs[0], tao.inputs[2])
 
                 # Dealing with chain
@@ -744,10 +835,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                         c = mask.channels[i]
                         mul_n = nodes.get(c.multiply_n)
 
-                        remaining_alpha = create_link(tree, remaining_alpha, mul_n.inputs[0])[0]
-                        create_link(tree, mask_source.outputs[0], mul_n.inputs[1])
+                        remaining_alpha = create_link(tree, remaining_alpha, mul_n.inputs[1])[0]
+                        create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
 
-                input_rgb = tao.outputs[0]
+                prev_rgb = tao.outputs[0]
                 create_link(tree, remaining_alpha, tao.inputs[3])
 
             create_link(tree, transition_input, tao.inputs[1])
@@ -798,8 +889,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                         c = mask.channels[i]
                         mul_n = nodes.get(c.multiply_n)
 
-                        hack_input = create_link(tree, hack_input, mul_n.inputs[0])[0]
-                        create_link(tree, mask_source.outputs[0], mul_n.inputs[1])
+                        hack_input = create_link(tree, hack_input, mul_n.inputs[1])[0]
+                        create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
 
                 #create_link(tree, hack_input, mr_blend.inputs[0])
                 create_link(tree, hack_input, mr_intensity.inputs[0])
@@ -808,12 +899,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, intensity_multiplier.outputs[0], mr_flip_hack.inputs[0])
                 create_link(tree, mr_flip_hack.outputs[0], mr_flip_blend.inputs[0])
 
-                create_link(tree, input_rgb, mr_blend.inputs[1])
+                create_link(tree, prev_rgb, mr_blend.inputs[1])
                 create_link(tree, mr_blend.outputs[0], mr_flip_blend.inputs[1])
-                create_link(tree, input_rgb, mr_flip_blend.inputs[2])
+                create_link(tree, prev_rgb, mr_flip_blend.inputs[2])
 
                 # Override input rgb
-                input_rgb = mr_flip_blend.outputs[0]
+                prev_rgb = mr_flip_blend.outputs[0]
 
             else: 
                 create_link(tree, mr_alpha.outputs[0], mr_intensity.inputs[0])
@@ -836,26 +927,34 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         # Pass rgb to blend
         create_link(tree, rgb, blend.inputs[2])
 
-        if root_ch.type == 'RGB' and ch.blend_type == 'MIX' and root_ch.alpha:
+        # End node
+        if has_parent:
+            next_rgb = end.inputs[i*2]
+            next_alpha = end.inputs[i*2+1]
+        else:
+            next_rgb = end.inputs[root_ch.io_index]
+            next_alpha = end.inputs[root_ch.io_index+1]
 
-            create_link(tree, input_rgb, blend.inputs[0])
-            create_link(tree, input_alpha, blend.inputs[1])
+        if ch.blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.alpha)):
+
+            create_link(tree, prev_rgb, blend.inputs[0])
+            create_link(tree, prev_alpha, blend.inputs[1])
 
             create_link(tree, alpha, blend.inputs[3])
-            create_link(tree, blend.outputs[1], end.inputs[root_ch.io_index+1])
+            create_link(tree, blend.outputs[1], next_alpha)
 
             if bg_alpha:
                 create_link(tree, bg_alpha, blend.inputs[4])
         else:
             create_link(tree, alpha, blend.inputs[0])
-            create_link(tree, input_rgb, blend.inputs[1])
+            create_link(tree, prev_rgb, blend.inputs[1])
 
         # Armory can't recognize mute node, so reconnect input to output directly
         #if tex.enable and ch.enable:
-        #    create_link(tree, blend.outputs[0], end.inputs[root_ch.io_index])
-        #else: create_link(tree, input_rgb, end.inputs[root_ch.io_index])
-        create_link(tree, blend.outputs[0], end.inputs[root_ch.io_index])
+        #    create_link(tree, blend.outputs[0], next_rgb)
+        #else: create_link(tree, prev_rgb, next_rgb)
+        create_link(tree, blend.outputs[0], next_rgb)
 
-        if root_ch.type == 'RGB' and ch.blend_type != 'MIX' and root_ch.alpha:
-            create_link(tree, input_alpha, end.inputs[root_ch.io_index+1])
+        if ch.blend_type != 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.alpha)):
+            create_link(tree, prev_alpha, next_alpha)
 
