@@ -59,8 +59,8 @@ channel_custom_icon_dict = {
         }
 
 channel_icon_dict = {
-        'RGB' : 'SPACE2',
-        'VALUE' : 'SPACE3',
+        'RGB' : 'KEYTYPE_KEYFRAME_VEC',
+        'VALUE' : 'HANDLETYPE_FREE_VEC',
         'NORMAL' : 'KEYTYPE_BREAKDOWN_VEC',
         }
 

@@ -290,6 +290,11 @@ class YQuickSetupTLNode(bpy.types.Operator):
     roughness = BoolProperty(name='Roughness', default=True)
     normal = BoolProperty(name='Normal', default=True)
 
+    mute_texture_paint_overlay = BoolProperty(
+            name = 'Mute Texture Paint Overlay',
+            description = 'Set Texture Paint Overlay on 3D View screen to 0. It can helps texture painting better.',
+            default = True)
+
     @classmethod
     def poll(cls, context):
         return context.object
@@ -322,9 +327,14 @@ class YQuickSetupTLNode(bpy.types.Operator):
         ccol.prop(self, 'roughness', toggle=True)
         ccol.prop(self, 'normal', toggle=True)
 
+        if bpy.app.version_string.startswith('2.8'):
+            col.prop(self, 'mute_texture_paint_overlay')
+
     def execute(self, context):
+
         obj = context.object
         mat = get_active_material()
+
         if not mat:
             mat = bpy.data.materials.new(obj.name)
             mat.use_nodes = True
@@ -423,37 +433,49 @@ class YQuickSetupTLNode(bpy.types.Operator):
         mat.tl.active_tl_node = node.name
 
         # Add new channels
-        if self.color:
-            channel = create_new_tl_channel(group_tree, 'Color', 'RGB', non_color=False)
-            inp = main_bsdf.inputs[0]
-            set_input_default_value(node, channel, inp.default_value)
-            links.new(node.outputs[channel.io_index], inp)
+        ch_color = None
+        ch_metallic = None
+        ch_roughness = None
+        ch_normal = None
 
-            # Enable, link, and disable alpha to remember which input was alpha connected to
-            channel.alpha = True
-            links.new(node.outputs[channel.io_index+1], mix_bsdf.inputs[0])
-            channel.alpha = False
+        if self.color:
+            ch_color = create_new_tl_channel(group_tree, 'Color', 'RGB', non_color=False)
 
         if self.type == 'PRINCIPLED' and self.metallic:
-            channel = create_new_tl_channel(group_tree, 'Metallic', 'VALUE', non_color=True)
-            inp = main_bsdf.inputs['Metallic']
-            set_input_default_value(node, channel, inp.default_value)
-            links.new(node.outputs[channel.io_index], inp)
+            ch_metallic = create_new_tl_channel(group_tree, 'Metallic', 'VALUE', non_color=True)
 
         if self.roughness:
-            channel = create_new_tl_channel(group_tree, 'Roughness', 'VALUE', non_color=True)
-            inp = main_bsdf.inputs['Roughness']
-            set_input_default_value(node, channel, inp.default_value)
-            links.new(node.outputs[channel.io_index], inp)
+            ch_roughness = create_new_tl_channel(group_tree, 'Roughness', 'VALUE', non_color=True)
 
         if self.normal:
-            channel = create_new_tl_channel(group_tree, 'Normal', 'NORMAL')
-            inp = main_bsdf.inputs['Normal']
-            set_input_default_value(node, channel)
-            links.new(node.outputs[channel.io_index], inp)
+            ch_normal = create_new_tl_channel(group_tree, 'Normal', 'NORMAL')
 
         # Update io
-        check_all_channel_ios(tl)
+        check_all_channel_ios(group_tree.tl)
+
+        if ch_color:
+            inp = main_bsdf.inputs[0]
+            set_input_default_value(node, ch_color, inp.default_value)
+            links.new(node.outputs[ch_color.io_index], inp)
+            # Enable, link, and disable alpha to remember which input was alpha connected to
+            ch_color.alpha = True
+            links.new(node.outputs[ch_color.io_index+1], mix_bsdf.inputs[0])
+            ch_color.alpha = False
+
+        if ch_metallic:
+            inp = main_bsdf.inputs['Metallic']
+            set_input_default_value(node, ch_metallic, inp.default_value)
+            links.new(node.outputs[ch_metallic.io_index], inp)
+
+        if ch_roughness:
+            inp = main_bsdf.inputs['Roughness']
+            set_input_default_value(node, ch_roughness, inp.default_value)
+            links.new(node.outputs[ch_roughness.io_index], inp)
+
+        if ch_normal:
+            inp = main_bsdf.inputs['Normal']
+            set_input_default_value(node, ch_normal)
+            links.new(node.outputs[ch_normal.io_index], inp)
 
         # Set new tl node location
         if output:
@@ -469,6 +491,12 @@ class YQuickSetupTLNode(bpy.types.Operator):
             mat_out.location.y += 300
             node.location = main_bsdf.location.copy()
             node.location.x -= 180
+
+        if bpy.app.version_string.startswith('2.8') and self.mute_texture_paint_overlay:
+            screen = context.screen
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    area.spaces[0].overlay.texture_paint_mode_opacity = 0.0
 
         # Update UI
         context.window_manager.tlui.need_update = True
@@ -1165,6 +1193,9 @@ def update_channel_name(self, context):
     wm = context.window_manager
     group_tree = self.id_data
     tl = group_tree.tl
+
+    if tl.halt_reconnect or tl.halt_update:
+        return
 
     group_tree.inputs[self.io_index].name = self.name
     group_tree.outputs[self.io_index].name = self.name

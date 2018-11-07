@@ -322,7 +322,9 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_e
         row.context_pointer_set('texture', tex)
         row.context_pointer_set('parent', parent)
         row.context_pointer_set('modifier', m)
-        row.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
+        if bpy.app.version_string.startswith('2.8'):
+            row.menu("NODE_MT_y_modifier_menu", text='', icon='PREFERENCES')
+        else: row.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
         row.prop(m, 'enable', text='')
 
         if modui.expand_content and can_be_expanded:
@@ -356,8 +358,14 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
             "channels", tl, "active_channel_index", rows=3, maxrows=5)  
 
     rcol = row.column(align=True)
-    rcol.operator_menu_enum("node.y_add_new_texture_layers_channel", 'type', icon='ZOOMIN', text='')
-    rcol.operator("node.y_remove_texture_layers_channel", icon='ZOOMOUT', text='')
+
+    if bpy.app.version_string.startswith('2.8'):
+        rcol.operator_menu_enum("node.y_add_new_texture_layers_channel", 'type', icon='ADD', text='')
+        rcol.operator("node.y_remove_texture_layers_channel", icon='REMOVE', text='')
+    else: 
+        rcol.operator_menu_enum("node.y_add_new_texture_layers_channel", 'type', icon='ZOOMIN', text='')
+        rcol.operator("node.y_remove_texture_layers_channel", icon='ZOOMOUT', text='')
+
     rcol.operator("node.y_move_texture_layers_channel", text='', icon='TRIA_UP').direction = 'UP'
     rcol.operator("node.y_move_texture_layers_channel", text='', icon='TRIA_DOWN').direction = 'DOWN'
 
@@ -468,9 +476,11 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='INFO')
-                if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                    split = brow.split(percentage=0.375)
-                else: split = brow.split(factor=0.375, align=True)
+
+                if bpy.app.version_string.startswith('2.8'):
+                    split = brow.split(factor=0.375, align=True)
+                else: split = brow.split(percentage=0.375)
+
                 #split = brow.row(align=False)
                 split.label(text='Space:')
                 split.prop(channel, 'colorspace', text='')
@@ -541,7 +551,10 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
     #    icon_value = lib.custom_icons["add_modifier"].icon_id
     #    row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
     #else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
-    row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
+
+    if bpy.app.version_string.startswith('2.8'):
+        row.menu("NODE_MT_y_layer_special_menu", icon='PREFERENCES', text='')
+    else: row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
 
     if tex.type in {'VCOL', 'BACKGROUND'} and len(tex.modifiers) == 0: return
     if not texui.expand_content: return
@@ -600,14 +613,17 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
             else:
                 row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
 
-            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                split = row.split(percentage=0.275, align=True)
-            else: split = row.split(factor=0.275, align=True)
+            if bpy.app.version_string.startswith('2.8'):
+                split = row.split(factor=0.275, align=True)
+            else: split = row.split(percentage=0.275, align=True)
+
             split.label(text='Vector:')
             if is_a_mesh and tex.texcoord_type == 'UV':
-                if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                    ssplit = split.split(percentage=0.33, align=True)
-                else: ssplit = split.split(factor=0.33, align=True)
+
+                if bpy.app.version_string.startswith('2.8'):
+                    ssplit = split.split(factor=0.33, align=True)
+                else: ssplit = split.split(percentage=0.33, align=True)
+
                 #ssplit = split.split(percentage=0.33, align=True)
                 ssplit.prop(tex, 'texcoord_type', text='')
                 ssplit.prop_search(tex, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
@@ -848,9 +864,10 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
             #else:
             #    row.label(text='', icon='INFO')
-            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                split = row.split(percentage=0.275)
-            else: split = row.split(factor=0.275)
+            if bpy.app.version_string.startswith('2.8'):
+                split = row.split(factor=0.275)
+            else: split = row.split(percentage=0.275)
+
             split.label(text='Type:') #, icon='INFO')
             srow = split.row(align=True)
             srow.prop(ch, 'normal_map_type', text='')
@@ -977,9 +994,10 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 row.label(text='', icon='INFO')
 
             #row.label(text='', icon='INFO')
-            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                split = row.split(percentage=0.275)
-            else: split = row.split(factor=0.275)
+            if bpy.app.version_string.startswith('2.8'):
+                split = row.split(factor=0.275)
+            else: split = row.split(percentage=0.275)
+
             split.label(text='Input:')
             srow = split.row(align=True)
             srow.prop(ch, 'tex_input', text='')
@@ -1099,7 +1117,10 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
             row.prop(mask, 'active_edit', text='', toggle=True, icon='GROUP_VCOL')
 
         row.context_pointer_set('mask', mask)
-        row.menu("NODE_MT_y_texture_mask_menu_special", text='', icon='SCRIPTWIN')
+
+        if bpy.app.version_string.startswith('2.8'):
+            row.menu("NODE_MT_y_texture_mask_menu_special", text='', icon='PREFERENCES')
+        else: row.menu("NODE_MT_y_texture_mask_menu_special", text='', icon='SCRIPTWIN')
 
         row = row.row(align=True)
         row.prop(mask, 'enable', text='')
@@ -1134,9 +1155,6 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
 
         rrow = rrcol.row(align=True)
         rrow.label(text='', icon='IMAGE_ZDEPTH')
-        #if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-        #    rrrow = rrow.split(percentage=0.35, align=True)
-        #else: rrrow = rrow.split(factor=0.35, align=True)
         rrow.label(text='Blend:')
         rrow.prop(mask, 'blend_type', text='')
         rrow.prop(mask, 'intensity_value', text='')
@@ -1161,17 +1179,20 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
             else:
                 rrow.prop(maskui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
 
-            if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                splits = rrow.split(percentage=0.3)
-            else: splits = rrow.split(factor=0.3)
+            if bpy.app.version_string.startswith('2.8'):
+                splits = rrow.split(factor=0.3)
+            else: splits = rrow.split(percentage=0.3)
+
             #splits = rrow.split(percentage=0.3)
             splits.label(text='Vector:')
             if mask.texcoord_type != 'UV':
                 splits.prop(mask, 'texcoord_type', text='')
             else:
-                if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-                    rrrow = splits.split(percentage=0.35, align=True)
-                else: rrrow = splits.split(factor=0.35, align=True)
+
+                if bpy.app.version_string.startswith('2.8'):
+                    rrrow = splits.split(factor=0.35, align=True)
+                else: rrrow = splits.split(percentage=0.35, align=True)
+
                 #rrrow = splits.split(percentage=0.35, align=True)
                 rrrow.prop(mask, 'texcoord_type', text='')
                 rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
@@ -1183,17 +1204,6 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
                 rbox.prop(mask_source.texture_mapping, 'translation', text='Offset')
                 rbox.prop(mask_source.texture_mapping, 'rotation')
                 rbox.prop(mask_source.texture_mapping, 'scale')
-
-        # Hardness row
-        #if mask.enable_hardness:
-        #    rrow = rrcol.row(align=True)
-        #    rrow.label(text='', icon='MODIFIER')
-        #    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-        #        splits = rrow.split(percentage=0.4)
-        #    else: splits = rrow.split(factor=0.4)
-        #    #splits = rrow.split(percentage=0.4)
-        #    splits.label(text='Hardness:')
-        #    splits.prop(mask, 'hardness_value', text='')
 
         # Mask Channels row
         rrow = rrcol.row(align=True)
@@ -1340,43 +1350,63 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
             "textures", tl, "active_texture_index", rows=5, maxrows=5)  
 
     rcol = row.column(align=True)
-    rcol.menu("NODE_MT_y_new_texture_layer_menu", text='', icon='ZOOMIN')
+    if bpy.app.version_string.startswith('2.8'):
+        rcol.menu("NODE_MT_y_new_texture_layer_menu", text='', icon='ADD')
+    else: rcol.menu("NODE_MT_y_new_texture_layer_menu", text='', icon='ZOOMIN')
 
-    if has_childrens(tex):
-        rcol.operator("node.y_remove_layer_menu", icon='ZOOMOUT', text='')
-    else: 
-        c = rcol.operator("node.y_remove_layer", icon='ZOOMOUT', text='')
-        c.remove_childs = False
+    if tex:
 
-    if is_top_member(tex):
-        c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_UP')
-        c.direction = 'UP'
-        c.move_out = True
-    else:
-        upper_idx, upper_tex = get_upper_neighbor(tex)
+        if has_childrens(tex):
 
-        if upper_tex and (upper_tex.type == 'GROUP' or upper_tex.parent_idx != tex.parent_idx):
+            if bpy.app.version_string.startswith('2.8'):
+                rcol.operator("node.y_remove_layer_menu", icon='REMOVE', text='')
+            else: rcol.operator("node.y_remove_layer_menu", icon='ZOOMOUT', text='')
+
+        else: 
+            if bpy.app.version_string.startswith('2.8'):
+                c = rcol.operator("node.y_remove_layer", icon='REMOVE', text='')
+            else: c = rcol.operator("node.y_remove_layer", icon='ZOOMOUT', text='')
+
+            c.remove_childs = False
+
+        if is_top_member(tex):
             c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_UP')
             c.direction = 'UP'
-            c.move_out = False
-        else: 
-            c = rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_UP')
-            c.direction = 'UP'
+            c.move_out = True
+        else:
+            upper_idx, upper_tex = get_upper_neighbor(tex)
 
-    if is_bottom_member(tex):
-        c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_DOWN')
-        c.direction = 'DOWN'
-        c.move_out = True
-    else:
-        lower_idx, lower_tex = get_lower_neighbor(tex)
+            if upper_tex and (upper_tex.type == 'GROUP' or upper_tex.parent_idx != tex.parent_idx):
+                c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_UP')
+                c.direction = 'UP'
+                c.move_out = False
+            else: 
+                c = rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_UP')
+                c.direction = 'UP'
 
-        if lower_tex and (lower_tex.type == 'GROUP' and lower_tex.parent_idx == tex.parent_idx):
+        if is_bottom_member(tex):
             c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_DOWN')
             c.direction = 'DOWN'
-            c.move_out = False
-        else: 
-            c = rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_DOWN')
-            c.direction = 'DOWN'
+            c.move_out = True
+        else:
+            lower_idx, lower_tex = get_lower_neighbor(tex)
+
+            if lower_tex and (lower_tex.type == 'GROUP' and lower_tex.parent_idx == tex.parent_idx):
+                c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_DOWN')
+                c.direction = 'DOWN'
+                c.move_out = False
+            else: 
+                c = rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_DOWN')
+                c.direction = 'DOWN'
+
+    else:
+
+        if bpy.app.version_string.startswith('2.8'):
+            rcol.operator("node.y_remove_layer", icon='REMOVE', text='')
+        else: rcol.operator("node.y_remove_layer", icon='ZOOMOUT', text='')
+
+        rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_UP').direction = 'UP'
+        rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_DOWN').direction = 'DOWN'
 
     rcol.menu("NODE_MT_y_texture_specials", text='', icon='DOWNARROW_HLT')
 
@@ -1430,7 +1460,10 @@ def main_draw(self, context):
     #row.label(text='Active: ' + node.node_tree.name)
     row.label(text=node.node_tree.name)
     #row.prop(node.node_tree, 'name', text='')
-    row.menu("NODE_MT_y_tl_special_menu", text='', icon='SCRIPTWIN')
+
+    if bpy.app.version_string.startswith('2.8'):
+        row.menu("NODE_MT_y_tl_special_menu", text='', icon='PREFERENCES')
+    else: row.menu("NODE_MT_y_tl_special_menu", text='', icon='SCRIPTWIN')
 
     group_tree = node.node_tree
     nodes = group_tree.nodes
@@ -1691,7 +1724,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                     row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
 
         # Debug parent
-        row.label(text=str(index) + ' (' + str(tex.parent_idx) + ')')
+        #row.label(text=str(index) + ' (' + str(tex.parent_idx) + ')')
 
         # Active image/tex label
         if len(editable_masks) > 0:
@@ -1714,7 +1747,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
             if active_image.is_dirty:
                 if hasattr(lib, 'custom_icons'):
                     row.label(text='', icon_value=lib.custom_icons['asterisk'].icon_id)
-                else: row.label(text='', icon='PARTICLES')
+                else: row.label(text='', icon='FREEZE')
 
             # Indicate packed image
             if active_image.packed_file:
@@ -1814,8 +1847,16 @@ class YNewTexMenu(bpy.types.Menu):
         #col.context_pointer_set('group_node', context.group_node)
         #col.label(text='Image:')
         col.operator("node.y_new_texture_layer", text='New Image', icon='IMAGE_DATA').type = 'IMAGE'
-        col.operator("node.y_open_image_to_layer", text='Open Image', icon='IMASEL')
-        col.operator("node.y_open_available_image_to_layer", text='Open Available Image', icon='IMASEL')
+
+        col.separator()
+
+        if bpy.app.version_string.startswith('2.8'):
+            col.operator("node.y_open_image_to_layer", text='Open Image', icon='FILEBROWSER')
+            col.operator("node.y_open_available_image_to_layer", text='Open Available Image') #, icon='FILEBROWSER')
+        else:
+            col.operator("node.y_open_image_to_layer", text='Open Image', icon='IMASEL')
+            col.operator("node.y_open_available_image_to_layer", text='Open Available Image', icon='IMASEL')
+
         col.separator()
 
         col.operator("node.y_new_texture_layer", icon='FILE_FOLDER', text='Layer Group').type = 'GROUP'
@@ -1832,7 +1873,9 @@ class YNewTexMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
-        c = col.operator("node.y_new_texture_layer", icon='COLOR', text='Solid Color w/ Vertex Color Mask')
+        if bpy.app.version_string.startswith('2.8'):
+            c = col.operator("node.y_new_texture_layer", text='Solid Color w/ Vertex Color Mask')
+        else: c = col.operator("node.y_new_texture_layer", icon='COLOR', text='Solid Color w/ Vertex Color Mask')
         c.type = 'COLOR'
         c.add_mask = True
         c.mask_type = 'VCOL'
@@ -1845,7 +1888,10 @@ class YNewTexMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
-        c = col.operator("node.y_new_texture_layer", icon='IMAGE_RGB_ALPHA', text='Background w/ Vertex Color Mask')
+        if bpy.app.version_string.startswith('2.8'):
+            c = col.operator("node.y_new_texture_layer", text='Background w/ Vertex Color Mask')
+        else: c = col.operator("node.y_new_texture_layer", icon='IMAGE_RGB_ALPHA', text='Background w/ Vertex Color Mask')
+
         c.type = 'BACKGROUND'
         c.add_mask = True
         c.mask_type = 'VCOL'
@@ -1853,7 +1899,7 @@ class YNewTexMenu(bpy.types.Menu):
         col.separator()
 
         #col = row.column()
-        col.label(text='Generated:')
+        #col.label(text='Generated:')
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Brick').type = 'BRICK'
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Checker').type = 'CHECKER'
         col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Gradient').type = 'GRADIENT'
@@ -1885,8 +1931,13 @@ class YTexSpecialMenu(bpy.types.Menu):
         if hasattr(context, 'image') and context.image.packed_file:
             self.layout.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
         else:
-            self.layout.operator('node.y_save_as_image', text='Save As Image', icon='SAVE_AS')
-        self.layout.operator('node.y_save_pack_all', text='Save/Pack All', icon='FILE_TICK')
+            if bpy.app.version_string.startswith('2.8'):
+                self.layout.operator('node.y_save_as_image', text='Save As Image')
+                self.layout.operator('node.y_save_pack_all', text='Save/Pack All')
+            else: 
+                self.layout.operator('node.y_save_as_image', text='Save As Image', icon='SAVE_AS')
+                self.layout.operator('node.y_save_pack_all', text='Save/Pack All', icon='FILE_TICK')
+
         self.layout.separator()
         self.layout.operator("node.y_reload_image", icon='FILE_REFRESH')
         self.layout.separator()
@@ -1912,7 +1963,9 @@ class YModifierMenu(bpy.types.Menu):
         op.direction = 'DOWN'
 
         col.separator()
-        op = col.operator('node.y_remove_texture_modifier', icon='ZOOMOUT', text='Remove Modifier')
+        if bpy.app.version_string.startswith('2.8'):
+            op = col.operator('node.y_remove_texture_modifier', icon='REMOVE', text='Remove Modifier')
+        else: op = col.operator('node.y_remove_texture_modifier', icon='ZOOMOUT', text='Remove Modifier')
 
         #if hasattr(context, 'texture') and context.modifier.type in {'RGB_TO_INTENSITY', 'OVERRIDE_COLOR'}:
         #    col.separator()
@@ -1938,8 +1991,12 @@ class YAddTexMaskMenu(bpy.types.Menu):
 
         col.label(text='Image Mask:')
         col.operator('node.y_new_texture_mask', icon='IMAGE_DATA', text='New Image Mask').type = 'IMAGE'
-        col.label(text='Open Image as Mask', icon='IMASEL')
-        col.label(text='Open Available Image as Mask', icon='IMASEL')
+        if bpy.app.version_string.startswith('2.8'):
+            col.label(text='Open Image as Mask', icon='FILEBROWSER')
+            col.label(text='Open Available Image as Mask', icon='FILEBROWSER')
+        else:
+            col.label(text='Open Image as Mask', icon='IMASEL')
+            col.label(text='Open Available Image as Mask', icon='IMASEL')
         #col.label(text='Not implemented yet!', icon='ERROR')
         col.separator()
         #col.label(text='Open Mask:')
@@ -1990,7 +2047,9 @@ class YTexMaskMenuSpecial(bpy.types.Menu):
         op = col.operator('node.y_move_texture_mask', icon='TRIA_DOWN', text='Move Mask Down')
         op.direction = 'DOWN'
         col.separator()
-        col.operator('node.y_remove_texture_mask', text='Remove Mask', icon='ZOOMOUT')
+        if bpy.app.version_string.startswith('2.8'):
+            col.operator('node.y_remove_texture_mask', text='Remove Mask', icon='REMOVE')
+        else: col.operator('node.y_remove_texture_mask', text='Remove Mask', icon='ZOOMOUT')
 
 class YTexModifierSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_texture_modifier_specials"
@@ -2321,7 +2380,7 @@ def register():
     bpy.utils.register_class(NODE_UL_y_tl_channels)
     bpy.utils.register_class(NODE_UL_y_tl_textures)
     bpy.utils.register_class(NODE_PT_y_texture_layers)
-    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+    if not bpy.app.version_string.startswith('2.8'):
         bpy.utils.register_class(VIEW3D_PT_y_texture_layers_tools)
     bpy.utils.register_class(VIEW3D_PT_y_texture_layers_ui)
     bpy.utils.register_class(YTLUI)
@@ -2357,7 +2416,7 @@ def unregister():
     bpy.utils.unregister_class(NODE_UL_y_tl_channels)
     bpy.utils.unregister_class(NODE_UL_y_tl_textures)
     bpy.utils.unregister_class(NODE_PT_y_texture_layers)
-    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+    if not bpy.app.version_string.startswith('2.8'):
         bpy.utils.unregister_class(VIEW3D_PT_y_texture_layers_tools)
     bpy.utils.unregister_class(VIEW3D_PT_y_texture_layers_ui)
     bpy.utils.unregister_class(YTLUI)

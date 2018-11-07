@@ -1698,12 +1698,21 @@ def update_channel_enable(self, context):
 
     tree = get_tree(tex)
 
-    blend = tree.nodes.get(ch.blend)
-    blend.mute = not tex.enable or not ch.enable
+    mute = not tex.enable or not ch.enable
+    intensity = tree.nodes.get(ch.intensity)
+    if intensity:
+        intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
     if ch.enable_mask_ramp:
-        mr_blend = tree.nodes.get(ch.mr_blend)
-        if mr_blend: mr_blend.mute = blend.mute
+        mr_intensity = tree.nodes.get(ch.mr_intensity)
+        if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+
+    #blend = tree.nodes.get(ch.blend)
+    #blend.mute = not tex.enable or not ch.enable
+
+    #if ch.enable_mask_ramp:
+    #    mr_blend = tree.nodes.get(ch.mr_blend)
+    #    if mr_blend: mr_blend.mute = blend.mute
 
     if ch.enable_mask_bump:
         transition.check_transition_bump_nodes(tex, tree, ch, ch_index)
@@ -1867,9 +1876,16 @@ def check_blend_type_nodes(root_ch, tex, ch):
             blend.blend_type = ch.blend_type
 
         # Blend mute
-        if tex.enable and ch.enable:
-            blend.mute = False
-        else: blend.mute = True
+        mute = not tex.enable or not ch.enable
+        intensity = nodes.get(ch.intensity)
+        if intensity: intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+        if ch.enable_mask_ramp:
+            mr_intensity = nodes.get(ch.mr_intensity)
+            if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+
+        #if tex.enable and ch.enable:
+        #    blend.mute = False
+        #else: blend.mute = True
 
     # Update blend mix
     if root_ch.type != 'NORMAL' and blend.bl_idname == 'ShaderNodeMixRGB' and blend.blend_type != ch.blend_type:
@@ -2094,18 +2110,18 @@ def update_texture_enable(self, context):
     tree = get_tree(tex)
 
     for i, ch in enumerate(tex.channels):
-        blend = tree.nodes.get(ch.blend)
-        blend.mute = not tex.enable or not ch.enable
-        #mute = not tex.enable or not ch.enable
-        #intensity = tree.nodes.get(ch.intensity)
-        #if intensity:
-        #    intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+        #blend = tree.nodes.get(ch.blend)
+        #blend.mute = not tex.enable or not ch.enable
+        mute = not tex.enable or not ch.enable
+        intensity = tree.nodes.get(ch.intensity)
+        if intensity:
+            intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
         if ch.enable_mask_ramp:
-            mr_blend = tree.nodes.get(ch.mr_blend)
-            if mr_blend: mr_blend.mute = blend.mute
-            #mr_intensity = tree.nodes.get(ch.mr_intensity)
-            #if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+            #mr_blend = tree.nodes.get(ch.mr_blend)
+            #if mr_blend: mr_blend.mute = blend.mute
+            mr_intensity = tree.nodes.get(ch.mr_intensity)
+            if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
 
     context.window_manager.tltimer.time = str(time.time())
 
@@ -2117,6 +2133,8 @@ def update_channel_intensity_value(self, context):
     tree = get_tree(tex)
     ch_index = int(m.group(2))
     root_ch = tl.channels[ch_index]
+
+    if not tex.enable or not self.enable: return
 
     intensity = tree.nodes.get(self.intensity)
     intensity.inputs[1].default_value = self.intensity_value
