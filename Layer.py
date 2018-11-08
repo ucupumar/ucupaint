@@ -580,6 +580,11 @@ class YNewTextureLayer(bpy.types.Operator):
             items = new_tex_channel_normal_map_type_items)
             #default = 'BUMP_MAP')
 
+    #make_transition_bump_default = BoolProperty(
+    #        name = 'Use Transition Bump on Normal channel',
+    #        description = 'Use Transition Bump on (first) Normal channel',
+    #        default = False)
+
     @classmethod
     def poll(cls, context):
         return get_active_texture_layers_node()
@@ -812,7 +817,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     normal_blend = EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
-            default = 'OVERLAY')
+            default = 'MIX')
 
     add_rgb_to_intensity = BoolProperty(
             name = 'Add RGB To Intensity',
@@ -1720,11 +1725,15 @@ def update_channel_enable(self, context):
 def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
     if root_ch.type != 'NORMAL': return
-    if tex.type in {'BACKGROUND', 'GROUP'} : return
+    #if tex.type in {'BACKGROUND', 'GROUP'}: return
 
     normal_map_type = ch.normal_map_type
-    if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
+    #if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
+    if tex.type == 'VCOL' and ch.normal_map_type == 'FINE_BUMP_MAP':
         normal_map_type = 'BUMP_MAP'
+    #elif tex.type == 'COLOR':
+    elif tex.type in {'BACKGROUND', 'GROUP', 'COLOR'}:
+        normal_map_type = ''
 
     # Normal nodes
     if normal_map_type == 'NORMAL_MAP':
@@ -1775,10 +1784,16 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
         Modifier.disable_modifiers_tree(ch, False)
 
     # Create normal flip node
-    normal_flip = tree.nodes.get(ch.normal_flip)
-    if not normal_flip:
-        normal_flip = new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 'Flip Backface Normal')
-        normal_flip.node_tree = lib.get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
+    #if tex.type not in {'BACKGROUND', 'GROUP', 'COLOR'}:
+    #if normal_map_type != '' or (normal_map_type == '' and ch.enable_mask_bump):
+
+    #normal_flip = tree.nodes.get(ch.normal_flip)
+    #if not normal_flip:
+    #    normal_flip = new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 'Flip Backface Normal')
+    #    normal_flip.node_tree = lib.get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
+
+    #else:
+    #    remove_node(tree, ch, 'normal_flip')
 
     # Update override color modifier
     for mod in ch.modifiers:

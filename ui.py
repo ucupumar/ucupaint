@@ -810,6 +810,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 row.label(text='', icon='BLANK1')
 
                 bbox = row.box()
+                bbox.active = ch.enable_mask_bump
                 cccol = bbox.column(align=True)
 
                 #crow = cccol.row(align=True)
@@ -853,6 +854,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 #row.label(text='', icon='BLANK1')
 
             row = mcol.row(align=True)
+            row.active = tex.type != 'COLOR'
 
             if custom_icon_enable:
                 if chui.expand_bump_settings:
@@ -882,6 +884,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 row.label(text='', icon='BLANK1')
 
                 bbox = row.box()
+                bbox.active = tex.type != 'COLOR'
                 cccol = bbox.column(align=True)
 
                 if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
@@ -895,9 +898,9 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                         brow.label(text='Bump Base:') #, icon='INFO')
                         brow.prop(ch, 'bump_base_value', text='')
 
-                brow = cccol.row(align=True)
-                brow.label(text='Invert Backface Normal')
-                brow.prop(ch, 'invert_backface_normal', text='')
+                #brow = cccol.row(align=True)
+                #brow.label(text='Invert Backface Normal')
+                #brow.prop(ch, 'invert_backface_normal', text='')
 
                 #row.label(text='', icon='BLANK1')
 

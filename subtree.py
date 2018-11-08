@@ -358,7 +358,7 @@ def check_create_bump_base(tex, tree, ch):
     if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
         normal_map_type = 'BUMP_MAP'
 
-    if tex.type not in 'BACKGROUND' and normal_map_type == 'FINE_BUMP_MAP':
+    if tex.type not in {'BACKGROUND', 'COLOR'} and normal_map_type == 'FINE_BUMP_MAP':
 
         # Delete standard bump base first
         remove_node(tree, ch, 'bump_base')
@@ -379,7 +379,7 @@ def check_create_bump_base(tex, tree, ch):
                     bb.inputs[0].default_value = 1.0
                     bb.inputs[1].default_value = (val, val, val, 1.0)
 
-    elif tex.type != 'BACKGROUND' and normal_map_type == 'BUMP_MAP':
+    elif tex.type not in {'BACKGROUND', 'COLOR'} and normal_map_type == 'BUMP_MAP':
 
         # Delete fine bump bump bases first
         for d in neighbor_directions:

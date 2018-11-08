@@ -570,6 +570,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         rgb = start_rgb
         alpha = start_alpha
         bg_alpha = None
+
         if tex.type in {'BACKGROUND', 'GROUP'}:
             rgb = source.outputs[root_ch.io_index + input_offset]
             alpha = solid_alpha.outputs[0]
@@ -582,6 +583,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 if root_ch.alpha:
                     #alpha = source.outputs[root_ch.io_index+1 + input_offset]
                     bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
+
+        # Color layer uses geometry normal
+        if tex.type == 'COLOR' and root_ch.type == 'NORMAL':
+            rgb = geometry.outputs['Normal']
 
         # Input RGB from layer below
         #if tex.type == 'BACKGROUND':
@@ -627,7 +632,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         mod_group = nodes.get(ch.mod_group)
 
         # Background layer won't use modifier outputs
-        if tex.type == 'BACKGROUND':
+        if tex.type == 'BACKGROUND' or (tex.type == 'COLOR' and root_ch.type == 'NORMAL'):
             #reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
             pass
         else:
@@ -689,7 +694,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, tangent.outputs[0], blend.inputs['Tangent'])
                 create_link(tree, bitangent.outputs[0], blend.inputs['Bitangent'])
 
-            if tex.type not in {'BACKGROUND', 'GROUP'}:
+            if tex.type not in {'BACKGROUND', 'GROUP', 'COLOR'}:
 
                 normal_map_type = ch.normal_map_type
                 if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
