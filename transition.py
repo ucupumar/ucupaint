@@ -236,10 +236,13 @@ def check_transition_bump_nodes(tex, tree, ch, ch_index):
     check_transition_bump_influences_to_other_channels(tex, tree)
 
     # Set mask multiply nodes
-    set_mask_multiply_nodes(tex, tree)
+    check_mask_multiply_nodes(tex, tree)
 
     # Check bump base
     check_create_bump_base(tex, tree, ch)
+
+    # Trigger normal channel update
+    ch.normal_map_type = ch.normal_map_type
     
     rearrange_tex_nodes(tex)
     reconnect_tex_nodes(tex) #, mod_reconnect=True)
@@ -377,7 +380,7 @@ def set_transition_bump_nodes(tex, tree, ch, ch_index):
         mb_blend.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
 
     # Dealing with mask sources
-    check_transition_bump_source_tree(tex, ch)
+    check_mask_source_tree(tex) #, ch)
 
 def remove_transition_bump_influence_nodes_to_other_channels(tex, tree):
     # Delete intensity multiplier from ramp
@@ -410,27 +413,11 @@ def remove_transition_bump_nodes(tex, tree, ch, ch_index):
     remove_node(tree, ch, 'mb_intensity_multiplier')
     remove_node(tree, ch, 'mb_blend')
 
-    for mask in tex.masks:
-        disable_mask_source_tree(tex, mask, False)
-
-        c = mask.channels[ch_index]
-        remove_node(tree, c, 'multiply_n')
-        remove_node(tree, c, 'multiply_s')
-        remove_node(tree, c, 'multiply_e')
-        remove_node(tree, c, 'multiply_w')
+    # Check mask related nodes
+    check_mask_source_tree(tex)
+    check_mask_multiply_nodes(tex)
 
     remove_transition_bump_influence_nodes_to_other_channels(tex, tree)
-
-def check_transition_bump_source_tree(tex, bump_ch):
-
-    chain = min(bump_ch.mask_bump_chain, len(tex.masks))
-
-    for i, mask in enumerate(tex.masks):
-
-        if bump_ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'} and i < chain:
-            enable_mask_source_tree(tex, mask)
-        else:
-            disable_mask_source_tree(tex, mask)
 
 def update_transition_ramp_intensity_value(self, context):
     tl = self.id_data.tl
@@ -545,15 +532,18 @@ def update_transition_bump_chain(self, context):
     tree = get_tree(tex)
     ch = self
 
-    if ch.enable_mask_bump and ch.enable:
+    #if ch.enable_mask_bump and ch.enable:
 
-        set_mask_multiply_nodes(tex, tree, ch)
-        check_transition_bump_source_tree(tex, ch)
+    check_mask_multiply_nodes(tex, tree)
+    check_mask_source_tree(tex) #, ch)
 
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex) #, mod_reconnect=True)
+    # Trigger normal channel update
+    ch.normal_map_type = ch.normal_map_type
 
-        print('INFO: Transition bump chain is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    rearrange_tex_nodes(tex)
+    reconnect_tex_nodes(tex) #, mod_reconnect=True)
+
+    print('INFO: Transition bump chain is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_transition_bump_curved_offset(self, context):
 
@@ -623,7 +613,7 @@ def update_enable_transition_ao(self, context):
     check_transition_ao_nodes(tree, tex, ch, bump_ch)
 
     # Update mask multiply
-    set_mask_multiply_nodes(tex, tree)
+    check_mask_multiply_nodes(tex, tree)
 
     rearrange_tex_nodes(tex)
     reconnect_tex_nodes(tex)
@@ -646,7 +636,7 @@ def update_enable_transition_ramp(self, context):
     check_transition_bump_influences_to_other_channels(tex, tree, target_ch=ch)
 
     # Update mask multiply
-    set_mask_multiply_nodes(tex, tree)
+    check_mask_multiply_nodes(tex, tree)
 
     rearrange_tex_nodes(tex)
     reconnect_tex_nodes(tex)

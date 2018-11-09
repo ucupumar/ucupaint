@@ -847,14 +847,11 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 crow.label(text='Flip:') #, icon='INFO')
                 crow.prop(ch, 'mask_bump_flip', text='')
 
-                #crow = cccol.row(align=True)
-                #crow.label(text='Mask Only:') #, icon='INFO')
-                #crow.prop(ch, 'mask_bump_mask_only', text='')
-
                 #row.label(text='', icon='BLANK1')
 
             row = mcol.row(align=True)
-            row.active = tex.type != 'COLOR'
+            #row.active = tex.type != 'COLOR'
+            row.active = not is_valid_to_remove_bump_nodes(tex, ch)
 
             if custom_icon_enable:
                 if chui.expand_bump_settings:
@@ -884,7 +881,8 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 row.label(text='', icon='BLANK1')
 
                 bbox = row.box()
-                bbox.active = tex.type != 'COLOR'
+                #bbox.active = tex.type != 'COLOR'
+                bbox.active = not is_valid_to_remove_bump_nodes(tex, ch)
                 cccol = bbox.column(align=True)
 
                 if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:

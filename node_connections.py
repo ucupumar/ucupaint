@@ -463,16 +463,16 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         create_link(tree, bitangent.outputs[0], uv_neighbor.inputs['Bitangent'])
 
     # Get transition bump channel
-    flip_bump = False
+    trans_bump_flip = False
     chain = -1
     fine_bump_ch = False
-    bump_ch = get_transition_bump_channel(tex)
-    if bump_ch:
-        flip_bump = bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'
-        chain = min(len(tex.masks), bump_ch.mask_bump_chain)
-        fine_bump_ch = bump_ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
+    trans_bump_ch = get_transition_bump_channel(tex)
+    if trans_bump_ch:
+        trans_bump_flip = trans_bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'
+        chain = min(len(tex.masks), trans_bump_ch.mask_bump_chain)
+        fine_bump_ch = trans_bump_ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
     #elif tex.type == 'BACKGROUND':
-    #    flip_bump = True
+    #    trans_bump_flip = True
 
     # Layer Masks
     for i, mask in enumerate(tex.masks):
@@ -483,6 +483,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             reconnect_mask_internal_nodes(mask)
         else:
             mask_source = nodes.get(mask.source)
+
+        # Mask source directions
+        mask_source_n = nodes.get(mask.source_n)
+        mask_source_s = nodes.get(mask.source_s)
+        mask_source_e = nodes.get(mask.source_e)
+        mask_source_w = nodes.get(mask.source_w)
 
         # Mask texcoord
         mask_uv_map = nodes.get(mask.uv_map)
@@ -501,12 +507,6 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 if mask.texcoord_type == 'UV':
                     create_link(tree, mask_uv_map.outputs[0], mask_uv_neighbor.inputs[0])
                 else: create_link(tree, texcoord.outputs[mask.texcoord_type], mask_uv_neighbor.inputs[0])
-
-                # Mask source directions
-                mask_source_n = nodes.get(mask.source_n)
-                mask_source_s = nodes.get(mask.source_s)
-                mask_source_e = nodes.get(mask.source_e)
-                mask_source_w = nodes.get(mask.source_w)
 
                 create_link(tree, mask_uv_neighbor.outputs['n'], mask_source_n.inputs[0])
                 create_link(tree, mask_uv_neighbor.outputs['s'], mask_source_s.inputs[0])
@@ -537,23 +537,23 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             # Direction multiplies
             #if (root_ch.type == 'NORMAL' and ch.enable_mask_bump 
             #        and ch.enable and ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
-            if ch == bump_ch and fine_bump_ch and i < chain:
+            #if ch == trans_bump_ch and fine_bump_ch and i < chain:
 
-                mul_n = nodes.get(c.multiply_n)
-                mul_s = nodes.get(c.multiply_s)
-                mul_e = nodes.get(c.multiply_e)
-                mul_w = nodes.get(c.multiply_w)
+            mul_n = nodes.get(c.multiply_n)
+            mul_s = nodes.get(c.multiply_s)
+            mul_e = nodes.get(c.multiply_e)
+            mul_w = nodes.get(c.multiply_w)
 
-                if mask.type == 'VCOL':
-                    create_link(tree, mask_uv_neighbor.outputs['n'], mul_n.inputs[2])
-                    create_link(tree, mask_uv_neighbor.outputs['s'], mul_s.inputs[2])
-                    create_link(tree, mask_uv_neighbor.outputs['e'], mul_e.inputs[2])
-                    create_link(tree, mask_uv_neighbor.outputs['w'], mul_w.inputs[2])
-                else:
-                    create_link(tree, mask_source_n.outputs[0], mul_n.inputs[2])
-                    create_link(tree, mask_source_s.outputs[0], mul_s.inputs[2])
-                    create_link(tree, mask_source_e.outputs[0], mul_e.inputs[2])
-                    create_link(tree, mask_source_w.outputs[0], mul_w.inputs[2])
+            if mask.type == 'VCOL':
+                if mul_n: create_link(tree, mask_uv_neighbor.outputs['n'], mul_n.inputs[2])
+                if mul_s: create_link(tree, mask_uv_neighbor.outputs['s'], mul_s.inputs[2])
+                if mul_e: create_link(tree, mask_uv_neighbor.outputs['e'], mul_e.inputs[2])
+                if mul_w: create_link(tree, mask_uv_neighbor.outputs['w'], mul_w.inputs[2])
+            else:
+                if mul_n and mask_source_n: create_link(tree, mask_source_n.outputs[0], mul_n.inputs[2])
+                if mul_s and mask_source_s: create_link(tree, mask_source_s.outputs[0], mul_s.inputs[2])
+                if mul_e and mask_source_e: create_link(tree, mask_source_e.outputs[0], mul_e.inputs[2])
+                if mul_w and mask_source_w: create_link(tree, mask_source_w.outputs[0], mul_w.inputs[2])
 
     # Offset for background layer
     #prev_offset = 0
@@ -694,29 +694,28 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, tangent.outputs[0], blend.inputs['Tangent'])
                 create_link(tree, bitangent.outputs[0], blend.inputs['Bitangent'])
 
-            if tex.type not in {'BACKGROUND', 'GROUP', 'COLOR'}:
+            if tex.type not in {'BACKGROUND', 'GROUP'}: #, 'COLOR'}:
 
                 normal_map_type = ch.normal_map_type
-                if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
-                    normal_map_type = 'BUMP_MAP'
+                #if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
+                #    normal_map_type = 'BUMP_MAP'
 
                 if normal_map_type == 'NORMAL_MAP':
 
                     normal = nodes.get(ch.normal)
-                    create_link(tree, rgb, normal.inputs[1])
-
-                    rgb = normal.outputs[0]
+                    if normal:
+                        create_link(tree, rgb, normal.inputs[1])
+                        rgb = normal.outputs[0]
 
                 elif normal_map_type == 'BUMP_MAP':
 
                     bump = nodes.get(ch.bump)
                     bump_base = nodes.get(ch.bump_base)
-                    create_link(tree, rgb, bump_base.inputs['Color2'])
-                    create_link(tree, alpha, bump_base.inputs['Fac'])
-
-                    create_link(tree, bump_base.outputs[0], bump.inputs[2])
-
-                    rgb = bump.outputs[0]
+                    if bump and bump_base:
+                        create_link(tree, rgb, bump_base.inputs['Color2'])
+                        create_link(tree, alpha, bump_base.inputs['Fac'])
+                        create_link(tree, bump_base.outputs[0], bump.inputs[2])
+                        rgb = bump.outputs[0]
 
                 elif normal_map_type == 'FINE_BUMP_MAP':
 
@@ -726,25 +725,49 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     bump_base_e = nodes.get(ch.bump_base_e)
                     bump_base_w = nodes.get(ch.bump_base_w)
 
-                    create_link(tree, alpha_n, bump_base_n.inputs['Fac'])
-                    create_link(tree, alpha_s, bump_base_s.inputs['Fac'])
-                    create_link(tree, alpha_e, bump_base_e.inputs['Fac'])
-                    create_link(tree, alpha_w, bump_base_w.inputs['Fac'])
+                    if bump_base_n and bump_base_s and bump_base_e and bump_base_w and fine_bump:
 
-                    rgb_n = create_link(tree, rgb_n, bump_base_n.inputs['Color2'])[0]
-                    rgb_s = create_link(tree, rgb_s, bump_base_s.inputs['Color2'])[0]
-                    rgb_e = create_link(tree, rgb_e, bump_base_e.inputs['Color2'])[0]
-                    rgb_w = create_link(tree, rgb_w, bump_base_w.inputs['Color2'])[0]
+                        malpha_n = alpha_n
+                        malpha_s = alpha_s
+                        malpha_e = alpha_e
+                        malpha_w = alpha_w
 
-                    create_link(tree, rgb_n, fine_bump.inputs['n'])
-                    create_link(tree, rgb_s, fine_bump.inputs['s'])
-                    create_link(tree, rgb_e, fine_bump.inputs['e'])
-                    create_link(tree, rgb_w, fine_bump.inputs['w'])
+                        if not trans_bump_ch:
+                            chain_local = min(len(tex.masks), ch.mask_bump_chain)
+                            for j, mask in enumerate(tex.masks):
+                                if j >= chain_local:
+                                    break
 
-                    create_link(tree, tangent.outputs[0], fine_bump.inputs['Tangent'])
-                    create_link(tree, bitangent.outputs[0], fine_bump.inputs['Bitangent'])
+                                c = mask.channels[i]
+                                mul_n = nodes.get(c.multiply_n)
+                                mul_s = nodes.get(c.multiply_s)
+                                mul_e = nodes.get(c.multiply_e)
+                                mul_w = nodes.get(c.multiply_w)
 
-                    rgb = fine_bump.outputs[0]
+                                malpha_n = create_link(tree, malpha_n, mul_n.inputs[1])[0]
+                                malpha_s = create_link(tree, malpha_s, mul_s.inputs[1])[0]
+                                malpha_e = create_link(tree, malpha_e, mul_e.inputs[1])[0]
+                                malpha_w = create_link(tree, malpha_w, mul_w.inputs[1])[0]
+
+                        create_link(tree, malpha_n, bump_base_n.inputs['Fac'])
+                        create_link(tree, malpha_s, bump_base_s.inputs['Fac'])
+                        create_link(tree, malpha_e, bump_base_e.inputs['Fac'])
+                        create_link(tree, malpha_w, bump_base_w.inputs['Fac'])
+
+                        rgb_n = create_link(tree, rgb_n, bump_base_n.inputs['Color2'])[0]
+                        rgb_s = create_link(tree, rgb_s, bump_base_s.inputs['Color2'])[0]
+                        rgb_e = create_link(tree, rgb_e, bump_base_e.inputs['Color2'])[0]
+                        rgb_w = create_link(tree, rgb_w, bump_base_w.inputs['Color2'])[0]
+
+                        create_link(tree, rgb_n, fine_bump.inputs['n'])
+                        create_link(tree, rgb_s, fine_bump.inputs['s'])
+                        create_link(tree, rgb_e, fine_bump.inputs['e'])
+                        create_link(tree, rgb_w, fine_bump.inputs['w'])
+
+                        create_link(tree, tangent.outputs[0], fine_bump.inputs['Tangent'])
+                        create_link(tree, bitangent.outputs[0], fine_bump.inputs['Bitangent'])
+
+                        rgb = fine_bump.outputs[0]
 
         # For transition input
         transition_input = alpha
@@ -820,10 +843,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             rgb = mb_blend.outputs[0]
 
         # Transition AO
-        if root_ch.type in {'RGB', 'VALUE'} and bump_ch and ch.enable_transition_ao and tex.type != 'BACKGROUND':
+        if root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao and tex.type != 'BACKGROUND':
             tao = nodes.get(ch.tao)
 
-            if flip_bump:
+            if trans_bump_flip:
                 create_link(tree, rgb, tao.inputs[0])
                 rgb = tao.outputs[0]
             else: 
@@ -858,7 +881,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             mr_intensity = nodes.get(ch.mr_intensity)
             mr_blend = nodes.get(ch.mr_blend)
 
-            if flip_bump:
+            if trans_bump_flip:
                 create_link(tree, transition_input, mr_ramp.inputs[0])
             else:
                 create_link(tree, transition_input, mr_inverse.inputs[1])
@@ -870,7 +893,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             create_link(tree, mr_ramp.outputs[1], mr_alpha.inputs[1])
 
             if mr_intensity_multiplier:
-                if flip_bump:
+                if trans_bump_flip:
                     create_link(tree, transition_input, mr_intensity_multiplier.inputs[0])
                 else: create_link(tree, mr_inverse.outputs[0], mr_intensity_multiplier.inputs[0])
                 create_link(tree, mr_intensity_multiplier.outputs[0], mr_alpha.inputs[0])
@@ -878,7 +901,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, mr_inverse.outputs[0], mr_alpha.inputs[0])
 
             # Ramp blending
-            if flip_bump:
+            if trans_bump_flip:
                 mr_flip_hack = nodes.get(ch.mr_flip_hack)
                 mr_flip_blend = nodes.get(ch.mr_flip_blend)
 

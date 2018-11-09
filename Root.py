@@ -192,7 +192,7 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         transition.check_transition_bump_influences_to_other_channels(t, tex_tree, target_ch=c)
 
         # Set mask multiply nodes
-        set_mask_multiply_nodes(t, tex_tree)
+        check_mask_multiply_nodes(t, tex_tree)
 
         # Add new nodes
         Layer.check_all_texture_channel_io_and_nodes(t, tex_tree, specific_ch=c)
@@ -1022,7 +1022,7 @@ class YRemoveTLChannel(bpy.types.Operator):
 
         # Check consistency of mask multiply nodes
         for t in tl.textures:
-            set_mask_multiply_nodes(t)
+            check_mask_multiply_nodes(t)
 
         # Rearrange and reconnect nodes
         check_all_channel_ios(tl)

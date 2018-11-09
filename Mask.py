@@ -34,7 +34,11 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None, vco
         ch = tex.channels[i]
         c = mask.channels.add()
 
-    set_mask_multiply_nodes(tex, tree)
+    # Check mask multiplies
+    check_mask_multiply_nodes(tex, tree)
+
+    # Check mask source tree
+    check_mask_source_tree(tex)
 
     tl.halt_update = False
 
@@ -301,11 +305,9 @@ class YMoveTextureMask(bpy.types.Operator):
         tex.masks.move(index, new_index)
 
         # Dealing with transition bump
-        bump_ch = get_transition_bump_channel(tex)
-        if bump_ch:
-            tree = get_tree(tex)
-            set_mask_multiply_nodes(tex, tree, bump_ch)
-            transition.check_transition_bump_source_tree(tex, bump_ch)
+        tree = get_tree(tex)
+        check_mask_multiply_nodes(tex, tree)
+        check_mask_source_tree(tex) #, bump_ch)
 
         rearrange_tex_nodes(tex)
         reconnect_tex_nodes(tex, mod_reconnect=True)

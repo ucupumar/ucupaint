@@ -1008,6 +1008,13 @@ def get_lower_neighbor(tex):
 
     return neighbor_idx, neighbor_tex
 
+def is_valid_to_remove_bump_nodes(tex, ch):
+
+    if tex.type == 'COLOR' and ((ch.enable_mask_bump and ch.enable) or len(tex.masks) == 0 or ch.mask_bump_chain == 0):
+        return True
+
+    return False
+
 #def get_io_index(tex, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1

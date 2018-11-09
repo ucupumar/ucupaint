@@ -185,11 +185,19 @@ def disable_tex_source_tree(tex, rearrange=True):
 
 def set_mask_uv_neighbor(tree, tex, mask):
 
+    tl = tex.id_data.tl
+
     # NOTE: Checking transition bump everytime this function called is not that tidy
     # Check if transition bump channel is available
     bump_ch = get_transition_bump_channel(tex)
-    if not bump_ch or bump_ch.mask_bump_type == 'BUMP_MAP':
-        return False
+    if bump_ch and bump_ch.mask_bump_type == 'BUMP_MAP':
+        #return False
+        bump_ch = None
+
+    if not bump_ch:
+        chs = [c for i,c in enumerate(tex.channels) 
+                if c.normal_map_type == 'FINE_BUMP_MAP' and tl.channels[i].type == 'NORMAL']
+        if chs: bump_ch = chs[0]
 
     # Check transition bump chain
     if bump_ch:
@@ -355,10 +363,14 @@ def disable_mask_source_tree(tex, mask, reconnect=False):
 def check_create_bump_base(tex, tree, ch):
 
     normal_map_type = ch.normal_map_type
-    if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
-        normal_map_type = 'BUMP_MAP'
+    #if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
+    #    normal_map_type = 'BUMP_MAP'
 
-    if tex.type not in {'BACKGROUND', 'COLOR'} and normal_map_type == 'FINE_BUMP_MAP':
+    skip = False
+    if tex.type == 'BACKGROUND' or is_valid_to_remove_bump_nodes(tex, ch):
+        skip = True
+
+    if not skip and normal_map_type == 'FINE_BUMP_MAP':
 
         # Delete standard bump base first
         remove_node(tree, ch, 'bump_base')
@@ -379,7 +391,7 @@ def check_create_bump_base(tex, tree, ch):
                     bb.inputs[0].default_value = 1.0
                     bb.inputs[1].default_value = (val, val, val, 1.0)
 
-    elif tex.type not in {'BACKGROUND', 'COLOR'} and normal_map_type == 'BUMP_MAP':
+    elif not skip and normal_map_type == 'BUMP_MAP':
 
         # Delete fine bump bump bases first
         for d in neighbor_directions:
@@ -406,49 +418,46 @@ def check_create_bump_base(tex, tree, ch):
         for d in neighbor_directions:
             remove_node(tree, ch, 'bump_base_' + d)
 
-def set_mask_multiply_nodes(tex, tree=None, bump_ch=None):
+def check_mask_multiply_nodes(tex, tree=None):
 
     tl = tex.id_data.tl
     if not tree: tree = get_tree(tex)
-    if not bump_ch: bump_ch = get_transition_bump_channel(tex)
 
-    chain = -1
-    flip_bump = False
-    if bump_ch:
-        chain = min(bump_ch.mask_bump_chain, len(tex.masks))
-        flip_bump = bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'
+    trans_bump = get_transition_bump_channel(tex)
+
+    trans_bump_flip = False
+    if trans_bump:
+        trans_bump_flip = trans_bump.mask_bump_flip or tex.type == 'BACKGROUND'
 
     for i, mask in enumerate(tex.masks):
         for j, c in enumerate(mask.channels):
 
-            multiply = tree.nodes.get(c.multiply)
-            #if multiply:
-            #    remove_node(tree, c, 'multiply')
-            #    multiply = None
+            ch = tex.channels[j]
+            root_ch = tl.channels[j]
 
+            if root_ch.type == 'NORMAL' and not trans_bump:
+                chain = min(ch.mask_bump_chain, len(tex.masks))
+            elif trans_bump:
+                chain = min(trans_bump.mask_bump_chain, len(tex.masks))
+            else: chain = -1
+
+            multiply = tree.nodes.get(c.multiply)
             if not multiply:
-                #multiply = new_node(tree, c, 'multiply', 'ShaderNodeMath', 'Mask Multiply')
-                #multiply.operation = 'MULTIPLY'
                 multiply = new_node(tree, c, 'multiply', 'ShaderNodeMixRGB', 'Mask Blend')
                 multiply.blend_type = mask.blend_type
                 multiply.inputs[0].default_value = mask.intensity_value
                 multiply.mute = not c.enable or not mask.enable or not tex.enable_masks
 
-            ch = tex.channels[j]
-            root_ch = tl.channels[j]
-
             if root_ch.type == 'NORMAL':
 
-                if bump_ch == ch and ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'} and i < chain:
+                if ((
+                    (not trans_bump and ch.normal_map_type in {'FINE_BUMP_MAP'}) or
+                    (trans_bump == ch and ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}) 
+                    ) and i < chain):
                     for d in neighbor_directions:
                         mul = tree.nodes.get(getattr(c, 'multiply_' + d))
-                        #if mul:
-                        #    remove_node(tree, c, 'multiply_' + d)
-                        #    mul = None
 
                         if not mul:
-                            #mul = new_node(tree, c, 'multiply_' + d, 'ShaderNodeMath', 'mul_' + d)
-                            #mul.operation = 'MULTIPLY'
                             mul = new_node(tree, c, 'multiply_' + d, 'ShaderNodeMixRGB', 'Mask Blend ' + d.upper())
                             mul.blend_type = mask.blend_type
                             mul.inputs[0].default_value = mask.intensity_value
@@ -458,21 +467,44 @@ def set_mask_multiply_nodes(tex, tree=None, bump_ch=None):
                         remove_node(tree, c, 'multiply_' + d)
 
             else: 
-                if (bump_ch and i >= chain and (
-                    (flip_bump and ch.enable_mask_ramp) or (not flip_bump and ch.enable_transition_ao)
+                if (trans_bump and i >= chain and (
+                    (trans_bump_flip and ch.enable_mask_ramp) or (not trans_bump_flip and ch.enable_transition_ao)
                     )):
                     multiply_n = tree.nodes.get(c.multiply_n)
-                    #if multiply_n:
-                    #    remove_node(tree, c, 'multiply_n')
-                    #    multiply_n = None
 
                     if not multiply_n:
-                        #multiply_n = new_node(tree, c, 'multiply_n', 'ShaderNodeMath', 'mul_extra')
-                        #multiply_n.operation = 'MULTIPLY'
                         multiply_n = new_node(tree, c, 'multiply_n', 'ShaderNodeMixRGB', 'Mask Blend N')
                         multiply_n.blend_type = mask.blend_type
                         multiply_n.inputs[0].default_value = mask.intensity_value
                         multiply_n.mute = not c.enable or not mask.enable or not tex.enable_masks
                 else:
                     remove_node(tree, c, 'multiply_n')
+
+def check_mask_source_tree(tex): #, ch=None):
+
+    tl = tex.id_data.tl
+
+    # Try to get transition bump
+    trans_bump = get_transition_bump_channel(tex)
+
+    # Try to get fine bump if transition bump is not found
+    fine_bump = None
+    if not trans_bump:
+        chs = [c for i,c in enumerate(tex.channels) 
+                if c.normal_map_type == 'FINE_BUMP_MAP' and tl.channels[i].type == 'NORMAL']
+        if chs: fine_bump = chs[0]
+
+    if trans_bump:
+        chain = min(trans_bump.mask_bump_chain, len(tex.masks))
+    elif fine_bump:
+        chain = min(fine_bump.mask_bump_chain, len(tex.masks))
+    else: chain = -1
+
+    for i, mask in enumerate(tex.masks):
+
+        if ((trans_bump and trans_bump.mask_bump_type != 'BUMP_MAP') or fine_bump) and i < chain:
+            enable_mask_source_tree(tex, mask)
+        else:
+            disable_mask_source_tree(tex, mask)
+
 

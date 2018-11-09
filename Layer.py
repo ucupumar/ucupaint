@@ -125,7 +125,7 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None): #,
         # Update texture ch blend type
         check_blend_type_nodes(root_ch, tex, ch)
 
-        # Normal related nodes created by set it's normal map type
+        # Normal related nodes created by it's normal map type
         if root_ch.type == 'NORMAL':
             check_channel_normal_map_nodes(tree, tex, root_ch, ch)
 
@@ -353,8 +353,34 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
     for root_ch in tl.channels:
         ch = tex.channels.add()
 
-    # Check and create layer channel nodes
-    check_all_texture_channel_io_and_nodes(tex, tree) #, has_parent=has_parent)
+    if add_mask:
+
+        mask_name = 'Mask ' + tex.name
+        mask_image = None
+        mask_vcol = None
+
+        if mask_type == 'IMAGE':
+            mask_image = bpy.data.images.new(mask_name, 
+                    width=1024, height=1024, alpha=False, float_buffer=False)
+            #if self.color_option == 'WHITE':
+            #    mask_image.generated_color = (1,1,1,1)
+            #elif self.color_option == 'BLACK':
+            #    mask_image.generated_color = (0,0,0,1)
+            mask_image.generated_color = (0,0,0,1)
+            mask_image.use_alpha = False
+
+        # New vertex color
+        elif mask_type == 'VCOL':
+            obj = bpy.context.object
+            mask_vcol = obj.data.vertex_colors.new(name=mask_name)
+            #if self.color_option == 'WHITE':
+            #    set_obj_vertex_colors(obj, mask_vcol, (1.0, 1.0, 1.0))
+            #elif self.color_option == 'BLACK':
+            #    set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
+            set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
+
+        mask = Mask.add_new_mask(tex, mask_name, mask_type, texcoord_type, uv_name, mask_image, mask_vcol)
+        mask.active_edit = True
 
     # Fill channel layer props
     shortcut_created = False
@@ -399,37 +425,11 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
         #else: set_tex_channel_linear_node(tree, tex, root_ch, ch)
         set_tex_channel_linear_node(tree, tex, root_ch, ch)
 
+    # Check and create layer channel nodes
+    check_all_texture_channel_io_and_nodes(tex, tree) #, has_parent=has_parent)
+
     # Refresh paint image by updating the index
     tl.active_texture_index = index
-
-    if add_mask:
-
-        mask_name = 'Mask ' + tex.name
-        mask_image = None
-        mask_vcol = None
-
-        if mask_type == 'IMAGE':
-            mask_image = bpy.data.images.new(mask_name, 
-                    width=1024, height=1024, alpha=False, float_buffer=False)
-            #if self.color_option == 'WHITE':
-            #    mask_image.generated_color = (1,1,1,1)
-            #elif self.color_option == 'BLACK':
-            #    mask_image.generated_color = (0,0,0,1)
-            mask_image.generated_color = (0,0,0,1)
-            mask_image.use_alpha = False
-
-        # New vertex color
-        elif mask_type == 'VCOL':
-            obj = bpy.context.object
-            mask_vcol = obj.data.vertex_colors.new(name=mask_name)
-            #if self.color_option == 'WHITE':
-            #    set_obj_vertex_colors(obj, mask_vcol, (1.0, 1.0, 1.0))
-            #elif self.color_option == 'BLACK':
-            #    set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
-            set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
-
-        mask = Mask.add_new_mask(tex, mask_name, mask_type, texcoord_type, uv_name, mask_image, mask_vcol)
-        mask.active_edit = True
 
     # Unhalt rearrangements and reconnections since all nodes already created
     tl.halt_reconnect = False
@@ -614,9 +614,9 @@ class YNewTextureLayer(bpy.types.Operator):
             items = tl.textures
             
         # Default normal map type is fine bump map
-        if self.type not in {'VCOL', 'COLOR'}:
-            self.normal_map_type = 'FINE_BUMP_MAP'
-        else: self.normal_map_type = 'BUMP_MAP'
+        #if self.type not in {'VCOL', 'COLOR'}:
+        self.normal_map_type = 'FINE_BUMP_MAP'
+        #else: self.normal_map_type = 'BUMP_MAP'
 
         self.name = get_unique_name(name, items)
 
@@ -1724,16 +1724,26 @@ def update_channel_enable(self, context):
 
 def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
+    print("Checking channel normal map nodes. Layer: " + tex.name + ' Channel: ' + root_ch.name)
+
+    tl = tex.id_data.tl
+    #if tl.halt_update: return
+
     if root_ch.type != 'NORMAL': return
-    #if tex.type in {'BACKGROUND', 'GROUP'}: return
+    if tex.type in {'BACKGROUND', 'GROUP'}: return
 
     normal_map_type = ch.normal_map_type
     #if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
     if tex.type == 'VCOL' and ch.normal_map_type == 'FINE_BUMP_MAP':
         normal_map_type = 'BUMP_MAP'
     #elif tex.type == 'COLOR':
-    elif tex.type in {'BACKGROUND', 'GROUP', 'COLOR'}:
+    #elif tex.type in {'BACKGROUND', 'GROUP', 'COLOR'}:
+    #    normal_map_type = ''
+
+    if is_valid_to_remove_bump_nodes(tex, ch):
         normal_map_type = ''
+
+    #print(normal_map_type)
 
     # Normal nodes
     if normal_map_type == 'NORMAL_MAP':
@@ -1807,6 +1817,12 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
     # Check bump base
     check_create_bump_base(tex, tree, ch)
 
+    # Check mask multiplies
+    check_mask_multiply_nodes(tex, tree)
+
+    # Check mask source tree
+    check_mask_source_tree(tex) #, ch)
+
 def update_normal_map_type(self, context):
     tl = self.id_data.tl
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
@@ -1821,6 +1837,9 @@ def update_normal_map_type(self, context):
     reconnect_tex_nodes(tex)
 
 def check_blend_type_nodes(root_ch, tex, ch):
+
+    print("Checking blend type nodes. Layer: " + tex.name + ' Channel: ' + root_ch.name)
+
     need_reconnect = False
 
     tree = get_tree(tex)
@@ -1950,7 +1969,8 @@ def update_bump_distance(self, context):
     tree = get_tree(tex)
 
     normal_map_type = self.normal_map_type
-    if tex.type in {'VCOL', 'COLOR'} and self.normal_map_type == 'FINE_BUMP_MAP':
+    #if tex.type in {'VCOL', 'COLOR'} and self.normal_map_type == 'FINE_BUMP_MAP':
+    if tex.type in {'VCOL'}  and self.normal_map_type == 'FINE_BUMP_MAP':
         normal_map_type = 'BUMP_MAP'
 
     if normal_map_type == 'BUMP_MAP':
@@ -2316,12 +2336,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
                 ('CURVED_BUMP_MAP', 'Curved Bump', ''),
                 ),
             #default = 'FINE_BUMP_MAP',
-            update=transition.update_enable_transition_bump)
-
-    mask_bump_mask_only = BoolProperty(
-            name = 'Mask Bump Mask Only',
-            description = 'Mask bump mask only',
-            default=False,
             update=transition.update_enable_transition_bump)
 
     mask_bump_chain = IntProperty(

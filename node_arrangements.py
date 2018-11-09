@@ -513,6 +513,37 @@ def rearrange_mask_ramp_nodes(tree, ch, loc, include_blending=True):
     if include_blending:
         rearrange_mask_ramp_blending_nodes(tree, ch, loc)
 
+def rearrange_normal_process_nodes(tree, ch, loc):
+
+    bookmark_y = loc.y
+
+    if check_set_node_loc(tree, ch.bump_base, loc):
+        loc.x += 200
+
+    if check_set_node_loc(tree, ch.bump, loc):
+        loc.x += 250
+
+    if check_set_node_loc(tree, ch.normal, loc):
+        loc.x += 250
+
+    loc.y -= 40
+    if check_set_node_loc(tree, ch.bump_base_n, loc, hide=True):
+        loc.y -= 40
+    else: loc.y += 40
+
+    if check_set_node_loc(tree, ch.bump_base_s, loc, hide=True):
+        loc.y -= 40
+
+    if check_set_node_loc(tree, ch.bump_base_e, loc, hide=True):
+        loc.y -= 40
+
+    if check_set_node_loc(tree, ch.bump_base_w, loc, hide=True):
+        loc.y = bookmark_y
+        loc.x += 120
+
+    if check_set_node_loc(tree, ch.fine_bump, loc):
+        loc.x += 250
+
 def rearrange_tex_nodes(tex, tree=None):
     tl = tex.id_data.tl
 
@@ -653,6 +684,13 @@ def rearrange_tex_nodes(tex, tree=None):
 
         root_ch = tl.channels[i]
 
+        if root_ch.type == 'NORMAL':
+            chain = min(len(tex.masks), ch.mask_bump_chain)
+        elif bump_ch:
+            chain = min(len(tex.masks), bump_ch.mask_bump_chain)
+        else:
+            chain = -1
+
         loc.x = start_x
         bookmark_y = loc.y
         bookmarks_ys.append(bookmark_y)
@@ -691,32 +729,8 @@ def rearrange_tex_nodes(tex, tree=None):
             loc.y = bookmark_y
             loc.x += 160
 
-        if check_set_node_loc(tree, ch.bump_base, loc):
-            loc.x += 200
-
-        if check_set_node_loc(tree, ch.bump, loc):
-            loc.x += 250
-
-        if check_set_node_loc(tree, ch.normal, loc):
-            loc.x += 250
-
-        loc.y -= 40
-        if check_set_node_loc(tree, ch.bump_base_n, loc, hide=True):
-            loc.y -= 40
-        else: loc.y += 40
-
-        if check_set_node_loc(tree, ch.bump_base_s, loc, hide=True):
-            loc.y -= 40
-
-        if check_set_node_loc(tree, ch.bump_base_e, loc, hide=True):
-            loc.y -= 40
-
-        if check_set_node_loc(tree, ch.bump_base_w, loc, hide=True):
-            loc.y = bookmark_y
-            loc.x += 120
-
-        if check_set_node_loc(tree, ch.fine_bump, loc):
-            loc.x += 250
+        if bump_ch or chain == 0:
+            rearrange_normal_process_nodes(tree, ch, loc)
 
         if loc.x > farthest_x: farthest_x = loc.x
 
@@ -739,7 +753,7 @@ def rearrange_tex_nodes(tex, tree=None):
     y_step = 200
     y_mid = -(len(tex.channels) * y_step / 2)
 
-    if chain == 0:
+    if bump_ch and chain == 0:
 
         loc.x = farthest_x
         loc.y = 0
@@ -815,6 +829,16 @@ def rearrange_tex_nodes(tex, tree=None):
         # Mask channels
         for j, c in enumerate(mask.channels):
 
+            ch = tex.channels[j]
+            root_ch = tl.channels[j]
+
+            if root_ch.type == 'NORMAL':
+                chain = min(len(tex.masks), ch.mask_bump_chain)
+            elif bump_ch:
+                chain = min(len(tex.masks), bump_ch.mask_bump_chain)
+            else:
+                chain = -1
+
             loc.x = bookmark_x
             bookmark_y = loc.y
 
@@ -862,6 +886,10 @@ def rearrange_tex_nodes(tex, tree=None):
 
                 if bump_ch == ch:
                     rearrange_mask_bump_nodes(tree, ch, loc)
+                    loc.y -= 300
+
+                if not bump_ch:
+                    rearrange_normal_process_nodes(tree, ch, loc)
                     loc.y -= 300
 
             else:
