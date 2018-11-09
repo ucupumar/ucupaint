@@ -585,7 +585,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
 
         # Color layer uses geometry normal
-        if tex.type == 'COLOR' and root_ch.type == 'NORMAL':
+        if tex.type == 'COLOR' and root_ch.type == 'NORMAL' and is_valid_to_remove_bump_nodes(tex, ch):
             rgb = geometry.outputs['Normal']
 
         # Input RGB from layer below
@@ -712,8 +712,17 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     bump = nodes.get(ch.bump)
                     bump_base = nodes.get(ch.bump_base)
                     if bump and bump_base:
+
                         create_link(tree, rgb, bump_base.inputs['Color2'])
-                        create_link(tree, alpha, bump_base.inputs['Fac'])
+
+                        chain_local = min(len(tex.masks), ch.mask_bump_chain)
+
+                        if not trans_bump_ch and len(tex.masks) > 0 and chain_local > 0:
+                            mul = nodes.get(tex.masks[chain_local-1].channels[i].multiply).outputs[0]
+                            create_link(tree, mul, bump_base.inputs['Fac'])
+                        else:
+                            create_link(tree, alpha, bump_base.inputs['Fac'])
+
                         create_link(tree, bump_base.outputs[0], bump.inputs[2])
                         rgb = bump.outputs[0]
 

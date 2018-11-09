@@ -615,7 +615,8 @@ class YNewTextureLayer(bpy.types.Operator):
             
         # Default normal map type is fine bump map
         #if self.type not in {'VCOL', 'COLOR'}:
-        self.normal_map_type = 'FINE_BUMP_MAP'
+        #self.normal_map_type = 'FINE_BUMP_MAP'
+        self.normal_map_type = 'BUMP_MAP'
         #else: self.normal_map_type = 'BUMP_MAP'
 
         self.name = get_unique_name(name, items)
@@ -1724,7 +1725,7 @@ def update_channel_enable(self, context):
 
 def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
-    print("Checking channel normal map nodes. Layer: " + tex.name + ' Channel: ' + root_ch.name)
+    #print("Checking channel normal map nodes. Layer: " + tex.name + ' Channel: ' + root_ch.name)
 
     tl = tex.id_data.tl
     #if tl.halt_update: return
@@ -1838,7 +1839,7 @@ def update_normal_map_type(self, context):
 
 def check_blend_type_nodes(root_ch, tex, ch):
 
-    print("Checking blend type nodes. Layer: " + tex.name + ' Channel: ' + root_ch.name)
+    #print("Checking blend type nodes. Layer: " + tex.name + ' Channel: ' + root_ch.name)
 
     need_reconnect = False
 

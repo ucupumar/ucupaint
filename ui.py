@@ -1857,7 +1857,7 @@ class YNewTexMenu(bpy.types.Menu):
             col.operator("node.y_open_available_image_to_layer", text='Open Available Image') #, icon='FILEBROWSER')
         else:
             col.operator("node.y_open_image_to_layer", text='Open Image', icon='IMASEL')
-            col.operator("node.y_open_available_image_to_layer", text='Open Available Image', icon='IMASEL')
+            col.operator("node.y_open_available_image_to_layer", text='Open Available Image') #, icon='IMASEL')
 
         col.separator()
 
@@ -1877,7 +1877,7 @@ class YNewTexMenu(bpy.types.Menu):
 
         if bpy.app.version_string.startswith('2.8'):
             c = col.operator("node.y_new_texture_layer", text='Solid Color w/ Vertex Color Mask')
-        else: c = col.operator("node.y_new_texture_layer", icon='COLOR', text='Solid Color w/ Vertex Color Mask')
+        else: c = col.operator("node.y_new_texture_layer", text='Solid Color w/ Vertex Color Mask')
         c.type = 'COLOR'
         c.add_mask = True
         c.mask_type = 'VCOL'
@@ -1892,7 +1892,7 @@ class YNewTexMenu(bpy.types.Menu):
 
         if bpy.app.version_string.startswith('2.8'):
             c = col.operator("node.y_new_texture_layer", text='Background w/ Vertex Color Mask')
-        else: c = col.operator("node.y_new_texture_layer", icon='IMAGE_RGB_ALPHA', text='Background w/ Vertex Color Mask')
+        else: c = col.operator("node.y_new_texture_layer", text='Background w/ Vertex Color Mask')
 
         c.type = 'BACKGROUND'
         c.add_mask = True
