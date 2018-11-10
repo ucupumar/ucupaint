@@ -151,9 +151,10 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
             col = (ch.transition_ao_color.r, ch.transition_ao_color.g, ch.transition_ao_color.b, 1.0)
             tao.inputs['AO Color'].default_value = col
 
-            if bump_ch.mask_bump_flip or tex.type == 'BACKGROUND':
-                tao.inputs['Edge'].default_value = -ch.transition_ao_edge
-            else: tao.inputs['Edge'].default_value = ch.transition_ao_edge
+            #if bump_ch.mask_bump_flip or tex.type == 'BACKGROUND':
+            #    tao.inputs['Edge'].default_value = -ch.transition_ao_edge
+            #else: tao.inputs['Edge'].default_value = ch.transition_ao_edge
+            tao.inputs['Edge'].default_value = ch.transition_ao_edge
 
             tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
             #tao.inputs['Gamma'].default_value = 1.0
@@ -581,9 +582,10 @@ def update_transition_ao_edge(self, context):
 
     tao = tree.nodes.get(ch.tao)
     if tao and bump_ch:
-        if bump_ch.mask_bump_flip or tex.type=='BACKGROUND':
-            tao.inputs['Edge'].default_value = -ch.transition_ao_edge
-        else: tao.inputs['Edge'].default_value = ch.transition_ao_edge
+        #if bump_ch.mask_bump_flip or tex.type=='BACKGROUND':
+        #    tao.inputs['Edge'].default_value = -ch.transition_ao_edge
+        #else: tao.inputs['Edge'].default_value = ch.transition_ao_edge
+        tao.inputs['Edge'].default_value = ch.transition_ao_edge
 
 def update_transition_ao_color(self, context):
 

@@ -13,7 +13,7 @@
 # - Replace total mask node and implement transition bump/ramp chain system (V)
 # - Flip bump mode
 #   - Crease
-#   - Force Transparent
+#   - Force Transparent (V)
 #   - AO (V)
 # - Color layer (?)
 # - Upper layer affect below layer (?):
@@ -38,6 +38,8 @@
 # - Sharp bump can cause bleed on color channel (V)
 # - Value channel should output only grayscale (V)
 # - Wrong result after adding texture modifier (V, need more testing)
+# - Transition AO at flip produce wrong result
+# - Bring back modifier on normal channel at Color layer
 # - Musgrave fine bump cannot read below 0.0
 #
 # KNOWN ISSUES:
