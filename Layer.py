@@ -1735,14 +1735,14 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
     normal_map_type = ch.normal_map_type
     #if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
-    if tex.type == 'VCOL' and ch.normal_map_type == 'FINE_BUMP_MAP':
-        normal_map_type = 'BUMP_MAP'
+    #if tex.type == 'VCOL' and ch.normal_map_type == 'FINE_BUMP_MAP':
+    #    normal_map_type = 'BUMP_MAP'
     #elif tex.type == 'COLOR':
     #elif tex.type in {'BACKGROUND', 'GROUP', 'COLOR'}:
     #    normal_map_type = ''
 
-    if is_valid_to_remove_bump_nodes(tex, ch):
-        normal_map_type = ''
+    #if is_valid_to_remove_bump_nodes(tex, ch):
+    #    normal_map_type = ''
 
     #print(normal_map_type)
 
@@ -1971,8 +1971,8 @@ def update_bump_distance(self, context):
 
     normal_map_type = self.normal_map_type
     #if tex.type in {'VCOL', 'COLOR'} and self.normal_map_type == 'FINE_BUMP_MAP':
-    if tex.type in {'VCOL'}  and self.normal_map_type == 'FINE_BUMP_MAP':
-        normal_map_type = 'BUMP_MAP'
+    #if tex.type in {'VCOL'}  and self.normal_map_type == 'FINE_BUMP_MAP':
+    #    normal_map_type = 'BUMP_MAP'
 
     if normal_map_type == 'BUMP_MAP':
         bump = tree.nodes.get(self.bump)

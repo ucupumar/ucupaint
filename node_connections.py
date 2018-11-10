@@ -585,8 +585,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
 
         # Color layer uses geometry normal
-        if tex.type == 'COLOR' and root_ch.type == 'NORMAL' and is_valid_to_remove_bump_nodes(tex, ch):
-            rgb = geometry.outputs['Normal']
+        #if tex.type == 'COLOR' and root_ch.type == 'NORMAL' and is_valid_to_remove_bump_nodes(tex, ch): # and len(ch.modifiers) == 0:
+        #    rgb = geometry.outputs['Normal']
 
         # Input RGB from layer below
         #if tex.type == 'BACKGROUND':
@@ -632,29 +632,14 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         mod_group = nodes.get(ch.mod_group)
 
         # Background layer won't use modifier outputs
-        if tex.type == 'BACKGROUND' or (tex.type == 'COLOR' and root_ch.type == 'NORMAL'):
+        #if tex.type == 'BACKGROUND' or (tex.type == 'COLOR' and root_ch.type == 'NORMAL'):
+        if tex.type == 'BACKGROUND':
             #reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
             pass
         else:
             rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
 
         if root_ch.type == 'NORMAL':
-
-            # Neighbor RGB and alpha
-            alpha_n = start_alpha
-            alpha_s = start_alpha
-            alpha_e = start_alpha
-            alpha_w = start_alpha
-
-            rgb_n = start_rgb
-            rgb_s = start_rgb
-            rgb_e = start_rgb
-            rgb_w = start_rgb
-
-            mod_n = nodes.get(ch.mod_n)
-            mod_s = nodes.get(ch.mod_s)
-            mod_e = nodes.get(ch.mod_e)
-            mod_w = nodes.get(ch.mod_w)
 
             # Get neighbor rgb
             if source_n:
@@ -672,11 +657,32 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 alpha_e = source_e.outputs[source_index+1]
                 alpha_w = source_w.outputs[source_index+1]
 
-            if tex.type == 'VCOL' and uv_neighbor:
+            elif tex.type == 'VCOL' and uv_neighbor:
                 rgb_n = uv_neighbor.outputs['n']
                 rgb_s = uv_neighbor.outputs['s']
                 rgb_e = uv_neighbor.outputs['e']
                 rgb_w = uv_neighbor.outputs['w']
+
+                alpha_n = start_alpha
+                alpha_s = start_alpha
+                alpha_e = start_alpha
+                alpha_w = start_alpha
+            
+            else:
+                alpha_n = alpha
+                alpha_s = alpha
+                alpha_e = alpha
+                alpha_w = alpha
+
+                rgb_n = rgb
+                rgb_s = rgb
+                rgb_e = rgb
+                rgb_w = rgb
+
+            mod_n = nodes.get(ch.mod_n)
+            mod_s = nodes.get(ch.mod_s)
+            mod_e = nodes.get(ch.mod_e)
+            mod_w = nodes.get(ch.mod_w)
 
             if mod_n:
                 rgb_n = create_link(tree, rgb_n, mod_n.inputs[0])[0]

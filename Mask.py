@@ -329,6 +329,7 @@ class YRemoveTextureMask(bpy.types.Operator):
         tex = context.texture
         tree = get_tree(tex)
         obj = context.object
+        tl = tex.id_data.tl
 
         remove_mask(tex, mask, obj)
 
@@ -344,11 +345,12 @@ class YRemoveTextureMask(bpy.types.Operator):
 
         # Use texture image as active image if active edit mask not found
         if not found_active_edit:
-            if tex.type == 'IMAGE':
-                source = get_tex_source(tex, tree)
-                update_image_editor_image(context, source.image)
-            else:
-                update_image_editor_image(context, None)
+            #if tex.type == 'IMAGE':
+            #    source = get_tex_source(tex, tree)
+            #    update_image_editor_image(context, source.image)
+            #else:
+            #    update_image_editor_image(context, None)
+            tl.active_texture_index = tl.active_texture_index
 
         # Refresh viewport and image editor
         for area in bpy.context.screen.areas:

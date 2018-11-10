@@ -367,7 +367,7 @@ def check_create_bump_base(tex, tree, ch):
     #    normal_map_type = 'BUMP_MAP'
 
     skip = False
-    if tex.type == 'BACKGROUND' or is_valid_to_remove_bump_nodes(tex, ch):
+    if tex.type == 'BACKGROUND': #or is_valid_to_remove_bump_nodes(tex, ch):
         skip = True
 
     if not skip and normal_map_type == 'FINE_BUMP_MAP':

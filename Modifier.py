@@ -1020,7 +1020,8 @@ def enable_modifiers_tree(parent, rearrange = False):
         tex = tl.textures[int(match1.group(1))]
         root_ch = tl.channels[int(match1.group(2))]
         name = root_ch.name + ' ' + tex.name
-        if tex.type == 'BACKGROUND':
+        #if tex.type == 'BACKGROUND':
+        if tex.type in {'BACKGROUND', 'COLOR'}:
             return
     elif match2:
         tex = parent

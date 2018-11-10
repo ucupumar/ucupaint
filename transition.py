@@ -121,7 +121,7 @@ def check_transition_bump_influences_to_other_channels(tex, tree=None, target_ch
 
 def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
 
-    if not bump_ch or tex.type == 'BACKGROUND':
+    if not bump_ch or tex.type == 'BACKGROUND' or not ch.enable_transition_ao:
         remove_node(tree, ch, 'tao')
 
     elif bump_ch != ch and ch.enable_transition_ao:

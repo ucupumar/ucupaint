@@ -38,7 +38,7 @@
 # - Sharp bump can cause bleed on color channel (V)
 # - Value channel should output only grayscale (V)
 # - Wrong result after adding texture modifier (V, need more testing)
-# - Transition AO at flip produce wrong result
+# - Transition AO at flip produce wrong result (V)
 # - Bring back modifier on normal channel at Color layer
 # - Musgrave fine bump cannot read below 0.0
 #
