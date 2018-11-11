@@ -798,6 +798,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 transition_input = alpha
                 alpha = create_link(tree, alpha, intensity_multiplier.inputs[0])[0]
 
+        # If transition bump is not found, use last alpha as input
+        if not trans_bump_ch:
+            transition_input = alpha
+
         # Transition Bump
         if root_ch.type == 'NORMAL' and ch.enable_mask_bump and ch.enable:
 

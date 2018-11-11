@@ -1,4 +1,4 @@
-import bpy, os, sys, re
+import bpy, os, sys, re, time
 from mathutils import *
 from bpy.app.handlers import persistent
 #from .__init__ import bl_info
@@ -473,7 +473,36 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
             elif (obj and obj.type == 'MESH' #and obj.active_material and obj.active_material.users == 1
                     and hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == 'ShaderNodeAttribute'):
                 vcol = obj.data.vertex_colors.get(node.attribute_name)
-                obj.data.vertex_colors.remove(vcol)
+
+                T = time.time()
+
+                # Check if other layer use this vertex color
+                other_users_found = False
+                for ng in bpy.data.node_groups:
+                    for t in ng.tl.textures:
+
+                        # Search for vcol layer
+                        if t.type == 'VCOL':
+                            src = get_tex_source(t)
+                            if src != node and src.attribute_name == vcol.name:
+                                other_users_found = True
+                                break
+
+                        # Search for mask layer
+                        for m in t.masks:
+                            if m.type == 'VCOL':
+                                src = get_mask_source(m)
+                                if src != node and src.attribute_name == vcol.name:
+                                    other_users_found = True
+                                    break
+
+                print('INFO: Searching on entire node groups to search for vcol takes', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
+                #other_user_found = False
+                #for t in tl.textures:
+                #    if t.type == 'VCOL':
+                if not other_users_found:
+                    obj.data.vertex_colors.remove(vcol)
 
         # Remove the node itself
         #print('Node ' + prop + ' from ' + str(entity) + ' removed!')
@@ -696,9 +725,9 @@ def force_bump_base_value(tree, ch, value):
         b = tree.nodes.get(getattr(ch, 'bump_base_' + d))
         if b: b.inputs[1].default_value = col
 
-    for mod in ch.modifiers:
-        if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
-            mod.oc_col = col
+    #for mod in ch.modifiers:
+    #    if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
+    #        mod.oc_col = col
 
 def update_bump_base_value_(tree, ch):
     force_bump_base_value(tree, ch, ch.bump_base_value)

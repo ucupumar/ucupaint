@@ -315,7 +315,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_e
                 row.prop(m, 'rgb2i_col', text='', icon='COLOR')
                 row.separator()
 
-            if m.type == 'OVERRIDE_COLOR' and not m.oc_use_normal_base:
+            if m.type == 'OVERRIDE_COLOR': # and not m.oc_use_normal_base:
                 row.prop(m, 'oc_col', text='', icon='COLOR')
                 row.separator()
 
@@ -395,10 +395,14 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
         #if channel.type != 'NORMAL':
         row.context_pointer_set('parent', channel)
         row.context_pointer_set('channel_ui', chui)
-        if custom_icon_enable:
+        #if custom_icon_enable:
+        if bpy.app.version_string.startswith('2.8'):
+            #row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
+            row.menu("NODE_MT_y_texture_modifier_specials", icon='PREFERENCES', text='')
+        else:
             icon_value = lib.custom_icons["add_modifier"].icon_id
-            row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
-        else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
+            #row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
+            row.menu("NODE_MT_y_texture_modifier_specials", icon='SCRIPTWIN', text='')
 
         if chui.expand_content:
 
@@ -761,10 +765,14 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
         row.context_pointer_set('texture', tex)
         row.context_pointer_set('channel_ui', chui)
 
-        if custom_icon_enable:
+        #if custom_icon_enable:
+        if bpy.app.version_string.startswith('2.8'):
+            #row.menu('NODE_MT_y_texture_modifier_specials', text='', icon='MODIFIER')
+            row.menu("NODE_MT_y_texture_modifier_specials", icon='PREFERENCES', text='')
+        else:
             icon_value = lib.custom_icons["add_modifier"].icon_id
-            row.menu('NODE_MT_y_texture_modifier_specials', text='', icon_value=icon_value)
-        else: row.menu('NODE_MT_y_texture_modifier_specials', text='', icon='MODIFIER')
+            #row.menu('NODE_MT_y_texture_modifier_specials', text='', icon_value=icon_value)
+            row.menu("NODE_MT_y_texture_modifier_specials", icon='SCRIPTWIN', text='')
 
         if tlui.expand_channels:
             row.prop(ch, 'enable', text='')
@@ -851,7 +859,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
             row = mcol.row(align=True)
             #row.active = tex.type != 'COLOR'
-            row.active = not is_valid_to_remove_bump_nodes(tex, ch)
+            #row.active = not is_valid_to_remove_bump_nodes(tex, ch)
 
             if custom_icon_enable:
                 if chui.expand_bump_settings:
@@ -882,7 +890,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
                 bbox = row.box()
                 #bbox.active = tex.type != 'COLOR'
-                bbox.active = not is_valid_to_remove_bump_nodes(tex, ch)
+                #bbox.active = not is_valid_to_remove_bump_nodes(tex, ch)
                 cccol = bbox.column(align=True)
 
                 if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
@@ -891,10 +899,16 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     brow.label(text='Distance:') #, icon='INFO')
                     brow.prop(ch, 'bump_distance', text='')
 
-                    if not ch.enable_mask_bump:
-                        brow = cccol.row(align=True)
-                        brow.label(text='Bump Base:') #, icon='INFO')
-                        brow.prop(ch, 'bump_base_value', text='')
+                    #if not ch.enable_mask_bump:
+                    brow = cccol.row(align=True)
+                    brow.active = not ch.enable_mask_bump
+                    brow.label(text='Bump Base:') #, icon='INFO')
+                    brow.prop(ch, 'bump_base_value', text='')
+
+                    brow = cccol.row(align=True)
+                    brow.active = not ch.enable_mask_bump
+                    brow.label(text='Affected Masks:') #, icon='INFO')
+                    brow.prop(ch, 'mask_bump_chain', text='')
 
                 #brow = cccol.row(align=True)
                 #brow.label(text='Invert Backface Normal')
@@ -1077,8 +1091,11 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
     row.label(text=label)
 
     if custom_icon_enable:
-        row.menu('NODE_MT_y_add_texture_mask_menu', text='', icon_value = lib.custom_icons['add_mask'].icon_id)
-    else: row.menu("NODE_MT_y_add_texture_mask_menu", text='', icon='MOD_MASK')
+        #row.menu('NODE_MT_y_add_texture_mask_menu', text='', icon_value = lib.custom_icons['add_mask'].icon_id)
+        row.menu('NODE_MT_y_add_texture_mask_menu', text='', icon='ZOOMIN')
+    else: 
+        #row.menu("NODE_MT_y_add_texture_mask_menu", text='', icon='MOD_MASK')
+        row.menu("NODE_MT_y_add_texture_mask_menu", text='', icon='ADD')
 
     if not texui.expand_masks or len(tex.masks) == 0: return
 
@@ -1382,7 +1399,7 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
                 c.direction = 'UP'
                 c.move_out = False
             else: 
-                c = rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_UP')
+                c = rcol.operator("node.y_move_layer", text='', icon='TRIA_UP')
                 c.direction = 'UP'
 
         if is_bottom_member(tex):
@@ -1397,7 +1414,7 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
                 c.direction = 'DOWN'
                 c.move_out = False
             else: 
-                c = rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_DOWN')
+                c = rcol.operator("node.y_move_layer", text='', icon='TRIA_DOWN')
                 c.direction = 'DOWN'
 
     else:
@@ -1406,8 +1423,8 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
             rcol.operator("node.y_remove_layer", icon='REMOVE', text='')
         else: rcol.operator("node.y_remove_layer", icon='ZOOMOUT', text='')
 
-        rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_UP').direction = 'UP'
-        rcol.operator("node.y_move_texture_layer", text='', icon='TRIA_DOWN').direction = 'DOWN'
+        rcol.operator("node.y_move_layer", text='', icon='TRIA_UP').direction = 'UP'
+        rcol.operator("node.y_move_layer", text='', icon='TRIA_DOWN').direction = 'DOWN'
 
     rcol.menu("NODE_MT_y_texture_specials", text='', icon='DOWNARROW_HLT')
 
@@ -1775,7 +1792,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                         shortcut_found = True
                         break
 
-                    elif mod.type == 'OVERRIDE_COLOR' and not mod.oc_use_normal_base:
+                    elif mod.type == 'OVERRIDE_COLOR': # and not mod.oc_use_normal_base:
                         rrow = row.row()
                         mod_tree = get_mod_tree(mod)
                         rrow.prop(mod, 'oc_col', text='', icon='COLOR')
@@ -1795,7 +1812,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
                             shortcut_found = True
                             break
 
-                        elif mod.type == 'OVERRIDE_COLOR' and not mod.oc_use_normal_base:
+                        elif mod.type == 'OVERRIDE_COLOR': # and not mod.oc_use_normal_base:
                             rrow = row.row()
                             mod_tree = get_mod_tree(mod)
                             rrow.prop(mod, 'oc_col', text='', icon='COLOR')
@@ -1848,36 +1865,38 @@ class YNewTexMenu(bpy.types.Menu):
         col = self.layout.column(align=True)
         #col.context_pointer_set('group_node', context.group_node)
         #col.label(text='Image:')
-        col.operator("node.y_new_texture_layer", text='New Image', icon='IMAGE_DATA').type = 'IMAGE'
+        col.operator("node.y_new_layer", text='New Image', icon='IMAGE_DATA').type = 'IMAGE'
 
-        col.separator()
+        #col.separator()
 
+        col.operator("node.y_open_image_to_layer", text='Open Image')
         if bpy.app.version_string.startswith('2.8'):
-            col.operator("node.y_open_image_to_layer", text='Open Image', icon='FILEBROWSER')
-            col.operator("node.y_open_available_image_to_layer", text='Open Available Image') #, icon='FILEBROWSER')
+            #col.operator("node.y_open_image_to_layer", text='Open Image', icon='FILEBROWSER')
+            col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
         else:
-            col.operator("node.y_open_image_to_layer", text='Open Image', icon='IMASEL')
-            col.operator("node.y_open_available_image_to_layer", text='Open Available Image') #, icon='IMASEL')
+            #col.operator("node.y_open_image_to_layer", text='Open Image', icon='IMASEL')
+            col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
 
         col.separator()
 
-        col.operator("node.y_new_texture_layer", icon='FILE_FOLDER', text='Layer Group').type = 'GROUP'
+        col.operator("node.y_new_layer", icon='FILE_FOLDER', text='New Layer Group').type = 'GROUP'
         col.separator()
 
         #col.label(text='Vertex Color:')
-        col.operator("node.y_new_texture_layer", icon='GROUP_VCOL', text='Vertex Color').type = 'VCOL'
+        col.operator("node.y_new_layer", icon='GROUP_VCOL', text='New Vertex Color').type = 'VCOL'
+        col.operator("node.y_open_available_data_to_layer", text='Open Available Vertex Color').type = 'VCOL'
         col.separator()
 
         #col.label(text='Solid Color:')
 
-        c = col.operator("node.y_new_texture_layer", icon='COLOR', text='Solid Color w/ Image Mask')
+        c = col.operator("node.y_new_layer", icon='COLOR', text='Solid Color w/ Image Mask')
         c.type = 'COLOR'
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
         if bpy.app.version_string.startswith('2.8'):
-            c = col.operator("node.y_new_texture_layer", text='Solid Color w/ Vertex Color Mask')
-        else: c = col.operator("node.y_new_texture_layer", text='Solid Color w/ Vertex Color Mask')
+            c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
+        else: c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
         c.type = 'COLOR'
         c.add_mask = True
         c.mask_type = 'VCOL'
@@ -1885,14 +1904,14 @@ class YNewTexMenu(bpy.types.Menu):
         col.separator()
 
         #col.label(text='Background:')
-        c = col.operator("node.y_new_texture_layer", icon='IMAGE_RGB_ALPHA', text='Background w/ Image Mask')
+        c = col.operator("node.y_new_layer", icon='IMAGE_RGB_ALPHA', text='Background w/ Image Mask')
         c.type = 'BACKGROUND'
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
         if bpy.app.version_string.startswith('2.8'):
-            c = col.operator("node.y_new_texture_layer", text='Background w/ Vertex Color Mask')
-        else: c = col.operator("node.y_new_texture_layer", text='Background w/ Vertex Color Mask')
+            c = col.operator("node.y_new_layer", text='Background w/ Vertex Color Mask')
+        else: c = col.operator("node.y_new_layer", text='Background w/ Vertex Color Mask')
 
         c.type = 'BACKGROUND'
         c.add_mask = True
@@ -1902,14 +1921,14 @@ class YNewTexMenu(bpy.types.Menu):
 
         #col = row.column()
         #col.label(text='Generated:')
-        col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Brick').type = 'BRICK'
-        col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Checker').type = 'CHECKER'
-        col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Gradient').type = 'GRADIENT'
-        col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Magic').type = 'MAGIC'
-        col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Musgrave').type = 'MUSGRAVE'
-        col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Noise').type = 'NOISE'
-        col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Voronoi').type = 'VORONOI'
-        col.operator("node.y_new_texture_layer", icon='TEXTURE', text='Wave').type = 'WAVE'
+        col.operator("node.y_new_layer", icon='TEXTURE', text='Brick').type = 'BRICK'
+        col.operator("node.y_new_layer", text='Checker').type = 'CHECKER'
+        col.operator("node.y_new_layer", text='Gradient').type = 'GRADIENT'
+        col.operator("node.y_new_layer", text='Magic').type = 'MAGIC'
+        col.operator("node.y_new_layer", text='Musgrave').type = 'MUSGRAVE'
+        col.operator("node.y_new_layer", text='Noise').type = 'NOISE'
+        col.operator("node.y_new_layer", text='Voronoi').type = 'VORONOI'
+        col.operator("node.y_new_layer", text='Wave').type = 'WAVE'
 
 class YTexSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_texture_specials"
@@ -1992,33 +2011,33 @@ class YAddTexMaskMenu(bpy.types.Menu):
         col.context_pointer_set('texture', context.texture)
 
         col.label(text='Image Mask:')
-        col.operator('node.y_new_texture_mask', icon='IMAGE_DATA', text='New Image Mask').type = 'IMAGE'
+        col.operator('node.y_new_layer_mask', icon='IMAGE_DATA', text='New Image Mask').type = 'IMAGE'
         if bpy.app.version_string.startswith('2.8'):
             col.label(text='Open Image as Mask', icon='FILEBROWSER')
-            col.label(text='Open Available Image as Mask', icon='FILEBROWSER')
+            col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='FILEBROWSER')
         else:
             col.label(text='Open Image as Mask', icon='IMASEL')
-            col.label(text='Open Available Image as Mask', icon='IMASEL')
+            col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='IMASEL').type = 'IMAGE'
         #col.label(text='Not implemented yet!', icon='ERROR')
         col.separator()
         #col.label(text='Open Mask:')
         #col.label(text='Open Other Mask', icon='MOD_MASK')
 
         col.label(text='Vertex Color Mask:')
-        col.operator('node.y_new_texture_mask', text='New Vertex Color Mask', icon='GROUP_VCOL').type = 'VCOL'
-        col.label(text='Open Available Vertex Color as Mask', icon='GROUP_VCOL')
+        col.operator('node.y_new_layer_mask', text='New Vertex Color Mask', icon='GROUP_VCOL').type = 'VCOL'
+        col.operator('node.y_open_available_data_as_mask', text='Open Available Vertex Color as Mask', icon='GROUP_VCOL').type = 'VCOL'
 
         col = row.column(align=True)
         #col.separator()
         col.label(text='Generated Mask:')
-        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Brick').type = 'BRICK'
-        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Checker').type = 'CHECKER'
-        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Gradient').type = 'GRADIENT'
-        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Magic').type = 'MAGIC'
-        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Musgrave').type = 'MUSGRAVE'
-        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Noise').type = 'NOISE'
-        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Voronoi').type = 'VORONOI'
-        col.operator("node.y_new_texture_mask", icon='TEXTURE', text='Wave').type = 'WAVE'
+        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Brick').type = 'BRICK'
+        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Checker').type = 'CHECKER'
+        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Gradient').type = 'GRADIENT'
+        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Magic').type = 'MAGIC'
+        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Musgrave').type = 'MUSGRAVE'
+        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Noise').type = 'NOISE'
+        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Voronoi').type = 'VORONOI'
+        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Wave').type = 'WAVE'
 
 class YTexMaskMenuSpecial(bpy.types.Menu):
     bl_idname = "NODE_MT_y_texture_mask_menu_special"
@@ -2043,15 +2062,15 @@ class YTexMaskMenuSpecial(bpy.types.Menu):
             col.operator('node.y_invert_image', text='Invert Image', icon='IMAGE_ALPHA')
         #col.prop(mask, 'enable_hardness', text='Hardness')
         col.separator()
-        op = col.operator('node.y_move_texture_mask', icon='TRIA_UP', text='Move Mask Up')
+        op = col.operator('node.y_move_layer_mask', icon='TRIA_UP', text='Move Mask Up')
         op.direction = 'UP'
 
-        op = col.operator('node.y_move_texture_mask', icon='TRIA_DOWN', text='Move Mask Down')
+        op = col.operator('node.y_move_layer_mask', icon='TRIA_DOWN', text='Move Mask Down')
         op.direction = 'DOWN'
         col.separator()
         if bpy.app.version_string.startswith('2.8'):
-            col.operator('node.y_remove_texture_mask', text='Remove Mask', icon='REMOVE')
-        else: col.operator('node.y_remove_texture_mask', text='Remove Mask', icon='ZOOMOUT')
+            col.operator('node.y_remove_layer_mask', text='Remove Mask', icon='REMOVE')
+        else: col.operator('node.y_remove_layer_mask', text='Remove Mask', icon='ZOOMOUT')
 
 class YTexModifierSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_texture_modifier_specials"

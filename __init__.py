@@ -1,33 +1,50 @@
 # TODO (Immediate):
 # - Musgrave texture (V)
-# - Masking (Per texture and modifier)
-# - Global mask setting
-#   - Bump
-#   - Ramp
-# - Mask switcher on the list (V)
-# - Texture group/folder
-# - Eraser brush (check for ypanel implementation)
-# - Check for more consistent class names and properties
-#
-# TODO:
-# - Replace total mask node and implement transition bump/ramp chain system (V)
-# - Flip bump mode
-#   - Crease
-#   - Force Transparent (V)
+# - Color layer (V)
+# - Transparent/Background layer (V)
+# - Eevee support (V)
+# - Masking (V)
+#   - Replace total mask node and implement transition bump/ramp chain system (V)
+#   - Active Mask switcher on the list (V)
+#   - Make sure mask has blending option consistency
+# - Transition effects (V)
+#   - Bump (V)
+#   - Ramp (V)
+#   - Flip bump mode (V)
+#   - Crease (X, too bloated)
 #   - AO (V)
-# - Color layer (?)
+#   - Make transition effect option hidden in add modifier menu 
+# - Texture group/folder
+#   - Basic multilevel implementation (V)
+#   - Works with mask and transition effects
+# - New layer/mask improvements
+#   - Open Image as Mask
+#   - Open Vcol as Mask/Layer (V)
+#   - Add mask option when creating new layer (V)
+#   - Remove RGB to Intensity when creating new layer bc its no longer necessary (X, why remove a feature?)
+# - Make sure background layer blending and its ui is consistent
+# - Every modifiers has intensity value for muting to prevent recompilation
+# - Very large texture (UDIM like) to prevent number of image limits
+# - Bake channel (& layer group)
+# - Refactor for more consistent class names and properties
+# - Multiple tl node selector from ui
+# - Fix backface consistency with Blender 2.8 & 2.7
+
+# TODO:
+# - Eraser brush (check for ypanel implementation)
+# - Height based bump channel (similar to substance)
 # - Upper layer affect below layer (?):
-#    - Refraction (?)
-#    - Blur (X?, Already covered by native SSS)
-# - Bump root channel (??)
-# - Matcap view on Normal preview
-# - Per texture preview
-# - Bake channel
-# - 'Ignore below' blend for bake channel result
-# - Bake pointiness, AO 
-# - Blur UV (?)
-# - Texture Group bake proxy
-# - Eevee support
+#   - Refraction
+#   - Blur (X?, Already covered by native SSS)
+# - Preview extra
+#   - Matcap view on Normal preview
+#   - Per texture preview
+# - Bake extra
+#   - Pointiness
+#   - AO
+#   - Highpoly
+#   - Blur (can be only applied on select layer channel)
+#   - 'Ignore below' blend for bake channel result
 # - Armory support (X, proper bake system is better be the solution)
 #
 # TODO OPT:
@@ -39,7 +56,9 @@
 # - Value channel should output only grayscale (V)
 # - Wrong result after adding texture modifier (V, need more testing)
 # - Transition AO at flip produce wrong result (V)
-# - Bring back modifier on normal channel at Color layer
+# - Bring back modifier on normal channel at Color layer (V)
+# - Childen layers produce wrong result after delete parent only
+# - Float image still lose precision after packed (its very apparent on bump effect)
 # - Musgrave fine bump cannot read below 0.0
 #
 # KNOWN ISSUES:

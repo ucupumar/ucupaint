@@ -86,10 +86,10 @@ def remove_mask(tex, mask, obj):
             tex.masks.remove(i)
             break
 
-class YNewTextureMask(bpy.types.Operator):
-    bl_idname = "node.y_new_texture_mask"
-    bl_label = "New Texture Mask"
-    bl_description = "New Texture Mask"
+class YNewLayerMask(bpy.types.Operator):
+    bl_idname = "node.y_new_layer_mask"
+    bl_label = "New Layer Mask"
+    bl_description = "New Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
 
     name = StringProperty(default='')
@@ -267,10 +267,128 @@ class YNewTextureMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YMoveTextureMask(bpy.types.Operator):
-    bl_idname = "node.y_move_texture_mask"
-    bl_label = "Move Texture Mask"
-    bl_description = "Move texture mask"
+class YOpenAvailableDataAsMask(bpy.types.Operator):
+    bl_idname = "node.y_open_available_data_as_mask"
+    bl_label = "Open available data as Layer Mask"
+    bl_description = "Open available data as Layer Mask"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    type = EnumProperty(
+            name = 'Layer Type',
+            items = (('IMAGE', 'Image', ''),
+                ('VCOL', 'Vertex Color', '')),
+            default = 'IMAGE')
+
+    texcoord_type = EnumProperty(
+            name = 'Texture Coordinate Type',
+            items = texcoord_type_items,
+            default = 'UV')
+
+    uv_map = StringProperty(default='')
+
+    image_name = StringProperty(name="Image")
+    image_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    vcol_name = StringProperty(name="Vertex Color")
+    vcol_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        obj = context.object
+        self.texture = context.texture
+
+        if obj.type != 'MESH':
+            self.texcoord_type = 'Object'
+
+        # Use active uv layer name by default
+        if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
+            self.uv_map = obj.data.uv_layers.active.name
+
+        if self.type == 'IMAGE':
+            # Update image names
+            self.image_coll.clear()
+            imgs = bpy.data.images
+            for img in imgs:
+                self.image_coll.add().name = img.name
+        elif self.type == 'VCOL':
+            self.vcol_coll.clear()
+            vcols = obj.data.vertex_colors
+            for vcol in vcols:
+                self.vcol_coll.add().name = vcol.name
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def check(self, context):
+        return True
+
+    def draw(self, context):
+        obj = context.object
+
+        if self.type == 'IMAGE':
+            self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
+        elif self.type == 'VCOL':
+            self.layout.prop_search(self, "vcol_name", self, "vcol_coll", icon='GROUP_VCOL')
+
+        row = self.layout.row()
+
+        col = row.column()
+        if self.type == 'IMAGE':
+            col.label(text='Vector:')
+
+        col = row.column()
+
+        if self.type == 'IMAGE':
+            crow = col.row(align=True)
+            crow.prop(self, 'texcoord_type', text='')
+            if obj.type == 'MESH' and self.texcoord_type == 'UV':
+                crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+
+    def execute(self, context):
+        if not hasattr(self, 'texture'): return {'CANCELLED'}
+
+        tex = self.texture
+        tl = tex.id_data.tl
+        tlui = context.window_manager.tlui
+        obj = context.object
+
+        if self.type == 'IMAGE' and self.image_name == '':
+            self.report({'ERROR'}, "No image selected!")
+            return {'CANCELLED'}
+        elif self.type == 'VCOL' and self.vcol_name == '':
+            self.report({'ERROR'}, "No vertex color selected!")
+            return {'CANCELLED'}
+
+        image = None
+        vcol = None
+        if self.type == 'IMAGE':
+            image = bpy.data.images.get(self.image_name)
+            name = image.name
+        elif self.type == 'VCOL':
+            vcol = obj.data.vertex_colors.get(self.vcol_name)
+            name = vcol.name
+
+        # Add new mask
+        mask = add_new_mask(tex, name, self.type, self.texcoord_type, self.uv_map, image, vcol)
+
+        # Enable edit mask
+        if self.type in {'IMAGE', 'VCOL'}:
+            mask.active_edit = True
+
+        rearrange_tex_nodes(tex)
+        reconnect_tex_nodes(tex)
+
+        tlui.tex_ui.expand_masks = True
+        tlui.need_update = True
+
+        return {'FINISHED'}
+
+class YMoveLayerMask(bpy.types.Operator):
+    bl_idname = "node.y_move_layer_mask"
+    bl_label = "Move Layer Mask"
+    bl_description = "Move layer mask"
     bl_options = {'REGISTER', 'UNDO'}
 
     direction = EnumProperty(
@@ -314,10 +432,10 @@ class YMoveTextureMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YRemoveTextureMask(bpy.types.Operator):
-    bl_idname = "node.y_remove_texture_mask"
-    bl_label = "Remove Texture Mask"
-    bl_description = "Remove Texture Mask"
+class YRemoveLayerMask(bpy.types.Operator):
+    bl_idname = "node.y_remove_layer_mask"
+    bl_label = "Remove Layer Mask"
+    bl_description = "Remove Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -386,7 +504,7 @@ def update_mask_active_image_edit(self, context):
     # Refresh
     tl.active_texture_index = tex_idx
 
-def update_enable_texture_masks(self, context):
+def update_enable_layer_masks(self, context):
     tl = self.id_data.tl
     if tl.halt_update: return
 
@@ -403,7 +521,7 @@ def update_enable_texture_masks(self, context):
                 mul = tree.nodes.get(getattr(ch, 'multiply_' + d))
                 if mul: mul.mute = mute
 
-def update_tex_mask_channel_enable(self, context):
+def update_layer_mask_channel_enable(self, context):
     tl = self.id_data.tl
     if tl.halt_update: return
 
@@ -421,7 +539,7 @@ def update_tex_mask_channel_enable(self, context):
         mul = tree.nodes.get(getattr(self, 'multiply_' + d))
         if mul: mul.mute = mute
 
-def update_tex_mask_enable(self, context):
+def update_layer_mask_enable(self, context):
     tl = self.id_data.tl
     if tl.halt_update: return
 
@@ -520,8 +638,8 @@ def update_mask_intensity_value(self, context):
             mul = tree.nodes.get(getattr(c, 'multiply_' + d))
             if mul: mul.inputs[0].default_value = mask.intensity_value
 
-class YTextureMaskChannel(bpy.types.PropertyGroup):
-    enable = BoolProperty(default=True, update=update_tex_mask_channel_enable)
+class YLayerMaskChannel(bpy.types.PropertyGroup):
+    enable = BoolProperty(default=True, update=update_layer_mask_channel_enable)
 
     # Multiply between mask channels
     multiply = StringProperty(default='')
@@ -538,7 +656,7 @@ class YTextureMaskChannel(bpy.types.PropertyGroup):
     # UI related
     expand_content = BoolProperty(default=False)
 
-class YTextureMask(bpy.types.PropertyGroup):
+class YLayerMask(bpy.types.PropertyGroup):
 
     name = StringProperty(default='', update=update_mask_name)
 
@@ -549,7 +667,7 @@ class YTextureMask(bpy.types.PropertyGroup):
     enable = BoolProperty(
             name='Enable Mask', 
             description = 'Enable mask',
-            default=True, update=update_tex_mask_enable)
+            default=True, update=update_layer_mask_enable)
 
     active_edit = BoolProperty(
             name='Active image for editing', 
@@ -588,7 +706,7 @@ class YTextureMask(bpy.types.PropertyGroup):
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
             update = update_mask_intensity_value)
 
-    channels = CollectionProperty(type=YTextureMaskChannel)
+    channels = CollectionProperty(type=YLayerMaskChannel)
 
     # Nodes
     source = StringProperty(default='')
@@ -610,17 +728,17 @@ class YTextureMask(bpy.types.PropertyGroup):
     expand_vector = BoolProperty(default=False)
 
 def register():
-    #bpy.utils.register_class(YNewVColMask)
-    bpy.utils.register_class(YNewTextureMask)
-    bpy.utils.register_class(YMoveTextureMask)
-    bpy.utils.register_class(YRemoveTextureMask)
-    bpy.utils.register_class(YTextureMaskChannel)
-    bpy.utils.register_class(YTextureMask)
+    bpy.utils.register_class(YNewLayerMask)
+    bpy.utils.register_class(YOpenAvailableDataAsMask)
+    bpy.utils.register_class(YMoveLayerMask)
+    bpy.utils.register_class(YRemoveLayerMask)
+    bpy.utils.register_class(YLayerMaskChannel)
+    bpy.utils.register_class(YLayerMask)
 
 def unregister():
-    #bpy.utils.unregister_class(YNewVColMask)
-    bpy.utils.unregister_class(YNewTextureMask)
-    bpy.utils.unregister_class(YMoveTextureMask)
-    bpy.utils.unregister_class(YRemoveTextureMask)
+    bpy.utils.unregister_class(YNewLayerMask)
+    bpy.utils.unregister_class(YOpenAvailableDataAsMask)
+    bpy.utils.unregister_class(YMoveLayerMask)
+    bpy.utils.unregister_class(YRemoveLayerMask)
     bpy.utils.unregister_class(YTextureMaskChannel)
-    bpy.utils.unregister_class(YTextureMask)
+    bpy.utils.unregister_class(YLayerMask)

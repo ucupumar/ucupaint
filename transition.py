@@ -156,7 +156,10 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
             #else: tao.inputs['Edge'].default_value = ch.transition_ao_edge
             tao.inputs['Edge'].default_value = ch.transition_ao_edge
 
-            tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
+            mute = not tex.enable or not ch.enable
+
+            #tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
+            tao.inputs['Intensity'].default_value = 0.0 if mute else ch.transition_ao_intensity
             #tao.inputs['Gamma'].default_value = 1.0
             if root_ch.colorspace == 'SRGB':
                 tao.inputs['Gamma'].default_value = 1.0/GAMMA
@@ -243,7 +246,7 @@ def check_transition_bump_nodes(tex, tree, ch, ch_index):
     check_create_bump_base(tex, tree, ch)
 
     # Trigger normal channel update
-    ch.normal_map_type = ch.normal_map_type
+    #ch.normal_map_type = ch.normal_map_type
     
     rearrange_tex_nodes(tex)
     reconnect_tex_nodes(tex) #, mod_reconnect=True)
@@ -539,7 +542,7 @@ def update_transition_bump_chain(self, context):
     check_mask_source_tree(tex) #, ch)
 
     # Trigger normal channel update
-    ch.normal_map_type = ch.normal_map_type
+    #ch.normal_map_type = ch.normal_map_type
 
     rearrange_tex_nodes(tex)
     reconnect_tex_nodes(tex) #, mod_reconnect=True)
@@ -566,9 +569,12 @@ def update_transition_ao_intensity(self, context):
     ch = self
     tree = get_tree(tex)
 
+    mute = not tex.enable or not ch.enable
+
     tao = tree.nodes.get(ch.tao)
     if tao:
-        tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
+        #tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
+        tao.inputs['Intensity'].default_value = 0.0 if mute else ch.transition_ao_intensity
 
 def update_transition_ao_edge(self, context):
 

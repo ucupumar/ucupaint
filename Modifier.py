@@ -188,10 +188,10 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             #if BLENDER_28_GROUP_INPUT_HACK:
             #    duplicate_lib_node_tree(oc)
 
-            if channel_type == 'RGB':
-                m.oc_col = (1.0, 0.0, 1.0, 1.0)
-            elif channel_type == 'NORMAL':
-                m.oc_use_normal_base = True
+            #if channel_type == 'RGB':
+            m.oc_col = (1.0, 1.0, 1.0, 1.0)
+            #elif channel_type == 'NORMAL':
+            #    m.oc_use_normal_base = True
         
         if non_color:
             oc.inputs['Gamma'].default_value = 1.0
@@ -630,19 +630,19 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
 
     elif modifier.type == 'OVERRIDE_COLOR':
         col = layout.column(align=True)
-        if channel_type == 'NORMAL':
-            row = col.row()
-            row.label(text='Use Normal Base:')
-            row.prop(modifier, 'oc_use_normal_base', text='')
+        #if channel_type == 'NORMAL':
+        #    row = col.row()
+        #    row.label(text='Use Normal Base:')
+        #    row.prop(modifier, 'oc_use_normal_base', text='')
 
-        if not modifier.oc_use_normal_base:
-            row = col.row()
-            row.label(text='Color:')
-            row.prop(modifier, 'oc_col', text='')
+        #if not modifier.oc_use_normal_base:
+        row = col.row()
+        row.label(text='Color:')
+        row.prop(modifier, 'oc_col', text='')
 
-            row = col.row()
-            row.label(text='Shortcut on texture list:')
-            row.prop(modifier, 'shortcut', text='')
+        row = col.row()
+        row.label(text='Shortcut on texture list:')
+        row.prop(modifier, 'shortcut', text='')
 
     elif modifier.type == 'COLOR_RAMP':
         color_ramp = nodes.get(modifier.color_ramp)
@@ -885,39 +885,39 @@ def update_oc_col(self, context):
         #if BLENDER_28_GROUP_INPUT_HACK:
         #    match_group_input(oc, 2)
 
-def update_oc_use_normal_base(self, context):
-    tree = get_mod_tree(self)
-
-    if self.type != 'OVERRIDE_COLOR': return 
-    
-    if self.oc_use_normal_base:
-
-        tl = self.id_data.tl
-        match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-        #match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-        if match1: 
-            tex = tl.textures[int(match1.group(1))]
-            ch = tex.channels[int(match1.group(2))]
-            root_ch = tl.channels[int(match1.group(2))]
-        #elif match2:
-        #    root_ch = tl.channels[int(match2.group(1))]
-        else: return
-
-        if root_ch.type != 'NORMAL': return
-
-        if ch.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
-            #if ch.enable_mask_bump:
-            #    val = 1.0
-            #else: 
-            val = ch.bump_base_value
-            val = (val, val, val, 1.0)
-        else: 
-            val = (0.5, 0.5, 1.0, 1.0)
-
-        #oc = tree.nodes.get(self.oc)
-        #if oc: oc.inputs[2].default_value = val
-
-        self.oc_col = val
+#def update_oc_use_normal_base(self, context):
+#    tree = get_mod_tree(self)
+#
+#    if self.type != 'OVERRIDE_COLOR': return 
+#    
+#    if self.oc_use_normal_base:
+#
+#        tl = self.id_data.tl
+#        match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+#        #match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+#        if match1: 
+#            tex = tl.textures[int(match1.group(1))]
+#            ch = tex.channels[int(match1.group(2))]
+#            root_ch = tl.channels[int(match1.group(2))]
+#        #elif match2:
+#        #    root_ch = tl.channels[int(match2.group(1))]
+#        else: return
+#
+#        if root_ch.type != 'NORMAL': return
+#
+#        if ch.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
+#            #if ch.enable_mask_bump:
+#            #    val = 1.0
+#            #else: 
+#            val = ch.bump_base_value
+#            val = (val, val, val, 1.0)
+#        else: 
+#            val = (0.5, 0.5, 1.0, 1.0)
+#
+#        #oc = tree.nodes.get(self.oc)
+#        #if oc: oc.inputs[2].default_value = val
+#
+#        self.oc_col = val
 
 class YTextureModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)
@@ -953,11 +953,11 @@ class YTextureModifier(bpy.types.PropertyGroup):
             default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0,
             update=update_oc_col)
 
-    oc_use_normal_base = BoolProperty(
-            name = 'Use Normal Base',
-            description = 'Use normal base instead of custom color',
-            default=False,
-            update=update_oc_use_normal_base)
+    #oc_use_normal_base = BoolProperty(
+    #        name = 'Use Normal Base',
+    #        description = 'Use normal base instead of custom color',
+    #        default=False,
+    #        update=update_oc_use_normal_base)
 
     # Invert nodes
     invert = StringProperty(default='')

@@ -99,7 +99,7 @@ def check_all_channel_ios(tl):
 
     # Move tex IO
     for tex in tl.textures:
-        Layer.check_all_texture_channel_io_and_nodes(tex)
+        Layer.check_all_layer_channel_io_and_nodes(tex)
         rearrange_tex_nodes(tex)
         reconnect_tex_nodes(tex)
 
@@ -195,7 +195,7 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         check_mask_multiply_nodes(t, tex_tree)
 
         # Add new nodes
-        Layer.check_all_texture_channel_io_and_nodes(t, tex_tree, specific_ch=c)
+        Layer.check_all_layer_channel_io_and_nodes(t, tex_tree, specific_ch=c)
 
 def create_new_group_tree(mat):
 
@@ -1209,7 +1209,7 @@ def update_channel_name(self, context):
 
     for tex in tl.textures:
         tree = get_tree(tex)
-        Layer.check_all_texture_channel_io_and_nodes(tex, tree)
+        Layer.check_all_layer_channel_io_and_nodes(tex, tree)
         rearrange_tex_nodes(tex)
         reconnect_tex_nodes(tex)
 
@@ -1660,7 +1660,7 @@ class YTextureLayersRoot(bpy.types.PropertyGroup):
     active_channel_index = IntProperty(default=0, update=update_active_tl_channel)
 
     # Textures
-    textures = CollectionProperty(type=Layer.YTextureLayer)
+    textures = CollectionProperty(type=Layer.YLayer)
     active_texture_index = IntProperty(default=0, update=update_texture_index)
 
     # Solid alpha for modifier alpha input

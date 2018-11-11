@@ -11,7 +11,7 @@ from .subtree import *
 DEFAULT_NEW_IMG_SUFFIX = ' Tex'
 DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
 
-def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, has_parent=False):
+def check_all_layer_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, has_parent=False):
 
     tl = tex.id_data.tl
     if not tree: tree = get_tree(tex)
@@ -122,7 +122,7 @@ def check_all_texture_channel_io_and_nodes(tex, tree=None, specific_ch=None): #,
             intensity.operation = 'MULTIPLY'
             intensity.inputs[1].default_value = 1.0
 
-        # Update texture ch blend type
+        # Update layer ch blend type
         check_blend_type_nodes(root_ch, tex, ch)
 
         # Normal related nodes created by it's normal map type
@@ -216,11 +216,12 @@ def new_tex_channel_normal_map_type_items(self, context):
 def img_normal_map_type_items(self, context):
     return normal_map_type_items_('IMAGE')
 
-def add_new_texture(group_tree, tex_name, tex_type, channel_idx, 
+def add_new_layer(group_tree, tex_name, tex_type, channel_idx, 
         blend_type, normal_blend, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, 
         add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1),
-        add_mask=False, mask_type='IMAGE'
+        solid_color = (1,1,1),
+        add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, mask_uv_name = ''
         ):
 
     tl = group_tree.tl
@@ -251,7 +252,7 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
         parent_idx = -1
         has_parent = False
 
-    # Add texture to group
+    # Add layer to group
     tex = tl.textures.add()
     tex.type = tex_type
     tex.name = tex_name
@@ -260,7 +261,7 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
     if image:
         tex.image_name = image.name
 
-    # Move new texture to current index
+    # Move new layer to current index
     last_index = len(tl.textures)-1
     if active_tex and active_tex.type == 'GROUP':
         index = tl.active_texture_index + 1
@@ -281,12 +282,12 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
     for t in tl.textures:
         t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
 
-    # New texture tree
+    # New layer tree
     tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + tex_name, 'ShaderNodeTree')
     tree.tl.is_tl_tex_node = True
     tree.tl.version = get_current_version_str()
 
-    # New texture node group
+    # New layer node group
     group_node = new_node(group_tree, tex, 'group_node', 'ShaderNodeGroup', tex_name)
     group_node.node_tree = tree
 
@@ -304,11 +305,15 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
         # Always set non color to image node because of linear pipeline
         source.color_space = 'NONE'
 
-        # Add new image if it's image texture
+        # Add new image if it's image layer
         source.image = image
 
     elif tex_type == 'VCOL':
         source.attribute_name = vcol.name
+
+    elif tex_type == 'COLOR':
+        col = (solid_color[0], solid_color[1], solid_color[2], 1.0)
+        source.outputs[0].default_value = col
 
     # Solid alpha can be useful for many things
     solid_alpha = new_node(tree, tex, 'solid_alpha', 'ShaderNodeValue', 'Solid Alpha')
@@ -349,7 +354,7 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
     # Set tex coordinate type
     tex.texcoord_type = texcoord_type
 
-    # Add channels to current texture
+    # Add channels to current layer
     for root_ch in tl.channels:
         ch = tex.channels.add()
 
@@ -361,25 +366,25 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
 
         if mask_type == 'IMAGE':
             mask_image = bpy.data.images.new(mask_name, 
-                    width=1024, height=1024, alpha=False, float_buffer=False)
-            #if self.color_option == 'WHITE':
-            #    mask_image.generated_color = (1,1,1,1)
-            #elif self.color_option == 'BLACK':
-            #    mask_image.generated_color = (0,0,0,1)
-            mask_image.generated_color = (0,0,0,1)
+                    width=1024, height=1024, alpha=False, float_buffer=mask_use_hdr)
+            if mask_color == 'WHITE':
+                mask_image.generated_color = (1,1,1,1)
+            elif mask_color == 'BLACK':
+                mask_image.generated_color = (0,0,0,1)
+            #mask_image.generated_color = (0,0,0,1)
             mask_image.use_alpha = False
 
         # New vertex color
         elif mask_type == 'VCOL':
             obj = bpy.context.object
             mask_vcol = obj.data.vertex_colors.new(name=mask_name)
-            #if self.color_option == 'WHITE':
-            #    set_obj_vertex_colors(obj, mask_vcol, (1.0, 1.0, 1.0))
-            #elif self.color_option == 'BLACK':
-            #    set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
-            set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
+            if mask_color == 'WHITE':
+                set_obj_vertex_colors(obj, mask_vcol, (1.0, 1.0, 1.0))
+            elif mask_color == 'BLACK':
+                set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
+            #set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
 
-        mask = Mask.add_new_mask(tex, mask_name, mask_type, texcoord_type, uv_name, mask_image, mask_vcol)
+        mask = Mask.add_new_mask(tex, mask_name, mask_type, texcoord_type, mask_uv_name, mask_image, mask_vcol)
         mask.active_edit = True
 
     # Fill channel layer props
@@ -389,7 +394,7 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
         root_ch = tl.channels[i]
 
         # Set some props to selected channel
-        if channel_idx == i or channel_idx == -1:
+        if tex.type in {'GROUP', 'BACKGROUND'} or channel_idx == i or channel_idx == -1:
             ch.enable = True
             if root_ch.type == 'NORMAL':
                 ch.normal_blend = normal_blend
@@ -419,14 +424,14 @@ def add_new_texture(group_tree, tex_name, tex_type, channel_idx,
                 m.shortcut = True
                 shortcut_created = True
 
-        # Set linear node of texture channel
+        # Set linear node of layer channel
         #if root_ch.type == 'NORMAL':
         #    set_tex_channel_linear_node(tree, tex, root_ch, ch, custom_value=(0.5,0.5,1))
         #else: set_tex_channel_linear_node(tree, tex, root_ch, ch)
         set_tex_channel_linear_node(tree, tex, root_ch, ch)
 
     # Check and create layer channel nodes
-    check_all_texture_channel_io_and_nodes(tex, tree) #, has_parent=has_parent)
+    check_all_layer_channel_io_and_nodes(tex, tree) #, has_parent=has_parent)
 
     # Refresh paint image by updating the index
     tl.active_texture_index = index
@@ -510,20 +515,20 @@ class YRefreshNeighborUV(bpy.types.Operator):
 #        else:
 #            ch.tex_input = 'RGB_LINEAR'
 
-class YNewTextureLayer(bpy.types.Operator):
-    bl_idname = "node.y_new_texture_layer"
-    bl_label = "New Texture Layer"
-    bl_description = "New Texture Layer"
+class YNewLayer(bpy.types.Operator):
+    bl_idname = "node.y_new_layer"
+    bl_label = "New Layer"
+    bl_description = "New Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     name = StringProperty(default='')
 
     type = EnumProperty(
-            name = 'Texture Type',
+            name = 'Layer Type',
             items = texture_type_items,
             default = 'IMAGE')
 
-    # For image texture
+    # For image layer
     width = IntProperty(name='Width', default = 1024, min=1, max=16384)
     height = IntProperty(name='Height', default = 1024, min=1, max=16384)
     color = FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(0.0,0.0,0.0,0.0), min=0.0, max=1.0)
@@ -537,7 +542,7 @@ class YNewTextureLayer(bpy.types.Operator):
 
     channel_idx = EnumProperty(
             name = 'Channel',
-            description = 'Channel of new texture layer, can be changed later',
+            description = 'Channel of new layer, can be changed later',
             items = channel_items,
             update=update_channel_idx_new_texture)
 
@@ -554,11 +559,13 @@ class YNewTextureLayer(bpy.types.Operator):
 
     add_rgb_to_intensity = BoolProperty(
             name = 'Add RGB To Intensity',
-            description = 'Add RGB To Intensity modifier to all channels of newly created texture layer',
+            description = 'Add RGB To Intensity modifier to all channels of newly created layer',
             default=False)
 
     rgb_to_intensity_color = FloatVectorProperty(
             name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
+
+    solid_color = FloatVectorProperty(name='Solid Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
     add_mask = BoolProperty(
             name = 'Add Mask',
@@ -568,22 +575,29 @@ class YNewTextureLayer(bpy.types.Operator):
     mask_type = EnumProperty(
             name = 'Mask Type',
             description = 'Mask type',
-            items = (('IMAGE', 'Image', ''),
-                ('VCOL', 'Vertex Color', '')),
+            items = (('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
+                ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1)),
             default = 'IMAGE')
+
+    mask_color = EnumProperty(
+            name = 'Mask Color',
+            description = 'Mask Color',
+            items = (
+                ('WHITE', 'White (Full Opacity)', ''),
+                ('BLACK', 'Black (Full Transparency)', ''),
+                ),
+            default='BLACK')
+
+    mask_uv_name = StringProperty(default='')
+    mask_use_hdr = BoolProperty(name='32 bit Float', default=False)
 
     uv_map = StringProperty(default='')
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
-            description = 'Normal map type of this texture',
+            description = 'Normal map type of this layer',
             items = new_tex_channel_normal_map_type_items)
             #default = 'BUMP_MAP')
-
-    #make_transition_bump_default = BoolProperty(
-    #        name = 'Use Transition Bump on Normal channel',
-    #        description = 'Use Transition Bump on (first) Normal channel',
-    #        default = False)
 
     @classmethod
     def poll(cls, context):
@@ -592,11 +606,8 @@ class YNewTextureLayer(bpy.types.Operator):
 
     def invoke(self, context, event):
 
-        #self.group_node = node = context.group_node
-        #print(self.group_node)
         node = get_active_texture_layers_node()
         tl = node.node_tree.tl
-        #tl = context.group_node.node_tree.tl
         obj = context.object
 
         channel = tl.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
@@ -612,12 +623,17 @@ class YNewTextureLayer(bpy.types.Operator):
         else:
             name = [i[1] for i in texture_type_items if i[0] == self.type][0]
             items = tl.textures
-            
+
+        # Make sure add rgb to intensity is inactive
+        if self.type != 'IMAGE':
+            self.add_rgb_to_intensity = False
+
+        # Make sure add rgb to intensity is inactive
+        if self.type not in {'COLOR', 'BACKGROUND', 'GROUP'}:
+            self.add_mask = False
+
         # Default normal map type is fine bump map
-        #if self.type not in {'VCOL', 'COLOR'}:
-        #self.normal_map_type = 'FINE_BUMP_MAP'
-        self.normal_map_type = 'BUMP_MAP'
-        #else: self.normal_map_type = 'BUMP_MAP'
+        self.normal_map_type = 'FINE_BUMP_MAP'
 
         self.name = get_unique_name(name, items)
 
@@ -632,6 +648,7 @@ class YNewTextureLayer(bpy.types.Operator):
 
             if obj.type == 'MESH' and len(uv_layers) > 0:
                 self.uv_map = uv_layers.active.name
+                self.mask_uv_name = uv_layers.active.name
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -645,7 +662,7 @@ class YNewTextureLayer(bpy.types.Operator):
         obj = context.object
 
         if len(tl.channels) == 0:
-            self.layout.label(text='No channel found! Still want to create a texture?', icon='ERROR')
+            self.layout.label(text='No channel found! Still want to create a layer?', icon='ERROR')
             return
 
         channel = tl.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
@@ -656,10 +673,17 @@ class YNewTextureLayer(bpy.types.Operator):
         col = row.column(align=False)
 
         col.label(text='Name:')
-        col.label(text='Channel:')
-        if channel and channel.type == 'NORMAL':
-            col.label(text='Type:')
-        col.label(text='')
+
+        if self.type not in {'GROUP', 'BACKGROUND'}:
+            col.label(text='Channel:')
+            if channel and channel.type == 'NORMAL':
+                col.label(text='Type:')
+
+        if self.type == 'COLOR':
+            col.label(text='Color:')
+
+        if self.type == 'IMAGE':
+            col.label(text='')
 
         if self.add_rgb_to_intensity:
             col.label(text='RGB To Intensity Color:')
@@ -671,22 +695,37 @@ class YNewTextureLayer(bpy.types.Operator):
             col.label(text='Width:')
             col.label(text='Height:')
 
-        if self.type != 'VCOL':
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND'}:
             col.label(text='Vector:')
+
+        #if self.type in {'COLOR', 'GROUP', 'BACKGROUND'}:
+        if self.type != 'IMAGE':
+            col.label(text='')
+            if self.add_mask:
+                col.label(text='Mask Type:')
+                col.label(text='Mask Color:')
+                if self.mask_type == 'IMAGE':
+                    col.label(text='')
+                    col.label(text='Mask UV Map:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
 
-        rrow = col.row(align=True)
-        rrow.prop(self, 'channel_idx', text='')
-        if channel:
-            if channel.type == 'NORMAL':
-                rrow.prop(self, 'normal_blend', text='')
-                col.prop(self, 'normal_map_type', text='')
-            else: 
-                rrow.prop(self, 'blend_type', text='')
+        if self.type not in {'GROUP', 'BACKGROUND'}:
+            rrow = col.row(align=True)
+            rrow.prop(self, 'channel_idx', text='')
+            if channel:
+                if channel.type == 'NORMAL':
+                    rrow.prop(self, 'normal_blend', text='')
+                    col.prop(self, 'normal_map_type', text='')
+                else: 
+                    rrow.prop(self, 'blend_type', text='')
 
-        col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
+        if self.type == 'COLOR':
+            col.prop(self, 'solid_color', text='')
+
+        if self.type == 'IMAGE':
+            col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
 
         if self.add_rgb_to_intensity:
             col.prop(self, 'rgb_to_intensity_color', text='')
@@ -699,11 +738,20 @@ class YNewTextureLayer(bpy.types.Operator):
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
 
-        if self.type != 'VCOL':
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+
+        if self.type != 'IMAGE':
+            col.prop(self, 'add_mask', text='Add Mask')
+            if self.add_mask:
+                col.prop(self, 'mask_type', text='')
+                col.prop(self, 'mask_color', text='')
+                if self.mask_type == 'IMAGE':
+                    col.prop(self, 'mask_use_hdr')
+                    col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
     def execute(self, context):
 
@@ -720,7 +768,7 @@ class YNewTextureLayer(bpy.types.Operator):
             self.report({'ERROR'}, "Vertex color layer only works with mesh object!")
             return {'CANCELLED'}
 
-        # Check if texture with same name is already available
+        # Check if layer with same name is already available
         if self.type == 'IMAGE':
             same_name = [i for i in bpy.data.images if i.name == self.name]
         elif self.type == 'VCOL':
@@ -731,7 +779,7 @@ class YNewTextureLayer(bpy.types.Operator):
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
             elif self.type == 'VCOL':
                 self.report({'ERROR'}, "Vertex Color named '" + self.name +"' is already available!")
-            self.report({'ERROR'}, "Texture named '" + self.name +"' is already available!")
+            self.report({'ERROR'}, "Layer named '" + self.name +"' is already available!")
             return {'CANCELLED'}
 
         img = None
@@ -752,11 +800,11 @@ class YNewTextureLayer(bpy.types.Operator):
             set_obj_vertex_colors(obj, vcol, (1.0, 1.0, 1.0))
 
         tl.halt_update = True
-        tex = add_new_texture(node.node_tree, self.name, self.type, 
+        tex = add_new_layer(node.node_tree, self.name, self.type, 
                 int(self.channel_idx), self.blend_type, self.normal_blend, 
                 self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol,
-                self.add_rgb_to_intensity, self.rgb_to_intensity_color,
-                self.add_mask, self.mask_type)
+                self.add_rgb_to_intensity, self.rgb_to_intensity_color, self.solid_color,
+                self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, self.mask_uv_name)
         tl.halt_update = False
 
         # Reconnect and rearrange nodes
@@ -769,15 +817,15 @@ class YNewTextureLayer(bpy.types.Operator):
             tlui.tex_ui.expand_content = True
         tlui.need_update = True
 
-        print('INFO: Texture', tex.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', tex.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
 class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
-    """Open Image to Texture Layer"""
+    """Open Image to Layer"""
     bl_idname = "node.y_open_image_to_layer"
-    bl_label = "Open Image to Texture Layer"
+    bl_label = "Open Image to Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     # File related
@@ -806,7 +854,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
     channel_idx = EnumProperty(
             name = 'Channel',
-            description = 'Channel of new texture layer, can be changed later',
+            description = 'Channel of new layer, can be changed later',
             items = channel_items,
             update=update_channel_idx_new_texture)
 
@@ -822,12 +870,12 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
     add_rgb_to_intensity = BoolProperty(
             name = 'Add RGB To Intensity',
-            description = 'Add RGB To Intensity modifier to all channels of newly created texture layer',
+            description = 'Add RGB To Intensity modifier to all channels of newly created layer',
             default=False)
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
-            description = 'Normal map type of this texture',
+            description = 'Normal map type of this layer',
             items = img_normal_map_type_items)
             #default = 'NORMAL_MAP')
 
@@ -926,7 +974,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
-            add_new_texture(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
+            add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map,
                     image, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
@@ -944,11 +992,17 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
         return {'FINISHED'}
 
-class YOpenAvailableImageToLayer(bpy.types.Operator):
-    """Open Available Image to Texture Layer"""
-    bl_idname = "node.y_open_available_image_to_layer"
-    bl_label = "Open Available Image to Texture Layer"
+class YOpenAvailableDataToLayer(bpy.types.Operator):
+    """Open Available Data to Layer"""
+    bl_idname = "node.y_open_available_data_to_layer"
+    bl_label = "Open Available Data to Layer"
     bl_options = {'REGISTER', 'UNDO'}
+
+    type = EnumProperty(
+            name = 'Layer Type',
+            items = (('IMAGE', 'Image', ''),
+                ('VCOL', 'Vertex Color', '')),
+            default = 'IMAGE')
 
     texcoord_type = EnumProperty(
             name = 'Texture Coordinate Type',
@@ -959,7 +1013,7 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
 
     channel_idx = EnumProperty(
             name = 'Channel',
-            description = 'Channel of new texture layer, can be changed later',
+            description = 'Channel of new layer, can be changed later',
             items = channel_items,
             update=update_channel_idx_new_texture)
 
@@ -975,7 +1029,7 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
 
     add_rgb_to_intensity = BoolProperty(
             name = 'Add RGB To Intensity',
-            description = 'Add RGB To Intensity modifier to all channels of newly created texture layer',
+            description = 'Add RGB To Intensity modifier to all channels of newly created layer',
             default=False)
 
     rgb_to_intensity_color = FloatVectorProperty(
@@ -983,12 +1037,15 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
-            description = 'Normal map type of this texture',
+            description = 'Normal map type of this layer',
             items = img_normal_map_type_items)
             #default = 'BUMP_MAP')
 
     image_name = StringProperty(name="Image")
     image_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    vcol_name = StringProperty(name="Vertex Color")
+    vcol_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -1011,11 +1068,20 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
             self.uv_map = obj.data.uv_layers.active.name
 
-        # Update image names
-        self.image_coll.clear()
-        imgs = bpy.data.images
-        for img in imgs:
-            self.image_coll.add().name = img.name
+        if self.type == 'VCOL':
+            self.add_rgb_to_intensity = False
+
+        if self.type == 'IMAGE':
+            # Update image names
+            self.image_coll.clear()
+            imgs = bpy.data.images
+            for img in imgs:
+                self.image_coll.add().name = img.name
+        elif self.type == 'VCOL':
+            self.vcol_coll.clear()
+            vcols = obj.data.vertex_colors
+            for vcol in vcols:
+                self.vcol_coll.add().name = vcol.name
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -1029,25 +1095,31 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
 
         channel = tl.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
 
-        self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
+        if self.type == 'IMAGE':
+            self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
+        elif self.type == 'VCOL':
+            self.layout.prop_search(self, "vcol_name", self, "vcol_coll", icon='GROUP_VCOL')
         
         row = self.layout.row()
 
         col = row.column()
-        col.label(text='Vector:')
+        if self.type == 'IMAGE':
+            col.label(text='Vector:')
         col.label(text='Channel:')
         if channel and channel.type == 'NORMAL':
             col.label(text='Type:')
 
-        if self.add_rgb_to_intensity:
+        if self.type == 'IMAGE' and self.add_rgb_to_intensity:
             col.label(text='')
             col.label(text='RGB2I Color:')
 
         col = row.column()
-        crow = col.row(align=True)
-        crow.prop(self, 'texcoord_type', text='')
-        if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+
+        if self.type == 'IMAGE':
+            crow = col.row(align=True)
+            crow.prop(self, 'texcoord_type', text='')
+            if obj.type == 'MESH' and self.texcoord_type == 'UV':
+                crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
         #col.label(text='')
         rrow = col.row(align=True)
@@ -1059,27 +1131,40 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
             else: 
                 rrow.prop(self, 'blend_type', text='')
 
-        col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
+        if self.type == 'IMAGE':
+            col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
 
-        if self.add_rgb_to_intensity:
-            col.prop(self, 'rgb_to_intensity_color', text='')
+            if self.add_rgb_to_intensity:
+                col.prop(self, 'rgb_to_intensity_color', text='')
 
     def execute(self, context):
         T = time.time()
 
+        obj = context.object
         wm = context.window_manager
         node = get_active_texture_layers_node()
 
-        if self.image_name == '':
+        if self.type == 'IMAGE' and self.image_name == '':
             self.report({'ERROR'}, "No image selected!")
+            return {'CANCELLED'}
+        elif self.type == 'VCOL' and self.vcol_name == '':
+            self.report({'ERROR'}, "No vertex color selected!")
             return {'CANCELLED'}
 
         node.node_tree.tl.halt_update = True
 
-        image = bpy.data.images.get(self.image_name)
-        add_new_texture(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
+        image = None
+        vcol = None
+        if self.type == 'IMAGE':
+            image = bpy.data.images.get(self.image_name)
+            name = image.name
+        elif self.type == 'VCOL':
+            vcol = obj.data.vertex_colors.get(self.vcol_name)
+            name = vcol.name
+
+        add_new_layer(node.node_tree, name, self.type, int(self.channel_idx), self.blend_type, 
                 self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map, 
-                image, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
+                image, vcol, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
         node.node_tree.tl.halt_update = False
 
@@ -1097,8 +1182,8 @@ class YOpenAvailableImageToLayer(bpy.types.Operator):
 
 class YMoveInOutLayerGroup(bpy.types.Operator):
     bl_idname = "node.y_move_in_out_layer_group"
-    bl_label = "Move In/Out Texture Layer Group"
-    bl_description = "Move in or out texture layer group"
+    bl_label = "Move In/Out Layer Group"
+    bl_description = "Move in or out layer group"
     bl_options = {'REGISTER', 'UNDO'}
 
     direction = EnumProperty(
@@ -1177,25 +1262,25 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
         #has_parent = tex.parent_idx != -1
 
         #if tex.type == 'GROUP' or has_parent:
-        check_all_texture_channel_io_and_nodes(tex) #, has_parent=has_parent)
+        check_all_layer_channel_io_and_nodes(tex) #, has_parent=has_parent)
         rearrange_tex_nodes(tex)
         reconnect_tex_nodes(tex)
 
-        # Refresh texture channel blend nodes
+        # Refresh layer channel blend nodes
         rearrange_tl_nodes(node.node_tree)
         reconnect_tl_nodes(node.node_tree)
 
         # Update UI
         wm.tlui.need_update = True
-        print('INFO: Texture', tex.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', tex.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
-class YMoveTextureLayer(bpy.types.Operator):
-    bl_idname = "node.y_move_texture_layer"
-    bl_label = "Move Texture Layer"
-    bl_description = "Move texture layer"
+class YMoveLayer(bpy.types.Operator):
+    bl_idname = "node.y_move_layer"
+    bl_label = "Move Layer"
+    bl_description = "Move layer"
     bl_options = {'REGISTER', 'UNDO'}
 
     direction = EnumProperty(
@@ -1245,7 +1330,7 @@ class YMoveTextureLayer(bpy.types.Operator):
             if self.direction == 'UP':
                 #print('Case A')
 
-                # Swap texture
+                # Swap layer
                 tl.textures.move(neighbor_idx, last_member_idx)
                 tl.active_texture_index = neighbor_idx
 
@@ -1256,7 +1341,7 @@ class YMoveTextureLayer(bpy.types.Operator):
             elif self.direction == 'DOWN':
                 #print('Case B')
 
-                # Swap texture
+                # Swap layer
                 tl.textures.move(neighbor_idx, tex_idx)
                 tl.active_texture_index = tex_idx+1
 
@@ -1294,7 +1379,7 @@ class YMoveTextureLayer(bpy.types.Operator):
             if self.direction == 'UP':
                 #print('Case E')
 
-                # Swap texture
+                # Swap layer
                 tl.textures.move(tex_idx, neighbor_idx)
                 tl.active_texture_index = neighbor_idx
 
@@ -1307,7 +1392,7 @@ class YMoveTextureLayer(bpy.types.Operator):
 
                 last_neighbor_member_idx = get_last_child_idx(neighbor_tex)
 
-                # Swap texture
+                # Swap layer
                 tl.textures.move(tex_idx, last_neighbor_member_idx)
                 tl.active_texture_index = last_neighbor_member_idx
 
@@ -1318,7 +1403,7 @@ class YMoveTextureLayer(bpy.types.Operator):
         else:
             #print('Case G')
 
-            # Swap texture
+            # Swap layer
             tl.textures.move(tex_idx, neighbor_idx)
             tl.active_texture_index = neighbor_idx
 
@@ -1326,14 +1411,14 @@ class YMoveTextureLayer(bpy.types.Operator):
         for t in tl.textures:
             t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
 
-        # Refresh texture channel blend nodes
+        # Refresh layer channel blend nodes
         reconnect_tl_nodes(node.node_tree)
         rearrange_tl_nodes(node.node_tree)
 
         # Update UI
         wm.tlui.need_update = True
 
-        print('INFO: Texture', tex.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', tex.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1341,7 +1426,7 @@ class YMoveTextureLayer(bpy.types.Operator):
 def draw_move_up_in_layer_group(self, context):
     col = self.layout.column()
 
-    c = col.operator("node.y_move_texture_layer", text='Move Up (skip group)', icon='TRIA_UP')
+    c = col.operator("node.y_move_layer", text='Move Up (skip group)', icon='TRIA_UP')
     c.direction = 'UP'
 
     c = col.operator("node.y_move_in_out_layer_group", text='Move inside group', icon='TRIA_UP')
@@ -1350,7 +1435,7 @@ def draw_move_up_in_layer_group(self, context):
 def draw_move_down_in_layer_group(self, context):
     col = self.layout.column()
 
-    c = col.operator("node.y_move_texture_layer", text='Move Down (skip group)', icon='TRIA_DOWN')
+    c = col.operator("node.y_move_layer", text='Move Down (skip group)', icon='TRIA_DOWN')
     c.direction = 'DOWN'
 
     c = col.operator("node.y_move_in_out_layer_group", text='Move inside group', icon='TRIA_DOWN')
@@ -1419,7 +1504,7 @@ def remove_tex(tl, index):
     bpy.data.node_groups.remove(tex_tree)
     group_tree.nodes.remove(group_tree.nodes.get(tex.group_node))
 
-    # Delete the texture
+    # Delete the layer
     tl.textures.remove(index)
 
 def draw_remove_group(self, context):
@@ -1510,7 +1595,7 @@ class YRemoveLayer(bpy.types.Operator):
         for t in tl.textures:
             t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
 
-        # Refresh texture channel blend nodes
+        # Refresh layer channel blend nodes
         reconnect_tl_nodes(group_tree)
         rearrange_tl_nodes(group_tree)
 
@@ -1520,7 +1605,7 @@ class YRemoveLayer(bpy.types.Operator):
         # Refresh normal map
         tl.refresh_tree = True
 
-        print('INFO: Texture', tex_name, 'is deleted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        print('INFO: Layer', tex_name, 'is deleted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -1660,7 +1745,7 @@ class YReplaceLayerType(bpy.types.Operator):
             Modifier.enable_modifiers_tree(tex)
 
         # Update group ios
-        check_all_texture_channel_io_and_nodes(tex, tree)
+        check_all_layer_channel_io_and_nodes(tex, tree)
         if tex.type == 'BACKGROUND':
             # Remove bump and its base
             for ch in tex.channels:
@@ -1722,6 +1807,11 @@ def update_channel_enable(self, context):
 
     if ch.enable_mask_bump:
         transition.check_transition_bump_nodes(tex, tree, ch, ch_index)
+
+    if ch.enable_transition_ao:
+        tao = tree.nodes.get(ch.tao)
+        #tao.mute = mute
+        tao.inputs['Intensity'].default_value = 0.0 if mute else ch.transition_ao_intensity
 
 def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
@@ -1807,13 +1897,13 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
     #    remove_node(tree, ch, 'normal_flip')
 
     # Update override color modifier
-    for mod in ch.modifiers:
-        if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
-            if normal_map_type == 'NORMAL_MAP':
-                mod.oc_col = (0.5, 0.5, 1.0, 1.0)
-            else:
-                val = ch.bump_base_value
-                mod.oc_col = (val, val, val, 1.0)
+    #for mod in ch.modifiers:
+    #    if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
+    #        if normal_map_type == 'NORMAL_MAP':
+    #            mod.oc_col = (0.5, 0.5, 1.0, 1.0)
+    #        else:
+    #            val = ch.bump_base_value
+    #            mod.oc_col = (val, val, val, 1.0)
 
     # Check bump base
     check_create_bump_base(tex, tree, ch)
@@ -2206,7 +2296,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     gamma_space = BoolProperty(
             name='Gamma Space',
-            description='Make sure texture input is in linear space',
+            description='Make sure layer input is in linear space',
             default = False,
             update = update_tex_input)
 
@@ -2336,7 +2426,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
                 ('FINE_BUMP_MAP', 'Fine Bump', ''),
                 ('CURVED_BUMP_MAP', 'Curved Bump', ''),
                 ),
-            #default = 'FINE_BUMP_MAP',
+            default = 'FINE_BUMP_MAP',
             update=transition.update_enable_transition_bump)
 
     mask_bump_chain = IntProperty(
@@ -2447,10 +2537,10 @@ def update_layer_color_chortcut(self, context):
             for m in ch.modifiers:
                 m.shortcut = False
 
-class YTextureLayer(bpy.types.PropertyGroup):
+class YLayer(bpy.types.PropertyGroup):
     name = StringProperty(default='', update=update_texture_name)
     enable = BoolProperty(
-            name = 'Enable Texture', description = 'Enable texture',
+            name = 'Enable Layer', description = 'Enable layer',
             default=True, update=update_texture_enable)
     channels = CollectionProperty(type=YLayerChannel)
 
@@ -2460,7 +2550,7 @@ class YTextureLayer(bpy.types.PropertyGroup):
     end = StringProperty(default='')
 
     type = EnumProperty(
-            name = 'Texture Type',
+            name = 'Layer Type',
             items = texture_type_items,
             default = 'IMAGE')
 
@@ -2471,12 +2561,12 @@ class YTextureLayer(bpy.types.PropertyGroup):
             update=update_layer_color_chortcut)
 
     texcoord_type = EnumProperty(
-        name = 'Texture Coordinate Type',
+        name = 'Layer Coordinate Type',
         items = texcoord_type_items,
         default = 'UV',
         update=update_texcoord_type)
 
-    # To detect change of texture image
+    # To detect change of layer image
     image_name = StringProperty(default='')
 
     uv_name = StringProperty(default='', update=update_uv_name)
@@ -2528,9 +2618,9 @@ class YTextureLayer(bpy.types.PropertyGroup):
     end_alpha = StringProperty(default='')
 
     # Mask
-    enable_masks = BoolProperty(name='Enable Texture Masks', description='Enable texture masks',
-            default=True, update=Mask.update_enable_texture_masks)
-    masks = CollectionProperty(type=Mask.YTextureMask)
+    enable_masks = BoolProperty(name='Enable Layer Masks', description='Enable layer masks',
+            default=True, update=Mask.update_enable_layer_masks)
+    masks = CollectionProperty(type=Mask.YLayerMask)
 
     ## Transition 
     #enable_transition_bg = BoolProperty(name='Enable Transition to Background', 
@@ -2545,28 +2635,28 @@ class YTextureLayer(bpy.types.PropertyGroup):
 
 def register():
     bpy.utils.register_class(YRefreshNeighborUV)
-    bpy.utils.register_class(YNewTextureLayer)
+    bpy.utils.register_class(YNewLayer)
     bpy.utils.register_class(YOpenImageToLayer)
-    bpy.utils.register_class(YOpenAvailableImageToLayer)
-    bpy.utils.register_class(YMoveTextureLayer)
+    bpy.utils.register_class(YOpenAvailableDataToLayer)
+    bpy.utils.register_class(YMoveLayer)
     bpy.utils.register_class(YMoveInOutLayerGroup)
     bpy.utils.register_class(YMoveInOutLayerGroupMenu)
     bpy.utils.register_class(YRemoveLayer)
     bpy.utils.register_class(YRemoveLayerMenu)
     bpy.utils.register_class(YReplaceLayerType)
     bpy.utils.register_class(YLayerChannel)
-    bpy.utils.register_class(YTextureLayer)
+    bpy.utils.register_class(YLayer)
 
 def unregister():
     bpy.utils.unregister_class(YRefreshNeighborUV)
-    bpy.utils.unregister_class(YNewTextureLayer)
+    bpy.utils.unregister_class(YNewLayer)
     bpy.utils.unregister_class(YOpenImageToLayer)
-    bpy.utils.unregister_class(YOpenAvailableImageToLayer)
-    bpy.utils.unregister_class(YMoveTextureLayer)
+    bpy.utils.unregister_class(YOpenAvailableDataToLayer)
+    bpy.utils.unregister_class(YMoveLayer)
     bpy.utils.unregister_class(YMoveInOutLayerGroup)
     bpy.utils.unregister_class(YMoveInOutLayerGroupMenu)
     bpy.utils.unregister_class(YRemoveLayer)
     bpy.utils.unregister_class(YRemoveLayerMenu)
     bpy.utils.unregister_class(YReplaceLayerType)
     bpy.utils.unregister_class(YLayerChannel)
-    bpy.utils.unregister_class(YTextureLayer)
+    bpy.utils.unregister_class(YLayer)
