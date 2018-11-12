@@ -1939,31 +1939,8 @@ def check_blend_type_nodes(root_ch, tex, ch):
 
     has_parent = tex.parent_idx != -1
 
-    # Check blend type
-    #if blend:
-    #    #if ((root_ch.alpha and ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
-    #    #    (not root_ch.alpha and blend.bl_idname == 'ShaderNodeGroup') or
-    #    #    (ch.blend_type != 'MIX' and blend.bl_idname == 'ShaderNodeGroup')):
-    #    #    #nodes.remove(blend)
-    #    #    remove_node(tree, ch, 'blend')
-    #    #    blend = None
-    #    #    need_reconnect = True
-    #    #elif root_ch.type == 'NORMAL':
-    #    #    #if ((ch.normal_blend == 'MIX' and blend.bl_idname == 'ShaderNodeGroup') or
-    #    #    #    (ch.normal_blend in {'OVERLAY'} and blend.bl_idname == 'ShaderNodeMixRGB')):
-    #    #    #nodes.remove(blend)
-    #    #    remove_node(tree, ch, 'blend')
-    #    #    blend = None
-    #    #    need_reconnect = True
-    #    remove_node(tree, ch, 'blend')
-    #    blend = None
-    #    need_reconnect = True
-
     # Create blend node if its missing
-    #if not blend:
     if has_parent and ch.blend_type == 'MIX':
-
-        #blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
 
         if root_ch.type == 'RGB':
             if tex.type == 'BACKGROUND':
@@ -2041,10 +2018,6 @@ def check_blend_type_nodes(root_ch, tex, ch):
     #if tex.enable and ch.enable:
     #    blend.mute = False
     #else: blend.mute = True
-
-    # Update blend mix
-    #if root_ch.type != 'NORMAL' and blend.bl_idname == 'ShaderNodeMixRGB' and blend.blend_type != ch.blend_type:
-    #    blend.blend_type = ch.blend_type
 
     # Check alpha tex input output connection
     #start = nodes.get(tex.start)

@@ -549,20 +549,54 @@ def check_new_node(tree, entity, prop, node_id_name, label=''):
 
     return node
 
+def check_duplicated_node_group(node_group):
+
+    for node in node_group.nodes:
+        if node.type == 'GROUP' and node.node_tree:
+
+            # Check if its node tree duplicated
+            m = re.match(r'^(.+)\.\d{3}$', node.node_tree.name)
+            if m:
+                ng = bpy.data.node_groups.get(m.group(1))
+                if ng:
+                    #print(node.node_tree.name)
+
+                    # Remember current tree
+                    prev_tree = node.node_tree
+
+                    # Replace new node
+                    node.node_tree = ng
+
+                    # Remove previous tree
+                    if prev_tree.users == 0:
+                        bpy.data.node_groups.remove(prev_tree)
+
+            check_duplicated_node_group(node.node_tree)
+
 def get_node_tree_lib(name):
     # Node groups necessary are in nodegroups_lib.blend
     filepath = get_addon_filepath() + "lib.blend"
 
+    appended = False
     with bpy.data.libraries.load(filepath) as (data_from, data_to):
 
         # Load node groups
         exist_groups = [ng.name for ng in bpy.data.node_groups]
         for ng in data_from.node_groups:
             if ng == name and ng not in exist_groups:
+
                 data_to.node_groups.append(ng)
+                appended = True
+
                 break
 
-    return bpy.data.node_groups.get(name)
+    node_tree = bpy.data.node_groups.get(name)
+
+    # Check if another group is exists inside the group
+    if node_tree and appended:
+        check_duplicated_node_group(node_tree)
+
+    return node_tree
 
 def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False):
     ''' Check if node is available, replace if available '''
