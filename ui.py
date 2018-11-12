@@ -2013,10 +2013,10 @@ class YAddTexMaskMenu(bpy.types.Menu):
         col.label(text='Image Mask:')
         col.operator('node.y_new_layer_mask', icon='IMAGE_DATA', text='New Image Mask').type = 'IMAGE'
         if bpy.app.version_string.startswith('2.8'):
-            col.label(text='Open Image as Mask', icon='FILEBROWSER')
+            col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon='FILEBROWSER')
             col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='FILEBROWSER')
         else:
-            col.label(text='Open Image as Mask', icon='IMASEL')
+            col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon='IMASEL')
             col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='IMASEL').type = 'IMAGE'
         #col.label(text='Not implemented yet!', icon='ERROR')
         col.separator()

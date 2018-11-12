@@ -18,12 +18,14 @@
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects
 # - New layer/mask improvements
-#   - Open Image as Mask
+#   - Open Image as Mask (V)
 #   - Open Vcol as Mask/Layer (V)
 #   - Add mask option when creating new layer (V)
 #   - Remove RGB to Intensity when creating new layer bc its no longer necessary (X, why remove a feature?)
 # - Make sure background layer blending and its ui is consistent
+# - Make sure there's no duplictae group when appending
 # - Every modifiers has intensity value for muting to prevent recompilation
+# - Fix change blend type behavior where it always delete previous node
 # - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
 # - Refactor for more consistent class names and properties

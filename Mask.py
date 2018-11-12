@@ -1,5 +1,7 @@
 import bpy, re, time
 from bpy.props import *
+from bpy_extras.io_utils import ImportHelper
+from bpy_extras.image_utils import load_image  
 from . import lib, Modifier, transition
 from .common import *
 from .node_connections import *
@@ -264,6 +266,107 @@ class YNewLayerMask(bpy.types.Operator):
 
         tlui.tex_ui.expand_masks = True
         tlui.need_update = True
+
+        return {'FINISHED'}
+
+class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
+    """Open Image as Mask"""
+    bl_idname = "node.y_open_image_as_mask"
+    bl_label = "Open Image as Mask"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    # File related
+    files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
+    directory = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
+
+    # File browser filter
+    filter_folder = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    filter_image = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    display_type = EnumProperty(
+            items = (('FILE_DEFAULTDISPLAY', 'Default', ''),
+                     ('FILE_SHORTDISLPAY', 'Short List', ''),
+                     ('FILE_LONGDISPLAY', 'Long List', ''),
+                     ('FILE_IMGDISPLAY', 'Thumbnails', '')),
+            default = 'FILE_IMGDISPLAY',
+            options={'HIDDEN', 'SKIP_SAVE'})
+
+    relative = BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
+
+    texcoord_type = EnumProperty(
+            name = 'Texture Coordinate Type',
+            items = texcoord_type_items,
+            default = 'UV')
+
+    uv_map = StringProperty(default='')
+
+    def generate_paths(self):
+        return (fn.name for fn in self.files), self.directory
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def invoke(self, context, event):
+        obj = context.object
+        self.texture = context.texture
+
+        if obj.type != 'MESH':
+            self.texcoord_type = 'Object'
+
+        # Use active uv layer name by default
+        if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
+            self.uv_map = obj.data.uv_layers.active.name
+
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def check(self, context):
+        return True
+
+    def draw(self, context):
+        obj = context.object
+
+        row = self.layout.row()
+
+        col = row.column()
+        col.label(text='Vector:')
+
+        col = row.column()
+        crow = col.row(align=True)
+        crow.prop(self, 'texcoord_type', text='')
+        if obj.type == 'MESH' and self.texcoord_type == 'UV':
+            crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+
+        self.layout.prop(self, 'relative')
+
+    def execute(self, context):
+        T = time.time()
+        if not hasattr(self, 'texture'): return {'CANCELLED'}
+
+        tex = self.texture
+        tl = tex.id_data.tl
+        wm = context.window_manager
+        tlui = wm.tlui
+        obj = context.object
+
+        import_list, directory = self.generate_paths()
+        images = tuple(load_image(path, directory) for path in import_list)
+
+        for image in images:
+            if self.relative:
+                try: image.filepath = bpy.path.relpath(image.filepath)
+                except: pass
+
+            # Add new mask
+            mask = add_new_mask(tex, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None)
+
+        rearrange_tex_nodes(tex)
+        reconnect_tex_nodes(tex)
+
+        # Update UI
+        wm.tlui.need_update = True
+        print('INFO: Image(s) is opened as mask(s) at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.tltimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -729,6 +832,7 @@ class YLayerMask(bpy.types.PropertyGroup):
 
 def register():
     bpy.utils.register_class(YNewLayerMask)
+    bpy.utils.register_class(YOpenImageAsMask)
     bpy.utils.register_class(YOpenAvailableDataAsMask)
     bpy.utils.register_class(YMoveLayerMask)
     bpy.utils.register_class(YRemoveLayerMask)
@@ -737,6 +841,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(YNewLayerMask)
+    bpy.utils.unregister_class(YOpenImageAsMask)
     bpy.utils.unregister_class(YOpenAvailableDataAsMask)
     bpy.utils.unregister_class(YMoveLayerMask)
     bpy.utils.unregister_class(YRemoveLayerMask)
