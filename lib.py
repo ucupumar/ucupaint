@@ -107,21 +107,6 @@ def load_custom_icons():
     custom_icons.load('collapsed_vector_channel', filepath + 'collapsed_vector_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_vector_channel', filepath + 'uncollapsed_vector_icon.png', 'IMAGE')
 
-def get_node_tree_lib(name):
-    # Node groups necessary are in nodegroups_lib.blend
-    filepath = get_addon_filepath() + "lib.blend"
-
-    with bpy.data.libraries.load(filepath) as (data_from, data_to):
-
-        # Load node groups
-        exist_groups = [ng.name for ng in bpy.data.node_groups]
-        for ng in data_from.node_groups:
-            if ng == name and ng not in exist_groups:
-                data_to.node_groups.append(ng)
-                break
-
-    return bpy.data.node_groups.get(name)
-
 def get_neighbor_uv_tree(texcoord_type, different_uv=False):
     if texcoord_type == 'UV':
         if different_uv: return get_node_tree_lib(NEIGHBOR_UV_OTHER_UV)

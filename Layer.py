@@ -349,7 +349,7 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
     #hacky_tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
 
     #bitangent = new_node(tree, tex, 'bitangent', 'ShaderNodeGroup', 'Source Bitangent')
-    #bitangent.node_tree = lib.get_node_tree_lib(lib.GET_BITANGENT)
+    #bitangent.node_tree = get_node_tree_lib(lib.GET_BITANGENT)
 
     # Set tex coordinate type
     tex.texcoord_type = texcoord_type
@@ -1863,7 +1863,7 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
         if not fine_bump:
             fine_bump = new_node(tree, ch, 'fine_bump', 'ShaderNodeGroup', 'Fine Bump')
-            fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
+            fine_bump.node_tree = get_node_tree_lib(lib.FINE_BUMP)
             fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, ch.bump_distance)
 
             #if BLENDER_28_GROUP_INPUT_HACK:
@@ -1891,7 +1891,7 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
     #normal_flip = tree.nodes.get(ch.normal_flip)
     #if not normal_flip:
     #    normal_flip = new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 'Flip Backface Normal')
-    #    normal_flip.node_tree = lib.get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
+    #    normal_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
 
     #else:
     #    remove_node(tree, ch, 'normal_flip')
@@ -1940,92 +1940,125 @@ def check_blend_type_nodes(root_ch, tex, ch):
     has_parent = tex.parent_idx != -1
 
     # Check blend type
-    if blend:
-        #if ((root_ch.alpha and ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
-        #    (not root_ch.alpha and blend.bl_idname == 'ShaderNodeGroup') or
-        #    (ch.blend_type != 'MIX' and blend.bl_idname == 'ShaderNodeGroup')):
-        #    #nodes.remove(blend)
-        #    remove_node(tree, ch, 'blend')
-        #    blend = None
-        #    need_reconnect = True
-        #elif root_ch.type == 'NORMAL':
-        #    #if ((ch.normal_blend == 'MIX' and blend.bl_idname == 'ShaderNodeGroup') or
-        #    #    (ch.normal_blend in {'OVERLAY'} and blend.bl_idname == 'ShaderNodeMixRGB')):
-        #    #nodes.remove(blend)
-        #    remove_node(tree, ch, 'blend')
-        #    blend = None
-        #    need_reconnect = True
-        remove_node(tree, ch, 'blend')
-        blend = None
-        need_reconnect = True
+    #if blend:
+    #    #if ((root_ch.alpha and ch.blend_type == 'MIX' and blend.bl_idname == 'ShaderNodeMixRGB') or
+    #    #    (not root_ch.alpha and blend.bl_idname == 'ShaderNodeGroup') or
+    #    #    (ch.blend_type != 'MIX' and blend.bl_idname == 'ShaderNodeGroup')):
+    #    #    #nodes.remove(blend)
+    #    #    remove_node(tree, ch, 'blend')
+    #    #    blend = None
+    #    #    need_reconnect = True
+    #    #elif root_ch.type == 'NORMAL':
+    #    #    #if ((ch.normal_blend == 'MIX' and blend.bl_idname == 'ShaderNodeGroup') or
+    #    #    #    (ch.normal_blend in {'OVERLAY'} and blend.bl_idname == 'ShaderNodeMixRGB')):
+    #    #    #nodes.remove(blend)
+    #    #    remove_node(tree, ch, 'blend')
+    #    #    blend = None
+    #    #    need_reconnect = True
+    #    remove_node(tree, ch, 'blend')
+    #    blend = None
+    #    need_reconnect = True
 
     # Create blend node if its missing
-    if not blend:
-        if has_parent and ch.blend_type == 'MIX':
+    #if not blend:
+    if has_parent and ch.blend_type == 'MIX':
 
-            blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
+        #blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
 
-            if root_ch.type == 'RGB':
-                if tex.type == 'BACKGROUND':
-                    blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_BG)
-                else: blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
-            elif root_ch.type == 'VALUE':
-                blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_BW)
-            elif root_ch.type == 'NORMAL':
-                blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_VEC)
+        if root_ch.type == 'RGB':
+            if tex.type == 'BACKGROUND':
+                #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER_BG)
+                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG, return_status = True)
+            else: 
+                #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
+                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, return_status = True)
 
-        elif root_ch.type == 'RGB':
-            if root_ch.alpha and ch.blend_type == 'MIX':
-                blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
-                if tex.type == 'BACKGROUND':
-                    blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_BG)
-                else: blend.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER)
-                #if BLENDER_28_GROUP_INPUT_HACK:
-                #    duplicate_lib_node_tree(blend)
-
-            else:
-                blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
-                blend.blend_type = ch.blend_type
+        elif root_ch.type == 'VALUE':
+            #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER_BW)
+            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                    'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, return_status = True)
 
         elif root_ch.type == 'NORMAL':
-            if ch.normal_blend == 'OVERLAY':
-                blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
-                blend.node_tree = lib.get_node_tree_lib(lib.OVERLAY_NORMAL)
-            #elif ch.normal_blend == 'VECTOR_MIX':
-            elif ch.normal_blend == 'MIX':
-                blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
-                blend.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
+            #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER_VEC)
+            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                    'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, return_status = True)
+
+    elif root_ch.type == 'RGB':
+
+        if root_ch.alpha and ch.blend_type == 'MIX':
+
+            #blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
+
+            if tex.type == 'BACKGROUND':
+                #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER_BG)
+                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG, return_status = True)
+
+            else: 
+                #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
+                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, return_status = True)
 
         else:
-            blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
+            #blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
+            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                    'ShaderNodeMixRGB', 'Blend', return_status = True)
+
             blend.blend_type = ch.blend_type
 
-        # Blend mute
-        mute = not tex.enable or not ch.enable
-        intensity = nodes.get(ch.intensity)
-        if intensity: intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-        if ch.enable_mask_ramp:
-            mr_intensity = nodes.get(ch.mr_intensity)
-            if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+    elif root_ch.type == 'NORMAL':
+        if ch.normal_blend == 'OVERLAY':
+            #blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
+            #blend.node_tree = get_node_tree_lib(lib.OVERLAY_NORMAL)
+            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                    'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, return_status = True)
 
-        #if tex.enable and ch.enable:
-        #    blend.mute = False
-        #else: blend.mute = True
+        #elif ch.normal_blend == 'VECTOR_MIX':
+        elif ch.normal_blend == 'MIX':
+            #blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
+            #blend.node_tree = get_node_tree_lib(lib.VECTOR_MIX)
+            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                    'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, return_status = True)
 
-    # Update blend mix
-    if root_ch.type != 'NORMAL' and blend.bl_idname == 'ShaderNodeMixRGB' and blend.blend_type != ch.blend_type:
+    else:
+        #blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
+        #blend.blend_type = ch.blend_type
+        blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                'ShaderNodeMixRGB', 'Blend', return_status = True)
+
         blend.blend_type = ch.blend_type
 
+    # Blend mute
+    mute = not tex.enable or not ch.enable
+    intensity = nodes.get(ch.intensity)
+    if intensity: intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+    if ch.enable_mask_ramp:
+        mr_intensity = nodes.get(ch.mr_intensity)
+        if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+
+    #if tex.enable and ch.enable:
+    #    blend.mute = False
+    #else: blend.mute = True
+
+    # Update blend mix
+    #if root_ch.type != 'NORMAL' and blend.bl_idname == 'ShaderNodeMixRGB' and blend.blend_type != ch.blend_type:
+    #    blend.blend_type = ch.blend_type
+
     # Check alpha tex input output connection
-    start = nodes.get(tex.start)
-    if (root_ch.type == 'RGB' and root_ch.alpha and ch.blend_type != 'MIX' and 
-        #len(start.outputs[get_alpha_io_index(tex, root_ch)].links) == 0):
-        len(start.outputs[root_ch.io_index+1].links) == 0):
-        need_reconnect = True
+    #start = nodes.get(tex.start)
+    #if (root_ch.type == 'RGB' and root_ch.alpha and ch.blend_type != 'MIX' and 
+    #    #len(start.outputs[get_alpha_io_index(tex, root_ch)].links) == 0):
+    #    len(start.outputs[root_ch.io_index+1].links) == 0):
+    #    need_reconnect = True
 
     return need_reconnect
 
 def update_blend_type(self, context):
+    T = time.time()
+
+    wm = context.window_manager
     tl = self.id_data.tl
     m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(m.group(1))]
@@ -2035,6 +2068,9 @@ def update_blend_type(self, context):
     if check_blend_type_nodes(root_ch, tex, self): # and not tl.halt_reconnect:
         reconnect_tex_nodes(tex, ch_index)
         rearrange_tex_nodes(tex)
+
+    print('INFO: Layer', tex.name, ' blend type is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    wm.tltimer.time = str(time.time())
 
 def update_flip_backface_normal(self, context):
     tl = self.id_data.tl

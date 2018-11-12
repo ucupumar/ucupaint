@@ -175,7 +175,7 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
 
     if channel.type == 'NORMAL':
         start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
-        start_normal_filter.node_tree = lib.get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
+        start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
 
     # Link between textures
     for t in tl.textures:

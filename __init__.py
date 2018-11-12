@@ -25,7 +25,7 @@
 # - Make sure background layer blending and its ui is consistent
 # - Make sure there's no duplictae group when appending
 # - Every modifiers has intensity value for muting to prevent recompilation
-# - Fix change blend type behavior where it always delete previous node
+# - Fix change blend type behavior where it always delete previous node (V)
 # - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
 # - Refactor for more consistent class names and properties

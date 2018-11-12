@@ -145,8 +145,8 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
         if not tao:
             tao = new_node(tree, ch, 'tao', 'ShaderNodeGroup', 'Transition AO')
             if bump_ch.mask_bump_flip or tex.type == 'BACKGROUND':
-                tao.node_tree = lib.get_node_tree_lib(lib.TRANSITION_AO_FLIP)
-            else: tao.node_tree = lib.get_node_tree_lib(lib.TRANSITION_AO)
+                tao.node_tree = get_node_tree_lib(lib.TRANSITION_AO_FLIP)
+            else: tao.node_tree = get_node_tree_lib(lib.TRANSITION_AO)
 
             col = (ch.transition_ao_color.r, ch.transition_ao_color.g, ch.transition_ao_color.b, 1.0)
             tao.inputs['AO Color'].default_value = col
@@ -278,7 +278,7 @@ def set_transition_bump_nodes(tex, tree, ch, ch_index):
         mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
         if not mb_fine_bump:
             mb_fine_bump = new_node(tree, ch, 'mb_fine_bump', 'ShaderNodeGroup', 'Transition Fine Bump')
-            mb_fine_bump.node_tree = lib.get_node_tree_lib(lib.FINE_BUMP)
+            mb_fine_bump.node_tree = get_node_tree_lib(lib.FINE_BUMP)
 
             #if BLENDER_28_GROUP_INPUT_HACK:
             #    duplicate_lib_node_tree(mb_fine_bump)
@@ -308,9 +308,9 @@ def set_transition_bump_nodes(tex, tree, ch, ch_index):
         #    bpy.data.node_groups.remove(mb_curved_bump.node_tree)
 
         if ch.mask_bump_flip or tex.type == 'BACKGROUND':
-            mb_curved_bump.node_tree = lib.get_node_tree_lib(lib.FLIP_CURVED_FINE_BUMP)
+            mb_curved_bump.node_tree = get_node_tree_lib(lib.FLIP_CURVED_FINE_BUMP)
         else:
-            mb_curved_bump.node_tree = lib.get_node_tree_lib(lib.CURVED_FINE_BUMP)
+            mb_curved_bump.node_tree = get_node_tree_lib(lib.CURVED_FINE_BUMP)
 
         #if BLENDER_28_GROUP_INPUT_HACK:
         #    duplicate_lib_node_tree(mb_curved_bump)
@@ -381,7 +381,7 @@ def set_transition_bump_nodes(tex, tree, ch, ch_index):
     mb_blend = tree.nodes.get(ch.mb_blend)
     if not mb_blend:
         mb_blend = new_node(tree, ch, 'mb_blend', 'ShaderNodeGroup', 'Transition Vector Blend')
-        mb_blend.node_tree = lib.get_node_tree_lib(lib.VECTOR_MIX)
+        mb_blend.node_tree = get_node_tree_lib(lib.VECTOR_MIX)
 
     # Dealing with mask sources
     check_mask_source_tree(tex) #, ch)

@@ -549,14 +549,29 @@ def check_new_node(tree, entity, prop, node_id_name, label=''):
 
     return node
 
-def replace_new_node(tree, entity, prop, node_id_name, label='', replaced_status=False):
-    ''' Check if node is available, replace if available '''
+def get_node_tree_lib(name):
+    # Node groups necessary are in nodegroups_lib.blend
+    filepath = get_addon_filepath() + "lib.blend"
 
-    replaced = False
+    with bpy.data.libraries.load(filepath) as (data_from, data_to):
+
+        # Load node groups
+        exist_groups = [ng.name for ng in bpy.data.node_groups]
+        for ng in data_from.node_groups:
+            if ng == name and ng not in exist_groups:
+                data_to.node_groups.append(ng)
+                break
+
+    return bpy.data.node_groups.get(name)
+
+def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False):
+    ''' Check if node is available, replace if available '''
 
     # Try to get the node first
     try: node = tree.nodes.get(getattr(entity, prop))
-    except: return None
+    except: return None, False
+
+    replaced = False
 
     # Remove node if found and has different id name
     if node and node.bl_idname != node_id_name:
@@ -568,7 +583,23 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', replaced_status
         node = new_node(tree, entity, prop, node_id_name, label)
         replaced = True
 
-    if replaced_status:
+    if node.type == 'GROUP' and node.node_tree != group_name:
+        # Get previous inputs
+        prev_inputs = [inp.name for inp in node.inputs]
+
+        # Replace group tree
+        node.node_tree = get_node_tree_lib(group_name)
+
+        # Compare previous group inputs with current group inputs
+        if len(prev_inputs) != len(node.inputs):
+            replaced = True
+        else:
+            for i, inp in enumerate(node.inputs):
+                if inp.name != prev_inputs[i]:
+                    replaced = True
+                    break
+
+    if return_status:
         return node, replaced
 
     return node

@@ -104,7 +104,7 @@ def enable_tex_source_tree(tex, rearrange=False):
     # Create uv neighbor
     uv_neighbor = check_new_node(tex_tree, tex, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV')
     if tex.type == 'VCOL':
-        uv_neighbor.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_FAKE)
+        uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
     else: 
         uv_neighbor.node_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
 
@@ -215,7 +215,7 @@ def set_mask_uv_neighbor(tree, tex, mask):
         need_reconnect = True
 
     if mask.type == 'VCOL':
-        uv_neighbor.node_tree = lib.get_node_tree_lib(lib.NEIGHBOR_FAKE)
+        uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
     else:
 
         different_uv = mask.texcoord_type == 'UV' and tex.uv_name != mask.uv_name
@@ -379,17 +379,16 @@ def check_create_bump_base(tex, tree, ch):
 
             if ch.enable_mask_bump:
                 # Mask bump uses hack
-                bb, replaced = replace_new_node(tree, ch, 'bump_base_' + d, 'ShaderNodeGroup', 'bump_hack_' + d, True)
-                if replaced:
-                    bb.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_HACK)
+                bb = replace_new_node(tree, ch, 'bump_base_' + d, 
+                        'ShaderNodeGroup', 'bump_hack_' + d, lib.STRAIGHT_OVER_HACK) 
 
             else:
                 # Check standard bump base
-                bb, replaced = replace_new_node(tree, ch, 'bump_base_' + d, 'ShaderNodeMixRGB', 'bump_base_' + d, True)
-                if replaced:
-                    val = ch.bump_base_value
-                    bb.inputs[0].default_value = 1.0
-                    bb.inputs[1].default_value = (val, val, val, 1.0)
+                bb = replace_new_node(tree, ch, 'bump_base_' + d, 'ShaderNodeMixRGB', 'bump_base_' + d)
+                #if replaced:
+                val = ch.bump_base_value
+                bb.inputs[0].default_value = 1.0
+                bb.inputs[1].default_value = (val, val, val, 1.0)
 
     elif not skip and normal_map_type == 'BUMP_MAP':
 
@@ -400,17 +399,16 @@ def check_create_bump_base(tex, tree, ch):
         if ch.enable_mask_bump:
 
             # Mask bump uses hack
-            bump_base, replaced = replace_new_node(tree, ch, 'bump_base', 'ShaderNodeGroup', 'Bump Hack', True)
-            if replaced:
-                bump_base.node_tree = lib.get_node_tree_lib(lib.STRAIGHT_OVER_HACK)
+            bump_base = replace_new_node(tree, ch, 'bump_base', 
+                    'ShaderNodeGroup', 'Bump Hack', lib.STRAIGHT_OVER_HACK)
 
         else:
             # Check standard bump base
-            bump_base, replaced = replace_new_node(tree, ch, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base', True)
-            if replaced:
-                val = ch.bump_base_value
-                bump_base.inputs[0].default_value = 1.0
-                bump_base.inputs[1].default_value = (val, val, val, 1.0)
+            bump_base = replace_new_node(tree, ch, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
+            #if replaced:
+            val = ch.bump_base_value
+            bump_base.inputs[0].default_value = 1.0
+            bump_base.inputs[1].default_value = (val, val, val, 1.0)
 
     else:
         # Delete all bump bases

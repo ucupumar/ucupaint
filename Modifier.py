@@ -102,8 +102,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             ref_tree.nodes.remove(invert_ref)
         else:
             if channel_type == 'VALUE':
-                invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT_VALUE)
-            else: invert.node_tree = lib.get_node_tree_lib(lib.MOD_INVERT)
+                invert.node_tree = get_node_tree_lib(lib.MOD_INVERT_VALUE)
+            else: invert.node_tree = get_node_tree_lib(lib.MOD_INVERT)
 
             #if BLENDER_28_GROUP_INPUT_HACK:
             #    duplicate_lib_node_tree(invert)
@@ -124,7 +124,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
                 ref_tree.nodes.remove(rgb2i_ref.parent)
             ref_tree.nodes.remove(rgb2i_ref)
         else:
-            rgb2i.node_tree = lib.get_node_tree_lib(lib.MOD_RGB2INT)
+            rgb2i.node_tree = get_node_tree_lib(lib.MOD_RGB2INT)
 
             #if BLENDER_28_GROUP_INPUT_HACK:
             #    duplicate_lib_node_tree(rgb2i)
@@ -155,7 +155,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
                 ref_tree.nodes.remove(i2rgb_ref.parent)
             ref_tree.nodes.remove(i2rgb_ref)
         else:
-            i2rgb.node_tree = lib.get_node_tree_lib(lib.MOD_INT2RGB)
+            i2rgb.node_tree = get_node_tree_lib(lib.MOD_INT2RGB)
 
             #if BLENDER_28_GROUP_INPUT_HACK:
             #    duplicate_lib_node_tree(i2rgb)
@@ -183,7 +183,7 @@ def add_modifier_nodes(m, tree, ref_tree=None):
                 ref_tree.nodes.remove(oc_ref.parent)
             ref_tree.nodes.remove(oc_ref)
         else:
-            oc.node_tree = lib.get_node_tree_lib(lib.MOD_OVERRIDE_COLOR)
+            oc.node_tree = get_node_tree_lib(lib.MOD_OVERRIDE_COLOR)
 
             #if BLENDER_28_GROUP_INPUT_HACK:
             #    duplicate_lib_node_tree(oc)
@@ -319,8 +319,8 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             ref_tree.nodes.remove(multiplier_ref)
         else:
             if channel_type == 'VALUE':
-                multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER_VALUE)
-            else: multiplier.node_tree = lib.get_node_tree_lib(lib.MOD_MULTIPLIER)
+                multiplier.node_tree = get_node_tree_lib(lib.MOD_MULTIPLIER_VALUE)
+            else: multiplier.node_tree = get_node_tree_lib(lib.MOD_MULTIPLIER)
 
             #if BLENDER_28_GROUP_INPUT_HACK:
             #    duplicate_lib_node_tree(multiplier)
