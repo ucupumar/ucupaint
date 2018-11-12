@@ -617,21 +617,30 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
         node = new_node(tree, entity, prop, node_id_name, label)
         replaced = True
 
-    if node.type == 'GROUP' and node.node_tree != group_name:
-        # Get previous inputs
-        prev_inputs = [inp.name for inp in node.inputs]
+    if node.type == 'GROUP' and (not node.node_tree or node.node_tree.name != group_name):
+
+        # Get previous tree
+        prev_tree = node.node_tree
 
         # Replace group tree
         node.node_tree = get_node_tree_lib(group_name)
 
-        # Compare previous group inputs with current group inputs
-        if len(prev_inputs) != len(node.inputs):
+        if not prev_tree:
             replaced = True
+
         else:
-            for i, inp in enumerate(node.inputs):
-                if inp.name != prev_inputs[i]:
-                    replaced = True
-                    break
+            # Compare previous group inputs with current group inputs
+            if len(prev_tree.inputs) != len(node.inputs):
+                replaced = True
+            else:
+                for i, inp in enumerate(node.inputs):
+                    if inp.name != prev_tree.inputs[i].name:
+                        replaced = True
+                        break
+
+            # Remove previous tree if it has no user
+            if prev_tree.users == 0:
+                bpy.data.node_groups.remove(prev_tree)
 
     if return_status:
         return node, replaced

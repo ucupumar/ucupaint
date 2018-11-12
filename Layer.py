@@ -122,6 +122,13 @@ def check_all_layer_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, h
             intensity.operation = 'MULTIPLY'
             intensity.inputs[1].default_value = 1.0
 
+        # Channel mute
+        mute = not tex.enable or not ch.enable
+        intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+        if ch.enable_mask_ramp:
+            mr_intensity = nodes.get(ch.mr_intensity)
+            if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+
         # Update layer ch blend type
         check_blend_type_nodes(root_ch, tex, ch)
 
@@ -1939,92 +1946,82 @@ def check_blend_type_nodes(root_ch, tex, ch):
 
     has_parent = tex.parent_idx != -1
 
+    # Background layer always using mix blend type
+    if tex.type == 'BACKGROUND':
+        blend_type = 'MIX'
+        normal_blend = 'MIX'
+    else: 
+        blend_type = ch.blend_type
+        normal_blend = ch.normal_blend
+
     # Create blend node if its missing
-    if has_parent and ch.blend_type == 'MIX':
+    if has_parent and blend_type == 'MIX':
 
         if root_ch.type == 'RGB':
             if tex.type == 'BACKGROUND':
-                #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER_BG)
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG, return_status = True)
             else: 
-                #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, return_status = True)
 
         elif root_ch.type == 'VALUE':
-            #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER_BW)
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, return_status = True)
 
         elif root_ch.type == 'NORMAL':
-            #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER_VEC)
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, return_status = True)
 
     elif root_ch.type == 'RGB':
 
-        if root_ch.alpha and ch.blend_type == 'MIX':
-
-            #blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
+        if root_ch.alpha and blend_type == 'MIX':
 
             if tex.type == 'BACKGROUND':
-                #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER_BG)
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG, return_status = True)
 
             else: 
-                #blend.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, return_status = True)
 
         else:
-            #blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeMixRGB', 'Blend', return_status = True)
 
-            blend.blend_type = ch.blend_type
+            #if blend.blend_type != blend_type:
+            #    blend.blend_type = blend_type
 
     elif root_ch.type == 'NORMAL':
-        if ch.normal_blend == 'OVERLAY':
-            #blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
-            #blend.node_tree = get_node_tree_lib(lib.OVERLAY_NORMAL)
+        if normal_blend == 'OVERLAY':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, return_status = True)
 
-        #elif ch.normal_blend == 'VECTOR_MIX':
-        elif ch.normal_blend == 'MIX':
-            #blend = new_node(tree, ch, 'blend', 'ShaderNodeGroup', 'Blend')
-            #blend.node_tree = get_node_tree_lib(lib.VECTOR_MIX)
+        elif normal_blend == 'MIX':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, return_status = True)
 
     else:
-        #blend = new_node(tree, ch, 'blend', 'ShaderNodeMixRGB', 'Blend')
-        #blend.blend_type = ch.blend_type
+
         blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                 'ShaderNodeMixRGB', 'Blend', return_status = True)
 
-        blend.blend_type = ch.blend_type
+    if blend.type == 'MIX_RGB' and blend.blend_type != blend_type:
+        blend.blend_type = blend_type
+
+    #print(need_reconnect)
 
     # Blend mute
-    mute = not tex.enable or not ch.enable
-    intensity = nodes.get(ch.intensity)
-    if intensity: intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-    if ch.enable_mask_ramp:
-        mr_intensity = nodes.get(ch.mr_intensity)
-        if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+    #mute = not tex.enable or not ch.enable
+    #intensity = nodes.get(ch.intensity)
+    #if intensity: intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+    #if ch.enable_mask_ramp:
+    #    mr_intensity = nodes.get(ch.mr_intensity)
+    #    if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
 
     #if tex.enable and ch.enable:
     #    blend.mute = False
     #else: blend.mute = True
-
-    # Check alpha tex input output connection
-    #start = nodes.get(tex.start)
-    #if (root_ch.type == 'RGB' and root_ch.alpha and ch.blend_type != 'MIX' and 
-    #    #len(start.outputs[get_alpha_io_index(tex, root_ch)].links) == 0):
-    #    len(start.outputs[root_ch.io_index+1].links) == 0):
-    #    need_reconnect = True
 
     return need_reconnect
 

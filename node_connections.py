@@ -982,7 +982,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             next_rgb = end.inputs[root_ch.io_index]
             next_alpha = end.inputs[root_ch.io_index+1]
 
-        if ch.blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.alpha)):
+        # Background layer only know mix
+        if tex.type == 'BACKGROUND':
+            blend_type = 'MIX'
+        else: blend_type = ch.blend_type
+
+        if blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.alpha)):
 
             create_link(tree, prev_rgb, blend.inputs[0])
             create_link(tree, prev_alpha, blend.inputs[1])
@@ -1002,6 +1007,6 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         #else: create_link(tree, prev_rgb, next_rgb)
         create_link(tree, blend.outputs[0], next_rgb)
 
-        if ch.blend_type != 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.alpha)):
+        if blend_type != 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.alpha)):
             create_link(tree, prev_alpha, next_alpha)
 

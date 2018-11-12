@@ -755,9 +755,10 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
         row.label(text=tl.channels[i].name + ':')
 
-        if root_ch.type == 'NORMAL':
-            row.prop(ch, 'normal_blend', text='')
-        else: row.prop(ch, 'blend_type', text='')
+        if tex.type != 'BACKGROUND':
+            if root_ch.type == 'NORMAL':
+                row.prop(ch, 'normal_blend', text='')
+            else: row.prop(ch, 'blend_type', text='')
 
         row.prop(ch, 'intensity_value', text='')
 

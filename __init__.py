@@ -14,6 +14,7 @@
 #   - Crease (X, too bloated)
 #   - AO (V)
 #   - Make transition effect option hidden in add modifier menu 
+#   - Option for transition ao link with channel intensity
 # - Texture group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects
@@ -22,7 +23,7 @@
 #   - Open Vcol as Mask/Layer (V)
 #   - Add mask option when creating new layer (V)
 #   - Remove RGB to Intensity when creating new layer bc its no longer necessary (X, why remove a feature?)
-# - Make sure background layer blending and its ui is consistent
+# - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
 # - Every modifiers has intensity value for muting to prevent recompilation
 # - Fix change blend type behavior where it always delete previous node (V)
