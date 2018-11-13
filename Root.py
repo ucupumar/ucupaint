@@ -495,6 +495,7 @@ class YQuickSetupTLNode(bpy.types.Operator):
             node.location = main_bsdf.location.copy()
             node.location.x -= 180
 
+        # Disable overlay on Blender 2.8
         if bpy.app.version_string.startswith('2.8') and self.mute_texture_paint_overlay:
             screen = context.screen
             for area in context.screen.areas:

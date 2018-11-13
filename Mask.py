@@ -845,5 +845,5 @@ def unregister():
     bpy.utils.unregister_class(YOpenAvailableDataAsMask)
     bpy.utils.unregister_class(YMoveLayerMask)
     bpy.utils.unregister_class(YRemoveLayerMask)
-    bpy.utils.unregister_class(YTextureMaskChannel)
+    bpy.utils.unregister_class(YLayerMaskChannel)
     bpy.utils.unregister_class(YLayerMask)

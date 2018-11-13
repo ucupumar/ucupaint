@@ -105,9 +105,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
                 invert.node_tree = get_node_tree_lib(lib.MOD_INVERT_VALUE)
             else: invert.node_tree = get_node_tree_lib(lib.MOD_INVERT)
 
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    duplicate_lib_node_tree(invert)
-
         frame.label = 'Invert'
         invert.parent = frame
 
@@ -665,15 +662,17 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
             col.prop(huesat.inputs[i], 'default_value', text='')
 
     elif modifier.type == 'BRIGHT_CONTRAST':
-        brightcon = nodes.get(modifier.brightcon)
+        #brightcon = nodes.get(modifier.brightcon)
         row = layout.row(align=True)
         col = row.column(align=True)
         col.label(text='Brightness:')
         col.label(text='Contrast:')
 
         col = row.column(align=True)
-        col.prop(brightcon.inputs[1], 'default_value', text='')
-        col.prop(brightcon.inputs[2], 'default_value', text='')
+        #col.prop(brightcon.inputs[1], 'default_value', text='')
+        #col.prop(brightcon.inputs[2], 'default_value', text='')
+        col.prop(modifier, 'brightness_value', text='')
+        col.prop(modifier, 'contrast_value', text='')
 
     elif modifier.type == 'MULTIPLIER':
         multiplier = nodes.get(modifier.multiplier)
@@ -706,47 +705,60 @@ def update_modifier_enable(self, context):
 
     if self.type == 'RGB_TO_INTENSITY':
         rgb2i = nodes.get(self.rgb2i)
-        rgb2i.mute = not self.enable
+        #rgb2i.mute = not self.enable
+        rgb2i.inputs['Intensity'].default_value = 1.0 if self.enable else 0.0
 
-    if self.type == 'INTENSITY_TO_RGB':
+    elif self.type == 'INTENSITY_TO_RGB':
         i2rgb = nodes.get(self.i2rgb)
-        i2rgb.mute = not self.enable
+        #i2rgb.mute = not self.enable
+        i2rgb.inputs['Intensity'].default_value = 1.0 if self.enable else 0.0
 
-    if self.type == 'OVERRIDE_COLOR':
+    elif self.type == 'OVERRIDE_COLOR':
         oc = nodes.get(self.oc)
-        oc.mute = not self.enable
+        #oc.mute = not self.enable
+        oc.inputs['Intensity'].default_value = 1.0 if self.enable else 0.0
 
     elif self.type == 'INVERT':
         invert = nodes.get(self.invert)
-        invert.mute = not self.enable
+        #invert.mute = not self.enable
+        update_invert_channel(self, context)
 
     elif self.type == 'COLOR_RAMP':
-        color_ramp = nodes.get(self.color_ramp)
-        color_ramp.mute = not self.enable
-        color_ramp_linear = nodes.get(self.color_ramp_linear)
-        color_ramp_linear.mute = not self.enable
-        color_ramp_alpha_multiply = nodes.get(self.color_ramp_alpha_multiply)
-        color_ramp_alpha_multiply.mute = not self.enable
+        #color_ramp = nodes.get(self.color_ramp)
+        #color_ramp.mute = not self.enable
+        #color_ramp_linear = nodes.get(self.color_ramp_linear)
+        #color_ramp_linear.mute = not self.enable
+        #color_ramp_alpha_multiply = nodes.get(self.color_ramp_alpha_multiply)
+        #color_ramp_alpha_multiply.mute = not self.enable
+
         color_ramp_mix_rgb = nodes.get(self.color_ramp_mix_rgb)
-        color_ramp_mix_rgb.mute = not self.enable
+        color_ramp_mix_rgb.inputs['Fac'].default_value = 1.0 if self.enable else 0.0
+        #color_ramp_mix_rgb.mute = not self.enable
+
         color_ramp_mix_alpha = nodes.get(self.color_ramp_mix_alpha)
-        color_ramp_mix_alpha.mute = not self.enable
+        color_ramp_mix_alpha.inputs['Fac'].default_value = 1.0 if self.enable else 0.0
+        #color_ramp_mix_alpha.mute = not self.enable
 
     elif self.type == 'RGB_CURVE':
         rgb_curve = nodes.get(self.rgb_curve)
-        rgb_curve.mute = not self.enable
+        rgb_curve.inputs['Fac'].default_value = 1.0 if self.enable else 0.0
+        #rgb_curve.mute = not self.enable
 
     elif self.type == 'HUE_SATURATION':
         huesat = nodes.get(self.huesat)
-        huesat.mute = not self.enable
+        huesat.inputs['Fac'].default_value = 1.0 if self.enable else 0.0
+        #huesat.mute = not self.enable
 
     elif self.type == 'BRIGHT_CONTRAST':
         brightcon = nodes.get(self.brightcon)
-        brightcon.mute = not self.enable
+        #brightcon.mute = not self.enable
+        update_brightcon_value(self, context)
 
     elif self.type == 'MULTIPLIER':
         multiplier = nodes.get(self.multiplier)
-        multiplier.mute = not self.enable
+        #multiplier.mute = not self.enable
+        update_use_clamp(self, context)
+        update_multiplier_val_input(self, context)
 
 def update_modifier_shortcut(self, context):
 
@@ -799,42 +811,20 @@ def update_invert_channel(self, context):
     tree = get_mod_tree(self)
     invert = tree.nodes.get(self.invert)
 
-    if self.invert_r_enable:
-        invert.inputs[2].default_value = 1.0
-    else: invert.inputs[2].default_value = 0.0
-
+    invert.inputs[2].default_value = 1.0 if self.invert_r_enable and self.enable else 0.0
     if channel_type == 'VALUE':
-
-        if self.invert_a_enable:
-            invert.inputs[3].default_value = 1.0
-        else: invert.inputs[3].default_value = 0.0
-
+        invert.inputs[3].default_value = 1.0 if self.invert_a_enable and self.enable else 0.0
     else:
-
-        if self.invert_g_enable:
-            invert.inputs[3].default_value = 1.0
-        else: invert.inputs[3].default_value = 0.0
-
-        if self.invert_b_enable:
-            invert.inputs[4].default_value = 1.0
-        else: invert.inputs[4].default_value = 0.0
-
-        if self.invert_a_enable:
-            invert.inputs[5].default_value = 1.0
-        else: invert.inputs[5].default_value = 0.0
-
-    #if BLENDER_28_GROUP_INPUT_HACK:
-    #    match_group_input(invert)
+        invert.inputs[3].default_value = 1.0 if self.invert_g_enable and self.enable else 0.0
+        invert.inputs[4].default_value = 1.0 if self.invert_b_enable and self.enable else 0.0
+        invert.inputs[5].default_value = 1.0 if self.invert_a_enable and self.enable else 0.0
 
 def update_use_clamp(self, context):
     tree = get_mod_tree(self)
 
     if self.type == 'MULTIPLIER':
         multiplier = tree.nodes.get(self.multiplier)
-        multiplier.inputs[2].default_value = 1.0 if self.use_clamp else 0.0
-
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    match_group_input(multiplier, 2)
+        multiplier.inputs[2].default_value = 1.0 if self.use_clamp and self.enable else 0.0
 
 def update_multiplier_val_input(self, context):
     tl = self.id_data.tl
@@ -854,23 +844,44 @@ def update_multiplier_val_input(self, context):
 
     if self.type == 'MULTIPLIER':
         multiplier = tree.nodes.get(self.multiplier)
-        multiplier.inputs[3].default_value = self.multiplier_r_val
+        multiplier.inputs[3].default_value = self.multiplier_r_val if self.enable else 1.0
         if channel_type == 'VALUE':
-            multiplier.inputs[4].default_value = self.multiplier_a_val
+            multiplier.inputs[4].default_value = self.multiplier_a_val if self.enable else 1.0
         else:
-            multiplier.inputs[4].default_value = self.multiplier_g_val
-            multiplier.inputs[5].default_value = self.multiplier_b_val
-            multiplier.inputs[6].default_value = self.multiplier_a_val
+            multiplier.inputs[4].default_value = self.multiplier_g_val if self.enable else 1.0
+            multiplier.inputs[5].default_value = self.multiplier_b_val if self.enable else 1.0
+            multiplier.inputs[6].default_value = self.multiplier_a_val if self.enable else 1.0
 
         #if BLENDER_28_GROUP_INPUT_HACK:
         #    match_group_input(multiplier)
+
+def update_brightcon_value(self, context):
+    tl = self.id_data.tl
+    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'tl\.textures\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    if match1: 
+        root_ch = tl.channels[int(match1.group(2))]
+        channel_type = root_ch.type
+    elif match2:
+        root_ch = tl.channels[int(match2.group(1))]
+        channel_type = root_ch.type
+    elif match3:
+        channel_type = 'RGB'
+
+    tree = get_mod_tree(self)
+
+    if self.type == 'BRIGHT_CONTRAST':
+        brightcon = tree.nodes.get(self.brightcon)
+        brightcon.inputs['Bright'].default_value = self.brightness_value if self.enable else 0.0
+        brightcon.inputs['Contrast'].default_value = self.contrast_value if self.enable else 0.0
 
 def update_rgb2i_col(self, context):
     tree = get_mod_tree(self)
 
     if self.type == 'RGB_TO_INTENSITY':
         rgb2i = tree.nodes.get(self.rgb2i)
-        rgb2i.inputs[2].default_value = self.rgb2i_col
+        rgb2i.inputs['RGB To Intensity Color'].default_value = self.rgb2i_col
 
         #if BLENDER_28_GROUP_INPUT_HACK:
         #    match_group_input(rgb2i, 2)
@@ -880,7 +891,7 @@ def update_oc_col(self, context):
 
     if self.type == 'OVERRIDE_COLOR': #and not self.oc_use_normal_base:
         oc = tree.nodes.get(self.oc)
-        oc.inputs[2].default_value = self.oc_col
+        oc.inputs['Override Color'].default_value = self.oc_col
 
         #if BLENDER_28_GROUP_INPUT_HACK:
         #    match_group_input(oc, 2)
@@ -983,6 +994,11 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     # Brightness Contrast nodes
     brightcon = StringProperty(default='')
+
+    brightness_value = FloatProperty(name='Brightness', description='Brightness', 
+            default=0.0, min=-100.0, max=100.0, update=update_brightcon_value)
+    contrast_value = FloatProperty(name='Contrast', description='Contrast', 
+            default=0.0, min=-100.0, max=100.0, update=update_brightcon_value)
 
     # Hue Saturation nodes
     huesat = StringProperty(default='')

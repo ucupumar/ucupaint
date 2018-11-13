@@ -15,6 +15,7 @@
 #   - AO (V)
 #   - Make transition effect option hidden in add modifier menu 
 #   - Option for transition ao link with channel intensity
+#   - Per channel transition edge intensity
 # - Texture group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects
@@ -23,11 +24,15 @@
 #   - Open Vcol as Mask/Layer (V)
 #   - Add mask option when creating new layer (V)
 #   - Remove RGB to Intensity when creating new layer bc its no longer necessary (X, why remove a feature?)
+# - Lazy channel nodes (?)
+#   - Nodes won't exists until it's enabled (X, replaced with next point)
+#   - Blend nodes will be muted at default if not enabled
+#   - Add option to Optimize the entire tl nodes
 # - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
-# - Every modifiers has intensity value for muting to prevent recompilation
+# - Every modifiers has intensity value for muting to prevent recompilation (V)
 # - Fix change blend type behavior where it always delete previous node (V)
-# - Add intensity multiplier to non transition bump
+# - Add intensity multiplier to non transition bump (?)
 # - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
 # - Refactor for more consistent class names and properties
