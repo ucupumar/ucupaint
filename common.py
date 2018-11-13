@@ -974,6 +974,21 @@ def set_parent_dict_val(tl, parent_dict, name, target_idx):
 
     return parent_dict
 
+def get_list_of_direct_child_ids(tex):
+    tl = tex.id_data.tl
+
+    if tex.type != 'GROUP':
+        return []
+
+    tex_idx = get_tex_index(tex)
+
+    childs = []
+    for i, t in enumerate(tl.textures):
+        if t.parent_idx == tex_idx:
+            childs.append(i)
+
+    return childs
+
 def get_list_of_direct_childrens(tex):
     tl = tex.id_data.tl
 

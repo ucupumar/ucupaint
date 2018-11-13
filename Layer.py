@@ -1577,11 +1577,23 @@ class YRemoveLayer(bpy.types.Operator):
         # Remember parents
         parent_dict = get_parent_dict(tl)
 
+        need_reconnect_layers = False
+
         if self.remove_childs:
+
             last_idx = get_last_child_idx(tex)
             for i in reversed(range(tex_idx, last_idx+1)):
                 remove_tex(tl, i)
+                
+            # The childs are all gone
+            child_ids = []
+
         else:
+            # Get childrens and repoint child parents
+            child_ids = get_list_of_direct_child_ids(tex)
+            for i in child_ids:
+                parent_dict[tl.textures[i].name] = parent_dict[tex.name]
+
             # Repoint its children parent
             for t in get_list_of_direct_childrens(tex):
                 parent_dict = set_parent_dict_val(tl, parent_dict, t.name, tex.parent_idx)
@@ -1601,6 +1613,14 @@ class YRemoveLayer(bpy.types.Operator):
         # Remap parents
         for t in tl.textures:
             t.parent_idx = get_tex_index_by_name(tl, parent_dict[t.name])
+
+        # Check childrens
+        #if need_reconnect_layers:
+        for i in child_ids:
+            t = tl.textures[i-1]
+            check_all_layer_channel_io_and_nodes(t)
+            rearrange_tex_nodes(t)
+            reconnect_tex_nodes(t)
 
         # Refresh layer channel blend nodes
         reconnect_tl_nodes(group_tree)

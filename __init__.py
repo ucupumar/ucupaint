@@ -67,7 +67,7 @@
 # - Wrong result after adding texture modifier (V, need more testing)
 # - Transition AO at flip produce wrong result (V)
 # - Bring back modifier on normal channel at Color layer (V)
-# - Childen layers produce wrong result after delete parent only
+# - Childen layers produce wrong result after delete parent only (V)
 # - Float image still lose precision after packed (its very apparent on bump effect)
 # - Musgrave fine bump cannot read below 0.0
 #
