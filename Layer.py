@@ -2475,6 +2475,18 @@ class YLayerChannel(bpy.types.PropertyGroup):
             #update=Mask.update_mask_bump_flip)
             update=transition.update_transition_bump_curved_offset)
 
+    transition_bump_fac = FloatProperty(
+            name='Transition Bump Factor',
+            description = 'Transition bump factor',
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
+            update=transition.update_transition_bump_fac)
+
+    transition_bump_second_fac = FloatProperty(
+            name='Transition Bump Second Factor',
+            description = 'Transition bump second factor',
+            default=1.0, min=0.0, max=1.0, subtype='FACTOR',
+            update=transition.update_transition_bump_fac)
+
     mb_bump = StringProperty(default='')
     mb_fine_bump = StringProperty(default='')
     mb_curved_bump = StringProperty(default='')

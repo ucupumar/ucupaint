@@ -6,7 +6,7 @@
 # - Masking (V)
 #   - Replace total mask node and implement transition bump/ramp chain system (V)
 #   - Active Mask switcher on the list (V)
-#   - Make sure mask has blending option consistency
+#   - Make sure mask has blending option consistency (X, 'Meh, its consistent enough')
 # - Transition effects (V)
 #   - Bump (V)
 #   - Ramp (V)
@@ -15,7 +15,9 @@
 #   - AO (V)
 #   - Make transition effect option hidden in add modifier menu 
 #   - Option for transition ao link with channel intensity
-#   - Per channel transition edge intensity
+#   - Per channel transition edge intensity (V)
+#   - AO and ramp contribute to alpha
+#   - AO option to exclude area within intensity
 # - Texture group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects

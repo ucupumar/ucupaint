@@ -531,7 +531,7 @@ class YMoveLayerMask(bpy.types.Operator):
         check_mask_source_tree(tex) #, bump_ch)
 
         rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex, mod_reconnect=True)
+        reconnect_tex_nodes(tex)
 
         return {'FINISHED'}
 

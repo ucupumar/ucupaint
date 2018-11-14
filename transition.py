@@ -100,16 +100,18 @@ def check_transition_bump_influences_to_other_channels(tex, tree=None, target_ch
             if bump_ch:
                 im = tree.nodes.get(c.mr_intensity_multiplier)
                 if not im:
-                    im = lib.new_intensity_multiplier_node(tree, c, 'mr_intensity_multiplier', bump_ch.mask_bump_value)
+                    im = lib.new_intensity_multiplier_node(tree, c, 'mr_intensity_multiplier', #bump_ch.mask_bump_value)
+                            1.0 + (bump_ch.mask_bump_second_edge_value - 1.0) * c.transition_bump_second_fac)
 
-                im.inputs[1].default_value = bump_ch.mask_bump_second_edge_value
+                #im.inputs[1].default_value = bump_ch.mask_bump_second_edge_value
                 #if BLENDER_28_GROUP_INPUT_HACK:
                 #    match_group_input(im, 1)
 
         if bump_ch:
             im = tree.nodes.get(c.intensity_multiplier)
             if not im:
-                im = lib.new_intensity_multiplier_node(tree, c, 'intensity_multiplier', bump_ch.mask_bump_value)
+                im = lib.new_intensity_multiplier_node(tree, c, 'intensity_multiplier', 
+                        1.0 + (bump_ch.mask_bump_value - 1.0) * c.transition_bump_fac)
 
             # Invert other intensity multipler if mask bump flip active
             if bump_ch.mask_bump_flip or tex.type == 'BACKGROUND':
@@ -456,8 +458,8 @@ def update_transition_bump_value(self, context):
     tree = get_tree(tex)
     ch = self
 
-    mb_intensity_multiplier = tree.nodes.get(ch.mb_intensity_multiplier)
     intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
+    mb_intensity_multiplier = tree.nodes.get(ch.mb_intensity_multiplier)
 
     if ch.mask_bump_flip or tex.type=='BACKGROUND':
         if intensity_multiplier:
@@ -470,25 +472,16 @@ def update_transition_bump_value(self, context):
         if mb_intensity_multiplier:
             mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
 
-    #if BLENDER_28_GROUP_INPUT_HACK:
-    #    match_group_input(mb_intensity_multiplier, 1)
-
     for c in tex.channels:
         if c == ch: continue
 
         im = tree.nodes.get(c.mr_intensity_multiplier)
         if im:
-            im.inputs[1].default_value = ch.mask_bump_second_edge_value
-
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    match_group_input(im, 1)
+            im.inputs[1].default_value = 1.0 + (ch.mask_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
 
         im = tree.nodes.get(c.intensity_multiplier)
         if im: 
-            im.inputs[1].default_value = ch.mask_bump_value
-
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    match_group_input(im, 1)
+            im.inputs[1].default_value = 1.0 + (ch.mask_bump_value - 1.0) * c.transition_bump_fac
 
 def update_transition_bump_distance(self, context):
     if not self.enable: return
@@ -560,6 +553,26 @@ def update_transition_bump_curved_offset(self, context):
     mb_curved_bump = tree.nodes.get(ch.mb_curved_bump)
     if mb_curved_bump:
         mb_curved_bump.inputs['Offset'].default_value = ch.mask_bump_curved_offset
+
+def update_transition_bump_fac(self, context):
+
+    tl = self.id_data.tl
+    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(m.group(1))]
+    tree = get_tree(tex)
+    ch = self
+
+    bump_ch = get_transition_bump_channel(tex)
+
+    if ch != bump_ch:
+
+        im = tree.nodes.get(ch.intensity_multiplier)
+        if im: 
+            im.inputs[1].default_value = 1.0 + (bump_ch.mask_bump_value - 1.0) * ch.transition_bump_fac
+
+        im = tree.nodes.get(ch.mr_intensity_multiplier)
+        if im:
+            im.inputs[1].default_value = 1.0 + (bump_ch.mask_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
 
 def update_transition_ao_intensity(self, context):
 

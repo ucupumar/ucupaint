@@ -949,6 +949,11 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 brow.label(text='Blend:')
                 brow.prop(ch, 'mask_ramp_blend_type', text='')
                 brow.prop(ch, 'mask_ramp_intensity_value', text='')
+
+                brow = bcol.row(align=True)
+                brow.label(text='Transition Factor:')
+                brow.prop(ch, 'transition_bump_second_fac', text='')
+
                 #brow.prop(ch, 'ramp_intensity_value', text='')
                 bcol.template_color_ramp(ramp, "color_ramp", expand=True)
                 #row.label(text='', icon='BLANK1')
@@ -984,6 +989,13 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 brow.label(text='Color:')
                 brow.prop(ch, 'transition_ao_color', text='')
                 #row.label(text='', icon='BLANK1')
+
+            # Transition Bump Intensity
+            if bump_ch_found:
+                row = mcol.row(align=True)
+                row.label(text='', icon='INFO')
+                row.label(text='Transition Factor')
+                row.prop(ch, 'transition_bump_fac', text='')
 
             extra_separator = True
 
@@ -1172,12 +1184,6 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
             rrow.label(text='Source: ' + mask_image.name)
         else: rrow.label(text='Source: ' + mask.name)
 
-        rrow = rrcol.row(align=True)
-        rrow.label(text='', icon='IMAGE_ZDEPTH')
-        rrow.label(text='Blend:')
-        rrow.prop(mask, 'blend_type', text='')
-        rrow.prop(mask, 'intensity_value', text='')
-
         if maskui.expand_source and mask.type != 'VCOL':
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon='BLANK1')
@@ -1185,6 +1191,12 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
             if mask_image:
                 draw_image_props(mask_source, rbox)
             else: draw_tex_props(mask_source, rbox)
+
+        rrow = rrcol.row(align=True)
+        rrow.label(text='', icon='IMAGE_ZDEPTH')
+        rrow.label(text='Blend:')
+        rrow.prop(mask, 'blend_type', text='')
+        rrow.prop(mask, 'intensity_value', text='')
 
         # Vector row
         if mask.type != 'VCOL':
