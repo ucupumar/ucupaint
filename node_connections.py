@@ -868,9 +868,16 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             if trans_bump_flip:
                 create_link(tree, rgb, tao.inputs[0])
                 rgb = tao.outputs[0]
+
+                # Get bump intensity multiplier of transition bump
+                trans_im = nodes.get(trans_bump_ch.mb_intensity_multiplier)
+                create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
             else: 
                 create_link(tree, prev_rgb, tao.inputs[0])
-                create_link(tree, intensity_multiplier.outputs[0], tao.inputs[2])
+
+                # Get intensity multiplier of transition bump
+                trans_im = nodes.get(trans_bump_ch.intensity_multiplier)
+                create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
 
                 # Dealing with chain
                 remaining_alpha = solid_alpha.outputs[0]
@@ -886,7 +893,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                         create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
 
                 prev_rgb = tao.outputs[0]
-                create_link(tree, remaining_alpha, tao.inputs[3])
+                create_link(tree, remaining_alpha, tao.inputs['Remaining Alpha'])
 
             create_link(tree, transition_input, tao.inputs[1])
 

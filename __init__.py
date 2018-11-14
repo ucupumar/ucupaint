@@ -17,7 +17,7 @@
 #   - Option for transition ao link with channel intensity
 #   - Per channel transition edge intensity (V)
 #   - AO and ramp contribute to alpha
-#   - AO option to exclude area within intensity
+#   - AO option to exclude area within intensity (V)
 # - Texture group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects
@@ -34,7 +34,8 @@
 # - Make sure there's no duplicate group when appending (V)
 # - Every modifiers has intensity value for muting to prevent recompilation (V)
 # - Fix change blend type behavior where it always delete previous node (V)
-# - Add intensity multiplier to non transition bump (?)
+# - Add intensity multiplier to non transition bump (X, transition already do the job)
+# - Oveeride color should be override value for value channel
 # - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
 # - Refactor for more consistent class names and properties

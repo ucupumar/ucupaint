@@ -153,23 +153,17 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
             col = (ch.transition_ao_color.r, ch.transition_ao_color.g, ch.transition_ao_color.b, 1.0)
             tao.inputs['AO Color'].default_value = col
 
-            #if bump_ch.mask_bump_flip or tex.type == 'BACKGROUND':
-            #    tao.inputs['Edge'].default_value = -ch.transition_ao_edge
-            #else: tao.inputs['Edge'].default_value = ch.transition_ao_edge
             tao.inputs['Edge'].default_value = ch.transition_ao_edge
 
             mute = not tex.enable or not ch.enable
-
             #tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
             tao.inputs['Intensity'].default_value = 0.0 if mute else ch.transition_ao_intensity
-            #tao.inputs['Gamma'].default_value = 1.0
+
+            tao.inputs['Exclude Inside'].default_value = ch.transition_ao_exclude_inside
+
             if root_ch.colorspace == 'SRGB':
                 tao.inputs['Gamma'].default_value = 1.0/GAMMA
             else: tao.inputs['Gamma'].default_value = 1.0
-
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    duplicate_lib_node_tree(tao)
-            #    match_group_input(tao)
 
 def set_transition_ramp_nodes(tree, tex, ch, rearrange=False):
 
@@ -618,6 +612,18 @@ def update_transition_ao_color(self, context):
     if tao:
         col = (ch.transition_ao_color.r, ch.transition_ao_color.g, ch.transition_ao_color.b, 1.0)
         tao.inputs['AO Color'].default_value = col
+
+def update_transition_ao_exclude_inside(self, context):
+
+    tl = self.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    tex = tl.textures[int(match.group(1))]
+    ch = self
+    tree = get_tree(tex)
+
+    tao = tree.nodes.get(ch.tao)
+    if tao:
+        tao.inputs['Exclude Inside'].default_value = ch.transition_ao_exclude_inside
 
 def update_enable_transition_ao(self, context):
 

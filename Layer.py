@@ -126,7 +126,7 @@ def check_all_layer_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, h
         mute = not tex.enable or not ch.enable
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
         if ch.enable_mask_ramp:
-            mr_intensity = nodes.get(ch.mr_intensity)
+            mr_intensity = tree.nodes.get(ch.mr_intensity)
             if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
 
         # Update layer ch blend type
@@ -2550,6 +2550,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_ao_color = FloatVectorProperty(name='Transition AO Color', description='Transition AO Color', 
             subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.0, 0.0, 0.0),
             update=transition.update_transition_ao_color)
+
+    transition_ao_exclude_inside = FloatProperty(name='Transition AO Exclude Inside', 
+            description='Transition AO Exclude Inside', subtype='FACTOR', min=0.0, max=1.0, default=0.0,
+            update=transition.update_transition_ao_exclude_inside)
 
     tao = StringProperty(default='')
 

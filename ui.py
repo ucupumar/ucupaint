@@ -988,6 +988,9 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 brow = bcol.row(align=True)
                 brow.label(text='Color:')
                 brow.prop(ch, 'transition_ao_color', text='')
+                brow = bcol.row(align=True)
+                brow.label(text='Exclude Inside:')
+                brow.prop(ch, 'transition_ao_exclude_inside', text='')
                 #row.label(text='', icon='BLANK1')
 
             # Transition Bump Intensity
