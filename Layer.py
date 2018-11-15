@@ -1838,7 +1838,7 @@ def update_channel_enable(self, context):
     if ch.enable_transition_ao:
         tao = tree.nodes.get(ch.tao)
         #tao.mute = mute
-        tao.inputs['Intensity'].default_value = 0.0 if mute else ch.transition_ao_intensity
+        tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
 
 def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
@@ -2273,6 +2273,10 @@ def update_texture_enable(self, context):
             mr_intensity = tree.nodes.get(ch.mr_intensity)
             if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
 
+        if ch.enable_transition_ao:
+            tao = tree.nodes.get(ch.tao)
+            if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
+
     context.window_manager.tltimer.time = str(time.time())
 
 def update_channel_intensity_value(self, context):
@@ -2282,27 +2286,32 @@ def update_channel_intensity_value(self, context):
     tex = tl.textures[int(m.group(1))]
     tree = get_tree(tex)
     ch_index = int(m.group(2))
+    ch = self
     root_ch = tl.channels[ch_index]
 
-    if not tex.enable or not self.enable: return
+    if not tex.enable or not ch.enable: return
 
-    intensity = tree.nodes.get(self.intensity)
-    intensity.inputs[1].default_value = self.intensity_value
-    #intensity_multiplier = tree.nodes.get(self.intensity_multiplier)
-    #intensity_multiplier.inputs[1].default_value = self.intensity_multiplier_value
+    intensity = tree.nodes.get(ch.intensity)
+    intensity.inputs[1].default_value = ch.intensity_value
+    #intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
+    #intensity_multiplier.inputs[1].default_value = ch.intensity_multiplier_value
 
-    if self.enable_mask_ramp:
+    if ch.enable_mask_ramp:
         flip_bump = any([c for c in tex.channels if c.mask_bump_flip and c.enable_mask_bump])
         if flip_bump:
-            mr_intensity = tree.nodes.get(self.mr_intensity)
-            mr_intensity.inputs[1].default_value = self.mask_ramp_intensity_value * self.intensity_value
+            mr_intensity = tree.nodes.get(ch.mr_intensity)
+            mr_intensity.inputs[1].default_value = ch.mask_ramp_intensity_value * ch.intensity_value
 
             # Flip bump is better be muted if intensity is maximum
-            mr_flip_hack = tree.nodes.get(self.mr_flip_hack)
+            mr_flip_hack = tree.nodes.get(ch.mr_flip_hack)
             if mr_flip_hack:
-                if self.intensity_value < 1.0:
+                if ch.intensity_value < 1.0:
                     mr_flip_hack.inputs[1].default_value = 1
                 else: mr_flip_hack.inputs[1].default_value = 20
+
+    if ch.enable_transition_ao:
+        tao = tree.nodes.get(ch.tao)
+        if tao: tao.inputs['Intensity'].default_value = transition.get_transition_ao_intensity(ch)
 
 def update_texture_name(self, context):
     tl = self.id_data.tl
@@ -2566,6 +2575,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_ao_exclude_inside = FloatProperty(name='Transition AO Exclude Inside', 
             description='Transition AO Exclude Inside', subtype='FACTOR', min=0.0, max=1.0, default=0.0,
             update=transition.update_transition_ao_exclude_inside)
+
+    transition_ao_intensity_link = BoolProperty(name='Transition AO Intenisty Link', default=True,
+            update=transition.update_transition_ao_intensity)
 
     tao = StringProperty(default='')
 

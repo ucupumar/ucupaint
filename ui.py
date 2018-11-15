@@ -2092,6 +2092,10 @@ class YTransitionAOMenu(bpy.types.Menu):
 
         #col.label(text=context.parent.path_from_id())
 
+        col.prop(context.parent, 'transition_ao_intensity_link', text='Link AO with Channel Intensity')
+
+        col.separator()
+
         if bpy.app.version_string.startswith('2.8'):
             col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='REMOVE').type = 'AO'
         else: col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='ZOOMOUT').type = 'AO'

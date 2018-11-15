@@ -122,6 +122,9 @@ def check_transition_bump_influences_to_other_channels(tex, tree=None, target_ch
             #if BLENDER_28_GROUP_INPUT_HACK:
             #    match_group_input(im, 'Invert')
 
+def get_transition_ao_intensity(ch):
+    return ch.transition_ao_intensity * ch.intensity_value if ch.transition_ao_intensity_link else ch.transition_ao_intensity
+
 def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
 
     if not bump_ch or tex.type == 'BACKGROUND' or not ch.enable_transition_ao:
@@ -157,8 +160,9 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
             tao.inputs['Edge'].default_value = ch.transition_ao_edge
 
             mute = not tex.enable or not ch.enable
+
             #tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
-            tao.inputs['Intensity'].default_value = 0.0 if mute else ch.transition_ao_intensity
+            tao.inputs['Intensity'].default_value = 0.0 if mute else get_transition_ao_intensity(ch)
 
             tao.inputs['Exclude Inside'].default_value = ch.transition_ao_exclude_inside
 
@@ -582,7 +586,15 @@ def update_transition_ao_intensity(self, context):
     tao = tree.nodes.get(ch.tao)
     if tao:
         #tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
-        tao.inputs['Intensity'].default_value = 0.0 if mute else ch.transition_ao_intensity
+        tao.inputs['Intensity'].default_value = 0.0 if mute else get_transition_ao_intensity(ch)
+
+#def update_transition_ao_intensity_link(self, context):
+#
+#    tl = self.id_data.tl
+#    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+#    tex = tl.textures[int(match.group(1))]
+#    ch = self
+#    tree = get_tree(tex)
 
 def update_transition_ao_edge(self, context):
 
