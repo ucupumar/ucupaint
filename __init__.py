@@ -13,7 +13,7 @@
 #   - Flip bump mode (V)
 #   - Crease (X, too bloated)
 #   - AO (V)
-#   - Make transition effect option hidden in add modifier menu 
+#   - Make transition effect option hidden in add modifier menu (V)
 #   - Option for transition ao link with channel intensity
 #   - Per channel transition edge intensity (V)
 #   - AO and ramp contribute to alpha
@@ -36,6 +36,7 @@
 # - Fix change blend type behavior where it always delete previous node (V)
 # - Add intensity multiplier to non transition bump (X, transition already do the job)
 # - Oveeride color should be override value for value channel
+# - Make sure ui is expanded if modifier or transition is added
 # - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
 # - Refactor for more consistent class names and properties

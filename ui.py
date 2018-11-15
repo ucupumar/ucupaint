@@ -713,6 +713,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
     # Check if theres any mask bump
     bump_ch_found = True if get_transition_bump_channel(tex) else False
+    showed_bump_ch_found = True if get_showed_transition_bump_channel(tex) else False
 
     ch_count = 0
     extra_separator = False
@@ -735,8 +736,16 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
         row = ccol.row(align=True)
 
-        #expandable = len(tex.masks) > 0 or len(ch.modifiers) > 0 or tex.type != 'IMAGE' or root_ch.type == 'NORMAL'
-        expandable = True
+        #expandable = True
+        expandable = (
+                len(ch.modifiers) > 0 or 
+                tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'} or 
+                root_ch.type == 'NORMAL' or
+                ch.show_transition_ramp or
+                ch.show_transition_ao or
+                showed_bump_ch_found
+                )
+
         if custom_icon_enable:
             icon_name = lib.channel_custom_icon_dict[root_ch.type]
             if expandable:
@@ -778,7 +787,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
         if tlui.expand_channels:
             row.prop(ch, 'enable', text='')
 
-        if not chui.expand_content: continue
+        if not expandable or not chui.expand_content: continue
 
         mrow = ccol.row(align=True)
         mrow.label(text='', icon='BLANK1')
@@ -797,66 +806,71 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     brow.context_pointer_set('image', image)
                     brow.operator('node.y_refresh_neighbor_uv', icon='ERROR')
 
-            #if len(tex.masks) > 0 and (not bump_ch_found or ch.enable_mask_bump):
-            brow = mcol.row(align=True)
-            #brow.label(text='', icon='INFO')
-            if custom_icon_enable:
+            if ch.show_transition_bump or ch.enable_mask_bump:
+
+                brow = mcol.row(align=True)
+                if custom_icon_enable:
+                    if chui.expand_mask_settings:
+                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                    brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
+                else:
+                    brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
+                brow.label(text='Transition Bump:')
+
+                if ch.enable_mask_bump and not chui.expand_mask_settings:
+                    brow.prop(ch, 'mask_bump_value', text='')
+
+                brow.context_pointer_set('parent', ch)
+                if bpy.app.version_string.startswith('2.8'):
+                    brow.menu("NODE_MT_y_transition_bump_menu", text='', icon='PREFERENCES')
+                else: brow.menu("NODE_MT_y_transition_bump_menu", text='', icon='SCRIPTWIN')
+
+                brow.prop(ch, 'enable_mask_bump', text='')
+
                 if chui.expand_mask_settings:
-                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
-            else:
-                brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
-            brow.label(text='Transition Bump:')
+                    row = mcol.row(align=True)
+                    row.label(text='', icon='BLANK1')
 
-            if ch.enable_mask_bump and not chui.expand_mask_settings:
-                brow.prop(ch, 'mask_bump_value', text='')
+                    bbox = row.box()
+                    bbox.active = ch.enable_mask_bump
+                    cccol = bbox.column(align=True)
 
-            brow.prop(ch, 'enable_mask_bump', text='')
+                    #crow = cccol.row(align=True)
+                    #crow.label(text='Type:') #, icon='INFO')
+                    #crow.prop(ch, 'mask_bump_type', text='')
 
-            if chui.expand_mask_settings:
-                row = mcol.row(align=True)
-                row.label(text='', icon='BLANK1')
-
-                bbox = row.box()
-                bbox.active = ch.enable_mask_bump
-                cccol = bbox.column(align=True)
-
-                #crow = cccol.row(align=True)
-                #crow.label(text='Type:') #, icon='INFO')
-                #crow.prop(ch, 'mask_bump_type', text='')
-
-                crow = cccol.row(align=True)
-                crow.label(text='Type:') #, icon='INFO')
-                crow.prop(ch, 'mask_bump_type', text='')
-
-                crow = cccol.row(align=True)
-                crow.label(text='Edge 1:') #, icon='INFO')
-                crow.prop(ch, 'mask_bump_value', text='')
-
-                crow = cccol.row(align=True)
-                crow.label(text='Edge 2:') #, icon='INFO')
-                crow.prop(ch, 'mask_bump_second_edge_value', text='')
-
-                crow = cccol.row(align=True)
-                crow.label(text='Distance:') #, icon='INFO')
-                crow.prop(ch, 'mask_bump_distance', text='')
-
-                crow = cccol.row(align=True)
-                crow.label(text='Affected Masks:') #, icon='INFO')
-                crow.prop(ch, 'mask_bump_chain', text='')
-
-                if ch.mask_bump_type == 'CURVED_BUMP_MAP':
                     crow = cccol.row(align=True)
-                    crow.label(text='Offset:') #, icon='INFO')
-                    crow.prop(ch, 'mask_bump_curved_offset', text='')
+                    crow.label(text='Type:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_type', text='')
 
-                crow = cccol.row(align=True)
-                crow.active = tex.type != 'BACKGROUND'
-                crow.label(text='Flip:') #, icon='INFO')
-                crow.prop(ch, 'mask_bump_flip', text='')
+                    crow = cccol.row(align=True)
+                    crow.label(text='Edge 1:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_value', text='')
 
-                #row.label(text='', icon='BLANK1')
+                    crow = cccol.row(align=True)
+                    crow.label(text='Edge 2:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_second_edge_value', text='')
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Distance:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_distance', text='')
+
+                    crow = cccol.row(align=True)
+                    crow.label(text='Affected Masks:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_chain', text='')
+
+                    if ch.mask_bump_type == 'CURVED_BUMP_MAP':
+                        crow = cccol.row(align=True)
+                        crow.label(text='Offset:') #, icon='INFO')
+                        crow.prop(ch, 'mask_bump_curved_offset', text='')
+
+                    crow = cccol.row(align=True)
+                    crow.active = tex.type != 'BACKGROUND'
+                    crow.label(text='Flip:') #, icon='INFO')
+                    crow.prop(ch, 'mask_bump_flip', text='')
+
+                    #row.label(text='', icon='BLANK1')
 
             row = mcol.row(align=True)
             #row.active = tex.type != 'COLOR'
@@ -921,81 +935,98 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
         if root_ch.type in {'RGB', 'VALUE'}:
 
-            # Transition Ramp
-            row = mcol.row(align=True)
+            if ch.show_transition_ramp or ch.enable_mask_ramp:
 
-            ramp = tex_tree.nodes.get(ch.mr_ramp)
-            if not ramp:
-                row.label(text='', icon='INFO')
-            else:
+                # Transition Ramp
+                row = mcol.row(align=True)
+
+                ramp = tex_tree.nodes.get(ch.mr_ramp)
+                if not ramp:
+                    row.label(text='', icon='INFO')
+                else:
+                    if custom_icon_enable:
+                        if chui.expand_transition_ramp_settings:
+                            icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                        else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                        row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=False, icon_value=icon_value)
+                    else:
+                        row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=True, icon='MOD_MASK')
+                row.label(text='Transition Ramp:')
+                if ch.enable_mask_ramp and not chui.expand_transition_ramp_settings:
+                    row.prop(ch, 'mask_ramp_intensity_value', text='')
+
+                row.context_pointer_set('parent', ch)
+                if bpy.app.version_string.startswith('2.8'):
+                    row.menu("NODE_MT_y_transition_ramp_menu", text='', icon='PREFERENCES')
+                else: row.menu("NODE_MT_y_transition_ramp_menu", text='', icon='SCRIPTWIN')
+
+                row.prop(ch, 'enable_mask_ramp', text='')
+
+                if ramp and chui.expand_transition_ramp_settings:
+                    row = mcol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    box = row.box()
+                    bcol = box.column(align=False)
+                    brow = bcol.row(align=True)
+                    brow.label(text='Blend:')
+                    brow.prop(ch, 'mask_ramp_blend_type', text='')
+                    brow.prop(ch, 'mask_ramp_intensity_value', text='')
+
+                    brow = bcol.row(align=True)
+                    brow.label(text='Transition Factor:')
+                    brow.prop(ch, 'transition_bump_second_fac', text='')
+
+                    #brow.prop(ch, 'ramp_intensity_value', text='')
+                    bcol.template_color_ramp(ramp, "color_ramp", expand=True)
+                    #row.label(text='', icon='BLANK1')
+
+            if ch.show_transition_ao or ch.enable_transition_ao:
+
+                # Transition AO
+                row = mcol.row(align=True)
+                row.active = bump_ch_found and tex.type != 'BACKGROUND'
                 if custom_icon_enable:
-                    if chui.expand_transition_ramp_settings:
+                    if chui.expand_transition_ao_settings:
                         icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                     else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                    row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=False, icon_value=icon_value)
+                    row.prop(chui, 'expand_transition_ao_settings', text='', emboss=False, icon_value=icon_value)
                 else:
-                    row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=True, icon='MOD_MASK')
-            row.label(text='Transition Ramp:')
-            if ch.enable_mask_ramp and not chui.expand_transition_ramp_settings:
-                row.prop(ch, 'mask_ramp_intensity_value', text='')
-            row.prop(ch, 'enable_mask_ramp', text='')
+                    row.prop(chui, 'expand_transition_ao_settings', text='', emboss=True, icon='MOD_MASK')
+                row.label(text='Transition AO:')
+                if ch.enable_transition_ao and not chui.expand_transition_ao_settings:
+                    row.prop(ch, 'transition_ao_intensity', text='')
 
-            if ramp and chui.expand_transition_ramp_settings:
-                row = mcol.row(align=True)
-                row.label(text='', icon='BLANK1')
-                box = row.box()
-                bcol = box.column(align=False)
-                brow = bcol.row(align=True)
-                brow.label(text='Blend:')
-                brow.prop(ch, 'mask_ramp_blend_type', text='')
-                brow.prop(ch, 'mask_ramp_intensity_value', text='')
+                row.context_pointer_set('parent', ch)
+                if bpy.app.version_string.startswith('2.8'):
+                    row.menu("NODE_MT_y_transition_ao_menu", text='', icon='PREFERENCES')
+                else: row.menu("NODE_MT_y_transition_ao_menu", text='', icon='SCRIPTWIN')
 
-                brow = bcol.row(align=True)
-                brow.label(text='Transition Factor:')
-                brow.prop(ch, 'transition_bump_second_fac', text='')
+                row.prop(ch, 'enable_transition_ao', text='')
 
-                #brow.prop(ch, 'ramp_intensity_value', text='')
-                bcol.template_color_ramp(ramp, "color_ramp", expand=True)
-                #row.label(text='', icon='BLANK1')
-
-            # Transition AO
-            row = mcol.row(align=True)
-            row.active = bump_ch_found and tex.type != 'BACKGROUND'
-            if custom_icon_enable:
                 if chui.expand_transition_ao_settings:
-                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                row.prop(chui, 'expand_transition_ao_settings', text='', emboss=False, icon_value=icon_value)
-            else:
-                row.prop(chui, 'expand_transition_ao_settings', text='', emboss=True, icon='MOD_MASK')
-            row.label(text='Transition AO:')
-            if ch.enable_transition_ao and not chui.expand_transition_ao_settings:
-                row.prop(ch, 'transition_ao_intensity', text='')
-            row.prop(ch, 'enable_transition_ao', text='')
-
-            if chui.expand_transition_ao_settings:
-                row = mcol.row(align=True)
-                row.label(text='', icon='BLANK1')
-                box = row.box()
-                box.active = bump_ch_found and tex.type != 'BACKGROUND'
-                bcol = box.column(align=False)
-                brow = bcol.row(align=True)
-                brow.label(text='Intensity:')
-                brow.prop(ch, 'transition_ao_intensity', text='')
-                brow = bcol.row(align=True)
-                brow.label(text='Edge:')
-                brow.prop(ch, 'transition_ao_edge', text='')
-                brow = bcol.row(align=True)
-                brow.label(text='Color:')
-                brow.prop(ch, 'transition_ao_color', text='')
-                brow = bcol.row(align=True)
-                brow.label(text='Exclude Inside:')
-                brow.prop(ch, 'transition_ao_exclude_inside', text='')
-                #row.label(text='', icon='BLANK1')
+                    row = mcol.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    box = row.box()
+                    box.active = bump_ch_found and tex.type != 'BACKGROUND'
+                    bcol = box.column(align=False)
+                    brow = bcol.row(align=True)
+                    brow.label(text='Intensity:')
+                    brow.prop(ch, 'transition_ao_intensity', text='')
+                    brow = bcol.row(align=True)
+                    brow.label(text='Edge:')
+                    brow.prop(ch, 'transition_ao_edge', text='')
+                    brow = bcol.row(align=True)
+                    brow.label(text='Color:')
+                    brow.prop(ch, 'transition_ao_color', text='')
+                    brow = bcol.row(align=True)
+                    brow.label(text='Exclude Inside:')
+                    brow.prop(ch, 'transition_ao_exclude_inside', text='')
+                    #row.label(text='', icon='BLANK1')
 
             # Transition Bump Intensity
-            if bump_ch_found:
+            if showed_bump_ch_found:
                 row = mcol.row(align=True)
+                row.active = bump_ch_found
                 row.label(text='', icon='INFO')
                 row.label(text='Transition Factor')
                 row.prop(ch, 'transition_bump_fac', text='')
@@ -1007,7 +1038,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
         draw_modifier_stack(context, ch, root_ch.type, modcol, 
                 tlui.tex_ui.channels[i], custom_icon_enable, tex)
 
-        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
+        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
             row = mcol.row(align=True)
 
             input_settings_available = (ch.tex_input != 'ALPHA' 
@@ -2008,6 +2039,63 @@ class YModifierMenu(bpy.types.Menu):
         #    col.separator()
         #    col.prop(context.modifier, 'shortcut', text='Shortcut on texture list')
 
+class YTransitionBumpMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_transition_bump_menu"
+    bl_label = "Transition Bump Menu"
+    bl_description = "Transition Bump Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'parent') and get_active_texture_layers_node()
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        #col.label(text=context.parent.path_from_id())
+
+        if bpy.app.version_string.startswith('2.8'):
+            col.operator('node.y_hide_transition_effect', text='Remove Transition Bump', icon='REMOVE').type = 'BUMP'
+        else: col.operator('node.y_hide_transition_effect', text='Remove Transition Bump', icon='ZOOMOUT').type = 'BUMP'
+
+class YTransitionRampMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_transition_ramp_menu"
+    bl_label = "Transition Ramp Menu"
+    bl_description = "Transition Ramp Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'parent') and get_active_texture_layers_node()
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        #col.label(text=context.parent.path_from_id())
+
+        if bpy.app.version_string.startswith('2.8'):
+            col.operator('node.y_hide_transition_effect', text='Remove Transition Ramp', icon='REMOVE').type = 'RAMP'
+        else: col.operator('node.y_hide_transition_effect', text='Remove Transition Ramp', icon='ZOOMOUT').type = 'RAMP'
+
+class YTransitionAOMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_transition_ao_menu"
+    bl_label = "Transition AO Menu"
+    bl_description = "Transition AO Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'parent') and get_active_texture_layers_node()
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        #col.label(text=context.parent.path_from_id())
+
+        if bpy.app.version_string.startswith('2.8'):
+            col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='REMOVE').type = 'AO'
+        else: col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='ZOOMOUT').type = 'AO'
+
 class YAddTexMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_add_texture_mask_menu"
     bl_description = 'Add Texture Mask'
@@ -2098,10 +2186,34 @@ class YTexModifierSpecialMenu(bpy.types.Menu):
         return hasattr(context, 'parent') and get_active_texture_layers_node()
 
     def draw(self, context):
-        self.layout.label(text='Add Modifier')
+        row = self.layout.row()
+
+        col = row.column()
+
+        col.label(text='Add Modifier')
         ## List the items
         for mt in Modifier.modifier_type_items:
-            self.layout.operator('node.y_new_texture_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
+            col.operator('node.y_new_texture_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
+
+        m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+        if m:
+
+            ch = context.parent
+            tl = ch.id_data.tl
+            root_ch = tl.channels[int(m.group(2))]
+
+            col = row.column()
+            col.label(text='Transition Effects')
+            if root_ch.type == 'NORMAL':
+                #col.prop(ch, 'show_transition_bump', text='Transition Bump')
+                col.operator('node.y_show_transition_bump', text='Transition Bump', icon='IMAGE_RGB_ALPHA')
+            else:
+                #col.prop(ch, 'show_transition_ramp', text='Transition Ramp')
+                #col.prop(ch, 'show_transition_ao', text='Transition AO')
+                col.operator('node.y_show_transition_ramp', text='Transition Ramp', icon='IMAGE_RGB_ALPHA')
+                col.operator('node.y_show_transition_ao', text='Transition AO', icon='IMAGE_RGB_ALPHA')
+
+            #col.label(context.parent.path_from_id())
 
 class YLayerSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_special_menu"
@@ -2401,6 +2513,9 @@ def register():
     bpy.utils.register_class(YNewTexMenu)
     bpy.utils.register_class(YTexSpecialMenu)
     bpy.utils.register_class(YModifierMenu)
+    bpy.utils.register_class(YTransitionBumpMenu)
+    bpy.utils.register_class(YTransitionRampMenu)
+    bpy.utils.register_class(YTransitionAOMenu)
     bpy.utils.register_class(YAddTexMaskMenu)
     bpy.utils.register_class(YTexMaskMenuSpecial)
     bpy.utils.register_class(YTexModifierSpecialMenu)
@@ -2437,6 +2552,9 @@ def unregister():
     bpy.utils.unregister_class(YNewTexMenu)
     bpy.utils.unregister_class(YTexSpecialMenu)
     bpy.utils.unregister_class(YModifierMenu)
+    bpy.utils.unregister_class(YTransitionBumpMenu)
+    bpy.utils.unregister_class(YTransitionRampMenu)
+    bpy.utils.unregister_class(YTransitionAOMenu)
     bpy.utils.unregister_class(YAddTexMaskMenu)
     bpy.utils.unregister_class(YTexMaskMenuSpecial)
     bpy.utils.unregister_class(YTexModifierSpecialMenu)

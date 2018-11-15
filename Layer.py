@@ -2426,6 +2426,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
     enable_mask_bump = BoolProperty(name='Enable Mask Bump', description='Enable mask bump',
             default=False, update=transition.update_enable_transition_bump)
 
+    show_transition_bump = BoolProperty(name='Toggle Transition Bump',
+            description = "Toggle transition Bump (This will affect other channels)", 
+            default=False) #, update=transition.update_show_transition_bump)
+
     mask_bump_value = FloatProperty(
         name = 'Mask Bump Value',
         description = 'Mask bump value',
@@ -2508,6 +2512,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
     enable_mask_ramp = BoolProperty(name='Enable Transition Ramp', description='Enable alpha transition ramp', 
             default=False, update=transition.update_enable_transition_ramp)
 
+    show_transition_ramp = BoolProperty(name='Toggle Transition Ramp',
+            description = "Toggle transition Ramp (Works best if there's transition bump enabled on other channel)", 
+            default=False) #, update=transition.update_show_transition_ramp)
+
     mask_ramp_intensity_value = FloatProperty(
             name = 'Channel Intensity Factor', 
             description = 'Channel Intensity Factor',
@@ -2537,6 +2545,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
     enable_transition_ao = BoolProperty(name='Enable Transition AO', 
             description='Enable alpha transition Ambient Occlusion (Need active transition bump)', default=False,
             update=transition.update_enable_transition_ao)
+
+    show_transition_ao = BoolProperty(name='Toggle Transition AO',
+            description = "Toggle transition AO (Only works if there's transition bump enabled on other channel)", 
+            default=False) #, update=transition.update_show_transition_ao)
 
     transition_ao_edge = FloatProperty(name='Transition AO Edge',
             #description='Transition AO edge power (higher value means less AO)', min=1.0, max=100.0, default=4.0,

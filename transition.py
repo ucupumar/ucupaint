@@ -1,4 +1,5 @@
 import bpy
+from bpy.props import *
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -625,6 +626,187 @@ def update_transition_ao_exclude_inside(self, context):
     if tao:
         tao.inputs['Exclude Inside'].default_value = ch.transition_ao_exclude_inside
 
+def show_transition(self, context, ttype):
+    if not hasattr(context, 'parent'): 
+        self.report({'ERROR'}, "Context is incorrect!")
+        return {'CANCELLED'}
+
+    tl = context.parent.id_data.tl
+    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+    if not match: 
+        self.report({'ERROR'}, "Context is incorrect!")
+        return {'CANCELLED'}
+    tex = tl.textures[int(match.group(1))]
+    root_ch = tl.channels[int(match.group(2))]
+    ch = context.parent
+
+    bump_ch = get_transition_bump_channel(tex)
+
+    if ttype == 'BUMP':
+
+        if root_ch.type != 'NORMAL': 
+            self.report({'ERROR'}, "Transition bump only works on Normal channel!")
+            return {'CANCELLED'}
+
+        if bump_ch and ch != bump_ch:
+            self.report({'ERROR'}, "Transition bump already enabled on other channel!")
+            return {'CANCELLED'}
+
+        ch.show_transition_bump = True
+
+        if ch.enable_mask_bump:
+            self.report({'INFO'}, "Transition bump is already set!")
+            return {'FINISHED'}
+
+        ch.enable_mask_bump = True
+
+        # Hide other channels transition bump
+        for c in tex.channels:
+            if c != ch:
+                c.show_transition_bump = False
+
+    elif ttype == 'RAMP':
+
+        if root_ch.type == 'NORMAL': 
+            self.report({'ERROR'}, "Transition ramp only works on color or value channel!")
+            return {'CANCELLED'}
+
+        ch.show_transition_ramp = True
+
+        if ch.enable_mask_ramp:
+            self.report({'INFO'}, "Transition ramp is already set!")
+            return {'FINISHED'}
+
+        ch.enable_mask_ramp = True
+
+    elif ttype == 'AO':
+
+        if root_ch.type == 'NORMAL': 
+            self.report({'ERROR'}, "Transition AO only works on color or value channel!")
+            return {'CANCELLED'}
+
+        if not bump_ch:
+            self.report({'ERROR'}, "Transition AO only works if there's transition bump enabled on other channel!")
+            return {'CANCELLED'}
+
+        ch.show_transition_ao = True
+
+        if ch.enable_transition_ao:
+            self.report({'INFO'}, "Transition AO is already set!")
+            return {'FINISHED'}
+
+        ch.enable_transition_ao = True
+
+    return {'FINISHED'}
+
+class YShowTransitionBump(bpy.types.Operator):
+    """Use transition bump (This will affect other channels)"""
+    bl_idname = "node.y_show_transition_bump"
+    bl_label = "Show Transition Bump"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        return show_transition(self, context, ttype = 'BUMP')
+
+class YShowTransitionRamp(bpy.types.Operator):
+    """Use transition ramp (Works best if there's transition bump enabled on other channel)"""
+    bl_idname = "node.y_show_transition_ramp"
+    bl_label = "Show Transition Ramp"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        return show_transition(self, context, ttype = 'RAMP')
+
+class YShowTransitionAO(bpy.types.Operator):
+    """Use transition AO (Only works if there's transition bump enabled on other channel)"""
+    bl_idname = "node.y_show_transition_ao"
+    bl_label = "Show Transition AO"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        return show_transition(self, context, ttype = 'AO')
+
+class YHideTransitionEffect(bpy.types.Operator):
+    """Remove transition Effect"""
+    bl_idname = "node.y_hide_transition_effect"
+    bl_label = "Hide Transition Effect"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    type = EnumProperty(
+            name = 'Type',
+            items = (
+                ('BUMP', 'Bump', ''),
+                ('RAMP', 'Ramp', ''),
+                ('AO', 'AO', ''),
+                ),
+            default = 'BUMP')
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+
+        if not hasattr(context, 'parent'): 
+            self.report({'ERROR'}, "Context is incorrect!")
+            return {'CANCELLED'}
+
+        tl = context.parent.id_data.tl
+        match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+        if not match: 
+            self.report({'ERROR'}, "Context is incorrect!")
+            return {'CANCELLED'}
+        tex = tl.textures[int(match.group(1))]
+        root_ch = tl.channels[int(match.group(2))]
+        ch = context.parent
+
+        if self.type == 'BUMP' and root_ch.type != 'NORMAL':
+            self.report({'ERROR'}, "Context is incorrect!")
+            return {'CANCELLED'}
+
+        if self.type != 'BUMP' and root_ch.type == 'NORMAL':
+            self.report({'ERROR'}, "Context is incorrect!")
+            return {'CANCELLED'}
+
+        if self.type == 'BUMP':
+            ch.enable_mask_bump = False
+            ch.show_transition_bump = False
+        elif self.type == 'RAMP':
+            ch.enable_mask_ramp = False
+            ch.show_transition_ramp = False
+        else:
+            ch.enable_transition_ao = False
+            ch.show_transition_ao = False
+
+        return {'FINISHED'}
+
+#def update_show_transition_ao(self, context):
+#    if self.show_transition_ao:
+#        self.enable_transition_ao = True
+#    else: self.enable_transition_ao = False
+#
+#def update_show_transition_ramp(self, context):
+#    if self.show_transition_ramp:
+#        self.enable_mask_ramp = True
+#    else: self.enable_mask_ramp = False
+#
+#def update_show_transition_bump(self, context):
+#    if self.show_transition_bump:
+#        self.enable_mask_bump = True
+#    else: self.enable_mask_bump = False
+
 def update_enable_transition_ao(self, context):
 
     tl = self.id_data.tl
@@ -690,7 +872,13 @@ def update_enable_transition_bump(self, context):
     else: print('INFO: Transition bump is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def register():
-    pass
+    bpy.utils.register_class(YShowTransitionBump)
+    bpy.utils.register_class(YShowTransitionRamp)
+    bpy.utils.register_class(YShowTransitionAO)
+    bpy.utils.register_class(YHideTransitionEffect)
 
 def unregister():
-    pass
+    bpy.utils.unregister_class(YShowTransitionBump)
+    bpy.utils.unregister_class(YShowTransitionRamp)
+    bpy.utils.unregister_class(YShowTransitionAO)
+    bpy.utils.unregister_class(YHideTransitionEffect)

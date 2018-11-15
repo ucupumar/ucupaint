@@ -817,6 +817,18 @@ def get_transition_bump_channel(tex):
 
     return bump_ch
 
+def get_showed_transition_bump_channel(tex):
+
+    tl = tex.id_data.tl
+
+    bump_ch = None
+    for i, ch in enumerate(tex.channels):
+        if tl.channels[i].type == 'NORMAL' and ch.show_transition_bump:
+            bump_ch = ch
+            break
+
+    return bump_ch
+
 # BLENDER_28_GROUP_INPUT_HACK
 def duplicate_lib_node_tree(node):
     node.node_tree.name += '_Copy'
