@@ -446,7 +446,7 @@ def update_transition_ramp_blend_type(self, context):
     tree = get_tree(tex)
 
     mr_blend = tree.nodes.get(self.mr_blend)
-    mr_blend.blend_type = self.mask_ramp_blend_type
+    if mr_blend: mr_blend.blend_type = self.mask_ramp_blend_type
 
 def update_transition_bump_value(self, context):
     if not self.enable: return

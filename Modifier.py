@@ -333,13 +333,30 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 def add_new_modifier(parent, modifier_type):
 
     tl = parent.id_data.tl
+
+    match1 = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^tl\.textures\[(\d+)\]$', parent.path_from_id())
+    match3 = re.match(r'^tl\.channels\[(\d+)\]$', parent.path_from_id())
+
+    if match1: 
+        root_ch = tl.channels[int(match1.group(2))]
+        channel_type = root_ch.type
+    elif match3:
+        root_ch = tl.channels[int(match3.group(1))]
+        channel_type = root_ch.type
+    elif match2:
+        channel_type = 'RGB'
     
     tree = get_mod_tree(parent)
     modifiers = parent.modifiers
 
     # Add new modifier and move it to the top
     m = modifiers.add()
-    name = [mt[1] for mt in modifier_type_items if mt[0] == modifier_type][0]
+
+    if channel_type == 'VALUE' and modifier_type == 'OVERRIDE_COLOR':
+        name = 'Override Value'
+    else: name = [mt[1] for mt in modifier_type_items if mt[0] == modifier_type][0]
+
     m.name = get_unique_name(name, modifiers)
     modifiers.move(len(modifiers)-1, 0)
     m = modifiers[0]
@@ -348,9 +365,6 @@ def add_new_modifier(parent, modifier_type):
 
     add_modifier_nodes(m, tree)
 
-    match1 = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
-    match2 = re.match(r'^tl\.textures\[(\d+)\]$', parent.path_from_id())
-    #match3 = re.match(r'tl\.channels\[(\d+)\]', parent.path_from_id())
     if match1: 
         # Enable modifier tree if fine bump map is used
         if parent.normal_map_type == 'FINE_BUMP_MAP' or (
@@ -634,12 +648,16 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
 
         #if not modifier.oc_use_normal_base:
         row = col.row()
-        row.label(text='Color:')
-        row.prop(modifier, 'oc_col', text='')
+        if channel_type == 'VALUE':
+            row.label(text='Value:')
+            row.prop(modifier, 'oc_val', text='')
+        else:
+            row.label(text='Color:')
+            row.prop(modifier, 'oc_col', text='')
 
-        row = col.row()
-        row.label(text='Shortcut on texture list:')
-        row.prop(modifier, 'shortcut', text='')
+            row = col.row()
+            row.label(text='Shortcut on texture list:')
+            row.prop(modifier, 'shortcut', text='')
 
     elif modifier.type == 'COLOR_RAMP':
         color_ramp = nodes.get(modifier.color_ramp)
@@ -889,9 +907,27 @@ def update_rgb2i_col(self, context):
 def update_oc_col(self, context):
     tree = get_mod_tree(self)
 
+    tl = self.id_data.tl
+    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+
+    if match1: 
+        root_ch = tl.channels[int(match1.group(2))]
+        channel_type = root_ch.type
+    elif match2:
+        root_ch = tl.channels[int(match2.group(1))]
+        channel_type = root_ch.type
+    else:
+        channel_type = 'RGB'
+
     if self.type == 'OVERRIDE_COLOR': #and not self.oc_use_normal_base:
         oc = tree.nodes.get(self.oc)
-        oc.inputs['Override Color'].default_value = self.oc_col
+
+        if channel_type == 'VALUE':
+            col = (self.oc_val, self.oc_val, self.oc_val, 1.0)
+        else: col = self.oc_col
+
+        if oc: oc.inputs['Override Color'].default_value = col
 
         #if BLENDER_28_GROUP_INPUT_HACK:
         #    match_group_input(oc, 2)
@@ -962,6 +998,10 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     oc_col = FloatVectorProperty(name='Override Color', size=4, subtype='COLOR', 
             default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0,
+            update=update_oc_col)
+
+    oc_val = FloatProperty(name='Override Value', subtype='FACTOR', 
+            default=1.0, min=0.0, max=1.0,
             update=update_oc_col)
 
     #oc_use_normal_base = BoolProperty(

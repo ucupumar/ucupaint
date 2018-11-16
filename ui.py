@@ -316,8 +316,11 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_e
                 row.separator()
 
             if m.type == 'OVERRIDE_COLOR': # and not m.oc_use_normal_base:
-                row.prop(m, 'oc_col', text='', icon='COLOR')
-                row.separator()
+                if channel_type == 'VALUE':
+                    row.prop(m, 'oc_val', text='')
+                else: 
+                    row.prop(m, 'oc_col', text='', icon='COLOR')
+                    row.separator()
 
         row.context_pointer_set('texture', tex)
         row.context_pointer_set('parent', parent)
@@ -964,6 +967,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
                 if ramp and chui.expand_transition_ramp_settings:
                     row = mcol.row(align=True)
+                    row.active = ch.enable_mask_ramp
                     row.label(text='', icon='BLANK1')
                     box = row.box()
                     bcol = box.column(align=False)
