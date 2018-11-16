@@ -1900,7 +1900,24 @@ class YTLSpecialMenu(bpy.types.Menu):
         return get_active_texture_layers_node()
 
     def draw(self, context):
-        self.layout.operator('node.y_rename_tl_tree')
+        node = get_active_texture_layers_node()
+        mat = get_active_material()
+
+        col = self.layout.column()
+
+        col.operator('node.y_rename_tl_tree', text='Rename', icon='GREASEPENCIL')
+
+        col.separator()
+
+        col.label('Active:', icon='NODETREE')
+        for n in get_list_of_tl_nodes(mat):
+            if n.name == node.name:
+                icon = 'RADIOBUT_ON'
+            else: icon = 'RADIOBUT_OFF'
+
+            row = col.row()
+            row.operator('node.y_change_active_tl', text=n.node_tree.name, icon=icon).name = n.name
+            #row.operator('node.y_rename_tl_tree', text='', icon='GREASEPENCIL')
 
 class YNewTexMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_texture_layer_menu"

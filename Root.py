@@ -1098,6 +1098,36 @@ class YRenameTLTree(bpy.types.Operator):
         tree.name = self.name
         return {'FINISHED'}
 
+class YChangeActiveTL(bpy.types.Operator):
+    bl_idname = "node.y_change_active_tl"
+    bl_label = "Change Active TL Tree"
+    bl_description = "Change Active TL Tree"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name = StringProperty(name='Node Name', description='TL Node Name', default='')
+
+    @classmethod
+    def poll(cls, context):
+        mat = get_active_material()
+        return mat and mat.node_tree
+
+    def execute(self, context):
+        mat = get_active_material()
+
+        found_it = False
+
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP' and node.node_tree and node.node_tree.tl.is_tl_node and node.name == self.name:
+                mat.node_tree.nodes.active = node
+                found_it = True
+                break
+
+        if not found_it:
+            self.report({'ERROR'}, "Node named " + self.name + " is not found!")
+            return {'CANCELLED'}
+
+        return {'FINISHED'}
+
 class YFixDuplicatedTextures(bpy.types.Operator):
     bl_idname = "node.y_fix_duplicated_textures"
     bl_label = "Fix Duplicated Textures"
@@ -1743,6 +1773,7 @@ def register():
     bpy.utils.register_class(YRemoveTLChannel)
     bpy.utils.register_class(YAddSimpleUVs)
     bpy.utils.register_class(YRenameTLTree)
+    bpy.utils.register_class(YChangeActiveTL)
     bpy.utils.register_class(YFixDuplicatedTextures)
     bpy.utils.register_class(YFixMissingData)
     bpy.utils.register_class(YNodeConnections)
@@ -1769,6 +1800,7 @@ def unregister():
     bpy.utils.unregister_class(YRemoveTLChannel)
     bpy.utils.unregister_class(YAddSimpleUVs)
     bpy.utils.unregister_class(YRenameTLTree)
+    bpy.utils.unregister_class(YChangeActiveTL)
     bpy.utils.unregister_class(YFixDuplicatedTextures)
     bpy.utils.unregister_class(YFixMissingData)
     bpy.utils.unregister_class(YNodeConnections)

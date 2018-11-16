@@ -40,7 +40,7 @@
 # - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
 # - Refactor for more consistent class names and properties
-# - Multiple tl node selector from ui
+# - Multiple tl node selector from ui (V)
 # - Fix backface consistency with Blender 2.8 & 2.7
 
 # TODO:

@@ -183,6 +183,17 @@ def get_active_material():
 
     return mat
 
+def get_list_of_tl_nodes(mat):
+
+    if not mat.node_tree: return []
+    
+    tl_nodes = []
+    for node in mat.node_tree.nodes:
+        if node.type == 'GROUP' and node.node_tree.tl.is_tl_node:
+            tl_nodes.append(node)
+
+    return tl_nodes
+
 def in_active_layer(obj):
     scene = bpy.context.scene
     space = bpy.context.space_data
