@@ -455,6 +455,9 @@ class YNewTexModifier(bpy.types.Operator):
         if hasattr(context, 'channel_ui'):
             context.channel_ui.expand_content = True
 
+        if hasattr(context, 'tex_ui'):
+            context.tex_ui.expand_content = True
+
         # Rearrange nodes
         if tex:
             rearrange_tex_nodes(tex)

@@ -554,6 +554,7 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
 
     row.context_pointer_set('parent', tex)
     row.context_pointer_set('texture', tex)
+    row.context_pointer_set('tex_ui', texui)
     #if custom_icon_enable:
     #    icon_value = lib.custom_icons["add_modifier"].icon_id
     #    row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')

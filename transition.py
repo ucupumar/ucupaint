@@ -709,6 +709,10 @@ def show_transition(self, context, ttype):
 
         ch.enable_transition_ao = True
 
+    # Expand channel content
+    if hasattr(context, 'channel_ui'):
+        context.channel_ui.expand_content = True
+
     return {'FINISHED'}
 
 class YShowTransitionBump(bpy.types.Operator):

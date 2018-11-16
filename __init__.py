@@ -36,7 +36,7 @@
 # - Fix change blend type behavior where it always delete previous node (V)
 # - Add intensity multiplier to non transition bump (X, transition already do the job)
 # - Oveeride color should be override value for value channel (V)
-# - Make sure ui is expanded if modifier or transition is added
+# - Make sure ui is expanded if modifier or transition is added (V)
 # - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
 # - Refactor for more consistent class names and properties
