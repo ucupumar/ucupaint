@@ -895,7 +895,11 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 prev_rgb = tao.outputs[0]
                 create_link(tree, remaining_alpha, tao.inputs['Remaining Alpha'])
 
-            create_link(tree, transition_input, tao.inputs[1])
+                if 'Input Alpha' in tao.inputs:
+                    create_link(tree, prev_alpha, tao.inputs['Input Alpha'])
+                    prev_alpha = tao.outputs['Input Alpha']
+
+            create_link(tree, transition_input, tao.inputs['Alpha'])
 
         # Transition Ramp
         if root_ch.type in {'RGB', 'VALUE'} and ch.enable_mask_ramp:

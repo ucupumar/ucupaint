@@ -17,7 +17,7 @@
 #   - Option for transition ao link with channel intensity (V)
 #   - Per channel transition edge intensity (V)
 #   - AO option to exclude area within intensity (V)
-#   - AO and ramp contribute to alpha
+#   - AO and ramp contribute to alpha (V)
 # - Texture group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects
@@ -38,6 +38,7 @@
 # - Oveeride color should be override value for value channel (V)
 # - Make sure ui is expanded if modifier or transition is added (V)
 # - Multiple tl node selector from ui (V)
+# - Replace new node can detect duplicated node group
 # - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
 # - Make every node name unique (using hash?)

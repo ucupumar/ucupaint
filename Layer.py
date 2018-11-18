@@ -125,10 +125,14 @@ def check_all_layer_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, h
         # Channel mute
         mute = not tex.enable or not ch.enable
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-        #if ch.enable_mask_ramp:
+        if ch.enable_mask_ramp:
             #mr_intensity = tree.nodes.get(ch.mr_intensity)
             #if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
-        transition.check_transition_ramp_nodes(tree, tex, ch)
+            transition.check_transition_ramp_nodes(tree, tex, ch)
+
+        if ch.enable_transition_ao:
+            bump_ch = get_transition_bump_channel(tex)
+            transition.check_transition_ao_nodes(tree, tex, ch, bump_ch)
 
         # Update layer ch blend type
         check_blend_type_nodes(root_ch, tex, ch)
@@ -2522,7 +2526,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
         name = 'Transition Ramp Blend Type',
         items = blend_type_items,
         default = 'MIX', 
-        #update=transition.update_transition_ramp_blend_type)
         update=transition.update_enable_transition_ramp)
 
     # Transition ramp nodes
@@ -2553,9 +2556,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
             description = "Toggle transition AO (Only works if there's transition bump enabled on other channel)", 
             default=False) #, update=transition.update_show_transition_ao)
 
-    transition_ao_edge = FloatProperty(name='Transition AO Edge',
+    transition_ao_power = FloatProperty(name='Transition AO Power',
             #description='Transition AO edge power (higher value means less AO)', min=1.0, max=100.0, default=4.0,
-            description='Transition AO edge power', min=1.0, max=100.0, default=4.0,
+            description='Transition AO power', min=1.0, max=100.0, default=4.0,
             update=transition.update_transition_ao_edge)
 
     transition_ao_intensity = FloatProperty(name='Transition AO Intensity',
@@ -2566,11 +2569,20 @@ class YLayerChannel(bpy.types.PropertyGroup):
             subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.0, 0.0, 0.0),
             update=transition.update_transition_ao_color)
 
-    transition_ao_exclude_inside = FloatProperty(name='Transition AO Exclude Inside', 
-            description='Transition AO Exclude Inside', subtype='FACTOR', min=0.0, max=1.0, default=0.0,
+    transition_ao_inside_intensity = FloatProperty(name='Transition AO Inside Intensity', 
+            description='Transition AO Inside Intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.0,
             update=transition.update_transition_ao_exclude_inside)
 
-    transition_ao_intensity_link = BoolProperty(name='Transition AO Intenisty Link', default=True,
+    transition_ao_blend_type = EnumProperty(
+        name = 'Transition AO Blend Type',
+        items = blend_type_items,
+        default = 'MIX', 
+        update=transition.update_enable_transition_ao)
+
+    transition_ao_intensity_unlink = BoolProperty(
+            name='Unlink Transition AO with Channel Intensity', 
+            description='Unlink Transition AO with Channel Intensity', 
+            default=False,
             update=transition.update_transition_ao_intensity)
 
     tao = StringProperty(default='')

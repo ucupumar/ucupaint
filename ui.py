@@ -972,10 +972,14 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     row.label(text='', icon='BLANK1')
                     box = row.box()
                     bcol = box.column(align=False)
+
+                    brow = bcol.row(align=True)
+                    brow.label(text='Intensity:')
+                    brow.prop(ch, 'mask_ramp_intensity_value', text='')
+
                     brow = bcol.row(align=True)
                     brow.label(text='Blend:')
                     brow.prop(ch, 'mask_ramp_blend_type', text='')
-                    brow.prop(ch, 'mask_ramp_intensity_value', text='')
 
                     brow = bcol.row(align=True)
                     brow.active = bump_ch_found
@@ -1018,18 +1022,26 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     box = row.box()
                     box.active = bump_ch_found and tex.type != 'BACKGROUND'
                     bcol = box.column(align=False)
+
                     brow = bcol.row(align=True)
                     brow.label(text='Intensity:')
                     brow.prop(ch, 'transition_ao_intensity', text='')
+
                     brow = bcol.row(align=True)
-                    brow.label(text='Edge:')
-                    brow.prop(ch, 'transition_ao_edge', text='')
+                    brow.label(text='Blend:')
+                    brow.prop(ch, 'transition_ao_blend_type', text='')
+
+                    brow = bcol.row(align=True)
+                    brow.label(text='Power:')
+                    brow.prop(ch, 'transition_ao_power', text='')
+
                     brow = bcol.row(align=True)
                     brow.label(text='Color:')
                     brow.prop(ch, 'transition_ao_color', text='')
+
                     brow = bcol.row(align=True)
-                    brow.label(text='Exclude Inside:')
-                    brow.prop(ch, 'transition_ao_exclude_inside', text='')
+                    brow.label(text='Inside:')
+                    brow.prop(ch, 'transition_ao_inside_intensity', text='')
                     #row.label(text='', icon='BLANK1')
 
             # Transition Bump Intensity
@@ -2118,7 +2130,7 @@ class YTransitionAOMenu(bpy.types.Menu):
 
         #col.label(text=context.parent.path_from_id())
 
-        col.prop(context.parent, 'transition_ao_intensity_link', text='Link AO with Channel Intensity')
+        col.prop(context.parent, 'transition_ao_intensity_unlink', text='Unlink AO with Channel Intensity')
 
         col.separator()
 
