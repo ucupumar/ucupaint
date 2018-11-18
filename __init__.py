@@ -37,15 +37,17 @@
 # - Add intensity multiplier to non transition bump (X, transition already do the job)
 # - Oveeride color should be override value for value channel (V)
 # - Make sure ui is expanded if modifier or transition is added (V)
+# - Multiple tl node selector from ui (V)
 # - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
+# - Make every node name unique (using hash?)
 # - Refactor for more consistent class names and properties
-# - Multiple tl node selector from ui (V)
 # - Fix backface consistency with Blender 2.8 & 2.7
 
 # TODO:
 # - Eraser brush (check for ypanel implementation)
 # - Height based bump channel (similar to substance)
+# - Transfer UV
 # - Upper layer affect below layer (?):
 #   - Refraction
 #   - Blur (X?, Already covered by native SSS)

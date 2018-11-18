@@ -24,8 +24,14 @@ FLIP_CURVED_FINE_BUMP = '~TL Flip Curved Fine Bump'
 TRANSITION_AO = '~TL Transition AO'
 TRANSITION_AO_FLIP = '~TL Transition AO Flip'
 
+RAMP = '~TL Ramp'
+RAMP_FLIP = '~TL Ramp Flip'
+RAMP_FLIP_BLEND = '~TL Ramp Flip Blend'
+RAMP_FLIP_MIX_BLEND = '~TL Ramp Flip Mix Blend'
+RAMP_FLIP_STRAIGHT_OVER_BLEND = '~TL Ramp Flip Straight Over Blend'
+
 VECTOR_MIX ='~TL Vector Mix'
-INVERTED_MULTIPLIER ='~TL Inverted Multiplier'
+#INVERTED_MULTIPLIER ='~TL Inverted Multiplier'
 INTENSITY_MULTIPLIER ='~TL Intensity Multiplier'
 GET_BITANGENT ='~TL Get Bitangent'
 

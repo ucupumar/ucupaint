@@ -899,6 +899,42 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
         # Transition Ramp
         if root_ch.type in {'RGB', 'VALUE'} and ch.enable_mask_ramp:
+
+            mr_ramp = nodes.get(ch.mr_ramp)
+            mr_ramp_blend = nodes.get(ch.mr_ramp_blend)
+
+            create_link(tree, transition_input, mr_ramp.inputs['Alpha'])
+
+            if trans_bump_flip:
+
+                create_link(tree, prev_rgb, mr_ramp_blend.inputs['Input RGB'])
+                create_link(tree, intensity_multiplier.outputs[0], mr_ramp_blend.inputs['Multiplied Alpha'])
+
+                create_link(tree, mr_ramp.outputs[0], mr_ramp_blend.inputs['Ramp RGB'])
+
+                ramp_alpha_input = mr_ramp.outputs['Ramp Alpha']
+
+                for j, mask in enumerate(tex.masks):
+                    if j >= chain:
+                        mask_source = get_mask_source(mask)
+                        mul_n = nodes.get(mask.channels[i].multiply_n)
+
+                        ramp_alpha_input = create_link(tree, ramp_alpha_input, mul_n.inputs[1])[0]
+                        create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
+
+                create_link(tree, ramp_alpha_input, mr_ramp_blend.inputs['Ramp Alpha'])
+                prev_rgb = mr_ramp_blend.outputs[0]
+
+                if 'Input Alpha' in mr_ramp_blend.inputs:
+                    create_link(tree, prev_alpha, mr_ramp_blend.inputs['Input Alpha'])
+                    prev_alpha = mr_ramp_blend.outputs['Input Alpha']
+
+            else:
+                create_link(tree, rgb, mr_ramp.inputs['RGB'])
+                rgb = mr_ramp.outputs[0]
+
+
+            '''
             mr_inverse = nodes.get(ch.mr_inverse)
             mr_ramp = nodes.get(ch.mr_ramp)
             mr_linear = nodes.get(ch.mr_linear)
@@ -966,6 +1002,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
                 create_link(tree, rgb, mr_blend.inputs[1])
                 rgb = mr_blend.outputs[0]
+            '''
 
         # Normal flip check
         normal_flip = nodes.get(ch.normal_flip)

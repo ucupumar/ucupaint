@@ -944,8 +944,8 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 # Transition Ramp
                 row = mcol.row(align=True)
 
-                ramp = tex_tree.nodes.get(ch.mr_ramp)
-                if not ramp:
+                mr_ramp = tex_tree.nodes.get(ch.mr_ramp)
+                if not mr_ramp:
                     row.label(text='', icon='INFO')
                 else:
                     if custom_icon_enable:
@@ -966,7 +966,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
                 row.prop(ch, 'enable_mask_ramp', text='')
 
-                if ramp and chui.expand_transition_ramp_settings:
+                if mr_ramp and chui.expand_transition_ramp_settings:
                     row = mcol.row(align=True)
                     row.active = ch.enable_mask_ramp
                     row.label(text='', icon='BLANK1')
@@ -978,12 +978,16 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     brow.prop(ch, 'mask_ramp_intensity_value', text='')
 
                     brow = bcol.row(align=True)
+                    brow.active = bump_ch_found
                     brow.label(text='Transition Factor:')
                     brow.prop(ch, 'transition_bump_second_fac', text='')
 
-                    #brow.prop(ch, 'ramp_intensity_value', text='')
-                    bcol.template_color_ramp(ramp, "color_ramp", expand=True)
-                    #row.label(text='', icon='BLANK1')
+                    if mr_ramp.type == 'GROUP':
+                        ramp = mr_ramp.node_tree.nodes.get('_RAMP')
+
+                        #brow.prop(ch, 'ramp_intensity_value', text='')
+                        bcol.template_color_ramp(ramp, "color_ramp", expand=True)
+                        #row.label(text='', icon='BLANK1')
 
             if ch.show_transition_ao or ch.enable_transition_ao:
 

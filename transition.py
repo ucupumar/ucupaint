@@ -86,27 +86,7 @@ def check_transition_bump_influences_to_other_channels(tex, tree=None, target_ch
         # NOTE: Bump channel supposed to be already had a mask intensity multipler
         if c == bump_ch: continue
 
-        if c.enable_mask_ramp: 
-
-            # Fix intensity value
-            mr_intensity = tree.nodes.get(c.mr_intensity)
-            if mr_intensity:
-                if bump_ch and (bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'):
-                    mr_intensity.inputs[1].default_value = c.mask_ramp_intensity_value * c.intensity_value
-                else: mr_intensity.inputs[1].default_value = c.mask_ramp_intensity_value
-
-            # Flip mask bump related nodes
-            check_transition_ramp_flip_nodes(tex, tree, c, bump_ch)
-
-            if bump_ch:
-                im = tree.nodes.get(c.mr_intensity_multiplier)
-                if not im:
-                    im = lib.new_intensity_multiplier_node(tree, c, 'mr_intensity_multiplier', #bump_ch.mask_bump_value)
-                            1.0 + (bump_ch.mask_bump_second_edge_value - 1.0) * c.transition_bump_second_fac)
-
-                #im.inputs[1].default_value = bump_ch.mask_bump_second_edge_value
-                #if BLENDER_28_GROUP_INPUT_HACK:
-                #    match_group_input(im, 1)
+        check_transition_ramp_nodes(tree, tex, c)
 
         if bump_ch:
             im = tree.nodes.get(c.intensity_multiplier)
@@ -170,66 +150,175 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
                 tao.inputs['Gamma'].default_value = 1.0/GAMMA
             else: tao.inputs['Gamma'].default_value = 1.0
 
-def set_transition_ramp_nodes(tree, tex, ch, rearrange=False):
+def save_ramp(tree, ch):
+    mr_ramp = tree.nodes.get(ch.mr_ramp)
+    if not mr_ramp or mr_ramp.type != 'GROUP': return
+
+    ramp = mr_ramp.node_tree.nodes.get('_RAMP')
+    cache_ramp = tree.nodes.get(ch.cache_ramp)
+
+    if not cache_ramp:
+        cache_ramp = new_node(tree, ch, 'cache_ramp', 'ShaderNodeValToRGB')
+
+    copy_node_props(ramp, cache_ramp)
+
+def load_ramp(tree, ch):
+    mr_ramp = tree.nodes.get(ch.mr_ramp)
+    if not mr_ramp: return
+
+    ramp = mr_ramp.node_tree.nodes.get('_RAMP')
+
+    cache_ramp = tree.nodes.get(ch.cache_ramp)
+    if cache_ramp:
+        copy_node_props(cache_ramp, ramp)
+
+def set_ramp_intensity_value(tree, tex, ch):
+
+    mute = not ch.enable or not tex.enable
+
+    mr_ramp_blend = tree.nodes.get(ch.mr_ramp_blend)
+    if mr_ramp_blend:
+        mr_ramp_blend.inputs['Intensity'].default_value = 0.0 if mute else ch.mask_ramp_intensity_value * ch.intensity_value
+    
+    mr_ramp = tree.nodes.get(ch.mr_ramp)
+    if mr_ramp and 'Intensity' in mr_ramp.inputs:
+        mr_ramp.inputs['Intensity'].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+
+def set_transition_ramp_nodes(tree, tex, ch):
 
     tl = ch.id_data.tl
     match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
     root_ch = tl.channels[int(match.group(2))]
 
-    mr_ramp = tree.nodes.get(ch.mr_ramp)
-    mr_linear = tree.nodes.get(ch.mr_linear)
-    mr_alpha = tree.nodes.get(ch.mr_alpha)
-    mr_intensity = tree.nodes.get(ch.mr_intensity)
-    mr_blend = tree.nodes.get(ch.mr_blend)
+    bump_ch = get_transition_bump_channel(tex)
 
-    if not mr_ramp:
-        mr_ramp = new_node(tree, ch, 'mr_ramp', 'ShaderNodeValToRGB', 'Transition Ramp')
-        mr_ramp.color_ramp.elements[0].color = (1,1,1,1)
-        mr_ramp.color_ramp.elements[1].color = (0.0,0.0,0.0,1)
-        rearrange = True
+    # Save previous ramp to cache
+    save_ramp(tree, ch)
 
-    if not mr_linear:
-        mr_linear = new_node(tree, ch, 'mr_linear', 'ShaderNodeGamma', 'Transition Ramp Linear')
-        if root_ch.colorspace == 'SRGB':
-            mr_linear.inputs[1].default_value = 1.0/GAMMA
-        else: mr_linear.inputs[1].default_value = 1.0
+    if bump_ch and (bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'):
 
-    if not mr_alpha:
-        mr_alpha = new_node(tree, ch, 'mr_alpha', 'ShaderNodeMath', 'Transition Ramp Alpha')
-        mr_alpha.operation = 'MULTIPLY'
-        rearrange = True
+        mr_ramp = replace_new_node(tree, ch, 'mr_ramp', 
+                'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_FLIP)
 
-    if not mr_intensity:
-        mr_intensity = new_node(tree, ch, 'mr_intensity', 'ShaderNodeMath', 'Transition Ramp Intensity')
-        mr_intensity.operation = 'MULTIPLY'
-        mr_intensity.inputs[1].default_value = ch.mask_ramp_intensity_value
-        rearrange = True
+        if (ch.mask_ramp_blend_type == 'MIX' and 
+                ((root_ch.type == 'RGB' and root_ch.alpha) or tex.parent_idx != -1)):
+            mr_ramp_blend = replace_new_node(tree, ch, 'mr_ramp_blend', 
+                    'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_STRAIGHT_OVER_BLEND)
+        else:
+            mr_ramp_blend = replace_new_node(tree, ch, 'mr_ramp_blend', 
+                    'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_BLEND)
 
-    if not mr_blend:
-        mr_blend = new_node(tree, ch, 'mr_blend', 'ShaderNodeMixRGB', 'Transition Ramp Blend')
-        rearrange = True
+            # Get blend node
+            ramp_blend = mr_ramp_blend.node_tree.nodes.get('_BLEND')
+            ramp_blend.blend_type = ch.mask_ramp_blend_type
 
-    mr_blend.blend_type = ch.mask_ramp_blend_type
-    mr_blend.mute = not ch.enable
-    if len(mr_blend.outputs[0].links) == 0:
-        rearrange = True
+            duplicate_lib_node_tree(mr_ramp_blend)
 
-    return rearrange
+        #mr_ramp_blend.inputs['Intensity'].default_value = ch.mask_ramp_intensity_value * ch.intensity_value
 
-def remove_transition_ramp_nodes(tree, ch, clean=False):
-    #mute_node(tree, ch, 'mr_blend')
-    remove_node(tree, ch, 'mr_linear')
-    remove_node(tree, ch, 'mr_inverse')
-    remove_node(tree, ch, 'mr_alpha')
-    remove_node(tree, ch, 'mr_intensity_multiplier')
-    remove_node(tree, ch, 'mr_intensity')
-    remove_node(tree, ch, 'mr_blend')
+    else:
+        mr_ramp = replace_new_node(tree, ch, 'mr_ramp', 
+                'ShaderNodeGroup', 'Transition Ramp', lib.RAMP)
 
-    if clean:
-        remove_node(tree, ch, 'mr_ramp')
+        #mr_ramp.inputs['Intensity'].default_value = ch.mask_ramp_intensity_value
 
-    # Remove flip bump related nodes
-    remove_transition_ramp_flip_nodes(tree, ch)
+        # Get blend node
+        ramp_blend = mr_ramp.node_tree.nodes.get('_BLEND')
+        ramp_blend.blend_type = ch.mask_ramp_blend_type
+
+        remove_node(tree, ch, 'mr_ramp_blend')
+
+    # Set intensity
+    set_ramp_intensity_value(tree, tex, ch)
+
+    # Load ramp from cache
+    load_ramp(tree, ch)
+
+    if bump_ch:
+        multiplier_val = 1.0 + (bump_ch.mask_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
+    else: multiplier_val = 1.0
+
+    mr_ramp.inputs['Multiplier'].default_value = multiplier_val
+
+    duplicate_lib_node_tree(mr_ramp)
+
+    if root_ch.colorspace == 'SRGB':
+        mr_ramp.inputs['Gamma'].default_value = 1.0/GAMMA
+    else: mr_ramp.inputs['Gamma'].default_value = 1.0
+
+def check_transition_ramp_nodes(tree, tex, ch):
+
+    if ch.enable_mask_ramp:
+        set_transition_ramp_nodes(tree, tex, ch)
+    else: remove_transition_ramp_nodes(tree, ch)
+
+#def set_transition_ramp_nodes(tree, tex, ch, rearrange=False):
+#
+#    tl = ch.id_data.tl
+#    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+#    root_ch = tl.channels[int(match.group(2))]
+#
+#    mr_ramp = tree.nodes.get(ch.mr_ramp)
+#    mr_linear = tree.nodes.get(ch.mr_linear)
+#    mr_alpha = tree.nodes.get(ch.mr_alpha)
+#    mr_intensity = tree.nodes.get(ch.mr_intensity)
+#    mr_blend = tree.nodes.get(ch.mr_blend)
+#
+#    if not mr_ramp:
+#        mr_ramp = new_node(tree, ch, 'mr_ramp', 'ShaderNodeValToRGB', 'Transition Ramp')
+#        mr_ramp.color_ramp.elements[0].color = (1,1,1,1)
+#        mr_ramp.color_ramp.elements[1].color = (0.0,0.0,0.0,1)
+#        rearrange = True
+#
+#    if not mr_linear:
+#        mr_linear = new_node(tree, ch, 'mr_linear', 'ShaderNodeGamma', 'Transition Ramp Linear')
+#        if root_ch.colorspace == 'SRGB':
+#            mr_linear.inputs[1].default_value = 1.0/GAMMA
+#        else: mr_linear.inputs[1].default_value = 1.0
+#
+#    if not mr_alpha:
+#        mr_alpha = new_node(tree, ch, 'mr_alpha', 'ShaderNodeMath', 'Transition Ramp Alpha')
+#        mr_alpha.operation = 'MULTIPLY'
+#        rearrange = True
+#
+#    if not mr_intensity:
+#        mr_intensity = new_node(tree, ch, 'mr_intensity', 'ShaderNodeMath', 'Transition Ramp Intensity')
+#        mr_intensity.operation = 'MULTIPLY'
+#        mr_intensity.inputs[1].default_value = ch.mask_ramp_intensity_value
+#        rearrange = True
+#
+#    if not mr_blend:
+#        mr_blend = new_node(tree, ch, 'mr_blend', 'ShaderNodeMixRGB', 'Transition Ramp Blend')
+#        rearrange = True
+#
+#    mr_blend.blend_type = ch.mask_ramp_blend_type
+#    mr_blend.mute = not ch.enable
+#    if len(mr_blend.outputs[0].links) == 0:
+#        rearrange = True
+#
+#    return rearrange
+
+def remove_transition_ramp_nodes(tree, ch):
+    # Save ramp first
+    save_ramp(tree, ch)
+
+    remove_node(tree, ch, 'mr_ramp')
+    remove_node(tree, ch, 'mr_ramp_blend')
+
+#def remove_transition_ramp_nodes(tree, ch, clean=False):
+#    #mute_node(tree, ch, 'mr_blend')
+#    remove_node(tree, ch, 'mr_linear')
+#    remove_node(tree, ch, 'mr_inverse')
+#    remove_node(tree, ch, 'mr_alpha')
+#    remove_node(tree, ch, 'mr_intensity_multiplier')
+#    remove_node(tree, ch, 'mr_intensity')
+#    remove_node(tree, ch, 'mr_blend')
+#
+#    if clean:
+#        remove_node(tree, ch, 'mr_ramp')
+#
+#    # Remove flip bump related nodes
+#    remove_transition_ramp_flip_nodes(tree, ch)
 
 def check_transition_bump_nodes(tex, tree, ch, ch_index):
 
@@ -400,7 +489,7 @@ def remove_transition_bump_influence_nodes_to_other_channels(tex, tree):
                 mr_intensity.inputs[1].default_value = c.mask_ramp_intensity_value
 
             # Remove flip bump related nodes
-            check_transition_ramp_flip_nodes(tex, tree, c)
+            #check_transition_ramp_flip_nodes(tex, tree, c)
 
         # Remove transition ao related nodes
         check_transition_ao_nodes(tree, tex, c)
@@ -430,14 +519,7 @@ def update_transition_ramp_intensity_value(self, context):
     tex = tl.textures[int(match.group(1))]
     tree = get_tree(tex)
 
-    mr_intensity = tree.nodes.get(self.mr_intensity)
-    if mr_intensity: 
-        flip_bump = any([c for c in tex.channels if (
-            c.mask_bump_flip or tex.type=='BACKGROUND') and c.enable_mask_bump])
-
-        if flip_bump:
-            mr_intensity.inputs[1].default_value = self.mask_ramp_intensity_value * self.intensity_value
-        else: mr_intensity.inputs[1].default_value = self.mask_ramp_intensity_value
+    set_ramp_intensity_value(tree, tex, self)
 
 def update_transition_ramp_blend_type(self, context):
     tl = self.id_data.tl
@@ -474,9 +556,13 @@ def update_transition_bump_value(self, context):
     for c in tex.channels:
         if c == ch: continue
 
-        im = tree.nodes.get(c.mr_intensity_multiplier)
-        if im:
-            im.inputs[1].default_value = 1.0 + (ch.mask_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
+        #im = tree.nodes.get(c.mr_intensity_multiplier)
+        #if im:
+        #    im.inputs[1].default_value = 1.0 + (ch.mask_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
+        mr_ramp = tree.nodes.get(c.mr_ramp)
+        if mr_ramp:
+            mr_ramp.inputs['Multiplier'].default_value = 1.0 + (
+                    ch.mask_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
 
         im = tree.nodes.get(c.intensity_multiplier)
         if im: 
@@ -569,9 +655,13 @@ def update_transition_bump_fac(self, context):
         if im: 
             im.inputs[1].default_value = 1.0 + (bump_ch.mask_bump_value - 1.0) * ch.transition_bump_fac
 
-        im = tree.nodes.get(ch.mr_intensity_multiplier)
-        if im:
-            im.inputs[1].default_value = 1.0 + (bump_ch.mask_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
+        #im = tree.nodes.get(ch.mr_intensity_multiplier)
+        #if im:
+        #    im.inputs[1].default_value = 1.0 + (bump_ch.mask_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
+        mr_ramp = tree.nodes.get(ch.mr_ramp)
+        if mr_ramp and bump_ch:
+            mr_ramp.inputs['Multiplier'].default_value = 1.0 + (
+                    bump_ch.mask_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
 
 def update_transition_ao_intensity(self, context):
 
@@ -853,12 +943,7 @@ def update_enable_transition_ramp(self, context):
 
     tree = get_tree(tex)
 
-    if self.enable_mask_ramp:
-        set_transition_ramp_nodes(tree, tex, ch)
-    else: remove_transition_ramp_nodes(tree, ch)
-
-    # Check nodes related to transition bump
-    check_transition_bump_influences_to_other_channels(tex, tree, target_ch=ch)
+    check_transition_ramp_nodes(tree, tex, ch)
 
     # Update mask multiply
     check_mask_multiply_nodes(tex, tree)

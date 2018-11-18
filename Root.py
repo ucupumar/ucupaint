@@ -948,6 +948,8 @@ class YRemoveTLChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'fine_bump')
             remove_node(ttree, ch, 'intensity_multiplier')
 
+            remove_node(ttree, ch, 'cache_ramp')
+
             # Remove modifiers
             #if ch.mod_tree:
             if ch.mod_group != '':

@@ -125,9 +125,10 @@ def check_all_layer_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, h
         # Channel mute
         mute = not tex.enable or not ch.enable
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-        if ch.enable_mask_ramp:
-            mr_intensity = tree.nodes.get(ch.mr_intensity)
-            if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+        #if ch.enable_mask_ramp:
+            #mr_intensity = tree.nodes.get(ch.mr_intensity)
+            #if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+        transition.check_transition_ramp_nodes(tree, tex, ch)
 
         # Update layer ch blend type
         check_blend_type_nodes(root_ch, tex, ch)
@@ -1822,8 +1823,7 @@ def update_channel_enable(self, context):
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
     if ch.enable_mask_ramp:
-        mr_intensity = tree.nodes.get(ch.mr_intensity)
-        if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+        transition.set_ramp_intensity_value(tree, tex, ch)
 
     #blend = tree.nodes.get(ch.blend)
     #blend.mute = not tex.enable or not ch.enable
@@ -1838,7 +1838,7 @@ def update_channel_enable(self, context):
     if ch.enable_transition_ao:
         tao = tree.nodes.get(ch.tao)
         #tao.mute = mute
-        tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
+        if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
 
 def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
@@ -2268,10 +2268,7 @@ def update_texture_enable(self, context):
             intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
         if ch.enable_mask_ramp:
-            #mr_blend = tree.nodes.get(ch.mr_blend)
-            #if mr_blend: mr_blend.mute = blend.mute
-            mr_intensity = tree.nodes.get(ch.mr_intensity)
-            if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+            transition.set_ramp_intensity_value(tree, tex, ch)
 
         if ch.enable_transition_ao:
             tao = tree.nodes.get(ch.tao)
@@ -2297,17 +2294,7 @@ def update_channel_intensity_value(self, context):
     #intensity_multiplier.inputs[1].default_value = ch.intensity_multiplier_value
 
     if ch.enable_mask_ramp:
-        flip_bump = any([c for c in tex.channels if c.mask_bump_flip and c.enable_mask_bump])
-        if flip_bump:
-            mr_intensity = tree.nodes.get(ch.mr_intensity)
-            mr_intensity.inputs[1].default_value = ch.mask_ramp_intensity_value * ch.intensity_value
-
-            # Flip bump is better be muted if intensity is maximum
-            mr_flip_hack = tree.nodes.get(ch.mr_flip_hack)
-            if mr_flip_hack:
-                if ch.intensity_value < 1.0:
-                    mr_flip_hack.inputs[1].default_value = 1
-                else: mr_flip_hack.inputs[1].default_value = 20
+        transition.set_ramp_intensity_value(tree, tex, ch)
 
     if ch.enable_transition_ao:
         tao = tree.nodes.get(ch.tao)
@@ -2534,16 +2521,23 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mask_ramp_blend_type = EnumProperty(
         name = 'Transition Ramp Blend Type',
         items = blend_type_items,
-        default = 'MIX', update=transition.update_transition_ramp_blend_type)
+        default = 'MIX', 
+        #update=transition.update_transition_ramp_blend_type)
+        update=transition.update_enable_transition_ramp)
 
     # Transition ramp nodes
     mr_ramp = StringProperty(default='')
+    mr_ramp_blend = StringProperty(default='')
+
     mr_linear = StringProperty(default='')
     mr_inverse = StringProperty(default='')
     mr_alpha = StringProperty(default='')
     mr_intensity_multiplier = StringProperty(default='')
     mr_intensity = StringProperty(default='')
     mr_blend = StringProperty(default='')
+
+    # To save ramp
+    cache_ramp = StringProperty(default='')
 
     # For flip transition bump
     mr_alpha1 = StringProperty(default='')
