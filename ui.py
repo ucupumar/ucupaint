@@ -1500,7 +1500,7 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
         tex_tree = get_tree(tex)
 
         col = box.column()
-        col.active = tex.enable
+        col.active = tex.enable and not is_parent_hidden(tex)
 
         # Source
         draw_layer_source(context, col, tex, tex_tree, source, image, vcol, is_a_mesh, custom_icon_enable)
@@ -1751,6 +1751,8 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
 
         # Image icon
         if len(editable_masks) == 0:
+            row = master.row(align=True)
+            row.active = is_hidden
             if image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
             #elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
             elif tex.type == 'VCOL': row.prop(tex, 'name', text='', emboss=False, icon='GROUP_VCOL')
@@ -1818,7 +1820,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         # Active image/tex label
         if len(editable_masks) > 0:
             row = master.row(align=True)
-            #row.active = is_hidden
+            row.active = is_hidden
             if active_mask_image:
                 row.prop(active_mask_image, 'name', text='', emboss=False)
             elif active_vcol_mask:
@@ -1826,6 +1828,8 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
             else: 
                 if image: row.prop(image, 'name', text='', emboss=False)
                 else: row.prop(tex, 'name', text='', emboss=False)
+
+        row = master.row(align=True)
 
         # Active image
         if active_mask_image: active_image = active_mask_image
