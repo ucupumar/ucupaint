@@ -541,6 +541,9 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
         else:
             row.prop(texui, 'expand_content', text='', emboss=True, icon='COLOR')
         row.label(text=tex.name)
+    elif tex.type == 'GROUP':
+        row.label(text='', icon='FILE_FOLDER')
+        row.label(text=tex.name)
     else:
         title = source.bl_idname.replace('ShaderNodeTex', '')
         if custom_icon_enable:
@@ -560,10 +563,12 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
     #    row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
     #else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
 
-    if bpy.app.version_string.startswith('2.8'):
-        row.menu("NODE_MT_y_layer_special_menu", icon='PREFERENCES', text='')
-    else: row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
+    if tex.type != 'GROUP':
+        if bpy.app.version_string.startswith('2.8'):
+            row.menu("NODE_MT_y_layer_special_menu", icon='PREFERENCES', text='')
+        else: row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
 
+    if tex.type == 'GROUP': return
     if tex.type in {'VCOL', 'BACKGROUND'} and len(tex.modifiers) == 0: return
     if not texui.expand_content: return
 
@@ -572,7 +577,7 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
     rcol = rrow.column(align=False)
 
     modcol = rcol.column()
-    modcol.active = tex.type != 'BACKGROUND'
+    modcol.active = tex.type not in {'BACKGROUND', 'GROUP'}
     draw_modifier_stack(context, tex, 'RGB', modcol, 
             texui, custom_icon_enable, tex)
 

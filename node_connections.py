@@ -444,21 +444,22 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         mod_group = nodes.get(tex.mod_group)
 
         # Background layer won't use modifier outputs
-        if tex.type == 'BACKGROUND':
+        if tex.type in {'BACKGROUND', 'GROUP'}:
             #reconnect_all_modifier_nodes(tree, tex, start_rgb, start_alpha, mod_group)
             pass
         else:
             start_rgb, start_alpha = reconnect_all_modifier_nodes(
                     tree, tex, start_rgb, start_alpha, mod_group)
 
-        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
+        if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
             mod_group_1 = nodes.get(tex.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
                     tree, tex, source.outputs[1], solid_alpha.outputs[0], mod_group_1)
 
     # UV neighbor vertex color
-    if tex.type == 'VCOL' and uv_neighbor:
-        create_link(tree, start_rgb, uv_neighbor.inputs[0])
+    if tex.type in {'VCOL', 'GROUP'} and uv_neighbor:
+        if tex.type == 'VCOL':
+            create_link(tree, start_rgb, uv_neighbor.inputs[0])
         create_link(tree, tangent.outputs[0], uv_neighbor.inputs['Tangent'])
         create_link(tree, bitangent.outputs[0], uv_neighbor.inputs['Bitangent'])
 
@@ -571,18 +572,16 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         alpha = start_alpha
         bg_alpha = None
 
-        if tex.type in {'BACKGROUND', 'GROUP'}:
+        if tex.type == 'GROUP': # and root_ch.alpha:
+            rgb = source.outputs[i*2 + input_offset]
+            alpha = source.outputs[i*2 + input_offset + 1]
+
+        elif tex.type == 'BACKGROUND':
             rgb = source.outputs[root_ch.io_index + input_offset]
             alpha = solid_alpha.outputs[0]
 
-            if tex.type == 'GROUP': # and root_ch.alpha:
-                rgb = source.outputs[i*2 + input_offset]
-                alpha = source.outputs[i*2 + input_offset + 1]
-
-            elif tex.type == 'BACKGROUND':
-                if root_ch.alpha:
-                    #alpha = source.outputs[root_ch.io_index+1 + input_offset]
-                    bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
+            if root_ch.alpha:
+                bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
 
         # Color layer uses geometry normal
         #if tex.type == 'COLOR' and root_ch.type == 'NORMAL' and is_valid_to_remove_bump_nodes(tex, ch): # and len(ch.modifiers) == 0:
@@ -631,6 +630,9 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
         mod_group = nodes.get(ch.mod_group)
 
+        rgb_before_mod = rgb
+        alpha_before_mod = rgb
+
         # Background layer won't use modifier outputs
         #if tex.type == 'BACKGROUND' or (tex.type == 'COLOR' and root_ch.type == 'NORMAL'):
         if tex.type == 'BACKGROUND':
@@ -667,7 +669,20 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 alpha_s = start_alpha
                 alpha_e = start_alpha
                 alpha_w = start_alpha
-            
+
+            elif ch.enable_mask_bump and tex.type == 'GROUP' and uv_neighbor:
+                create_link(tree, alpha, uv_neighbor.inputs[0])
+
+                rgb_n = rgb_before_mod
+                rgb_s = rgb_before_mod
+                rgb_e = rgb_before_mod
+                rgb_w = rgb_before_mod
+
+                alpha_n = uv_neighbor.outputs['n']
+                alpha_s = uv_neighbor.outputs['s']
+                alpha_e = uv_neighbor.outputs['e']
+                alpha_w = uv_neighbor.outputs['w']
+
             else:
                 alpha_n = alpha
                 alpha_s = alpha
@@ -811,6 +826,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
             elif ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}:
 
+                #if tex.type == 'GROUP' and uv_neighbor:
+                #    malpha_n = uv_neighbor.outputs[0]
+                #    malpha_s = uv_neighbor.outputs[1]
+                #    malpha_e = uv_neighbor.outputs[2]
+                #    malpha_w = uv_neighbor.outputs[3]
+                #else:
                 malpha_n = alpha_n
                 malpha_s = alpha_s
                 malpha_e = alpha_e
@@ -938,6 +959,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     create_link(tree, prev_alpha, mr_ramp_blend.inputs['Input Alpha'])
                     prev_alpha = mr_ramp_blend.outputs['Input Alpha']
 
+                break_input_link(tree, mr_ramp_blend.inputs['Intensity'])
+
             else:
                 create_link(tree, rgb, mr_ramp.inputs['RGB'])
                 rgb = mr_ramp.outputs[0]
@@ -1038,7 +1061,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         # Background layer only know mix
         if tex.type == 'BACKGROUND':
             blend_type = 'MIX'
-        else: blend_type = ch.blend_type
+        else: 
+            if root_ch.type == 'NORMAL':
+                blend_type = ch.normal_blend
+            else: blend_type = ch.blend_type
 
         if blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.alpha)):
 

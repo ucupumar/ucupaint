@@ -7,6 +7,9 @@
 #   - Replace total mask node and implement transition bump/ramp chain system (V)
 #   - Active Mask switcher on the list (V)
 #   - Make sure mask has blending option consistency (X, Meh, its consistent enough)
+#   - Mask transition factor
+#   - Mask from layer
+#   - Mask modifiers
 # - Transition effects (V)
 #   - Bump (V)
 #   - Ramp (V)
@@ -21,7 +24,7 @@
 #   - AO works with background layer (V)
 # - Texture group/folder
 #   - Basic multilevel implementation (V)
-#   - Works with mask and transition effects
+#   - Works with mask and transition effects (V)
 # - New layer/mask improvements
 #   - Open Image as Mask (V)
 #   - Open Vcol as Mask/Layer (V)
@@ -50,7 +53,7 @@
 # TODO:
 # - Eraser brush (check for ypanel implementation)
 # - Height based bump channel (similar to substance)
-# - Special Node Group Layer
+# - Node Group Layer (Smart Material?)
 # - Transfer UV
 # - Upper layer affect below layer (?):
 #   - Refraction

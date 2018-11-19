@@ -1705,6 +1705,9 @@ class YReplaceLayerType(bpy.types.Operator):
         tl = tex.id_data.tl
 
         if self.type == tex.type: return {'CANCELLED'}
+        if tex.type == 'GROUP':
+            self.report({'ERROR'}, "You can't change type of group layer!")
+            return {'CANCELLED'}
 
         tl.halt_reconnect = True
 
@@ -1978,28 +1981,9 @@ def check_blend_type_nodes(root_ch, tex, ch):
         blend_type = ch.blend_type
         normal_blend = ch.normal_blend
 
-    # Create blend node if its missing
-    if has_parent and blend_type == 'MIX':
+    if root_ch.type == 'RGB':
 
-        if root_ch.type == 'RGB':
-            if tex.type == 'BACKGROUND':
-                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG, return_status = True)
-            else: 
-                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, return_status = True)
-
-        elif root_ch.type == 'VALUE':
-            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, return_status = True)
-
-        elif root_ch.type == 'NORMAL':
-            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, return_status = True)
-
-    elif root_ch.type == 'RGB':
-
-        if root_ch.alpha and blend_type == 'MIX':
+        if (has_parent or root_ch.alpha) and blend_type == 'MIX':
 
             if tex.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
@@ -2017,7 +2001,12 @@ def check_blend_type_nodes(root_ch, tex, ch):
             #    blend.blend_type = blend_type
 
     elif root_ch.type == 'NORMAL':
-        if normal_blend == 'OVERLAY':
+
+        if has_parent and normal_blend == 'MIX':
+            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                    'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, return_status = True)
+
+        elif normal_blend == 'OVERLAY':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, return_status = True)
 
@@ -2025,12 +2014,17 @@ def check_blend_type_nodes(root_ch, tex, ch):
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, return_status = True)
 
-    else:
+    elif root_ch.type == 'VALUE':
 
-        blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                'ShaderNodeMixRGB', 'Blend', return_status = True)
+        if has_parent and blend_type == 'MIX':
+            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                    'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, return_status = True)
+        else:
 
-    if blend.type == 'MIX_RGB' and blend.blend_type != blend_type:
+            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                    'ShaderNodeMixRGB', 'Blend', return_status = True)
+
+    if root_ch.type != 'NORMAL' and blend.type == 'MIX_RGB' and blend.blend_type != blend_type:
         blend.blend_type = blend_type
 
     #print(need_reconnect)

@@ -49,12 +49,13 @@ def refresh_source_tree_ios(source_tree, tex_type):
 def enable_tex_source_tree(tex, rearrange=False):
 
     # Check if source tree is already available
-    if tex.type in {'BACKGROUND', 'COLOR', 'GROUP'}: return
+    #if tex.type in {'BACKGROUND', 'COLOR', 'GROUP'}: return
+    if tex.type in {'BACKGROUND', 'COLOR'}: return
     if tex.type != 'VCOL' and tex.source_group != '': return
 
     tex_tree = get_tree(tex)
 
-    if tex.type != 'VCOL':
+    if tex.type not in {'VCOL', 'GROUP'}:
         # Get current source for reference
         source_ref = tex_tree.nodes.get(tex.source)
         mapping_ref = tex_tree.nodes.get(tex.mapping)
@@ -103,13 +104,10 @@ def enable_tex_source_tree(tex, rearrange=False):
 
     # Create uv neighbor
     uv_neighbor = check_new_node(tex_tree, tex, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV')
-    if tex.type == 'VCOL':
+    if tex.type in {'VCOL', 'GROUP'}:
         uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
     else: 
         uv_neighbor.node_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
-
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    duplicate_lib_node_tree(uv_neighbor)
 
         if tex.type == 'IMAGE' and source.image:
             uv_neighbor.inputs[1].default_value = source.image.size[0]
@@ -117,10 +115,6 @@ def enable_tex_source_tree(tex, rearrange=False):
         else:
             uv_neighbor.inputs[1].default_value = 1000
             uv_neighbor.inputs[2].default_value = 1000
-
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    match_group_input(uv_neighbor, 'ResX')
-        #    match_group_input(uv_neighbor, 'ResY')
 
     if rearrange:
         # Reconnect outside nodes
@@ -367,7 +361,7 @@ def check_create_bump_base(tex, tree, ch):
     #    normal_map_type = 'BUMP_MAP'
 
     skip = False
-    if tex.type == 'BACKGROUND': #or is_valid_to_remove_bump_nodes(tex, ch):
+    if tex.type in {'BACKGROUND', 'GROUP'}: #or is_valid_to_remove_bump_nodes(tex, ch):
         skip = True
 
     if not skip and normal_map_type == 'FINE_BUMP_MAP':

@@ -1082,10 +1082,12 @@ def enable_modifiers_tree(parent, rearrange = False):
         #if tex.type == 'BACKGROUND':
         if tex.type in {'BACKGROUND', 'COLOR'}:
             return
+        #if tex.type == 'GROUP' and root_ch.type == 'NORMAL':
+        #    return
     elif match2:
         tex = parent
         name = tex.name
-        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
+        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
             return
     else:
         return
@@ -1163,7 +1165,7 @@ def disable_modifiers_tree(parent, rearrange=False):
             return
     elif match2:
         tex = parent
-        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
+        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
             return
     else:
         return
