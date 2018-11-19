@@ -117,8 +117,9 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
         root_ch = tl.channels[int(match.group(2))]
 
         if bump_ch.mask_bump_flip or tex.type == 'BACKGROUND':
-            tao = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 'Transition AO', lib.TRANSITION_AO_FLIP)
-            duplicate_lib_node_tree(tao)
+            tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
+                    'Transition AO', lib.TRANSITION_AO_FLIP, return_status=True)
+            if replaced: duplicate_lib_node_tree(tao)
 
         elif ch.transition_ao_blend_type == 'MIX' and (
                 tex.parent_idx != -1 or (root_ch.type == 'RGB' and root_ch.alpha)):
@@ -126,8 +127,9 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
                     'ShaderNodeGroup', 'Transition AO', lib.TRANSITION_AO_STRAIGHT_OVER)
 
         else:
-            tao = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 'Transition AO', lib.TRANSITION_AO)
-            duplicate_lib_node_tree(tao)
+            tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
+                    'Transition AO', lib.TRANSITION_AO, return_status=True)
+            if replaced: duplicate_lib_node_tree(tao)
 
         # Blend type
         ao_blend = tao.node_tree.nodes.get('_BLEND')
@@ -195,30 +197,28 @@ def set_transition_ramp_nodes(tree, tex, ch):
 
     if bump_ch and (bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'):
 
-        mr_ramp = replace_new_node(tree, ch, 'mr_ramp', 
-                'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_FLIP)
+        mr_ramp, replaced = replace_new_node(tree, ch, 'mr_ramp', 
+                'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_FLIP, return_status=True)
+        if replaced: duplicate_lib_node_tree(mr_ramp)
 
         if (ch.mask_ramp_blend_type == 'MIX' and 
                 ((root_ch.type == 'RGB' and root_ch.alpha) or tex.parent_idx != -1)):
             mr_ramp_blend = replace_new_node(tree, ch, 'mr_ramp_blend', 
                     'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_STRAIGHT_OVER_BLEND)
         else:
-            mr_ramp_blend = replace_new_node(tree, ch, 'mr_ramp_blend', 
-                    'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_BLEND)
+            mr_ramp_blend, replaced = replace_new_node(tree, ch, 'mr_ramp_blend', 
+                    'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_BLEND, return_status=True)
+            if replaced: duplicate_lib_node_tree(mr_ramp_blend)
 
             # Get blend node
             ramp_blend = mr_ramp_blend.node_tree.nodes.get('_BLEND')
             ramp_blend.blend_type = ch.mask_ramp_blend_type
 
-            duplicate_lib_node_tree(mr_ramp_blend)
-
-        #mr_ramp_blend.inputs['Intensity'].default_value = ch.mask_ramp_intensity_value * ch.intensity_value
-
     else:
-        mr_ramp = replace_new_node(tree, ch, 'mr_ramp', 
-                'ShaderNodeGroup', 'Transition Ramp', lib.RAMP)
 
-        #mr_ramp.inputs['Intensity'].default_value = ch.mask_ramp_intensity_value
+        mr_ramp, replaced = replace_new_node(tree, ch, 'mr_ramp', 
+                'ShaderNodeGroup', 'Transition Ramp', lib.RAMP, return_status=True)
+        if replaced: duplicate_lib_node_tree(mr_ramp)
 
         # Get blend node
         ramp_blend = mr_ramp.node_tree.nodes.get('_BLEND')
@@ -237,8 +237,6 @@ def set_transition_ramp_nodes(tree, tex, ch):
     else: multiplier_val = 1.0
 
     mr_ramp.inputs['Multiplier'].default_value = multiplier_val
-
-    duplicate_lib_node_tree(mr_ramp)
 
     if root_ch.colorspace == 'SRGB':
         mr_ramp.inputs['Gamma'].default_value = 1.0/GAMMA

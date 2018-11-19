@@ -628,30 +628,39 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
         node = new_node(tree, entity, prop, node_id_name, label)
         replaced = True
 
-    if node.type == 'GROUP' and (not node.node_tree or node.node_tree.name != group_name):
+    if node.type == 'GROUP':
 
         # Get previous tree
         prev_tree = node.node_tree
 
-        # Replace group tree
-        node.node_tree = get_node_tree_lib(group_name)
+        # Check if group is copied
+        if prev_tree:
+            m = re.match(r'^' + group_name + '_Copy\.*\d{0,3}$', prev_tree.name)
+        else: m = None
 
-        if not prev_tree:
-            replaced = True
+        #print(prev_tree)
 
-        else:
-            # Compare previous group inputs with current group inputs
-            if len(prev_tree.inputs) != len(node.inputs):
+        if not prev_tree or (prev_tree.name != group_name and not m):
+
+            # Replace group tree
+            node.node_tree = get_node_tree_lib(group_name)
+
+            if not prev_tree:
                 replaced = True
-            else:
-                for i, inp in enumerate(node.inputs):
-                    if inp.name != prev_tree.inputs[i].name:
-                        replaced = True
-                        break
 
-            # Remove previous tree if it has no user
-            if prev_tree.users == 0:
-                bpy.data.node_groups.remove(prev_tree)
+            else:
+                # Compare previous group inputs with current group inputs
+                if len(prev_tree.inputs) != len(node.inputs):
+                    replaced = True
+                else:
+                    for i, inp in enumerate(node.inputs):
+                        if inp.name != prev_tree.inputs[i].name:
+                            replaced = True
+                            break
+
+                # Remove previous tree if it has no user
+                if prev_tree.users == 0:
+                    bpy.data.node_groups.remove(prev_tree)
 
     if return_status:
         return node, replaced
@@ -988,6 +997,43 @@ def get_parent_dict(tl):
         else: parent_dict[t.name] = None
 
     return parent_dict
+
+def get_parent(tex):
+
+    tl = tex.id_data.tl
+    
+    if tex.parent_idx == -1:
+        return None
+
+    return tl.textures[tex.parent_idx]
+
+def is_parent_hidden(tex):
+
+    tl = tex.id_data.tl
+
+    hidden = False
+    
+    cur_tex = tex
+    parent_tex = tex
+
+    while True:
+        if cur_tex.parent_idx != -1:
+
+            try: layer = tl.textures[cur_tex.parent_idx]
+            except: break
+
+            if layer.type == 'GROUP':
+                parent_tex = layer
+                if not parent_tex.enable:
+                    hidden = True
+                    break
+
+        if parent_tex == cur_tex:
+            break
+
+        cur_tex = parent_tex
+
+    return hidden
 
 def set_parent_dict_val(tl, parent_dict, name, target_idx):
 

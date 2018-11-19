@@ -1718,6 +1718,8 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         tex_tree = get_tree(tex)
         obj = context.object
 
+        is_hidden = not is_parent_hidden(tex)
+
         master = layout.row(align=True)
         row = master.row(align=True)
 
@@ -1816,6 +1818,7 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         # Active image/tex label
         if len(editable_masks) > 0:
             row = master.row(align=True)
+            #row.active = is_hidden
             if active_mask_image:
                 row.prop(active_mask_image, 'name', text='', emboss=False)
             elif active_vcol_mask:
@@ -1893,11 +1896,13 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         # Mask visibility
         if len(tex.masks) > 0:
             row = master.row()
+            #row.active = is_hidden
             row.active = tex.enable_masks
             row.prop(tex, 'enable_masks', emboss=False, text='', icon='MOD_MASK')
 
         # Texture visibility
         row = master.row()
+        row.active = is_hidden
         if hasattr(lib, 'custom_icons'):
             if tex.enable: eye_icon = 'RESTRICT_VIEW_OFF'
             else: eye_icon = 'RESTRICT_VIEW_ON'

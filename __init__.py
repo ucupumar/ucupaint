@@ -38,7 +38,8 @@
 # - Oveeride color should be override value for value channel (V)
 # - Make sure ui is expanded if modifier or transition is added (V)
 # - Multiple tl node selector from ui (V)
-# - Replace new node can detect duplicated node group
+# - Replace new node can detect duplicated node group (V)
+# - Add more comments to blender bug report about reflection fix (It should be only calculated on glossy/reflection code, not on diffuse)
 # - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
 # - Make every node name unique (using hash?)
