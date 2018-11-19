@@ -18,6 +18,7 @@
 #   - Per channel transition edge intensity (V)
 #   - AO option to exclude area within intensity (V)
 #   - AO and ramp contribute to alpha (V)
+#   - AO works with background layer (V)
 # - Texture group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects
@@ -49,6 +50,7 @@
 # TODO:
 # - Eraser brush (check for ypanel implementation)
 # - Height based bump channel (similar to substance)
+# - Special Node Group Layer
 # - Transfer UV
 # - Upper layer affect below layer (?):
 #   - Refraction

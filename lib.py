@@ -21,7 +21,9 @@ NEIGHBOR_FAKE ='~TL Fake Neighbor'
 FINE_BUMP ='~TL Fine Bump'
 CURVED_FINE_BUMP = '~TL Curved Fine Bump'
 FLIP_CURVED_FINE_BUMP = '~TL Flip Curved Fine Bump'
+
 TRANSITION_AO = '~TL Transition AO'
+TRANSITION_AO_BG_MIX = '~TL Transition AO Background Mix'
 TRANSITION_AO_STRAIGHT_OVER = '~TL Transition AO Straight Over'
 TRANSITION_AO_FLIP = '~TL Transition AO Flip'
 

@@ -997,7 +997,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
                 # Transition AO
                 row = mcol.row(align=True)
-                row.active = bump_ch_found and tex.type != 'BACKGROUND'
+                row.active = bump_ch_found #and tex.type != 'BACKGROUND'
                 if custom_icon_enable:
                     if chui.expand_transition_ao_settings:
                         icon_value = lib.custom_icons["uncollapsed_input"].icon_id
@@ -1020,7 +1020,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     row = mcol.row(align=True)
                     row.label(text='', icon='BLANK1')
                     box = row.box()
-                    box.active = bump_ch_found and tex.type != 'BACKGROUND'
+                    box.active = bump_ch_found #and tex.type != 'BACKGROUND'
                     bcol = box.column(align=False)
 
                     brow = bcol.row(align=True)

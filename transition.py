@@ -107,7 +107,8 @@ def get_transition_ao_intensity(ch):
 
 def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
 
-    if not bump_ch or tex.type == 'BACKGROUND' or not ch.enable_transition_ao:
+    #if not bump_ch or tex.type == 'BACKGROUND' or not ch.enable_transition_ao:
+    if not bump_ch or not ch.enable_transition_ao:
         remove_node(tree, ch, 'tao')
 
     elif bump_ch != ch and ch.enable_transition_ao:
@@ -116,7 +117,13 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
         match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
         root_ch = tl.channels[int(match.group(2))]
 
-        if bump_ch.mask_bump_flip or tex.type == 'BACKGROUND':
+        if tex.type == 'BACKGROUND' and ch.transition_ao_blend_type == 'MIX':
+
+            tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
+                    'Transition AO', lib.TRANSITION_AO_BG_MIX, return_status=True)
+            if replaced: duplicate_lib_node_tree(tao)
+
+        elif bump_ch.mask_bump_flip or tex.type == 'BACKGROUND':
             tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
                     'Transition AO', lib.TRANSITION_AO_FLIP, return_status=True)
             if replaced: duplicate_lib_node_tree(tao)

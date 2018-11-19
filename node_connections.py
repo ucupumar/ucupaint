@@ -862,7 +862,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             rgb = mb_blend.outputs[0]
 
         # Transition AO
-        if root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao and tex.type != 'BACKGROUND':
+        if root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao: # and tex.type != 'BACKGROUND':
             tao = nodes.get(ch.tao)
 
             if trans_bump_flip:
@@ -872,6 +872,11 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 # Get bump intensity multiplier of transition bump
                 trans_im = nodes.get(trans_bump_ch.mb_intensity_multiplier)
                 create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
+
+                if 'Bg Alpha' in tao.inputs and bg_alpha:
+                    create_link(tree, bg_alpha, tao.inputs['Bg Alpha'])
+                    bg_alpha = tao.outputs['Bg Alpha']
+
             else: 
                 create_link(tree, prev_rgb, tao.inputs[0])
 
