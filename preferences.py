@@ -19,8 +19,14 @@ class YTLPreferences(AddonPreferences):
                      ),
             default = 'ONLY_DIRTY')
 
+    image_atlas_size = IntProperty(
+            name = 'Image Atlas Size',
+            description = 'Image Atlas Size',
+            default = 4096)
+
     def draw(self, context):
         self.layout.prop(self, 'auto_save')
+        self.layout.prop(self, 'image_atlas_size')
 
 @persistent
 def auto_save_images(scene):

@@ -2,7 +2,7 @@ import bpy, time, re
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
-from . import Modifier, lib, Blur, Mask, transition
+from . import Modifier, lib, Blur, Mask, transition, ImageAtlas
 from .common import *
 from .node_arrangements import *
 from .node_connections import *
@@ -230,13 +230,16 @@ def img_normal_map_type_items(self, context):
 
 def add_new_layer(group_tree, tex_name, tex_type, channel_idx, 
         blend_type, normal_blend, normal_map_type, 
-        texcoord_type, uv_name='', image=None, vcol=None, 
+        texcoord_type, uv_name='', image=None, vcol=None, segment=None,
         add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1),
         solid_color = (1,1,1),
-        add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, mask_uv_name = ''
+        add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
+        mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False
         ):
 
     tl = group_tree.tl
+    tlup = bpy.context.user_preferences.addons[__package__].preferences
+    obj = bpy.context.object
 
     # Halt rearrangements and reconnections until all nodes already created
     tl.halt_reconnect = True
@@ -269,6 +272,9 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
     tex.type = tex_type
     tex.name = tex_name
     tex.uv_name = uv_name
+
+    if segment:
+        tex.segment_name = segment.name
 
     if image:
         tex.image_name = image.name
@@ -375,20 +381,25 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
         mask_name = 'Mask ' + tex.name
         mask_image = None
         mask_vcol = None
+        mask_segment = None
 
         if mask_type == 'IMAGE':
-            mask_image = bpy.data.images.new(mask_name, 
-                    width=1024, height=1024, alpha=False, float_buffer=mask_use_hdr)
-            if mask_color == 'WHITE':
-                mask_image.generated_color = (1,1,1,1)
-            elif mask_color == 'BLACK':
-                mask_image.generated_color = (0,0,0,1)
-            #mask_image.generated_color = (0,0,0,1)
-            mask_image.use_alpha = False
+            if use_image_atlas_for_mask:
+                mask_segment = ImageAtlas.get_set_image_atlas_segment(
+                        mask_width, mask_height, mask_color, mask_use_hdr, tlup.image_atlas_size)
+                mask_image = mask_segment.id_data
+            else:
+                mask_image = bpy.data.images.new(mask_name, 
+                        width=mask_width, height=mask_height, alpha=False, float_buffer=mask_use_hdr)
+                if mask_color == 'WHITE':
+                    mask_image.generated_color = (1,1,1,1)
+                elif mask_color == 'BLACK':
+                    mask_image.generated_color = (0,0,0,1)
+                #mask_image.generated_color = (0,0,0,1)
+                mask_image.use_alpha = False
 
         # New vertex color
         elif mask_type == 'VCOL':
-            obj = bpy.context.object
             mask_vcol = obj.data.vertex_colors.new(name=mask_name)
             if mask_color == 'WHITE':
                 set_obj_vertex_colors(obj, mask_vcol, (1.0, 1.0, 1.0))
@@ -396,8 +407,28 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
                 set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
             #set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
 
-        mask = Mask.add_new_mask(tex, mask_name, mask_type, texcoord_type, mask_uv_name, mask_image, mask_vcol)
+        mask = Mask.add_new_mask(tex, mask_name, mask_type, texcoord_type, 
+                mask_uv_name, mask_image, mask_vcol, mask_segment)
         mask.active_edit = True
+
+        if mask_segment:
+            #mask.segment_name = mask_segment.name
+
+            scale_x = mask_width/mask_image.size[0]
+            scale_y = mask_height/mask_image.size[1]
+
+            offset_x = scale_x * mask_segment.tile_x
+            offset_y = scale_y * mask_segment.tile_y
+
+            mapping = get_mask_mapping(mask)
+            if mapping:
+                mapping.scale[0] = scale_x
+                mapping.scale[1] = scale_y
+
+                mapping.translation[0] = offset_x
+                mapping.translation[1] = offset_y
+
+            refresh_temp_uv(obj, mask, True)
 
     # Fill channel layer props
     shortcut_created = False
@@ -473,10 +504,10 @@ def update_channel_idx_new_texture(self, context):
 
 def get_fine_bump_distance(tex, distance):
     scale = 100
-    if tex.type == 'IMAGE':
-        source = get_tex_source(tex)
-        image = source.image
-        if image: scale = image.size[0] / 10
+    #if tex.type == 'IMAGE':
+    #    source = get_tex_source(tex)
+    #    image = source.image
+    #    if image: scale = image.size[0] / 10
 
     #return -1.0 * distance * scale
     return distance * scale
@@ -494,9 +525,13 @@ class YRefreshNeighborUV(bpy.types.Operator):
     def execute(self, context):
         tree = get_tree(context.texture)
 
+        source = get_tex_source(context.texture)
         uv_neighbor = tree.nodes.get(context.texture.uv_neighbor)
-        uv_neighbor.inputs[1].default_value = context.image.size[0]
-        uv_neighbor.inputs[2].default_value = context.image.size[1]
+
+        set_uv_neighbor_resolution(uv_neighbor, context.texture, source)
+
+        #uv_neighbor.inputs[1].default_value = context.image.size[0]
+        #uv_neighbor.inputs[2].default_value = context.image.size[1]
         
         #if BLENDER_28_GROUP_INPUT_HACK:
         #    match_group_input(uv_neighbor, 1)
@@ -577,7 +612,8 @@ class YNewLayer(bpy.types.Operator):
     rgb_to_intensity_color = FloatVectorProperty(
             name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
-    solid_color = FloatVectorProperty(name='Solid Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
+    solid_color = FloatVectorProperty(
+            name='Solid Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
     add_mask = BoolProperty(
             name = 'Add Mask',
@@ -600,6 +636,9 @@ class YNewLayer(bpy.types.Operator):
                 ),
             default='BLACK')
 
+    mask_width = IntProperty(name='Mask Width', default = 1024, min=1, max=16384)
+    mask_height = IntProperty(name='Mask Height', default = 1024, min=1, max=16384)
+
     mask_uv_name = StringProperty(default='')
     mask_use_hdr = BoolProperty(name='32 bit Float', default=False)
 
@@ -610,6 +649,24 @@ class YNewLayer(bpy.types.Operator):
             description = 'Normal map type of this layer',
             items = new_tex_channel_normal_map_type_items)
             #default = 'BUMP_MAP')
+
+    use_image_atlas = BoolProperty(
+            name = 'Use Image Atlas',
+            description='Use Image Atlas',
+            default=False)
+
+    use_image_atlas_for_mask = BoolProperty(
+            name = 'Use Image Atlas for Mask',
+            description='Use Image Atlas for Mask',
+            default=False)
+
+    #image_atlas_name = StringProperty(
+    #        name = 'Image Atlas Name',
+    #        description = 'Image atlas name',
+    #        default='')
+
+    #image_atlas_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -658,9 +715,32 @@ class YNewLayer(bpy.types.Operator):
                 uv_layers = obj.data.uv_textures
             else: uv_layers = obj.data.uv_layers
 
+            # Use active uv layer name by default
             if obj.type == 'MESH' and len(uv_layers) > 0:
-                self.uv_map = uv_layers.active.name
-                self.mask_uv_name = uv_layers.active.name
+                active_name = uv_layers.active.name
+                #if active_name.startswith(TEMP_UV):
+                if active_name == TEMP_UV:
+                    #self.uv_map = active_name.split(TEMP_UV)[1]
+                    self.uv_map = tl.textures[tl.active_texture_index].uv_name
+                else: self.uv_map = uv_layers.active.name
+
+                self.mask_uv_name = self.uv_map
+
+            #if obj.type == 'MESH' and len(uv_layers) > 0:
+            #    self.uv_map = uv_layers.active.name
+            #    self.mask_uv_name = uv_layers.active.name
+
+        # UV Map collections update
+        for uv in obj.data.uv_layers:
+            if not uv.name.startswith(TEMP_UV):
+                self.uv_map_coll.add().name = uv.name
+
+        # Update image atlas collections
+        #self.image_atlas_coll.clear()
+        #imgs = bpy.data.images
+        #for img in imgs:
+        #    if img.yia.is_image_atlas:
+        #        self.image_atlas_coll.add().name = img.name
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -710,6 +790,11 @@ class YNewLayer(bpy.types.Operator):
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND'}:
             col.label(text='Vector:')
 
+        if self.type == 'IMAGE':
+            col.label(text='')
+            #if self.use_image_atlas and len(self.image_atlas_coll) == 0:
+            #    col.label(text='')
+
         #if self.type in {'COLOR', 'GROUP', 'BACKGROUND'}:
         if self.type != 'IMAGE':
             col.label(text='')
@@ -718,7 +803,12 @@ class YNewLayer(bpy.types.Operator):
                 col.label(text='Mask Color:')
                 if self.mask_type == 'IMAGE':
                     col.label(text='')
+                    col.label(text='Mask Width:')
+                    col.label(text='Mask Height:')
                     col.label(text='Mask UV Map:')
+                    col.label(text='')
+                    #if self.use_image_atlas and len(self.image_atlas_coll) == 0:
+                    #    col.label(text='')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -754,7 +844,13 @@ class YNewLayer(bpy.types.Operator):
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
-                crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        if self.type == 'IMAGE':
+            col.prop(self, 'use_image_atlas')
+            #if self.use_image_atlas and len(self.image_atlas_coll) == 0:
+            #    col.label(text='New texture atlas will be created')
 
         if self.type != 'IMAGE':
             col.prop(self, 'add_mask', text='Add Mask')
@@ -763,13 +859,21 @@ class YNewLayer(bpy.types.Operator):
                 col.prop(self, 'mask_color', text='')
                 if self.mask_type == 'IMAGE':
                     col.prop(self, 'mask_use_hdr')
-                    col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                    col.prop(self, 'mask_width', text='')
+                    col.prop(self, 'mask_height', text='')
+                    #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                    col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+                    col.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+                    #if self.use_image_atlas_for_mask and len(self.image_atlas_coll) == 0:
+                    #    col.label(text='New texture atlas will be created')
 
     def execute(self, context):
 
         T = time.time()
 
+        tlup = bpy.context.user_preferences.addons[__package__].preferences
         wm = context.window_manager
+        area = context.area
         obj = context.object
         node = get_active_texture_layers_node()
         tl = node.node_tree.tl
@@ -795,15 +899,24 @@ class YNewLayer(bpy.types.Operator):
             return {'CANCELLED'}
 
         img = None
+        segment = None
         if self.type == 'IMAGE':
-            alpha = False if self.add_rgb_to_intensity else True
-            color = (0,0,0,1) if self.add_rgb_to_intensity else self.color
-            img = bpy.data.images.new(name=self.name, 
-                    width=self.width, height=self.height, alpha=alpha, float_buffer=self.hdr)
-            #img.generated_type = self.generated_type
-            img.generated_type = 'BLANK'
-            img.generated_color = color
-            img.use_alpha = False if self.add_rgb_to_intensity else True
+
+            if self.use_image_atlas:
+                segment = ImageAtlas.get_set_image_atlas_segment(
+                        self.width, self.height, 'TRANSPARENT', self.hdr, tlup.image_atlas_size)
+                img = segment.id_data
+            else:
+
+                alpha = False if self.add_rgb_to_intensity else True
+                color = (0,0,0,1) if self.add_rgb_to_intensity else self.color
+                img = bpy.data.images.new(name=self.name, 
+                        width=self.width, height=self.height, alpha=alpha, float_buffer=self.hdr)
+                #img.generated_type = self.generated_type
+                img.generated_type = 'BLANK'
+                img.generated_color = color
+                img.use_alpha = False if self.add_rgb_to_intensity else True
+
             update_image_editor_image(context, img)
 
         vcol = None
@@ -812,11 +925,33 @@ class YNewLayer(bpy.types.Operator):
             set_obj_vertex_colors(obj, vcol, (1.0, 1.0, 1.0))
 
         tl.halt_update = True
+
         tex = add_new_layer(node.node_tree, self.name, self.type, 
                 int(self.channel_idx), self.blend_type, self.normal_blend, 
-                self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol,
+                self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol, segment,
                 self.add_rgb_to_intensity, self.rgb_to_intensity_color, self.solid_color,
-                self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, self.mask_uv_name)
+                self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
+                self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask)
+
+        if segment:
+            #tex.segment_name = segment.name
+
+            scale_x = self.width/img.size[0]
+            scale_y = self.height/img.size[1]
+
+            offset_x = scale_x * segment.tile_x
+            offset_y = scale_y * segment.tile_y
+
+            mapping = get_tex_mapping(tex)
+            if mapping:
+                mapping.scale[0] = scale_x
+                mapping.scale[1] = scale_y
+
+                mapping.translation[0] = offset_x
+                mapping.translation[1] = offset_y
+
+            refresh_temp_uv(obj, tex, True)
+
         tl.halt_update = False
 
         # Reconnect and rearrange nodes
@@ -916,7 +1051,10 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
-            self.uv_map = obj.data.uv_layers.active.name
+            active_name = obj.data.uv_layers.active.name
+            if active_name.startswith(TEMP_UV):
+                self.uv_map = active_name.split(TEMP_UV)[1]
+            else: self.uv_map = obj.data.uv_layers.active.name
 
         # Normal map is the default
         self.normal_map_type = 'NORMAL_MAP'
@@ -952,6 +1090,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
             crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+            #crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         #col.label(text='')
         rrow = col.row(align=True)
@@ -988,7 +1127,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
             add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map,
-                    image, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
+                    image, None, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
         node.node_tree.tl.halt_update = False
 
@@ -1176,7 +1315,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         add_new_layer(node.node_tree, name, self.type, int(self.channel_idx), self.blend_type, 
                 self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map, 
-                image, vcol, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
+                image, vcol, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
         node.node_tree.tl.halt_update = False
 
@@ -1761,17 +1900,18 @@ class YReplaceLayerType(bpy.types.Operator):
                 source.attribute_name = self.item_name
 
         uv_neighbor = tree.nodes.get(tex.uv_neighbor)
-        if uv_neighbor:
-            if self.type == 'IMAGE':
-                uv_neighbor.inputs[1].default_value = source.image.size[0]
-                uv_neighbor.inputs[2].default_value = source.image.size[1]
-            else:
-                uv_neighbor.inputs[1].default_value = 1000
-                uv_neighbor.inputs[2].default_value = 1000
-                
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    match_group_input(uv_neighbor, 1)
-            #    match_group_input(uv_neighbor, 2)
+        set_uv_neighbor_resolution(uv_neighbor, tex, source)
+        #if uv_neighbor:
+        #    if self.type == 'IMAGE':
+        #        uv_neighbor.inputs[1].default_value = source.image.size[0]
+        #        uv_neighbor.inputs[2].default_value = source.image.size[1]
+        #    else:
+        #        uv_neighbor.inputs[1].default_value = 1000
+        #        uv_neighbor.inputs[2].default_value = 1000
+        #        
+        #    #if BLENDER_28_GROUP_INPUT_HACK:
+        #    #    match_group_input(uv_neighbor, 1)
+        #    #    match_group_input(uv_neighbor, 2)
 
         tex.type = self.type
 
@@ -2634,6 +2774,9 @@ class YLayer(bpy.types.PropertyGroup):
 
     # To detect change of layer image
     image_name = StringProperty(default='')
+
+    # To get segment if using image atlas
+    segment_name = StringProperty(default='')
 
     uv_name = StringProperty(default='', update=update_uv_name)
 

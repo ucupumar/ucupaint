@@ -36,6 +36,8 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
 	             ("LINEAR_LIGHT", "Linear Light", ""))
 
+TEMP_UV = '~TL Temp UV'
+
 neighbor_directions = ['n', 's', 'e', 'w']
 
 normal_blend_items = (
@@ -734,6 +736,10 @@ def get_mask_source(mask):
     tree = get_mask_tree(mask)
     return tree.nodes.get(mask.source)
 
+def get_mask_mapping(mask):
+    tree = get_mask_tree(mask)
+    return tree.nodes.get(mask.mapping)
+
 def get_source_tree(tex, tree=None):
     if not tree: tree = get_tree(tex)
     if not tree: return None
@@ -1201,6 +1207,80 @@ def is_valid_to_remove_bump_nodes(tex, ch):
         return True
 
     return False
+
+def refresh_temp_uv(obj, entity, use_ops=False):
+
+    if not entity or entity.segment_name == '' or entity.type != 'IMAGE':
+        return False
+
+    m1 = re.match(r'^tl\.textures\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^tl\.textures\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    # Get source
+    if m1: source = get_tex_source(entity)
+    elif m2: source = get_mask_source(entity)
+    else: return False
+
+    img = source.image
+    if not img: return False
+
+    segment = img.yia.segments.get(entity.segment_name)
+
+    if bpy.app.version_string.startswith('2.8'):
+        uv_layers = obj.data.uv_layers
+    else: uv_layers = obj.data.uv_textures
+
+    # Delete previous temp uv
+    for uv in uv_layers:
+        if uv.name == TEMP_UV:
+            uv_layers.remove(uv)
+
+    # New uv textures
+    uv_layers.active = uv_layers[entity.uv_name]
+    temp_uv_layer = uv_layers.new(TEMP_UV)
+    uv_layers.active = temp_uv_layer
+
+    scale_x = segment.width/img.size[0]
+    scale_y = segment.height/img.size[1]
+    offset_x = scale_x * segment.tile_x
+    offset_y = scale_y * segment.tile_y
+
+    if not use_ops:
+        for loop in obj.data.loops :
+            uv_coords = obj.data.uv_layers.active.data[loop.index].uv
+            uv_coords.x *= scale_x
+            uv_coords.y *= scale_y
+            uv_coords.x += offset_x
+            uv_coords.y += offset_y
+
+        #for face in obj.data.polygons:
+        #    for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
+        #        uv_coords = obj.data.uv_layers.active.data[loop_idx].uv
+        #        uv_coords.x *= scale_x
+        #        uv_coords.y *= scale_y
+        #        uv_coords.x += offset_x
+        #        uv_coords.y += offset_y
+
+    else:
+
+        area = bpy.context.area
+        ori_area_type = area.type
+        ori_mode = obj.mode
+        
+        bpy.ops.object.mode_set(mode='EDIT')
+        area.type = 'IMAGE_EDITOR'
+        bpy.ops.uv.select_all(action='SELECT')
+        
+        area.spaces[0].pivot_point = 'CURSOR'
+        area.spaces[0].cursor_location = (0.0, 0.0)
+        
+        bpy.ops.transform.resize(value=(scale_x, scale_y, 1.0))
+        bpy.ops.transform.translate(value=(offset_x, offset_y, 0.0))
+        
+        bpy.ops.object.mode_set(mode=ori_mode)
+        area.type = ori_area_type
+
+    return True
 
 #def get_io_index(tex, root_ch, alpha=False):
 #    if alpha:

@@ -46,6 +46,20 @@ def refresh_source_tree_ios(source_tree, tex_type):
         if alp1: source_tree.outputs.remove(alp1)
         if solid: source_tree.nodes.remove(solid)
 
+def set_uv_neighbor_resolution(uv_neighbor, entity, source):
+
+    if entity.type == 'IMAGE' and source.image:
+        if entity.segment_name != '':
+            segment = source.image.yia.segments.get(entity.segment_name)
+            uv_neighbor.inputs[1].default_value = segment.width
+            uv_neighbor.inputs[2].default_value = segment.height
+        else:
+            uv_neighbor.inputs[1].default_value = source.image.size[0]
+            uv_neighbor.inputs[2].default_value = source.image.size[1]
+    else:
+        uv_neighbor.inputs[1].default_value = 1000
+        uv_neighbor.inputs[2].default_value = 1000
+
 def enable_tex_source_tree(tex, rearrange=False):
 
     # Check if source tree is already available
@@ -108,13 +122,19 @@ def enable_tex_source_tree(tex, rearrange=False):
         uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
     else: 
         uv_neighbor.node_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
+        set_uv_neighbor_resolution(uv_neighbor, tex, source)
 
-        if tex.type == 'IMAGE' and source.image:
-            uv_neighbor.inputs[1].default_value = source.image.size[0]
-            uv_neighbor.inputs[2].default_value = source.image.size[1]
-        else:
-            uv_neighbor.inputs[1].default_value = 1000
-            uv_neighbor.inputs[2].default_value = 1000
+        #if tex.type == 'IMAGE' and source.image:
+        #    if tex.segment_name != '':
+        #        segment = source.image.yia.segments.get(tex.segment_name)
+        #        uv_neighbor.inputs[1].default_value = segment.width
+        #        uv_neighbor.inputs[2].default_value = segment.height
+        #    else:
+        #        uv_neighbor.inputs[1].default_value = source.image.size[0]
+        #        uv_neighbor.inputs[2].default_value = source.image.size[1]
+        #else:
+        #    uv_neighbor.inputs[1].default_value = 1000
+        #    uv_neighbor.inputs[2].default_value = 1000
 
     if rearrange:
         # Reconnect outside nodes
@@ -231,13 +251,15 @@ def set_mask_uv_neighbor(tree, tex, mask):
         if prev_num_inputs != cur_num_inputs:
             need_reconnect = True
 
-        if mask.type == 'IMAGE':
-            src = get_mask_source(mask)
-            uv_neighbor.inputs[1].default_value = src.image.size[0]
-            uv_neighbor.inputs[2].default_value = src.image.size[1]
-        else:
-            uv_neighbor.inputs[1].default_value = 1000
-            uv_neighbor.inputs[2].default_value = 1000
+        src = get_mask_source(mask)
+        set_uv_neighbor_resolution(uv_neighbor, mask, src)
+        #if mask.type == 'IMAGE':
+        #    src = get_mask_source(mask)
+        #    uv_neighbor.inputs[1].default_value = src.image.size[0]
+        #    uv_neighbor.inputs[2].default_value = src.image.size[1]
+        #else:
+        #    uv_neighbor.inputs[1].default_value = 1000
+        #    uv_neighbor.inputs[2].default_value = 1000
 
         #if BLENDER_28_GROUP_INPUT_HACK:
         #    duplicate_lib_node_tree(uv_neighbor)
@@ -274,6 +296,7 @@ def enable_mask_source_tree(tex, mask, reconnect = False):
     if mask.type != 'VCOL':
         # Get current source for reference
         source_ref = tex_tree.nodes.get(mask.source)
+        mapping_ref = tex_tree.nodes.get(mask.mapping)
 
         # Create mask tree
         mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
@@ -291,6 +314,8 @@ def enable_mask_source_tree(tex, mask, reconnect = False):
         # Copy nodes from reference
         source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+        mapping = new_node(mask_tree, mask, 'mapping', 'ShaderNodeMapping')
+        if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Create source node group
         group_node = new_node(tex_tree, mask, 'group_node', 'ShaderNodeGroup', 'source_group')
@@ -307,6 +332,7 @@ def enable_mask_source_tree(tex, mask, reconnect = False):
 
         # Remove previous nodes
         tex_tree.nodes.remove(source_ref)
+        if mapping_ref: tex_tree.nodes.remove(mapping_ref)
 
     # Create uv neighbor
     set_mask_uv_neighbor(tex_tree, tex, mask)
@@ -330,11 +356,14 @@ def disable_mask_source_tree(tex, mask, reconnect=False):
         mask_tree = get_mask_tree(mask)
 
         source_ref = mask_tree.nodes.get(mask.source)
+        mapping_ref = mask_tree.nodes.get(mask.mapping)
         group_node = tex_tree.nodes.get(mask.group_node)
 
         # Create new nodes
         source = new_node(tex_tree, mask, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+        mapping = new_node(tex_tree, mask, 'mapping', 'ShaderNodeMapping')
+        if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Remove previous source
         remove_node(tex_tree, mask, 'group_node')

@@ -113,6 +113,7 @@ if "bpy" in locals():
     imp.reload(preferences)
     imp.reload(vcol_editor)
     imp.reload(transition)
+    imp.reload(ImageAtlas)
     imp.reload(Mask)
     imp.reload(Modifier)
     imp.reload(Blur)
@@ -121,7 +122,7 @@ if "bpy" in locals():
     #print("Reloaded multifiles")
 else:
     from . import image_ops, common, lib, ui, subtree, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, Mask, Modifier, Blur, Layer, Root
+    from . import vcol_editor, transition, ImageAtlas, Mask, Modifier, Blur, Layer, Root
     #print("Imported multifiles")
 
 import bpy 
@@ -136,6 +137,7 @@ def register():
     ui.register()
     vcol_editor.register()
     transition.register()
+    ImageAtlas.register()
     Mask.register()
     Modifier.register()
     Blur.register()
@@ -153,6 +155,7 @@ def unregister():
     ui.unregister()
     vcol_editor.unregister()
     transition.unregister()
+    ImageAtlas.unregister()
     Mask.unregister()
     Modifier.unregister()
     Blur.unregister()

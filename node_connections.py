@@ -351,11 +351,16 @@ def reconnect_mask_internal_nodes(mask):
     tree = get_mask_tree(mask)
 
     source = tree.nodes.get(mask.source)
+    mapping = tree.nodes.get(mask.mapping)
     start = tree.nodes.get(MASK_TREE_START)
     end = tree.nodes.get(MASK_TREE_END)
 
     if mask.type != 'VCOL':
-        create_link(tree, start.outputs[0], source.inputs[0])
+        if mapping:
+            create_link(tree, start.outputs[0], mapping.inputs[0])
+            create_link(tree, mapping.outputs[0], source.inputs[0])
+        else:
+            create_link(tree, start.outputs[0], source.inputs[0])
 
     create_link(tree, source.outputs[0], end.inputs[0])
 
@@ -482,8 +487,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         if mask.group_node != '':
             mask_source = nodes.get(mask.group_node)
             reconnect_mask_internal_nodes(mask)
+            mask_mapping = None
         else:
             mask_source = nodes.get(mask.source)
+            mask_mapping = nodes.get(mask.mapping)
 
         # Mask source directions
         mask_source_n = nodes.get(mask.source_n)
@@ -495,8 +502,14 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         mask_uv_map = nodes.get(mask.uv_map)
         if mask.type != 'VCOL':
             if mask.texcoord_type == 'UV':
-                create_link(tree, mask_uv_map.outputs[0], mask_source.inputs[0])
-            else: create_link(tree, texcoord.outputs[mask.texcoord_type], mask_source.inputs[0])
+                mask_vector = mask_uv_map.outputs[0]
+            else: mask_vector = texcoord.outputs[mask.texcoord_type]
+
+            if mask_mapping:
+                create_link(tree, mask_vector, mask_mapping.inputs[0])
+                create_link(tree, mask_mapping.outputs[0], mask_source.inputs[0])
+            else:
+                create_link(tree, mask_vector, mask_source.inputs[0])
 
         # Mask uv neighbor
         mask_uv_neighbor = nodes.get(mask.uv_neighbor)

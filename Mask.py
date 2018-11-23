@@ -8,7 +8,7 @@ from .node_connections import *
 from .node_arrangements import *
 from .subtree import *
 
-def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None, vcol = None):
+def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None):
     tl = tex.id_data.tl
     tl.halt_update = True
 
@@ -19,6 +19,9 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None, vco
     mask.name = name
     mask.type = mask_type
     mask.texcoord_type = texcoord_type
+
+    if segment:
+        mask.segment_name = segment.name
 
     source = new_node(tree, mask, 'source', texture_node_bl_idnames[mask_type], 'Mask Source')
     if image:
@@ -31,6 +34,8 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None, vco
         uv_map = new_node(tree, mask, 'uv_map', 'ShaderNodeUVMap', 'Mask UV Map')
         uv_map.uv_map = uv_name
         mask.uv_name = uv_name
+
+        mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
 
     for i, root_ch in enumerate(tl.channels):
         ch = tex.channels[i]
@@ -809,6 +814,8 @@ class YLayerMask(bpy.types.PropertyGroup):
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
             update = update_mask_intensity_value)
 
+    segment_name = StringProperty(default='')
+
     channels = CollectionProperty(type=YLayerMaskChannel)
 
     # Nodes
@@ -820,6 +827,7 @@ class YLayerMask(bpy.types.PropertyGroup):
 
     uv_map = StringProperty(default='')
     uv_neighbor = StringProperty(default='')
+    mapping = StringProperty(default='')
 
     tangent = StringProperty(default='')
     bitangent = StringProperty(default='')

@@ -497,6 +497,7 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
     tl = tex.id_data.tl
     tlui = context.window_manager.tlui
     texui = tlui.tex_ui
+    scene = context.scene
 
     row = layout.row(align=True)
     if image:
@@ -808,7 +809,15 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 uv_neighbor = tex_tree.nodes.get(tex.uv_neighbor)
                 cur_x = uv_neighbor.inputs[1].default_value 
                 cur_y = uv_neighbor.inputs[1].default_value 
-                if cur_x != image.size[0] or cur_y != image.size[1]:
+                if tex.segment_name != '':
+                    segment = image.yia.segments.get(tex.segment_name)
+                    correct_x = segment.width
+                    correct_y = segment.height
+                else:
+                    correct_x = image.size[0]
+                    correct_y = image.size[1]
+
+                if cur_x != correct_x or cur_y != correct_y:
                     brow = mcol.row(align=True)
                     brow.alert = True
                     brow.context_pointer_set('channel', ch)
@@ -1292,9 +1301,15 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
                 rrow = rrcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
-                rbox.prop(mask_source.texture_mapping, 'translation', text='Offset')
-                rbox.prop(mask_source.texture_mapping, 'rotation')
-                rbox.prop(mask_source.texture_mapping, 'scale')
+                mapping = get_mask_mapping(mask)
+                if mapping:
+                    rbox.prop(mapping, 'translation', text='Offset')
+                    rbox.prop(mapping, 'rotation')
+                    rbox.prop(mapping, 'scale')
+
+                #rbox.prop(mask_source.texture_mapping, 'translation', text='Offset')
+                #rbox.prop(mask_source.texture_mapping, 'rotation')
+                #rbox.prop(mask_source.texture_mapping, 'scale')
 
         # Mask Channels row
         rrow = rrcol.row(align=True)
@@ -1507,6 +1522,26 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
         col = box.column()
         col.active = tex.enable and not is_parent_hidden(tex)
 
+        if (mask_image and mask.segment_name != '') or (image and tex.segment_name != ''):
+            bbox = col.box()
+
+            if tlui.disable_auto_atlas_uv_update:
+                if bpy.app.version_string.startswith('2.8'):
+                    row = bbox.split(factor=0.75, align=True)
+                else: row = bbox.split(percentage=0.75, align=True)
+            else:
+                row = bbox.row(align=True)
+            row.prop(tlui, 'disable_auto_atlas_uv_update')
+
+            #if tlui.disable_auto_atlas_uv_update and not scene.tool_settings.image_paint.canvas:
+            if tlui.disable_auto_atlas_uv_update and obj.data.uv_layers.active.name != TEMP_UV:
+                row = row.row(align=True)
+                row.alert = True
+                row.context_pointer_set('texture', tex)
+                row.operator('node.y_refresh_uv_of_layer_using_atlas', icon='FILE_REFRESH', text='UV')
+
+            col.separator()
+
         # Source
         draw_layer_source(context, col, tex, tex_tree, source, image, vcol, is_a_mesh, custom_icon_enable)
 
@@ -1606,6 +1641,9 @@ def main_draw(self, context):
     col.label(text='Number of Images: ' + str(num_imgs))
     col.label(text='Number of Vertex Colors: ' + str(num_vcols))
     col.label(text='Number of generated Textures: ' + str(num_gen_texs))
+
+    col.operator('node.y_new_image_atlas_segment_test', icon='IMAGE_DATA')
+    col.operator('node.y_uv_transform_test', icon='GROUP_UVS')
 
     # Hide support this addon panel for now
     return
@@ -2491,6 +2529,11 @@ class YTLUI(bpy.types.PropertyGroup):
     # Texture related UI
     tex_idx = IntProperty(default=0)
     tex_ui = PointerProperty(type=YTextureUI)
+
+    disable_auto_atlas_uv_update = BoolProperty(
+            name = 'Disable Atlas UV Auto Update',
+            description = "UV won't be updated automatically if layer with image atlas is selected.\n(This can make selecting layer faster)",
+            default=False)
 
     #mask_ui = PointerProperty(type=YMaskUI)
 

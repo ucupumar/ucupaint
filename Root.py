@@ -1336,6 +1336,7 @@ def update_texture_index(self, context):
     obj = context.object
     group_tree = self.id_data
     nodes = group_tree.nodes
+    tlui = context.window_manager.tlui
 
     if (len(self.textures) == 0 or
         self.active_texture_index >= len(self.textures) or self.active_texture_index < 0): 
@@ -1353,6 +1354,7 @@ def update_texture_index(self, context):
     uv_name = ''
     image = None
     vcol = None
+    src_of_img = None
 
     for mask in tex.masks:
         if mask.active_edit:
@@ -1360,6 +1362,7 @@ def update_texture_index(self, context):
             if mask.type == 'IMAGE':
                 uv_name = mask.uv_name
                 image = source.image
+                src_of_img = mask
             elif mask.type == 'VCOL' and obj.type == 'MESH':
                 vcol = obj.data.vertex_colors.get(source.attribute_name)
 
@@ -1367,32 +1370,42 @@ def update_texture_index(self, context):
         uv_name = tex.uv_name
         source = get_tex_source(tex, tree)
         image = source.image
+        src_of_img = tex
 
     if not vcol and tex.type == 'VCOL' and obj.type == 'MESH':
         source = get_tex_source(tex, tree)
         vcol = obj.data.vertex_colors.get(source.attribute_name)
 
     # Update image editor
-    update_image_editor_image(context, image)
+    if src_of_img and src_of_img.segment_name != '' and tlui.disable_auto_atlas_uv_update:
+        update_image_editor_image(context, None)
+        scene.tool_settings.image_paint.canvas = None
+    else: 
+        update_image_editor_image(context, image)
+        # Update tex paint
+        scene.tool_settings.image_paint.canvas = image
 
     # Update active vertex color
     if vcol and obj.data.vertex_colors.active != vcol:
         obj.data.vertex_colors.active = vcol
 
-    # Update tex paint
-    scene.tool_settings.image_paint.canvas = image
-
     # Update uv layer
     if obj.type == 'MESH':
-        if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
-            uv_layers = obj.data.uv_textures
-        else: uv_layers = obj.data.uv_layers
 
-        for i, uv in enumerate(uv_layers):
-            if uv.name == uv_name:
-                if uv_layers.active_index != i:
-                    uv_layers.active_index = i
-                break
+        if tlui.disable_auto_atlas_uv_update or not refresh_temp_uv(obj, src_of_img, True):
+
+            if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
+                uv_layers = obj.data.uv_textures
+            else: uv_layers = obj.data.uv_layers
+
+            for i, uv in enumerate(uv_layers):
+                if uv.name == uv_name:
+                    if uv_layers.active_index != i:
+                        uv_layers.active_index = i
+                    #break
+
+                if uv.name == TEMP_UV:
+                    uv_layers.remove(uv)
 
     #print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

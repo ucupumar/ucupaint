@@ -448,6 +448,9 @@ def rearrange_mask_tree_nodes(mask):
     if check_set_node_loc(tree, MASK_TREE_START, loc):
         loc.x += 180
 
+    if check_set_node_loc(tree, mask.mapping, loc):
+        loc.x += 380
+
     if check_set_node_loc(tree, mask.source, loc):
         loc.x += 180
 
@@ -824,6 +827,9 @@ def rearrange_tex_nodes(tex, tree=None):
         if check_set_node_loc(tree, mask.uv_neighbor, loc):
             loc.y -= 320
 
+        if check_set_node_loc(tree, mask.mapping, loc):
+            loc.y -= 290
+
         if check_set_node_loc(tree, mask.uv_map, loc):
             loc.y -= 130
 
@@ -833,7 +839,7 @@ def rearrange_tex_nodes(tex, tree=None):
         if check_set_node_loc(tree, mask.bitangent, loc):
             loc.y -= 180
 
-        loc.x += 280
+        loc.x += 370
         loc.y = 0
         bookmark_x = loc.x
 
