@@ -244,10 +244,10 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YRefreshLayerWithAtlasUV(bpy.types.Operator):
-    bl_idname = "node.y_refresh_uv_of_layer_using_atlas"
-    bl_label = "Refresh Layer UV with Image Atlas"
-    bl_description = "Refresh Layer UV with Image Atlas"
+class YRefreshTransformedLayerUV(bpy.types.Operator):
+    bl_idname = "node.y_refresh_transformed_uv"
+    bl_label = "Refresh Layer UV with Custom Transformation"
+    bl_description = "Refresh layer UV with custom transformation"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -256,16 +256,30 @@ class YRefreshLayerWithAtlasUV(bpy.types.Operator):
 
     def execute(self, context):
 
+        obj = context.object
         tex = context.texture
         tl = tex.id_data.tl
         tlui = context.window_manager.tlui
 
-        if tlui.disable_auto_atlas_uv_update:
-            tlui.disable_auto_atlas_uv_update = False
-            tl.active_texture_index = tl.active_texture_index
-            tlui.disable_auto_atlas_uv_update = True
-        else:
-            return {'CANCELLED'}
+        image = None
+
+        for mask in tex.masks:
+            if mask.type == 'IMAGE' and mask.active_edit:
+                refresh_temp_uv(obj, mask)
+                source = get_mask_source(mask)
+                image = source.image
+                #return {'FINISHED'}
+        
+        if not image and tex.type == 'IMAGE':
+            refresh_temp_uv(obj, tex)
+            source = get_tex_source(tex)
+            image = source.image
+
+        if image:
+            update_image_editor_image(context, image)
+            context.scene.tool_settings.image_paint.canvas = image
+
+        tl.need_temp_uv_refresh = False
 
         return {'FINISHED'}
 
@@ -306,7 +320,7 @@ class YImageAtlas(bpy.types.PropertyGroup):
 def register():
     bpy.utils.register_class(YUVTransformTest)
     bpy.utils.register_class(YNewImageAtlasSegmentTest)
-    bpy.utils.register_class(YRefreshLayerWithAtlasUV)
+    bpy.utils.register_class(YRefreshTransformedLayerUV)
     bpy.utils.register_class(YImageAtlasSegments)
     bpy.utils.register_class(YImageAtlas)
 
@@ -315,6 +329,6 @@ def register():
 def unregister():
     bpy.utils.unregister_class(YUVTransformTest)
     bpy.utils.unregister_class(YNewImageAtlasSegmentTest)
-    bpy.utils.unregister_class(YRefreshLayerWithAtlasUV)
+    bpy.utils.unregister_class(YRefreshTransformedLayerUV)
     bpy.utils.unregister_class(YImageAtlasSegments)
     bpy.utils.unregister_class(YImageAtlas)

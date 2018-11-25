@@ -1,4 +1,4 @@
-import bpy, os, sys, re, time
+import bpy, os, sys, re, time, numpy
 from mathutils import *
 from bpy.app.handlers import persistent
 #from .__init__ import bl_info
@@ -36,7 +36,7 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
 	             ("LINEAR_LIGHT", "Linear Light", ""))
 
-TEMP_UV = '~TL Temp UV'
+TEMP_UV = '~TL Temp Paint UV'
 
 neighbor_directions = ['n', 's', 'e', 'w']
 
@@ -1208,77 +1208,175 @@ def is_valid_to_remove_bump_nodes(tex, ch):
 
     return False
 
-def refresh_temp_uv(obj, entity, use_ops=False):
+def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=None):
 
-    if not entity or entity.segment_name == '' or entity.type != 'IMAGE':
-        return False
+    tl = entity.id_data.tl
+    m1 = re.match(r'^tl\.textures\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^tl\.textures\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if m1: 
+        tree = get_tree(entity)
+        if not mapping: mapping = get_tex_mapping(entity)
+        if not source: source = get_tex_source(entity)
+    elif m2: 
+        tree = get_tree(tl.textures[int(m2.group(1))])
+        if not mapping: mapping = get_mask_mapping(entity)
+        if not source: source = get_mask_source(entity)
+    else: return
+
+    if not uv_neighbor: uv_neighbor = tree.nodes.get(entity.uv_neighbor)
+    if not uv_neighbor: return
+
+    if entity.type == 'IMAGE' and source.image:
+        uv_neighbor.inputs[1].default_value = source.image.size[0] * mapping.scale[0]
+        uv_neighbor.inputs[2].default_value = source.image.size[1] * mapping.scale[1]
+    else:
+        uv_neighbor.inputs[1].default_value = 1000
+        uv_neighbor.inputs[2].default_value = 1000
+
+def update_mapping(entity):
 
     m1 = re.match(r'^tl\.textures\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^tl\.textures\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     # Get source
-    if m1: source = get_tex_source(entity)
-    elif m2: source = get_mask_source(entity)
+    if m1: 
+        source = get_tex_source(entity)
+        mapping = get_tex_mapping(entity)
+    elif m2: 
+        source = get_mask_source(entity)
+        mapping = get_mask_mapping(entity)
+    else: return
+
+    if not mapping: return
+
+    tl = entity.id_data.tl
+
+    offset_x = entity.translation[0]
+    offset_y = entity.translation[1]
+    offset_z = entity.translation[2]
+
+    scale_x = entity.scale[0]
+    scale_y = entity.scale[1]
+    scale_z = entity.scale[2]
+
+    if entity.type == 'IMAGE' and entity.segment_name != '':
+        image = source.image
+        segment = image.yia.segments.get(entity.segment_name)
+
+        scale_x = segment.width/image.size[0] * scale_x
+        scale_y = segment.height/image.size[1] * scale_y
+
+        offset_x = scale_x * segment.tile_x + offset_x * scale_x
+        offset_y = scale_y * segment.tile_y + offset_y * scale_y
+
+    mapping.translation = (offset_x, offset_y, offset_z)
+    mapping.rotation = entity.rotation
+    mapping.scale = (scale_x, scale_y, scale_z)
+
+    set_uv_neighbor_resolution(entity, source=source, mapping=mapping)
+
+    if entity.type == 'IMAGE' and entity.texcoord_type == 'UV':
+        if m1 or (m2 and entity.active_edit):
+            tl.need_temp_uv_refresh = True
+
+def is_transformed(mapping):
+    if (mapping.translation[0] != 0.0 or
+        mapping.translation[1] != 0.0 or
+        mapping.translation[2] != 0.0 or
+        mapping.rotation[0] != 0.0 or
+        mapping.rotation[1] != 0.0 or
+        mapping.rotation[2] != 0.0 or
+        mapping.scale[0] != 1.0 or
+        mapping.scale[1] != 1.0 or
+        mapping.scale[2] != 1.0
+        ):
+        return True
+    return False
+
+def refresh_temp_uv(obj, entity, use_ops=False):
+
+    #if not entity or entity.segment_name == '' or entity.type != 'IMAGE':
+    if not entity or entity.type != 'IMAGE': # or not is_transformed(entity):
+        return False
+
+    #tl = entity.id_data.tl
+    #tl.need_temp_uv_refresh = False
+
+    m1 = re.match(r'^tl\.textures\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^tl\.textures\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    # Get source
+    if m1: 
+        source = get_tex_source(entity)
+        mapping = get_tex_mapping(entity)
+    elif m2: 
+        source = get_mask_source(entity)
+        mapping = get_mask_mapping(entity)
     else: return False
-
-    img = source.image
-    if not img: return False
-
-    segment = img.yia.segments.get(entity.segment_name)
 
     if bpy.app.version_string.startswith('2.8'):
         uv_layers = obj.data.uv_layers
     else: uv_layers = obj.data.uv_textures
+
+    if uv_layers.active != uv_layers[entity.uv_name]:
+        uv_layers.active = uv_layers[entity.uv_name]
 
     # Delete previous temp uv
     for uv in uv_layers:
         if uv.name == TEMP_UV:
             uv_layers.remove(uv)
 
+    if not is_transformed(mapping):
+        return False
+
+    img = source.image
+    if not img: return False
+
     # New uv textures
-    uv_layers.active = uv_layers[entity.uv_name]
     temp_uv_layer = uv_layers.new(TEMP_UV)
     uv_layers.active = temp_uv_layer
 
-    scale_x = segment.width/img.size[0]
-    scale_y = segment.height/img.size[1]
-    offset_x = scale_x * segment.tile_x
-    offset_y = scale_y * segment.tile_y
+    # Cannot do this on edit mode
+    ori_mode = obj.mode
+    if ori_mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
 
-    if not use_ops:
-        for loop in obj.data.loops :
-            uv_coords = obj.data.uv_layers.active.data[loop.index].uv
-            uv_coords.x *= scale_x
-            uv_coords.y *= scale_y
-            uv_coords.x += offset_x
-            uv_coords.y += offset_y
+    # Create transformation matrix
+    # Scale
+    m = Matrix((
+        (mapping.scale[0], 0, 0),
+        (0, mapping.scale[1], 0),
+        (0, 0, mapping.scale[2])
+        ))
 
-        #for face in obj.data.polygons:
-        #    for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
-        #        uv_coords = obj.data.uv_layers.active.data[loop_idx].uv
-        #        uv_coords.x *= scale_x
-        #        uv_coords.y *= scale_y
-        #        uv_coords.x += offset_x
-        #        uv_coords.y += offset_y
+    # Rotate
+    m.rotate(Euler((mapping.rotation[0], mapping.rotation[1], mapping.rotation[2])))
 
-    else:
+    # Translate
+    m = m.to_4x4()
+    m[0][3] = mapping.translation[0]
+    m[1][3] = mapping.translation[1]
+    m[2][3] = mapping.translation[2]
 
-        area = bpy.context.area
-        ori_area_type = area.type
-        ori_mode = obj.mode
-        
+    # Create numpy array to store uv coordinates
+    arr = numpy.zeros(len(obj.data.loops)*2, dtype=numpy.float32)
+    obj.data.uv_layers.active.data.foreach_get('uv', arr)
+    arr.shape = (arr.shape[0]//2, 2)
+
+    # Matrix transformation for each uv coordinates
+    for uv in arr:
+        vec = Vector((uv[0], uv[1], 0.0))
+        vec = m * vec
+        uv[0] = vec[0]
+        uv[1] = vec[1]
+
+    # Set back uv coordinates
+    obj.data.uv_layers.active.data.foreach_set('uv', arr.ravel())
+
+    # Back to edit mode if originally from there
+    if ori_mode == 'EDIT':
         bpy.ops.object.mode_set(mode='EDIT')
-        area.type = 'IMAGE_EDITOR'
-        bpy.ops.uv.select_all(action='SELECT')
-        
-        area.spaces[0].pivot_point = 'CURSOR'
-        area.spaces[0].cursor_location = (0.0, 0.0)
-        
-        bpy.ops.transform.resize(value=(scale_x, scale_y, 1.0))
-        bpy.ops.transform.translate(value=(offset_x, offset_y, 0.0))
-        
-        bpy.ops.object.mode_set(mode=ori_mode)
-        area.type = ori_area_type
 
     return True
 

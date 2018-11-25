@@ -46,20 +46,6 @@ def refresh_source_tree_ios(source_tree, tex_type):
         if alp1: source_tree.outputs.remove(alp1)
         if solid: source_tree.nodes.remove(solid)
 
-def set_uv_neighbor_resolution(uv_neighbor, entity, source):
-
-    if entity.type == 'IMAGE' and source.image:
-        if entity.segment_name != '':
-            segment = source.image.yia.segments.get(entity.segment_name)
-            uv_neighbor.inputs[1].default_value = segment.width
-            uv_neighbor.inputs[2].default_value = segment.height
-        else:
-            uv_neighbor.inputs[1].default_value = source.image.size[0]
-            uv_neighbor.inputs[2].default_value = source.image.size[1]
-    else:
-        uv_neighbor.inputs[1].default_value = 1000
-        uv_neighbor.inputs[2].default_value = 1000
-
 def enable_tex_source_tree(tex, rearrange=False):
 
     # Check if source tree is already available
@@ -122,7 +108,7 @@ def enable_tex_source_tree(tex, rearrange=False):
         uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
     else: 
         uv_neighbor.node_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
-        set_uv_neighbor_resolution(uv_neighbor, tex, source)
+        set_uv_neighbor_resolution(tex, uv_neighbor)
 
         #if tex.type == 'IMAGE' and source.image:
         #    if tex.segment_name != '':
@@ -237,10 +223,6 @@ def set_mask_uv_neighbor(tree, tex, mask):
         # Check number of input
         prev_num_inputs = len(uv_neighbor.inputs)
 
-        # If hack is active, remove old tree first
-        #if BLENDER_28_GROUP_INPUT_HACK and uv_neighbor.node_tree:
-        #    bpy.data.node_groups.remove(uv_neighbor.node_tree)
-
         # Get new uv neighbor tree
         uv_neighbor.node_tree = lib.get_neighbor_uv_tree(mask.texcoord_type, different_uv)
 
@@ -251,18 +233,7 @@ def set_mask_uv_neighbor(tree, tex, mask):
         if prev_num_inputs != cur_num_inputs:
             need_reconnect = True
 
-        src = get_mask_source(mask)
-        set_uv_neighbor_resolution(uv_neighbor, mask, src)
-        #if mask.type == 'IMAGE':
-        #    src = get_mask_source(mask)
-        #    uv_neighbor.inputs[1].default_value = src.image.size[0]
-        #    uv_neighbor.inputs[2].default_value = src.image.size[1]
-        #else:
-        #    uv_neighbor.inputs[1].default_value = 1000
-        #    uv_neighbor.inputs[2].default_value = 1000
-
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    duplicate_lib_node_tree(uv_neighbor)
+        set_uv_neighbor_resolution(mask, uv_neighbor)
 
         if different_uv:
             tangent = tree.nodes.get(mask.tangent)

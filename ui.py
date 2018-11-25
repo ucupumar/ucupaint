@@ -564,6 +564,12 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
     #    row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
     #else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
 
+    #if tlui.disable_auto_temp_uv_update and tl.need_temp_uv_refresh:
+    if tl.need_temp_uv_refresh:
+        row = row.row(align=True)
+        row.alert = True
+        row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='UV')
+
     if tex.type != 'GROUP':
         if bpy.app.version_string.startswith('2.8'):
             row.menu("NODE_MT_y_layer_special_menu", icon='PREFERENCES', text='')
@@ -649,14 +655,22 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
                 row.label(text='', icon='BLANK1')
                 bbox = row.box()
                 crow = row.column()
-                mapping = get_tex_mapping(tex)
-                if mapping:
-                    bbox.prop(mapping, 'translation', text='Offset')
-                    bbox.prop(mapping, 'rotation')
-                    bbox.prop(mapping, 'scale')
+                #mapping = get_tex_mapping(tex)
+                #if mapping:
+                #    bbox.prop(mapping, 'translation', text='Offset')
+                #    bbox.prop(mapping, 'rotation')
+                #    bbox.prop(mapping, 'scale')
+                bbox.prop(tex, 'translation', text='Offset')
+                bbox.prop(tex, 'rotation')
+                bbox.prop(tex, 'scale')
                 #bbox.prop(source.texture_mapping, 'translation', text='Offset')
                 #bbox.prop(source.texture_mapping, 'rotation')
                 #bbox.prop(source.texture_mapping, 'scale')
+
+                if tl.need_temp_uv_refresh:
+                    rrow = bbox.row(align=True)
+                    rrow.alert = True
+                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='UV')
 
     layout.separator()
 
@@ -806,16 +820,14 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
         if root_ch.type == 'NORMAL':
 
             if ch.normal_map_type == 'FINE_BUMP_MAP' and image:
+
                 uv_neighbor = tex_tree.nodes.get(tex.uv_neighbor)
                 cur_x = uv_neighbor.inputs[1].default_value 
-                cur_y = uv_neighbor.inputs[1].default_value 
-                if tex.segment_name != '':
-                    segment = image.yia.segments.get(tex.segment_name)
-                    correct_x = segment.width
-                    correct_y = segment.height
-                else:
-                    correct_x = image.size[0]
-                    correct_y = image.size[1]
+                cur_y = uv_neighbor.inputs[2].default_value 
+
+                mapping = get_tex_mapping(tex)
+                correct_x = image.size[0] * mapping.scale[0]
+                correct_y = image.size[1] * mapping.scale[1]
 
                 if cur_x != correct_x or cur_y != correct_y:
                     brow = mcol.row(align=True)
@@ -1301,11 +1313,19 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
                 rrow = rrcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
-                mapping = get_mask_mapping(mask)
-                if mapping:
-                    rbox.prop(mapping, 'translation', text='Offset')
-                    rbox.prop(mapping, 'rotation')
-                    rbox.prop(mapping, 'scale')
+                #mapping = get_mask_mapping(mask)
+                #if mapping:
+                #    rbox.prop(mapping, 'translation', text='Offset')
+                #    rbox.prop(mapping, 'rotation')
+                #    rbox.prop(mapping, 'scale')
+                rbox.prop(mask, 'translation', text='Offset')
+                rbox.prop(mask, 'rotation')
+                rbox.prop(mask, 'scale')
+
+                if mask.type == 'IMAGE' and mask.active_edit and tl.need_temp_uv_refresh:
+                    rrow = rbox.row(align=True)
+                    rrow.alert = True
+                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='UV')
 
                 #rbox.prop(mask_source.texture_mapping, 'translation', text='Offset')
                 #rbox.prop(mask_source.texture_mapping, 'rotation')
@@ -1522,25 +1542,25 @@ def draw_textures_ui(context, layout, node, custom_icon_enable):
         col = box.column()
         col.active = tex.enable and not is_parent_hidden(tex)
 
-        if (mask_image and mask.segment_name != '') or (image and tex.segment_name != ''):
-            bbox = col.box()
+        #if (mask_image and mask.segment_name != '') or (image and tex.segment_name != ''):
+        #    bbox = col.box()
 
-            if tlui.disable_auto_atlas_uv_update:
-                if bpy.app.version_string.startswith('2.8'):
-                    row = bbox.split(factor=0.75, align=True)
-                else: row = bbox.split(percentage=0.75, align=True)
-            else:
-                row = bbox.row(align=True)
-            row.prop(tlui, 'disable_auto_atlas_uv_update')
+        #    if tlui.disable_auto_temp_uv_update:
+        #        if bpy.app.version_string.startswith('2.8'):
+        #            row = bbox.split(factor=0.75, align=True)
+        #        else: row = bbox.split(percentage=0.75, align=True)
+        #    else:
+        #        row = bbox.row(align=True)
+        #    row.prop(tlui, 'disable_auto_temp_uv_update')
 
-            #if tlui.disable_auto_atlas_uv_update and not scene.tool_settings.image_paint.canvas:
-            if tlui.disable_auto_atlas_uv_update and obj.data.uv_layers.active.name != TEMP_UV:
-                row = row.row(align=True)
-                row.alert = True
-                row.context_pointer_set('texture', tex)
-                row.operator('node.y_refresh_uv_of_layer_using_atlas', icon='FILE_REFRESH', text='UV')
+        #    #if tlui.disable_auto_temp_uv_update and not scene.tool_settings.image_paint.canvas:
+        #    if tlui.disable_auto_temp_uv_update and obj.data.uv_layers.active.name != TEMP_UV:
+        #        row = row.row(align=True)
+        #        row.alert = True
+        #        row.context_pointer_set('texture', tex)
+        #        row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='UV')
 
-            col.separator()
+        #    col.separator()
 
         # Source
         draw_layer_source(context, col, tex, tex_tree, source, image, vcol, is_a_mesh, custom_icon_enable)
@@ -2319,6 +2339,8 @@ class YLayerSpecialMenu(bpy.types.Menu):
         return hasattr(context, 'parent') and get_active_texture_layers_node()
 
     def draw(self, context):
+        tlui = context.window_manager.tlui
+
         row = self.layout.row()
 
         col = row.column()
@@ -2348,6 +2370,22 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col.operator('node.y_replace_layer_type', text='Noise', icon='TEXTURE').type = 'NOISE'
         col.operator('node.y_replace_layer_type', text='Voronoi', icon='TEXTURE').type = 'VORONOI'
         col.operator('node.y_replace_layer_type', text='Wave', icon='TEXTURE').type = 'WAVE'
+
+        #col = self.layout.column()
+        col = row.column()
+
+        #if (mask_image and mask.segment_name != '') or (image and tex.segment_name != ''):
+        col.label(text='Options:')
+        col.prop(tlui, 'disable_auto_temp_uv_update')
+
+        #if tlui.disable_auto_temp_uv_update and not scene.tool_settings.image_paint.canvas:
+        #if tlui.disable_auto_temp_uv_update and obj.data.uv_layers.active.name != TEMP_UV:
+        #    row = row.row(align=True)
+        #    row.alert = True
+        #    row.context_pointer_set('texture', tex)
+        #    row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='UV')
+
+        #col.separator()
 
 #class YLayerMoveOption(bpy.types.Menu):
 #    bl_idname = "NODE_MT_y_layer_move_option"
@@ -2530,9 +2568,9 @@ class YTLUI(bpy.types.PropertyGroup):
     tex_idx = IntProperty(default=0)
     tex_ui = PointerProperty(type=YTextureUI)
 
-    disable_auto_atlas_uv_update = BoolProperty(
-            name = 'Disable Atlas UV Auto Update',
-            description = "UV won't be updated automatically if layer with image atlas is selected.\n(This can make selecting layer faster)",
+    disable_auto_temp_uv_update = BoolProperty(
+            name = 'Disable Transformed UV Auto Update',
+            description = "UV won't be created automatically if layer with custom offset/rotation/scale is selected.\n(This can make selecting layer faster)",
             default=False)
 
     #mask_ui = PointerProperty(type=YMaskUI)

@@ -2,7 +2,7 @@ import bpy, re, time
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
-from . import lib, Modifier, transition
+from . import lib, Modifier, transition, ImageAtlas
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -36,6 +36,22 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None, vco
         mask.uv_name = uv_name
 
         mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
+
+        if segment:
+            scale_x = segment.width/image.size[0]
+            scale_y = segment.height/image.size[1]
+
+            offset_x = scale_x * segment.tile_x
+            offset_y = scale_y * segment.tile_y
+
+            if mapping:
+                mapping.scale[0] = scale_x
+                mapping.scale[1] = scale_y
+
+                mapping.translation[0] = offset_x
+                mapping.translation[1] = offset_y
+
+            refresh_temp_uv(bpy.context.object, mask, True)
 
     for i, root_ch in enumerate(tl.channels):
         ch = tex.channels[i]
@@ -126,6 +142,12 @@ class YNewLayerMask(bpy.types.Operator):
             default = 'UV')
 
     uv_name = StringProperty(default='')
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    use_image_atlas = BoolProperty(
+            name = 'Use Image Atlas',
+            description='Use Image Atlas',
+            default=False)
 
     @classmethod
     def poll(cls, context):
@@ -143,6 +165,7 @@ class YNewLayerMask(bpy.types.Operator):
         obj = context.object
         self.texture = context.texture
         tex = context.texture
+        tl = tex.id_data.tl
 
         surname = '(' + tex.name + ')'
         if self.type == 'IMAGE':
@@ -165,7 +188,14 @@ class YNewLayerMask(bpy.types.Operator):
             self.texcoord_type = 'Generated'
         elif len(obj.data.uv_layers) > 0:
             # Use active uv layer name by default
-            self.uv_name = obj.data.uv_layers.active.name
+            if obj.data.uv_layers.active.name == TEMP_UV:
+                self.uv_name = tl.textures[tl.active_texture_index].uv_name
+            else: self.uv_name = obj.data.uv_layers.active.name
+
+            # UV Map collections update
+            for uv in obj.data.uv_layers:
+                if not uv.name.startswith(TEMP_UV):
+                    self.uv_map_coll.add().name = uv.name
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -192,6 +222,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type != 'VCOL':
             col.label(text='Vector:')
+            col.label(text='')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -209,7 +240,8 @@ class YNewLayerMask(bpy.types.Operator):
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
-                crow.prop_search(self, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                crow.prop_search(self, "uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+            col.prop(self, 'use_image_atlas')
 
     def execute(self, context):
         if self.auto_cancel: return {'CANCELLED'}
@@ -217,6 +249,7 @@ class YNewLayerMask(bpy.types.Operator):
         obj = context.object
         tlui = context.window_manager.tlui
         tex = self.texture
+        tlup = bpy.context.user_preferences.addons[__package__].preferences
 
         # Check if object is not a mesh
         if self.type == 'VCOL' and obj.type != 'MESH':
@@ -240,16 +273,22 @@ class YNewLayerMask(bpy.types.Operator):
         alpha = False
         img = None
         vcol = None
+        segment = None
 
         # New image
         if self.type == 'IMAGE':
-            img = bpy.data.images.new(name=self.name, 
-                    width=self.width, height=self.height, alpha=alpha, float_buffer=self.hdr)
-            if self.color_option == 'WHITE':
-                img.generated_color = (1,1,1,1)
-            elif self.color_option == 'BLACK':
-                img.generated_color = (0,0,0,1)
-            img.use_alpha = False
+            if self.use_image_atlas:
+                segment = ImageAtlas.get_set_image_atlas_segment(
+                        self.width, self.height, self.color_option, self.hdr, tlup.image_atlas_size)
+                img = segment.id_data
+            else:
+                img = bpy.data.images.new(name=self.name, 
+                        width=self.width, height=self.height, alpha=alpha, float_buffer=self.hdr)
+                if self.color_option == 'WHITE':
+                    img.generated_color = (1,1,1,1)
+                elif self.color_option == 'BLACK':
+                    img.generated_color = (0,0,0,1)
+                img.use_alpha = False
 
         # New vertex color
         elif self.type == 'VCOL':
@@ -260,7 +299,7 @@ class YNewLayerMask(bpy.types.Operator):
                 set_obj_vertex_colors(obj, vcol, (0.0, 0.0, 0.0))
 
         # Add new mask
-        mask = add_new_mask(tex, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol)
+        mask = add_new_mask(tex, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'}:
@@ -303,6 +342,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             default = 'UV')
 
     uv_map = StringProperty(default='')
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
@@ -314,13 +354,22 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
     def invoke(self, context, event):
         obj = context.object
         self.texture = context.texture
+        tl = self.texture.id_data.tl
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
-            self.uv_map = obj.data.uv_layers.active.name
+            #self.uv_map = obj.data.uv_layers.active.name
+            if obj.data.uv_layers.active.name == TEMP_UV:
+                self.uv_map = tl.textures[tl.active_texture_index].uv_name
+            else: self.uv_map = obj.data.uv_layers.active.name
+
+            # UV Map collections update
+            for uv in obj.data.uv_layers:
+                if not uv.name.startswith(TEMP_UV):
+                    self.uv_map_coll.add().name = uv.name
 
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
@@ -340,7 +389,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+            #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+            crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         self.layout.prop(self, 'relative')
 
@@ -393,6 +443,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             default = 'UV')
 
     uv_map = StringProperty(default='')
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
     image_name = StringProperty(name="Image")
     image_coll = CollectionProperty(type=bpy.types.PropertyGroup)
@@ -407,20 +458,30 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     def invoke(self, context, event):
         obj = context.object
         self.texture = context.texture
+        tl = self.texture.id_data.tl
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
-            self.uv_map = obj.data.uv_layers.active.name
+            #self.uv_map = obj.data.uv_layers.active.name
+            if obj.data.uv_layers.active.name == TEMP_UV:
+                self.uv_map = tl.textures[tl.active_texture_index].uv_name
+            else: self.uv_map = obj.data.uv_layers.active.name
+
+            # UV Map collections update
+            for uv in obj.data.uv_layers:
+                if not uv.name.startswith(TEMP_UV):
+                    self.uv_map_coll.add().name = uv.name
 
         if self.type == 'IMAGE':
             # Update image names
             self.image_coll.clear()
             imgs = bpy.data.images
             for img in imgs:
-                self.image_coll.add().name = img.name
+                if not img.yia.is_image_atlas:
+                    self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
             vcols = obj.data.vertex_colors
@@ -452,7 +513,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
-                crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
     def execute(self, context):
         if not hasattr(self, 'texture'): return {'CANCELLED'}
@@ -685,22 +747,32 @@ def update_mask_uv_name(self, context):
     match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     tex = tl.textures[int(match.group(1))]
     tree = get_tree(tex)
+    mask = self
+
+    uv_map = tree.nodes.get(mask.uv_map)
+
+    # Cannot use temp uv as standard uv
+    if mask.uv_name == TEMP_UV:
+        mask.uv_name = uv_map.uv_map
     
-    uv_map = tree.nodes.get(self.uv_map)
-    uv_map.uv_map = self.uv_name
+    uv_map.uv_map = mask.uv_name
 
     # Update uv layer
-    if self.active_edit and obj.type == 'MESH':
+    if mask.active_edit and obj.type == 'MESH':
 
-        if hasattr(obj.data, 'uv_textures'):
-            uv_layers = obj.data.uv_textures
-        else: uv_layers = obj.data.uv_layers
+        if mask.segment_name != '':
+            refresh_temp_uv(obj, mask, True)
+        else:
 
-        for i, uv in enumerate(uv_layers):
-            if uv.name == self.uv_name:
-                if uv_layers.active_index != i:
-                    uv_layers.active_index = i
-                break
+            if hasattr(obj.data, 'uv_textures'):
+                uv_layers = obj.data.uv_textures
+            else: uv_layers = obj.data.uv_layers
+
+            for i, uv in enumerate(uv_layers):
+                if uv.name == mask.uv_name:
+                    if uv_layers.active_index != i:
+                        uv_layers.active_index = i
+                    break
 
     # Update neighbor uv if mask bump is active
     if set_mask_uv_neighbor(tree, tex, self):
@@ -745,6 +817,9 @@ def update_mask_intensity_value(self, context):
         for d in neighbor_directions:
             mul = tree.nodes.get(getattr(c, 'multiply_' + d))
             if mul: mul.inputs[0].default_value = mask.intensity_value
+
+def update_mask_transform(self, context):
+    update_mapping(self)
 
 class YLayerMaskChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_layer_mask_channel_enable)
@@ -814,6 +889,25 @@ class YLayerMask(bpy.types.PropertyGroup):
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
             update = update_mask_intensity_value)
 
+    # Transform
+    translation = FloatVectorProperty(
+            name='Translation', size=3, precision=3, 
+            default=(0.0, 0.0, 0.0),
+            update=update_mask_transform
+            ) #, step=1)
+
+    rotation = FloatVectorProperty(
+            name='Rotation', subtype='AXISANGLE', size=3, precision=3, unit='ROTATION', 
+            default=(0.0, 0.0, 0.0),
+            update=update_mask_transform
+            ) #, step=3)
+
+    scale = FloatVectorProperty(
+            name='Scale', size=3, precision=3, 
+            default=(1.0, 1.0, 1.0),
+            update=update_mask_transform,
+            ) #, step=3)
+
     segment_name = StringProperty(default='')
 
     channels = CollectionProperty(type=YLayerMaskChannel)
@@ -828,6 +922,8 @@ class YLayerMask(bpy.types.PropertyGroup):
     uv_map = StringProperty(default='')
     uv_neighbor = StringProperty(default='')
     mapping = StringProperty(default='')
+
+    need_temp_uv_refresh = BoolProperty(default=False)
 
     tangent = StringProperty(default='')
     bitangent = StringProperty(default='')

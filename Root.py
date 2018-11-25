@@ -1347,6 +1347,7 @@ def update_texture_index(self, context):
 
     tex = self.textures[self.active_texture_index]
     tree = get_tree(tex)
+    tl = tex.id_data.tl
 
     # Set image paint mode to Image
     scene.tool_settings.image_paint.mode = 'IMAGE'
@@ -1355,6 +1356,7 @@ def update_texture_index(self, context):
     image = None
     vcol = None
     src_of_img = None
+    mapping = None
 
     for mask in tex.masks:
         if mask.active_edit:
@@ -1363,6 +1365,7 @@ def update_texture_index(self, context):
                 uv_name = mask.uv_name
                 image = source.image
                 src_of_img = mask
+                mapping = get_mask_mapping(mask)
             elif mask.type == 'VCOL' and obj.type == 'MESH':
                 vcol = obj.data.vertex_colors.get(source.attribute_name)
 
@@ -1371,19 +1374,23 @@ def update_texture_index(self, context):
         source = get_tex_source(tex, tree)
         image = source.image
         src_of_img = tex
+        mapping = get_tex_mapping(tex)
 
     if not vcol and tex.type == 'VCOL' and obj.type == 'MESH':
         source = get_tex_source(tex, tree)
         vcol = obj.data.vertex_colors.get(source.attribute_name)
 
     # Update image editor
-    if src_of_img and src_of_img.segment_name != '' and tlui.disable_auto_atlas_uv_update:
+    #if src_of_img and src_of_img.segment_name != '' and tlui.disable_auto_temp_uv_update:
+    if tlui.disable_auto_temp_uv_update and mapping and is_transformed(mapping):
         update_image_editor_image(context, None)
         scene.tool_settings.image_paint.canvas = None
+        tl.need_temp_uv_refresh = True
     else: 
         update_image_editor_image(context, image)
         # Update tex paint
         scene.tool_settings.image_paint.canvas = image
+        tl.need_temp_uv_refresh = False
 
     # Update active vertex color
     if vcol and obj.data.vertex_colors.active != vcol:
@@ -1392,7 +1399,8 @@ def update_texture_index(self, context):
     # Update uv layer
     if obj.type == 'MESH':
 
-        if tlui.disable_auto_atlas_uv_update or not refresh_temp_uv(obj, src_of_img, True):
+        if tlui.disable_auto_temp_uv_update or not refresh_temp_uv(obj, src_of_img, True):
+        #if not refresh_temp_uv(obj, src_of_img, True):
 
             if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
                 uv_layers = obj.data.uv_textures
@@ -1406,6 +1414,8 @@ def update_texture_index(self, context):
 
                 if uv.name == TEMP_UV:
                     uv_layers.remove(uv)
+
+    #tl.need_temp_uv_refresh = False
 
     #print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -1733,6 +1743,9 @@ class YTextureLayersRoot(bpy.types.PropertyGroup):
 
     # Useful to suspend node rearrangements and reconnections when adding new stuff
     halt_reconnect = BoolProperty(default=False)
+
+    # Remind user to refresh UV after edit image layer mapping
+    need_temp_uv_refresh = BoolProperty(default=False)
 
     # Index pointer to the UI
     #ui_index = IntProperty(default=0)

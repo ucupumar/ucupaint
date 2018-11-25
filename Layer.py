@@ -411,24 +411,22 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
                 mask_uv_name, mask_image, mask_vcol, mask_segment)
         mask.active_edit = True
 
-        if mask_segment:
-            #mask.segment_name = mask_segment.name
+        #if mask_segment:
+        #    scale_x = mask_width/mask_image.size[0]
+        #    scale_y = mask_height/mask_image.size[1]
 
-            scale_x = mask_width/mask_image.size[0]
-            scale_y = mask_height/mask_image.size[1]
+        #    offset_x = scale_x * mask_segment.tile_x
+        #    offset_y = scale_y * mask_segment.tile_y
 
-            offset_x = scale_x * mask_segment.tile_x
-            offset_y = scale_y * mask_segment.tile_y
+        #    mapping = get_mask_mapping(mask)
+        #    if mapping:
+        #        mapping.scale[0] = scale_x
+        #        mapping.scale[1] = scale_y
 
-            mapping = get_mask_mapping(mask)
-            if mapping:
-                mapping.scale[0] = scale_x
-                mapping.scale[1] = scale_y
+        #        mapping.translation[0] = offset_x
+        #        mapping.translation[1] = offset_y
 
-                mapping.translation[0] = offset_x
-                mapping.translation[1] = offset_y
-
-            refresh_temp_uv(obj, mask, True)
+        #    refresh_temp_uv(obj, mask, True)
 
     # Fill channel layer props
     shortcut_created = False
@@ -523,28 +521,7 @@ class YRefreshNeighborUV(bpy.types.Operator):
         return hasattr(context, 'texture') and hasattr(context, 'channel') and hasattr(context, 'image') and context.image
 
     def execute(self, context):
-        tree = get_tree(context.texture)
-
-        source = get_tex_source(context.texture)
-        uv_neighbor = tree.nodes.get(context.texture.uv_neighbor)
-
-        set_uv_neighbor_resolution(uv_neighbor, context.texture, source)
-
-        #uv_neighbor.inputs[1].default_value = context.image.size[0]
-        #uv_neighbor.inputs[2].default_value = context.image.size[1]
-        
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    match_group_input(uv_neighbor, 1)
-        #    match_group_input(uv_neighbor, 2)
-
-        #fine_bump = tree.nodes.get(context.parent.fine_bump)
-        #fine_bump.inputs[0].default_value = get_fine_bump_distance(context.texture, context.channel.bump_distance)
-
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    match_group_input(fine_bump, 0)
-        #    #inp = fine_bump.node_tree.nodes.get('Group Input')
-        #    #inp.outputs[0].links[0].to_socket.default_value = fine_bump.inputs[0].default_value
-
+        set_uv_neighbor_resolution(context.texture)
         return {'FINISHED'}
 
 #def set_default_tex_input(tex):
@@ -578,7 +555,7 @@ class YNewLayer(bpy.types.Operator):
     # For image layer
     width = IntProperty(name='Width', default = 1024, min=1, max=16384)
     height = IntProperty(name='Height', default = 1024, min=1, max=16384)
-    color = FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(0.0,0.0,0.0,0.0), min=0.0, max=1.0)
+    #color = FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(0.0,0.0,0.0,0.0), min=0.0, max=1.0)
     #alpha = BoolProperty(name='Alpha', default=True)
     hdr = BoolProperty(name='32 bit Float', default=False)
 
@@ -660,12 +637,6 @@ class YNewLayer(bpy.types.Operator):
             description='Use Image Atlas for Mask',
             default=False)
 
-    #image_atlas_name = StringProperty(
-    #        name = 'Image Atlas Name',
-    #        description = 'Image atlas name',
-    #        default='')
-
-    #image_atlas_coll = CollectionProperty(type=bpy.types.PropertyGroup)
     uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -718,29 +689,16 @@ class YNewLayer(bpy.types.Operator):
             # Use active uv layer name by default
             if obj.type == 'MESH' and len(uv_layers) > 0:
                 active_name = uv_layers.active.name
-                #if active_name.startswith(TEMP_UV):
                 if active_name == TEMP_UV:
-                    #self.uv_map = active_name.split(TEMP_UV)[1]
                     self.uv_map = tl.textures[tl.active_texture_index].uv_name
                 else: self.uv_map = uv_layers.active.name
 
                 self.mask_uv_name = self.uv_map
 
-            #if obj.type == 'MESH' and len(uv_layers) > 0:
-            #    self.uv_map = uv_layers.active.name
-            #    self.mask_uv_name = uv_layers.active.name
-
-        # UV Map collections update
-        for uv in obj.data.uv_layers:
-            if not uv.name.startswith(TEMP_UV):
-                self.uv_map_coll.add().name = uv.name
-
-        # Update image atlas collections
-        #self.image_atlas_coll.clear()
-        #imgs = bpy.data.images
-        #for img in imgs:
-        #    if img.yia.is_image_atlas:
-        #        self.image_atlas_coll.add().name = img.name
+                # UV Map collections update
+                for uv in obj.data.uv_layers:
+                    if not uv.name.startswith(TEMP_UV):
+                        self.uv_map_coll.add().name = uv.name
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -781,8 +739,8 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='RGB To Intensity Color:')
 
         if self.type == 'IMAGE':
-            if not self.add_rgb_to_intensity:
-                col.label(text='Color:')
+            #if not self.add_rgb_to_intensity:
+            #    col.label(text='Color:')
             col.label(text='')
             col.label(text='Width:')
             col.label(text='Height:')
@@ -833,8 +791,8 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'rgb_to_intensity_color', text='')
 
         if self.type == 'IMAGE':
-            if not self.add_rgb_to_intensity:
-                col.prop(self, 'color', text='')
+            #if not self.add_rgb_to_intensity:
+            #    col.prop(self, 'color', text='')
                 #col.prop(self, 'alpha')
             col.prop(self, 'hdr')
             col.prop(self, 'width', text='')
@@ -909,7 +867,8 @@ class YNewLayer(bpy.types.Operator):
             else:
 
                 alpha = False if self.add_rgb_to_intensity else True
-                color = (0,0,0,1) if self.add_rgb_to_intensity else self.color
+                #color = (0,0,0,1) if self.add_rgb_to_intensity else self.color
+                color = (0,0,0,1) if self.add_rgb_to_intensity else (0,0,0,0)
                 img = bpy.data.images.new(name=self.name, 
                         width=self.width, height=self.height, alpha=alpha, float_buffer=self.hdr)
                 #img.generated_type = self.generated_type
@@ -1029,6 +988,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     rgb_to_intensity_color = FloatVectorProperty(
             name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
 
@@ -1052,9 +1013,14 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
             active_name = obj.data.uv_layers.active.name
-            if active_name.startswith(TEMP_UV):
-                self.uv_map = active_name.split(TEMP_UV)[1]
+            if active_name == TEMP_UV:
+                self.uv_map = tl.textures[tl.active_texture_index].uv_name
             else: self.uv_map = obj.data.uv_layers.active.name
+
+            # UV Map collections update
+            for uv in obj.data.uv_layers:
+                if not uv.name.startswith(TEMP_UV):
+                    self.uv_map_coll.add().name = uv.name
 
         # Normal map is the default
         self.normal_map_type = 'NORMAL_MAP'
@@ -1089,8 +1055,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-            #crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+            #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+            crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         #col.label(text='')
         rrow = col.row(align=True)
@@ -1198,6 +1164,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
     vcol_name = StringProperty(name="Vertex Color")
     vcol_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
     @classmethod
     def poll(cls, context):
         #return hasattr(context, 'group_node') and context.group_node
@@ -1217,7 +1185,14 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
-            self.uv_map = obj.data.uv_layers.active.name
+            if obj.data.uv_layers.active.name == TEMP_UV:
+                self.uv_map = tl.textures[tl.active_texture_index].uv_name
+            else: self.uv_map = obj.data.uv_layers.active.name
+
+            # UV Map collections update
+            for uv in obj.data.uv_layers:
+                if not uv.name.startswith(TEMP_UV):
+                    self.uv_map_coll.add().name = uv.name
 
         if self.type == 'VCOL':
             self.add_rgb_to_intensity = False
@@ -1227,7 +1202,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             self.image_coll.clear()
             imgs = bpy.data.images
             for img in imgs:
-                self.image_coll.add().name = img.name
+                if not img.yia.is_image_atlas:
+                    self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
             vcols = obj.data.vertex_colors
@@ -1270,7 +1246,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
-                crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         #col.label(text='')
         rrow = col.row(align=True)
@@ -1811,7 +1788,8 @@ class YReplaceLayerType(bpy.types.Operator):
             # Update image names
             if self.type == 'IMAGE':
                 for img in bpy.data.images:
-                    self.item_coll.add().name = img.name
+                    if not img.yia.is_image_atlas:
+                        self.item_coll.add().name = img.name
             else:
                 for vcol in obj.data.vertex_colors:
                     self.item_coll.add().name = vcol.name
@@ -1899,8 +1877,8 @@ class YReplaceLayerType(bpy.types.Operator):
             elif self.type == 'VCOL':
                 source.attribute_name = self.item_name
 
-        uv_neighbor = tree.nodes.get(tex.uv_neighbor)
-        set_uv_neighbor_resolution(uv_neighbor, tex, source)
+        #uv_neighbor = tree.nodes.get(tex.uv_neighbor)
+        #set_uv_neighbor_resolution(tex, uv_neighbor, source)
         #if uv_neighbor:
         #    if self.type == 'IMAGE':
         #        uv_neighbor.inputs[1].default_value = source.image.size[0]
@@ -1939,6 +1917,10 @@ class YReplaceLayerType(bpy.types.Operator):
         # Bring back transition
         for ch in transition_channels:
             ch.enable_mask_bump = True
+
+        # Update uv neighbor
+        #uv_neighbor = tree.nodes.get(tex.uv_neighbor)
+        set_uv_neighbor_resolution(tex) #, uv_neighbor, source)
 
         tl.halt_reconnect = False
 
@@ -2327,7 +2309,12 @@ def update_uv_name(self, context):
     nodes = tree.nodes
 
     uv_attr = nodes.get(tex.uv_attr)
-    if uv_attr: uv_attr.attribute_name = tex.uv_name
+    if uv_attr: 
+        # Cannot use temp uv as standard uv
+        if tex.uv_name == TEMP_UV:
+            tex.uv_name = uv_attr.attribute_name
+
+        uv_attr.attribute_name = tex.uv_name
 
     tangent = nodes.get(tex.tangent)
     if tangent: tangent.uv_map = tex.uv_name
@@ -2341,15 +2328,19 @@ def update_uv_name(self, context):
 
     # Update uv layer
     if obj.type == 'MESH' and not any([m for m in tex.masks if m.active_edit]):
-        if hasattr(obj.data, 'uv_textures'):
-            uv_layers = obj.data.uv_textures
-        else: uv_layers = obj.data.uv_layers
 
-        for i, uv in enumerate(uv_layers):
-            if uv.name == tex.uv_name:
-                if uv_layers.active_index != i:
-                    uv_layers.active_index = i
-                break
+        if tex.segment_name != '':
+            refresh_temp_uv(obj, tex, True)
+        else:
+            if hasattr(obj.data, 'uv_textures'):
+                uv_layers = obj.data.uv_textures
+            else: uv_layers = obj.data.uv_layers
+
+            for i, uv in enumerate(uv_layers):
+                if uv.name == tex.uv_name:
+                    if uv_layers.active_index != i:
+                        uv_layers.active_index = i
+                    break
 
     # Update neighbor uv if mask bump is active
     rearrange = False
@@ -2743,6 +2734,9 @@ def update_layer_color_chortcut(self, context):
             for m in ch.modifiers:
                 m.shortcut = False
 
+def update_layer_transform(self, context):
+    update_mapping(self)
+
 class YLayer(bpy.types.PropertyGroup):
     name = StringProperty(default='', update=update_texture_name)
     enable = BoolProperty(
@@ -2783,6 +2777,25 @@ class YLayer(bpy.types.PropertyGroup):
     # Parent index
     parent_idx = IntProperty(default=-1)
 
+    # Transform
+    translation = FloatVectorProperty(
+            name='Translation', size=3, precision=3, 
+            default=(0.0, 0.0, 0.0),
+            update=update_layer_transform
+            ) #, step=1)
+
+    rotation = FloatVectorProperty(
+            name='Rotation', subtype='AXISANGLE', size=3, precision=3, unit='ROTATION', 
+            default=(0.0, 0.0, 0.0),
+            update=update_layer_transform
+            ) #, step=3)
+
+    scale = FloatVectorProperty(
+            name='Scale', size=3, precision=3, 
+            default=(1.0, 1.0, 1.0),
+            update=update_layer_transform,
+            ) #, step=3)
+
     # Sources
     source = StringProperty(default='')
     source_n = StringProperty(default='')
@@ -2806,6 +2819,8 @@ class YLayer(bpy.types.PropertyGroup):
     uv_neighbor = StringProperty(default='')
     uv_attr = StringProperty(default='')
     mapping = StringProperty(default='')
+
+    need_temp_uv_refresh = BoolProperty(default=False)
 
     # Other Vectors
     solid_alpha = StringProperty(default='')
