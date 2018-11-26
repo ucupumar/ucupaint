@@ -564,11 +564,16 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
     #    row.menu("NODE_MT_y_texture_modifier_specials", icon_value=icon_value, text='')
     #else: row.menu("NODE_MT_y_texture_modifier_specials", icon='MODIFIER', text='')
 
+    if obj.mode == 'EDIT':
+        if obj.type == 'MESH' and obj.data.uv_layers.active and obj.data.uv_layers.active.name == TEMP_UV:
+            row = row.row(align=True)
+            row.alert = True
+            row.operator('node.y_back_to_original_uv', icon='EDITMODE_HLT', text='Edit Original UV')
+    elif tl.need_temp_uv_refresh:
     #if tlui.disable_auto_temp_uv_update and tl.need_temp_uv_refresh:
-    if tl.need_temp_uv_refresh:
         row = row.row(align=True)
         row.alert = True
-        row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='UV')
+        row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Transformed UV')
 
     if tex.type != 'GROUP':
         if bpy.app.version_string.startswith('2.8'):
@@ -670,7 +675,7 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
                 if tl.need_temp_uv_refresh:
                     rrow = bbox.row(align=True)
                     rrow.alert = True
-                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='UV')
+                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh Transformed UV')
 
     layout.separator()
 
@@ -1325,7 +1330,7 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
                 if mask.type == 'IMAGE' and mask.active_edit and tl.need_temp_uv_refresh:
                     rrow = rbox.row(align=True)
                     rrow.alert = True
-                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='UV')
+                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh Transformed UV')
 
                 #rbox.prop(mask_source.texture_mapping, 'translation', text='Offset')
                 #rbox.prop(mask_source.texture_mapping, 'rotation')
@@ -1633,37 +1638,54 @@ def main_draw(self, context):
         draw_textures_ui(context, layout, node, custom_icon_enable)
 
     # Stats
+    icon = 'TRIA_DOWN' if tlui.show_stats else 'TRIA_RIGHT'
+    row = layout.row(align=True)
+    row.prop(tlui, 'show_stats', emboss=False, text='', icon=icon)
+    row.label(text='Stats')
 
-    num_imgs = 0
-    num_vcols = 0
-    num_gen_texs = 0
-    for tex in tl.textures:
-        if not tex.enable: continue
-        if tex.type == 'IMAGE':
-            num_imgs += 1
-        elif tex.type == 'VCOL':
-            num_vcols += 1
-        elif tex.type not in {'COLOR', 'BACKGROUND', 'GROUP'}:
-            num_gen_texs += 1
+    if tlui.show_stats:
 
-        if not tex.enable_masks: continue
+        images = []
+        vcols = []
+        num_gen_texs = 0
 
-        for mask in tex.masks:
-            if not mask.enable: continue
-            if mask.type == 'IMAGE':
-                num_imgs += 1
-            elif mask.type == 'VCOL':
-                num_vcols += 1
-            else:
+        for tex in tl.textures:
+            if not tex.enable: continue
+            if tex.type == 'IMAGE':
+                src = get_tex_source(tex)
+                if src.image and src.image not in images:
+                    images.append(src.image)
+            elif tex.type == 'VCOL':
+                src = get_tex_source(tex)
+                if src.attribute_name != '' and src.attribute_name not in vcols:
+                    vcols.append(src.attribute_name)
+            elif tex.type not in {'COLOR', 'BACKGROUND', 'GROUP'}:
                 num_gen_texs += 1
 
-    col = layout.column(align=True)
-    col.label(text='Number of Images: ' + str(num_imgs))
-    col.label(text='Number of Vertex Colors: ' + str(num_vcols))
-    col.label(text='Number of generated Textures: ' + str(num_gen_texs))
+            if not tex.enable_masks: continue
 
-    col.operator('node.y_new_image_atlas_segment_test', icon='IMAGE_DATA')
-    col.operator('node.y_uv_transform_test', icon='GROUP_UVS')
+            for mask in tex.masks:
+                if not mask.enable: continue
+                if mask.type == 'IMAGE':
+                    src = get_mask_source(mask)
+                    if src.image and src.image not in images:
+                        images.append(src.image)
+                elif mask.type == 'VCOL':
+                    src = get_mask_source(mask)
+                    if src.attribute_name != '' and src.attribute_name not in vcols:
+                        vcols.append(src.attribute_name)
+                else:
+                    num_gen_texs += 1
+
+        box = layout.box()
+        col = box.column()
+        #col = layout.column(align=True)
+        col.label(text='Number of Images: ' + str(len(images)), icon='IMAGE_DATA')
+        col.label(text='Number of Vertex Colors: ' + str(len(vcols)), icon='GROUP_VCOL')
+        col.label(text='Number of Generated Textures: ' + str(num_gen_texs), icon='TEXTURE')
+
+        #col.operator('node.y_new_image_atlas_segment_test', icon='IMAGE_DATA')
+        #col.operator('node.y_uv_transform_test', icon='GROUP_UVS')
 
     # Hide support this addon panel for now
     return
@@ -2549,6 +2571,7 @@ class YMaterialUI(bpy.types.PropertyGroup):
 class YTLUI(bpy.types.PropertyGroup):
     show_channels = BoolProperty(default=True)
     show_textures = BoolProperty(default=True)
+    show_stats = BoolProperty(default=False)
     show_support = BoolProperty(default=False)
 
     expand_channels = BoolProperty(

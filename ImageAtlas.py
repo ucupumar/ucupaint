@@ -112,36 +112,36 @@ def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, new_atl
 
     return None
 
-class YUVTransformTest(bpy.types.Operator):
-    bl_idname = "node.y_uv_transform_test"
-    bl_label = "UV Transform Test"
-    bl_description = "UV Transform Test"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def execute(self, context):
-        T = time.time()
-
-        ob = context.object
-
-        #for face in ob.data.polygons:
-        #    for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
-        #        uv_coords = ob.data.uv_layers.active.data[loop_idx].uv
-        #        #print("face idx: %i, vert idx: %i, uvs: %f, %f" % (face.index, vert_idx, uv_coords.x, uv_coords.y))
-        #        pass
-        
-        # Or just cycle all loops
-        for loop in ob.data.loops :
-            uv_coords = ob.data.uv_layers.active.data[loop.index].uv
-            uv_coords.x += 0.1
-            #print(uv_coords)
-
-        print('INFO: UV Map of', ob.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-
-        return {'FINISHED'}
+#class YUVTransformTest(bpy.types.Operator):
+#    bl_idname = "node.y_uv_transform_test"
+#    bl_label = "UV Transform Test"
+#    bl_description = "UV Transform Test"
+#    bl_options = {'REGISTER', 'UNDO'}
+#
+#    @classmethod
+#    def poll(cls, context):
+#        return True
+#
+#    def execute(self, context):
+#        T = time.time()
+#
+#        ob = context.object
+#
+#        #for face in ob.data.polygons:
+#        #    for vert_idx, loop_idx in zip(face.vertices, face.loop_indices):
+#        #        uv_coords = ob.data.uv_layers.active.data[loop_idx].uv
+#        #        #print("face idx: %i, vert idx: %i, uvs: %f, %f" % (face.index, vert_idx, uv_coords.x, uv_coords.y))
+#        #        pass
+#        
+#        # Or just cycle all loops
+#        for loop in ob.data.loops :
+#            uv_coords = ob.data.uv_layers.active.data[loop.index].uv
+#            uv_coords.x += 0.1
+#            #print(uv_coords)
+#
+#        print('INFO: UV Map of', ob.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+#
+#        return {'FINISHED'}
 
 class YNewImageAtlasSegmentTest(bpy.types.Operator):
     bl_idname = "node.y_new_image_atlas_segment_test"
@@ -283,6 +283,65 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YBackToOriginalUV(bpy.types.Operator):
+    bl_idname = "node.y_back_to_original_uv"
+    bl_label = "Back to Original UV"
+    bl_description = "Transformed UV detected, your changes will lost if you edit on this UV.\nClick this button to go back to original UV"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'texture')
+
+    def execute(self, context):
+
+        obj = context.object
+        tex = context.texture
+        tl = tex.id_data.tl
+        tlui = context.window_manager.tlui
+
+        active = None
+        image = None
+
+        for mask in tex.masks:
+            if mask.type == 'IMAGE' and mask.active_edit:
+                source = get_mask_source(mask)
+                image = source.image
+                active = mask
+                #return {'FINISHED'}
+        
+        if not active and tex.type == 'IMAGE':
+            source = get_tex_source(tex)
+            image = source.image
+            active = tex
+
+        if not active: return {'CANCELLED'}
+
+        if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
+            uv_layers = obj.data.uv_textures
+        else: uv_layers = obj.data.uv_layers
+
+        #for i, uv in enumerate(uv_layers):
+        for uv in uv_layers:
+            if uv.name == active.uv_name:
+
+                #if uv_layers.active_index != i:
+                #    uv_layers.active_index = i
+                if uv_layers.active != active:
+                    uv_layers.active = uv_layers.get(active.uv_name)
+
+            if uv.name == TEMP_UV:
+                uv_layers.remove(uv)
+
+        # Hide active image
+        if image:
+            update_image_editor_image(context, None)
+            context.scene.tool_settings.image_paint.canvas = None
+
+        tl.need_temp_uv_refresh = True
+
+        return {'FINISHED'}
+
 class YImageAtlasSegments(bpy.types.PropertyGroup):
 
     name = StringProperty(
@@ -318,17 +377,19 @@ class YImageAtlas(bpy.types.PropertyGroup):
     segments = CollectionProperty(type=YImageAtlasSegments)
 
 def register():
-    bpy.utils.register_class(YUVTransformTest)
+    #bpy.utils.register_class(YUVTransformTest)
     bpy.utils.register_class(YNewImageAtlasSegmentTest)
     bpy.utils.register_class(YRefreshTransformedLayerUV)
+    bpy.utils.register_class(YBackToOriginalUV)
     bpy.utils.register_class(YImageAtlasSegments)
     bpy.utils.register_class(YImageAtlas)
 
     bpy.types.Image.yia = PointerProperty(type=YImageAtlas)
 
 def unregister():
-    bpy.utils.unregister_class(YUVTransformTest)
+    #bpy.utils.unregister_class(YUVTransformTest)
     bpy.utils.unregister_class(YNewImageAtlasSegmentTest)
     bpy.utils.unregister_class(YRefreshTransformedLayerUV)
+    bpy.utils.unregister_class(YBackToOriginalUV)
     bpy.utils.unregister_class(YImageAtlasSegments)
     bpy.utils.unregister_class(YImageAtlas)
