@@ -49,7 +49,7 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False):
     else: name = get_unique_name('~Image Atlas', bpy.data.images)
 
     img = bpy.data.images.new(name=name, 
-            width=size, height=size, alpha=True, float_buffer=False)
+            width=size, height=size, alpha=True, float_buffer=hdr)
 
     if color == 'BLACK':
         img.generated_color = (0,0,0,1)
@@ -59,6 +59,7 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False):
 
     img.yia.is_image_atlas = True
     img.yia.color = color
+    img.yia.float_buffer = hdr
 
     return img
 
@@ -79,34 +80,74 @@ def create_image_atlas_segment(atlas, width, height):
 
     return segment
 
-def is_there_any_unused_segments(atlas):
+def clear_unused_segments(atlas):
+    img = atlas.id_data
+
+    pxs = list(img.pixels)
+
+    if atlas.color == 'BLACK':
+        col = (0.0, 0.0, 0.0, 1.0)
+    elif atlas.color == 'WHITE':
+        col = (1.0, 1.0, 1.0, 1.0)
+    else:
+        col = (0.0, 0.0, 0.0, 0.0)
+
+    # Recolor unused segments
     for segment in atlas.segments:
         if segment.unused:
+
+            start_x = segment.width * segment.tile_x
+            end_x = start_x + segment.width
+
+            start_y = segment.height * segment.tile_y
+            end_y = start_y + segment.height
+
+            for y in range(start_y, end_y):
+                offset_y = img.size[0] * 4 * y
+                for x in range(start_x, end_x):
+                    for i in range(4):
+                        pxs[offset_y + (x*4) + i] = col[i]
+
+    img.pixels = pxs
+
+    # Remove unused segments
+    for i, segment in reversed(list(enumerate(atlas.segments))):
+        if segment.unused:
+            atlas.segments.remove(i)
+
+def is_there_any_unused_segments(atlas, width, height):
+    for segment in atlas.segments:
+        if segment.unused and segment.width >= width and segment.height >= height:
             return True
     return False
 
-def check_possibility_of_unused_segments(color='BLACK', width=1024, height=1024):
+def check_need_of_erasing_segments(color='BLACK', width=1024, height=1024, hdr=False):
 
     for img in bpy.data.images:
-        if img.yia.is_image_atlas and img.yia.color == color:
-            if not get_available_tile(width, height, img.yia) and is_there_any_unused_segments(img.yia):
-                return True
+        if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
+            if not get_available_tile(width, height, img.yia) and is_there_any_unused_segments(img.yia, width, height):
+                return img
 
-    return False
+    return None
 
-def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, new_atlas_size=8192):
+def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False):
+
+    tlup = bpy.context.user_preferences.addons[__package__].preferences
 
     # Serach for available image atlas
     for img in bpy.data.images:
-        if img.yia.is_image_atlas and img.yia.color == color:
+        if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
             segment = create_image_atlas_segment(img.yia, width, height)
             if segment: return segment
             else:
                 # This is where unused segments should be erased 
                 pass
 
+    if hdr: new_atlas_size = tlup.hdr_image_atlas_size
+    else: new_atlas_size = tlup.image_atlas_size
+
     # If proper image atlas can't be found, create new one
-    img = create_image_atlas(color, new_atlas_size)
+    img = create_image_atlas(color, new_atlas_size, hdr)
     segment = create_image_atlas_segment(img.yia, width, height)
     if segment: return segment
 
@@ -201,7 +242,7 @@ class YNewImageAtlasSegmentTest(bpy.types.Operator):
         #else: atlas_img = bpy.data.images.get(self.image_atlas_name)
         segment = get_set_image_atlas_segment(
                 self.width, self.height, self.color, 
-                hdr=False, new_atlas_size=8192)
+                hdr=False)
 
         atlas_img = segment.id_data
         atlas = atlas_img.yia

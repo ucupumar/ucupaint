@@ -89,11 +89,25 @@ def update_tl_ui():
 
         tlui.halt_prop_update = False
 
-def draw_image_props(source, layout):
+def draw_image_props(source, layout, entity=None):
 
     image = source.image
 
     col = layout.column()
+
+    if image.yia.is_image_atlas:
+        col.label(text=image.name, icon='IMAGE_DATA')
+        segment = image.yia.segments.get(entity.segment_name)
+        if segment:
+            row = col.row()
+            row.label(text='Tile X: ' + str(segment.tile_x))
+            row.label(text='Tile Y: ' + str(segment.tile_y))
+            row = col.row()
+            row.label(text='Width: ' + str(segment.width))
+            row.label(text='Height: ' + str(segment.height))
+
+        return
+
     col.template_ID(source, "image", unlink='node.y_remove_layer')
     if image.source == 'GENERATED':
         col.label(text='Generated image settings:')
@@ -508,7 +522,9 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
             row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
         else:
             row.prop(texui, 'expand_content', text='', emboss=True, icon='IMAGE_DATA')
-        row.label(text=image.name)
+        if image.yia.is_image_atlas:
+            row.label(text=tex.name)
+        else: row.label(text=image.name)
     elif vcol:
         if len(tex.modifiers) > 0:
             if custom_icon_enable:
@@ -621,7 +637,7 @@ def draw_layer_source(context, layout, tex, tex_tree, source, image, vcol, is_a_
             row.label(text='', icon='BLANK1')
             bbox = row.box()
             if image:
-                draw_image_props(source, bbox)
+                draw_image_props(source, bbox, tex)
             elif tex.type == 'COLOR':
                 draw_solid_color_props(tex, source, bbox)
             else: draw_tex_props(source, bbox)
@@ -1225,7 +1241,9 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
         mask_source = mask_tree.nodes.get(mask.source)
         if mask.type == 'IMAGE':
             mask_image = mask_source.image
-            row.label(text=mask_image.name)
+            if mask_image.yia.is_image_atlas:
+                row.label(text=mask.name)
+            else: row.label(text=mask_image.name)
         else: row.label(text=mask.name)
 
         if mask.type == 'IMAGE':
@@ -1275,7 +1293,7 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
             rrow.label(text='', icon='BLANK1')
             rbox = rrow.box()
             if mask_image:
-                draw_image_props(mask_source, rbox)
+                draw_image_props(mask_source, rbox, mask)
             else: draw_tex_props(mask_source, rbox)
 
         rrow = rrcol.row(align=True)
@@ -1838,7 +1856,9 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         if len(editable_masks) == 0:
             row = master.row(align=True)
             row.active = is_hidden
-            if image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+            if image and image.yia.is_image_atlas: 
+                row.prop(tex, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+            elif image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
             #elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
             elif tex.type == 'VCOL': row.prop(tex, 'name', text='', emboss=False, icon='GROUP_VCOL')
             elif tex.type == 'COLOR': row.prop(tex, 'name', text='', emboss=False, icon='COLOR')
@@ -1880,11 +1900,13 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
         # Image mask icons
         active_mask_image = None
         active_vcol_mask = None
+        mask = None
         for m in editable_masks:
             mask_tree = get_mask_tree(m)
             row = master.row(align=True)
             row.active = m.active_edit
             if m.active_edit:
+                mask = m
                 if m.type == 'IMAGE':
                     src = mask_tree.nodes.get(m.source)
                     active_mask_image = src.image
@@ -1907,11 +1929,14 @@ class NODE_UL_y_tl_textures(bpy.types.UIList):
             row = master.row(align=True)
             row.active = is_hidden
             if active_mask_image:
-                row.prop(active_mask_image, 'name', text='', emboss=False)
+                if active_mask_image.yia.is_image_atlas:
+                    row.prop(mask, 'name', text='', emboss=False)
+                else: row.prop(active_mask_image, 'name', text='', emboss=False)
             elif active_vcol_mask:
                 row.prop(active_vcol_mask, 'name', text='', emboss=False)
             else: 
-                if image: row.prop(image, 'name', text='', emboss=False)
+                if image and not image.yia.is_image_atlas: 
+                    row.prop(image, 'name', text='', emboss=False)
                 else: row.prop(tex, 'name', text='', emboss=False)
 
         row = master.row(align=True)

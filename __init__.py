@@ -8,13 +8,13 @@
 #   - Active Mask switcher on the list (V)
 #   - Make sure mask has blending option consistency (X, Meh, its consistent enough)
 #   - Mask transition factor
-#   - Mask from layer
 #   - Mask modifiers
+#       - Ramp
 # - Transition effects (V)
 #   - Bump (V)
 #   - Ramp (V)
 #   - Flip bump mode (V)
-#   - Crease (X, too bloated)
+#   - Crease (..?)
 #   - AO (V)
 #   - Make transition effect option hidden in add modifier menu (V)
 #   - Option for transition ao link with channel intensity (V)
@@ -22,6 +22,7 @@
 #   - AO option to exclude area within intensity (V)
 #   - AO and ramp contribute to alpha (V)
 #   - AO works with background layer (V)
+#   - Non flip bump background layer (Useful for bubbles?)
 # - Texture group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects (V)
@@ -34,6 +35,12 @@
 #   - Nodes won't exists until it's enabled (X, replaced with next point)
 #   - Blend nodes will be muted at default if not enabled
 #   - Add option to Optimize the entire tl nodes
+# - More modifier
+#   - Intensity ramp
+# - Very large texture (UDIM like) to prevent number of image limits
+#   - Basic implementation (Add/Delete/Edit UV) (V)
+#   - Support for HDR (V)
+#   - Dealing with layer name (V, good enough)
 # - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
 # - Every modifiers has intensity value for muting to prevent recompilation (V)
@@ -44,7 +51,6 @@
 # - Multiple tl node selector from ui (V)
 # - Replace new node can detect duplicated node group (V)
 # - Add more comments to blender bug report about reflection fix (It should be only calculated on glossy/reflection code, not on diffuse)
-# - Very large texture (UDIM like) to prevent number of image limits
 # - Bake channel (& layer group)
 # - Make every node name unique (using hash?)
 # - Refactor for more consistent class names and properties

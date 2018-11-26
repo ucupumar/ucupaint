@@ -238,7 +238,7 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
         ):
 
     tl = group_tree.tl
-    tlup = bpy.context.user_preferences.addons[__package__].preferences
+    #tlup = bpy.context.user_preferences.addons[__package__].preferences
     obj = bpy.context.object
 
     # Halt rearrangements and reconnections until all nodes already created
@@ -386,7 +386,7 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
         if mask_type == 'IMAGE':
             if use_image_atlas_for_mask:
                 mask_segment = ImageAtlas.get_set_image_atlas_segment(
-                        mask_width, mask_height, mask_color, mask_use_hdr, tlup.image_atlas_size)
+                        mask_width, mask_height, mask_color, mask_use_hdr) #, tlup.image_atlas_size)
                 mask_image = mask_segment.id_data
             else:
                 mask_image = bpy.data.images.new(mask_name, 
@@ -524,21 +524,6 @@ class YRefreshNeighborUV(bpy.types.Operator):
         set_uv_neighbor_resolution(context.texture)
         return {'FINISHED'}
 
-#def set_default_tex_input(tex):
-#    tl = tex.id_data.tl
-#
-#    for i, root_ch in enumerate(tl.channels):
-#        ch = tex.channels[i]
-#
-#        if root_ch.colorspace == 'SRGB':
-#
-#            if tex.type in {'CHECKER', 'IMAGE'}:
-#                ch.tex_input = 'RGB_SRGB'
-#            else: ch.tex_input = 'RGB_LINEAR'
-#
-#        else:
-#            ch.tex_input = 'RGB_LINEAR'
-
 class YNewLayer(bpy.types.Operator):
     bl_idname = "node.y_new_layer"
     bl_label = "New Layer"
@@ -553,8 +538,8 @@ class YNewLayer(bpy.types.Operator):
             default = 'IMAGE')
 
     # For image layer
-    width = IntProperty(name='Width', default = 1024, min=1, max=16384)
-    height = IntProperty(name='Height', default = 1024, min=1, max=16384)
+    width = IntProperty(name='Width', default = 1024, min=1, max=4096)
+    height = IntProperty(name='Height', default = 1024, min=1, max=4096)
     #color = FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(0.0,0.0,0.0,0.0), min=0.0, max=1.0)
     #alpha = BoolProperty(name='Alpha', default=True)
     hdr = BoolProperty(name='32 bit Float', default=False)
@@ -613,8 +598,8 @@ class YNewLayer(bpy.types.Operator):
                 ),
             default='BLACK')
 
-    mask_width = IntProperty(name='Mask Width', default = 1024, min=1, max=16384)
-    mask_height = IntProperty(name='Mask Height', default = 1024, min=1, max=16384)
+    mask_width = IntProperty(name='Mask Width', default = 1024, min=1, max=4096)
+    mask_height = IntProperty(name='Mask Height', default = 1024, min=1, max=4096)
 
     mask_uv_name = StringProperty(default='')
     mask_use_hdr = BoolProperty(name='32 bit Float', default=False)
@@ -677,6 +662,10 @@ class YNewLayer(bpy.types.Operator):
 
         self.name = get_unique_name(name, items)
 
+        # Layer name must also unique
+        if self.type == 'IMAGE':
+            self.name = get_unique_name(self.name, tl.textures)
+
         if obj.type != 'MESH':
             #self.texcoord_type = 'Object'
             self.texcoord_type = 'Generated'
@@ -704,6 +693,14 @@ class YNewLayer(bpy.types.Operator):
 
     def check(self, context):
         return True
+
+    def get_to_be_cleared_image_atlas(self, context):
+        if self.type == 'IMAGE' and not self.add_mask and self.use_image_atlas:
+            return ImageAtlas.check_need_of_erasing_segments('TRANSPARENT', self.width, self.height, self.hdr)
+        if self.add_mask and self.mask_type == 'IMAGE' and self.use_image_atlas_for_mask:
+            return ImageAtlas.check_need_of_erasing_segments(self.mask_color, self.mask_width, self.mask_height, self.hdr)
+
+        return None
 
     def draw(self, context):
         #tl = self.group_node.node_tree.tl
@@ -825,11 +822,16 @@ class YNewLayer(bpy.types.Operator):
                     #if self.use_image_atlas_for_mask and len(self.image_atlas_coll) == 0:
                     #    col.label(text='New texture atlas will be created')
 
+        if self.get_to_be_cleared_image_atlas(context):
+            col = self.layout.column(align=True)
+            col.label(text='INFO: An unused atlas segment can be used.', icon='ERROR')
+            col.label(text='It will take a couple seconds to clear.')
+
     def execute(self, context):
 
         T = time.time()
 
-        tlup = bpy.context.user_preferences.addons[__package__].preferences
+        #tlup = bpy.context.user_preferences.addons[__package__].preferences
         wm = context.window_manager
         area = context.area
         obj = context.object
@@ -856,13 +858,17 @@ class YNewLayer(bpy.types.Operator):
             self.report({'ERROR'}, "Layer named '" + self.name +"' is already available!")
             return {'CANCELLED'}
 
+        # Clearing unused image atlas segments
+        img_atlas = self.get_to_be_cleared_image_atlas(context)
+        if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
+
         img = None
         segment = None
         if self.type == 'IMAGE':
 
             if self.use_image_atlas:
                 segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, 'TRANSPARENT', self.hdr, tlup.image_atlas_size)
+                        self.width, self.height, 'TRANSPARENT', self.hdr) #, tlup.image_atlas_size)
                 img = segment.id_data
             else:
 
@@ -1619,12 +1625,25 @@ def remove_tex(tl, index):
     tex = tl.textures[index]
     tex_tree = get_tree(tex)
 
+    # Dealing with image atlas segments
+    if tex.type == 'IMAGE' and tex.segment_name != '':
+        src = get_tex_source(tex)
+        segment = src.image.yia.segments.get(tex.segment_name)
+        segment.unused = True
+
     # Remove the source first to remove image
     source_tree = get_source_tree(tex, tex_tree)
     remove_node(source_tree, tex, 'source', obj=obj)
 
     # Remove Mask source
     for mask in tex.masks:
+
+        # Dealing with image atlas segments
+        if mask.type == 'IMAGE' and mask.segment_name != '':
+            src = get_mask_source(mask)
+            segment = src.image.yia.segments.get(mask.segment_name)
+            segment.unused = True
+
         mask_tree = get_mask_tree(mask)
         remove_node(mask_tree, mask, 'source', obj=obj)
 
@@ -1825,6 +1844,13 @@ class YReplaceLayerType(bpy.types.Operator):
         if tex.type == 'GROUP':
             self.report({'ERROR'}, "You can't change type of group layer!")
             return {'CANCELLED'}
+
+        # Remove segment if original layer using image atlas
+        if tex.type == 'IMAGE' and tex.segment_name != '':
+            src = get_tex_source(tex)
+            segment = src.image.yia.segments.get(tex.segment_name)
+            segment.unused = True
+            tex.segment_name = ''
 
         tl.halt_reconnect = True
 
@@ -2431,6 +2457,8 @@ def update_channel_intensity_value(self, context):
 
 def update_texture_name(self, context):
     tl = self.id_data.tl
+    if self.type == 'IMAGE' and self.segment_name != '': return
+
     src = get_tex_source(self)
     change_texture_name(tl, context.object, src, self, tl.textures)
 

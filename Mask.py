@@ -94,6 +94,12 @@ def remove_mask(tex, mask, obj):
 
     tree = get_tree(tex)
 
+    # Dealing with image atlas segments
+    if mask.type == 'IMAGE' and mask.segment_name != '':
+        src = get_mask_source(mask)
+        segment = src.image.yia.segments.get(mask.segment_name)
+        segment.unused = True
+
     disable_mask_source_tree(tex, mask)
 
     remove_node(tree, mask, 'source', obj=obj)
@@ -152,6 +158,12 @@ class YNewLayerMask(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         return True
+
+    def get_to_be_cleared_image_atlas(self, context):
+        if self.type == 'IMAGE' and self.use_image_atlas:
+            return ImageAtlas.check_need_of_erasing_segments(self.color_option, self.width, self.height, self.hdr)
+
+        return None
 
     def invoke(self, context, event):
 
@@ -243,18 +255,27 @@ class YNewLayerMask(bpy.types.Operator):
                 crow.prop_search(self, "uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
             col.prop(self, 'use_image_atlas')
 
+        if self.get_to_be_cleared_image_atlas(context):
+            col = self.layout.column(align=True)
+            col.label(text='INFO: An unused atlas segment can be used.', icon='ERROR')
+            col.label(text='It will take a couple seconds to clear.')
+
     def execute(self, context):
         if self.auto_cancel: return {'CANCELLED'}
 
         obj = context.object
         tlui = context.window_manager.tlui
         tex = self.texture
-        tlup = bpy.context.user_preferences.addons[__package__].preferences
+        #tlup = bpy.context.user_preferences.addons[__package__].preferences
 
         # Check if object is not a mesh
         if self.type == 'VCOL' and obj.type != 'MESH':
             self.report({'ERROR'}, "Vertex color mask only works with mesh object!")
             return {'CANCELLED'}
+
+        # Clearing unused image atlas segments
+        img_atlas = self.get_to_be_cleared_image_atlas(context)
+        if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
         # Check if texture with same name is already available
         if self.type == 'IMAGE':
@@ -279,7 +300,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             if self.use_image_atlas:
                 segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, self.color_option, self.hdr, tlup.image_atlas_size)
+                        self.width, self.height, self.color_option, self.hdr) #, tlup.image_atlas_size)
                 img = segment.id_data
             else:
                 img = bpy.data.images.new(name=self.name, 
@@ -786,6 +807,7 @@ def update_mask_name(self, context):
     tex = tl.textures[int(match.group(1))]
     src = get_mask_source(self)
 
+    if self.type == 'IMAGE' and self.segment_name != '': return
     change_texture_name(tl, context.object, src, self, tex.masks)
 
 def update_mask_blend_type(self, context):
