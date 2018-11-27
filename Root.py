@@ -918,10 +918,10 @@ class YRemoveTLChannel(bpy.types.Operator):
             ttree = get_tree(t)
 
             remove_node(ttree, ch, 'blend')
-            remove_node(ttree, ch, 'start_rgb')
-            remove_node(ttree, ch, 'start_alpha')
-            remove_node(ttree, ch, 'end_rgb')
-            remove_node(ttree, ch, 'end_alpha')
+            #remove_node(ttree, ch, 'start_rgb')
+            #remove_node(ttree, ch, 'start_alpha')
+            #remove_node(ttree, ch, 'end_rgb')
+            #remove_node(ttree, ch, 'end_alpha')
             remove_node(ttree, ch, 'intensity')
 
             remove_node(ttree, ch, 'source')
@@ -991,10 +991,10 @@ class YRemoveTLChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'start_normal_filter')
 
         # Remove channel modifiers
-        remove_node(group_tree, channel, 'start_rgb')
-        remove_node(group_tree, channel, 'start_alpha')
-        remove_node(group_tree, channel, 'end_rgb')
-        remove_node(group_tree, channel, 'end_alpha')
+        #remove_node(group_tree, channel, 'start_rgb')
+        #remove_node(group_tree, channel, 'start_alpha')
+        #remove_node(group_tree, channel, 'end_rgb')
+        #remove_node(group_tree, channel, 'end_alpha')
         remove_node(group_tree, channel, 'start_frame')
         remove_node(group_tree, channel, 'end_frame')
 
@@ -1692,10 +1692,10 @@ class YRootChannel(bpy.types.PropertyGroup):
     end_frame = StringProperty(default='')
 
     # For modifiers
-    start_rgb = StringProperty(default='')
-    start_alpha = StringProperty(default='')
-    end_rgb = StringProperty(default='')
-    end_alpha = StringProperty(default='')
+    #start_rgb = StringProperty(default='')
+    #start_alpha = StringProperty(default='')
+    #end_rgb = StringProperty(default='')
+    #end_alpha = StringProperty(default='')
     #modifier_frame = StringProperty(default='')
 
     # UI related

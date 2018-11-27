@@ -174,10 +174,10 @@ def rearrange_tex_frame_nodes(tex, tree=None):
 
             frame = get_frame(tree, '__modifier__', str(i), root_ch.name + ' Modifiers')
 
-            check_set_node_parent(tree, ch.start_rgb, frame)
-            check_set_node_parent(tree, ch.start_alpha, frame)
-            check_set_node_parent(tree, ch.end_rgb, frame)
-            check_set_node_parent(tree, ch.end_alpha, frame)
+            #check_set_node_parent(tree, ch.start_rgb, frame)
+            #check_set_node_parent(tree, ch.start_alpha, frame)
+            #check_set_node_parent(tree, ch.end_rgb, frame)
+            #check_set_node_parent(tree, ch.end_alpha, frame)
 
             # Modifiers
             if ch.mod_group != '':
@@ -303,6 +303,23 @@ def create_info_nodes(group_tree, tex=None):
         loc.y += 40
         info.location = loc
 
+def arrange_mask_modifier_nodes(tree, mask, loc):
+
+    for m in mask.modifiers:
+
+        if m.type == 'INVERT':
+            if check_set_node_loc(tree, m.invert, loc):
+                loc.x += 170.0
+
+        elif m.type == 'RAMP':
+            if check_set_node_loc(tree, m.ramp, loc):
+                loc.x += 265.0
+
+            if check_set_node_loc(tree, m.ramp_mix, loc):
+                loc.x += 170.0
+
+    return loc
+
 def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=False):
 
     ori_y = loc.y
@@ -311,23 +328,23 @@ def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=Fa
     if check_set_node_loc(tree, MOD_TREE_START, loc):
         loc.x += 200
 
-    loc.y -= 35
-    if check_set_node_loc(tree, parent.start_rgb, loc):
-        loc.y -= 35
-    else: loc.y += 35
+    #loc.y -= 35
+    #if check_set_node_loc(tree, parent.start_rgb, loc):
+    #    loc.y -= 35
+    #else: loc.y += 35
 
-    if check_set_node_loc(tree, parent.start_alpha, loc):
-        loc.x += 100
-        loc.y = ori_y
+    #if check_set_node_loc(tree, parent.start_alpha, loc):
+    #    loc.x += 100
+    #    loc.y = ori_y
 
     # Modifier loops
     for m in reversed(parent.modifiers):
 
-        loc.y -= 35
-        check_set_node_loc(tree, m.start_rgb, loc)
+        #loc.y -= 35
+        #check_set_node_loc(tree, m.start_rgb, loc)
 
-        loc.y -= 35
-        check_set_node_loc(tree, m.start_alpha, loc)
+        #loc.y -= 35
+        #check_set_node_loc(tree, m.start_alpha, loc)
 
         loc.y = ori_y
         loc.x += 20
@@ -385,22 +402,22 @@ def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=Fa
             if check_set_node_loc(tree, m.multiplier, loc):
                 loc.x += 165.0
 
-        loc.y -= 35
-        check_set_node_loc(tree, m.end_rgb, loc)
-        loc.y -= 35
-        check_set_node_loc(tree, m.end_alpha, loc)
+        #loc.y -= 35
+        #check_set_node_loc(tree, m.end_rgb, loc)
+        #loc.y -= 35
+        #check_set_node_loc(tree, m.end_alpha, loc)
 
         loc.y = ori_y
         loc.x += 100
 
-    loc.y -= 35
-    if check_set_node_loc(tree, parent.end_rgb, loc):
-        loc.y -= 35
-    else: loc.y += 35
+    #loc.y -= 35
+    #if check_set_node_loc(tree, parent.end_rgb, loc):
+    #    loc.y -= 35
+    #else: loc.y += 35
 
-    if check_set_node_loc(tree, parent.end_alpha, loc):
-        loc.x += 100
-        loc.y = ori_y
+    #if check_set_node_loc(tree, parent.end_alpha, loc):
+    #    loc.x += 100
+    #    loc.y = ori_y
 
     if check_set_node_loc(tree, MOD_TREE_END, loc):
         loc.x += 200
@@ -453,6 +470,8 @@ def rearrange_mask_tree_nodes(mask):
 
     if check_set_node_loc(tree, mask.source, loc):
         loc.x += 180
+
+    arrange_mask_modifier_nodes(tree, mask, loc)
 
     if check_set_node_loc(tree, MASK_TREE_END, loc):
         loc.x += 180
@@ -839,8 +858,15 @@ def rearrange_tex_nodes(tex, tree=None):
         if check_set_node_loc(tree, mask.bitangent, loc):
             loc.y -= 180
 
-        loc.x += 370
         loc.y = 0
+
+        if mask.group_node == '' and len(mask.modifiers) > 0:
+            loc.x += 180
+            arrange_mask_modifier_nodes(tree, mask, loc)
+            loc.x += 20
+        else:
+            loc.x += 370
+
         bookmark_x = loc.x
 
         # Mask channels

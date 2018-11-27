@@ -378,10 +378,10 @@ def add_new_modifier(parent, modifier_type):
 def delete_modifier_nodes(tree, mod):
 
     # Delete the nodes
-    remove_node(tree, mod, 'start_rgb')
-    remove_node(tree, mod, 'start_alpha')
-    remove_node(tree, mod, 'end_rgb')
-    remove_node(tree, mod, 'end_alpha')
+    #remove_node(tree, mod, 'start_rgb')
+    #remove_node(tree, mod, 'start_alpha')
+    #remove_node(tree, mod, 'end_rgb')
+    #remove_node(tree, mod, 'end_alpha')
     remove_node(tree, mod, 'frame')
 
     if mod.type == 'RGB_TO_INTENSITY':
@@ -486,13 +486,6 @@ class YMoveTexModifier(bpy.types.Operator):
                      ('DOWN', 'Down', '')),
             default = 'UP')
 
-    #parent_type = EnumProperty(
-    #        name = 'Modifier Parent',
-    #        items = (('CHANNEL', 'Channel', '' ),
-    #                 ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
-    #                ),
-    #        default = 'TEXTURE_CHANNEL')
-
     @classmethod
     def poll(cls, context):
         return (get_active_texture_layers_node() and 
@@ -526,8 +519,8 @@ class YMoveTexModifier(bpy.types.Operator):
 
         tex = context.texture if hasattr(context, 'texture') else None
 
-        if tex: tree = get_tree(tex)
-        else: tree = group_tree
+        #if tex: tree = get_tree(tex)
+        #else: tree = group_tree
 
         # Swap modifier
         parent.modifiers.move(index, new_index)
@@ -550,13 +543,6 @@ class YRemoveTexModifier(bpy.types.Operator):
     bl_label = "Remove Texture Modifier"
     bl_description = "Remove Texture Modifier"
     bl_options = {'REGISTER', 'UNDO'}
-
-    #parent_type = EnumProperty(
-    #        name = 'Modifier Parent',
-    #        items = (('CHANNEL', 'Channel', '' ),
-    #                 ('TEXTURE_CHANNEL', 'Texture Channel', '' ),
-    #                ),
-    #        default = 'TEXTURE_CHANNEL')
 
     @classmethod
     def poll(cls, context):
@@ -981,10 +967,10 @@ class YTextureModifier(bpy.types.PropertyGroup):
         default = 'INVERT')
 
     # Base nodes
-    start_rgb = StringProperty(default='')
-    start_alpha = StringProperty(default='')
-    end_rgb = StringProperty(default='')
-    end_alpha = StringProperty(default='')
+    #start_rgb = StringProperty(default='')
+    #start_alpha = StringProperty(default='')
+    #end_rgb = StringProperty(default='')
+    #end_alpha = StringProperty(default='')
 
     # RGB to Intensity nodes
     rgb2i = StringProperty(default='')

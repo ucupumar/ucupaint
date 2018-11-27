@@ -1,5 +1,5 @@
 import bpy, re
-from . import lib, Modifier
+from . import lib, Modifier, MaskModifier
 from .common import *
 from .node_arrangements import *
 from .node_connections import *
@@ -301,6 +301,9 @@ def enable_mask_source_tree(tex, mask, reconnect = False):
         source_e.node_tree = mask_tree
         source_w.node_tree = mask_tree
 
+        for mod in mask.modifiers:
+            MaskModifier.add_modifier_nodes(mod, mask_tree, tex_tree)
+
         # Remove previous nodes
         tex_tree.nodes.remove(source_ref)
         if mapping_ref: tex_tree.nodes.remove(mapping_ref)
@@ -335,6 +338,9 @@ def disable_mask_source_tree(tex, mask, reconnect=False):
         copy_node_props(source_ref, source)
         mapping = new_node(tex_tree, mask, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
+
+        for mod in mask.modifiers:
+            MaskModifier.add_modifier_nodes(mod, tex_tree, mask_tree)
 
         # Remove previous source
         remove_node(tex_tree, mask, 'group_node')

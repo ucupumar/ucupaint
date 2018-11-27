@@ -1,7 +1,7 @@
 import bpy, re, time
 from bpy.props import *
 from bpy.app.handlers import persistent
-from . import lib, Modifier
+from . import lib, Modifier, MaskModifier
 from .common import *
 
 def update_tl_ui():
@@ -72,6 +72,7 @@ def update_tl_ui():
                 c.expand_transition_ao_settings = ch.expand_transition_ao_settings
                 c.expand_input_settings = ch.expand_input_settings
                 c.expand_content = ch.expand_content
+
                 for mod in ch.modifiers:
                     m = c.modifiers.add()
                     m.expand_content = mod.expand_content
@@ -83,9 +84,14 @@ def update_tl_ui():
                 m.expand_channels = mask.expand_channels
                 m.expand_source = mask.expand_source
                 m.expand_vector = mask.expand_vector
+
                 for mch in mask.channels:
                     mc = m.channels.add()
                     mc.expand_content = mch.expand_content
+
+                for mod in mask.modifiers:
+                    mm = m.modifiers.add()
+                    mm.expand_content = mod.expand_content
 
         tlui.halt_prop_update = False
 
@@ -293,6 +299,50 @@ def draw_solid_color_props(tex, source, layout):
     row = col.row()
     row.label(text='Shortcut on list:')
     row.prop(tex, 'color_shortcut', text='')
+
+def draw_mask_modifier_stack(tex, mask, layout, ui, custom_icon_enable):
+    tlui = bpy.context.window_manager.tlui
+    tree = get_mask_tree(mask)
+
+    for i, m in enumerate(mask.modifiers):
+
+        try: modui = ui.modifiers[i]
+        except: 
+            tlui.need_update = True
+            return
+
+        can_be_expanded = m.type in MaskModifier.can_be_expanded
+
+        row = layout.row(align=True)
+
+        if can_be_expanded:
+            if custom_icon_enable:
+                if modui.expand_content:
+                    icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
+                row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            else:
+                row.prop(modui, 'expand_content', text='', emboss=False, icon='MODIFIER')
+        else:
+            row.label(text='', icon='MODIFIER')
+
+        row.label(text=m.name)
+
+        row.context_pointer_set('texture', tex)
+        row.context_pointer_set('mask', mask)
+        row.context_pointer_set('modifier', m)
+        if bpy.app.version_string.startswith('2.8'):
+            row.menu("NODE_MT_y_mask_modifier_menu", text='', icon='PREFERENCES')
+        else: row.menu("NODE_MT_y_mask_modifier_menu", text='', icon='SCRIPTWIN')
+
+        row.prop(m, 'enable', text='')
+
+        if modui.expand_content and can_be_expanded:
+            row = layout.row(align=True)
+            row.label(text='', icon='BLANK1')
+            box = row.box()
+            box.active = m.enable
+            MaskModifier.draw_modifier_properties(tree, m, box)
 
 def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_enable, tex=None, extra_blank=False):
 
@@ -1296,12 +1346,6 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
                 draw_image_props(mask_source, rbox, mask)
             else: draw_tex_props(mask_source, rbox)
 
-        rrow = rrcol.row(align=True)
-        rrow.label(text='', icon='IMAGE_ZDEPTH')
-        rrow.label(text='Blend:')
-        rrow.prop(mask, 'blend_type', text='')
-        rrow.prop(mask, 'intensity_value', text='')
-
         # Vector row
         if mask.type != 'VCOL':
             rrow = rrcol.row(align=True)
@@ -1353,6 +1397,14 @@ def draw_layer_masks(context, layout, tex, custom_icon_enable):
                 #rbox.prop(mask_source.texture_mapping, 'translation', text='Offset')
                 #rbox.prop(mask_source.texture_mapping, 'rotation')
                 #rbox.prop(mask_source.texture_mapping, 'scale')
+
+        draw_mask_modifier_stack(tex, mask, rrcol, maskui, custom_icon_enable)
+
+        rrow = rrcol.row(align=True)
+        rrow.label(text='', icon='IMAGE_ZDEPTH')
+        rrow.label(text='Blend:')
+        rrow.prop(mask, 'blend_type', text='')
+        rrow.prop(mask, 'intensity_value', text='')
 
         # Mask Channels row
         rrow = rrcol.row(align=True)
@@ -2196,6 +2248,31 @@ class YModifierMenu(bpy.types.Menu):
         #    col.separator()
         #    col.prop(context.modifier, 'shortcut', text='Shortcut on texture list')
 
+class YMaskModifierMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_mask_modifier_menu"
+    bl_label = "Mask Modifier Menu"
+    bl_description = "Mask Modifier Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'modifier') and hasattr(context, 'mask') and hasattr(context, 'texture')
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        op = col.operator('node.y_move_mask_modifier', icon='TRIA_UP', text='Move Modifier Up')
+        op.direction = 'UP'
+
+        op = col.operator('node.y_move_mask_modifier', icon='TRIA_DOWN', text='Move Modifier Down')
+        op.direction = 'DOWN'
+
+        col.separator()
+
+        if bpy.app.version_string.startswith('2.8'):
+            op = col.operator('node.y_remove_mask_modifier', icon='REMOVE', text='Remove Modifier')
+        else: op = col.operator('node.y_remove_mask_modifier', icon='ZOOMOUT', text='Remove Modifier')
+
 class YTransitionBumpMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_transition_bump_menu"
     bl_label = "Transition Bump Menu"
@@ -2319,7 +2396,10 @@ class YTexMaskMenuSpecial(bpy.types.Menu):
         tex = context.texture
         tex_tree = get_tree(tex)
         layout = self.layout
-        col = layout.column(align=True)
+
+        row = layout.row()
+        col = row.column(align=True)
+
         if mask.type == 'IMAGE':
             mask_tree = get_mask_tree(mask)
             source = mask_tree.nodes.get(mask.source)
@@ -2336,6 +2416,12 @@ class YTexMaskMenuSpecial(bpy.types.Menu):
         if bpy.app.version_string.startswith('2.8'):
             col.operator('node.y_remove_layer_mask', text='Remove Mask', icon='REMOVE')
         else: col.operator('node.y_remove_layer_mask', text='Remove Mask', icon='ZOOMOUT')
+
+        col = row.column(align=True)
+        col.label(text='Add Modifier')
+
+        col.operator('node.y_new_mask_modifier', text='Invert', icon='MODIFIER').type = 'INVERT'
+        col.operator('node.y_new_mask_modifier', text='Ramp', icon='MODIFIER').type = 'RAMP'
 
 class YTexModifierSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_texture_modifier_specials"
@@ -2457,12 +2543,15 @@ def update_modifier_ui(self, context):
     match1 = re.match(r'tlui\.tex_ui\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     match2 = re.match(r'tlui\.channel_ui\.modifiers\[(\d+)\]', self.path_from_id())
     match3 = re.match(r'tlui\.tex_ui\.modifiers\[(\d+)\]', self.path_from_id())
+    match4 = re.match(r'tlui\.tex_ui\.masks\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1:
         mod = tl.textures[tl.active_texture_index].channels[int(match1.group(1))].modifiers[int(match1.group(2))]
     elif match2:
         mod = tl.channels[tl.active_channel_index].modifiers[int(match2.group(1))]
     elif match3:
         mod = tl.textures[tl.active_texture_index].modifiers[int(match3.group(1))]
+    elif match4:
+        mod = tl.textures[tl.active_texture_index].masks[int(match4.group(1))].modifiers[int(match4.group(2))]
     #else: return #yolo
 
     mod.expand_content = self.expand_content
@@ -2573,6 +2662,7 @@ class YMaskUI(bpy.types.PropertyGroup):
     expand_source = BoolProperty(default=True, update=update_mask_ui)
     expand_vector = BoolProperty(default=True, update=update_mask_ui)
     channels = CollectionProperty(type=YMaskChannelUI)
+    modifiers = CollectionProperty(type=YModifierUI)
 
 class YTextureUI(bpy.types.PropertyGroup):
     #name = StringProperty(default='')
@@ -2698,6 +2788,7 @@ def register():
     bpy.utils.register_class(YNewTexMenu)
     bpy.utils.register_class(YTexSpecialMenu)
     bpy.utils.register_class(YModifierMenu)
+    bpy.utils.register_class(YMaskModifierMenu)
     bpy.utils.register_class(YTransitionBumpMenu)
     bpy.utils.register_class(YTransitionRampMenu)
     bpy.utils.register_class(YTransitionAOMenu)
@@ -2737,6 +2828,7 @@ def unregister():
     bpy.utils.unregister_class(YNewTexMenu)
     bpy.utils.unregister_class(YTexSpecialMenu)
     bpy.utils.unregister_class(YModifierMenu)
+    bpy.utils.unregister_class(YMaskModifierMenu)
     bpy.utils.unregister_class(YTransitionBumpMenu)
     bpy.utils.unregister_class(YTransitionRampMenu)
     bpy.utils.unregister_class(YTransitionAOMenu)

@@ -2521,10 +2521,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
     pipeline_frame = StringProperty(default='')
 
     # Modifier pipeline
-    start_rgb = StringProperty(default='')
-    start_alpha = StringProperty(default='')
-    end_rgb = StringProperty(default='')
-    end_alpha = StringProperty(default='')
+    #start_rgb = StringProperty(default='')
+    #start_alpha = StringProperty(default='')
+    #end_rgb = StringProperty(default='')
+    #end_alpha = StringProperty(default='')
 
     # Normal related
     bump = StringProperty(default='')
@@ -2864,10 +2864,10 @@ class YLayer(bpy.types.PropertyGroup):
     mod_group = StringProperty(default='')
     mod_group_1 = StringProperty(default='')
 
-    start_rgb = StringProperty(default='')
-    start_alpha = StringProperty(default='')
-    end_rgb = StringProperty(default='')
-    end_alpha = StringProperty(default='')
+    #start_rgb = StringProperty(default='')
+    #start_alpha = StringProperty(default='')
+    #end_rgb = StringProperty(default='')
+    #end_alpha = StringProperty(default='')
 
     # Mask
     enable_masks = BoolProperty(name='Enable Layer Masks', description='Enable layer masks',

@@ -2,7 +2,7 @@ import bpy, re, time
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
-from . import lib, Modifier, transition, ImageAtlas
+from . import lib, Modifier, transition, ImageAtlas, MaskModifier
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
@@ -104,6 +104,10 @@ def remove_mask(tex, mask, obj):
 
     remove_node(tree, mask, 'source', obj=obj)
     remove_node(tree, mask, 'uv_map')
+
+    # Remove mask modifiers
+    for m in mask.modifiers:
+        MaskModifier.delete_modifier_nodes(tree, m)
 
     # Remove mask channel nodes
     for c in mask.channels:
@@ -933,6 +937,8 @@ class YLayerMask(bpy.types.PropertyGroup):
     segment_name = StringProperty(default='')
 
     channels = CollectionProperty(type=YLayerMaskChannel)
+
+    modifiers = CollectionProperty(type=MaskModifier.YMaskModifier)
 
     # Nodes
     source = StringProperty(default='')

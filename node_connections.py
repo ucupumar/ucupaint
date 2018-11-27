@@ -19,6 +19,26 @@ def break_input_link(tree, inp):
     for link in inp.links:
         tree.links.remove(link)
 
+def reconnect_mask_modifier_nodes(tree, mod, start_value):
+    
+    value = start_value
+
+    if mod.type == 'INVERT':
+        invert = tree.nodes.get(mod.invert)
+        create_link(tree, value, invert.inputs[1])
+        value = invert.outputs[0]
+
+    elif mod.type == 'RAMP':
+        ramp = tree.nodes.get(mod.ramp)
+        ramp_mix = tree.nodes.get(mod.ramp_mix)
+        create_link(tree, value, ramp.inputs[0])
+        create_link(tree, value, ramp_mix.inputs[1])
+        create_link(tree, ramp.outputs[0], ramp_mix.inputs[2])
+
+        value = ramp_mix.outputs[0]
+
+    return value
+
 def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
 
     rgb = start_rgb
@@ -362,7 +382,12 @@ def reconnect_mask_internal_nodes(mask):
         else:
             create_link(tree, start.outputs[0], source.inputs[0])
 
-    create_link(tree, source.outputs[0], end.inputs[0])
+    val = source.outputs[0]
+
+    for mod in mask.modifiers:
+        val = reconnect_mask_modifier_nodes(tree, mod, val)
+
+    create_link(tree, val, end.inputs[0])
 
 def reconnect_tex_nodes(tex, ch_idx=-1):
     #tl =  get_active_texture_layers_node().node_tree.tl
@@ -488,9 +513,14 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             mask_source = nodes.get(mask.group_node)
             reconnect_mask_internal_nodes(mask)
             mask_mapping = None
+            mask_val = mask_source.outputs[0]
         else:
             mask_source = nodes.get(mask.source)
             mask_mapping = nodes.get(mask.mapping)
+
+            mask_val = mask_source.outputs[0]
+            for mod in mask.modifiers:
+                mask_val = reconnect_mask_modifier_nodes(tree, mod, mask_val)
 
         # Mask source directions
         mask_source_n = nodes.get(mask.source_n)
@@ -516,7 +546,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         if mask_uv_neighbor:
 
             if mask.type == 'VCOL':
-                create_link(tree, mask_source.outputs[0], mask_uv_neighbor.inputs[0])
+                #create_link(tree, mask_source.outputs[0], mask_uv_neighbor.inputs[0])
+                create_link(tree, mask_val, mask_uv_neighbor.inputs[0])
             else:
                 if mask.texcoord_type == 'UV':
                     create_link(tree, mask_uv_map.outputs[0], mask_uv_neighbor.inputs[0])
@@ -546,7 +577,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             ch = tex.channels[j]
 
             mask_multiply = nodes.get(c.multiply)
-            create_link(tree, mask_source.outputs[0], mask_multiply.inputs[2])
+            #create_link(tree, mask_source.outputs[0], mask_multiply.inputs[2])
+            create_link(tree, mask_val, mask_multiply.inputs[2])
 
             # Direction multiplies
             #if (root_ch.type == 'NORMAL' and ch.enable_mask_bump 
@@ -559,12 +591,20 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             mul_w = nodes.get(c.multiply_w)
 
             if mask.type == 'VCOL':
-                if mul_n: create_link(tree, mask_uv_neighbor.outputs['n'], mul_n.inputs[2])
+                if mul_n: 
+                    if mask_uv_neighbor:
+                        create_link(tree, mask_uv_neighbor.outputs['n'], mul_n.inputs[2])
+                    else: create_link(tree, mask_val, mul_n.inputs[2])
+
                 if mul_s: create_link(tree, mask_uv_neighbor.outputs['s'], mul_s.inputs[2])
                 if mul_e: create_link(tree, mask_uv_neighbor.outputs['e'], mul_e.inputs[2])
                 if mul_w: create_link(tree, mask_uv_neighbor.outputs['w'], mul_w.inputs[2])
             else:
-                if mul_n and mask_source_n: create_link(tree, mask_source_n.outputs[0], mul_n.inputs[2])
+                if mul_n:
+                    if mask_source_n: 
+                        create_link(tree, mask_source_n.outputs[0], mul_n.inputs[2])
+                    else: create_link(tree, mask_val, mul_n.inputs[2])
+
                 if mul_s and mask_source_s: create_link(tree, mask_source_s.outputs[0], mul_s.inputs[2])
                 if mul_e and mask_source_e: create_link(tree, mask_source_e.outputs[0], mul_e.inputs[2])
                 if mul_w and mask_source_w: create_link(tree, mask_source_w.outputs[0], mul_w.inputs[2])
@@ -924,12 +964,14 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     if j >= chain:
                         if mask.group_node != '':
                             mask_source = nodes.get(mask.group_node)
-                        else: mask_source = nodes.get(mask.source)
+                            mask_val = mask_source.outputs[0]
+                        else: 
+                            mask_source = nodes.get(mask.source)
                         c = mask.channels[i]
                         mul_n = nodes.get(c.multiply_n)
 
                         remaining_alpha = create_link(tree, remaining_alpha, mul_n.inputs[1])[0]
-                        create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
+                        #create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
 
                 prev_rgb = tao.outputs[0]
                 create_link(tree, remaining_alpha, tao.inputs['Remaining Alpha'])
@@ -963,7 +1005,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                         mul_n = nodes.get(mask.channels[i].multiply_n)
 
                         ramp_alpha_input = create_link(tree, ramp_alpha_input, mul_n.inputs[1])[0]
-                        create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
+                        #create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
 
                 create_link(tree, ramp_alpha_input, mr_ramp_blend.inputs['Ramp Alpha'])
                 prev_rgb = mr_ramp_blend.outputs[0]

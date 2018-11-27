@@ -7,14 +7,14 @@
 #   - Replace total mask node and implement transition bump/ramp chain system (V)
 #   - Active Mask switcher on the list (V)
 #   - Make sure mask has blending option consistency (X, Meh, its consistent enough)
-#   - Mask transition factor
+#   - Mask transition factor (X, can be kinda replaced by out of chain mask)
 #   - Mask modifiers
-#       - Ramp
+#       - Ramp (V)
+#       - Invert (V)
 # - Transition effects (V)
 #   - Bump (V)
 #   - Ramp (V)
 #   - Flip bump mode (V)
-#   - Crease (..?)
 #   - AO (V)
 #   - Make transition effect option hidden in add modifier menu (V)
 #   - Option for transition ao link with channel intensity (V)
@@ -22,7 +22,10 @@
 #   - AO option to exclude area within intensity (V)
 #   - AO and ramp contribute to alpha (V)
 #   - AO works with background layer (V)
+#   - Crease (..?)
 #   - Non flip bump background layer (Useful for bubbles?)
+# - More modifier
+#   - Intensity ramp (X, useless)
 # - Texture group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects (V)
@@ -35,8 +38,6 @@
 #   - Nodes won't exists until it's enabled (X, replaced with next point)
 #   - Blend nodes will be muted at default if not enabled
 #   - Add option to Optimize the entire tl nodes
-# - More modifier
-#   - Intensity ramp
 # - Very large texture (UDIM like) to prevent number of image limits
 #   - Basic implementation (Add/Delete/Edit UV) (V)
 #   - Support for HDR (V)
@@ -120,6 +121,7 @@ if "bpy" in locals():
     imp.reload(vcol_editor)
     imp.reload(transition)
     imp.reload(ImageAtlas)
+    imp.reload(MaskModifier)
     imp.reload(Mask)
     imp.reload(Modifier)
     imp.reload(Blur)
@@ -128,7 +130,7 @@ if "bpy" in locals():
     #print("Reloaded multifiles")
 else:
     from . import image_ops, common, lib, ui, subtree, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, ImageAtlas, Mask, Modifier, Blur, Layer, Root
+    from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Root
     #print("Imported multifiles")
 
 import bpy 
@@ -144,6 +146,7 @@ def register():
     vcol_editor.register()
     transition.register()
     ImageAtlas.register()
+    MaskModifier.register()
     Mask.register()
     Modifier.register()
     Blur.register()
@@ -162,6 +165,7 @@ def unregister():
     vcol_editor.unregister()
     transition.unregister()
     ImageAtlas.unregister()
+    MaskModifier.unregister()
     Mask.unregister()
     Modifier.unregister()
     Blur.unregister()
