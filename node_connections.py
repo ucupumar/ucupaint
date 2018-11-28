@@ -873,9 +873,14 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         # Transition Bump
         if root_ch.type == 'NORMAL' and ch.enable_mask_bump and ch.enable:
 
+            mb_crease = nodes.get(ch.mb_crease)
+
             if ch.mask_bump_type == 'BUMP_MAP':
                 mb_bump = nodes.get(ch.mb_bump)
                 create_link(tree, transition_input, mb_bump.inputs['Height'])
+
+                if mb_crease:
+                    create_link(tree, transition_input, mb_crease.inputs['Height'])
 
             elif ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}:
 
@@ -918,6 +923,36 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
                 create_link(tree, tangent.outputs[0], mb_bump.inputs['Tangent'])
                 create_link(tree, bitangent.outputs[0], mb_bump.inputs['Bitangent'])
+
+                if mb_crease:
+                    create_link(tree, malpha_n, mb_crease.inputs['n'])
+                    create_link(tree, malpha_s, mb_crease.inputs['s'])
+                    create_link(tree, malpha_e, mb_crease.inputs['e'])
+                    create_link(tree, malpha_w, mb_crease.inputs['w'])
+
+                    create_link(tree, tangent.outputs[0], mb_crease.inputs['Tangent'])
+                    create_link(tree, bitangent.outputs[0], mb_crease.inputs['Bitangent'])
+
+            if mb_crease:
+                mb_crease_intensity = nodes.get(ch.mb_crease_intensity)
+                mb_crease_mix = nodes.get(ch.mb_crease_mix)
+
+                remaining_alpha = solid_alpha.outputs[0]
+                for j, mask in enumerate(tex.masks):
+                    if j >= chain:
+                        c = mask.channels[i]
+                        mul_n = nodes.get(c.multiply_n)
+                        remaining_alpha = create_link(tree, remaining_alpha, mul_n.inputs[1])[0]
+
+                create_link(tree, remaining_alpha, mb_crease_intensity.inputs[0])
+                create_link(tree, mb_crease_intensity.outputs[0], mb_crease_mix.inputs[0])
+
+                create_link(tree, prev_rgb, mb_crease_mix.inputs[1])
+                create_link(tree, mb_crease.outputs[0], mb_crease_mix.inputs[2])
+                create_link(tree, tangent.outputs[0], mb_crease_mix.inputs['Tangent'])
+                create_link(tree, bitangent.outputs[0], mb_crease_mix.inputs['Bitangent'])
+
+                prev_rgb = mb_crease_mix.outputs[0]
 
             mb_inverse = nodes.get(ch.mb_inverse)
             mb_intensity_multiplier = nodes.get(ch.mb_intensity_multiplier)
@@ -962,11 +997,11 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 remaining_alpha = solid_alpha.outputs[0]
                 for j, mask in enumerate(tex.masks):
                     if j >= chain:
-                        if mask.group_node != '':
-                            mask_source = nodes.get(mask.group_node)
-                            mask_val = mask_source.outputs[0]
-                        else: 
-                            mask_source = nodes.get(mask.source)
+                        #if mask.group_node != '':
+                        #    mask_source = nodes.get(mask.group_node)
+                        #    mask_val = mask_source.outputs[0]
+                        #else: 
+                        #    mask_source = nodes.get(mask.source)
                         c = mask.channels[i]
                         mul_n = nodes.get(c.multiply_n)
 
@@ -1001,7 +1036,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
                 for j, mask in enumerate(tex.masks):
                     if j >= chain:
-                        mask_source = get_mask_source(mask)
+                        #mask_source = get_mask_source(mask)
                         mul_n = nodes.get(mask.channels[i].multiply_n)
 
                         ramp_alpha_input = create_link(tree, ramp_alpha_input, mul_n.inputs[1])[0]

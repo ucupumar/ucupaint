@@ -2428,6 +2428,9 @@ def update_texture_enable(self, context):
         if ch.enable_transition_ao:
             tao = tree.nodes.get(ch.tao)
             if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
+        if ch.enable_mask_bump and ch.transition_bump_crease:
+            mb_crease_intensity = tree.nodes.get(ch.mb_crease_intensity)
+            mb_crease_intensity.inputs[1].default_value = 0.0 if mute else 1.0
 
     context.window_manager.tltimer.time = str(time.time())
 
@@ -2454,6 +2457,11 @@ def update_channel_intensity_value(self, context):
     if ch.enable_transition_ao:
         tao = tree.nodes.get(ch.tao)
         if tao: tao.inputs['Intensity'].default_value = transition.get_transition_ao_intensity(ch)
+
+    if ch.enable_mask_bump and ch.transition_bump_crease:
+        mb_crease_intensity = tree.nodes.get(ch.mb_crease_intensity)
+        if mb_crease_intensity:
+            mb_crease_intensity.inputs[1].default_value = ch.intensity_value
 
 def update_texture_name(self, context):
     tl = self.id_data.tl
@@ -2520,12 +2528,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     pipeline_frame = StringProperty(default='')
 
-    # Modifier pipeline
-    #start_rgb = StringProperty(default='')
-    #start_alpha = StringProperty(default='')
-    #end_rgb = StringProperty(default='')
-    #end_alpha = StringProperty(default='')
-
     # Normal related
     bump = StringProperty(default='')
     fine_bump = StringProperty(default='')
@@ -2565,13 +2567,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     bump_base_e = StringProperty(default='')
     bump_base_w = StringProperty(default='')
 
-    # Bump hack
-    #bump_hack = StringProperty(default='')
-    #bump_hack_n = StringProperty(default='')
-    #bump_hack_s = StringProperty(default='')
-    #bump_hack_e = StringProperty(default='')
-    #bump_hack_w = StringProperty(default='')
-
     # Intensity Stuff
     intensity_multiplier = StringProperty(default='')
 
@@ -2584,8 +2579,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=False) #, update=transition.update_show_transition_bump)
 
     mask_bump_value = FloatProperty(
-        name = 'Mask Bump Value',
-        description = 'Mask bump value',
+        name = 'Transition Bump Value',
+        description = 'Transition bump value',
         default=3.0, min=1.0, max=100.0, 
         update=transition.update_transition_bump_value)
 
@@ -2596,7 +2591,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update=transition.update_transition_bump_value)
 
     mask_bump_distance = FloatProperty(
-            name='Mask Bump Distance', 
+            name='Transition Bump Distance', 
             description= 'Distance of mask bump', 
             default=0.05, min=0.0, max=1.0, precision=3, # step=1,
             update=transition.update_transition_bump_distance)
@@ -2613,24 +2608,34 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update=transition.update_enable_transition_bump)
 
     mask_bump_chain = IntProperty(
-            name = 'Mask bump chain',
+            name = 'Transition bump chain',
             description = 'Number of mask affected by transition bump',
             default=10, min=0, max=10,
             update=transition.update_transition_bump_chain)
 
     mask_bump_flip = BoolProperty(
-            name = 'Mask Bump Flip',
-            description = 'Mask bump flip',
+            name = 'Transition Bump Flip',
+            description = 'Transition bump flip',
             default=False,
-            #update=Mask.update_mask_bump_flip)
             update=transition.update_enable_transition_bump)
 
     mask_bump_curved_offset = FloatProperty(
-            name = 'Mask Bump Curved Offst',
-            description = 'Mask bump curved offset',
+            name = 'Transition Bump Curved Offst',
+            description = 'Transition bump curved offset',
             default=0.02, min=0.0, max=0.1,
-            #update=Mask.update_mask_bump_flip)
             update=transition.update_transition_bump_curved_offset)
+
+    transition_bump_crease = BoolProperty(
+            name = 'Transition Bump Crease',
+            description = 'Transition bump crease (only works if flip is inactive)',
+            default=False,
+            update=transition.update_enable_transition_bump)
+
+    transition_bump_crease_factor = FloatProperty(
+            name = 'Transition Bump Crease Factor',
+            description = 'Transition bump crease factor',
+            default=0.33, min=0.0, max=10.0,
+            update=transition.update_transition_bump_crease_factor)
 
     transition_bump_fac = FloatProperty(
             name='Transition Bump Factor',
@@ -2650,6 +2655,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mb_inverse = StringProperty(default='')
     mb_intensity_multiplier = StringProperty(default='')
     mb_blend = StringProperty(default='')
+
+    mb_crease = StringProperty(default='')
+    mb_crease_intensity = StringProperty(default='')
+    mb_crease_mix = StringProperty(default='')
 
     mb_neighbor_uv = StringProperty(default='')
     mb_source_n = StringProperty(default='')

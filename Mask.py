@@ -103,6 +103,7 @@ def remove_mask(tex, mask, obj):
     disable_mask_source_tree(tex, mask)
 
     remove_node(tree, mask, 'source', obj=obj)
+    remove_node(tree, mask, 'mapping')
     remove_node(tree, mask, 'uv_map')
 
     # Remove mask modifiers

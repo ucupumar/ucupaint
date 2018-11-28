@@ -971,6 +971,13 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     crow.label(text='Flip:') #, icon='INFO')
                     crow.prop(ch, 'mask_bump_flip', text='')
 
+                    crow = cccol.row(align=True)
+                    crow.active = tex.type != 'BACKGROUND' and not ch.mask_bump_flip
+                    crow.label(text='Crease:') #, icon='INFO')
+                    if ch.transition_bump_crease:
+                        crow.prop(ch, 'transition_bump_crease_factor', text='')
+                    crow.prop(ch, 'transition_bump_crease', text='')
+
                     #row.label(text='', icon='BLANK1')
 
             row = mcol.row(align=True)

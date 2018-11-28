@@ -479,6 +479,8 @@ def rearrange_mask_tree_nodes(mask):
 def rearrange_mask_bump_nodes(tree, ch, loc):
     # Bump
 
+    ori_x = loc.x
+
     if check_set_node_loc(tree, ch.mb_fine_bump, loc):
         loc.x += 170.0
 
@@ -496,6 +498,15 @@ def rearrange_mask_bump_nodes(tree, ch, loc):
 
     if check_set_node_loc(tree, ch.mb_blend, loc):
         loc.x += 200.0
+
+    save_x = loc.x
+    loc.x = ori_x
+
+    loc.y -= 300.0
+    if not check_set_node_loc(tree, ch.mb_crease, loc):
+        loc.y += 300.0
+
+    loc.x = save_x
 
 def rearrange_mask_ramp_blending_nodes(tree, ch, loc):
 
@@ -993,29 +1004,40 @@ def rearrange_tex_nodes(tex, tree=None):
         #        loc.x += 200.0
 
         if not flip_bump and check_set_node_loc(tree, ch.tao, loc):
-            loc.x += 200.0
+            loc.x += 200
+            y_offset += 90
 
         # Flipped transition ramp
         if bump_ch and flip_bump:
             #rearrange_mask_ramp_blending_nodes(tree, ch, loc)
             if check_set_node_loc(tree, ch.mr_ramp_blend, loc):
-                loc.x += 200.0
+                loc.x += 200
+                y_offset += 90
 
         if check_set_node_loc(tree, ch.intensity, loc):
-            loc.x += 200.0
+            loc.x += 200
 
         save_y = loc.y
         save_x = loc.x
 
         loc.y -= 170
-        loc.x -= 200
+        loc.x = bookmark_x
+
         if check_set_node_loc(tree, ch.normal_flip, loc):
-            loc.x += 200.0
-            loc.y = save_y
+            loc.y -= 130
             y_offset += 130
 
+        if check_set_node_loc(tree, ch.mb_crease_intensity, loc):
+            loc.x += 200
+
+        if check_set_node_loc(tree, ch.mb_crease_mix, loc):
+            loc.x += 200
+            loc.y -= 200
+            y_offset += 200
+
         loc.y = save_y
-        loc.x = save_x
+        if loc.x < save_x:
+            loc.x = save_x
 
         if check_set_node_loc(tree, ch.blend, loc):
             loc.x += 250

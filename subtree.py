@@ -460,13 +460,24 @@ def check_mask_multiply_nodes(tex, tree=None):
                             mul.blend_type = mask.blend_type
                             mul.inputs[0].default_value = mask.intensity_value
                             mul.mute = not c.enable or not mask.enable or not tex.enable_masks
+                elif i >= chain and not trans_bump_flip and ch.transition_bump_crease:
+
+                    multiply_n = tree.nodes.get(c.multiply_n)
+                    if not multiply_n:
+                        multiply_n = new_node(tree, c, 'multiply_n', 'ShaderNodeMixRGB', 'Mask Blend N')
+                        multiply_n.blend_type = mask.blend_type
+                        multiply_n.inputs[0].default_value = mask.intensity_value
+                        multiply_n.mute = not c.enable or not mask.enable or not tex.enable_masks
+
+                    for d in ['s', 'e', 'w']:
+                        remove_node(tree, c, 'multiply_' + d)
                 else:
                     for d in neighbor_directions:
                         remove_node(tree, c, 'multiply_' + d)
 
             else: 
                 if (trans_bump and i >= chain and (
-                    (trans_bump_flip and ch.enable_mask_ramp) or (not trans_bump_flip and ch.enable_transition_ao)
+                    (trans_bump_flip and ch.enable_mask_ramp) or (not trans_bump_flip and ch.enable_transition_ao) 
                     )):
                     multiply_n = tree.nodes.get(c.multiply_n)
 
