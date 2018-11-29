@@ -22,7 +22,7 @@
 #   - AO option to exclude area within intensity (V)
 #   - AO and ramp contribute to alpha (V)
 #   - AO works with background layer (V)
-#   - Crease (..?)
+#   - Crease (V)
 #   - Non flip bump background layer (Useful for bubbles?)
 # - More modifier
 #   - Intensity ramp (X, useless)

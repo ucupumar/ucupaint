@@ -2312,7 +2312,9 @@ class YTransitionRampMenu(bpy.types.Menu):
         layout = self.layout
         col = layout.column()
 
-        #col.label(text=context.parent.path_from_id())
+        col.prop(context.parent, 'transition_ramp_intensity_unlink', text='Unlink Ramp with Channel Intensity')
+
+        col.separator()
 
         if bpy.app.version_string.startswith('2.8'):
             col.operator('node.y_hide_transition_effect', text='Remove Transition Ramp', icon='REMOVE').type = 'RAMP'
@@ -2330,8 +2332,6 @@ class YTransitionAOMenu(bpy.types.Menu):
     def draw(self, context):
         layout = self.layout
         col = layout.column()
-
-        #col.label(text=context.parent.path_from_id())
 
         col.prop(context.parent, 'transition_ao_intensity_unlink', text='Unlink AO with Channel Intensity')
 

@@ -4,13 +4,18 @@ from bpy.app.handlers import persistent
 
 # Node tree names
 OVERLAY_NORMAL = '~TL Overlay Normal'
+CHECK_INPUT_NORMAL = '~TL Check Input Normal'
+FLIP_BACKFACE_NORMAL = '~TL Flip Backface Normal'
+
 STRAIGHT_OVER = '~TL Straight Over Mix'
 STRAIGHT_OVER_BW = '~TL Straight Over Grayscale Mix'
 STRAIGHT_OVER_VEC = '~TL Straight Over Vector Mix'
+
 STRAIGHT_OVER_BG = '~TL Straight Over Background Mix'
+STRAIGHT_OVER_BG_BW = '~TL Straight Over Grayscale Background Mix'
+STRAIGHT_OVER_BG_VEC = '~TL Straight Over Vector Background Mix'
+
 STRAIGHT_OVER_HACK = '~TL Straight Over Hack'
-CHECK_INPUT_NORMAL = '~TL Check Input Normal'
-FLIP_BACKFACE_NORMAL = '~TL Flip Backface Normal'
 
 NEIGHBOR_UV ='~TL Neighbor UV'
 NEIGHBOR_UV_TANGENT ='~TL Neighbor UV (Tangent)'
@@ -28,6 +33,7 @@ TRANSITION_AO_STRAIGHT_OVER = '~TL Transition AO Straight Over'
 TRANSITION_AO_FLIP = '~TL Transition AO Flip'
 
 RAMP = '~TL Ramp'
+RAMP_STRAIGHT_OVER = '~TL Ramp Straight Over'
 RAMP_FLIP = '~TL Ramp Flip'
 RAMP_FLIP_BLEND = '~TL Ramp Flip Blend'
 RAMP_FLIP_MIX_BLEND = '~TL Ramp Flip Mix Blend'

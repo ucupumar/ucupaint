@@ -596,6 +596,7 @@ def rearrange_tex_nodes(tex, tree=None):
     bump_ch = get_transition_bump_channel(tex)
     if bump_ch:
         flip_bump = bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'
+        #flip_bump = bump_ch.mask_bump_flip
         chain = min(len(tex.masks), bump_ch.mask_bump_chain)
 
     #start_x = 350
@@ -934,7 +935,8 @@ def rearrange_tex_nodes(tex, tree=None):
                     loc.y -= 230
 
                 #if not flip_bump and ch.enable and ch.enable_mask_ramp:
-                if ch.enable_mask_ramp:
+                if ch.enable_mask_ramp and (not ch.transition_ramp_intensity_unlink 
+                        or flip_bump or ch.mask_ramp_blend_type != 'MIX'):
                     if check_set_node_loc(tree, ch.mr_ramp, loc):
                         loc.y -= 230
                     #rearrange_mask_ramp_nodes(tree, ch, loc, not flip_bump)
@@ -1005,7 +1007,7 @@ def rearrange_tex_nodes(tex, tree=None):
 
         if not flip_bump and check_set_node_loc(tree, ch.tao, loc):
             loc.x += 200
-            y_offset += 90
+            y_offset += 120
 
         # Flipped transition ramp
         if bump_ch and flip_bump:
@@ -1016,6 +1018,12 @@ def rearrange_tex_nodes(tex, tree=None):
 
         if check_set_node_loc(tree, ch.intensity, loc):
             loc.x += 200
+
+        if (ch.enable_mask_ramp and not flip_bump and ch.transition_ramp_intensity_unlink 
+                and ch.mask_ramp_blend_type == 'MIX'):
+            if check_set_node_loc(tree, ch.mr_ramp, loc):
+                loc.x += 200
+                #y_offset += 60
 
         save_y = loc.y
         save_x = loc.x

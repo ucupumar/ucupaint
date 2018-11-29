@@ -248,14 +248,19 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
             node = nodes.get(tex.group_node)
 
             if tex.type == 'BACKGROUND':
-
                 # Offsets for background layer
                 input_offset = get_channel_inputs_length(tl, tex)
                 bg_index = input_offset + ch.io_index
 
-                create_link(tree, bg_rgb, node.inputs[bg_index])
-                if ch.type =='RGB' and ch.alpha:
-                    create_link(tree, bg_alpha, node.inputs[bg_index+1])
+                if tex.parent_idx == -1:
+
+                    create_link(tree, bg_rgb, node.inputs[bg_index])
+                    if ch.type =='RGB' and ch.alpha:
+                        create_link(tree, bg_alpha, node.inputs[bg_index+1])
+                else:
+                    break_input_link(tree, node.inputs[bg_index])
+                    if ch.type =='RGB' and ch.alpha:
+                        break_input_link(tree, node.inputs[bg_index+1])
 
             if tex.parent_idx != -1: continue
 
@@ -500,6 +505,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     trans_bump_ch = get_transition_bump_channel(tex)
     if trans_bump_ch:
         trans_bump_flip = trans_bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'
+        #trans_bump_flip = trans_bump_ch.mask_bump_flip
         chain = min(len(tex.masks), trans_bump_ch.mask_bump_chain)
         fine_bump_ch = trans_bump_ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
     #elif tex.type == 'BACKGROUND':
@@ -870,6 +876,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         if not trans_bump_ch:
             transition_input = alpha
 
+        # Bookmark alpha before intensity because it can be useful
+        alpha_before_intensity = alpha
+
+        # Pass alpha to intensity
+        alpha = create_link(tree, alpha, intensity.inputs[0])[0]
+
         # Transition Bump
         if root_ch.type == 'NORMAL' and ch.enable_mask_bump and ch.enable:
 
@@ -940,9 +952,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 remaining_alpha = solid_alpha.outputs[0]
                 for j, mask in enumerate(tex.masks):
                     if j >= chain:
-                        c = mask.channels[i]
-                        mul_n = nodes.get(c.multiply_n)
-                        remaining_alpha = create_link(tree, remaining_alpha, mul_n.inputs[1])[0]
+                        mul_n = nodes.get(mask.channels[i].multiply_n)
+                        if mul_n: remaining_alpha = create_link(tree, remaining_alpha, mul_n.inputs[1])[0]
 
                 create_link(tree, remaining_alpha, mb_crease_intensity.inputs[0])
                 create_link(tree, mb_crease_intensity.outputs[0], mb_crease_mix.inputs[0])
@@ -997,16 +1008,9 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 remaining_alpha = solid_alpha.outputs[0]
                 for j, mask in enumerate(tex.masks):
                     if j >= chain:
-                        #if mask.group_node != '':
-                        #    mask_source = nodes.get(mask.group_node)
-                        #    mask_val = mask_source.outputs[0]
-                        #else: 
-                        #    mask_source = nodes.get(mask.source)
-                        c = mask.channels[i]
-                        mul_n = nodes.get(c.multiply_n)
-
-                        remaining_alpha = create_link(tree, remaining_alpha, mul_n.inputs[1])[0]
-                        #create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
+                        mul_n = nodes.get(mask.channels[i].multiply_n)
+                        if mul_n:
+                            remaining_alpha = create_link(tree, remaining_alpha, mul_n.inputs[1])[0]
 
                 prev_rgb = tao.outputs[0]
                 create_link(tree, remaining_alpha, tao.inputs['Remaining Alpha'])
@@ -1032,17 +1036,15 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
                 create_link(tree, mr_ramp.outputs[0], mr_ramp_blend.inputs['Ramp RGB'])
 
-                ramp_alpha_input = mr_ramp.outputs['Ramp Alpha']
+                trans_ramp_input = mr_ramp.outputs['Ramp Alpha']
 
                 for j, mask in enumerate(tex.masks):
                     if j >= chain:
-                        #mask_source = get_mask_source(mask)
                         mul_n = nodes.get(mask.channels[i].multiply_n)
+                        if mul_n:
+                            trans_ramp_input = create_link(tree, trans_ramp_input, mul_n.inputs[1])[0]
 
-                        ramp_alpha_input = create_link(tree, ramp_alpha_input, mul_n.inputs[1])[0]
-                        #create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
-
-                create_link(tree, ramp_alpha_input, mr_ramp_blend.inputs['Ramp Alpha'])
+                create_link(tree, trans_ramp_input, mr_ramp_blend.inputs['Ramp Alpha'])
                 prev_rgb = mr_ramp_blend.outputs[0]
 
                 if 'Input Alpha' in mr_ramp_blend.inputs:
@@ -1055,76 +1057,11 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, rgb, mr_ramp.inputs['RGB'])
                 rgb = mr_ramp.outputs[0]
 
+                if ch.transition_ramp_intensity_unlink and ch.mask_ramp_blend_type == 'MIX':
+                    create_link(tree, alpha_before_intensity, mr_ramp.inputs['Remaining Alpha'])
+                    create_link(tree, alpha, mr_ramp.inputs['Channel Intensity'])
 
-            '''
-            mr_inverse = nodes.get(ch.mr_inverse)
-            mr_ramp = nodes.get(ch.mr_ramp)
-            mr_linear = nodes.get(ch.mr_linear)
-            mr_intensity_multiplier = nodes.get(ch.mr_intensity_multiplier)
-            mr_alpha = nodes.get(ch.mr_alpha)
-            mr_intensity = nodes.get(ch.mr_intensity)
-            mr_blend = nodes.get(ch.mr_blend)
-
-            if trans_bump_flip:
-                create_link(tree, transition_input, mr_ramp.inputs[0])
-            else:
-                create_link(tree, transition_input, mr_inverse.inputs[1])
-                create_link(tree, mr_inverse.outputs[0], mr_ramp.inputs[0])
-
-            create_link(tree, mr_ramp.outputs[0], mr_linear.inputs[0])
-            create_link(tree, mr_linear.outputs[0], mr_blend.inputs[2])
-
-            create_link(tree, mr_ramp.outputs[1], mr_alpha.inputs[1])
-
-            if mr_intensity_multiplier:
-                if trans_bump_flip:
-                    create_link(tree, transition_input, mr_intensity_multiplier.inputs[0])
-                else: create_link(tree, mr_inverse.outputs[0], mr_intensity_multiplier.inputs[0])
-                create_link(tree, mr_intensity_multiplier.outputs[0], mr_alpha.inputs[0])
-            else:
-                create_link(tree, mr_inverse.outputs[0], mr_alpha.inputs[0])
-
-            # Ramp blending
-            if trans_bump_flip:
-                mr_flip_hack = nodes.get(ch.mr_flip_hack)
-                mr_flip_blend = nodes.get(ch.mr_flip_blend)
-
-                #create_link(tree, mr_alpha.outputs[0], mr_intensity.inputs[0])
-                #hack_input = mr_intensity.outputs[0]
-                hack_input = mr_alpha.outputs[0]
-
-                for j, mask in enumerate(tex.masks):
-                    if j >= chain:
-                        if mask.group_node != '':
-                            mask_source = nodes.get(mask.group_node)
-                        else: mask_source = nodes.get(mask.source)
-                        c = mask.channels[i]
-                        mul_n = nodes.get(c.multiply_n)
-
-                        hack_input = create_link(tree, hack_input, mul_n.inputs[1])[0]
-                        create_link(tree, mask_source.outputs[0], mul_n.inputs[2])
-
-                #create_link(tree, hack_input, mr_blend.inputs[0])
-                create_link(tree, hack_input, mr_intensity.inputs[0])
-                create_link(tree, mr_intensity.outputs[0], mr_blend.inputs[0])
-
-                create_link(tree, intensity_multiplier.outputs[0], mr_flip_hack.inputs[0])
-                create_link(tree, mr_flip_hack.outputs[0], mr_flip_blend.inputs[0])
-
-                create_link(tree, prev_rgb, mr_blend.inputs[1])
-                create_link(tree, mr_blend.outputs[0], mr_flip_blend.inputs[1])
-                create_link(tree, prev_rgb, mr_flip_blend.inputs[2])
-
-                # Override input rgb
-                prev_rgb = mr_flip_blend.outputs[0]
-
-            else: 
-                create_link(tree, mr_alpha.outputs[0], mr_intensity.inputs[0])
-                create_link(tree, mr_intensity.outputs[0], mr_blend.inputs[0])
-
-                create_link(tree, rgb, mr_blend.inputs[1])
-                rgb = mr_blend.outputs[0]
-            '''
+                    alpha = mr_ramp.outputs[1]
 
         # Normal flip check
         normal_flip = nodes.get(ch.normal_flip)
@@ -1132,10 +1069,6 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             create_link(tree, rgb, normal_flip.inputs[0])
             create_link(tree, bitangent.outputs[0], normal_flip.inputs[1])
             rgb = normal_flip.outputs[0]
-
-        # Pass alpha to intensity
-        create_link(tree, alpha, intensity.inputs[0])
-        alpha = intensity.outputs[0]
 
         # Pass rgb to blend
         create_link(tree, rgb, blend.inputs[2])

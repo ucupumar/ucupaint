@@ -2151,8 +2151,12 @@ def check_blend_type_nodes(root_ch, tex, ch):
     elif root_ch.type == 'NORMAL':
 
         if has_parent and normal_blend == 'MIX':
-            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, return_status = True)
+            if tex.type == 'BACKGROUND':
+                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, return_status = True)
+            else:
+                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, return_status = True)
 
         elif normal_blend == 'OVERLAY':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
@@ -2165,8 +2169,12 @@ def check_blend_type_nodes(root_ch, tex, ch):
     elif root_ch.type == 'VALUE':
 
         if has_parent and blend_type == 'MIX':
-            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, return_status = True)
+            if tex.type == 'BACKGROUND':
+                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, return_status = True)
+            else:
+                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, return_status = True)
         else:
 
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
@@ -2689,6 +2697,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
         items = blend_type_items,
         default = 'MIX', 
         update=transition.update_enable_transition_ramp)
+
+    transition_ramp_intensity_unlink = BoolProperty(
+            name='Unlink Transition Ramp with Channel Intensity', 
+            description='Unlink Transition Ramp with Channel Intensity', 
+            default=False,
+            update=transition.update_enable_transition_ramp)
 
     # Transition ramp nodes
     mr_ramp = StringProperty(default='')

@@ -477,7 +477,9 @@ def check_mask_multiply_nodes(tex, tree=None):
 
             else: 
                 if (trans_bump and i >= chain and (
-                    (trans_bump_flip and ch.enable_mask_ramp) or (not trans_bump_flip and ch.enable_transition_ao) 
+                    (trans_bump_flip and ch.enable_mask_ramp) or 
+                    #(not trans_bump_flip and ch.enable_mask_ramp and ch.transition_ramp_intensity_unlink) or
+                    (not trans_bump_flip and ch.enable_transition_ao)
                     )):
                     multiply_n = tree.nodes.get(c.multiply_n)
 
