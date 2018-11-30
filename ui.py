@@ -1113,6 +1113,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                 if ch.enable_transition_ao and not chui.expand_transition_ao_settings:
                     row.prop(ch, 'transition_ao_intensity', text='')
 
+                row.context_pointer_set('texture', tex)
                 row.context_pointer_set('parent', ch)
                 if bpy.app.version_string.startswith('2.8'):
                     row.menu("NODE_MT_y_transition_ao_menu", text='', icon='PREFERENCES')
@@ -2327,16 +2328,22 @@ class YTransitionAOMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_texture_layers_node()
+        #return hasattr(context, 'parent') and get_active_texture_layers_node()
+        return hasattr(context, 'parent') and hasattr(context, 'texture')
 
     def draw(self, context):
         layout = self.layout
-        col = layout.column()
 
+        trans_bump = get_transition_bump_channel(context.texture)
+        trans_bump_flip = (trans_bump and trans_bump.mask_bump_flip) or context.texture.type == 'BACKGROUND'
+
+        col = layout.column()
+        col.active = not trans_bump_flip
         col.prop(context.parent, 'transition_ao_intensity_unlink', text='Unlink AO with Channel Intensity')
 
         col.separator()
 
+        col = layout.column()
         if bpy.app.version_string.startswith('2.8'):
             col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='REMOVE').type = 'AO'
         else: col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='ZOOMOUT').type = 'AO'

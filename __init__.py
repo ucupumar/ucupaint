@@ -23,7 +23,7 @@
 #   - AO and ramp contribute to alpha (V)
 #   - AO works with background layer (V)
 #   - Crease (V)
-#   - Non flip bump background layer (Useful for bubbles?)
+#   - Non flip bump background layer (V, still miss bump and ramp effect)
 # - More modifier
 #   - Intensity ramp (X, useless)
 # - Texture group/folder
@@ -68,6 +68,9 @@
 # - Preview extra
 #   - Matcap view on Normal preview
 #   - Per texture preview
+# - Transition
+#   - Ramp works with non flip background
+#   - Bump works with non flip background
 # - Bake extra
 #   - Pointiness
 #   - AO

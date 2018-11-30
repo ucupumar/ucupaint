@@ -268,73 +268,12 @@ def check_transition_ramp_nodes(tree, tex, ch):
         set_transition_ramp_nodes(tree, tex, ch)
     else: remove_transition_ramp_nodes(tree, ch)
 
-#def set_transition_ramp_nodes(tree, tex, ch, rearrange=False):
-#
-#    tl = ch.id_data.tl
-#    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
-#    root_ch = tl.channels[int(match.group(2))]
-#
-#    mr_ramp = tree.nodes.get(ch.mr_ramp)
-#    mr_linear = tree.nodes.get(ch.mr_linear)
-#    mr_alpha = tree.nodes.get(ch.mr_alpha)
-#    mr_intensity = tree.nodes.get(ch.mr_intensity)
-#    mr_blend = tree.nodes.get(ch.mr_blend)
-#
-#    if not mr_ramp:
-#        mr_ramp = new_node(tree, ch, 'mr_ramp', 'ShaderNodeValToRGB', 'Transition Ramp')
-#        mr_ramp.color_ramp.elements[0].color = (1,1,1,1)
-#        mr_ramp.color_ramp.elements[1].color = (0.0,0.0,0.0,1)
-#        rearrange = True
-#
-#    if not mr_linear:
-#        mr_linear = new_node(tree, ch, 'mr_linear', 'ShaderNodeGamma', 'Transition Ramp Linear')
-#        if root_ch.colorspace == 'SRGB':
-#            mr_linear.inputs[1].default_value = 1.0/GAMMA
-#        else: mr_linear.inputs[1].default_value = 1.0
-#
-#    if not mr_alpha:
-#        mr_alpha = new_node(tree, ch, 'mr_alpha', 'ShaderNodeMath', 'Transition Ramp Alpha')
-#        mr_alpha.operation = 'MULTIPLY'
-#        rearrange = True
-#
-#    if not mr_intensity:
-#        mr_intensity = new_node(tree, ch, 'mr_intensity', 'ShaderNodeMath', 'Transition Ramp Intensity')
-#        mr_intensity.operation = 'MULTIPLY'
-#        mr_intensity.inputs[1].default_value = ch.mask_ramp_intensity_value
-#        rearrange = True
-#
-#    if not mr_blend:
-#        mr_blend = new_node(tree, ch, 'mr_blend', 'ShaderNodeMixRGB', 'Transition Ramp Blend')
-#        rearrange = True
-#
-#    mr_blend.blend_type = ch.mask_ramp_blend_type
-#    mr_blend.mute = not ch.enable
-#    if len(mr_blend.outputs[0].links) == 0:
-#        rearrange = True
-#
-#    return rearrange
-
 def remove_transition_ramp_nodes(tree, ch):
     # Save ramp first
     save_ramp(tree, ch)
 
     remove_node(tree, ch, 'mr_ramp')
     remove_node(tree, ch, 'mr_ramp_blend')
-
-#def remove_transition_ramp_nodes(tree, ch, clean=False):
-#    #mute_node(tree, ch, 'mr_blend')
-#    remove_node(tree, ch, 'mr_linear')
-#    remove_node(tree, ch, 'mr_inverse')
-#    remove_node(tree, ch, 'mr_alpha')
-#    remove_node(tree, ch, 'mr_intensity_multiplier')
-#    remove_node(tree, ch, 'mr_intensity')
-#    remove_node(tree, ch, 'mr_blend')
-#
-#    if clean:
-#        remove_node(tree, ch, 'mr_ramp')
-#
-#    # Remove flip bump related nodes
-#    remove_transition_ramp_flip_nodes(tree, ch)
 
 def check_transition_bump_nodes(tex, tree, ch, ch_index):
 

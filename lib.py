@@ -15,6 +15,8 @@ STRAIGHT_OVER_BG = '~TL Straight Over Background Mix'
 STRAIGHT_OVER_BG_BW = '~TL Straight Over Grayscale Background Mix'
 STRAIGHT_OVER_BG_VEC = '~TL Straight Over Vector Background Mix'
 
+#STRAIGHT_OVER_BG_RAMP = '~TL Straight Over Background Mix Ramp'
+
 STRAIGHT_OVER_HACK = '~TL Straight Over Hack'
 
 NEIGHBOR_UV ='~TL Neighbor UV'
@@ -34,6 +36,8 @@ TRANSITION_AO_FLIP = '~TL Transition AO Flip'
 
 RAMP = '~TL Ramp'
 RAMP_STRAIGHT_OVER = '~TL Ramp Straight Over'
+RAMP_STRAIGHT_OVER_BG = '~TL Ramp Straight Over Background'
+
 RAMP_FLIP = '~TL Ramp Flip'
 RAMP_FLIP_BLEND = '~TL Ramp Flip Blend'
 RAMP_FLIP_MIX_BLEND = '~TL Ramp Flip Mix Blend'

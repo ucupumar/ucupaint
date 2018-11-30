@@ -508,8 +508,6 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         #trans_bump_flip = trans_bump_ch.mask_bump_flip
         chain = min(len(tex.masks), trans_bump_ch.mask_bump_chain)
         fine_bump_ch = trans_bump_ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
-    #elif tex.type == 'BACKGROUND':
-    #    trans_bump_flip = True
 
     # Layer Masks
     for i, mask in enumerate(tex.masks):
