@@ -1827,6 +1827,10 @@ class YReplaceLayerType(bpy.types.Operator):
             self.report({'ERROR'}, "You can't change type of group layer!")
             return {'CANCELLED'}
 
+        if self.type in {'VCOL', 'IMAGE'} and self.item_name == '':
+            self.report({'ERROR'}, "Form is cannot be empty!")
+            return {'CANCELLED'}
+
         # Remove segment if original layer using image atlas
         if tex.type == 'IMAGE' and tex.segment_name != '':
             src = get_tex_source(tex)
