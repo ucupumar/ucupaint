@@ -908,17 +908,15 @@ class YRemoveTLChannel(bpy.types.Operator):
 
             remove_node(ttree, ch, 'normal')
             remove_node(ttree, ch, 'normal_flip')
-            remove_node(ttree, ch, 'bump')
-            remove_node(ttree, ch, 'bump_base')
             remove_node(ttree, ch, 'mod_n')
             remove_node(ttree, ch, 'mod_s')
             remove_node(ttree, ch, 'mod_e')
             remove_node(ttree, ch, 'mod_w')
+            remove_node(ttree, ch, 'bump_base')
             remove_node(ttree, ch, 'bump_base_n')
             remove_node(ttree, ch, 'bump_base_s')
             remove_node(ttree, ch, 'bump_base_e')
             remove_node(ttree, ch, 'bump_base_w')
-            remove_node(ttree, ch, 'fine_bump')
             remove_node(ttree, ch, 'intensity_multiplier')
 
             remove_node(ttree, ch, 'cache_ramp')

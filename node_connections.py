@@ -772,23 +772,24 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, bitangent.outputs[0], blend.inputs['Bitangent'])
 
             if tex.type not in {'BACKGROUND', 'GROUP'}: #, 'COLOR'}:
-
+                
+                normal = nodes.get(ch.normal)
                 normal_map_type = ch.normal_map_type
+
                 #if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
                 #    normal_map_type = 'BUMP_MAP'
 
                 if normal_map_type == 'NORMAL_MAP':
 
-                    normal = nodes.get(ch.normal)
                     if normal:
                         create_link(tree, rgb, normal.inputs[1])
                         rgb = normal.outputs[0]
 
                 elif normal_map_type == 'BUMP_MAP':
 
-                    bump = nodes.get(ch.bump)
+                    #bump = nodes.get(ch.bump)
                     bump_base = nodes.get(ch.bump_base)
-                    if bump and bump_base:
+                    if normal and bump_base:
 
                         create_link(tree, rgb, bump_base.inputs['Color2'])
 
@@ -800,18 +801,18 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                         else:
                             create_link(tree, alpha, bump_base.inputs['Fac'])
 
-                        create_link(tree, bump_base.outputs[0], bump.inputs[2])
-                        rgb = bump.outputs[0]
+                        create_link(tree, bump_base.outputs[0], normal.inputs[2])
+                        rgb = normal.outputs[0]
 
                 elif normal_map_type == 'FINE_BUMP_MAP':
 
-                    fine_bump = nodes.get(ch.fine_bump)
+                    #fine_bump = nodes.get(ch.fine_bump)
                     bump_base_n = nodes.get(ch.bump_base_n)
                     bump_base_s = nodes.get(ch.bump_base_s)
                     bump_base_e = nodes.get(ch.bump_base_e)
                     bump_base_w = nodes.get(ch.bump_base_w)
 
-                    if bump_base_n and bump_base_s and bump_base_e and bump_base_w and fine_bump:
+                    if bump_base_n and bump_base_s and bump_base_e and bump_base_w and normal:
 
                         malpha_n = alpha_n
                         malpha_s = alpha_s
@@ -845,15 +846,15 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                         rgb_e = create_link(tree, rgb_e, bump_base_e.inputs['Color2'])[0]
                         rgb_w = create_link(tree, rgb_w, bump_base_w.inputs['Color2'])[0]
 
-                        create_link(tree, rgb_n, fine_bump.inputs['n'])
-                        create_link(tree, rgb_s, fine_bump.inputs['s'])
-                        create_link(tree, rgb_e, fine_bump.inputs['e'])
-                        create_link(tree, rgb_w, fine_bump.inputs['w'])
+                        create_link(tree, rgb_n, normal.inputs['n'])
+                        create_link(tree, rgb_s, normal.inputs['s'])
+                        create_link(tree, rgb_e, normal.inputs['e'])
+                        create_link(tree, rgb_w, normal.inputs['w'])
 
-                        create_link(tree, tangent.outputs[0], fine_bump.inputs['Tangent'])
-                        create_link(tree, bitangent.outputs[0], fine_bump.inputs['Bitangent'])
+                        create_link(tree, tangent.outputs[0], normal.inputs['Tangent'])
+                        create_link(tree, bitangent.outputs[0], normal.inputs['Bitangent'])
 
-                        rgb = fine_bump.outputs[0]
+                        rgb = normal.outputs[0]
 
         # For transition input
         transition_input = alpha

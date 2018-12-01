@@ -182,14 +182,11 @@ def rearrange_tex_frame_nodes(tex, tree=None):
             frame = get_frame(tree, '__normal_process__', str(i), root_ch.name + ' Process')
 
             check_set_node_parent(tree, ch.bump_base, frame)
-            check_set_node_parent(tree, ch.bump, frame)
-            check_set_node_parent(tree, ch.normal, frame)
-
-            check_set_node_parent(tree, ch.fine_bump, frame)
             check_set_node_parent(tree, ch.bump_base_n, frame)
             check_set_node_parent(tree, ch.bump_base_s, frame)
             check_set_node_parent(tree, ch.bump_base_e, frame)
             check_set_node_parent(tree, ch.bump_base_w, frame)
+            check_set_node_parent(tree, ch.normal, frame)
 
         # Blend
         frame = get_frame(tree, '__blend__', str(i), root_ch.name + ' Blend')
@@ -462,12 +459,6 @@ def rearrange_transition_bump_nodes(tree, ch, loc):
 
     ori_x = loc.x
 
-    #if check_set_node_loc(tree, ch.tb_fine_bump, loc):
-    #    loc.x += 170.0
-
-    #if check_set_node_loc(tree, ch.tb_curved_bump, loc):
-    #    loc.x += 170.0
-
     if check_set_node_loc(tree, ch.tb_bump, loc):
         loc.x += 170.0
 
@@ -496,12 +487,6 @@ def rearrange_normal_process_nodes(tree, ch, loc):
     if check_set_node_loc(tree, ch.bump_base, loc):
         loc.x += 200
 
-    if check_set_node_loc(tree, ch.bump, loc):
-        loc.x += 250
-
-    if check_set_node_loc(tree, ch.normal, loc):
-        loc.x += 250
-
     loc.y -= 40
     if check_set_node_loc(tree, ch.bump_base_n, loc, hide=True):
         loc.y -= 40
@@ -517,7 +502,7 @@ def rearrange_normal_process_nodes(tree, ch, loc):
         loc.y = bookmark_y
         loc.x += 120
 
-    if check_set_node_loc(tree, ch.fine_bump, loc):
+    if check_set_node_loc(tree, ch.normal, loc):
         loc.x += 250
 
 def rearrange_tex_nodes(tex, tree=None):

@@ -641,6 +641,7 @@ class YNewLayer(bpy.types.Operator):
         # Default normal map type is fine bump map
         self.normal_map_type = 'FINE_BUMP_MAP'
 
+        # Layer name
         self.name = get_unique_name(name, items)
 
         # Layer name must also unique
@@ -1897,7 +1898,8 @@ class YReplaceLayerType(bpy.types.Operator):
             # Remove bump and its base
             for ch in tex.channels:
                 remove_node(tree, ch, 'bump_base')
-                remove_node(tree, ch, 'bump')
+                #remove_node(tree, ch, 'bump')
+                remove_node(tree, ch, 'normal')
 
         # Update linear stuff
         for i, ch in enumerate(tex.channels):
@@ -1972,67 +1974,37 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
     if root_ch.type != 'NORMAL': return
     if tex.type in {'BACKGROUND', 'GROUP'}: return
 
-    normal_map_type = ch.normal_map_type
-    #if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
-    #if tex.type == 'VCOL' and ch.normal_map_type == 'FINE_BUMP_MAP':
-    #    normal_map_type = 'BUMP_MAP'
-    #elif tex.type == 'COLOR':
-    #elif tex.type in {'BACKGROUND', 'GROUP', 'COLOR'}:
-    #    normal_map_type = ''
-
-    #if is_valid_to_remove_bump_nodes(tex, ch):
-    #    normal_map_type = ''
-
-    #print(normal_map_type)
-
     # Normal nodes
-    if normal_map_type == 'NORMAL_MAP':
+    if ch.normal_map_type == 'NORMAL_MAP':
 
-        normal = tree.nodes.get(ch.normal)
-        if not normal:
-            normal = new_node(tree, ch, 'normal', 'ShaderNodeNormalMap')
-            normal.uv_map = tex.uv_name
+        normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeNormalMap', 'Normal')
+        normal.uv_map = tex.uv_name
 
     # Bump nodes
-    elif normal_map_type == 'BUMP_MAP':
+    elif ch.normal_map_type == 'BUMP_MAP':
 
-        bump = tree.nodes.get(ch.bump)
-        if not bump:
-            bump = new_node(tree, ch, 'bump', 'ShaderNodeBump')
-            bump.inputs[1].default_value = ch.bump_distance
+        normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeBump', 'Bump')
+        normal.inputs[1].default_value = ch.bump_distance
 
     # Fine bump nodes
-    elif normal_map_type == 'FINE_BUMP_MAP':
-
-        fine_bump = tree.nodes.get(ch.fine_bump)
+    elif ch.normal_map_type == 'FINE_BUMP_MAP':
 
         # Make sure to enable source tree and modifier tree
         enable_tex_source_tree(tex, False)
         Modifier.enable_modifiers_tree(ch, False)
 
-        if not fine_bump:
-            fine_bump = new_node(tree, ch, 'fine_bump', 'ShaderNodeGroup', 'Fine Bump')
-            fine_bump.node_tree = get_node_tree_lib(lib.FINE_BUMP)
-            fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, ch.bump_distance)
+        normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeGroup', 'Fine Bump', lib.FINE_BUMP)
+        normal.inputs[0].default_value = get_fine_bump_distance(tex, ch.bump_distance)
 
-    # Remove bump nodes
-    if normal_map_type != 'BUMP_MAP':
-        remove_node(tree, ch, 'bump')
-
-    # Remove normal nodes
-    if normal_map_type != 'NORMAL_MAP':
-        remove_node(tree, ch, 'normal')
-
-    # Remove fine bump nodes
-    if normal_map_type != 'FINE_BUMP_MAP':
-        remove_node(tree, ch, 'fine_bump')
+    # Remove neighbor related nodes
+    if ch.normal_map_type != 'FINE_BUMP_MAP':
 
         disable_tex_source_tree(tex, False)
         Modifier.disable_modifiers_tree(ch, False)
 
     # Create normal flip node
     #if tex.type not in {'BACKGROUND', 'GROUP', 'COLOR'}:
-    #if normal_map_type != '' or (normal_map_type == '' and ch.enable_transition_bump):
+    #if ch.normal_map_type != '' or (ch.normal_map_type == '' and ch.enable_transition_bump):
 
     #normal_flip = tree.nodes.get(ch.normal_flip)
     #if not normal_flip:
@@ -2045,7 +2017,7 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
     # Update override color modifier
     #for mod in ch.modifiers:
     #    if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
-    #        if normal_map_type == 'NORMAL_MAP':
+    #        if ch.normal_map_type == 'NORMAL_MAP':
     #            mod.oc_col = (0.5, 0.5, 1.0, 1.0)
     #        else:
     #            val = ch.bump_base_value
@@ -2203,20 +2175,14 @@ def update_bump_distance(self, context):
     tex = tl.textures[int(m.group(1))]
     tree = get_tree(tex)
 
-    normal_map_type = self.normal_map_type
-    #if tex.type in {'VCOL', 'COLOR'} and self.normal_map_type == 'FINE_BUMP_MAP':
-    #if tex.type in {'VCOL'}  and self.normal_map_type == 'FINE_BUMP_MAP':
-    #    normal_map_type = 'BUMP_MAP'
+    normal = tree.nodes.get(self.normal)
 
-    if normal_map_type == 'BUMP_MAP':
-        bump = tree.nodes.get(self.bump)
-        if bump: bump.inputs[1].default_value = self.bump_distance
+    if normal:
+        if self.normal_map_type == 'BUMP_MAP':
+            normal.inputs[1].default_value = self.bump_distance
 
-    elif normal_map_type == 'FINE_BUMP_MAP':
-
-        fine_bump = tree.nodes.get(self.fine_bump)
-        if fine_bump: 
-            fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
+        elif self.normal_map_type == 'FINE_BUMP_MAP':
+            normal.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
 
 def set_tex_channel_linear_node(tree, tex, root_ch, ch):
 
@@ -2493,8 +2459,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     source = StringProperty(default='')
 
     # Normal related
-    bump = StringProperty(default='')
-    fine_bump = StringProperty(default='')
     normal = StringProperty(default='')
     normal_flip = StringProperty(default='')
 
@@ -2691,7 +2655,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     expand_bump_settings = BoolProperty(default=False)
     expand_intensity_settings = BoolProperty(default=False)
     expand_content = BoolProperty(default=False)
-    expand_mask_settings = BoolProperty(default=False)
+    expand_transition_bump_settings = BoolProperty(default=False)
     expand_transition_ramp_settings = BoolProperty(default=False)
     expand_transition_ao_settings = BoolProperty(default=False)
     expand_input_settings = BoolProperty(default=False)

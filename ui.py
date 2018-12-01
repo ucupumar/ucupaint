@@ -67,7 +67,7 @@ def update_tl_ui():
                 c = tlui.tex_ui.channels.add()
                 c.expand_bump_settings = ch.expand_bump_settings
                 c.expand_intensity_settings = ch.expand_intensity_settings
-                c.expand_mask_settings = ch.expand_mask_settings
+                c.expand_transition_bump_settings = ch.expand_transition_bump_settings
                 c.expand_transition_ramp_settings = ch.expand_transition_ramp_settings
                 c.expand_transition_ao_settings = ch.expand_transition_ao_settings
                 c.expand_input_settings = ch.expand_input_settings
@@ -911,15 +911,15 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
                 brow = mcol.row(align=True)
                 if custom_icon_enable:
-                    if chui.expand_mask_settings:
+                    if chui.expand_transition_bump_settings:
                         icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                     else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                    brow.prop(chui, 'expand_mask_settings', text='', emboss=False, icon_value=icon_value)
+                    brow.prop(chui, 'expand_transition_bump_settings', text='', emboss=False, icon_value=icon_value)
                 else:
-                    brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
+                    brow.prop(chui, 'expand_transition_bump_settings', text='', emboss=True, icon='MOD_MASK')
                 brow.label(text='Transition Bump:')
 
-                if ch.enable_transition_bump and not chui.expand_mask_settings:
+                if ch.enable_transition_bump and not chui.expand_transition_bump_settings:
                     brow.prop(ch, 'transition_bump_value', text='')
 
                 brow.context_pointer_set('parent', ch)
@@ -929,7 +929,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
                 brow.prop(ch, 'enable_transition_bump', text='')
 
-                if chui.expand_mask_settings:
+                if chui.expand_transition_bump_settings:
                     row = mcol.row(align=True)
                     row.label(text='', icon='BLANK1')
 
@@ -2609,8 +2609,8 @@ def update_channel_ui(self, context):
         ch.expand_base_vector = self.expand_base_vector
     if hasattr(ch, 'expand_intensity_settings'):
         ch.expand_intensity_settings = self.expand_intensity_settings
-    if hasattr(ch, 'expand_mask_settings'):
-        ch.expand_mask_settings = self.expand_mask_settings
+    if hasattr(ch, 'expand_transition_bump_settings'):
+        ch.expand_transition_bump_settings = self.expand_transition_bump_settings
     if hasattr(ch, 'expand_transition_ramp_settings'):
         ch.expand_transition_ramp_settings = self.expand_transition_ramp_settings
     if hasattr(ch, 'expand_transition_ao_settings'):
@@ -2660,7 +2660,7 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_bump_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_intensity_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_base_vector = BoolProperty(default=True, update=update_channel_ui)
-    expand_mask_settings = BoolProperty(default=True, update=update_channel_ui)
+    expand_transition_bump_settings = BoolProperty(default=True, update=update_channel_ui)
     expand_transition_ramp_settings = BoolProperty(default=True, update=update_channel_ui)
     expand_transition_ao_settings = BoolProperty(default=True, update=update_channel_ui)
     expand_input_settings = BoolProperty(default=True, update=update_channel_ui)
