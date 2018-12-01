@@ -67,7 +67,7 @@ def check_all_channel_ios(tl):
         inp = group_tree.inputs.get(name)
         out = group_tree.outputs.get(name)
 
-        if ch.type == 'RGB' and ch.alpha:
+        if ch.type == 'RGB' and ch.enable_alpha:
 
             if not inp:
                 inp = group_tree.inputs.new('NodeSocketFloatFactor', name)
@@ -114,33 +114,16 @@ def set_input_default_value(group_node, channel, custom_value=None):
         if channel.type == 'RGB' and len(custom_value) == 3:
             custom_value = (custom_value[0], custom_value[1], custom_value[2], 1)
 
-        #if BLENDER_28_GROUP_INPUT_HACK and channel.type in {'RGB', 'VALUE'}:
-        #    if channel.type == 'RGB':
-        #        channel.col_input = custom_value
-        #        channel.val_input = 0.0
-        #    elif channel.type == 'VALUE':
-        #        channel.val_input = custom_value
-        #else:
         group_node.inputs[channel.io_index].default_value = custom_value
         return
     
     # Set default value
     if channel.type == 'RGB':
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    channel.col_input = (1,1,1,1)
-        #    channel.val_input = 0.0
-        #else: 
         group_node.inputs[channel.io_index].default_value = (1,1,1,1)
 
-        if channel.alpha:
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    channel.val_input = 1.0
-            #else: 
+        if channel.enable_alpha:
             group_node.inputs[channel.io_index+1].default_value = 1.0
     if channel.type == 'VALUE':
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    channel.val_input = 0.0
-        #else: 
         group_node.inputs[channel.io_index].default_value = 0.0
     if channel.type == 'NORMAL':
         # Use 999 as normal z value so it will fallback to use geometry normal at checking process
@@ -245,7 +228,7 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
     # Get IO index
     io_index = last_index
     for ch in tl.channels:
-        if ch.type == 'RGB' and ch.alpha:
+        if ch.type == 'RGB' and ch.enable_alpha:
             io_index += 1
 
     channel.io_index = io_index
@@ -461,9 +444,9 @@ class YQuickSetupTLNode(bpy.types.Operator):
             set_input_default_value(node, ch_color, inp.default_value)
             links.new(node.outputs[ch_color.io_index], inp)
             # Enable, link, and disable alpha to remember which input was alpha connected to
-            ch_color.alpha = True
+            ch_color.enable_alpha = True
             links.new(node.outputs[ch_color.io_index+1], mix_bsdf.inputs[0])
-            ch_color.alpha = False
+            ch_color.enable_alpha = False
 
         if ch_metallic:
             inp = main_bsdf.inputs['Metallic']
@@ -743,9 +726,9 @@ class YNewTLChannel(bpy.types.Operator):
                     if l.to_node.type == 'MIX_SHADER' and not any([m for m in l.to_node.inputs[0].links]):
                         for n in l.to_node.inputs[1].links:
                             if n.from_node.type == 'BSDF_TRANSPARENT':
-                                channel.alpha = True
+                                channel.enable_alpha = True
                                 mat.node_tree.links.new(node.outputs[channel.io_index+1], l.to_node.inputs[0])
-                                channel.alpha = False
+                                channel.enable_alpha = False
 
         # Set input default value
         if inp and self.type != 'NORMAL': 
@@ -764,8 +747,8 @@ class YNewTLChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 def swap_channel_io(root_ch, swap_ch, io_index, io_index_swap, inputs, outputs):
-    if root_ch.type == 'RGB' and root_ch.alpha:
-        if swap_ch.type == 'RGB' and swap_ch.alpha:
+    if root_ch.type == 'RGB' and root_ch.enable_alpha:
+        if swap_ch.type == 'RGB' and swap_ch.enable_alpha:
             if io_index > io_index_swap:
                 inputs.move(io_index, io_index_swap)
                 inputs.move(io_index+1, io_index_swap+1)
@@ -788,7 +771,7 @@ def swap_channel_io(root_ch, swap_ch, io_index, io_index_swap, inputs, outputs):
                 outputs.move(io_index+1, io_index_swap)
                 outputs.move(io_index, io_index_swap-1)
     else:
-        if swap_ch.type == 'RGB' and swap_ch.alpha:
+        if swap_ch.type == 'RGB' and swap_ch.enable_alpha:
             if io_index > io_index_swap:
                 inputs.move(io_index, io_index_swap)
                 outputs.move(io_index, io_index_swap)
@@ -954,7 +937,7 @@ class YRemoveTLChannel(bpy.types.Operator):
             ttree.inputs.remove(ttree.inputs[channel.io_index])
             ttree.outputs.remove(ttree.outputs[channel.io_index])
 
-            if channel.type == 'RGB' and channel.alpha:
+            if channel.type == 'RGB' and channel.enable_alpha:
                 ttree.inputs.remove(ttree.inputs[channel.io_index])
                 ttree.outputs.remove(ttree.outputs[channel.io_index])
 
@@ -974,9 +957,6 @@ class YRemoveTLChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'end_linear')
         remove_node(group_tree, channel, 'start_normal_filter')
 
-        remove_node(group_tree, channel, 'start_frame')
-        remove_node(group_tree, channel, 'end_frame')
-
         for mod in channel.modifiers:
             Modifier.delete_modifier_nodes(group_tree, mod)
 
@@ -986,7 +966,7 @@ class YRemoveTLChannel(bpy.types.Operator):
 
         shift = 1
 
-        if channel.type == 'RGB' and channel.alpha:
+        if channel.type == 'RGB' and channel.enable_alpha:
             inputs.remove(inputs[channel.io_index])
             outputs.remove(outputs[channel.io_index])
 
@@ -1215,7 +1195,7 @@ def update_channel_name(self, context):
     group_tree.inputs[self.io_index].name = self.name
     group_tree.outputs[self.io_index].name = self.name
 
-    if self.type == 'RGB' and self.alpha:
+    if self.type == 'RGB' and self.enable_alpha:
         group_tree.inputs[self.io_index+1].name = self.name + ' Alpha'
         group_tree.outputs[self.io_index+1].name = self.name + ' Alpha'
 
@@ -1274,7 +1254,7 @@ def update_preview_mode(self, context):
         if ori_bsdf != preview:
             mat.tl.ori_bsdf = ori_bsdf.name
 
-        if channel.type == 'RGB' and channel.alpha:
+        if channel.type == 'RGB' and channel.enable_alpha:
             from_socket = [link.from_socket for link in preview.inputs[0].links]
             if not from_socket: 
                 tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
@@ -1425,9 +1405,6 @@ def update_channel_colorspace(self, context):
                         rgb2i.inputs['Gamma'].default_value = 1.0
                     else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
-                    #if BLENDER_28_GROUP_INPUT_HACK:
-                    #    match_group_input(rgb2i, 'Gamma')
-
     for tex in tl.textures:
         ch = tex.channels[channel_index]
         tree = get_tree(tex)
@@ -1471,17 +1448,11 @@ def update_channel_colorspace(self, context):
                     rgb2i.inputs['Gamma'].default_value = 1.0
                 else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
-                #if BLENDER_28_GROUP_INPUT_HACK:
-                #    match_group_input(rgb2i, 'Gamma')
-
             if mod.type == 'OVERRIDE_COLOR':
                 oc = tree.nodes.get(mod.oc)
                 if self.colorspace == 'LINEAR':
                     oc.inputs['Gamma'].default_value = 1.0
                 else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
-
-                #if BLENDER_28_GROUP_INPUT_HACK:
-                #    match_group_input(oc, 'Gamma')
 
             if mod.type == 'COLOR_RAMP':
                 color_ramp_linear = tree.nodes.get(mod.color_ramp_linear)
@@ -1497,7 +1468,7 @@ def update_channel_alpha(self, context):
     inputs = group_tree.inputs
     outputs = group_tree.outputs
 
-    if not self.alpha:
+    if not self.enable_alpha:
         # Set material to use opaque
         if hasattr(mat, 'blend_method'): # Blender 2.8
             mat.blend_method = 'OPAQUE'
@@ -1507,11 +1478,6 @@ def update_channel_alpha(self, context):
         node = get_active_texture_layers_node()
         inp = node.inputs[self.io_index+1]
         outp = node.outputs[self.io_index+1]
-
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    # In case blend_found isn't found
-        #    for link in outp.links:
-        #        link.to_socket.default_value = 1.0
 
         # Remember the connections
         if len(inp.links) > 0:
@@ -1525,7 +1491,7 @@ def update_channel_alpha(self, context):
     # Update channel io
     check_all_channel_ios(tl)
 
-    if self.alpha:
+    if self.enable_alpha:
 
         # Set material to use alpha blend
         if hasattr(mat, 'blend_method'): # Blender 2.8
@@ -1590,7 +1556,7 @@ def update_channel_alpha(self, context):
 #        start_linear = group_tree.nodes.get(self.start_linear)
 #        if start_linear: start_linear.inputs[0].default_value = self.val_input
 #
-#    elif self.alpha and self.type == 'RGB':
+#    elif self.enable_alpha and self.type == 'RGB':
 #        group_node.inputs[self.io_index+1].default_value = self.val_input
 #
 #        # Get index
@@ -1632,20 +1598,11 @@ class YRootChannel(bpy.types.PropertyGroup):
                      ('NORMAL', 'Normal', '')),
             default = 'RGB')
 
-    # Blender 2.8 need these
-    #col_input = FloatVectorProperty(name='Color Input', size=4, subtype='COLOR', 
-    #        default=(0.0,0.0,0.0,1.0), min=0.0, max=1.0,
-    #        update=update_col_input)
-
-    #val_input = FloatProperty(default=1.0, min=0.0, max=1.0, subtype='FACTOR',
-    #        update=update_val_input)
-
     # Input output index
     io_index = IntProperty(default=-1)
 
-    # NOTE: enable_alpha sounds better
-    # Alpha
-    alpha = BoolProperty(default=False, update=update_channel_alpha)
+    # Alpha for transparent materials
+    enable_alpha = BoolProperty(default=False, update=update_channel_alpha)
 
     colorspace = EnumProperty(
             name = 'Color Space',
@@ -1661,9 +1618,6 @@ class YRootChannel(bpy.types.PropertyGroup):
     start_linear = StringProperty(default='')
     start_normal_filter = StringProperty(default='')
     end_linear = StringProperty(default='')
-
-    start_frame = StringProperty(default='')
-    end_frame = StringProperty(default='')
 
     # UI related
     expand_content = BoolProperty(default=False)

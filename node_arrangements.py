@@ -81,24 +81,6 @@ def set_node_label(node, label):
     if node and node.label != label:
         node.label = label
 
-#def refresh_tl_channel_frame(ch, nodes):
-#
-#    start_frame = nodes.get(ch.start_frame)
-#    if not start_frame:
-#        start_frame = nodes.new('NodeFrame')
-#        ch.start_frame = start_frame.name
-#
-#    set_node_label(start_frame, ch.name + ' Start')
-#
-#    end_frame = nodes.get(ch.end_frame)
-#    if not end_frame:
-#        end_frame = nodes.new('NodeFrame')
-#        ch.end_frame = end_frame.name
-#
-#    set_node_label(end_frame, ch.name + ' End')
-#
-#    return start_frame, end_frame
-
 def get_frame(tree, name, suffix='', label=''):
 
     frame_name = name + suffix

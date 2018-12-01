@@ -168,8 +168,8 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
 def get_channel_inputs_length(tl, tex=None):
     length = 0
     for ch in tl.channels:
-        #if (ch.type == 'RGB' and ch.alpha) or (tex and tex.type == 'GROUP' and tex.parent_idx != -1):
-        if (ch.type == 'RGB' and ch.alpha) or (tex and tex.parent_idx != -1):
+        #if (ch.type == 'RGB' and ch.enable_alpha) or (tex and tex.type == 'GROUP' and tex.parent_idx != -1):
+        if (ch.type == 'RGB' and ch.enable_alpha) or (tex and tex.parent_idx != -1):
             length += 2
         else: length += 1
 
@@ -227,7 +227,7 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
         start_normal_filter = nodes.get(ch.start_normal_filter)
 
         rgb = start.outputs[ch.io_index]
-        if ch.alpha and ch.type == 'RGB':
+        if ch.enable_alpha and ch.type == 'RGB':
             alpha = start.outputs[ch.io_index+1]
         else: alpha = solid_value.outputs[0]
         
@@ -255,21 +255,21 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
                 if tex.parent_idx == -1:
 
                     create_link(tree, bg_rgb, node.inputs[bg_index])
-                    if ch.type =='RGB' and ch.alpha:
+                    if ch.type =='RGB' and ch.enable_alpha:
                         create_link(tree, bg_alpha, node.inputs[bg_index+1])
                 else:
                     break_input_link(tree, node.inputs[bg_index])
-                    if ch.type =='RGB' and ch.alpha:
+                    if ch.type =='RGB' and ch.enable_alpha:
                         break_input_link(tree, node.inputs[bg_index+1])
 
             if tex.parent_idx != -1: continue
 
             create_link(tree, rgb, node.inputs[ch.io_index])
-            if ch.type =='RGB' and ch.alpha:
+            if ch.type =='RGB' and ch.enable_alpha:
                 create_link(tree, alpha, node.inputs[ch.io_index+1])
 
             rgb = node.outputs[ch.io_index]
-            if ch.type =='RGB' and ch.alpha:
+            if ch.type =='RGB' and ch.enable_alpha:
                 alpha = node.outputs[ch.io_index+1]
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha)
@@ -279,7 +279,7 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
             rgb = end_linear.outputs[0]
 
         create_link(tree, rgb, end.inputs[ch.io_index])
-        if ch.type == 'RGB' and ch.alpha:
+        if ch.type == 'RGB' and ch.enable_alpha:
             create_link(tree, alpha, end.inputs[ch.io_index+1])
 
     # List of last members
@@ -628,7 +628,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         alpha = start_alpha
         bg_alpha = None
 
-        if tex.type == 'GROUP': # and root_ch.alpha:
+        if tex.type == 'GROUP': # and root_ch.enable_alpha:
             rgb = source.outputs[i*2 + input_offset]
             alpha = source.outputs[i*2 + input_offset + 1]
 
@@ -636,7 +636,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             rgb = source.outputs[root_ch.io_index + input_offset]
             alpha = solid_value.outputs[0]
 
-            if root_ch.alpha:
+            if root_ch.enable_alpha:
                 bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
 
         # Color layer uses geometry normal
@@ -659,7 +659,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
         #    prev_rgb = start.outputs[prev_offset]
 
-        #    if root_ch.alpha:
+        #    if root_ch.enable_alpha:
         #        prev_alpha = start.outputs[prev_offset+1]
         #        rgb = source.outputs[prev_offset+2]
         #        alpha = source.outputs[prev_offset+3]
@@ -1083,7 +1083,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 blend_type = ch.normal_blend
             else: blend_type = ch.blend_type
 
-        if blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.alpha)):
+        if blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)):
 
             create_link(tree, prev_rgb, blend.inputs[0])
             create_link(tree, prev_alpha, blend.inputs[1])
@@ -1103,6 +1103,6 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         #else: create_link(tree, prev_rgb, next_rgb)
         create_link(tree, blend.outputs[0], next_rgb)
 
-        if blend_type != 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.alpha)):
+        if blend_type != 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)):
             create_link(tree, prev_alpha, next_alpha)
 

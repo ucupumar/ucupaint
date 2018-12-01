@@ -123,18 +123,12 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         else:
             rgb2i.node_tree = get_node_tree_lib(lib.MOD_RGB2INT)
 
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    duplicate_lib_node_tree(rgb2i)
-
             if channel_type == 'RGB':
                 m.rgb2i_col = (1.0, 0.0, 1.0, 1.0)
         
         if non_color:
             rgb2i.inputs['Gamma'].default_value = 1.0
         else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
-
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    match_group_input(rgb2i, 'Gamma')
 
         frame.label = 'RGB to Intensity'
         rgb2i.parent = frame
@@ -154,15 +148,9 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         else:
             i2rgb.node_tree = get_node_tree_lib(lib.MOD_INT2RGB)
 
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    duplicate_lib_node_tree(i2rgb)
-
         #if non_color:
         #    i2rgb.inputs['Gamma'].default_value = 1.0
         #else: i2rgb.inputs['Gamma'].default_value = 1.0/GAMMA
-
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    match_group_input(i2rgb, 'Gamma')
 
         frame.label = 'Intensity to RGB'
         i2rgb.parent = frame
@@ -182,9 +170,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         else:
             oc.node_tree = get_node_tree_lib(lib.MOD_OVERRIDE_COLOR)
 
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    duplicate_lib_node_tree(oc)
-
             #if channel_type == 'RGB':
             m.oc_col = (1.0, 1.0, 1.0, 1.0)
             #elif channel_type == 'NORMAL':
@@ -193,9 +178,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
         if non_color:
             oc.inputs['Gamma'].default_value = 1.0
         else: oc.inputs['Gamma'].default_value = 1.0/GAMMA
-
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    match_group_input(oc, 'Gamma')
 
         frame.label = 'Override Color'
         oc.parent = frame
@@ -318,9 +300,6 @@ def add_modifier_nodes(m, tree, ref_tree=None):
             if channel_type == 'VALUE':
                 multiplier.node_tree = get_node_tree_lib(lib.MOD_MULTIPLIER_VALUE)
             else: multiplier.node_tree = get_node_tree_lib(lib.MOD_MULTIPLIER)
-
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    duplicate_lib_node_tree(multiplier)
 
         frame.label = 'Multiplier'
         multiplier.parent = frame
@@ -859,9 +838,6 @@ def update_multiplier_val_input(self, context):
             multiplier.inputs[5].default_value = self.multiplier_b_val if self.enable else 1.0
             multiplier.inputs[6].default_value = self.multiplier_a_val if self.enable else 1.0
 
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    match_group_input(multiplier)
-
 def update_brightcon_value(self, context):
     tl = self.id_data.tl
     match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
@@ -890,9 +866,6 @@ def update_rgb2i_col(self, context):
         rgb2i = tree.nodes.get(self.rgb2i)
         rgb2i.inputs['RGB To Intensity Color'].default_value = self.rgb2i_col
 
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    match_group_input(rgb2i, 2)
-
 def update_oc_col(self, context):
     tree = get_mod_tree(self)
 
@@ -917,9 +890,6 @@ def update_oc_col(self, context):
         else: col = self.oc_col
 
         if oc: oc.inputs['Override Color'].default_value = col
-
-        #if BLENDER_28_GROUP_INPUT_HACK:
-        #    match_group_input(oc, 2)
 
 #def update_oc_use_normal_base(self, context):
 #    tree = get_mod_tree(self)

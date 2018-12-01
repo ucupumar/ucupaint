@@ -44,7 +44,7 @@ def check_all_layer_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, h
         inp = tree.inputs.get(name)
         outp = tree.outputs.get(name)
 
-        if (root_ch.type == 'RGB' and root_ch.alpha) or has_parent:#(tex.type == 'GROUP' and has_parent):
+        if (root_ch.type == 'RGB' and root_ch.enable_alpha) or has_parent:#(tex.type == 'GROUP' and has_parent):
 
             if not inp:
                 inp = tree.inputs.new('NodeSocketFloatFactor', name)
@@ -84,7 +84,7 @@ def check_all_layer_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, h
             name = root_ch.name + ' Alpha' + suffix
             inp = tree.inputs.get(name)
 
-            if root_ch.alpha or tex.type == 'GROUP':
+            if root_ch.enable_alpha or tex.type == 'GROUP':
 
                 if not inp:
                     inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], name)
@@ -2015,9 +2015,6 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
             fine_bump.node_tree = get_node_tree_lib(lib.FINE_BUMP)
             fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, ch.bump_distance)
 
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    duplicate_lib_node_tree(fine_bump)
-
     # Remove bump nodes
     if normal_map_type != 'BUMP_MAP':
         remove_node(tree, ch, 'bump')
@@ -2098,7 +2095,7 @@ def check_blend_type_nodes(root_ch, tex, ch):
 
     if root_ch.type == 'RGB':
 
-        if (has_parent or root_ch.alpha) and blend_type == 'MIX':
+        if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
 
             if tex.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
@@ -2220,9 +2217,6 @@ def update_bump_distance(self, context):
         fine_bump = tree.nodes.get(self.fine_bump)
         if fine_bump: 
             fine_bump.inputs[0].default_value = get_fine_bump_distance(tex, self.bump_distance)
-
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    match_group_input(fine_bump, 0)
 
 def set_tex_channel_linear_node(tree, tex, root_ch, ch):
 
@@ -2377,9 +2371,6 @@ def update_texcoord_type(self, context):
 
             if cur_tree.users == 0:
                 bpy.data.node_groups.remove(cur_tree)
-
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    duplicate_lib_node_tree(uv_neighbor)
 
     #if not tl.halt_reconnect:
     reconnect_tex_nodes(self)

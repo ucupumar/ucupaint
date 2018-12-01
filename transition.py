@@ -86,7 +86,7 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
             if replaced: duplicate_lib_node_tree(tao)
 
         elif ch.transition_ao_blend_type == 'MIX' and (
-                tex.parent_idx != -1 or (root_ch.type == 'RGB' and root_ch.alpha)):
+                tex.parent_idx != -1 or (root_ch.type == 'RGB' and root_ch.enable_alpha)):
             tao = replace_new_node(tree, ch, 'tao', 
                     'ShaderNodeGroup', 'Transition AO', lib.TRANSITION_AO_STRAIGHT_OVER)
 
@@ -170,7 +170,7 @@ def set_transition_ramp_nodes(tree, tex, ch):
         if replaced: duplicate_lib_node_tree(tr_ramp)
 
         if (ch.transition_ramp_blend_type == 'MIX' and 
-                ((root_ch.type == 'RGB' and root_ch.alpha) or tex.parent_idx != -1)):
+                ((root_ch.type == 'RGB' and root_ch.enable_alpha) or tex.parent_idx != -1)):
             tr_ramp_blend = replace_new_node(tree, ch, 'tr_ramp_blend', 
                     'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_STRAIGHT_OVER_BLEND)
         else:

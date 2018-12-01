@@ -525,7 +525,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
             if channel.type == 'RGB':
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='INFO')
-                if channel.alpha:
+                if channel.enable_alpha:
                     inp_alpha = node.inputs[channel.io_index+1]
                     #brow = bcol.row(align=True)
                     #brow.label(text='', icon='BLANK1')
@@ -539,7 +539,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                         brow.label(text='', icon='LINKED')
                 else:
                     brow.label(text='Alpha:')
-                brow.prop(channel, 'alpha', text='')
+                brow.prop(channel, 'enable_alpha', text='')
 
                 #if len(channel.modifiers) > 0:
                 #    brow.label(text='', icon='BLANK1')
@@ -1863,7 +1863,7 @@ class NODE_UL_y_tl_channels(bpy.types.UIList):
         else:
             row.label(text='', icon='LINKED')
 
-        if item.type=='RGB' and item.alpha:
+        if item.type=='RGB' and item.enable_alpha:
             if len(inputs[item.io_index+1].links) == 0:
                 #if BLENDER_28_GROUP_INPUT_HACK:
                 #    row.prop(item,'val_input', text='')
