@@ -480,29 +480,29 @@ def rearrange_transition_bump_nodes(tree, ch, loc):
 
     ori_x = loc.x
 
-    #if check_set_node_loc(tree, ch.mb_fine_bump, loc):
+    #if check_set_node_loc(tree, ch.tb_fine_bump, loc):
     #    loc.x += 170.0
 
-    #if check_set_node_loc(tree, ch.mb_curved_bump, loc):
+    #if check_set_node_loc(tree, ch.tb_curved_bump, loc):
     #    loc.x += 170.0
 
-    if check_set_node_loc(tree, ch.mb_bump, loc):
+    if check_set_node_loc(tree, ch.tb_bump, loc):
         loc.x += 170.0
 
-    if check_set_node_loc(tree, ch.mb_inverse, loc):
+    if check_set_node_loc(tree, ch.tb_inverse, loc):
         loc.x += 170.0
 
-    if check_set_node_loc(tree, ch.mb_intensity_multiplier, loc):
+    if check_set_node_loc(tree, ch.tb_intensity_multiplier, loc):
         loc.x += 170.0
 
-    if check_set_node_loc(tree, ch.mb_blend, loc):
+    if check_set_node_loc(tree, ch.tb_blend, loc):
         loc.x += 200.0
 
     save_x = loc.x
     loc.x = ori_x
 
     loc.y -= 300.0
-    if not check_set_node_loc(tree, ch.mb_crease, loc):
+    if not check_set_node_loc(tree, ch.tb_crease, loc):
         loc.y += 300.0
 
     loc.x = save_x
@@ -608,10 +608,10 @@ def rearrange_tex_nodes(tex, tree=None):
     if check_set_node_loc(tree, tex.uv_neighbor, loc):
         loc.y -= 230
 
-    if check_set_node_loc(tree, tex.uv_attr, loc):
+    if check_set_node_loc(tree, tex.uv_map, loc):
         loc.y -= 140
 
-    if check_set_node_loc(tree, tex.solid_alpha, loc):
+    if check_set_node_loc(tree, tex.solid_value, loc):
         loc.y -= 90
 
     if check_set_node_loc(tree, tex.texcoord, loc):
@@ -773,7 +773,7 @@ def rearrange_tex_nodes(tex, tree=None):
                 loc.y -= 230
 
             if ch.enable_transition_ramp:
-                if check_set_node_loc(tree, ch.mr_ramp, loc):
+                if check_set_node_loc(tree, ch.tr_ramp, loc):
                     loc.y -= 230
 
             # Transition bump
@@ -895,7 +895,7 @@ def rearrange_tex_nodes(tex, tree=None):
                 #if not flip_bump and ch.enable and ch.enable_transition_ramp:
                 if ch.enable_transition_ramp and (not ch.transition_ramp_intensity_unlink 
                         or flip_bump or ch.transition_ramp_blend_type != 'MIX'):
-                    if check_set_node_loc(tree, ch.mr_ramp, loc):
+                    if check_set_node_loc(tree, ch.tr_ramp, loc):
                         loc.y -= 230
 
                 if bump_ch == ch:
@@ -921,11 +921,11 @@ def rearrange_tex_nodes(tex, tree=None):
 
         # Transition ramp
         if not bump_ch and ch.enable_transition_ramp:
-            if check_set_node_loc(tree, ch.mr_ramp, loc):
+            if check_set_node_loc(tree, ch.tr_ramp, loc):
                 loc.x += 200
 
         # Leftover ramp node
-        #if not ch.enable_transition_ramp and check_set_node_loc(tree, ch.mr_ramp, loc):
+        #if not ch.enable_transition_ramp and check_set_node_loc(tree, ch.tr_ramp, loc):
         #    loc.x += 270.0
 
         # Transition bump
@@ -965,7 +965,7 @@ def rearrange_tex_nodes(tex, tree=None):
 
         # Flipped transition ramp
         if bump_ch and flip_bump:
-            if check_set_node_loc(tree, ch.mr_ramp_blend, loc):
+            if check_set_node_loc(tree, ch.tr_ramp_blend, loc):
                 loc.x += 200
                 y_offset += 90
 
@@ -974,7 +974,7 @@ def rearrange_tex_nodes(tex, tree=None):
 
         if (ch.enable_transition_ramp and not flip_bump and ch.transition_ramp_intensity_unlink 
                 and ch.transition_ramp_blend_type == 'MIX'):
-            if check_set_node_loc(tree, ch.mr_ramp, loc):
+            if check_set_node_loc(tree, ch.tr_ramp, loc):
                 loc.x += 200
                 #y_offset += 60
 
@@ -988,10 +988,10 @@ def rearrange_tex_nodes(tex, tree=None):
             loc.y -= 130
             y_offset += 130
 
-        if check_set_node_loc(tree, ch.mb_crease_intensity, loc):
+        if check_set_node_loc(tree, ch.tb_crease_intensity, loc):
             loc.x += 200
 
-        if check_set_node_loc(tree, ch.mb_crease_mix, loc):
+        if check_set_node_loc(tree, ch.tb_crease_mix, loc):
             loc.x += 200
             loc.y -= 200
             y_offset += 200
@@ -1048,7 +1048,7 @@ def rearrange_tl_nodes(group_tree):
             loc.y -= 120
 
         if i == num_channels-1:
-            check_set_node_loc(group_tree, tl.solid_alpha, loc)
+            check_set_node_loc(group_tree, tl.solid_value, loc)
             loc.x += 200
 
     #groups = []

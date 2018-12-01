@@ -215,7 +215,7 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
 
     start = nodes.get(tl.start)
     end = nodes.get(tl.end)
-    solid_alpha = nodes.get(tl.solid_alpha)
+    solid_value = nodes.get(tl.solid_value)
 
     num_tex = len(tl.textures)
 
@@ -229,7 +229,7 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
         rgb = start.outputs[ch.io_index]
         if ch.alpha and ch.type == 'RGB':
             alpha = start.outputs[ch.io_index+1]
-        else: alpha = solid_alpha.outputs[0]
+        else: alpha = solid_value.outputs[0]
         
         if start_linear:
             create_link(tree, start.outputs[ch.io_index], start_linear.inputs[0])
@@ -421,13 +421,12 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     source_e = nodes.get(tex.source_e)
     source_w = nodes.get(tex.source_w)
 
-    #uv_map = nodes.get(tex.uv_map)
-    uv_attr = nodes.get(tex.uv_attr)
+    uv_map = nodes.get(tex.uv_map)
     uv_neighbor = nodes.get(tex.uv_neighbor)
 
     mapping = nodes.get(tex.mapping)
     texcoord = nodes.get(tex.texcoord)
-    solid_alpha = nodes.get(tex.solid_alpha)
+    solid_value = nodes.get(tex.solid_value)
     tangent = nodes.get(tex.tangent)
     bitangent = nodes.get(tex.bitangent)
     geometry = nodes.get(tex.geometry)
@@ -435,7 +434,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     # Texcoord
     if tex.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
         if tex.texcoord_type == 'UV':
-            vector = uv_attr.outputs[1]
+            vector = uv_map.outputs[0]
         else: vector = texcoord.outputs[tex.texcoord_type]
 
         if source_group or not mapping:
@@ -466,8 +465,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     # Alpha
     if tex.type == 'IMAGE' or source_group:
         start_alpha = source.outputs[1]
-    else: start_alpha = solid_alpha.outputs[0]
-    start_alpha_1 = solid_alpha.outputs[0]
+    else: start_alpha = solid_value.outputs[0]
+    start_alpha_1 = solid_value.outputs[0]
 
     if source_group and tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
         start_rgb_1 = source_group.outputs[2]
@@ -489,7 +488,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         if tex.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
             mod_group_1 = nodes.get(tex.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
-                    tree, tex, source.outputs[1], solid_alpha.outputs[0], mod_group_1)
+                    tree, tex, source.outputs[1], solid_value.outputs[0], mod_group_1)
 
     # UV neighbor vertex color
     if tex.type in {'VCOL', 'GROUP'} and uv_neighbor:
@@ -635,7 +634,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
         elif tex.type == 'BACKGROUND':
             rgb = source.outputs[root_ch.io_index + input_offset]
-            alpha = solid_alpha.outputs[0]
+            alpha = solid_value.outputs[0]
 
             if root_ch.alpha:
                 bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
@@ -883,14 +882,14 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         # Transition Bump
         if root_ch.type == 'NORMAL' and ch.enable_transition_bump and ch.enable:
 
-            mb_bump = nodes.get(ch.mb_bump)
-            mb_crease = nodes.get(ch.mb_crease)
+            tb_bump = nodes.get(ch.tb_bump)
+            tb_crease = nodes.get(ch.tb_crease)
 
             if ch.transition_bump_type == 'BUMP_MAP':
-                create_link(tree, transition_input, mb_bump.inputs['Height'])
+                create_link(tree, transition_input, tb_bump.inputs['Height'])
 
-                if mb_crease:
-                    create_link(tree, transition_input, mb_crease.inputs['Height'])
+                if tb_crease:
+                    create_link(tree, transition_input, tb_crease.inputs['Height'])
 
             elif ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}:
 
@@ -920,61 +919,61 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     malpha_e = create_link(tree, malpha_e, mul_e.inputs[1])[0]
                     malpha_w = create_link(tree, malpha_w, mul_w.inputs[1])[0]
 
-                if 'Alpha' in mb_bump.inputs:
-                    create_link(tree, transition_input, mb_bump.inputs['Alpha'])
+                if 'Alpha' in tb_bump.inputs:
+                    create_link(tree, transition_input, tb_bump.inputs['Alpha'])
 
-                create_link(tree, malpha_n, mb_bump.inputs['n'])
-                create_link(tree, malpha_s, mb_bump.inputs['s'])
-                create_link(tree, malpha_e, mb_bump.inputs['e'])
-                create_link(tree, malpha_w, mb_bump.inputs['w'])
+                create_link(tree, malpha_n, tb_bump.inputs['n'])
+                create_link(tree, malpha_s, tb_bump.inputs['s'])
+                create_link(tree, malpha_e, tb_bump.inputs['e'])
+                create_link(tree, malpha_w, tb_bump.inputs['w'])
 
-                create_link(tree, tangent.outputs[0], mb_bump.inputs['Tangent'])
-                create_link(tree, bitangent.outputs[0], mb_bump.inputs['Bitangent'])
+                create_link(tree, tangent.outputs[0], tb_bump.inputs['Tangent'])
+                create_link(tree, bitangent.outputs[0], tb_bump.inputs['Bitangent'])
 
-                if mb_crease:
-                    create_link(tree, malpha_n, mb_crease.inputs['n'])
-                    create_link(tree, malpha_s, mb_crease.inputs['s'])
-                    create_link(tree, malpha_e, mb_crease.inputs['e'])
-                    create_link(tree, malpha_w, mb_crease.inputs['w'])
+                if tb_crease:
+                    create_link(tree, malpha_n, tb_crease.inputs['n'])
+                    create_link(tree, malpha_s, tb_crease.inputs['s'])
+                    create_link(tree, malpha_e, tb_crease.inputs['e'])
+                    create_link(tree, malpha_w, tb_crease.inputs['w'])
 
-                    create_link(tree, tangent.outputs[0], mb_crease.inputs['Tangent'])
-                    create_link(tree, bitangent.outputs[0], mb_crease.inputs['Bitangent'])
+                    create_link(tree, tangent.outputs[0], tb_crease.inputs['Tangent'])
+                    create_link(tree, bitangent.outputs[0], tb_crease.inputs['Bitangent'])
 
-            if mb_crease:
-                mb_crease_intensity = nodes.get(ch.mb_crease_intensity)
-                mb_crease_mix = nodes.get(ch.mb_crease_mix)
+            if tb_crease:
+                tb_crease_intensity = nodes.get(ch.tb_crease_intensity)
+                tb_crease_mix = nodes.get(ch.tb_crease_mix)
 
-                remaining_alpha = solid_alpha.outputs[0]
+                remaining_alpha = solid_value.outputs[0]
                 for j, mask in enumerate(tex.masks):
                     if j >= chain:
                         mul_n = nodes.get(mask.channels[i].multiply_n)
                         if mul_n: remaining_alpha = create_link(tree, remaining_alpha, mul_n.inputs[1])[0]
 
-                create_link(tree, remaining_alpha, mb_crease_intensity.inputs[0])
-                create_link(tree, mb_crease_intensity.outputs[0], mb_crease_mix.inputs[0])
+                create_link(tree, remaining_alpha, tb_crease_intensity.inputs[0])
+                create_link(tree, tb_crease_intensity.outputs[0], tb_crease_mix.inputs[0])
 
-                create_link(tree, prev_rgb, mb_crease_mix.inputs[1])
-                create_link(tree, mb_crease.outputs[0], mb_crease_mix.inputs[2])
-                create_link(tree, tangent.outputs[0], mb_crease_mix.inputs['Tangent'])
-                create_link(tree, bitangent.outputs[0], mb_crease_mix.inputs['Bitangent'])
+                create_link(tree, prev_rgb, tb_crease_mix.inputs[1])
+                create_link(tree, tb_crease.outputs[0], tb_crease_mix.inputs[2])
+                create_link(tree, tangent.outputs[0], tb_crease_mix.inputs['Tangent'])
+                create_link(tree, bitangent.outputs[0], tb_crease_mix.inputs['Bitangent'])
 
-                prev_rgb = mb_crease_mix.outputs[0]
+                prev_rgb = tb_crease_mix.outputs[0]
 
-            mb_inverse = nodes.get(ch.mb_inverse)
-            mb_intensity_multiplier = nodes.get(ch.mb_intensity_multiplier)
-            mb_blend = nodes.get(ch.mb_blend)
+            tb_inverse = nodes.get(ch.tb_inverse)
+            tb_intensity_multiplier = nodes.get(ch.tb_intensity_multiplier)
+            tb_blend = nodes.get(ch.tb_blend)
 
-            create_link(tree, transition_input, mb_inverse.inputs[1])
-            if mb_intensity_multiplier:
-                create_link(tree, mb_inverse.outputs[0], mb_intensity_multiplier.inputs[0])
-                create_link(tree, mb_intensity_multiplier.outputs[0], mb_blend.inputs[0])
+            create_link(tree, transition_input, tb_inverse.inputs[1])
+            if tb_intensity_multiplier:
+                create_link(tree, tb_inverse.outputs[0], tb_intensity_multiplier.inputs[0])
+                create_link(tree, tb_intensity_multiplier.outputs[0], tb_blend.inputs[0])
             else:
-                create_link(tree, mb_inverse.outputs[0], mb_blend.inputs[0])
+                create_link(tree, tb_inverse.outputs[0], tb_blend.inputs[0])
 
-            create_link(tree, rgb, mb_blend.inputs[1])
-            create_link(tree, mb_bump.outputs[0], mb_blend.inputs[2])
+            create_link(tree, rgb, tb_blend.inputs[1])
+            create_link(tree, tb_bump.outputs[0], tb_blend.inputs[2])
 
-            rgb = mb_blend.outputs[0]
+            rgb = tb_blend.outputs[0]
 
         # Transition AO
         if root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao: # and tex.type != 'BACKGROUND':
@@ -985,7 +984,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 rgb = tao.outputs[0]
 
                 # Get bump intensity multiplier of transition bump
-                trans_im = nodes.get(trans_bump_ch.mb_intensity_multiplier)
+                trans_im = nodes.get(trans_bump_ch.tb_intensity_multiplier)
                 create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
 
                 if 'Bg Alpha' in tao.inputs and bg_alpha:
@@ -1000,7 +999,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
 
                 # Dealing with chain
-                remaining_alpha = solid_alpha.outputs[0]
+                remaining_alpha = solid_value.outputs[0]
                 for j, mask in enumerate(tex.masks):
                     if j >= chain:
                         mul_n = nodes.get(mask.channels[i].multiply_n)
@@ -1019,19 +1018,19 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         # Transition Ramp
         if root_ch.type in {'RGB', 'VALUE'} and ch.enable_transition_ramp:
 
-            mr_ramp = nodes.get(ch.mr_ramp)
-            mr_ramp_blend = nodes.get(ch.mr_ramp_blend)
+            tr_ramp = nodes.get(ch.tr_ramp)
+            tr_ramp_blend = nodes.get(ch.tr_ramp_blend)
 
-            create_link(tree, transition_input, mr_ramp.inputs['Alpha'])
+            create_link(tree, transition_input, tr_ramp.inputs['Alpha'])
 
             if trans_bump_flip:
 
-                create_link(tree, prev_rgb, mr_ramp_blend.inputs['Input RGB'])
-                create_link(tree, intensity_multiplier.outputs[0], mr_ramp_blend.inputs['Multiplied Alpha'])
+                create_link(tree, prev_rgb, tr_ramp_blend.inputs['Input RGB'])
+                create_link(tree, intensity_multiplier.outputs[0], tr_ramp_blend.inputs['Multiplied Alpha'])
 
-                create_link(tree, mr_ramp.outputs[0], mr_ramp_blend.inputs['Ramp RGB'])
+                create_link(tree, tr_ramp.outputs[0], tr_ramp_blend.inputs['Ramp RGB'])
 
-                trans_ramp_input = mr_ramp.outputs['Ramp Alpha']
+                trans_ramp_input = tr_ramp.outputs['Ramp Alpha']
 
                 for j, mask in enumerate(tex.masks):
                     if j >= chain:
@@ -1039,24 +1038,24 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                         if mul_n:
                             trans_ramp_input = create_link(tree, trans_ramp_input, mul_n.inputs[1])[0]
 
-                create_link(tree, trans_ramp_input, mr_ramp_blend.inputs['Ramp Alpha'])
-                prev_rgb = mr_ramp_blend.outputs[0]
+                create_link(tree, trans_ramp_input, tr_ramp_blend.inputs['Ramp Alpha'])
+                prev_rgb = tr_ramp_blend.outputs[0]
 
-                if 'Input Alpha' in mr_ramp_blend.inputs:
-                    create_link(tree, prev_alpha, mr_ramp_blend.inputs['Input Alpha'])
-                    prev_alpha = mr_ramp_blend.outputs['Input Alpha']
+                if 'Input Alpha' in tr_ramp_blend.inputs:
+                    create_link(tree, prev_alpha, tr_ramp_blend.inputs['Input Alpha'])
+                    prev_alpha = tr_ramp_blend.outputs['Input Alpha']
 
-                break_input_link(tree, mr_ramp_blend.inputs['Intensity'])
+                break_input_link(tree, tr_ramp_blend.inputs['Intensity'])
 
             else:
-                create_link(tree, rgb, mr_ramp.inputs['RGB'])
-                rgb = mr_ramp.outputs[0]
+                create_link(tree, rgb, tr_ramp.inputs['RGB'])
+                rgb = tr_ramp.outputs[0]
 
                 if ch.transition_ramp_intensity_unlink and ch.transition_ramp_blend_type == 'MIX':
-                    create_link(tree, alpha_before_intensity, mr_ramp.inputs['Remaining Alpha'])
-                    create_link(tree, alpha, mr_ramp.inputs['Channel Intensity'])
+                    create_link(tree, alpha_before_intensity, tr_ramp.inputs['Remaining Alpha'])
+                    create_link(tree, alpha, tr_ramp.inputs['Channel Intensity'])
 
-                    alpha = mr_ramp.outputs[1]
+                    alpha = tr_ramp.outputs[1]
 
         # Normal flip check
         normal_flip = nodes.get(ch.normal_flip)

@@ -220,9 +220,9 @@ def create_new_group_tree(mat):
     start = new_node(group_tree, group_tree.tl, 'start', 'NodeGroupInput', 'Start')
     end = new_node(group_tree, group_tree.tl, 'end', 'NodeGroupOutput', 'End')
 
-    # Create solid alpha node
-    solid_alpha = new_node(group_tree, group_tree.tl, 'solid_alpha', 'ShaderNodeValue', 'Solid Value')
-    solid_alpha.outputs[0].default_value = 1.0
+    # Create solid value node
+    solid_value = new_node(group_tree, group_tree.tl, 'solid_value', 'ShaderNodeValue', 'Solid Value')
+    solid_value.outputs[0].default_value = 1.0
 
     # Create info nodes
     create_info_nodes(group_tree)
@@ -1450,11 +1450,11 @@ def update_channel_colorspace(self, context):
         #        ch.tex_input = 'CUSTOM'
 
         if ch.enable_transition_ramp:
-            mr_ramp = tree.nodes.get(ch.mr_ramp)
-            if mr_ramp:
+            tr_ramp = tree.nodes.get(ch.tr_ramp)
+            if tr_ramp:
                 if self.colorspace == 'SRGB':
-                    mr_ramp.inputs['Gamma'].default_value = 1.0/GAMMA
-                else: mr_ramp.inputs['Gamma'].default_value = 1.0
+                    tr_ramp.inputs['Gamma'].default_value = 1.0/GAMMA
+                else: tr_ramp.inputs['Gamma'].default_value = 1.0
 
         if ch.enable_transition_ao:
             tao = tree.nodes.get(ch.tao)
@@ -1686,20 +1686,16 @@ class YTextureLayersRoot(bpy.types.PropertyGroup):
     textures = CollectionProperty(type=Layer.YLayer)
     active_texture_index = IntProperty(default=0, update=update_texture_index)
 
-    # Solid alpha for modifier alpha input
-    solid_alpha = StringProperty(default='')
+    # Solid value for modifier alpha input
+    solid_value = StringProperty(default='')
 
     # Node names
     start = StringProperty(default='')
-    #start_frame = StringProperty(default='')
 
     end = StringProperty(default='')
-    #end_entry_frame = StringProperty(default='')
-    #end_linear_frame = StringProperty(default='')
 
     # Temp channels to remember last channel selected when adding new texture
     #temp_channels = CollectionProperty(type=YChannelUI)
-
     preview_mode = BoolProperty(default=False, update=update_preview_mode)
 
     # HACK: Refresh tree to remove glitchy normal

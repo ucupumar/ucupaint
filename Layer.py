@@ -126,8 +126,8 @@ def check_all_layer_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, h
         mute = not tex.enable or not ch.enable
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
         if ch.enable_transition_ramp:
-            #mr_intensity = tree.nodes.get(ch.mr_intensity)
-            #if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.transition_ramp_intensity_value
+            #tr_intensity = tree.nodes.get(ch.tr_intensity)
+            #if tr_intensity: tr_intensity.inputs[1].default_value = 0.0 if mute else ch.transition_ramp_intensity_value
             transition.check_transition_ramp_nodes(tree, tex, ch)
 
         if ch.enable_transition_ao:
@@ -318,21 +318,17 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
         col = (solid_color[0], solid_color[1], solid_color[2], 1.0)
         source.outputs[0].default_value = col
 
-    # Solid alpha can be useful for many things
-    solid_alpha = new_node(tree, tex, 'solid_alpha', 'ShaderNodeValue', 'Solid Alpha')
-    solid_alpha.outputs[0].default_value = 1.0
+    # Solid value can be useful for many things
+    solid_value = new_node(tree, tex, 'solid_value', 'ShaderNodeValue', 'Solid Value')
+    solid_value.outputs[0].default_value = 1.0
 
     # Add geometry and texcoord node
     geometry = new_node(tree, tex, 'geometry', 'ShaderNodeNewGeometry', 'Source Geometry')
     texcoord = new_node(tree, tex, 'texcoord', 'ShaderNodeTexCoord', 'Source TexCoord')
 
     # Add uv map node
-    #uv_map = new_node(tree, tex, 'uv_map', 'ShaderNodeUVMap', 'Source UV Map')
-    #uv_map.uv_map = uv_name
-
-    # Add uv attribute node
-    uv_attr = new_node(tree, tex, 'uv_attr', 'ShaderNodeAttribute', 'Source UV Attribute')
-    uv_attr.attribute_name = uv_name
+    uv_map = new_node(tree, tex, 'uv_map', 'ShaderNodeUVMap', 'Source UV Map')
+    uv_map.uv_map = uv_name
 
     # Add tangent and bitangent node
     #tangent = new_node(tree, tex, 'tangent', 'ShaderNodeTangent', 'Source Tangent')
@@ -1955,8 +1951,8 @@ def update_channel_enable(self, context):
     #blend.mute = not tex.enable or not ch.enable
 
     #if ch.enable_transition_ramp:
-    #    mr_blend = tree.nodes.get(ch.mr_blend)
-    #    if mr_blend: mr_blend.mute = blend.mute
+    #    tr_blend = tree.nodes.get(ch.tr_blend)
+    #    if tr_blend: tr_blend.mute = blend.mute
 
     if ch.enable_transition_bump:
         transition.check_transition_bump_nodes(tex, tree, ch, ch_index)
@@ -2161,8 +2157,8 @@ def check_blend_type_nodes(root_ch, tex, ch):
     #intensity = nodes.get(ch.intensity)
     #if intensity: intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
     #if ch.enable_transition_ramp:
-    #    mr_intensity = nodes.get(ch.mr_intensity)
-    #    if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.transition_ramp_intensity_value
+    #    tr_intensity = nodes.get(ch.tr_intensity)
+    #    if tr_intensity: tr_intensity.inputs[1].default_value = 0.0 if mute else ch.transition_ramp_intensity_value
 
     #if tex.enable and ch.enable:
     #    blend.mute = False
@@ -2313,13 +2309,13 @@ def update_uv_name(self, context):
 
     nodes = tree.nodes
 
-    uv_attr = nodes.get(tex.uv_attr)
-    if uv_attr: 
+    uv_map = nodes.get(tex.uv_map)
+    if uv_map: 
         # Cannot use temp uv as standard uv
         if tex.uv_name == TEMP_UV:
-            tex.uv_name = uv_attr.attribute_name
+            tex.uv_name = uv_map.uv_map
 
-        uv_attr.attribute_name = tex.uv_name
+        uv_map.uv_map = tex.uv_name
 
     tangent = nodes.get(tex.tangent)
     if tangent: tangent.uv_map = tex.uv_name
@@ -2408,8 +2404,8 @@ def update_texture_enable(self, context):
             tao = tree.nodes.get(ch.tao)
             if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
         if ch.enable_transition_bump and ch.transition_bump_crease:
-            mb_crease_intensity = tree.nodes.get(ch.mb_crease_intensity)
-            mb_crease_intensity.inputs[1].default_value = 0.0 if mute else 1.0
+            tb_crease_intensity = tree.nodes.get(ch.tb_crease_intensity)
+            tb_crease_intensity.inputs[1].default_value = 0.0 if mute else 1.0
 
     context.window_manager.tltimer.time = str(time.time())
 
@@ -2438,9 +2434,9 @@ def update_channel_intensity_value(self, context):
         if tao: tao.inputs['Intensity'].default_value = transition.get_transition_ao_intensity(ch)
 
     if ch.enable_transition_bump and ch.transition_bump_crease:
-        mb_crease_intensity = tree.nodes.get(ch.mb_crease_intensity)
-        if mb_crease_intensity:
-            mb_crease_intensity.inputs[1].default_value = ch.intensity_value
+        tb_crease_intensity = tree.nodes.get(ch.tb_crease_intensity)
+        if tb_crease_intensity:
+            tb_crease_intensity.inputs[1].default_value = ch.intensity_value
 
 def update_texture_name(self, context):
     tl = self.id_data.tl
@@ -2618,14 +2614,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
             update=transition.update_transition_bump_fac)
 
-    mb_bump = StringProperty(default='')
-    mb_inverse = StringProperty(default='')
-    mb_intensity_multiplier = StringProperty(default='')
-    mb_blend = StringProperty(default='')
+    tb_bump = StringProperty(default='')
+    tb_inverse = StringProperty(default='')
+    tb_intensity_multiplier = StringProperty(default='')
+    tb_blend = StringProperty(default='')
 
-    mb_crease = StringProperty(default='')
-    mb_crease_intensity = StringProperty(default='')
-    mb_crease_mix = StringProperty(default='')
+    tb_crease = StringProperty(default='')
+    tb_crease_intensity = StringProperty(default='')
+    tb_crease_mix = StringProperty(default='')
 
     # Transition ramp related
     enable_transition_ramp = BoolProperty(name='Enable Transition Ramp', description='Enable alpha transition ramp', 
@@ -2654,8 +2650,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update=transition.update_enable_transition_ramp)
 
     # Transition ramp nodes
-    mr_ramp = StringProperty(default='')
-    mr_ramp_blend = StringProperty(default='')
+    tr_ramp = StringProperty(default='')
+    tr_ramp_blend = StringProperty(default='')
 
     # To save ramp
     cache_ramp = StringProperty(default='')
@@ -2805,17 +2801,16 @@ class YLayer(bpy.types.PropertyGroup):
 
     # UV
     uv_neighbor = StringProperty(default='')
-    #uv_map = StringProperty(default='')
-    uv_attr = StringProperty(default='')
+    uv_map = StringProperty(default='')
     mapping = StringProperty(default='')
 
     need_temp_uv_refresh = BoolProperty(default=False)
 
     # Other Vectors
-    solid_alpha = StringProperty(default='')
+    solid_value = StringProperty(default='')
     texcoord = StringProperty(default='')
     tangent = StringProperty(default='')
-    hacky_tangent = StringProperty(default='')
+    #hacky_tangent = StringProperty(default='')
     bitangent = StringProperty(default='')
     geometry = StringProperty(default='')
 
