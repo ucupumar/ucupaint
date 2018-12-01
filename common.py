@@ -5,8 +5,8 @@ from bpy.app.handlers import persistent
 
 BLENDER_28_GROUP_INPUT_HACK = False
 
-TEXGROUP_PREFIX = '~TL Tex '
-MASKGROUP_PREFIX = '~TL Mask '
+TEXGROUP_PREFIX = '~yP Tex '
+MASKGROUP_PREFIX = '~yP Mask '
 ADDON_NAME = 'yTexLayers'
 
 SOURCE_TREE_START = '__source_start_'

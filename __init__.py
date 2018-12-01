@@ -100,7 +100,7 @@
 # - Use of cineon images will cause crash (??)
 
 bl_info = {
-    "name": "yTexLayers",
+    "name": "yPaint",
     "author": "Yusuf Umar",
     "version": (0, 1, 0),
     "blender": (2, 79, 0),

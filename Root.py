@@ -7,7 +7,7 @@ from .node_arrangements import *
 from .node_connections import *
 from . import lib, Modifier, Layer, Mask, transition
 
-TL_GROUP_SUFFIX = ' TexLayers'
+TL_GROUP_SUFFIX = ' yPaint'
 
 channel_socket_types = {
     'RGB' : 'RGBA',
@@ -259,8 +259,8 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
 
 class YQuickSetupTLNode(bpy.types.Operator):
     bl_idname = "node.y_quick_setup_texture_layers_node"
-    bl_label = "Quick Texture Layers Node Setup"
-    bl_description = "Quick Texture Layers Node Setup"
+    bl_label = "Quick yPaint Node Setup"
+    bl_description = "Quick yPaint Node Setup"
     bl_options = {'REGISTER', 'UNDO'}
 
     type = EnumProperty(

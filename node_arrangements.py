@@ -239,8 +239,8 @@ def create_info_nodes(group_tree, tex=None):
 
     info = nodes.new('NodeFrame')
     if tex:
-        info.label = 'Part of yTexLayers addon version ' + tl.version
-    else: info.label = 'Created using yTexLayers addon version ' + tl.version
+        info.label = 'Part of yPaint addon version ' + tl.version
+    else: info.label = 'Created using yPaint addon version ' + tl.version
     info.use_custom_color = True
     info.color = (1.0, 1.0, 1.0)
     if tex:

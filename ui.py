@@ -1677,7 +1677,7 @@ def main_draw(self, context):
     if not node:
         #layout.alert = True
         #layout.label(text="No active texture layers node!", icon='NODETREE')
-        layout.label(text="No active texture layers node!", icon='ERROR')
+        layout.label(text="No active yPaint node!", icon='ERROR')
         #layout.operator("node.y_quick_setup_texture_layers_node", icon='ERROR')
         layout.operator("node.y_quick_setup_texture_layers_node", icon='NODETREE')
         #layout.alert = False
@@ -1788,9 +1788,9 @@ def main_draw(self, context):
 
 class NODE_PT_y_texture_layers(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
-    bl_label = "yTexLayers " + get_current_version_str()
+    bl_label = "yPaint " + get_current_version_str()
     bl_region_type = 'TOOLS'
-    bl_category = "yTexLayers"
+    bl_category = "yPaint"
 
     @classmethod
     def poll(cls, context):
@@ -1802,9 +1802,9 @@ class NODE_PT_y_texture_layers(bpy.types.Panel):
 
 class VIEW3D_PT_y_texture_layers_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
-    bl_label = "yTexLayers " + get_current_version_str()
+    bl_label = "yPaint " + get_current_version_str()
     bl_region_type = 'TOOLS'
-    bl_category = "yTexLayers"
+    bl_category = "yPaint"
 
     @classmethod
     def poll(cls, context):
@@ -1814,7 +1814,7 @@ class VIEW3D_PT_y_texture_layers_tools(bpy.types.Panel):
         main_draw(self, context)
 
 class VIEW3D_PT_y_texture_layers_ui(bpy.types.Panel):
-    bl_label = "yTexLayers " + get_current_version_str()
+    bl_label = "yPaint " + get_current_version_str()
     bl_space_type = 'VIEW_3D'
     #bl_context = "object"
     bl_region_type = 'UI'
@@ -2758,7 +2758,7 @@ def add_new_tl_node_menu(self, context):
     l = self.layout
     l.operator_context = 'INVOKE_REGION_WIN'
     l.separator()
-    l.operator('node.y_add_new_texture_layers_node', text='Texture Layers', icon='NODETREE')
+    l.operator('node.y_add_new_texture_layers_node', text='yPaint', icon='NODETREE')
 
 def copy_ui_settings(source, dest):
     for attr in dir(source):
