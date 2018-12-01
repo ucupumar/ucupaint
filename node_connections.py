@@ -504,10 +504,10 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
     fine_bump_ch = False
     trans_bump_ch = get_transition_bump_channel(tex)
     if trans_bump_ch:
-        trans_bump_flip = trans_bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'
-        #trans_bump_flip = trans_bump_ch.mask_bump_flip
-        chain = min(len(tex.masks), trans_bump_ch.mask_bump_chain)
-        fine_bump_ch = trans_bump_ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
+        trans_bump_flip = trans_bump_ch.transition_bump_flip or tex.type == 'BACKGROUND'
+        #trans_bump_flip = trans_bump_ch.transition_bump_flip
+        chain = min(len(tex.masks), trans_bump_ch.transition_bump_chain)
+        fine_bump_ch = trans_bump_ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
 
     # Layer Masks
     for i, mask in enumerate(tex.masks):
@@ -585,8 +585,8 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             create_link(tree, mask_val, mask_multiply.inputs[2])
 
             # Direction multiplies
-            #if (root_ch.type == 'NORMAL' and ch.enable_mask_bump 
-            #        and ch.enable and ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
+            #if (root_ch.type == 'NORMAL' and ch.enable_transition_bump 
+            #        and ch.enable and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
             #if ch == trans_bump_ch and fine_bump_ch and i < chain:
 
             mul_n = nodes.get(c.multiply_n)
@@ -727,7 +727,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 alpha_e = start_alpha
                 alpha_w = start_alpha
 
-            elif ch.enable_mask_bump and tex.type == 'GROUP' and uv_neighbor:
+            elif ch.enable_transition_bump and tex.type == 'GROUP' and uv_neighbor:
                 create_link(tree, alpha, uv_neighbor.inputs[0])
 
                 rgb_n = rgb_before_mod
@@ -793,7 +793,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
 
                         create_link(tree, rgb, bump_base.inputs['Color2'])
 
-                        chain_local = min(len(tex.masks), ch.mask_bump_chain)
+                        chain_local = min(len(tex.masks), ch.transition_bump_chain)
 
                         if not trans_bump_ch and len(tex.masks) > 0 and chain_local > 0:
                             mul = nodes.get(tex.masks[chain_local-1].channels[i].multiply).outputs[0]
@@ -820,7 +820,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                         malpha_w = alpha_w
 
                         if not trans_bump_ch:
-                            chain_local = min(len(tex.masks), ch.mask_bump_chain)
+                            chain_local = min(len(tex.masks), ch.transition_bump_chain)
                             for j, mask in enumerate(tex.masks):
                                 if j >= chain_local:
                                     break
@@ -881,18 +881,18 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
         alpha = create_link(tree, alpha, intensity.inputs[0])[0]
 
         # Transition Bump
-        if root_ch.type == 'NORMAL' and ch.enable_mask_bump and ch.enable:
+        if root_ch.type == 'NORMAL' and ch.enable_transition_bump and ch.enable:
 
+            mb_bump = nodes.get(ch.mb_bump)
             mb_crease = nodes.get(ch.mb_crease)
 
-            if ch.mask_bump_type == 'BUMP_MAP':
-                mb_bump = nodes.get(ch.mb_bump)
+            if ch.transition_bump_type == 'BUMP_MAP':
                 create_link(tree, transition_input, mb_bump.inputs['Height'])
 
                 if mb_crease:
                     create_link(tree, transition_input, mb_crease.inputs['Height'])
 
-            elif ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}:
+            elif ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}:
 
                 #if tex.type == 'GROUP' and uv_neighbor:
                 #    malpha_n = uv_neighbor.outputs[0]
@@ -920,10 +920,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                     malpha_e = create_link(tree, malpha_e, mul_e.inputs[1])[0]
                     malpha_w = create_link(tree, malpha_w, mul_w.inputs[1])[0]
 
-                if ch.mask_bump_type == 'FINE_BUMP_MAP':
-                    mb_bump = nodes.get(ch.mb_fine_bump)
-                else: 
-                    mb_bump = nodes.get(ch.mb_curved_bump)
+                if 'Alpha' in mb_bump.inputs:
                     create_link(tree, transition_input, mb_bump.inputs['Alpha'])
 
                 create_link(tree, malpha_n, mb_bump.inputs['n'])
@@ -1020,7 +1017,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
             create_link(tree, transition_input, tao.inputs['Alpha'])
 
         # Transition Ramp
-        if root_ch.type in {'RGB', 'VALUE'} and ch.enable_mask_ramp:
+        if root_ch.type in {'RGB', 'VALUE'} and ch.enable_transition_ramp:
 
             mr_ramp = nodes.get(ch.mr_ramp)
             mr_ramp_blend = nodes.get(ch.mr_ramp_blend)
@@ -1055,7 +1052,7 @@ def reconnect_tex_nodes(tex, ch_idx=-1):
                 create_link(tree, rgb, mr_ramp.inputs['RGB'])
                 rgb = mr_ramp.outputs[0]
 
-                if ch.transition_ramp_intensity_unlink and ch.mask_ramp_blend_type == 'MIX':
+                if ch.transition_ramp_intensity_unlink and ch.transition_ramp_blend_type == 'MIX':
                     create_link(tree, alpha_before_intensity, mr_ramp.inputs['Remaining Alpha'])
                     create_link(tree, alpha, mr_ramp.inputs['Channel Intensity'])
 

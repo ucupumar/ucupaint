@@ -18,50 +18,6 @@ def get_transition_fine_bump_distance(distance, is_curved=False):
     #return -1.0 * distance * scale
     return distance * scale
 
-def remove_transition_ramp_flip_nodes(tree, ch):
-    remove_node(tree, ch, 'mr_alpha1')
-    remove_node(tree, ch, 'mr_flip_hack')
-    remove_node(tree, ch, 'mr_flip_blend')
-
-def check_transition_ramp_flip_nodes(tex, tree, ch, bump_ch=None, rearrange=False):
-
-    if bump_ch and (bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'):
-    #if bump_ch and bump_ch.mask_bump_flip:
-        mr_flip_hack = tree.nodes.get(ch.mr_flip_hack)
-        if not mr_flip_hack:
-            mr_flip_hack = new_node(tree, ch, 'mr_flip_hack', 'ShaderNodeMath', 
-                    'Transition Ramp Flip Hack')
-            mr_flip_hack.operation = 'POWER'
-            rearrange = True
-
-        # Flip bump is better be muted if intensity is maximum
-        if ch.intensity_value < 1.0:
-            mr_flip_hack.inputs[1].default_value = 1
-        else: mr_flip_hack.inputs[1].default_value = 20
-
-        mr_flip_blend = tree.nodes.get(ch.mr_flip_blend)
-        if not mr_flip_blend:
-            mr_flip_blend = new_node(tree, ch, 'mr_flip_blend', 'ShaderNodeMixRGB', 
-                    'Transition Ramp Flip Blend')
-            rearrange = True
-
-        remove_node(tree, ch, 'mr_inverse')
-
-    else:
-        # Delete transition ramp flip nodes
-        remove_transition_ramp_flip_nodes(tree, ch)
-
-        # Add inverse node
-        mr_inverse = tree.nodes.get(ch.mr_inverse)
-        if not mr_inverse:
-            mr_inverse = new_node(tree, ch, 'mr_inverse', 'ShaderNodeMath', 'Transition Ramp Inverse')
-            mr_inverse.operation = 'SUBTRACT'
-            mr_inverse.inputs[0].default_value = 1.0
-            #mr_inverse.use_clamp = True
-            rearrange = True
-
-    return rearrange
-
 def check_transition_bump_influences_to_other_channels(tex, tree=None, target_ch = None):
 
     if not tree: tree = get_tree(tex)
@@ -93,16 +49,13 @@ def check_transition_bump_influences_to_other_channels(tex, tree=None, target_ch
             im = tree.nodes.get(c.intensity_multiplier)
             if not im:
                 im = lib.new_intensity_multiplier_node(tree, c, 'intensity_multiplier', 
-                        1.0 + (bump_ch.mask_bump_value - 1.0) * c.transition_bump_fac)
+                        1.0 + (bump_ch.transition_bump_value - 1.0) * c.transition_bump_fac)
 
             # Invert other intensity multipler if mask bump flip active
-            if bump_ch.mask_bump_flip or tex.type == 'BACKGROUND':
-            #if bump_ch.mask_bump_flip:
+            if bump_ch.transition_bump_flip or tex.type == 'BACKGROUND':
+            #if bump_ch.transition_bump_flip:
                 im.inputs['Invert'].default_value = 1.0
             else: im.inputs['Invert'].default_value = 0.0
-
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    match_group_input(im, 'Invert')
 
 def get_transition_ao_intensity(ch):
     return ch.transition_ao_intensity * ch.intensity_value if not ch.transition_ao_intensity_unlink else ch.transition_ao_intensity
@@ -119,14 +72,14 @@ def check_transition_ao_nodes(tree, tex, ch, bump_ch=None):
         root_ch = tl.channels[int(match.group(2))]
 
         if tex.type == 'BACKGROUND' and ch.transition_ao_blend_type == 'MIX':
-        #if tex.type == 'BACKGROUND' and bump_ch.mask_bump_flip and ch.transition_ao_blend_type == 'MIX':
+        #if tex.type == 'BACKGROUND' and bump_ch.transition_bump_flip and ch.transition_ao_blend_type == 'MIX':
 
             tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
                     'Transition AO', lib.TRANSITION_AO_BG_MIX, return_status=True)
             if replaced: duplicate_lib_node_tree(tao)
 
-        elif tex.type == 'BACKGROUND' or bump_ch.mask_bump_flip:
-        #elif bump_ch.mask_bump_flip:
+        elif tex.type == 'BACKGROUND' or bump_ch.transition_bump_flip:
+        #elif bump_ch.transition_bump_flip:
 
             tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
                     'Transition AO', lib.TRANSITION_AO_FLIP, return_status=True)
@@ -190,13 +143,13 @@ def set_ramp_intensity_value(tree, tex, ch):
     mr_ramp_blend = tree.nodes.get(ch.mr_ramp_blend)
     if mr_ramp_blend:
         if ch.transition_ramp_intensity_unlink:
-            intensity_value = ch.mask_ramp_intensity_value
-        else: intensity_value = ch.mask_ramp_intensity_value * ch.intensity_value
+            intensity_value = ch.transition_ramp_intensity_value
+        else: intensity_value = ch.transition_ramp_intensity_value * ch.intensity_value
         mr_ramp_blend.inputs['Intensity'].default_value = 0.0 if mute else intensity_value
     
     mr_ramp = tree.nodes.get(ch.mr_ramp)
     if mr_ramp and 'Intensity' in mr_ramp.inputs:
-        mr_ramp.inputs['Intensity'].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+        mr_ramp.inputs['Intensity'].default_value = 0.0 if mute else ch.transition_ramp_intensity_value
 
 def set_transition_ramp_nodes(tree, tex, ch):
 
@@ -209,14 +162,14 @@ def set_transition_ramp_nodes(tree, tex, ch):
     # Save previous ramp to cache
     save_ramp(tree, ch)
 
-    if bump_ch and (bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'):
-    #if bump_ch and bump_ch.mask_bump_flip:
+    if bump_ch and (bump_ch.transition_bump_flip or tex.type == 'BACKGROUND'):
+    #if bump_ch and bump_ch.transition_bump_flip:
 
         mr_ramp, replaced = replace_new_node(tree, ch, 'mr_ramp', 
                 'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_FLIP, return_status=True)
         if replaced: duplicate_lib_node_tree(mr_ramp)
 
-        if (ch.mask_ramp_blend_type == 'MIX' and 
+        if (ch.transition_ramp_blend_type == 'MIX' and 
                 ((root_ch.type == 'RGB' and root_ch.alpha) or tex.parent_idx != -1)):
             mr_ramp_blend = replace_new_node(tree, ch, 'mr_ramp_blend', 
                     'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_STRAIGHT_OVER_BLEND)
@@ -227,11 +180,11 @@ def set_transition_ramp_nodes(tree, tex, ch):
 
             # Get blend node
             ramp_blend = mr_ramp_blend.node_tree.nodes.get('_BLEND')
-            ramp_blend.blend_type = ch.mask_ramp_blend_type
+            ramp_blend.blend_type = ch.transition_ramp_blend_type
 
     else:
 
-        if ch.transition_ramp_intensity_unlink and ch.mask_ramp_blend_type == 'MIX':
+        if ch.transition_ramp_intensity_unlink and ch.transition_ramp_blend_type == 'MIX':
             mr_ramp, replaced = replace_new_node(tree, ch, 'mr_ramp', 
                     'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_STRAIGHT_OVER, return_status=True)
         else:
@@ -242,7 +195,7 @@ def set_transition_ramp_nodes(tree, tex, ch):
 
         # Get blend node
         ramp_blend = mr_ramp.node_tree.nodes.get('_BLEND')
-        if ramp_blend: ramp_blend.blend_type = ch.mask_ramp_blend_type
+        if ramp_blend: ramp_blend.blend_type = ch.transition_ramp_blend_type
 
         remove_node(tree, ch, 'mr_ramp_blend')
 
@@ -253,7 +206,7 @@ def set_transition_ramp_nodes(tree, tex, ch):
     load_ramp(tree, ch)
 
     if bump_ch:
-        multiplier_val = 1.0 + (bump_ch.mask_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
+        multiplier_val = 1.0 + (bump_ch.transition_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
     else: multiplier_val = 1.0
 
     mr_ramp.inputs['Multiplier'].default_value = multiplier_val
@@ -264,7 +217,7 @@ def set_transition_ramp_nodes(tree, tex, ch):
 
 def check_transition_ramp_nodes(tree, tex, ch):
 
-    if ch.enable_mask_ramp:
+    if ch.enable_transition_ramp:
         set_transition_ramp_nodes(tree, tex, ch)
     else: remove_transition_ramp_nodes(tree, ch)
 
@@ -277,7 +230,7 @@ def remove_transition_ramp_nodes(tree, ch):
 
 def check_transition_bump_nodes(tex, tree, ch, ch_index):
 
-    if ch.enable_mask_bump and ch.enable:
+    if ch.enable_transition_bump and ch.enable:
         set_transition_bump_nodes(tex, tree, ch, ch_index)
     else: remove_transition_bump_nodes(tex, tree, ch, ch_index)
 
@@ -301,92 +254,75 @@ def set_transition_bump_nodes(tex, tree, ch, ch_index):
     tl = tex.id_data.tl
 
     for i, c in enumerate(tex.channels):
-        if tl.channels[i].type == 'NORMAL' and c.enable_mask_bump and c != ch:
+        if tl.channels[i].type == 'NORMAL' and c.enable_transition_bump and c != ch:
             # Disable this mask bump if other channal already use mask bump
             if c.enable:
                 tl.halt_update = True
-                ch.enable_mask_bump = False
+                ch.enable_transition_bump = False
                 tl.halt_update = False
                 return
             # Disable other mask bump if other channal aren't enabled
             else:
                 tl.halt_update = True
-                c.enable_mask_bump = False
+                c.enable_transition_bump = False
                 tl.halt_update = False
 
-    if ch.mask_bump_type == 'FINE_BUMP_MAP':
+    if ch.transition_bump_type == 'FINE_BUMP_MAP':
 
         enable_tex_source_tree(tex)
         Modifier.enable_modifiers_tree(ch)
 
         # Get fine bump
-        mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
-        if not mb_fine_bump:
-            mb_fine_bump = new_node(tree, ch, 'mb_fine_bump', 'ShaderNodeGroup', 'Transition Fine Bump')
-            mb_fine_bump.node_tree = get_node_tree_lib(lib.FINE_BUMP)
+        mb_bump = replace_new_node(tree, ch, 'mb_bump', 'ShaderNodeGroup', 'Transition Fine Bump', lib.FINE_BUMP)
 
-        if ch.mask_bump_flip or tex.type == 'BACKGROUND':
-        #if ch.mask_bump_flip:
-            mb_fine_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance)
-        else: mb_fine_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.mask_bump_distance)
+        if ch.transition_bump_flip or tex.type == 'BACKGROUND':
+        #if ch.transition_bump_flip:
+            mb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance)
+        else: mb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance)
 
-    else:
-        remove_node(tree, ch, 'mb_fine_bump')
-
-    if ch.mask_bump_type == 'CURVED_BUMP_MAP':
+    if ch.transition_bump_type == 'CURVED_BUMP_MAP':
 
         enable_tex_source_tree(tex)
         Modifier.enable_modifiers_tree(ch)
 
-        # Get curved fine bump
-        mb_curved_bump = tree.nodes.get(ch.mb_curved_bump)
+        if ch.transition_bump_flip or tex.type == 'BACKGROUND':
+        #if ch.transition_bump_flip:
+            mb_bump = replace_new_node(tree, ch, 'mb_bump', 'ShaderNodeGroup', 
+                    'Transition Curved Bump', lib.FLIP_CURVED_FINE_BUMP)
+        else: 
+            mb_bump = replace_new_node(tree, ch, 'mb_bump', 'ShaderNodeGroup', 
+                    'Transition Curved Bump', lib.CURVED_FINE_BUMP)
 
-        if not mb_curved_bump:
-            mb_curved_bump = new_node(tree, ch, 'mb_curved_bump', 'ShaderNodeGroup', 'Transition Curved Bump')
+        if ch.transition_bump_flip or tex.type == 'BACKGROUND':
+        #if ch.transition_bump_flip:
+            mb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance, True)
+        else: mb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance, True)
 
-        if ch.mask_bump_flip or tex.type == 'BACKGROUND':
-        #if ch.mask_bump_flip:
-            mb_curved_bump.node_tree = get_node_tree_lib(lib.FLIP_CURVED_FINE_BUMP)
-        else: mb_curved_bump.node_tree = get_node_tree_lib(lib.CURVED_FINE_BUMP)
+        mb_bump.inputs['Offset'].default_value = ch.transition_bump_curved_offset
 
-        if ch.mask_bump_flip or tex.type == 'BACKGROUND':
-        #if ch.mask_bump_flip:
-            mb_curved_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance, True)
-        else: mb_curved_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.mask_bump_distance, True)
-
-        mb_curved_bump.inputs['Offset'].default_value = ch.mask_bump_curved_offset
-
-    else:
-        remove_node(tree, ch, 'mb_curved_bump')
-
-    if ch.mask_bump_type == 'BUMP_MAP':
+    if ch.transition_bump_type == 'BUMP_MAP':
 
         disable_tex_source_tree(tex, False)
         Modifier.disable_modifiers_tree(ch)
 
         # Get bump
-        mb_bump = tree.nodes.get(ch.mb_bump)
-        if not mb_bump:
-            mb_bump = new_node(tree, ch, 'mb_bump', 'ShaderNodeBump', 'Transition Bump')
+        mb_bump = replace_new_node(tree, ch, 'mb_bump', 'ShaderNodeBump', 'Transition Bump')
 
-        if ch.mask_bump_flip or tex.type == 'BACKGROUND':
-        #if ch.mask_bump_flip:
-            mb_bump.inputs[1].default_value = -ch.mask_bump_distance
-        else: mb_bump.inputs[1].default_value = ch.mask_bump_distance
-
-    else:
-        remove_node(tree, ch, 'mb_bump')
+        if ch.transition_bump_flip or tex.type == 'BACKGROUND':
+        #if ch.transition_bump_flip:
+            mb_bump.inputs[1].default_value = -ch.transition_bump_distance
+        else: mb_bump.inputs[1].default_value = ch.transition_bump_distance
 
     # Crease stuff
-    if ch.transition_bump_crease and not ch.mask_bump_flip and tex.type != 'BACKGROUND':
-    #if ch.transition_bump_crease and not ch.mask_bump_flip:
-        if ch.mask_bump_type == 'BUMP_MAP':
+    if ch.transition_bump_crease and not ch.transition_bump_flip and tex.type != 'BACKGROUND':
+    #if ch.transition_bump_crease and not ch.transition_bump_flip:
+        if ch.transition_bump_type == 'BUMP_MAP':
             mb_crease = replace_new_node(tree, ch, 'mb_crease', 'ShaderNodeBump', 'Transition Bump Crease')
-            mb_crease.inputs[1].default_value = -ch.mask_bump_distance * ch.transition_bump_crease_factor
+            mb_crease.inputs[1].default_value = -ch.transition_bump_distance * ch.transition_bump_crease_factor
         else:
             mb_crease = replace_new_node(tree, ch, 'mb_crease', 'ShaderNodeGroup', 
                     'Transition Bump Crease', lib.FINE_BUMP)
-            mb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance) * ch.transition_bump_crease_factor
+            mb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance) * ch.transition_bump_crease_factor
 
         mb_crease_intensity = replace_new_node(tree, ch, 'mb_crease_intensity', 'ShaderNodeMath',
                     'Transition Bump Crease Intensity')
@@ -411,22 +347,22 @@ def set_transition_bump_nodes(tex, tree, ch, ch_index):
     mb_intensity_multiplier = tree.nodes.get(ch.mb_intensity_multiplier)
     if not mb_intensity_multiplier:
         mb_intensity_multiplier = lib.new_intensity_multiplier_node(tree, ch, 
-                'mb_intensity_multiplier', ch.mask_bump_value)
+                'mb_intensity_multiplier', ch.transition_bump_value)
 
     intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
     if not intensity_multiplier:
         intensity_multiplier = lib.new_intensity_multiplier_node(tree, ch, 
-                'intensity_multiplier', ch.mask_bump_value)
+                'intensity_multiplier', ch.transition_bump_value)
 
-    if ch.mask_bump_flip or tex.type == 'BACKGROUND':
-    #if ch.mask_bump_flip:
-        intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
-        mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
+    if ch.transition_bump_flip or tex.type == 'BACKGROUND':
+    #if ch.transition_bump_flip:
+        intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
+        mb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
         intensity_multiplier.inputs['Sharpen'].default_value = 0.0
         mb_intensity_multiplier.inputs['Sharpen'].default_value = 1.0
     else:
-        intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
-        mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+        intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
+        mb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
         intensity_multiplier.inputs['Sharpen'].default_value = 1.0
         mb_intensity_multiplier.inputs['Sharpen'].default_value = 0.0
 
@@ -443,16 +379,6 @@ def remove_transition_bump_influence_nodes_to_other_channels(tex, tree):
     # Delete intensity multiplier from ramp
     for c in tex.channels:
         remove_node(tree, c, 'intensity_multiplier')
-        remove_node(tree, c, 'mr_intensity_multiplier')
-
-        # Ramp intensity value should only use its own value if bump aren't available
-        if c.enable_mask_ramp:
-            mr_intensity = tree.nodes.get(c.mr_intensity)
-            if mr_intensity:
-                mr_intensity.inputs[1].default_value = c.mask_ramp_intensity_value
-
-            # Remove flip bump related nodes
-            #check_transition_ramp_flip_nodes(tex, tree, c)
 
         # Remove transition ao related nodes
         check_transition_ao_nodes(tree, tex, c)
@@ -464,8 +390,6 @@ def remove_transition_bump_nodes(tex, tree, ch, ch_index):
 
     remove_node(tree, ch, 'intensity_multiplier')
     remove_node(tree, ch, 'mb_bump')
-    remove_node(tree, ch, 'mb_fine_bump')
-    remove_node(tree, ch, 'mb_curved_bump')
     remove_node(tree, ch, 'mb_inverse')
     remove_node(tree, ch, 'mb_intensity_multiplier')
     remove_node(tree, ch, 'mb_blend')
@@ -488,15 +412,6 @@ def update_transition_ramp_intensity_value(self, context):
 
     set_ramp_intensity_value(tree, tex, self)
 
-def update_transition_ramp_blend_type(self, context):
-    tl = self.id_data.tl
-    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(match.group(1))]
-    tree = get_tree(tex)
-
-    mr_blend = tree.nodes.get(self.mr_blend)
-    if mr_blend: mr_blend.blend_type = self.mask_ramp_blend_type
-
 def update_transition_bump_crease_factor(self, context):
     tl = self.id_data.tl
     match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
@@ -506,9 +421,9 @@ def update_transition_bump_crease_factor(self, context):
 
     mb_crease = tree.nodes.get(ch.mb_crease)
     if mb_crease:
-        if ch.mask_bump_type == 'BUMP_MAP':
-            mb_crease.inputs[1].default_value = -ch.mask_bump_distance * ch.transition_bump_crease_factor
-        else: mb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance) * ch.transition_bump_crease_factor
+        if ch.transition_bump_type == 'BUMP_MAP':
+            mb_crease.inputs[1].default_value = -ch.transition_bump_distance * ch.transition_bump_crease_factor
+        else: mb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance) * ch.transition_bump_crease_factor
 
 def update_transition_bump_value(self, context):
     if not self.enable: return
@@ -522,32 +437,29 @@ def update_transition_bump_value(self, context):
     intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
     mb_intensity_multiplier = tree.nodes.get(ch.mb_intensity_multiplier)
 
-    if ch.mask_bump_flip or tex.type=='BACKGROUND':
-    #if ch.mask_bump_flip:
+    if ch.transition_bump_flip or tex.type=='BACKGROUND':
+    #if ch.transition_bump_flip:
         if intensity_multiplier:
-            intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+            intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
         if mb_intensity_multiplier:
-            mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
+            mb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
     else:
         if intensity_multiplier:
-            intensity_multiplier.inputs[1].default_value = ch.mask_bump_value
+            intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
         if mb_intensity_multiplier:
-            mb_intensity_multiplier.inputs[1].default_value = ch.mask_bump_second_edge_value
+            mb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
 
     for c in tex.channels:
         if c == ch: continue
 
-        #im = tree.nodes.get(c.mr_intensity_multiplier)
-        #if im:
-        #    im.inputs[1].default_value = 1.0 + (ch.mask_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
         mr_ramp = tree.nodes.get(c.mr_ramp)
         if mr_ramp:
             mr_ramp.inputs['Multiplier'].default_value = 1.0 + (
-                    ch.mask_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
+                    ch.transition_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
 
         im = tree.nodes.get(c.intensity_multiplier)
         if im: 
-            im.inputs[1].default_value = 1.0 + (ch.mask_bump_value - 1.0) * c.transition_bump_fac
+            im.inputs[1].default_value = 1.0 + (ch.transition_bump_value - 1.0) * c.transition_bump_fac
 
 def update_transition_bump_distance(self, context):
     if not self.enable: return
@@ -559,41 +471,33 @@ def update_transition_bump_distance(self, context):
     ch = self
     tree = get_tree(tex)
 
-    if ch.mask_bump_type == 'CURVED_BUMP_MAP':
-        mb_curved_bump = tree.nodes.get(ch.mb_curved_bump)
-        if mb_curved_bump:
-            if ch.mask_bump_flip or tex.type=='BACKGROUND':
-            #if ch.mask_bump_flip:
-                mb_curved_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance, True)
-            else: mb_curved_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.mask_bump_distance, True)
+    mb_bump = tree.nodes.get(ch.mb_bump)
+    if mb_bump:
+        if ch.transition_bump_type == 'CURVED_BUMP_MAP':
+            if ch.transition_bump_flip or tex.type=='BACKGROUND':
+            #if ch.transition_bump_flip:
+                mb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(
+                        ch.transition_bump_distance, True)
+            else: mb_bump.inputs[0].default_value = get_transition_fine_bump_distance(
+                    ch.transition_bump_distance, True)
 
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    match_group_input(mb_curved_bump, 0)
+        elif ch.transition_bump_type == 'FINE_BUMP_MAP':
+            if ch.transition_bump_flip or tex.type=='BACKGROUND':
+            #if ch.transition_bump_flip:
+                mb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance)
+            else: mb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance)
 
-    elif ch.mask_bump_type == 'FINE_BUMP_MAP':
-        mb_fine_bump = tree.nodes.get(ch.mb_fine_bump)
-        if mb_fine_bump:
-            if ch.mask_bump_flip or tex.type=='BACKGROUND':
-            #if ch.mask_bump_flip:
-                mb_fine_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance)
-            else: mb_fine_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.mask_bump_distance)
-
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    match_group_input(mb_fine_bump, 0)
-
-    elif ch.mask_bump_type == 'BUMP_MAP':
-        mb_bump = tree.nodes.get(ch.mb_bump)
-        if mb_bump:
-            if ch.mask_bump_flip or tex.type=='BACKGROUND':
-            #if ch.mask_bump_flip:
-                mb_bump.inputs[1].default_value = -ch.mask_bump_distance
-            else: mb_bump.inputs[1].default_value = ch.mask_bump_distance
+        elif ch.transition_bump_type == 'BUMP_MAP':
+            if ch.transition_bump_flip or tex.type=='BACKGROUND':
+            #if ch.transition_bump_flip:
+                mb_bump.inputs[1].default_value = -ch.transition_bump_distance
+            else: mb_bump.inputs[1].default_value = ch.transition_bump_distance
 
     if ch.transition_bump_crease:
         mb_crease = tree.nodes.get(ch.mb_crease)
-        if ch.mask_bump_type == 'BUMP_MAP':
-            mb_crease.inputs[1].default_value = -ch.mask_bump_distance * ch.transition_bump_crease_factor
-        else: mb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.mask_bump_distance) * ch.transition_bump_crease_factor
+        if ch.transition_bump_type == 'BUMP_MAP':
+            mb_crease.inputs[1].default_value = ch.transition_bump_crease_factor * -ch.transition_bump_distance
+        else: mb_crease.inputs[0].default_value = ch.transition_bump_crease_factor * -get_transition_fine_bump_distance(ch.transition_bump_distance)
 
 def update_transition_bump_chain(self, context):
     T = time.time()
@@ -604,7 +508,7 @@ def update_transition_bump_chain(self, context):
     tree = get_tree(tex)
     ch = self
 
-    #if ch.enable_mask_bump and ch.enable:
+    #if ch.enable_transition_bump and ch.enable:
 
     check_mask_multiply_nodes(tex, tree)
     check_mask_source_tree(tex) #, ch)
@@ -625,9 +529,9 @@ def update_transition_bump_curved_offset(self, context):
     tree = get_tree(tex)
     ch = self
 
-    mb_curved_bump = tree.nodes.get(ch.mb_curved_bump)
-    if mb_curved_bump:
-        mb_curved_bump.inputs['Offset'].default_value = ch.mask_bump_curved_offset
+    mb_bump = tree.nodes.get(ch.mb_bump)
+    if mb_bump:
+        mb_bump.inputs['Offset'].default_value = ch.transition_bump_curved_offset
 
 def update_transition_bump_fac(self, context):
 
@@ -643,15 +547,12 @@ def update_transition_bump_fac(self, context):
 
         im = tree.nodes.get(ch.intensity_multiplier)
         if im: 
-            im.inputs[1].default_value = 1.0 + (bump_ch.mask_bump_value - 1.0) * ch.transition_bump_fac
+            im.inputs[1].default_value = 1.0 + (bump_ch.transition_bump_value - 1.0) * ch.transition_bump_fac
 
-        #im = tree.nodes.get(ch.mr_intensity_multiplier)
-        #if im:
-        #    im.inputs[1].default_value = 1.0 + (bump_ch.mask_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
         mr_ramp = tree.nodes.get(ch.mr_ramp)
         if mr_ramp and bump_ch:
             mr_ramp.inputs['Multiplier'].default_value = 1.0 + (
-                    bump_ch.mask_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
+                    bump_ch.transition_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
 
 def update_transition_ao_intensity(self, context):
 
@@ -665,16 +566,7 @@ def update_transition_ao_intensity(self, context):
 
     tao = tree.nodes.get(ch.tao)
     if tao:
-        #tao.inputs['Intensity'].default_value = ch.transition_ao_intensity
         tao.inputs['Intensity'].default_value = 0.0 if mute else get_transition_ao_intensity(ch)
-
-#def update_transition_ao_intensity_link(self, context):
-#
-#    tl = self.id_data.tl
-#    match = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-#    tex = tl.textures[int(match.group(1))]
-#    ch = self
-#    tree = get_tree(tex)
 
 def update_transition_ao_edge(self, context):
 
@@ -743,11 +635,11 @@ def show_transition(self, context, ttype):
 
         ch.show_transition_bump = True
 
-        if ch.enable_mask_bump:
+        if ch.enable_transition_bump:
             self.report({'INFO'}, "Transition bump is already set!")
             return {'FINISHED'}
 
-        ch.enable_mask_bump = True
+        ch.enable_transition_bump = True
 
         # Hide other channels transition bump
         for c in tex.channels:
@@ -762,11 +654,11 @@ def show_transition(self, context, ttype):
 
         ch.show_transition_ramp = True
 
-        if ch.enable_mask_ramp:
+        if ch.enable_transition_ramp:
             self.report({'INFO'}, "Transition ramp is already set!")
             return {'FINISHED'}
 
-        ch.enable_mask_ramp = True
+        ch.enable_transition_ramp = True
 
     elif ttype == 'AO':
 
@@ -874,31 +766,16 @@ class YHideTransitionEffect(bpy.types.Operator):
             return {'CANCELLED'}
 
         if self.type == 'BUMP':
-            ch.enable_mask_bump = False
+            ch.enable_transition_bump = False
             ch.show_transition_bump = False
         elif self.type == 'RAMP':
-            ch.enable_mask_ramp = False
+            ch.enable_transition_ramp = False
             ch.show_transition_ramp = False
         else:
             ch.enable_transition_ao = False
             ch.show_transition_ao = False
 
         return {'FINISHED'}
-
-#def update_show_transition_ao(self, context):
-#    if self.show_transition_ao:
-#        self.enable_transition_ao = True
-#    else: self.enable_transition_ao = False
-#
-#def update_show_transition_ramp(self, context):
-#    if self.show_transition_ramp:
-#        self.enable_mask_ramp = True
-#    else: self.enable_mask_ramp = False
-#
-#def update_show_transition_bump(self, context):
-#    if self.show_transition_bump:
-#        self.enable_mask_bump = True
-#    else: self.enable_mask_bump = False
 
 def update_enable_transition_ao(self, context):
     T = time.time()
@@ -943,7 +820,7 @@ def update_enable_transition_ramp(self, context):
     rearrange_tex_nodes(tex)
     reconnect_tex_nodes(tex)
 
-    if ch.enable_mask_ramp:
+    if ch.enable_transition_ramp:
         print('INFO: Transition ramp is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     else: print('INFO: Transition ramp is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -960,7 +837,7 @@ def update_enable_transition_bump(self, context):
 
     check_transition_bump_nodes(tex, tree, ch, ch_index)
 
-    if ch.enable_mask_bump:
+    if ch.enable_transition_bump:
         print('INFO: Transition bump is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     else: print('INFO: Transition bump is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

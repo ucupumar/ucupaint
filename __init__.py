@@ -69,8 +69,8 @@
 #   - Matcap view on Normal preview
 #   - Per texture preview
 # - Transition
-#   - Ramp works with non flip background
-#   - Bump works with non flip background
+#   - Ramp works with non flip background (V, too complicated and has little use)
+#   - Bump works with non flip background (V, too complicated and has little use)
 # - Bake extra
 #   - Pointiness
 #   - AO

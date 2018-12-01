@@ -918,25 +918,15 @@ class YRemoveTLChannel(bpy.types.Operator):
             ttree = get_tree(t)
 
             remove_node(ttree, ch, 'blend')
-            #remove_node(ttree, ch, 'start_rgb')
-            #remove_node(ttree, ch, 'start_alpha')
-            #remove_node(ttree, ch, 'end_rgb')
-            #remove_node(ttree, ch, 'end_alpha')
             remove_node(ttree, ch, 'intensity')
 
             remove_node(ttree, ch, 'source')
             remove_node(ttree, ch, 'linear')
 
-            remove_node(ttree, ch, 'pipeline_frame')
             remove_node(ttree, ch, 'normal')
             remove_node(ttree, ch, 'normal_flip')
             remove_node(ttree, ch, 'bump')
             remove_node(ttree, ch, 'bump_base')
-            remove_node(ttree, ch, 'neighbor_uv')
-            remove_node(ttree, ch, 'source_n')
-            remove_node(ttree, ch, 'source_s')
-            remove_node(ttree, ch, 'source_e')
-            remove_node(ttree, ch, 'source_w')
             remove_node(ttree, ch, 'mod_n')
             remove_node(ttree, ch, 'mod_s')
             remove_node(ttree, ch, 'mod_e')
@@ -969,11 +959,10 @@ class YRemoveTLChannel(bpy.types.Operator):
                 ttree.outputs.remove(ttree.outputs[channel.io_index])
 
             # Remove transition bump and ramp
-            if channel.type == 'NORMAL' and ch.enable_mask_bump:
+            if channel.type == 'NORMAL' and ch.enable_transition_bump:
                 transition.remove_transition_bump_nodes(t, ttree, ch, channel_idx)
-                #transition.remove_transition_bump_influence_nodes_to_other_channels(t, ttree)
-            elif channel.type in {'RGB', 'VALUE'} and ch.enable_mask_ramp:
-                transition.remove_transition_ramp_nodes(ttree, ch, True)
+            elif channel.type in {'RGB', 'VALUE'} and ch.enable_transition_ramp:
+                transition.remove_transition_ramp_nodes(ttree, ch)
 
             # Remove mask channel
             Mask.remove_mask_channel(ttree, t, channel_idx)
@@ -981,20 +970,10 @@ class YRemoveTLChannel(bpy.types.Operator):
             # Remove layer channel
             t.channels.remove(channel_idx)
 
-        # Remove start and end nodes
-        #remove_node(group_tree, channel, 'start_entry')
-        #remove_node(group_tree, channel, 'end_entry')
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
-        #remove_node(group_tree, channel, 'start_alpha_entry')
-        #remove_node(group_tree, channel, 'end_alpha_entry')
         remove_node(group_tree, channel, 'start_normal_filter')
 
-        # Remove channel modifiers
-        #remove_node(group_tree, channel, 'start_rgb')
-        #remove_node(group_tree, channel, 'start_alpha')
-        #remove_node(group_tree, channel, 'end_rgb')
-        #remove_node(group_tree, channel, 'end_alpha')
         remove_node(group_tree, channel, 'start_frame')
         remove_node(group_tree, channel, 'end_frame')
 
@@ -1470,12 +1449,12 @@ def update_channel_colorspace(self, context):
         #    elif ch.tex_input == 'CUSTOM':
         #        ch.tex_input = 'CUSTOM'
 
-        if ch.enable_mask_ramp:
-            mr_linear = tree.nodes.get(ch.mr_linear)
-            if mr_linear:
+        if ch.enable_transition_ramp:
+            mr_ramp = tree.nodes.get(ch.mr_ramp)
+            if mr_ramp:
                 if self.colorspace == 'SRGB':
-                    mr_linear.inputs[1].default_value = 1.0/GAMMA
-                else: mr_linear.inputs[1].default_value = 1.0
+                    mr_ramp.inputs['Gamma'].default_value = 1.0/GAMMA
+                else: mr_ramp.inputs['Gamma'].default_value = 1.0
 
         if ch.enable_transition_ao:
             tao = tree.nodes.get(ch.tao)
@@ -1680,23 +1659,11 @@ class YRootChannel(bpy.types.PropertyGroup):
 
     # Node names
     start_linear = StringProperty(default='')
-    #start_entry = StringProperty(default='')
-    #start_alpha_entry = StringProperty(default='')
     start_normal_filter = StringProperty(default='')
-
-    #end_entry = StringProperty(default='')
-    #end_alpha_entry = StringProperty(default='')
     end_linear = StringProperty(default='')
 
     start_frame = StringProperty(default='')
     end_frame = StringProperty(default='')
-
-    # For modifiers
-    #start_rgb = StringProperty(default='')
-    #start_alpha = StringProperty(default='')
-    #end_rgb = StringProperty(default='')
-    #end_alpha = StringProperty(default='')
-    #modifier_frame = StringProperty(default='')
 
     # UI related
     expand_content = BoolProperty(default=False)

@@ -368,7 +368,7 @@ def add_new_modifier(parent, modifier_type):
     if match1: 
         # Enable modifier tree if fine bump map is used
         if parent.normal_map_type == 'FINE_BUMP_MAP' or (
-                parent.enable_mask_bump and parent.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
+                parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
             enable_modifiers_tree(parent)
     elif match2 and parent.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
         enable_modifiers_tree(parent)
@@ -942,7 +942,7 @@ def update_oc_col(self, context):
 #        if root_ch.type != 'NORMAL': return
 #
 #        if ch.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
-#            #if ch.enable_mask_bump:
+#            #if ch.enable_transition_bump:
 #            #    val = 1.0
 #            #else: 
 #            val = ch.bump_base_value
@@ -1143,7 +1143,7 @@ def disable_modifiers_tree(parent, rearrange=False):
         # Check if fine bump map is still used
         if len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and (
                 parent.normal_map_type == 'FINE_BUMP_MAP'
-                or (parent.enable_mask_bump and parent.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})):
+                or (parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})):
             return
 
         # Check if channel use blur

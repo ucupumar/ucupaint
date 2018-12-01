@@ -837,7 +837,7 @@ def get_transition_bump_channel(tex):
 
     bump_ch = None
     for i, ch in enumerate(tex.channels):
-        if tl.channels[i].type == 'NORMAL' and ch.enable and ch.enable_mask_bump:
+        if tl.channels[i].type == 'NORMAL' and ch.enable and ch.enable_transition_bump:
             bump_ch = ch
             break
 
@@ -1203,7 +1203,7 @@ def get_lower_neighbor(tex):
 
 def is_valid_to_remove_bump_nodes(tex, ch):
 
-    if tex.type == 'COLOR' and ((ch.enable_mask_bump and ch.enable) or len(tex.masks) == 0 or ch.mask_bump_chain == 0):
+    if tex.type == 'COLOR' and ((ch.enable_transition_bump and ch.enable) or len(tex.masks) == 0 or ch.transition_bump_chain == 0):
         return True
 
     return False

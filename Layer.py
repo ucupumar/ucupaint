@@ -125,9 +125,9 @@ def check_all_layer_channel_io_and_nodes(tex, tree=None, specific_ch=None): #, h
         # Channel mute
         mute = not tex.enable or not ch.enable
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-        if ch.enable_mask_ramp:
+        if ch.enable_transition_ramp:
             #mr_intensity = tree.nodes.get(ch.mr_intensity)
-            #if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+            #if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.transition_ramp_intensity_value
             transition.check_transition_ramp_nodes(tree, tex, ch)
 
         if ch.enable_transition_ao:
@@ -182,21 +182,6 @@ def tex_input_items(self, context):
     #    items.append(('CUSTOM', 'Custom Color',  ''))
     #elif root_ch.type == 'VALUE':
     #    items.append(('CUSTOM', 'Custom Value',  ''))
-
-    return items
-
-def mask_bump_type_items(self, context):
-
-    tl = self.id_data.tl
-    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    if not m: return []
-    tex = tl.textures[int(m.group(1))]
-    root_ch = tl.channels[int(m.group(2))]
-
-    items = []
-
-    items.append(('BUMP_MAP', 'Bump Map', ''))
-    items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
 
     return items
 
@@ -316,7 +301,7 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
     start = new_node(tree, tex, 'start', 'NodeGroupInput', 'Start')
     end = new_node(tree, tex, 'end', 'NodeGroupOutput', 'Start')
 
-    # Add source frame
+    # Add source
     source = new_node(tree, tex, 'source', texture_node_bl_idnames[tex_type], 'Source')
 
     if tex_type == 'IMAGE':
@@ -1860,9 +1845,9 @@ class YReplaceLayerType(bpy.types.Operator):
             ch.normal_map_type = 'BUMP_MAP'
 
         # Disable transition will also helps
-        transition_channels = [ch for ch in tex.channels if ch.enable_mask_bump]
+        transition_channels = [ch for ch in tex.channels if ch.enable_transition_bump]
         for ch in transition_channels:
-            ch.enable_mask_bump = False
+            ch.enable_transition_bump = False
 
         # Current source
         tree = get_tree(tex)
@@ -1903,20 +1888,7 @@ class YReplaceLayerType(bpy.types.Operator):
             elif self.type == 'VCOL':
                 source.attribute_name = self.item_name
 
-        #uv_neighbor = tree.nodes.get(tex.uv_neighbor)
-        #set_uv_neighbor_resolution(tex, uv_neighbor, source)
-        #if uv_neighbor:
-        #    if self.type == 'IMAGE':
-        #        uv_neighbor.inputs[1].default_value = source.image.size[0]
-        #        uv_neighbor.inputs[2].default_value = source.image.size[1]
-        #    else:
-        #        uv_neighbor.inputs[1].default_value = 1000
-        #        uv_neighbor.inputs[2].default_value = 1000
-        #        
-        #    #if BLENDER_28_GROUP_INPUT_HACK:
-        #    #    match_group_input(uv_neighbor, 1)
-        #    #    match_group_input(uv_neighbor, 2)
-
+        # Change layer type
         tex.type = self.type
 
         # Enable modifiers tree if generated texture is used
@@ -1942,11 +1914,10 @@ class YReplaceLayerType(bpy.types.Operator):
 
         # Bring back transition
         for ch in transition_channels:
-            ch.enable_mask_bump = True
+            ch.enable_transition_bump = True
 
         # Update uv neighbor
-        #uv_neighbor = tree.nodes.get(tex.uv_neighbor)
-        set_uv_neighbor_resolution(tex) #, uv_neighbor, source)
+        set_uv_neighbor_resolution(tex)
 
         tl.halt_reconnect = False
 
@@ -1977,17 +1948,17 @@ def update_channel_enable(self, context):
     if intensity:
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
-    if ch.enable_mask_ramp:
+    if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, tex, ch)
 
     #blend = tree.nodes.get(ch.blend)
     #blend.mute = not tex.enable or not ch.enable
 
-    #if ch.enable_mask_ramp:
+    #if ch.enable_transition_ramp:
     #    mr_blend = tree.nodes.get(ch.mr_blend)
     #    if mr_blend: mr_blend.mute = blend.mute
 
-    if ch.enable_mask_bump:
+    if ch.enable_transition_bump:
         transition.check_transition_bump_nodes(tex, tree, ch, ch_index)
 
     if ch.enable_transition_ao:
@@ -2068,7 +2039,7 @@ def check_channel_normal_map_nodes(tree, tex, root_ch, ch):
 
     # Create normal flip node
     #if tex.type not in {'BACKGROUND', 'GROUP', 'COLOR'}:
-    #if normal_map_type != '' or (normal_map_type == '' and ch.enable_mask_bump):
+    #if normal_map_type != '' or (normal_map_type == '' and ch.enable_transition_bump):
 
     #normal_flip = tree.nodes.get(ch.normal_flip)
     #if not normal_flip:
@@ -2189,9 +2160,9 @@ def check_blend_type_nodes(root_ch, tex, ch):
     #mute = not tex.enable or not ch.enable
     #intensity = nodes.get(ch.intensity)
     #if intensity: intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-    #if ch.enable_mask_ramp:
+    #if ch.enable_transition_ramp:
     #    mr_intensity = nodes.get(ch.mr_intensity)
-    #    if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.mask_ramp_intensity_value
+    #    if mr_intensity: mr_intensity.inputs[1].default_value = 0.0 if mute else ch.transition_ramp_intensity_value
 
     #if tex.enable and ch.enable:
     #    blend.mute = False
@@ -2430,13 +2401,13 @@ def update_texture_enable(self, context):
         if intensity:
             intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
-        if ch.enable_mask_ramp:
+        if ch.enable_transition_ramp:
             transition.set_ramp_intensity_value(tree, tex, ch)
 
         if ch.enable_transition_ao:
             tao = tree.nodes.get(ch.tao)
             if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
-        if ch.enable_mask_bump and ch.transition_bump_crease:
+        if ch.enable_transition_bump and ch.transition_bump_crease:
             mb_crease_intensity = tree.nodes.get(ch.mb_crease_intensity)
             mb_crease_intensity.inputs[1].default_value = 0.0 if mute else 1.0
 
@@ -2459,14 +2430,14 @@ def update_channel_intensity_value(self, context):
     #intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
     #intensity_multiplier.inputs[1].default_value = ch.intensity_multiplier_value
 
-    if ch.enable_mask_ramp:
+    if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, tex, ch)
 
     if ch.enable_transition_ao:
         tao = tree.nodes.get(ch.tao)
         if tao: tao.inputs['Intensity'].default_value = transition.get_transition_ao_intensity(ch)
 
-    if ch.enable_mask_bump and ch.transition_bump_crease:
+    if ch.enable_transition_bump and ch.transition_bump_crease:
         mb_crease_intensity = tree.nodes.get(ch.mb_crease_intensity)
         if mb_crease_intensity:
             mb_crease_intensity.inputs[1].default_value = ch.intensity_value
@@ -2534,8 +2505,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     intensity = StringProperty(default='')
     source = StringProperty(default='')
 
-    pipeline_frame = StringProperty(default='')
-
     # Normal related
     bump = StringProperty(default='')
     fine_bump = StringProperty(default='')
@@ -2550,16 +2519,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     bump_base_value = FloatProperty(
             name='Bump Base', 
-            description= 'Base value of bump map', 
+            description= 'Value of empty area for bump map', 
             default=0.5, min=0.0, max=1.0,
             update=update_bump_base_value)
-
-    # Fine bump related
-    neighbor_uv = StringProperty(default='')
-    source_n = StringProperty(default='')
-    source_s = StringProperty(default='')
-    source_e = StringProperty(default='')
-    source_w = StringProperty(default='')
 
     # For some occasion, modifiers are stored in a tree
     mod_group = StringProperty(default='')
@@ -2578,35 +2540,34 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Intensity Stuff
     intensity_multiplier = StringProperty(default='')
 
-    # Mask bump related
-    enable_mask_bump = BoolProperty(name='Enable Mask Bump', description='Enable mask bump',
+    # Transition bump related
+    enable_transition_bump = BoolProperty(name='Enable Transition Bump', description='Enable transition bump',
             default=False, update=transition.update_enable_transition_bump)
 
     show_transition_bump = BoolProperty(name='Toggle Transition Bump',
             description = "Toggle transition Bump (This will affect other channels)", 
             default=False) #, update=transition.update_show_transition_bump)
 
-    mask_bump_value = FloatProperty(
+    transition_bump_value = FloatProperty(
         name = 'Transition Bump Value',
         description = 'Transition bump value',
         default=3.0, min=1.0, max=100.0, 
         update=transition.update_transition_bump_value)
 
-    mask_bump_second_edge_value = FloatProperty(
+    transition_bump_second_edge_value = FloatProperty(
             name = 'Second Edge Intensity', 
             description = 'Second Edge intensity value',
             default=1.2, min=1.0, max=100.0, 
             update=transition.update_transition_bump_value)
 
-    mask_bump_distance = FloatProperty(
+    transition_bump_distance = FloatProperty(
             name='Transition Bump Distance', 
             description= 'Distance of mask bump', 
             default=0.05, min=0.0, max=1.0, precision=3, # step=1,
             update=transition.update_transition_bump_distance)
 
-    mask_bump_type = EnumProperty(
+    transition_bump_type = EnumProperty(
             name = 'Bump Type',
-            #items = mask_bump_type_items,
             items = (
                 ('BUMP_MAP', 'Bump', ''),
                 ('FINE_BUMP_MAP', 'Fine Bump', ''),
@@ -2615,19 +2576,19 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default = 'FINE_BUMP_MAP',
             update=transition.update_enable_transition_bump)
 
-    mask_bump_chain = IntProperty(
+    transition_bump_chain = IntProperty(
             name = 'Transition bump chain',
             description = 'Number of mask affected by transition bump',
             default=10, min=0, max=10,
             update=transition.update_transition_bump_chain)
 
-    mask_bump_flip = BoolProperty(
+    transition_bump_flip = BoolProperty(
             name = 'Transition Bump Flip',
             description = 'Transition bump flip',
             default=False,
             update=transition.update_enable_transition_bump)
 
-    mask_bump_curved_offset = FloatProperty(
+    transition_bump_curved_offset = FloatProperty(
             name = 'Transition Bump Curved Offst',
             description = 'Transition bump curved offset',
             default=0.02, min=0.0, max=0.1,
@@ -2658,8 +2619,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update=transition.update_transition_bump_fac)
 
     mb_bump = StringProperty(default='')
-    mb_fine_bump = StringProperty(default='')
-    mb_curved_bump = StringProperty(default='')
     mb_inverse = StringProperty(default='')
     mb_intensity_multiplier = StringProperty(default='')
     mb_blend = StringProperty(default='')
@@ -2668,31 +2627,21 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mb_crease_intensity = StringProperty(default='')
     mb_crease_mix = StringProperty(default='')
 
-    mb_neighbor_uv = StringProperty(default='')
-    mb_source_n = StringProperty(default='')
-    mb_source_s = StringProperty(default='')
-    mb_source_e = StringProperty(default='')
-    mb_source_w = StringProperty(default='')
-    mb_mod_n = StringProperty(default='')
-    mb_mod_s = StringProperty(default='')
-    mb_mod_e = StringProperty(default='')
-    mb_mod_w = StringProperty(default='')
-
     # Transition ramp related
-    enable_mask_ramp = BoolProperty(name='Enable Transition Ramp', description='Enable alpha transition ramp', 
+    enable_transition_ramp = BoolProperty(name='Enable Transition Ramp', description='Enable alpha transition ramp', 
             default=False, update=transition.update_enable_transition_ramp)
 
     show_transition_ramp = BoolProperty(name='Toggle Transition Ramp',
             description = "Toggle transition Ramp (Works best if there's transition bump enabled on other channel)", 
             default=False) #, update=transition.update_show_transition_ramp)
 
-    mask_ramp_intensity_value = FloatProperty(
+    transition_ramp_intensity_value = FloatProperty(
             name = 'Channel Intensity Factor', 
             description = 'Channel Intensity Factor',
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
             update=transition.update_transition_ramp_intensity_value)
 
-    mask_ramp_blend_type = EnumProperty(
+    transition_ramp_blend_type = EnumProperty(
         name = 'Transition Ramp Blend Type',
         items = blend_type_items,
         default = 'MIX', 
@@ -2708,20 +2657,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mr_ramp = StringProperty(default='')
     mr_ramp_blend = StringProperty(default='')
 
-    mr_linear = StringProperty(default='')
-    mr_inverse = StringProperty(default='')
-    mr_alpha = StringProperty(default='')
-    mr_intensity_multiplier = StringProperty(default='')
-    mr_intensity = StringProperty(default='')
-    mr_blend = StringProperty(default='')
-
     # To save ramp
     cache_ramp = StringProperty(default='')
-
-    # For flip transition bump
-    mr_alpha1 = StringProperty(default='')
-    mr_flip_hack = StringProperty(default='')
-    mr_flip_blend = StringProperty(default='')
 
     # Transition AO related
     enable_transition_ao = BoolProperty(name='Enable Transition AO', 
@@ -2868,6 +2805,7 @@ class YLayer(bpy.types.PropertyGroup):
 
     # UV
     uv_neighbor = StringProperty(default='')
+    #uv_map = StringProperty(default='')
     uv_attr = StringProperty(default='')
     mapping = StringProperty(default='')
 
@@ -2876,7 +2814,6 @@ class YLayer(bpy.types.PropertyGroup):
     # Other Vectors
     solid_alpha = StringProperty(default='')
     texcoord = StringProperty(default='')
-    #uv_map = StringProperty(default='')
     tangent = StringProperty(default='')
     hacky_tangent = StringProperty(default='')
     bitangent = StringProperty(default='')
@@ -2887,19 +2824,10 @@ class YLayer(bpy.types.PropertyGroup):
     mod_group = StringProperty(default='')
     mod_group_1 = StringProperty(default='')
 
-    #start_rgb = StringProperty(default='')
-    #start_alpha = StringProperty(default='')
-    #end_rgb = StringProperty(default='')
-    #end_alpha = StringProperty(default='')
-
     # Mask
     enable_masks = BoolProperty(name='Enable Layer Masks', description='Enable layer masks',
             default=True, update=Mask.update_enable_layer_masks)
     masks = CollectionProperty(type=Mask.YLayerMask)
-
-    ## Transition 
-    #enable_transition_bg = BoolProperty(name='Enable Transition to Background', 
-    #        description='Enable transition to background (Useful to force transparency)', default=False)
 
     # UI related
     expand_content = BoolProperty(default=False)

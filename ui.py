@@ -907,7 +907,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     brow.context_pointer_set('image', image)
                     brow.operator('node.y_refresh_neighbor_uv', icon='ERROR')
 
-            if ch.show_transition_bump or ch.enable_mask_bump:
+            if ch.show_transition_bump or ch.enable_transition_bump:
 
                 brow = mcol.row(align=True)
                 if custom_icon_enable:
@@ -919,60 +919,60 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     brow.prop(chui, 'expand_mask_settings', text='', emboss=True, icon='MOD_MASK')
                 brow.label(text='Transition Bump:')
 
-                if ch.enable_mask_bump and not chui.expand_mask_settings:
-                    brow.prop(ch, 'mask_bump_value', text='')
+                if ch.enable_transition_bump and not chui.expand_mask_settings:
+                    brow.prop(ch, 'transition_bump_value', text='')
 
                 brow.context_pointer_set('parent', ch)
                 if bpy.app.version_string.startswith('2.8'):
                     brow.menu("NODE_MT_y_transition_bump_menu", text='', icon='PREFERENCES')
                 else: brow.menu("NODE_MT_y_transition_bump_menu", text='', icon='SCRIPTWIN')
 
-                brow.prop(ch, 'enable_mask_bump', text='')
+                brow.prop(ch, 'enable_transition_bump', text='')
 
                 if chui.expand_mask_settings:
                     row = mcol.row(align=True)
                     row.label(text='', icon='BLANK1')
 
                     bbox = row.box()
-                    bbox.active = ch.enable_mask_bump
+                    bbox.active = ch.enable_transition_bump
                     cccol = bbox.column(align=True)
 
                     #crow = cccol.row(align=True)
                     #crow.label(text='Type:') #, icon='INFO')
-                    #crow.prop(ch, 'mask_bump_type', text='')
+                    #crow.prop(ch, 'transition_bump_type', text='')
 
                     crow = cccol.row(align=True)
                     crow.label(text='Type:') #, icon='INFO')
-                    crow.prop(ch, 'mask_bump_type', text='')
+                    crow.prop(ch, 'transition_bump_type', text='')
 
                     crow = cccol.row(align=True)
                     crow.label(text='Edge 1:') #, icon='INFO')
-                    crow.prop(ch, 'mask_bump_value', text='')
+                    crow.prop(ch, 'transition_bump_value', text='')
 
                     crow = cccol.row(align=True)
                     crow.label(text='Edge 2:') #, icon='INFO')
-                    crow.prop(ch, 'mask_bump_second_edge_value', text='')
+                    crow.prop(ch, 'transition_bump_second_edge_value', text='')
 
                     crow = cccol.row(align=True)
                     crow.label(text='Distance:') #, icon='INFO')
-                    crow.prop(ch, 'mask_bump_distance', text='')
+                    crow.prop(ch, 'transition_bump_distance', text='')
 
                     crow = cccol.row(align=True)
                     crow.label(text='Affected Masks:') #, icon='INFO')
-                    crow.prop(ch, 'mask_bump_chain', text='')
+                    crow.prop(ch, 'transition_bump_chain', text='')
 
-                    if ch.mask_bump_type == 'CURVED_BUMP_MAP':
+                    if ch.transition_bump_type == 'CURVED_BUMP_MAP':
                         crow = cccol.row(align=True)
                         crow.label(text='Offset:') #, icon='INFO')
-                        crow.prop(ch, 'mask_bump_curved_offset', text='')
+                        crow.prop(ch, 'transition_bump_curved_offset', text='')
 
                     crow = cccol.row(align=True)
                     crow.active = tex.type != 'BACKGROUND'
                     crow.label(text='Flip:') #, icon='INFO')
-                    crow.prop(ch, 'mask_bump_flip', text='')
+                    crow.prop(ch, 'transition_bump_flip', text='')
 
                     crow = cccol.row(align=True)
-                    crow.active = tex.type != 'BACKGROUND' and not ch.mask_bump_flip
+                    crow.active = tex.type != 'BACKGROUND' and not ch.transition_bump_flip
                     crow.label(text='Crease:') #, icon='INFO')
                     if ch.transition_bump_crease:
                         crow.prop(ch, 'transition_bump_crease_factor', text='')
@@ -1022,16 +1022,16 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     brow.label(text='Distance:') #, icon='INFO')
                     brow.prop(ch, 'bump_distance', text='')
 
-                    #if not ch.enable_mask_bump:
+                    #if not ch.enable_transition_bump:
                     brow = cccol.row(align=True)
-                    brow.active = not ch.enable_mask_bump
+                    brow.active = not ch.enable_transition_bump
                     brow.label(text='Bump Base:') #, icon='INFO')
                     brow.prop(ch, 'bump_base_value', text='')
 
                     brow = cccol.row(align=True)
-                    brow.active = not ch.enable_mask_bump
+                    brow.active = not ch.enable_transition_bump
                     brow.label(text='Affected Masks:') #, icon='INFO')
-                    brow.prop(ch, 'mask_bump_chain', text='')
+                    brow.prop(ch, 'transition_bump_chain', text='')
 
                 #brow = cccol.row(align=True)
                 #brow.label(text='Invert Backface Normal')
@@ -1043,7 +1043,7 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
 
         if root_ch.type in {'RGB', 'VALUE'}:
 
-            if ch.show_transition_ramp or ch.enable_mask_ramp:
+            if ch.show_transition_ramp or ch.enable_transition_ramp:
 
                 # Transition Ramp
                 row = mcol.row(align=True)
@@ -1060,30 +1060,30 @@ def draw_layer_channels(context, layout, tex, tex_tree, image, custom_icon_enabl
                     else:
                         row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=True, icon='MOD_MASK')
                 row.label(text='Transition Ramp:')
-                if ch.enable_mask_ramp and not chui.expand_transition_ramp_settings:
-                    row.prop(ch, 'mask_ramp_intensity_value', text='')
+                if ch.enable_transition_ramp and not chui.expand_transition_ramp_settings:
+                    row.prop(ch, 'transition_ramp_intensity_value', text='')
 
                 row.context_pointer_set('parent', ch)
                 if bpy.app.version_string.startswith('2.8'):
                     row.menu("NODE_MT_y_transition_ramp_menu", text='', icon='PREFERENCES')
                 else: row.menu("NODE_MT_y_transition_ramp_menu", text='', icon='SCRIPTWIN')
 
-                row.prop(ch, 'enable_mask_ramp', text='')
+                row.prop(ch, 'enable_transition_ramp', text='')
 
                 if mr_ramp and chui.expand_transition_ramp_settings:
                     row = mcol.row(align=True)
-                    row.active = ch.enable_mask_ramp
+                    row.active = ch.enable_transition_ramp
                     row.label(text='', icon='BLANK1')
                     box = row.box()
                     bcol = box.column(align=False)
 
                     brow = bcol.row(align=True)
                     brow.label(text='Intensity:')
-                    brow.prop(ch, 'mask_ramp_intensity_value', text='')
+                    brow.prop(ch, 'transition_ramp_intensity_value', text='')
 
                     brow = bcol.row(align=True)
                     brow.label(text='Blend:')
-                    brow.prop(ch, 'mask_ramp_blend_type', text='')
+                    brow.prop(ch, 'transition_ramp_blend_type', text='')
 
                     brow = bcol.row(align=True)
                     brow.active = bump_ch_found
@@ -2335,7 +2335,7 @@ class YTransitionAOMenu(bpy.types.Menu):
         layout = self.layout
 
         trans_bump = get_transition_bump_channel(context.texture)
-        trans_bump_flip = (trans_bump and trans_bump.mask_bump_flip) or context.texture.type == 'BACKGROUND'
+        trans_bump_flip = (trans_bump and trans_bump.transition_bump_flip) or context.texture.type == 'BACKGROUND'
 
         col = layout.column()
         col.active = not trans_bump_flip

@@ -203,7 +203,6 @@ def rearrange_tex_frame_nodes(tex, tree=None):
             check_set_node_parent(tree, ch.bump, frame)
             check_set_node_parent(tree, ch.normal, frame)
 
-            check_set_node_parent(tree, ch.neighbor_uv, frame)
             check_set_node_parent(tree, ch.fine_bump, frame)
             check_set_node_parent(tree, ch.bump_base_n, frame)
             check_set_node_parent(tree, ch.bump_base_s, frame)
@@ -476,16 +475,16 @@ def rearrange_mask_tree_nodes(mask):
     if check_set_node_loc(tree, MASK_TREE_END, loc):
         loc.x += 180
 
-def rearrange_mask_bump_nodes(tree, ch, loc):
+def rearrange_transition_bump_nodes(tree, ch, loc):
     # Bump
 
     ori_x = loc.x
 
-    if check_set_node_loc(tree, ch.mb_fine_bump, loc):
-        loc.x += 170.0
+    #if check_set_node_loc(tree, ch.mb_fine_bump, loc):
+    #    loc.x += 170.0
 
-    if check_set_node_loc(tree, ch.mb_curved_bump, loc):
-        loc.x += 170.0
+    #if check_set_node_loc(tree, ch.mb_curved_bump, loc):
+    #    loc.x += 170.0
 
     if check_set_node_loc(tree, ch.mb_bump, loc):
         loc.x += 170.0
@@ -507,44 +506,6 @@ def rearrange_mask_bump_nodes(tree, ch, loc):
         loc.y += 300.0
 
     loc.x = save_x
-
-def rearrange_mask_ramp_blending_nodes(tree, ch, loc):
-
-    if check_set_node_loc(tree, ch.mr_intensity, loc):
-        loc.x += 170.0
-
-    if check_set_node_loc(tree, ch.mr_blend, loc):
-        loc.x += 170.0
-
-    if check_set_node_loc(tree, ch.mr_flip_hack, loc):
-        loc.x += 170.0
-
-    if check_set_node_loc(tree, ch.mr_flip_blend, loc):
-        loc.x += 170.0
-
-def rearrange_mask_ramp_nodes(tree, ch, loc, include_blending=True):
-    # Ramp
-
-    if check_set_node_loc(tree, ch.mr_inverse, loc):
-        loc.x += 170.0
-
-    if check_set_node_loc(tree, ch.mr_ramp, loc):
-        loc.x += 270.0
-
-    if check_set_node_loc(tree, ch.mr_linear, loc):
-        loc.x += 170.0
-
-    if check_set_node_loc(tree, ch.mr_intensity_multiplier, loc):
-        loc.x += 170.0
-
-    if check_set_node_loc(tree, ch.mr_alpha, loc):
-        loc.x += 170.0
-
-    if check_set_node_loc(tree, ch.mr_alpha1, loc):
-        loc.x += 170.0
-
-    if include_blending:
-        rearrange_mask_ramp_blending_nodes(tree, ch, loc)
 
 def rearrange_normal_process_nodes(tree, ch, loc):
 
@@ -595,9 +556,9 @@ def rearrange_tex_nodes(tex, tree=None):
     chain = -1
     bump_ch = get_transition_bump_channel(tex)
     if bump_ch:
-        flip_bump = bump_ch.mask_bump_flip or tex.type == 'BACKGROUND'
-        #flip_bump = bump_ch.mask_bump_flip
-        chain = min(len(tex.masks), bump_ch.mask_bump_chain)
+        flip_bump = bump_ch.transition_bump_flip or tex.type == 'BACKGROUND'
+        #flip_bump = bump_ch.transition_bump_flip
+        chain = min(len(tex.masks), bump_ch.transition_bump_chain)
 
     #start_x = 350
     #loc = Vector((350, 0))
@@ -727,9 +688,9 @@ def rearrange_tex_nodes(tex, tree=None):
         root_ch = tl.channels[i]
 
         if root_ch.type == 'NORMAL':
-            chain = min(len(tex.masks), ch.mask_bump_chain)
+            chain = min(len(tex.masks), ch.transition_bump_chain)
         elif bump_ch:
-            chain = min(len(tex.masks), bump_ch.mask_bump_chain)
+            chain = min(len(tex.masks), bump_ch.transition_bump_chain)
         else:
             chain = -1
 
@@ -811,16 +772,13 @@ def rearrange_tex_nodes(tex, tree=None):
             if flip_bump and check_set_node_loc(tree, ch.tao, loc, False):
                 loc.y -= 230
 
-            if ch.enable_mask_ramp:
+            if ch.enable_transition_ramp:
                 if check_set_node_loc(tree, ch.mr_ramp, loc):
                     loc.y -= 230
-                #rearrange_mask_ramp_nodes(tree, ch, loc, not flip_bump)
-                #loc.y -= 230
-                pass
 
             # Transition bump
             if ch == bump_ch:
-                rearrange_mask_bump_nodes(tree, bump_ch, loc)
+                rearrange_transition_bump_nodes(tree, bump_ch, loc)
                 loc.y -= 300
 
             if loc.x > farthest_x: farthest_x = loc.x
@@ -888,9 +846,9 @@ def rearrange_tex_nodes(tex, tree=None):
             root_ch = tl.channels[j]
 
             if root_ch.type == 'NORMAL':
-                chain = min(len(tex.masks), ch.mask_bump_chain)
+                chain = min(len(tex.masks), ch.transition_bump_chain)
             elif bump_ch:
-                chain = min(len(tex.masks), bump_ch.mask_bump_chain)
+                chain = min(len(tex.masks), bump_ch.transition_bump_chain)
             else:
                 chain = -1
 
@@ -934,17 +892,14 @@ def rearrange_tex_nodes(tex, tree=None):
                 if flip_bump and check_set_node_loc(tree, ch.tao, loc, False):
                     loc.y -= 230
 
-                #if not flip_bump and ch.enable and ch.enable_mask_ramp:
-                if ch.enable_mask_ramp and (not ch.transition_ramp_intensity_unlink 
-                        or flip_bump or ch.mask_ramp_blend_type != 'MIX'):
+                #if not flip_bump and ch.enable and ch.enable_transition_ramp:
+                if ch.enable_transition_ramp and (not ch.transition_ramp_intensity_unlink 
+                        or flip_bump or ch.transition_ramp_blend_type != 'MIX'):
                     if check_set_node_loc(tree, ch.mr_ramp, loc):
                         loc.y -= 230
-                    #rearrange_mask_ramp_nodes(tree, ch, loc, not flip_bump)
-                    #loc.y -= 230
-                    pass
 
                 if bump_ch == ch:
-                    rearrange_mask_bump_nodes(tree, ch, loc)
+                    rearrange_transition_bump_nodes(tree, ch, loc)
                     loc.y -= 300
 
                 if not bump_ch:
@@ -965,17 +920,16 @@ def rearrange_tex_nodes(tex, tree=None):
         loc.x = bookmark_x
 
         # Transition ramp
-        if not bump_ch and ch.enable_mask_ramp:
-            #rearrange_mask_ramp_nodes(tree, ch, loc)
+        if not bump_ch and ch.enable_transition_ramp:
             if check_set_node_loc(tree, ch.mr_ramp, loc):
                 loc.x += 200
 
         # Leftover ramp node
-        #if not ch.enable_mask_ramp and check_set_node_loc(tree, ch.mr_ramp, loc):
+        #if not ch.enable_transition_ramp and check_set_node_loc(tree, ch.mr_ramp, loc):
         #    loc.x += 270.0
 
         # Transition bump
-        #rearrange_mask_bump_nodes(tree, ch, loc)
+        #rearrange_transition_bump_nodes(tree, ch, loc)
 
         if loc.x > farthest_x: farthest_x = loc.x
         loc.y -= y_step
@@ -1011,7 +965,6 @@ def rearrange_tex_nodes(tex, tree=None):
 
         # Flipped transition ramp
         if bump_ch and flip_bump:
-            #rearrange_mask_ramp_blending_nodes(tree, ch, loc)
             if check_set_node_loc(tree, ch.mr_ramp_blend, loc):
                 loc.x += 200
                 y_offset += 90
@@ -1019,8 +972,8 @@ def rearrange_tex_nodes(tex, tree=None):
         if check_set_node_loc(tree, ch.intensity, loc):
             loc.x += 200
 
-        if (ch.enable_mask_ramp and not flip_bump and ch.transition_ramp_intensity_unlink 
-                and ch.mask_ramp_blend_type == 'MIX'):
+        if (ch.enable_transition_ramp and not flip_bump and ch.transition_ramp_intensity_unlink 
+                and ch.transition_ramp_blend_type == 'MIX'):
             if check_set_node_loc(tree, ch.mr_ramp, loc):
                 loc.x += 200
                 #y_offset += 60

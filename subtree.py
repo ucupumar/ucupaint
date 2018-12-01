@@ -110,18 +110,6 @@ def enable_tex_source_tree(tex, rearrange=False):
         uv_neighbor.node_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
         set_uv_neighbor_resolution(tex, uv_neighbor)
 
-        #if tex.type == 'IMAGE' and source.image:
-        #    if tex.segment_name != '':
-        #        segment = source.image.yia.segments.get(tex.segment_name)
-        #        uv_neighbor.inputs[1].default_value = segment.width
-        #        uv_neighbor.inputs[2].default_value = segment.height
-        #    else:
-        #        uv_neighbor.inputs[1].default_value = source.image.size[0]
-        #        uv_neighbor.inputs[2].default_value = source.image.size[1]
-        #else:
-        #    uv_neighbor.inputs[1].default_value = 1000
-        #    uv_neighbor.inputs[2].default_value = 1000
-
     if rearrange:
         # Reconnect outside nodes
         reconnect_tex_nodes(tex)
@@ -140,7 +128,7 @@ def disable_tex_source_tree(tex, rearrange=True):
     blur_found = False
     for i, ch in enumerate(tex.channels):
         if tl.channels[i].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP' 
-                or (ch.enable_mask_bump and ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})):
+                or (ch.enable_transition_bump and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})):
             fine_bump_found = True
         if hasattr(ch, 'enable_blur') and ch.enable_blur:
             blur_found =True
@@ -190,7 +178,7 @@ def set_mask_uv_neighbor(tree, tex, mask):
     # NOTE: Checking transition bump everytime this function called is not that tidy
     # Check if transition bump channel is available
     bump_ch = get_transition_bump_channel(tex)
-    if bump_ch and bump_ch.mask_bump_type == 'BUMP_MAP':
+    if bump_ch and bump_ch.transition_bump_type == 'BUMP_MAP':
         #return False
         bump_ch = None
 
@@ -201,7 +189,7 @@ def set_mask_uv_neighbor(tree, tex, mask):
 
     # Check transition bump chain
     if bump_ch:
-        chain = min(bump_ch.mask_bump_chain, len(tex.masks))
+        chain = min(bump_ch.transition_bump_chain, len(tex.masks))
         match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
         mask_idx = int(match.group(2))
         if mask_idx >= chain:
@@ -377,7 +365,7 @@ def check_create_bump_base(tex, tree, ch):
 
         for d in neighbor_directions:
 
-            if ch.enable_mask_bump:
+            if ch.enable_transition_bump:
                 # Mask bump uses hack
                 bb = replace_new_node(tree, ch, 'bump_base_' + d, 
                         'ShaderNodeGroup', 'bump_hack_' + d, lib.STRAIGHT_OVER_HACK) 
@@ -396,7 +384,7 @@ def check_create_bump_base(tex, tree, ch):
         for d in neighbor_directions:
             remove_node(tree, ch, 'bump_base_' + d)
 
-        if ch.enable_mask_bump:
+        if ch.enable_transition_bump:
 
             # Mask bump uses hack
             bump_base = replace_new_node(tree, ch, 'bump_base', 
@@ -425,7 +413,7 @@ def check_mask_multiply_nodes(tex, tree=None):
 
     trans_bump_flip = False
     if trans_bump:
-        trans_bump_flip = trans_bump.mask_bump_flip or tex.type == 'BACKGROUND'
+        trans_bump_flip = trans_bump.transition_bump_flip or tex.type == 'BACKGROUND'
 
     for i, mask in enumerate(tex.masks):
         for j, c in enumerate(mask.channels):
@@ -434,9 +422,9 @@ def check_mask_multiply_nodes(tex, tree=None):
             root_ch = tl.channels[j]
 
             if root_ch.type == 'NORMAL' and not trans_bump:
-                chain = min(ch.mask_bump_chain, len(tex.masks))
+                chain = min(ch.transition_bump_chain, len(tex.masks))
             elif trans_bump:
-                chain = min(trans_bump.mask_bump_chain, len(tex.masks))
+                chain = min(trans_bump.transition_bump_chain, len(tex.masks))
             else: chain = -1
 
             multiply = tree.nodes.get(c.multiply)
@@ -450,7 +438,7 @@ def check_mask_multiply_nodes(tex, tree=None):
 
                 if ((
                     (not trans_bump and ch.normal_map_type in {'FINE_BUMP_MAP'}) or
-                    (trans_bump == ch and ch.mask_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}) 
+                    (trans_bump == ch and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}) 
                     ) and i < chain):
                     for d in neighbor_directions:
                         mul = tree.nodes.get(getattr(c, 'multiply_' + d))
@@ -477,8 +465,8 @@ def check_mask_multiply_nodes(tex, tree=None):
 
             else: 
                 if (trans_bump and i >= chain and (
-                    (trans_bump_flip and ch.enable_mask_ramp) or 
-                    #(not trans_bump_flip and ch.enable_mask_ramp and ch.transition_ramp_intensity_unlink) or
+                    (trans_bump_flip and ch.enable_transition_ramp) or 
+                    #(not trans_bump_flip and ch.enable_transition_ramp and ch.transition_ramp_intensity_unlink) or
                     (not trans_bump_flip and ch.enable_transition_ao)
                     )):
                     multiply_n = tree.nodes.get(c.multiply_n)
@@ -506,14 +494,14 @@ def check_mask_source_tree(tex): #, ch=None):
         if chs: fine_bump = chs[0]
 
     if trans_bump:
-        chain = min(trans_bump.mask_bump_chain, len(tex.masks))
+        chain = min(trans_bump.transition_bump_chain, len(tex.masks))
     elif fine_bump:
-        chain = min(fine_bump.mask_bump_chain, len(tex.masks))
+        chain = min(fine_bump.transition_bump_chain, len(tex.masks))
     else: chain = -1
 
     for i, mask in enumerate(tex.masks):
 
-        if ((trans_bump and trans_bump.mask_bump_type != 'BUMP_MAP') or fine_bump) and i < chain:
+        if ((trans_bump and trans_bump.transition_bump_type != 'BUMP_MAP') or fine_bump) and i < chain:
             enable_mask_source_tree(tex, mask)
         else:
             disable_mask_source_tree(tex, mask)
