@@ -51,12 +51,12 @@ def refresh_float_image_hack(scene):
     tlui = bpy.context.window_manager.tlui
 
     if tlui.refresh_image_hack:
-        node = get_active_texture_layers_node()
+        node = get_active_cpaint_node()
         if node:
             tl = node.node_tree.tl
-            if len(tl.textures) > 0:
-                tex = tl.textures[tl.active_texture_index]
-                source = get_tex_source(tex)
+            if len(tl.layers) > 0:
+                layer = tl.layers[tl.active_layer_index]
+                source = get_tex_source(layer)
                 if source.type == 'TEX_IMAGE' and source.image:
                     # Just reload image to fix glitched float image
                     print("INFO: Just ignore error below if there's any, this is fine..")

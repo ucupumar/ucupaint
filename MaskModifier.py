@@ -16,9 +16,9 @@ can_be_expanded = {
 def update_mask_modifier_enable(self, context):
 
     tl = self.id_data.tl
-    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(match.group(1))]
-    mask = tex.masks[int(match.group(2))]
+    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    layer = tl.layers[int(match.group(1))]
+    mask = layer.masks[int(match.group(2))]
     mod = self
 
     tree = get_mask_tree(mask)
@@ -138,7 +138,7 @@ class YMoveMaskModifier(bpy.types.Operator):
 
     def execute(self, context):
 
-        tex = context.texture
+        layer = context.texture
         mask = context.mask
         mod = context.modifier
 
@@ -164,8 +164,8 @@ class YMoveMaskModifier(bpy.types.Operator):
         mask.modifiers.move(index, new_index)
 
         # Reconnect modifier nodes
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
         # Update UI
         context.window_manager.tlui.need_update = True
@@ -184,7 +184,7 @@ class YRemoveMaskModifier(bpy.types.Operator):
 
     def execute(self, context):
 
-        tex = context.texture
+        layer = context.texture
         mask = context.mask
         mod = context.modifier
         tree = get_mask_tree(mask)
@@ -200,8 +200,8 @@ class YRemoveMaskModifier(bpy.types.Operator):
 
         mask.modifiers.remove(index)
 
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
         # Update UI
         context.window_manager.tlui.need_update = True

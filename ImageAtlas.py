@@ -298,22 +298,22 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
     def execute(self, context):
 
         obj = context.object
-        tex = context.texture
-        tl = tex.id_data.tl
+        layer = context.texture
+        tl = layer.id_data.tl
         tlui = context.window_manager.tlui
 
         image = None
 
-        for mask in tex.masks:
+        for mask in layer.masks:
             if mask.type == 'IMAGE' and mask.active_edit:
                 refresh_temp_uv(obj, mask)
                 source = get_mask_source(mask)
                 image = source.image
                 #return {'FINISHED'}
         
-        if not image and tex.type == 'IMAGE':
-            refresh_temp_uv(obj, tex)
-            source = get_tex_source(tex)
+        if not image and layer.type == 'IMAGE':
+            refresh_temp_uv(obj, layer)
+            source = get_tex_source(layer)
             image = source.image
 
         if image:
@@ -337,24 +337,24 @@ class YBackToOriginalUV(bpy.types.Operator):
     def execute(self, context):
 
         obj = context.object
-        tex = context.texture
-        tl = tex.id_data.tl
+        layer = context.texture
+        tl = layer.id_data.tl
         tlui = context.window_manager.tlui
 
         active = None
         image = None
 
-        for mask in tex.masks:
+        for mask in layer.masks:
             if mask.type == 'IMAGE' and mask.active_edit:
                 source = get_mask_source(mask)
                 image = source.image
                 active = mask
                 #return {'FINISHED'}
         
-        if not active and tex.type == 'IMAGE':
-            source = get_tex_source(tex)
+        if not active and layer.type == 'IMAGE':
+            source = get_tex_source(layer)
             image = source.image
-            active = tex
+            active = layer
 
         if not active: return {'CANCELLED'}
 
@@ -388,7 +388,7 @@ class YImageAtlasSegments(bpy.types.PropertyGroup):
     name = StringProperty(
             name='Name',
             description='Name of Image Atlas Segments',
-            default='') #, update=update_texture_name)
+            default='')
 
     tile_x = IntProperty(default=0)
     tile_y = IntProperty(default=0)
@@ -402,7 +402,7 @@ class YImageAtlas(bpy.types.PropertyGroup):
     name = StringProperty(
             name='Name',
             description='Name of Image Atlas',
-            default='') #, update=update_texture_name)
+            default='')
 
     is_image_atlas = BoolProperty(default=False)
 

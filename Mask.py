@@ -8,14 +8,14 @@ from .node_connections import *
 from .node_arrangements import *
 from .subtree import *
 
-def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None):
-    tl = tex.id_data.tl
+def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None):
+    tl = layer.id_data.tl
     tl.halt_update = True
 
-    tree = get_tree(tex)
+    tree = get_tree(layer)
     nodes = tree.nodes
 
-    mask = tex.masks.add()
+    mask = layer.masks.add()
     mask.name = name
     mask.type = mask_type
     mask.texcoord_type = texcoord_type
@@ -23,7 +23,7 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None, vco
     if segment:
         mask.segment_name = segment.name
 
-    source = new_node(tree, mask, 'source', texture_node_bl_idnames[mask_type], 'Mask Source')
+    source = new_node(tree, mask, 'source', layer_node_bl_idnames[mask_type], 'Mask Source')
     if image:
         source.image = image
         source.color_space = 'NONE'
@@ -54,45 +54,45 @@ def add_new_mask(tex, name, mask_type, texcoord_type, uv_name, image = None, vco
             refresh_temp_uv(bpy.context.object, mask, True)
 
     for i, root_ch in enumerate(tl.channels):
-        ch = tex.channels[i]
+        ch = layer.channels[i]
         c = mask.channels.add()
 
     # Check mask multiplies
-    check_mask_multiply_nodes(tex, tree)
+    check_mask_mix_nodes(layer, tree)
 
     # Check mask source tree
-    check_mask_source_tree(tex)
+    check_mask_source_tree(layer)
 
     tl.halt_update = False
 
     return mask
 
 def remove_mask_channel_nodes(tree, c):
-    remove_node(tree, c, 'multiply')
-    remove_node(tree, c, 'multiply_n')
-    remove_node(tree, c, 'multiply_s')
-    remove_node(tree, c, 'multiply_e')
-    remove_node(tree, c, 'multiply_w')
+    remove_node(tree, c, 'mix')
+    remove_node(tree, c, 'mix_n')
+    remove_node(tree, c, 'mix_s')
+    remove_node(tree, c, 'mix_e')
+    remove_node(tree, c, 'mix_w')
 
-def remove_mask_channel(tree, tex, ch_index):
+def remove_mask_channel(tree, layer, ch_index):
 
     # Remove mask nodes
-    for mask in tex.masks:
+    for mask in layer.masks:
 
         # Get channels
         c = mask.channels[ch_index]
-        ch = tex.channels[ch_index]
+        ch = layer.channels[ch_index]
 
         # Remove mask channel nodes first
         remove_mask_channel_nodes(tree, c)
 
     # Remove the mask itself
-    for mask in tex.masks:
+    for mask in layer.masks:
         mask.channels.remove(ch_index)
 
-def remove_mask(tex, mask, obj):
+def remove_mask(layer, mask, obj):
 
-    tree = get_tree(tex)
+    tree = get_tree(layer)
 
     # Dealing with image atlas segments
     if mask.type == 'IMAGE' and mask.segment_name != '':
@@ -100,7 +100,7 @@ def remove_mask(tex, mask, obj):
         segment = src.image.yia.segments.get(mask.segment_name)
         segment.unused = True
 
-    disable_mask_source_tree(tex, mask)
+    disable_mask_source_tree(layer, mask)
 
     remove_node(tree, mask, 'source', obj=obj)
     remove_node(tree, mask, 'mapping')
@@ -115,9 +115,9 @@ def remove_mask(tex, mask, obj):
         remove_mask_channel_nodes(tree, c)
 
     # Remove mask
-    for i, m in enumerate(tex.masks):
+    for i, m in enumerate(layer.masks):
         if m == mask:
-            tex.masks.remove(i)
+            layer.masks.remove(i)
             break
 
 class YNewLayerMask(bpy.types.Operator):
@@ -181,10 +181,10 @@ class YNewLayerMask(bpy.types.Operator):
 
         obj = context.object
         self.texture = context.texture
-        tex = context.texture
-        tl = tex.id_data.tl
+        layer = context.texture
+        tl = layer.id_data.tl
 
-        surname = '(' + tex.name + ')'
+        surname = '(' + layer.name + ')'
         if self.type == 'IMAGE':
             #name = 'Image'
             name = 'Mask'
@@ -197,7 +197,7 @@ class YNewLayerMask(bpy.types.Operator):
         else:
             #name += ' ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
             name = 'Mask ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
-            items = tex.masks
+            items = layer.masks
             self.name = get_unique_name(name, items)
         #name = 'Mask ' + name #+ ' ' + surname
 
@@ -206,7 +206,7 @@ class YNewLayerMask(bpy.types.Operator):
         elif len(obj.data.uv_layers) > 0:
             # Use active uv layer name by default
             if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_name = tl.textures[tl.active_texture_index].uv_name
+                self.uv_name = tl.layers[tl.active_layer_index].uv_name
             else: self.uv_name = obj.data.uv_layers.active.name
 
             # UV Map collections update
@@ -270,7 +270,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         obj = context.object
         tlui = context.window_manager.tlui
-        tex = self.texture
+        layer = self.texture
         #tlup = bpy.context.user_preferences.addons[__package__].preferences
 
         # Check if object is not a mesh
@@ -287,7 +287,7 @@ class YNewLayerMask(bpy.types.Operator):
             same_name = [i for i in bpy.data.images if i.name == self.name]
         elif self.type == 'VCOL':
             same_name = [i for i in obj.data.vertex_colors if i.name == self.name]
-        else: same_name = [m for m in tex.masks if m.name == self.name]
+        else: same_name = [m for m in layer.masks if m.name == self.name]
         if same_name:
             if self.type == 'IMAGE':
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
@@ -325,16 +325,16 @@ class YNewLayerMask(bpy.types.Operator):
                 set_obj_vertex_colors(obj, vcol, (0.0, 0.0, 0.0))
 
         # Add new mask
-        mask = add_new_mask(tex, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment)
+        mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'}:
             mask.active_edit = True
 
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
-        tlui.tex_ui.expand_masks = True
+        tlui.layer_ui.expand_masks = True
         tlui.need_update = True
 
         return {'FINISHED'}
@@ -389,7 +389,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
             #self.uv_map = obj.data.uv_layers.active.name
             if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_map = tl.textures[tl.active_texture_index].uv_name
+                self.uv_map = tl.layers[tl.active_layer_index].uv_name
             else: self.uv_map = obj.data.uv_layers.active.name
 
             # UV Map collections update
@@ -424,8 +424,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         T = time.time()
         if not hasattr(self, 'texture'): return {'CANCELLED'}
 
-        tex = self.texture
-        tl = tex.id_data.tl
+        layer = self.texture
+        tl = layer.id_data.tl
         wm = context.window_manager
         tlui = wm.tlui
         obj = context.object
@@ -439,10 +439,10 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 except: pass
 
             # Add new mask
-            mask = add_new_mask(tex, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None)
+            mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None)
 
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
         # Update UI
         wm.tlui.need_update = True
@@ -493,7 +493,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
             #self.uv_map = obj.data.uv_layers.active.name
             if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_map = tl.textures[tl.active_texture_index].uv_name
+                self.uv_map = tl.layers[tl.active_layer_index].uv_name
             else: self.uv_map = obj.data.uv_layers.active.name
 
             # UV Map collections update
@@ -545,8 +545,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     def execute(self, context):
         if not hasattr(self, 'texture'): return {'CANCELLED'}
 
-        tex = self.texture
-        tl = tex.id_data.tl
+        layer = self.texture
+        tl = layer.id_data.tl
         tlui = context.window_manager.tlui
         obj = context.object
 
@@ -567,16 +567,16 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             name = vcol.name
 
         # Add new mask
-        mask = add_new_mask(tex, name, self.type, self.texcoord_type, self.uv_map, image, vcol)
+        mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'}:
             mask.active_edit = True
 
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
-        tlui.tex_ui.expand_masks = True
+        tlui.layer_ui.expand_masks = True
         tlui.need_update = True
 
         return {'FINISHED'}
@@ -599,12 +599,12 @@ class YMoveLayerMask(bpy.types.Operator):
 
     def execute(self, context):
         mask = context.mask
-        tex = context.texture
+        layer = context.texture
 
-        num_masks = len(tex.masks)
+        num_masks = len(layer.masks)
         if num_masks < 2: return {'CANCELLED'}
 
-        m = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        m = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
         index = int(m.group(2))
 
         # Get new index
@@ -616,15 +616,15 @@ class YMoveLayerMask(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Swap masks
-        tex.masks.move(index, new_index)
+        layer.masks.move(index, new_index)
 
         # Dealing with transition bump
-        tree = get_tree(tex)
-        check_mask_multiply_nodes(tex, tree)
-        check_mask_source_tree(tex) #, bump_ch)
+        tree = get_tree(layer)
+        check_mask_mix_nodes(layer, tree)
+        check_mask_source_tree(layer) #, bump_ch)
 
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
         return {'FINISHED'}
 
@@ -640,31 +640,31 @@ class YRemoveLayerMask(bpy.types.Operator):
 
     def execute(self, context):
         mask = context.mask
-        tex = context.texture
-        tree = get_tree(tex)
+        layer = context.texture
+        tree = get_tree(layer)
         obj = context.object
-        tl = tex.id_data.tl
+        tl = layer.id_data.tl
 
-        remove_mask(tex, mask, obj)
+        remove_mask(layer, mask, obj)
 
-        reconnect_tex_nodes(tex)
-        rearrange_tex_nodes(tex)
+        reconnect_tex_nodes(layer)
+        rearrange_tex_nodes(layer)
 
         # Seach for active edit mask
         found_active_edit = False
-        for m in tex.masks:
+        for m in layer.masks:
             if m.active_edit:
                 found_active_edit = True
                 break
 
         # Use texture image as active image if active edit mask not found
         if not found_active_edit:
-            #if tex.type == 'IMAGE':
-            #    source = get_tex_source(tex, tree)
+            #if layer.type == 'IMAGE':
+            #    source = get_tex_source(layer, tree)
             #    update_image_editor_image(context, source.image)
             #else:
             #    update_image_editor_image(context, None)
-            tl.active_texture_index = tl.active_texture_index
+            tl.active_layer_index = tl.active_layer_index
 
         # Refresh viewport and image editor
         for area in bpy.context.screen.areas:
@@ -685,74 +685,74 @@ def update_mask_active_image_edit(self, context):
 
     tl = self.id_data.tl
 
-    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     tex_idx = int(match.group(1))
-    tex = tl.textures[int(match.group(1))]
+    layer = tl.layers[int(match.group(1))]
     mask_idx = int(match.group(2))
 
     if self.active_edit: 
-        for m in tex.masks:
+        for m in layer.masks:
             if m == self: continue
             m.halt_update = True
             m.active_edit = False
             m.halt_update = False
 
     # Refresh
-    tl.active_texture_index = tex_idx
+    tl.active_layer_index = tex_idx
 
 def update_enable_layer_masks(self, context):
     tl = self.id_data.tl
     if tl.halt_update: return
 
-    tex = self
-    tree = get_tree(tex)
-    for mask in tex.masks:
+    layer = self
+    tree = get_tree(layer)
+    for mask in layer.masks:
         for ch in mask.channels:
-            mute = not ch.enable or not mask.enable or not tex.enable_masks
+            mute = not ch.enable or not mask.enable or not layer.enable_masks
 
-            multiply = tree.nodes.get(ch.multiply)
-            multiply.mute = mute
+            mix = tree.nodes.get(ch.mix)
+            mix.mute = mute
 
             for d in neighbor_directions:
-                mul = tree.nodes.get(getattr(ch, 'multiply_' + d))
-                if mul: mul.mute = mute
+                mix = tree.nodes.get(getattr(ch, 'mix_' + d))
+                if mix: mix.mute = mute
 
 def update_layer_mask_channel_enable(self, context):
     tl = self.id_data.tl
     if tl.halt_update: return
 
-    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(match.group(1))]
-    mask = tex.masks[int(match.group(2))]
-    tree = get_tree(tex)
+    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = tl.layers[int(match.group(1))]
+    mask = layer.masks[int(match.group(2))]
+    tree = get_tree(layer)
 
-    mute = not self.enable or not mask.enable or not tex.enable_masks
+    mute = not self.enable or not mask.enable or not layer.enable_masks
 
-    multiply = tree.nodes.get(self.multiply)
-    multiply.mute = mute
+    mix = tree.nodes.get(self.mix)
+    mix.mute = mute
 
     for d in neighbor_directions:
-        mul = tree.nodes.get(getattr(self, 'multiply_' + d))
-        if mul: mul.mute = mute
+        mix = tree.nodes.get(getattr(self, 'mix_' + d))
+        if mix: mix.mute = mute
 
 def update_layer_mask_enable(self, context):
     tl = self.id_data.tl
     if tl.halt_update: return
 
-    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(match.group(1))]
-    tree = get_tree(tex)
+    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = tl.layers[int(match.group(1))]
+    tree = get_tree(layer)
 
     for ch in self.channels:
 
-        mute = not ch.enable or not self.enable or not tex.enable_masks
+        mute = not ch.enable or not self.enable or not layer.enable_masks
 
-        multiply = tree.nodes.get(ch.multiply)
-        multiply.mute = mute
+        mix = tree.nodes.get(ch.mix)
+        mix.mute = mute
 
         for d in neighbor_directions:
-            mul = tree.nodes.get(getattr(ch, 'multiply_' + d))
-            if mul: mul.mute = mute
+            mix = tree.nodes.get(getattr(ch, 'mix_' + d))
+            if mix: mix.mute = mute
 
     self.active_edit = self.enable and self.type == 'IMAGE'
 
@@ -760,19 +760,19 @@ def update_mask_texcoord_type(self, context):
     tl = self.id_data.tl
     if tl.halt_update: return
 
-    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(match.group(1))]
+    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = tl.layers[int(match.group(1))]
 
-    reconnect_tex_nodes(tex)
+    reconnect_tex_nodes(layer)
 
 def update_mask_uv_name(self, context):
     obj = context.object
     tl = self.id_data.tl
     if tl.halt_update: return
 
-    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(match.group(1))]
-    tree = get_tree(tex)
+    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = tl.layers[int(match.group(1))]
+    tree = get_tree(layer)
     mask = self
 
     uv_map = tree.nodes.get(mask.uv_map)
@@ -801,49 +801,49 @@ def update_mask_uv_name(self, context):
                     break
 
     # Update neighbor uv if mask bump is active
-    if set_mask_uv_neighbor(tree, tex, self):
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+    if set_mask_uv_neighbor(tree, layer, self):
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
 def update_mask_name(self, context):
 
     tl = self.id_data.tl
-    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(match.group(1))]
+    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = tl.layers[int(match.group(1))]
     src = get_mask_source(self)
 
     if self.type == 'IMAGE' and self.segment_name != '': return
-    change_texture_name(tl, context.object, src, self, tex.masks)
+    change_layer_name(tl, context.object, src, self, layer.masks)
 
 def update_mask_blend_type(self, context):
 
     tl = self.id_data.tl
-    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(match.group(1))]
-    tree = get_tree(tex)
+    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = tl.layers[int(match.group(1))]
+    tree = get_tree(layer)
     mask = self
 
     for c in mask.channels:
-        mul = tree.nodes.get(c.multiply)
-        if mul: mul.blend_type = mask.blend_type
+        mix = tree.nodes.get(c.mix)
+        if mix: mix.blend_type = mask.blend_type
         for d in neighbor_directions:
-            mul = tree.nodes.get(getattr(c, 'multiply_' + d))
-            if mul: mul.blend_type = mask.blend_type
+            mix = tree.nodes.get(getattr(c, 'mix_' + d))
+            if mix: mix.blend_type = mask.blend_type
 
 def update_mask_intensity_value(self, context):
 
     tl = self.id_data.tl
-    match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    tex = tl.textures[int(match.group(1))]
-    tree = get_tree(tex)
+    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = tl.layers[int(match.group(1))]
+    tree = get_tree(layer)
     mask = self
 
     for c in mask.channels:
-        mul = tree.nodes.get(c.multiply)
-        if mul: mul.inputs[0].default_value = mask.intensity_value
+        mix = tree.nodes.get(c.mix)
+        if mix: mix.inputs[0].default_value = mask.intensity_value
         for d in neighbor_directions:
-            mul = tree.nodes.get(getattr(c, 'multiply_' + d))
-            if mul: mul.inputs[0].default_value = mask.intensity_value
+            mix = tree.nodes.get(getattr(c, 'mix_' + d))
+            if mix: mix.inputs[0].default_value = mask.intensity_value
 
 def update_mask_transform(self, context):
     update_mapping(self)
@@ -852,16 +852,13 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_layer_mask_channel_enable)
 
     # Multiply between mask channels
-    multiply = StringProperty(default='')
+    mix = StringProperty(default='')
 
     # Bump related
-    multiply_n = StringProperty(default='')
-    multiply_s = StringProperty(default='')
-    multiply_e = StringProperty(default='')
-    multiply_w = StringProperty(default='')
-
-    # Flip bump related
-    multiply_extra = StringProperty(default='')
+    mix_n = StringProperty(default='')
+    mix_s = StringProperty(default='')
+    mix_e = StringProperty(default='')
+    mix_w = StringProperty(default='')
 
     # UI related
     expand_content = BoolProperty(default=False)

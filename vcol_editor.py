@@ -125,7 +125,6 @@ def vcol_editor_draw(self, context):
         rcol.operator("mesh.vertex_color_add", icon='ZOOMIN', text="")
         rcol.operator("mesh.vertex_color_remove", icon='ZOOMOUT', text="")
 
-
     col.separator()
 
     ccol = col.column(align=True)

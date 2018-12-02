@@ -7,13 +7,13 @@ def update_tex_channel_blur(self, context):
     tl = self.id_data.tl
     path = self.path_from_id()
 
-    m = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]', path)
+    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', path)
     if not m: return
-    tex = tl.textures[int(m.group(1))]
+    layer = tl.layers[int(m.group(1))]
 
     if self.enable_blur:
-        enable_tex_source_tree(tex)
-    else: disable_tex_source_tree(tex)
+        enable_tex_source_tree(layer)
+    else: disable_tex_source_tree(layer)
 
 #class YTextureBlurSample(bpy.types.PropertyGroup):
 #    pass

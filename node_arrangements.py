@@ -142,13 +142,13 @@ def rearrange_tl_frame_nodes(tl):
 
     clean_unused_frames(tree)
 
-def rearrange_tex_frame_nodes(tex, tree=None):
-    tl = tex.id_data.tl
-    if not tree: tree = get_tree(tex)
+def rearrange_tex_frame_nodes(layer, tree=None):
+    tl = layer.id_data.tl
+    if not tree: tree = get_tree(layer)
     #nodes = tree.nodes
 
     # Texture channels
-    for i, ch in enumerate(tex.channels):
+    for i, ch in enumerate(layer.channels):
         root_ch = tl.channels[i]
 
         # Modifiers
@@ -196,7 +196,7 @@ def rearrange_tex_frame_nodes(tex, tree=None):
         #check_set_node_parent(tree, ch.intensity_multiplier, frame)
 
     # Masks
-    for i, mask in enumerate(tex.masks):
+    for i, mask in enumerate(layer.masks):
         frame = get_frame(tree, '__mask__', str(i), mask.name)
 
         if mask.group_node != '':
@@ -214,18 +214,18 @@ def rearrange_tex_frame_nodes(tex, tree=None):
         check_set_node_parent(tree, mask.source_w, frame)
 
         for c in mask.channels:
-            check_set_node_parent(tree, c.multiply, frame)
-            check_set_node_parent(tree, c.multiply_n, frame)
-            check_set_node_parent(tree, c.multiply_s, frame)
-            check_set_node_parent(tree, c.multiply_e, frame)
-            check_set_node_parent(tree, c.multiply_w, frame)
+            check_set_node_parent(tree, c.mix, frame)
+            check_set_node_parent(tree, c.mix_n, frame)
+            check_set_node_parent(tree, c.mix_s, frame)
+            check_set_node_parent(tree, c.mix_e, frame)
+            check_set_node_parent(tree, c.mix_w, frame)
 
     clean_unused_frames(tree)
 
-def create_info_nodes(group_tree, tex=None):
+def create_info_nodes(group_tree, layer=None):
     tl = group_tree.tl
-    if tex:
-        tree = get_tree(tex)
+    if layer:
+        tree = get_tree(layer)
         nodes = tree.nodes
     else: nodes = group_tree.nodes
 
@@ -238,12 +238,12 @@ def create_info_nodes(group_tree, tex=None):
     infos = []
 
     info = nodes.new('NodeFrame')
-    if tex:
+    if layer:
         info.label = 'Part of yPaint addon version ' + tl.version
     else: info.label = 'Created using yPaint addon version ' + tl.version
     info.use_custom_color = True
     info.color = (1.0, 1.0, 1.0)
-    if tex:
+    if layer:
         info.width = 400.0
     else: info.width = 460.0
     info.height = 30.0
@@ -404,9 +404,9 @@ def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=Fa
         return loc, offset_y
     return loc
 
-def rearrange_source_tree_nodes(tex):
+def rearrange_source_tree_nodes(layer):
 
-    source_tree = get_source_tree(tex)
+    source_tree = get_source_tree(layer)
 
     loc = Vector((0, 0))
 
@@ -417,20 +417,20 @@ def rearrange_source_tree_nodes(tex):
     check_set_node_loc(source_tree, SOURCE_SOLID_VALUE, loc)
     loc.y += 300
 
-    if check_set_node_loc(source_tree, tex.mapping, loc):
+    if check_set_node_loc(source_tree, layer.mapping, loc):
         loc.x += 380
 
-    if check_set_node_loc(source_tree, tex.source, loc):
+    if check_set_node_loc(source_tree, layer.source, loc):
         loc.x += 200
 
-    if tex.type in {'IMAGE', 'VCOL'}:
-        arrange_modifier_nodes(source_tree, tex, loc)
+    if layer.type in {'IMAGE', 'VCOL'}:
+        arrange_modifier_nodes(source_tree, layer, loc)
     else:
-        if check_set_node_loc(source_tree, tex.mod_group, loc, True):
-            mod_group = source_tree.nodes.get(tex.mod_group)
-            arrange_modifier_nodes(mod_group.node_tree, tex, loc=Vector((0,0)))
+        if check_set_node_loc(source_tree, layer.mod_group, loc, True):
+            mod_group = source_tree.nodes.get(layer.mod_group)
+            arrange_modifier_nodes(mod_group.node_tree, layer, loc=Vector((0,0)))
             loc.y -= 40
-        if check_set_node_loc(source_tree, tex.mod_group_1, loc, True):
+        if check_set_node_loc(source_tree, layer.mod_group_1, loc, True):
             loc.y += 40
             loc.x += 150
 
@@ -505,27 +505,27 @@ def rearrange_normal_process_nodes(tree, ch, loc):
     if check_set_node_loc(tree, ch.normal, loc):
         loc.x += 250
 
-def rearrange_tex_nodes(tex, tree=None):
-    tl = tex.id_data.tl
+def rearrange_tex_nodes(layer, tree=None):
+    tl = layer.id_data.tl
 
     if tl.halt_reconnect: return
 
-    if not tree: tree = get_tree(tex)
+    if not tree: tree = get_tree(layer)
     nodes = tree.nodes
 
-    #print('Rearrange texture ' + tex.name)
+    #print('Rearrange texture ' + layer.name)
 
-    start = nodes.get(tex.start)
-    end = nodes.get(tex.end)
+    start = nodes.get(layer.start)
+    end = nodes.get(layer.end)
 
     # Get transition bump channel
     flip_bump = False
     chain = -1
-    bump_ch = get_transition_bump_channel(tex)
+    bump_ch = get_transition_bump_channel(layer)
     if bump_ch:
-        flip_bump = bump_ch.transition_bump_flip or tex.type == 'BACKGROUND'
+        flip_bump = bump_ch.transition_bump_flip or layer.type == 'BACKGROUND'
         #flip_bump = bump_ch.transition_bump_flip
-        chain = min(len(tex.masks), bump_ch.transition_bump_chain)
+        chain = min(len(layer.masks), bump_ch.transition_bump_chain)
 
     #start_x = 350
     #loc = Vector((350, 0))
@@ -533,70 +533,70 @@ def rearrange_tex_nodes(tex, tree=None):
     # Back to source nodes
     loc = Vector((0, 0))
 
-    if tex.source_group != '' and check_set_node_loc(tree, tex.source_group, loc, hide=True):
-        rearrange_source_tree_nodes(tex)
+    if layer.source_group != '' and check_set_node_loc(tree, layer.source_group, loc, hide=True):
+        rearrange_source_tree_nodes(layer)
         loc.y -= 40
 
-    elif check_set_node_loc(tree, tex.source, loc, hide=False):
-        if tex.type == 'BRICK':
+    elif check_set_node_loc(tree, layer.source, loc, hide=False):
+        if layer.type == 'BRICK':
             loc.y -= 400
-        elif tex.type == 'CHECKER':
+        elif layer.type == 'CHECKER':
             loc.y -= 170
-        elif tex.type == 'GRADIENT':
+        elif layer.type == 'GRADIENT':
             loc.y -= 140
-        elif tex.type == 'MAGIC':
+        elif layer.type == 'MAGIC':
             loc.y -= 180
-        elif tex.type == 'MUSGRAVE':
+        elif layer.type == 'MUSGRAVE':
             loc.y -= 270
-        elif tex.type == 'NOISE':
+        elif layer.type == 'NOISE':
             loc.y -= 170
-        elif tex.type == 'VORONOI':
+        elif layer.type == 'VORONOI':
             loc.y -= 170
-        elif tex.type == 'VORONOI':
+        elif layer.type == 'VORONOI':
             loc.y -= 260
         else:
             loc.y -= 260
 
-    if check_set_node_loc(tree, tex.source_n, loc, hide=True):
+    if check_set_node_loc(tree, layer.source_n, loc, hide=True):
         loc.y -= 40
 
-    if check_set_node_loc(tree, tex.source_s, loc, hide=True):
+    if check_set_node_loc(tree, layer.source_s, loc, hide=True):
         loc.y -= 40
 
-    if check_set_node_loc(tree, tex.source_e, loc, hide=True):
+    if check_set_node_loc(tree, layer.source_e, loc, hide=True):
         loc.y -= 40
 
-    if check_set_node_loc(tree, tex.source_w, loc, hide=True):
+    if check_set_node_loc(tree, layer.source_w, loc, hide=True):
         loc.y -= 40
 
-    if tex.source_group == '' and check_set_node_loc(tree, tex.mapping, loc):
+    if layer.source_group == '' and check_set_node_loc(tree, layer.mapping, loc):
         loc.y -= 290
 
-    if check_set_node_loc(tree, tex.uv_neighbor, loc):
+    if check_set_node_loc(tree, layer.uv_neighbor, loc):
         loc.y -= 230
 
-    if check_set_node_loc(tree, tex.uv_map, loc):
+    if check_set_node_loc(tree, layer.uv_map, loc):
         loc.y -= 140
 
-    if check_set_node_loc(tree, tex.solid_value, loc):
+    if check_set_node_loc(tree, layer.solid_value, loc):
         loc.y -= 90
 
-    if check_set_node_loc(tree, tex.texcoord, loc):
+    if check_set_node_loc(tree, layer.texcoord, loc):
         loc.y -= 240
 
-    if check_set_node_loc(tree, tex.tangent, loc):
+    if check_set_node_loc(tree, layer.tangent, loc):
         loc.y -= 160
 
-    if check_set_node_loc(tree, tex.bitangent, loc):
+    if check_set_node_loc(tree, layer.bitangent, loc):
         loc.y -= 160
 
-    if check_set_node_loc(tree, tex.geometry, loc):
+    if check_set_node_loc(tree, layer.geometry, loc):
         loc.y -= 210
 
     loc = Vector((-600, 0))
 
     # Channel Caches
-    for ch in tex.channels:
+    for ch in layer.channels:
 
         if check_set_node_loc(tree, ch.cache_ramp, loc, hide=False):
             loc.y -= 270
@@ -604,60 +604,60 @@ def rearrange_tex_nodes(tex, tree=None):
     loc = Vector((-300, 0))
 
     # Layer Caches
-    if check_set_node_loc(tree, tex.cache_color, loc, hide=False):
+    if check_set_node_loc(tree, layer.cache_color, loc, hide=False):
         loc.y -= 200
 
-    if check_set_node_loc(tree, tex.cache_brick, loc, hide=False):
+    if check_set_node_loc(tree, layer.cache_brick, loc, hide=False):
         loc.y -= 400
 
-    if check_set_node_loc(tree, tex.cache_checker, loc, hide=False):
+    if check_set_node_loc(tree, layer.cache_checker, loc, hide=False):
         loc.y -= 170
 
-    if check_set_node_loc(tree, tex.cache_gradient, loc, hide=False):
+    if check_set_node_loc(tree, layer.cache_gradient, loc, hide=False):
         loc.y -= 140
 
-    if check_set_node_loc(tree, tex.cache_magic, loc, hide=False):
+    if check_set_node_loc(tree, layer.cache_magic, loc, hide=False):
         loc.y -= 180
 
-    if check_set_node_loc(tree, tex.cache_musgrave, loc, hide=False):
+    if check_set_node_loc(tree, layer.cache_musgrave, loc, hide=False):
         loc.y -= 270
 
-    if check_set_node_loc(tree, tex.cache_noise, loc, hide=False):
+    if check_set_node_loc(tree, layer.cache_noise, loc, hide=False):
         loc.y -= 170
 
-    if check_set_node_loc(tree, tex.cache_voronoi, loc, hide=False):
+    if check_set_node_loc(tree, layer.cache_voronoi, loc, hide=False):
         loc.y -= 170
 
-    if check_set_node_loc(tree, tex.cache_wave, loc, hide=False):
+    if check_set_node_loc(tree, layer.cache_wave, loc, hide=False):
         loc.y -= 260
 
     loc = Vector((380, 0))
 
     # Texture modifiers
-    if tex.source_group == '':
-        if tex.mod_group != '':
-            mod_group = nodes.get(tex.mod_group)
-            arrange_modifier_nodes(mod_group.node_tree, tex, loc.copy())
-            check_set_node_loc(tree, tex.mod_group, loc, hide=True)
+    if layer.source_group == '':
+        if layer.mod_group != '':
+            mod_group = nodes.get(layer.mod_group)
+            arrange_modifier_nodes(mod_group.node_tree, layer, loc.copy())
+            check_set_node_loc(tree, layer.mod_group, loc, hide=True)
             loc.y -= 40
-            check_set_node_loc(tree, tex.mod_group_1, loc, hide=True)
+            check_set_node_loc(tree, layer.mod_group_1, loc, hide=True)
             loc.y += 40
             loc.x += 200
         else:
-            loc = arrange_modifier_nodes(tree, tex, loc)
+            loc = arrange_modifier_nodes(tree, layer, loc)
 
     start_x = loc.x
     farthest_x = 0
     bookmarks_ys = []
 
-    for i, ch in enumerate(tex.channels):
+    for i, ch in enumerate(layer.channels):
 
         root_ch = tl.channels[i]
 
         if root_ch.type == 'NORMAL':
-            chain = min(len(tex.masks), ch.transition_bump_chain)
+            chain = min(len(layer.masks), ch.transition_bump_chain)
         elif bump_ch:
-            chain = min(len(tex.masks), bump_ch.transition_bump_chain)
+            chain = min(len(layer.masks), bump_ch.transition_bump_chain)
         else:
             chain = -1
 
@@ -711,8 +711,8 @@ def rearrange_tex_nodes(tex, tree=None):
         loc.y -= offset_y
 
         # If next channel had modifier
-        if i+1 < len(tex.channels):
-            next_ch = tex.channels[i+1]
+        if i+1 < len(layer.channels):
+            next_ch = layer.channels[i+1]
             if len(next_ch.modifiers) > 0 and next_ch.mod_group == '':
                 loc.y -= 35
 
@@ -721,7 +721,7 @@ def rearrange_tex_nodes(tex, tree=None):
     else: mid_y = 0
 
     y_step = 200
-    y_mid = -(len(tex.channels) * y_step / 2)
+    y_mid = -(len(layer.channels) * y_step / 2)
 
     if bump_ch and chain == 0:
 
@@ -729,7 +729,7 @@ def rearrange_tex_nodes(tex, tree=None):
         loc.y = 0
         bookmark_x = loc.x
 
-        for i, ch in enumerate(tex.channels):
+        for i, ch in enumerate(layer.channels):
 
             loc.x = bookmark_x
 
@@ -756,7 +756,7 @@ def rearrange_tex_nodes(tex, tree=None):
     bookmark_x = loc.x
 
     # Masks
-    for i, mask in enumerate(tex.masks):
+    for i, mask in enumerate(layer.masks):
 
         loc.y = 0
         loc.x = farthest_x
@@ -809,39 +809,39 @@ def rearrange_tex_nodes(tex, tree=None):
         # Mask channels
         for j, c in enumerate(mask.channels):
 
-            ch = tex.channels[j]
+            ch = layer.channels[j]
             root_ch = tl.channels[j]
 
             if root_ch.type == 'NORMAL':
-                chain = min(len(tex.masks), ch.transition_bump_chain)
+                chain = min(len(layer.masks), ch.transition_bump_chain)
             elif bump_ch:
-                chain = min(len(tex.masks), bump_ch.transition_bump_chain)
+                chain = min(len(layer.masks), bump_ch.transition_bump_chain)
             else:
                 chain = -1
 
             loc.x = bookmark_x
             bookmark_y = loc.y
 
-            mul_n = tree.nodes.get(c.multiply_n)
+            mul_n = tree.nodes.get(c.mix_n)
             if not mul_n:
 
-                if check_set_node_loc(tree, c.multiply, loc):
+                if check_set_node_loc(tree, c.mix, loc):
                     loc.y -= 200.0
             else:
 
-                if check_set_node_loc(tree, c.multiply, loc, True):
+                if check_set_node_loc(tree, c.mix, loc, True):
                     loc.y -= 40
 
-                if check_set_node_loc(tree, c.multiply_n, loc, True):
+                if check_set_node_loc(tree, c.mix_n, loc, True):
                     loc.y -= 40
 
-                if check_set_node_loc(tree, c.multiply_s, loc, True):
+                if check_set_node_loc(tree, c.mix_s, loc, True):
                     loc.y -= 40
 
-                if check_set_node_loc(tree, c.multiply_e, loc, True):
+                if check_set_node_loc(tree, c.mix_e, loc, True):
                     loc.y -= 40
 
-                if check_set_node_loc(tree, c.multiply_w, loc, True):
+                if check_set_node_loc(tree, c.mix_w, loc, True):
                     loc.y -= 40
 
             loc.x += 230
@@ -851,7 +851,7 @@ def rearrange_tex_nodes(tex, tree=None):
             # Transition effects
             if i == chain-1:
 
-                ch = tex.channels[j]
+                ch = layer.channels[j]
 
                 if check_set_node_loc(tree, ch.intensity_multiplier, loc, False):
                     loc.y -= 200
@@ -882,7 +882,7 @@ def rearrange_tex_nodes(tex, tree=None):
     loc.y = 0
     bookmark_x = loc.x
 
-    for i, ch in enumerate(tex.channels):
+    for i, ch in enumerate(layer.channels):
 
         loc.x = bookmark_x
 
@@ -907,7 +907,7 @@ def rearrange_tex_nodes(tex, tree=None):
     loc.y = 0
 
     # Start node
-    check_set_node_loc(tree, tex.start, loc)
+    check_set_node_loc(tree, layer.start, loc)
 
     loc.x += 250
     loc.y = 0
@@ -915,14 +915,14 @@ def rearrange_tex_nodes(tex, tree=None):
     bookmark_x = loc.x
 
     # Channel blends
-    for i, ch in enumerate(tex.channels):
+    for i, ch in enumerate(layer.channels):
 
         loc.x = bookmark_x
         #loc.y = bookmarks_ys[i]
 
         y_offset = 240
 
-        #if ch != bump_ch or (ch == bump_ch and chain == len(tex.masks)):
+        #if ch != bump_ch or (ch == bump_ch and chain == len(layer.masks)):
         #    if check_set_node_loc(tree, ch.intensity_multiplier, loc):
         #        loc.x += 200.0
 
@@ -980,9 +980,9 @@ def rearrange_tex_nodes(tex, tree=None):
     #loc.y = mid_y
     #loc.y = y_mid
     loc.y = 0
-    check_set_node_loc(tree, tex.end, loc)
+    check_set_node_loc(tree, layer.end, loc)
 
-    rearrange_tex_frame_nodes(tex, tree)
+    rearrange_tex_frame_nodes(layer, tree)
 
 def rearrange_tl_nodes(group_tree):
 
@@ -1019,14 +1019,14 @@ def rearrange_tl_nodes(group_tree):
             loc.x += 200
 
     #groups = []
-    #for i, t in enumerate(reversed(tl.textures)):
+    #for i, t in enumerate(reversed(tl.layers)):
     #    if t.type == 'GROUP':
     #        pass
 
     loc.y = 0.0
 
     # Texture nodes
-    for i, t in enumerate(reversed(tl.textures)):
+    for i, t in enumerate(reversed(tl.layers)):
 
         parent_ids = get_list_of_parent_ids(t)
 
@@ -1040,7 +1040,7 @@ def rearrange_tl_nodes(group_tree):
             loc.x += 200
 
     #stack = []
-    #for i, t in enumerate(tl.textures):
+    #for i, t in enumerate(tl.layers):
     #    if stack and stack[-1] == t.parent_idx:
     #        loc.y += 300
     #        stack.pop()

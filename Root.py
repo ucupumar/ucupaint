@@ -7,7 +7,7 @@ from .node_arrangements import *
 from .node_connections import *
 from . import lib, Modifier, Layer, Mask, transition
 
-TL_GROUP_SUFFIX = ' yPaint'
+TL_GROUP_SUFFIX = ' CounterPaint'
 
 channel_socket_types = {
     'RGB' : 'RGBA',
@@ -97,11 +97,11 @@ def check_all_channel_ios(tl):
         if outp not in valid_outputs:
             group_tree.outputs.remove(outp)
 
-    # Move tex IO
-    for tex in tl.textures:
-        Layer.check_all_layer_channel_io_and_nodes(tex)
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+    # Move layer IO
+    for layer in tl.layers:
+        Layer.check_all_layer_channel_io_and_nodes(layer)
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
     # Rearrange nodes
     rearrange_tl_nodes(group_tree)
@@ -160,8 +160,8 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
         start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
 
-    # Link between textures
-    for t in tl.textures:
+    # Link between layers
+    for t in tl.layers:
 
         # Add new channel
         c = t.channels.add()
@@ -175,7 +175,7 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         transition.check_transition_bump_influences_to_other_channels(t, tex_tree, target_ch=c)
 
         # Set mask multiply nodes
-        check_mask_multiply_nodes(t, tex_tree)
+        check_mask_mix_nodes(t, tex_tree)
 
         # Add new nodes
         Layer.check_all_layer_channel_io_and_nodes(t, tex_tree, specific_ch=c)
@@ -236,9 +236,9 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
     # Link new channel
     create_tl_channel_nodes(group_tree, channel, last_index)
 
-    for tex in tl.textures:
-        # New channel is disabled in texture by default
-        tex.channels[last_index].enable = enable
+    for layer in tl.layers:
+        # New channel is disabled in layer by default
+        layer.channels[last_index].enable = enable
 
     if channel_type in {'RGB', 'VALUE'}:
         if non_color:
@@ -257,10 +257,10 @@ def create_new_tl_channel(group_tree, name, channel_type, non_color=True, enable
 #        self.roughness = False
 #        self.normal = False
 
-class YQuickSetupTLNode(bpy.types.Operator):
-    bl_idname = "node.y_quick_setup_texture_layers_node"
-    bl_label = "Quick yPaint Node Setup"
-    bl_description = "Quick yPaint Node Setup"
+class YQuickSetupCPNode(bpy.types.Operator):
+    bl_idname = "node.y_quick_setup_contrapaint_node"
+    bl_label = "Quick CounterPaint Node Setup"
+    bl_description = "Quick CounterPaint Node Setup"
     bl_options = {'REGISTER', 'UNDO'}
 
     type = EnumProperty(
@@ -490,10 +490,10 @@ class YQuickSetupTLNode(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YNewTLNode(bpy.types.Operator):
-    bl_idname = "node.y_add_new_texture_layers_node"
-    bl_label = "Add new Texture Layers Node"
-    bl_description = "Add new texture layers node"
+class YNewCPNode(bpy.types.Operator):
+    bl_idname = "node.y_add_new_cpaint_node"
+    bl_label = "Add new CounterPaint Node"
+    bl_description = "Add new CounterPaint node"
     bl_options = {'REGISTER', 'UNDO'}
 
     @staticmethod
@@ -585,15 +585,15 @@ class YNodeInputCollItem(bpy.types.PropertyGroup):
     input_name = StringProperty(default='')
 
 def update_connect_to(self, context):
-    tl = get_active_texture_layers_node().node_tree.tl
+    tl = get_active_cpaint_node().node_tree.tl
     item = self.input_coll.get(self.connect_to)
     if item:
         self.name = get_unique_name(item.input_name, tl.channels)
 
-class YNewTLChannel(bpy.types.Operator):
-    bl_idname = "node.y_add_new_texture_layers_channel"
-    bl_label = "Add new Texture Group Channel"
-    bl_description = "Add new texture group channel"
+class YNewCPChannel(bpy.types.Operator):
+    bl_idname = "node.y_add_new_cpaint_channel"
+    bl_label = "Add new CounterPaint Channel"
+    bl_description = "Add new CounterPaint channel"
     bl_options = {'REGISTER', 'UNDO'}
 
     name = StringProperty(
@@ -616,14 +616,14 @@ class YNewTLChannel(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_texture_layers_node()
+        return get_active_cpaint_node()
 
     def refresh_input_coll(self, context):
         # Refresh input names
         self.input_coll.clear()
         mat = get_active_material()
         nodes = mat.node_tree.nodes
-        tl_node = get_active_texture_layers_node()
+        tl_node = get_active_cpaint_node()
 
         for node in nodes:
             if node == tl_node: continue
@@ -640,7 +640,7 @@ class YNewTLChannel(bpy.types.Operator):
                 item.input_name = inp.name
 
     def invoke(self, context, event):
-        group_node = get_active_texture_layers_node()
+        group_node = get_active_cpaint_node()
         channels = group_node.node_tree.tl.channels
 
         if self.type == 'RGB':
@@ -689,7 +689,7 @@ class YNewTLChannel(bpy.types.Operator):
         #node = context.active_node
         wm = context.window_manager
         mat = get_active_material()
-        node = get_active_texture_layers_node()
+        node = get_active_cpaint_node()
         group_tree = node.node_tree
         tl = group_tree.tl
         #tlup = context.user_preferences.addons[__name__].preferences
@@ -782,10 +782,10 @@ def swap_channel_io(root_ch, swap_ch, io_index, io_index_swap, inputs, outputs):
             inputs.move(io_index, io_index_swap)
             outputs.move(io_index, io_index_swap)
 
-class YMoveTLChannel(bpy.types.Operator):
-    bl_idname = "node.y_move_texture_layers_channel"
-    bl_label = "Move Texture Group Channel"
-    bl_description = "Move texture group channel"
+class YMoveCPChannel(bpy.types.Operator):
+    bl_idname = "node.y_move_cpaint_channel"
+    bl_label = "Move CounterPaint Channel"
+    bl_description = "Move CounterPaint channel"
     bl_options = {'REGISTER', 'UNDO'}
 
     direction = EnumProperty(
@@ -796,14 +796,14 @@ class YMoveTLChannel(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_texture_layers_node()
+        group_node = get_active_cpaint_node()
         return group_node and len(group_node.node_tree.tl.channels) > 0
 
     def execute(self, context):
         T = time.time()
 
         wm = context.window_manager
-        group_node = get_active_texture_layers_node()
+        group_node = get_active_cpaint_node()
         group_tree = group_node.node_tree
         tl = group_tree.tl
         tlui = context.window_manager.tlui
@@ -839,12 +839,12 @@ class YMoveTLChannel(bpy.types.Operator):
         # Move channel
         tl.channels.move(index, new_index)
 
-        # Move tex channels
-        for tex in tl.textures:
-            tex.channels.move(index, new_index)
+        # Move layer channels
+        for layer in tl.layers:
+            layer.channels.move(index, new_index)
 
             # Move mask channels
-            for mask in tex.masks:
+            for mask in layer.masks:
                 mask.channels.move(index, new_index)
 
         # Move IO
@@ -863,22 +863,22 @@ class YMoveTLChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YRemoveTLChannel(bpy.types.Operator):
-    bl_idname = "node.y_remove_texture_layers_channel"
-    bl_label = "Remove Texture Group Channel"
-    bl_description = "Remove texture group channel"
+class YRemoveCPChannel(bpy.types.Operator):
+    bl_idname = "node.y_remove_cpaint_channel"
+    bl_label = "Remove CounterPaint Channel"
+    bl_description = "Remove CounterPaint channel"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_texture_layers_node()
+        group_node = get_active_cpaint_node()
         return group_node and len(group_node.node_tree.tl.channels) > 0
 
     def execute(self, context):
         T = time.time()
 
         wm = context.window_manager
-        group_node = get_active_texture_layers_node()
+        group_node = get_active_cpaint_node()
         group_tree = group_node.node_tree
         tl = group_tree.tl
         tlui = context.window_manager.tlui
@@ -895,8 +895,8 @@ class YRemoveTLChannel(bpy.types.Operator):
         # Collapse the UI
         #setattr(tlui, 'show_channel_modifiers_' + str(channel_idx), False)
 
-        # Remove channel nodes from textures
-        for t in tl.textures:
+        # Remove channel nodes from layers
+        for t in tl.layers:
             ch = t.channels[channel_idx]
             ttree = get_tree(t)
 
@@ -931,7 +931,7 @@ class YRemoveTLChannel(bpy.types.Operator):
                 for mod in ch.modifiers:
                     Modifier.delete_modifier_nodes(ttree, mod)
 
-            # Remove tex IO
+            # Remove layer IO
             ttree.inputs.remove(ttree.inputs[channel.io_index])
             ttree.outputs.remove(ttree.outputs[channel.io_index])
 
@@ -981,12 +981,12 @@ class YRemoveTLChannel(bpy.types.Operator):
         #tl.temp_channels.remove(channel_idx)
 
         # Check consistency of mask multiply nodes
-        for t in tl.textures:
-            check_mask_multiply_nodes(t)
+        for t in tl.layers:
+            check_mask_mix_nodes(t)
 
         # Rearrange and reconnect nodes
         check_all_channel_ios(tl)
-        #for t in tl.textures:
+        #for t in tl.layers:
         #    rearrange_tex_nodes(t)
         #    reconnect_tex_nodes(t)
         #rearrange_tl_nodes(group_tree)
@@ -1029,20 +1029,20 @@ class YAddSimpleUVs(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YRenameTLTree(bpy.types.Operator):
-    bl_idname = "node.y_rename_tl_tree"
-    bl_label = "Rename Texture Layers Group Name"
-    bl_description = "Rename Texture Layers Group Name"
+class YRenameCPTree(bpy.types.Operator):
+    bl_idname = "node.y_rename_cp_tree"
+    bl_label = "Rename CounterPaint Group Name"
+    bl_description = "Rename CounterPaint Group Name"
     bl_options = {'REGISTER', 'UNDO'}
 
     name = StringProperty(name='New Name', description='New Name', default='')
 
     @classmethod
     def poll(cls, context):
-        return get_active_texture_layers_node()
+        return get_active_cpaint_node()
 
     def invoke(self, context, event):
-        node = get_active_texture_layers_node()
+        node = get_active_cpaint_node()
         tree = node.node_tree
 
         self.name = tree.name
@@ -1052,12 +1052,12 @@ class YRenameTLTree(bpy.types.Operator):
         self.layout.prop(self, 'name')
 
     def execute(self, context):
-        node = get_active_texture_layers_node()
+        node = get_active_cpaint_node()
         tree = node.node_tree
         tree.name = self.name
         return {'FINISHED'}
 
-class YChangeActiveTL(bpy.types.Operator):
+class YChangeActiveCP(bpy.types.Operator):
     bl_idname = "node.y_change_active_tl"
     bl_label = "Change Active TL Tree"
     bl_description = "Change Active TL Tree"
@@ -1087,28 +1087,28 @@ class YChangeActiveTL(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YFixDuplicatedTextures(bpy.types.Operator):
-    bl_idname = "node.y_fix_duplicated_textures"
-    bl_label = "Fix Duplicated Textures"
-    bl_description = "Fix dupliacted textures caused by duplicated Texture Layers Group Node"
+class YFixDuplicatedLayers(bpy.types.Operator):
+    bl_idname = "node.y_fix_duplicated_layers"
+    bl_label = "Fix Duplicated Layers"
+    bl_description = "Fix duplicated layers caused by duplicated CounterPaint Node"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_texture_layers_node()
+        group_node = get_active_cpaint_node()
         tl = group_node.node_tree.tl
-        if len(tl.textures) == 0: return False
-        tex_tree = get_tree(tl.textures[-1])
+        if len(tl.layers) == 0: return False
+        tex_tree = get_tree(tl.layers[-1])
         return tex_tree.users > 1
 
     def execute(self, context):
         tlui = context.window_manager.tlui
-        group_node = get_active_texture_layers_node()
+        group_node = get_active_cpaint_node()
         tree = group_node.node_tree
         tl = tree.tl
 
-        # Make all textures single(dual) user
-        for t in tl.textures:
+        # Make all layers single(dual) user
+        for t in tl.layers:
             oldtree = get_tree(t)
             ttree = oldtree.copy()
             node = tree.nodes.get(t.group_node)
@@ -1151,23 +1151,23 @@ class YFixMissingData(bpy.types.Operator):
         return True
 
     def execute(self, context):
-        group_node = get_active_texture_layers_node()
+        group_node = get_active_cpaint_node()
         tree = group_node.node_tree
         tl = tree.tl
         obj = context.object
 
-        for tex in tl.textures:
-            if tex.type in {'IMAGE' , 'VCOL'}:
-                src = get_tex_source(tex)
+        for layer in tl.layers:
+            if layer.type in {'IMAGE' , 'VCOL'}:
+                src = get_tex_source(layer)
 
-                if tex.type == 'IMAGE' and not src.image:
-                    fix_missing_img(tex.name, src, False)
+                if layer.type == 'IMAGE' and not src.image:
+                    fix_missing_img(layer.name, src, False)
 
-                elif (tex.type == 'VCOL' and obj.type == 'MESH' 
+                elif (layer.type == 'VCOL' and obj.type == 'MESH' 
                         and not obj.data.vertex_colors.get(src.attribute_name)):
-                    fix_missing_vcol(obj, tex.name, src)
+                    fix_missing_vcol(obj, layer.name, src)
 
-            for mask in tex.masks:
+            for mask in layer.masks:
                 if mask.type in {'IMAGE' , 'VCOL'}:
                     mask_src = get_mask_source(mask)
 
@@ -1197,13 +1197,13 @@ def update_channel_name(self, context):
         group_tree.inputs[self.io_index+1].name = self.name + ' Alpha'
         group_tree.outputs[self.io_index+1].name = self.name + ' Alpha'
 
-    for tex in tl.textures:
-        tree = get_tree(tex)
-        Layer.check_all_layer_channel_io_and_nodes(tex, tree)
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+    for layer in tl.layers:
+        tree = get_tree(layer)
+        Layer.check_all_layer_channel_io_and_nodes(layer, tree)
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
-        rearrange_tex_frame_nodes(tex, tree)
+        rearrange_tex_frame_nodes(layer, tree)
     
     rearrange_tl_frame_nodes(tl)
     rearrange_tl_nodes(group_tree)
@@ -1217,7 +1217,7 @@ def update_preview_mode(self, context):
         mat = bpy.context.object.active_material
         tree = mat.node_tree
         nodes = tree.nodes
-        group_node = get_active_texture_layers_node()
+        group_node = get_active_cpaint_node()
         tl = group_node.node_tree.tl
         channel = tl.channels[tl.active_channel_index]
         index = tl.active_channel_index
@@ -1281,13 +1281,13 @@ def update_preview_mode(self, context):
 
 def update_active_tl_channel(self, context):
     try: 
-        group_node = get_active_texture_layers_node()
+        group_node = get_active_cpaint_node()
         tl = group_node.node_tree.tl
     except: return
     
     if tl.preview_mode: tl.preview_mode = True
 
-def update_texture_index(self, context):
+def update_layer_index(self, context):
     #T = time.time()
     scene = context.scene
     obj = context.object
@@ -1295,16 +1295,16 @@ def update_texture_index(self, context):
     nodes = group_tree.nodes
     tlui = context.window_manager.tlui
 
-    if (len(self.textures) == 0 or
-        self.active_texture_index >= len(self.textures) or self.active_texture_index < 0): 
+    if (len(self.layers) == 0 or
+        self.active_layer_index >= len(self.layers) or self.active_layer_index < 0): 
         update_image_editor_image(context, None)
         scene.tool_settings.image_paint.canvas = None
-        #print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        #print('INFO: Active layer is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         return
 
-    tex = self.textures[self.active_texture_index]
-    tree = get_tree(tex)
-    tl = tex.id_data.tl
+    layer = self.layers[self.active_layer_index]
+    tree = get_tree(layer)
+    tl = layer.id_data.tl
 
     # Set image paint mode to Image
     scene.tool_settings.image_paint.mode = 'IMAGE'
@@ -1315,7 +1315,7 @@ def update_texture_index(self, context):
     src_of_img = None
     mapping = None
 
-    for mask in tex.masks:
+    for mask in layer.masks:
         if mask.active_edit:
             source = get_mask_source(mask)
             if mask.type == 'IMAGE':
@@ -1326,15 +1326,15 @@ def update_texture_index(self, context):
             elif mask.type == 'VCOL' and obj.type == 'MESH':
                 vcol = obj.data.vertex_colors.get(source.attribute_name)
 
-    if not image and tex.type == 'IMAGE':
-        uv_name = tex.uv_name
-        source = get_tex_source(tex, tree)
+    if not image and layer.type == 'IMAGE':
+        uv_name = layer.uv_name
+        source = get_tex_source(layer, tree)
         image = source.image
-        src_of_img = tex
-        mapping = get_tex_mapping(tex)
+        src_of_img = layer
+        mapping = get_tex_mapping(layer)
 
-    if not vcol and tex.type == 'VCOL' and obj.type == 'MESH':
-        source = get_tex_source(tex, tree)
+    if not vcol and layer.type == 'VCOL' and obj.type == 'MESH':
+        source = get_tex_source(layer, tree)
         vcol = obj.data.vertex_colors.get(source.attribute_name)
 
     # Update image editor
@@ -1345,7 +1345,7 @@ def update_texture_index(self, context):
         tl.need_temp_uv_refresh = True
     else: 
         update_image_editor_image(context, image)
-        # Update tex paint
+        # Update layer paint
         scene.tool_settings.image_paint.canvas = image
         tl.need_temp_uv_refresh = False
 
@@ -1374,7 +1374,7 @@ def update_texture_index(self, context):
 
     #tl.need_temp_uv_refresh = False
 
-    #print('INFO: Active texture is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    #print('INFO: Active layer is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_channel_colorspace(self, context):
     group_tree = self.id_data
@@ -1403,11 +1403,11 @@ def update_channel_colorspace(self, context):
                         rgb2i.inputs['Gamma'].default_value = 1.0
                     else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
-    for tex in tl.textures:
-        ch = tex.channels[channel_index]
-        tree = get_tree(tex)
+    for layer in tl.layers:
+        ch = layer.channels[channel_index]
+        tree = get_tree(layer)
 
-        Layer.set_tex_channel_linear_node(tree, tex, self, ch)
+        Layer.set_tex_channel_linear_node(tree, layer, self, ch)
 
         # Check for linear node
         #linear = tree.nodes.get(ch.linear)
@@ -1473,7 +1473,7 @@ def update_channel_alpha(self, context):
         else: # Blender 2.7
             mat.game_settings.alpha_blend = 'OPAQUE'
 
-        node = get_active_texture_layers_node()
+        node = get_active_cpaint_node()
         inp = node.inputs[self.io_index+1]
         outp = node.outputs[self.io_index+1]
 
@@ -1501,7 +1501,7 @@ def update_channel_alpha(self, context):
         alpha_index = self.io_index+1
 
         # Set node default_value
-        node = get_active_texture_layers_node()
+        node = get_active_cpaint_node()
         node.inputs[alpha_index].default_value = 0.0
 
         # Try to relink to original connections
@@ -1528,7 +1528,7 @@ def update_channel_alpha(self, context):
     tl.refresh_tree = True
 
 #def update_col_input(self, context):
-#    group_node = get_active_texture_layers_node()
+#    group_node = get_active_cpaint_node()
 #    group_tree = group_node.node_tree
 #    tl = group_tree.tl
 #
@@ -1542,7 +1542,7 @@ def update_channel_alpha(self, context):
 #    if start_linear: start_linear.inputs[0].default_value = self.col_input
 
 #def update_val_input(self, context):
-#    group_node = get_active_texture_layers_node()
+#    group_node = get_active_cpaint_node()
 #    group_tree = group_node.node_tree
 #    tl = group_tree.tl
 #
@@ -1562,10 +1562,10 @@ def update_channel_alpha(self, context):
 #        ch_index = int(m.group(1))
 #
 #        blend_found = False
-#        for tex in tl.textures:
-#            for i, ch in enumerate(tex.channels):
+#        for layer in tl.layers:
+#            for i, ch in enumerate(layer.channels):
 #                if i == ch_index:
-#                    tree = get_tree(tex)
+#                    tree = get_tree(layer)
 #                    blend = tree.nodes.get(ch.blend)
 #                    if blend and blend.type =='GROUP':
 #                        inp = blend.node_tree.nodes.get('Group Input')
@@ -1625,7 +1625,7 @@ class YRootChannel(bpy.types.PropertyGroup):
     ori_alpha_to = CollectionProperty(type=YNodeConnections)
     ori_alpha_from = PointerProperty(type=YNodeConnections)
 
-class YTextureLayersRoot(bpy.types.PropertyGroup):
+class YCP(bpy.types.PropertyGroup):
     is_tl_node = BoolProperty(default=False)
     is_tl_tex_node = BoolProperty(default=False)
     version = StringProperty(default='')
@@ -1634,9 +1634,9 @@ class YTextureLayersRoot(bpy.types.PropertyGroup):
     channels = CollectionProperty(type=YRootChannel)
     active_channel_index = IntProperty(default=0, update=update_active_tl_channel)
 
-    # Textures
-    textures = CollectionProperty(type=Layer.YLayer)
-    active_texture_index = IntProperty(default=0, update=update_texture_index)
+    # Layers
+    layers = CollectionProperty(type=Layer.YLayer)
+    active_layer_index = IntProperty(default=0, update=update_layer_index)
 
     # Solid value for modifier alpha input
     solid_value = StringProperty(default='')
@@ -1646,7 +1646,7 @@ class YTextureLayersRoot(bpy.types.PropertyGroup):
 
     end = StringProperty(default='')
 
-    # Temp channels to remember last channel selected when adding new texture
+    # Temp channels to remember last channel selected when adding new layer
     #temp_channels = CollectionProperty(type=YChannelUI)
     preview_mode = BoolProperty(default=False, update=update_preview_mode)
 
@@ -1667,18 +1667,18 @@ class YTextureLayersRoot(bpy.types.PropertyGroup):
 
     #random_prop = BoolProperty(default=False)
 
-class YMaterialTLProps(bpy.types.PropertyGroup):
+class YMaterialCPProps(bpy.types.PropertyGroup):
     ori_bsdf = StringProperty(default='')
     ori_output = StringProperty(default='')
     active_tl_node = StringProperty(default='')
 
-class YTLTimer(bpy.types.PropertyGroup):
+class YCPTimer(bpy.types.PropertyGroup):
     time = StringProperty(default='')
 
 @persistent
-def ytl_hacks_and_scene_updates(scene):
+def ycp_hacks_and_scene_updates(scene):
     # Get active tl node
-    group_node =  get_active_texture_layers_node()
+    group_node =  get_active_cpaint_node()
     if not group_node: return
     tree = group_node.node_tree
     tl = tree.tl
@@ -1694,65 +1694,65 @@ def ytl_hacks_and_scene_updates(scene):
             break
         tl.refresh_tree = False
 
-    # Check single user image texture
-    if len(tl.textures) > 0:
-        tex = tl.textures[tl.active_texture_index]
+    # Check single user image layer
+    if len(tl.layers) > 0:
+        layer = tl.layers[tl.active_layer_index]
 
-        if tex.type == 'IMAGE':
-            source = get_tex_source(tex)
+        if layer.type == 'IMAGE':
+            source = get_tex_source(layer)
             img = source.image
 
-            if img and img.name != tex.image_name:
-                # Update active texture paint image
-                tex.image_name = img.name
-                tl.active_texture_index = tl.active_texture_index
+            if img and img.name != layer.image_name:
+                # Update active layer paint image
+                layer.image_name = img.name
+                tl.active_layer_index = tl.active_layer_index
 
 def register():
-    bpy.utils.register_class(YQuickSetupTLNode)
-    bpy.utils.register_class(YNewTLNode)
+    bpy.utils.register_class(YQuickSetupCPNode)
+    bpy.utils.register_class(YNewCPNode)
     bpy.utils.register_class(YNodeInputCollItem)
-    bpy.utils.register_class(YNewTLChannel)
-    bpy.utils.register_class(YMoveTLChannel)
-    bpy.utils.register_class(YRemoveTLChannel)
+    bpy.utils.register_class(YNewCPChannel)
+    bpy.utils.register_class(YMoveCPChannel)
+    bpy.utils.register_class(YRemoveCPChannel)
     bpy.utils.register_class(YAddSimpleUVs)
-    bpy.utils.register_class(YRenameTLTree)
-    bpy.utils.register_class(YChangeActiveTL)
-    bpy.utils.register_class(YFixDuplicatedTextures)
+    bpy.utils.register_class(YRenameCPTree)
+    bpy.utils.register_class(YChangeActiveCP)
+    bpy.utils.register_class(YFixDuplicatedLayers)
     bpy.utils.register_class(YFixMissingData)
     bpy.utils.register_class(YNodeConnections)
     bpy.utils.register_class(YRootChannel)
-    bpy.utils.register_class(YTextureLayersRoot)
-    bpy.utils.register_class(YMaterialTLProps)
-    bpy.utils.register_class(YTLTimer)
+    bpy.utils.register_class(YCP)
+    bpy.utils.register_class(YMaterialCPProps)
+    bpy.utils.register_class(YCPTimer)
 
     # TL Props
-    bpy.types.ShaderNodeTree.tl = PointerProperty(type=YTextureLayersRoot)
-    bpy.types.Material.tl = PointerProperty(type=YMaterialTLProps)
-    bpy.types.WindowManager.tltimer = PointerProperty(type=YTLTimer)
+    bpy.types.ShaderNodeTree.tl = PointerProperty(type=YCP)
+    bpy.types.Material.tl = PointerProperty(type=YMaterialCPProps)
+    bpy.types.WindowManager.tltimer = PointerProperty(type=YCPTimer)
 
     # Handlers
     if hasattr(bpy.app.handlers, 'scene_update_pre'):
-        bpy.app.handlers.scene_update_pre.append(ytl_hacks_and_scene_updates)
+        bpy.app.handlers.scene_update_pre.append(ycp_hacks_and_scene_updates)
 
 def unregister():
-    bpy.utils.unregister_class(YQuickSetupTLNode)
-    bpy.utils.unregister_class(YNewTLNode)
+    bpy.utils.unregister_class(YQuickSetupCPNode)
+    bpy.utils.unregister_class(YNewCPNode)
     bpy.utils.unregister_class(YNodeInputCollItem)
-    bpy.utils.unregister_class(YNewTLChannel)
-    bpy.utils.unregister_class(YMoveTLChannel)
-    bpy.utils.unregister_class(YRemoveTLChannel)
+    bpy.utils.unregister_class(YNewCPChannel)
+    bpy.utils.unregister_class(YMoveCPChannel)
+    bpy.utils.unregister_class(YRemoveCPChannel)
     bpy.utils.unregister_class(YAddSimpleUVs)
-    bpy.utils.unregister_class(YRenameTLTree)
-    bpy.utils.unregister_class(YChangeActiveTL)
-    bpy.utils.unregister_class(YFixDuplicatedTextures)
+    bpy.utils.unregister_class(YRenameCPTree)
+    bpy.utils.unregister_class(YChangeActiveCP)
+    bpy.utils.unregister_class(YFixDuplicatedLayers)
     bpy.utils.unregister_class(YFixMissingData)
     bpy.utils.unregister_class(YNodeConnections)
     bpy.utils.unregister_class(YRootChannel)
-    bpy.utils.unregister_class(YTextureLayersRoot)
-    bpy.utils.unregister_class(YMaterialTLProps)
-    bpy.utils.unregister_class(YTLTimer)
+    bpy.utils.unregister_class(YCP)
+    bpy.utils.unregister_class(YMaterialCPProps)
+    bpy.utils.unregister_class(YCPTimer)
 
     # Remove handlers
     if hasattr(bpy.app.handlers, 'scene_update_pre'):
-        bpy.app.handlers.scene_update_pre.remove(ytl_hacks_and_scene_updates)
+        bpy.app.handlers.scene_update_pre.remove(ycp_hacks_and_scene_updates)
 

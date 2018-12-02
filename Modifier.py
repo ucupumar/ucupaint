@@ -47,9 +47,9 @@ def add_modifier_nodes(m, tree, ref_tree=None):
     nodes = tree.nodes
     #links = tree.links
 
-    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
+    match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
-    match3 = re.match(r'tl\.textures\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
+    match3 = re.match(r'tl\.layers\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
     if match1:
         root_ch = tl.channels[int(match1.group(2))]
 
@@ -313,8 +313,8 @@ def add_new_modifier(parent, modifier_type):
 
     tl = parent.id_data.tl
 
-    match1 = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
-    match2 = re.match(r'^tl\.textures\[(\d+)\]$', parent.path_from_id())
+    match1 = re.match(r'^tl\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^tl\.layers\[(\d+)\]$', parent.path_from_id())
     match3 = re.match(r'^tl\.channels\[(\d+)\]$', parent.path_from_id())
 
     if match1: 
@@ -395,7 +395,7 @@ def delete_modifier_nodes(tree, mod):
         remove_node(tree, mod, 'multiplier')
 
 class YNewTexModifier(bpy.types.Operator):
-    bl_idname = "node.y_new_texture_modifier"
+    bl_idname = "node.y_new_layer_modifier"
     bl_label = "New Texture Modifier"
     bl_description = "New Texture Modifier"
     bl_options = {'REGISTER', 'UNDO'}
@@ -407,16 +407,16 @@ class YNewTexModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_texture_layers_node() and hasattr(context, 'parent')
+        return get_active_cpaint_node() and hasattr(context, 'parent')
 
     def execute(self, context):
-        node = get_active_texture_layers_node()
+        node = get_active_cpaint_node()
         group_tree = node.node_tree
         tl = group_tree.tl
 
-        m = re.match(r'^tl\.textures\[(\d+)\]', context.parent.path_from_id())
-        if m: tex = tl.textures[int(m.group(1))]
-        else: tex = None
+        m = re.match(r'^tl\.layers\[(\d+)\]', context.parent.path_from_id())
+        if m: layer = tl.layers[int(m.group(1))]
+        else: layer = None
 
         mod = add_new_modifier(context.parent, self.type)
 
@@ -424,7 +424,7 @@ class YNewTexModifier(bpy.types.Operator):
         #    mod.rgb2i_col = (1,0,1,1)
 
         # If RGB to intensity is added, bump base is better be 0.0
-        if tex and self.type == 'RGB_TO_INTENSITY':
+        if layer and self.type == 'RGB_TO_INTENSITY':
             for i, ch in enumerate(tl.channels):
                 c = context.texture.channels[i]
                 if ch.type == 'NORMAL':
@@ -434,13 +434,13 @@ class YNewTexModifier(bpy.types.Operator):
         if hasattr(context, 'channel_ui'):
             context.channel_ui.expand_content = True
 
-        if hasattr(context, 'tex_ui'):
-            context.tex_ui.expand_content = True
+        if hasattr(context, 'layer_ui'):
+            context.layer_ui.expand_content = True
 
         # Rearrange nodes
-        if tex:
-            rearrange_tex_nodes(tex)
-            reconnect_tex_nodes(tex)
+        if layer:
+            rearrange_tex_nodes(layer)
+            reconnect_tex_nodes(layer)
         else: 
             rearrange_tl_nodes(group_tree)
             reconnect_tl_nodes(group_tree)
@@ -454,7 +454,7 @@ class YNewTexModifier(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMoveTexModifier(bpy.types.Operator):
-    bl_idname = "node.y_move_texture_modifier"
+    bl_idname = "node.y_move_layer_modifier"
     bl_label = "Move Texture Modifier"
     bl_description = "Move Texture Modifier"
     bl_options = {'REGISTER', 'UNDO'}
@@ -467,11 +467,11 @@ class YMoveTexModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (get_active_texture_layers_node() and 
+        return (get_active_cpaint_node() and 
                 hasattr(context, 'parent') and hasattr(context, 'modifier'))
 
     def execute(self, context):
-        node = get_active_texture_layers_node()
+        node = get_active_cpaint_node()
         group_tree = node.node_tree
         tl = group_tree.tl
 
@@ -496,9 +496,9 @@ class YMoveTexModifier(bpy.types.Operator):
         else:
             return {'CANCELLED'}
 
-        tex = context.texture if hasattr(context, 'texture') else None
+        layer = context.texture if hasattr(context, 'texture') else None
 
-        #if tex: tree = get_tree(tex)
+        #if layer: tree = get_tree(layer)
         #else: tree = group_tree
 
         # Swap modifier
@@ -506,10 +506,10 @@ class YMoveTexModifier(bpy.types.Operator):
 
         # Reconnect modifier nodes
         #reconnect_between_modifier_nodes(parent)
-        reconnect_tex_nodes(tex)
+        reconnect_tex_nodes(layer)
 
         # Rearrange nodes
-        if tex: rearrange_tex_nodes(tex)
+        if layer: rearrange_tex_nodes(layer)
         else: rearrange_tl_nodes(group_tree)
 
         # Update UI
@@ -518,7 +518,7 @@ class YMoveTexModifier(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveTexModifier(bpy.types.Operator):
-    bl_idname = "node.y_remove_texture_modifier"
+    bl_idname = "node.y_remove_layer_modifier"
     bl_label = "Remove Texture Modifier"
     bl_description = "Remove Texture Modifier"
     bl_options = {'REGISTER', 'UNDO'}
@@ -543,7 +543,7 @@ class YRemoveTexModifier(bpy.types.Operator):
 
         if len(parent.modifiers) < 1: return {'CANCELLED'}
 
-        tex = context.texture if hasattr(context, 'texture') else None
+        layer = context.texture if hasattr(context, 'texture') else None
 
         tree = get_mod_tree(parent)
 
@@ -557,18 +557,18 @@ class YRemoveTexModifier(bpy.types.Operator):
         #if len(parent.modifiers) == 0:
         #    unset_modifier_pipeline_nodes(tree, parent)
 
-        if tex:
+        if layer:
             if len(parent.modifiers) == 0:
                 disable_modifiers_tree(parent, False)
-            reconnect_tex_nodes(tex)
+            reconnect_tex_nodes(layer)
         else:
             # Reconnect nodes
             #reconnect_between_modifier_nodes(parent)
             reconnect_tl_nodes(group_tree)
 
         # Rearrange nodes
-        if tex:
-            rearrange_tex_nodes(tex)
+        if layer:
+            rearrange_tex_nodes(layer)
         else: rearrange_tl_nodes(group_tree)
 
         # Update UI
@@ -600,11 +600,11 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         row.label(text='Color:')
         row.prop(modifier, 'rgb2i_col', text='')
 
-        # Shortcut only available on texture layer channel
+        # Shortcut only available on layer channel
         #if 'YLayerChannel' in str(type(channel)):
         if is_tex_ch:
             row = col.row(align=True)
-            row.label(text='Shortcut on texture list:')
+            row.label(text='Shortcut on layer list:')
             row.prop(modifier, 'shortcut', text='')
 
     elif modifier.type == 'OVERRIDE_COLOR':
@@ -624,7 +624,7 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
             row.prop(modifier, 'oc_col', text='')
 
             row = col.row()
-            row.label(text='Shortcut on texture list:')
+            row.label(text='Shortcut on layer list:')
             row.prop(modifier, 'shortcut', text='')
 
     elif modifier.type == 'COLOR_RAMP':
@@ -754,21 +754,21 @@ def update_modifier_shortcut(self, context):
 
     if mod.shortcut:
 
-        match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
-        match2 = re.match(r'tl\.textures\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+        match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+        match2 = re.match(r'tl\.layers\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
         match3 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
 
 
         if match1 or match2:
 
-            tex = tl.textures[int(match1.group(1))]
-            tex.color_shortcut = False
+            layer = tl.layers[int(match1.group(1))]
+            layer.color_shortcut = False
 
-            for m in tex.modifiers:
+            for m in layer.modifiers:
                 if m != mod:
                     m.shortcut = False
 
-            for ch in tex.channels:
+            for ch in layer.channels:
                 for m in ch.modifiers:
                     if m != mod:
                         m.shortcut = False
@@ -782,9 +782,9 @@ def update_modifier_shortcut(self, context):
 def update_invert_channel(self, context):
 
     tl = self.id_data.tl
-    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match3 = re.match(r'tl\.textures\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'tl\.layers\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1: 
         root_ch = tl.channels[int(match1.group(2))]
         channel_type = root_ch.type
@@ -814,9 +814,9 @@ def update_use_clamp(self, context):
 
 def update_multiplier_val_input(self, context):
     tl = self.id_data.tl
-    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match3 = re.match(r'tl\.textures\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'tl\.layers\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1: 
         root_ch = tl.channels[int(match1.group(2))]
         channel_type = root_ch.type
@@ -840,9 +840,9 @@ def update_multiplier_val_input(self, context):
 
 def update_brightcon_value(self, context):
     tl = self.id_data.tl
-    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match3 = re.match(r'tl\.textures\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'tl\.layers\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1: 
         root_ch = tl.channels[int(match1.group(2))]
         channel_type = root_ch.type
@@ -870,7 +870,7 @@ def update_oc_col(self, context):
     tree = get_mod_tree(self)
 
     tl = self.id_data.tl
-    match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
 
     if match1: 
@@ -899,11 +899,11 @@ def update_oc_col(self, context):
 #    if self.oc_use_normal_base:
 #
 #        tl = self.id_data.tl
-#        match1 = re.match(r'tl\.textures\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+#        match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
 #        #match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
 #        if match1: 
-#            tex = tl.textures[int(match1.group(1))]
-#            ch = tex.channels[int(match1.group(2))]
+#            layer = tl.layers[int(match1.group(1))]
+#            ch = layer.channels[int(match1.group(2))]
 #            root_ch = tl.channels[int(match1.group(2))]
 #        #elif match2:
 #        #    root_ch = tl.channels[int(match2.group(1))]
@@ -978,9 +978,6 @@ class YTextureModifier(bpy.types.PropertyGroup):
     invert_b_enable = BoolProperty(default=True, update=update_invert_channel)
     invert_a_enable = BoolProperty(default=False, update=update_invert_channel)
 
-    # Mask nodes
-    #mask_texture = StringProperty(default='')
-
     # Color Ramp nodes
     color_ramp = StringProperty(default='')
     color_ramp_linear = StringProperty(default='')
@@ -1018,7 +1015,7 @@ class YTextureModifier(bpy.types.PropertyGroup):
 
     shortcut = BoolProperty(
             name = 'Property Shortcut',
-            description = 'Property shortcut on texture list (currently only available on RGB to Intensity)',
+            description = 'Property shortcut on layer list (currently only available on RGB to Intensity)',
             default=False,
             update=update_modifier_shortcut)
 
@@ -1029,21 +1026,21 @@ def enable_modifiers_tree(parent, rearrange = False):
     group_tree = parent.id_data
     tl = group_tree.tl
 
-    match1 = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
-    match2 = re.match(r'^tl\.textures\[(\d+)\]$', parent.path_from_id())
+    match1 = re.match(r'^tl\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^tl\.layers\[(\d+)\]$', parent.path_from_id())
     if match1:
-        tex = tl.textures[int(match1.group(1))]
+        layer = tl.layers[int(match1.group(1))]
         root_ch = tl.channels[int(match1.group(2))]
-        name = root_ch.name + ' ' + tex.name
-        #if tex.type == 'BACKGROUND':
-        if tex.type in {'BACKGROUND', 'COLOR'}:
+        name = root_ch.name + ' ' + layer.name
+        #if layer.type == 'BACKGROUND':
+        if layer.type in {'BACKGROUND', 'COLOR'}:
             return
-        #if tex.type == 'GROUP' and root_ch.type == 'NORMAL':
+        #if layer.type == 'GROUP' and root_ch.type == 'NORMAL':
         #    return
     elif match2:
-        tex = parent
-        name = tex.name
-        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
+        layer = parent
+        name = layer.name
+        if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
             return
     else:
         return
@@ -1069,9 +1066,9 @@ def enable_modifiers_tree(parent, rearrange = False):
     mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
     mod_tree_end.name = MOD_TREE_END
 
-    if match2 and tex.source_group != '':
-        tex_tree = get_source_tree(tex)
-    else: tex_tree = get_tree(tex)
+    if match2 and layer.source_group != '':
+        tex_tree = get_source_tree(layer)
+    else: tex_tree = get_tree(layer)
 
     # Create main modifier group
     mod_group = new_node(tex_tree, parent, 'mod_group', 'ShaderNodeGroup', 'mod_group')
@@ -1095,8 +1092,8 @@ def enable_modifiers_tree(parent, rearrange = False):
         add_modifier_nodes(mod, mod_tree, tex_tree)
 
     if rearrange:
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
     return mod_tree
 
@@ -1104,10 +1101,10 @@ def disable_modifiers_tree(parent, rearrange=False):
     group_tree = parent.id_data
     tl = group_tree.tl
 
-    match1 = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
-    match2 = re.match(r'^tl\.textures\[(\d+)\]$', parent.path_from_id())
+    match1 = re.match(r'^tl\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^tl\.layers\[(\d+)\]$', parent.path_from_id())
     if match1: 
-        tex = tl.textures[int(match1.group(1))]
+        layer = tl.layers[int(match1.group(1))]
         root_ch = tl.channels[int(match1.group(2))]
 
         # Check if fine bump map is still used
@@ -1120,8 +1117,8 @@ def disable_modifiers_tree(parent, rearrange=False):
         if hasattr(parent, 'enable_blur') and parent.enable_blur:
             return
     elif match2:
-        tex = parent
-        if tex.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
+        layer = parent
+        if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
             return
     else:
         return
@@ -1129,14 +1126,14 @@ def disable_modifiers_tree(parent, rearrange=False):
     # Check if modifier tree already gone
     if parent.mod_group == '': return
 
-    if match2 and tex.source_group != '':
-        tex_tree = get_source_tree(tex)
-    else: tex_tree = get_tree(tex)
+    if match2 and layer.source_group != '':
+        tex_tree = get_source_tree(layer)
+    else: tex_tree = get_tree(layer)
 
     # Get modifier group
     mod_group = tex_tree.nodes.get(parent.mod_group)
 
-    # Add new copied modifier nodes on texture tree
+    # Add new copied modifier nodes on layer tree
     for mod in parent.modifiers:
         add_modifier_nodes(mod, tex_tree, mod_group.node_tree)
 
@@ -1153,8 +1150,8 @@ def disable_modifiers_tree(parent, rearrange=False):
         remove_node(tex_tree, parent, 'mod_group_1')
 
     if rearrange:
-        rearrange_tex_nodes(tex)
-        reconnect_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
+        reconnect_tex_nodes(layer)
 
 def register():
     bpy.utils.register_class(YNewTexModifier)

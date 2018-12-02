@@ -64,15 +64,15 @@ def pack_float_image(image):
 def save_pack_all(tl, only_dirty = True):
 
     images = []
-    for tex in tl.textures:
+    for layer in tl.layers:
         
         # Texture image
-        if tex.type == 'IMAGE':
-            source = get_tex_source(tex)
+        if layer.type == 'IMAGE':
+            source = get_tex_source(layer)
             images.append(source.image)
 
         # Mask image
-        for mask in tex.masks:
+        for mask in layer.masks:
             if mask.type == 'IMAGE':
                 mask_tree = get_mask_tree(mask)
                 source = mask_tree.nodes.get(mask.source)
@@ -98,10 +98,10 @@ def save_pack_all(tl, only_dirty = True):
     # HACK: For some reason active float image will glitch after auto save
     # This is only happen if active object is on texture paint mode
     obj = bpy.context.object
-    if len(tl.textures) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
-        tex = tl.textures[tl.active_texture_index]
-        if tex.type == 'IMAGE':
-            source = get_tex_source(tex)
+    if len(tl.layers) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
+        layer = tl.layers[tl.active_layer_index]
+        if layer.type == 'IMAGE':
+            source = get_tex_source(layer)
             image = source.image
             if image in packed_float_images:
                 tlui = bpy.context.window_manager.tlui
@@ -560,12 +560,12 @@ class YSavePackAll(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_texture_layers_node()
+        return get_active_cpaint_node()
 
     def execute(self, context):
         tlui = bpy.context.window_manager.tlui
         #T = time.time()
-        tl = get_active_texture_layers_node().node_tree.tl
+        tl = get_active_cpaint_node().node_tree.tl
         save_pack_all(tl, only_dirty=False)
         #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         tlui.refresh_image_hack = False

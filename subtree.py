@@ -4,16 +4,16 @@ from .common import *
 from .node_arrangements import *
 from .node_connections import *
 
-def move_mod_group(tex, from_tree, to_tree):
-    mod_group = from_tree.nodes.get(tex.mod_group)
+def move_mod_group(layer, from_tree, to_tree):
+    mod_group = from_tree.nodes.get(layer.mod_group)
     if mod_group:
         mod_tree = mod_group.node_tree
-        remove_node(from_tree, tex, 'mod_group', remove_data=False)
-        remove_node(from_tree, tex, 'mod_group_1', remove_data=False)
+        remove_node(from_tree, layer, 'mod_group', remove_data=False)
+        remove_node(from_tree, layer, 'mod_group_1', remove_data=False)
 
-        mod_group = new_node(to_tree, tex, 'mod_group', 'ShaderNodeGroup', 'mod_group')
+        mod_group = new_node(to_tree, layer, 'mod_group', 'ShaderNodeGroup', 'mod_group')
         mod_group.node_tree = mod_tree
-        mod_group_1 = new_node(to_tree, tex, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
+        mod_group_1 = new_node(to_tree, layer, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
         mod_group_1.node_tree = mod_tree
 
 def refresh_source_tree_ios(source_tree, tex_type):
@@ -46,22 +46,22 @@ def refresh_source_tree_ios(source_tree, tex_type):
         if alp1: source_tree.outputs.remove(alp1)
         if solid: source_tree.nodes.remove(solid)
 
-def enable_tex_source_tree(tex, rearrange=False):
+def enable_tex_source_tree(layer, rearrange=False):
 
     # Check if source tree is already available
-    #if tex.type in {'BACKGROUND', 'COLOR', 'GROUP'}: return
-    if tex.type in {'BACKGROUND', 'COLOR'}: return
-    if tex.type != 'VCOL' and tex.source_group != '': return
+    #if layer.type in {'BACKGROUND', 'COLOR', 'GROUP'}: return
+    if layer.type in {'BACKGROUND', 'COLOR'}: return
+    if layer.type != 'VCOL' and layer.source_group != '': return
 
-    tex_tree = get_tree(tex)
+    tex_tree = get_tree(layer)
 
-    if tex.type not in {'VCOL', 'GROUP'}:
+    if layer.type not in {'VCOL', 'GROUP'}:
         # Get current source for reference
-        source_ref = tex_tree.nodes.get(tex.source)
-        mapping_ref = tex_tree.nodes.get(tex.mapping)
+        source_ref = tex_tree.nodes.get(layer.source)
+        mapping_ref = tex_tree.nodes.get(layer.mapping)
 
         # Create source tree
-        source_tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + tex.name + ' Source', 'ShaderNodeTree')
+        source_tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + layer.name + ' Source', 'ShaderNodeTree')
 
         #source_tree.outputs.new('NodeSocketFloat', 'Factor')
 
@@ -70,20 +70,20 @@ def enable_tex_source_tree(tex, rearrange=False):
         end = source_tree.nodes.new('NodeGroupOutput')
         end.name = SOURCE_TREE_END
 
-        refresh_source_tree_ios(source_tree, tex.type)
+        refresh_source_tree_ios(source_tree, layer.type)
 
         # Copy source from reference
-        source = new_node(source_tree, tex, 'source', source_ref.bl_idname)
+        source = new_node(source_tree, layer, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
-        mapping = new_node(source_tree, tex, 'mapping', 'ShaderNodeMapping')
+        mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Create source node group
-        source_group = new_node(tex_tree, tex, 'source_group', 'ShaderNodeGroup', 'source_group')
-        source_n = new_node(tex_tree, tex, 'source_n', 'ShaderNodeGroup', 'source_n')
-        source_s = new_node(tex_tree, tex, 'source_s', 'ShaderNodeGroup', 'source_s')
-        source_e = new_node(tex_tree, tex, 'source_e', 'ShaderNodeGroup', 'source_e')
-        source_w = new_node(tex_tree, tex, 'source_w', 'ShaderNodeGroup', 'source_w')
+        source_group = new_node(tex_tree, layer, 'source_group', 'ShaderNodeGroup', 'source_group')
+        source_n = new_node(tex_tree, layer, 'source_n', 'ShaderNodeGroup', 'source_n')
+        source_s = new_node(tex_tree, layer, 'source_s', 'ShaderNodeGroup', 'source_s')
+        source_e = new_node(tex_tree, layer, 'source_e', 'ShaderNodeGroup', 'source_e')
+        source_w = new_node(tex_tree, layer, 'source_w', 'ShaderNodeGroup', 'source_w')
 
         source_group.node_tree = source_tree
         source_n.node_tree = source_tree
@@ -96,101 +96,101 @@ def enable_tex_source_tree(tex, rearrange=False):
         if mapping_ref: tex_tree.nodes.remove(mapping_ref)
     
         # Bring modifiers to source tree
-        if tex.type == 'IMAGE':
-            for mod in tex.modifiers:
+        if layer.type == 'IMAGE':
+            for mod in layer.modifiers:
                 Modifier.add_modifier_nodes(mod, source_tree, tex_tree)
         else:
-            move_mod_group(tex, tex_tree, source_tree)
+            move_mod_group(layer, tex_tree, source_tree)
 
     # Create uv neighbor
-    uv_neighbor = check_new_node(tex_tree, tex, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV')
-    if tex.type in {'VCOL', 'GROUP'}:
+    uv_neighbor = check_new_node(tex_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV')
+    if layer.type in {'VCOL', 'GROUP'}:
         uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
     else: 
-        uv_neighbor.node_tree = lib.get_neighbor_uv_tree(tex.texcoord_type)
-        set_uv_neighbor_resolution(tex, uv_neighbor)
+        uv_neighbor.node_tree = lib.get_neighbor_uv_tree(layer.texcoord_type)
+        set_uv_neighbor_resolution(layer, uv_neighbor)
 
     if rearrange:
         # Reconnect outside nodes
-        reconnect_tex_nodes(tex)
+        reconnect_tex_nodes(layer)
 
         # Rearrange nodes
-        rearrange_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
 
-def disable_tex_source_tree(tex, rearrange=True):
+def disable_tex_source_tree(layer, rearrange=True):
 
-    #if tex.type == 'VCOL': return
+    #if layer.type == 'VCOL': return
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
 
     # Check if fine bump map is used on some of texture channels
     fine_bump_found = False
     blur_found = False
-    for i, ch in enumerate(tex.channels):
+    for i, ch in enumerate(layer.channels):
         if tl.channels[i].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP' 
                 or (ch.enable_transition_bump and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})):
             fine_bump_found = True
         if hasattr(ch, 'enable_blur') and ch.enable_blur:
             blur_found =True
 
-    if (tex.type != 'VCOL' and tex.source_group == '') or fine_bump_found or blur_found: return
+    if (layer.type != 'VCOL' and layer.source_group == '') or fine_bump_found or blur_found: return
 
-    tex_tree = get_tree(tex)
+    tex_tree = get_tree(layer)
 
-    if tex.type != 'VCOL':
-        source_group = tex_tree.nodes.get(tex.source_group)
-        source_ref = source_group.node_tree.nodes.get(tex.source)
-        mapping_ref = source_group.node_tree.nodes.get(tex.mapping)
+    if layer.type != 'VCOL':
+        source_group = tex_tree.nodes.get(layer.source_group)
+        source_ref = source_group.node_tree.nodes.get(layer.source)
+        mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
         # Create new source
-        source = new_node(tex_tree, tex, 'source', source_ref.bl_idname)
+        source = new_node(tex_tree, layer, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
-        mapping = new_node(tex_tree, tex, 'mapping', 'ShaderNodeMapping')
+        mapping = new_node(tex_tree, layer, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Bring back layer modifier to original tree
-        if tex.type == 'IMAGE':
-            for mod in tex.modifiers:
+        if layer.type == 'IMAGE':
+            for mod in layer.modifiers:
                 Modifier.add_modifier_nodes(mod, tex_tree, source_group.node_tree)
         else:
-            move_mod_group(tex, source_group.node_tree, tex_tree)
+            move_mod_group(layer, source_group.node_tree, tex_tree)
 
         # Remove previous source
-        remove_node(tex_tree, tex, 'source_group')
-        remove_node(tex_tree, tex, 'source_n')
-        remove_node(tex_tree, tex, 'source_s')
-        remove_node(tex_tree, tex, 'source_e')
-        remove_node(tex_tree, tex, 'source_w')
+        remove_node(tex_tree, layer, 'source_group')
+        remove_node(tex_tree, layer, 'source_n')
+        remove_node(tex_tree, layer, 'source_s')
+        remove_node(tex_tree, layer, 'source_e')
+        remove_node(tex_tree, layer, 'source_w')
 
-    remove_node(tex_tree, tex, 'uv_neighbor')
+    remove_node(tex_tree, layer, 'uv_neighbor')
 
     if rearrange:
         # Reconnect outside nodes
-        reconnect_tex_nodes(tex)
+        reconnect_tex_nodes(layer)
 
         # Rearrange nodes
-        rearrange_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
 
-def set_mask_uv_neighbor(tree, tex, mask):
+def set_mask_uv_neighbor(tree, layer, mask):
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
 
     # NOTE: Checking transition bump everytime this function called is not that tidy
     # Check if transition bump channel is available
-    bump_ch = get_transition_bump_channel(tex)
+    bump_ch = get_transition_bump_channel(layer)
     if bump_ch and bump_ch.transition_bump_type == 'BUMP_MAP':
         #return False
         bump_ch = None
 
     if not bump_ch:
-        chs = [c for i,c in enumerate(tex.channels) 
+        chs = [c for i,c in enumerate(layer.channels) 
                 if c.normal_map_type == 'FINE_BUMP_MAP' and tl.channels[i].type == 'NORMAL']
         if chs: bump_ch = chs[0]
 
     # Check transition bump chain
     if bump_ch:
-        chain = min(bump_ch.transition_bump_chain, len(tex.masks))
-        match = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        chain = min(bump_ch.transition_bump_chain, len(layer.masks))
+        match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
         mask_idx = int(match.group(2))
         if mask_idx >= chain:
             return False
@@ -206,7 +206,7 @@ def set_mask_uv_neighbor(tree, tex, mask):
         uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
     else:
 
-        different_uv = mask.texcoord_type == 'UV' and tex.uv_name != mask.uv_name
+        different_uv = mask.texcoord_type == 'UV' and layer.uv_name != mask.uv_name
 
         # Check number of input
         prev_num_inputs = len(uv_neighbor.inputs)
@@ -245,12 +245,12 @@ def set_mask_uv_neighbor(tree, tex, mask):
 
     return need_reconnect
 
-def enable_mask_source_tree(tex, mask, reconnect = False):
+def enable_mask_source_tree(layer, mask, reconnect = False):
 
     # Check if source tree is already available
     if mask.type != 'VCOL' and mask.group_node != '': return
 
-    tex_tree = get_tree(tex)
+    tex_tree = get_tree(layer)
 
     if mask.type != 'VCOL':
         # Get current source for reference
@@ -297,21 +297,21 @@ def enable_mask_source_tree(tex, mask, reconnect = False):
         if mapping_ref: tex_tree.nodes.remove(mapping_ref)
 
     # Create uv neighbor
-    set_mask_uv_neighbor(tex_tree, tex, mask)
+    set_mask_uv_neighbor(tex_tree, layer, mask)
 
     if reconnect:
         # Reconnect outside nodes
-        reconnect_tex_nodes(tex)
+        reconnect_tex_nodes(layer)
 
         # Rearrange nodes
-        rearrange_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
 
-def disable_mask_source_tree(tex, mask, reconnect=False):
+def disable_mask_source_tree(layer, mask, reconnect=False):
 
     # Check if source tree is already gone
     if mask.type != 'VCOL' and mask.group_node == '': return
 
-    tex_tree = get_tree(tex)
+    tex_tree = get_tree(layer)
 
     if mask.type != 'VCOL':
 
@@ -343,19 +343,19 @@ def disable_mask_source_tree(tex, mask, reconnect=False):
 
     if reconnect:
         # Reconnect outside nodes
-        reconnect_tex_nodes(tex)
+        reconnect_tex_nodes(layer)
 
         # Rearrange nodes
-        rearrange_tex_nodes(tex)
+        rearrange_tex_nodes(layer)
 
-def check_create_bump_base(tex, tree, ch):
+def check_create_bump_base(layer, tree, ch):
 
     normal_map_type = ch.normal_map_type
-    #if tex.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
+    #if layer.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
     #    normal_map_type = 'BUMP_MAP'
 
     skip = False
-    if tex.type in {'BACKGROUND', 'GROUP'}: #or is_valid_to_remove_bump_nodes(tex, ch):
+    if layer.type in {'BACKGROUND', 'GROUP'}: #or is_valid_to_remove_bump_nodes(layer, ch):
         skip = True
 
     if not skip and normal_map_type == 'FINE_BUMP_MAP':
@@ -404,35 +404,35 @@ def check_create_bump_base(tex, tree, ch):
         for d in neighbor_directions:
             remove_node(tree, ch, 'bump_base_' + d)
 
-def check_mask_multiply_nodes(tex, tree=None):
+def check_mask_mix_nodes(layer, tree=None):
 
-    tl = tex.id_data.tl
-    if not tree: tree = get_tree(tex)
+    tl = layer.id_data.tl
+    if not tree: tree = get_tree(layer)
 
-    trans_bump = get_transition_bump_channel(tex)
+    trans_bump = get_transition_bump_channel(layer)
 
     trans_bump_flip = False
     if trans_bump:
-        trans_bump_flip = trans_bump.transition_bump_flip or tex.type == 'BACKGROUND'
+        trans_bump_flip = trans_bump.transition_bump_flip or layer.type == 'BACKGROUND'
 
-    for i, mask in enumerate(tex.masks):
+    for i, mask in enumerate(layer.masks):
         for j, c in enumerate(mask.channels):
 
-            ch = tex.channels[j]
+            ch = layer.channels[j]
             root_ch = tl.channels[j]
 
             if root_ch.type == 'NORMAL' and not trans_bump:
-                chain = min(ch.transition_bump_chain, len(tex.masks))
+                chain = min(ch.transition_bump_chain, len(layer.masks))
             elif trans_bump:
-                chain = min(trans_bump.transition_bump_chain, len(tex.masks))
+                chain = min(trans_bump.transition_bump_chain, len(layer.masks))
             else: chain = -1
 
-            multiply = tree.nodes.get(c.multiply)
-            if not multiply:
-                multiply = new_node(tree, c, 'multiply', 'ShaderNodeMixRGB', 'Mask Blend')
-                multiply.blend_type = mask.blend_type
-                multiply.inputs[0].default_value = mask.intensity_value
-                multiply.mute = not c.enable or not mask.enable or not tex.enable_masks
+            mix = tree.nodes.get(c.mix)
+            if not mix:
+                mix = new_node(tree, c, 'mix', 'ShaderNodeMixRGB', 'Mask Blend')
+                mix.blend_type = mask.blend_type
+                mix.inputs[0].default_value = mask.intensity_value
+                mix.mute = not c.enable or not mask.enable or not layer.enable_masks
 
             if root_ch.type == 'NORMAL':
 
@@ -441,27 +441,27 @@ def check_mask_multiply_nodes(tex, tree=None):
                     (trans_bump == ch and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}) 
                     ) and i < chain):
                     for d in neighbor_directions:
-                        mul = tree.nodes.get(getattr(c, 'multiply_' + d))
+                        mix = tree.nodes.get(getattr(c, 'mix_' + d))
 
-                        if not mul:
-                            mul = new_node(tree, c, 'multiply_' + d, 'ShaderNodeMixRGB', 'Mask Blend ' + d.upper())
-                            mul.blend_type = mask.blend_type
-                            mul.inputs[0].default_value = mask.intensity_value
-                            mul.mute = not c.enable or not mask.enable or not tex.enable_masks
+                        if not mix:
+                            mix = new_node(tree, c, 'mix_' + d, 'ShaderNodeMixRGB', 'Mask Blend ' + d.upper())
+                            mix.blend_type = mask.blend_type
+                            mix.inputs[0].default_value = mask.intensity_value
+                            mix.mute = not c.enable or not mask.enable or not layer.enable_masks
                 elif i >= chain and not trans_bump_flip and ch.transition_bump_crease:
 
-                    multiply_n = tree.nodes.get(c.multiply_n)
-                    if not multiply_n:
-                        multiply_n = new_node(tree, c, 'multiply_n', 'ShaderNodeMixRGB', 'Mask Blend N')
-                        multiply_n.blend_type = mask.blend_type
-                        multiply_n.inputs[0].default_value = mask.intensity_value
-                        multiply_n.mute = not c.enable or not mask.enable or not tex.enable_masks
+                    mix_n = tree.nodes.get(c.mix_n)
+                    if not mix_n:
+                        mix_n = new_node(tree, c, 'mix_n', 'ShaderNodeMixRGB', 'Mask Blend N')
+                        mix_n.blend_type = mask.blend_type
+                        mix_n.inputs[0].default_value = mask.intensity_value
+                        mix_n.mute = not c.enable or not mask.enable or not layer.enable_masks
 
                     for d in ['s', 'e', 'w']:
-                        remove_node(tree, c, 'multiply_' + d)
+                        remove_node(tree, c, 'mix_' + d)
                 else:
                     for d in neighbor_directions:
-                        remove_node(tree, c, 'multiply_' + d)
+                        remove_node(tree, c, 'mix_' + d)
 
             else: 
                 if (trans_bump and i >= chain and (
@@ -469,41 +469,41 @@ def check_mask_multiply_nodes(tex, tree=None):
                     #(not trans_bump_flip and ch.enable_transition_ramp and ch.transition_ramp_intensity_unlink) or
                     (not trans_bump_flip and ch.enable_transition_ao)
                     )):
-                    multiply_n = tree.nodes.get(c.multiply_n)
+                    mix_n = tree.nodes.get(c.mix_n)
 
-                    if not multiply_n:
-                        multiply_n = new_node(tree, c, 'multiply_n', 'ShaderNodeMixRGB', 'Mask Blend N')
-                        multiply_n.blend_type = mask.blend_type
-                        multiply_n.inputs[0].default_value = mask.intensity_value
-                        multiply_n.mute = not c.enable or not mask.enable or not tex.enable_masks
+                    if not mix_n:
+                        mix_n = new_node(tree, c, 'mix_n', 'ShaderNodeMixRGB', 'Mask Blend N')
+                        mix_n.blend_type = mask.blend_type
+                        mix_n.inputs[0].default_value = mask.intensity_value
+                        mix_n.mute = not c.enable or not mask.enable or not layer.enable_masks
                 else:
-                    remove_node(tree, c, 'multiply_n')
+                    remove_node(tree, c, 'mix_n')
 
-def check_mask_source_tree(tex): #, ch=None):
+def check_mask_source_tree(layer): #, ch=None):
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
 
     # Try to get transition bump
-    trans_bump = get_transition_bump_channel(tex)
+    trans_bump = get_transition_bump_channel(layer)
 
     # Try to get fine bump if transition bump is not found
     fine_bump = None
     if not trans_bump:
-        chs = [c for i,c in enumerate(tex.channels) 
+        chs = [c for i,c in enumerate(layer.channels) 
                 if c.normal_map_type == 'FINE_BUMP_MAP' and tl.channels[i].type == 'NORMAL']
         if chs: fine_bump = chs[0]
 
     if trans_bump:
-        chain = min(trans_bump.transition_bump_chain, len(tex.masks))
+        chain = min(trans_bump.transition_bump_chain, len(layer.masks))
     elif fine_bump:
-        chain = min(fine_bump.transition_bump_chain, len(tex.masks))
+        chain = min(fine_bump.transition_bump_chain, len(layer.masks))
     else: chain = -1
 
-    for i, mask in enumerate(tex.masks):
+    for i, mask in enumerate(layer.masks):
 
         if ((trans_bump and trans_bump.transition_bump_type != 'BUMP_MAP') or fine_bump) and i < chain:
-            enable_mask_source_tree(tex, mask)
+            enable_mask_source_tree(layer, mask)
         else:
-            disable_mask_source_tree(tex, mask)
+            disable_mask_source_tree(layer, mask)
 
 

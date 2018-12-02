@@ -46,7 +46,7 @@ normal_blend_items = (
         ('OVERLAY', 'Overlay', '')
         )
 
-texture_type_items = (
+layer_type_items = (
         ('IMAGE', 'Image', ''),
         #('ENVIRONMENT', 'Environment', ''),
         ('BRICK', 'Brick', ''),
@@ -81,7 +81,7 @@ mask_type_items = (
         ('VCOL', 'Vertex Color', ''),
         )
 
-texture_type_labels = {
+layer_type_labels = {
         'IMAGE' : 'Image',
         #'ENVIRONMENT' : 'Environment',
         'BRICK' : 'Brick',
@@ -145,7 +145,7 @@ texture_node_types = {
         'TEX_WAVE',
         }
 
-texture_node_bl_idnames = {
+layer_node_bl_idnames = {
         'IMAGE' : 'ShaderNodeTexImage',
         'ENVIRONMENT' : 'ShaderNodeTexEnvironment',
         'BRICK' : 'ShaderNodeTexBrick',
@@ -196,13 +196,13 @@ def get_list_of_tl_nodes(mat):
 
     return tl_nodes
 
-def in_active_layer(obj):
-    scene = bpy.context.scene
-    space = bpy.context.space_data
-    if space.type == 'VIEW_3D' and space.local_view:
-        return any([layer for layer in obj.layers_local_view if layer])
-    else:
-        return any([layer for i, layer in enumerate(obj.layers) if layer and scene.layers[i]])
+#def in_active_layer(obj):
+#    scene = bpy.context.scene
+#    space = bpy.context.space_data
+#    if space.type == 'VIEW_3D' and space.local_view:
+#        return any([layer for layer in obj.layers_local_view if layer])
+#    else:
+#        return any([layer for i, layer in enumerate(obj.layers) if layer and scene.layers[i]])
 
 def get_addon_filepath():
 
@@ -377,20 +377,7 @@ def get_active_node():
 
 # Specific methods for this addon
 
-#def get_active_texture_layers_node():
-#    #node = get_active_node()
-#    #if not node or node.type != 'GROUP' or not node.node_tree or not node.node_tree.tl.is_tl_node:
-#    #    return None
-#    #return node
-#
-#    mat = get_active_material()
-#    if not mat or not mat.node_tree: return None
-#
-#    nodes = mat.node_tree.nodes
-#
-#    return nodes.get(mat.tl.active_tl_node)
-
-def get_active_texture_layers_node():
+def get_active_cpaint_node():
     tlui = bpy.context.window_manager.tlui
 
     # Get material UI prop
@@ -492,7 +479,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
                 # Check if other layer use this vertex color
                 other_users_found = False
                 for ng in bpy.data.node_groups:
-                    for t in ng.tl.textures:
+                    for t in ng.tl.layers:
 
                         # Search for vcol layer
                         if t.type == 'VCOL':
@@ -512,7 +499,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
                 print('INFO: Searching on entire node groups to search for vcol takes', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
                 #other_user_found = False
-                #for t in tl.textures:
+                #for t in tl.layers:
                 #    if t.type == 'VCOL':
                 if not other_users_found:
                     obj.data.vertex_colors.remove(vcol)
@@ -671,7 +658,7 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
 
 def get_tree(entity):
 
-    #m = re.match(r'tl\.textures\[(\d+)\]', entity.path_from_id())
+    #m = re.match(r'tl\.layers\[(\d+)\]', entity.path_from_id())
     #if not m: return None
     #if not hasattr(entity.id_data, 'tl') or not hasattr(entity, 'group_node'): return None
 
@@ -692,11 +679,11 @@ def get_mod_tree(entity):
     if m:
         return entity.id_data
 
-    m = re.match(r'^tl\.textures\[(\d+)\]\.channels\[(\d+)\].*', entity.path_from_id())
+    m = re.match(r'^tl\.layers\[(\d+)\]\.channels\[(\d+)\].*', entity.path_from_id())
     if m:
-        tex = tl.textures[int(m.group(1))]
-        ch = tex.channels[int(m.group(2))]
-        tree = get_tree(tex)
+        layer = tl.layers[int(m.group(1))]
+        ch = layer.channels[int(m.group(2))]
+        tree = get_tree(layer)
 
         mod_group = tree.nodes.get(ch.mod_group)
         if mod_group and mod_group.type == 'GROUP':
@@ -704,16 +691,16 @@ def get_mod_tree(entity):
 
         return tree
 
-    m = re.match(r'^tl\.textures\[(\d+)\].*', entity.path_from_id())
+    m = re.match(r'^tl\.layers\[(\d+)\].*', entity.path_from_id())
     if m:
-        tex = tl.textures[int(m.group(1))]
-        tree = get_tree(tex)
+        layer = tl.layers[int(m.group(1))]
+        tree = get_tree(layer)
 
-        source_group = tree.nodes.get(tex.source_group)
+        source_group = tree.nodes.get(layer.source_group)
         if source_group and source_group.type == 'GROUP': 
             tree = source_group.node_tree
 
-        mod_group = tree.nodes.get(tex.mod_group)
+        mod_group = tree.nodes.get(layer.mod_group)
         if mod_group and mod_group.type == 'GROUP':
             return mod_group.node_tree
 
@@ -721,12 +708,12 @@ def get_mod_tree(entity):
 
 def get_mask_tree(mask):
 
-    m = re.match(r'tl\.textures\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+    m = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
     if not m : return None
 
     tl = mask.id_data.tl
-    tex = tl.textures[int(m.group(1))]
-    tex_tree = get_tree(tex)
+    layer = tl.layers[int(m.group(1))]
+    tex_tree = get_tree(layer)
 
     group_node = tex_tree.nodes.get(mask.group_node)
     if not group_node or group_node.type != 'GROUP': return tex_tree
@@ -740,28 +727,28 @@ def get_mask_mapping(mask):
     tree = get_mask_tree(mask)
     return tree.nodes.get(mask.mapping)
 
-def get_source_tree(tex, tree=None):
-    if not tree: tree = get_tree(tex)
+def get_source_tree(layer, tree=None):
+    if not tree: tree = get_tree(layer)
     if not tree: return None
 
-    if tex.source_group != '':
-        source_group = tree.nodes.get(tex.source_group)
+    if layer.source_group != '':
+        source_group = tree.nodes.get(layer.source_group)
         return source_group.node_tree
 
     return tree
 
-def get_tex_source(tex, tree=None):
-    if not tree: tree = get_tree(tex)
+def get_tex_source(layer, tree=None):
+    if not tree: tree = get_tree(layer)
 
-    source_tree = get_source_tree(tex, tree)
-    if source_tree: return source_tree.nodes.get(tex.source)
-    if tree: return tree.nodes.get(tex.source)
+    source_tree = get_source_tree(layer, tree)
+    if source_tree: return source_tree.nodes.get(layer.source)
+    if tree: return tree.nodes.get(layer.source)
 
     return None
 
-def get_tex_mapping(tex):
-    tree = get_source_tree(tex)
-    return tree.nodes.get(tex.mapping)
+def get_tex_mapping(layer):
+    tree = get_source_tree(layer)
+    return tree.nodes.get(layer.mapping)
 
 def get_neighbor_uv_space_input(texcoord_type):
     if texcoord_type == 'UV':
@@ -771,12 +758,12 @@ def get_neighbor_uv_space_input(texcoord_type):
     if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
         return 2.0 # View Space
 
-def change_texture_name(tl, obj, src, tex, texes):
+def change_layer_name(tl, obj, src, layer, texes):
     if tl.halt_update: return
 
     tl.halt_update = True
 
-    if tex.type == 'VCOL' and obj.type == 'MESH':
+    if layer.type == 'VCOL' and obj.type == 'MESH':
 
         # Get vertex color from node
         vcol = obj.data.vertex_colors.get(src.attribute_name)
@@ -785,21 +772,21 @@ def change_texture_name(tl, obj, src, tex, texes):
         vcol.name = '___TEMP___'
 
         # Get unique name
-        tex.name = get_unique_name(tex.name, obj.data.vertex_colors) 
+        layer.name = get_unique_name(layer.name, obj.data.vertex_colors) 
 
         # Set vertex color name and attribute node
-        vcol.name = tex.name
-        src.attribute_name = tex.name
+        vcol.name = layer.name
+        src.attribute_name = layer.name
 
-    elif tex.type == 'IMAGE':
+    elif layer.type == 'IMAGE':
         src.image.name = '___TEMP___'
-        tex.name = get_unique_name(tex.name, bpy.data.images) 
-        src.image.name = tex.name
+        layer.name = get_unique_name(layer.name, bpy.data.images) 
+        src.image.name = layer.name
 
     else:
-        name = tex.name
-        tex.name = '___TEMP___'
-        tex.name = get_unique_name(name, texes) 
+        name = layer.name
+        layer.name = '___TEMP___'
+        layer.name = get_unique_name(name, texes) 
 
     tl.halt_update = False
 
@@ -832,23 +819,23 @@ def force_bump_base_value(tree, ch, value):
 def update_bump_base_value_(tree, ch):
     force_bump_base_value(tree, ch, ch.bump_base_value)
     
-def get_transition_bump_channel(tex):
-    tl = tex.id_data.tl
+def get_transition_bump_channel(layer):
+    tl = layer.id_data.tl
 
     bump_ch = None
-    for i, ch in enumerate(tex.channels):
+    for i, ch in enumerate(layer.channels):
         if tl.channels[i].type == 'NORMAL' and ch.enable and ch.enable_transition_bump:
             bump_ch = ch
             break
 
     return bump_ch
 
-def get_showed_transition_bump_channel(tex):
+def get_showed_transition_bump_channel(layer):
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
 
     bump_ch = None
-    for i, ch in enumerate(tex.channels):
+    for i, ch in enumerate(layer.channels):
         if tl.channels[i].type == 'NORMAL' and ch.show_transition_bump:
             bump_ch = ch
             break
@@ -893,19 +880,19 @@ def fix_io_index(item, items, correct_index):
     if cur_index and cur_index[0] != correct_index:
         items.move(cur_index[0], correct_index)
 
-def get_layer_depth(tex):
+def get_layer_depth(layer):
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
 
     upmost_found = False
     depth = 0
-    cur_tex = tex
-    parent_tex = tex
+    cur_tex = layer
+    parent_tex = layer
 
     while True:
         if cur_tex.parent_idx != -1:
 
-            try: layer = tl.textures[cur_tex.parent_idx]
+            try: layer = tl.layers[cur_tex.parent_idx]
             except: break
 
             if layer.type == 'GROUP':
@@ -919,34 +906,34 @@ def get_layer_depth(tex):
 
     return depth
 
-def is_top_member(tex):
+def is_top_member(layer):
     
-    if tex.parent_idx == -1:
+    if layer.parent_idx == -1:
         return False
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
 
-    for i, t in enumerate(tl.textures):
-        if t == tex:
-            if tex.parent_idx == i-1:
+    for i, t in enumerate(tl.layers):
+        if t == layer:
+            if layer.parent_idx == i-1:
                 return True
             else: return False
 
     return False
 
-def is_bottom_member(tex):
+def is_bottom_member(layer):
 
-    if tex.parent_idx == -1:
+    if layer.parent_idx == -1:
         return False
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
 
     tex_idx = -1
     last_member_idx = -1
-    for i, t in enumerate(tl.textures):
-        if t == tex:
+    for i, t in enumerate(tl.layers):
+        if t == layer:
             tex_idx = i
-        if t.parent_idx == tex.parent_idx:
+        if t.parent_idx == layer.parent_idx:
             last_member_idx = i
 
     if tex_idx == last_member_idx:
@@ -954,18 +941,18 @@ def is_bottom_member(tex):
 
     return False
 
-#def get_upmost_parent_idx(tex, idx_limit = -1):
+#def get_upmost_parent_idx(layer, idx_limit = -1):
 #
-#    tl = tex.id_data.tl
+#    tl = layer.id_data.tl
 #
-#    cur_tex = tex
-#    parent_tex = tex
+#    cur_tex = layer
+#    parent_tex = layer
 #    parent_idx = -1
 #
 #    while True:
 #        if cur_tex.parent_idx != -1 and cur_tex.parent_idx != idx_limit:
 #
-#            try: layer = tl.textures[cur_tex.parent_idx]
+#            try: layer = tl.layers[cur_tex.parent_idx]
 #            except: break
 #
 #            if layer.type == 'GROUP':
@@ -979,16 +966,16 @@ def is_bottom_member(tex):
 #
 #    return parent_idx
 
-def get_tex_index(tex):
-    tl = tex.id_data.tl
+def get_tex_index(layer):
+    tl = layer.id_data.tl
 
-    for i, t in enumerate(tl.textures):
-        if tex == t:
+    for i, t in enumerate(tl.layers):
+        if layer == t:
             return i
 
 def get_tex_index_by_name(tl, name):
 
-    for i, t in enumerate(tl.textures):
+    for i, t in enumerate(tl.layers):
         if name == t.name:
             return i
 
@@ -996,36 +983,36 @@ def get_tex_index_by_name(tl, name):
 
 def get_parent_dict(tl):
     parent_dict = {}
-    for t in tl.textures:
+    for t in tl.layers:
         if t.parent_idx != -1:
-            try: parent_dict[t.name] = tl.textures[t.parent_idx].name
+            try: parent_dict[t.name] = tl.layers[t.parent_idx].name
             except: parent_dict[t.name] = None
         else: parent_dict[t.name] = None
 
     return parent_dict
 
-def get_parent(tex):
+def get_parent(layer):
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
     
-    if tex.parent_idx == -1:
+    if layer.parent_idx == -1:
         return None
 
-    return tl.textures[tex.parent_idx]
+    return tl.layers[layer.parent_idx]
 
-def is_parent_hidden(tex):
+def is_parent_hidden(layer):
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
 
     hidden = False
     
-    cur_tex = tex
-    parent_tex = tex
+    cur_tex = layer
+    parent_tex = layer
 
     while True:
         if cur_tex.parent_idx != -1:
 
-            try: layer = tl.textures[cur_tex.parent_idx]
+            try: layer = tl.layers[cur_tex.parent_idx]
             except: break
 
             if layer.type == 'GROUP':
@@ -1044,53 +1031,53 @@ def is_parent_hidden(tex):
 def set_parent_dict_val(tl, parent_dict, name, target_idx):
 
     if target_idx != -1:
-        parent_dict[name] = tl.textures[target_idx].name
+        parent_dict[name] = tl.layers[target_idx].name
     else: parent_dict[name] = None
 
     return parent_dict
 
-def get_list_of_direct_child_ids(tex):
-    tl = tex.id_data.tl
+def get_list_of_direct_child_ids(layer):
+    tl = layer.id_data.tl
 
-    if tex.type != 'GROUP':
+    if layer.type != 'GROUP':
         return []
 
-    tex_idx = get_tex_index(tex)
+    tex_idx = get_tex_index(layer)
 
     childs = []
-    for i, t in enumerate(tl.textures):
+    for i, t in enumerate(tl.layers):
         if t.parent_idx == tex_idx:
             childs.append(i)
 
     return childs
 
-def get_list_of_direct_childrens(tex):
-    tl = tex.id_data.tl
+def get_list_of_direct_childrens(layer):
+    tl = layer.id_data.tl
 
-    if tex.type != 'GROUP':
+    if layer.type != 'GROUP':
         return []
 
-    tex_idx = get_tex_index(tex)
+    tex_idx = get_tex_index(layer)
 
     childs = []
-    for t in tl.textures:
+    for t in tl.layers:
         if t.parent_idx == tex_idx:
             childs.append(t)
 
     return childs
 
-def get_list_of_parent_ids(tex):
+def get_list_of_parent_ids(layer):
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
 
-    cur_tex = tex
-    parent_tex = tex
+    cur_tex = layer
+    parent_tex = layer
     parent_list = []
 
     while True:
         if cur_tex.parent_idx != -1:
 
-            try: layer = tl.textures[cur_tex.parent_idx]
+            try: layer = tl.layers[cur_tex.parent_idx]
             except: break
 
             if layer.type == 'GROUP':
@@ -1104,19 +1091,19 @@ def get_list_of_parent_ids(tex):
 
     return parent_list
 
-def get_last_chained_up_layer_ids(tex, idx_limit):
+def get_last_chained_up_layer_ids(layer, idx_limit):
 
-    tl = tex.id_data.tl
-    tex_idx = get_tex_index(tex)
+    tl = layer.id_data.tl
+    tex_idx = get_tex_index(layer)
 
-    cur_tex = tex
-    parent_tex = tex
+    cur_tex = layer
+    parent_tex = layer
     parent_idx = tex_idx
 
     while True:
         if cur_tex.parent_idx != -1 and cur_tex.parent_idx != idx_limit:
 
-            try: layer = tl.textures[cur_tex.parent_idx]
+            try: layer = tl.layers[cur_tex.parent_idx]
             except: break
 
             if layer.type == 'GROUP':
@@ -1130,65 +1117,65 @@ def get_last_chained_up_layer_ids(tex, idx_limit):
 
     return parent_idx
 
-def has_childrens(tex):
+def has_childrens(layer):
 
-    tl = tex.id_data.tl
+    tl = layer.id_data.tl
 
-    if tex.type != 'GROUP':
+    if layer.type != 'GROUP':
         return False
 
-    tex_idx = get_tex_index(tex)
+    tex_idx = get_tex_index(layer)
 
-    if tex_idx < len(tl.textures)-1:
-        neighbor_tex = tl.textures[tex_idx+1]
+    if tex_idx < len(tl.layers)-1:
+        neighbor_tex = tl.layers[tex_idx+1]
         if neighbor_tex.parent_idx == tex_idx:
             return True
 
     return False
 
-def get_last_child_idx(tex): #, very_last=False):
+def get_last_child_idx(layer): #, very_last=False):
 
-    tl = tex.id_data.tl
-    tex_idx = get_tex_index(tex)
+    tl = layer.id_data.tl
+    tex_idx = get_tex_index(layer)
 
-    if tex.type != 'GROUP': 
+    if layer.type != 'GROUP': 
         return tex_idx
 
-    for i, t in reversed(list(enumerate(tl.textures))):
+    for i, t in reversed(list(enumerate(tl.layers))):
         if i > tex_idx and tex_idx in get_list_of_parent_ids(t):
             return i
 
     return tex_idx
 
-def get_upper_neighbor(tex):
+def get_upper_neighbor(layer):
 
-    tl = tex.id_data.tl
-    tex_idx = get_tex_index(tex)
+    tl = layer.id_data.tl
+    tex_idx = get_tex_index(layer)
 
     if tex_idx == 0:
         return None, None
 
-    if tex.parent_idx == tex_idx-1:
-        return tex_idx-1, tl.textures[tex_idx-1]
+    if layer.parent_idx == tex_idx-1:
+        return tex_idx-1, tl.layers[tex_idx-1]
 
-    upper_tex = tl.textures[tex_idx-1]
+    upper_tex = tl.layers[tex_idx-1]
 
-    neighbor_idx = get_last_chained_up_layer_ids(upper_tex, tex.parent_idx)
-    neighbor_tex = tl.textures[neighbor_idx]
+    neighbor_idx = get_last_chained_up_layer_ids(upper_tex, layer.parent_idx)
+    neighbor_tex = tl.layers[neighbor_idx]
 
     return neighbor_idx, neighbor_tex
 
-def get_lower_neighbor(tex):
+def get_lower_neighbor(layer):
 
-    tl = tex.id_data.tl
-    tex_idx = get_tex_index(tex)
-    last_index = len(tl.textures)-1
+    tl = layer.id_data.tl
+    tex_idx = get_tex_index(layer)
+    last_index = len(tl.layers)-1
 
     if tex_idx == last_index:
         return None, None
 
-    if tex.type == 'GROUP':
-        last_child_idx = get_last_child_idx(tex)
+    if layer.type == 'GROUP':
+        last_child_idx = get_last_child_idx(layer)
 
         if last_child_idx == last_index:
             return None, None
@@ -1197,13 +1184,13 @@ def get_lower_neighbor(tex):
     else:
         neighbor_idx = tex_idx+1
 
-    neighbor_tex = tl.textures[neighbor_idx]
+    neighbor_tex = tl.layers[neighbor_idx]
 
     return neighbor_idx, neighbor_tex
 
-def is_valid_to_remove_bump_nodes(tex, ch):
+def is_valid_to_remove_bump_nodes(layer, ch):
 
-    if tex.type == 'COLOR' and ((ch.enable_transition_bump and ch.enable) or len(tex.masks) == 0 or ch.transition_bump_chain == 0):
+    if layer.type == 'COLOR' and ((ch.enable_transition_bump and ch.enable) or len(layer.masks) == 0 or ch.transition_bump_chain == 0):
         return True
 
     return False
@@ -1211,15 +1198,15 @@ def is_valid_to_remove_bump_nodes(tex, ch):
 def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=None):
 
     tl = entity.id_data.tl
-    m1 = re.match(r'^tl\.textures\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^tl\.textures\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m1 = re.match(r'^tl\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^tl\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     if m1: 
         tree = get_tree(entity)
         if not mapping: mapping = get_tex_mapping(entity)
         if not source: source = get_tex_source(entity)
     elif m2: 
-        tree = get_tree(tl.textures[int(m2.group(1))])
+        tree = get_tree(tl.layers[int(m2.group(1))])
         if not mapping: mapping = get_mask_mapping(entity)
         if not source: source = get_mask_source(entity)
     else: return
@@ -1236,8 +1223,8 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
 
 def update_mapping(entity):
 
-    m1 = re.match(r'^tl\.textures\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^tl\.textures\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m1 = re.match(r'^tl\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^tl\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     # Get source
     if m1: 
@@ -1303,8 +1290,8 @@ def refresh_temp_uv(obj, entity, use_ops=False):
     #tl = entity.id_data.tl
     #tl.need_temp_uv_refresh = False
 
-    m1 = re.match(r'^tl\.textures\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^tl\.textures\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m1 = re.match(r'^tl\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^tl\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     # Get source
     if m1: 
@@ -1333,7 +1320,7 @@ def refresh_temp_uv(obj, entity, use_ops=False):
     img = source.image
     if not img: return False
 
-    # New uv textures
+    # New uv layers
     temp_uv_layer = uv_layers.new(TEMP_UV)
     uv_layers.active = temp_uv_layer
 
@@ -1380,22 +1367,22 @@ def refresh_temp_uv(obj, entity, use_ops=False):
 
     return True
 
-#def get_io_index(tex, root_ch, alpha=False):
+#def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1
 #    return root_ch.io_index
 #
-#def get_alpha_io_index(tex, root_ch):
-#    return get_io_index(tex, root_ch, alpha=True)
+#def get_alpha_io_index(layer, root_ch):
+#    return get_io_index(layer, root_ch, alpha=True)
 
 # Some image_ops need this
 #def get_active_image():
-#    node = get_active_texture_layers_node()
+#    node = get_active_cpaint_node()
 #    if not node: return None
 #    tl = node.node_tree.tl
 #    nodes = node.node_tree.nodes
-#    if len(tl.textures) == 0: return None
-#    tex = tl.textures[tl.active_texture_index]
-#    if tex.type != 'ShaderNodeTexImage': return None
-#    source = nodes.get(tex.source)
+#    if len(tl.layers) == 0: return None
+#    layer = tl.layers[tl.active_layer_index]
+#    if layer.type != 'ShaderNodeTexImage': return None
+#    source = nodes.get(layer.source)
 #    return source.image
