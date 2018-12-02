@@ -105,18 +105,18 @@ class YNewMaskModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'mask') and hasattr(context, 'texture')
+        return hasattr(context, 'mask') and hasattr(context, 'layer')
 
     def execute(self, context):
 
         #print('Owowowow', self.type)
         add_new_mask_modifier(context.mask, self.type)
 
-        rearrange_tex_nodes(context.texture)
-        reconnect_tex_nodes(context.texture)
+        rearrange_layer_nodes(context.layer)
+        reconnect_layer_nodes(context.layer)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        context.window_manager.ycpui.need_update = True
 
         return {'FINISHED'}
 
@@ -134,11 +134,11 @@ class YMoveMaskModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'mask') and hasattr(context, 'modifier') and hasattr(context, 'texture')
+        return hasattr(context, 'mask') and hasattr(context, 'modifier') and hasattr(context, 'layer')
 
     def execute(self, context):
 
-        layer = context.texture
+        layer = context.layer
         mask = context.mask
         mod = context.modifier
 
@@ -164,11 +164,11 @@ class YMoveMaskModifier(bpy.types.Operator):
         mask.modifiers.move(index, new_index)
 
         # Reconnect modifier nodes
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        context.window_manager.ycpui.need_update = True
 
         return {'FINISHED'}
 
@@ -180,11 +180,11 @@ class YRemoveMaskModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'texture') and hasattr(context, 'mask') and hasattr(context, 'modifier') 
+        return hasattr(context, 'layer') and hasattr(context, 'mask') and hasattr(context, 'modifier') 
 
     def execute(self, context):
 
-        layer = context.texture
+        layer = context.layer
         mask = context.mask
         mod = context.modifier
         tree = get_mask_tree(mask)
@@ -200,11 +200,11 @@ class YRemoveMaskModifier(bpy.types.Operator):
 
         mask.modifiers.remove(index)
 
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        context.window_manager.ycpui.need_update = True
 
         return {'FINISHED'}
 

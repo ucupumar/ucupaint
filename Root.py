@@ -100,8 +100,8 @@ def check_all_channel_ios(tl):
     # Move layer IO
     for layer in tl.layers:
         Layer.check_all_layer_channel_io_and_nodes(layer)
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
     # Rearrange nodes
     rearrange_tl_nodes(group_tree)
@@ -167,22 +167,22 @@ def create_tl_channel_nodes(group_tree, channel, channel_idx):
         c = t.channels.add()
 
         # Add new channel to mask
-        tex_tree = get_tree(t)
+        layer_tree = get_tree(t)
         for mask in t.masks:
             mc = mask.channels.add()
 
         # Check and set mask intensity nodes
-        transition.check_transition_bump_influences_to_other_channels(t, tex_tree, target_ch=c)
+        transition.check_transition_bump_influences_to_other_channels(t, layer_tree, target_ch=c)
 
         # Set mask multiply nodes
-        check_mask_mix_nodes(t, tex_tree)
+        check_mask_mix_nodes(t, layer_tree)
 
         # Add new nodes
-        Layer.check_all_layer_channel_io_and_nodes(t, tex_tree, specific_ch=c)
+        Layer.check_all_layer_channel_io_and_nodes(t, layer_tree, specific_ch=c)
 
 def create_new_group_tree(mat):
 
-    #tlup = bpy.context.user_preferences.addons[__name__].preferences
+    #ycpup = bpy.context.user_preferences.addons[__name__].preferences
 
     # Group name is based from the material
     group_name = mat.name + TL_GROUP_SUFFIX
@@ -197,7 +197,7 @@ def create_new_group_tree(mat):
     #channel.name = 'Color'
     #channel.type = 'RGB'
     #group_tree.tl.temp_channels.add() # Also add temp channel
-    #tlup.channels.add()
+    #ycpup.channels.add()
 
     # Create start and end node
     start = new_node(group_tree, group_tree.tl, 'start', 'NodeGroupInput', 'Start')
@@ -486,7 +486,7 @@ class YQuickSetupCPNode(bpy.types.Operator):
                     area.spaces[0].overlay.texture_paint_mode_opacity = 0.0
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        context.window_manager.ycpui.need_update = True
 
         return {'FINISHED'}
 
@@ -520,7 +520,7 @@ class YNewCPNode(bpy.types.Operator):
         space = context.space_data
         tree = space.edit_tree
         mat = space.id
-        tlui = context.window_manager.tlui
+        ycpui = context.window_manager.ycpui
 
         # select only the new node
         for n in tree.nodes:
@@ -551,7 +551,7 @@ class YNewCPNode(bpy.types.Operator):
         node.location = space.cursor_location
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        context.window_manager.ycpui.need_update = True
 
         return {'FINISHED'}
 
@@ -692,7 +692,7 @@ class YNewCPChannel(bpy.types.Operator):
         node = get_active_cpaint_node()
         group_tree = node.node_tree
         tl = group_tree.tl
-        #tlup = context.user_preferences.addons[__name__].preferences
+        #ycpup = context.user_preferences.addons[__name__].preferences
         channels = tl.channels
 
         if len(tl.channels) > 19:
@@ -740,7 +740,7 @@ class YNewCPChannel(bpy.types.Operator):
         group_tree.tl.active_channel_index = last_index
 
         # Update UI
-        wm.tlui.need_update = True
+        wm.ycpui.need_update = True
         print('INFO: Channel', channel.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.tltimer.time = str(time.time())
 
@@ -806,8 +806,8 @@ class YMoveCPChannel(bpy.types.Operator):
         group_node = get_active_cpaint_node()
         group_tree = group_node.node_tree
         tl = group_tree.tl
-        tlui = context.window_manager.tlui
-        #tlup = context.user_preferences.addons[__name__].preferences
+        ycpui = context.window_manager.ycpui
+        #ycpup = context.user_preferences.addons[__name__].preferences
 
         # Get active channel
         index = tl.active_channel_index
@@ -823,10 +823,10 @@ class YMoveCPChannel(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Swap collapse UI
-        #temp_0 = getattr(tlui, 'show_channel_modifiers_' + str(index))
-        #temp_1 = getattr(tlui, 'show_channel_modifiers_' + str(new_index))
-        #setattr(tlui, 'show_channel_modifiers_' + str(index), temp_1)
-        #setattr(tlui, 'show_channel_modifiers_' + str(new_index), temp_0)
+        #temp_0 = getattr(ycpui, 'show_channel_modifiers_' + str(index))
+        #temp_1 = getattr(ycpui, 'show_channel_modifiers_' + str(new_index))
+        #setattr(ycpui, 'show_channel_modifiers_' + str(index), temp_1)
+        #setattr(ycpui, 'show_channel_modifiers_' + str(new_index), temp_0)
 
         # Get IO index
         swap_ch = tl.channels[new_index]
@@ -857,7 +857,7 @@ class YMoveCPChannel(bpy.types.Operator):
         #repoint_channel_index(tl)
 
         # Update UI
-        wm.tlui.need_update = True
+        wm.ycpui.need_update = True
         print('INFO: Channel', channel.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.tltimer.time = str(time.time())
 
@@ -881,8 +881,8 @@ class YRemoveCPChannel(bpy.types.Operator):
         group_node = get_active_cpaint_node()
         group_tree = group_node.node_tree
         tl = group_tree.tl
-        tlui = context.window_manager.tlui
-        #tlup = context.user_preferences.addons[__name__].preferences
+        ycpui = context.window_manager.ycpui
+        #ycpup = context.user_preferences.addons[__name__].preferences
         nodes = group_tree.nodes
         inputs = group_tree.inputs
         outputs = group_tree.outputs
@@ -893,7 +893,7 @@ class YRemoveCPChannel(bpy.types.Operator):
         channel_name = channel.name
 
         # Collapse the UI
-        #setattr(tlui, 'show_channel_modifiers_' + str(channel_idx), False)
+        #setattr(ycpui, 'show_channel_modifiers_' + str(channel_idx), False)
 
         # Remove channel nodes from layers
         for t in tl.layers:
@@ -977,7 +977,7 @@ class YRemoveCPChannel(bpy.types.Operator):
 
         # Remove channel
         tl.channels.remove(channel_idx)
-        #tlup.channels.remove(channel_idx)
+        #ycpup.channels.remove(channel_idx)
         #tl.temp_channels.remove(channel_idx)
 
         # Check consistency of mask multiply nodes
@@ -987,8 +987,8 @@ class YRemoveCPChannel(bpy.types.Operator):
         # Rearrange and reconnect nodes
         check_all_channel_ios(tl)
         #for t in tl.layers:
-        #    rearrange_tex_nodes(t)
-        #    reconnect_tex_nodes(t)
+        #    rearrange_layer_nodes(t)
+        #    reconnect_layer_nodes(t)
         #rearrange_tl_nodes(group_tree)
 
         # Set new active index
@@ -1000,7 +1000,7 @@ class YRemoveCPChannel(bpy.types.Operator):
         #repoint_channel_index(tl)
 
         # Update UI
-        wm.tlui.need_update = True
+        wm.ycpui.need_update = True
         print('INFO: Channel', channel_name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.tltimer.time = str(time.time())
 
@@ -1098,11 +1098,11 @@ class YFixDuplicatedLayers(bpy.types.Operator):
         group_node = get_active_cpaint_node()
         tl = group_node.node_tree.tl
         if len(tl.layers) == 0: return False
-        tex_tree = get_tree(tl.layers[-1])
-        return tex_tree.users > 1
+        layer_tree = get_tree(tl.layers[-1])
+        return layer_tree.users > 1
 
     def execute(self, context):
-        tlui = context.window_manager.tlui
+        ycpui = context.window_manager.ycpui
         group_node = get_active_cpaint_node()
         tree = group_node.node_tree
         tl = tree.tl
@@ -1114,7 +1114,7 @@ class YFixDuplicatedLayers(bpy.types.Operator):
             node = tree.nodes.get(t.group_node)
             node.node_tree = ttree
 
-            if t.type == 'IMAGE' and tlui.make_image_single_user:
+            if t.type == 'IMAGE' and ycpui.make_image_single_user:
                 if t.source_group != '':
                     source_group = ttree.nodes.get(t.source_group)
                     source_group.node_tree = source_group.node_tree.copy()
@@ -1158,7 +1158,7 @@ class YFixMissingData(bpy.types.Operator):
 
         for layer in tl.layers:
             if layer.type in {'IMAGE' , 'VCOL'}:
-                src = get_tex_source(layer)
+                src = get_layer_source(layer)
 
                 if layer.type == 'IMAGE' and not src.image:
                     fix_missing_img(layer.name, src, False)
@@ -1200,10 +1200,10 @@ def update_channel_name(self, context):
     for layer in tl.layers:
         tree = get_tree(layer)
         Layer.check_all_layer_channel_io_and_nodes(layer, tree)
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
-        rearrange_tex_frame_nodes(layer, tree)
+        rearrange_layer_frame_nodes(layer, tree)
     
     rearrange_tl_frame_nodes(tl)
     rearrange_tl_nodes(group_tree)
@@ -1293,7 +1293,7 @@ def update_layer_index(self, context):
     obj = context.object
     group_tree = self.id_data
     nodes = group_tree.nodes
-    tlui = context.window_manager.tlui
+    ycpui = context.window_manager.ycpui
 
     if (len(self.layers) == 0 or
         self.active_layer_index >= len(self.layers) or self.active_layer_index < 0): 
@@ -1328,18 +1328,18 @@ def update_layer_index(self, context):
 
     if not image and layer.type == 'IMAGE':
         uv_name = layer.uv_name
-        source = get_tex_source(layer, tree)
+        source = get_layer_source(layer, tree)
         image = source.image
         src_of_img = layer
-        mapping = get_tex_mapping(layer)
+        mapping = get_layer_mapping(layer)
 
     if not vcol and layer.type == 'VCOL' and obj.type == 'MESH':
-        source = get_tex_source(layer, tree)
+        source = get_layer_source(layer, tree)
         vcol = obj.data.vertex_colors.get(source.attribute_name)
 
     # Update image editor
-    #if src_of_img and src_of_img.segment_name != '' and tlui.disable_auto_temp_uv_update:
-    if tlui.disable_auto_temp_uv_update and mapping and is_transformed(mapping):
+    #if src_of_img and src_of_img.segment_name != '' and ycpui.disable_auto_temp_uv_update:
+    if ycpui.disable_auto_temp_uv_update and mapping and is_transformed(mapping):
         update_image_editor_image(context, None)
         scene.tool_settings.image_paint.canvas = None
         tl.need_temp_uv_refresh = True
@@ -1356,7 +1356,7 @@ def update_layer_index(self, context):
     # Update uv layer
     if obj.type == 'MESH':
 
-        if tlui.disable_auto_temp_uv_update or not refresh_temp_uv(obj, src_of_img, True):
+        if ycpui.disable_auto_temp_uv_update or not refresh_temp_uv(obj, src_of_img, True):
         #if not refresh_temp_uv(obj, src_of_img, True):
 
             if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
@@ -1407,7 +1407,7 @@ def update_channel_colorspace(self, context):
         ch = layer.channels[channel_index]
         tree = get_tree(layer)
 
-        Layer.set_tex_channel_linear_node(tree, layer, self, ch)
+        Layer.set_layer_channel_linear_node(tree, layer, self, ch)
 
         # Check for linear node
         #linear = tree.nodes.get(ch.linear)
@@ -1627,7 +1627,7 @@ class YRootChannel(bpy.types.PropertyGroup):
 
 class YCP(bpy.types.PropertyGroup):
     is_tl_node = BoolProperty(default=False)
-    is_tl_tex_node = BoolProperty(default=False)
+    is_tl_layer_node = BoolProperty(default=False)
     version = StringProperty(default='')
 
     # Channels
@@ -1699,7 +1699,7 @@ def ycp_hacks_and_scene_updates(scene):
         layer = tl.layers[tl.active_layer_index]
 
         if layer.type == 'IMAGE':
-            source = get_tex_source(layer)
+            source = get_layer_source(layer)
             img = source.image
 
             if img and img.name != layer.image_name:

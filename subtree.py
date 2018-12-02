@@ -46,19 +46,19 @@ def refresh_source_tree_ios(source_tree, tex_type):
         if alp1: source_tree.outputs.remove(alp1)
         if solid: source_tree.nodes.remove(solid)
 
-def enable_tex_source_tree(layer, rearrange=False):
+def enable_layer_source_tree(layer, rearrange=False):
 
     # Check if source tree is already available
     #if layer.type in {'BACKGROUND', 'COLOR', 'GROUP'}: return
     if layer.type in {'BACKGROUND', 'COLOR'}: return
     if layer.type != 'VCOL' and layer.source_group != '': return
 
-    tex_tree = get_tree(layer)
+    layer_tree = get_tree(layer)
 
     if layer.type not in {'VCOL', 'GROUP'}:
         # Get current source for reference
-        source_ref = tex_tree.nodes.get(layer.source)
-        mapping_ref = tex_tree.nodes.get(layer.mapping)
+        source_ref = layer_tree.nodes.get(layer.source)
+        mapping_ref = layer_tree.nodes.get(layer.mapping)
 
         # Create source tree
         source_tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + layer.name + ' Source', 'ShaderNodeTree')
@@ -79,11 +79,11 @@ def enable_tex_source_tree(layer, rearrange=False):
         if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Create source node group
-        source_group = new_node(tex_tree, layer, 'source_group', 'ShaderNodeGroup', 'source_group')
-        source_n = new_node(tex_tree, layer, 'source_n', 'ShaderNodeGroup', 'source_n')
-        source_s = new_node(tex_tree, layer, 'source_s', 'ShaderNodeGroup', 'source_s')
-        source_e = new_node(tex_tree, layer, 'source_e', 'ShaderNodeGroup', 'source_e')
-        source_w = new_node(tex_tree, layer, 'source_w', 'ShaderNodeGroup', 'source_w')
+        source_group = new_node(layer_tree, layer, 'source_group', 'ShaderNodeGroup', 'source_group')
+        source_n = new_node(layer_tree, layer, 'source_n', 'ShaderNodeGroup', 'source_n')
+        source_s = new_node(layer_tree, layer, 'source_s', 'ShaderNodeGroup', 'source_s')
+        source_e = new_node(layer_tree, layer, 'source_e', 'ShaderNodeGroup', 'source_e')
+        source_w = new_node(layer_tree, layer, 'source_w', 'ShaderNodeGroup', 'source_w')
 
         source_group.node_tree = source_tree
         source_n.node_tree = source_tree
@@ -92,18 +92,18 @@ def enable_tex_source_tree(layer, rearrange=False):
         source_w.node_tree = source_tree
 
         # Remove previous source
-        tex_tree.nodes.remove(source_ref)
-        if mapping_ref: tex_tree.nodes.remove(mapping_ref)
+        layer_tree.nodes.remove(source_ref)
+        if mapping_ref: layer_tree.nodes.remove(mapping_ref)
     
         # Bring modifiers to source tree
         if layer.type == 'IMAGE':
             for mod in layer.modifiers:
-                Modifier.add_modifier_nodes(mod, source_tree, tex_tree)
+                Modifier.add_modifier_nodes(mod, source_tree, layer_tree)
         else:
-            move_mod_group(layer, tex_tree, source_tree)
+            move_mod_group(layer, layer_tree, source_tree)
 
     # Create uv neighbor
-    uv_neighbor = check_new_node(tex_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV')
+    uv_neighbor = check_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV')
     if layer.type in {'VCOL', 'GROUP'}:
         uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
     else: 
@@ -112,18 +112,18 @@ def enable_tex_source_tree(layer, rearrange=False):
 
     if rearrange:
         # Reconnect outside nodes
-        reconnect_tex_nodes(layer)
+        reconnect_layer_nodes(layer)
 
         # Rearrange nodes
-        rearrange_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
 
-def disable_tex_source_tree(layer, rearrange=True):
+def disable_layer_source_tree(layer, rearrange=True):
 
     #if layer.type == 'VCOL': return
 
     tl = layer.id_data.tl
 
-    # Check if fine bump map is used on some of texture channels
+    # Check if fine bump map is used on some of layer channels
     fine_bump_found = False
     blur_found = False
     for i, ch in enumerate(layer.channels):
@@ -135,41 +135,41 @@ def disable_tex_source_tree(layer, rearrange=True):
 
     if (layer.type != 'VCOL' and layer.source_group == '') or fine_bump_found or blur_found: return
 
-    tex_tree = get_tree(layer)
+    layer_tree = get_tree(layer)
 
     if layer.type != 'VCOL':
-        source_group = tex_tree.nodes.get(layer.source_group)
+        source_group = layer_tree.nodes.get(layer.source_group)
         source_ref = source_group.node_tree.nodes.get(layer.source)
         mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
         # Create new source
-        source = new_node(tex_tree, layer, 'source', source_ref.bl_idname)
+        source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
-        mapping = new_node(tex_tree, layer, 'mapping', 'ShaderNodeMapping')
+        mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Bring back layer modifier to original tree
         if layer.type == 'IMAGE':
             for mod in layer.modifiers:
-                Modifier.add_modifier_nodes(mod, tex_tree, source_group.node_tree)
+                Modifier.add_modifier_nodes(mod, layer_tree, source_group.node_tree)
         else:
-            move_mod_group(layer, source_group.node_tree, tex_tree)
+            move_mod_group(layer, source_group.node_tree, layer_tree)
 
         # Remove previous source
-        remove_node(tex_tree, layer, 'source_group')
-        remove_node(tex_tree, layer, 'source_n')
-        remove_node(tex_tree, layer, 'source_s')
-        remove_node(tex_tree, layer, 'source_e')
-        remove_node(tex_tree, layer, 'source_w')
+        remove_node(layer_tree, layer, 'source_group')
+        remove_node(layer_tree, layer, 'source_n')
+        remove_node(layer_tree, layer, 'source_s')
+        remove_node(layer_tree, layer, 'source_e')
+        remove_node(layer_tree, layer, 'source_w')
 
-    remove_node(tex_tree, layer, 'uv_neighbor')
+    remove_node(layer_tree, layer, 'uv_neighbor')
 
     if rearrange:
         # Reconnect outside nodes
-        reconnect_tex_nodes(layer)
+        reconnect_layer_nodes(layer)
 
         # Rearrange nodes
-        rearrange_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
 
 def set_mask_uv_neighbor(tree, layer, mask):
 
@@ -250,12 +250,12 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
     # Check if source tree is already available
     if mask.type != 'VCOL' and mask.group_node != '': return
 
-    tex_tree = get_tree(layer)
+    layer_tree = get_tree(layer)
 
     if mask.type != 'VCOL':
         # Get current source for reference
-        source_ref = tex_tree.nodes.get(mask.source)
-        mapping_ref = tex_tree.nodes.get(mask.mapping)
+        source_ref = layer_tree.nodes.get(mask.source)
+        mapping_ref = layer_tree.nodes.get(mask.mapping)
 
         # Create mask tree
         mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
@@ -277,11 +277,11 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Create source node group
-        group_node = new_node(tex_tree, mask, 'group_node', 'ShaderNodeGroup', 'source_group')
-        source_n = new_node(tex_tree, mask, 'source_n', 'ShaderNodeGroup', 'source_n')
-        source_s = new_node(tex_tree, mask, 'source_s', 'ShaderNodeGroup', 'source_s')
-        source_e = new_node(tex_tree, mask, 'source_e', 'ShaderNodeGroup', 'source_e')
-        source_w = new_node(tex_tree, mask, 'source_w', 'ShaderNodeGroup', 'source_w')
+        group_node = new_node(layer_tree, mask, 'group_node', 'ShaderNodeGroup', 'source_group')
+        source_n = new_node(layer_tree, mask, 'source_n', 'ShaderNodeGroup', 'source_n')
+        source_s = new_node(layer_tree, mask, 'source_s', 'ShaderNodeGroup', 'source_s')
+        source_e = new_node(layer_tree, mask, 'source_e', 'ShaderNodeGroup', 'source_e')
+        source_w = new_node(layer_tree, mask, 'source_w', 'ShaderNodeGroup', 'source_w')
 
         group_node.node_tree = mask_tree
         source_n.node_tree = mask_tree
@@ -290,28 +290,28 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         source_w.node_tree = mask_tree
 
         for mod in mask.modifiers:
-            MaskModifier.add_modifier_nodes(mod, mask_tree, tex_tree)
+            MaskModifier.add_modifier_nodes(mod, mask_tree, layer_tree)
 
         # Remove previous nodes
-        tex_tree.nodes.remove(source_ref)
-        if mapping_ref: tex_tree.nodes.remove(mapping_ref)
+        layer_tree.nodes.remove(source_ref)
+        if mapping_ref: layer_tree.nodes.remove(mapping_ref)
 
     # Create uv neighbor
-    set_mask_uv_neighbor(tex_tree, layer, mask)
+    set_mask_uv_neighbor(layer_tree, layer, mask)
 
     if reconnect:
         # Reconnect outside nodes
-        reconnect_tex_nodes(layer)
+        reconnect_layer_nodes(layer)
 
         # Rearrange nodes
-        rearrange_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
 
 def disable_mask_source_tree(layer, mask, reconnect=False):
 
     # Check if source tree is already gone
     if mask.type != 'VCOL' and mask.group_node == '': return
 
-    tex_tree = get_tree(layer)
+    layer_tree = get_tree(layer)
 
     if mask.type != 'VCOL':
 
@@ -319,34 +319,34 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
 
         source_ref = mask_tree.nodes.get(mask.source)
         mapping_ref = mask_tree.nodes.get(mask.mapping)
-        group_node = tex_tree.nodes.get(mask.group_node)
+        group_node = layer_tree.nodes.get(mask.group_node)
 
         # Create new nodes
-        source = new_node(tex_tree, mask, 'source', source_ref.bl_idname)
+        source = new_node(layer_tree, mask, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
-        mapping = new_node(tex_tree, mask, 'mapping', 'ShaderNodeMapping')
+        mapping = new_node(layer_tree, mask, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         for mod in mask.modifiers:
-            MaskModifier.add_modifier_nodes(mod, tex_tree, mask_tree)
+            MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)
 
         # Remove previous source
-        remove_node(tex_tree, mask, 'group_node')
-        remove_node(tex_tree, mask, 'source_n')
-        remove_node(tex_tree, mask, 'source_s')
-        remove_node(tex_tree, mask, 'source_e')
-        remove_node(tex_tree, mask, 'source_w')
-        remove_node(tex_tree, mask, 'tangent')
-        remove_node(tex_tree, mask, 'bitangent')
+        remove_node(layer_tree, mask, 'group_node')
+        remove_node(layer_tree, mask, 'source_n')
+        remove_node(layer_tree, mask, 'source_s')
+        remove_node(layer_tree, mask, 'source_e')
+        remove_node(layer_tree, mask, 'source_w')
+        remove_node(layer_tree, mask, 'tangent')
+        remove_node(layer_tree, mask, 'bitangent')
 
-    remove_node(tex_tree, mask, 'uv_neighbor')
+    remove_node(layer_tree, mask, 'uv_neighbor')
 
     if reconnect:
         # Reconnect outside nodes
-        reconnect_tex_nodes(layer)
+        reconnect_layer_nodes(layer)
 
         # Rearrange nodes
-        rearrange_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
 
 def check_create_bump_base(layer, tree, ch):
 

@@ -426,7 +426,7 @@ class YNewTexModifier(bpy.types.Operator):
         # If RGB to intensity is added, bump base is better be 0.0
         if layer and self.type == 'RGB_TO_INTENSITY':
             for i, ch in enumerate(tl.channels):
-                c = context.texture.channels[i]
+                c = context.layer.channels[i]
                 if ch.type == 'NORMAL':
                     c.bump_base_value = 0.0
 
@@ -439,8 +439,8 @@ class YNewTexModifier(bpy.types.Operator):
 
         # Rearrange nodes
         if layer:
-            rearrange_tex_nodes(layer)
-            reconnect_tex_nodes(layer)
+            rearrange_layer_nodes(layer)
+            reconnect_layer_nodes(layer)
         else: 
             rearrange_tl_nodes(group_tree)
             reconnect_tl_nodes(group_tree)
@@ -449,7 +449,7 @@ class YNewTexModifier(bpy.types.Operator):
         #reconnect_between_modifier_nodes(context.parent)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        context.window_manager.ycpui.need_update = True
 
         return {'FINISHED'}
 
@@ -496,7 +496,7 @@ class YMoveTexModifier(bpy.types.Operator):
         else:
             return {'CANCELLED'}
 
-        layer = context.texture if hasattr(context, 'texture') else None
+        layer = context.layer if hasattr(context, 'layer') else None
 
         #if layer: tree = get_tree(layer)
         #else: tree = group_tree
@@ -506,14 +506,14 @@ class YMoveTexModifier(bpy.types.Operator):
 
         # Reconnect modifier nodes
         #reconnect_between_modifier_nodes(parent)
-        reconnect_tex_nodes(layer)
+        reconnect_layer_nodes(layer)
 
         # Rearrange nodes
-        if layer: rearrange_tex_nodes(layer)
+        if layer: rearrange_layer_nodes(layer)
         else: rearrange_tl_nodes(group_tree)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        context.window_manager.ycpui.need_update = True
 
         return {'FINISHED'}
 
@@ -543,7 +543,7 @@ class YRemoveTexModifier(bpy.types.Operator):
 
         if len(parent.modifiers) < 1: return {'CANCELLED'}
 
-        layer = context.texture if hasattr(context, 'texture') else None
+        layer = context.layer if hasattr(context, 'layer') else None
 
         tree = get_mod_tree(parent)
 
@@ -560,7 +560,7 @@ class YRemoveTexModifier(bpy.types.Operator):
         if layer:
             if len(parent.modifiers) == 0:
                 disable_modifiers_tree(parent, False)
-            reconnect_tex_nodes(layer)
+            reconnect_layer_nodes(layer)
         else:
             # Reconnect nodes
             #reconnect_between_modifier_nodes(parent)
@@ -568,15 +568,15 @@ class YRemoveTexModifier(bpy.types.Operator):
 
         # Rearrange nodes
         if layer:
-            rearrange_tex_nodes(layer)
+            rearrange_layer_nodes(layer)
         else: rearrange_tl_nodes(group_tree)
 
         # Update UI
-        context.window_manager.tlui.need_update = True
+        context.window_manager.ycpui.need_update = True
 
         return {'FINISHED'}
 
-def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_tex_ch=False):
+def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_layer_ch=False):
 
     #if modifier.type not in {'INVERT'}:
     #    label = [mt[1] for mt in modifier_type_items if modifier.type == mt[0]][0]
@@ -602,7 +602,7 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
 
         # Shortcut only available on layer channel
         #if 'YLayerChannel' in str(type(channel)):
-        if is_tex_ch:
+        if is_layer_ch:
             row = col.row(align=True)
             row.label(text='Shortcut on layer list:')
             row.prop(modifier, 'shortcut', text='')
@@ -1067,33 +1067,33 @@ def enable_modifiers_tree(parent, rearrange = False):
     mod_tree_end.name = MOD_TREE_END
 
     if match2 and layer.source_group != '':
-        tex_tree = get_source_tree(layer)
-    else: tex_tree = get_tree(layer)
+        layer_tree = get_source_tree(layer)
+    else: layer_tree = get_tree(layer)
 
     # Create main modifier group
-    mod_group = new_node(tex_tree, parent, 'mod_group', 'ShaderNodeGroup', 'mod_group')
+    mod_group = new_node(layer_tree, parent, 'mod_group', 'ShaderNodeGroup', 'mod_group')
     mod_group.node_tree = mod_tree
 
     if match1:
         # Create modifier group neighbor
-        mod_n = new_node(tex_tree, parent, 'mod_n', 'ShaderNodeGroup', 'mod_n')
-        mod_s = new_node(tex_tree, parent, 'mod_s', 'ShaderNodeGroup', 'mod_s')
-        mod_e = new_node(tex_tree, parent, 'mod_e', 'ShaderNodeGroup', 'mod_e')
-        mod_w = new_node(tex_tree, parent, 'mod_w', 'ShaderNodeGroup', 'mod_w')
+        mod_n = new_node(layer_tree, parent, 'mod_n', 'ShaderNodeGroup', 'mod_n')
+        mod_s = new_node(layer_tree, parent, 'mod_s', 'ShaderNodeGroup', 'mod_s')
+        mod_e = new_node(layer_tree, parent, 'mod_e', 'ShaderNodeGroup', 'mod_e')
+        mod_w = new_node(layer_tree, parent, 'mod_w', 'ShaderNodeGroup', 'mod_w')
         mod_n.node_tree = mod_tree
         mod_s.node_tree = mod_tree
         mod_e.node_tree = mod_tree
         mod_w.node_tree = mod_tree
     elif match2:
-        mod_group_1 = new_node(tex_tree, parent, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
+        mod_group_1 = new_node(layer_tree, parent, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
         mod_group_1.node_tree = mod_tree
 
     for mod in parent.modifiers:
-        add_modifier_nodes(mod, mod_tree, tex_tree)
+        add_modifier_nodes(mod, mod_tree, layer_tree)
 
     if rearrange:
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
     return mod_tree
 
@@ -1127,31 +1127,31 @@ def disable_modifiers_tree(parent, rearrange=False):
     if parent.mod_group == '': return
 
     if match2 and layer.source_group != '':
-        tex_tree = get_source_tree(layer)
-    else: tex_tree = get_tree(layer)
+        layer_tree = get_source_tree(layer)
+    else: layer_tree = get_tree(layer)
 
     # Get modifier group
-    mod_group = tex_tree.nodes.get(parent.mod_group)
+    mod_group = layer_tree.nodes.get(parent.mod_group)
 
     # Add new copied modifier nodes on layer tree
     for mod in parent.modifiers:
-        add_modifier_nodes(mod, tex_tree, mod_group.node_tree)
+        add_modifier_nodes(mod, layer_tree, mod_group.node_tree)
 
     # Remove modifier tree
-    remove_node(tex_tree, parent, 'mod_group')
+    remove_node(layer_tree, parent, 'mod_group')
 
     if match1:
         # Remove modifier group neighbor
-        remove_node(tex_tree, parent, 'mod_n')
-        remove_node(tex_tree, parent, 'mod_s')
-        remove_node(tex_tree, parent, 'mod_e')
-        remove_node(tex_tree, parent, 'mod_w')
+        remove_node(layer_tree, parent, 'mod_n')
+        remove_node(layer_tree, parent, 'mod_s')
+        remove_node(layer_tree, parent, 'mod_e')
+        remove_node(layer_tree, parent, 'mod_w')
     elif match2:
-        remove_node(tex_tree, parent, 'mod_group_1')
+        remove_node(layer_tree, parent, 'mod_group_1')
 
     if rearrange:
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
 def register():
     bpy.utils.register_class(YNewTexModifier)

@@ -3,7 +3,7 @@ from bpy.props import *
 from .subtree import *
 #from . import Layer
 
-def update_tex_channel_blur(self, context):
+def update_layer_channel_blur(self, context):
     tl = self.id_data.tl
     path = self.path_from_id()
 
@@ -12,8 +12,8 @@ def update_tex_channel_blur(self, context):
     layer = tl.layers[int(m.group(1))]
 
     if self.enable_blur:
-        enable_tex_source_tree(layer)
-    else: disable_tex_source_tree(layer)
+        enable_layer_source_tree(layer)
+    else: disable_layer_source_tree(layer)
 
 #class YTextureBlurSample(bpy.types.PropertyGroup):
 #    pass

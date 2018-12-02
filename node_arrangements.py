@@ -142,7 +142,7 @@ def rearrange_tl_frame_nodes(tl):
 
     clean_unused_frames(tree)
 
-def rearrange_tex_frame_nodes(layer, tree=None):
+def rearrange_layer_frame_nodes(layer, tree=None):
     tl = layer.id_data.tl
     if not tree: tree = get_tree(layer)
     #nodes = tree.nodes
@@ -505,7 +505,7 @@ def rearrange_normal_process_nodes(tree, ch, loc):
     if check_set_node_loc(tree, ch.normal, loc):
         loc.x += 250
 
-def rearrange_tex_nodes(layer, tree=None):
+def rearrange_layer_nodes(layer, tree=None):
     tl = layer.id_data.tl
 
     if tl.halt_reconnect: return
@@ -513,7 +513,7 @@ def rearrange_tex_nodes(layer, tree=None):
     if not tree: tree = get_tree(layer)
     nodes = tree.nodes
 
-    #print('Rearrange texture ' + layer.name)
+    #print('Rearrange layer ' + layer.name)
 
     start = nodes.get(layer.start)
     end = nodes.get(layer.end)
@@ -982,7 +982,7 @@ def rearrange_tex_nodes(layer, tree=None):
     loc.y = 0
     check_set_node_loc(tree, layer.end, loc)
 
-    rearrange_tex_frame_nodes(layer, tree)
+    rearrange_layer_frame_nodes(layer, tree)
 
 def rearrange_tl_nodes(group_tree):
 

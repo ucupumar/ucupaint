@@ -36,34 +36,34 @@ class YTLPreferences(AddonPreferences):
 
 @persistent
 def auto_save_images(scene):
-    tlup = bpy.context.user_preferences.addons[__package__].preferences
+    ycpup = bpy.context.user_preferences.addons[__package__].preferences
     for tree in bpy.data.node_groups:
         if tree.tl.is_tl_node:
-            if tlup.auto_save == 'ONLY_DIRTY':
+            if ycpup.auto_save == 'ONLY_DIRTY':
                 image_ops.save_pack_all(tree.tl, only_dirty=True)
-            elif tlup.auto_save == 'FORCE_ALL':
+            elif ycpup.auto_save == 'FORCE_ALL':
                 image_ops.save_pack_all(tree.tl, only_dirty=False)
 
 # HACK: For some reason active float image will glitch after auto save
 # This hack will fix that
 @persistent
 def refresh_float_image_hack(scene):
-    tlui = bpy.context.window_manager.tlui
+    ycpui = bpy.context.window_manager.ycpui
 
-    if tlui.refresh_image_hack:
+    if ycpui.refresh_image_hack:
         node = get_active_cpaint_node()
         if node:
             tl = node.node_tree.tl
             if len(tl.layers) > 0:
                 layer = tl.layers[tl.active_layer_index]
-                source = get_tex_source(layer)
+                source = get_layer_source(layer)
                 if source.type == 'TEX_IMAGE' and source.image:
                     # Just reload image to fix glitched float image
                     print("INFO: Just ignore error below if there's any, this is fine..")
                     source.image.reload()
                     print('INFO: ..fine error ended')
 
-        tlui.refresh_image_hack = False
+        ycpui.refresh_image_hack = False
 
 def register():
     bpy.utils.register_class(YTLPreferences)

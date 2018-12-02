@@ -378,16 +378,16 @@ def get_active_node():
 # Specific methods for this addon
 
 def get_active_cpaint_node():
-    tlui = bpy.context.window_manager.tlui
+    ycpui = bpy.context.window_manager.ycpui
 
     # Get material UI prop
     mat = get_active_material()
     if not mat or not mat.node_tree: 
-        tlui.active_mat = ''
+        ycpui.active_mat = ''
         return None
 
     # Search for its name first
-    mui = tlui.materials.get(mat.name)
+    mui = ycpui.materials.get(mat.name)
 
     # Flag for indicate new mui just created
     change_name = False
@@ -395,23 +395,23 @@ def get_active_cpaint_node():
     # If still not found, create one
     if not mui:
 
-        if tlui.active_mat != '':
-            prev_mat = bpy.data.materials.get(tlui.active_mat)
+        if ycpui.active_mat != '':
+            prev_mat = bpy.data.materials.get(ycpui.active_mat)
             if not prev_mat:
-                #print(tlui.active_mat)
+                #print(ycpui.active_mat)
                 change_name = True
                 # Remove prev mui
-                prev_idx = [i for i, m in enumerate(tlui.materials) if m.name == tlui.active_mat]
+                prev_idx = [i for i, m in enumerate(ycpui.materials) if m.name == ycpui.active_mat]
                 if prev_idx:
-                    tlui.materials.remove(prev_idx[0])
+                    ycpui.materials.remove(prev_idx[0])
                     #print('Removed!')
 
-        mui = tlui.materials.add()
+        mui = ycpui.materials.add()
         mui.name = mat.name
         #print('New MUI!', mui.name)
 
-    if tlui.active_mat != mat.name:
-        tlui.active_mat = mat.name
+    if ycpui.active_mat != mat.name:
+        ycpui.active_mat = mat.name
 
     # Try to get tl node
     node = get_active_node()
@@ -421,14 +421,14 @@ def get_active_cpaint_node():
             #print('From:', mui.active_tl_node)
             mui.active_tl_node = node.name
             #print('To:', node.name)
-        if tlui.active_tl_node != node.name:
-            tlui.active_tl_node = node.name
+        if ycpui.active_tl_node != node.name:
+            ycpui.active_tl_node = node.name
         return node
 
     # If not active node isn't a group node
     # New mui possibly means material name just changed, try to get previous active node
     if change_name: 
-        node = mat.node_tree.nodes.get(tlui.active_tl_node)
+        node = mat.node_tree.nodes.get(ycpui.active_tl_node)
         if node:
             #print(mui.name, 'Change name from:', mui.active_tl_node)
             mui.active_tl_node = node.name
@@ -483,7 +483,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
 
                         # Search for vcol layer
                         if t.type == 'VCOL':
-                            src = get_tex_source(t)
+                            src = get_layer_source(t)
                             if src != node and src.attribute_name == vcol.name:
                                 other_users_found = True
                                 break
@@ -713,10 +713,10 @@ def get_mask_tree(mask):
 
     tl = mask.id_data.tl
     layer = tl.layers[int(m.group(1))]
-    tex_tree = get_tree(layer)
+    layer_tree = get_tree(layer)
 
-    group_node = tex_tree.nodes.get(mask.group_node)
-    if not group_node or group_node.type != 'GROUP': return tex_tree
+    group_node = layer_tree.nodes.get(mask.group_node)
+    if not group_node or group_node.type != 'GROUP': return layer_tree
     return group_node.node_tree
 
 def get_mask_source(mask):
@@ -737,7 +737,7 @@ def get_source_tree(layer, tree=None):
 
     return tree
 
-def get_tex_source(layer, tree=None):
+def get_layer_source(layer, tree=None):
     if not tree: tree = get_tree(layer)
 
     source_tree = get_source_tree(layer, tree)
@@ -746,7 +746,7 @@ def get_tex_source(layer, tree=None):
 
     return None
 
-def get_tex_mapping(layer):
+def get_layer_mapping(layer):
     tree = get_source_tree(layer)
     return tree.nodes.get(layer.mapping)
 
@@ -966,14 +966,14 @@ def is_bottom_member(layer):
 #
 #    return parent_idx
 
-def get_tex_index(layer):
+def get_layer_index(layer):
     tl = layer.id_data.tl
 
     for i, t in enumerate(tl.layers):
         if layer == t:
             return i
 
-def get_tex_index_by_name(tl, name):
+def get_layer_index_by_name(tl, name):
 
     for i, t in enumerate(tl.layers):
         if name == t.name:
@@ -1042,7 +1042,7 @@ def get_list_of_direct_child_ids(layer):
     if layer.type != 'GROUP':
         return []
 
-    tex_idx = get_tex_index(layer)
+    tex_idx = get_layer_index(layer)
 
     childs = []
     for i, t in enumerate(tl.layers):
@@ -1057,7 +1057,7 @@ def get_list_of_direct_childrens(layer):
     if layer.type != 'GROUP':
         return []
 
-    tex_idx = get_tex_index(layer)
+    tex_idx = get_layer_index(layer)
 
     childs = []
     for t in tl.layers:
@@ -1094,7 +1094,7 @@ def get_list_of_parent_ids(layer):
 def get_last_chained_up_layer_ids(layer, idx_limit):
 
     tl = layer.id_data.tl
-    tex_idx = get_tex_index(layer)
+    tex_idx = get_layer_index(layer)
 
     cur_tex = layer
     parent_tex = layer
@@ -1124,7 +1124,7 @@ def has_childrens(layer):
     if layer.type != 'GROUP':
         return False
 
-    tex_idx = get_tex_index(layer)
+    tex_idx = get_layer_index(layer)
 
     if tex_idx < len(tl.layers)-1:
         neighbor_tex = tl.layers[tex_idx+1]
@@ -1136,7 +1136,7 @@ def has_childrens(layer):
 def get_last_child_idx(layer): #, very_last=False):
 
     tl = layer.id_data.tl
-    tex_idx = get_tex_index(layer)
+    tex_idx = get_layer_index(layer)
 
     if layer.type != 'GROUP': 
         return tex_idx
@@ -1150,7 +1150,7 @@ def get_last_child_idx(layer): #, very_last=False):
 def get_upper_neighbor(layer):
 
     tl = layer.id_data.tl
-    tex_idx = get_tex_index(layer)
+    tex_idx = get_layer_index(layer)
 
     if tex_idx == 0:
         return None, None
@@ -1168,7 +1168,7 @@ def get_upper_neighbor(layer):
 def get_lower_neighbor(layer):
 
     tl = layer.id_data.tl
-    tex_idx = get_tex_index(layer)
+    tex_idx = get_layer_index(layer)
     last_index = len(tl.layers)-1
 
     if tex_idx == last_index:
@@ -1203,8 +1203,8 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
 
     if m1: 
         tree = get_tree(entity)
-        if not mapping: mapping = get_tex_mapping(entity)
-        if not source: source = get_tex_source(entity)
+        if not mapping: mapping = get_layer_mapping(entity)
+        if not source: source = get_layer_source(entity)
     elif m2: 
         tree = get_tree(tl.layers[int(m2.group(1))])
         if not mapping: mapping = get_mask_mapping(entity)
@@ -1228,8 +1228,8 @@ def update_mapping(entity):
 
     # Get source
     if m1: 
-        source = get_tex_source(entity)
-        mapping = get_tex_mapping(entity)
+        source = get_layer_source(entity)
+        mapping = get_layer_mapping(entity)
     elif m2: 
         source = get_mask_source(entity)
         mapping = get_mask_mapping(entity)
@@ -1295,8 +1295,8 @@ def refresh_temp_uv(obj, entity, use_ops=False):
 
     # Get source
     if m1: 
-        source = get_tex_source(entity)
-        mapping = get_tex_mapping(entity)
+        source = get_layer_source(entity)
+        mapping = get_layer_mapping(entity)
     elif m2: 
         source = get_mask_source(entity)
         mapping = get_mask_mapping(entity)

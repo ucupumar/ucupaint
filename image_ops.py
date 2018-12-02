@@ -68,7 +68,7 @@ def save_pack_all(tl, only_dirty = True):
         
         # Texture image
         if layer.type == 'IMAGE':
-            source = get_tex_source(layer)
+            source = get_layer_source(layer)
             images.append(source.image)
 
         # Mask image
@@ -101,11 +101,11 @@ def save_pack_all(tl, only_dirty = True):
     if len(tl.layers) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
         layer = tl.layers[tl.active_layer_index]
         if layer.type == 'IMAGE':
-            source = get_tex_source(layer)
+            source = get_layer_source(layer)
             image = source.image
             if image in packed_float_images:
-                tlui = bpy.context.window_manager.tlui
-                tlui.refresh_image_hack = True
+                ycpui = bpy.context.window_manager.ycpui
+                ycpui.refresh_image_hack = True
 
 class YInvertImage(bpy.types.Operator):
     """Invert Image"""
@@ -563,12 +563,12 @@ class YSavePackAll(bpy.types.Operator):
         return get_active_cpaint_node()
 
     def execute(self, context):
-        tlui = bpy.context.window_manager.tlui
+        ycpui = bpy.context.window_manager.ycpui
         #T = time.time()
         tl = get_active_cpaint_node().node_tree.tl
         save_pack_all(tl, only_dirty=False)
         #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        tlui.refresh_image_hack = False
+        ycpui.refresh_image_hack = False
         return {'FINISHED'}
 
 def register():

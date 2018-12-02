@@ -132,7 +132,7 @@ def check_need_of_erasing_segments(color='BLACK', width=1024, height=1024, hdr=F
 
 def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False):
 
-    tlup = bpy.context.user_preferences.addons[__package__].preferences
+    ycpup = bpy.context.user_preferences.addons[__package__].preferences
 
     # Serach for available image atlas
     for img in bpy.data.images:
@@ -143,8 +143,8 @@ def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False):
                 # This is where unused segments should be erased 
                 pass
 
-    if hdr: new_atlas_size = tlup.hdr_image_atlas_size
-    else: new_atlas_size = tlup.image_atlas_size
+    if hdr: new_atlas_size = ycpup.hdr_image_atlas_size
+    else: new_atlas_size = ycpup.image_atlas_size
 
     # If proper image atlas can't be found, create new one
     img = create_image_atlas(color, new_atlas_size, hdr)
@@ -293,14 +293,14 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'texture')
+        return hasattr(context, 'layer')
 
     def execute(self, context):
 
         obj = context.object
-        layer = context.texture
+        layer = context.layer
         tl = layer.id_data.tl
-        tlui = context.window_manager.tlui
+        ycpui = context.window_manager.ycpui
 
         image = None
 
@@ -313,7 +313,7 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
         
         if not image and layer.type == 'IMAGE':
             refresh_temp_uv(obj, layer)
-            source = get_tex_source(layer)
+            source = get_layer_source(layer)
             image = source.image
 
         if image:
@@ -332,14 +332,14 @@ class YBackToOriginalUV(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'texture')
+        return hasattr(context, 'layer')
 
     def execute(self, context):
 
         obj = context.object
-        layer = context.texture
+        layer = context.layer
         tl = layer.id_data.tl
-        tlui = context.window_manager.tlui
+        ycpui = context.window_manager.ycpui
 
         active = None
         image = None
@@ -352,7 +352,7 @@ class YBackToOriginalUV(bpy.types.Operator):
                 #return {'FINISHED'}
         
         if not active and layer.type == 'IMAGE':
-            source = get_tex_source(layer)
+            source = get_layer_source(layer)
             image = source.image
             active = layer
 

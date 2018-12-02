@@ -394,10 +394,10 @@ def reconnect_mask_internal_nodes(mask):
 
     create_link(tree, val, end.inputs[0])
 
-def reconnect_tex_nodes(layer, ch_idx=-1):
+def reconnect_layer_nodes(layer, ch_idx=-1):
     tl = layer.id_data.tl
 
-    #print('Reconnect texture ' + layer.name)
+    #print('Reconnect layer ' + layer.name)
     if tl.halt_reconnect: return
 
     tree = get_tree(layer)

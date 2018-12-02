@@ -172,16 +172,16 @@ class YNewLayerMask(bpy.types.Operator):
 
     def invoke(self, context, event):
 
-        # HACK: For some reason, checking context.texture on poll will cause problem
+        # HACK: For some reason, checking context.layer on poll will cause problem
         # This method below is to get around that
         self.auto_cancel = False
-        if not hasattr(context, 'texture'):
+        if not hasattr(context, 'layer'):
             self.auto_cancel = True
             return self.execute(context)
 
         obj = context.object
-        self.texture = context.texture
-        layer = context.texture
+        self.layer = context.layer
+        layer = context.layer
         tl = layer.id_data.tl
 
         surname = '(' + layer.name + ')'
@@ -269,9 +269,9 @@ class YNewLayerMask(bpy.types.Operator):
         if self.auto_cancel: return {'CANCELLED'}
 
         obj = context.object
-        tlui = context.window_manager.tlui
-        layer = self.texture
-        #tlup = bpy.context.user_preferences.addons[__package__].preferences
+        ycpui = context.window_manager.ycpui
+        layer = self.layer
+        #ycpup = bpy.context.user_preferences.addons[__package__].preferences
 
         # Check if object is not a mesh
         if self.type == 'VCOL' and obj.type != 'MESH':
@@ -282,7 +282,7 @@ class YNewLayerMask(bpy.types.Operator):
         img_atlas = self.get_to_be_cleared_image_atlas(context)
         if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
-        # Check if texture with same name is already available
+        # Check if layer with same name is already available
         if self.type == 'IMAGE':
             same_name = [i for i in bpy.data.images if i.name == self.name]
         elif self.type == 'VCOL':
@@ -305,7 +305,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             if self.use_image_atlas:
                 segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, self.color_option, self.hdr) #, tlup.image_atlas_size)
+                        self.width, self.height, self.color_option, self.hdr) #, ycpup.image_atlas_size)
                 img = segment.id_data
             else:
                 img = bpy.data.images.new(name=self.name, 
@@ -331,11 +331,11 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type in {'IMAGE', 'VCOL'}:
             mask.active_edit = True
 
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
-        tlui.layer_ui.expand_masks = True
-        tlui.need_update = True
+        ycpui.layer_ui.expand_masks = True
+        ycpui.need_update = True
 
         return {'FINISHED'}
 
@@ -379,8 +379,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
     def invoke(self, context, event):
         obj = context.object
-        self.texture = context.texture
-        tl = self.texture.id_data.tl
+        self.layer = context.layer
+        tl = self.layer.id_data.tl
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
@@ -422,12 +422,12 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
     def execute(self, context):
         T = time.time()
-        if not hasattr(self, 'texture'): return {'CANCELLED'}
+        if not hasattr(self, 'layer'): return {'CANCELLED'}
 
-        layer = self.texture
+        layer = self.layer
         tl = layer.id_data.tl
         wm = context.window_manager
-        tlui = wm.tlui
+        ycpui = wm.ycpui
         obj = context.object
 
         import_list, directory = self.generate_paths()
@@ -441,11 +441,11 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             # Add new mask
             mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None)
 
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
         # Update UI
-        wm.tlui.need_update = True
+        wm.ycpui.need_update = True
         print('INFO: Image(s) is opened as mask(s) at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.tltimer.time = str(time.time())
 
@@ -483,8 +483,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
     def invoke(self, context, event):
         obj = context.object
-        self.texture = context.texture
-        tl = self.texture.id_data.tl
+        self.layer = context.layer
+        tl = self.layer.id_data.tl
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
@@ -543,11 +543,11 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
     def execute(self, context):
-        if not hasattr(self, 'texture'): return {'CANCELLED'}
+        if not hasattr(self, 'layer'): return {'CANCELLED'}
 
-        layer = self.texture
+        layer = self.layer
         tl = layer.id_data.tl
-        tlui = context.window_manager.tlui
+        ycpui = context.window_manager.ycpui
         obj = context.object
 
         if self.type == 'IMAGE' and self.image_name == '':
@@ -573,11 +573,11 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if self.type in {'IMAGE', 'VCOL'}:
             mask.active_edit = True
 
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
-        tlui.layer_ui.expand_masks = True
-        tlui.need_update = True
+        ycpui.layer_ui.expand_masks = True
+        ycpui.need_update = True
 
         return {'FINISHED'}
 
@@ -595,11 +595,11 @@ class YMoveLayerMask(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'mask') and hasattr(context, 'texture')
+        return hasattr(context, 'mask') and hasattr(context, 'layer')
 
     def execute(self, context):
         mask = context.mask
-        layer = context.texture
+        layer = context.layer
 
         num_masks = len(layer.masks)
         if num_masks < 2: return {'CANCELLED'}
@@ -623,8 +623,8 @@ class YMoveLayerMask(bpy.types.Operator):
         check_mask_mix_nodes(layer, tree)
         check_mask_source_tree(layer) #, bump_ch)
 
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
         return {'FINISHED'}
 
@@ -636,19 +636,19 @@ class YRemoveLayerMask(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'mask') and hasattr(context, 'texture')
+        return hasattr(context, 'mask') and hasattr(context, 'layer')
 
     def execute(self, context):
         mask = context.mask
-        layer = context.texture
+        layer = context.layer
         tree = get_tree(layer)
         obj = context.object
         tl = layer.id_data.tl
 
         remove_mask(layer, mask, obj)
 
-        reconnect_tex_nodes(layer)
-        rearrange_tex_nodes(layer)
+        reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
         # Seach for active edit mask
         found_active_edit = False
@@ -657,10 +657,10 @@ class YRemoveLayerMask(bpy.types.Operator):
                 found_active_edit = True
                 break
 
-        # Use texture image as active image if active edit mask not found
+        # Use layer image as active image if active edit mask not found
         if not found_active_edit:
             #if layer.type == 'IMAGE':
-            #    source = get_tex_source(layer, tree)
+            #    source = get_layer_source(layer, tree)
             #    update_image_editor_image(context, source.image)
             #else:
             #    update_image_editor_image(context, None)
@@ -763,7 +763,7 @@ def update_mask_texcoord_type(self, context):
     match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = tl.layers[int(match.group(1))]
 
-    reconnect_tex_nodes(layer)
+    reconnect_layer_nodes(layer)
 
 def update_mask_uv_name(self, context):
     obj = context.object
@@ -802,8 +802,8 @@ def update_mask_uv_name(self, context):
 
     # Update neighbor uv if mask bump is active
     if set_mask_uv_neighbor(tree, layer, self):
-        rearrange_tex_nodes(layer)
-        reconnect_tex_nodes(layer)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
 def update_mask_name(self, context):
 
