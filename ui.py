@@ -4,67 +4,67 @@ from bpy.app.handlers import persistent
 from . import lib, Modifier, MaskModifier
 from .common import *
 
-def update_tl_ui():
+def update_yp_ui():
 
-    # Get active tl node
-    node = get_active_cpaint_node()
+    # Get active yp node
+    node = get_active_ypaint_node()
     if not node or node.type != 'GROUP': return
     tree = node.node_tree
-    tl = tree.tl
-    ycpui = bpy.context.window_manager.ycpui
+    yp = tree.yp
+    ypui = bpy.context.window_manager.ypui
 
     # Check layer channel ui consistency
-    if len(tl.layers) > 0:
-        if len(ycpui.layer_ui.channels) != len(tl.channels):
-            ycpui.need_update = True
+    if len(yp.layers) > 0:
+        if len(ypui.layer_ui.channels) != len(yp.channels):
+            ypui.need_update = True
 
     # Update UI
-    if (ycpui.tree_name != tree.name or 
-        ycpui.layer_idx != tl.active_layer_index or 
-        ycpui.channel_idx != tl.active_channel_index or 
-        ycpui.need_update
+    if (ypui.tree_name != tree.name or 
+        ypui.layer_idx != yp.active_layer_index or 
+        ypui.channel_idx != yp.active_channel_index or 
+        ypui.need_update
         ):
 
-        ycpui.tree_name = tree.name
-        ycpui.layer_idx = tl.active_layer_index
-        ycpui.channel_idx = tl.active_channel_index
-        ycpui.need_update = False
-        ycpui.halt_prop_update = True
+        ypui.tree_name = tree.name
+        ypui.layer_idx = yp.active_layer_index
+        ypui.channel_idx = yp.active_channel_index
+        ypui.need_update = False
+        ypui.halt_prop_update = True
 
-        if len(tl.channels) > 0:
+        if len(yp.channels) > 0:
 
             # Get channel
-            channel = tl.channels[tl.active_channel_index]
-            ycpui.channel_ui.expand_content = channel.expand_content
-            ycpui.channel_ui.expand_base_vector = channel.expand_base_vector
-            ycpui.channel_ui.modifiers.clear()
+            channel = yp.channels[yp.active_channel_index]
+            ypui.channel_ui.expand_content = channel.expand_content
+            ypui.channel_ui.expand_base_vector = channel.expand_base_vector
+            ypui.channel_ui.modifiers.clear()
 
             # Construct channel UI objects
             for i, mod in enumerate(channel.modifiers):
-                m = ycpui.channel_ui.modifiers.add()
+                m = ypui.channel_ui.modifiers.add()
                 m.expand_content = mod.expand_content
 
-        if len(tl.layers) > 0:
+        if len(yp.layers) > 0:
 
             # Get layer
-            layer = tl.layers[tl.active_layer_index]
-            ycpui.layer_ui.expand_content = layer.expand_content
-            ycpui.layer_ui.expand_vector = layer.expand_vector
-            ycpui.layer_ui.expand_source = layer.expand_source
-            ycpui.layer_ui.expand_masks = layer.expand_masks
-            ycpui.layer_ui.expand_channels = layer.expand_channels
-            ycpui.layer_ui.channels.clear()
-            ycpui.layer_ui.masks.clear()
-            ycpui.layer_ui.modifiers.clear()
+            layer = yp.layers[yp.active_layer_index]
+            ypui.layer_ui.expand_content = layer.expand_content
+            ypui.layer_ui.expand_vector = layer.expand_vector
+            ypui.layer_ui.expand_source = layer.expand_source
+            ypui.layer_ui.expand_masks = layer.expand_masks
+            ypui.layer_ui.expand_channels = layer.expand_channels
+            ypui.layer_ui.channels.clear()
+            ypui.layer_ui.masks.clear()
+            ypui.layer_ui.modifiers.clear()
 
             # Construct layer modifier UI objects
             for mod in layer.modifiers:
-                m = ycpui.layer_ui.modifiers.add()
+                m = ypui.layer_ui.modifiers.add()
                 m.expand_content = mod.expand_content
             
             # Construct layer channel UI objects
             for i, ch in enumerate(layer.channels):
-                c = ycpui.layer_ui.channels.add()
+                c = ypui.layer_ui.channels.add()
                 c.expand_bump_settings = ch.expand_bump_settings
                 c.expand_intensity_settings = ch.expand_intensity_settings
                 c.expand_transition_bump_settings = ch.expand_transition_bump_settings
@@ -79,7 +79,7 @@ def update_tl_ui():
 
             # Construct layer masks UI objects
             for i, mask in enumerate(layer.masks):
-                m = ycpui.layer_ui.masks.add()
+                m = ypui.layer_ui.masks.add()
                 m.expand_content = mask.expand_content
                 m.expand_channels = mask.expand_channels
                 m.expand_source = mask.expand_source
@@ -93,7 +93,7 @@ def update_tl_ui():
                     mm = m.modifiers.add()
                     mm.expand_content = mod.expand_content
 
-        ycpui.halt_prop_update = False
+        ypui.halt_prop_update = False
 
 def draw_image_props(source, layout, entity=None):
 
@@ -301,14 +301,14 @@ def draw_solid_color_props(layer, source, layout):
     row.prop(layer, 'color_shortcut', text='')
 
 def draw_mask_modifier_stack(layer, mask, layout, ui, custom_icon_enable):
-    ycpui = bpy.context.window_manager.ycpui
+    ypui = bpy.context.window_manager.ypui
     tree = get_mask_tree(mask)
 
     for i, m in enumerate(mask.modifiers):
 
         try: modui = ui.modifiers[i]
         except: 
-            ycpui.need_update = True
+            ypui.need_update = True
             return
 
         can_be_expanded = m.type in MaskModifier.can_be_expanded
@@ -346,13 +346,13 @@ def draw_mask_modifier_stack(layer, mask, layout, ui, custom_icon_enable):
 
 def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_enable, layer=None, extra_blank=False):
 
-    ycpui = context.window_manager.ycpui
+    ypui = context.window_manager.ypui
 
     for i, m in enumerate(parent.modifiers):
 
         try: modui = ui.modifiers[i]
         except: 
-            ycpui.need_update = True
+            ypui.need_update = True
             return
 
         mod_tree = get_mod_tree(m)
@@ -406,23 +406,23 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_e
 def draw_root_channels_ui(context, layout, node, custom_icon_enable):
     group_tree = node.node_tree
     nodes = group_tree.nodes
-    tl = group_tree.tl
-    ycpui = context.window_manager.ycpui
+    yp = group_tree.yp
+    ypui = context.window_manager.ypui
 
     box = layout.box()
     col = box.column()
     row = col.row()
 
     rcol = row.column()
-    if len(tl.channels) > 0:
+    if len(yp.channels) > 0:
         pcol = rcol.column()
-        if tl.preview_mode: pcol.alert = True
+        if yp.preview_mode: pcol.alert = True
         if custom_icon_enable:
-            pcol.prop(tl, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
-        else: pcol.prop(tl, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
+            pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
+        else: pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
 
-    rcol.template_list("NODE_UL_y_cp_channels", "", tl,
-            "channels", tl, "active_channel_index", rows=3, maxrows=5)  
+    rcol.template_list("NODE_UL_YPaint_channels", "", yp,
+            "channels", yp, "active_channel_index", rows=3, maxrows=5)  
 
     rcol = row.column(align=True)
     #rcol.context_pointer_set('node', node)
@@ -437,14 +437,14 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
     rcol.operator("node.y_move_cpaint_channel", text='', icon='TRIA_UP').direction = 'UP'
     rcol.operator("node.y_move_cpaint_channel", text='', icon='TRIA_DOWN').direction = 'DOWN'
 
-    if len(tl.channels) > 0:
+    if len(yp.channels) > 0:
 
         mcol = col.column(align=False)
 
-        channel = tl.channels[tl.active_channel_index]
+        channel = yp.channels[yp.active_channel_index]
         mcol.context_pointer_set('channel', channel)
 
-        chui = ycpui.channel_ui
+        chui = ypui.channel_ui
 
         row = mcol.row(align=True)
 
@@ -555,55 +555,55 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
 
 def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh, custom_icon_enable):
     obj = context.object
-    tl = layer.id_data.tl
-    ycpui = context.window_manager.ycpui
-    texui = ycpui.layer_ui
+    yp = layer.id_data.yp
+    ypui = context.window_manager.ypui
+    lui = ypui.layer_ui
     scene = context.scene
 
     row = layout.row(align=True)
     if image:
         if custom_icon_enable:
-            if texui.expand_content:
+            if lui.expand_content:
                 icon_value = lib.custom_icons["uncollapsed_image"].icon_id
             else: icon_value = lib.custom_icons["collapsed_image"].icon_id
-            row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
         else:
-            row.prop(texui, 'expand_content', text='', emboss=True, icon='IMAGE_DATA')
+            row.prop(lui, 'expand_content', text='', emboss=True, icon='IMAGE_DATA')
         if image.yia.is_image_atlas:
             row.label(text=layer.name)
         else: row.label(text=image.name)
     elif vcol:
         if len(layer.modifiers) > 0:
             if custom_icon_enable:
-                if texui.expand_content:
+                if lui.expand_content:
                     icon_value = lib.custom_icons["uncollapsed_vcol"].icon_id
                 else: icon_value = lib.custom_icons["collapsed_vcol"].icon_id
-                row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
             else:
-                row.prop(texui, 'expand_content', text='', emboss=True, icon='GROUP_VCOL')
+                row.prop(lui, 'expand_content', text='', emboss=True, icon='GROUP_VCOL')
         else:
             row.label(text='', icon='GROUP_VCOL')
         row.label(text=vcol.name)
     elif layer.type == 'BACKGROUND':
         if len(layer.modifiers) > 0:
             if custom_icon_enable:
-                if texui.expand_content:
+                if lui.expand_content:
                     icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
                 else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
-                row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+                row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
             else:
-                row.prop(texui, 'expand_content', text='', emboss=True, icon='TEXTURE')
+                row.prop(lui, 'expand_content', text='', emboss=True, icon='TEXTURE')
         else:
             row.label(text='', icon='TEXTURE')
         row.label(text=layer.name)
     elif layer.type == 'COLOR':
         if custom_icon_enable:
-            if texui.expand_content:
+            if lui.expand_content:
                 icon_value = lib.custom_icons["uncollapsed_color"].icon_id
             else: icon_value = lib.custom_icons["collapsed_color"].icon_id
-            row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
         else:
-            row.prop(texui, 'expand_content', text='', emboss=True, icon='COLOR')
+            row.prop(lui, 'expand_content', text='', emboss=True, icon='COLOR')
         row.label(text=layer.name)
     elif layer.type == 'GROUP':
         row.label(text='', icon='FILE_FOLDER')
@@ -611,25 +611,25 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     else:
         title = source.bl_idname.replace('ShaderNodeTex', '')
         if custom_icon_enable:
-            if texui.expand_content:
+            if lui.expand_content:
                 icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
             else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
-            row.prop(texui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
         else:
-            row.prop(texui, 'expand_content', text='', emboss=True, icon='TEXTURE')
+            row.prop(lui, 'expand_content', text='', emboss=True, icon='TEXTURE')
         row.label(text=title)
 
     row.context_pointer_set('parent', layer)
     row.context_pointer_set('layer', layer)
-    row.context_pointer_set('layer_ui', texui)
+    row.context_pointer_set('layer_ui', lui)
 
     if obj.mode == 'EDIT':
         if obj.type == 'MESH' and obj.data.uv_layers.active and obj.data.uv_layers.active.name == TEMP_UV:
             row = row.row(align=True)
             row.alert = True
             row.operator('node.y_back_to_original_uv', icon='EDITMODE_HLT', text='Edit Original UV')
-    elif tl.need_temp_uv_refresh:
-    #if ycpui.disable_auto_temp_uv_update and tl.need_temp_uv_refresh:
+    elif yp.need_temp_uv_refresh:
+    #if ypui.disable_auto_temp_uv_update and yp.need_temp_uv_refresh:
         row = row.row(align=True)
         row.alert = True
         row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Transformed UV')
@@ -641,7 +641,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     if layer.type == 'GROUP': return
     if layer.type in {'VCOL', 'BACKGROUND'} and len(layer.modifiers) == 0: return
-    if not texui.expand_content: return
+    if not lui.expand_content: return
 
     rrow = layout.row(align=True)
     rrow.label(text='', icon='BLANK1')
@@ -650,7 +650,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     modcol = rcol.column()
     modcol.active = layer.type not in {'BACKGROUND', 'GROUP'}
     draw_modifier_stack(context, layer, 'RGB', modcol, 
-            texui, custom_icon_enable, layer)
+            lui, custom_icon_enable, layer)
 
     if layer.type not in {'VCOL', 'BACKGROUND'}:
         row = rcol.row(align=True)
@@ -662,19 +662,19 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 suffix = 'color'
             else: suffix = 'texture'
 
-            if texui.expand_source:
+            if lui.expand_source:
                 icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
             else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
-            row.prop(texui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+            row.prop(lui, 'expand_source', text='', emboss=False, icon_value=icon_value)
         else:
             icon = 'IMAGE_DATA' if layer.type == 'IMAGE' else 'TEXTURE'
-            row.prop(texui, 'expand_source', text='', emboss=True, icon=icon)
+            row.prop(lui, 'expand_source', text='', emboss=True, icon=icon)
 
         if image:
             row.label(text='Source: ' + image.name)
         else: row.label(text='Source: ' + layer.name)
 
-        if texui.expand_source:
+        if lui.expand_source:
             row = rcol.row(align=True)
             row.label(text='', icon='BLANK1')
             bbox = row.box()
@@ -689,12 +689,12 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             row = rcol.row(align=True)
 
             if custom_icon_enable:
-                if texui.expand_vector:
+                if lui.expand_vector:
                     icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
                 else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-                row.prop(texui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+                row.prop(lui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
             else:
-                row.prop(texui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
+                row.prop(lui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
 
             if bpy.app.version_string.startswith('2.8'):
                 split = row.split(factor=0.275, align=True)
@@ -713,7 +713,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             else:
                 split.prop(layer, 'texcoord_type', text='')
 
-            if texui.expand_vector:
+            if lui.expand_vector:
                 row = rcol.row(align=True)
                 row.label(text='', icon='BLANK1')
                 bbox = row.box()
@@ -722,7 +722,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 bbox.prop(layer, 'rotation')
                 bbox.prop(layer, 'scale')
 
-                if tl.need_temp_uv_refresh:
+                if yp.need_temp_uv_refresh:
                     rrow = bbox.row(align=True)
                     rrow.alert = True
                     rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh Transformed UV')
@@ -731,20 +731,20 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
 def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_enable):
 
-    tl = layer.id_data.tl
-    ycpui = context.window_manager.ycpui
-    texui = ycpui.layer_ui
+    yp = layer.id_data.yp
+    ypui = context.window_manager.ypui
+    lui = ypui.layer_ui
     
     row = layout.row(align=True)
     if custom_icon_enable:
-        if texui.expand_channels:
+        if lui.expand_channels:
             icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
         else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
-        row.prop(texui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
-    else: row.prop(texui, 'expand_channels', text='', emboss=True, icon='GROUP_VERTEX')
+        row.prop(lui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
+    else: row.prop(lui, 'expand_channels', text='', emboss=True, icon='GROUP_VERTEX')
 
     #label = 'Channels:'
-    #if not texui.expand_channels:
+    #if not lui.expand_channels:
     #    for i, ch in enumerate(layer.channels):
 
     #        if ch.enable:
@@ -755,7 +755,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
     #            else:
     #                label += ', '
 
-    #            label += tl.channels[i].name
+    #            label += yp.channels[i].name
 
     #    row.label(text=label)
     #    return
@@ -771,17 +771,17 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
     else:
         label += 's (' + str(enabled_channels) + ')'
 
-    if texui.expand_channels:
+    if lui.expand_channels:
         label += ':'
     
     row.label(text=label)
 
-    if not texui.expand_channels:
+    if not lui.expand_channels:
         return
 
     if custom_icon_enable:
-        row.prop(ycpui, 'expand_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
-    else: row.prop(ycpui, 'expand_channels', text='', emboss=True, icon = 'GROUP_VERTEX')
+        row.prop(ypui, 'expand_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
+    else: row.prop(ypui, 'expand_channels', text='', emboss=True, icon = 'GROUP_VERTEX')
 
     rrow = layout.row(align=True)
     rrow.label(text='', icon='BLANK1')
@@ -798,15 +798,15 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
     extra_separator = False
     for i, ch in enumerate(layer.channels):
 
-        if not ycpui.expand_channels and not ch.enable:
+        if not ypui.expand_channels and not ch.enable:
             continue
 
-        root_ch = tl.channels[i]
+        root_ch = yp.channels[i]
         ch_count += 1
 
-        try: chui = ycpui.layer_ui.channels[i]
+        try: chui = ypui.layer_ui.channels[i]
         except: 
-            ycpui.need_update = True
+            ypui.need_update = True
             return
 
         ccol = rcol.column()
@@ -841,7 +841,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 row.prop(chui, 'expand_content', text='', emboss=True, icon=icon)
             else: row.label(text='', icon=icon)
 
-        row.label(text=tl.channels[i].name + ':')
+        row.label(text=yp.channels[i].name + ':')
 
         if layer.type != 'BACKGROUND':
             if root_ch.type == 'NORMAL':
@@ -860,7 +860,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
         else:
             row.menu("NODE_MT_y_new_modifier_menu", icon='SCRIPTWIN', text='')
 
-        if ycpui.expand_channels:
+        if ypui.expand_channels:
             row.prop(ch, 'enable', text='')
 
         if not expandable or not chui.expand_content: continue
@@ -1143,12 +1143,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
         modcol = mcol.column()
         modcol.active = layer.type != 'BACKGROUND'
         draw_modifier_stack(context, ch, root_ch.type, modcol, 
-                ycpui.layer_ui.channels[i], custom_icon_enable, layer)
+                ypui.layer_ui.channels[i], custom_icon_enable, layer)
 
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
             row = mcol.row(align=True)
 
-            input_settings_available = (ch.tex_input != 'ALPHA' 
+            input_settings_available = (ch.layer_input != 'ALPHA' 
                     and root_ch.colorspace == 'SRGB' and root_ch.type != 'NORMAL' )
 
             if input_settings_available:
@@ -1169,7 +1169,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
 
             split.label(text='Input:')
             srow = split.row(align=True)
-            srow.prop(ch, 'tex_input', text='')
+            srow.prop(ch, 'layer_input', text='')
 
             if chui.expand_input_settings and input_settings_available:
                 row = mcol.row(align=True)
@@ -1193,22 +1193,22 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
 
             extra_separator = True
 
-        if ycpui.expand_channels:
+        if ypui.expand_channels:
             mrow.label(text='', icon='BLANK1')
 
         if extra_separator and i < len(layer.channels)-1:
             ccol.separator()
 
-    if not ycpui.expand_channels and ch_count == 0:
+    if not ypui.expand_channels and ch_count == 0:
         rcol.label(text='No active channel!')
 
     layout.separator()
 
 def draw_layer_masks(context, layout, layer, custom_icon_enable):
     obj = context.object
-    tl = layer.id_data.tl
-    ycpui = context.window_manager.ycpui
-    texui = ycpui.layer_ui
+    yp = layer.id_data.yp
+    ypui = context.window_manager.ypui
+    lui = ypui.layer_ui
 
     col = layout.column()
     col.active = layer.enable_masks
@@ -1216,11 +1216,11 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
     row = col.row(align=True)
     if len(layer.masks) > 0:
         if custom_icon_enable:
-            if texui.expand_masks:
+            if lui.expand_masks:
                 icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
             else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
-            row.prop(texui, 'expand_masks', text='', emboss=False, icon_value=icon_value)
-        else: row.prop(texui, 'expand_masks', text='', emboss=True, icon='MOD_MASK')
+            row.prop(lui, 'expand_masks', text='', emboss=False, icon_value=icon_value)
+        else: row.prop(lui, 'expand_masks', text='', emboss=True, icon='MOD_MASK')
     else: row.label(text='', icon='MOD_MASK')
 
     #label = 'Masks'
@@ -1239,7 +1239,7 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
         label = 'Masks ('
         label += str(num_enabled_masks) + ')'
 
-    if texui.expand_masks:
+    if lui.expand_masks:
         label += ':'
 
     row.label(text=label)
@@ -1251,7 +1251,7 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
         #row.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='MOD_MASK')
         row.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='ADD')
 
-    if not texui.expand_masks or len(layer.masks) == 0: return
+    if not lui.expand_masks or len(layer.masks) == 0: return
 
     row = col.row(align=True)
     row.label(text='', icon='BLANK1')
@@ -1259,9 +1259,9 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
 
     for i, mask in enumerate(layer.masks):
 
-        try: maskui = ycpui.layer_ui.masks[i]
+        try: maskui = ypui.layer_ui.masks[i]
         except: 
-            ycpui.need_update = True
+            ypui.need_update = True
             return
 
         row = rcol.row(align=True)
@@ -1373,7 +1373,7 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
                 rbox.prop(mask, 'rotation')
                 rbox.prop(mask, 'scale')
 
-                if mask.type == 'IMAGE' and mask.active_edit and tl.need_temp_uv_refresh:
+                if mask.type == 'IMAGE' and mask.active_edit and yp.need_temp_uv_refresh:
                     rrow = rbox.row(align=True)
                     rrow.alert = True
                     rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh Transformed UV')
@@ -1407,7 +1407,7 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
             # Channels row
             for k, c in enumerate(mask.channels):
                 rrow = bcol.row(align=True)
-                root_ch = tl.channels[k]
+                root_ch = yp.channels[k]
                 if custom_icon_enable:
                     rrow.label(text='', 
                             icon_value=lib.custom_icons[lib.channel_custom_icon_dict[root_ch.type]].icon_id)
@@ -1422,8 +1422,8 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
 def draw_layers_ui(context, layout, node, custom_icon_enable):
     group_tree = node.node_tree
     nodes = group_tree.nodes
-    tl = group_tree.tl
-    ycpui = context.window_manager.ycpui
+    yp = group_tree.yp
+    ypui = context.window_manager.ypui
     obj = context.object
     is_a_mesh = True if obj and obj.type == 'MESH' else False
 
@@ -1442,17 +1442,17 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
         return
 
     # Check duplicated layers (indicated by more than one users)
-    if len(tl.layers) > 0 and get_tree(tl.layers[-1]).users > 1:
+    if len(yp.layers) > 0 and get_tree(yp.layers[-1]).users > 1:
         row = box.row(align=True)
         row.alert = True
         row.operator("node.y_fix_duplicated_layers", icon='ERROR')
         row.alert = False
-        box.prop(ycpui, 'make_image_single_user')
+        box.prop(ypui, 'make_image_single_user')
         return
 
     # Check source for missing data
     missing_data = False
-    for layer in tl.layers:
+    for layer in yp.layers:
         if layer.type in {'IMAGE' , 'VCOL'}:
             src = get_layer_source(layer)
 
@@ -1495,8 +1495,8 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
     mask = None
     mask_idx = 0
 
-    if len(tl.layers) > 0:
-        layer = tl.layers[tl.active_layer_index]
+    if len(yp.layers) > 0:
+        layer = yp.layers[yp.active_layer_index]
 
         if layer:
             # Check for active mask
@@ -1527,8 +1527,8 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
     col = box.column()
 
     row = col.row()
-    row.template_list("NODE_UL_y_cp_layers", "", tl,
-            "layers", tl, "active_layer_index", rows=5, maxrows=5)  
+    row.template_list("NODE_UL_YPaint_layers", "", yp,
+            "layers", yp, "active_layer_index", rows=5, maxrows=5)  
 
     rcol = row.column(align=True)
     if bpy.app.version_string.startswith('2.8'):
@@ -1555,9 +1555,9 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
             c.direction = 'UP'
             c.move_out = True
         else:
-            upper_idx, upper_tex = get_upper_neighbor(layer)
+            upper_idx, upper_layer = get_upper_neighbor(layer)
 
-            if upper_tex and (upper_tex.type == 'GROUP' or upper_tex.parent_idx != layer.parent_idx):
+            if upper_layer and (upper_layer.type == 'GROUP' or upper_layer.parent_idx != layer.parent_idx):
                 c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_UP')
                 c.direction = 'UP'
                 c.move_out = False
@@ -1570,9 +1570,9 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
             c.direction = 'DOWN'
             c.move_out = True
         else:
-            lower_idx, lower_tex = get_lower_neighbor(layer)
+            lower_idx, lower_layer = get_lower_neighbor(layer)
 
-            if lower_tex and (lower_tex.type == 'GROUP' and lower_tex.parent_idx == layer.parent_idx):
+            if lower_layer and (lower_layer.type == 'GROUP' and lower_layer.parent_idx == layer.parent_idx):
                 c = rcol.operator("node.y_move_in_out_layer_group_menu", text='', icon='TRIA_DOWN')
                 c.direction = 'DOWN'
                 c.move_out = False
@@ -1611,24 +1611,24 @@ def main_draw(self, context):
     wm = context.window_manager
 
     # Timer
-    if wm.tltimer.time != '':
-        print('INFO: Scene is updated at', '{:0.2f}'.format((time.time() - float(wm.tltimer.time)) * 1000), 'ms!')
-        wm.tltimer.time = ''
+    if wm.yptimer.time != '':
+        print('INFO: Scene is updated at', '{:0.2f}'.format((time.time() - float(wm.yptimer.time)) * 1000), 'ms!')
+        wm.yptimer.time = ''
 
     # Update ui props first
-    update_tl_ui()
+    update_yp_ui()
 
     if hasattr(lib, 'custom_icons'):
         custom_icon_enable = True
     else: custom_icon_enable = False
 
-    node = get_active_cpaint_node()
+    node = get_active_ypaint_node()
 
     layout = self.layout
 
     if not node:
-        layout.label(text="No active CounterPaint node!", icon='ERROR')
-        layout.operator("node.y_quick_setup_contrapaint_node", icon='NODETREE')
+        layout.label(text="No active " + ADDON_TITLE + " node!", icon='ERROR')
+        layout.operator("node.y_quick_ypaint_node_setup", icon='NODETREE')
         return
 
     #layout.label(text='Active: ' + node.node_tree.name, icon='NODETREE')
@@ -1639,43 +1639,43 @@ def main_draw(self, context):
     #row.prop(node.node_tree, 'name', text='')
 
     if bpy.app.version_string.startswith('2.8'):
-        row.menu("NODE_MT_y_cp_special_menu", text='', icon='PREFERENCES')
-    else: row.menu("NODE_MT_y_cp_special_menu", text='', icon='SCRIPTWIN')
+        row.menu("NODE_MT_ypaint_special_menu", text='', icon='PREFERENCES')
+    else: row.menu("NODE_MT_ypaint_special_menu", text='', icon='SCRIPTWIN')
 
     group_tree = node.node_tree
     nodes = group_tree.nodes
-    tl = group_tree.tl
-    ycpui = wm.ycpui
+    yp = group_tree.yp
+    ypui = wm.ypui
 
-    icon = 'TRIA_DOWN' if ycpui.show_channels else 'TRIA_RIGHT'
+    icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.prop(ycpui, 'show_channels', emboss=False, text='', icon=icon)
+    row.prop(ypui, 'show_channels', emboss=False, text='', icon=icon)
     row.label(text='Channels')
 
-    if ycpui.show_channels:
+    if ypui.show_channels:
         draw_root_channels_ui(context, layout, node, custom_icon_enable)
 
-    icon = 'TRIA_DOWN' if ycpui.show_layers else 'TRIA_RIGHT'
+    icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.prop(ycpui, 'show_layers', emboss=False, text='', icon=icon)
+    row.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
     row.label(text='Layers')
 
-    if ycpui.show_layers:
+    if ypui.show_layers:
         draw_layers_ui(context, layout, node, custom_icon_enable)
 
     # Stats
-    icon = 'TRIA_DOWN' if ycpui.show_stats else 'TRIA_RIGHT'
+    icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.prop(ycpui, 'show_stats', emboss=False, text='', icon=icon)
+    row.prop(ypui, 'show_stats', emboss=False, text='', icon=icon)
     row.label(text='Stats')
 
-    if ycpui.show_stats:
+    if ypui.show_stats:
 
         images = []
         vcols = []
         num_gen_texs = 0
 
-        for layer in tl.layers:
+        for layer in yp.layers:
             if not layer.enable: continue
             if layer.type == 'IMAGE':
                 src = get_layer_source(layer)
@@ -1716,12 +1716,12 @@ def main_draw(self, context):
     # Hide support this addon panel for now
     return
 
-    icon = 'TRIA_DOWN' if ycpui.show_support else 'TRIA_RIGHT'
+    icon = 'TRIA_DOWN' if ypui.show_support else 'TRIA_RIGHT'
     row = layout.row(align=True)
-    row.prop(ycpui, 'show_support', emboss=False, text='', icon=icon)
+    row.prop(ypui, 'show_support', emboss=False, text='', icon=icon)
     row.label(text='Support This Addon!')
 
-    if ycpui.show_support:
+    if ypui.show_support:
         box = layout.box()
         col = box.column()
         col.alert = True
@@ -1734,11 +1734,11 @@ def main_draw(self, context):
         col.operator('wm.url_open', text='Chala').url = 'https://steamcommunity.com/id/BlenderNova/'
 
 
-class NODE_PT_ContraPaint(bpy.types.Panel):
+class NODE_PT_YPaint(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
-    bl_label = "CounterPaint " + get_current_version_str()
+    bl_label = ADDON_TITLE + " " + get_current_version_str()
     bl_region_type = 'TOOLS'
-    bl_category = "CounterPaint"
+    bl_category = ADDON_TITLE
 
     @classmethod
     def poll(cls, context):
@@ -1748,11 +1748,11 @@ class NODE_PT_ContraPaint(bpy.types.Panel):
     def draw(self, context):
         main_draw(self, context)
 
-class VIEW3D_PT_ContraPaint_tools(bpy.types.Panel):
+class VIEW3D_PT_YPaint_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
-    bl_label = "CounterPaint " + get_current_version_str()
+    bl_label = ADDON_TITLE + " " + get_current_version_str()
     bl_region_type = 'TOOLS'
-    bl_category = "CounterPaint"
+    bl_category = ADDON_TITLE
 
     @classmethod
     def poll(cls, context):
@@ -1761,8 +1761,8 @@ class VIEW3D_PT_ContraPaint_tools(bpy.types.Panel):
     def draw(self, context):
         main_draw(self, context)
 
-class VIEW3D_PT_ContraPaint_ui(bpy.types.Panel):
-    bl_label = "CounterPaint " + get_current_version_str()
+class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
+    bl_label = ADDON_TITLE + " " + get_current_version_str()
     bl_space_type = 'VIEW_3D'
     #bl_context = "object"
     bl_region_type = 'UI'
@@ -1775,10 +1775,10 @@ class VIEW3D_PT_ContraPaint_ui(bpy.types.Panel):
     def draw(self, context):
         main_draw(self, context)
 
-class NODE_UL_y_cp_channels(bpy.types.UIList):
+class NODE_UL_YPaint_channels(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 
-        group_node = get_active_cpaint_node()
+        group_node = get_active_ypaint_node()
         #if not group_node: return
         inputs = group_node.inputs
 
@@ -1819,11 +1819,11 @@ class NODE_UL_y_cp_channels(bpy.types.UIList):
                 row.prop(inputs[item.io_index+1], 'default_value', text='')
             else: row.label(text='', icon='LINKED')
 
-class NODE_UL_y_cp_layers(bpy.types.UIList):
+class NODE_UL_YPaint_layers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 
         group_tree = item.id_data
-        tl = group_tree.tl
+        yp = group_tree.yp
         nodes = group_tree.nodes
         layer = item
         layer_tree = get_tree(layer)
@@ -2033,33 +2033,33 @@ class NODE_UL_y_cp_layers(bpy.types.UIList):
             else: eye_icon = 'HIDE_ON'
         row.prop(layer, 'enable', emboss=False, text='', icon=eye_icon)
 
-class YCPSpecialMenu(bpy.types.Menu):
-    bl_idname = "NODE_MT_y_cp_special_menu"
-    bl_label = "CounterPaint Special Menu"
-    bl_description = "CounterPaint Special Menu"
+class YPaintSpecialMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_ypaint_special_menu"
+    bl_label = ADDON_TITLE + " Special Menu"
+    bl_description = ADDON_TITLE + " Special Menu"
 
     @classmethod
     def poll(cls, context):
-        return get_active_cpaint_node()
+        return get_active_ypaint_node()
 
     def draw(self, context):
-        node = get_active_cpaint_node()
+        node = get_active_ypaint_node()
         mat = get_active_material()
 
         col = self.layout.column()
 
-        col.operator('node.y_rename_cp_tree', text='Rename', icon='GREASEPENCIL')
+        col.operator('node.y_rename_ypaint_tree', text='Rename', icon='GREASEPENCIL')
 
         col.separator()
 
         col.label('Active:', icon='NODETREE')
-        for n in get_list_of_tl_nodes(mat):
+        for n in get_list_of_ypaint_nodes(mat):
             if n.name == node.name:
                 icon = 'RADIOBUT_ON'
             else: icon = 'RADIOBUT_OFF'
 
             row = col.row()
-            row.operator('node.y_change_active_tl', text=n.node_tree.name, icon=icon).name = n.name
+            row.operator('node.y_change_active_ypaint_node', text=n.node_tree.name, icon=icon).name = n.name
 
 class YNewLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_layer_menu"
@@ -2068,7 +2068,7 @@ class YNewLayerMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return get_active_cpaint_node()
+        return get_active_ypaint_node()
 
     def draw(self, context):
         #row = self.layout.row()
@@ -2148,7 +2148,7 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return get_active_cpaint_node()
+        return get_active_ypaint_node()
 
     def draw(self, context):
         #self.layout.context_pointer_set('space_data', context.screen.areas[6].spaces[0])
@@ -2182,22 +2182,22 @@ class YModifierMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'modifier') and hasattr(context, 'parent') and get_active_cpaint_node()
+        return hasattr(context, 'modifier') and hasattr(context, 'parent') and get_active_ypaint_node()
 
     def draw(self, context):
         layout = self.layout
         col = layout.column()
 
-        op = col.operator('node.y_move_layer_modifier', icon='TRIA_UP', text='Move Modifier Up')
+        op = col.operator('node.y_move_ypaint_modifier', icon='TRIA_UP', text='Move Modifier Up')
         op.direction = 'UP'
 
-        op = col.operator('node.y_move_layer_modifier', icon='TRIA_DOWN', text='Move Modifier Down')
+        op = col.operator('node.y_move_ypaint_modifier', icon='TRIA_DOWN', text='Move Modifier Down')
         op.direction = 'DOWN'
 
         col.separator()
         if bpy.app.version_string.startswith('2.8'):
-            op = col.operator('node.y_remove_layer_modifier', icon='REMOVE', text='Remove Modifier')
-        else: op = col.operator('node.y_remove_layer_modifier', icon='ZOOMOUT', text='Remove Modifier')
+            op = col.operator('node.y_remove_ypaint_modifier', icon='REMOVE', text='Remove Modifier')
+        else: op = col.operator('node.y_remove_ypaint_modifier', icon='ZOOMOUT', text='Remove Modifier')
 
         #if hasattr(context, 'layer') and context.modifier.type in {'RGB_TO_INTENSITY', 'OVERRIDE_COLOR'}:
         #    col.separator()
@@ -2235,7 +2235,7 @@ class YTransitionBumpMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_cpaint_node()
+        return hasattr(context, 'parent') and get_active_ypaint_node()
 
     def draw(self, context):
         layout = self.layout
@@ -2254,7 +2254,7 @@ class YTransitionRampMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_cpaint_node()
+        return hasattr(context, 'parent') and get_active_ypaint_node()
 
     def draw(self, context):
         layout = self.layout
@@ -2275,7 +2275,7 @@ class YTransitionAOMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        #return hasattr(context, 'parent') and get_active_cpaint_node()
+        #return hasattr(context, 'parent') and get_active_ypaint_node()
         return hasattr(context, 'parent') and hasattr(context, 'layer')
 
     def draw(self, context):
@@ -2303,8 +2303,8 @@ class YAddLayerMaskMenu(bpy.types.Menu):
     @classmethod
     def poll(cls, context):
         return hasattr(context, 'layer')
-        #node =  get_active_cpaint_node()
-        #return node and len(node.node_tree.tl.layers) > 0
+        #node =  get_active_ypaint_node()
+        #return node and len(node.node_tree.yp.layers) > 0
 
     def draw(self, context):
         #print(context.layer)
@@ -2391,7 +2391,7 @@ class YAddModifierMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_cpaint_node()
+        return hasattr(context, 'parent') and get_active_ypaint_node()
 
     def draw(self, context):
         row = self.layout.row()
@@ -2401,14 +2401,14 @@ class YAddModifierMenu(bpy.types.Menu):
         col.label(text='Add Modifier')
         ## List the items
         for mt in Modifier.modifier_type_items:
-            col.operator('node.y_new_layer_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
+            col.operator('node.y_new_ypaint_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
 
-        m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
         if m:
 
             ch = context.parent
-            tl = ch.id_data.tl
-            root_ch = tl.channels[int(m.group(2))]
+            yp = ch.id_data.yp
+            root_ch = yp.channels[int(m.group(2))]
 
             col = row.column()
             col.label(text='Transition Effects')
@@ -2427,10 +2427,10 @@ class YLayerSpecialMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_cpaint_node()
+        return hasattr(context, 'parent') and get_active_ypaint_node()
 
     def draw(self, context):
-        ycpui = context.window_manager.ycpui
+        ypui = context.window_manager.ypui
 
         row = self.layout.row()
 
@@ -2438,7 +2438,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col.label(text='Add Modifier')
         ## List the modifiers
         for mt in Modifier.modifier_type_items:
-            col.operator('node.y_new_layer_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
+            col.operator('node.y_new_ypaint_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
 
         col = row.column()
         col.label(text='Change Layer Type')
@@ -2460,62 +2460,62 @@ class YLayerSpecialMenu(bpy.types.Menu):
 
         col = row.column()
         col.label(text='Options:')
-        col.prop(ycpui, 'disable_auto_temp_uv_update')
+        col.prop(ypui, 'disable_auto_temp_uv_update')
 
 def update_modifier_ui(self, context):
-    ycpui = context.window_manager.ycpui
-    if ycpui.halt_prop_update: return
+    ypui = context.window_manager.ypui
+    if ypui.halt_prop_update: return
 
-    group_node =  get_active_cpaint_node()
+    group_node =  get_active_ypaint_node()
     if not group_node: return
-    tl = group_node.node_tree.tl
+    yp = group_node.node_tree.yp
 
-    match1 = re.match(r'ycpui\.layer_ui\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match2 = re.match(r'ycpui\.channel_ui\.modifiers\[(\d+)\]', self.path_from_id())
-    match3 = re.match(r'ycpui\.layer_ui\.modifiers\[(\d+)\]', self.path_from_id())
-    match4 = re.match(r'ycpui\.layer_ui\.masks\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match1 = re.match(r'ypui\.layer_ui\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'ypui\.channel_ui\.modifiers\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'ypui\.layer_ui\.modifiers\[(\d+)\]', self.path_from_id())
+    match4 = re.match(r'ypui\.layer_ui\.masks\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1:
-        mod = tl.layers[tl.active_layer_index].channels[int(match1.group(1))].modifiers[int(match1.group(2))]
+        mod = yp.layers[yp.active_layer_index].channels[int(match1.group(1))].modifiers[int(match1.group(2))]
     elif match2:
-        mod = tl.channels[tl.active_channel_index].modifiers[int(match2.group(1))]
+        mod = yp.channels[yp.active_channel_index].modifiers[int(match2.group(1))]
     elif match3:
-        mod = tl.layers[tl.active_layer_index].modifiers[int(match3.group(1))]
+        mod = yp.layers[yp.active_layer_index].modifiers[int(match3.group(1))]
     elif match4:
-        mod = tl.layers[tl.active_layer_index].masks[int(match4.group(1))].modifiers[int(match4.group(2))]
+        mod = yp.layers[yp.active_layer_index].masks[int(match4.group(1))].modifiers[int(match4.group(2))]
     #else: return #yolo
 
     mod.expand_content = self.expand_content
 
 def update_layer_ui(self, context):
-    ycpui = context.window_manager.ycpui
-    if ycpui.halt_prop_update: return
+    ypui = context.window_manager.ypui
+    if ypui.halt_prop_update: return
 
-    group_node =  get_active_cpaint_node()
+    group_node =  get_active_ypaint_node()
     if not group_node: return
-    tl = group_node.node_tree.tl
-    if len(tl.layers) == 0: return
+    yp = group_node.node_tree.yp
+    if len(yp.layers) == 0: return
 
-    layer = tl.layers[tl.active_layer_index]
+    layer = yp.layers[yp.active_layer_index]
     layer.expand_content = self.expand_content
     layer.expand_vector = self.expand_vector
     layer.expand_masks = self.expand_masks
 
 def update_channel_ui(self, context):
-    ycpui = context.window_manager.ycpui
-    if ycpui.halt_prop_update: return
+    ypui = context.window_manager.ypui
+    if ypui.halt_prop_update: return
 
-    group_node =  get_active_cpaint_node()
+    group_node =  get_active_ypaint_node()
     if not group_node: return
-    tl = group_node.node_tree.tl
-    if len(tl.channels) == 0: return
+    yp = group_node.node_tree.yp
+    if len(yp.channels) == 0: return
 
-    match1 = re.match(r'ycpui\.layer_ui\.channels\[(\d+)\]', self.path_from_id())
-    match2 = re.match(r'ycpui\.channel_ui', self.path_from_id())
+    match1 = re.match(r'ypui\.layer_ui\.channels\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'ypui\.channel_ui', self.path_from_id())
 
     if match1:
-        ch = tl.layers[tl.active_layer_index].channels[int(match1.group(1))]
+        ch = yp.layers[yp.active_layer_index].channels[int(match1.group(1))]
     elif match2:
-        ch = tl.channels[tl.active_channel_index]
+        ch = yp.channels[yp.active_channel_index]
     #else: return #yolo
 
     ch.expand_content = self.expand_content
@@ -2535,16 +2535,16 @@ def update_channel_ui(self, context):
         ch.expand_input_settings = self.expand_input_settings
 
 def update_mask_ui(self, context):
-    ycpui = context.window_manager.ycpui
-    if ycpui.halt_prop_update: return
+    ypui = context.window_manager.ypui
+    if ypui.halt_prop_update: return
 
-    group_node =  get_active_cpaint_node()
+    group_node =  get_active_ypaint_node()
     if not group_node: return
-    tl = group_node.node_tree.tl
-    #if len(tl.channels) == 0: return
+    yp = group_node.node_tree.yp
+    #if len(yp.channels) == 0: return
 
-    match = re.match(r'ycpui\.layer_ui\.masks\[(\d+)\]', self.path_from_id())
-    mask = tl.layers[tl.active_layer_index].masks[int(match.group(1))]
+    match = re.match(r'ypui\.layer_ui\.masks\[(\d+)\]', self.path_from_id())
+    mask = yp.layers[yp.active_layer_index].masks[int(match.group(1))]
 
     mask.expand_content = self.expand_content
     mask.expand_channels = self.expand_channels
@@ -2552,16 +2552,16 @@ def update_mask_ui(self, context):
     mask.expand_vector = self.expand_vector
 
 def update_mask_channel_ui(self, context):
-    ycpui = context.window_manager.ycpui
-    if ycpui.halt_prop_update: return
+    ypui = context.window_manager.ypui
+    if ypui.halt_prop_update: return
 
-    group_node =  get_active_cpaint_node()
+    group_node =  get_active_ypaint_node()
     if not group_node: return
-    tl = group_node.node_tree.tl
-    #if len(tl.channels) == 0: return
+    yp = group_node.node_tree.yp
+    #if len(yp.channels) == 0: return
 
-    match = re.match(r'ycpui\.layer_ui\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    mask = tl.layers[tl.active_layer_index].masks[int(match.group(1))]
+    match = re.match(r'ypui\.layer_ui\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    mask = yp.layers[yp.active_layer_index].masks[int(match.group(1))]
     mask_ch = mask.channels[int(match.group(2))]
 
     mask_ch.expand_content = self.expand_content
@@ -2606,14 +2606,14 @@ class YLayerUI(bpy.types.PropertyGroup):
     masks = CollectionProperty(type=YMaskUI)
     modifiers = CollectionProperty(type=YModifierUI)
 
-#def update_mat_active_tl_node(self, context):
-#    print('Update:', self.active_tl_node)
+#def update_mat_active_yp_node(self, context):
+#    print('Update:', self.active_ypaint_node)
 
 class YMaterialUI(bpy.types.PropertyGroup):
     name = StringProperty(default='')
-    active_tl_node = StringProperty(default='') #, update=update_mat_active_tl_node)
+    active_ypaint_node = StringProperty(default='') #, update=update_mat_active_yp_node)
 
-class YCPUI(bpy.types.PropertyGroup):
+class YPaintUI(bpy.types.PropertyGroup):
     show_channels = BoolProperty(default=True)
     show_layers = BoolProperty(default=True)
     show_stats = BoolProperty(default=False)
@@ -2665,16 +2665,16 @@ class YCPUI(bpy.types.PropertyGroup):
     materials = CollectionProperty(type=YMaterialUI)
     #active_obj = StringProperty(default='')
     active_mat = StringProperty(default='')
-    active_tl_node = StringProperty(default='')
+    active_ypaint_node = StringProperty(default='')
 
     #random_prop = BoolProperty(default=False)
 
-def add_new_cp_node_menu(self, context):
+def add_new_ypaint_node_menu(self, context):
     if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE'}: return
     l = self.layout
     l.operator_context = 'INVOKE_REGION_WIN'
     l.separator()
-    l.operator('node.y_add_new_cpaint_node', text='CounterPaint', icon='NODETREE')
+    l.operator('node.y_add_new_cpaint_node', text=ADDON_TITLE, icon='NODETREE')
 
 def copy_ui_settings(source, dest):
     for attr in dir(source):
@@ -2682,39 +2682,39 @@ def copy_ui_settings(source, dest):
             setattr(dest, attr, getattr(source, attr))
 
 def save_mat_ui_settings():
-    ycpui = bpy.context.window_manager.ycpui
-    for mui in ycpui.materials:
+    ypui = bpy.context.window_manager.ypui
+    for mui in ypui.materials:
         mat = bpy.data.materials.get(mui.name)
-        if mat: mat.tl.active_tl_node = mui.active_tl_node
+        if mat: mat.yp.active_ypaint_node = mui.active_ypaint_node
 
 def load_mat_ui_settings():
-    ycpui = bpy.context.window_manager.ycpui
+    ypui = bpy.context.window_manager.ypui
     for mat in bpy.data.materials:
-        if mat.tl.active_tl_node != '':
-            mui = ycpui.materials.add()
+        if mat.yp.active_ypaint_node != '':
+            mui = ypui.materials.add()
             mui.name = mat.name
             mui.material = mat
-            mui.active_tl_node = mat.tl.active_tl_node
+            mui.active_ypaint_node = mat.yp.active_ypaint_node
 
 @persistent
-def ycp_save_ui_settings(scene):
+def yp_save_ui_settings(scene):
     save_mat_ui_settings()
-    wmui = bpy.context.window_manager.ycpui
-    scui = bpy.context.scene.ycpui
+    wmui = bpy.context.window_manager.ypui
+    scui = bpy.context.scene.ypui
     copy_ui_settings(wmui, scui)
 
 @persistent
-def ycp_load_ui_settings(scene):
+def yp_load_ui_settings(scene):
     load_mat_ui_settings()
-    wmui = bpy.context.window_manager.ycpui
-    scui = bpy.context.scene.ycpui
+    wmui = bpy.context.window_manager.ypui
+    scui = bpy.context.scene.ypui
     copy_ui_settings(scui, wmui)
 
     # Update UI
     wmui.need_update = True
 
 def register():
-    bpy.utils.register_class(YCPSpecialMenu)
+    bpy.utils.register_class(YPaintSpecialMenu)
     bpy.utils.register_class(YNewLayerMenu)
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YModifierMenu)
@@ -2732,26 +2732,26 @@ def register():
     bpy.utils.register_class(YMaskUI)
     bpy.utils.register_class(YLayerUI)
     bpy.utils.register_class(YMaterialUI)
-    bpy.utils.register_class(NODE_UL_y_cp_channels)
-    bpy.utils.register_class(NODE_UL_y_cp_layers)
-    bpy.utils.register_class(NODE_PT_ContraPaint)
+    bpy.utils.register_class(NODE_UL_YPaint_channels)
+    bpy.utils.register_class(NODE_UL_YPaint_layers)
+    bpy.utils.register_class(NODE_PT_YPaint)
     if not bpy.app.version_string.startswith('2.8'):
-        bpy.utils.register_class(VIEW3D_PT_ContraPaint_tools)
-    bpy.utils.register_class(VIEW3D_PT_ContraPaint_ui)
-    bpy.utils.register_class(YCPUI)
+        bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
+    bpy.utils.register_class(VIEW3D_PT_YPaint_ui)
+    bpy.utils.register_class(YPaintUI)
 
-    bpy.types.Scene.ycpui = PointerProperty(type=YCPUI)
-    bpy.types.WindowManager.ycpui = PointerProperty(type=YCPUI)
+    bpy.types.Scene.ypui = PointerProperty(type=YPaintUI)
+    bpy.types.WindowManager.ypui = PointerProperty(type=YPaintUI)
 
-    # Add CounterPaint node ui
-    bpy.types.NODE_MT_add.append(add_new_cp_node_menu)
+    # Add yPaint node ui
+    bpy.types.NODE_MT_add.append(add_new_ypaint_node_menu)
 
     # Handlers
-    bpy.app.handlers.load_post.append(ycp_load_ui_settings)
-    bpy.app.handlers.save_pre.append(ycp_save_ui_settings)
+    bpy.app.handlers.load_post.append(yp_load_ui_settings)
+    bpy.app.handlers.save_pre.append(yp_save_ui_settings)
 
 def unregister():
-    bpy.utils.unregister_class(YCPSpecialMenu)
+    bpy.utils.unregister_class(YPaintSpecialMenu)
     bpy.utils.unregister_class(YNewLayerMenu)
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YModifierMenu)
@@ -2769,17 +2769,17 @@ def unregister():
     bpy.utils.unregister_class(YMaskUI)
     bpy.utils.unregister_class(YLayerUI)
     bpy.utils.unregister_class(YMaterialUI)
-    bpy.utils.unregister_class(NODE_UL_y_cp_channels)
-    bpy.utils.unregister_class(NODE_UL_y_cp_layers)
-    bpy.utils.unregister_class(NODE_PT_ContraPaint)
+    bpy.utils.unregister_class(NODE_UL_YPaint_channels)
+    bpy.utils.unregister_class(NODE_UL_YPaint_layers)
+    bpy.utils.unregister_class(NODE_PT_YPaint)
     if not bpy.app.version_string.startswith('2.8'):
-        bpy.utils.unregister_class(VIEW3D_PT_ContraPaint_tools)
-    bpy.utils.unregister_class(VIEW3D_PT_ContraPaint_ui)
-    bpy.utils.unregister_class(YCPUI)
+        bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
+    bpy.utils.unregister_class(VIEW3D_PT_YPaint_ui)
+    bpy.utils.unregister_class(YPaintUI)
 
-    # Remove add CounterPaint node ui
-    bpy.types.NODE_MT_add.remove(add_new_cp_node_menu)
+    # Remove add yPaint node ui
+    bpy.types.NODE_MT_add.remove(add_new_ypaint_node_menu)
 
     # Remove Handlers
-    bpy.app.handlers.load_post.remove(ycp_load_ui_settings)
-    bpy.app.handlers.save_pre.remove(ycp_save_ui_settings)
+    bpy.app.handlers.load_post.remove(yp_load_ui_settings)
+    bpy.app.handlers.save_pre.remove(yp_save_ui_settings)

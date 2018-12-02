@@ -9,8 +9,8 @@ from .node_arrangements import *
 from .subtree import *
 
 def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None):
-    tl = layer.id_data.tl
-    tl.halt_update = True
+    yp = layer.id_data.yp
+    yp.halt_update = True
 
     tree = get_tree(layer)
     nodes = tree.nodes
@@ -53,7 +53,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
 
             refresh_temp_uv(bpy.context.object, mask, True)
 
-    for i, root_ch in enumerate(tl.channels):
+    for i, root_ch in enumerate(yp.channels):
         ch = layer.channels[i]
         c = mask.channels.add()
 
@@ -63,7 +63,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     # Check mask source tree
     check_mask_source_tree(layer)
 
-    tl.halt_update = False
+    yp.halt_update = False
 
     return mask
 
@@ -182,7 +182,7 @@ class YNewLayerMask(bpy.types.Operator):
         obj = context.object
         self.layer = context.layer
         layer = context.layer
-        tl = layer.id_data.tl
+        yp = layer.id_data.yp
 
         surname = '(' + layer.name + ')'
         if self.type == 'IMAGE':
@@ -206,7 +206,7 @@ class YNewLayerMask(bpy.types.Operator):
         elif len(obj.data.uv_layers) > 0:
             # Use active uv layer name by default
             if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_name = tl.layers[tl.active_layer_index].uv_name
+                self.uv_name = yp.layers[yp.active_layer_index].uv_name
             else: self.uv_name = obj.data.uv_layers.active.name
 
             # UV Map collections update
@@ -269,9 +269,9 @@ class YNewLayerMask(bpy.types.Operator):
         if self.auto_cancel: return {'CANCELLED'}
 
         obj = context.object
-        ycpui = context.window_manager.ycpui
+        ypui = context.window_manager.ypui
         layer = self.layer
-        #ycpup = bpy.context.user_preferences.addons[__package__].preferences
+        #ypup = bpy.context.user_preferences.addons[__package__].preferences
 
         # Check if object is not a mesh
         if self.type == 'VCOL' and obj.type != 'MESH':
@@ -305,7 +305,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             if self.use_image_atlas:
                 segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, self.color_option, self.hdr) #, ycpup.image_atlas_size)
+                        self.width, self.height, self.color_option, self.hdr) #, ypup.image_atlas_size)
                 img = segment.id_data
             else:
                 img = bpy.data.images.new(name=self.name, 
@@ -334,8 +334,8 @@ class YNewLayerMask(bpy.types.Operator):
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
-        ycpui.layer_ui.expand_masks = True
-        ycpui.need_update = True
+        ypui.layer_ui.expand_masks = True
+        ypui.need_update = True
 
         return {'FINISHED'}
 
@@ -380,7 +380,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
     def invoke(self, context, event):
         obj = context.object
         self.layer = context.layer
-        tl = self.layer.id_data.tl
+        yp = self.layer.id_data.yp
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
@@ -389,7 +389,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
             #self.uv_map = obj.data.uv_layers.active.name
             if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_map = tl.layers[tl.active_layer_index].uv_name
+                self.uv_map = yp.layers[yp.active_layer_index].uv_name
             else: self.uv_map = obj.data.uv_layers.active.name
 
             # UV Map collections update
@@ -425,9 +425,9 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         if not hasattr(self, 'layer'): return {'CANCELLED'}
 
         layer = self.layer
-        tl = layer.id_data.tl
+        yp = layer.id_data.yp
         wm = context.window_manager
-        ycpui = wm.ycpui
+        ypui = wm.ypui
         obj = context.object
 
         import_list, directory = self.generate_paths()
@@ -445,9 +445,9 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         reconnect_layer_nodes(layer)
 
         # Update UI
-        wm.ycpui.need_update = True
+        wm.ypui.need_update = True
         print('INFO: Image(s) is opened as mask(s) at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.tltimer.time = str(time.time())
+        wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -484,7 +484,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     def invoke(self, context, event):
         obj = context.object
         self.layer = context.layer
-        tl = self.layer.id_data.tl
+        yp = self.layer.id_data.yp
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
@@ -493,7 +493,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
             #self.uv_map = obj.data.uv_layers.active.name
             if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_map = tl.layers[tl.active_layer_index].uv_name
+                self.uv_map = yp.layers[yp.active_layer_index].uv_name
             else: self.uv_map = obj.data.uv_layers.active.name
 
             # UV Map collections update
@@ -546,8 +546,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if not hasattr(self, 'layer'): return {'CANCELLED'}
 
         layer = self.layer
-        tl = layer.id_data.tl
-        ycpui = context.window_manager.ycpui
+        yp = layer.id_data.yp
+        ypui = context.window_manager.ypui
         obj = context.object
 
         if self.type == 'IMAGE' and self.image_name == '':
@@ -576,8 +576,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
-        ycpui.layer_ui.expand_masks = True
-        ycpui.need_update = True
+        ypui.layer_ui.expand_masks = True
+        ypui.need_update = True
 
         return {'FINISHED'}
 
@@ -604,7 +604,7 @@ class YMoveLayerMask(bpy.types.Operator):
         num_masks = len(layer.masks)
         if num_masks < 2: return {'CANCELLED'}
 
-        m = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
         index = int(m.group(2))
 
         # Get new index
@@ -643,7 +643,7 @@ class YRemoveLayerMask(bpy.types.Operator):
         layer = context.layer
         tree = get_tree(layer)
         obj = context.object
-        tl = layer.id_data.tl
+        yp = layer.id_data.yp
 
         remove_mask(layer, mask, obj)
 
@@ -664,7 +664,7 @@ class YRemoveLayerMask(bpy.types.Operator):
             #    update_image_editor_image(context, source.image)
             #else:
             #    update_image_editor_image(context, None)
-            tl.active_layer_index = tl.active_layer_index
+            yp.active_layer_index = yp.active_layer_index
 
         # Refresh viewport and image editor
         for area in bpy.context.screen.areas:
@@ -683,11 +683,11 @@ def update_mask_active_image_edit(self, context):
         self.halt_update = False
         return
 
-    tl = self.id_data.tl
+    yp = self.id_data.yp
 
-    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    tex_idx = int(match.group(1))
-    layer = tl.layers[int(match.group(1))]
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer_idx = int(match.group(1))
+    layer = yp.layers[int(match.group(1))]
     mask_idx = int(match.group(2))
 
     if self.active_edit: 
@@ -698,11 +698,11 @@ def update_mask_active_image_edit(self, context):
             m.halt_update = False
 
     # Refresh
-    tl.active_layer_index = tex_idx
+    yp.active_layer_index = layer_idx
 
 def update_enable_layer_masks(self, context):
-    tl = self.id_data.tl
-    if tl.halt_update: return
+    yp = self.id_data.yp
+    if yp.halt_update: return
 
     layer = self
     tree = get_tree(layer)
@@ -718,11 +718,11 @@ def update_enable_layer_masks(self, context):
                 if mix: mix.mute = mute
 
 def update_layer_mask_channel_enable(self, context):
-    tl = self.id_data.tl
-    if tl.halt_update: return
+    yp = self.id_data.yp
+    if yp.halt_update: return
 
-    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     mask = layer.masks[int(match.group(2))]
     tree = get_tree(layer)
 
@@ -736,11 +736,11 @@ def update_layer_mask_channel_enable(self, context):
         if mix: mix.mute = mute
 
 def update_layer_mask_enable(self, context):
-    tl = self.id_data.tl
-    if tl.halt_update: return
+    yp = self.id_data.yp
+    if yp.halt_update: return
 
-    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
 
     for ch in self.channels:
@@ -757,21 +757,21 @@ def update_layer_mask_enable(self, context):
     self.active_edit = self.enable and self.type == 'IMAGE'
 
 def update_mask_texcoord_type(self, context):
-    tl = self.id_data.tl
-    if tl.halt_update: return
+    yp = self.id_data.yp
+    if yp.halt_update: return
 
-    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
 
     reconnect_layer_nodes(layer)
 
 def update_mask_uv_name(self, context):
     obj = context.object
-    tl = self.id_data.tl
-    if tl.halt_update: return
+    yp = self.id_data.yp
+    if yp.halt_update: return
 
-    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
     mask = self
 
@@ -807,19 +807,19 @@ def update_mask_uv_name(self, context):
 
 def update_mask_name(self, context):
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     src = get_mask_source(self)
 
     if self.type == 'IMAGE' and self.segment_name != '': return
-    change_layer_name(tl, context.object, src, self, layer.masks)
+    change_layer_name(yp, context.object, src, self, layer.masks)
 
 def update_mask_blend_type(self, context):
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
     mask = self
 
@@ -832,9 +832,9 @@ def update_mask_blend_type(self, context):
 
 def update_mask_intensity_value(self, context):
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
     mask = self
 

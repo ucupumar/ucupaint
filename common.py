@@ -5,9 +5,10 @@ from bpy.app.handlers import persistent
 
 BLENDER_28_GROUP_INPUT_HACK = False
 
-TEXGROUP_PREFIX = '~yP Tex '
+LAYERGROUP_PREFIX = '~yP Layer '
 MASKGROUP_PREFIX = '~yP Mask '
 ADDON_NAME = 'yTexLayers'
+ADDON_TITLE = 'Painty'
 
 SOURCE_TREE_START = '__source_start_'
 SOURCE_TREE_END = '__source_end_'
@@ -185,16 +186,16 @@ def get_active_material():
 
     return mat
 
-def get_list_of_tl_nodes(mat):
+def get_list_of_ypaint_nodes(mat):
 
     if not mat.node_tree: return []
     
-    tl_nodes = []
+    yp_nodes = []
     for node in mat.node_tree.nodes:
-        if node.type == 'GROUP' and node.node_tree.tl.is_tl_node:
-            tl_nodes.append(node)
+        if node.type == 'GROUP' and node.node_tree.yp.is_ypaint_node:
+            yp_nodes.append(node)
 
-    return tl_nodes
+    return yp_nodes
 
 #def in_active_layer(obj):
 #    scene = bpy.context.scene
@@ -223,7 +224,7 @@ def get_addon_filepath():
         if folders:
             return filepath + sep + folders[0] + sep
 
-    return 'ERROR: No path found for yTexLayers!'
+    return 'ERROR: No path found for ' + ADDON_NAME + '!'
 
 def srgb_to_linear_per_element(e):
     if e <= 0.03928:
@@ -377,17 +378,17 @@ def get_active_node():
 
 # Specific methods for this addon
 
-def get_active_cpaint_node():
-    ycpui = bpy.context.window_manager.ycpui
+def get_active_ypaint_node():
+    ypui = bpy.context.window_manager.ypui
 
     # Get material UI prop
     mat = get_active_material()
     if not mat or not mat.node_tree: 
-        ycpui.active_mat = ''
+        ypui.active_mat = ''
         return None
 
     # Search for its name first
-    mui = ycpui.materials.get(mat.name)
+    mui = ypui.materials.get(mat.name)
 
     # Flag for indicate new mui just created
     change_name = False
@@ -395,55 +396,55 @@ def get_active_cpaint_node():
     # If still not found, create one
     if not mui:
 
-        if ycpui.active_mat != '':
-            prev_mat = bpy.data.materials.get(ycpui.active_mat)
+        if ypui.active_mat != '':
+            prev_mat = bpy.data.materials.get(ypui.active_mat)
             if not prev_mat:
-                #print(ycpui.active_mat)
+                #print(ypui.active_mat)
                 change_name = True
                 # Remove prev mui
-                prev_idx = [i for i, m in enumerate(ycpui.materials) if m.name == ycpui.active_mat]
+                prev_idx = [i for i, m in enumerate(ypui.materials) if m.name == ypui.active_mat]
                 if prev_idx:
-                    ycpui.materials.remove(prev_idx[0])
+                    ypui.materials.remove(prev_idx[0])
                     #print('Removed!')
 
-        mui = ycpui.materials.add()
+        mui = ypui.materials.add()
         mui.name = mat.name
         #print('New MUI!', mui.name)
 
-    if ycpui.active_mat != mat.name:
-        ycpui.active_mat = mat.name
+    if ypui.active_mat != mat.name:
+        ypui.active_mat = mat.name
 
-    # Try to get tl node
+    # Try to get yp node
     node = get_active_node()
-    if node and node.type == 'GROUP' and node.node_tree and node.node_tree.tl.is_tl_node:
+    if node and node.type == 'GROUP' and node.node_tree and node.node_tree.yp.is_ypaint_node:
         # Update node name
-        if mui.active_tl_node != node.name:
-            #print('From:', mui.active_tl_node)
-            mui.active_tl_node = node.name
+        if mui.active_ypaint_node != node.name:
+            #print('From:', mui.active_ypaint_node)
+            mui.active_ypaint_node = node.name
             #print('To:', node.name)
-        if ycpui.active_tl_node != node.name:
-            ycpui.active_tl_node = node.name
+        if ypui.active_ypaint_node != node.name:
+            ypui.active_ypaint_node = node.name
         return node
 
     # If not active node isn't a group node
     # New mui possibly means material name just changed, try to get previous active node
     if change_name: 
-        node = mat.node_tree.nodes.get(ycpui.active_tl_node)
+        node = mat.node_tree.nodes.get(ypui.active_ypaint_node)
         if node:
-            #print(mui.name, 'Change name from:', mui.active_tl_node)
-            mui.active_tl_node = node.name
-            #print(mui.name, 'Change name to', mui.active_tl_node)
+            #print(mui.name, 'Change name from:', mui.active_ypaint_node)
+            mui.active_ypaint_node = node.name
+            #print(mui.name, 'Change name to', mui.active_ypaint_node)
             return node
 
-    node = mat.node_tree.nodes.get(mui.active_tl_node)
-    #print(mui.active_tl_node, node)
+    node = mat.node_tree.nodes.get(mui.active_ypaint_node)
+    #print(mui.active_ypaint_node, node)
     if node: return node
 
     # If node still not found
     for node in mat.node_tree.nodes:
-        if node.type == 'GROUP' and node.node_tree and node.node_tree.tl.is_tl_node:
-            #print('Last resort!', mui.name, mui.active_tl_node)
-            mui.active_tl_node = node.name
+        if node.type == 'GROUP' and node.node_tree and node.node_tree.yp.is_ypaint_node:
+            #print('Last resort!', mui.name, mui.active_ypaint_node)
+            mui.active_ypaint_node = node.name
             return node
 
     return None
@@ -479,7 +480,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
                 # Check if other layer use this vertex color
                 other_users_found = False
                 for ng in bpy.data.node_groups:
-                    for t in ng.tl.layers:
+                    for t in ng.yp.layers:
 
                         # Search for vcol layer
                         if t.type == 'VCOL':
@@ -499,7 +500,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
                 print('INFO: Searching on entire node groups to search for vcol takes', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
                 #other_user_found = False
-                #for t in tl.layers:
+                #for t in yp.layers:
                 #    if t.type == 'VCOL':
                 if not other_users_found:
                     obj.data.vertex_colors.remove(vcol)
@@ -658,13 +659,13 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
 
 def get_tree(entity):
 
-    #m = re.match(r'tl\.layers\[(\d+)\]', entity.path_from_id())
+    #m = re.match(r'yp\.layers\[(\d+)\]', entity.path_from_id())
     #if not m: return None
-    #if not hasattr(entity.id_data, 'tl') or not hasattr(entity, 'group_node'): return None
+    #if not hasattr(entity.id_data, 'yp') or not hasattr(entity, 'group_node'): return None
 
     try:
         tree = entity.id_data
-        tl = tree.tl
+        yp = tree.yp
         group_node = tree.nodes.get(entity.group_node)
         #if not group_node or group_node.type != 'GROUP': return None
         return group_node.node_tree
@@ -673,15 +674,15 @@ def get_tree(entity):
 
 def get_mod_tree(entity):
 
-    tl = entity.id_data.tl
+    yp = entity.id_data.yp
 
-    m = re.match(r'^tl\.channels\[(\d+)\].*', entity.path_from_id())
+    m = re.match(r'^yp\.channels\[(\d+)\].*', entity.path_from_id())
     if m:
         return entity.id_data
 
-    m = re.match(r'^tl\.layers\[(\d+)\]\.channels\[(\d+)\].*', entity.path_from_id())
+    m = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', entity.path_from_id())
     if m:
-        layer = tl.layers[int(m.group(1))]
+        layer = yp.layers[int(m.group(1))]
         ch = layer.channels[int(m.group(2))]
         tree = get_tree(layer)
 
@@ -691,9 +692,9 @@ def get_mod_tree(entity):
 
         return tree
 
-    m = re.match(r'^tl\.layers\[(\d+)\].*', entity.path_from_id())
+    m = re.match(r'^yp\.layers\[(\d+)\].*', entity.path_from_id())
     if m:
-        layer = tl.layers[int(m.group(1))]
+        layer = yp.layers[int(m.group(1))]
         tree = get_tree(layer)
 
         source_group = tree.nodes.get(layer.source_group)
@@ -708,11 +709,11 @@ def get_mod_tree(entity):
 
 def get_mask_tree(mask):
 
-    m = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+    m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
     if not m : return None
 
-    tl = mask.id_data.tl
-    layer = tl.layers[int(m.group(1))]
+    yp = mask.id_data.yp
+    layer = yp.layers[int(m.group(1))]
     layer_tree = get_tree(layer)
 
     group_node = layer_tree.nodes.get(mask.group_node)
@@ -758,10 +759,10 @@ def get_neighbor_uv_space_input(texcoord_type):
     if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
         return 2.0 # View Space
 
-def change_layer_name(tl, obj, src, layer, texes):
-    if tl.halt_update: return
+def change_layer_name(yp, obj, src, layer, texes):
+    if yp.halt_update: return
 
-    tl.halt_update = True
+    yp.halt_update = True
 
     if layer.type == 'VCOL' and obj.type == 'MESH':
 
@@ -788,7 +789,7 @@ def change_layer_name(tl, obj, src, layer, texes):
         layer.name = '___TEMP___'
         layer.name = get_unique_name(name, texes) 
 
-    tl.halt_update = False
+    yp.halt_update = False
 
 def set_obj_vertex_colors(obj, vcol, color):
     if obj.type != 'MESH': return
@@ -820,11 +821,11 @@ def update_bump_base_value_(tree, ch):
     force_bump_base_value(tree, ch, ch.bump_base_value)
     
 def get_transition_bump_channel(layer):
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     bump_ch = None
     for i, ch in enumerate(layer.channels):
-        if tl.channels[i].type == 'NORMAL' and ch.enable and ch.enable_transition_bump:
+        if yp.channels[i].type == 'NORMAL' and ch.enable and ch.enable_transition_bump:
             bump_ch = ch
             break
 
@@ -832,11 +833,11 @@ def get_transition_bump_channel(layer):
 
 def get_showed_transition_bump_channel(layer):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     bump_ch = None
     for i, ch in enumerate(layer.channels):
-        if tl.channels[i].type == 'NORMAL' and ch.show_transition_bump:
+        if yp.channels[i].type == 'NORMAL' and ch.show_transition_bump:
             bump_ch = ch
             break
 
@@ -882,27 +883,27 @@ def fix_io_index(item, items, correct_index):
 
 def get_layer_depth(layer):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     upmost_found = False
     depth = 0
-    cur_tex = layer
-    parent_tex = layer
+    cur = layer
+    parent = layer
 
     while True:
-        if cur_tex.parent_idx != -1:
+        if cur.parent_idx != -1:
 
-            try: layer = tl.layers[cur_tex.parent_idx]
+            try: layer = yp.layers[cur.parent_idx]
             except: break
 
             if layer.type == 'GROUP':
-                parent_tex = layer
+                parent = layer
                 depth += 1
 
-        if parent_tex == cur_tex:
+        if parent == cur:
             break
 
-        cur_tex = parent_tex
+        cur = parent
 
     return depth
 
@@ -911,9 +912,9 @@ def is_top_member(layer):
     if layer.parent_idx == -1:
         return False
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
-    for i, t in enumerate(tl.layers):
+    for i, t in enumerate(yp.layers):
         if t == layer:
             if layer.parent_idx == i-1:
                 return True
@@ -926,66 +927,66 @@ def is_bottom_member(layer):
     if layer.parent_idx == -1:
         return False
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
-    tex_idx = -1
+    layer_idx = -1
     last_member_idx = -1
-    for i, t in enumerate(tl.layers):
+    for i, t in enumerate(yp.layers):
         if t == layer:
-            tex_idx = i
+            layer_idx = i
         if t.parent_idx == layer.parent_idx:
             last_member_idx = i
 
-    if tex_idx == last_member_idx:
+    if layer_idx == last_member_idx:
         return True
 
     return False
 
 #def get_upmost_parent_idx(layer, idx_limit = -1):
 #
-#    tl = layer.id_data.tl
+#    yp = layer.id_data.yp
 #
-#    cur_tex = layer
-#    parent_tex = layer
+#    cur = layer
+#    parent = layer
 #    parent_idx = -1
 #
 #    while True:
-#        if cur_tex.parent_idx != -1 and cur_tex.parent_idx != idx_limit:
+#        if cur.parent_idx != -1 and cur.parent_idx != idx_limit:
 #
-#            try: layer = tl.layers[cur_tex.parent_idx]
+#            try: layer = yp.layers[cur.parent_idx]
 #            except: break
 #
 #            if layer.type == 'GROUP':
-#                parent_tex = layer
-#                parent_idx = cur_tex.parent_idx
+#                parent = layer
+#                parent_idx = cur.parent_idx
 #
-#        if parent_tex == cur_tex:
+#        if parent == cur:
 #            break
 #
-#        cur_tex = parent_tex
+#        cur = parent
 #
 #    return parent_idx
 
 def get_layer_index(layer):
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
-    for i, t in enumerate(tl.layers):
+    for i, t in enumerate(yp.layers):
         if layer == t:
             return i
 
-def get_layer_index_by_name(tl, name):
+def get_layer_index_by_name(yp, name):
 
-    for i, t in enumerate(tl.layers):
+    for i, t in enumerate(yp.layers):
         if name == t.name:
             return i
 
     return -1
 
-def get_parent_dict(tl):
+def get_parent_dict(yp):
     parent_dict = {}
-    for t in tl.layers:
+    for t in yp.layers:
         if t.parent_idx != -1:
-            try: parent_dict[t.name] = tl.layers[t.parent_idx].name
+            try: parent_dict[t.name] = yp.layers[t.parent_idx].name
             except: parent_dict[t.name] = None
         else: parent_dict[t.name] = None
 
@@ -993,185 +994,185 @@ def get_parent_dict(tl):
 
 def get_parent(layer):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
     
     if layer.parent_idx == -1:
         return None
 
-    return tl.layers[layer.parent_idx]
+    return yp.layers[layer.parent_idx]
 
 def is_parent_hidden(layer):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     hidden = False
     
-    cur_tex = layer
-    parent_tex = layer
+    cur = layer
+    parent = layer
 
     while True:
-        if cur_tex.parent_idx != -1:
+        if cur.parent_idx != -1:
 
-            try: layer = tl.layers[cur_tex.parent_idx]
+            try: layer = yp.layers[cur.parent_idx]
             except: break
 
             if layer.type == 'GROUP':
-                parent_tex = layer
-                if not parent_tex.enable:
+                parent = layer
+                if not parent.enable:
                     hidden = True
                     break
 
-        if parent_tex == cur_tex:
+        if parent == cur:
             break
 
-        cur_tex = parent_tex
+        cur = parent
 
     return hidden
 
-def set_parent_dict_val(tl, parent_dict, name, target_idx):
+def set_parent_dict_val(yp, parent_dict, name, target_idx):
 
     if target_idx != -1:
-        parent_dict[name] = tl.layers[target_idx].name
+        parent_dict[name] = yp.layers[target_idx].name
     else: parent_dict[name] = None
 
     return parent_dict
 
 def get_list_of_direct_child_ids(layer):
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     if layer.type != 'GROUP':
         return []
 
-    tex_idx = get_layer_index(layer)
+    layer_idx = get_layer_index(layer)
 
     childs = []
-    for i, t in enumerate(tl.layers):
-        if t.parent_idx == tex_idx:
+    for i, t in enumerate(yp.layers):
+        if t.parent_idx == layer_idx:
             childs.append(i)
 
     return childs
 
 def get_list_of_direct_childrens(layer):
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     if layer.type != 'GROUP':
         return []
 
-    tex_idx = get_layer_index(layer)
+    layer_idx = get_layer_index(layer)
 
     childs = []
-    for t in tl.layers:
-        if t.parent_idx == tex_idx:
+    for t in yp.layers:
+        if t.parent_idx == layer_idx:
             childs.append(t)
 
     return childs
 
 def get_list_of_parent_ids(layer):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
-    cur_tex = layer
-    parent_tex = layer
+    cur = layer
+    parent = layer
     parent_list = []
 
     while True:
-        if cur_tex.parent_idx != -1:
+        if cur.parent_idx != -1:
 
-            try: layer = tl.layers[cur_tex.parent_idx]
+            try: layer = yp.layers[cur.parent_idx]
             except: break
 
             if layer.type == 'GROUP':
-                parent_tex = layer
-                parent_list.append(cur_tex.parent_idx)
+                parent = layer
+                parent_list.append(cur.parent_idx)
 
-        if parent_tex == cur_tex:
+        if parent == cur:
             break
 
-        cur_tex = parent_tex
+        cur = parent
 
     return parent_list
 
 def get_last_chained_up_layer_ids(layer, idx_limit):
 
-    tl = layer.id_data.tl
-    tex_idx = get_layer_index(layer)
+    yp = layer.id_data.yp
+    layer_idx = get_layer_index(layer)
 
-    cur_tex = layer
-    parent_tex = layer
-    parent_idx = tex_idx
+    cur = layer
+    parent = layer
+    parent_idx = layer_idx
 
     while True:
-        if cur_tex.parent_idx != -1 and cur_tex.parent_idx != idx_limit:
+        if cur.parent_idx != -1 and cur.parent_idx != idx_limit:
 
-            try: layer = tl.layers[cur_tex.parent_idx]
+            try: layer = yp.layers[cur.parent_idx]
             except: break
 
             if layer.type == 'GROUP':
-                parent_tex = layer
-                parent_idx = cur_tex.parent_idx
+                parent = layer
+                parent_idx = cur.parent_idx
 
-        if parent_tex == cur_tex:
+        if parent == cur:
             break
 
-        cur_tex = parent_tex
+        cur = parent
 
     return parent_idx
 
 def has_childrens(layer):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     if layer.type != 'GROUP':
         return False
 
-    tex_idx = get_layer_index(layer)
+    layer_idx = get_layer_index(layer)
 
-    if tex_idx < len(tl.layers)-1:
-        neighbor_tex = tl.layers[tex_idx+1]
-        if neighbor_tex.parent_idx == tex_idx:
+    if layer_idx < len(yp.layers)-1:
+        neighbor = yp.layers[layer_idx+1]
+        if neighbor.parent_idx == layer_idx:
             return True
 
     return False
 
 def get_last_child_idx(layer): #, very_last=False):
 
-    tl = layer.id_data.tl
-    tex_idx = get_layer_index(layer)
+    yp = layer.id_data.yp
+    layer_idx = get_layer_index(layer)
 
     if layer.type != 'GROUP': 
-        return tex_idx
+        return layer_idx
 
-    for i, t in reversed(list(enumerate(tl.layers))):
-        if i > tex_idx and tex_idx in get_list_of_parent_ids(t):
+    for i, t in reversed(list(enumerate(yp.layers))):
+        if i > layer_idx and layer_idx in get_list_of_parent_ids(t):
             return i
 
-    return tex_idx
+    return layer_idx
 
 def get_upper_neighbor(layer):
 
-    tl = layer.id_data.tl
-    tex_idx = get_layer_index(layer)
+    yp = layer.id_data.yp
+    layer_idx = get_layer_index(layer)
 
-    if tex_idx == 0:
+    if layer_idx == 0:
         return None, None
 
-    if layer.parent_idx == tex_idx-1:
-        return tex_idx-1, tl.layers[tex_idx-1]
+    if layer.parent_idx == layer_idx-1:
+        return layer_idx-1, yp.layers[layer_idx-1]
 
-    upper_tex = tl.layers[tex_idx-1]
+    upper_layer = yp.layers[layer_idx-1]
 
-    neighbor_idx = get_last_chained_up_layer_ids(upper_tex, layer.parent_idx)
-    neighbor_tex = tl.layers[neighbor_idx]
+    neighbor_idx = get_last_chained_up_layer_ids(upper_layer, layer.parent_idx)
+    neighbor = yp.layers[neighbor_idx]
 
-    return neighbor_idx, neighbor_tex
+    return neighbor_idx, neighbor
 
 def get_lower_neighbor(layer):
 
-    tl = layer.id_data.tl
-    tex_idx = get_layer_index(layer)
-    last_index = len(tl.layers)-1
+    yp = layer.id_data.yp
+    layer_idx = get_layer_index(layer)
+    last_index = len(yp.layers)-1
 
-    if tex_idx == last_index:
+    if layer_idx == last_index:
         return None, None
 
     if layer.type == 'GROUP':
@@ -1182,11 +1183,11 @@ def get_lower_neighbor(layer):
 
         neighbor_idx = last_child_idx + 1
     else:
-        neighbor_idx = tex_idx+1
+        neighbor_idx = layer_idx+1
 
-    neighbor_tex = tl.layers[neighbor_idx]
+    neighbor = yp.layers[neighbor_idx]
 
-    return neighbor_idx, neighbor_tex
+    return neighbor_idx, neighbor
 
 def is_valid_to_remove_bump_nodes(layer, ch):
 
@@ -1197,16 +1198,16 @@ def is_valid_to_remove_bump_nodes(layer, ch):
 
 def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=None):
 
-    tl = entity.id_data.tl
-    m1 = re.match(r'^tl\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^tl\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    yp = entity.id_data.yp
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     if m1: 
         tree = get_tree(entity)
         if not mapping: mapping = get_layer_mapping(entity)
         if not source: source = get_layer_source(entity)
     elif m2: 
-        tree = get_tree(tl.layers[int(m2.group(1))])
+        tree = get_tree(yp.layers[int(m2.group(1))])
         if not mapping: mapping = get_mask_mapping(entity)
         if not source: source = get_mask_source(entity)
     else: return
@@ -1223,8 +1224,8 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
 
 def update_mapping(entity):
 
-    m1 = re.match(r'^tl\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^tl\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     # Get source
     if m1: 
@@ -1237,7 +1238,7 @@ def update_mapping(entity):
 
     if not mapping: return
 
-    tl = entity.id_data.tl
+    yp = entity.id_data.yp
 
     offset_x = entity.translation[0]
     offset_y = entity.translation[1]
@@ -1265,7 +1266,7 @@ def update_mapping(entity):
 
     if entity.type == 'IMAGE' and entity.texcoord_type == 'UV':
         if m1 or (m2 and entity.active_edit):
-            tl.need_temp_uv_refresh = True
+            yp.need_temp_uv_refresh = True
 
 def is_transformed(mapping):
     if (mapping.translation[0] != 0.0 or
@@ -1287,11 +1288,11 @@ def refresh_temp_uv(obj, entity, use_ops=False):
     if not entity or entity.type != 'IMAGE': # or not is_transformed(entity):
         return False
 
-    #tl = entity.id_data.tl
-    #tl.need_temp_uv_refresh = False
+    #yp = entity.id_data.yp
+    #yp.need_temp_uv_refresh = False
 
-    m1 = re.match(r'^tl\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^tl\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     # Get source
     if m1: 
@@ -1377,12 +1378,12 @@ def refresh_temp_uv(obj, entity, use_ops=False):
 
 # Some image_ops need this
 #def get_active_image():
-#    node = get_active_cpaint_node()
+#    node = get_active_ypaint_node()
 #    if not node: return None
-#    tl = node.node_tree.tl
+#    yp = node.node_tree.yp
 #    nodes = node.node_tree.nodes
-#    if len(tl.layers) == 0: return None
-#    layer = tl.layers[tl.active_layer_index]
+#    if len(yp.layers) == 0: return None
+#    layer = yp.layers[yp.active_layer_index]
 #    if layer.type != 'ShaderNodeTexImage': return None
 #    source = nodes.get(layer.source)
 #    return source.image

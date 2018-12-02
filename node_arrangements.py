@@ -115,12 +115,12 @@ def clean_unused_frames(tree):
 
     #print('INFO: Unused frames cleaned at ', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-def rearrange_tl_frame_nodes(tl):
-    tree = tl.id_data
+def rearrange_yp_frame_nodes(yp):
+    tree = yp.id_data
     nodes = tree.nodes
 
     # Channel loops
-    for i, ch in enumerate(tl.channels):
+    for i, ch in enumerate(yp.channels):
 
         ## Start Frame
         #frame = get_frame(tree, '__start__', str(i), ch.name + ' Start')
@@ -143,13 +143,13 @@ def rearrange_tl_frame_nodes(tl):
     clean_unused_frames(tree)
 
 def rearrange_layer_frame_nodes(layer, tree=None):
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
     #nodes = tree.nodes
 
-    # Texture channels
+    # Layer channels
     for i, ch in enumerate(layer.channels):
-        root_ch = tl.channels[i]
+        root_ch = yp.channels[i]
 
         # Modifiers
         if len(ch.modifiers) > 0:
@@ -223,7 +223,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
     clean_unused_frames(tree)
 
 def create_info_nodes(group_tree, layer=None):
-    tl = group_tree.tl
+    yp = group_tree.yp
     if layer:
         tree = get_tree(layer)
         nodes = tree.nodes
@@ -239,13 +239,13 @@ def create_info_nodes(group_tree, layer=None):
 
     info = nodes.new('NodeFrame')
     if layer:
-        info.label = 'Part of yPaint addon version ' + tl.version
-    else: info.label = 'Created using yPaint addon version ' + tl.version
+        info.label = 'Part of Painty addon version ' + yp.version
+    else: info.label = 'Created using Painty addon version ' + yp.version
     info.use_custom_color = True
     info.color = (1.0, 1.0, 1.0)
     if layer:
-        info.width = 400.0
-    else: info.width = 460.0
+        info.width = 360.0
+    else: info.width = 420.0
     info.height = 30.0
     infos.append(info)
 
@@ -266,7 +266,7 @@ def create_info_nodes(group_tree, layer=None):
     infos.append(info)
 
     info = nodes.new('NodeFrame')
-    info.label = 'Please use this panel: Node Editor > Tools > Texture Layers'
+    info.label = 'Please use this panel: Node Editor > Tools > ' + ADDON_TITLE
     info.use_custom_color = True
     info.color = (1.0, 0.5, 0.5)
     info.width = 580.0
@@ -506,9 +506,9 @@ def rearrange_normal_process_nodes(tree, ch, loc):
         loc.x += 250
 
 def rearrange_layer_nodes(layer, tree=None):
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
-    if tl.halt_reconnect: return
+    if yp.halt_reconnect: return
 
     if not tree: tree = get_tree(layer)
     nodes = tree.nodes
@@ -633,7 +633,7 @@ def rearrange_layer_nodes(layer, tree=None):
 
     loc = Vector((380, 0))
 
-    # Texture modifiers
+    # Layer modifiers
     if layer.source_group == '':
         if layer.mod_group != '':
             mod_group = nodes.get(layer.mod_group)
@@ -652,7 +652,7 @@ def rearrange_layer_nodes(layer, tree=None):
 
     for i, ch in enumerate(layer.channels):
 
-        root_ch = tl.channels[i]
+        root_ch = yp.channels[i]
 
         if root_ch.type == 'NORMAL':
             chain = min(len(layer.masks), ch.transition_bump_chain)
@@ -810,7 +810,7 @@ def rearrange_layer_nodes(layer, tree=None):
         for j, c in enumerate(mask.channels):
 
             ch = layer.channels[j]
-            root_ch = tl.channels[j]
+            root_ch = yp.channels[j]
 
             if root_ch.type == 'NORMAL':
                 chain = min(len(layer.masks), ch.transition_bump_chain)
@@ -984,9 +984,9 @@ def rearrange_layer_nodes(layer, tree=None):
 
     rearrange_layer_frame_nodes(layer, tree)
 
-def rearrange_tl_nodes(group_tree):
+def rearrange_yp_nodes(group_tree):
 
-    tl = group_tree.tl
+    yp = group_tree.yp
     nodes = group_tree.nodes
 
     dist_y = 185
@@ -994,15 +994,15 @@ def rearrange_tl_nodes(group_tree):
     loc = Vector((0, 0))
 
     # Rearrange start nodes
-    check_set_node_loc(group_tree, tl.start, loc)
+    check_set_node_loc(group_tree, yp.start, loc)
 
     loc.x += 200
     ori_x = loc.x
 
-    num_channels = len(tl.channels)
+    num_channels = len(yp.channels)
 
     # Start nodes
-    for i, channel in enumerate(tl.channels):
+    for i, channel in enumerate(yp.channels):
 
         # Start nodes
         if check_set_node_loc(group_tree, channel.start_linear, loc):
@@ -1015,18 +1015,18 @@ def rearrange_tl_nodes(group_tree):
             loc.y -= 120
 
         if i == num_channels-1:
-            check_set_node_loc(group_tree, tl.solid_value, loc)
+            check_set_node_loc(group_tree, yp.solid_value, loc)
             loc.x += 200
 
     #groups = []
-    #for i, t in enumerate(reversed(tl.layers)):
+    #for i, t in enumerate(reversed(yp.layers)):
     #    if t.type == 'GROUP':
     #        pass
 
     loc.y = 0.0
 
-    # Texture nodes
-    for i, t in enumerate(reversed(tl.layers)):
+    # Layer nodes
+    for i, t in enumerate(reversed(yp.layers)):
 
         parent_ids = get_list_of_parent_ids(t)
 
@@ -1040,7 +1040,7 @@ def rearrange_tl_nodes(group_tree):
             loc.x += 200
 
     #stack = []
-    #for i, t in enumerate(tl.layers):
+    #for i, t in enumerate(yp.layers):
     #    if stack and stack[-1] == t.parent_idx:
     #        loc.y += 300
     #        stack.pop()
@@ -1063,7 +1063,7 @@ def rearrange_tl_nodes(group_tree):
     farthest_x = ori_x = loc.x
 
     # Modifiers
-    for i, channel in enumerate(tl.channels):
+    for i, channel in enumerate(yp.channels):
 
         loc.x = ori_x
 
@@ -1077,7 +1077,7 @@ def rearrange_tl_nodes(group_tree):
     loc.y = 0.0
 
     # End nodes
-    for i, channel in enumerate(tl.channels):
+    for i, channel in enumerate(yp.channels):
         if check_set_node_loc(group_tree, channel.end_linear, loc):
             if channel.type == 'RGB':
                 loc.y -= 110
@@ -1088,8 +1088,8 @@ def rearrange_tl_nodes(group_tree):
     loc.y = 0.0
 
     # End node
-    check_set_node_loc(group_tree, tl.end, loc)
+    check_set_node_loc(group_tree, yp.end, loc)
 
     # Rearrange frames
-    rearrange_tl_frame_nodes(tl)
+    rearrange_yp_frame_nodes(yp)
 

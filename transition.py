@@ -67,9 +67,9 @@ def check_transition_ao_nodes(tree, layer, ch, bump_ch=None):
 
     elif bump_ch != ch and ch.enable_transition_ao:
 
-        tl = ch.id_data.tl
-        match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
-        root_ch = tl.channels[int(match.group(2))]
+        yp = ch.id_data.yp
+        match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        root_ch = yp.channels[int(match.group(2))]
 
         if layer.type == 'BACKGROUND' and ch.transition_ao_blend_type == 'MIX':
         #if layer.type == 'BACKGROUND' and bump_ch.transition_bump_flip and ch.transition_ao_blend_type == 'MIX':
@@ -153,9 +153,9 @@ def set_ramp_intensity_value(tree, layer, ch):
 
 def set_transition_ramp_nodes(tree, layer, ch):
 
-    tl = ch.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
-    root_ch = tl.channels[int(match.group(2))]
+    yp = ch.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+    root_ch = yp.channels[int(match.group(2))]
 
     bump_ch = get_transition_bump_channel(layer)
 
@@ -251,21 +251,21 @@ def check_transition_bump_nodes(layer, tree, ch, ch_index):
 
 def set_transition_bump_nodes(layer, tree, ch, ch_index):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     for i, c in enumerate(layer.channels):
-        if tl.channels[i].type == 'NORMAL' and c.enable_transition_bump and c != ch:
+        if yp.channels[i].type == 'NORMAL' and c.enable_transition_bump and c != ch:
             # Disable this mask bump if other channal already use mask bump
             if c.enable:
-                tl.halt_update = True
+                yp.halt_update = True
                 ch.enable_transition_bump = False
-                tl.halt_update = False
+                yp.halt_update = False
                 return
             # Disable other mask bump if other channal aren't enabled
             else:
-                tl.halt_update = True
+                yp.halt_update = True
                 c.enable_transition_bump = False
-                tl.halt_update = False
+                yp.halt_update = False
 
     if ch.transition_bump_type == 'FINE_BUMP_MAP':
 
@@ -405,17 +405,17 @@ def remove_transition_bump_nodes(layer, tree, ch, ch_index):
     remove_transition_bump_influence_nodes_to_other_channels(layer, tree)
 
 def update_transition_ramp_intensity_value(self, context):
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
 
     set_ramp_intensity_value(tree, layer, self)
 
 def update_transition_bump_crease_factor(self, context):
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
     ch = self
 
@@ -428,9 +428,9 @@ def update_transition_bump_crease_factor(self, context):
 def update_transition_bump_value(self, context):
     if not self.enable: return
 
-    tl = self.id_data.tl
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
     tree = get_tree(layer)
     ch = self
 
@@ -464,9 +464,9 @@ def update_transition_bump_value(self, context):
 def update_transition_bump_distance(self, context):
     if not self.enable: return
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     ch_index = int(match.group(2))
     ch = self
     tree = get_tree(layer)
@@ -502,9 +502,9 @@ def update_transition_bump_distance(self, context):
 def update_transition_bump_chain(self, context):
     T = time.time()
 
-    tl = self.id_data.tl
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
     tree = get_tree(layer)
     ch = self
 
@@ -523,9 +523,9 @@ def update_transition_bump_chain(self, context):
 
 def update_transition_bump_curved_offset(self, context):
 
-    tl = self.id_data.tl
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
     tree = get_tree(layer)
     ch = self
 
@@ -535,9 +535,9 @@ def update_transition_bump_curved_offset(self, context):
 
 def update_transition_bump_fac(self, context):
 
-    tl = self.id_data.tl
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
     tree = get_tree(layer)
     ch = self
 
@@ -556,9 +556,9 @@ def update_transition_bump_fac(self, context):
 
 def update_transition_ao_intensity(self, context):
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     ch = self
     tree = get_tree(layer)
 
@@ -570,9 +570,9 @@ def update_transition_ao_intensity(self, context):
 
 def update_transition_ao_edge(self, context):
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     ch = self
     tree = get_tree(layer)
 
@@ -584,9 +584,9 @@ def update_transition_ao_edge(self, context):
 
 def update_transition_ao_color(self, context):
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     ch = self
     tree = get_tree(layer)
 
@@ -597,9 +597,9 @@ def update_transition_ao_color(self, context):
 
 def update_transition_ao_exclude_inside(self, context):
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     ch = self
     tree = get_tree(layer)
 
@@ -612,13 +612,13 @@ def show_transition(self, context, ttype):
         self.report({'ERROR'}, "Context is incorrect!")
         return {'CANCELLED'}
 
-    tl = context.parent.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+    yp = context.parent.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
     if not match: 
         self.report({'ERROR'}, "Context is incorrect!")
         return {'CANCELLED'}
-    layer = tl.layers[int(match.group(1))]
-    root_ch = tl.channels[int(match.group(2))]
+    layer = yp.layers[int(match.group(1))]
+    root_ch = yp.channels[int(match.group(2))]
     ch = context.parent
 
     bump_ch = get_transition_bump_channel(layer)
@@ -748,13 +748,13 @@ class YHideTransitionEffect(bpy.types.Operator):
             self.report({'ERROR'}, "Context is incorrect!")
             return {'CANCELLED'}
 
-        tl = context.parent.id_data.tl
-        match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+        yp = context.parent.id_data.yp
+        match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
         if not match: 
             self.report({'ERROR'}, "Context is incorrect!")
             return {'CANCELLED'}
-        layer = tl.layers[int(match.group(1))]
-        root_ch = tl.channels[int(match.group(2))]
+        layer = yp.layers[int(match.group(1))]
+        root_ch = yp.channels[int(match.group(2))]
         ch = context.parent
 
         if self.type == 'BUMP' and root_ch.type != 'NORMAL':
@@ -780,9 +780,9 @@ class YHideTransitionEffect(bpy.types.Operator):
 def update_enable_transition_ao(self, context):
     T = time.time()
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     ch = self
 
     tree = get_tree(layer)
@@ -805,9 +805,9 @@ def update_enable_transition_ao(self, context):
 def update_enable_transition_ramp(self, context):
     T = time.time()
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     ch = self
 
     tree = get_tree(layer)
@@ -827,10 +827,10 @@ def update_enable_transition_ramp(self, context):
 def update_enable_transition_bump(self, context):
     T = time.time()
 
-    tl = self.id_data.tl
-    if tl.halt_update or not self.enable: return
-    match = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     ch_index = int(match.group(2))
     ch = self
     tree = get_tree(layer)

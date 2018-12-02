@@ -5,7 +5,7 @@ from bpy.app.handlers import persistent
 from . import image_ops
 from .common import *
 
-class YTLPreferences(AddonPreferences):
+class YPaintPreferences(AddonPreferences):
     # this must match the addon name, use '__package__'
     # when defining this in a submodule of a python package.
     bl_idname = __package__
@@ -36,26 +36,26 @@ class YTLPreferences(AddonPreferences):
 
 @persistent
 def auto_save_images(scene):
-    ycpup = bpy.context.user_preferences.addons[__package__].preferences
+    ypup = bpy.context.user_preferences.addons[__package__].preferences
     for tree in bpy.data.node_groups:
-        if tree.tl.is_tl_node:
-            if ycpup.auto_save == 'ONLY_DIRTY':
-                image_ops.save_pack_all(tree.tl, only_dirty=True)
-            elif ycpup.auto_save == 'FORCE_ALL':
-                image_ops.save_pack_all(tree.tl, only_dirty=False)
+        if tree.yp.is_ypaint_node:
+            if ypup.auto_save == 'ONLY_DIRTY':
+                image_ops.save_pack_all(tree.yp, only_dirty=True)
+            elif ypup.auto_save == 'FORCE_ALL':
+                image_ops.save_pack_all(tree.yp, only_dirty=False)
 
 # HACK: For some reason active float image will glitch after auto save
 # This hack will fix that
 @persistent
 def refresh_float_image_hack(scene):
-    ycpui = bpy.context.window_manager.ycpui
+    ypui = bpy.context.window_manager.ypui
 
-    if ycpui.refresh_image_hack:
-        node = get_active_cpaint_node()
+    if ypui.refresh_image_hack:
+        node = get_active_ypaint_node()
         if node:
-            tl = node.node_tree.tl
-            if len(tl.layers) > 0:
-                layer = tl.layers[tl.active_layer_index]
+            yp = node.node_tree.yp
+            if len(yp.layers) > 0:
+                layer = yp.layers[yp.active_layer_index]
                 source = get_layer_source(layer)
                 if source.type == 'TEX_IMAGE' and source.image:
                     # Just reload image to fix glitched float image
@@ -63,16 +63,16 @@ def refresh_float_image_hack(scene):
                     source.image.reload()
                     print('INFO: ..fine error ended')
 
-        ycpui.refresh_image_hack = False
+        ypui.refresh_image_hack = False
 
 def register():
-    bpy.utils.register_class(YTLPreferences)
+    bpy.utils.register_class(YPaintPreferences)
 
     bpy.app.handlers.save_pre.append(auto_save_images)
     bpy.app.handlers.save_post.append(refresh_float_image_hack)
 
 def unregister():
-    bpy.utils.unregister_class(YTLPreferences)
+    bpy.utils.unregister_class(YPaintPreferences)
 
     bpy.app.handlers.save_pre.remove(auto_save_images)
     bpy.app.handlers.save_post.remove(refresh_float_image_hack)

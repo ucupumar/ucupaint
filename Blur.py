@@ -4,21 +4,21 @@ from .subtree import *
 #from . import Layer
 
 def update_layer_channel_blur(self, context):
-    tl = self.id_data.tl
+    yp = self.id_data.yp
     path = self.path_from_id()
 
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', path)
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', path)
     if not m: return
-    layer = tl.layers[int(m.group(1))]
+    layer = yp.layers[int(m.group(1))]
 
     if self.enable_blur:
         enable_layer_source_tree(layer)
     else: disable_layer_source_tree(layer)
 
-#class YTextureBlurSample(bpy.types.PropertyGroup):
+#class YLayerBlurSample(bpy.types.PropertyGroup):
 #    pass
 
-class YTextureBlur(bpy.types.PropertyGroup):
+class YLayerBlur(bpy.types.PropertyGroup):
 
     #use_noise = BoolProperty(default=False)
 
@@ -31,13 +31,13 @@ class YTextureBlur(bpy.types.PropertyGroup):
             default='16'
             )
 
-    #samples = CollectionProperty(type=YTextureBlurSample)
+    #samples = CollectionProperty(type=YLayerBlurSample)
 
     tree = PointerProperty(type=bpy.types.ShaderNodeTree)
     node = StringProperty(default='')
 
 def register():
-    bpy.utils.register_class(YTextureBlur)
+    bpy.utils.register_class(YLayerBlur)
 
 def unregister():
-    bpy.utils.unregister_class(YTextureBlur)
+    bpy.utils.unregister_class(YLayerBlur)

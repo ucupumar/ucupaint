@@ -132,7 +132,7 @@ def check_need_of_erasing_segments(color='BLACK', width=1024, height=1024, hdr=F
 
 def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False):
 
-    ycpup = bpy.context.user_preferences.addons[__package__].preferences
+    ypup = bpy.context.user_preferences.addons[__package__].preferences
 
     # Serach for available image atlas
     for img in bpy.data.images:
@@ -143,8 +143,8 @@ def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False):
                 # This is where unused segments should be erased 
                 pass
 
-    if hdr: new_atlas_size = ycpup.hdr_image_atlas_size
-    else: new_atlas_size = ycpup.image_atlas_size
+    if hdr: new_atlas_size = ypup.hdr_image_atlas_size
+    else: new_atlas_size = ypup.image_atlas_size
 
     # If proper image atlas can't be found, create new one
     img = create_image_atlas(color, new_atlas_size, hdr)
@@ -299,8 +299,8 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
 
         obj = context.object
         layer = context.layer
-        tl = layer.id_data.tl
-        ycpui = context.window_manager.ycpui
+        yp = layer.id_data.yp
+        ypui = context.window_manager.ypui
 
         image = None
 
@@ -320,7 +320,7 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
             update_image_editor_image(context, image)
             context.scene.tool_settings.image_paint.canvas = image
 
-        tl.need_temp_uv_refresh = False
+        yp.need_temp_uv_refresh = False
 
         return {'FINISHED'}
 
@@ -338,8 +338,8 @@ class YBackToOriginalUV(bpy.types.Operator):
 
         obj = context.object
         layer = context.layer
-        tl = layer.id_data.tl
-        ycpui = context.window_manager.ycpui
+        yp = layer.id_data.yp
+        ypui = context.window_manager.ypui
 
         active = None
         image = None
@@ -379,7 +379,7 @@ class YBackToOriginalUV(bpy.types.Operator):
             update_image_editor_image(context, None)
             context.scene.tool_settings.image_paint.canvas = None
 
-        tl.need_temp_uv_refresh = True
+        yp.need_temp_uv_refresh = True
 
         return {'FINISHED'}
 

@@ -43,29 +43,29 @@ can_be_expanded = {
 
 def add_modifier_nodes(m, tree, ref_tree=None):
 
-    tl = m.id_data.tl
+    yp = m.id_data.yp
     nodes = tree.nodes
     #links = tree.links
 
-    match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
-    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
-    match3 = re.match(r'tl\.layers\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
+    match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
+    match2 = re.match(r'yp\.channels\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
+    match3 = re.match(r'yp\.layers\[(\d+)\]\.modifiers\[(\d+)\]', m.path_from_id())
     if match1:
-        root_ch = tl.channels[int(match1.group(2))]
+        root_ch = yp.channels[int(match1.group(2))]
 
         # Get non color flag and channel type
         non_color = root_ch.colorspace == 'LINEAR'
         channel_type = root_ch.type
         
     elif match2: 
-        root_ch = tl.channels[int(match2.group(1))]
+        root_ch = yp.channels[int(match2.group(1))]
 
         # Get non color flag and channel type
         non_color = root_ch.colorspace == 'LINEAR'
         channel_type = root_ch.type
 
     elif match3: 
-        # Texture modifier always use linear colorspace and rgb channel type
+        # yPaint modifier always use linear colorspace and rgb channel type
         non_color = True
         channel_type = 'RGB'
 
@@ -311,17 +311,17 @@ def add_modifier_nodes(m, tree, ref_tree=None):
 
 def add_new_modifier(parent, modifier_type):
 
-    tl = parent.id_data.tl
+    yp = parent.id_data.yp
 
-    match1 = re.match(r'^tl\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
-    match2 = re.match(r'^tl\.layers\[(\d+)\]$', parent.path_from_id())
-    match3 = re.match(r'^tl\.channels\[(\d+)\]$', parent.path_from_id())
+    match1 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^yp\.layers\[(\d+)\]$', parent.path_from_id())
+    match3 = re.match(r'^yp\.channels\[(\d+)\]$', parent.path_from_id())
 
     if match1: 
-        root_ch = tl.channels[int(match1.group(2))]
+        root_ch = yp.channels[int(match1.group(2))]
         channel_type = root_ch.type
     elif match3:
-        root_ch = tl.channels[int(match3.group(1))]
+        root_ch = yp.channels[int(match3.group(1))]
         channel_type = root_ch.type
     elif match2:
         channel_type = 'RGB'
@@ -394,10 +394,10 @@ def delete_modifier_nodes(tree, mod):
     elif mod.type == 'MULTIPLIER':
         remove_node(tree, mod, 'multiplier')
 
-class YNewTexModifier(bpy.types.Operator):
-    bl_idname = "node.y_new_layer_modifier"
-    bl_label = "New Texture Modifier"
-    bl_description = "New Texture Modifier"
+class YNewYPaintModifier(bpy.types.Operator):
+    bl_idname = "node.y_new_ypaint_modifier"
+    bl_label = "New " + ADDON_TITLE + " Modifier"
+    bl_description = "New " + ADDON_TITLE + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
     type = EnumProperty(
@@ -407,15 +407,15 @@ class YNewTexModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_cpaint_node() and hasattr(context, 'parent')
+        return get_active_ypaint_node() and hasattr(context, 'parent')
 
     def execute(self, context):
-        node = get_active_cpaint_node()
+        node = get_active_ypaint_node()
         group_tree = node.node_tree
-        tl = group_tree.tl
+        yp = group_tree.yp
 
-        m = re.match(r'^tl\.layers\[(\d+)\]', context.parent.path_from_id())
-        if m: layer = tl.layers[int(m.group(1))]
+        m = re.match(r'^yp\.layers\[(\d+)\]', context.parent.path_from_id())
+        if m: layer = yp.layers[int(m.group(1))]
         else: layer = None
 
         mod = add_new_modifier(context.parent, self.type)
@@ -425,7 +425,7 @@ class YNewTexModifier(bpy.types.Operator):
 
         # If RGB to intensity is added, bump base is better be 0.0
         if layer and self.type == 'RGB_TO_INTENSITY':
-            for i, ch in enumerate(tl.channels):
+            for i, ch in enumerate(yp.channels):
                 c = context.layer.channels[i]
                 if ch.type == 'NORMAL':
                     c.bump_base_value = 0.0
@@ -442,21 +442,21 @@ class YNewTexModifier(bpy.types.Operator):
             rearrange_layer_nodes(layer)
             reconnect_layer_nodes(layer)
         else: 
-            rearrange_tl_nodes(group_tree)
-            reconnect_tl_nodes(group_tree)
+            rearrange_yp_nodes(group_tree)
+            reconnect_yp_nodes(group_tree)
 
         # Reconnect modifier nodes
         #reconnect_between_modifier_nodes(context.parent)
 
         # Update UI
-        context.window_manager.ycpui.need_update = True
+        context.window_manager.ypui.need_update = True
 
         return {'FINISHED'}
 
-class YMoveTexModifier(bpy.types.Operator):
-    bl_idname = "node.y_move_layer_modifier"
-    bl_label = "Move Texture Modifier"
-    bl_description = "Move Texture Modifier"
+class YMoveYPaintModifier(bpy.types.Operator):
+    bl_idname = "node.y_move_ypaint_modifier"
+    bl_label = "Move " + ADDON_TITLE + " Modifier"
+    bl_description = "Move " + ADDON_TITLE + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
     direction = EnumProperty(
@@ -467,13 +467,13 @@ class YMoveTexModifier(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return (get_active_cpaint_node() and 
+        return (get_active_ypaint_node() and 
                 hasattr(context, 'parent') and hasattr(context, 'modifier'))
 
     def execute(self, context):
-        node = get_active_cpaint_node()
+        node = get_active_ypaint_node()
         group_tree = node.node_tree
-        tl = group_tree.tl
+        yp = group_tree.yp
 
         parent = context.parent
 
@@ -510,17 +510,17 @@ class YMoveTexModifier(bpy.types.Operator):
 
         # Rearrange nodes
         if layer: rearrange_layer_nodes(layer)
-        else: rearrange_tl_nodes(group_tree)
+        else: rearrange_yp_nodes(group_tree)
 
         # Update UI
-        context.window_manager.ycpui.need_update = True
+        context.window_manager.ypui.need_update = True
 
         return {'FINISHED'}
 
-class YRemoveTexModifier(bpy.types.Operator):
-    bl_idname = "node.y_remove_layer_modifier"
-    bl_label = "Remove Texture Modifier"
-    bl_description = "Remove Texture Modifier"
+class YRemoveYPaintModifier(bpy.types.Operator):
+    bl_idname = "node.y_remove_ypaint_modifier"
+    bl_label = "Remove " + ADDON_TITLE + " Modifier"
+    bl_description = "Remove " + ADDON_TITLE + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -529,7 +529,7 @@ class YRemoveTexModifier(bpy.types.Operator):
 
     def execute(self, context):
         group_tree = context.parent.id_data
-        tl = group_tree.tl
+        yp = group_tree.yp
 
         parent = context.parent
         mod = context.modifier
@@ -564,15 +564,15 @@ class YRemoveTexModifier(bpy.types.Operator):
         else:
             # Reconnect nodes
             #reconnect_between_modifier_nodes(parent)
-            reconnect_tl_nodes(group_tree)
+            reconnect_yp_nodes(group_tree)
 
         # Rearrange nodes
         if layer:
             rearrange_layer_nodes(layer)
-        else: rearrange_tl_nodes(group_tree)
+        else: rearrange_yp_nodes(group_tree)
 
         # Update UI
-        context.window_manager.ycpui.need_update = True
+        context.window_manager.ypui.need_update = True
 
         return {'FINISHED'}
 
@@ -748,20 +748,20 @@ def update_modifier_enable(self, context):
 
 def update_modifier_shortcut(self, context):
 
-    tl = self.id_data.tl
+    yp = self.id_data.yp
 
     mod = self
 
     if mod.shortcut:
 
-        match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
-        match2 = re.match(r'tl\.layers\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
-        match3 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+        match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+        match2 = re.match(r'yp\.layers\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
+        match3 = re.match(r'yp\.channels\[(\d+)\]\.modifiers\[(\d+)\]', mod.path_from_id())
 
 
         if match1 or match2:
 
-            layer = tl.layers[int(match1.group(1))]
+            layer = yp.layers[int(match1.group(1))]
             layer.color_shortcut = False
 
             for m in layer.modifiers:
@@ -774,22 +774,22 @@ def update_modifier_shortcut(self, context):
                         m.shortcut = False
 
         elif match3:
-            channel = tl.channels[int(match2.group(1))]
+            channel = yp.channels[int(match2.group(1))]
             for m in channel.modifiers:
                 if m != mod: 
                     m.shortcut = False
 
 def update_invert_channel(self, context):
 
-    tl = self.id_data.tl
-    match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match3 = re.match(r'tl\.layers\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    yp = self.id_data.yp
+    match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'yp\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'yp\.layers\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1: 
-        root_ch = tl.channels[int(match1.group(2))]
+        root_ch = yp.channels[int(match1.group(2))]
         channel_type = root_ch.type
     elif match2:
-        root_ch = tl.channels[int(match2.group(1))]
+        root_ch = yp.channels[int(match2.group(1))]
         channel_type = root_ch.type
     elif match3:
         channel_type = 'RGB'
@@ -813,15 +813,15 @@ def update_use_clamp(self, context):
         multiplier.inputs[2].default_value = 1.0 if self.use_clamp and self.enable else 0.0
 
 def update_multiplier_val_input(self, context):
-    tl = self.id_data.tl
-    match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match3 = re.match(r'tl\.layers\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    yp = self.id_data.yp
+    match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'yp\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'yp\.layers\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1: 
-        root_ch = tl.channels[int(match1.group(2))]
+        root_ch = yp.channels[int(match1.group(2))]
         channel_type = root_ch.type
     elif match2:
-        root_ch = tl.channels[int(match2.group(1))]
+        root_ch = yp.channels[int(match2.group(1))]
         channel_type = root_ch.type
     elif match3:
         channel_type = 'RGB'
@@ -839,15 +839,15 @@ def update_multiplier_val_input(self, context):
             multiplier.inputs[6].default_value = self.multiplier_a_val if self.enable else 1.0
 
 def update_brightcon_value(self, context):
-    tl = self.id_data.tl
-    match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match3 = re.match(r'tl\.layers\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    yp = self.id_data.yp
+    match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'yp\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'yp\.layers\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1: 
-        root_ch = tl.channels[int(match1.group(2))]
+        root_ch = yp.channels[int(match1.group(2))]
         channel_type = root_ch.type
     elif match2:
-        root_ch = tl.channels[int(match2.group(1))]
+        root_ch = yp.channels[int(match2.group(1))]
         channel_type = root_ch.type
     elif match3:
         channel_type = 'RGB'
@@ -869,15 +869,15 @@ def update_rgb2i_col(self, context):
 def update_oc_col(self, context):
     tree = get_mod_tree(self)
 
-    tl = self.id_data.tl
-    match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    yp = self.id_data.yp
+    match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'yp\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
 
     if match1: 
-        root_ch = tl.channels[int(match1.group(2))]
+        root_ch = yp.channels[int(match1.group(2))]
         channel_type = root_ch.type
     elif match2:
-        root_ch = tl.channels[int(match2.group(1))]
+        root_ch = yp.channels[int(match2.group(1))]
         channel_type = root_ch.type
     else:
         channel_type = 'RGB'
@@ -898,15 +898,15 @@ def update_oc_col(self, context):
 #    
 #    if self.oc_use_normal_base:
 #
-#        tl = self.id_data.tl
-#        match1 = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-#        #match2 = re.match(r'tl\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+#        yp = self.id_data.yp
+#        match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+#        #match2 = re.match(r'yp\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
 #        if match1: 
-#            layer = tl.layers[int(match1.group(1))]
+#            layer = yp.layers[int(match1.group(1))]
 #            ch = layer.channels[int(match1.group(2))]
-#            root_ch = tl.channels[int(match1.group(2))]
+#            root_ch = yp.channels[int(match1.group(2))]
 #        #elif match2:
-#        #    root_ch = tl.channels[int(match2.group(1))]
+#        #    root_ch = yp.channels[int(match2.group(1))]
 #        else: return
 #
 #        if root_ch.type != 'NORMAL': return
@@ -925,7 +925,7 @@ def update_oc_col(self, context):
 #
 #        self.oc_col = val
 
-class YTextureModifier(bpy.types.PropertyGroup):
+class YPaintModifier(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_modifier_enable)
     name = StringProperty(default='')
 
@@ -1024,13 +1024,13 @@ class YTextureModifier(bpy.types.PropertyGroup):
 def enable_modifiers_tree(parent, rearrange = False):
     
     group_tree = parent.id_data
-    tl = group_tree.tl
+    yp = group_tree.yp
 
-    match1 = re.match(r'^tl\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
-    match2 = re.match(r'^tl\.layers\[(\d+)\]$', parent.path_from_id())
+    match1 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^yp\.layers\[(\d+)\]$', parent.path_from_id())
     if match1:
-        layer = tl.layers[int(match1.group(1))]
-        root_ch = tl.channels[int(match1.group(2))]
+        layer = yp.layers[int(match1.group(1))]
+        root_ch = yp.channels[int(match1.group(2))]
         name = root_ch.name + ' ' + layer.name
         #if layer.type == 'BACKGROUND':
         if layer.type in {'BACKGROUND', 'COLOR'}:
@@ -1053,7 +1053,7 @@ def enable_modifiers_tree(parent, rearrange = False):
         return 
 
     # Create modifier tree
-    mod_tree = bpy.data.node_groups.new('~TL Modifiers ' + name, 'ShaderNodeTree')
+    mod_tree = bpy.data.node_groups.new('~yP Modifiers ' + name, 'ShaderNodeTree')
 
     mod_tree.inputs.new('NodeSocketColor', 'RGB')
     mod_tree.inputs.new('NodeSocketFloat', 'Alpha')
@@ -1099,13 +1099,13 @@ def enable_modifiers_tree(parent, rearrange = False):
 
 def disable_modifiers_tree(parent, rearrange=False):
     group_tree = parent.id_data
-    tl = group_tree.tl
+    yp = group_tree.yp
 
-    match1 = re.match(r'^tl\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
-    match2 = re.match(r'^tl\.layers\[(\d+)\]$', parent.path_from_id())
+    match1 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^yp\.layers\[(\d+)\]$', parent.path_from_id())
     if match1: 
-        layer = tl.layers[int(match1.group(1))]
-        root_ch = tl.channels[int(match1.group(2))]
+        layer = yp.layers[int(match1.group(1))]
+        root_ch = yp.channels[int(match1.group(2))]
 
         # Check if fine bump map is still used
         if len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and (
@@ -1154,13 +1154,13 @@ def disable_modifiers_tree(parent, rearrange=False):
         reconnect_layer_nodes(layer)
 
 def register():
-    bpy.utils.register_class(YNewTexModifier)
-    bpy.utils.register_class(YMoveTexModifier)
-    bpy.utils.register_class(YRemoveTexModifier)
-    bpy.utils.register_class(YTextureModifier)
+    bpy.utils.register_class(YNewYPaintModifier)
+    bpy.utils.register_class(YMoveYPaintModifier)
+    bpy.utils.register_class(YRemoveYPaintModifier)
+    bpy.utils.register_class(YPaintModifier)
 
 def unregister():
-    bpy.utils.unregister_class(YNewTexModifier)
-    bpy.utils.unregister_class(YMoveTexModifier)
-    bpy.utils.unregister_class(YRemoveTexModifier)
-    bpy.utils.unregister_class(YTextureModifier)
+    bpy.utils.unregister_class(YNewYPaintModifier)
+    bpy.utils.unregister_class(YMoveYPaintModifier)
+    bpy.utils.unregister_class(YRemoveYPaintModifier)
+    bpy.utils.unregister_class(YPaintModifier)

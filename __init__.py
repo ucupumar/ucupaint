@@ -26,7 +26,7 @@
 #   - Non flip bump background layer (V, still miss bump and ramp effect)
 # - More modifier
 #   - Intensity ramp (X, useless)
-# - Texture group/folder
+# - Layer group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects (V)
 # - New layer/mask improvements
@@ -37,11 +37,15 @@
 # - Lazy channel nodes (?)
 #   - Nodes won't exists until it's enabled (X, replaced with next point)
 #   - Blend nodes will be muted at default if not enabled
-#   - Add option to Optimize the entire tl nodes
-# - Very large texture (UDIM like) to prevent number of image limits
+#   - Add option to Optimize the entire yp nodes
+# - Very large image (UDIM like) to prevent number of image limits
 #   - Basic implementation (Add/Delete/Edit UV) (V)
 #   - Support for HDR (V)
 #   - Dealing with layer name (V, good enough)
+# - lib.blend
+#   - Prefix for node group lib 
+#   - Create automatic frame node
+#   - Make better node group library update system
 # - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
 # - Every modifiers has intensity value for muting to prevent recompilation (V)
@@ -49,12 +53,12 @@
 # - Add intensity multiplier to non transition bump (X, transition already do the job)
 # - Oveeride color should be override value for value channel (V)
 # - Make sure ui is expanded if modifier or transition is added (V)
-# - Multiple tl node selector from ui (V)
+# - Multiple yp node selector from ui (V)
 # - Replace new node can detect duplicated node group (V)
 # - Add more comments to blender bug report about reflection fix (It should be only calculated on glossy/reflection code, not on diffuse)
 # - Bake channel (& layer group)
 # - Make every node name unique (using hash?)
-# - Refactor for more consistent class names and properties
+# - Refactor for more consistent class names and properties (V)
 # - Fix backface consistency with Blender 2.8 & 2.7
 
 # TODO:
@@ -67,7 +71,7 @@
 #   - Blur (X?, Already covered by native SSS)
 # - Preview extra
 #   - Matcap view on Normal preview
-#   - Per texture preview
+#   - Per layer preview
 # - Transition
 #   - Ramp works with non flip background (V, too complicated and has little use)
 #   - Bump works with non flip background (V, too complicated and has little use)
@@ -87,7 +91,7 @@
 # - Fine bump still produces wrong result when using non UV texture mapping (V)
 # - Sharp bump can cause bleed on color channel (V)
 # - Value channel should output only grayscale (V)
-# - Wrong result after adding texture modifier (V, need more testing)
+# - Wrong result after adding layer modifier (V, need more testing)
 # - Transition AO at flip produce wrong result (V)
 # - Bring back modifier on normal channel at Color layer (V)
 # - Childen layers produce wrong result after delete parent only (V)
@@ -100,12 +104,12 @@
 # - Use of cineon images will cause crash (??)
 
 bl_info = {
-    "name": "yPaint",
+    "name": "Painty",
     "author": "Yusuf Umar",
     "version": (0, 1, 0),
     "blender": (2, 79, 0),
-    "location": "Node Editor > Properties > Texture Layers",
-    "description": "Special node to manage texture layers for Cycles materials",
+    "location": "Node Editor > Properties > Painty",
+    "description": "Special node to manage painting layers for Cycles and Eevee materials",
     "warning" : "This is alpha version, incompability to future releases might happen",
     #"wiki_url": "http://patreon.com/ucupumar",
     "category": "Node",
@@ -156,7 +160,7 @@ def register():
     Layer.register()
     Root.register()
 
-    print('INFO: yTexLayers ' + common.get_current_version_str() + ' is registered!')
+    print('INFO: ' bl_info['name'] + ' ' + common.get_current_version_str() + ' is registered!')
 
 def unregister():
     # Remove classes
@@ -175,7 +179,7 @@ def unregister():
     Layer.unregister()
     Root.unregister()
 
-    print('INFO: yTexLayers ' + common.get_current_version_str() + ' is unregistered!')
+    print('INFO: ' bl_info['name'] + ' ' + common.get_current_version_str() + ' is unregistered!')
 
 if __name__ == "__main__":
     register()

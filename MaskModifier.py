@@ -15,9 +15,9 @@ can_be_expanded = {
 
 def update_mask_modifier_enable(self, context):
 
-    tl = self.id_data.tl
-    match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(match.group(1))]
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
     mask = layer.masks[int(match.group(2))]
     mod = self
 
@@ -116,7 +116,7 @@ class YNewMaskModifier(bpy.types.Operator):
         reconnect_layer_nodes(context.layer)
 
         # Update UI
-        context.window_manager.ycpui.need_update = True
+        context.window_manager.ypui.need_update = True
 
         return {'FINISHED'}
 
@@ -168,7 +168,7 @@ class YMoveMaskModifier(bpy.types.Operator):
         reconnect_layer_nodes(layer)
 
         # Update UI
-        context.window_manager.ycpui.need_update = True
+        context.window_manager.ypui.need_update = True
 
         return {'FINISHED'}
 
@@ -204,7 +204,7 @@ class YRemoveMaskModifier(bpy.types.Operator):
         reconnect_layer_nodes(layer)
 
         # Update UI
-        context.window_manager.ycpui.need_update = True
+        context.window_manager.ypui.need_update = True
 
         return {'FINISHED'}
 

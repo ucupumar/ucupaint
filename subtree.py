@@ -16,7 +16,7 @@ def move_mod_group(layer, from_tree, to_tree):
         mod_group_1 = new_node(to_tree, layer, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
         mod_group_1.node_tree = mod_tree
 
-def refresh_source_tree_ios(source_tree, tex_type):
+def refresh_source_tree_ios(source_tree, layer_type):
 
     # Create input and outputs
     inp = source_tree.inputs.get('Vector')
@@ -32,7 +32,7 @@ def refresh_source_tree_ios(source_tree, tex_type):
     alp1 = source_tree.outputs.get('Alpha 1')
     solid = source_tree.nodes.get(SOURCE_SOLID_VALUE)
 
-    if tex_type != 'IMAGE':
+    if layer_type != 'IMAGE':
 
         if not col1: col1 = source_tree.outputs.new('NodeSocketColor', 'Color 1')
         if not alp1: alp1 = source_tree.outputs.new('NodeSocketFloat', 'Alpha 1')
@@ -61,7 +61,7 @@ def enable_layer_source_tree(layer, rearrange=False):
         mapping_ref = layer_tree.nodes.get(layer.mapping)
 
         # Create source tree
-        source_tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + layer.name + ' Source', 'ShaderNodeTree')
+        source_tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + layer.name + ' Source', 'ShaderNodeTree')
 
         #source_tree.outputs.new('NodeSocketFloat', 'Factor')
 
@@ -121,13 +121,13 @@ def disable_layer_source_tree(layer, rearrange=True):
 
     #if layer.type == 'VCOL': return
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     # Check if fine bump map is used on some of layer channels
     fine_bump_found = False
     blur_found = False
     for i, ch in enumerate(layer.channels):
-        if tl.channels[i].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP' 
+        if yp.channels[i].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP' 
                 or (ch.enable_transition_bump and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})):
             fine_bump_found = True
         if hasattr(ch, 'enable_blur') and ch.enable_blur:
@@ -173,7 +173,7 @@ def disable_layer_source_tree(layer, rearrange=True):
 
 def set_mask_uv_neighbor(tree, layer, mask):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     # NOTE: Checking transition bump everytime this function called is not that tidy
     # Check if transition bump channel is available
@@ -184,13 +184,13 @@ def set_mask_uv_neighbor(tree, layer, mask):
 
     if not bump_ch:
         chs = [c for i,c in enumerate(layer.channels) 
-                if c.normal_map_type == 'FINE_BUMP_MAP' and tl.channels[i].type == 'NORMAL']
+                if c.normal_map_type == 'FINE_BUMP_MAP' and yp.channels[i].type == 'NORMAL']
         if chs: bump_ch = chs[0]
 
     # Check transition bump chain
     if bump_ch:
         chain = min(bump_ch.transition_bump_chain, len(layer.masks))
-        match = re.match(r'tl\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
         mask_idx = int(match.group(2))
         if mask_idx >= chain:
             return False
@@ -406,7 +406,7 @@ def check_create_bump_base(layer, tree, ch):
 
 def check_mask_mix_nodes(layer, tree=None):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
 
     trans_bump = get_transition_bump_channel(layer)
@@ -419,7 +419,7 @@ def check_mask_mix_nodes(layer, tree=None):
         for j, c in enumerate(mask.channels):
 
             ch = layer.channels[j]
-            root_ch = tl.channels[j]
+            root_ch = yp.channels[j]
 
             if root_ch.type == 'NORMAL' and not trans_bump:
                 chain = min(ch.transition_bump_chain, len(layer.masks))
@@ -481,7 +481,7 @@ def check_mask_mix_nodes(layer, tree=None):
 
 def check_mask_source_tree(layer): #, ch=None):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     # Try to get transition bump
     trans_bump = get_transition_bump_channel(layer)
@@ -490,7 +490,7 @@ def check_mask_source_tree(layer): #, ch=None):
     fine_bump = None
     if not trans_bump:
         chs = [c for i,c in enumerate(layer.channels) 
-                if c.normal_map_type == 'FINE_BUMP_MAP' and tl.channels[i].type == 'NORMAL']
+                if c.normal_map_type == 'FINE_BUMP_MAP' and yp.channels[i].type == 'NORMAL']
         if chs: fine_bump = chs[0]
 
     if trans_bump:

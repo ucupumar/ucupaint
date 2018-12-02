@@ -13,7 +13,7 @@ DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
 
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #, has_parent=False):
 
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
 
     correct_index = 0
@@ -24,7 +24,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
-        root_ch = tl.channels[i]
+        root_ch = yp.channels[i]
 
         inp = tree.inputs.get(root_ch.name)
         if not inp:
@@ -70,7 +70,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
         suffix = ' Background' if layer.type == 'BACKGROUND' else ' Group'
 
         for i, ch in enumerate(layer.channels):
-            root_ch = tl.channels[i]
+            root_ch = yp.channels[i]
 
             name = root_ch.name + suffix
             inp = tree.inputs.get(name)
@@ -113,7 +113,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
 
     # Channel nodes
     for i, ch in enumerate(layer.channels):
-        root_ch = tl.channels[i]
+        root_ch = yp.channels[i]
 
         # Intensity nodes
         intensity = tree.nodes.get(ch.intensity)
@@ -142,12 +142,12 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
             check_channel_normal_map_nodes(tree, layer, root_ch, ch)
 
 def channel_items(self, context):
-    node = get_active_cpaint_node()
-    tl = node.node_tree.tl
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
 
     items = []
 
-    for i, ch in enumerate(tl.channels):
+    for i, ch in enumerate(yp.channels):
         if hasattr(lib, 'custom_icons'):
             icon_name = lib.channel_custom_icon_dict[ch.type]
             items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
@@ -159,13 +159,13 @@ def channel_items(self, context):
 
     return items
 
-def tex_input_items(self, context):
-    tl = self.id_data.tl
+def layer_input_items(self, context):
+    yp = self.id_data.yp
 
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     if not m: return []
-    layer = tl.layers[int(m.group(1))]
-    #root_ch = tl.channels[int(m.group(2))]
+    layer = yp.layers[int(m.group(1))]
+    #root_ch = yp.channels[int(m.group(2))]
 
     items = []
 
@@ -185,26 +185,26 @@ def tex_input_items(self, context):
 
     return items
 
-def normal_map_type_items_(tex_type):
+def normal_map_type_items_(layer_type):
     items = []
 
     if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
         items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 0))
         items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 1))
-        #if tex_type != 'VCOL':
+        #if layer_type != 'VCOL':
         items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 2))
     else: # Blender 2.8
         items.append(('NORMAL_MAP', 'Normal Map', ''))
         items.append(('BUMP_MAP', 'Bump Map', ''))
-        #if tex_type != 'VCOL':
+        #if layer_type != 'VCOL':
         items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
 
     return items
 
-def tex_channel_normal_map_type_items(self, context):
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    tl = self.id_data.tl
-    layer = tl.layers[int(m.group(1))]
+def layer_channel_normal_map_type_items(self, context):
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    yp = self.id_data.yp
+    layer = yp.layers[int(m.group(1))]
     return normal_map_type_items_(layer.type)
 
 def new_layer_channel_normal_map_type_items(self, context):
@@ -213,7 +213,7 @@ def new_layer_channel_normal_map_type_items(self, context):
 def img_normal_map_type_items(self, context):
     return normal_map_type_items_('IMAGE')
 
-def add_new_layer(group_tree, tex_name, tex_type, channel_idx, 
+def add_new_layer(group_tree, layer_name, layer_type, channel_idx, 
         blend_type, normal_blend, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, segment=None,
         add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1),
@@ -222,40 +222,40 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False
         ):
 
-    tl = group_tree.tl
-    #ycpup = bpy.context.user_preferences.addons[__package__].preferences
+    yp = group_tree.yp
+    #ypup = bpy.context.user_preferences.addons[__package__].preferences
     obj = bpy.context.object
 
     # Halt rearrangements and reconnections until all nodes already created
-    tl.halt_reconnect = True
+    yp.halt_reconnect = True
 
     # Get parent dict
-    parent_dict = get_parent_dict(tl)
+    parent_dict = get_parent_dict(yp)
 
     # Get active layer
-    try: active_tex = tl.layers[tl.active_layer_index]
-    except: active_tex = None
+    try: active_layer = yp.layers[yp.active_layer_index]
+    except: active_layer = None
 
     # Get a possible parent layer group
-    parent_tex = None
-    if active_tex: 
-        if active_tex.type == 'GROUP':
-            parent_tex = active_tex
-        elif active_tex.parent_idx != -1:
-            parent_tex = tl.layers[active_tex.parent_idx]
+    parent_layer = None
+    if active_layer: 
+        if active_layer.type == 'GROUP':
+            parent_layer = active_layer
+        elif active_layer.parent_idx != -1:
+            parent_layer = yp.layers[active_layer.parent_idx]
 
     # Get parent index
-    if parent_tex: 
-        parent_idx = get_layer_index(parent_tex)
+    if parent_layer: 
+        parent_idx = get_layer_index(parent_layer)
         has_parent = True
     else: 
         parent_idx = -1
         has_parent = False
 
     # Add layer to group
-    layer = tl.layers.add()
-    layer.type = tex_type
-    layer.name = tex_name
+    layer = yp.layers.add()
+    layer.type = layer_type
+    layer.name = layer_name
     layer.uv_name = uv_name
 
     if segment:
@@ -265,33 +265,33 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
         layer.image_name = image.name
 
     # Move new layer to current index
-    last_index = len(tl.layers)-1
-    if active_tex and active_tex.type == 'GROUP':
-        index = tl.active_layer_index + 1
-    else: index = tl.active_layer_index
+    last_index = len(yp.layers)-1
+    if active_layer and active_layer.type == 'GROUP':
+        index = yp.active_layer_index + 1
+    else: index = yp.active_layer_index
 
     # Set parent index
-    parent_dict = set_parent_dict_val(tl, parent_dict, layer.name, parent_idx)
+    parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, parent_idx)
 
-    tl.layers.move(last_index, index)
-    layer = tl.layers[index] # Repoint to new index
+    yp.layers.move(last_index, index)
+    layer = yp.layers[index] # Repoint to new index
 
     # Remap other layers parent
-    #for i, t in enumerate(tl.layers):
+    #for i, t in enumerate(yp.layers):
     #    if i > index and t.parent_idx != -1:
     #        t.parent_idx += 1
 
     # Remap parents
-    for t in tl.layers:
-        t.parent_idx = get_layer_index_by_name(tl, parent_dict[t.name])
+    for t in yp.layers:
+        t.parent_idx = get_layer_index_by_name(yp, parent_dict[t.name])
 
     # New layer tree
-    tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + tex_name, 'ShaderNodeTree')
-    tree.tl.is_tl_layer_node = True
-    tree.tl.version = get_current_version_str()
+    tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + layer_name, 'ShaderNodeTree')
+    tree.yp.is_ypaint_layer_node = True
+    tree.yp.version = get_current_version_str()
 
     # New layer node group
-    group_node = new_node(group_tree, layer, 'group_node', 'ShaderNodeGroup', tex_name)
+    group_node = new_node(group_tree, layer, 'group_node', 'ShaderNodeGroup', layer_name)
     group_node.node_tree = tree
 
     # Create info nodes
@@ -302,19 +302,19 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
     end = new_node(tree, layer, 'end', 'NodeGroupOutput', 'Start')
 
     # Add source
-    source = new_node(tree, layer, 'source', layer_node_bl_idnames[tex_type], 'Source')
+    source = new_node(tree, layer, 'source', layer_node_bl_idnames[layer_type], 'Source')
 
-    if tex_type == 'IMAGE':
+    if layer_type == 'IMAGE':
         # Always set non color to image node because of linear pipeline
         source.color_space = 'NONE'
 
         # Add new image if it's image layer
         source.image = image
 
-    elif tex_type == 'VCOL':
+    elif layer_type == 'VCOL':
         source.attribute_name = vcol.name
 
-    elif tex_type == 'COLOR':
+    elif layer_type == 'COLOR':
         col = (solid_color[0], solid_color[1], solid_color[2], 1.0)
         source.outputs[0].default_value = col
 
@@ -354,7 +354,7 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
     layer.texcoord_type = texcoord_type
 
     # Add channels to current layer
-    for root_ch in tl.channels:
+    for root_ch in yp.channels:
         ch = layer.channels.add()
 
     if add_mask:
@@ -367,7 +367,7 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
         if mask_type == 'IMAGE':
             if use_image_atlas_for_mask:
                 mask_segment = ImageAtlas.get_set_image_atlas_segment(
-                        mask_width, mask_height, mask_color, mask_use_hdr) #, ycpup.image_atlas_size)
+                        mask_width, mask_height, mask_color, mask_use_hdr) #, ypup.image_atlas_size)
                 mask_image = mask_segment.id_data
             else:
                 mask_image = bpy.data.images.new(mask_name, 
@@ -413,7 +413,7 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
     shortcut_created = False
     for i, ch in enumerate(layer.channels):
 
-        root_ch = tl.channels[i]
+        root_ch = yp.channels[i]
 
         # Set some props to selected channel
         if layer.type in {'GROUP', 'BACKGROUND'} or channel_idx == i or channel_idx == -1:
@@ -456,10 +456,10 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
     check_all_layer_channel_io_and_nodes(layer, tree) #, has_parent=has_parent)
 
     # Refresh paint image by updating the index
-    tl.active_layer_index = index
+    yp.active_layer_index = index
 
     # Unhalt rearrangements and reconnections since all nodes already created
-    tl.halt_reconnect = False
+    yp.halt_reconnect = False
 
     # Rearrange node inside layers
     rearrange_layer_nodes(layer)
@@ -468,14 +468,14 @@ def add_new_layer(group_tree, tex_name, tex_type, channel_idx,
     return layer
 
 def update_channel_idx_new_layer(self, context):
-    node = get_active_cpaint_node()
-    tl = node.node_tree.tl
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
 
     if self.channel_idx == '-1':
         self.rgb_to_intensity_color = (1,1,1)
         return
 
-    for i, ch in enumerate(tl.channels):
+    for i, ch in enumerate(yp.channels):
         if self.channel_idx == str(i):
             if ch.type == 'RGB':
                 self.rgb_to_intensity_color = (1,0,1)
@@ -607,16 +607,16 @@ class YNewLayer(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return get_active_cpaint_node()
+        return get_active_ypaint_node()
         #return hasattr(context, 'group_node') and context.group_node
 
     def invoke(self, context, event):
 
-        node = get_active_cpaint_node()
-        tl = node.node_tree.tl
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
         obj = context.object
 
-        channel = tl.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         if channel and channel.type == 'RGB':
             self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
 
@@ -628,7 +628,7 @@ class YNewLayer(bpy.types.Operator):
             items = obj.data.vertex_colors
         else:
             name = [i[1] for i in layer_type_items if i[0] == self.type][0]
-            items = tl.layers
+            items = yp.layers
 
         # Make sure add rgb to intensity is inactive
         if self.type != 'IMAGE':
@@ -646,7 +646,7 @@ class YNewLayer(bpy.types.Operator):
 
         # Layer name must also unique
         if self.type == 'IMAGE':
-            self.name = get_unique_name(self.name, tl.layers)
+            self.name = get_unique_name(self.name, yp.layers)
 
         if obj.type != 'MESH':
             #self.texcoord_type = 'Object'
@@ -661,7 +661,7 @@ class YNewLayer(bpy.types.Operator):
             if obj.type == 'MESH' and len(uv_layers) > 0:
                 active_name = uv_layers.active.name
                 if active_name == TEMP_UV:
-                    self.uv_map = tl.layers[tl.active_layer_index].uv_name
+                    self.uv_map = yp.layers[yp.active_layer_index].uv_name
                 else: self.uv_map = uv_layers.active.name
 
                 self.mask_uv_name = self.uv_map
@@ -685,16 +685,16 @@ class YNewLayer(bpy.types.Operator):
         return None
 
     def draw(self, context):
-        #tl = self.group_node.node_tree.tl
-        node = get_active_cpaint_node()
-        tl = node.node_tree.tl
+        #yp = self.group_node.node_tree.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
         obj = context.object
 
-        if len(tl.channels) == 0:
+        if len(yp.channels) == 0:
             self.layout.label(text='No channel found! Still want to create a layer?', icon='ERROR')
             return
 
-        channel = tl.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
 
         if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
             row = self.layout.split(percentage=0.4)
@@ -805,13 +805,13 @@ class YNewLayer(bpy.types.Operator):
 
         T = time.time()
 
-        #ycpup = bpy.context.user_preferences.addons[__package__].preferences
+        #ypup = bpy.context.user_preferences.addons[__package__].preferences
         wm = context.window_manager
         area = context.area
         obj = context.object
-        node = get_active_cpaint_node()
-        tl = node.node_tree.tl
-        ycpui = context.window_manager.ycpui
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        ypui = context.window_manager.ypui
 
         # Check if object is not a mesh
         if self.type == 'VCOL' and obj.type != 'MESH':
@@ -823,7 +823,7 @@ class YNewLayer(bpy.types.Operator):
             same_name = [i for i in bpy.data.images if i.name == self.name]
         elif self.type == 'VCOL':
             same_name = [i for i in obj.data.vertex_colors if i.name == self.name]
-        else: same_name = [t for t in tl.layers if t.name == self.name]
+        else: same_name = [t for t in yp.layers if t.name == self.name]
         if same_name:
             if self.type == 'IMAGE':
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
@@ -842,7 +842,7 @@ class YNewLayer(bpy.types.Operator):
 
             if self.use_image_atlas:
                 segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, 'TRANSPARENT', self.hdr) #, ycpup.image_atlas_size)
+                        self.width, self.height, 'TRANSPARENT', self.hdr) #, ypup.image_atlas_size)
                 img = segment.id_data
             else:
 
@@ -863,7 +863,7 @@ class YNewLayer(bpy.types.Operator):
             vcol = obj.data.vertex_colors.new(name=self.name)
             set_obj_vertex_colors(obj, vcol, (1.0, 1.0, 1.0))
 
-        tl.halt_update = True
+        yp.halt_update = True
 
         layer = add_new_layer(node.node_tree, self.name, self.type, 
                 int(self.channel_idx), self.blend_type, self.normal_blend, 
@@ -891,20 +891,20 @@ class YNewLayer(bpy.types.Operator):
 
             refresh_temp_uv(obj, layer, True)
 
-        tl.halt_update = False
+        yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        #reconnect_tl_layer_nodes(node.node_tree)
-        reconnect_tl_nodes(node.node_tree)
-        rearrange_tl_nodes(node.node_tree)
+        #reconnect_yp_layer_nodes(node.node_tree)
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
 
         # Update UI
         if self.type != 'IMAGE':
-            ycpui.layer_ui.expand_content = True
-        ycpui.need_update = True
+            ypui.layer_ui.expand_content = True
+        ypui.need_update = True
 
         print('INFO: Layer', layer.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.tltimer.time = str(time.time())
+        wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -976,14 +976,14 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     @classmethod
     def poll(cls, context):
         #return hasattr(context, 'group_node') and context.group_node
-        return get_active_cpaint_node()
+        return get_active_ypaint_node()
 
     def invoke(self, context, event):
         obj = context.object
-        node = get_active_cpaint_node()
-        tl = node.node_tree.tl
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
-        channel = tl.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         if channel and channel.type == 'RGB':
             self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
 
@@ -994,7 +994,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
             active_name = obj.data.uv_layers.active.name
             if active_name == TEMP_UV:
-                self.uv_map = tl.layers[tl.active_layer_index].uv_name
+                self.uv_map = yp.layers[yp.active_layer_index].uv_name
             else: self.uv_map = obj.data.uv_layers.active.name
 
             # UV Map collections update
@@ -1013,11 +1013,11 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         return True
 
     def draw(self, context):
-        node = get_active_cpaint_node()
-        tl = node.node_tree.tl
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
         obj = context.object
 
-        channel = tl.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         
         row = self.layout.row()
 
@@ -1059,12 +1059,12 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         T = time.time()
 
         wm = context.window_manager
-        node = get_active_cpaint_node()
+        node = get_active_ypaint_node()
 
         import_list, directory = self.generate_paths()
         images = tuple(load_image(path, directory) for path in import_list)
 
-        node.node_tree.tl.halt_update = True
+        node.node_tree.yp.halt_update = True
 
         for image in images:
             if self.relative:
@@ -1075,17 +1075,17 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
                     self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map,
                     image, None, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
-        node.node_tree.tl.halt_update = False
+        node.node_tree.yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        #reconnect_tl_layer_nodes(node.node_tree)
-        reconnect_tl_nodes(node.node_tree)
-        rearrange_tl_nodes(node.node_tree)
+        #reconnect_yp_layer_nodes(node.node_tree)
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
 
         # Update UI
-        wm.ycpui.need_update = True
+        wm.ypui.need_update = True
         print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.tltimer.time = str(time.time())
+        wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1149,14 +1149,14 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         #return hasattr(context, 'group_node') and context.group_node
-        return get_active_cpaint_node()
+        return get_active_ypaint_node()
 
     def invoke(self, context, event):
         obj = context.object
-        node = get_active_cpaint_node()
-        tl = node.node_tree.tl
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
-        channel = tl.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         if channel and channel.type == 'RGB':
             self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
 
@@ -1166,7 +1166,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
             if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_map = tl.layers[tl.active_layer_index].uv_name
+                self.uv_map = yp.layers[yp.active_layer_index].uv_name
             else: self.uv_map = obj.data.uv_layers.active.name
 
             # UV Map collections update
@@ -1196,11 +1196,11 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        node = get_active_cpaint_node()
-        tl = node.node_tree.tl
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
         obj = context.object
 
-        channel = tl.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
 
         if self.type == 'IMAGE':
             self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
@@ -1250,7 +1250,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         obj = context.object
         wm = context.window_manager
-        node = get_active_cpaint_node()
+        node = get_active_ypaint_node()
 
         if self.type == 'IMAGE' and self.image_name == '':
             self.report({'ERROR'}, "No image selected!")
@@ -1259,7 +1259,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "No vertex color selected!")
             return {'CANCELLED'}
 
-        node.node_tree.tl.halt_update = True
+        node.node_tree.yp.halt_update = True
 
         image = None
         vcol = None
@@ -1274,17 +1274,17 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                 self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map, 
                 image, vcol, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
-        node.node_tree.tl.halt_update = False
+        node.node_tree.yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        #reconnect_tl_layer_nodes(node.node_tree)
-        reconnect_tl_nodes(node.node_tree)
-        rearrange_tl_nodes(node.node_tree)
+        #reconnect_yp_layer_nodes(node.node_tree)
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
 
         # Update UI
-        wm.ycpui.need_update = True
+        wm.ypui.need_update = True
         print('INFO: Image', self.image_name, 'is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.tltimer.time = str(time.time())
+        wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1302,71 +1302,71 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_cpaint_node()
-        return group_node and len(group_node.node_tree.tl.layers) > 0
+        group_node = get_active_ypaint_node()
+        return group_node and len(group_node.node_tree.yp.layers) > 0
 
     def execute(self, context):
         T = time.time()
 
         wm = context.window_manager
-        node = get_active_cpaint_node()
-        tl = node.node_tree.tl
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
-        num_tex = len(tl.layers)
-        tex_idx = tl.active_layer_index
-        layer = tl.layers[tex_idx]
+        num_layers = len(yp.layers)
+        layer_idx = yp.active_layer_index
+        layer = yp.layers[layer_idx]
 
         # Remember parent
-        parent_dict = get_parent_dict(tl)
+        parent_dict = get_parent_dict(yp)
         
         # Move image slot
         if self.direction == 'UP':
-            neighbor_idx, neighbor_tex = get_upper_neighbor(layer)
-        elif self.direction == 'DOWN' and tex_idx < num_tex-1:
-            neighbor_idx, neighbor_tex = get_lower_neighbor(layer)
+            neighbor_idx, neighbor_layer = get_upper_neighbor(layer)
+        elif self.direction == 'DOWN' and layer_idx < num_layers-1:
+            neighbor_idx, neighbor_layer = get_lower_neighbor(layer)
         else:
             neighbor_idx = -1
-            neighbor_tex = None
+            neighbor_layer = None
 
         # Move outside up
         if is_top_member(layer) and self.direction == 'UP':
             #print('Case 1')
 
-            parent_dict = set_parent_dict_val(tl, parent_dict, layer.name, neighbor_tex.parent_idx)
+            parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, neighbor_layer.parent_idx)
 
             last_member_idx = get_last_child_idx(layer)
-            tl.layers.move(neighbor_idx, last_member_idx)
+            yp.layers.move(neighbor_idx, last_member_idx)
 
-            tl.active_layer_index = neighbor_idx
+            yp.active_layer_index = neighbor_idx
 
         # Move outside down
         elif is_bottom_member(layer) and self.direction == 'DOWN':
             #print('Case 2')
 
-            parent_dict = set_parent_dict_val(tl, parent_dict, layer.name, tl.layers[layer.parent_idx].parent_idx)
+            parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, yp.layers[layer.parent_idx].parent_idx)
 
-        elif neighbor_tex and neighbor_tex.type == 'GROUP':
+        elif neighbor_layer and neighbor_layer.type == 'GROUP':
 
             # Move inside up
             if self.direction == 'UP':
                 #print('Case 3')
 
-                parent_dict = set_parent_dict_val(tl, parent_dict, layer.name, neighbor_idx)
+                parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, neighbor_idx)
 
             # Move inside down
             elif self.direction == 'DOWN':
                 #print('Case 4')
 
-                parent_dict = set_parent_dict_val(tl, parent_dict, layer.name, neighbor_idx)
+                parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, neighbor_idx)
 
-                tl.layers.move(neighbor_idx, tex_idx)
-                tl.active_layer_index = tex_idx+1
+                yp.layers.move(neighbor_idx, layer_idx)
+                yp.active_layer_index = layer_idx+1
 
         # Remap parents
-        for t in tl.layers:
-            t.parent_idx = get_layer_index_by_name(tl, parent_dict[t.name])
+        for t in yp.layers:
+            t.parent_idx = get_layer_index_by_name(yp, parent_dict[t.name])
 
-        layer = tl.layers[tl.active_layer_index]
+        layer = yp.layers[yp.active_layer_index]
         #has_parent = layer.parent_idx != -1
 
         #if layer.type == 'GROUP' or has_parent:
@@ -1375,13 +1375,13 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
         reconnect_layer_nodes(layer)
 
         # Refresh layer channel blend nodes
-        rearrange_tl_nodes(node.node_tree)
-        reconnect_tl_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
+        reconnect_yp_nodes(node.node_tree)
 
         # Update UI
-        wm.ycpui.need_update = True
+        wm.ypui.need_update = True
         print('INFO: Layer', layer.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.tltimer.time = str(time.time())
+        wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1399,48 +1399,48 @@ class YMoveLayer(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_cpaint_node()
-        return group_node and len(group_node.node_tree.tl.layers) > 0
+        group_node = get_active_ypaint_node()
+        return group_node and len(group_node.node_tree.yp.layers) > 0
 
     def execute(self, context):
         T = time.time()
 
         wm = context.window_manager
-        node = get_active_cpaint_node()
-        tl = node.node_tree.tl
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
-        num_tex = len(tl.layers)
-        tex_idx = tl.active_layer_index
-        layer = tl.layers[tex_idx]
+        num_layers = len(yp.layers)
+        layer_idx = yp.active_layer_index
+        layer = yp.layers[layer_idx]
 
         # Get last member of group if selected layer is a group
         last_member_idx = get_last_child_idx(layer)
         
         # Get neighbor
         neighbor_idx = None
-        neighbor_tex = None
+        neighbor_layer = None
 
         if self.direction == 'UP':
-            neighbor_idx, neighbor_tex = get_upper_neighbor(layer)
+            neighbor_idx, neighbor_layer = get_upper_neighbor(layer)
 
         elif self.direction == 'DOWN':
-            neighbor_idx, neighbor_tex = get_lower_neighbor(layer)
+            neighbor_idx, neighbor_layer = get_lower_neighbor(layer)
 
-        if not neighbor_tex:
+        if not neighbor_layer:
             return {'CANCELLED'}
 
         # Remember all parents
-        parent_dict = get_parent_dict(tl)
+        parent_dict = get_parent_dict(yp)
 
-        if layer.type == 'GROUP' and neighbor_tex.type != 'GROUP':
+        if layer.type == 'GROUP' and neighbor_layer.type != 'GROUP':
 
             # Group layer UP to standard layer
             if self.direction == 'UP':
                 #print('Case A')
 
                 # Swap layer
-                tl.layers.move(neighbor_idx, last_member_idx)
-                tl.active_layer_index = neighbor_idx
+                yp.layers.move(neighbor_idx, last_member_idx)
+                yp.active_layer_index = neighbor_idx
 
                 #affected_start = neighbor_idx
                 #affected_end = last_member_idx+1
@@ -1450,61 +1450,61 @@ class YMoveLayer(bpy.types.Operator):
                 #print('Case B')
 
                 # Swap layer
-                tl.layers.move(neighbor_idx, tex_idx)
-                tl.active_layer_index = tex_idx+1
+                yp.layers.move(neighbor_idx, layer_idx)
+                yp.active_layer_index = layer_idx+1
 
                 #affected_start = neighbor_idx
-                #affected_end = tex_idx+1
+                #affected_end = layer_idx+1
 
-        elif layer.type == 'GROUP' and neighbor_tex.type == 'GROUP':
+        elif layer.type == 'GROUP' and neighbor_layer.type == 'GROUP':
 
             # Group layer UP to group layer
             if self.direction == 'UP':
                 #print('Case C')
 
                 # Swap all related layers
-                for i in range(last_member_idx+1 - tex_idx):
-                    tl.layers.move(tex_idx+i, neighbor_idx+i)
+                for i in range(last_member_idx+1 - layer_idx):
+                    yp.layers.move(layer_idx+i, neighbor_idx+i)
 
-                tl.active_layer_index = neighbor_idx
+                yp.active_layer_index = neighbor_idx
 
             # Group layer DOWN to group layer
             elif self.direction == 'DOWN':
                 #print('Case D')
 
-                last_neighbor_member_idx = get_last_child_idx(neighbor_tex)
+                last_neighbor_member_idx = get_last_child_idx(neighbor_layer)
                 num_members = last_neighbor_member_idx+1 - neighbor_idx
 
                 # Swap all related layers
                 for i in range(num_members):
-                    tl.layers.move(neighbor_idx+i, tex_idx+i)
+                    yp.layers.move(neighbor_idx+i, layer_idx+i)
 
-                tl.active_layer_index = tex_idx+num_members
+                yp.active_layer_index = layer_idx+num_members
 
-        elif layer.type != 'GROUP' and neighbor_tex.type == 'GROUP':
+        elif layer.type != 'GROUP' and neighbor_layer.type == 'GROUP':
 
             # Standard layer UP to Group Layer
             if self.direction == 'UP':
                 #print('Case E')
 
                 # Swap layer
-                tl.layers.move(tex_idx, neighbor_idx)
-                tl.active_layer_index = neighbor_idx
+                yp.layers.move(layer_idx, neighbor_idx)
+                yp.active_layer_index = neighbor_idx
 
                 start_remap = neighbor_idx + 2
-                end_remap = tex_idx + 1
+                end_remap = layer_idx + 1
 
             # Standard layer DOWN to Group Layer
             elif self.direction == 'DOWN':
                 #print('Case F')
 
-                last_neighbor_member_idx = get_last_child_idx(neighbor_tex)
+                last_neighbor_member_idx = get_last_child_idx(neighbor_layer)
 
                 # Swap layer
-                tl.layers.move(tex_idx, last_neighbor_member_idx)
-                tl.active_layer_index = last_neighbor_member_idx
+                yp.layers.move(layer_idx, last_neighbor_member_idx)
+                yp.active_layer_index = last_neighbor_member_idx
 
-                start_remap = tex_idx + 1
+                start_remap = layer_idx + 1
                 end_remap = last_neighbor_member_idx
 
         # Standard layer to standard Layer
@@ -1512,22 +1512,22 @@ class YMoveLayer(bpy.types.Operator):
             #print('Case G')
 
             # Swap layer
-            tl.layers.move(tex_idx, neighbor_idx)
-            tl.active_layer_index = neighbor_idx
+            yp.layers.move(layer_idx, neighbor_idx)
+            yp.active_layer_index = neighbor_idx
 
         # Remap parents
-        for t in tl.layers:
-            t.parent_idx = get_layer_index_by_name(tl, parent_dict[t.name])
+        for t in yp.layers:
+            t.parent_idx = get_layer_index_by_name(yp, parent_dict[t.name])
 
         # Refresh layer channel blend nodes
-        reconnect_tl_nodes(node.node_tree)
-        rearrange_tl_nodes(node.node_tree)
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
 
         # Update UI
-        wm.ycpui.need_update = True
+        wm.ypui.need_update = True
 
         print('INFO: Layer', layer.name, 'is moved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.tltimer.time = str(time.time())
+        wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1575,8 +1575,8 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_cpaint_node()
-        return group_node and len(group_node.node_tree.tl.layers) > 0
+        group_node = get_active_ypaint_node()
+        return group_node and len(group_node.node_tree.yp.layers) > 0
 
     def execute(self, context):
         wm = bpy.context.window_manager
@@ -1593,10 +1593,10 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
                 wm.popup_menu(draw_move_down_in_layer_group, title="Options")
         return {'FINISHED'}
 
-def remove_tex(tl, index):
-    group_tree = tl.id_data
+def remove_layer(yp, index):
+    group_tree = yp.id_data
     obj = bpy.context.object
-    layer = tl.layers[index]
+    layer = yp.layers[index]
     layer_tree = get_tree(layer)
 
     # Dealing with image atlas segments
@@ -1626,7 +1626,7 @@ def remove_tex(tl, index):
     group_tree.nodes.remove(group_tree.nodes.get(layer.group_node))
 
     # Delete the layer
-    tl.layers.remove(index)
+    yp.layers.remove(index)
 
 def draw_remove_group(self, context):
     col = self.layout.column()
@@ -1645,8 +1645,8 @@ class YRemoveLayerMenu(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_cpaint_node()
-        return context.object and group_node and len(group_node.node_tree.tl.layers) > 0
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
     def execute(self, context):
         wm = bpy.context.window_manager
@@ -1663,8 +1663,8 @@ class YRemoveLayer(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_cpaint_node()
-        return context.object and group_node and len(group_node.node_tree.tl.layers) > 0
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
     def invoke(self, context, event):
         obj = context.object
@@ -1682,23 +1682,23 @@ class YRemoveLayer(bpy.types.Operator):
 
         obj = context.object
         wm = context.window_manager
-        node = get_active_cpaint_node()
+        node = get_active_ypaint_node()
         group_tree = node.node_tree
-        tl = group_tree.tl
-        layer = tl.layers[tl.active_layer_index]
-        tex_name = layer.name
-        tex_idx = get_layer_index(layer)
+        yp = group_tree.yp
+        layer = yp.layers[yp.active_layer_index]
+        layer_name = layer.name
+        layer_idx = get_layer_index(layer)
 
         # Remember parents
-        parent_dict = get_parent_dict(tl)
+        parent_dict = get_parent_dict(yp)
 
         need_reconnect_layers = False
 
         if self.remove_childs:
 
             last_idx = get_last_child_idx(layer)
-            for i in reversed(range(tex_idx, last_idx+1)):
-                remove_tex(tl, i)
+            for i in reversed(range(layer_idx, last_idx+1)):
+                remove_layer(yp, i)
                 
             # The childs are all gone
             child_ids = []
@@ -1707,14 +1707,14 @@ class YRemoveLayer(bpy.types.Operator):
             # Get childrens and repoint child parents
             child_ids = get_list_of_direct_child_ids(layer)
             for i in child_ids:
-                parent_dict[tl.layers[i].name] = parent_dict[layer.name]
+                parent_dict[yp.layers[i].name] = parent_dict[layer.name]
 
             # Repoint its children parent
             for t in get_list_of_direct_childrens(layer):
-                parent_dict = set_parent_dict_val(tl, parent_dict, t.name, layer.parent_idx)
+                parent_dict = set_parent_dict_val(yp, parent_dict, t.name, layer.parent_idx)
 
             # Remove layer
-            remove_tex(tl, tex_idx)
+            remove_layer(yp, layer_idx)
 
         # Remove temp uv layer
         if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
@@ -1726,38 +1726,38 @@ class YRemoveLayer(bpy.types.Operator):
                 uv_layers.remove(uv)
 
         # Set new active index
-        if (tl.active_layer_index == len(tl.layers) and
-            tl.active_layer_index > 0
+        if (yp.active_layer_index == len(yp.layers) and
+            yp.active_layer_index > 0
             ):
-            tl.active_layer_index -= 1
+            yp.active_layer_index -= 1
         else:
             # Force update the index to refesh paint image
-            tl.active_layer_index = tl.active_layer_index
+            yp.active_layer_index = yp.active_layer_index
 
         # Remap parents
-        for t in tl.layers:
-            t.parent_idx = get_layer_index_by_name(tl, parent_dict[t.name])
+        for t in yp.layers:
+            t.parent_idx = get_layer_index_by_name(yp, parent_dict[t.name])
 
         # Check childrens
         #if need_reconnect_layers:
         for i in child_ids:
-            t = tl.layers[i-1]
+            t = yp.layers[i-1]
             check_all_layer_channel_io_and_nodes(t)
             rearrange_layer_nodes(t)
             reconnect_layer_nodes(t)
 
         # Refresh layer channel blend nodes
-        reconnect_tl_nodes(group_tree)
-        rearrange_tl_nodes(group_tree)
+        reconnect_yp_nodes(group_tree)
+        rearrange_yp_nodes(group_tree)
 
         # Update UI
-        wm.ycpui.need_update = True
+        wm.ypui.need_update = True
 
         # Refresh normal map
-        tl.refresh_tree = True
+        yp.refresh_tree = True
 
-        print('INFO: Layer', tex_name, 'is deleted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.tltimer.time = str(time.time())
+        print('INFO: Layer', layer_name, 'is deleted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
 
@@ -1777,8 +1777,8 @@ class YReplaceLayerType(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        group_node = get_active_cpaint_node()
-        return context.object and group_node and len(group_node.node_tree.tl.layers) > 0
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
     def invoke(self, context, event):
         obj = context.object
@@ -1822,7 +1822,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         wm = context.window_manager
         layer = self.layer
-        tl = layer.id_data.tl
+        yp = layer.id_data.yp
 
         if self.type == layer.type: return {'CANCELLED'}
         if layer.type == 'GROUP':
@@ -1840,7 +1840,7 @@ class YReplaceLayerType(bpy.types.Operator):
             segment.unused = True
             layer.segment_name = ''
 
-        tl.halt_reconnect = True
+        yp.halt_reconnect = True
 
         # Standard bump map is easier to convert
         fine_bump_channels = [ch for ch in layer.channels if ch.normal_map_type == 'FINE_BUMP_MAP']
@@ -1909,7 +1909,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         # Update linear stuff
         for i, ch in enumerate(layer.channels):
-            root_ch = tl.channels[i]
+            root_ch = yp.channels[i]
             set_layer_channel_linear_node(tree, layer, root_ch, ch)
 
         # Back to use fine bump if conversion happen
@@ -1923,26 +1923,26 @@ class YReplaceLayerType(bpy.types.Operator):
         # Update uv neighbor
         set_uv_neighbor_resolution(layer)
 
-        tl.halt_reconnect = False
+        yp.halt_reconnect = False
 
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
         if layer.type == 'BACKGROUND':
-            reconnect_tl_nodes(layer.id_data)
+            reconnect_yp_nodes(layer.id_data)
 
         print('INFO: Layer', layer.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        wm.tltimer.time = str(time.time())
+        wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
 
 def update_channel_enable(self, context):
-    tl = self.id_data.tl
+    yp = self.id_data.yp
 
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
     ch_index = int(m.group(2))
-    root_ch = tl.channels[ch_index]
+    root_ch = yp.channels[ch_index]
     ch = self
 
     tree = get_tree(layer)
@@ -1974,8 +1974,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
 
     #print("Checking channel normal map nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
 
-    tl = layer.id_data.tl
-    #if tl.halt_update: return
+    yp = layer.id_data.yp
+    #if yp.halt_update: return
 
     if root_ch.type != 'NORMAL': return
     if layer.type in {'BACKGROUND', 'GROUP'}: return
@@ -2039,15 +2039,15 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
     check_mask_source_tree(layer) #, ch)
 
 def update_normal_map_type(self, context):
-    tl = self.id_data.tl
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
-    root_ch = tl.channels[int(m.group(2))]
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[int(m.group(2))]
     tree = get_tree(layer)
 
     check_channel_normal_map_nodes(tree, layer, root_ch, self)
 
-    #if not tl.halt_reconnect:
+    #if not yp.halt_reconnect:
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
 
@@ -2145,40 +2145,40 @@ def update_blend_type(self, context):
     T = time.time()
 
     wm = context.window_manager
-    tl = self.id_data.tl
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
     ch_index = int(m.group(2))
-    root_ch = tl.channels[ch_index]
+    root_ch = yp.channels[ch_index]
 
-    if check_blend_type_nodes(root_ch, layer, self): # and not tl.halt_reconnect:
+    if check_blend_type_nodes(root_ch, layer, self): # and not yp.halt_reconnect:
         reconnect_layer_nodes(layer, ch_index)
         rearrange_layer_nodes(layer)
 
     print('INFO: Layer', layer.name, ' blend type is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-    wm.tltimer.time = str(time.time())
+    wm.yptimer.time = str(time.time())
 
 def update_flip_backface_normal(self, context):
-    tl = self.id_data.tl
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
     tree = get_tree(layer)
 
     normal_flip = tree.nodes.get(self.normal_flip)
     normal_flip.mute = self.invert_backface_normal
 
 def update_bump_base_value(self, context):
-    tl = self.id_data.tl
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
     tree = get_tree(layer)
 
     update_bump_base_value_(tree, self)
 
 def update_bump_distance(self, context):
-    tl = self.id_data.tl
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
     tree = get_tree(layer)
 
     normal = tree.nodes.get(self.normal)
@@ -2198,7 +2198,7 @@ def set_layer_channel_linear_node(tree, layer, root_ch, ch):
     #    else: ch.custom_value = custom_value
 
     if (root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB' 
-            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} and ch.tex_input == 'RGB' and not ch.gamma_space):
+            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} and ch.layer_input == 'RGB' and not ch.gamma_space):
         if root_ch.type == 'VALUE':
             linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
             #linear.inputs[0].default_value = ch.custom_value
@@ -2210,7 +2210,7 @@ def set_layer_channel_linear_node(tree, layer, root_ch, ch):
             #col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
             #linear.inputs[0].default_value = col
 
-        #if root_ch.colorspace == 'SRGB' and (ch.tex_input == 'CUSTOM' or not ch.gamma_space):
+        #if root_ch.colorspace == 'SRGB' and (ch.layer_input == 'CUSTOM' or not ch.gamma_space):
         #if not ch.gamma_space:
         #    linear.inputs[1].default_value = 1.0 / GAMMA
         #else: linear.inputs[1].default_value = 1.0
@@ -2222,7 +2222,7 @@ def set_layer_channel_linear_node(tree, layer, root_ch, ch):
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
 
-    #if root_ch.type == 'NORMAL' and ch.tex_input == 'CUSTOM':
+    #if root_ch.type == 'NORMAL' and ch.layer_input == 'CUSTOM':
     #    source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', 'Custom')
     #    col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
     #    source.outputs[0].default_value = col
@@ -2230,11 +2230,11 @@ def set_layer_channel_linear_node(tree, layer, root_ch, ch):
     #    remove_node(tree, ch, 'source')
 
 #def update_custom_input(self, context):
-#    tl = self.id_data.tl
+#    yp = self.id_data.yp
 #
-#    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-#    layer = tl.layers[int(m.group(1))]
-#    root_ch = tl.channels[int(m.group(2))]
+#    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+#    layer = yp.layers[int(m.group(1))]
+#    root_ch = yp.channels[int(m.group(2))]
 #    tree = get_tree(layer)
 #    ch = self
 #
@@ -2255,11 +2255,11 @@ def set_layer_channel_linear_node(tree, layer, root_ch, ch):
 #            linear.inputs[0].default_value = ch.custom_value
 
 def update_layer_input(self, context):
-    tl = self.id_data.tl
+    yp = self.id_data.yp
 
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
-    root_ch = tl.channels[int(m.group(2))]
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[int(m.group(2))]
     tree = get_tree(layer)
     ch = self
 
@@ -2268,7 +2268,7 @@ def update_layer_input(self, context):
 def update_uv_name(self, context):
     obj = context.object
     group_tree = self.id_data
-    tl = group_tree.tl
+    yp = group_tree.yp
     layer = self
     tree = get_tree(layer)
     if not tree: return
@@ -2315,12 +2315,12 @@ def update_uv_name(self, context):
         if set_mask_uv_neighbor(tree, layer, mask):
             rearrange = True
 
-    if rearrange: #and not tl.halt_reconnect:
+    if rearrange: #and not yp.halt_reconnect:
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
 def update_texcoord_type(self, context):
-    tl = self.id_data.tl
+    yp = self.id_data.yp
     layer = self
     tree = get_tree(layer)
 
@@ -2330,7 +2330,7 @@ def update_texcoord_type(self, context):
     # Camera and Window are using View Space
     # Reflection actually aren't using view space, but whatever, no one use bump map in reflection texcoord
     #for i, ch in enumerate(layer.channels):
-    #    root_ch = tl.channels[i]
+    #    root_ch = yp.channels[i]
     #    if root_ch.type == 'NORMAL':
 
     uv_neighbor = tree.nodes.get(layer.uv_neighbor)
@@ -2344,7 +2344,7 @@ def update_texcoord_type(self, context):
             if cur_tree.users == 0:
                 bpy.data.node_groups.remove(cur_tree)
 
-    #if not tl.halt_reconnect:
+    #if not yp.halt_reconnect:
     reconnect_layer_nodes(self)
 
 def update_layer_enable(self, context):
@@ -2370,17 +2370,17 @@ def update_layer_enable(self, context):
             tb_crease_intensity = tree.nodes.get(ch.tb_crease_intensity)
             tb_crease_intensity.inputs[1].default_value = 0.0 if mute else 1.0
 
-    context.window_manager.tltimer.time = str(time.time())
+    context.window_manager.yptimer.time = str(time.time())
 
 def update_channel_intensity_value(self, context):
-    tl = self.id_data.tl
+    yp = self.id_data.yp
 
-    m = re.match(r'tl\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = tl.layers[int(m.group(1))]
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
     tree = get_tree(layer)
     ch_index = int(m.group(2))
     ch = self
-    root_ch = tl.channels[ch_index]
+    root_ch = yp.channels[ch_index]
 
     if not layer.enable or not ch.enable: return
 
@@ -2402,21 +2402,21 @@ def update_channel_intensity_value(self, context):
             tb_crease_intensity.inputs[1].default_value = ch.intensity_value
 
 def update_layer_name(self, context):
-    tl = self.id_data.tl
+    yp = self.id_data.yp
     if self.type == 'IMAGE' and self.segment_name != '': return
 
     src = get_layer_source(self)
-    change_layer_name(tl, context.object, src, self, tl.layers)
+    change_layer_name(yp, context.object, src, self, yp.layers)
 
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
 
-    tex_input = EnumProperty(
+    layer_input = EnumProperty(
             name = 'Layer Input',
             #items = (('RGB', 'Color', ''),
             #         ('ALPHA', 'Alpha / Factor', '')),
             #default = 'RGB',
-            items = tex_input_items,
+            items = layer_input_items,
             update = update_layer_input)
 
     gamma_space = BoolProperty(
@@ -2427,7 +2427,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
-            items = tex_channel_normal_map_type_items,
+            items = layer_channel_normal_map_type_items,
             #default = 'BUMP_MAP',
             update = update_normal_map_type)
 
@@ -2450,11 +2450,11 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update = update_channel_intensity_value)
 
     # Modifiers
-    modifiers = CollectionProperty(type=Modifier.YTextureModifier)
+    modifiers = CollectionProperty(type=Modifier.YPaintModifier)
 
     # Blur
     #enable_blur = BoolProperty(default=False, update=Blur.update_layer_channel_blur)
-    #blur = PointerProperty(type=Blur.YTextureBlur)
+    #blur = PointerProperty(type=Blur.YLayerBlur)
 
     invert_backface_normal = BoolProperty(default=False, update=update_flip_backface_normal)
 
@@ -2776,7 +2776,7 @@ class YLayer(bpy.types.PropertyGroup):
     geometry = StringProperty(default='')
 
     # Modifiers
-    modifiers = CollectionProperty(type=Modifier.YTextureModifier)
+    modifiers = CollectionProperty(type=Modifier.YPaintModifier)
     mod_group = StringProperty(default='')
     mod_group_1 = StringProperty(default='')
 

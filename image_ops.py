@@ -61,12 +61,12 @@ def pack_float_image(image):
     image.filepath = original_path
     os.remove(temp_filepath)
 
-def save_pack_all(tl, only_dirty = True):
+def save_pack_all(yp, only_dirty = True):
 
     images = []
-    for layer in tl.layers:
+    for layer in yp.layers:
         
-        # Texture image
+        # Layer image
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
             images.append(source.image)
@@ -98,14 +98,14 @@ def save_pack_all(tl, only_dirty = True):
     # HACK: For some reason active float image will glitch after auto save
     # This is only happen if active object is on texture paint mode
     obj = bpy.context.object
-    if len(tl.layers) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
-        layer = tl.layers[tl.active_layer_index]
+    if len(yp.layers) > 0 and obj and obj.mode == 'TEXTURE_PAINT':
+        layer = yp.layers[yp.active_layer_index]
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
             image = source.image
             if image in packed_float_images:
-                ycpui = bpy.context.window_manager.ycpui
-                ycpui.refresh_image_hack = True
+                ypui = bpy.context.window_manager.ypui
+                ypui.refresh_image_hack = True
 
 class YInvertImage(bpy.types.Operator):
     """Invert Image"""
@@ -553,22 +553,22 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         return {'FINISHED'}
 
 class YSavePackAll(bpy.types.Operator):
-    """Save and Pack All Image Textures"""
+    """Save and Pack All Image Layers"""
     bl_idname = "node.y_save_pack_all"
-    bl_label = "Save and Pack All Textures"
+    bl_label = "Save and Pack All Image Layers"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        return get_active_cpaint_node()
+        return get_active_ypaint_node()
 
     def execute(self, context):
-        ycpui = bpy.context.window_manager.ycpui
+        ypui = bpy.context.window_manager.ypui
         #T = time.time()
-        tl = get_active_cpaint_node().node_tree.tl
-        save_pack_all(tl, only_dirty=False)
+        yp = get_active_ypaint_node().node_tree.yp
+        save_pack_all(yp, only_dirty=False)
         #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        ycpui.refresh_image_hack = False
+        ypui.refresh_image_hack = False
         return {'FINISHED'}
 
 def register():

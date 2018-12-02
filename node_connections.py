@@ -165,9 +165,9 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
 
     return rgb, alpha
 
-def get_channel_inputs_length(tl, layer=None):
+def get_channel_inputs_length(yp, layer=None):
     length = 0
-    for ch in tl.channels:
+    for ch in yp.channels:
         #if (ch.type == 'RGB' and ch.enable_alpha) or (layer and layer.type == 'GROUP' and layer.parent_idx != -1):
         if (ch.type == 'RGB' and ch.enable_alpha) or (layer and layer.parent_idx != -1):
             length += 2
@@ -177,7 +177,7 @@ def get_channel_inputs_length(tl, layer=None):
 
 def remove_all_prev_inputs(layer):
     tree = layer.id_data
-    tl = tree.tl
+    yp = tree.yp
     node = tree.nodes.get(layer.group_node)
 
     #for inp in node.inputs:
@@ -186,40 +186,38 @@ def remove_all_prev_inputs(layer):
     for i in range(len(layer.channels)*2):
         break_input_link(tree, node.inputs[i])
 
-    #input_offset = get_channel_inputs_length(tl, layer)
+    #input_offset = get_channel_inputs_length(yp, layer)
     #for i in range(input_offset):
     #    break_input_link(tree, node.inputs[i])
 
 def remove_all_children_inputs(layer):
 
     tree = layer.id_data
-    tl = tree.tl
+    yp = tree.yp
     node = tree.nodes.get(layer.group_node)
 
     if layer.type != 'GROUP':
         return
 
     if layer.parent_idx == -1:
-        offset = get_channel_inputs_length(tl)
+        offset = get_channel_inputs_length(yp)
     else: offset = len(layer.channels)*2
 
     for i, inp in enumerate(node.inputs):
         if i >= offset:
             break_input_link(tree, inp)
 
-def reconnect_tl_nodes(tree, ch_idx=-1):
-    tl = tree.tl
+def reconnect_yp_nodes(tree, ch_idx=-1):
+    yp = tree.yp
     nodes = tree.nodes
 
     #print('Reconnect tree ' + tree.name)
 
-    start = nodes.get(tl.start)
-    end = nodes.get(tl.end)
-    solid_value = nodes.get(tl.solid_value)
+    start = nodes.get(yp.start)
+    end = nodes.get(yp.end)
+    solid_value = nodes.get(yp.solid_value)
 
-    num_tex = len(tl.layers)
-
-    for i, ch in enumerate(tl.channels):
+    for i, ch in enumerate(yp.channels):
         if ch_idx != -1 and i != ch_idx: continue
 
         start_linear = nodes.get(ch.start_linear)
@@ -243,13 +241,13 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
         bg_alpha = alpha
 
         # Layers loop
-        for j, layer in reversed(list(enumerate(tl.layers))):
+        for j, layer in reversed(list(enumerate(yp.layers))):
 
             node = nodes.get(layer.group_node)
 
             if layer.type == 'BACKGROUND':
                 # Offsets for background layer
-                input_offset = get_channel_inputs_length(tl, layer)
+                input_offset = get_channel_inputs_length(yp, layer)
                 bg_index = input_offset + ch.io_index
 
                 if layer.parent_idx == -1:
@@ -284,7 +282,7 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
 
     # List of last members
     last_members = []
-    for layer in tl.layers:
+    for layer in yp.layers:
         if is_bottom_member(layer):
             last_members.append(layer)
 
@@ -301,32 +299,32 @@ def reconnect_tl_nodes(tree, ch_idx=-1):
 
         node = nodes.get(layer.group_node)
 
-        cur_tex = layer
+        cur_layer = layer
         cur_node = node
 
         while True:
             # Get upper layer
-            upper_idx, upper_tex = get_upper_neighbor(cur_tex)
-            upper_node = nodes.get(upper_tex.group_node)
+            upper_idx, upper_layer = get_upper_neighbor(cur_layer)
+            upper_node = nodes.get(upper_layer.group_node)
 
-            #print(upper_tex.name)
+            #print(upper_layer.name)
 
             # Connect
-            if upper_tex.parent_idx == cur_tex.parent_idx:
+            if upper_layer.parent_idx == cur_layer.parent_idx:
                 for i, outp in enumerate(cur_node.outputs):
                     create_link(tree, outp, upper_node.inputs[i])
             else:
 
-                input_offset = get_channel_inputs_length(tl, upper_tex)
+                input_offset = get_channel_inputs_length(yp, upper_layer)
                 for i, outp in enumerate(cur_node.outputs):
                     create_link(tree, outp, upper_node.inputs[input_offset+i])
 
                 break
 
-            cur_tex = upper_tex
+            cur_layer = upper_layer
             cur_node = upper_node
 
-        #print(upper_tex.name)
+        #print(upper_layer.name)
 
 def reconnect_source_internal_nodes(layer):
     tree = get_source_tree(layer)
@@ -395,10 +393,10 @@ def reconnect_mask_internal_nodes(mask):
     create_link(tree, val, end.inputs[0])
 
 def reconnect_layer_nodes(layer, ch_idx=-1):
-    tl = layer.id_data.tl
+    yp = layer.id_data.yp
 
     #print('Reconnect layer ' + layer.name)
-    if tl.halt_reconnect: return
+    if yp.halt_reconnect: return
 
     tree = get_tree(layer)
     nodes = tree.nodes
@@ -575,7 +573,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
         # Mask channels
         for j, c in enumerate(mask.channels):
-            root_ch = tl.channels[j]
+            root_ch = yp.channels[j]
             ch = layer.channels[j]
 
             mask_mix = nodes.get(c.mix)
@@ -614,13 +612,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     # Offset for background layer
     #prev_offset = 0
     # Offsets for background layer
-    input_offset = get_channel_inputs_length(tl, layer)
+    input_offset = get_channel_inputs_length(yp, layer)
     has_parent = layer.parent_idx != -1
 
     # Layer Channels
     for i, ch in enumerate(layer.channels):
 
-        root_ch = tl.channels[i]
+        root_ch = yp.channels[i]
 
         # Rgb and alpha start
         rgb = start_rgb
@@ -668,7 +666,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         #        prev_offset += 2
 
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
-            if ch.tex_input == 'ALPHA':
+            if ch.layer_input == 'ALPHA':
                 rgb = start_rgb_1
                 alpha = start_alpha_1
 
@@ -700,7 +698,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             # Get neighbor rgb
             if source_n:
-                if layer.type not in {'IMAGE', 'VCOL'} and ch.tex_input == 'ALPHA':
+                if layer.type not in {'IMAGE', 'VCOL'} and ch.layer_input == 'ALPHA':
                     source_index = 2
                 else: source_index = 0
 
