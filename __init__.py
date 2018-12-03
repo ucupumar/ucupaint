@@ -43,9 +43,10 @@
 #   - Support for HDR (V)
 #   - Dealing with layer name (V, good enough)
 # - lib.blend
-#   - Prefix for node group lib 
-#   - Create automatic frame node
-#   - Make better node group library update system
+#   - Prefix for node group lib  (V)
+#   - Create automatic frame node (V)
+#   - Make better node group library update system (V)
+#   - Update duplicated/single user library
 # - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
 # - Every modifiers has intensity value for muting to prevent recompilation (V)
@@ -55,6 +56,7 @@
 # - Make sure ui is expanded if modifier or transition is added (V)
 # - Multiple yp node selector from ui (V)
 # - Replace new node can detect duplicated node group (V)
+# - Test normal flip on eevee
 # - Add more comments to blender bug report about reflection fix (It should be only calculated on glossy/reflection code, not on diffuse)
 # - Bake channel (& layer group)
 # - Make every node name unique (using hash?)
@@ -160,7 +162,7 @@ def register():
     Layer.register()
     Root.register()
 
-    print('INFO: ' bl_info['name'] + ' ' + common.get_current_version_str() + ' is registered!')
+    print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is registered!')
 
 def unregister():
     # Remove classes
@@ -179,7 +181,7 @@ def unregister():
     Layer.unregister()
     Root.unregister()
 
-    print('INFO: ' bl_info['name'] + ' ' + common.get_current_version_str() + ' is unregistered!')
+    print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is unregistered!')
 
 if __name__ == "__main__":
     register()

@@ -2,8 +2,6 @@ import bpy, time
 from mathutils import *
 from .common import *
 
-INFO_PREFIX = '__ytl_info_'
-
 NO_MODIFIER_Y_OFFSET = 200
 FINE_BUMP_Y_OFFSET = 300
 
@@ -221,65 +219,6 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             check_set_node_parent(tree, c.mix_w, frame)
 
     clean_unused_frames(tree)
-
-def create_info_nodes(group_tree, layer=None):
-    yp = group_tree.yp
-    if layer:
-        tree = get_tree(layer)
-        nodes = tree.nodes
-    else: nodes = group_tree.nodes
-
-    # Delete previous info nodes
-    for node in nodes:
-        if node.name.startswith(INFO_PREFIX):
-            nodes.remove(node)
-
-    # Create info nodes
-    infos = []
-
-    info = nodes.new('NodeFrame')
-    if layer:
-        info.label = 'Part of Painty addon version ' + yp.version
-    else: info.label = 'Created using Painty addon version ' + yp.version
-    info.use_custom_color = True
-    info.color = (1.0, 1.0, 1.0)
-    if layer:
-        info.width = 360.0
-    else: info.width = 420.0
-    info.height = 30.0
-    infos.append(info)
-
-    info = nodes.new('NodeFrame')
-    info.label = 'Get this addon on patreon.com/ucupumar'
-    info.use_custom_color = True
-    info.color = (1.0, 1.0, 1.0)
-    info.width = 420.0
-    info.height = 30.0
-    infos.append(info)
-
-    info = nodes.new('NodeFrame')
-    info.label = 'WARNING: Do NOT edit this group manually!'
-    info.use_custom_color = True
-    info.color = (1.0, 0.5, 0.5)
-    info.width = 450.0
-    info.height = 30.0
-    infos.append(info)
-
-    info = nodes.new('NodeFrame')
-    info.label = 'Please use this panel: Node Editor > Tools > ' + ADDON_TITLE
-    info.use_custom_color = True
-    info.color = (1.0, 0.5, 0.5)
-    info.width = 580.0
-    info.height = 30.0
-    infos.append(info)
-
-    loc = Vector((0, 70))
-
-    for info in reversed(infos):
-        info.name = INFO_PREFIX + info.name
-
-        loc.y += 40
-        info.location = loc
 
 def arrange_mask_modifier_nodes(tree, mask, loc):
 

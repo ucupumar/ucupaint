@@ -286,7 +286,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         t.parent_idx = get_layer_index_by_name(yp, parent_dict[t.name])
 
     # New layer tree
-    tree = bpy.data.node_groups.new(TEXGROUP_PREFIX + layer_name, 'ShaderNodeTree')
+    tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + layer_name, 'ShaderNodeTree')
     tree.yp.is_ypaint_layer_node = True
     tree.yp.version = get_current_version_str()
 
@@ -295,7 +295,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     group_node.node_tree = tree
 
     # Create info nodes
-    create_info_nodes(group_tree, layer)
+    create_info_nodes(tree)
 
     # Tree start and end
     start = new_node(tree, layer, 'start', 'NodeGroupInput', 'Start')

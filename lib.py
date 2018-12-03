@@ -3,73 +3,60 @@ from .common import *
 from bpy.app.handlers import persistent
 
 # Node tree names
-OVERLAY_NORMAL = '~TL Overlay Normal'
-CHECK_INPUT_NORMAL = '~TL Check Input Normal'
-FLIP_BACKFACE_NORMAL = '~TL Flip Backface Normal'
+OVERLAY_NORMAL = '~yPL Overlay Normal'
+CHECK_INPUT_NORMAL = '~yPL Check Input Normal'
+FLIP_BACKFACE_NORMAL = '~yPL Flip Backface Normal'
 
-STRAIGHT_OVER = '~TL Straight Over Mix'
-STRAIGHT_OVER_BW = '~TL Straight Over Grayscale Mix'
-STRAIGHT_OVER_VEC = '~TL Straight Over Vector Mix'
+STRAIGHT_OVER = '~yPL Straight Over Mix'
+STRAIGHT_OVER_BW = '~yPL Straight Over Grayscale Mix'
+STRAIGHT_OVER_VEC = '~yPL Straight Over Vector Mix'
 
-STRAIGHT_OVER_BG = '~TL Straight Over Background Mix'
-STRAIGHT_OVER_BG_BW = '~TL Straight Over Grayscale Background Mix'
-STRAIGHT_OVER_BG_VEC = '~TL Straight Over Vector Background Mix'
+STRAIGHT_OVER_BG = '~yPL Straight Over Background Mix'
+STRAIGHT_OVER_BG_BW = '~yPL Straight Over Grayscale Background Mix'
+STRAIGHT_OVER_BG_VEC = '~yPL Straight Over Vector Background Mix'
 
-#STRAIGHT_OVER_BG_RAMP = '~TL Straight Over Background Mix Ramp'
+#STRAIGHT_OVER_BG_RAMP = '~yPL Straight Over Background Mix Ramp'
 
-STRAIGHT_OVER_HACK = '~TL Straight Over Hack'
+STRAIGHT_OVER_HACK = '~yPL Straight Over Hack'
 
-NEIGHBOR_UV ='~TL Neighbor UV'
-NEIGHBOR_UV_TANGENT ='~TL Neighbor UV (Tangent)'
-NEIGHBOR_UV_OBJECT ='~TL Neighbor UV (Object)'
-NEIGHBOR_UV_CAMERA ='~TL Neighbor UV (Camera)'
-NEIGHBOR_UV_OTHER_UV ='~TL Neighbor UV (Other UV)'
-NEIGHBOR_FAKE ='~TL Fake Neighbor'
-FINE_BUMP ='~TL Fine Bump'
-CURVED_FINE_BUMP = '~TL Curved Fine Bump'
-FLIP_CURVED_FINE_BUMP = '~TL Flip Curved Fine Bump'
+NEIGHBOR_UV ='~yPL Neighbor UV'
+NEIGHBOR_UV_TANGENT ='~yPL Neighbor UV (Tangent)'
+NEIGHBOR_UV_OBJECT ='~yPL Neighbor UV (Object)'
+NEIGHBOR_UV_CAMERA ='~yPL Neighbor UV (Camera)'
+NEIGHBOR_UV_OTHER_UV ='~yPL Neighbor UV (Other UV)'
+NEIGHBOR_FAKE ='~yPL Fake Neighbor'
+FINE_BUMP ='~yPL Fine Bump'
+CURVED_FINE_BUMP = '~yPL Curved Fine Bump'
+FLIP_CURVED_FINE_BUMP = '~yPL Flip Curved Fine Bump'
 
-TRANSITION_AO = '~TL Transition AO'
-TRANSITION_AO_BG_MIX = '~TL Transition AO Background Mix'
-TRANSITION_AO_STRAIGHT_OVER = '~TL Transition AO Straight Over'
-TRANSITION_AO_FLIP = '~TL Transition AO Flip'
+TRANSITION_AO = '~yPL Transition AO'
+TRANSITION_AO_BG_MIX = '~yPL Transition AO Background Mix'
+TRANSITION_AO_STRAIGHT_OVER = '~yPL Transition AO Straight Over'
+TRANSITION_AO_FLIP = '~yPL Transition AO Flip'
 
-RAMP = '~TL Ramp'
-RAMP_STRAIGHT_OVER = '~TL Ramp Straight Over'
-RAMP_STRAIGHT_OVER_BG = '~TL Ramp Straight Over Background'
+RAMP = '~yPL Ramp'
+RAMP_STRAIGHT_OVER = '~yPL Ramp Straight Over'
+RAMP_STRAIGHT_OVER_BG = '~yPL Ramp Straight Over Background'
 
-RAMP_FLIP = '~TL Ramp Flip'
-RAMP_FLIP_BLEND = '~TL Ramp Flip Blend'
-RAMP_FLIP_MIX_BLEND = '~TL Ramp Flip Mix Blend'
-RAMP_FLIP_STRAIGHT_OVER_BLEND = '~TL Ramp Flip Straight Over Blend'
+RAMP_FLIP = '~yPL Ramp Flip'
+RAMP_FLIP_BLEND = '~yPL Ramp Flip Blend'
+RAMP_FLIP_MIX_BLEND = '~yPL Ramp Flip Mix Blend'
+RAMP_FLIP_STRAIGHT_OVER_BLEND = '~yPL Ramp Flip Straight Over Blend'
 
-VECTOR_MIX ='~TL Vector Mix'
-#INVERTED_MULTIPLIER ='~TL Inverted Multiplier'
-INTENSITY_MULTIPLIER ='~TL Intensity Multiplier'
-GET_BITANGENT ='~TL Get Bitangent'
+VECTOR_MIX ='~yPL Vector Mix'
+#INVERTED_MULTIPLIER ='~yPL Inverted Multiplier'
+INTENSITY_MULTIPLIER ='~yPL Intensity Multiplier'
+GET_BITANGENT ='~yPL Get Bitangent'
 
 # Modifier tree names
-MOD_RGB2INT = '~TL Mod RGB To Intensity'
-MOD_INT2RGB = '~TL Mod Intensity To RGB'
-MOD_OVERRIDE_COLOR = '~TL Mod Override Color'
-MOD_INVERT = '~TL Mod Invert'
-MOD_INVERT_VALUE = '~TL Mod Invert Value'
-MOD_MULTIPLIER = '~TL Mod Multiplier'
-MOD_MULTIPLIER_VALUE = '~TL Mod Multiplier Value'
-MOD_INTENSITY_HARDNESS = '~TL Mod Intensity Hardness'
-
-tree_lib_names = {
-        OVERLAY_NORMAL,
-        STRAIGHT_OVER,
-        CHECK_INPUT_NORMAL,
-        FLIP_BACKFACE_NORMAL,
-
-        MOD_RGB2INT,
-        MOD_INVERT,
-        MOD_INVERT_VALUE,
-        MOD_MULTIPLIER,
-        MOD_MULTIPLIER_VALUE,
-        }
+MOD_RGB2INT = '~yPL Mod RGB To Intensity'
+MOD_INT2RGB = '~yPL Mod Intensity To RGB'
+MOD_OVERRIDE_COLOR = '~yPL Mod Override Color'
+MOD_INVERT = '~yPL Mod Invert'
+MOD_INVERT_VALUE = '~yPL Mod Invert Value'
+MOD_MULTIPLIER = '~yPL Mod Multiplier'
+MOD_MULTIPLIER_VALUE = '~yPL Mod Multiplier Value'
+MOD_INTENSITY_HARDNESS = '~yPL Mod Intensity Hardness'
 
 channel_custom_icon_dict = {
         'RGB' : 'rgb_channel',
@@ -176,7 +163,10 @@ def update_node_tree_libs(name):
 
     trees = []
     tree_names = []
-    exist_groups = [ng.name for ng in bpy.data.node_groups if ng.name in tree_lib_names]
+    exist_groups = []
+    for ng in bpy.data.node_groups:
+        if ng.name.startswith('~yPL '):
+            exist_groups.append(ng.name)
 
     if not exist_groups: return
 
@@ -190,32 +180,54 @@ def update_node_tree_libs(name):
                 tree_names.append(ng)
                 data_to.node_groups.append(ng)
 
+    update_names = []
+
     for i, name in enumerate(tree_names):
-        update = False
 
         cur_tree = trees[i]
-        cur_ver = cur_tree.nodes.get('version')
+        cur_ver = cur_tree.nodes.get('revision')
         lib_tree = bpy.data.node_groups.get(name)
-        lib_ver = lib_tree.nodes.get('version')
+        lib_ver = lib_tree.nodes.get('revision')
 
-        # Check lib tree version
+        # Check lib tree revision
         if cur_ver:
-            cur_ver = float(cur_ver.label)
+            m = re.match(r'.*(\d)', cur_ver.label)
+            try: cur_ver = int(m.group(1))
+            except: cur_ver = 0
+        else: cur_ver = 0
 
         if lib_ver:
-            lib_ver = float(lib_ver.label)
+            m = re.match(r'.*(\d)', lib_ver.label)
+            try: lib_ver = int(m.group(1))
+            except: lib_ver = 0
+        else: lib_ver = 0
 
-            # Update tree if current version isn't found or older than lib version
-            if not cur_ver or (cur_ver and lib_ver > cur_ver):
-                update = True
+        if lib_ver > cur_ver:
 
-        if update:
+            if name not in update_names:
+                update_names.append(name)
+
+            # Check for group inside group
+            for n in lib_tree.nodes:
+                if n.type == 'GROUP' and n.node_tree and n.node_tree.name not in update_names:
+                    update_names.append(n.node_tree.name)
+
+            print('INFO: Node group', name, 'is updated to revision', str(lib_ver) + '!')
+
+    for name in tree_names:
+
+        lib_tree = bpy.data.node_groups.get(name)
+        cur_tree = bpy.data.node_groups.get(name + '__OLD')
+
+        if name in update_names:
+
             # Search for old tree usages
             for mat in bpy.data.materials:
                 if not mat.node_tree: continue
                 for node in mat.node_tree.nodes:
                     if node.type == 'GROUP' and node.node_tree == cur_tree:
                         node.node_tree = lib_tree
+
             for group in bpy.data.node_groups:
                 for node in group.nodes:
                     if node.type == 'GROUP' and node.node_tree == cur_tree:
@@ -224,7 +236,8 @@ def update_node_tree_libs(name):
             # Remove old tree
             bpy.data.node_groups.remove(cur_tree)
 
-            print('INFO: Node group', name, 'is updated to version', str(lib_ver) + '!')
+            # Create info frames
+            create_info_nodes(lib_tree)
 
         else:
             # Remove loaded lib tree
@@ -233,7 +246,7 @@ def update_node_tree_libs(name):
             # Bring back original tree name
             cur_tree.name = cur_tree.name[:-5]
 
-    print('INFO: Node group libraries are checked at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: ' + ADDON_TITLE + ' Node group libraries are checked at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def register():
     load_custom_icons()

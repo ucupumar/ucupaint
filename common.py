@@ -10,6 +10,8 @@ MASKGROUP_PREFIX = '~yP Mask '
 ADDON_NAME = 'yTexLayers'
 ADDON_TITLE = 'Painty'
 
+INFO_PREFIX = '__yp_info_'
+
 SOURCE_TREE_START = '__source_start_'
 SOURCE_TREE_END = '__source_end_'
 SOURCE_SOLID_VALUE = '__source_solid_'
@@ -550,9 +552,98 @@ def check_new_node(tree, entity, prop, node_id_name, label=''):
 
     return node
 
+def create_info_nodes(tree):
+    yp = tree.yp
+    nodes = tree.nodes
+
+    if yp.is_ypaint_node:
+        tree_type = 'ROOT'
+    elif yp.is_ypaint_layer_node:
+        tree_type = 'LAYER'
+    else: tree_type = 'LIB'
+
+    # Delete previous info nodes
+    for node in nodes:
+        if node.name.startswith(INFO_PREFIX):
+            nodes.remove(node)
+
+    # Create info nodes
+    infos = []
+
+    info = nodes.new('NodeFrame')
+
+    if tree_type == 'LAYER':
+        info.label = 'Part of ' + ADDON_TITLE + ' addon version ' + yp.version
+        info.width = 360.0
+    elif tree_type == 'ROOT':
+        info.label = 'Created using ' + ADDON_TITLE + ' addon version ' + yp.version
+        info.width = 420.0
+    else:
+        info.label = 'Part of ' + ADDON_TITLE + ' addon'
+        info.width = 250.0
+
+    info.use_custom_color = True
+    info.color = (1.0, 1.0, 1.0)
+    info.height = 30.0
+    infos.append(info)
+
+    info = nodes.new('NodeFrame')
+    info.label = 'Get this addon on patreon.com/ucupumar'
+    info.use_custom_color = True
+    info.color = (1.0, 1.0, 1.0)
+    info.width = 420.0
+    info.height = 30.0
+    infos.append(info)
+
+    info = nodes.new('NodeFrame')
+    info.label = 'WARNING: Do NOT edit this group manually!'
+    info.use_custom_color = True
+    info.color = (1.0, 0.5, 0.5)
+    info.width = 450.0
+    info.height = 30.0
+    infos.append(info)
+
+    info = nodes.new('NodeFrame')
+    info.label = 'Please use this panel: Node Editor > Tools > ' + ADDON_TITLE
+    info.use_custom_color = True
+    info.color = (1.0, 0.5, 0.5)
+    info.width = 580.0
+    info.height = 30.0
+    infos.append(info)
+
+    if tree_type in {'LAYER', 'ROOT'}:
+
+        loc = Vector((0, 70))
+
+        for info in reversed(infos):
+            info.name = INFO_PREFIX + info.name
+
+            loc.y += 40
+            info.location = loc
+    else:
+
+        # Get group input node
+        try: 
+            inp = [n for n in nodes if n.type == 'GROUP_INPUT'][0]
+            loc = Vector((inp.location[0] - 620, inp.location[1]))
+        except: loc = Vector((-620, 0))
+
+        for info in infos:
+            info.name = INFO_PREFIX + info.name
+
+            loc.y -= 40
+            info.location = loc
+
 def check_duplicated_node_group(node_group):
 
+    info_frame_found = False
+
     for node in node_group.nodes:
+
+        # Check if info frame is found in this tree
+        if node.type == 'FRAME' and node.name.startswith(INFO_PREFIX):
+            info_frame_found = True
+
         if node.type == 'GROUP' and node.node_tree:
 
             # Check if its node tree duplicated
@@ -573,6 +664,10 @@ def check_duplicated_node_group(node_group):
                         bpy.data.node_groups.remove(prev_tree)
 
             check_duplicated_node_group(node.node_tree)
+
+    # Create info frame if not found
+    if not info_frame_found:
+        create_info_nodes(node_group)
 
 def get_node_tree_lib(name):
     # Node groups necessary are in nodegroups_lib.blend
