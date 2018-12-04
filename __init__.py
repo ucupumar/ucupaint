@@ -109,7 +109,7 @@ bl_info = {
     "name": "Painty",
     "author": "Yusuf Umar",
     "version": (0, 1, 0),
-    "blender": (2, 79, 0),
+    "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Painty",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
     "warning" : "This is alpha version, incompability to future releases might happen",
@@ -136,10 +136,11 @@ if "bpy" in locals():
     imp.reload(Blur)
     imp.reload(Layer)
     imp.reload(Root)
+    imp.reload(Bake)
     #print("Reloaded multifiles")
 else:
     from . import image_ops, common, lib, ui, subtree, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Root
+    from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Root, Bake
     #print("Imported multifiles")
 
 import bpy 
@@ -161,6 +162,7 @@ def register():
     Blur.register()
     Layer.register()
     Root.register()
+    Bake.register()
 
     print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is registered!')
 
@@ -180,6 +182,7 @@ def unregister():
     Blur.unregister()
     Layer.unregister()
     Root.unregister()
+    Bake.unregister()
 
     print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is unregistered!')
 

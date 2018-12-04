@@ -1417,7 +1417,7 @@ def refresh_temp_uv(obj, entity, use_ops=False):
     if not img: return False
 
     # New uv layers
-    temp_uv_layer = uv_layers.new(TEMP_UV)
+    temp_uv_layer = uv_layers.new(name=TEMP_UV)
     uv_layers.active = temp_uv_layer
 
     # Cannot do this on edit mode
@@ -1448,11 +1448,18 @@ def refresh_temp_uv(obj, entity, use_ops=False):
     arr.shape = (arr.shape[0]//2, 2)
 
     # Matrix transformation for each uv coordinates
-    for uv in arr:
-        vec = Vector((uv[0], uv[1], 0.0))
-        vec = m * vec
-        uv[0] = vec[0]
-        uv[1] = vec[1]
+    if bpy.app.version_string.startswith('2.8'):
+        for uv in arr:
+            vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
+            vec = m @ vec
+            uv[0] = vec[0]
+            uv[1] = vec[1]
+    else:
+        for uv in arr:
+            vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
+            vec = m * vec
+            uv[0] = vec[0]
+            uv[1] = vec[1]
 
     # Set back uv coordinates
     obj.data.uv_layers.active.data.foreach_set('uv', arr.ravel())

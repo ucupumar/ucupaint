@@ -1738,7 +1738,7 @@ class NODE_PT_YPaint(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_label = ADDON_TITLE + " " + get_current_version_str()
     bl_region_type = 'TOOLS'
-    bl_category = ADDON_TITLE
+    #bl_category = ADDON_TITLE
 
     @classmethod
     def poll(cls, context):
