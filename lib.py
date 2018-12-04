@@ -161,33 +161,46 @@ def update_node_tree_libs(name):
 
     if bpy.data.filepath == filepath: return
 
-    trees = []
     tree_names = []
     exist_groups = []
     for ng in bpy.data.node_groups:
-        if ng.name.startswith('~yPL '):
-            exist_groups.append(ng.name)
+        m = re.match(r'^(~yPL .+?)(?:_Copy?)?(?:\.\d{3}?)?$', ng.name)
+        if m and m.group(1) not in exist_groups:
+            exist_groups.append(m.group(1))
+        #if ng.name.startswith('~yPL '):
+        #    exist_groups.append(ng.name)
 
     if not exist_groups: return
+
+    #print(exist_groups)
 
     # Load node groups
     with bpy.data.libraries.load(filepath) as (data_from, data_to):
         for ng in data_from.node_groups:
             if ng in exist_groups:
                 tree = bpy.data.node_groups.get(ng)
-                tree.name += '__OLD'
-                trees.append(tree)
+                if tree:
+                    tree.name += '__OLD'
                 tree_names.append(ng)
                 data_to.node_groups.append(ng)
 
     update_names = []
 
+    #print(tree_names)
+
     for i, name in enumerate(tree_names):
 
-        cur_tree = trees[i]
-        cur_ver = cur_tree.nodes.get('revision')
         lib_tree = bpy.data.node_groups.get(name)
         lib_ver = lib_tree.nodes.get('revision')
+
+        cur_tree = bpy.data.node_groups.get(name+'__OLD')
+
+        # If not found, check if node is duplicated
+        if not cur_tree:
+            #print(name)
+            cur_tree = [n for n in bpy.data.node_groups if n.name.startswith(name) and n.name != name][0]
+
+        cur_ver = cur_tree.nodes.get('revision')
 
         # Check lib tree revision
         if cur_ver:
@@ -202,6 +215,8 @@ def update_node_tree_libs(name):
             except: lib_ver = 0
         else: lib_ver = 0
 
+        #print(name, cur_ver, lib_ver)
+
         if lib_ver > cur_ver:
 
             if name not in update_names:
@@ -212,39 +227,97 @@ def update_node_tree_libs(name):
                 if n.type == 'GROUP' and n.node_tree and n.node_tree.name not in update_names:
                     update_names.append(n.node_tree.name)
 
-            print('INFO: Node group', name, 'is updated to revision', str(lib_ver) + '!')
+            print('INFO: Updating Node group', name, 'to revision', str(lib_ver) + '!')
+
+    #print(update_names)
 
     for name in tree_names:
 
         lib_tree = bpy.data.node_groups.get(name)
         cur_tree = bpy.data.node_groups.get(name + '__OLD')
 
-        if name in update_names:
+        if cur_tree:
 
-            # Search for old tree usages
-            for mat in bpy.data.materials:
-                if not mat.node_tree: continue
-                for node in mat.node_tree.nodes:
-                    if node.type == 'GROUP' and node.node_tree == cur_tree:
-                        node.node_tree = lib_tree
+            if name in update_names:
 
-            for group in bpy.data.node_groups:
-                for node in group.nodes:
-                    if node.type == 'GROUP' and node.node_tree == cur_tree:
-                        node.node_tree = lib_tree
+                # Search for old tree usages
+                for mat in bpy.data.materials:
+                    if not mat.node_tree: continue
+                    for node in mat.node_tree.nodes:
+                        if node.type == 'GROUP' and node.node_tree == cur_tree:
+                            node.node_tree = lib_tree
 
-            # Remove old tree
-            bpy.data.node_groups.remove(cur_tree)
+                for group in bpy.data.node_groups:
+                    for node in group.nodes:
+                        if node.type == 'GROUP' and node.node_tree == cur_tree:
+                            node.node_tree = lib_tree
 
-            # Create info frames
-            create_info_nodes(lib_tree)
+                # Remove old tree
+                bpy.data.node_groups.remove(cur_tree)
 
+                # Create info frames
+                create_info_nodes(lib_tree)
+
+            else:
+                # Remove loaded lib tree
+                bpy.data.node_groups.remove(lib_tree)
+
+                # Bring back original tree name
+                cur_tree.name = cur_tree.name[:-5]
         else:
-            # Remove loaded lib tree
-            bpy.data.node_groups.remove(lib_tree)
 
-            # Bring back original tree name
-            cur_tree.name = cur_tree.name[:-5]
+            cur_trees = [n for n in bpy.data.node_groups if n.name.startswith(name) and n.name != name]
+            #print(cur_trees)
+
+            if name in update_names:
+
+                for cur_tree in cur_trees:
+
+                    used_nodes = []
+
+                    # Search for old tree usages
+                    for mat in bpy.data.materials:
+                        if not mat.node_tree: continue
+                        for node in mat.node_tree.nodes:
+                            if node.type == 'GROUP' and node.node_tree == cur_tree:
+                                used_nodes.append(node)
+
+                    for group in bpy.data.node_groups:
+                        for node in group.nodes:
+                            if node.type == 'GROUP' and node.node_tree == cur_tree:
+                                used_nodes.append(node)
+
+                    #print(used_nodes)
+
+                    if used_nodes:
+
+                        # Remember original tree
+                        ori_tree = used_nodes[0].node_tree
+
+                        # Duplicate lib tree
+                        lib_tree.name += '_Copy'
+                        used_nodes[0].node_tree = lib_tree.copy()
+                        new_tree = used_nodes[0].node_tree
+                        lib_tree.name = name
+
+                        for node in used_nodes:
+                            node.node_tree = new_tree
+
+                        # Copy some nodes inside
+                        for n in new_tree.nodes:
+                            if n.name.startswith('_'):
+                                # Try to get the node on original tree
+                                ori_n = ori_tree.nodes.get(n.name)
+                                if ori_n: copy_node_props(ori_n, n)
+
+                        # Delete original tree
+                        bpy.data.node_groups.remove(ori_tree)
+
+                        # Create info frames
+                        create_info_nodes(new_tree)
+
+            # Remove lib tree
+            bpy.data.node_groups.remove(lib_tree)
 
     print('INFO: ' + ADDON_TITLE + ' Node group libraries are checked at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

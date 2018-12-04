@@ -46,7 +46,7 @@
 #   - Prefix for node group lib  (V)
 #   - Create automatic frame node (V)
 #   - Make better node group library update system (V)
-#   - Update duplicated/single user library
+#   - Update duplicated/single user library (V)
 # - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
 # - Every modifiers has intensity value for muting to prevent recompilation (V)

@@ -271,7 +271,7 @@ def linear_to_srgb(inp):
 def copy_node_props_(source, dest, extras = []):
     #print()
     props = dir(source)
-    filters = ['rna_type', 'name']
+    filters = ['rna_type', 'name', 'location']
     filters.extend(extras)
     for prop in props:
         if prop.startswith('__'): continue
@@ -287,7 +287,7 @@ def copy_node_props_(source, dest, extras = []):
             #print('FAILED:', prop, val)
             pass
 
-def copy_node_props(source ,dest, extras = []):
+def copy_node_props(source, dest, extras = []):
     # Copy node props
     copy_node_props_(source, dest, extras)
 
@@ -945,12 +945,12 @@ def duplicate_lib_node_tree(node):
         node.node_tree = node.node_tree.copy()
 
     # Make sure input match to actual node its connected to
-    for n in node.node_tree.nodes:
-        if n.type == 'GROUP_INPUT':
-            for i, inp in enumerate(node.inputs):
-                for link in n.outputs[i].links:
-                    try: link.to_socket.default_value = node.inputs[i].default_value
-                    except: pass
+    #for n in node.node_tree.nodes:
+    #    if n.type == 'GROUP_INPUT':
+    #        for i, inp in enumerate(node.inputs):
+    #            for link in n.outputs[i].links:
+    #                try: link.to_socket.default_value = node.inputs[i].default_value
+    #                except: pass
 
 def match_group_input(node, key=None, extra_node_names=[]):
 
