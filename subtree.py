@@ -30,7 +30,7 @@ def refresh_source_tree_ios(source_tree, layer_type):
 
     col1 = source_tree.outputs.get('Color 1')
     alp1 = source_tree.outputs.get('Alpha 1')
-    solid = source_tree.nodes.get(SOURCE_SOLID_VALUE)
+    solid = source_tree.nodes.get(SOLID_VALUE)
 
     if layer_type != 'IMAGE':
 
@@ -40,7 +40,7 @@ def refresh_source_tree_ios(source_tree, layer_type):
         if not solid:
             solid = source_tree.nodes.new('ShaderNodeValue')
             solid.outputs[0].default_value = 1.0
-            solid.name = SOURCE_SOLID_VALUE
+            solid.name = SOLID_VALUE
     else:
         if col1: source_tree.outputs.remove(col1)
         if alp1: source_tree.outputs.remove(alp1)
@@ -65,10 +65,12 @@ def enable_layer_source_tree(layer, rearrange=False):
 
         #source_tree.outputs.new('NodeSocketFloat', 'Factor')
 
-        start = source_tree.nodes.new('NodeGroupInput')
-        start.name = SOURCE_TREE_START
-        end = source_tree.nodes.new('NodeGroupOutput')
-        end.name = SOURCE_TREE_END
+        create_essential_nodes(source_tree)
+
+        #start = source_tree.nodes.new('NodeGroupInput')
+        #start.name = TREE_START
+        #end = source_tree.nodes.new('NodeGroupOutput')
+        #end.name = TREE_END
 
         refresh_source_tree_ios(source_tree, layer.type)
 
@@ -265,10 +267,11 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         #mask_tree.outputs.new('NodeSocketColor', 'Color')
         mask_tree.outputs.new('NodeSocketFloat', 'Value')
 
-        start = mask_tree.nodes.new('NodeGroupInput')
-        start.name = MASK_TREE_START
-        end = mask_tree.nodes.new('NodeGroupOutput')
-        end.name = MASK_TREE_END
+        create_essential_nodes(mask_tree)
+        #start = mask_tree.nodes.new('NodeGroupInput')
+        #start.name = TREE_START
+        #end = mask_tree.nodes.new('NodeGroupOutput')
+        #end.name = TREE_END
 
         # Copy nodes from reference
         source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)

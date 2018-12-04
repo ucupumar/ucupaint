@@ -134,13 +134,6 @@ def create_yp_channel_nodes(group_tree, channel, channel_idx):
     yp = group_tree.yp
     nodes = group_tree.nodes
 
-    # Get start and end node
-    start_node = nodes.get(yp.start)
-    end_node = nodes.get(yp.end)
-
-    start_linear = None
-    end_linear = None
-
     # Create linarize node and converter node
     if channel.type in {'RGB', 'VALUE'}:
         if channel.type == 'RGB':
@@ -194,20 +187,8 @@ def create_new_group_tree(mat):
     group_tree.yp.is_ypaint_node = True
     group_tree.yp.version = get_current_version_str()
 
-    # Add new channel
-    #channel = group_tree.yp.channels.add()
-    #channel.name = 'Color'
-    #channel.type = 'RGB'
-    #group_tree.yp.temp_channels.add() # Also add temp channel
-    #ypup.channels.add()
-
-    # Create start and end node
-    start = new_node(group_tree, group_tree.yp, 'start', 'NodeGroupInput', 'Start')
-    end = new_node(group_tree, group_tree.yp, 'end', 'NodeGroupOutput', 'End')
-
-    # Create solid value node
-    solid_value = new_node(group_tree, group_tree.yp, 'solid_value', 'ShaderNodeValue', 'Solid Value')
-    solid_value.outputs[0].default_value = 1.0
+    # Create IO nodes
+    create_essential_nodes(group_tree, True)
 
     # Create info nodes
     create_info_nodes(group_tree)
@@ -1639,14 +1620,6 @@ class YPaint(bpy.types.PropertyGroup):
     # Layers
     layers = CollectionProperty(type=Layer.YLayer)
     active_layer_index = IntProperty(default=0, update=update_layer_index)
-
-    # Solid value for modifier alpha input
-    solid_value = StringProperty(default='')
-
-    # Node names
-    start = StringProperty(default='')
-
-    end = StringProperty(default='')
 
     # Temp channels to remember last channel selected when adding new layer
     #temp_channels = CollectionProperty(type=YChannelUI)

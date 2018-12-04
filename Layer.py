@@ -298,8 +298,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     create_info_nodes(tree)
 
     # Tree start and end
-    start = new_node(tree, layer, 'start', 'NodeGroupInput', 'Start')
-    end = new_node(tree, layer, 'end', 'NodeGroupOutput', 'Start')
+    create_essential_nodes(tree, True, True)
 
     # Add source
     source = new_node(tree, layer, 'source', layer_node_bl_idnames[layer_type], 'Source')
@@ -317,14 +316,6 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     elif layer_type == 'COLOR':
         col = (solid_color[0], solid_color[1], solid_color[2], 1.0)
         source.outputs[0].default_value = col
-
-    # Solid value can be useful for many things
-    solid_value = new_node(tree, layer, 'solid_value', 'ShaderNodeValue', 'Solid Value')
-    solid_value.outputs[0].default_value = 1.0
-
-    # Add geometry and texcoord node
-    geometry = new_node(tree, layer, 'geometry', 'ShaderNodeNewGeometry', 'Source Geometry')
-    texcoord = new_node(tree, layer, 'texcoord', 'ShaderNodeTexCoord', 'Source TexCoord')
 
     # Add uv map node
     uv_map = new_node(tree, layer, 'uv_map', 'ShaderNodeUVMap', 'Source UV Map')
@@ -2691,8 +2682,8 @@ class YLayer(bpy.types.PropertyGroup):
 
     group_node = StringProperty(default='')
 
-    start = StringProperty(default='')
-    end = StringProperty(default='')
+    #start = StringProperty(default='')
+    #end = StringProperty(default='')
 
     type = EnumProperty(
             name = 'Layer Type',
@@ -2768,12 +2759,8 @@ class YLayer(bpy.types.PropertyGroup):
     need_temp_uv_refresh = BoolProperty(default=False)
 
     # Other Vectors
-    solid_value = StringProperty(default='')
-    texcoord = StringProperty(default='')
     tangent = StringProperty(default='')
-    #hacky_tangent = StringProperty(default='')
     bitangent = StringProperty(default='')
-    geometry = StringProperty(default='')
 
     # Modifiers
     modifiers = CollectionProperty(type=Modifier.YPaintModifier)

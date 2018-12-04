@@ -349,11 +349,11 @@ def rearrange_source_tree_nodes(layer):
 
     loc = Vector((0, 0))
 
-    if check_set_node_loc(source_tree, SOURCE_TREE_START, loc):
+    if check_set_node_loc(source_tree, TREE_START, loc):
         loc.x += 180
 
     loc.y -= 300
-    check_set_node_loc(source_tree, SOURCE_SOLID_VALUE, loc)
+    check_set_node_loc(source_tree, SOLID_VALUE, loc)
     loc.y += 300
 
     if check_set_node_loc(source_tree, layer.mapping, loc):
@@ -373,13 +373,13 @@ def rearrange_source_tree_nodes(layer):
             loc.y += 40
             loc.x += 150
 
-    check_set_node_loc(source_tree, SOURCE_TREE_END, loc)
+    check_set_node_loc(source_tree, TREE_END, loc)
 
 def rearrange_mask_tree_nodes(mask):
     tree = get_mask_tree(mask)
     loc = Vector((0, 0))
 
-    if check_set_node_loc(tree, MASK_TREE_START, loc):
+    if check_set_node_loc(tree, TREE_START, loc):
         loc.x += 180
 
     if check_set_node_loc(tree, mask.mapping, loc):
@@ -390,7 +390,7 @@ def rearrange_mask_tree_nodes(mask):
 
     arrange_mask_modifier_nodes(tree, mask, loc)
 
-    if check_set_node_loc(tree, MASK_TREE_END, loc):
+    if check_set_node_loc(tree, TREE_END, loc):
         loc.x += 180
 
 def rearrange_transition_bump_nodes(tree, ch, loc):
@@ -454,8 +454,8 @@ def rearrange_layer_nodes(layer, tree=None):
 
     #print('Rearrange layer ' + layer.name)
 
-    start = nodes.get(layer.start)
-    end = nodes.get(layer.end)
+    #start = nodes.get(layer.start)
+    #end = nodes.get(layer.end)
 
     # Get transition bump channel
     flip_bump = False
@@ -517,10 +517,10 @@ def rearrange_layer_nodes(layer, tree=None):
     if check_set_node_loc(tree, layer.uv_map, loc):
         loc.y -= 140
 
-    if check_set_node_loc(tree, layer.solid_value, loc):
+    if check_set_node_loc(tree, SOLID_VALUE, loc):
         loc.y -= 90
 
-    if check_set_node_loc(tree, layer.texcoord, loc):
+    if check_set_node_loc(tree, TEXCOORD, loc):
         loc.y -= 240
 
     if check_set_node_loc(tree, layer.tangent, loc):
@@ -529,7 +529,7 @@ def rearrange_layer_nodes(layer, tree=None):
     if check_set_node_loc(tree, layer.bitangent, loc):
         loc.y -= 160
 
-    if check_set_node_loc(tree, layer.geometry, loc):
+    if check_set_node_loc(tree, GEOMETRY, loc):
         loc.y -= 210
 
     loc = Vector((-600, 0))
@@ -846,7 +846,7 @@ def rearrange_layer_nodes(layer, tree=None):
     loc.y = 0
 
     # Start node
-    check_set_node_loc(tree, layer.start, loc)
+    check_set_node_loc(tree, TREE_START, loc)
 
     loc.x += 250
     loc.y = 0
@@ -919,7 +919,7 @@ def rearrange_layer_nodes(layer, tree=None):
     #loc.y = mid_y
     #loc.y = y_mid
     loc.y = 0
-    check_set_node_loc(tree, layer.end, loc)
+    check_set_node_loc(tree, TREE_END, loc)
 
     rearrange_layer_frame_nodes(layer, tree)
 
@@ -933,7 +933,7 @@ def rearrange_yp_nodes(group_tree):
     loc = Vector((0, 0))
 
     # Rearrange start nodes
-    check_set_node_loc(group_tree, yp.start, loc)
+    check_set_node_loc(group_tree, TREE_START, loc)
 
     loc.x += 200
     ori_x = loc.x
@@ -954,7 +954,7 @@ def rearrange_yp_nodes(group_tree):
             loc.y -= 120
 
         if i == num_channels-1:
-            check_set_node_loc(group_tree, yp.solid_value, loc)
+            check_set_node_loc(group_tree, SOLID_VALUE, loc)
             loc.x += 200
 
     #groups = []
@@ -1027,7 +1027,7 @@ def rearrange_yp_nodes(group_tree):
     loc.y = 0.0
 
     # End node
-    check_set_node_loc(group_tree, yp.end, loc)
+    check_set_node_loc(group_tree, TREE_END, loc)
 
     # Rearrange frames
     rearrange_yp_frame_nodes(yp)

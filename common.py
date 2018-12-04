@@ -12,15 +12,15 @@ ADDON_TITLE = 'Painty'
 
 INFO_PREFIX = '__yp_info_'
 
-SOURCE_TREE_START = '__source_start_'
-SOURCE_TREE_END = '__source_end_'
-SOURCE_SOLID_VALUE = '__source_solid_'
+TREE_START = '__start__'
+TREE_END = '__end__'
+SOLID_VALUE = '__solid_value__'
 
-MOD_TREE_START = '__mod_start_'
-MOD_TREE_END = '__mod_end_'
+TEXCOORD = '__texcoord__'
+GEOMETRY = '__geometry__'
 
-MASK_TREE_START = '__mask_start_'
-MASK_TREE_END = '__mask_end_'
+MOD_TREE_START = '__mod_start__'
+MOD_TREE_END = '__mod_end__'
 
 blend_type_items = (("MIX", "Mix", ""),
 	             ("ADD", "Add", ""),
@@ -514,6 +514,32 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
     setattr(entity, prop, '')
     #entity[prop] = ''
 
+def create_essential_nodes(tree, solid_value=False, layer_stuff=False):
+
+    # Start
+    node = tree.nodes.new('NodeGroupInput')
+    node.name = TREE_START
+    node.label = 'Start'
+
+    # End
+    node = tree.nodes.new('NodeGroupOutput')
+    node.name = TREE_END
+    node.label = 'End'
+
+    # Create solid value node
+    if solid_value:
+        node = tree.nodes.new('ShaderNodeValue')
+        node.name = SOLID_VALUE
+        node.label = 'Solid Value'
+        node.outputs[0].default_value = 1.0
+
+    if layer_stuff:
+        node = tree.nodes.new('ShaderNodeNewGeometry')
+        node.name = GEOMETRY
+
+        node = tree.nodes.new('ShaderNodeTexCoord')
+        node.name = TEXCOORD
+
 def mute_node(tree, entity, prop):
     if not hasattr(entity, prop): return
     node = tree.nodes.get(getattr(entity, prop))
@@ -604,7 +630,8 @@ def create_info_nodes(tree):
     infos.append(info)
 
     info = nodes.new('NodeFrame')
-    info.label = 'Please use this panel: Node Editor > Tools > ' + ADDON_TITLE
+    #info.label = 'Please use this panel: Node Editor > Tools > ' + ADDON_TITLE
+    info.label = 'Please use this panel: Node Editor > Tools > Misc'
     info.use_custom_color = True
     info.color = (1.0, 0.5, 0.5)
     info.width = 580.0

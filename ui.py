@@ -2048,6 +2048,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = self.layout.column()
 
+        col.operator('node.y_bake_channels', text='Bake All Channels', icon='RENDER_STILL')
         col.operator('node.y_rename_ypaint_tree', text='Rename', icon='GREASEPENCIL')
 
         col.separator()

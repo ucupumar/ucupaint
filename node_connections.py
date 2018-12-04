@@ -213,9 +213,9 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
     #print('Reconnect tree ' + tree.name)
 
-    start = nodes.get(yp.start)
-    end = nodes.get(yp.end)
-    solid_value = nodes.get(yp.solid_value)
+    start = nodes.get(TREE_START)
+    end = nodes.get(TREE_END)
+    solid_value = nodes.get(SOLID_VALUE)
 
     for i, ch in enumerate(yp.channels):
         if ch_idx != -1 and i != ch_idx: continue
@@ -331,9 +331,9 @@ def reconnect_source_internal_nodes(layer):
 
     source = tree.nodes.get(layer.source)
     mapping = tree.nodes.get(layer.mapping)
-    start = tree.nodes.get(SOURCE_TREE_START)
-    solid = tree.nodes.get(SOURCE_SOLID_VALUE)
-    end = tree.nodes.get(SOURCE_TREE_END)
+    start = tree.nodes.get(TREE_START)
+    solid = tree.nodes.get(SOLID_VALUE)
+    end = tree.nodes.get(TREE_END)
 
     #if layer.type != 'VCOL':
     #    create_link(tree, start.outputs[0], source.inputs[0])
@@ -375,8 +375,8 @@ def reconnect_mask_internal_nodes(mask):
 
     source = tree.nodes.get(mask.source)
     mapping = tree.nodes.get(mask.mapping)
-    start = tree.nodes.get(MASK_TREE_START)
-    end = tree.nodes.get(MASK_TREE_END)
+    start = tree.nodes.get(TREE_START)
+    end = tree.nodes.get(TREE_END)
 
     if mask.type != 'VCOL':
         if mapping:
@@ -401,8 +401,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     tree = get_tree(layer)
     nodes = tree.nodes
 
-    start = nodes.get(layer.start)
-    end = nodes.get(layer.end)
+    start = nodes.get(TREE_START)
+    end = nodes.get(TREE_END)
+    solid_value = nodes.get(SOLID_VALUE)
 
     source_group = nodes.get(layer.source_group)
 
@@ -421,12 +422,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     uv_map = nodes.get(layer.uv_map)
     uv_neighbor = nodes.get(layer.uv_neighbor)
 
+    texcoord = nodes.get(TEXCOORD)
+    geometry = nodes.get(GEOMETRY)
     mapping = nodes.get(layer.mapping)
-    texcoord = nodes.get(layer.texcoord)
-    solid_value = nodes.get(layer.solid_value)
     tangent = nodes.get(layer.tangent)
     bitangent = nodes.get(layer.bitangent)
-    geometry = nodes.get(layer.geometry)
 
     # Texcoord
     if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:

@@ -109,7 +109,7 @@ bl_info = {
     "name": "Painty",
     "author": "Yusuf Umar",
     "version": (0, 1, 0),
-    "blender": (2, 80, 0),
+    "blender": (2, 79, 0),
     "location": "Node Editor > Properties > Painty",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
     "warning" : "This is alpha version, incompability to future releases might happen",
