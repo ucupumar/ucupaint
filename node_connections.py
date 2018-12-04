@@ -215,7 +215,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
     start = nodes.get(TREE_START)
     end = nodes.get(TREE_END)
-    solid_value = nodes.get(SOLID_VALUE)
+    solid_value = nodes.get(ONE_VALUE)
+    zero_value = nodes.get(ZERO_VALUE)
 
     for i, ch in enumerate(yp.channels):
         if ch_idx != -1 and i != ch_idx: continue
@@ -332,7 +333,7 @@ def reconnect_source_internal_nodes(layer):
     source = tree.nodes.get(layer.source)
     mapping = tree.nodes.get(layer.mapping)
     start = tree.nodes.get(TREE_START)
-    solid = tree.nodes.get(SOLID_VALUE)
+    solid = tree.nodes.get(ONE_VALUE)
     end = tree.nodes.get(TREE_END)
 
     #if layer.type != 'VCOL':
@@ -403,7 +404,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
     start = nodes.get(TREE_START)
     end = nodes.get(TREE_END)
-    solid_value = nodes.get(SOLID_VALUE)
+    solid_value = nodes.get(ONE_VALUE)
 
     source_group = nodes.get(layer.source_group)
 

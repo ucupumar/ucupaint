@@ -30,21 +30,21 @@ def refresh_source_tree_ios(source_tree, layer_type):
 
     col1 = source_tree.outputs.get('Color 1')
     alp1 = source_tree.outputs.get('Alpha 1')
-    solid = source_tree.nodes.get(SOLID_VALUE)
+    #solid = source_tree.nodes.get(ONE_VALUE)
 
     if layer_type != 'IMAGE':
 
         if not col1: col1 = source_tree.outputs.new('NodeSocketColor', 'Color 1')
         if not alp1: alp1 = source_tree.outputs.new('NodeSocketFloat', 'Alpha 1')
 
-        if not solid:
-            solid = source_tree.nodes.new('ShaderNodeValue')
-            solid.outputs[0].default_value = 1.0
-            solid.name = SOLID_VALUE
+        #if not solid:
+        #    solid = source_tree.nodes.new('ShaderNodeValue')
+        #    solid.outputs[0].default_value = 1.0
+        #    solid.name = ONE_VALUE
     else:
         if col1: source_tree.outputs.remove(col1)
         if alp1: source_tree.outputs.remove(alp1)
-        if solid: source_tree.nodes.remove(solid)
+        #if solid: source_tree.nodes.remove(solid)
 
 def enable_layer_source_tree(layer, rearrange=False):
 
@@ -65,7 +65,7 @@ def enable_layer_source_tree(layer, rearrange=False):
 
         #source_tree.outputs.new('NodeSocketFloat', 'Factor')
 
-        create_essential_nodes(source_tree)
+        create_essential_nodes(source_tree, True)
 
         #start = source_tree.nodes.new('NodeGroupInput')
         #start.name = TREE_START

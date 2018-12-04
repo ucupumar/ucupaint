@@ -353,8 +353,10 @@ def rearrange_source_tree_nodes(layer):
         loc.x += 180
 
     loc.y -= 300
-    check_set_node_loc(source_tree, SOLID_VALUE, loc)
-    loc.y += 300
+    check_set_node_loc(source_tree, ONE_VALUE, loc)
+    loc.y -= 90
+    check_set_node_loc(source_tree, ZERO_VALUE, loc)
+    loc.y += 390
 
     if check_set_node_loc(source_tree, layer.mapping, loc):
         loc.x += 380
@@ -515,9 +517,12 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 230
 
     if check_set_node_loc(tree, layer.uv_map, loc):
-        loc.y -= 140
+        loc.y -= 120
 
-    if check_set_node_loc(tree, SOLID_VALUE, loc):
+    if check_set_node_loc(tree, ONE_VALUE, loc):
+        loc.y -= 90
+
+    if check_set_node_loc(tree, ZERO_VALUE, loc):
         loc.y -= 90
 
     if check_set_node_loc(tree, TEXCOORD, loc):
@@ -954,7 +959,9 @@ def rearrange_yp_nodes(group_tree):
             loc.y -= 120
 
         if i == num_channels-1:
-            check_set_node_loc(group_tree, SOLID_VALUE, loc)
+            check_set_node_loc(group_tree, ONE_VALUE, loc)
+            loc.y -= 90
+            check_set_node_loc(group_tree, ZERO_VALUE, loc)
             loc.x += 200
 
     #groups = []

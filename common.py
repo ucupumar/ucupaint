@@ -12,15 +12,16 @@ ADDON_TITLE = 'Painty'
 
 INFO_PREFIX = '__yp_info_'
 
-TREE_START = '__start__'
-TREE_END = '__end__'
-SOLID_VALUE = '__solid_value__'
+TREE_START = 'Group Input'
+TREE_END = 'Group Output'
+ONE_VALUE = 'One Value'
+ZERO_VALUE = 'Zero Value'
 
-TEXCOORD = '__texcoord__'
-GEOMETRY = '__geometry__'
+TEXCOORD = 'Texture Coordinate'
+GEOMETRY = 'Geometry'
 
-MOD_TREE_START = '__mod_start__'
-MOD_TREE_END = '__mod_end__'
+MOD_TREE_START = '__mod_start'
+MOD_TREE_END = '__mod_end'
 
 blend_type_items = (("MIX", "Mix", ""),
 	             ("ADD", "Add", ""),
@@ -529,9 +530,14 @@ def create_essential_nodes(tree, solid_value=False, layer_stuff=False):
     # Create solid value node
     if solid_value:
         node = tree.nodes.new('ShaderNodeValue')
-        node.name = SOLID_VALUE
-        node.label = 'Solid Value'
+        node.name = ONE_VALUE
+        node.label = 'One Value'
         node.outputs[0].default_value = 1.0
+
+        node = tree.nodes.new('ShaderNodeValue')
+        node.name = ZERO_VALUE
+        node.label = 'Zero Value'
+        node.outputs[0].default_value = 0.0
 
     if layer_stuff:
         node = tree.nodes.new('ShaderNodeNewGeometry')
