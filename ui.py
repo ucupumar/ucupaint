@@ -2072,7 +2072,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        col.label('Active:', icon='NODETREE')
+        col.label(text='Active:', icon='NODETREE')
         for n in get_list_of_ypaint_nodes(mat):
             if n.name == node.name:
                 icon = 'RADIOBUT_ON'

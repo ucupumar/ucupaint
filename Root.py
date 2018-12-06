@@ -1629,6 +1629,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     ori_alpha_from = PointerProperty(type=YNodeConnections)
 
 class YPaint(bpy.types.PropertyGroup):
+
     is_ypaint_node = BoolProperty(default=False)
     is_ypaint_layer_node = BoolProperty(default=False)
     version = StringProperty(default='')

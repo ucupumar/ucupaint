@@ -23,8 +23,10 @@ def prepare_bake_settings(self, context):
     #self.ori_active_node = 
 
     # Remember scene objects
-    self.ori_active_obj = scene.objects.active
-    self.ori_active_selected_objs = [o for o in scene.objects if o.select]
+    #self.ori_active_obj = scene.objects.active
+    if bpy.app.version_string.startswith('2.8'):
+        self.ori_active_selected_objs = [o for o in scene.objects if o.select_get()]
+    else: self.ori_active_selected_objs = [o for o in scene.objects if o.select]
 
     scene.render.engine = 'CYCLES'
     scene.cycles.bake_type = 'EMIT'
@@ -34,13 +36,19 @@ def prepare_bake_settings(self, context):
     #scene.render.bake.use_clear = True
     scene.render.bake.use_clear = False
 
-    # Disable other object selections
-    for o in scene.objects:
-        o.select = False
+    # Disable other object selections and select only active object
+    if bpy.app.version_string.startswith('2.8'):
+        for o in scene.objects:
+            o.select_set(False)
+        obj.select_set(True)
+    else:
+        for o in scene.objects:
+            o.select = False
+        obj.select = True
 
     # Select object
-    scene.objects.active = obj
-    obj.select = True
+    #scene.objects.active = obj
+    #obj.select = True
 
     # Remember uv
     self.ori_active_uv = uv_layers.active
@@ -64,13 +72,19 @@ def recover_bake_settings(self, context):
     uv_layers.active = self.ori_active_uv
 
     # Disable other object selections
-    for o in scene.objects:
-        if o in self.ori_active_selected_objs:
-            o.select = True
-        else: o.select = False
+    if bpy.app.version_string.startswith('2.8'):
+        for o in scene.objects:
+            if o in self.ori_active_selected_objs:
+                o.select_set(True)
+            else: o.select_set(False)
+    else:
+        for o in scene.objects:
+            if o in self.ori_active_selected_objs:
+                o.select = True
+            else: o.select = False
 
     # Recover active object
-    scene.objects.active = self.ori_active_obj
+    #scene.objects.active = self.ori_active_obj
 
 class YBakeChannels(bpy.types.Operator):
     """Bake Channels to Image(s)"""
@@ -78,19 +92,37 @@ class YBakeChannels(bpy.types.Operator):
     bl_label = "Bake channels to Image"
     bl_options = {'REGISTER', 'UNDO'}
 
-    width = IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height = IntProperty(name='Height', default = 1024, min=1, max=4096)
+    #if bpy.app.version_string.startswith('2.8'):
 
-    uv_map = StringProperty(default='')
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
 
-    samples = IntProperty(name='Bake Samples', 
+    uv_map : StringProperty(default='')
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    samples : IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1)
 
-    margin = IntProperty(name='Bake Margin',
+    margin : IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
+
+    #else:
+
+    #    width = IntProperty(name='Width', default = 1024, min=1, max=4096)
+    #    height = IntProperty(name='Height', default = 1024, min=1, max=4096)
+
+    #    uv_map = StringProperty(default='')
+    #    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    #    samples = IntProperty(name='Bake Samples', 
+    #            description='Bake Samples, more means less jagged on generated textures', 
+    #            default=1)
+
+    #    margin = IntProperty(name='Bake Margin',
+    #            description = 'Bake margin in pixels',
+    #            default=5, subtype='PIXEL')
 
     @classmethod
     def poll(cls, context):
@@ -115,6 +147,7 @@ class YBakeChannels(bpy.types.Operator):
             else: self.uv_map = uv_layers.active.name
 
             # UV Map collections update
+            self.uv_map_coll.clear()
             for uv in obj.data.uv_layers:
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
@@ -240,9 +273,9 @@ class YBakeChannels(bpy.types.Operator):
 
             # Links to bake
             rgb = node.outputs[ch.io_index]
-            if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
-                if ch.type == 'NORMAL':
-                    rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
+            if ch.type == 'NORMAL':
+                rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
+            if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL': # and not bpy.app.version_string.startswith('2.8'):
                 rgb = create_link(mat.node_tree, rgb, linear.inputs[0])[0]
             mat.node_tree.links.new(rgb, emit.inputs[0])
 
