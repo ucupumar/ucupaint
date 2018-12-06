@@ -5,6 +5,8 @@ from bpy.app.handlers import persistent
 
 BLENDER_28_GROUP_INPUT_HACK = False
 
+MAX_VERTEX_DATA = 8
+
 LAYERGROUP_PREFIX = '~yP Layer '
 MASKGROUP_PREFIX = '~yP Mask '
 ADDON_NAME = 'yTexLayers'
@@ -730,26 +732,31 @@ def check_duplicated_node_group(node_group):
         create_info_nodes(node_group)
 
 def get_node_tree_lib(name):
+
+    # Try to get from local lib first
+    node_tree = bpy.data.node_groups.get(name)
+    if node_tree: return node_tree
+
     # Node groups necessary are in nodegroups_lib.blend
     filepath = get_addon_filepath() + "lib.blend"
 
-    appended = False
+    #appended = False
     with bpy.data.libraries.load(filepath) as (data_from, data_to):
 
         # Load node groups
         exist_groups = [ng.name for ng in bpy.data.node_groups]
         for ng in data_from.node_groups:
-            if ng == name and ng not in exist_groups:
+            if ng == name: # and ng not in exist_groups:
 
                 data_to.node_groups.append(ng)
-                appended = True
+                #appended = True
 
                 break
 
     node_tree = bpy.data.node_groups.get(name)
 
     # Check if another group is exists inside the group
-    if node_tree and appended:
+    if node_tree: # and appended:
         check_duplicated_node_group(node_tree)
 
     return node_tree

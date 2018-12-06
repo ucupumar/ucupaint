@@ -318,7 +318,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         source.outputs[0].default_value = col
 
     # Add uv map node
-    uv_map = new_node(tree, layer, 'uv_map', 'ShaderNodeUVMap', 'Source UV Map')
+    uv_map = new_node(tree, layer, 'uv_map', 'ShaderNodeUVMap', 'UV Map')
     uv_map.uv_map = uv_name
 
     # Add tangent and bitangent node
@@ -326,11 +326,11 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     #tangent.direction_type = 'UV_MAP'
     #tangent.uv_map = uv_name
 
-    tangent = new_node(tree, layer, 'tangent', 'ShaderNodeNormalMap', 'Source Tangent')
+    tangent = new_node(tree, layer, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
     tangent.uv_map = uv_name
     tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
 
-    bitangent = new_node(tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Source Bitangent')
+    bitangent = new_node(tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
     bitangent.uv_map = uv_name
     bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
 

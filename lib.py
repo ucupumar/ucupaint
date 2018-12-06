@@ -47,6 +47,7 @@ VECTOR_MIX ='~yPL Vector Mix'
 #INVERTED_MULTIPLIER ='~yPL Inverted Multiplier'
 INTENSITY_MULTIPLIER ='~yPL Intensity Multiplier'
 GET_BITANGENT ='~yPL Get Bitangent'
+TEMP_BITANGENT = '~yPL Temp Bitangent'
 
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'
