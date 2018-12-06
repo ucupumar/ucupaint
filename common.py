@@ -17,6 +17,8 @@ TREE_END = 'Group Output'
 ONE_VALUE = 'One Value'
 ZERO_VALUE = 'Zero Value'
 
+BAKED_UV = 'UV Map'
+
 TEXCOORD = 'Texture Coordinate'
 GEOMETRY = 'Geometry'
 
@@ -452,6 +454,23 @@ def get_active_ypaint_node():
 
     return None
 
+def simple_remove_node(tree, node, remove_data=True):
+    scene = bpy.context.scene
+
+    if remove_data:
+        if node.bl_idname == 'ShaderNodeTexImage':
+            image = node.image
+            if image:
+                if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
+                    (scene.tool_settings.image_paint.canvas != image and image.users == 1)):
+                    bpy.data.images.remove(image)
+
+        elif node.bl_idname == 'ShaderNodeGroup':
+            if node.node_tree and node.node_tree.users == 1:
+                bpy.data.node_groups.remove(node.node_tree)
+
+    tree.nodes.remove(node)
+
 def remove_node(tree, entity, prop, remove_data=True, obj=None):
     if not hasattr(entity, prop): return
     #if prop not in entity: return
@@ -545,6 +564,14 @@ def create_essential_nodes(tree, solid_value=False, layer_stuff=False):
 
         node = tree.nodes.new('ShaderNodeTexCoord')
         node.name = TEXCOORD
+
+def get_active_mat_output_node(tree):
+    # Search for output
+    for node in tree.nodes:
+        if node.bl_idname == 'ShaderNodeOutputMaterial' and node.is_active_output:
+            return node
+
+    return None
 
 def mute_node(tree, entity, prop):
     if not hasattr(entity, prop): return

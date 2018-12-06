@@ -47,6 +47,12 @@
 #   - Create automatic frame node (V)
 #   - Make better node group library update system (V)
 #   - Update duplicated/single user library (V)
+# - Bake
+#   - Basic implementation (V)
+#   - Bake layer group (X, mostly useless)
+#   - Blender 2.8 normal bug workaround
+#   - Folder for auto save bake results
+#   - Dealing with multiple yp tree users
 # - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
 # - Every modifiers has intensity value for muting to prevent recompilation (V)
@@ -58,7 +64,6 @@
 # - Replace new node can detect duplicated node group (V)
 # - Test normal flip on eevee
 # - Add more comments to blender bug report about reflection fix (It should be only calculated on glossy/reflection code, not on diffuse)
-# - Bake channel (& layer group)
 # - Make every node name unique (using hash?)
 # - Refactor for more consistent class names and properties (V)
 # - Fix backface consistency with Blender 2.8 & 2.7
@@ -135,12 +140,12 @@ if "bpy" in locals():
     imp.reload(Modifier)
     imp.reload(Blur)
     imp.reload(Layer)
-    imp.reload(Root)
     imp.reload(Bake)
+    imp.reload(Root)
     #print("Reloaded multifiles")
 else:
     from . import image_ops, common, lib, ui, subtree, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Root, Bake
+    from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Bake, Root
     #print("Imported multifiles")
 
 import bpy 
@@ -161,8 +166,8 @@ def register():
     Modifier.register()
     Blur.register()
     Layer.register()
-    Root.register()
     Bake.register()
+    Root.register()
 
     print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is registered!')
 
@@ -181,8 +186,8 @@ def unregister():
     Modifier.unregister()
     Blur.unregister()
     Layer.unregister()
-    Root.unregister()
     Bake.unregister()
+    Root.unregister()
 
     print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is unregistered!')
 

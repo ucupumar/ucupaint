@@ -188,16 +188,16 @@ def layer_input_items(self, context):
 def normal_map_type_items_(layer_type):
     items = []
 
-    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-        items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 0))
-        items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 1))
-        #if layer_type != 'VCOL':
-        items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 2))
-    else: # Blender 2.8
+    if bpy.app.version_string.startswith('2.8'):
         items.append(('NORMAL_MAP', 'Normal Map', ''))
         items.append(('BUMP_MAP', 'Bump Map', ''))
         #if layer_type != 'VCOL':
         items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
+    else: 
+        items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 0))
+        items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 1))
+        #if layer_type != 'VCOL':
+        items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 2))
 
     return items
 
@@ -687,9 +687,9 @@ class YNewLayer(bpy.types.Operator):
 
         channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
 
-        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-            row = self.layout.split(percentage=0.4)
-        else: row = self.layout.split(factor=0.4)
+        if bpy.app.version_string.startswith('2.8'):
+            row = self.layout.split(factor=0.4)
+        else: row = self.layout.split(percentage=0.4)
         col = row.column(align=False)
 
         col.label(text='Name:')
@@ -1795,9 +1795,9 @@ class YReplaceLayerType(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
 
-        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-            split = layout.split(percentage=0.35)
-        else: split = layout.split(factor=0.35, align=True)
+        if bpy.app.version_string.startswith('2.8'):
+            split = layout.split(factor=0.35, align=True)
+        else: split = layout.split(percentage=0.35)
 
         #row = self.layout.row()
         if self.type == 'IMAGE':
@@ -2681,9 +2681,6 @@ class YLayer(bpy.types.PropertyGroup):
     channels = CollectionProperty(type=YLayerChannel)
 
     group_node = StringProperty(default='')
-
-    #start = StringProperty(default='')
-    #end = StringProperty(default='')
 
     type = EnumProperty(
             name = 'Layer Type',

@@ -63,6 +63,8 @@ def pack_float_image(image):
 
 def save_pack_all(yp, only_dirty = True):
 
+    tree = yp.id_data
+
     images = []
     for layer in yp.layers:
         
@@ -77,6 +79,12 @@ def save_pack_all(yp, only_dirty = True):
                 mask_tree = get_mask_tree(mask)
                 source = mask_tree.nodes.get(mask.source)
                 images.append(source.image)
+
+    # Baked images
+    for ch in yp.channels:
+        baked = tree.nodes.get(ch.baked)
+        if baked and baked.image:
+            images.append(baked.image)
 
     packed_float_images = []
 

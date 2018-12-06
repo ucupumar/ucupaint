@@ -222,9 +222,10 @@ class YNewLayerMask(bpy.types.Operator):
     def draw(self, context):
         obj = context.object
 
-        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-            row = self.layout.split(percentage=0.4)
-        else: row = self.layout.split(factor=0.4)
+        if bpy.app.version_string.startswith('2.8'):
+            row = self.layout.split(factor=0.4)
+        else: row = self.layout.split(percentage=0.4)
+
         col = row.column(align=False)
         col.label(text='Name:')
         if self.type == 'IMAGE':

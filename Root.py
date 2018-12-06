@@ -5,7 +5,7 @@ from .common import *
 from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
-from . import lib, Modifier, Layer, Mask, transition
+from . import lib, Modifier, Layer, Mask, transition, Bake
 
 YP_GROUP_SUFFIX = ' ' + ADDON_TITLE
 YP_GROUP_PREFIX = ADDON_TITLE + ' '
@@ -276,9 +276,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
     def draw(self, context):
         #row = self.layout.row()
-        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-            row = self.layout.split(percentage=0.35)
-        else: row = self.layout.split(factor=0.35)
+        if bpy.app.version_string.startswith('2.8'):
+            row = self.layout.split(factor=0.35)
+        else: row = self.layout.split(percentage=0.35)
+
         col = row.column()
         col.label(text='Type:')
         ccol = col.column(align=True)
@@ -474,7 +475,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         return {'FINISHED'}
 
 class YNewYPaintNode(bpy.types.Operator):
-    bl_idname = "node.y_add_new_cpaint_node"
+    bl_idname = "node.y_add_new_ypaint_node"
     bl_label = "Add new " + ADDON_TITLE + " Node"
     bl_description = "Add new " + ADDON_TITLE + " node"
     bl_options = {'REGISTER', 'UNDO'}
@@ -551,14 +552,14 @@ class YNewYPaintNode(bpy.types.Operator):
         return result
 
 def new_channel_items(self, context):
-    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-        items = [('VALUE', 'Value', '', lib.custom_icons[lib.channel_custom_icon_dict['VALUE']].icon_id, 0),
-                 ('RGB', 'RGB', '', lib.custom_icons[lib.channel_custom_icon_dict['RGB']].icon_id, 1),
-                 ('NORMAL', 'Normal', '', lib.custom_icons[lib.channel_custom_icon_dict['NORMAL']].icon_id, 2)]
-    else: 
+    if bpy.app.version_string.startswith('2.8'):
         items = [('VALUE', 'Value', '', lib.channel_icon_dict['VALUE'], 0),
                  ('RGB', 'RGB', '', lib.channel_icon_dict['RGB'], 1),
                  ('NORMAL', 'Normal', '', lib.channel_icon_dict['NORMAL'], 2)]
+    else:
+        items = [('VALUE', 'Value', '', lib.custom_icons[lib.channel_custom_icon_dict['VALUE']].icon_id, 0),
+                 ('RGB', 'RGB', '', lib.custom_icons[lib.channel_custom_icon_dict['RGB']].icon_id, 1),
+                 ('NORMAL', 'Normal', '', lib.custom_icons[lib.channel_custom_icon_dict['NORMAL']].icon_id, 2)]
 
     return items
 
@@ -574,7 +575,7 @@ def update_connect_to(self, context):
         self.name = get_unique_name(item.input_name, yp.channels)
 
 class YNewYPaintChannel(bpy.types.Operator):
-    bl_idname = "node.y_add_new_cpaint_channel"
+    bl_idname = "node.y_add_new_ypaint_channel"
     bl_label = "Add new " + ADDON_TITLE + " Channel"
     bl_description = "Add new " + ADDON_TITLE + " channel"
     bl_options = {'REGISTER', 'UNDO'}
@@ -648,9 +649,9 @@ class YNewYPaintChannel(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-            row = self.layout.split(percentage=0.4)
-        else: row = self.layout.split(factor=0.4)
+        if bpy.app.version_string.startswith('2.8'):
+            row = self.layout.split(factor=0.4)
+        else: row = self.layout.split(percentage=0.4)
 
         col = row.column(align=False)
         col.label(text='Name:')
@@ -766,7 +767,7 @@ def swap_channel_io(root_ch, swap_ch, io_index, io_index_swap, inputs, outputs):
             outputs.move(io_index, io_index_swap)
 
 class YMoveYPaintChannel(bpy.types.Operator):
-    bl_idname = "node.y_move_cpaint_channel"
+    bl_idname = "node.y_move_ypaint_channel"
     bl_label = "Move " + ADDON_TITLE + " Channel"
     bl_description = "Move " + ADDON_TITLE + " channel"
     bl_options = {'REGISTER', 'UNDO'}
@@ -847,7 +848,7 @@ class YMoveYPaintChannel(bpy.types.Operator):
         return {'FINISHED'}
 
 class YRemoveYPaintChannel(bpy.types.Operator):
-    bl_idname = "node.y_remove_cpaint_channel"
+    bl_idname = "node.y_remove_ypaint_channel"
     bl_label = "Remove " + ADDON_TITLE + " Channel"
     bl_description = "Remove " + ADDON_TITLE + " channel"
     bl_options = {'REGISTER', 'UNDO'}
@@ -937,6 +938,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
         remove_node(group_tree, channel, 'start_normal_filter')
+        remove_node(group_tree, channel, 'baked')
+        remove_node(group_tree, channel, 'baked_normal')
 
         for mod in channel.modifiers:
             Modifier.delete_modifier_nodes(group_tree, mod)
@@ -1212,11 +1215,7 @@ def update_preview_mode(self, context):
     if self.preview_mode:
 
         # Search for output
-        output = None
-        for node in nodes:
-            if node.bl_idname == 'ShaderNodeOutputMaterial' and node.is_active_output:
-                output = node
-                break
+        output = get_active_mat_output_node(tree)
 
         if not output: return
 
@@ -1263,12 +1262,26 @@ def update_preview_mode(self, context):
         except: pass
 
 def update_active_yp_channel(self, context):
-    try: 
-        group_node = get_active_ypaint_node()
-        yp = group_node.node_tree.yp
-    except: return
+    obj = context.object
+    tree = self.id_data
+    yp = tree.yp
+    ch = yp.channels[yp.active_channel_index]
     
     if yp.preview_mode: yp.preview_mode = True
+
+    if yp.use_baked:
+        baked = tree.nodes.get(ch.baked)
+        if baked and baked.image:
+            update_image_editor_image(context, baked.image)
+
+        if obj.type == 'MESH':
+            if hasattr(obj.data, 'uv_textures'):
+                uv_layers = self.uv_layers = obj.data.uv_textures
+            else: uv_layers = self.uv_layers = obj.data.uv_layers
+
+            baked_uv_map = tree.nodes.get(BAKED_UV)
+            if baked_uv_map:
+                uv_layers.active = uv_layers.get(baked_uv_map.uv_map)
 
 def update_layer_index(self, context):
     #T = time.time()
@@ -1597,8 +1610,15 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     # Node names
     start_linear = StringProperty(default='')
-    start_normal_filter = StringProperty(default='')
     end_linear = StringProperty(default='')
+    start_normal_filter = StringProperty(default='')
+
+    # Baked nodes
+    baked = StringProperty(default='')
+    #baked_1 = StringProperty(default='')
+    #baked_uv_map = StringProperty(default='')
+    baked_normal = StringProperty(default='')
+    #baked_mix = StringProperty(default='')
 
     # UI related
     expand_content = BoolProperty(default=False)
@@ -1624,6 +1644,12 @@ class YPaint(bpy.types.PropertyGroup):
     # Temp channels to remember last channel selected when adding new layer
     #temp_channels = CollectionProperty(type=YChannelUI)
     preview_mode = BoolProperty(default=False, update=update_preview_mode)
+
+    # Toggle to use baked results or not
+    use_baked = BoolProperty(default=False, update=Bake.update_use_baked)
+
+    # Path folder for auto save bake
+    bake_folder = StringProperty(default='')
 
     # HACK: Refresh tree to remove glitchy normal
     refresh_tree = BoolProperty(default=False)

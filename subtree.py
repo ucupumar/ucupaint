@@ -67,11 +67,6 @@ def enable_layer_source_tree(layer, rearrange=False):
 
         create_essential_nodes(source_tree, True)
 
-        #start = source_tree.nodes.new('NodeGroupInput')
-        #start.name = TREE_START
-        #end = source_tree.nodes.new('NodeGroupOutput')
-        #end.name = TREE_END
-
         refresh_source_tree_ios(source_tree, layer.type)
 
         # Copy source from reference

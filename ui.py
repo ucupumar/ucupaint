@@ -428,14 +428,14 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
     #rcol.context_pointer_set('node', node)
 
     if bpy.app.version_string.startswith('2.8'):
-        rcol.operator_menu_enum("node.y_add_new_cpaint_channel", 'type', icon='ADD', text='')
-        rcol.operator("node.y_remove_cpaint_channel", icon='REMOVE', text='')
+        rcol.operator_menu_enum("node.y_add_new_ypaint_channel", 'type', icon='ADD', text='')
+        rcol.operator("node.y_remove_ypaint_channel", icon='REMOVE', text='')
     else: 
-        rcol.operator_menu_enum("node.y_add_new_cpaint_channel", 'type', icon='ZOOMIN', text='')
-        rcol.operator("node.y_remove_cpaint_channel", icon='ZOOMOUT', text='')
+        rcol.operator_menu_enum("node.y_add_new_ypaint_channel", 'type', icon='ZOOMIN', text='')
+        rcol.operator("node.y_remove_ypaint_channel", icon='ZOOMOUT', text='')
 
-    rcol.operator("node.y_move_cpaint_channel", text='', icon='TRIA_UP').direction = 'UP'
-    rcol.operator("node.y_move_cpaint_channel", text='', icon='TRIA_DOWN').direction = 'DOWN'
+    rcol.operator("node.y_move_ypaint_channel", text='', icon='TRIA_UP').direction = 'UP'
+    rcol.operator("node.y_move_ypaint_channel", text='', icon='TRIA_DOWN').direction = 'DOWN'
 
     if len(yp.channels) > 0:
 
@@ -1434,6 +1434,14 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
 
     box = layout.box()
 
+    if yp.use_baked:
+        row = box.row(align=True)
+        row.alert = True
+        row.label(text="Disable 'Use Baked' to see layers!")
+        #row.operator("node.y_disable_baked_result", icon='ERROR')
+        row.alert = False
+        return
+
     if is_a_mesh and not uv_found:
         row = box.row(align=True)
         row.alert = True
@@ -1647,6 +1655,14 @@ def main_draw(self, context):
     yp = group_tree.yp
     ypui = wm.ypui
 
+    # Check for baked node
+    baked_found = False
+    for ch in yp.channels:
+        baked = nodes.get(ch.baked)
+        if baked: 
+            baked_found = True
+            break
+
     icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
     row.prop(ypui, 'show_channels', emboss=False, text='', icon=icon)
@@ -1660,7 +1676,10 @@ def main_draw(self, context):
     row.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
     row.label(text='Layers')
 
-    if ypui.show_layers:
+    if baked_found:
+        row.prop(yp, 'use_baked', toggle=True, text='Use Baked')
+
+    if ypui.show_layers :
         draw_layers_ui(context, layout, node, custom_icon_enable)
 
     # Stats
@@ -2675,7 +2694,7 @@ def add_new_ypaint_node_menu(self, context):
     l = self.layout
     l.operator_context = 'INVOKE_REGION_WIN'
     l.separator()
-    l.operator('node.y_add_new_cpaint_node', text=ADDON_TITLE, icon='NODETREE')
+    l.operator('node.y_add_new_ypaint_node', text=ADDON_TITLE, icon='NODETREE')
 
 def copy_ui_settings(source, dest):
     for attr in dir(source):

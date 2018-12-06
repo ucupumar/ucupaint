@@ -277,6 +277,20 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             create_link(tree, rgb, end_linear.inputs[0])
             rgb = end_linear.outputs[0]
 
+        if yp.use_baked:
+            baked = nodes.get(ch.baked)
+            baked_uv_map = nodes.get(BAKED_UV)
+
+            create_link(tree, baked_uv_map.outputs[0], baked.inputs[0])
+
+            rgb = baked.outputs[0]
+            if ch.type == 'NORMAL':
+                baked_normal = nodes.get(ch.baked_normal)
+                rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
+
+            if ch.type == 'RGB' and ch.enable_alpha:
+                alpha = baked.outputs[1]
+
         create_link(tree, rgb, end.inputs[ch.io_index])
         if ch.type == 'RGB' and ch.enable_alpha:
             create_link(tree, alpha, end.inputs[ch.io_index+1])

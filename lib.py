@@ -48,6 +48,12 @@ VECTOR_MIX ='~yPL Vector Mix'
 INTENSITY_MULTIPLIER ='~yPL Intensity Multiplier'
 GET_BITANGENT ='~yPL Get Bitangent'
 
+# Bake stuff
+BAKE_NORMAL = '~yPL Bake Normal'
+
+# SRGB Stuff
+SRGB_2_LINEAR = '~yPL SRGB to Linear'
+
 # Modifier tree names
 MOD_RGB2INT = '~yPL Mod RGB To Intensity'
 MOD_INT2RGB = '~yPL Mod Intensity To RGB'

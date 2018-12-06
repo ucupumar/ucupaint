@@ -1033,6 +1033,32 @@ def rearrange_yp_nodes(group_tree):
     loc.x += 200
     loc.y = 0.0
 
+    farthest_x = ori_x = loc.x
+
+    for i, ch in enumerate(yp.channels):
+
+        loc.x = ori_x
+
+        if check_set_node_loc(group_tree, ch.baked, loc):
+            loc.x += 200
+
+        if check_set_node_loc(group_tree, ch.baked_normal, loc):
+            loc.x += 200
+
+        loc.y -= 270
+
+        if loc.x > farthest_x: farthest_x = loc.x
+
+        if i == num_channels-1:
+            loc.x = ori_x
+            check_set_node_loc(group_tree, BAKED_UV, loc)
+            #if check_set_node_loc(group_tree, BAKED_UV, loc):
+                #loc.y -= 120
+                #loc.x += 200
+
+    loc.x = farthest_x
+    loc.y = 0
+
     # End node
     check_set_node_loc(group_tree, TREE_END, loc)
 
