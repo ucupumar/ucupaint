@@ -296,20 +296,20 @@ class YBakeChannels(bpy.types.Operator):
             else: baked.color_space = 'COLOR'
             
             # Get uv map
-            uv = tree.nodes.get(BAKED_UV)
-            if not uv:
-                uv = tree.nodes.new('ShaderNodeUVMap')
-                uv.name = BAKED_UV
+            baked_uv = tree.nodes.get(BAKED_UV)
+            if not baked_uv:
+                baked_uv = tree.nodes.new('ShaderNodeUVMap')
+                baked_uv.name = BAKED_UV
 
             # Set uv map
-            uv.uv_map = self.uv_map
+            baked_uv.uv_map = self.uv_map
 
             # Normal related nodes
             if ch.type == 'NORMAL':
                 baked_normal = tree.nodes.get(ch.baked_normal)
                 if not baked_normal:
                     baked_normal = new_node(tree, ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
-                    baked_normal.uv_map = self.uv_map
+                baked_normal.uv_map = self.uv_map
 
             # Check if image is available
             if baked.image:
