@@ -50,7 +50,7 @@
 # - Bake
 #   - Basic implementation (V)
 #   - Bake layer group (X, mostly useless)
-#   - Blender 2.8 normal bug workaround
+#   - Blender 2.8 normal bug workaround (V)
 #   - Folder for auto save bake results
 #   - Dealing with multiple yp tree users
 # - Make sure background layer blending and its ui is consistent (V)

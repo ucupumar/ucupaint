@@ -189,7 +189,7 @@ class YBakeChannels(bpy.types.Operator):
 
                 obj.data.calc_tangents()
 
-                vcol = obj.data.vertex_colors.new('__sign_' + uv.name)
+                vcol = obj.data.vertex_colors.new(name='__sign_' + uv.name)
                 self.temp_vcol_ids.append(len(obj.data.vertex_colors)-1)
 
                 i = 0
@@ -197,7 +197,9 @@ class YBakeChannels(bpy.types.Operator):
                     for idx in poly.loop_indices:
                         vert = obj.data.loops[idx]
                         bs = vert.bitangent_sign
-                        vcol.data[i].color = (bs, bs, bs)
+                        if bpy.app.version_string.startswith('2.8'):
+                            vcol.data[i].color = (bs, bs, bs, 1.0)
+                        else: vcol.data[i].color = (bs, bs, bs)
                         i += 1
 
                 bt_tree = get_node_tree_lib(lib.TEMP_BITANGENT)
@@ -266,6 +268,12 @@ class YBakeChannels(bpy.types.Operator):
         
         bt = norm.node_tree.nodes.get('_bitangent')
         bt.uv_map = self.uv_map
+
+        if BL28_HACK:
+            socket = bt.outputs[0].links[0].to_socket
+            hack_bt = norm.node_tree.nodes.new('ShaderNodeGroup')
+            hack_bt.node_tree = bpy.data.node_groups.get('__bitangent_' + self.uv_map)
+            create_link(norm.node_tree, hack_bt.outputs[0], socket)
 
         # Set tex as active node
         mat.node_tree.nodes.active = tex
@@ -391,6 +399,8 @@ class YBakeChannels(bpy.types.Operator):
 
         # Recover hack
         if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
+
+            uvs = [uv for uv in self.uv_layers if not uv.name.startswith(TEMP_UV)]
 
             # Recover tangent and bitangent
             for uv in uvs:
