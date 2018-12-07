@@ -1435,11 +1435,44 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
     box = layout.box()
 
     if yp.use_baked:
-        row = box.row(align=True)
-        row.alert = True
-        row.label(text="Disable 'Use Baked' to see layers!")
-        #row.operator("node.y_disable_baked_result", icon='ERROR')
-        row.alert = False
+        col = box.column(align=False)
+        #bbox = col.box()
+        #bbox.alert = True
+        #bbox.label(text="Disable 'Use Baked' to see layers!")
+        ##bbox.operator("node.y_disable_baked_result", icon='ERROR')
+        #bbox.alert = False
+
+        if len(yp.channels) > 0:
+            root_ch = yp.channels[yp.active_channel_index]
+
+            baked = nodes.get(root_ch.baked)
+            if baked and baked.image:
+                row = col.row(align=True)
+                #label = 'Baked Image (' + root_ch.name + '):'
+                label = 'Baked ' + root_ch.name + ':'
+                if custom_icon_enable:
+                    icon_name = lib.channel_custom_icon_dict[root_ch.type]
+                    icon_value = lib.custom_icons[icon_name].icon_id
+                    row.label(text=label, icon_value=icon_value)
+                else:
+                    row.label(text=label, icon=lib.channel_icon_dict[channel.type])
+
+                row.context_pointer_set('image', baked.image)
+
+                if bpy.app.version_string.startswith('2.8'):
+                    row.menu("NODE_MT_y_baked_image_menu", text='', icon='PREFERENCES')
+                else: row.menu("NODE_MT_y_baked_image_menu", text='', icon='SCRIPTWIN')
+
+                #row.label(text='Baked Image (' + root_ch.name + '):')
+                row = col.row(align=True)
+                row.label(text='', icon='BLANK1')
+                if baked.image.is_dirty:
+                    label = baked.image.name + ' *'
+                else: label = baked.image.name
+                row.label(text=label, icon='IMAGE_DATA')
+
+                if baked.image.packed_file:
+                    row.label(text='', icon='PACKAGE')
         return
 
     if is_a_mesh and not uv_found:
@@ -2161,6 +2194,25 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_new_layer", text='Voronoi').type = 'VORONOI'
         col.operator("node.y_new_layer", text='Wave').type = 'WAVE'
 
+class YBakedImageMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_baked_image_menu"
+    bl_label = "Baked Image Menu"
+    bl_description = "Baked Image Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        col = self.layout.column()
+        #col.label('Ya dun sai')
+        col.operator('node.y_pack_image', icon='PACKAGE')
+        col.operator('node.y_save_image', icon='FILE_TICK')
+
+        if context.image.packed_file:
+            col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
+        else: col.operator('node.y_save_as_image', text='Save As Image')
+
 class YLayerListSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_list_special_menu"
     bl_label = "Layer Special Menu"
@@ -2736,6 +2788,7 @@ def yp_load_ui_settings(scene):
 def register():
     bpy.utils.register_class(YPaintSpecialMenu)
     bpy.utils.register_class(YNewLayerMenu)
+    bpy.utils.register_class(YBakedImageMenu)
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YModifierMenu)
     bpy.utils.register_class(YMaskModifierMenu)
@@ -2773,6 +2826,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(YPaintSpecialMenu)
     bpy.utils.unregister_class(YNewLayerMenu)
+    bpy.utils.unregister_class(YBakedImageMenu)
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YModifierMenu)
     bpy.utils.unregister_class(YMaskModifierMenu)

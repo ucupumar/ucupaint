@@ -51,7 +51,7 @@
 #   - Basic implementation (V)
 #   - Bake layer group (X, mostly useless)
 #   - Blender 2.8 normal bug workaround (V)
-#   - Folder for auto save bake results
+#   - Folder for auto save bake results (~, replaced by standard/pack menu)
 #   - Dealing with multiple yp tree users
 # - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
@@ -65,6 +65,7 @@
 # - Test normal flip on eevee
 # - Add more comments to blender bug report about reflection fix (It should be only calculated on glossy/reflection code, not on diffuse)
 # - Make every node name unique (using hash?)
+# - Deals with blender 2.8 vertex color alpha
 # - Refactor for more consistent class names and properties (V)
 # - Fix backface consistency with Blender 2.8 & 2.7
 

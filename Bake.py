@@ -255,8 +255,6 @@ class YBakeChannels(bpy.types.Operator):
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
         emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
-        #linear = mat.node_tree.nodes.new('ShaderNodeGamma')
-        #linear.inputs['Gamma'].default_value = GAMMA
         linear = mat.node_tree.nodes.new('ShaderNodeGroup')
         linear.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
 
@@ -287,6 +285,9 @@ class YBakeChannels(bpy.types.Operator):
 
         for ch in yp.channels:
 
+            img_name = tree.name + ' ' + ch.name
+            filepath = ''
+
             # Set nodes
             baked = tree.nodes.get(ch.baked)
             if not baked:
@@ -312,12 +313,16 @@ class YBakeChannels(bpy.types.Operator):
                 baked_normal.uv_map = self.uv_map
 
             # Check if image is available
+            img_users = []
             if baked.image:
-                if baked.image.users == 1:
-                    bpy.data.images.remove(baked.image)
+                img_name = baked.image.name
+                filepath = baked.image.filepath
+                baked.image.name = '____TEMP'
+                #if baked.image.users == 1:
+                #    bpy.data.images.remove(baked.image)
 
             #Create new image
-            img = bpy.data.images.new(name=tree.name + ' ' + ch.name, 
+            img = bpy.data.images.new(name=img_name,
                     width=self.width, height=self.height) #, alpha=True, float_buffer=self.hdr)
             img.generated_type = 'BLANK'
             img.use_alpha = True
@@ -333,6 +338,10 @@ class YBakeChannels(bpy.types.Operator):
                 col = Color((col[0], col[1], col[2]))
                 col = linear_to_srgb(col)
                 img.generated_color = (col.r, col.g, col.b, 1.0)
+
+            # Set filepath
+            if filepath != '':
+                img.filepath = filepath
 
             # Set image to tex node
             tex.image = img
@@ -377,8 +386,15 @@ class YBakeChannels(bpy.types.Operator):
                 # Remove temp image
                 bpy.data.images.remove(alpha_img)
 
-            # Set image to baked node
-            baked.image = img
+            # Set image to baked node and replace all previously original users
+            if baked.image:
+                temp = baked.image
+                img_users = get_all_image_users(baked.image)
+                for user in img_users:
+                    user.image = img
+                bpy.data.images.remove(temp)
+            else:
+                baked.image = img
 
         #return {'FINISHED'}
 

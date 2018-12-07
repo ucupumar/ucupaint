@@ -575,6 +575,29 @@ def get_active_mat_output_node(tree):
 
     return None
 
+def get_all_image_users(image):
+    users = []
+
+    # Materials
+    for mat in bpy.data.materials:
+        if mat.node_tree:
+            for node in mat.node_tree.nodes:
+                if node.type == 'TEX_IMAGE' and node.image == image:
+                    users.append(node)
+
+    # Node groups
+    for ng in bpy.data.node_groups:
+        for node in ng.nodes:
+            if node.type == 'TEX_IMAGE' and node.image == image:
+                users.append(node)
+
+    # Textures
+    for tex in bpy.data.textures:
+        if tex.type == 'IMAGE' and tex.image == image:
+            users.append(tex)
+
+    return users
+
 def mute_node(tree, entity, prop):
     if not hasattr(entity, prop): return
     node = tree.nodes.get(getattr(entity, prop))
