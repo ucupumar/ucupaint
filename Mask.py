@@ -51,7 +51,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
                 mapping.translation[0] = offset_x
                 mapping.translation[1] = offset_y
 
-            refresh_temp_uv(bpy.context.object, mask, True)
+            refresh_temp_uv(bpy.context.object, mask)
 
     for i, root_ch in enumerate(yp.channels):
         ch = layer.channels[i]
@@ -788,7 +788,7 @@ def update_mask_uv_name(self, context):
     if mask.active_edit and obj.type == 'MESH':
 
         if mask.segment_name != '':
-            refresh_temp_uv(obj, mask, True)
+            refresh_temp_uv(obj, mask)
         else:
 
             if hasattr(obj.data, 'uv_textures'):

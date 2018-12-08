@@ -1467,7 +1467,7 @@ def is_transformed(mapping):
         return True
     return False
 
-def refresh_temp_uv(obj, entity, use_ops=False):
+def refresh_temp_uv(obj, entity): 
 
     #if not entity or entity.segment_name == '' or entity.type != 'IMAGE':
     if not entity or entity.type != 'IMAGE': # or not is_transformed(entity):

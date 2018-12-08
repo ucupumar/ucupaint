@@ -398,7 +398,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         #        mapping.translation[0] = offset_x
         #        mapping.translation[1] = offset_y
 
-        #    refresh_temp_uv(obj, mask, True)
+        #    refresh_temp_uv(obj, mask)
 
     # Fill channel layer props
     shortcut_created = False
@@ -880,7 +880,7 @@ class YNewLayer(bpy.types.Operator):
                 mapping.translation[0] = offset_x
                 mapping.translation[1] = offset_y
 
-            refresh_temp_uv(obj, layer, True)
+            refresh_temp_uv(obj, layer)
 
         yp.halt_update = False
 
@@ -2288,7 +2288,7 @@ def update_uv_name(self, context):
     if obj.type == 'MESH' and not any([m for m in layer.masks if m.active_edit]):
 
         if layer.segment_name != '':
-            refresh_temp_uv(obj, layer, True)
+            refresh_temp_uv(obj, layer)
         else:
             if hasattr(obj.data, 'uv_textures'):
                 uv_layers = obj.data.uv_textures

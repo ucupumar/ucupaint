@@ -59,7 +59,7 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False):
 
     img.yia.is_image_atlas = True
     img.yia.color = color
-    img.yia.float_buffer = hdr
+    #img.yia.float_buffer = hdr
 
     return img
 
@@ -124,34 +124,80 @@ def is_there_any_unused_segments(atlas, width, height):
 def check_need_of_erasing_segments(color='BLACK', width=1024, height=1024, hdr=False):
 
     for img in bpy.data.images:
-        if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
+        #if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
+        if img.yia.is_image_atlas and img.yia.color == color and img.is_float == hdr:
             if not get_available_tile(width, height, img.yia) and is_there_any_unused_segments(img.yia, width, height):
                 return img
 
     return None
 
-def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False):
+def copy_segment_pixels(img_from, segment_from, img_to, segment_to):
+
+    if segment_from.width != segment_to.width or segment_from.height != segment_to.height:
+        return
+
+    from_pxs = list(img_from.pixels)
+    if img_from == img_to:
+        to_pxs = from_pxs
+    else: to_pxs = list(img_to.pixels)
+
+    width = segment_from.width
+    height = segment_from.height
+
+    from_start_x = width * segment_from.tile_x
+    from_end_x = from_start_x + width
+
+    from_start_y = height * segment_from.tile_y
+    from_end_y = from_start_y + height
+
+    to_start_x = width * segment_to.tile_x
+    to_end_x = to_start_x + width
+
+    to_start_y = height * segment_to.tile_y
+    to_end_y = to_start_y + height
+
+    for y in range(height):
+        from_offset_y = img_from.size[0] * 4 * (y + from_start_y)
+        to_offset_y = img_to.size[0] * 4 * (y + to_start_y)
+        for x in range(width):
+            from_offset_x = 4 * (x + from_start_x)
+            to_offset_x = 4 * (x + to_start_x)
+            for i in range(4):
+                to_pxs[to_offset_y + to_offset_x + i] = from_pxs[from_offset_y + from_offset_x + i]
+
+    img_to.pixels = to_pxs
+
+def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_from=None, segment_from=None):
 
     ypup = bpy.context.user_preferences.addons[__package__].preferences
 
+    segment = None
+
     # Serach for available image atlas
     for img in bpy.data.images:
-        if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
+        #if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
+        if img.yia.is_image_atlas and img.yia.color == color and img.is_float == hdr:
             segment = create_image_atlas_segment(img.yia, width, height)
-            if segment: return segment
+            if segment: 
+                #return segment
+                break
             else:
                 # This is where unused segments should be erased 
                 pass
 
-    if hdr: new_atlas_size = ypup.hdr_image_atlas_size
-    else: new_atlas_size = ypup.image_atlas_size
+    if not segment:
+        if hdr: new_atlas_size = ypup.hdr_image_atlas_size
+        else: new_atlas_size = ypup.image_atlas_size
 
-    # If proper image atlas can't be found, create new one
-    img = create_image_atlas(color, new_atlas_size, hdr)
-    segment = create_image_atlas_segment(img.yia, width, height)
-    if segment: return segment
+        # If proper image atlas can't be found, create new one
+        img = create_image_atlas(color, new_atlas_size, hdr)
+        segment = create_image_atlas_segment(img.yia, width, height)
+        #if segment: return segment
 
-    return None
+    if img_from and segment_from:
+        copy_segment_pixels(img_from, segment_from, img, segment)
+
+    return segment
 
 #class YUVTransformTest(bpy.types.Operator):
 #    bl_idname = "node.y_uv_transform_test"
@@ -413,7 +459,7 @@ class YImageAtlas(bpy.types.PropertyGroup):
                      ('TRANSPARENT', 'Transparent', '')),
             default = 'BLACK')
 
-    float_buffer = BoolProperty(default=False)
+    #float_buffer = BoolProperty(default=False)
 
     segments = CollectionProperty(type=YImageAtlasSegments)
 

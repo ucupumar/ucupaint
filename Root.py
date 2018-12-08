@@ -1,11 +1,11 @@
-import bpy, time, re
+import bpy, time, re, os
 from bpy.props import *
 from bpy.app.handlers import persistent
 from .common import *
 from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
-from . import lib, Modifier, Layer, Mask, transition, Bake
+from . import lib, Modifier, Layer, Mask, transition, Bake, ImageAtlas
 
 YP_GROUP_SUFFIX = ' ' + ADDON_TITLE
 YP_GROUP_PREFIX = ADDON_TITLE + ' '
@@ -1093,24 +1093,137 @@ class YFixDuplicatedLayers(bpy.types.Operator):
         tree = group_node.node_tree
         yp = tree.yp
 
+        #img_mappings = []
+        img_users = []
+        img_nodes = []
+        imgs = []
+
         # Make all layers single(dual) user
-        for t in yp.layers:
-            oldtree = get_tree(t)
+        for layer in yp.layers:
+            oldtree = get_tree(layer)
             ttree = oldtree.copy()
-            node = tree.nodes.get(t.group_node)
+            node = tree.nodes.get(layer.group_node)
             node.node_tree = ttree
 
-            if t.type == 'IMAGE' and ypui.make_image_single_user:
-                if t.source_group != '':
-                    source_group = ttree.nodes.get(t.source_group)
-                    source_group.node_tree = source_group.node_tree.copy()
-                    source = source_group.node_tree.nodes.get(t.source)
-                else:
-                    source = ttree.nodes.get(t.source)
+            # Duplicate layer source groups
+            if layer.source_group != '':
+                source_group = ttree.nodes.get(layer.source_group)
+                source_group.node_tree = source_group.node_tree.copy()
+                source = source_group.node_tree.nodes.get(layer.source)
 
+                for d in neighbor_directions:
+                    s = ttree.nodes.get(getattr(layer, 'source_' + d))
+                    if s: s.node_tree = source_group.node_tree
+
+                # Duplicate layer modifier groups
+                mod_group = source_group.node_tree.nodes.get(layer.mod_group)
+                if mod_group:
+                    mod_group.node_tree = mod_group.node_tree.copy()
+
+                    mod_group_1 = source_group.node_tree.nodes.get(layer.mod_group_1)
+                    if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
+
+            else:
+                source = ttree.nodes.get(layer.source)
+
+                # Duplicate layer modifier groups
+                mod_group = ttree.nodes.get(layer.mod_group)
+                if mod_group:
+                    mod_group.node_tree = mod_group.node_tree.copy()
+
+                    mod_group_1 = ttree.nodes.get(layer.mod_group_1)
+                    if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
+
+            if layer.type == 'IMAGE': # and ypui.make_image_single_user:
                 img = source.image
+                if img:
+                    #mapping = get_layer_mapping(layer)
+                    #img_mappings.append(mapping)
+                    img_users.append(layer)
+                    img_nodes.append(source)
+                    imgs.append(img)
+                    #source.image = img.copy()
 
-                source.image = img.copy()
+            # Duplicate masks
+            for mask in layer.masks:
+                if mask.group_node != '':
+                    mask_group =  ttree.nodes.get(mask.group_node)
+                    mask_group.node_tree = mask_group.node_tree.copy()
+                    mask_source = mask_group.node_tree.nodes.get(mask.source)
+
+                    for d in neighbor_directions:
+                        s = ttree.nodes.get(getattr(mask, 'source_' + d))
+                        if s: s.node_tree = mask_group.node_tree
+                else:
+                    mask_source = ttree.nodes.get(mask.source)
+
+                if mask.type == 'IMAGE': # and ypui.make_image_single_user:
+                    img = mask_source.image
+                    if img:
+                        #mapping = get_mask_mapping(mask)
+                        #img_mappings.append(mapping)
+                        img_users.append(mask)
+                        img_nodes.append(mask_source)
+                        imgs.append(img)
+                        #mask_source.image = img.copy()
+
+            # Duplicate channel modifiers
+            for i, ch in enumerate(layer.channels):
+
+                mod_group = ttree.nodes.get(ch.mod_group)
+                if mod_group:
+                    mod_group.node_tree = mod_group.node_tree.copy()
+
+                    for d in neighbor_directions:
+                        m = ttree.nodes.get(getattr(ch, 'mod_' + d))
+                        if m: m.node_tree = mod_group.node_tree
+                
+            # Duplicate single user lib tree
+            for node in ttree.nodes:
+                if (node.type == 'GROUP' and node.node_tree and 
+                        re.match(r'^.+_Copy\.*\d{0,3}$', node.node_tree.name)):
+                    node.node_tree = node.node_tree.copy()
+
+        if ypui.make_image_single_user:
+
+            # Copy baked image
+            for ch in yp.channels:
+                baked = tree.nodes.get(ch.baked)
+                if baked and baked.image:
+                    baked.image = baked.image.copy()
+
+                    # Also rename path because why not? NO, because it will cause image lost
+                    #path = baked.image.filepath
+                    #ext = os.path.splitext(path)[1]
+                    #baked.image.filepath = os.path.dirname(path) + baked.image.name + ext
+
+            # Copy image on layer and masks
+            for i, img in enumerate(imgs):
+
+                if img.yia.is_image_atlas:
+                    segment = img.yia.segments.get(img_users[i].segment_name)
+
+                    # create new segment based on previous one
+                    new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
+                            img.yia.color, img.is_float, img, segment)
+
+                    #print(img_users[i], new_segment.tile_x, new_segment.tile_y)
+
+                    img_users[i].segment_name = new_segment.name
+
+                    # Change image if different image is returned
+                    if new_segment.id_data != img:
+                        img_nodes[i].image = new_segment.id_data
+
+                    # Update layer transform
+                    update_mapping(img_users[i])
+
+                else:
+                    # Copy image if not atlas
+                    img_nodes[j].image = img.copy()
+
+        # Refresh mapping and stuff
+        yp.active_layer_index = yp.active_layer_index
 
         return {'FINISHED'}
 
@@ -1352,8 +1465,8 @@ def update_layer_index(self, context):
     # Update uv layer
     if obj.type == 'MESH':
 
-        if ypui.disable_auto_temp_uv_update or not refresh_temp_uv(obj, src_of_img, True):
-        #if not refresh_temp_uv(obj, src_of_img, True):
+        if ypui.disable_auto_temp_uv_update or not refresh_temp_uv(obj, src_of_img):
+        #if not refresh_temp_uv(obj, src_of_img):
 
             if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
                 uv_layers = obj.data.uv_textures
