@@ -279,6 +279,10 @@ class YNewLayerMask(bpy.types.Operator):
             self.report({'ERROR'}, "Vertex color mask only works with mesh object!")
             return {'CANCELLED'}
 
+        if self.type == 'VCOL' and len(obj.data.vertex_colors) >= 8:
+            self.report({'ERROR'}, "Mesh can only use 8 vertex colors!")
+            return {'CANCELLED'}
+
         # Clearing unused image atlas segments
         img_atlas = self.get_to_be_cleared_image_atlas(context)
         if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
@@ -701,22 +705,26 @@ def update_mask_active_image_edit(self, context):
     # Refresh
     yp.active_layer_index = layer_idx
 
-def update_enable_layer_masks(self, context):
+def update_mask_channel_intensity_value(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
 
-    layer = self
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    mask = layer.masks[int(match.group(2))]
     tree = get_tree(layer)
-    for mask in layer.masks:
-        for ch in mask.channels:
-            mute = not ch.enable or not mask.enable or not layer.enable_masks
 
-            mix = tree.nodes.get(ch.mix)
-            mix.mute = mute
+    mute = not self.enable or not mask.enable or not layer.enable_masks
 
-            for d in neighbor_directions:
-                mix = tree.nodes.get(getattr(ch, 'mix_' + d))
-                if mix: mix.mute = mute
+    mix = tree.nodes.get(self.mix)
+    if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
+    for d in neighbor_directions:
+        mix = tree.nodes.get(getattr(self, 'mix_' + d))
+        if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
+
+def update_mask_intensity_value(self, context):
+    for c in self.channels:
+        update_mask_channel_intensity_value(c, context)
 
 def update_layer_mask_channel_enable(self, context):
     yp = self.id_data.yp
@@ -730,32 +738,34 @@ def update_layer_mask_channel_enable(self, context):
     mute = not self.enable or not mask.enable or not layer.enable_masks
 
     mix = tree.nodes.get(self.mix)
-    mix.mute = mute
+    if yp.disable_quick_toggle:
+        mix.mute = mute
+    else: mix.mute = False
 
     for d in neighbor_directions:
         mix = tree.nodes.get(getattr(self, 'mix_' + d))
-        if mix: mix.mute = mute
+        if mix: 
+            if yp.disable_quick_toggle:
+                mix.mute = mute
+            else: mix.mute = False
+
+    update_mask_channel_intensity_value(self, context)
 
 def update_layer_mask_enable(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
 
-    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(match.group(1))]
-    tree = get_tree(layer)
-
     for ch in self.channels:
-
-        mute = not ch.enable or not self.enable or not layer.enable_masks
-
-        mix = tree.nodes.get(ch.mix)
-        mix.mute = mute
-
-        for d in neighbor_directions:
-            mix = tree.nodes.get(getattr(ch, 'mix_' + d))
-            if mix: mix.mute = mute
+        update_layer_mask_channel_enable(ch, context)
 
     self.active_edit = self.enable and self.type == 'IMAGE'
+
+def update_enable_layer_masks(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    for mask in self.masks:
+        update_layer_mask_enable(mask, context)
 
 def update_mask_texcoord_type(self, context):
     yp = self.id_data.yp
@@ -830,21 +840,6 @@ def update_mask_blend_type(self, context):
         for d in neighbor_directions:
             mix = tree.nodes.get(getattr(c, 'mix_' + d))
             if mix: mix.blend_type = mask.blend_type
-
-def update_mask_intensity_value(self, context):
-
-    yp = self.id_data.yp
-    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(match.group(1))]
-    tree = get_tree(layer)
-    mask = self
-
-    for c in mask.channels:
-        mix = tree.nodes.get(c.mix)
-        if mix: mix.inputs[0].default_value = mask.intensity_value
-        for d in neighbor_directions:
-            mix = tree.nodes.get(getattr(c, 'mix_' + d))
-            if mix: mix.inputs[0].default_value = mask.intensity_value
 
 def update_mask_transform(self, context):
     update_mapping(self)

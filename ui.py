@@ -322,7 +322,7 @@ def draw_mask_modifier_stack(layer, mask, layout, ui, custom_icon_enable):
                 else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
                 row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
             else:
-                row.prop(modui, 'expand_content', text='', emboss=False, icon='MODIFIER')
+                row.prop(modui, 'expand_content', text='', icon='MODIFIER')
         else:
             row.label(text='', icon='MODIFIER')
 
@@ -367,7 +367,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_e
                 else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
                 row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
             else:
-                row.prop(modui, 'expand_content', text='', emboss=False, icon='MODIFIER')
+                row.prop(modui, 'expand_content', text='', icon='MODIFIER')
         else:
             row.label(text='', icon='MODIFIER')
         
@@ -1412,7 +1412,7 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
                     rrow.label(text='', 
                             icon_value=lib.custom_icons[lib.channel_custom_icon_dict[root_ch.type]].icon_id)
                 else:
-                    rrow.label(text='', icon = lib.channel_icon_dict[root_ch.type].icon_id)
+                    rrow.label(text='', icon = lib.channel_icon_dict[root_ch.type])
                 rrow.label(text=root_ch.name)
                 rrow.prop(c, 'enable', text='')
 
@@ -1455,7 +1455,7 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                     icon_value = lib.custom_icons[icon_name].icon_id
                     row.label(text=label, icon_value=icon_value)
                 else:
-                    row.label(text=label, icon=lib.channel_icon_dict[channel.type])
+                    row.label(text=label, icon=lib.channel_icon_dict[root_ch.type])
 
                 row.context_pointer_set('image', baked.image)
 
@@ -2502,6 +2502,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
         return hasattr(context, 'parent') and get_active_ypaint_node()
 
     def draw(self, context):
+        yp = context.parent.id_data.yp
         ypui = context.window_manager.ypui
 
         row = self.layout.row()
@@ -2533,6 +2534,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col = row.column()
         col.label(text='Options:')
         col.prop(ypui, 'disable_auto_temp_uv_update')
+        col.prop(yp, 'disable_quick_toggle')
 
 def update_modifier_ui(self, context):
     ypui = context.window_manager.ypui

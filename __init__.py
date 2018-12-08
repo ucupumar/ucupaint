@@ -29,6 +29,7 @@
 # - Layer group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects (V)
+#   - Change layer type as group or vice versa (can be very very useful if working on mask first)
 # - New layer/mask improvements
 #   - Open Image as Mask (V)
 #   - Open Vcol as Mask/Layer (V)
@@ -36,8 +37,9 @@
 #   - Remove RGB to Intensity when creating new layer bc its no longer necessary (X, why remove a feature?)
 # - Lazy channel nodes (?)
 #   - Nodes won't exists until it's enabled (X, replaced with next point)
-#   - Blend nodes will be muted at default if not enabled
-#   - Add option to Optimize the entire yp nodes
+#   - Blend nodes will be muted at default if not enabled (X, replaced with disable quick toggles)
+#   - Add option to Optimize the entire yp nodes (X, replaced with disable quick toggles)
+#   - Add Disable quick toggle options (V)
 # - Very large image (UDIM like) to prevent number of image limits
 #   - Basic implementation (Add/Delete/Edit UV) (V)
 #   - Support for HDR (V)
@@ -62,7 +64,6 @@
 # - Make sure ui is expanded if modifier or transition is added (V)
 # - Multiple yp node selector from ui (V)
 # - Replace new node can detect duplicated node group (V)
-# - Test normal flip on eevee
 # - Add more comments to blender bug report about reflection fix (It should be only calculated on glossy/reflection code, not on diffuse)
 # - Make every node name unique (using hash?)
 # - Deals with blender 2.8 vertex color alpha

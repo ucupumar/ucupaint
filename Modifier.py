@@ -686,63 +686,93 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
 
 def update_modifier_enable(self, context):
 
+    yp = self.id_data.yp
     tree = get_mod_tree(self)
     nodes = tree.nodes
 
     if self.type == 'RGB_TO_INTENSITY':
         rgb2i = nodes.get(self.rgb2i)
-        #rgb2i.mute = not self.enable
+
+        if yp.disable_quick_toggle:
+            rgb2i.mute = not self.enable
+        else: rgb2i.mute = False
+
         rgb2i.inputs['Intensity'].default_value = 1.0 if self.enable else 0.0
 
     elif self.type == 'INTENSITY_TO_RGB':
         i2rgb = nodes.get(self.i2rgb)
-        #i2rgb.mute = not self.enable
+
+        if yp.disable_quick_toggle:
+            i2rgb.mute = not self.enable
+        else: i2rgb.mute = False
+
         i2rgb.inputs['Intensity'].default_value = 1.0 if self.enable else 0.0
 
     elif self.type == 'OVERRIDE_COLOR':
         oc = nodes.get(self.oc)
-        #oc.mute = not self.enable
+
+        if yp.disable_quick_toggle:
+            oc.mute = not self.enable
+        else: oc.mute = False
+
         oc.inputs['Intensity'].default_value = 1.0 if self.enable else 0.0
 
     elif self.type == 'INVERT':
         invert = nodes.get(self.invert)
-        #invert.mute = not self.enable
+
+        if yp.disable_quick_toggle:
+            invert.mute = not self.enable
+        else: invert.mute = False
+
         update_invert_channel(self, context)
 
     elif self.type == 'COLOR_RAMP':
-        #color_ramp = nodes.get(self.color_ramp)
-        #color_ramp.mute = not self.enable
-        #color_ramp_linear = nodes.get(self.color_ramp_linear)
-        #color_ramp_linear.mute = not self.enable
-        #color_ramp_alpha_multiply = nodes.get(self.color_ramp_alpha_multiply)
-        #color_ramp_alpha_multiply.mute = not self.enable
 
         color_ramp_mix_rgb = nodes.get(self.color_ramp_mix_rgb)
         color_ramp_mix_rgb.inputs['Fac'].default_value = 1.0 if self.enable else 0.0
-        #color_ramp_mix_rgb.mute = not self.enable
 
         color_ramp_mix_alpha = nodes.get(self.color_ramp_mix_alpha)
         color_ramp_mix_alpha.inputs['Fac'].default_value = 1.0 if self.enable else 0.0
-        #color_ramp_mix_alpha.mute = not self.enable
+
+        if yp.disable_quick_toggle:
+            color_ramp_mix_rgb.mute = not self.enable
+            color_ramp_mix_alpha.mute = not self.enable
+        else:
+            color_ramp_mix_rgb.mute = False
+            color_ramp_mix_alpha.mute = False
 
     elif self.type == 'RGB_CURVE':
         rgb_curve = nodes.get(self.rgb_curve)
         rgb_curve.inputs['Fac'].default_value = 1.0 if self.enable else 0.0
-        #rgb_curve.mute = not self.enable
+
+        if yp.disable_quick_toggle:
+            rgb_curve.mute = not self.enable
+        else: rgb_curve.mute = False
 
     elif self.type == 'HUE_SATURATION':
         huesat = nodes.get(self.huesat)
         huesat.inputs['Fac'].default_value = 1.0 if self.enable else 0.0
-        #huesat.mute = not self.enable
+
+        if yp.disable_quick_toggle:
+            huesat.mute = not self.enable
+        else: huesat.mute = False
 
     elif self.type == 'BRIGHT_CONTRAST':
         brightcon = nodes.get(self.brightcon)
-        #brightcon.mute = not self.enable
+
+        if yp.disable_quick_toggle:
+            brightcon.mute = not self.enable
+        else: brightcon.mute = False
+
         update_brightcon_value(self, context)
 
     elif self.type == 'MULTIPLIER':
         multiplier = nodes.get(self.multiplier)
-        #multiplier.mute = not self.enable
+
+        if yp.disable_quick_toggle:
+            multiplier.mute = not self.enable
+        else: multiplier.mute = False
+
         update_use_clamp(self, context)
         update_multiplier_val_input(self, context)
 

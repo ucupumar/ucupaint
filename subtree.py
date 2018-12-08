@@ -419,6 +419,8 @@ def check_mask_mix_nodes(layer, tree=None):
             ch = layer.channels[j]
             root_ch = yp.channels[j]
 
+            mute = not c.enable or not mask.enable or not layer.enable_masks
+
             if root_ch.type == 'NORMAL' and not trans_bump:
                 chain = min(ch.transition_bump_chain, len(layer.masks))
             elif trans_bump:
@@ -429,8 +431,10 @@ def check_mask_mix_nodes(layer, tree=None):
             if not mix:
                 mix = new_node(tree, c, 'mix', 'ShaderNodeMixRGB', 'Mask Blend')
                 mix.blend_type = mask.blend_type
-                mix.inputs[0].default_value = mask.intensity_value
-                mix.mute = not c.enable or not mask.enable or not layer.enable_masks
+                mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
+                if yp.disable_quick_toggle:
+                    mix.mute = mute
+                else: mix.mute = False
 
             if root_ch.type == 'NORMAL':
 
@@ -438,22 +442,28 @@ def check_mask_mix_nodes(layer, tree=None):
                     (not trans_bump and ch.normal_map_type in {'FINE_BUMP_MAP'}) or
                     (trans_bump == ch and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}) 
                     ) and i < chain):
+
                     for d in neighbor_directions:
                         mix = tree.nodes.get(getattr(c, 'mix_' + d))
 
                         if not mix:
                             mix = new_node(tree, c, 'mix_' + d, 'ShaderNodeMixRGB', 'Mask Blend ' + d.upper())
                             mix.blend_type = mask.blend_type
-                            mix.inputs[0].default_value = mask.intensity_value
-                            mix.mute = not c.enable or not mask.enable or not layer.enable_masks
+                            mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
+                            if yp.disable_quick_toggle:
+                                mix.mute = mute
+                            else: mix.mute = False
+
                 elif i >= chain and not trans_bump_flip and ch.transition_bump_crease:
 
                     mix_n = tree.nodes.get(c.mix_n)
                     if not mix_n:
                         mix_n = new_node(tree, c, 'mix_n', 'ShaderNodeMixRGB', 'Mask Blend N')
                         mix_n.blend_type = mask.blend_type
-                        mix_n.inputs[0].default_value = mask.intensity_value
-                        mix_n.mute = not c.enable or not mask.enable or not layer.enable_masks
+                        mix_n.inputs[0].default_value = 0.0 if mute else mask.intensity_value
+                        if yp.disable_quick_toggle:
+                            mix_n.mute = mute
+                        else: mix_n.mute = False
 
                     for d in ['s', 'e', 'w']:
                         remove_node(tree, c, 'mix_' + d)
@@ -472,8 +482,10 @@ def check_mask_mix_nodes(layer, tree=None):
                     if not mix_n:
                         mix_n = new_node(tree, c, 'mix_n', 'ShaderNodeMixRGB', 'Mask Blend N')
                         mix_n.blend_type = mask.blend_type
-                        mix_n.inputs[0].default_value = mask.intensity_value
-                        mix_n.mute = not c.enable or not mask.enable or not layer.enable_masks
+                        mix_n.inputs[0].default_value = 0.0 if mute else mask.intensity_value
+                        if yp.disable_quick_toggle:
+                            mix_n.mute = mute
+                        else: mix_n.mute = False
                 else:
                     remove_node(tree, c, 'mix_n')
 

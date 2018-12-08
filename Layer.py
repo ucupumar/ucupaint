@@ -120,14 +120,12 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
         if not intensity:
             intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
             intensity.operation = 'MULTIPLY'
-            intensity.inputs[1].default_value = 1.0
 
         # Channel mute
         mute = not layer.enable or not ch.enable
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+
         if ch.enable_transition_ramp:
-            #tr_intensity = tree.nodes.get(ch.tr_intensity)
-            #if tr_intensity: tr_intensity.inputs[1].default_value = 0.0 if mute else ch.transition_ramp_intensity_value
             transition.check_transition_ramp_nodes(tree, layer, ch)
 
         if ch.enable_transition_ao:
@@ -805,8 +803,17 @@ class YNewLayer(bpy.types.Operator):
         ypui = context.window_manager.ypui
 
         # Check if object is not a mesh
-        if self.type == 'VCOL' and obj.type != 'MESH':
-            self.report({'ERROR'}, "Vertex color layer only works with mesh object!")
+        if (self.type == 'VCOL' or (self.add_mask and self.mask_type == 'VCOL')) and obj.type != 'MESH':
+            self.report({'ERROR'}, "Vertex color only works with mesh object!")
+            return {'CANCELLED'}
+
+        if (    ((self.type == 'VCOL' or (self.add_mask and self.mask_type == 'VCOL')) 
+                and len(obj.data.vertex_colors) >= 8) 
+            or
+                ((self.type == 'VCOL' and (self.add_mask and self.mask_type == 'VCOL')) 
+                and len(obj.data.vertex_colors) >= 7)
+            ):
+            self.report({'ERROR'}, "Mesh can only use 8 vertex colors!")
             return {'CANCELLED'}
 
         # Check if layer with same name is already available
@@ -1932,34 +1939,19 @@ def update_channel_enable(self, context):
 
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
-    ch_index = int(m.group(2))
-    root_ch = yp.channels[ch_index]
     ch = self
 
     tree = get_tree(layer)
+    blend = tree.nodes.get(ch.blend)
 
-    mute = not layer.enable or not ch.enable
-    intensity = tree.nodes.get(ch.intensity)
-    if intensity:
-        intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+    if blend:
+        mute = not layer.enable or not ch.enable
 
-    if ch.enable_transition_ramp:
-        transition.set_ramp_intensity_value(tree, layer, ch)
+        if yp.disable_quick_toggle:
+            blend.mute = mute
+        else: blend.mute = False
 
-    #blend = tree.nodes.get(ch.blend)
-    #blend.mute = not layer.enable or not ch.enable
-
-    #if ch.enable_transition_ramp:
-    #    tr_blend = tree.nodes.get(ch.tr_blend)
-    #    if tr_blend: tr_blend.mute = blend.mute
-
-    if ch.enable_transition_bump:
-        transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
-
-    if ch.enable_transition_ao:
-        tao = tree.nodes.get(ch.tao)
-        #tao.mute = mute
-        if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
+    update_channel_intensity_value(ch, context)
 
 def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
 
@@ -2048,6 +2040,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     need_reconnect = False
 
+    yp = layer.id_data.yp
     tree = get_tree(layer)
     nodes = tree.nodes
     blend = nodes.get(ch.blend)
@@ -2126,9 +2119,10 @@ def check_blend_type_nodes(root_ch, layer, ch):
     #    tr_intensity = nodes.get(ch.tr_intensity)
     #    if tr_intensity: tr_intensity.inputs[1].default_value = 0.0 if mute else ch.transition_ramp_intensity_value
 
-    #if layer.enable and ch.enable:
-    #    blend.mute = False
-    #else: blend.mute = True
+    mute = not layer.enable or not ch.enable
+    if yp.disable_quick_toggle:
+        blend.mute = mute
+    else: blend.mute = False
 
     return need_reconnect
 
@@ -2338,31 +2332,6 @@ def update_texcoord_type(self, context):
     #if not yp.halt_reconnect:
     reconnect_layer_nodes(self)
 
-def update_layer_enable(self, context):
-    group_tree = self.id_data
-    layer = self
-    tree = get_tree(layer)
-
-    for i, ch in enumerate(layer.channels):
-        #blend = tree.nodes.get(ch.blend)
-        #blend.mute = not layer.enable or not ch.enable
-        mute = not layer.enable or not ch.enable
-        intensity = tree.nodes.get(ch.intensity)
-        if intensity:
-            intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-
-        if ch.enable_transition_ramp:
-            transition.set_ramp_intensity_value(tree, layer, ch)
-
-        if ch.enable_transition_ao:
-            tao = tree.nodes.get(ch.tao)
-            if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
-        if ch.enable_transition_bump and ch.transition_bump_crease:
-            tb_crease_intensity = tree.nodes.get(ch.tb_crease_intensity)
-            tb_crease_intensity.inputs[1].default_value = 0.0 if mute else 1.0
-
-    context.window_manager.yptimer.time = str(time.time())
-
 def update_channel_intensity_value(self, context):
     yp = self.id_data.yp
 
@@ -2373,24 +2342,33 @@ def update_channel_intensity_value(self, context):
     ch = self
     root_ch = yp.channels[ch_index]
 
-    if not layer.enable or not ch.enable: return
+    mute = not layer.enable or not ch.enable
 
     intensity = tree.nodes.get(ch.intensity)
-    intensity.inputs[1].default_value = ch.intensity_value
-    #intensity_multiplier = tree.nodes.get(ch.intensity_multiplier)
-    #intensity_multiplier.inputs[1].default_value = ch.intensity_multiplier_value
+    if intensity:
+        intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
     if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, layer, ch)
 
     if ch.enable_transition_ao:
         tao = tree.nodes.get(ch.tao)
-        if tao: tao.inputs['Intensity'].default_value = transition.get_transition_ao_intensity(ch)
+        if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
 
     if ch.enable_transition_bump and ch.transition_bump_crease:
         tb_crease_intensity = tree.nodes.get(ch.tb_crease_intensity)
         if tb_crease_intensity:
-            tb_crease_intensity.inputs[1].default_value = ch.intensity_value
+            tb_crease_intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+
+def update_layer_enable(self, context):
+    yp = self.id_data.yp
+    layer = self
+    tree = get_tree(layer)
+
+    for ch in layer.channels:
+        update_channel_enable(ch, context)
+
+    context.window_manager.yptimer.time = str(time.time())
 
 def update_layer_name(self, context):
     yp = self.id_data.yp
@@ -2678,6 +2656,7 @@ class YLayer(bpy.types.PropertyGroup):
     enable = BoolProperty(
             name = 'Enable Layer', description = 'Enable layer',
             default=True, update=update_layer_enable)
+
     channels = CollectionProperty(type=YLayerChannel)
 
     group_node = StringProperty(default='')
