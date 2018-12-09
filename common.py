@@ -784,7 +784,7 @@ def get_node_tree_lib(name):
 
     return node_tree
 
-def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False):
+def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False, hard_replace=False):
     ''' Check if node is available, replace if available '''
 
     # Try to get the node first
@@ -816,6 +816,11 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
         #print(prev_tree)
 
         if not prev_tree or (prev_tree.name != group_name and not m):
+
+            if hard_replace:
+                tree.nodes.remove(node)
+                node = new_node(tree, entity, prop, node_id_name, label)
+                replaced = True
 
             # Replace group tree
             node.node_tree = get_node_tree_lib(group_name)
@@ -1400,12 +1405,14 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
     if not uv_neighbor: uv_neighbor = tree.nodes.get(entity.uv_neighbor)
     if not uv_neighbor: return
 
+    if 'ResX' not in uv_neighbor.inputs: return
+
     if entity.type == 'IMAGE' and source.image:
-        uv_neighbor.inputs[1].default_value = source.image.size[0] * mapping.scale[0]
-        uv_neighbor.inputs[2].default_value = source.image.size[1] * mapping.scale[1]
+        uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.scale[0]
+        uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.scale[1]
     else:
-        uv_neighbor.inputs[1].default_value = 1000
-        uv_neighbor.inputs[2].default_value = 1000
+        uv_neighbor.inputs['ResX'].default_value = 1000.0
+        uv_neighbor.inputs['ResY'].default_value = 1000.0
 
 def update_mapping(entity):
 

@@ -1197,6 +1197,8 @@ class YFixDuplicatedLayers(bpy.types.Operator):
                     #ext = os.path.splitext(path)[1]
                     #baked.image.filepath = os.path.dirname(path) + baked.image.name + ext
 
+            already_copied_ids = []
+
             # Copy image on layer and masks
             for i, img in enumerate(imgs):
 
@@ -1218,9 +1220,15 @@ class YFixDuplicatedLayers(bpy.types.Operator):
                     # Update layer transform
                     update_mapping(img_users[i])
 
-                else:
+                elif i not in already_copied_ids:
                     # Copy image if not atlas
-                    img_nodes[j].image = img.copy()
+                    img_nodes[i].image = img.copy()
+
+                    # Check other nodes using the same image
+                    for j, imgg in enumerate(imgs):
+                        if j != i and imgg == img:
+                            img_nodes[j].image = img_nodes[i].image
+                            already_copied_ids.append(j)
 
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index

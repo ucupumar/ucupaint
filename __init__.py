@@ -29,7 +29,7 @@
 # - Layer group/folder
 #   - Basic multilevel implementation (V)
 #   - Works with mask and transition effects (V)
-#   - Change layer type as group or vice versa (can be very very useful if working on mask first)
+#   - Change layer type as group or vice versa (can be very very useful if working on mask first) (V)
 # - New layer/mask improvements
 #   - Open Image as Mask (V)
 #   - Open Vcol as Mask/Layer (V)

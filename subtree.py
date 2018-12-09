@@ -100,11 +100,12 @@ def enable_layer_source_tree(layer, rearrange=False):
             move_mod_group(layer, layer_tree, source_tree)
 
     # Create uv neighbor
-    uv_neighbor = check_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV')
     if layer.type in {'VCOL', 'GROUP'}:
-        uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
+        uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+                lib.NEIGHBOR_FAKE, hard_replace=True)
     else: 
-        uv_neighbor.node_tree = lib.get_neighbor_uv_tree(layer.texcoord_type)
+        uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+                lib.get_neighbor_uv_tree_name(layer.texcoord_type), hard_replace=True)
         set_uv_neighbor_resolution(layer, uv_neighbor)
 
     if rearrange:

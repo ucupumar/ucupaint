@@ -634,10 +634,10 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         row.alert = True
         row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Transformed UV')
 
-    if layer.type != 'GROUP':
-        if bpy.app.version_string.startswith('2.8'):
-            row.menu("NODE_MT_y_layer_special_menu", icon='PREFERENCES', text='')
-        else: row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
+    #if layer.type != 'GROUP':
+    if bpy.app.version_string.startswith('2.8'):
+        row.menu("NODE_MT_y_layer_special_menu", icon='PREFERENCES', text='')
+    else: row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
 
     if layer.type == 'GROUP': return
     if layer.type in {'VCOL', 'BACKGROUND'} and len(layer.modifiers) == 0: return
@@ -2152,8 +2152,11 @@ class YNewLayerMenu(bpy.types.Menu):
         col.separator()
 
         #col.label(text='Solid Color:')
+        c = col.operator("node.y_new_layer", icon='COLOR', text='Solid Color')
+        c.type = 'COLOR'
+        c.add_mask = False
 
-        c = col.operator("node.y_new_layer", icon='COLOR', text='Solid Color w/ Image Mask')
+        c = col.operator("node.y_new_layer", text='Solid Color w/ Image Mask')
         c.type = 'COLOR'
         c.add_mask = True
         c.mask_type = 'IMAGE'
@@ -2507,11 +2510,12 @@ class YLayerSpecialMenu(bpy.types.Menu):
 
         row = self.layout.row()
 
-        col = row.column()
-        col.label(text='Add Modifier')
-        ## List the modifiers
-        for mt in Modifier.modifier_type_items:
-            col.operator('node.y_new_ypaint_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
+        if context.parent.type != 'GROUP':
+            col = row.column()
+            col.label(text='Add Modifier')
+            ## List the modifiers
+            for mt in Modifier.modifier_type_items:
+                col.operator('node.y_new_ypaint_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
 
         col = row.column()
         col.label(text='Change Layer Type')
@@ -2520,6 +2524,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col.operator('node.y_replace_layer_type', text='Vertex Color', icon='GROUP_VCOL').type = 'VCOL'
         col.operator('node.y_replace_layer_type', text='Solid Color', icon='COLOR').type = 'COLOR'
         col.operator('node.y_replace_layer_type', text='Background', icon='IMAGE_RGB_ALPHA').type = 'BACKGROUND'
+        col.operator('node.y_replace_layer_type', text='Group', icon='FILE_FOLDER').type = 'GROUP'
 
         col.separator()
         col.operator('node.y_replace_layer_type', text='Brick', icon='TEXTURE').type = 'BRICK'

@@ -129,6 +129,15 @@ def get_neighbor_uv_tree(texcoord_type, different_uv=False):
     if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
         return get_node_tree_lib(NEIGHBOR_UV_CAMERA)
 
+def get_neighbor_uv_tree_name(texcoord_type, different_uv=False):
+    if texcoord_type == 'UV':
+        if different_uv: return NEIGHBOR_UV_OTHER_UV
+        return NEIGHBOR_UV_TANGENT
+    if texcoord_type in {'Generated', 'Normal', 'Object'}:
+        return NEIGHBOR_UV_OBJECT
+    if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
+        return NEIGHBOR_UV_CAMERA
+
 def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
     if label == '': label = 'Intensity Multiplier'
     im = new_node(tree, obj, prop, 'ShaderNodeGroup', label)

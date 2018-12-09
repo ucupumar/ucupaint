@@ -275,13 +275,13 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     layer = yp.layers[index] # Repoint to new index
 
     # Remap other layers parent
-    #for i, t in enumerate(yp.layers):
-    #    if i > index and t.parent_idx != -1:
-    #        t.parent_idx += 1
+    #for i, lay in enumerate(yp.layers):
+    #    if i > index and lay.parent_idx != -1:
+    #        lay.parent_idx += 1
 
     # Remap parents
-    for t in yp.layers:
-        t.parent_idx = get_layer_index_by_name(yp, parent_dict[t.name])
+    for lay in yp.layers:
+        lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
 
     # New layer tree
     tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + layer_name, 'ShaderNodeTree')
@@ -821,7 +821,7 @@ class YNewLayer(bpy.types.Operator):
             same_name = [i for i in bpy.data.images if i.name == self.name]
         elif self.type == 'VCOL':
             same_name = [i for i in obj.data.vertex_colors if i.name == self.name]
-        else: same_name = [t for t in yp.layers if t.name == self.name]
+        else: same_name = [lay for lay in yp.layers if lay.name == self.name]
         if same_name:
             if self.type == 'IMAGE':
                 self.report({'ERROR'}, "Image named '" + self.name +"' is already available!")
@@ -1361,8 +1361,8 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
                 yp.active_layer_index = layer_idx+1
 
         # Remap parents
-        for t in yp.layers:
-            t.parent_idx = get_layer_index_by_name(yp, parent_dict[t.name])
+        for lay in yp.layers:
+            lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
 
         layer = yp.layers[yp.active_layer_index]
         #has_parent = layer.parent_idx != -1
@@ -1514,8 +1514,8 @@ class YMoveLayer(bpy.types.Operator):
             yp.active_layer_index = neighbor_idx
 
         # Remap parents
-        for t in yp.layers:
-            t.parent_idx = get_layer_index_by_name(yp, parent_dict[t.name])
+        for lay in yp.layers:
+            lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
 
         # Refresh layer channel blend nodes
         reconnect_yp_nodes(node.node_tree)
@@ -1707,10 +1707,6 @@ class YRemoveLayer(bpy.types.Operator):
             for i in child_ids:
                 parent_dict[yp.layers[i].name] = parent_dict[layer.name]
 
-            # Repoint its children parent
-            for t in get_list_of_direct_childrens(layer):
-                parent_dict = set_parent_dict_val(yp, parent_dict, t.name, layer.parent_idx)
-
             # Remove layer
             remove_layer(yp, layer_idx)
 
@@ -1733,16 +1729,16 @@ class YRemoveLayer(bpy.types.Operator):
             yp.active_layer_index = yp.active_layer_index
 
         # Remap parents
-        for t in yp.layers:
-            t.parent_idx = get_layer_index_by_name(yp, parent_dict[t.name])
+        for lay in yp.layers:
+            lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
 
         # Check childrens
         #if need_reconnect_layers:
         for i in child_ids:
-            t = yp.layers[i-1]
-            check_all_layer_channel_io_and_nodes(t)
-            rearrange_layer_nodes(t)
-            reconnect_layer_nodes(t)
+            lay = yp.layers[i-1]
+            check_all_layer_channel_io_and_nodes(lay)
+            rearrange_layer_nodes(lay)
+            reconnect_layer_nodes(lay)
 
         # Refresh layer channel blend nodes
         reconnect_yp_nodes(group_tree)
@@ -1823,13 +1819,24 @@ class YReplaceLayerType(bpy.types.Operator):
         yp = layer.id_data.yp
 
         if self.type == layer.type: return {'CANCELLED'}
-        if layer.type == 'GROUP':
-            self.report({'ERROR'}, "You can't change type of group layer!")
-            return {'CANCELLED'}
+        #if layer.type == 'GROUP':
+        #    self.report({'ERROR'}, "You can't change type of group layer!")
+        #    return {'CANCELLED'}
 
         if self.type in {'VCOL', 'IMAGE'} and self.item_name == '':
             self.report({'ERROR'}, "Form is cannot be empty!")
             return {'CANCELLED'}
+
+        # Remember parents
+        parent_dict = get_parent_dict(yp)
+        child_ids = []
+
+        # If layer type is group, get childrens and repoint child parents
+        if layer.type == 'GROUP':
+            # Get childrens and repoint child parents
+            child_ids = get_list_of_direct_child_ids(layer)
+            for i in child_ids:
+                parent_dict[yp.layers[i].name] = parent_dict[layer.name]
 
         # Remove segment if original layer using image atlas
         if layer.type == 'IMAGE' and layer.segment_name != '':
@@ -1856,7 +1863,7 @@ class YReplaceLayerType(bpy.types.Operator):
         source = source_tree.nodes.get(layer.source)
 
         # Save source to cache if it's not image, vertex color, or background
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP'}:
             setattr(layer, 'cache_' + layer.type.lower(), source.name)
             # Remove uv input link
             if any(source.inputs) and any(source.inputs[0].links):
@@ -1872,7 +1879,7 @@ class YReplaceLayerType(bpy.types.Operator):
 
         # Try to get available cache
         cache = None
-        if self.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+        if self.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP'}:
             cache = tree.nodes.get(getattr(layer, 'cache_' + self.type.lower()))
 
         if cache:
@@ -1890,6 +1897,7 @@ class YReplaceLayerType(bpy.types.Operator):
                 source.attribute_name = self.item_name
 
         # Change layer type
+        ori_type = layer.type
         layer.type = self.type
 
         # Enable modifiers tree if generated texture is used
@@ -1923,10 +1931,22 @@ class YReplaceLayerType(bpy.types.Operator):
 
         yp.halt_reconnect = False
 
+        # Remap parents
+        for lay in yp.layers:
+            lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
+        # Check childrens which need rearrange
+        for i in child_ids:
+            lay = yp.layers[i]
+            check_all_layer_channel_io_and_nodes(lay)
+            rearrange_layer_nodes(lay)
+            reconnect_layer_nodes(lay)
+
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
-        if layer.type == 'BACKGROUND':
+        if layer.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
+            rearrange_yp_nodes(layer.id_data)
             reconnect_yp_nodes(layer.id_data)
 
         print('INFO: Layer', layer.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -2061,15 +2081,17 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG, return_status = True)
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG, return_status = True, 
+                        hard_replace=True)
 
             else: 
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, return_status = True)
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, 
+                        return_status = True, hard_replace=True)
 
         else:
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeMixRGB', 'Blend', return_status = True)
+                    'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True)
 
             #if blend.blend_type != blend_type:
             #    blend.blend_type = blend_type
@@ -2079,32 +2101,38 @@ def check_blend_type_nodes(root_ch, layer, ch):
         if has_parent and normal_blend == 'MIX':
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, return_status = True)
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
+                        return_status = True, hard_replace=True)
             else:
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, return_status = True)
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, 
+                        return_status = True, hard_replace=True)
 
         elif normal_blend == 'OVERLAY':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, return_status = True)
+                    'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
+                    return_status = True, hard_replace=True)
 
         elif normal_blend == 'MIX':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, return_status = True)
+                    'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
+                    return_status = True, hard_replace=True)
 
     elif root_ch.type == 'VALUE':
 
         if has_parent and blend_type == 'MIX':
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, return_status = True)
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, 
+                        return_status = True, hard_replace=True)
             else:
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, return_status = True)
+                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, 
+                        return_status = True, hard_replace=True)
         else:
 
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeMixRGB', 'Blend', return_status = True)
+                    'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True)
 
     if root_ch.type != 'NORMAL' and blend.type == 'MIX_RGB' and blend.blend_type != blend_type:
         blend.blend_type = blend_type
