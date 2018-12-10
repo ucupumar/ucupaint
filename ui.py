@@ -713,6 +713,11 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             else:
                 split.prop(layer, 'texcoord_type', text='')
 
+            if layer.texcoord_type == 'UV':
+                if bpy.app.version_string.startswith('2.8'):
+                    row.menu("NODE_MT_y_uv_special_menu", icon='PREFERENCES', text='')
+                else: row.menu("NODE_MT_y_uv_special_menu", icon='SCRIPTWIN', text='')
+
             if lui.expand_vector:
                 row = rcol.row(align=True)
                 row.label(text='', icon='BLANK1')
@@ -1364,6 +1369,11 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
                 #rrrow = splits.split(percentage=0.35, align=True)
                 rrrow.prop(mask, 'texcoord_type', text='')
                 rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+
+                rrow.context_pointer_set('mask', mask)
+                if bpy.app.version_string.startswith('2.8'):
+                    rrow.menu("NODE_MT_y_uv_special_menu", icon='PREFERENCES', text='')
+                else: rrow.menu("NODE_MT_y_uv_special_menu", icon='SCRIPTWIN', text='')
 
             if maskui.expand_vector:
                 rrow = rrcol.row(align=True)
@@ -2097,8 +2107,12 @@ class YPaintSpecialMenu(bpy.types.Menu):
     def draw(self, context):
         node = get_active_ypaint_node()
         mat = get_active_material()
+        yp = node.node_tree.yp
+        ypui = context.window_manager.ypui
 
-        col = self.layout.column()
+        row = self.layout.row()
+
+        col = row.column()
 
         col.operator('node.y_bake_channels', text='Bake All Channels', icon='RENDER_STILL')
         col.operator('node.y_rename_ypaint_tree', text='Rename', icon='GREASEPENCIL')
@@ -2111,8 +2125,13 @@ class YPaintSpecialMenu(bpy.types.Menu):
                 icon = 'RADIOBUT_ON'
             else: icon = 'RADIOBUT_OFF'
 
-            row = col.row()
-            row.operator('node.y_change_active_ypaint_node', text=n.node_tree.name, icon=icon).name = n.name
+            #row = col.row()
+            col.operator('node.y_change_active_ypaint_node', text=n.node_tree.name, icon=icon).name = n.name
+
+        col = row.column()
+        col.label(text='Options:')
+        col.prop(ypui, 'disable_auto_temp_uv_update')
+        col.prop(yp, 'disable_quick_toggle')
 
 class YNewLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_layer_menu"
@@ -2232,6 +2251,11 @@ class YLayerListSpecialMenu(bpy.types.Menu):
             self.layout.label(text='Active Image: ' + context.image.name, icon='IMAGE_DATA')
         else:
             self.layout.label(text='No active image')
+
+        #self.layout.separator()
+        #self.layout.operator('node.y_transfer_layer_uv', text='Transfer Active Layer UV', icon='GROUP_UVS')
+        #self.layout.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon='GROUP_UVS')
+
         self.layout.separator()
         self.layout.operator('node.y_pack_image', icon='PACKAGE')
         self.layout.operator('node.y_save_image', icon='FILE_TICK')
@@ -2249,6 +2273,19 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         self.layout.operator("node.y_reload_image", icon='FILE_REFRESH')
         self.layout.separator()
         self.layout.operator("node.y_invert_image", icon='IMAGE_ALPHA')
+
+class YUVSpecialMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_uv_special_menu"
+    bl_label = "UV Special Menu"
+    bl_description = "UV Special Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        self.layout.operator('node.y_transfer_layer_uv', text='Transfer UV', icon='GROUP_UVS')
+        self.layout.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon='GROUP_UVS')
 
 class YModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_modifier_menu"
@@ -2449,6 +2486,11 @@ class YLayerMaskMenu(bpy.types.Menu):
         op = col.operator('node.y_move_layer_mask', icon='TRIA_DOWN', text='Move Mask Down')
         op.direction = 'DOWN'
         col.separator()
+
+        op = col.operator('node.y_transfer_layer_uv', icon='GROUP_UVS', text='Transfer UV')
+
+        col.separator()
+
         if bpy.app.version_string.startswith('2.8'):
             col.operator('node.y_remove_layer_mask', text='Remove Mask', icon='REMOVE')
         else: col.operator('node.y_remove_layer_mask', text='Remove Mask', icon='ZOOMOUT')
@@ -2536,10 +2578,10 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col.operator('node.y_replace_layer_type', text='Voronoi', icon='TEXTURE').type = 'VORONOI'
         col.operator('node.y_replace_layer_type', text='Wave', icon='TEXTURE').type = 'WAVE'
 
-        col = row.column()
-        col.label(text='Options:')
-        col.prop(ypui, 'disable_auto_temp_uv_update')
-        col.prop(yp, 'disable_quick_toggle')
+        #col = row.column()
+        #col.label(text='Options:')
+        #col.prop(ypui, 'disable_auto_temp_uv_update')
+        #col.prop(yp, 'disable_quick_toggle')
 
 def update_modifier_ui(self, context):
     ypui = context.window_manager.ypui
@@ -2797,6 +2839,7 @@ def register():
     bpy.utils.register_class(YNewLayerMenu)
     bpy.utils.register_class(YBakedImageMenu)
     bpy.utils.register_class(YLayerListSpecialMenu)
+    bpy.utils.register_class(YUVSpecialMenu)
     bpy.utils.register_class(YModifierMenu)
     bpy.utils.register_class(YMaskModifierMenu)
     bpy.utils.register_class(YTransitionBumpMenu)
@@ -2835,6 +2878,7 @@ def unregister():
     bpy.utils.unregister_class(YNewLayerMenu)
     bpy.utils.unregister_class(YBakedImageMenu)
     bpy.utils.unregister_class(YLayerListSpecialMenu)
+    bpy.utils.unregister_class(YUVSpecialMenu)
     bpy.utils.unregister_class(YModifierMenu)
     bpy.utils.unregister_class(YMaskModifierMenu)
     bpy.utils.unregister_class(YTransitionBumpMenu)

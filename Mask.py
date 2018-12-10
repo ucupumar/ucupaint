@@ -210,6 +210,7 @@ class YNewLayerMask(bpy.types.Operator):
             else: self.uv_name = obj.data.uv_layers.active.name
 
             # UV Map collections update
+            self.uv_map_coll.clear()
             for uv in obj.data.uv_layers:
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
@@ -398,6 +399,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             else: self.uv_map = obj.data.uv_layers.active.name
 
             # UV Map collections update
+            self.uv_map_coll.clear()
             for uv in obj.data.uv_layers:
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
@@ -502,6 +504,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             else: self.uv_map = obj.data.uv_layers.active.name
 
             # UV Map collections update
+            self.uv_map_coll.clear()
             for uv in obj.data.uv_layers:
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
@@ -779,6 +782,7 @@ def update_mask_texcoord_type(self, context):
 def update_mask_uv_name(self, context):
     obj = context.object
     yp = self.id_data.yp
+    ypui = context.window_manager.ypui
     if yp.halt_update: return
 
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
@@ -798,18 +802,23 @@ def update_mask_uv_name(self, context):
     if mask.active_edit and obj.type == 'MESH':
 
         if mask.segment_name != '':
-            refresh_temp_uv(obj, mask)
+            if ypui.disable_auto_temp_uv_update:
+                update_image_editor_image(context, None)
+                yp.need_temp_uv_refresh = True
+            else: refresh_temp_uv(obj, mask)
         else:
 
             if hasattr(obj.data, 'uv_textures'):
                 uv_layers = obj.data.uv_textures
             else: uv_layers = obj.data.uv_layers
 
-            for i, uv in enumerate(uv_layers):
-                if uv.name == mask.uv_name:
-                    if uv_layers.active_index != i:
-                        uv_layers.active_index = i
-                    break
+            uv_layers.active = uv_layers.get(mask.uv_name)
+
+            #for i, uv in enumerate(uv_layers):
+            #    if uv.name == mask.uv_name:
+            #        if uv_layers.active_index != i:
+            #            uv_layers.active_index = i
+            #        break
 
     # Update neighbor uv if mask bump is active
     if set_mask_uv_neighbor(tree, layer, self):

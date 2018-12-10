@@ -145,16 +145,10 @@ def copy_segment_pixels(img_from, segment_from, img_to, segment_to):
     height = segment_from.height
 
     from_start_x = width * segment_from.tile_x
-    from_end_x = from_start_x + width
-
     from_start_y = height * segment_from.tile_y
-    from_end_y = from_start_y + height
 
     to_start_x = width * segment_to.tile_x
-    to_end_x = to_start_x + width
-
     to_start_y = height * segment_to.tile_y
-    to_end_y = to_start_y + height
 
     for y in range(height):
         from_offset_y = img_from.size[0] * 4 * (y + from_start_y)

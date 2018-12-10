@@ -656,6 +656,7 @@ class YNewLayer(bpy.types.Operator):
                 self.mask_uv_name = self.uv_map
 
                 # UV Map collections update
+                self.uv_map_coll.clear()
                 for uv in obj.data.uv_layers:
                     if not uv.name.startswith(TEMP_UV):
                         self.uv_map_coll.add().name = uv.name
@@ -996,6 +997,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             else: self.uv_map = obj.data.uv_layers.active.name
 
             # UV Map collections update
+            self.uv_map_coll.clear()
             for uv in obj.data.uv_layers:
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
@@ -1168,6 +1170,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             else: self.uv_map = obj.data.uv_layers.active.name
 
             # UV Map collections update
+            self.uv_map_coll.clear()
             for uv in obj.data.uv_layers:
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
@@ -2282,6 +2285,7 @@ def update_uv_name(self, context):
     obj = context.object
     group_tree = self.id_data
     yp = group_tree.yp
+    ypui = context.window_manager.ypui
     layer = self
     tree = get_tree(layer)
     if not tree: return
@@ -2304,23 +2308,28 @@ def update_uv_name(self, context):
 
     for ch in layer.channels:
         normal = nodes.get(ch.normal)
-        if normal: normal.uv_map = layer.uv_name
+        if normal and normal.type == 'NORMAL_MAP': normal.uv_map = layer.uv_name
 
     # Update uv layer
     if obj.type == 'MESH' and not any([m for m in layer.masks if m.active_edit]):
 
         if layer.segment_name != '':
-            refresh_temp_uv(obj, layer)
+            if ypui.disable_auto_temp_uv_update:
+                update_image_editor_image(context, None)
+                yp.need_temp_uv_refresh = True
+            else: refresh_temp_uv(obj, layer)
         else:
             if hasattr(obj.data, 'uv_textures'):
                 uv_layers = obj.data.uv_textures
             else: uv_layers = obj.data.uv_layers
 
-            for i, uv in enumerate(uv_layers):
-                if uv.name == layer.uv_name:
-                    if uv_layers.active_index != i:
-                        uv_layers.active_index = i
-                    break
+            uv_layers.active = uv_layers.get(layer.uv_name)
+
+            #for i, uv in enumerate(uv_layers):
+            #    if uv.name == layer.uv_name:
+            #        if uv_layers.active_index != i:
+            #            uv_layers.active_index = i
+            #        break
 
     # Update neighbor uv if mask bump is active
     rearrange = False

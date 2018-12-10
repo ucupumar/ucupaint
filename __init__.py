@@ -55,6 +55,8 @@
 #   - Blender 2.8 normal bug workaround (V)
 #   - Folder for auto save bake results (~, replaced by standard/pack menu)
 #   - Dealing with multiple yp tree users (~, just implemented better fix duplicate layers operator)
+#   - Pointiness
+#   - AO
 # - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
 # - Every modifiers has intensity value for muting to prevent recompilation (V)
@@ -64,6 +66,7 @@
 # - Make sure ui is expanded if modifier or transition is added (V)
 # - Multiple yp node selector from ui (V)
 # - Replace new node can detect duplicated node group (V)
+# - Transfer UV (V)
 # - Add more comments to blender bug report about reflection fix (It should be only calculated on glossy/reflection code, not on diffuse)
 # - Make every node name unique (using hash?)
 # - Deals with blender 2.8 vertex color alpha
@@ -73,8 +76,8 @@
 # TODO:
 # - Eraser brush (check for ypanel implementation)
 # - Height based bump channel (similar to substance)
+# - Using only one channel on layer mask
 # - Node Group Layer (Smart Material?)
-# - Transfer UV
 # - Upper layer affect below layer (?):
 #   - Refraction
 #   - Blur (X?, Already covered by native SSS)
@@ -85,8 +88,6 @@
 #   - Ramp works with non flip background (V, too complicated and has little use)
 #   - Bump works with non flip background (V, too complicated and has little use)
 # - Bake extra
-#   - Pointiness
-#   - AO
 #   - Highpoly
 #   - Blur (can be only applied on select layer channel)
 #   - 'Ignore below' blend for bake channel result
