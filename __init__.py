@@ -55,8 +55,10 @@
 #   - Blender 2.8 normal bug workaround (V)
 #   - Folder for auto save bake results (~, replaced by standard/pack menu)
 #   - Dealing with multiple yp tree users (~, just implemented better fix duplicate layers operator)
-#   - Pointiness
-#   - AO
+#   - Pointiness (V)
+#   - AO (V)
+#   - Overwrite AO or Pointiness
+#   - AO Distance
 # - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
 # - Every modifiers has intensity value for muting to prevent recompilation (V)

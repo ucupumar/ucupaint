@@ -4,7 +4,7 @@ from mathutils import *
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib
+from . import lib, Layer
 
 BL28_HACK = True
 
@@ -142,7 +142,7 @@ def transfer_uv(mat, entity, uv_map):
 
     # Create temp image as bake target
     temp_image = bpy.data.images.new(name='__TEMP',
-            width=width, height=height) #, alpha=True, float_buffer=hdr)
+            width=width, height=height, alpha=True, float_buffer=image.is_float)
     temp_image.generated_color = col
 
     # Create bake nodes
@@ -258,6 +258,7 @@ def transfer_uv(mat, entity, uv_map):
 
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
+    # Update entity transform
     entity.translation = (0.0, 0.0, 0.0)
     entity.rotation = (0.0, 0.0, 0.0)
     entity.scale = (1.0, 1.0, 1.0)
@@ -265,8 +266,247 @@ def transfer_uv(mat, entity, uv_map):
     # Change uv of entity
     entity.uv_name = uv_map
 
-    # Update entity transform
-    #update_mapping(entity)
+class YBakeToLayer(bpy.types.Operator):
+    bl_idname = "node.y_bake_to_layer"
+    bl_label = "Bake To Layer"
+    bl_description = "Bake something as layer/mask"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name = StringProperty(default='')
+
+    uv_map = StringProperty(default='')
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    overwrite = BoolProperty(
+            name='Overwrite available layer',
+            description='Overwrite available layer',
+            default=False
+            )
+    overwrite_layer = StringProperty(default='')
+    overwrite_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    samples = IntProperty(name='Bake Samples', 
+            description='Bake Samples, more means less jagged on generated textures', 
+            default=1, min=1)
+
+    margin = IntProperty(name='Bake Margin',
+            description = 'Bake margin in pixels',
+            default=5, subtype='PIXEL')
+
+    type = EnumProperty(
+            name = 'Bake Type',
+            description = 'Bake Type',
+            items = (('AO', 'Ambient Occlusion', ''),
+                     ('POINTINESS', 'Pointiness', '')),
+            default='AO'
+            )
+
+    target_type = EnumProperty(
+            name = 'Target Bake Type',
+            description = 'Target Bake Type',
+            items = (('LAYER', 'Layer', ''),
+                     ('MASK', 'Mask', '')),
+            default='LAYER'
+            )
+
+    width = IntProperty(name='Width', default = 1024, min=1, max=4096)
+    height = IntProperty(name='Height', default = 1024, min=1, max=4096)
+
+    channel_idx = EnumProperty(
+            name = 'Channel',
+            description = 'Channel of new layer, can be changed later',
+            items = Layer.channel_items,
+            update=Layer.update_channel_idx_new_layer)
+
+    blend_type = EnumProperty(
+        name = 'Blend',
+        items = blend_type_items,
+        default = 'MIX')
+
+    normal_blend = EnumProperty(
+            name = 'Normal Blend Type',
+            items = normal_blend_items,
+            default = 'MIX')
+
+    normal_map_type = EnumProperty(
+            name = 'Normal Map Type',
+            description = 'Normal map type of this layer',
+            items = Layer.img_normal_map_type_items)
+            #default = 'NORMAL_MAP')
+
+    hdr = BoolProperty(name='32 bit Float', default=True)
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    def invoke(self, context, event):
+        obj = self.obj = context.object
+        scene = self.scene = context.scene
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        # Use active uv layer name by default
+        if hasattr(obj.data, 'uv_textures'):
+            uv_layers = self.uv_layers = obj.data.uv_textures
+        else: uv_layers = self.uv_layers = obj.data.uv_layers
+
+        if len(uv_layers) > 0:
+            active_name = uv_layers.active.name
+            if active_name == TEMP_UV:
+                self.uv_map = yp.layers[yp.active_layer_index].uv_name
+            else: self.uv_map = uv_layers.active.name
+
+        # UV Map collections update
+        self.uv_map_coll.clear()
+        for uv in uv_layers:
+            if not uv.name.startswith(TEMP_UV):
+                self.uv_map_coll.add().name = uv.name
+
+        # Set name
+        mat = get_active_material()
+        if self.type == 'AO':
+            self.blend_type = 'MULTIPLY'
+            suffix = ' AO'
+            self.samples = 128
+        else: 
+            self.blend_type = 'ADD'
+            suffix = ' Pointiness'
+            self.samples = 1
+        self.name = get_unique_name(mat.name + suffix, bpy.data.images)
+
+        # Try to overwrite
+        pass
+
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def check(self, context):
+        return True
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+
+        if bpy.app.version_string.startswith('2.8'):
+            row = self.layout.split(factor=0.4)
+        else: row = self.layout.split(percentage=0.4)
+
+        col = row.column(align=False)
+        col.label(text='Name:')
+
+        col.label(text='Channel:')
+        if channel and channel.type == 'NORMAL':
+            col.label(text='Type:')
+
+        col.label(text='')
+        col.label(text='Width:')
+        col.label(text='Height:')
+        col.label(text='UV Map:')
+        col.label(text='Samples:')
+        col.label(text='Margin:')
+
+        col = row.column(align=False)
+        col.prop(self, 'name', text='')
+
+        rrow = col.row(align=True)
+        rrow.prop(self, 'channel_idx', text='')
+        if channel:
+            if channel.type == 'NORMAL':
+                rrow.prop(self, 'normal_blend', text='')
+                col.prop(self, 'normal_map_type', text='')
+            else: 
+                rrow.prop(self, 'blend_type', text='')
+
+        col.prop(self, 'hdr')
+        col.prop(self, 'width', text='')
+        col.prop(self, 'height', text='')
+        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        col.prop(self, 'samples', text='')
+        col.prop(self, 'margin', text='')
+
+    def execute(self, context):
+        mat = get_active_material()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        active_layer = None
+        if len(yp.layers) > 0:
+            active_layer = yp.layers[yp.active_layer_index]
+
+        if self.target_type == 'MASK' and not active_layer:
+            self.report({'ERROR'}, "Mask need active layer!")
+            return {'CANCELLED'}
+
+        # Prepare bake settings
+        remember_before_bake(self, context)
+        prepare_bake_settings(self, context)
+
+        # Create bake nodes
+        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+
+        # Get output node and remember original bsdf input
+        output = get_active_mat_output_node(mat.node_tree)
+        ori_bsdf = output.inputs[0].links[0].from_socket
+
+        if self.type == 'AO':
+            src = mat.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
+            src.inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
+
+            # Links
+            if bpy.app.version_string.startswith('2.8'):
+                mat.node_tree.links.new(src.outputs[0], emit.inputs[0])
+                mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+            else:
+                mat.node_tree.links.new(src.outputs[0], output.inputs[0])
+
+        elif self.type == 'POINTINESS':
+            src = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
+
+            # Links
+            mat.node_tree.links.new(src.outputs['Pointiness'], emit.inputs[0])
+            mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+
+        # New target image
+        image = bpy.data.images.new(name=self.name,
+                width=self.width, height=self.height, alpha=True, float_buffer=self.hdr)
+        image.generated_color = (1.0, 1.0, 1.0, 1.0) if self.type == 'AO' else (0.73, 0.73, 0.73, 1.0)
+
+        # Set bake image
+        tex.image = image
+        mat.node_tree.nodes.active = tex
+
+        # Bake!
+        bpy.ops.object.bake()
+        
+        yp.halt_update = True
+        Layer.add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
+                self.normal_blend, self.normal_map_type, 'UV', self.uv_map,
+                image)
+        yp.halt_update = False
+
+        # Remove temp bake nodes
+        simple_remove_node(mat.node_tree, tex)
+        #simple_remove_node(mat.node_tree, linear)
+        simple_remove_node(mat.node_tree, emit)
+        simple_remove_node(mat.node_tree, src)
+
+        # Recover original bsdf
+        mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+
+        # Recover bake settings
+        recover_bake_settings(self, context)
+
+        # Reconnect and rearrange nodes
+        #reconnect_yp_layer_nodes(node.node_tree)
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
+
+        # Refresh mapping and stuff
+        #yp.active_layer_index = yp.active_layer_index
+
+        return {'FINISHED'}
 
 class YTransferSomeLayerUV(bpy.types.Operator):
     bl_idname = "node.y_transfer_some_layer_uv"
@@ -892,12 +1132,14 @@ def update_use_baked(self, context):
         self.active_layer_index = self.active_layer_index
 
 def register():
+    bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YTransferSomeLayerUV)
     bpy.utils.register_class(YTransferLayerUV)
     bpy.utils.register_class(YBakeChannels)
     #bpy.utils.register_class(YDisableBakeResult)
 
 def unregister():
+    bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YTransferSomeLayerUV)
     bpy.utils.unregister_class(YTransferLayerUV)
     bpy.utils.unregister_class(YBakeChannels)

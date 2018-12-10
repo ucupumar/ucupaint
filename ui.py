@@ -2143,9 +2143,9 @@ class YNewLayerMenu(bpy.types.Menu):
         return get_active_ypaint_node()
 
     def draw(self, context):
-        #row = self.layout.row()
-        #col = row.column()
-        col = self.layout.column(align=True)
+        row = self.layout.row()
+        col = row.column()
+        #col = self.layout.column(align=True)
         #col.context_pointer_set('group_node', context.group_node)
         #col.label(text='Image:')
         col.operator("node.y_new_layer", text='New Image', icon='IMAGE_DATA').type = 'IMAGE'
@@ -2215,6 +2215,15 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_new_layer", text='Noise').type = 'NOISE'
         col.operator("node.y_new_layer", text='Voronoi').type = 'VORONOI'
         col.operator("node.y_new_layer", text='Wave').type = 'WAVE'
+
+        col = row.column()
+        c = col.operator("node.y_bake_to_layer", icon='RENDER_STILL', text='Ambient Occlusion')
+        c.type = 'AO'
+        c.target_type = 'LAYER'
+
+        c = col.operator("node.y_bake_to_layer", text='Pointiness')
+        c.type = 'POINTINESS'
+        c.target_type = 'LAYER'
 
 class YBakedImageMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_baked_image_menu"
