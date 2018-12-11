@@ -598,6 +598,59 @@ def get_all_image_users(image):
 
     return users
 
+def replace_image(old_image, new_image, yp=None, uv_name = ''):
+
+    # Rename
+    old_name = old_image.name
+    old_image.name = '_____temp'
+    new_image.name = old_name
+
+    # Set filepath
+    if new_image.filepath == '' and old_image.filepath != '':
+        new_image.filepath = old_image.filepath
+
+    # Replace all users
+    users = get_all_image_users(old_image)
+    for user in users:
+        user.image = new_image
+
+    replaceds = users
+
+    # Replace uv_map of layers and masks
+    if yp and uv_name != '':
+
+        replaceds = []
+
+        # Disable temp uv update
+        #ypui = bpy.context.window_manager.ypui
+        #ori_disable_temp_uv = ypui.disable_auto_temp_uv_update
+
+        for i, layer in enumerate(yp.layers):
+            if layer.type == 'IMAGE':
+                source = get_layer_source(layer)
+                if source.image and source.image == new_image:
+                    if layer.uv_name != uv_name:
+                        layer.uv_name = uv_name
+                    if i not in replaceds:
+                        replaceds.append(i)
+
+            for mask in layer.masks:
+                if mask.type == 'IMAGE':
+                    source = get_mask_source(mask)
+                    if source.image and source.image == new_image:
+                        if mask.uv_name != uv_name:
+                            mask.uv_name = uv_name
+                        if i not in replaceds:
+                            replaceds.append(i)
+
+        # Recover temp uv update
+        #ypui.disable_auto_temp_uv_update = ori_disable_temp_uv
+
+    # Remove old image
+    bpy.data.images.remove(old_image)
+
+    return replaceds
+
 def mute_node(tree, entity, prop):
     if not hasattr(entity, prop): return
     node = tree.nodes.get(getattr(entity, prop))

@@ -464,11 +464,12 @@ def update_channel_idx_new_layer(self, context):
         self.rgb_to_intensity_color = (1,1,1)
         return
 
-    for i, ch in enumerate(yp.channels):
-        if self.channel_idx == str(i):
-            if ch.type == 'RGB':
-                self.rgb_to_intensity_color = (1,0,1)
-            else: self.rgb_to_intensity_color = (1,1,1)
+    if hasattr(self, 'rgb_to_intensity_color'):
+        for i, ch in enumerate(yp.channels):
+            if self.channel_idx == str(i):
+                if ch.type == 'RGB':
+                    self.rgb_to_intensity_color = (1,0,1)
+                else: self.rgb_to_intensity_color = (1,1,1)
 
 def get_fine_bump_distance(layer, distance):
     scale = 100
@@ -2287,6 +2288,7 @@ def update_uv_name(self, context):
     yp = group_tree.yp
     ypui = context.window_manager.ypui
     layer = self
+    active_layer = yp.layers[yp.active_layer_index]
     tree = get_tree(layer)
     if not tree: return
 
@@ -2311,13 +2313,14 @@ def update_uv_name(self, context):
         if normal and normal.type == 'NORMAL_MAP': normal.uv_map = layer.uv_name
 
     # Update uv layer
-    if obj.type == 'MESH' and not any([m for m in layer.masks if m.active_edit]):
+    if obj.type == 'MESH' and not any([m for m in layer.masks if m.active_edit]) and layer == active_layer:
 
         if layer.segment_name != '':
-            if ypui.disable_auto_temp_uv_update:
-                update_image_editor_image(context, None)
-                yp.need_temp_uv_refresh = True
-            else: refresh_temp_uv(obj, layer)
+            #if ypui.disable_auto_temp_uv_update:
+            #    update_image_editor_image(context, None)
+            #    yp.need_temp_uv_refresh = True
+            #else: 
+            refresh_temp_uv(obj, layer)
         else:
             if hasattr(obj.data, 'uv_textures'):
                 uv_layers = obj.data.uv_textures

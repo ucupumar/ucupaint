@@ -2162,7 +2162,7 @@ class YNewLayerMenu(bpy.types.Menu):
 
         col.separator()
 
-        col.operator("node.y_new_layer", icon='FILE_FOLDER', text='New Layer Group').type = 'GROUP'
+        col.operator("node.y_new_layer", icon='FILE_FOLDER', text='Layer Group').type = 'GROUP'
         col.separator()
 
         #col.label(text='Vertex Color:')
@@ -2205,7 +2205,7 @@ class YNewLayerMenu(bpy.types.Menu):
 
         col.separator()
 
-        #col = row.column()
+        col = row.column()
         #col.label(text='Generated:')
         col.operator("node.y_new_layer", icon='TEXTURE', text='Brick').type = 'BRICK'
         col.operator("node.y_new_layer", text='Checker').type = 'CHECKER'
@@ -2462,6 +2462,15 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Noise').type = 'NOISE'
         col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Voronoi').type = 'VORONOI'
         col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Wave').type = 'WAVE'
+
+        col = row.column()
+        c = col.operator("node.y_bake_to_layer", icon='RENDER_STILL', text='Ambient Occlusion')
+        c.type = 'AO'
+        c.target_type = 'MASK'
+
+        c = col.operator("node.y_bake_to_layer", text='Pointiness')
+        c.type = 'POINTINESS'
+        c.target_type = 'MASK'
 
 class YLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_mask_menu"

@@ -4,7 +4,7 @@ from mathutils import *
 from .common import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib, Layer
+from . import lib, Layer, Mask
 
 BL28_HACK = True
 
@@ -30,8 +30,12 @@ def remember_before_bake(self, context):
         self.ori_active_selected_objs = [o for o in scene.objects if o.select_get()]
     else: self.ori_active_selected_objs = [o for o in scene.objects if o.select]
 
+    # Remember world settings
+    if bpy.app.version_string.startswith('2.8') and scene.world:
+        self.ori_distance = scene.world.light_settings.distance
+
     # Remember ypui
-    self.ori_disable_temp_uv = ypui.disable_auto_temp_uv_update
+    #self.ori_disable_temp_uv = ypui.disable_auto_temp_uv_update
 
 def prepare_bake_settings(self, context):
     scene = self.scene
@@ -61,7 +65,7 @@ def prepare_bake_settings(self, context):
     uv_layers.active = uv_layers.get(self.uv_map)
 
     # Disable auto temp uv update
-    ypui.disable_auto_temp_uv_update = True
+    #ypui.disable_auto_temp_uv_update = True
 
 def recover_bake_settings(self, context):
     scene = self.scene
@@ -75,6 +79,10 @@ def recover_bake_settings(self, context):
     scene.render.threads_mode = self.ori_threads_mode
     scene.render.bake.margin = self.ori_margin
     scene.render.bake.use_clear = self.ori_use_clear
+
+    # Recover world settings
+    if bpy.app.version_string.startswith('2.8') and scene.world:
+        scene.world.light_settings.distance = self.ori_distance
 
     # Recover uv
     uv_layers.active = self.ori_active_uv
@@ -95,15 +103,15 @@ def recover_bake_settings(self, context):
     #scene.objects.active = self.ori_active_obj
 
     # Recover ypui
-    ypui.disable_auto_temp_uv_update = self.ori_disable_temp_uv
+    #ypui.disable_auto_temp_uv_update = self.ori_disable_temp_uv
 
-def transfer_uv(mat, entity, uv_map):
+def transfer_uv(obj, mat, entity, uv_map):
 
-    #if hasattr(obj.data, 'uv_textures'):
-    #    uv_layers = obj.data.uv_textures
-    #else: uv_layers = obj.data.uv_layers
+    if hasattr(obj.data, 'uv_textures'):
+        uv_layers = obj.data.uv_textures
+    else: uv_layers = obj.data.uv_layers
 
-    #uv_layers.active = uv_layers.get(uv_map)
+    uv_layers.active = uv_layers.get(uv_map)
 
     # Check entity
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -137,8 +145,14 @@ def transfer_uv(mat, entity, uv_map):
     else:
         width = image.size[0]
         height = image.size[1]
-        col = (0.0, 0.0, 0.0, 0.0)
-        use_alpha = True
+        # Change color if baked image is found
+        if 'Pointiness' in image.name:
+            col = (0.73, 0.73, 0.73, 1.0)
+        elif 'AO' in image.name:
+            col = (1.0, 1.0, 1.0, 1.0)
+        else:
+            col = (0.0, 0.0, 0.0, 0.0)
+            use_alpha = True
 
     # Create temp image as bake target
     temp_image = bpy.data.images.new(name='__TEMP',
@@ -282,7 +296,7 @@ class YBakeToLayer(bpy.types.Operator):
             description='Overwrite available layer',
             default=False
             )
-    overwrite_layer = StringProperty(default='')
+    overwrite_name = StringProperty(default='')
     overwrite_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
     samples = IntProperty(name='Bake Samples', 
@@ -300,6 +314,8 @@ class YBakeToLayer(bpy.types.Operator):
                      ('POINTINESS', 'Pointiness', '')),
             default='AO'
             )
+
+    ao_distance = FloatProperty(default=1.0)
 
     target_type = EnumProperty(
             name = 'Target Bake Type',
@@ -346,16 +362,13 @@ class YBakeToLayer(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
+        # Default normal map type is bump
+        self.normal_map_type = 'FINE_BUMP_MAP'
+
         # Use active uv layer name by default
         if hasattr(obj.data, 'uv_textures'):
             uv_layers = self.uv_layers = obj.data.uv_textures
         else: uv_layers = self.uv_layers = obj.data.uv_layers
-
-        if len(uv_layers) > 0:
-            active_name = uv_layers.active.name
-            if active_name == TEMP_UV:
-                self.uv_map = yp.layers[yp.active_layer_index].uv_name
-            else: self.uv_map = uv_layers.active.name
 
         # UV Map collections update
         self.uv_map_coll.clear()
@@ -363,20 +376,51 @@ class YBakeToLayer(bpy.types.Operator):
             if not uv.name.startswith(TEMP_UV):
                 self.uv_map_coll.add().name = uv.name
 
+        #if len(uv_layers) > 0:
+            #active_name = uv_layers.active.name
+            #if active_name == TEMP_UV:
+            #    self.uv_map = yp.layers[yp.active_layer_index].uv_name
+            #else: self.uv_map = uv_layers.active.name
+        if len(self.uv_map_coll) > 0:
+            self.uv_map = self.uv_map_coll[0].name
+
         # Set name
         mat = get_active_material()
         if self.type == 'AO':
             self.blend_type = 'MULTIPLY'
-            suffix = ' AO'
-            self.samples = 128
+            suffix = 'AO'
+            self.samples = 32
         else: 
             self.blend_type = 'ADD'
-            suffix = ' Pointiness'
+            suffix = 'Pointiness'
             self.samples = 1
-        self.name = get_unique_name(mat.name + suffix, bpy.data.images)
+        self.name = get_unique_name(mat.name + ' ' + suffix, bpy.data.images)
 
-        # Try to overwrite
-        pass
+        # Clear overwrite_coll
+        self.overwrite_coll.clear()
+
+        # Get overwritable layers
+        if self.target_type == 'LAYER':
+            for layer in yp.layers:
+                if layer.type == 'IMAGE':
+                    source = get_layer_source(layer)
+                    if source.image and suffix in source.image.name:
+                        self.overwrite_coll.add().name = source.image.name
+
+        # Get overwritable masks
+        elif len(yp.layers) > 0:
+            active_layer = yp.layers[yp.active_layer_index]
+            for mask in active_layer.masks:
+                if mask.type == 'IMAGE':
+                    source = get_mask_source(mask)
+                    if source.image and suffix in source.image.name:
+                        self.overwrite_coll.add().name = source.image.name
+
+        if len(self.overwrite_coll) > 0:
+            self.overwrite = True
+            self.overwrite_name = self.overwrite_coll[0].name
+        else:
+            self.overwrite = False
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -394,11 +438,24 @@ class YBakeToLayer(bpy.types.Operator):
         else: row = self.layout.split(percentage=0.4)
 
         col = row.column(align=False)
-        col.label(text='Name:')
 
-        col.label(text='Channel:')
-        if channel and channel.type == 'NORMAL':
-            col.label(text='Type:')
+        if len(self.overwrite_coll) > 0:
+            col.label(text='Overwrite:')
+        if len(self.overwrite_coll) > 0 and self.overwrite:
+            if self.target_type == 'LAYER':
+                col.label(text='Overwrite Layer:')
+            else:
+                col.label(text='Overwrite Mask:')
+        else:
+            col.label(text='Name:')
+
+            if self.target_type == 'LAYER':
+                col.label(text='Channel:')
+                if channel and channel.type == 'NORMAL':
+                    col.label(text='Type:')
+
+        if self.type == 'AO':
+            col.label(text='AO Distance:')
 
         col.label(text='')
         col.label(text='Width:')
@@ -408,17 +465,26 @@ class YBakeToLayer(bpy.types.Operator):
         col.label(text='Margin:')
 
         col = row.column(align=False)
-        col.prop(self, 'name', text='')
 
-        rrow = col.row(align=True)
-        rrow.prop(self, 'channel_idx', text='')
-        if channel:
-            if channel.type == 'NORMAL':
-                rrow.prop(self, 'normal_blend', text='')
-                col.prop(self, 'normal_map_type', text='')
-            else: 
-                rrow.prop(self, 'blend_type', text='')
+        if len(self.overwrite_coll) > 0:
+            col.prop(self, 'overwrite', text='')
 
+        if len(self.overwrite_coll) > 0 and self.overwrite:
+            col.prop_search(self, "overwrite_name", self, "overwrite_coll", text='', icon='IMAGE_DATA')
+        else:
+            col.prop(self, 'name', text='')
+
+            if self.target_type == 'LAYER':
+                rrow = col.row(align=True)
+                rrow.prop(self, 'channel_idx', text='')
+                if channel:
+                    if channel.type == 'NORMAL':
+                        rrow.prop(self, 'normal_blend', text='')
+                        col.prop(self, 'normal_map_type', text='')
+                    else: 
+                        rrow.prop(self, 'blend_type', text='')
+
+        col.prop(self, 'ao_distance', text='')
         col.prop(self, 'hdr')
         col.prop(self, 'width', text='')
         col.prop(self, 'height', text='')
@@ -430,12 +496,17 @@ class YBakeToLayer(bpy.types.Operator):
         mat = get_active_material()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
+        ypui = context.window_manager.ypui
         active_layer = None
         if len(yp.layers) > 0:
             active_layer = yp.layers[yp.active_layer_index]
 
         if self.target_type == 'MASK' and not active_layer:
             self.report({'ERROR'}, "Mask need active layer!")
+            return {'CANCELLED'}
+
+        if self.overwrite and self.overwrite_name == '':
+            self.report({'ERROR'}, "Overwrite layer/mask cannot be empty!")
             return {'CANCELLED'}
 
         # Prepare bake settings
@@ -456,9 +527,15 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Links
             if bpy.app.version_string.startswith('2.8'):
+                src.inputs[1].default_value = self.ao_distance
+
                 mat.node_tree.links.new(src.outputs[0], emit.inputs[0])
                 mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
             else:
+
+                if context.scene.world:
+                    context.scene.world.light_settings.distance = self.ao_distance
+
                 mat.node_tree.links.new(src.outputs[0], output.inputs[0])
 
         elif self.type == 'POINTINESS':
@@ -479,12 +556,39 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Bake!
         bpy.ops.object.bake()
-        
-        yp.halt_update = True
-        Layer.add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
-                self.normal_blend, self.normal_map_type, 'UV', self.uv_map,
-                image)
-        yp.halt_update = False
+
+        overwrite_img = None
+        if self.overwrite:
+            overwrite_img = bpy.data.images.get(self.overwrite_name)
+
+        if overwrite_img:
+            replaced_layer_ids = replace_image(overwrite_img, image, yp, self.uv_map)
+            if replaced_layer_ids and yp.active_layer_index not in replaced_layer_ids:
+                active_id = replaced_layer_ids[0]
+            else: active_id = yp.active_layer_index
+
+            if self.target_type == 'MASK':
+                # Activate mask
+                for mask in yp.layers[yp.active_layer_index].masks:
+                    if mask.type == 'IMAGE':
+                        source = get_mask_source(mask)
+                        if source.image and source.image == image:
+                            mask.active_edit = True
+
+        elif self.target_type == 'LAYER':
+            yp.halt_update = True
+            layer = Layer.add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
+                    self.normal_blend, self.normal_map_type, 'UV', self.uv_map, image)
+            yp.halt_update = False
+            active_id = yp.active_layer_index
+        else:
+            mask = Mask.add_new_mask(active_layer, image.name, 'IMAGE', 'UV', self.uv_map, image)
+            mask.active_edit = True
+
+            rearrange_layer_nodes(active_layer)
+            reconnect_layer_nodes(active_layer)
+
+            active_id = yp.active_layer_index
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)
@@ -502,6 +606,14 @@ class YBakeToLayer(bpy.types.Operator):
         #reconnect_yp_layer_nodes(node.node_tree)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
+
+        # Refresh active index
+        if active_id != yp.active_layer_index:
+            yp.active_layer_index = active_id
+
+        if self.target_type == 'MASK':
+            ypui.layer_ui.expand_masks = True
+        ypui.need_update = True
 
         # Refresh mapping and stuff
         #yp.active_layer_index = yp.active_layer_index
@@ -573,11 +685,11 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         T = time.time()
 
         if self.from_uv_map == '' or self.uv_map == '':
-            self.report({'ERROR'}, "From or To UV Map is cannot be empty!")
+            self.report({'ERROR'}, "From or To UV Map cannot be empty!")
             return {'CANCELLED'}
 
         if self.from_uv_map == self.uv_map:
-            self.report({'ERROR'}, "From and To UV is cannot have same value!")
+            self.report({'ERROR'}, "From and To UV cannot have same value!")
             return {'CANCELLED'}
 
         mat = get_active_material()
@@ -591,11 +703,11 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         for layer in yp.layers:
             #print(layer.name)
             if layer.type == 'IMAGE' and layer.uv_name == self.from_uv_map:
-                transfer_uv(mat, layer, self.uv_map)
+                transfer_uv(self.obj, mat, layer, self.uv_map)
 
             for mask in layer.masks:
                 if mask.type == 'IMAGE' and mask.uv_name == self.from_uv_map:
-                    transfer_uv(mat, mask, self.uv_map)
+                    transfer_uv(self.obj, mat, mask, self.uv_map)
 
         #return {'FINISHED'}
 
@@ -700,7 +812,7 @@ class YTransferLayerUV(bpy.types.Operator):
         prepare_bake_settings(self, context)
 
         # Transfer UV
-        transfer_uv(mat, self.entity, self.uv_map)
+        transfer_uv(self.obj, mat, self.entity, self.uv_map)
 
         # Recover bake settings
         recover_bake_settings(self, context)

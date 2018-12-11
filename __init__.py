@@ -57,8 +57,8 @@
 #   - Dealing with multiple yp tree users (~, just implemented better fix duplicate layers operator)
 #   - Pointiness (V)
 #   - AO (V)
-#   - Overwrite AO or Pointiness
-#   - AO Distance
+#   - Overwrite AO or Pointiness (V)
+#   - AO Distance (V)
 # - Make sure background layer blending and its ui is consistent (V)
 # - Make sure there's no duplicate group when appending (V)
 # - Every modifiers has intensity value for muting to prevent recompilation (V)

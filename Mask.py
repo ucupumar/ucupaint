@@ -787,6 +787,7 @@ def update_mask_uv_name(self, context):
 
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
+    active_layer = yp.layers[yp.active_layer_index]
     tree = get_tree(layer)
     mask = self
 
@@ -799,13 +800,14 @@ def update_mask_uv_name(self, context):
     uv_map.uv_map = mask.uv_name
 
     # Update uv layer
-    if mask.active_edit and obj.type == 'MESH':
+    if mask.active_edit and obj.type == 'MESH' and layer == active_layer:
 
         if mask.segment_name != '':
-            if ypui.disable_auto_temp_uv_update:
-                update_image_editor_image(context, None)
-                yp.need_temp_uv_refresh = True
-            else: refresh_temp_uv(obj, mask)
+            #if ypui.disable_auto_temp_uv_update:
+            #    update_image_editor_image(context, None)
+            #    yp.need_temp_uv_refresh = True
+            #else: 
+            refresh_temp_uv(obj, mask)
         else:
 
             if hasattr(obj.data, 'uv_textures'):

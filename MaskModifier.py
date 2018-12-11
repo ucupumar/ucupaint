@@ -109,14 +109,18 @@ class YNewMaskModifier(bpy.types.Operator):
 
     def execute(self, context):
 
-        #print('Owowowow', self.type)
+        match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', context.mask.path_from_id())
+        mask_idx = int(match.group(2))
+
         add_new_mask_modifier(context.mask, self.type)
 
         rearrange_layer_nodes(context.layer)
         reconnect_layer_nodes(context.layer)
 
         # Update UI
-        context.window_manager.ypui.need_update = True
+        ypui = context.window_manager.ypui
+        ypui.layer_ui.masks[mask_idx].expand_content = True
+        ypui.need_update = True
 
         return {'FINISHED'}
 
