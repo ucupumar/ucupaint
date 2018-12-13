@@ -1611,7 +1611,7 @@ def update_channel_alpha(self, context):
 
         # Set material to use alpha blend
         if hasattr(mat, 'blend_method'): # Blender 2.8
-            mat.blend_method = 'BLEND'
+            mat.blend_method = 'HASHED'
         else: # Blender 2.7
             mat.game_settings.alpha_blend = 'ALPHA'
 
