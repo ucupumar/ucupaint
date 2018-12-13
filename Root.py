@@ -940,6 +940,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'start_normal_filter')
         remove_node(group_tree, channel, 'baked')
         remove_node(group_tree, channel, 'baked_normal')
+        remove_node(group_tree, channel, 'baked_normal_flip')
 
         for mod in channel.modifiers:
             Modifier.delete_modifier_nodes(group_tree, mod)
@@ -1759,6 +1760,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     #baked_1 = StringProperty(default='')
     #baked_uv_map = StringProperty(default='')
     baked_normal = StringProperty(default='')
+    baked_normal_flip = StringProperty(default='')
     #baked_mix = StringProperty(default='')
 
     # UI related

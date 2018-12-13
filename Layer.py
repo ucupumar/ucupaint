@@ -328,9 +328,15 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     tangent.uv_map = uv_name
     tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
 
+    tangent_flip = new_node(tree, layer, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
+    tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
+
     bitangent = new_node(tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
     bitangent.uv_map = uv_name
     bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+
+    bitangent_flip = new_node(tree, layer, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
+    bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
 
     #hacky_tangent = new_node(tree, layer, 'hacky_tangent', 'ShaderNodeNormalMap', 'Hacky Source Tangent')
     #hacky_tangent.uv_map = uv_name
@@ -1993,11 +1999,17 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
         normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeNormalMap', 'Normal')
         normal.uv_map = layer.uv_name
 
+        normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
+                'Normal Backface Flip', lib.FLIP_BACKFACE_NORMAL)
+
     # Bump nodes
     elif ch.normal_map_type == 'BUMP_MAP':
 
         normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeBump', 'Bump')
         normal.inputs[1].default_value = ch.bump_distance
+
+        normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
+                'Normal Backface Flip', lib.FLIP_BACKFACE_NORMAL_CYCLES)
 
     # Fine bump nodes
     elif ch.normal_map_type == 'FINE_BUMP_MAP':
@@ -2008,6 +2020,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
 
         normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeGroup', 'Fine Bump', lib.FINE_BUMP)
         normal.inputs[0].default_value = get_fine_bump_distance(layer, ch.bump_distance)
+
+        remove_node(tree, ch, 'normal_flip')
 
     # Remove neighbor related nodes
     if ch.normal_map_type != 'FINE_BUMP_MAP':
@@ -2585,11 +2599,13 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update=transition.update_transition_bump_fac)
 
     tb_bump = StringProperty(default='')
+    tb_bump_flip = StringProperty(default='')
     tb_inverse = StringProperty(default='')
     tb_intensity_multiplier = StringProperty(default='')
     tb_blend = StringProperty(default='')
 
     tb_crease = StringProperty(default='')
+    tb_crease_flip = StringProperty(default='')
     tb_crease_intensity = StringProperty(default='')
     tb_crease_mix = StringProperty(default='')
 
@@ -2777,6 +2793,8 @@ class YLayer(bpy.types.PropertyGroup):
     # Other Vectors
     tangent = StringProperty(default='')
     bitangent = StringProperty(default='')
+    tangent_flip = StringProperty(default='')
+    bitangent_flip =StringProperty(default='')
 
     # Modifiers
     modifiers = CollectionProperty(type=Modifier.YPaintModifier)

@@ -5,7 +5,11 @@ from bpy.app.handlers import persistent
 # Node tree names
 OVERLAY_NORMAL = '~yPL Overlay Normal'
 CHECK_INPUT_NORMAL = '~yPL Check Input Normal'
+
 FLIP_BACKFACE_NORMAL = '~yPL Flip Backface Normal'
+FLIP_BACKFACE_NORMAL_CYCLES = '~yPL Flip Backface Normal (Cycles Only)'
+FLIP_BACKFACE_TANGENT = '~yPL Flip Backface Tangent'
+FLIP_BACKFACE_BITANGENT = '~yPL Flip Backface Bitangent'
 
 STRAIGHT_OVER = '~yPL Straight Over Mix'
 STRAIGHT_OVER_BW = '~yPL Straight Over Grayscale Mix'

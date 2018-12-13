@@ -223,23 +223,35 @@ def set_mask_uv_neighbor(tree, layer, mask):
 
         if different_uv:
             tangent = tree.nodes.get(mask.tangent)
+            tangent_flip = tree.nodes.get(mask.tangent_flip)
             bitangent = tree.nodes.get(mask.bitangent)
+            bitangent_flip = tree.nodes.get(mask.bitangent_flip)
 
             if not tangent:
-                tangent = new_node(tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Mask Tangent')
+                tangent = new_node(tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
                 tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
                 need_reconnect = True
 
+            if not tangent_flip:
+                tangent_flip = new_node(tree, mask, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
+                tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
+
             if not bitangent:
-                bitangent = new_node(tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Mask Bitangent')
+                bitangent = new_node(tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
                 bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
                 need_reconnect = True
+
+            if not bitangent_flip:
+                bitangent_flip = new_node(tree, mask, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
+                bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
 
             tangent.uv_map = mask.uv_name
             bitangent.uv_map = mask.uv_name
         else:
             remove_node(tree, mask, 'tangent')
             remove_node(tree, mask, 'bitangent')
+            remove_node(tree, mask, 'tangent_flip')
+            remove_node(tree, mask, 'bitangent_flip')
 
     return need_reconnect
 
@@ -337,6 +349,8 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         remove_node(layer_tree, mask, 'source_w')
         remove_node(layer_tree, mask, 'tangent')
         remove_node(layer_tree, mask, 'bitangent')
+        remove_node(layer_tree, mask, 'tangent_flip')
+        remove_node(layer_tree, mask, 'bitangent_flip')
 
     remove_node(layer_tree, mask, 'uv_neighbor')
 

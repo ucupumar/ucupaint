@@ -280,6 +280,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         if yp.use_baked:
             baked = nodes.get(ch.baked)
             baked_uv_map = nodes.get(BAKED_UV)
+            baked_bitangent = nodes.get(BAKED_BITANGENT)
 
             create_link(tree, baked_uv_map.outputs[0], baked.inputs[0])
 
@@ -287,6 +288,11 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             if ch.type == 'NORMAL':
                 baked_normal = nodes.get(ch.baked_normal)
                 rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
+
+                baked_normal_flip = nodes.get(ch.baked_normal_flip)
+                if baked_normal_flip:
+                    create_link(tree, baked_bitangent.outputs[0], baked_normal_flip.inputs['Bitangent'])
+                    rgb = create_link(tree, rgb, baked_normal_flip.inputs[0])[0]
 
             if ch.type == 'RGB' and ch.enable_alpha:
                 alpha = baked.outputs[1]
@@ -441,7 +447,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     geometry = nodes.get(GEOMETRY)
     mapping = nodes.get(layer.mapping)
     tangent = nodes.get(layer.tangent)
+    tangent_flip = nodes.get(layer.tangent_flip)
     bitangent = nodes.get(layer.bitangent)
+    bitangent_flip = nodes.get(layer.bitangent_flip)
+
+    tangent = tangent.outputs[0]
+    if tangent_flip:
+        tangent = create_link(tree, tangent, tangent_flip.inputs[0])[0]
+
+    bitangent = bitangent.outputs[0]
+    if bitangent_flip:
+        bitangent = create_link(tree, bitangent, bitangent_flip.inputs[0])[0]
 
     # Texcoord
     if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
@@ -459,9 +475,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             create_link(tree, vector, uv_neighbor.inputs[0])
 
             if 'Tangent' in uv_neighbor.inputs:
-                create_link(tree, tangent.outputs[0], uv_neighbor.inputs['Tangent'])
+                create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
             if 'Bitangent' in uv_neighbor.inputs:
-                create_link(tree, bitangent.outputs[0], uv_neighbor.inputs['Bitangent'])
+                create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
 
             if source_n: create_link(tree, uv_neighbor.outputs['n'], source_n.inputs[0])
             if source_s: create_link(tree, uv_neighbor.outputs['s'], source_s.inputs[0])
@@ -506,8 +522,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     if layer.type in {'VCOL', 'GROUP'} and uv_neighbor:
         if layer.type == 'VCOL':
             create_link(tree, start_rgb, uv_neighbor.inputs[0])
-        create_link(tree, tangent.outputs[0], uv_neighbor.inputs['Tangent'])
-        create_link(tree, bitangent.outputs[0], uv_neighbor.inputs['Bitangent'])
+        create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
+        create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
 
     # Get transition bump channel
     trans_bump_flip = False
@@ -575,16 +591,28 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             # Mask tangent
             mask_tangent = nodes.get(mask.tangent)
+            mask_tangent_flip = nodes.get(mask.tangent_flip)
             mask_bitangent = nodes.get(mask.bitangent)
+            mask_bitangent_flip = nodes.get(mask.bitangent_flip)
+
+            if mask_tangent:
+                mask_tangent = mask_tangent.outputs[0]
+                if mask_tangent_flip:
+                    mask_tangent = create_link(tree, mask_tangent, mask_tangent_flip.inputs[0])[0]
+
+            if mask_bitangent:
+                mask_bitangent = mask_bitangent.outputs[0]
+                if mask_bitangent_flip:
+                    mask_bitangent = create_link(tree, mask_bitangent, mask_bitangent_flip.inputs[0])[0]
 
             if 'Tangent' in mask_uv_neighbor.inputs:
-                create_link(tree, tangent.outputs[0], mask_uv_neighbor.inputs['Tangent'])
+                create_link(tree, tangent, mask_uv_neighbor.inputs['Tangent'])
             if 'Bitangent' in mask_uv_neighbor.inputs:
-                create_link(tree, bitangent.outputs[0], mask_uv_neighbor.inputs['Bitangent'])
+                create_link(tree, bitangent, mask_uv_neighbor.inputs['Bitangent'])
             if 'Mask Tangent' in mask_uv_neighbor.inputs:
-                create_link(tree, mask_tangent.outputs[0], mask_uv_neighbor.inputs['Mask Tangent'])
+                create_link(tree, mask_tangent, mask_uv_neighbor.inputs['Mask Tangent'])
             if 'Mask Bitangent' in mask_uv_neighbor.inputs:
-                create_link(tree, mask_bitangent.outputs[0], mask_uv_neighbor.inputs['Mask Bitangent'])
+                create_link(tree, mask_bitangent, mask_uv_neighbor.inputs['Mask Bitangent'])
 
         # Mask channels
         for j, c in enumerate(mask.channels):
@@ -780,8 +808,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             # Connect tangent if overlay blend is used
             if ch.normal_blend == 'OVERLAY':
-                create_link(tree, tangent.outputs[0], blend.inputs['Tangent'])
-                create_link(tree, bitangent.outputs[0], blend.inputs['Bitangent'])
+                create_link(tree, tangent, blend.inputs['Tangent'])
+                create_link(tree, bitangent, blend.inputs['Bitangent'])
 
             if layer.type not in {'BACKGROUND', 'GROUP'}: #, 'COLOR'}:
                 
@@ -794,8 +822,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 if normal_map_type == 'NORMAL_MAP':
 
                     if normal:
-                        create_link(tree, rgb, normal.inputs[1])
-                        rgb = normal.outputs[0]
+                        rgb = create_link(tree, rgb, normal.inputs[1])[0]
+                        #rgb = normal.outputs[0]
 
                 elif normal_map_type == 'BUMP_MAP':
 
@@ -863,10 +891,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                         create_link(tree, rgb_e, normal.inputs['e'])
                         create_link(tree, rgb_w, normal.inputs['w'])
 
-                        create_link(tree, tangent.outputs[0], normal.inputs['Tangent'])
-                        create_link(tree, bitangent.outputs[0], normal.inputs['Bitangent'])
+                        create_link(tree, tangent, normal.inputs['Tangent'])
+                        create_link(tree, bitangent, normal.inputs['Bitangent'])
 
                         rgb = normal.outputs[0]
+
+                normal_flip = nodes.get(ch.normal_flip)
+                if normal_flip:
+                    create_link(tree, bitangent, normal_flip.inputs['Bitangent'])
+                    rgb = create_link(tree, rgb, normal_flip.inputs[0])[0]
 
         # For transition input
         transition_input = alpha
@@ -896,7 +929,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         if root_ch.type == 'NORMAL' and ch.enable_transition_bump and ch.enable:
 
             tb_bump = nodes.get(ch.tb_bump)
+            tb_bump_flip = nodes.get(ch.tb_bump_flip)
             tb_crease = nodes.get(ch.tb_crease)
+            tb_crease_flip = nodes.get(ch.tb_crease_flip)
 
             if ch.transition_bump_type == 'BUMP_MAP':
                 create_link(tree, transition_input, tb_bump.inputs['Height'])
@@ -940,8 +975,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 create_link(tree, malpha_e, tb_bump.inputs['e'])
                 create_link(tree, malpha_w, tb_bump.inputs['w'])
 
-                create_link(tree, tangent.outputs[0], tb_bump.inputs['Tangent'])
-                create_link(tree, bitangent.outputs[0], tb_bump.inputs['Bitangent'])
+                create_link(tree, tangent, tb_bump.inputs['Tangent'])
+                create_link(tree, bitangent, tb_bump.inputs['Bitangent'])
 
                 if tb_crease:
                     create_link(tree, malpha_n, tb_crease.inputs['n'])
@@ -949,8 +984,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     create_link(tree, malpha_e, tb_crease.inputs['e'])
                     create_link(tree, malpha_w, tb_crease.inputs['w'])
 
-                    create_link(tree, tangent.outputs[0], tb_crease.inputs['Tangent'])
-                    create_link(tree, bitangent.outputs[0], tb_crease.inputs['Bitangent'])
+                    create_link(tree, tangent, tb_crease.inputs['Tangent'])
+                    create_link(tree, bitangent, tb_crease.inputs['Bitangent'])
 
             if tb_crease:
                 tb_crease_intensity = nodes.get(ch.tb_crease_intensity)
@@ -966,9 +1001,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 create_link(tree, tb_crease_intensity.outputs[0], tb_crease_mix.inputs[0])
 
                 create_link(tree, prev_rgb, tb_crease_mix.inputs[1])
-                create_link(tree, tb_crease.outputs[0], tb_crease_mix.inputs[2])
-                create_link(tree, tangent.outputs[0], tb_crease_mix.inputs['Tangent'])
-                create_link(tree, bitangent.outputs[0], tb_crease_mix.inputs['Bitangent'])
+
+                if tb_crease_flip:
+                    create_link(tree, tb_crease.outputs[0], tb_crease_flip.inputs[0])
+                    create_link(tree, bitangent, tb_crease_flip.inputs['Bitangent'])
+                    create_link(tree, tb_crease_flip.outputs[0], tb_crease_mix.inputs[2])
+                else:
+                    create_link(tree, tb_crease.outputs[0], tb_crease_mix.inputs[2])
+
+                create_link(tree, tangent, tb_crease_mix.inputs['Tangent'])
+                create_link(tree, bitangent, tb_crease_mix.inputs['Bitangent'])
 
                 prev_rgb = tb_crease_mix.outputs[0]
 
@@ -984,7 +1026,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 create_link(tree, tb_inverse.outputs[0], tb_blend.inputs[0])
 
             create_link(tree, rgb, tb_blend.inputs[1])
-            create_link(tree, tb_bump.outputs[0], tb_blend.inputs[2])
+            if tb_bump_flip:
+                create_link(tree, tb_bump.outputs[0], tb_bump_flip.inputs[0])
+                create_link(tree, bitangent, tb_bump_flip.inputs['Bitangent'])
+                create_link(tree, tb_bump_flip.outputs[0], tb_blend.inputs[2])
+            else:
+                create_link(tree, tb_bump.outputs[0], tb_blend.inputs[2])
 
             rgb = tb_blend.outputs[0]
 
@@ -1071,11 +1118,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     alpha = tr_ramp.outputs[1]
 
         # Normal flip check
-        normal_flip = nodes.get(ch.normal_flip)
-        if normal_flip:
-            create_link(tree, rgb, normal_flip.inputs[0])
-            create_link(tree, bitangent.outputs[0], normal_flip.inputs[1])
-            rgb = normal_flip.outputs[0]
+        #normal_flip = nodes.get(ch.normal_flip)
+        #if normal_flip:
+        #    create_link(tree, rgb, normal_flip.inputs[0])
+        #    create_link(tree, bitangent, normal_flip.inputs[1])
+        #    rgb = normal_flip.outputs[0]
 
         # Pass rgb to blend
         create_link(tree, rgb, blend.inputs[2])

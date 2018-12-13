@@ -960,6 +960,8 @@ class YLayerMask(bpy.types.PropertyGroup):
 
     tangent = StringProperty(default='')
     bitangent = StringProperty(default='')
+    tangent_flip = StringProperty(default='')
+    bitangent_flip =StringProperty(default='')
 
     # UI related
     expand_content = BoolProperty(default=False)

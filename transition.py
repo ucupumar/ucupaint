@@ -280,6 +280,8 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
             tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance)
         else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance)
 
+        remove_node(tree, ch, 'tb_bump_flip')
+
     if ch.transition_bump_type == 'CURVED_BUMP_MAP':
 
         enable_layer_source_tree(layer)
@@ -300,6 +302,8 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
 
         tb_bump.inputs['Offset'].default_value = ch.transition_bump_curved_offset
 
+        remove_node(tree, ch, 'tb_bump_flip')
+
     if ch.transition_bump_type == 'BUMP_MAP':
 
         disable_layer_source_tree(layer, False)
@@ -313,16 +317,24 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
             tb_bump.inputs[1].default_value = -ch.transition_bump_distance
         else: tb_bump.inputs[1].default_value = ch.transition_bump_distance
 
+        tb_bump_flip = replace_new_node(tree, ch, 'tb_bump_flip', 'ShaderNodeGroup', 
+                'Transition Bump Backface Flip', lib.FLIP_BACKFACE_NORMAL_CYCLES)
+
     # Crease stuff
     if ch.transition_bump_crease and not ch.transition_bump_flip and layer.type != 'BACKGROUND':
     #if ch.transition_bump_crease and not ch.transition_bump_flip:
         if ch.transition_bump_type == 'BUMP_MAP':
             tb_crease = replace_new_node(tree, ch, 'tb_crease', 'ShaderNodeBump', 'Transition Bump Crease')
             tb_crease.inputs[1].default_value = -ch.transition_bump_distance * ch.transition_bump_crease_factor
+
+            tb_crease_flip = replace_new_node(tree, ch, 'tb_crease_flip', 'ShaderNodeGroup', 
+                    'Transition Bump Crease Backface Flip', lib.FLIP_BACKFACE_NORMAL_CYCLES)
         else:
             tb_crease = replace_new_node(tree, ch, 'tb_crease', 'ShaderNodeGroup', 
                     'Transition Bump Crease', lib.FINE_BUMP)
             tb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance) * ch.transition_bump_crease_factor
+
+            remove_node(tree, ch, 'tb_crease_flip')
 
         tb_crease_intensity = replace_new_node(tree, ch, 'tb_crease_intensity', 'ShaderNodeMath',
                     'Transition Bump Crease Intensity')
@@ -334,6 +346,7 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
 
     else:
         remove_node(tree, ch, 'tb_crease')
+        remove_node(tree, ch, 'tb_crease_flip')
         remove_node(tree, ch, 'tb_crease_intensity')
         remove_node(tree, ch, 'tb_crease_mix')
 
@@ -390,11 +403,13 @@ def remove_transition_bump_nodes(layer, tree, ch, ch_index):
 
     remove_node(tree, ch, 'intensity_multiplier')
     remove_node(tree, ch, 'tb_bump')
+    remove_node(tree, ch, 'tb_bump_flip')
     remove_node(tree, ch, 'tb_inverse')
     remove_node(tree, ch, 'tb_intensity_multiplier')
     remove_node(tree, ch, 'tb_blend')
 
     remove_node(tree, ch, 'tb_crease')
+    remove_node(tree, ch, 'tb_crease_flip')
     remove_node(tree, ch, 'tb_crease_intensity')
     remove_node(tree, ch, 'tb_crease_mix')
 

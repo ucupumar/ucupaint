@@ -185,12 +185,13 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             check_set_node_parent(tree, ch.bump_base_e, frame)
             check_set_node_parent(tree, ch.bump_base_w, frame)
             check_set_node_parent(tree, ch.normal, frame)
+            check_set_node_parent(tree, ch.normal_flip, frame)
 
         # Blend
         frame = get_frame(tree, '__blend__', str(i), root_ch.name + ' Blend')
         check_set_node_parent(tree, ch.intensity, frame)
         check_set_node_parent(tree, ch.blend, frame)
-        check_set_node_parent(tree, ch.normal_flip, frame)
+        #check_set_node_parent(tree, ch.normal_flip, frame)
         #check_set_node_parent(tree, ch.intensity_multiplier, frame)
 
     # Masks
@@ -205,6 +206,8 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, mask.uv_map, frame)
         check_set_node_parent(tree, mask.tangent, frame)
         check_set_node_parent(tree, mask.bitangent, frame)
+        check_set_node_parent(tree, mask.tangent_flip, frame)
+        check_set_node_parent(tree, mask.bitangent_flip, frame)
 
         check_set_node_parent(tree, mask.source_n, frame)
         check_set_node_parent(tree, mask.source_s, frame)
@@ -403,6 +406,9 @@ def rearrange_transition_bump_nodes(tree, ch, loc):
     if check_set_node_loc(tree, ch.tb_bump, loc):
         loc.x += 170.0
 
+    if check_set_node_loc(tree, ch.tb_bump_flip, loc):
+        loc.x += 170.0
+
     if check_set_node_loc(tree, ch.tb_inverse, loc):
         loc.x += 170.0
 
@@ -418,6 +424,9 @@ def rearrange_transition_bump_nodes(tree, ch, loc):
     loc.y -= 300.0
     if not check_set_node_loc(tree, ch.tb_crease, loc):
         loc.y += 300.0
+
+    loc.x += 200
+    check_set_node_loc(tree, ch.tb_crease_flip, loc)
 
     loc.x = save_x
 
@@ -444,7 +453,10 @@ def rearrange_normal_process_nodes(tree, ch, loc):
         loc.x += 120
 
     if check_set_node_loc(tree, ch.normal, loc):
-        loc.x += 250
+        loc.x += 200
+
+    if check_set_node_loc(tree, ch.normal_flip, loc):
+        loc.x += 200
 
 def rearrange_layer_nodes(layer, tree=None):
     yp = layer.id_data.yp
@@ -527,6 +539,12 @@ def rearrange_layer_nodes(layer, tree=None):
 
     if check_set_node_loc(tree, TEXCOORD, loc):
         loc.y -= 240
+
+    if check_set_node_loc(tree, layer.tangent_flip, loc):
+        loc.y -= 120
+
+    if check_set_node_loc(tree, layer.bitangent_flip, loc):
+        loc.y -= 120
 
     if check_set_node_loc(tree, layer.tangent, loc):
         loc.y -= 160
@@ -733,6 +751,12 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, mask.uv_map, loc):
             loc.y -= 130
 
+        if check_set_node_loc(tree, mask.tangent_flip, loc):
+            loc.y -= 120
+
+        if check_set_node_loc(tree, mask.bitangent_flip, loc):
+            loc.y -= 120
+
         if check_set_node_loc(tree, mask.tangent, loc):
             loc.y -= 170
 
@@ -895,9 +919,9 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 170
         loc.x = bookmark_x
 
-        if check_set_node_loc(tree, ch.normal_flip, loc):
-            loc.y -= 130
-            y_offset += 130
+        #if check_set_node_loc(tree, ch.normal_flip, loc):
+        #    loc.y -= 130
+        #    y_offset += 130
 
         if check_set_node_loc(tree, ch.tb_crease_intensity, loc):
             loc.x += 200
@@ -1045,6 +1069,9 @@ def rearrange_yp_nodes(group_tree):
         if check_set_node_loc(group_tree, ch.baked_normal, loc):
             loc.x += 200
 
+        if check_set_node_loc(group_tree, ch.baked_normal_flip, loc):
+            loc.x += 200
+
         loc.y -= 270
 
         if loc.x > farthest_x: farthest_x = loc.x
@@ -1052,6 +1079,12 @@ def rearrange_yp_nodes(group_tree):
         if i == num_channels-1:
             loc.x = ori_x
             check_set_node_loc(group_tree, BAKED_UV, loc)
+            loc.y -= 120
+
+            check_set_node_loc(group_tree, BAKED_BITANGENT, loc)
+            #loc.y -= 170
+
+            #check_set_node_loc(group_tree, BAKED_NORMAL_FLIP, loc)
             #if check_set_node_loc(group_tree, BAKED_UV, loc):
                 #loc.y -= 120
                 #loc.x += 200

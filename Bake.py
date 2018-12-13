@@ -1043,8 +1043,16 @@ class YBakeChannels(bpy.types.Operator):
                 baked_uv = tree.nodes.new('ShaderNodeUVMap')
                 baked_uv.name = BAKED_UV
 
+            # Get bitangent
+            baked_bitangent = tree.nodes.get(BAKED_BITANGENT)
+            if not baked_bitangent:
+                baked_bitangent = tree.nodes.new('ShaderNodeNormalMap')
+                baked_bitangent.name = BAKED_BITANGENT
+                baked_bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+
             # Set uv map
             baked_uv.uv_map = self.uv_map
+            baked_bitangent.uv_map = self.uv_map
 
             # Normal related nodes
             if ch.type == 'NORMAL':
@@ -1052,6 +1060,13 @@ class YBakeChannels(bpy.types.Operator):
                 if not baked_normal:
                     baked_normal = new_node(tree, ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
                 baked_normal.uv_map = self.uv_map
+
+                # Get normal flip
+                baked_normal_flip = tree.nodes.get(ch.baked_normal_flip)
+                if not baked_normal_flip:
+                    baked_normal_flip = new_node(tree, ch, 'baked_normal_flip', 'ShaderNodeGroup', 
+                            'Baked Normal Backface Flip')
+                    baked_normal_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
 
             # Check if image is available
             img_users = []

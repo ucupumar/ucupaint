@@ -20,6 +20,7 @@ ONE_VALUE = 'One Value'
 ZERO_VALUE = 'Zero Value'
 
 BAKED_UV = 'UV Map'
+BAKED_BITANGENT = 'Baked Bitangent'
 
 TEXCOORD = 'Texture Coordinate'
 GEOMETRY = 'Geometry'

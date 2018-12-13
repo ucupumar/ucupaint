@@ -73,7 +73,7 @@
 # - Make every node name unique (using hash?)
 # - Deals with blender 2.8 vertex color alpha
 # - Refactor for more consistent class names and properties (V)
-# - Fix backface consistency with Blender 2.8 & 2.7
+# - Fix backface consistency with Blender 2.8 & 2.7 (V)
 
 # TODO:
 # - Eraser brush (check for ypanel implementation)
