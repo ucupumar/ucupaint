@@ -64,6 +64,7 @@ def check_all_channel_ios(yp):
 
         correct_index += 1
 
+        # Alpha IO
         name = ch.name + ' Alpha'
         inp = group_tree.inputs.get(name)
         out = group_tree.outputs.get(name)
@@ -88,6 +89,42 @@ def check_all_channel_ios(yp):
         else:
             if inp: group_tree.inputs.remove(inp)
             if out: group_tree.outputs.remove(out)
+
+        # Displacement IO
+        name = ch.name + ' Displacement'
+        inp = group_tree.inputs.get(name)
+        out = group_tree.outputs.get(name)
+
+        if ch.type == 'NORMAL' and ch.enable_displacement:
+
+            if not inp:
+                inp = group_tree.inputs.new('NodeSocketFloatFactor', name)
+                inp.min_value = 0.0
+                inp.max_value = 1.0
+                inp.default_value = 0.5
+            fix_io_index(inp, group_tree.inputs, correct_index)
+            valid_inputs.append(inp)
+
+            if not out:
+                out = group_tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], name)
+            fix_io_index(out, group_tree.outputs, correct_index)
+            valid_outputs.append(out)
+
+            correct_index += 1
+
+            # Add end linear for converting displacement map to grayscale
+            end_linear = group_tree.nodes.get(ch.end_linear)
+            if not end_linear:
+                end_linear = new_node(group_tree, ch, 'end_linear', 'ShaderNodeMath', 'Displacement Grayscale')
+                end_linear.operation = 'ADD'
+                end_linear.inputs[1].default_value = 0.0
+
+        else:
+            if inp: group_tree.inputs.remove(inp)
+            if out: group_tree.outputs.remove(out)
+
+            if ch.type == 'NORMAL':
+                remove_node(group_tree, ch, 'end_linear')
 
     # Check for invalid io
     for inp in group_tree.inputs:
@@ -1356,7 +1393,8 @@ def update_preview_mode(self, context):
         if ori_bsdf != preview:
             mat.yp.ori_bsdf = ori_bsdf.name
 
-        if channel.type == 'RGB' and channel.enable_alpha:
+        if ((channel.type == 'RGB' and channel.enable_alpha) or
+            (channel.type == 'NORMAL' and channel.enable_displacement)):
             from_socket = [link.from_socket for link in preview.inputs[0].links]
             if not from_socket: 
                 tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
@@ -1576,6 +1614,21 @@ def update_channel_colorspace(self, context):
                     color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
                 else: color_ramp_linear.inputs[1].default_value = 1.0
 
+def update_channel_displacement(self, context):
+    yp = self.id_data.yp
+
+    # Update channel io
+    check_all_channel_ios(yp)
+
+    if self.enable_displacement:
+
+        # Get alpha index
+        index = self.io_index+1
+
+        # Set node default_value
+        node = get_active_ypaint_node()
+        node.inputs[index].default_value = 0.5
+
 def update_channel_alpha(self, context):
     mat = get_active_material()
     group_tree = self.id_data
@@ -1665,6 +1718,53 @@ def update_disable_quick_toggle(self, context):
         for mod in ch.modifiers:
             Modifier.update_modifier_enable(mod, context)
 
+def update_flip_backface(self, context):
+
+    yp = self
+    group_tree = yp.id_data
+    
+    for ch in yp.channels:
+        baked_normal_flip = group_tree.nodes.get(ch.baked_normal_flip)
+        if baked_normal_flip:
+            set_normal_backface_flip(baked_normal_flip, yp.flip_backface)
+
+    for layer in yp.layers:
+
+        tree = get_tree(layer)
+        
+        tangent_flip = tree.nodes.get(layer.tangent_flip)
+        if tangent_flip:
+            set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+
+        bitangent_flip = tree.nodes.get(layer.bitangent_flip)
+        if bitangent_flip:
+            set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+
+        for ch in layer.channels:
+            normal_flip = tree.nodes.get(ch.normal_flip)
+            if normal_flip:
+                if ch.normal_map_type == 'BUMP_MAP':
+                    set_bump_backface_flip(normal_flip, yp.flip_backface)
+                elif ch.normal_map_type == 'NORMAL_MAP':
+                    set_normal_backface_flip(normal_flip, yp.flip_backface)
+
+            tb_bump_flip = tree.nodes.get(ch.tb_bump_flip)
+            if tb_bump_flip:
+                set_bump_backface_flip(tb_bump_flip, yp.flip_backface)
+
+            tb_crease_flip = tree.nodes.get(ch.tb_crease_flip)
+            if tb_crease_flip:
+                set_bump_backface_flip(tb_crease_flip, yp.flip_backface)
+
+        for mask in layer.masks:
+            tangent_flip = tree.nodes.get(mask.tangent_flip)
+            if tangent_flip:
+                set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+
+            bitangent_flip = tree.nodes.get(mask.bitangent_flip)
+            if bitangent_flip:
+                set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
 #    group_tree = group_node.node_tree
@@ -1740,6 +1840,10 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Alpha for transparent materials
     enable_alpha = BoolProperty(default=False, update=update_channel_alpha)
 
+    # Displacement for normal channel
+    enable_displacement = BoolProperty(default=False, update=update_channel_displacement)
+    displacement_height_ratio = FloatProperty(default=0.1, min=-1.0, max=1.0)
+
     colorspace = EnumProperty(
             name = 'Color Space',
             description = "Non color won't converted to linear first before blending",
@@ -1762,6 +1866,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_normal = StringProperty(default='')
     baked_normal_flip = StringProperty(default='')
     #baked_mix = StringProperty(default='')
+
+    baked_disp = StringProperty(default='')
 
     # UI related
     expand_content = BoolProperty(default=False)
@@ -1791,6 +1897,12 @@ class YPaint(bpy.types.PropertyGroup):
 
     # Toggle to use baked results or not
     use_baked = BoolProperty(default=False, update=Bake.update_use_baked)
+
+    # Flip backface
+    flip_backface = BoolProperty(
+            name= 'Flip Backface Normal',
+            description= 'Flip Backface Normal so normal will face toward camera even at backface',
+            default=False, update=update_flip_backface)
 
     # Path folder for auto save bake
     #bake_folder = StringProperty(default='')

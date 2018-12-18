@@ -930,6 +930,12 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.x += 200
             loc.y -= 200
             y_offset += 200
+            #y_offset += 170
+
+        #loc.y -= 170
+        loc.x = bookmark_x
+        if check_set_node_loc(tree, ch.disp_blend, loc):
+            y_offset += 170
 
         loc.y = save_y
         if loc.x < save_x:
@@ -1073,14 +1079,25 @@ def rearrange_yp_nodes(group_tree):
             loc.x += 200
 
         loc.y -= 270
+        save_x = loc.x
+
+        loc.x = ori_x
+
+        if check_set_node_loc(group_tree, ch.baked_disp, loc):
+            loc.y -= 270
+
+        loc.x = save_x
 
         if loc.x > farthest_x: farthest_x = loc.x
 
         if i == num_channels-1:
             loc.x = ori_x
             check_set_node_loc(group_tree, BAKED_UV, loc)
-            loc.y -= 120
 
+            loc.y -= 120
+            check_set_node_loc(group_tree, BAKED_TANGENT, loc)
+
+            loc.y -= 120
             check_set_node_loc(group_tree, BAKED_BITANGENT, loc)
             #loc.y -= 170
 

@@ -1043,6 +1043,13 @@ class YBakeChannels(bpy.types.Operator):
                 baked_uv = tree.nodes.new('ShaderNodeUVMap')
                 baked_uv.name = BAKED_UV
 
+            # Get tangent
+            baked_tangent = tree.nodes.get(BAKED_TANGENT)
+            if not baked_tangent:
+                baked_tangent = tree.nodes.new('ShaderNodeNormalMap')
+                baked_tangent.name = BAKED_TANGENT
+                baked_tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+
             # Get bitangent
             baked_bitangent = tree.nodes.get(BAKED_BITANGENT)
             if not baked_bitangent:
@@ -1052,6 +1059,7 @@ class YBakeChannels(bpy.types.Operator):
 
             # Set uv map
             baked_uv.uv_map = self.uv_map
+            baked_tangent.uv_map = self.uv_map
             baked_bitangent.uv_map = self.uv_map
 
             # Normal related nodes
@@ -1068,8 +1076,9 @@ class YBakeChannels(bpy.types.Operator):
                             'Baked Normal Backface Flip')
                     baked_normal_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
 
+                set_normal_backface_flip(baked_normal_flip, yp.flip_backface)
+
             # Check if image is available
-            img_users = []
             if baked.image:
                 img_name = baked.image.name
                 filepath = baked.image.filepath
@@ -1141,6 +1150,45 @@ class YBakeChannels(bpy.types.Operator):
 
                 # Remove temp image
                 bpy.data.images.remove(alpha_img)
+
+            # Bake displacement
+            if ch.type == 'NORMAL' and ch.enable_displacement:
+
+                baked_disp = tree.nodes.get(ch.baked_disp)
+                if not baked_disp:
+                    baked_disp = new_node(tree, ch, 'baked_disp', 'ShaderNodeTexImage', 
+                            'Baked ' + ch.name + ' Displacement')
+                    baked_disp.color_space = 'NONE'
+
+                if baked_disp.image:
+                    disp_img_name = baked_disp.image.name
+                    filepath = baked_disp.image.filepath
+                    baked_disp.image.name = '____DISP_TEMP'
+                else:
+                    #disp_img_name = baked_disp.image.name
+                    disp_img_name = tree.name + ' ' + ch.name + ' Displacement'
+
+                # Create target image
+                disp_img = bpy.data.images.new(name=disp_img_name, width=self.width, height=self.height) 
+                disp_img.generated_color = (0.5, 0.5, 0.5, 1.0)
+
+                # Bake setup
+                create_link(mat.node_tree, node.outputs[ch.io_index+1], linear.inputs[0])
+                create_link(mat.node_tree, linear.outputs[0], emit.inputs[0])
+                tex.image = disp_img
+
+                # Bake
+                bpy.ops.object.bake()
+
+                # Set baked displacement image
+                if baked_disp.image:
+                    temp = baked_disp.image
+                    img_users = get_all_image_users(baked_disp.image)
+                    for user in img_users:
+                        user.image = disp_img
+                    bpy.data.images.remove(temp)
+                else:
+                    baked_disp.image = disp_img
 
             # Set image to baked node and replace all previously original users
             if baked.image:

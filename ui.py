@@ -478,26 +478,27 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
 
             inp = node.inputs[channel.io_index]
 
-            brow = bcol.row(align=True)
+            if channel.type in {'RGB', 'VALUE'}:
+                brow = bcol.row(align=True)
 
-            #if channel.type == 'NORMAL':
-            #    if chui.expand_base_vector:
-            #        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-            #    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-            #    brow.prop(chui, 'expand_base_vector', text='', emboss=False, icon_value=icon_value)
-            #else: brow.label(text='', icon='INFO')
+                #if channel.type == 'NORMAL':
+                #    if chui.expand_base_vector:
+                #        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                #    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                #    brow.prop(chui, 'expand_base_vector', text='', emboss=False, icon_value=icon_value)
+                #else: brow.label(text='', icon='INFO')
 
-            brow.label(text='', icon='INFO')
+                brow.label(text='', icon='INFO')
 
-            if channel.type == 'RGB':
-                brow.label(text='Background:')
-            elif channel.type == 'VALUE':
-                brow.label(text='Base Value:')
-            elif channel.type == 'NORMAL':
-                #if chui.expand_base_vector:
-                #    brow.label(text='Base Normal:')
-                #else: brow.label(text='Base Normal')
-                brow.label(text='Base Normal')
+                if channel.type == 'RGB':
+                    brow.label(text='Background:')
+                elif channel.type == 'VALUE':
+                    brow.label(text='Base Value:')
+                #elif channel.type == 'NORMAL':
+                    #if chui.expand_base_vector:
+                    #    brow.label(text='Base Normal:')
+                    #else: brow.label(text='Base Normal')
+                    #brow.label(text='Base Normal')
 
             if channel.type == 'NORMAL':
                 #if chui.expand_base_vector:
@@ -540,6 +541,17 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
 
                 #if len(channel.modifiers) > 0:
                 #    brow.label(text='', icon='BLANK1')
+
+            if channel.type == 'NORMAL':
+                brow = bcol.row(align=True)
+                brow.label(text='', icon='INFO')
+                brow.label(text='Displacement:')
+                brow.prop(channel, 'enable_displacement', text='')
+                if channel.enable_displacement:
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='INFO')
+                    brow.label(text='Height Ratio:')
+                    brow.prop(channel, 'displacement_height_ratio', text='')
 
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
@@ -2130,6 +2142,9 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = row.column()
         col.label(text='Options:')
+        col.prop(yp, 'flip_backface')
+        col.separator()
+        col.label(text='Performance Options:')
         col.prop(ypui, 'disable_auto_temp_uv_update')
         col.prop(yp, 'disable_quick_toggle')
 

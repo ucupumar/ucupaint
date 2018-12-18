@@ -168,10 +168,13 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
 def get_channel_inputs_length(yp, layer=None):
     length = 0
     for ch in yp.channels:
-        #if (ch.type == 'RGB' and ch.enable_alpha) or (layer and layer.type == 'GROUP' and layer.parent_idx != -1):
+        length += 1
+
         if (ch.type == 'RGB' and ch.enable_alpha) or (layer and layer.parent_idx != -1):
-            length += 2
-        else: length += 1
+            length += 1
+
+        if ch.type == 'NORMAL' and ch.enable_displacement:
+            length += 1
 
     return length
 
@@ -199,9 +202,10 @@ def remove_all_children_inputs(layer):
     if layer.type != 'GROUP':
         return
 
-    if layer.parent_idx == -1:
-        offset = get_channel_inputs_length(yp)
-    else: offset = len(layer.channels)*2
+    #if layer.parent_idx == -1:
+    #    offset = get_channel_inputs_length(yp)
+    #else: offset = len(layer.channels)*2
+    offset = get_channel_inputs_length(yp, layer)
 
     for i, inp in enumerate(node.inputs):
         if i >= offset:
@@ -215,7 +219,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
     start = nodes.get(TREE_START)
     end = nodes.get(TREE_END)
-    solid_value = nodes.get(ONE_VALUE)
+    one_value = nodes.get(ONE_VALUE)
     zero_value = nodes.get(ZERO_VALUE)
 
     for i, ch in enumerate(yp.channels):
@@ -228,7 +232,13 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         rgb = start.outputs[ch.io_index]
         if ch.enable_alpha and ch.type == 'RGB':
             alpha = start.outputs[ch.io_index+1]
-        else: alpha = solid_value.outputs[0]
+        else: alpha = one_value.outputs[0]
+
+        if ch.enable_displacement and ch.type == 'NORMAL':
+            disp = start.outputs[ch.io_index+1]
+        else: 
+            #disp = one_value.outputs[0]
+            disp = None
         
         if start_linear:
             create_link(tree, start.outputs[ch.io_index], start_linear.inputs[0])
@@ -263,23 +273,26 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
             if layer.parent_idx != -1: continue
 
-            create_link(tree, rgb, node.inputs[ch.io_index])
+            rgb = create_link(tree, rgb, node.inputs[ch.io_index])[ch.io_index]
             if ch.type =='RGB' and ch.enable_alpha:
-                create_link(tree, alpha, node.inputs[ch.io_index+1])
+                alpha = create_link(tree, alpha, node.inputs[ch.io_index+1])[ch.io_index+1]
 
-            rgb = node.outputs[ch.io_index]
-            if ch.type =='RGB' and ch.enable_alpha:
-                alpha = node.outputs[ch.io_index+1]
+            #if ch.type =='NORMAL' and ch.enable_displacement:
+            if disp:
+                disp = create_link(tree, disp, node.inputs[ch.io_index+1])[ch.io_index+1]
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha)
 
         if end_linear:
-            create_link(tree, rgb, end_linear.inputs[0])
-            rgb = end_linear.outputs[0]
+            if ch.type != 'NORMAL':
+                rgb = create_link(tree, rgb, end_linear.inputs[0])[0]
+            elif disp:
+                disp = create_link(tree, disp, end_linear.inputs[0])[0]
 
         if yp.use_baked:
             baked = nodes.get(ch.baked)
             baked_uv_map = nodes.get(BAKED_UV)
+            baked_tangent = nodes.get(BAKED_TANGENT)
             baked_bitangent = nodes.get(BAKED_BITANGENT)
 
             create_link(tree, baked_uv_map.outputs[0], baked.inputs[0])
@@ -291,8 +304,13 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
                 baked_normal_flip = nodes.get(ch.baked_normal_flip)
                 if baked_normal_flip:
+                    create_link(tree, baked_tangent.outputs[0], baked_normal_flip.inputs['Tangent'])
                     create_link(tree, baked_bitangent.outputs[0], baked_normal_flip.inputs['Bitangent'])
                     rgb = create_link(tree, rgb, baked_normal_flip.inputs[0])[0]
+
+                if ch.enable_displacement:
+                    baked_disp = nodes.get(ch.baked_disp)
+                    if baked_disp: disp = baked_disp.outputs[0]
 
             if ch.type == 'RGB' and ch.enable_alpha:
                 alpha = baked.outputs[1]
@@ -300,6 +318,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         create_link(tree, rgb, end.inputs[ch.io_index])
         if ch.type == 'RGB' and ch.enable_alpha:
             create_link(tree, alpha, end.inputs[ch.io_index+1])
+        if ch.type == 'NORMAL' and ch.enable_displacement:
+            create_link(tree, disp, end.inputs[ch.io_index+1])
 
     # List of last members
     last_members = []
@@ -424,7 +444,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
     start = nodes.get(TREE_START)
     end = nodes.get(TREE_END)
-    solid_value = nodes.get(ONE_VALUE)
+    one_value = nodes.get(ONE_VALUE)
 
     source_group = nodes.get(layer.source_group)
 
@@ -493,8 +513,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     # Alpha
     if layer.type == 'IMAGE' or source_group:
         start_alpha = source.outputs[1]
-    else: start_alpha = solid_value.outputs[0]
-    start_alpha_1 = solid_value.outputs[0]
+    else: start_alpha = one_value.outputs[0]
+    start_alpha_1 = one_value.outputs[0]
 
     if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
         start_rgb_1 = source_group.outputs[2]
@@ -516,7 +536,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
             mod_group_1 = nodes.get(layer.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
-                    tree, layer, source.outputs[1], solid_value.outputs[0], mod_group_1)
+                    tree, layer, source.outputs[1], one_value.outputs[0], mod_group_1)
 
     # UV neighbor vertex color
     if layer.type in {'VCOL', 'GROUP'} and uv_neighbor:
@@ -674,7 +694,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
         elif layer.type == 'BACKGROUND':
             rgb = source.outputs[root_ch.io_index + input_offset]
-            alpha = solid_value.outputs[0]
+            alpha = one_value.outputs[0]
 
             if root_ch.enable_alpha:
                 bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
@@ -718,6 +738,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         intensity = nodes.get(ch.intensity)
         intensity_multiplier = nodes.get(ch.intensity_multiplier)
         blend = nodes.get(ch.blend)
+        disp_blend = nodes.get(ch.disp_blend)
 
         linear = nodes.get(ch.linear)
         if linear:
@@ -727,7 +748,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         mod_group = nodes.get(ch.mod_group)
 
         rgb_before_mod = rgb
-        alpha_before_mod = rgb
+        alpha_before_mod = alpha
 
         # Background layer won't use modifier outputs
         #if layer.type == 'BACKGROUND' or (layer.type == 'COLOR' and root_ch.type == 'NORMAL'):
@@ -736,6 +757,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             pass
         else:
             rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
+
+        rgb_after_mod = rgb
+        alpha_after_mod = alpha
 
         if root_ch.type == 'NORMAL':
 
@@ -898,7 +922,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                 normal_flip = nodes.get(ch.normal_flip)
                 if normal_flip:
-                    create_link(tree, bitangent, normal_flip.inputs['Bitangent'])
+                    if 'Tangent' in normal_flip.inputs:
+                        create_link(tree, tangent, normal_flip.inputs['Tangent'])
+                    if 'Bitangent' in normal_flip.inputs:
+                        create_link(tree, bitangent, normal_flip.inputs['Bitangent'])
                     rgb = create_link(tree, rgb, normal_flip.inputs[0])[0]
 
         # For transition input
@@ -991,7 +1018,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 tb_crease_intensity = nodes.get(ch.tb_crease_intensity)
                 tb_crease_mix = nodes.get(ch.tb_crease_mix)
 
-                remaining_alpha = solid_value.outputs[0]
+                remaining_alpha = one_value.outputs[0]
                 for j, mask in enumerate(layer.masks):
                     if j >= chain:
                         mul_n = nodes.get(mask.channels[i].mix_n)
@@ -1028,7 +1055,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             create_link(tree, rgb, tb_blend.inputs[1])
             if tb_bump_flip:
                 create_link(tree, tb_bump.outputs[0], tb_bump_flip.inputs[0])
-                create_link(tree, bitangent, tb_bump_flip.inputs['Bitangent'])
+                #create_link(tree, bitangent, tb_bump_flip.inputs['Bitangent'])
                 create_link(tree, tb_bump_flip.outputs[0], tb_blend.inputs[2])
             else:
                 create_link(tree, tb_bump.outputs[0], tb_blend.inputs[2])
@@ -1059,7 +1086,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
 
                 # Dealing with chain
-                remaining_alpha = solid_value.outputs[0]
+                remaining_alpha = one_value.outputs[0]
                 for j, mask in enumerate(layer.masks):
                     if j >= chain:
                         mul_n = nodes.get(mask.channels[i].mix_n)
@@ -1156,6 +1183,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         else:
             create_link(tree, alpha, blend.inputs[0])
             create_link(tree, prev_rgb, blend.inputs[1])
+
+        if disp_blend:
+            prev_disp = start.outputs[root_ch.io_index+1]
+            next_disp = end.inputs[root_ch.io_index+1]
+            create_link(tree, alpha, disp_blend.inputs[0])
+            create_link(tree, prev_disp, disp_blend.inputs[1])
+            create_link(tree, rgb_after_mod, disp_blend.inputs[2])
+            create_link(tree, disp_blend.outputs[0], next_disp)
 
         # Armory can't recognize mute node, so reconnect input to output directly
         #if layer.enable and ch.enable:

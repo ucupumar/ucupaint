@@ -20,6 +20,7 @@ ONE_VALUE = 'One Value'
 ZERO_VALUE = 'Zero Value'
 
 BAKED_UV = 'UV Map'
+BAKED_TANGENT = 'Baked Tangent'
 BAKED_BITANGENT = 'Baked Bitangent'
 
 TEXCOORD = 'Texture Coordinate'
@@ -1620,6 +1621,46 @@ def refresh_temp_uv(obj, entity):
         bpy.ops.object.mode_set(mode='EDIT')
 
     return True
+
+def set_bump_backface_flip(node, flip_backface):
+    node.mute = False
+    if flip_backface:
+        node.inputs['Eevee'].default_value = 0.0
+        node.inputs['Cycles'].default_value = 1.0
+        node.inputs['Blender 2.7 Viewport'].default_value = 0.0
+    else:
+        node.inputs['Eevee'].default_value = 1.0
+        node.inputs['Cycles'].default_value = 0.0
+        node.inputs['Blender 2.7 Viewport'].default_value = 1.0
+
+def set_normal_backface_flip(node, flip_backface):
+    node.mute = False
+    if flip_backface:
+        #node.mute = False
+        #node.inputs['Eevee'].default_value = 1.0
+        #node.inputs['Cycles'].default_value = 1.0
+        #node.inputs['Blender 2.7 Viewport'].default_value = 1.0
+        node.inputs['Flip'].default_value = 1.0
+    else:
+        #node.mute = True
+        node.inputs['Flip'].default_value = 0.0
+
+def set_tangent_backface_flip(node, flip_backface):
+    node.mute = False
+    if flip_backface:
+        node.inputs['Eevee'].default_value = 0.0
+        node.inputs['Cycles'].default_value = 1.0
+        node.inputs['Blender 2.7 Viewport'].default_value = 0.0
+    else:
+        node.inputs['Eevee'].default_value = 1.0
+        node.inputs['Cycles'].default_value = 0.0
+        node.inputs['Blender 2.7 Viewport'].default_value = 1.0
+
+def set_bitangent_backface_flip(node, flip_backface):
+    if flip_backface:
+        node.mute = False
+    else:
+        node.mute = True
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

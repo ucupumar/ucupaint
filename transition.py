@@ -252,6 +252,7 @@ def check_transition_bump_nodes(layer, tree, ch, ch_index):
 def set_transition_bump_nodes(layer, tree, ch, ch_index):
 
     yp = layer.id_data.yp
+    #root_ch = yp.channels[ch_index]
 
     for i, c in enumerate(layer.channels):
         if yp.channels[i].type == 'NORMAL' and c.enable_transition_bump and c != ch:
@@ -318,7 +319,9 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
         else: tb_bump.inputs[1].default_value = ch.transition_bump_distance
 
         tb_bump_flip = replace_new_node(tree, ch, 'tb_bump_flip', 'ShaderNodeGroup', 
-                'Transition Bump Backface Flip', lib.FLIP_BACKFACE_NORMAL_CYCLES)
+                'Transition Bump Backface Flip', lib.FLIP_BACKFACE_BUMP)
+
+        set_bump_backface_flip(tb_bump_flip, yp.flip_backface)
 
     # Crease stuff
     if ch.transition_bump_crease and not ch.transition_bump_flip and layer.type != 'BACKGROUND':
@@ -328,7 +331,9 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
             tb_crease.inputs[1].default_value = -ch.transition_bump_distance * ch.transition_bump_crease_factor
 
             tb_crease_flip = replace_new_node(tree, ch, 'tb_crease_flip', 'ShaderNodeGroup', 
-                    'Transition Bump Crease Backface Flip', lib.FLIP_BACKFACE_NORMAL_CYCLES)
+                    'Transition Bump Crease Backface Flip', lib.FLIP_BACKFACE_BUMP)
+
+            set_bump_backface_flip(tb_crease_flip, yp.flip_backface)
         else:
             tb_crease = replace_new_node(tree, ch, 'tb_crease', 'ShaderNodeGroup', 
                     'Transition Bump Crease', lib.FINE_BUMP)

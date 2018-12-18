@@ -236,6 +236,8 @@ def set_mask_uv_neighbor(tree, layer, mask):
                 tangent_flip = new_node(tree, mask, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
                 tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
 
+                set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+
             if not bitangent:
                 bitangent = new_node(tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
                 bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
@@ -244,6 +246,8 @@ def set_mask_uv_neighbor(tree, layer, mask):
             if not bitangent_flip:
                 bitangent_flip = new_node(tree, mask, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
                 bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
+
+                set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
             tangent.uv_map = mask.uv_name
             bitangent.uv_map = mask.uv_name

@@ -40,17 +40,43 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
 
         correct_index += 1
 
+        # Alpha IO
         name = root_ch.name + ' Alpha'
         inp = tree.inputs.get(name)
         outp = tree.outputs.get(name)
 
-        if (root_ch.type == 'RGB' and root_ch.enable_alpha) or has_parent:#(layer.type == 'GROUP' and has_parent):
+        if (root_ch.type == 'RGB' and root_ch.enable_alpha) or has_parent:
 
             if not inp:
                 inp = tree.inputs.new('NodeSocketFloatFactor', name)
                 inp.min_value = 0.0
                 inp.max_value = 1.0
                 inp.default_value = 0.0
+            fix_io_index(inp, tree.inputs, correct_index)
+            valid_inputs.append(inp)
+
+            if not outp:
+                outp = tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], name)
+            fix_io_index(outp, tree.outputs, correct_index)
+            valid_outputs.append(outp)
+
+            correct_index += 1
+        else:
+            if inp: tree.inputs.remove(inp)
+            if outp: tree.inputs.remove(outp)
+
+        # Displacement IO
+        name = root_ch.name + ' Displacement'
+        inp = tree.inputs.get(name)
+        outp = tree.outputs.get(name)
+
+        if root_ch.type == 'NORMAL' and root_ch.enable_displacement:
+
+            if not inp:
+                inp = tree.inputs.new('NodeSocketFloatFactor', name)
+                inp.min_value = 0.0
+                inp.max_value = 1.0
+                inp.default_value = 0.5
             fix_io_index(inp, tree.inputs, correct_index)
             valid_inputs.append(inp)
 
@@ -81,10 +107,26 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
 
             correct_index += 1
 
+            # Alpha Input
             name = root_ch.name + ' Alpha' + suffix
             inp = tree.inputs.get(name)
 
             if root_ch.enable_alpha or layer.type == 'GROUP':
+
+                if not inp:
+                    inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], name)
+                fix_io_index(inp, tree.inputs, correct_index)
+                valid_inputs.append(inp)
+
+                correct_index += 1
+            else:
+                if inp: tree.inputs.remove(inp)
+
+            # Displacement Input
+            name = root_ch.name + ' Displacement' + suffix
+            inp = tree.inputs.get(name)
+
+            if root_ch.enable_displacement:
 
                 if not inp:
                     inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], name)
@@ -120,6 +162,15 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
         if not intensity:
             intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
             intensity.operation = 'MULTIPLY'
+
+        # Displacement blend node
+        if root_ch.type == 'NORMAL' and root_ch.enable_displacement:
+            disp_blend = tree.nodes.get(ch.disp_blend)
+            if not disp_blend:
+                disp_blend = new_node(tree, ch, 'disp_blend', 'ShaderNodeMixRGB', 'Displacement Blend')
+                disp_blend.blend_type = ch.normal_blend
+        else:
+            remove_node(tree, ch, 'disp_blend')
 
         # Channel mute
         mute = not layer.enable or not ch.enable
@@ -331,12 +382,16 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     tangent_flip = new_node(tree, layer, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
     tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
 
+    set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+
     bitangent = new_node(tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
     bitangent.uv_map = uv_name
     bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
 
     bitangent_flip = new_node(tree, layer, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
     bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
+
+    set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
     #hacky_tangent = new_node(tree, layer, 'hacky_tangent', 'ShaderNodeNormalMap', 'Hacky Source Tangent')
     #hacky_tangent.uv_map = uv_name
@@ -2002,6 +2057,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
         normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
                 'Normal Backface Flip', lib.FLIP_BACKFACE_NORMAL)
 
+        set_normal_backface_flip(normal_flip, yp.flip_backface)
+
     # Bump nodes
     elif ch.normal_map_type == 'BUMP_MAP':
 
@@ -2009,7 +2066,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
         normal.inputs[1].default_value = ch.bump_distance
 
         normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
-                'Normal Backface Flip', lib.FLIP_BACKFACE_NORMAL_CYCLES)
+                'Normal Backface Flip', lib.FLIP_BACKFACE_BUMP)
+
+        set_bump_backface_flip(normal_flip, yp.flip_backface)
 
     # Fine bump nodes
     elif ch.normal_map_type == 'FINE_BUMP_MAP':
@@ -2490,6 +2549,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Normal related
     normal = StringProperty(default='')
     normal_flip = StringProperty(default='')
+    
+    # Displacement blend
+    disp_blend = StringProperty(default='')
 
     bump_distance = FloatProperty(
             name='Bump Distance', 
