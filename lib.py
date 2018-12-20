@@ -53,6 +53,8 @@ INTENSITY_MULTIPLIER ='~yPL Intensity Multiplier'
 GET_BITANGENT ='~yPL Get Bitangent'
 TEMP_BITANGENT = '~yPL Temp Bitangent'
 
+PARALLAX_OCCLUSION = '~yPL Parallax Occlusion Mapping'
+
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'
 

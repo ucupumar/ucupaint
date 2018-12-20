@@ -1024,6 +1024,9 @@ class YBakeChannels(bpy.types.Operator):
         # Connect emit to output material
         mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
+        # Displacement image
+        disp_img = None
+
         for ch in yp.channels:
 
             img_name = tree.name + ' ' + ch.name
@@ -1037,31 +1040,6 @@ class YBakeChannels(bpy.types.Operator):
                 baked.color_space = 'NONE'
             else: baked.color_space = 'COLOR'
             
-            # Get uv map
-            baked_uv = tree.nodes.get(BAKED_UV)
-            if not baked_uv:
-                baked_uv = tree.nodes.new('ShaderNodeUVMap')
-                baked_uv.name = BAKED_UV
-
-            # Get tangent
-            baked_tangent = tree.nodes.get(BAKED_TANGENT)
-            if not baked_tangent:
-                baked_tangent = tree.nodes.new('ShaderNodeNormalMap')
-                baked_tangent.name = BAKED_TANGENT
-                baked_tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
-
-            # Get bitangent
-            baked_bitangent = tree.nodes.get(BAKED_BITANGENT)
-            if not baked_bitangent:
-                baked_bitangent = tree.nodes.new('ShaderNodeNormalMap')
-                baked_bitangent.name = BAKED_BITANGENT
-                baked_bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
-
-            # Set uv map
-            baked_uv.uv_map = self.uv_map
-            baked_tangent.uv_map = self.uv_map
-            baked_bitangent.uv_map = self.uv_map
-
             # Normal related nodes
             if ch.type == 'NORMAL':
                 baked_normal = tree.nodes.get(ch.baked_normal)
@@ -1199,6 +1177,58 @@ class YBakeChannels(bpy.types.Operator):
                 bpy.data.images.remove(temp)
             else:
                 baked.image = img
+
+        # Create Baked nodes
+
+        # Get uv map
+        baked_uv = tree.nodes.get(BAKED_UV)
+        if not baked_uv:
+            baked_uv = tree.nodes.new('ShaderNodeUVMap')
+            baked_uv.name = BAKED_UV
+
+        # Get tangent
+        baked_tangent = tree.nodes.get(BAKED_TANGENT)
+        if not baked_tangent:
+            baked_tangent = tree.nodes.new('ShaderNodeNormalMap')
+            baked_tangent.name = BAKED_TANGENT
+            baked_tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+
+        baked_tangent_flip = tree.nodes.get(BAKED_TANGENT_FLIP)
+        if not baked_tangent_flip:
+            baked_tangent_flip = tree.nodes.new('ShaderNodeGroup')
+            baked_tangent_flip.name = BAKED_TANGENT_FLIP
+            baked_tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
+        set_tangent_backface_flip(baked_tangent_flip, yp.flip_backface)
+
+        # Get bitangent
+        baked_bitangent = tree.nodes.get(BAKED_BITANGENT)
+        if not baked_bitangent:
+            baked_bitangent = tree.nodes.new('ShaderNodeNormalMap')
+            baked_bitangent.name = BAKED_BITANGENT
+            baked_bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+
+        baked_bitangent_flip = tree.nodes.get(BAKED_BITANGENT_FLIP)
+        if not baked_bitangent_flip:
+            baked_bitangent_flip = tree.nodes.new('ShaderNodeGroup')
+            baked_bitangent_flip.name = BAKED_BITANGENT_FLIP
+            baked_bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
+        set_bitangent_backface_flip(baked_bitangent_flip, yp.flip_backface)
+
+        # Get parallax occlusion mapping
+        baked_parallax = tree.nodes.get(BAKED_PARALLAX)
+        if not baked_parallax:
+            baked_parallax = tree.nodes.new('ShaderNodeGroup')
+            baked_parallax.name = BAKED_PARALLAX
+            baked_parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION)
+            duplicate_lib_node_tree(baked_parallax)
+
+        if disp_img:
+            set_parallax_node(yp, baked_parallax, disp_img)
+
+        # Set uv map
+        baked_uv.uv_map = self.uv_map
+        baked_tangent.uv_map = self.uv_map
+        baked_bitangent.uv_map = self.uv_map
 
         #return {'FINISHED'}
 

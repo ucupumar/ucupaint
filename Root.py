@@ -65,7 +65,8 @@ def check_all_channel_ios(yp):
         correct_index += 1
 
         # Alpha IO
-        name = ch.name + ' Alpha'
+        #name = ch.name + ' Alpha'
+        name = ch.name + io_suffix['ALPHA']
         inp = group_tree.inputs.get(name)
         out = group_tree.outputs.get(name)
 
@@ -91,7 +92,8 @@ def check_all_channel_ios(yp):
             if out: group_tree.outputs.remove(out)
 
         # Displacement IO
-        name = ch.name + ' Displacement'
+        #name = ch.name + ' Displacement'
+        name = ch.name + io_suffix['DISPLACEMENT']
         inp = group_tree.inputs.get(name)
         out = group_tree.outputs.get(name)
 
@@ -152,20 +154,25 @@ def set_input_default_value(group_node, channel, custom_value=None):
         if channel.type == 'RGB' and len(custom_value) == 3:
             custom_value = (custom_value[0], custom_value[1], custom_value[2], 1)
 
-        group_node.inputs[channel.io_index].default_value = custom_value
+        #group_node.inputs[channel.io_index].default_value = custom_value
+        group_node.inputs[channel.name].default_value = custom_value
         return
     
     # Set default value
     if channel.type == 'RGB':
-        group_node.inputs[channel.io_index].default_value = (1,1,1,1)
+        #group_node.inputs[channel.io_index].default_value = (1,1,1,1)
+        group_node.inputs[channel.name].default_value = (1,1,1,1)
 
         if channel.enable_alpha:
-            group_node.inputs[channel.io_index+1].default_value = 1.0
+            #group_node.inputs[channel.io_index+1].default_value = 1.0
+            group_node.inputs[channel.name + io_suffix['ALPHA']].default_value = 1.0
     if channel.type == 'VALUE':
-        group_node.inputs[channel.io_index].default_value = 0.0
+        #group_node.inputs[channel.io_index].default_value = 0.0
+        group_node.inputs[channel.name].default_value = 0.0
     if channel.type == 'NORMAL':
         # Use 999 as normal z value so it will fallback to use geometry normal at checking process
-        group_node.inputs[channel.io_index].default_value = (999,999,999)
+        #group_node.inputs[channel.io_index].default_value = (999,999,999)
+        group_node.inputs[channel.name].default_value = (999,999,999)
 
 def create_yp_channel_nodes(group_tree, channel, channel_idx):
     yp = group_tree.yp
@@ -246,12 +253,14 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     last_index = len(yp.channels)-1
 
     # Get IO index
-    io_index = last_index
-    for ch in yp.channels:
-        if ch.type == 'RGB' and ch.enable_alpha:
-            io_index += 1
+    #io_index = last_index
+    #for ch in yp.channels:
+    #    if ch.type == 'RGB' and ch.enable_alpha:
+    #        io_index += 1
+    #    if ch.type == 'NORMAL' and ch.enable_displacement:
+    #        io_index += 1
 
-    channel.io_index = io_index
+    #channel.io_index = io_index
 
     # Link new channel
     create_yp_channel_nodes(group_tree, channel, last_index)
@@ -463,26 +472,31 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         if ch_color:
             inp = main_bsdf.inputs[0]
             set_input_default_value(node, ch_color, inp.default_value)
-            links.new(node.outputs[ch_color.io_index], inp)
+            #links.new(node.outputs[ch_color.io_index], inp)
+            links.new(node.outputs[ch_color.name], inp)
             # Enable, link, and disable alpha to remember which input was alpha connected to
             ch_color.enable_alpha = True
-            links.new(node.outputs[ch_color.io_index+1], mix_bsdf.inputs[0])
+            #links.new(node.outputs[ch_color.io_index+1], mix_bsdf.inputs[0])
+            links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], mix_bsdf.inputs[0])
             ch_color.enable_alpha = False
 
         if ch_metallic:
             inp = main_bsdf.inputs['Metallic']
             set_input_default_value(node, ch_metallic, inp.default_value)
-            links.new(node.outputs[ch_metallic.io_index], inp)
+            #links.new(node.outputs[ch_metallic.io_index], inp)
+            links.new(node.outputs[ch_metallic.name], inp)
 
         if ch_roughness:
             inp = main_bsdf.inputs['Roughness']
             set_input_default_value(node, ch_roughness, inp.default_value)
-            links.new(node.outputs[ch_roughness.io_index], inp)
+            #links.new(node.outputs[ch_roughness.io_index], inp)
+            links.new(node.outputs[ch_roughness.name], inp)
 
         if ch_normal:
             inp = main_bsdf.inputs['Normal']
             set_input_default_value(node, ch_normal)
-            links.new(node.outputs[ch_normal.io_index], inp)
+            #links.new(node.outputs[ch_normal.io_index], inp)
+            links.new(node.outputs[ch_normal.name], inp)
 
         # Set new yp node location
         if output:
@@ -739,7 +753,8 @@ class YNewYPaintChannel(bpy.types.Operator):
         if item:
             target_node = mat.node_tree.nodes.get(item.node_name)
             inp = target_node.inputs[item.input_name]
-            mat.node_tree.links.new(node.outputs[channel.io_index], inp)
+            #mat.node_tree.links.new(node.outputs[channel.io_index], inp)
+            mat.node_tree.links.new(node.outputs[channel.name], inp)
 
             # Search for possible alpha input
             if self.type == 'RGB':
@@ -748,7 +763,9 @@ class YNewYPaintChannel(bpy.types.Operator):
                         for n in l.to_node.inputs[1].links:
                             if n.from_node.type == 'BSDF_TRANSPARENT':
                                 channel.enable_alpha = True
-                                mat.node_tree.links.new(node.outputs[channel.io_index+1], l.to_node.inputs[0])
+                                #mat.node_tree.links.new(node.outputs[channel.io_index+1], l.to_node.inputs[0])
+                                mat.node_tree.links.new(
+                                        node.outputs[channel.name+io_suffix['ALPHA']], l.to_node.inputs[0])
                                 channel.enable_alpha = False
 
         # Set input default value
@@ -767,41 +784,41 @@ class YNewYPaintChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def swap_channel_io(root_ch, swap_ch, io_index, io_index_swap, inputs, outputs):
-    if root_ch.type == 'RGB' and root_ch.enable_alpha:
-        if swap_ch.type == 'RGB' and swap_ch.enable_alpha:
-            if io_index > io_index_swap:
-                inputs.move(io_index, io_index_swap)
-                inputs.move(io_index+1, io_index_swap+1)
-                outputs.move(io_index, io_index_swap)
-                outputs.move(io_index+1, io_index_swap+1)
-            else:
-                inputs.move(io_index, io_index_swap)
-                inputs.move(io_index, io_index_swap+1)
-                outputs.move(io_index, io_index_swap)
-                outputs.move(io_index, io_index_swap+1)
-        else:
-            if io_index > io_index_swap:
-                inputs.move(io_index, io_index_swap)
-                inputs.move(io_index+1, io_index_swap+1)
-                outputs.move(io_index, io_index_swap)
-                outputs.move(io_index+1, io_index_swap+1)
-            else:
-                inputs.move(io_index+1, io_index_swap)
-                inputs.move(io_index, io_index_swap-1)
-                outputs.move(io_index+1, io_index_swap)
-                outputs.move(io_index, io_index_swap-1)
-    else:
-        if swap_ch.type == 'RGB' and swap_ch.enable_alpha:
-            if io_index > io_index_swap:
-                inputs.move(io_index, io_index_swap)
-                outputs.move(io_index, io_index_swap)
-            else:
-                inputs.move(io_index, io_index_swap+1)
-                outputs.move(io_index, io_index_swap+1)
-        else:
-            inputs.move(io_index, io_index_swap)
-            outputs.move(io_index, io_index_swap)
+#def swap_channel_io(root_ch, swap_ch, io_index, io_index_swap, inputs, outputs):
+#    if root_ch.type == 'RGB' and root_ch.enable_alpha:
+#        if swap_ch.type == 'RGB' and swap_ch.enable_alpha:
+#            if io_index > io_index_swap:
+#                inputs.move(io_index, io_index_swap)
+#                inputs.move(io_index+1, io_index_swap+1)
+#                outputs.move(io_index, io_index_swap)
+#                outputs.move(io_index+1, io_index_swap+1)
+#            else:
+#                inputs.move(io_index, io_index_swap)
+#                inputs.move(io_index, io_index_swap+1)
+#                outputs.move(io_index, io_index_swap)
+#                outputs.move(io_index, io_index_swap+1)
+#        else:
+#            if io_index > io_index_swap:
+#                inputs.move(io_index, io_index_swap)
+#                inputs.move(io_index+1, io_index_swap+1)
+#                outputs.move(io_index, io_index_swap)
+#                outputs.move(io_index+1, io_index_swap+1)
+#            else:
+#                inputs.move(io_index+1, io_index_swap)
+#                inputs.move(io_index, io_index_swap-1)
+#                outputs.move(io_index+1, io_index_swap)
+#                outputs.move(io_index, io_index_swap-1)
+#    else:
+#        if swap_ch.type == 'RGB' and swap_ch.enable_alpha:
+#            if io_index > io_index_swap:
+#                inputs.move(io_index, io_index_swap)
+#                outputs.move(io_index, io_index_swap)
+#            else:
+#                inputs.move(io_index, io_index_swap+1)
+#                outputs.move(io_index, io_index_swap+1)
+#        else:
+#            inputs.move(io_index, io_index_swap)
+#            outputs.move(io_index, io_index_swap)
 
 class YMoveYPaintChannel(bpy.types.Operator):
     bl_idname = "node.y_move_ypaint_channel"
@@ -917,12 +934,14 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         #setattr(ypui, 'show_channel_modifiers_' + str(channel_idx), False)
 
         # Remove channel nodes from layers
-        for t in yp.layers:
-            ch = t.channels[channel_idx]
-            ttree = get_tree(t)
+        for layer in yp.layers:
+            ch = layer.channels[channel_idx]
+            ttree = get_tree(layer)
 
             remove_node(ttree, ch, 'blend')
             remove_node(ttree, ch, 'intensity')
+
+            remove_node(ttree, ch, 'disp_blend')
 
             remove_node(ttree, ch, 'source')
             remove_node(ttree, ch, 'linear')
@@ -953,24 +972,27 @@ class YRemoveYPaintChannel(bpy.types.Operator):
                     Modifier.delete_modifier_nodes(ttree, mod)
 
             # Remove layer IO
-            ttree.inputs.remove(ttree.inputs[channel.io_index])
-            ttree.outputs.remove(ttree.outputs[channel.io_index])
+            #ttree.inputs.remove(ttree.inputs[channel.io_index])
+            #ttree.outputs.remove(ttree.outputs[channel.io_index])
 
-            if channel.type == 'RGB' and channel.enable_alpha:
-                ttree.inputs.remove(ttree.inputs[channel.io_index])
-                ttree.outputs.remove(ttree.outputs[channel.io_index])
+            #if channel.type == 'RGB' and channel.enable_alpha:
+            #    ttree.inputs.remove(ttree.inputs[channel.io_index])
+            #    ttree.outputs.remove(ttree.outputs[channel.io_index])
 
             # Remove transition bump and ramp
             if channel.type == 'NORMAL' and ch.enable_transition_bump:
-                transition.remove_transition_bump_nodes(t, ttree, ch, channel_idx)
+                transition.remove_transition_bump_nodes(layer, ttree, ch, channel_idx)
             elif channel.type in {'RGB', 'VALUE'} and ch.enable_transition_ramp:
                 transition.remove_transition_ramp_nodes(ttree, ch)
 
             # Remove mask channel
-            Mask.remove_mask_channel(ttree, t, channel_idx)
+            Mask.remove_mask_channel(ttree, layer, channel_idx)
 
             # Remove layer channel
-            t.channels.remove(channel_idx)
+            layer.channels.remove(channel_idx)
+
+            # Update layer ios
+            Layer.check_all_layer_channel_io_and_nodes(layer, ttree) #, has_parent=has_parent)
 
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
@@ -983,21 +1005,27 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             Modifier.delete_modifier_nodes(group_tree, mod)
 
         # Remove channel from tree
-        inputs.remove(inputs[channel.io_index])
-        outputs.remove(outputs[channel.io_index])
+        #inputs.remove(inputs[channel.io_index])
+        #outputs.remove(outputs[channel.io_index])
 
-        shift = 1
+        #shift = 1
 
-        if channel.type == 'RGB' and channel.enable_alpha:
-            inputs.remove(inputs[channel.io_index])
-            outputs.remove(outputs[channel.io_index])
+        #if channel.type == 'RGB' and channel.enable_alpha:
+        #    inputs.remove(inputs[channel.io_index])
+        #    outputs.remove(outputs[channel.io_index])
 
-            shift = 2
+        #    shift = 2
 
-        # Shift IO index
-        for ch in yp.channels:
-            if ch.io_index > channel.io_index:
-                ch.io_index -= shift
+        #if channel.type == 'NORMAL' and channel.enable_displacement:
+        #    inputs.remove(inputs[channel.io_index])
+        #    outputs.remove(outputs[channel.io_index])
+
+        #    shift = 2
+
+        ## Shift IO index
+        #for ch in yp.channels:
+        #    if ch.io_index > channel.io_index:
+        #        ch.io_index -= shift
 
         # Remove channel
         yp.channels.remove(channel_idx)
@@ -1339,8 +1367,22 @@ def update_channel_name(self, context):
     group_tree.outputs[self.io_index].name = self.name
 
     if self.type == 'RGB' and self.enable_alpha:
-        group_tree.inputs[self.io_index+1].name = self.name + ' Alpha'
-        group_tree.outputs[self.io_index+1].name = self.name + ' Alpha'
+        group_tree.inputs[self.io_index+1].name = self.name + io_suffix['ALPHA']
+        group_tree.outputs[self.io_index+1].name = self.name + io_suffix['ALPHA']
+
+    if self.type == 'NORMAL' and self.enable_displacement:
+        group_tree.inputs[self.io_index+1].name = self.name + io_suffix['DISPLACEMENT']
+        group_tree.outputs[self.io_index+1].name = self.name + io_suffix['DISPLACEMENT']
+
+    #check_all_channel_ios(yp)
+
+    # Fix normal input
+    #if self.type == 'NORMAL':
+    #    mat = get_active_material()
+    #    for node in mat.node_tree.nodes:
+    #        if node.type == 'GROUP' and node.node_tree == group_tree:
+    #            inp = node.inputs.get(self.name)
+    #            inp.default_value = (999, 999, 999)
 
     for layer in yp.layers:
         tree = get_tree(layer)
@@ -1623,11 +1665,39 @@ def update_channel_displacement(self, context):
     if self.enable_displacement:
 
         # Get alpha index
-        index = self.io_index+1
+        #index = self.io_index+1
+        io_name = self.name + io_suffix['DISPLACEMENT']
 
         # Set node default_value
         node = get_active_ypaint_node()
-        node.inputs[index].default_value = 0.5
+        node.inputs[io_name].default_value = 0.5
+
+def update_displacement_height_ratio(self, context):
+
+    group_tree = self.id_data
+
+    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if baked_parallax:
+        baked_parallax.inputs['depth_scale'].default_value = self.displacement_height_ratio
+
+def update_displacement_num_of_layers(self, context):
+
+    group_tree = self.id_data
+    yp = group_tree.yp
+
+    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if baked_parallax:
+        set_parallax_node(yp, baked_parallax)
+
+        rearrange_parallax_nodes(group_tree)
+        reconnect_parallax_nodes(yp, baked_parallax)
+
+def update_displacement_ref_plane(self, context):
+    group_tree = self.id_data
+
+    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if baked_parallax:
+        baked_parallax.inputs['ref_plane'].default_value = self.displacement_ref_plane
 
 def update_channel_alpha(self, context):
     mat = get_active_material()
@@ -1669,18 +1739,19 @@ def update_channel_alpha(self, context):
             mat.game_settings.alpha_blend = 'ALPHA'
 
         # Get alpha index
-        alpha_index = self.io_index+1
+        #alpha_index = self.io_index+1
+        alpha_name = self.name + io_suffix['ALPHA']
 
         # Set node default_value
         node = get_active_ypaint_node()
-        node.inputs[alpha_index].default_value = 0.0
+        node.inputs[alpha_name].default_value = 0.0
 
         # Try to relink to original connections
         tree = context.object.active_material.node_tree
         try:
             node_from = tree.nodes.get(self.ori_alpha_from.node)
             socket_from = node_from.outputs[self.ori_alpha_from.socket]
-            tree.links.new(socket_from, node.inputs[alpha_index])
+            tree.links.new(socket_from, node.inputs[alpha_name])
         except: pass
 
         for con in self.ori_alpha_to:
@@ -1688,7 +1759,7 @@ def update_channel_alpha(self, context):
                 node_to = tree.nodes.get(con.node)
                 socket_to = node_to.inputs[con.socket]
                 if len(socket_to.links) < 1:
-                    tree.links.new(node.outputs[alpha_index], socket_to)
+                    tree.links.new(node.outputs[alpha_name], socket_to)
             except: pass
 
         # Reset memory
@@ -1722,6 +1793,14 @@ def update_flip_backface(self, context):
 
     yp = self
     group_tree = yp.id_data
+
+    baked_tangent_flip = group_tree.nodes.get(BAKED_TANGENT_FLIP)
+    if baked_tangent_flip:
+        set_tangent_backface_flip(baked_tangent_flip, yp.flip_backface)
+
+    baked_bitangent_flip = group_tree.nodes.get(BAKED_BITANGENT_FLIP)
+    if baked_bitangent_flip:
+        set_bitangent_backface_flip(baked_bitangent_flip, yp.flip_backface)
     
     for ch in yp.channels:
         baked_normal_flip = group_tree.nodes.get(ch.baked_normal_flip)
@@ -1842,7 +1921,14 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     # Displacement for normal channel
     enable_displacement = BoolProperty(default=False, update=update_channel_displacement)
-    displacement_height_ratio = FloatProperty(default=0.1, min=-1.0, max=1.0)
+    displacement_height_ratio = FloatProperty(default=0.1, min=-1.0, max=1.0,
+            update=update_displacement_height_ratio)
+
+    displacement_num_of_layers = IntProperty(default=8, min=4, max=64,
+            update=update_displacement_num_of_layers)
+
+    displacement_ref_plane = FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
+            update=update_displacement_ref_plane)
 
     colorspace = EnumProperty(
             name = 'Color Space',

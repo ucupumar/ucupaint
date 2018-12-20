@@ -21,7 +21,10 @@ ZERO_VALUE = 'Zero Value'
 
 BAKED_UV = 'UV Map'
 BAKED_TANGENT = 'Baked Tangent'
+BAKED_TANGENT_FLIP = 'Baked Flip Backface Tangent'
 BAKED_BITANGENT = 'Baked Bitangent'
+BAKED_BITANGENT_FLIP = 'Baked Flip Backface Bitangent'
+BAKED_PARALLAX = 'Baked Parallax'
 
 TEXCOORD = 'Texture Coordinate'
 GEOMETRY = 'Geometry'
@@ -172,6 +175,13 @@ layer_node_bl_idnames = {
         'BACKGROUND' : 'NodeGroupInput',
         'COLOR' : 'ShaderNodeRGB',
         'GROUP' : 'NodeGroupInput',
+        }
+
+io_suffix = {
+        'GROUP' : ' Group',
+        'BACKGROUND' : ' Background',
+        'ALPHA' : ' Alpha',
+        'DISPLACEMENT' : ' Displacement',
         }
 
 GAMMA = 2.2
@@ -1636,13 +1646,8 @@ def set_bump_backface_flip(node, flip_backface):
 def set_normal_backface_flip(node, flip_backface):
     node.mute = False
     if flip_backface:
-        #node.mute = False
-        #node.inputs['Eevee'].default_value = 1.0
-        #node.inputs['Cycles'].default_value = 1.0
-        #node.inputs['Blender 2.7 Viewport'].default_value = 1.0
         node.inputs['Flip'].default_value = 1.0
     else:
-        #node.mute = True
         node.inputs['Flip'].default_value = 0.0
 
 def set_tangent_backface_flip(node, flip_backface):
@@ -1661,6 +1666,61 @@ def set_bitangent_backface_flip(node, flip_backface):
         node.mute = False
     else:
         node.mute = True
+
+def get_displacement_channel(yp):
+    for ch in yp.channels:
+        if ch.type == 'NORMAL' and ch.enable_displacement:
+            return ch
+
+    return None
+
+def set_parallax_node(yp, node, img=None):
+    ch = get_displacement_channel(yp)
+
+    # Set node parameters
+    node.inputs[0].default_value = ch.displacement_height_ratio
+    node.inputs[1].default_value = ch.displacement_ref_plane
+
+    tree = node.node_tree
+
+    num_layers = tree.nodes.get('_num_layers')
+    num_layers.outputs[0].default_value = float(ch.displacement_num_of_layers)
+
+    if img:
+        depth_source = tree.nodes.get('_depth_source')
+        depth_from_tex = depth_source.node_tree.nodes.get('_depth_from_tex')
+        depth_from_tex.image = img
+
+    parallax_loop = tree.nodes.get('_parallax_loop')
+    loop_tree = parallax_loop.node_tree
+    iter_tree = loop_tree.nodes.get('_iterate_0').node_tree
+
+    counter = 0
+    while True:
+        it = loop_tree.nodes.get('_iterate_' + str(counter))
+
+        it_found = False
+        if it: it_found = True
+
+        if not it and counter < ch.displacement_num_of_layers:
+            it = loop_tree.nodes.new('ShaderNodeGroup')
+            it.name = '_iterate_' + str(counter)
+            it.node_tree = iter_tree
+
+        if it and counter >= ch.displacement_num_of_layers:
+            loop_tree.nodes.remove(it)
+
+        if not it_found and counter >= ch.displacement_num_of_layers:
+            break
+
+        counter += 1
+
+    #for n in parallax_loop.node_tree.nodes:
+    #    if n.type == 'GROUP':
+    #        iter_tree= n.node_tree
+    #        counter += 1
+
+    #if counter != 
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

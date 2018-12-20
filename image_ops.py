@@ -86,6 +86,10 @@ def save_pack_all(yp, only_dirty = True):
         if baked and baked.image:
             images.append(baked.image)
 
+        baked_disp = tree.nodes.get(ch.baked_disp)
+        if baked_disp and baked_disp.image:
+            images.append(baked_disp.image)
+
     packed_float_images = []
 
     # Save/pack images

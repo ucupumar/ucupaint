@@ -186,8 +186,22 @@ def remove_all_prev_inputs(layer):
     #for inp in node.inputs:
     #    break_input_link(tree, inp)
 
-    for i in range(len(layer.channels)*2):
-        break_input_link(tree, node.inputs[i])
+    #for i in range(len(layer.channels)*2):
+    #    break_input_link(tree, node.inputs[i])
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i]
+        io_name = root_ch.name
+        io_alpha_name = root_ch.name + io_suffix['ALPHA']
+        io_disp_name = root_ch.name + io_suffix['DISPLACEMENT']
+
+        if io_name in node.inputs:
+            break_input_link(tree, node.inputs[io_name])
+
+        if io_alpha_name in node.inputs:
+            break_input_link(tree, node.inputs[io_alpha_name])
+
+        if io_disp_name in node.inputs:
+            break_input_link(tree, node.inputs[io_disp_name])
 
     #input_offset = get_channel_inputs_length(yp, layer)
     #for i in range(input_offset):
@@ -205,11 +219,69 @@ def remove_all_children_inputs(layer):
     #if layer.parent_idx == -1:
     #    offset = get_channel_inputs_length(yp)
     #else: offset = len(layer.channels)*2
-    offset = get_channel_inputs_length(yp, layer)
+    #offset = get_channel_inputs_length(yp, layer)
 
-    for i, inp in enumerate(node.inputs):
-        if i >= offset:
-            break_input_link(tree, inp)
+    #for i, inp in enumerate(node.inputs):
+    #    if i >= offset:
+    #        break_input_link(tree, inp)
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i]
+        io_name = root_ch.name + io_suffix['GROUP']
+        io_alpha_name = root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP']
+        io_disp_name = root_ch.name + io_suffix['DISPLACEMENT'] + io_suffix['GROUP']
+
+        if io_name in node.inputs:
+            break_input_link(tree, node.inputs[io_name])
+
+        if io_alpha_name in node.inputs:
+            break_input_link(tree, node.inputs[io_alpha_name])
+
+        if io_disp_name in node.inputs:
+            break_input_link(tree, node.inputs[io_disp_name])
+
+def reconnect_parallax_nodes(yp, node):
+    disp_ch = get_displacement_channel(yp)
+
+    if not disp_ch: return
+
+    loop = node.node_tree.nodes.get('_parallax_loop')
+    if loop:
+        loop_start = loop.node_tree.nodes.get(TREE_START)
+        loop_end = loop.node_tree.nodes.get(TREE_END)
+        prev_it = None
+
+        for i in range (disp_ch.displacement_num_of_layers):
+            it = loop.node_tree.nodes.get('_iterate_' + str(i))
+            if not prev_it:
+                create_link(loop.node_tree, 
+                        loop_start.outputs['cur_uv'], it.inputs['cur_uv'])
+                create_link(loop.node_tree, 
+                        loop_start.outputs['cur_layer_depth'], it.inputs['cur_layer_depth'])
+                create_link(loop.node_tree, 
+                        loop_start.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
+            else:
+                create_link(loop.node_tree, 
+                        prev_it.outputs['cur_uv'], it.inputs['cur_uv'])
+                create_link(loop.node_tree, 
+                        prev_it.outputs['cur_layer_depth'], it.inputs['cur_layer_depth'])
+                create_link(loop.node_tree, 
+                        prev_it.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
+
+            create_link(loop.node_tree,
+                    loop_start.outputs['delta_uv'], it.inputs['delta_uv'])
+
+            create_link(loop.node_tree,
+                    loop_start.outputs['layer_depth'], it.inputs['layer_depth'])
+
+            if i == disp_ch.displacement_num_of_layers-1:
+                create_link(loop.node_tree, 
+                        it.outputs['cur_uv'], loop_end.inputs['cur_uv'])
+                create_link(loop.node_tree, 
+                        it.outputs['cur_layer_depth'], loop_end.inputs['cur_layer_depth'])
+                create_link(loop.node_tree, 
+                        it.outputs['depth_from_tex'], loop_end.inputs['depth_from_tex'])
+
+            prev_it = it
 
 def reconnect_yp_nodes(tree, ch_idx=-1):
     yp = tree.yp
@@ -229,27 +301,33 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         end_linear = nodes.get(ch.end_linear)
         start_normal_filter = nodes.get(ch.start_normal_filter)
 
-        rgb = start.outputs[ch.io_index]
+        io_name = ch.name
+        io_alpha_name = ch.name + io_suffix['ALPHA']
+        io_disp_name = ch.name + io_suffix['DISPLACEMENT']
+
+        #rgb = start.outputs[ch.io_index]
+        rgb = start.outputs[io_name]
         if ch.enable_alpha and ch.type == 'RGB':
-            alpha = start.outputs[ch.io_index+1]
+            #alpha = start.outputs[ch.io_index+1]
+            alpha = start.outputs[io_alpha_name]
         else: alpha = one_value.outputs[0]
 
         if ch.enable_displacement and ch.type == 'NORMAL':
-            disp = start.outputs[ch.io_index+1]
+            #disp = start.outputs[ch.io_index+1]
+            disp = start.outputs[io_disp_name]
         else: 
             #disp = one_value.outputs[0]
             disp = None
         
         if start_linear:
-            create_link(tree, start.outputs[ch.io_index], start_linear.inputs[0])
-            rgb = start_linear.outputs[0]
+            rgb = create_link(tree, rgb, start_linear.inputs[0])[0]
         elif start_normal_filter:
-            create_link(tree, start.outputs[ch.io_index], start_normal_filter.inputs[0])
-            rgb = start_normal_filter.outputs[0]
+            rgb = create_link(tree, rgb, start_normal_filter.inputs[0])[0]
 
         # Background rgb and alpha
         bg_rgb = rgb
         bg_alpha = alpha
+        bg_disp = disp
 
         # Layers loop
         for j, layer in reversed(list(enumerate(yp.layers))):
@@ -258,28 +336,44 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
             if layer.type == 'BACKGROUND':
                 # Offsets for background layer
-                input_offset = get_channel_inputs_length(yp, layer)
-                bg_index = input_offset + ch.io_index
+                #input_offset = get_channel_inputs_length(yp, layer)
+                #bg_index = input_offset + ch.io_index
+                inp = node.inputs.get(ch.name + io_suffix['BACKGROUND'])
+                inp_alpha = node.inputs.get(ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND'])
+                inp_disp = node.inputs.get(ch.name + io_suffix['DISPLACEMENT'] + io_suffix['BACKGROUND'])
 
                 if layer.parent_idx == -1:
 
-                    create_link(tree, bg_rgb, node.inputs[bg_index])
-                    if ch.type =='RGB' and ch.enable_alpha:
-                        create_link(tree, bg_alpha, node.inputs[bg_index+1])
+                    #create_link(tree, bg_rgb, node.inputs[bg_index])
+                    create_link(tree, bg_rgb, inp)
+                    #if ch.type =='RGB' and ch.enable_alpha:
+                    if inp_alpha:
+                        #create_link(tree, bg_alpha, node.inputs[bg_index+1])
+                        create_link(tree, bg_alpha, inp_alpha)
+                    if inp_disp:
+                        create_link(tree, bg_disp, inp_disp)
                 else:
-                    break_input_link(tree, node.inputs[bg_index])
-                    if ch.type =='RGB' and ch.enable_alpha:
-                        break_input_link(tree, node.inputs[bg_index+1])
+                    #break_input_link(tree, node.inputs[bg_index])
+                    break_input_link(tree, inp)
+                    #if ch.type =='RGB' and ch.enable_alpha:
+                    if inp_alpha:
+                        #break_input_link(tree, node.inputs[bg_index+1])
+                        break_input_link(tree, inp_alpha)
+                    if inp_disp:
+                        break_input_link(tree, inp_disp)
 
             if layer.parent_idx != -1: continue
 
-            rgb = create_link(tree, rgb, node.inputs[ch.io_index])[ch.io_index]
+            #rgb = create_link(tree, rgb, node.inputs[ch.io_index])[ch.io_index]
+            rgb = create_link(tree, rgb, node.inputs[io_name])[io_name]
             if ch.type =='RGB' and ch.enable_alpha:
-                alpha = create_link(tree, alpha, node.inputs[ch.io_index+1])[ch.io_index+1]
+                #alpha = create_link(tree, alpha, node.inputs[ch.io_index+1])[ch.io_index+1]
+                alpha = create_link(tree, alpha, node.inputs[io_alpha_name])[io_alpha_name]
 
             #if ch.type =='NORMAL' and ch.enable_displacement:
             if disp:
-                disp = create_link(tree, disp, node.inputs[ch.io_index+1])[ch.io_index+1]
+                #disp = create_link(tree, disp, node.inputs[ch.io_index+1])[ch.io_index+1]
+                disp = create_link(tree, disp, node.inputs[io_disp_name])[io_disp_name]
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha)
 
@@ -293,19 +387,47 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             baked = nodes.get(ch.baked)
             baked_uv_map = nodes.get(BAKED_UV)
             baked_tangent = nodes.get(BAKED_TANGENT)
+            baked_tangent_flip = nodes.get(BAKED_TANGENT_FLIP)
             baked_bitangent = nodes.get(BAKED_BITANGENT)
-
-            create_link(tree, baked_uv_map.outputs[0], baked.inputs[0])
+            baked_bitangent_flip = nodes.get(BAKED_BITANGENT_FLIP)
+            baked_parallax = nodes.get(BAKED_PARALLAX)
 
             rgb = baked.outputs[0]
+
+            if baked_tangent:
+                baked_tangent = baked_tangent.outputs[0]
+
+                if baked_tangent_flip:
+                    baked_tangent = create_link(tree, baked_tangent, baked_tangent_flip.inputs[0])[0]
+
+            if baked_bitangent:
+                baked_bitangent = baked_bitangent.outputs[0]
+
+                if baked_bitangent_flip:
+                    baked_bitangent = create_link(tree, baked_bitangent, baked_bitangent_flip.inputs[0])[0]
+
+            baked_uv_map = baked_uv_map.outputs[0]
+            if baked_parallax:
+                reconnect_parallax_nodes(yp, baked_parallax)
+
+                create_link(tree, baked_uv_map, baked_parallax.inputs['UV'])
+                create_link(tree, baked_tangent, baked_parallax.inputs['Tangent'])
+                create_link(tree, baked_bitangent, baked_parallax.inputs['Bitangent'])
+
+                baked_uv_map = baked_parallax.outputs[0]
+
+            create_link(tree, baked_uv_map, baked.inputs[0])
+
             if ch.type == 'NORMAL':
                 baked_normal = nodes.get(ch.baked_normal)
                 rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
 
                 baked_normal_flip = nodes.get(ch.baked_normal_flip)
                 if baked_normal_flip:
-                    create_link(tree, baked_tangent.outputs[0], baked_normal_flip.inputs['Tangent'])
-                    create_link(tree, baked_bitangent.outputs[0], baked_normal_flip.inputs['Bitangent'])
+
+                    create_link(tree, baked_tangent, baked_normal_flip.inputs['Tangent'])
+                    create_link(tree, baked_bitangent, baked_normal_flip.inputs['Bitangent'])
+
                     rgb = create_link(tree, rgb, baked_normal_flip.inputs[0])[0]
 
                 if ch.enable_displacement:
@@ -315,11 +437,14 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             if ch.type == 'RGB' and ch.enable_alpha:
                 alpha = baked.outputs[1]
 
-        create_link(tree, rgb, end.inputs[ch.io_index])
+        #create_link(tree, rgb, end.inputs[ch.io_index])
+        create_link(tree, rgb, end.inputs[io_name])
         if ch.type == 'RGB' and ch.enable_alpha:
-            create_link(tree, alpha, end.inputs[ch.io_index+1])
+            #create_link(tree, alpha, end.inputs[ch.io_index+1])
+            create_link(tree, alpha, end.inputs[io_alpha_name])
         if ch.type == 'NORMAL' and ch.enable_displacement:
-            create_link(tree, disp, end.inputs[ch.io_index+1])
+            #create_link(tree, disp, end.inputs[ch.io_index+1])
+            create_link(tree, disp, end.inputs[io_disp_name])
 
     # List of last members
     last_members = []
@@ -356,9 +481,10 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     create_link(tree, outp, upper_node.inputs[i])
             else:
 
-                input_offset = get_channel_inputs_length(yp, upper_layer)
+                #input_offset = get_channel_inputs_length(yp, upper_layer)
                 for i, outp in enumerate(cur_node.outputs):
-                    create_link(tree, outp, upper_node.inputs[input_offset+i])
+                    #create_link(tree, outp, upper_node.inputs[input_offset+i])
+                    create_link(tree, outp, upper_node.inputs[outp.name + io_suffix['GROUP']])
 
                 break
 
@@ -689,15 +815,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         bg_alpha = None
 
         if layer.type == 'GROUP': # and root_ch.enable_alpha:
-            rgb = source.outputs[i*2 + input_offset]
-            alpha = source.outputs[i*2 + input_offset + 1]
+            #rgb = source.outputs[i*2 + input_offset]
+            #alpha = source.outputs[i*2 + input_offset + 1]
+            rgb = source.outputs.get(root_ch.name + io_suffix['GROUP'])
+            alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
 
         elif layer.type == 'BACKGROUND':
-            rgb = source.outputs[root_ch.io_index + input_offset]
+            #rgb = source.outputs[root_ch.io_index + input_offset]
+            rgb = source.outputs[root_ch.name + io_suffix['BACKGROUND']]
             alpha = one_value.outputs[0]
 
             if root_ch.enable_alpha:
-                bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
+                #bg_alpha = source.outputs[root_ch.io_index + 1 + input_offset]
+                bg_alpha = source.outputs[root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND']]
 
         # Color layer uses geometry normal
         #if layer.type == 'COLOR' and root_ch.type == 'NORMAL' and is_valid_to_remove_bump_nodes(layer, ch): # and len(ch.modifiers) == 0:
@@ -708,12 +838,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         #    prev_rgb = start.outputs[root_ch.io_index + input_offset]
         #    prev_alpha = start.outputs[root_ch.io_index+1 + input_offset]
         #else:
-        if has_parent:
-            prev_rgb = start.outputs[i*2]
-            prev_alpha = start.outputs[i*2+1]
-        else:
-            prev_rgb = start.outputs[root_ch.io_index]
-            prev_alpha = start.outputs[root_ch.io_index+1]
+        #if has_parent:
+           #prev_rgb = start.outputs[i*2]
+           #prev_alpha = start.outputs[i*2+1]
+        prev_rgb = start.outputs.get(root_ch.name)
+        prev_alpha = start.outputs.get(root_ch.name + io_suffix['ALPHA'])
+
+        #else:
+        #    prev_rgb = start.outputs[root_ch.io_index]
+        #    prev_alpha = start.outputs[root_ch.io_index+1]
 
         #if layer.type == 'BACKGROUND':
 
@@ -1155,12 +1288,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         create_link(tree, rgb, blend.inputs[2])
 
         # End node
-        if has_parent:
-            next_rgb = end.inputs[i*2]
-            next_alpha = end.inputs[i*2+1]
-        else:
-            next_rgb = end.inputs[root_ch.io_index]
-            next_alpha = end.inputs[root_ch.io_index+1]
+        #if has_parent:
+            #next_rgb = end.inputs[i*2]
+            #next_alpha = end.inputs[i*2+1]
+        next_rgb = end.inputs.get(root_ch.name)
+        next_alpha = end.inputs.get(root_ch.name + io_suffix['ALPHA'])
+        #else:
+        #    next_rgb = end.inputs[root_ch.io_index]
+        #    next_alpha = end.inputs[root_ch.io_index+1]
 
         # Background layer only know mix
         if layer.type == 'BACKGROUND':
@@ -1185,8 +1320,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             create_link(tree, prev_rgb, blend.inputs[1])
 
         if disp_blend:
-            prev_disp = start.outputs[root_ch.io_index+1]
-            next_disp = end.inputs[root_ch.io_index+1]
+            #prev_disp = start.outputs[root_ch.io_index+1]
+            #next_disp = end.inputs[root_ch.io_index+1]
+            prev_disp = start.outputs.get(root_ch.name + io_suffix['DISPLACEMENT'])
+            next_disp = end.inputs.get(root_ch.name + io_suffix['DISPLACEMENT'])
+
             create_link(tree, alpha, disp_blend.inputs[0])
             create_link(tree, prev_disp, disp_blend.inputs[1])
             create_link(tree, rgb_after_mod, disp_blend.inputs[2])

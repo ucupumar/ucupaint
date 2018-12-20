@@ -958,6 +958,29 @@ def rearrange_layer_nodes(layer, tree=None):
 
     rearrange_layer_frame_nodes(layer, tree)
 
+def rearrange_parallax_nodes(group_tree):
+    ch = get_displacement_channel(group_tree.yp)
+    if not ch: return
+
+    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if baked_parallax:
+        loop = baked_parallax.node_tree.nodes.get('_parallax_loop')
+        if loop:
+            tree = loop.node_tree
+            #start = tree.nodes.get(TREE_START)
+            #end = tree.nodes.get(TREE_END)
+            
+            loc = Vector((0,0))
+            check_set_node_loc(tree, TREE_START, loc)
+
+            loc.x += 200
+
+            for i in range(ch.displacement_num_of_layers):
+                if check_set_node_loc(tree, '_iterate_' + str(i), loc):
+                    loc.x += 200
+
+            check_set_node_loc(tree, TREE_END, loc)
+
 def rearrange_yp_nodes(group_tree):
 
     yp = group_tree.yp
@@ -1092,12 +1115,24 @@ def rearrange_yp_nodes(group_tree):
 
         if i == num_channels-1:
             loc.x = ori_x
+
+            check_set_node_loc(group_tree, BAKED_PARALLAX, loc)
+            loc.y -= 190
+
+            rearrange_parallax_nodes(group_tree)
+
             check_set_node_loc(group_tree, BAKED_UV, loc)
-
             loc.y -= 120
+
+            check_set_node_loc(group_tree, BAKED_TANGENT_FLIP, loc)
+            loc.y -= 170
+
             check_set_node_loc(group_tree, BAKED_TANGENT, loc)
+            loc.y -= 170
 
+            check_set_node_loc(group_tree, BAKED_BITANGENT_FLIP, loc)
             loc.y -= 120
+
             check_set_node_loc(group_tree, BAKED_BITANGENT, loc)
             #loc.y -= 170
 

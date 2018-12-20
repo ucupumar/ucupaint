@@ -553,6 +553,16 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                     brow.label(text='Height Ratio:')
                     brow.prop(channel, 'displacement_height_ratio', text='')
 
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='INFO')
+                    brow.label(text='Number of Layers:')
+                    brow.prop(channel, 'displacement_num_of_layers', text='')
+
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='INFO')
+                    brow.label(text='Refrence Plane:')
+                    brow.prop(channel, 'displacement_ref_plane', text='')
+
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='INFO')

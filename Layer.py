@@ -41,7 +41,8 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
         correct_index += 1
 
         # Alpha IO
-        name = root_ch.name + ' Alpha'
+        #name = root_ch.name + ' Alpha'
+        name = root_ch.name + io_suffix['ALPHA']
         inp = tree.inputs.get(name)
         outp = tree.outputs.get(name)
 
@@ -66,7 +67,8 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
             if outp: tree.inputs.remove(outp)
 
         # Displacement IO
-        name = root_ch.name + ' Displacement'
+        #name = root_ch.name + ' Displacement'
+        name = root_ch.name + io_suffix['DISPLACEMENT']
         inp = tree.inputs.get(name)
         outp = tree.outputs.get(name)
 
@@ -93,12 +95,13 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     # Tree background inputs
     if layer.type in {'BACKGROUND', 'GROUP'}:
 
-        suffix = ' Background' if layer.type == 'BACKGROUND' else ' Group'
+        #suffix = ' Background' if layer.type == 'BACKGROUND' else ' Group'
 
         for i, ch in enumerate(layer.channels):
             root_ch = yp.channels[i]
 
-            name = root_ch.name + suffix
+            #name = root_ch.name + suffix
+            name = root_ch.name + io_suffix[layer.type]
             inp = tree.inputs.get(name)
             if not inp:
                 inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], name)
@@ -108,7 +111,8 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
             correct_index += 1
 
             # Alpha Input
-            name = root_ch.name + ' Alpha' + suffix
+            #name = root_ch.name + ' Alpha' + suffix
+            name = root_ch.name + io_suffix['ALPHA'] + io_suffix[layer.type]
             inp = tree.inputs.get(name)
 
             if root_ch.enable_alpha or layer.type == 'GROUP':
@@ -123,7 +127,8 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
                 if inp: tree.inputs.remove(inp)
 
             # Displacement Input
-            name = root_ch.name + ' Displacement' + suffix
+            #name = root_ch.name + ' Displacement' + suffix
+            name = root_ch.name + io_suffix['DISPLACEMENT'] + io_suffix[layer.type]
             inp = tree.inputs.get(name)
 
             if root_ch.enable_displacement:
