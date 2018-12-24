@@ -6,6 +6,8 @@ from bpy.app.handlers import persistent
 OVERLAY_NORMAL = '~yPL Overlay Normal'
 CHECK_INPUT_NORMAL = '~yPL Check Input Normal'
 
+NORMAL_MAP = '~yPL Normal Map'
+
 FLIP_BACKFACE_NORMAL = '~yPL Flip Backface Normal'
 FLIP_BACKFACE_BUMP = '~yPL Flip Backface Bump'
 FLIP_BACKFACE_TANGENT = '~yPL Flip Backface Tangent'

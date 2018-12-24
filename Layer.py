@@ -16,140 +16,11 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
 
-    correct_index = 0
-    valid_inputs = []
-    valid_outputs = []
+    # Check uv maps
+    check_uv_nodes(yp)
 
-    has_parent = layer.parent_idx != -1
-    
-    # Tree input and outputs
-    for i, ch in enumerate(layer.channels):
-        root_ch = yp.channels[i]
-
-        inp = tree.inputs.get(root_ch.name)
-        if not inp:
-            inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], root_ch.name)
-        fix_io_index(inp, tree.inputs, correct_index)
-        valid_inputs.append(inp)
-
-        outp = tree.outputs.get(root_ch.name)
-        if not outp:
-            outp = tree.outputs.new(channel_socket_output_bl_idnames[root_ch.type], root_ch.name)
-        fix_io_index(outp, tree.outputs, correct_index)
-        valid_outputs.append(outp)
-
-        correct_index += 1
-
-        # Alpha IO
-        #name = root_ch.name + ' Alpha'
-        name = root_ch.name + io_suffix['ALPHA']
-        inp = tree.inputs.get(name)
-        outp = tree.outputs.get(name)
-
-        if (root_ch.type == 'RGB' and root_ch.enable_alpha) or has_parent:
-
-            if not inp:
-                inp = tree.inputs.new('NodeSocketFloatFactor', name)
-                inp.min_value = 0.0
-                inp.max_value = 1.0
-                inp.default_value = 0.0
-            fix_io_index(inp, tree.inputs, correct_index)
-            valid_inputs.append(inp)
-
-            if not outp:
-                outp = tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], name)
-            fix_io_index(outp, tree.outputs, correct_index)
-            valid_outputs.append(outp)
-
-            correct_index += 1
-        else:
-            if inp: tree.inputs.remove(inp)
-            if outp: tree.inputs.remove(outp)
-
-        # Displacement IO
-        #name = root_ch.name + ' Displacement'
-        name = root_ch.name + io_suffix['DISPLACEMENT']
-        inp = tree.inputs.get(name)
-        outp = tree.outputs.get(name)
-
-        if root_ch.type == 'NORMAL' and root_ch.enable_displacement:
-
-            if not inp:
-                inp = tree.inputs.new('NodeSocketFloatFactor', name)
-                inp.min_value = 0.0
-                inp.max_value = 1.0
-                inp.default_value = 0.5
-            fix_io_index(inp, tree.inputs, correct_index)
-            valid_inputs.append(inp)
-
-            if not outp:
-                outp = tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], name)
-            fix_io_index(outp, tree.outputs, correct_index)
-            valid_outputs.append(outp)
-
-            correct_index += 1
-        else:
-            if inp: tree.inputs.remove(inp)
-            if outp: tree.inputs.remove(outp)
-
-    # Tree background inputs
-    if layer.type in {'BACKGROUND', 'GROUP'}:
-
-        #suffix = ' Background' if layer.type == 'BACKGROUND' else ' Group'
-
-        for i, ch in enumerate(layer.channels):
-            root_ch = yp.channels[i]
-
-            #name = root_ch.name + suffix
-            name = root_ch.name + io_suffix[layer.type]
-            inp = tree.inputs.get(name)
-            if not inp:
-                inp = tree.inputs.new(channel_socket_input_bl_idnames[root_ch.type], name)
-            fix_io_index(inp, tree.inputs, correct_index)
-            valid_inputs.append(inp)
-
-            correct_index += 1
-
-            # Alpha Input
-            #name = root_ch.name + ' Alpha' + suffix
-            name = root_ch.name + io_suffix['ALPHA'] + io_suffix[layer.type]
-            inp = tree.inputs.get(name)
-
-            if root_ch.enable_alpha or layer.type == 'GROUP':
-
-                if not inp:
-                    inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], name)
-                fix_io_index(inp, tree.inputs, correct_index)
-                valid_inputs.append(inp)
-
-                correct_index += 1
-            else:
-                if inp: tree.inputs.remove(inp)
-
-            # Displacement Input
-            #name = root_ch.name + ' Displacement' + suffix
-            name = root_ch.name + io_suffix['DISPLACEMENT'] + io_suffix[layer.type]
-            inp = tree.inputs.get(name)
-
-            if root_ch.enable_displacement:
-
-                if not inp:
-                    inp = tree.inputs.new(channel_socket_input_bl_idnames['VALUE'], name)
-                fix_io_index(inp, tree.inputs, correct_index)
-                valid_inputs.append(inp)
-
-                correct_index += 1
-            else:
-                if inp: tree.inputs.remove(inp)
-
-    # Check for invalid io
-    for inp in tree.inputs:
-        if inp not in valid_inputs:
-            tree.inputs.remove(inp)
-
-    for outp in tree.outputs:
-        if outp not in valid_outputs:
-            tree.outputs.remove(outp)
+    # Check layer tree io
+    check_layer_tree_ios(layer, tree)
 
     # Mapping node
     if layer.type not in {'BACKGROUND', 'VCOL', 'GROUP', 'COLOR'}:
@@ -162,12 +33,6 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
 
-        # Intensity nodes
-        intensity = tree.nodes.get(ch.intensity)
-        if not intensity:
-            intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
-            intensity.operation = 'MULTIPLY'
-
         # Displacement blend node
         if root_ch.type == 'NORMAL' and root_ch.enable_displacement:
             disp_blend = tree.nodes.get(ch.disp_blend)
@@ -176,10 +41,6 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
                 disp_blend.blend_type = ch.normal_blend
         else:
             remove_node(tree, ch, 'disp_blend')
-
-        # Channel mute
-        mute = not layer.enable or not ch.enable
-        intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
         if ch.enable_transition_ramp:
             transition.check_transition_ramp_nodes(tree, layer, ch)
@@ -352,7 +213,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     create_info_nodes(tree)
 
     # Tree start and end
-    create_essential_nodes(tree, True, True)
+    create_essential_nodes(tree, True, False, True)
 
     # Add source
     source = new_node(tree, layer, 'source', layer_node_bl_idnames[layer_type], 'Source')
@@ -372,31 +233,34 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         source.outputs[0].default_value = col
 
     # Add uv map node
-    uv_map = new_node(tree, layer, 'uv_map', 'ShaderNodeUVMap', 'UV Map')
-    uv_map.uv_map = uv_name
+    #uv_map = new_node(tree, layer, 'uv_map', 'ShaderNodeUVMap', 'UV Map')
+    #uv_map.uv_map = uv_name
+
+    #uv_map = new_node(tree, layer, 'uv_map', 'NodeGroupInput', 'UV Map Inputs')
+    texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
 
     # Add tangent and bitangent node
     #tangent = new_node(tree, layer, 'tangent', 'ShaderNodeTangent', 'Source Tangent')
     #tangent.direction_type = 'UV_MAP'
     #tangent.uv_map = uv_name
 
-    tangent = new_node(tree, layer, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
-    tangent.uv_map = uv_name
-    tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+    #tangent = new_node(tree, layer, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
+    #tangent.uv_map = uv_name
+    #tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
 
-    tangent_flip = new_node(tree, layer, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
-    tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
+    #tangent_flip = new_node(tree, layer, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
+    #tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
 
-    set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+    #set_tangent_backface_flip(tangent_flip, yp.flip_backface)
 
-    bitangent = new_node(tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
-    bitangent.uv_map = uv_name
-    bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+    #bitangent = new_node(tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
+    #bitangent.uv_map = uv_name
+    #bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
 
-    bitangent_flip = new_node(tree, layer, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
-    bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
+    #bitangent_flip = new_node(tree, layer, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
+    #bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
 
-    set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+    #set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
     #hacky_tangent = new_node(tree, layer, 'hacky_tangent', 'ShaderNodeNormalMap', 'Hacky Source Tangent')
     #hacky_tangent.uv_map = uv_name
@@ -443,7 +307,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
             #set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
 
-        mask = Mask.add_new_mask(layer, mask_name, mask_type, texcoord_type, 
+        mask = Mask.add_new_mask(layer, mask_name, mask_type, 'UV', #texcoord_type, 
                 mask_uv_name, mask_image, mask_vcol, mask_segment)
         mask.active_edit = True
 
@@ -2056,13 +1920,15 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
     # Normal nodes
     if ch.normal_map_type == 'NORMAL_MAP':
 
-        normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeNormalMap', 'Normal')
-        normal.uv_map = layer.uv_name
+        #normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeNormalMap', 'Normal')
+        #normal.uv_map = layer.uv_name
+        normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeGroup', 'Normal', lib.NORMAL_MAP)
 
-        normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
-                'Normal Backface Flip', lib.FLIP_BACKFACE_NORMAL)
+        #normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
+        #        'Normal Backface Flip', lib.FLIP_BACKFACE_NORMAL)
 
-        set_normal_backface_flip(normal_flip, yp.flip_backface)
+        #set_normal_backface_flip(normal_flip, yp.flip_backface)
+        remove_node(tree, ch, 'normal_flip')
 
     # Bump nodes
     elif ch.normal_map_type == 'BUMP_MAP':
@@ -2234,6 +2100,15 @@ def check_blend_type_nodes(root_ch, layer, ch):
         blend.mute = mute
     else: blend.mute = False
 
+    # Intensity nodes
+    intensity = tree.nodes.get(ch.intensity)
+    if not intensity:
+        intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
+        intensity.operation = 'MULTIPLY'
+
+    # Channel mute
+    intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+
     return need_reconnect
 
 def update_blend_type(self, context):
@@ -2364,6 +2239,8 @@ def update_uv_name(self, context):
     obj = context.object
     group_tree = self.id_data
     yp = group_tree.yp
+    if yp.halt_update: return
+
     ypui = context.window_manager.ypui
     layer = self
     active_layer = yp.layers[yp.active_layer_index]
@@ -2372,19 +2249,25 @@ def update_uv_name(self, context):
 
     nodes = tree.nodes
 
-    uv_map = nodes.get(layer.uv_map)
-    if uv_map: 
-        # Cannot use temp uv as standard uv
-        if layer.uv_name == TEMP_UV:
-            layer.uv_name = uv_map.uv_map
+    #uv_map = nodes.get(layer.uv_map)
+    #if uv_map: 
+    #    # Cannot use temp uv as standard uv
+    #    if layer.uv_name == TEMP_UV:
+    #        layer.uv_name = uv_map.uv_map
 
-        uv_map.uv_map = layer.uv_name
+    #    uv_map.uv_map = layer.uv_name
 
-    tangent = nodes.get(layer.tangent)
-    if tangent: tangent.uv_map = layer.uv_name
+    if layer.uv_name == TEMP_UV:
+        if len(yp.uvs) > 0:
+            for uv in yp.uvs:
+                layer.uv_name = uv.name
+                break
 
-    bitangent = nodes.get(layer.bitangent)
-    if bitangent: bitangent.uv_map = layer.uv_name
+    #tangent = nodes.get(layer.tangent)
+    #if tangent: tangent.uv_map = layer.uv_name
+
+    #bitangent = nodes.get(layer.bitangent)
+    #if bitangent: bitangent.uv_map = layer.uv_name
 
     for ch in layer.channels:
         normal = nodes.get(ch.normal)
@@ -2418,14 +2301,27 @@ def update_uv_name(self, context):
         if set_mask_uv_neighbor(tree, layer, mask):
             rearrange = True
 
-    if rearrange: #and not yp.halt_reconnect:
+    # Update global uv
+    check_uv_nodes(yp)
+
+    # Update layer tree inputs
+    yp_dirty = True if check_layer_tree_ios(layer, tree) else False
+
+    if rearrange or yp_dirty: #and not yp.halt_reconnect:
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+
+    # Update layer tree inputs
+    if yp_dirty:
+        rearrange_yp_nodes(group_tree)
+        reconnect_yp_nodes(group_tree)
 
 def update_texcoord_type(self, context):
     yp = self.id_data.yp
     layer = self
     tree = get_tree(layer)
+
+    if yp.halt_update: return
 
     # Check for normal channel for fine bump space switch
     # UV is using Tangent space
@@ -2436,19 +2332,34 @@ def update_texcoord_type(self, context):
     #    root_ch = yp.channels[i]
     #    if root_ch.type == 'NORMAL':
 
-    uv_neighbor = tree.nodes.get(layer.uv_neighbor)
-    if uv_neighbor:
-        cur_tree = uv_neighbor.node_tree
-        sel_tree = lib.get_neighbor_uv_tree(layer.texcoord_type)
+    #uv_neighbor = tree.nodes.get(layer.uv_neighbor)
+    #if uv_neighbor:
+    #    cur_tree = uv_neighbor.node_tree
+    #    sel_tree = lib.get_neighbor_uv_tree(layer.texcoord_type)
 
-        if sel_tree != cur_tree:
-            uv_neighbor.node_tree = sel_tree
+    #    if sel_tree != cur_tree:
+    #        uv_neighbor.node_tree = sel_tree
 
-            if cur_tree.users == 0:
-                bpy.data.node_groups.remove(cur_tree)
+    #        if cur_tree.users == 0:
+    #            bpy.data.node_groups.remove(cur_tree)
+    #if layer.type 
+    uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+            lib.get_neighbor_uv_tree_name(layer.texcoord_type), hard_replace=True)
+
+    # Update global uv
+    check_uv_nodes(yp)
+
+    # Update layer tree inputs
+    yp_dirty = True if check_layer_tree_ios(layer, tree) else False
 
     #if not yp.halt_reconnect:
-    reconnect_layer_nodes(self)
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
+
+    # Update layer tree inputs
+    if yp_dirty:
+        rearrange_yp_nodes(self.id_data)
+        reconnect_yp_nodes(self.id_data)
 
 def update_channel_intensity_value(self, context):
     yp = self.id_data.yp
@@ -2854,6 +2765,7 @@ class YLayer(bpy.types.PropertyGroup):
     uv_neighbor = StringProperty(default='')
     uv_map = StringProperty(default='')
     mapping = StringProperty(default='')
+    texcoord = StringProperty(default='')
 
     need_temp_uv_refresh = BoolProperty(default=False)
 

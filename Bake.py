@@ -2,6 +2,7 @@ import bpy, re, time
 from bpy.props import *
 from mathutils import *
 from .common import *
+from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from . import lib, Layer, Mask
@@ -1181,54 +1182,56 @@ class YBakeChannels(bpy.types.Operator):
         # Create Baked nodes
 
         # Get uv map
-        baked_uv = tree.nodes.get(BAKED_UV)
-        if not baked_uv:
-            baked_uv = tree.nodes.new('ShaderNodeUVMap')
-            baked_uv.name = BAKED_UV
+        #baked_uv = tree.nodes.get(BAKED_UV)
+        #if not baked_uv:
+        #    baked_uv = tree.nodes.new('ShaderNodeUVMap')
+        #    baked_uv.name = BAKED_UV
 
-        # Get tangent
-        baked_tangent = tree.nodes.get(BAKED_TANGENT)
-        if not baked_tangent:
-            baked_tangent = tree.nodes.new('ShaderNodeNormalMap')
-            baked_tangent.name = BAKED_TANGENT
-            baked_tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+        ## Get tangent
+        #baked_tangent = tree.nodes.get(BAKED_TANGENT)
+        #if not baked_tangent:
+        #    baked_tangent = tree.nodes.new('ShaderNodeNormalMap')
+        #    baked_tangent.name = BAKED_TANGENT
+        #    baked_tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
 
-        baked_tangent_flip = tree.nodes.get(BAKED_TANGENT_FLIP)
-        if not baked_tangent_flip:
-            baked_tangent_flip = tree.nodes.new('ShaderNodeGroup')
-            baked_tangent_flip.name = BAKED_TANGENT_FLIP
-            baked_tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
-        set_tangent_backface_flip(baked_tangent_flip, yp.flip_backface)
+        #baked_tangent_flip = tree.nodes.get(BAKED_TANGENT_FLIP)
+        #if not baked_tangent_flip:
+        #    baked_tangent_flip = tree.nodes.new('ShaderNodeGroup')
+        #    baked_tangent_flip.name = BAKED_TANGENT_FLIP
+        #    baked_tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
+        #set_tangent_backface_flip(baked_tangent_flip, yp.flip_backface)
 
-        # Get bitangent
-        baked_bitangent = tree.nodes.get(BAKED_BITANGENT)
-        if not baked_bitangent:
-            baked_bitangent = tree.nodes.new('ShaderNodeNormalMap')
-            baked_bitangent.name = BAKED_BITANGENT
-            baked_bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+        ## Get bitangent
+        #baked_bitangent = tree.nodes.get(BAKED_BITANGENT)
+        #if not baked_bitangent:
+        #    baked_bitangent = tree.nodes.new('ShaderNodeNormalMap')
+        #    baked_bitangent.name = BAKED_BITANGENT
+        #    baked_bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
 
-        baked_bitangent_flip = tree.nodes.get(BAKED_BITANGENT_FLIP)
-        if not baked_bitangent_flip:
-            baked_bitangent_flip = tree.nodes.new('ShaderNodeGroup')
-            baked_bitangent_flip.name = BAKED_BITANGENT_FLIP
-            baked_bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
-        set_bitangent_backface_flip(baked_bitangent_flip, yp.flip_backface)
+        #baked_bitangent_flip = tree.nodes.get(BAKED_BITANGENT_FLIP)
+        #if not baked_bitangent_flip:
+        #    baked_bitangent_flip = tree.nodes.new('ShaderNodeGroup')
+        #    baked_bitangent_flip.name = BAKED_BITANGENT_FLIP
+        #    baked_bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
+        #set_bitangent_backface_flip(baked_bitangent_flip, yp.flip_backface)
 
         # Get parallax occlusion mapping
-        baked_parallax = tree.nodes.get(BAKED_PARALLAX)
-        if not baked_parallax:
-            baked_parallax = tree.nodes.new('ShaderNodeGroup')
-            baked_parallax.name = BAKED_PARALLAX
-            baked_parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION)
-            duplicate_lib_node_tree(baked_parallax)
-
         if disp_img:
+            baked_parallax = tree.nodes.get(BAKED_PARALLAX)
+            if not baked_parallax:
+                baked_parallax = tree.nodes.new('ShaderNodeGroup')
+                baked_parallax.name = BAKED_PARALLAX
+                baked_parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION)
+                duplicate_lib_node_tree(baked_parallax)
+
             set_parallax_node(yp, baked_parallax, disp_img)
 
         # Set uv map
-        baked_uv.uv_map = self.uv_map
-        baked_tangent.uv_map = self.uv_map
-        baked_bitangent.uv_map = self.uv_map
+        #baked_uv.uv_map = self.uv_map
+        #baked_tangent.uv_map = self.uv_map
+        #baked_bitangent.uv_map = self.uv_map
+
+        yp.baked_uv_name = self.uv_map
 
         #return {'FINISHED'}
 
@@ -1243,6 +1246,9 @@ class YBakeChannels(bpy.types.Operator):
 
         # Recover bake settings
         recover_bake_settings(self, context)
+
+        # Update global uv
+        check_uv_nodes(yp)
 
         # Use bake results
         yp.use_baked = True

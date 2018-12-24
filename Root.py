@@ -25,94 +25,58 @@ channel_socket_custom_icon_names = {
 colorspace_items = (
     ('LINEAR', 'Non-Color Data', ''),
     ('SRGB', 'Color Data', '')
-        
 )
 
 def check_all_channel_ios(yp):
     group_tree = yp.id_data
 
-    correct_index = 0
+    index = 0
     valid_inputs = []
     valid_outputs = []
 
     for ch in yp.channels:
 
-        inp = group_tree.inputs.get(ch.name)
-        if not inp:
-            inp = group_tree.inputs.new(channel_socket_input_bl_idnames[ch.type], ch.name)
+        if ch.type == 'VALUE':
+            create_input(group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
+                    valid_inputs, index, min_value = 0.0, max_value = 1.0)
+        elif ch.type == 'RGB':
+            create_input(group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
+                    valid_inputs, index, default_value=(1,1,1,1))
+        elif ch.type == 'NORMAL':
+            # Use 999 as normal z value so it will fallback to use geometry normal at checking process
+            create_input(group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
+                    valid_inputs, index, default_value=(999,999,999))
 
-            if ch.type == 'VALUE':
-                inp.min_value = 0.0
-                inp.max_value = 1.0
-            elif ch.type == 'RGB':
-                inp.default_value = (1,1,1,1)
-            elif ch.type == 'NORMAL':
-                # Use 999 as normal z value so it will fallback to use geometry normal at checking process
-                inp.default_value = (999,999,999) 
+        create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
+                valid_outputs, index)
 
-        fix_io_index(inp, group_tree.inputs, correct_index)
-        valid_inputs.append(inp)
+        if ch.io_index != index:
+            ch.io_index = index
 
-        out = group_tree.outputs.get(ch.name)
-        if not out:
-            out = group_tree.outputs.new(channel_socket_output_bl_idnames[ch.type], ch.name)
-        fix_io_index(out, group_tree.outputs, correct_index)
-        valid_outputs.append(out)
-
-        if ch.io_index != correct_index:
-            ch.io_index = correct_index
-
-        correct_index += 1
-
-        # Alpha IO
-        #name = ch.name + ' Alpha'
-        name = ch.name + io_suffix['ALPHA']
-        inp = group_tree.inputs.get(name)
-        out = group_tree.outputs.get(name)
+        index += 1
 
         if ch.type == 'RGB' and ch.enable_alpha:
 
-            if not inp:
-                inp = group_tree.inputs.new('NodeSocketFloatFactor', name)
-                inp.min_value = 0.0
-                inp.max_value = 1.0
-                inp.default_value = 0.0
-            fix_io_index(inp, group_tree.inputs, correct_index)
-            valid_inputs.append(inp)
+            name = ch.name + io_suffix['ALPHA']
 
-            if not out:
-                out = group_tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], name)
-            fix_io_index(out, group_tree.outputs, correct_index)
-            valid_outputs.append(out)
+            create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, index, 
+                    min_value = 0.0, max_value = 1.0, default_value = 0.0)
 
-            correct_index += 1
+            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, index)
 
-        else:
-            if inp: group_tree.inputs.remove(inp)
-            if out: group_tree.outputs.remove(out)
+            index += 1
 
         # Displacement IO
-        #name = ch.name + ' Displacement'
-        name = ch.name + io_suffix['DISPLACEMENT']
-        inp = group_tree.inputs.get(name)
-        out = group_tree.outputs.get(name)
-
         if ch.type == 'NORMAL' and ch.enable_displacement:
 
-            if not inp:
-                inp = group_tree.inputs.new('NodeSocketFloatFactor', name)
-                inp.min_value = 0.0
-                inp.max_value = 1.0
-                inp.default_value = 0.5
-            fix_io_index(inp, group_tree.inputs, correct_index)
-            valid_inputs.append(inp)
+            name = ch.name + io_suffix['DISPLACEMENT']
 
-            if not out:
-                out = group_tree.outputs.new(channel_socket_output_bl_idnames['VALUE'], name)
-            fix_io_index(out, group_tree.outputs, correct_index)
-            valid_outputs.append(out)
+            create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, index, 
+                    min_value = 0.0, max_value = 1.0, default_value = 0.5)
 
-            correct_index += 1
+            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, index)
+
+            index += 1
 
             # Add end linear for converting displacement map to grayscale
             end_linear = group_tree.nodes.get(ch.end_linear)
@@ -122,8 +86,6 @@ def check_all_channel_ios(yp):
                 end_linear.inputs[1].default_value = 0.0
 
         else:
-            if inp: group_tree.inputs.remove(inp)
-            if out: group_tree.outputs.remove(out)
 
             if ch.type == 'NORMAL':
                 remove_node(group_tree, ch, 'end_linear')
@@ -232,7 +194,7 @@ def create_new_group_tree(mat):
     group_tree.yp.version = get_current_version_str()
 
     # Create IO nodes
-    create_essential_nodes(group_tree, True)
+    create_essential_nodes(group_tree, True, True)
 
     # Create info nodes
     create_info_nodes(group_tree)
@@ -1794,55 +1756,64 @@ def update_flip_backface(self, context):
     yp = self
     group_tree = yp.id_data
 
-    baked_tangent_flip = group_tree.nodes.get(BAKED_TANGENT_FLIP)
-    if baked_tangent_flip:
-        set_tangent_backface_flip(baked_tangent_flip, yp.flip_backface)
+    #baked_tangent_flip = group_tree.nodes.get(BAKED_TANGENT_FLIP)
+    #if baked_tangent_flip:
+    #    set_tangent_backface_flip(baked_tangent_flip, yp.flip_backface)
 
-    baked_bitangent_flip = group_tree.nodes.get(BAKED_BITANGENT_FLIP)
-    if baked_bitangent_flip:
-        set_bitangent_backface_flip(baked_bitangent_flip, yp.flip_backface)
+    #baked_bitangent_flip = group_tree.nodes.get(BAKED_BITANGENT_FLIP)
+    #if baked_bitangent_flip:
+    #    set_bitangent_backface_flip(baked_bitangent_flip, yp.flip_backface)
     
     for ch in yp.channels:
         baked_normal_flip = group_tree.nodes.get(ch.baked_normal_flip)
         if baked_normal_flip:
             set_normal_backface_flip(baked_normal_flip, yp.flip_backface)
 
-    for layer in yp.layers:
-
-        tree = get_tree(layer)
-        
-        tangent_flip = tree.nodes.get(layer.tangent_flip)
+    for uv in yp.uvs:
+        tangent_flip = group_tree.nodes.get(uv.tangent_flip)
         if tangent_flip:
             set_tangent_backface_flip(tangent_flip, yp.flip_backface)
 
-        bitangent_flip = tree.nodes.get(layer.bitangent_flip)
+        bitangent_flip = group_tree.nodes.get(uv.bitangent_flip)
         if bitangent_flip:
             set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
-        for ch in layer.channels:
-            normal_flip = tree.nodes.get(ch.normal_flip)
-            if normal_flip:
-                if ch.normal_map_type == 'BUMP_MAP':
-                    set_bump_backface_flip(normal_flip, yp.flip_backface)
-                elif ch.normal_map_type == 'NORMAL_MAP':
-                    set_normal_backface_flip(normal_flip, yp.flip_backface)
+    #for layer in yp.layers:
 
-            tb_bump_flip = tree.nodes.get(ch.tb_bump_flip)
-            if tb_bump_flip:
-                set_bump_backface_flip(tb_bump_flip, yp.flip_backface)
+    #    tree = get_tree(layer)
+    #    
+    #    tangent_flip = tree.nodes.get(layer.tangent_flip)
+    #    if tangent_flip:
+    #        set_tangent_backface_flip(tangent_flip, yp.flip_backface)
 
-            tb_crease_flip = tree.nodes.get(ch.tb_crease_flip)
-            if tb_crease_flip:
-                set_bump_backface_flip(tb_crease_flip, yp.flip_backface)
+    #    bitangent_flip = tree.nodes.get(layer.bitangent_flip)
+    #    if bitangent_flip:
+    #        set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
-        for mask in layer.masks:
-            tangent_flip = tree.nodes.get(mask.tangent_flip)
-            if tangent_flip:
-                set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+    #    for ch in layer.channels:
+    #        normal_flip = tree.nodes.get(ch.normal_flip)
+    #        if normal_flip:
+    #            if ch.normal_map_type == 'BUMP_MAP':
+    #                set_bump_backface_flip(normal_flip, yp.flip_backface)
+    #            elif ch.normal_map_type == 'NORMAL_MAP':
+    #                set_normal_backface_flip(normal_flip, yp.flip_backface)
 
-            bitangent_flip = tree.nodes.get(mask.bitangent_flip)
-            if bitangent_flip:
-                set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+    #        tb_bump_flip = tree.nodes.get(ch.tb_bump_flip)
+    #        if tb_bump_flip:
+    #            set_bump_backface_flip(tb_bump_flip, yp.flip_backface)
+
+    #        tb_crease_flip = tree.nodes.get(ch.tb_crease_flip)
+    #        if tb_crease_flip:
+    #            set_bump_backface_flip(tb_crease_flip, yp.flip_backface)
+
+    #    for mask in layer.masks:
+    #        tangent_flip = tree.nodes.get(mask.tangent_flip)
+    #        if tangent_flip:
+    #            set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+
+    #        bitangent_flip = tree.nodes.get(mask.bitangent_flip)
+    #        if bitangent_flip:
+    #            set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
@@ -1921,7 +1892,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     # Displacement for normal channel
     enable_displacement = BoolProperty(default=False, update=update_channel_displacement)
-    displacement_height_ratio = FloatProperty(default=0.1, min=-1.0, max=1.0,
+    displacement_height_ratio = FloatProperty(default=0.02, min=-1.0, max=1.0,
             update=update_displacement_height_ratio)
 
     displacement_num_of_layers = IntProperty(default=8, min=4, max=64,
@@ -1954,6 +1925,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     #baked_mix = StringProperty(default='')
 
     baked_disp = StringProperty(default='')
+    baked_obj_normal = StringProperty(default='')
 
     # UI related
     expand_content = BoolProperty(default=False)
@@ -1962,6 +1934,16 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Connection related
     ori_alpha_to = CollectionProperty(type=YNodeConnections)
     ori_alpha_from = PointerProperty(type=YNodeConnections)
+
+class YPaintUV(bpy.types.PropertyGroup):
+    name = StringProperty(default='')
+
+    # Nodes
+    uv_map = StringProperty(default='')
+    tangent = StringProperty(default='')
+    tangent_flip = StringProperty(default='')
+    bitangent = StringProperty(default='')
+    bitangent_flip = StringProperty(default='')
 
 class YPaint(bpy.types.PropertyGroup):
 
@@ -1977,12 +1959,16 @@ class YPaint(bpy.types.PropertyGroup):
     layers = CollectionProperty(type=Layer.YLayer)
     active_layer_index = IntProperty(default=0, update=update_layer_index)
 
+    # UVs
+    uvs = CollectionProperty(type=YPaintUV)
+
     # Temp channels to remember last channel selected when adding new layer
     #temp_channels = CollectionProperty(type=YChannelUI)
     preview_mode = BoolProperty(default=False, update=update_preview_mode)
 
     # Toggle to use baked results or not
     use_baked = BoolProperty(default=False, update=Bake.update_use_baked)
+    baked_uv_name = StringProperty(default='')
 
     # Flip backface
     flip_backface = BoolProperty(
@@ -2070,6 +2056,7 @@ def register():
     bpy.utils.register_class(YFixMissingData)
     bpy.utils.register_class(YNodeConnections)
     bpy.utils.register_class(YPaintChannel)
+    bpy.utils.register_class(YPaintUV)
     bpy.utils.register_class(YPaint)
     bpy.utils.register_class(YPaintMaterialProps)
     bpy.utils.register_class(YPaintTimer)
@@ -2097,6 +2084,7 @@ def unregister():
     bpy.utils.unregister_class(YFixMissingData)
     bpy.utils.unregister_class(YNodeConnections)
     bpy.utils.unregister_class(YPaintChannel)
+    bpy.utils.unregister_class(YPaintUV)
     bpy.utils.unregister_class(YPaint)
     bpy.utils.unregister_class(YPaintMaterialProps)
     bpy.utils.unregister_class(YPaintTimer)

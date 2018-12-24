@@ -31,8 +31,8 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         source.attribute_name = vcol.name
 
     if mask_type != 'VCOL':
-        uv_map = new_node(tree, mask, 'uv_map', 'ShaderNodeUVMap', 'Mask UV Map')
-        uv_map.uv_map = uv_name
+        #uv_map = new_node(tree, mask, 'uv_map', 'ShaderNodeUVMap', 'Mask UV Map')
+        #uv_map.uv_map = uv_name
         mask.uv_name = uv_name
 
         mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
@@ -776,8 +776,22 @@ def update_mask_texcoord_type(self, context):
 
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
+    tree = get_tree(layer)
 
+    # Update global uv
+    check_uv_nodes(yp)
+
+    # Update layer tree inputs
+    yp_dirty = True if check_layer_tree_ios(layer, tree) else False
+
+    set_mask_uv_neighbor(tree, layer, self)
+
+    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+
+    if yp_dirty:
+        rearrange_yp_nodes(self.id_data)
+        reconnect_yp_nodes(self.id_data)
 
 def update_mask_uv_name(self, context):
     obj = context.object
@@ -791,13 +805,14 @@ def update_mask_uv_name(self, context):
     tree = get_tree(layer)
     mask = self
 
-    uv_map = tree.nodes.get(mask.uv_map)
+    #uv_map = tree.nodes.get(mask.uv_map)
 
     # Cannot use temp uv as standard uv
     if mask.uv_name == TEMP_UV:
-        mask.uv_name = uv_map.uv_map
+        #mask.uv_name = uv_map.uv_map
+        mask.uv_name = layer.uv_name
     
-    uv_map.uv_map = mask.uv_name
+    #uv_map.uv_map = mask.uv_name
 
     # Update uv layer
     if mask.active_edit and obj.type == 'MESH' and layer == active_layer:
@@ -822,10 +837,20 @@ def update_mask_uv_name(self, context):
             #            uv_layers.active_index = i
             #        break
 
+    # Update global uv
+    check_uv_nodes(yp)
+
+    # Update layer tree inputs
+    yp_dirty = True if check_layer_tree_ios(layer, tree) else False
+
     # Update neighbor uv if mask bump is active
     if set_mask_uv_neighbor(tree, layer, self):
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+
+    if yp_dirty:
+        rearrange_yp_nodes(self.id_data)
+        reconnect_yp_nodes(self.id_data)
 
 def update_mask_name(self, context):
 

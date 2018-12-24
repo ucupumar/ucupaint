@@ -118,9 +118,9 @@ texcoord_type_items = (
         ('Normal', 'Normal', ''),
         ('UV', 'UV', ''),
         ('Object', 'Object', ''),
-        ('Camera', 'Camera', ''),
-        ('Window', 'Window', ''),
-        ('Reflection', 'Reflection', ''),
+        #('Camera', 'Camera', ''),
+        #('Window', 'Window', ''),
+        #('Reflection', 'Reflection', ''),
         )
 
 channel_socket_input_bl_idnames = {
@@ -182,6 +182,15 @@ io_suffix = {
         'BACKGROUND' : ' Background',
         'ALPHA' : ' Alpha',
         'DISPLACEMENT' : ' Displacement',
+        'UV' : ' UV',
+        'TANGENT' : ' Tangent',
+        'BITANGENT' : ' Bitangent',
+        }
+
+io_names = {
+        'Generated' : 'Texcoord Generated',
+        'Object' : 'Texcoord Object',
+        'Normal' : 'Texcoord Normal',
         }
 
 GAMMA = 2.2
@@ -548,7 +557,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
     setattr(entity, prop, '')
     #entity[prop] = ''
 
-def create_essential_nodes(tree, solid_value=False, layer_stuff=False):
+def create_essential_nodes(tree, solid_value=False, texcoord = False, geometry=False):
 
     # Start
     node = tree.nodes.new('NodeGroupInput')
@@ -572,10 +581,11 @@ def create_essential_nodes(tree, solid_value=False, layer_stuff=False):
         node.label = 'Zero Value'
         node.outputs[0].default_value = 0.0
 
-    if layer_stuff:
+    if geometry:
         node = tree.nodes.new('ShaderNodeNewGeometry')
         node.name = GEOMETRY
 
+    if texcoord:
         node = tree.nodes.new('ShaderNodeTexCoord')
         node.name = TEXCOORD
 

@@ -526,7 +526,7 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 290
 
     if check_set_node_loc(tree, layer.uv_neighbor, loc):
-        loc.y -= 230
+        loc.y -= 260
 
     if check_set_node_loc(tree, layer.uv_map, loc):
         loc.y -= 120
@@ -538,6 +538,9 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 90
 
     if check_set_node_loc(tree, TEXCOORD, loc):
+        loc.y -= 240
+
+    if check_set_node_loc(tree, layer.texcoord, loc):
         loc.y -= 240
 
     if check_set_node_loc(tree, layer.tangent_flip, loc):
@@ -981,6 +984,32 @@ def rearrange_parallax_nodes(group_tree):
 
             check_set_node_loc(tree, TREE_END, loc)
 
+def rearrange_uv_nodes(group_tree, loc):
+    yp = group_tree.yp
+
+    if check_set_node_loc(group_tree, TEXCOORD, loc):
+        loc.y -= 240
+
+    if check_set_node_loc(group_tree, GEOMETRY, loc):
+        loc.y -= 210
+
+    for uv in yp.uvs:
+
+        if check_set_node_loc(group_tree, uv.tangent_flip, loc):
+            loc.y -= 180
+
+        if check_set_node_loc(group_tree, uv.bitangent_flip, loc):
+            loc.y -= 120
+
+        if check_set_node_loc(group_tree, uv.tangent, loc):
+            loc.y -= 160
+
+        if check_set_node_loc(group_tree, uv.bitangent, loc):
+            loc.y -= 160
+
+        if check_set_node_loc(group_tree, uv.uv_map, loc):
+            loc.y -= 120
+
 def rearrange_yp_nodes(group_tree):
 
     yp = group_tree.yp
@@ -1015,13 +1044,17 @@ def rearrange_yp_nodes(group_tree):
             check_set_node_loc(group_tree, ONE_VALUE, loc)
             loc.y -= 90
             check_set_node_loc(group_tree, ZERO_VALUE, loc)
-            loc.x += 200
+            loc.y -= 90
+
+            # Rearrange uv nodes
+            rearrange_uv_nodes(group_tree, loc)
 
     #groups = []
     #for i, t in enumerate(reversed(yp.layers)):
     #    if t.type == 'GROUP':
     #        pass
 
+    loc.x += 200
     loc.y = 0.0
 
     # Layer nodes
@@ -1121,8 +1154,8 @@ def rearrange_yp_nodes(group_tree):
 
             rearrange_parallax_nodes(group_tree)
 
-            check_set_node_loc(group_tree, BAKED_UV, loc)
-            loc.y -= 120
+            #check_set_node_loc(group_tree, BAKED_UV, loc)
+            #loc.y -= 120
 
             check_set_node_loc(group_tree, BAKED_TANGENT_FLIP, loc)
             loc.y -= 170

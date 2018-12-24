@@ -193,12 +193,12 @@ def set_mask_uv_neighbor(tree, layer, mask):
         if mask_idx >= chain:
             return False
 
-    need_reconnect = False
+    dirty = False
 
     uv_neighbor = tree.nodes.get(mask.uv_neighbor)
     if not uv_neighbor:
         uv_neighbor = new_node(tree, mask, 'uv_neighbor', 'ShaderNodeGroup', 'Mask UV Neighbor')
-        need_reconnect = True
+        dirty = True
 
     if mask.type == 'VCOL':
         uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
@@ -217,47 +217,47 @@ def set_mask_uv_neighbor(tree, layer, mask):
 
         # Need reconnect of number of inputs different
         if prev_num_inputs != cur_num_inputs:
-            need_reconnect = True
+            dirty = True
 
         set_uv_neighbor_resolution(mask, uv_neighbor)
 
-        if different_uv:
-            tangent = tree.nodes.get(mask.tangent)
-            tangent_flip = tree.nodes.get(mask.tangent_flip)
-            bitangent = tree.nodes.get(mask.bitangent)
-            bitangent_flip = tree.nodes.get(mask.bitangent_flip)
+        #if different_uv:
+        #    tangent = tree.nodes.get(mask.tangent)
+        #    tangent_flip = tree.nodes.get(mask.tangent_flip)
+        #    bitangent = tree.nodes.get(mask.bitangent)
+        #    bitangent_flip = tree.nodes.get(mask.bitangent_flip)
 
-            if not tangent:
-                tangent = new_node(tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
-                tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
-                need_reconnect = True
+        #    if not tangent:
+        #        tangent = new_node(tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
+        #        tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+        #        dirty = True
 
-            if not tangent_flip:
-                tangent_flip = new_node(tree, mask, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
-                tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
+        #    if not tangent_flip:
+        #        tangent_flip = new_node(tree, mask, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
+        #        tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
 
-                set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+        #        set_tangent_backface_flip(tangent_flip, yp.flip_backface)
 
-            if not bitangent:
-                bitangent = new_node(tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
-                bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
-                need_reconnect = True
+        #    if not bitangent:
+        #        bitangent = new_node(tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
+        #        bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+        #        dirty = True
 
-            if not bitangent_flip:
-                bitangent_flip = new_node(tree, mask, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
-                bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
+        #    if not bitangent_flip:
+        #        bitangent_flip = new_node(tree, mask, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
+        #        bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
 
-                set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+        #        set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
-            tangent.uv_map = mask.uv_name
-            bitangent.uv_map = mask.uv_name
-        else:
-            remove_node(tree, mask, 'tangent')
-            remove_node(tree, mask, 'bitangent')
-            remove_node(tree, mask, 'tangent_flip')
-            remove_node(tree, mask, 'bitangent_flip')
+        #    tangent.uv_map = mask.uv_name
+        #    bitangent.uv_map = mask.uv_name
+        #else:
+        #    remove_node(tree, mask, 'tangent')
+        #    remove_node(tree, mask, 'bitangent')
+        #    remove_node(tree, mask, 'tangent_flip')
+        #    remove_node(tree, mask, 'bitangent_flip')
 
-    return need_reconnect
+    return dirty
 
 def enable_mask_source_tree(layer, mask, reconnect = False):
 
@@ -535,4 +535,239 @@ def check_mask_source_tree(layer): #, ch=None):
         else:
             disable_mask_source_tree(layer, mask)
 
+def create_uv_nodes(yp, uv_name):
+
+    tree = yp.id_data
+
+    uv = yp.uvs.add()
+    uv.name = uv_name
+
+    uv_map = new_node(tree, uv, 'uv_map', 'ShaderNodeUVMap', uv_name)
+    uv_map.uv_map = uv_name
+
+    tangent = new_node(tree, uv, 'tangent', 'ShaderNodeNormalMap', uv_name + ' Tangent')
+    tangent.uv_map = uv_name
+    tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+
+    bitangent = new_node(tree, uv, 'bitangent', 'ShaderNodeNormalMap', uv_name + ' Bitangent')
+    bitangent.uv_map = uv_name
+    bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+
+    tangent_flip = new_node(tree, uv, 'tangent_flip', 'ShaderNodeGroup', 
+            uv_name + ' Tangent Backface Flip')
+    tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
+
+    set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+
+    bitangent_flip = new_node(tree, uv, 'bitangent_flip', 'ShaderNodeGroup', 
+            uv_name + ' Bitangent Backface Flip')
+    bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
+
+    set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+
+def remove_uv_nodes(uv):
+    tree = uv.id_data
+    yp = tree.yp
+
+    remove_node(tree, uv, 'uv_map')
+    remove_node(tree, uv, 'tangent')
+    remove_node(tree, uv, 'tangent_flip')
+    remove_node(tree, uv, 'bitangent')
+    remove_node(tree, uv, 'bitangent_flip')
+
+    #yp.uvs.remove(uv)
+
+def check_uv_nodes(yp):
+
+    uv_names = []
+
+    # Check for UV needed
+
+    dirty = False
+
+    if yp.baked_uv_name != '':
+        uv = yp.uvs.get(yp.baked_uv_name)
+        if not uv: 
+            dirty = True
+            create_uv_nodes(yp, yp.baked_uv_name)
+        uv_names.append(yp.baked_uv_name)
+
+    for layer in yp.layers:
+
+        #if layer.texcoord_type == 'UV':
+        uv = yp.uvs.get(layer.uv_name)
+        if not uv: 
+            dirty = True
+            create_uv_nodes(yp, layer.uv_name)
+        if layer.uv_name not in uv_names: uv_names.append(layer.uv_name)
+
+        for mask in layer.masks:
+            if mask.texcoord_type == 'UV':
+                uv = yp.uvs.get(mask.uv_name)
+                if not uv: 
+                    dirty = True
+                    create_uv_nodes(yp, mask.uv_name)
+                if mask.uv_name not in uv_names: uv_names.append(mask.uv_name)
+
+    # Remove unused uv objects
+    for i, uv in reversed(list(enumerate(yp.uvs))):
+        if uv.name not in uv_names:
+            remove_uv_nodes(uv)
+            dirty = True
+            yp.uvs.remove(i)
+
+    return dirty
+
+def create_input(tree, name, socket_type, valid_inputs, index, 
+        dirty = False, min_value=None, max_value=None, default_value=None):
+
+    inp = tree.inputs.get(name)
+    if not inp:
+        inp = tree.inputs.new(socket_type, name)
+        if min_value != None: inp.min_value = min_value
+        if max_value != None: inp.max_value = max_value
+        if default_value != None: inp.default_value = default_value
+        dirty = True
+    valid_inputs.append(inp)
+    fix_io_index(inp, tree.inputs, index)
+
+    return dirty
+
+def create_output(tree, name, socket_type, valid_outputs, index, dirty=False):
+
+    outp = tree.outputs.get(name)
+    if not outp:
+        outp = tree.outputs.new(socket_type, name)
+        dirty = True
+    valid_outputs.append(outp)
+    fix_io_index(outp, tree.outputs, index)
+
+    return dirty
+
+def check_layer_tree_ios(layer, tree=None):
+
+    yp = layer.id_data.yp
+    if not tree: tree = get_tree(layer)
+
+    dirty = False
+
+    index = 0
+    valid_inputs = []
+    valid_outputs = []
+
+    has_parent = layer.parent_idx != -1
+    
+    # Tree input and outputs
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i]
+
+        dirty = create_input(tree, root_ch.name, channel_socket_input_bl_idnames[root_ch.type], 
+                valid_inputs, index, dirty)
+
+        dirty = create_output(tree, root_ch.name, channel_socket_output_bl_idnames[root_ch.type], 
+                valid_outputs, index, dirty)
+
+        index += 1
+
+        # Alpha IO
+        if (root_ch.type == 'RGB' and root_ch.enable_alpha) or has_parent:
+
+            name = root_ch.name + io_suffix['ALPHA']
+
+            dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, index, dirty)
+            dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, index, dirty)
+
+            index += 1
+
+        # Displacement IO
+        if root_ch.type == 'NORMAL' and root_ch.enable_displacement:
+
+            name = root_ch.name + io_suffix['DISPLACEMENT']
+
+            dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, index, dirty)
+            dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, index, dirty)
+
+            index += 1
+
+    # Tree background inputs
+    if layer.type in {'BACKGROUND', 'GROUP'}:
+
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i]
+
+            name = root_ch.name + io_suffix[layer.type]
+            dirty = create_input(tree, name, channel_socket_input_bl_idnames[root_ch.type],
+                    valid_inputs, index, dirty)
+            index += 1
+
+            # Alpha Input
+            if root_ch.enable_alpha or layer.type == 'GROUP':
+
+                name = root_ch.name + io_suffix['ALPHA'] + io_suffix[layer.type]
+                dirty = create_input(tree, name, 'NodeSocketFloatFactor',
+                        valid_inputs, index, dirty)
+                index += 1
+
+            # Displacement Input
+            if root_ch.enable_displacement:
+
+                name = root_ch.name + io_suffix['DISPLACEMENT'] + io_suffix[layer.type]
+                dirty = create_input(tree, name, 'NodeSocketFloat',
+                        valid_inputs, index, dirty)
+                index += 1
+
+    uv_names = [layer.uv_name]
+
+    # Texcoord IO
+    name = layer.uv_name + io_suffix['UV']
+    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    index += 1
+
+    name = layer.uv_name + io_suffix['TANGENT']
+    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    index += 1
+
+    name = layer.uv_name + io_suffix['BITANGENT']
+    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    index += 1
+
+    texcoords = ['UV']
+    if layer.texcoord_type != 'UV':
+        name = io_names[layer.texcoord_type]
+        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+        index += 1
+        texcoords.append(layer.texcoord_type)
+
+    for mask in layer.masks:
+        if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names:
+            name = mask.uv_name + io_suffix['UV']
+            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+            index += 1
+
+            name = mask.uv_name + io_suffix['TANGENT']
+            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+            index += 1
+
+            name = mask.uv_name + io_suffix['BITANGENT']
+            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+            index += 1
+
+            uv_names.append(mask.uv_name)
+
+        elif mask.texcoord_type not in texcoords:
+            name = io_names[mask.texcoord_type]
+            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+            index += 1
+            texcoords.append(mask.texcoord_type)
+
+    # Check for invalid io
+    for inp in tree.inputs:
+        if inp not in valid_inputs:
+            tree.inputs.remove(inp)
+
+    for outp in tree.outputs:
+        if outp not in valid_outputs:
+            tree.outputs.remove(outp)
+
+    return dirty
 
