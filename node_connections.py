@@ -239,6 +239,83 @@ def remove_all_children_inputs(layer):
         if io_disp_name in node.inputs:
             break_input_link(tree, node.inputs[io_disp_name])
 
+def reconnect_relief_mapping_nodes(yp, node):
+    disp_ch = get_displacement_channel(yp)
+
+    if not disp_ch: return
+
+    linear_loop = node.node_tree.nodes.get('_linear_search')
+    binary_loop = node.node_tree.nodes.get('_binary_search')
+
+    loop = node.node_tree.nodes.get('_linear_search')
+    if loop:
+        loop_start = loop.node_tree.nodes.get(TREE_START)
+        loop_end = loop.node_tree.nodes.get(TREE_END)
+        prev_it = None
+
+        for i in range (disp_ch.parallax_num_of_linear_samples):
+            it = loop.node_tree.nodes.get('_iterate_' + str(i))
+            if not prev_it:
+                create_link(loop.node_tree, 
+                        loop_start.outputs['t'], it.inputs['t'])
+            else:
+                create_link(loop.node_tree, 
+                        prev_it.outputs['t'], it.inputs['t'])
+
+            create_link(loop.node_tree,
+                    loop_start.outputs['tx'], it.inputs['tx'])
+
+            create_link(loop.node_tree,
+                    loop_start.outputs['v'], it.inputs['v'])
+
+            create_link(loop.node_tree,
+                    loop_start.outputs['dataz'], it.inputs['dataz'])
+
+            create_link(loop.node_tree,
+                    loop_start.outputs['size'], it.inputs['size'])
+
+            if i == disp_ch.parallax_num_of_linear_samples-1:
+                create_link(loop.node_tree, 
+                        it.outputs['t'], loop_end.inputs['t'])
+
+            prev_it = it
+
+    loop = node.node_tree.nodes.get('_binary_search')
+    if loop:
+        loop_start = loop.node_tree.nodes.get(TREE_START)
+        loop_end = loop.node_tree.nodes.get(TREE_END)
+        prev_it = None
+
+        for i in range (disp_ch.parallax_num_of_binary_samples):
+            it = loop.node_tree.nodes.get('_iterate_' + str(i))
+            if not prev_it:
+                create_link(loop.node_tree, 
+                        loop_start.outputs['t'], it.inputs['t'])
+
+                create_link(loop.node_tree, 
+                        loop_start.outputs['size'], it.inputs['size'])
+            else:
+                create_link(loop.node_tree, 
+                        prev_it.outputs['t'], it.inputs['t'])
+
+                create_link(loop.node_tree, 
+                        prev_it.outputs['size'], it.inputs['size'])
+
+            create_link(loop.node_tree,
+                    loop_start.outputs['tx'], it.inputs['tx'])
+
+            create_link(loop.node_tree,
+                    loop_start.outputs['v'], it.inputs['v'])
+
+            create_link(loop.node_tree,
+                    loop_start.outputs['dataz'], it.inputs['dataz'])
+
+            if i == disp_ch.parallax_num_of_binary_samples-1:
+                create_link(loop.node_tree, 
+                        it.outputs['t'], loop_end.inputs['t'])
+
+            prev_it = it
+
 def reconnect_parallax_nodes(yp, node):
     disp_ch = get_displacement_channel(yp)
 
@@ -267,26 +344,34 @@ def reconnect_parallax_nodes(yp, node):
                 create_link(loop.node_tree, 
                         prev_it.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
 
+                if 'index' in prev_it.outputs and 'index' in it.inputs:
+                    create_link(loop.node_tree, 
+                            prev_it.outputs['index'], it.inputs['index'])
+
             create_link(loop.node_tree,
                     loop_start.outputs['delta_uv'], it.inputs['delta_uv'])
+
+            if 'start_uv' in loop_start.outputs and 'start_uv' in it.inputs:
+                create_link(loop.node_tree,
+                        loop_start.outputs['start_uv'], it.inputs['start_uv'])
 
             create_link(loop.node_tree,
                     loop_start.outputs['layer_depth'], it.inputs['layer_depth'])
 
-            create_link(loop.node_tree,
-                    loop_start.outputs['depth_scale'], it.inputs['depth_scale'])
+            #create_link(loop.node_tree,
+            #        loop_start.outputs['depth_scale'], it.inputs['depth_scale'])
 
-            create_link(loop.node_tree,
-                    loop_start.outputs['ref_plane'], it.inputs['ref_plane'])
+            #create_link(loop.node_tree,
+            #        loop_start.outputs['ref_plane'], it.inputs['ref_plane'])
 
-            create_link(loop.node_tree,
-                    loop_start.outputs['UV'], it.inputs['UV'])
+            #create_link(loop.node_tree,
+            #        loop_start.outputs['UV'], it.inputs['UV'])
 
-            create_link(loop.node_tree,
-                    loop_start.outputs['Tangent'], it.inputs['Tangent'])
+            #create_link(loop.node_tree,
+            #        loop_start.outputs['Tangent'], it.inputs['Tangent'])
 
-            create_link(loop.node_tree,
-                    loop_start.outputs['Bitangent'], it.inputs['Bitangent'])
+            #create_link(loop.node_tree,
+            #        loop_start.outputs['Bitangent'], it.inputs['Bitangent'])
 
             if i == disp_ch.displacement_num_of_layers-1:
                 create_link(loop.node_tree, 
@@ -521,9 +606,9 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
                     rgb = create_link(tree, rgb, baked_normal_flip.inputs[0])[0]
 
-                #if ch.enable_displacement:
-                #    baked_disp = nodes.get(ch.baked_disp)
-                #    if baked_disp: disp = baked_disp.outputs[0]
+                if ch.enable_displacement:
+                    baked_disp = nodes.get(ch.baked_disp)
+                    if baked_disp: disp = baked_disp.outputs[0]
 
             if ch.type == 'RGB' and ch.enable_alpha:
                 alpha = baked.outputs[1]

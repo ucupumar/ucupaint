@@ -563,6 +563,23 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                     brow.label(text='Refrence Plane:')
                     brow.prop(channel, 'displacement_ref_plane', text='')
 
+                    #brow = bcol.row(align=True)
+                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='Linear Samples:')
+                    #brow.prop(channel, 'parallax_num_of_linear_samples', text='')
+
+                    #brow = bcol.row(align=True)
+                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='Binary Samples:')
+                    #brow.prop(channel, 'parallax_num_of_binary_samples', text='')
+
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='INFO')
+                    brow.label(text='Rim Hack:')
+                    if channel.parallax_rim_hack:
+                        brow.prop(channel, 'parallax_rim_hack_hardness', text='')
+                    brow.prop(channel, 'parallax_rim_hack', text='')
+
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='INFO')
@@ -1699,9 +1716,13 @@ def main_draw(self, context):
 
     layout = self.layout
 
+    #layout.operator("node.y_debug_mesh", icon='MESH_DATA')
+    #layout.operator("node.y_test_ray", icon='MESH_DATA')
+
     if not node:
         layout.label(text="No active " + ADDON_TITLE + " node!", icon='ERROR')
         layout.operator("node.y_quick_ypaint_node_setup", icon='NODETREE')
+
         return
 
     #layout.label(text='Active: ' + node.node_tree.name, icon='NODETREE')

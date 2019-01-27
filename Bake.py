@@ -1027,6 +1027,7 @@ class YBakeChannels(bpy.types.Operator):
 
         # Displacement image
         disp_img = None
+        #obj_normal_img = None
 
         for ch in yp.channels:
 
@@ -1133,6 +1134,8 @@ class YBakeChannels(bpy.types.Operator):
             # Bake displacement
             if ch.type == 'NORMAL' and ch.enable_displacement:
 
+                # Displacement
+
                 baked_disp = tree.nodes.get(ch.baked_disp)
                 if not baked_disp:
                     baked_disp = new_node(tree, ch, 'baked_disp', 'ShaderNodeTexImage', 
@@ -1168,6 +1171,63 @@ class YBakeChannels(bpy.types.Operator):
                     bpy.data.images.remove(temp)
                 else:
                     baked_disp.image = disp_img
+
+                # Object space normal, needed for more precise parallax
+
+                #geom = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
+
+                #mul = mat.node_tree.nodes.new('ShaderNodeMixRGB')
+                #mul.blend_type = 'MULTIPLY'
+                #mul.inputs[0].default_value = 1.0
+                #mul.inputs[2].default_value = (0.5, 0.5, 0.5, 1.0)
+
+                #add = mat.node_tree.nodes.new('ShaderNodeMixRGB')
+                #add.blend_type = 'ADD'
+                #add.inputs[0].default_value = 1.0
+                #add.inputs[2].default_value = (0.5, 0.5, 0.5, 1.0)
+
+                #tran = mat.node_tree.nodes.new('ShaderNodeVectorTransform')
+
+                #baked_obj_normal = tree.nodes.get(ch.baked_obj_normal)
+                #if not baked_obj_normal:
+                #    baked_obj_normal = new_node(tree, ch, 'baked_obj_normal', 'ShaderNodeTexImage', 
+                #            'Baked ' + ch.name + ' Object Space')
+                #    baked_obj_normal.color_space = 'NONE'
+
+                #if baked_obj_normal.image:
+                #    obj_normal_image_name = baked_obj_normal.image.name
+                #    filepath = baked_obj_normal.image.filepath
+                #    baked_obj_normal.image.name = '____OBJ_NORMAL'
+                #else:
+                #    obj_normal_image_name = tree.name + ' ' + ch.name + ' Object Space'
+
+                ## Create target image
+                #obj_normal_img = bpy.data.images.new(name=obj_normal_image_name, width=self.width, height=self.height) 
+                #obj_normal_img.generated_color = (0.5, 0.5, 0.5, 1.0)
+
+                #create_link(mat.node_tree, geom.outputs['Normal'], tran.inputs[0])
+                #create_link(mat.node_tree, tran.outputs[0], mul.inputs[1])
+                #create_link(mat.node_tree, mul.outputs[0], add.inputs[1])
+                #create_link(mat.node_tree, add.outputs[0], emit.inputs[0])
+                #tex.image = obj_normal_img
+
+                ## Bake
+                #bpy.ops.object.bake()
+
+                ## Set baked displacement image
+                #if baked_obj_normal.image:
+                #    temp = baked_obj_normal.image
+                #    img_users = get_all_image_users(baked_obj_normal.image)
+                #    for user in img_users:
+                #        user.image = obj_normal_img
+                #    bpy.data.images.remove(temp)
+                #else:
+                #    baked_obj_normal.image = obj_normal_img
+
+                #simple_remove_node(mat.node_tree, geom)
+                #simple_remove_node(mat.node_tree, tran)
+                #simple_remove_node(mat.node_tree, mul)
+                #simple_remove_node(mat.node_tree, add)
 
             # Set image to baked node and replace all previously original users
             if baked.image:

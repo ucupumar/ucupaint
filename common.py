@@ -1684,6 +1684,59 @@ def get_displacement_channel(yp):
 
     return None
 
+def create_delete_iterate_nodes(tree, iter_tree, num_of_iteration):
+    counter = 0
+    while True:
+        it = tree.nodes.get('_iterate_' + str(counter))
+
+        it_found = False
+        if it: it_found = True
+
+        if not it and counter < num_of_iteration:
+            it = tree.nodes.new('ShaderNodeGroup')
+            it.name = '_iterate_' + str(counter)
+            it.node_tree = iter_tree
+
+        if it and counter >= num_of_iteration:
+            tree.nodes.remove(it)
+
+        if not it_found and counter >= num_of_iteration:
+            break
+
+        counter += 1
+
+def set_relief_mapping_nodes(yp, node, img=None):
+    ch = get_displacement_channel(yp)
+
+    # Set node parameters
+    node.inputs[0].default_value = ch.displacement_height_ratio
+    node.inputs[1].default_value = ch.displacement_ref_plane
+
+    tree = node.node_tree
+
+    linear_steps = tree.nodes.get('_linear_search_steps')
+    linear_steps.outputs[0].default_value = float(ch.parallax_num_of_linear_samples)
+
+    binary_steps = tree.nodes.get('_binary_search_steps')
+    binary_steps.outputs[0].default_value = float(ch.parallax_num_of_binary_samples)
+
+    if img:
+        depth_source = tree.nodes.get('_depth_source')
+        depth_from_tex = depth_source.node_tree.nodes.get('_depth_from_tex')
+        depth_from_tex.image = img
+
+    linear_loop = tree.nodes.get('_linear_search')
+    loop_tree = linear_loop.node_tree
+    iter_tree = loop_tree.nodes.get('_iterate_0').node_tree
+
+    create_delete_iterate_nodes(loop_tree, iter_tree, ch.parallax_num_of_linear_samples)
+
+    binary_loop = tree.nodes.get('_binary_search')
+    loop_tree = binary_loop.node_tree
+    iter_tree = loop_tree.nodes.get('_iterate_0').node_tree
+
+    create_delete_iterate_nodes(loop_tree, iter_tree, ch.parallax_num_of_binary_samples)
+
 def set_parallax_node(yp, node, img=None):
     ch = get_displacement_channel(yp)
 
@@ -1705,25 +1758,27 @@ def set_parallax_node(yp, node, img=None):
     loop_tree = parallax_loop.node_tree
     iter_tree = loop_tree.nodes.get('_iterate_0').node_tree
 
-    counter = 0
-    while True:
-        it = loop_tree.nodes.get('_iterate_' + str(counter))
+    create_delete_iterate_nodes(loop_tree, iter_tree, ch.displacement_num_of_layers)
 
-        it_found = False
-        if it: it_found = True
+    #counter = 0
+    #while True:
+    #    it = loop_tree.nodes.get('_iterate_' + str(counter))
 
-        if not it and counter < ch.displacement_num_of_layers:
-            it = loop_tree.nodes.new('ShaderNodeGroup')
-            it.name = '_iterate_' + str(counter)
-            it.node_tree = iter_tree
+    #    it_found = False
+    #    if it: it_found = True
 
-        if it and counter >= ch.displacement_num_of_layers:
-            loop_tree.nodes.remove(it)
+    #    if not it and counter < ch.displacement_num_of_layers:
+    #        it = loop_tree.nodes.new('ShaderNodeGroup')
+    #        it.name = '_iterate_' + str(counter)
+    #        it.node_tree = iter_tree
 
-        if not it_found and counter >= ch.displacement_num_of_layers:
-            break
+    #    if it and counter >= ch.displacement_num_of_layers:
+    #        loop_tree.nodes.remove(it)
 
-        counter += 1
+    #    if not it_found and counter >= ch.displacement_num_of_layers:
+    #        break
+
+    #    counter += 1
 
     #for n in parallax_loop.node_tree.nodes:
     #    if n.type == 'GROUP':

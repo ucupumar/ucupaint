@@ -1642,6 +1642,28 @@ def update_displacement_height_ratio(self, context):
     if baked_parallax:
         baked_parallax.inputs['depth_scale'].default_value = self.displacement_height_ratio
 
+def update_parallax_samples(self, context):
+    group_tree = self.id_data
+    yp = group_tree.yp
+
+    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if baked_parallax:
+        set_relief_mapping_nodes(yp, baked_parallax)
+
+        rearrange_relief_mapping_nodes(group_tree)
+        reconnect_relief_mapping_nodes(yp, baked_parallax)
+
+def update_parallax_rim_hack(self, context):
+    group_tree = self.id_data
+    yp = group_tree.yp
+
+    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if baked_parallax:
+        try:
+            baked_parallax.inputs['Rim Hack'].default_value = 1.0 if self.parallax_rim_hack else 0.0
+            baked_parallax.inputs['Rim Hack Hardness'].default_value = self.parallax_rim_hack_hardness
+        except: pass
+
 def update_displacement_num_of_layers(self, context):
 
     group_tree = self.id_data
@@ -1898,6 +1920,16 @@ class YPaintChannel(bpy.types.PropertyGroup):
     displacement_num_of_layers = IntProperty(default=8, min=4, max=64,
             update=update_displacement_num_of_layers)
 
+    #parallax_num_of_linear_samples = IntProperty(default=20, min=4, max=64,
+    #        update=update_parallax_samples)
+
+    #parallax_num_of_binary_samples = IntProperty(default=5, min=4, max=64,
+    #        update=update_parallax_samples)
+
+    parallax_rim_hack = BoolProperty(default=False, update=update_parallax_rim_hack)
+
+    parallax_rim_hack_hardness = FloatProperty(default=1.0, min=1.0, max=100.0, update=update_parallax_rim_hack)
+
     displacement_ref_plane = FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
             update=update_displacement_ref_plane)
 
@@ -2010,6 +2042,12 @@ class YPaintMaterialProps(bpy.types.PropertyGroup):
 class YPaintTimer(bpy.types.PropertyGroup):
     time = StringProperty(default='')
 
+class YPaintMeshProps(bpy.types.PropertyGroup):
+    parallax_scale_min = FloatProperty(default=0.0)
+    parallax_scale_span = FloatProperty(default=1.0)
+    parallax_curvature_min = FloatProperty(default=0.0)
+    parallax_curvature_span = FloatProperty(default=1.0)
+
 @persistent
 def ypaint_hacks_and_scene_updates(scene):
     # Get active yp node
@@ -2060,11 +2098,13 @@ def register():
     bpy.utils.register_class(YPaint)
     bpy.utils.register_class(YPaintMaterialProps)
     bpy.utils.register_class(YPaintTimer)
+    bpy.utils.register_class(YPaintMeshProps)
 
     # YPaint Props
     bpy.types.ShaderNodeTree.yp = PointerProperty(type=YPaint)
     bpy.types.Material.yp = PointerProperty(type=YPaintMaterialProps)
     bpy.types.WindowManager.yptimer = PointerProperty(type=YPaintTimer)
+    bpy.types.Mesh.yp = PointerProperty(type=YPaintMeshProps)
 
     # Handlers
     if hasattr(bpy.app.handlers, 'scene_update_pre'):
@@ -2088,6 +2128,7 @@ def unregister():
     bpy.utils.unregister_class(YPaint)
     bpy.utils.unregister_class(YPaintMaterialProps)
     bpy.utils.unregister_class(YPaintTimer)
+    bpy.utils.unregister_class(YPaintMeshProps)
 
     # Remove handlers
     if hasattr(bpy.app.handlers, 'scene_update_pre'):

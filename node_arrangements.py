@@ -961,6 +961,42 @@ def rearrange_layer_nodes(layer, tree=None):
 
     rearrange_layer_frame_nodes(layer, tree)
 
+def rearrange_relief_mapping_nodes(group_tree):
+    ch = get_displacement_channel(group_tree.yp)
+    if not ch: return
+
+    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if baked_parallax:
+        linear_loop = baked_parallax.node_tree.nodes.get('_linear_search')
+        if linear_loop:
+            tree = linear_loop.node_tree
+            
+            loc = Vector((0,0))
+            check_set_node_loc(tree, TREE_START, loc)
+
+            loc.x += 200
+
+            for i in range(ch.parallax_num_of_linear_samples):
+                if check_set_node_loc(tree, '_iterate_' + str(i), loc):
+                    loc.x += 200
+
+            check_set_node_loc(tree, TREE_END, loc)
+
+        binary_loop = baked_parallax.node_tree.nodes.get('_binary_search')
+        if binary_loop:
+            tree = binary_loop.node_tree
+            
+            loc = Vector((0,0))
+            check_set_node_loc(tree, TREE_START, loc)
+
+            loc.x += 200
+
+            for i in range(ch.parallax_num_of_binary_samples):
+                if check_set_node_loc(tree, '_iterate_' + str(i), loc):
+                    loc.x += 200
+
+            check_set_node_loc(tree, TREE_END, loc)
+
 def rearrange_parallax_nodes(group_tree):
     ch = get_displacement_channel(group_tree.yp)
     if not ch: return
@@ -970,8 +1006,6 @@ def rearrange_parallax_nodes(group_tree):
         loop = baked_parallax.node_tree.nodes.get('_parallax_loop')
         if loop:
             tree = loop.node_tree
-            #start = tree.nodes.get(TREE_START)
-            #end = tree.nodes.get(TREE_END)
             
             loc = Vector((0,0))
             check_set_node_loc(tree, TREE_START, loc)

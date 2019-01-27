@@ -131,6 +131,7 @@ if "bpy" in locals():
     import imp
     imp.reload(image_ops)
     imp.reload(common)
+    imp.reload(mesh_ops)
     imp.reload(lib)
     imp.reload(ui)
     imp.reload(subtree)
@@ -149,7 +150,7 @@ if "bpy" in locals():
     imp.reload(Root)
     #print("Reloaded multifiles")
 else:
-    from . import image_ops, common, lib, ui, subtree, node_arrangements, node_connections, preferences
+    from . import image_ops, common, mesh_ops, lib, ui, subtree, node_arrangements, node_connections, preferences
     from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Bake, Root
     #print("Imported multifiles")
 
@@ -160,6 +161,7 @@ def register():
     # Register classes
     #bpy.utils.register_module(__name__)
     image_ops.register()
+    mesh_ops.register()
     preferences.register()
     lib.register()
     ui.register()
@@ -180,6 +182,7 @@ def unregister():
     # Remove classes
     #bpy.utils.unregister_module(__name__)
     image_ops.unregister()
+    mesh_ops.unregister()
     preferences.unregister()
     lib.unregister()
     ui.unregister()
