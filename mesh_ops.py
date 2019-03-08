@@ -884,8 +884,8 @@ class YDebugMesh(bpy.types.Operator):
 
         #return {'FINISHED'}
 
-        obj.data.yp.parallax_scale_min = scale_min
-        obj.data.yp.parallax_scale_span = scale_span
+        #obj.data.yp.parallax_scale_min = scale_min
+        #obj.data.yp.parallax_scale_span = scale_span
 
         # Revert original polygon smooth
         for i, f in enumerate(obj.data.polygons):
@@ -901,8 +901,8 @@ class YDebugMesh(bpy.types.Operator):
         
         curvature_min, curvature_span, curvatures = get_curvatures(obj.data, uv_islands, vcons)
 
-        obj.data.yp.parallax_curvature_min = curvature_min
-        obj.data.yp.parallax_curvature_span = curvature_span
+        #obj.data.yp.parallax_curvature_min = curvature_min
+        #obj.data.yp.parallax_curvature_span = curvature_span
 
         #debug_tbn(obj, uv_islands)
 

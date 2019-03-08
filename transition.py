@@ -230,6 +230,9 @@ def remove_transition_ramp_nodes(tree, ch):
 
 def check_transition_bump_nodes(layer, tree, ch, ch_index):
 
+    yp = layer.id_data.yp
+    root_ch = yp.channels[ch_index]
+
     if ch.enable_transition_bump and ch.enable:
         set_transition_bump_nodes(layer, tree, ch, ch_index)
     else: remove_transition_bump_nodes(layer, tree, ch, ch_index)
@@ -245,6 +248,7 @@ def check_transition_bump_nodes(layer, tree, ch, ch_index):
 
     # Trigger normal channel update
     #ch.normal_map_type = ch.normal_map_type
+    update_disp_scale_node(tree, root_ch, ch)
     
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer) #, mod_reconnect=True)
@@ -488,6 +492,7 @@ def update_transition_bump_distance(self, context):
     match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
     ch_index = int(match.group(2))
+    root_ch = yp.channels[ch_index]
     ch = self
     tree = get_tree(layer)
 
@@ -518,6 +523,17 @@ def update_transition_bump_distance(self, context):
         if ch.transition_bump_type == 'BUMP_MAP':
             tb_crease.inputs[1].default_value = ch.transition_bump_crease_factor * -ch.transition_bump_distance
         else: tb_crease.inputs[0].default_value = ch.transition_bump_crease_factor * -get_transition_fine_bump_distance(ch.transition_bump_distance)
+
+    disp_ch = get_displacement_channel(yp)
+    if disp_ch == root_ch:
+
+        max_height = get_displacement_max_height(root_ch)
+        root_ch.displacement_height_ratio = max_height
+
+        disp_scale = tree.nodes.get(self.disp_scale)
+        if disp_scale and 'Alpha Max Height' in disp_scale.inputs:
+            disp_scale.inputs['Alpha Max Height'].default_value = get_transition_disp_max_height(self)
+            disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(self)
 
 def update_transition_bump_chain(self, context):
     T = time.time()
@@ -844,6 +860,16 @@ def update_enable_transition_ramp(self, context):
         print('INFO: Transition ramp is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     else: print('INFO: Transition ramp is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
+#def check_transition_bump_displacement(yp, root_ch, ch):
+#
+#    disp_ch = get_displacement_channel(yp)
+#
+#    if disp_ch == root_ch:
+#        #max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
+#        #height_span = max_height * 2
+#        max_height = get_layer_channel_max_height(ch)
+#        delta = ch.transition_bump_distance - abs(ch.bump_distance)
+
 def update_enable_transition_bump(self, context):
     T = time.time()
 
@@ -852,10 +878,13 @@ def update_enable_transition_bump(self, context):
     match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
     ch_index = int(match.group(2))
+    root_ch = yp.channels[ch_index]
     ch = self
     tree = get_tree(layer)
 
     check_transition_bump_nodes(layer, tree, ch, ch_index)
+
+    #check_transition_bump_displacement(yp, root_ch, ch)
 
     if ch.enable_transition_bump:
         print('INFO: Transition bump is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')

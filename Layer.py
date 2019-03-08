@@ -34,13 +34,17 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
         root_ch = yp.channels[i]
 
         # Displacement blend node
-        if root_ch.type == 'NORMAL' and root_ch.enable_displacement:
-            disp_blend = tree.nodes.get(ch.disp_blend)
-            if not disp_blend:
-                disp_blend = new_node(tree, ch, 'disp_blend', 'ShaderNodeMixRGB', 'Displacement Blend')
-                disp_blend.blend_type = ch.normal_blend
-        else:
-            remove_node(tree, ch, 'disp_blend')
+        #if root_ch.type == 'NORMAL' and root_ch.enable_displacement:
+        #    disp_blend = tree.nodes.get(ch.disp_blend)
+        #    if not disp_blend:
+        #        disp_blend = new_node(tree, ch, 'disp_blend', 'ShaderNodeMixRGB', 'Displacement Blend')
+
+        #    #if ch.normal_blend == 'MIX':
+        #    #    disp_blend.blend_type = 'MIX'
+        #    #elif ch.normal_blend == 'OVERLAY':
+        #    #    disp_blend.blend_type = 'ADD'
+        #else:
+        #    remove_node(tree, ch, 'disp_blend')
 
         if ch.enable_transition_ramp:
             transition.check_transition_ramp_nodes(tree, layer, ch)
@@ -402,7 +406,7 @@ def update_channel_idx_new_layer(self, context):
                 else: self.rgb_to_intensity_color = (1,1,1)
 
 def get_fine_bump_distance(layer, distance):
-    scale = 100
+    scale = 200
     #if layer.type == 'IMAGE':
     #    source = get_layer_source(layer)
     #    image = source.image
@@ -2066,6 +2070,75 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
                     return_status = True, hard_replace=True)
 
+        disp_ch = get_displacement_channel(yp)
+
+        #if not root_ch.enable_displacement:
+        #    remove_node(tree, ch, 'disp_blend')
+
+        if root_ch == disp_ch:
+            #ch_index = get_channel_index(root_ch)
+
+            disp_blend = tree.nodes.get(ch.disp_blend)
+            disp_scale = tree.nodes.get(ch.disp_scale)
+
+            max_height = get_displacement_max_height(root_ch)
+            root_ch.displacement_height_ratio = max_height
+
+            # Displacement blend node
+            if not disp_blend:
+                disp_blend = new_node(tree, ch, 'disp_blend', 'ShaderNodeMixRGB', 'Displacement Blend')
+
+            #if ch.normal_blend == 'MIX':
+            #    #disp_blend.blend_type = 'MIX'
+            #    disp_blend, need_reconnect = replace_new_node(tree, ch, 'disp_blend', 
+            #            'ShaderNodeGroup', 'Displacement Blend', lib.DISP_MIX, 
+            #            return_status = True, hard_replace=True)
+            #elif ch.normal_blend == 'OVERLAY':
+            #    #disp_blend.blend_type = 'ADD'
+            #    disp_blend, need_reconnect = replace_new_node(tree, ch, 'disp_blend', 
+            #            'ShaderNodeGroup', 'Displacement Blend', lib.DISP_OVERLAY, 
+            #            return_status = True, hard_replace=True)
+
+            if ch.normal_blend == 'MIX':
+                disp_blend.blend_type = 'MIX'
+            elif ch.normal_blend == 'OVERLAY':
+                disp_blend.blend_type = 'ADD'
+
+            #if max_height > 0.0:
+            #for l in yp.layers:
+                #ttree = get_tree(l)
+                #print(l.name)
+                #c = l.channels[ch_index]
+            #disp_blend = tree.nodes.get(ch.disp_blend)
+            #if disp_blend:
+            #    disp_blend.inputs['Scale'].default_value = ch.bump_distance #/ max_height
+
+            #if not disp_scale:
+            #    disp_scale = new_node(tree, ch, 'disp_scale', 'ShaderNodeGroup', 'Displacement Scale')
+            #    disp_scale.node_tree = get_node_tree_lib(lib.DISP_SCALE)
+
+            #if ch.enable_transition_bump:
+            #    disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
+            #            'ShaderNodeGroup', 'Displacement Scale', lib.DISP_SCALE_TRANS_BUMP, 
+            #            return_status = True, hard_replace=True)
+
+            #    delta = ch.transition_bump_distance - abs(ch.bump_distance)
+            #    disp_scale.inputs['Delta'].default_value = delta
+            #    disp_scale.inputs['RGB Max Height'].default_value = ch.bump_distance
+            #    disp_scale.inputs['Alpha Max Height'].default_value = ch.transition_bump_distance
+
+            #else:
+            #    disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
+            #            'ShaderNodeGroup', 'Displacement Scale', lib.DISP_SCALE, 
+            #            return_status = True, hard_replace=True)
+
+            #    disp_scale.inputs['Scale'].default_value = ch.bump_distance #/ max_height
+            update_disp_scale_node(tree, root_ch, ch)
+
+        else:
+            remove_node(tree, ch, 'disp_blend')
+            remove_node(tree, ch, 'disp_scale')
+
     elif root_ch.type == 'VALUE':
 
         if has_parent and blend_type == 'MIX':
@@ -2146,9 +2219,11 @@ def update_bump_base_value(self, context):
     update_bump_base_value_(tree, self)
 
 def update_bump_distance(self, context):
-    yp = self.id_data.yp
+    group_tree = self.id_data
+    yp = group_tree.yp
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[int(m.group(2))]
     tree = get_tree(layer)
 
     normal = tree.nodes.get(self.normal)
@@ -2159,6 +2234,26 @@ def update_bump_distance(self, context):
 
         elif self.normal_map_type == 'FINE_BUMP_MAP':
             normal.inputs[0].default_value = get_fine_bump_distance(layer, self.bump_distance)
+
+    disp_ch = get_displacement_channel(yp)
+    if disp_ch == root_ch:
+
+        max_height = get_displacement_max_height(root_ch)
+        root_ch.displacement_height_ratio = max_height
+
+        #disp_blend = tree.nodes.get(self.disp_blend)
+        #if disp_blend:
+        #    disp_blend.inputs['Scale'].default_value = self.bump_distance
+        disp_scale = tree.nodes.get(self.disp_scale)
+        if disp_scale:
+            if self.enable_transition_bump:
+                disp_scale.inputs['RGB Max Height'].default_value = self.bump_distance
+                disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(self)
+            else: disp_scale.inputs['Scale'].default_value = self.bump_distance
+
+        #end_linear = group_tree.nodes.get(root_ch.end_linear)
+        #if end_linear:
+        #    pass
 
 def set_layer_channel_linear_node(tree, layer, root_ch, ch):
 
@@ -2467,11 +2562,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
     normal_flip = StringProperty(default='')
     
     # Displacement blend
+    disp_scale = StringProperty(default='')
     disp_blend = StringProperty(default='')
 
     bump_distance = FloatProperty(
-            name='Bump Distance', 
-            description= 'Distance of bump', 
+            name='Bump Height Range', 
+            description= 'Bump height range.\n(White equals this value, black equals negative of this value)', 
             default=0.05, min=-1.0, max=1.0, precision=3, # step=1,
             update=update_bump_distance)
 
@@ -2480,6 +2576,11 @@ class YLayerChannel(bpy.types.PropertyGroup):
             description= 'Value of empty area for bump map', 
             default=0.5, min=0.0, max=1.0,
             update=update_bump_base_value)
+
+    enable_displacement = BoolProperty(
+            name = 'Enable Displacement',
+            description = 'Enable displacement for this channel',
+            default = True)
 
     # For some occasion, modifiers are stored in a tree
     mod_group = StringProperty(default='')
@@ -2519,8 +2620,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update=transition.update_transition_bump_value)
 
     transition_bump_distance = FloatProperty(
-            name='Transition Bump Distance', 
-            description= 'Distance of mask bump', 
+            #name='Transition Bump Distance', 
+            #description= 'Distance of mask bump', 
+            name='Transition Bump Height Range', 
+            description= 'Transition bump height range.\n(White equals this value, black equals negative of this value)', 
             default=0.05, min=0.0, max=1.0, precision=3, # step=1,
             update=transition.update_transition_bump_distance)
 
@@ -2694,6 +2797,7 @@ class YLayer(bpy.types.PropertyGroup):
     channels = CollectionProperty(type=YLayerChannel)
 
     group_node = StringProperty(default='')
+    depth_group_node = StringProperty(default='')
 
     type = EnumProperty(
             name = 'Layer Type',

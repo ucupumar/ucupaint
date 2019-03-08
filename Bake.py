@@ -38,7 +38,7 @@ def remember_before_bake(self, context):
     # Remember ypui
     #self.ori_disable_temp_uv = ypui.disable_auto_temp_uv_update
 
-def prepare_bake_settings(self, context):
+def prepare_bake_settings(self, context, yp):
     scene = self.scene
     obj = self.obj
     uv_layers = self.uv_layers
@@ -512,7 +512,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Prepare bake settings
         remember_before_bake(self, context)
-        prepare_bake_settings(self, context)
+        prepare_bake_settings(self, context, yp)
 
         # Create bake nodes
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -699,7 +699,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
 
         # Prepare bake settings
         remember_before_bake(self, context)
-        prepare_bake_settings(self, context)
+        prepare_bake_settings(self, context, yp)
 
         for layer in yp.layers:
             #print(layer.name)
@@ -810,7 +810,7 @@ class YTransferLayerUV(bpy.types.Operator):
 
         # Prepare bake settings
         remember_before_bake(self, context)
-        prepare_bake_settings(self, context)
+        prepare_bake_settings(self, context, yp)
 
         # Transfer UV
         transfer_uv(self.obj, mat, self.entity, self.uv_map)
@@ -991,7 +991,7 @@ class YBakeChannels(bpy.types.Operator):
             yp.use_baked = False
 
         # Prepare bake settings
-        prepare_bake_settings(self, context)
+        prepare_bake_settings(self, context, yp)
 
         # Create nodes
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -1284,7 +1284,10 @@ class YBakeChannels(bpy.types.Operator):
                 baked_parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION)
                 duplicate_lib_node_tree(baked_parallax)
 
-            set_parallax_node(yp, baked_parallax, disp_img)
+                depth_source = baked_parallax.node_tree.nodes.get('_depth_source')
+                depth_source.name += '_Copy'
+
+            set_baked_parallax_node(yp, baked_parallax, disp_img)
 
         # Set uv map
         #baked_uv.uv_map = self.uv_map

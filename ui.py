@@ -547,7 +547,15 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 brow.label(text='', icon='INFO')
                 brow.label(text='Displacement:')
                 brow.prop(channel, 'enable_displacement', text='')
+
                 if channel.enable_displacement:
+
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='INFO')
+                    brow.label(text='Parallax:')
+                    brow.prop(channel, 'parallax_num_of_layers', text='')
+                    brow.prop(channel, 'enable_parallax', text='')
+
                     brow = bcol.row(align=True)
                     brow.label(text='', icon='INFO')
                     brow.label(text='Height Ratio:')
@@ -555,13 +563,13 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
 
                     brow = bcol.row(align=True)
                     brow.label(text='', icon='INFO')
-                    brow.label(text='Number of Layers:')
-                    brow.prop(channel, 'displacement_num_of_layers', text='')
-
-                    brow = bcol.row(align=True)
-                    brow.label(text='', icon='INFO')
-                    brow.label(text='Refrence Plane:')
+                    brow.label(text='Reference Plane:')
                     brow.prop(channel, 'displacement_ref_plane', text='')
+
+                    #brow = bcol.row(align=True)
+                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='Number of Samples:')
+                    #brow.prop(channel, 'parallax_num_of_layers', text='')
 
                     #brow = bcol.row(align=True)
                     #brow.label(text='', icon='INFO')
@@ -979,7 +987,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     crow.prop(ch, 'transition_bump_second_edge_value', text='')
 
                     crow = cccol.row(align=True)
-                    crow.label(text='Distance:') #, icon='INFO')
+                    crow.label(text='Max Height:') #, icon='INFO')
                     crow.prop(ch, 'transition_bump_distance', text='')
 
                     crow = cccol.row(align=True)
@@ -1041,10 +1049,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 #bbox.active = not is_valid_to_remove_bump_nodes(layer, ch)
                 cccol = bbox.column(align=True)
 
+                brow = cccol.row(align=True)
+                brow.label(text='Displacement:') #, icon='INFO')
+                brow.prop(ch, 'enable_displacement', text='')
+
                 if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
 
                     brow = cccol.row(align=True)
-                    brow.label(text='Distance:') #, icon='INFO')
+                    brow.label(text='Max Height:') #, icon='INFO')
                     brow.prop(ch, 'bump_distance', text='')
 
                     #if not ch.enable_transition_bump:
@@ -1053,8 +1065,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     brow.label(text='Bump Base:') #, icon='INFO')
                     brow.prop(ch, 'bump_base_value', text='')
 
+                    #if any(layer.masks):
                     brow = cccol.row(align=True)
-                    brow.active = not ch.enable_transition_bump
+                    brow.active = not ch.enable_transition_bump and any(layer.masks)
                     brow.label(text='Affected Masks:') #, icon='INFO')
                     brow.prop(ch, 'transition_bump_chain', text='')
 
@@ -1532,13 +1545,13 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
         return
 
     # Check duplicated layers (indicated by more than one users)
-    if len(yp.layers) > 0 and get_tree(yp.layers[-1]).users > 1:
-        row = box.row(align=True)
-        row.alert = True
-        row.operator("node.y_fix_duplicated_layers", icon='ERROR')
-        row.alert = False
-        box.prop(ypui, 'make_image_single_user')
-        return
+    #if len(yp.layers) > 0 and get_tree(yp.layers[-1]).users > 1:
+    #    row = box.row(align=True)
+    #    row.alert = True
+    #    row.operator("node.y_fix_duplicated_layers", icon='ERROR')
+    #    row.alert = False
+    #    box.prop(ypui, 'make_image_single_user')
+    #    return
 
     # Check source for missing data
     missing_data = False

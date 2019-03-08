@@ -29,8 +29,14 @@ BAKED_PARALLAX = 'Baked Parallax'
 TEXCOORD = 'Texture Coordinate'
 GEOMETRY = 'Geometry'
 
+PARALLAX = 'Parallax'
+
 MOD_TREE_START = '__mod_start'
 MOD_TREE_END = '__mod_end'
+
+START_UV = ' Start UV'
+DELTA_UV = ' Delta UV'
+CURRENT_UV = ' Current UV'
 
 blend_type_items = (("MIX", "Mix", ""),
 	             ("ADD", "Add", ""),
@@ -56,7 +62,8 @@ neighbor_directions = ['n', 's', 'e', 'w']
 normal_blend_items = (
         ('MIX', 'Mix', ''),
         #('VECTOR_MIX', 'Vector Mix', ''),
-        ('OVERLAY', 'Overlay', '')
+        ('OVERLAY', 'Overlay', ''),
+        ('COMPARE', 'Compare Height', '')
         )
 
 layer_type_items = (
@@ -1684,7 +1691,24 @@ def get_displacement_channel(yp):
 
     return None
 
-def create_delete_iterate_nodes(tree, iter_tree, num_of_iteration):
+#def get_parallax_uv(yp, disp_ch=None):
+#    if not disp_ch:
+#        disp_ch = get_displacement_channel(yp)
+#
+#    if not disp_ch:
+#        return None
+#
+#    if yp.baked_uv_name != '':
+#        uv = yp.uvs.get(yp.baked_uv_name)
+#    elif len(yp.uvs) > 0:
+#        uv = yp.uvs[0]
+#    else: uv = None
+#
+#    return uv
+
+def create_delete_iterate_nodes(tree, num_of_iteration):
+    iter_tree = tree.nodes.get('_iterate_0').node_tree
+
     counter = 0
     while True:
         it = tree.nodes.get('_iterate_' + str(counter))
@@ -1726,28 +1750,20 @@ def set_relief_mapping_nodes(yp, node, img=None):
         depth_from_tex.image = img
 
     linear_loop = tree.nodes.get('_linear_search')
-    loop_tree = linear_loop.node_tree
-    iter_tree = loop_tree.nodes.get('_iterate_0').node_tree
-
-    create_delete_iterate_nodes(loop_tree, iter_tree, ch.parallax_num_of_linear_samples)
+    create_delete_iterate_nodes(linear_loop.node_tree, ch.parallax_num_of_linear_samples)
 
     binary_loop = tree.nodes.get('_binary_search')
-    loop_tree = binary_loop.node_tree
-    iter_tree = loop_tree.nodes.get('_iterate_0').node_tree
+    create_delete_iterate_nodes(binary_loop.node_tree, ch.parallax_num_of_binary_samples)
 
-    create_delete_iterate_nodes(loop_tree, iter_tree, ch.parallax_num_of_binary_samples)
-
-def set_parallax_node(yp, node, img=None):
+def set_baked_parallax_node(yp, node, img=None):
     ch = get_displacement_channel(yp)
 
     # Set node parameters
-    node.inputs[0].default_value = ch.displacement_height_ratio
-    node.inputs[1].default_value = ch.displacement_ref_plane
+    node.inputs['layer_depth'].default_value = 1.0 / ch.parallax_num_of_layers
+    node.inputs['depth_scale'].default_value = ch.displacement_height_ratio
+    node.inputs['ref_plane'].default_value = ch.displacement_ref_plane
 
     tree = node.node_tree
-
-    num_layers = tree.nodes.get('_num_layers')
-    num_layers.outputs[0].default_value = float(ch.displacement_num_of_layers)
 
     if img:
         depth_source = tree.nodes.get('_depth_source')
@@ -1755,10 +1771,7 @@ def set_parallax_node(yp, node, img=None):
         depth_from_tex.image = img
 
     parallax_loop = tree.nodes.get('_parallax_loop')
-    loop_tree = parallax_loop.node_tree
-    iter_tree = loop_tree.nodes.get('_iterate_0').node_tree
-
-    create_delete_iterate_nodes(loop_tree, iter_tree, ch.displacement_num_of_layers)
+    create_delete_iterate_nodes(loop_tree, ch.parallax_num_of_layers)
 
     #counter = 0
     #while True:
@@ -1767,15 +1780,15 @@ def set_parallax_node(yp, node, img=None):
     #    it_found = False
     #    if it: it_found = True
 
-    #    if not it and counter < ch.displacement_num_of_layers:
+    #    if not it and counter < ch.parallax_num_of_layers:
     #        it = loop_tree.nodes.new('ShaderNodeGroup')
     #        it.name = '_iterate_' + str(counter)
     #        it.node_tree = iter_tree
 
-    #    if it and counter >= ch.displacement_num_of_layers:
+    #    if it and counter >= ch.parallax_num_of_layers:
     #        loop_tree.nodes.remove(it)
 
-    #    if not it_found and counter >= ch.displacement_num_of_layers:
+    #    if not it_found and counter >= ch.parallax_num_of_layers:
     #        break
 
     #    counter += 1
@@ -1786,6 +1799,63 @@ def set_parallax_node(yp, node, img=None):
     #        counter += 1
 
     #if counter != 
+
+def get_channel_index(root_ch):
+    yp = root_ch.id_data.yp
+
+    for i, c in enumerate(yp.channels):
+        if c == root_ch:
+            return i
+
+def get_layer_channel_max_height(ch):
+
+    if ch.enable_transition_bump:
+        if not ch.transition_bump_flip:
+            max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
+        else: 
+            #max_height = ch.transition_bump_distance + max(ch.bump_distance, 0.0)
+            max_height = ch.transition_bump_distance + abs(ch.bump_distance)*2
+
+    else: max_height = abs(ch.bump_distance)
+
+    return max_height
+
+def get_transition_disp_delta(ch):
+    if not ch.transition_bump_flip:
+        delta = ch.transition_bump_distance - abs(ch.bump_distance)
+    else: 
+        #delta = -ch.transition_bump_distance - ch.bump_distance
+        delta = -ch.transition_bump_distance - abs(ch.bump_distance)
+
+    return delta
+
+def get_transition_disp_max_height(ch):
+    return ch.transition_bump_distance if not ch.transition_bump_flip else -ch.transition_bump_distance
+
+def get_displacement_max_height(root_ch):
+    yp = root_ch.id_data.yp
+    ch_index = get_channel_index(root_ch)
+
+    max_height = 0.0
+    for l in yp.layers:
+        c = l.channels[ch_index]
+        ch_max_height = get_layer_channel_max_height(c)
+        if (l.enable and c.enable and c.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} 
+                and c.normal_blend == 'MIX' and max_height < ch_max_height
+                ):
+            max_height = ch_max_height
+
+    for l in yp.layers:
+        c = l.channels[ch_index]
+        ch_max_height = get_layer_channel_max_height(c)
+        if (l.enable and c.enable and c.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} 
+                and c.normal_blend == 'OVERLAY'
+                ):
+            max_height += ch_max_height
+
+    #root_ch.displacement_height_ratio = max_height
+
+    return max_height
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

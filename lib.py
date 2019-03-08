@@ -56,6 +56,15 @@ GET_BITANGENT ='~yPL Get Bitangent'
 TEMP_BITANGENT = '~yPL Temp Bitangent'
 
 PARALLAX_OCCLUSION = '~yPL Parallax Occlusion Mapping'
+PARALLAX_OCCLUSION_PREP = '~yPL Parallax Occlusion Mapping Preparation'
+PARALLAX_OCCLUSION_PROC = '~yPL Parallax Occlusion Mapping Process'
+
+DISP_SCALE = '~yPL Displacement Scale'
+DISP_SCALE_TRANS_BUMP = '~yPL Displacement Scale Transition Bump'
+#DISP_MIX = '~yPL Displacement Mix'
+#DISP_OVERLAY = '~yPL Displacement Overlay'
+
+DISP_PACK = '~yPL Displacement Pack'
 
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'

@@ -565,6 +565,167 @@ def create_uv_nodes(yp, uv_name):
 
     set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
+def check_parallax_process_outputs(yp, parallax):
+
+    tree = yp.id_data
+
+    for uv in yp.uvs:
+        
+        outp = parallax.node_tree.outputs.get(uv.name)
+        if not outp:
+            outp = parallax.node_tree.outputs.new('NodeSocketVector', uv.name)
+
+def check_parallax_mix(tree, uv):
+
+    parallax_mix = tree.nodes.get(uv.parallax_mix)
+
+    if not parallax_mix:
+        parallax_mix = new_node(tree, uv, 'parallax_mix', 'ShaderNodeMixRGB', uv.name + ' Final Mix')
+
+def check_start_delta_uv_inputs(tree, uv_name):
+
+    start_uv_name = uv_name + START_UV
+    delta_uv_name = uv_name + DELTA_UV
+
+    start = tree.inputs.get(start_uv_name)
+    if not start:
+        tree.inputs.new('NodeSocketVector', start_uv_name)
+
+    delta = tree.inputs.get(delta_uv_name)
+    if not delta:
+        tree.inputs.new('NodeSocketVector', delta_uv_name)
+
+def check_current_uv_outputs(tree, uv_name):
+    current_uv_name = uv_name + CURRENT_UV
+
+    current = tree.outputs.get(current_uv_name)
+    if not current:
+        tree.outputs.new('NodeSocketVector', current_uv_name)
+
+def check_current_uv_inputs(tree, uv_name):
+    current_uv_name = uv_name + CURRENT_UV
+
+    current = tree.inputs.get(current_uv_name)
+    if not current:
+        tree.inputs.new('NodeSocketVector', current_uv_name)
+
+def check_iterate_current_uv_mix(tree, uv):
+
+    current_uv_mix = check_new_node(tree, uv, 'parallax_current_uv_mix', 'ShaderNodeMixRGB', 
+                    uv.name + CURRENT_UV)
+
+def check_depth_source_calculation(tree, uv):
+
+    delta_uv = tree.nodes.get(uv.parallax_delta_uv)
+
+    if not delta_uv:
+        delta_uv = new_node(tree, uv, 'parallax_delta_uv', 'ShaderNodeMixRGB', uv.name + DELTA_UV)
+        delta_uv.inputs[0].default_value = 1.0
+        delta_uv.blend_type = 'MULTIPLY'
+
+    current_uv = tree.nodes.get(uv.parallax_current_uv)
+
+    if not current_uv:
+        current_uv = new_node(tree, uv, 'parallax_current_uv', 'ShaderNodeVectorMath', uv.name + CURRENT_UV)
+        current_uv.operation = 'SUBTRACT'
+
+def refresh_parallax_depth_source_layers(yp): #, disp_ch):
+
+    parallax = yp.id_data.nodes.get(PARALLAX)
+    if not parallax: return
+
+    depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+    tree = depth_source_0.node_tree
+
+    for layer in yp.layers:
+        node = tree.nodes.get(layer.depth_group_node)
+        if not node:
+            n = yp.id_data.nodes.get(layer.group_node)
+            node = new_node(tree, layer, 'depth_group_node', 'ShaderNodeGroup', layer.name)
+            node.node_tree = n.node_tree
+
+def check_parallax_node(yp, disp_ch): #, uv):
+
+    tree = yp.id_data
+
+    parallax = tree.nodes.get(PARALLAX)
+
+    if not parallax:
+        parallax = tree.nodes.new('ShaderNodeGroup')
+        parallax.name = PARALLAX
+        parallax.label = 'Parallax Occlusion Mapping'
+        parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PROC)
+
+        depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+        depth_source_0.node_tree.name += '_Copy'
+        
+        parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
+        duplicate_lib_node_tree(parallax_loop)
+
+        iterate_0 = parallax_loop.node_tree.nodes.get('_iterate_0')
+        duplicate_lib_node_tree(iterate_0)
+
+    parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
+
+    create_delete_iterate_nodes(parallax_loop.node_tree, disp_ch.parallax_num_of_layers)
+
+    parallax.inputs['layer_depth'].default_value = 1.0 / disp_ch.parallax_num_of_layers
+
+    check_parallax_process_outputs(yp, parallax)
+    refresh_parallax_depth_source_layers(yp)
+
+    for uv in yp.uvs:
+
+        parallax_prep = tree.nodes.get(uv.parallax_prep)
+
+        if not parallax_prep:
+            parallax_prep = new_node(tree, uv, 'parallax_prep', 'ShaderNodeGroup', 
+                    uv.name + ' Parallax Preparation')
+            parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
+
+        parallax_prep.inputs['depth_scale'].default_value = disp_ch.displacement_height_ratio
+        parallax_prep.inputs['ref_plane'].default_value = disp_ch.displacement_ref_plane
+        parallax_prep.inputs['Rim Hack'].default_value = 1.0 if disp_ch.parallax_rim_hack else 0.0
+        parallax_prep.inputs['Rim Hack Hardness'].default_value = disp_ch.parallax_rim_hack_hardness
+        parallax_prep.inputs['layer_depth'].default_value = 1.0 / disp_ch.parallax_num_of_layers
+
+        check_start_delta_uv_inputs(parallax.node_tree, uv.name)
+        check_parallax_mix(parallax.node_tree, uv)
+
+        depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+        check_start_delta_uv_inputs(depth_source_0.node_tree, uv.name)
+        check_current_uv_outputs(depth_source_0.node_tree, uv.name)
+        check_depth_source_calculation(depth_source_0.node_tree, uv)
+
+        parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
+        check_start_delta_uv_inputs(parallax_loop.node_tree, uv.name)
+        check_current_uv_outputs(parallax_loop.node_tree, uv.name)
+        check_current_uv_inputs(parallax_loop.node_tree, uv.name)
+
+        iterate_0 = parallax_loop.node_tree.nodes.get('_iterate_0')
+        check_start_delta_uv_inputs(iterate_0.node_tree, uv.name)
+        check_current_uv_outputs(iterate_0.node_tree, uv.name)
+        check_current_uv_inputs(iterate_0.node_tree, uv.name)
+        check_iterate_current_uv_mix(iterate_0.node_tree, uv)
+
+    #parallax = tree.nodes.get(uv.parallax)
+
+    #if not parallax:
+    #    parallax = new_node(tree, uv, 'parallax', 'ShaderNodeGroup', 
+    #            uv.name + ' Parallax')
+    #    parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION)
+    #    duplicate_lib_node_tree(parallax)
+
+    #parallax.inputs['depth_scale'].default_value = disp_ch.displacement_height_ratio
+    #parallax.inputs['ref_plane'].default_value = disp_ch.displacement_ref_plane
+    #parallax.inputs['Rim Hack'].default_value = 1.0 if disp_ch.parallax_rim_hack else 0.0
+    #parallax.inputs['Rim Hack Hardness'].default_value = disp_ch.parallax_rim_hack_hardness
+
+    ## Search for displacement image
+    #baked_disp = tree.nodes.get(disp_ch.baked_disp)
+    #if baked_disp and baked_disp.image:
+    #    set_parallax_node(yp, parallax, baked_disp.image)
+
 def remove_uv_nodes(uv):
     tree = uv.id_data
     yp = tree.yp
@@ -608,6 +769,27 @@ def check_uv_nodes(yp):
                     dirty = True
                     create_uv_nodes(yp, mask.uv_name)
                 if mask.uv_name not in uv_names: uv_names.append(mask.uv_name)
+
+    # Check for displacement channel
+    #if uv_names:
+    #disp_ch = None
+    #for ch in yp.channels:
+    #    if ch.type == 'NORMAL' and ch.enable_displacement:
+    #        disp_ch = ch
+    #        break
+
+    disp_ch = get_displacement_channel(yp)
+
+    if disp_ch:
+        #if yp.baked_uv_name != '':
+        #    uv = yp.uvs.get(yp.baked_uv_name)
+        #elif uv_names:
+        #    uv = yp.uvs.get(uv_names[0])
+        #else: uv = None
+        #uv = get_parallax_uv(yp, disp_ch)
+
+        #if uv:
+        check_parallax_node(yp, disp_ch)
 
     # Remove unused uv objects
     for i, uv in reversed(list(enumerate(yp.uvs))):
@@ -770,4 +952,26 @@ def check_layer_tree_ios(layer, tree=None):
             tree.outputs.remove(outp)
 
     return dirty
+
+def update_disp_scale_node(tree, root_ch, ch):
+
+    if ch.enable_transition_bump:
+        disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
+                'ShaderNodeGroup', 'Displacement Scale', lib.DISP_SCALE_TRANS_BUMP, 
+                return_status = True, hard_replace=True)
+
+        disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+        disp_scale.inputs['RGB Max Height'].default_value = ch.bump_distance
+        disp_scale.inputs['Alpha Max Height'].default_value = get_transition_disp_max_height(ch)
+        disp_scale.inputs['Total Max Height'].default_value = get_layer_channel_max_height(ch)
+
+    else:
+        disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
+                'ShaderNodeGroup', 'Displacement Scale', lib.DISP_SCALE, 
+                return_status = True, hard_replace=True)
+
+        disp_scale.inputs['Scale'].default_value = ch.bump_distance #/ max_height
+
+    max_height = get_displacement_max_height(root_ch)
+    root_ch.displacement_height_ratio = max_height
 

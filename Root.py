@@ -81,10 +81,16 @@ def check_all_channel_ios(yp):
             # Add end linear for converting displacement map to grayscale
             end_linear = group_tree.nodes.get(ch.end_linear)
             if not end_linear:
-                end_linear = new_node(group_tree, ch, 'end_linear', 'ShaderNodeMath', 'Displacement Grayscale')
-                end_linear.operation = 'ADD'
-                end_linear.inputs[1].default_value = 0.0
+                #end_linear = new_node(group_tree, ch, 'end_linear', 'ShaderNodeMath', 'Displacement Grayscale')
+                #end_linear.operation = 'ADD'
+                #end_linear.inputs[1].default_value = 0.0
+                end_linear = new_node(group_tree, ch, 'end_linear', 'ShaderNodeGroup', 'Displacement Pack')
+                end_linear.node_tree = get_node_tree_lib(lib.DISP_PACK)
 
+                max_height = get_displacement_max_height(ch)
+                if max_height != 0.0:
+                    end_linear.inputs['Normalized Scale'].default_value = 1.0/max_height
+                else: end_linear.inputs['Normalized Scale'].default_value = 0.0
         else:
 
             if ch.type == 'NORMAL':
@@ -1618,6 +1624,11 @@ def update_channel_colorspace(self, context):
                     color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
                 else: color_ramp_linear.inputs[1].default_value = 1.0
 
+def update_channel_parallax(self, context):
+
+    if not self.enable_displacement:
+        return
+
 def update_channel_displacement(self, context):
     yp = self.id_data.yp
 
@@ -1632,56 +1643,108 @@ def update_channel_displacement(self, context):
 
         # Set node default_value
         node = get_active_ypaint_node()
-        node.inputs[io_name].default_value = 0.5
+        #node.inputs[io_name].default_value = 0.5
+        node.inputs[io_name].default_value = 0.0
 
 def update_displacement_height_ratio(self, context):
 
     group_tree = self.id_data
+    yp = group_tree.yp
 
     baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
     if baked_parallax:
         baked_parallax.inputs['depth_scale'].default_value = self.displacement_height_ratio
 
-def update_parallax_samples(self, context):
-    group_tree = self.id_data
-    yp = group_tree.yp
+    parallax = group_tree.nodes.get(PARALLAX)
+    if parallax:
+        depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+        if depth_source_0:
+            pack = depth_source_0.node_tree.nodes.get('_pack')
+            if pack:
+                if self.displacement_height_ratio != 0.0:
+                    pack.inputs['Normalized Scale'].default_value = 1.0 / self.displacement_height_ratio
+                else: pack.inputs['Normalized Scale'].default_value = 0.0
 
-    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
-    if baked_parallax:
-        set_relief_mapping_nodes(yp, baked_parallax)
+            end_linear = group_tree.nodes.get(self.end_linear)
+            if end_linear:
+                if self.displacement_height_ratio != 0.0:
+                    end_linear.inputs['Normalized Scale'].default_value = 1.0 / self.displacement_height_ratio
+                else: end_linear.inputs['Normalized Scale'].default_value = 0.0
 
-        rearrange_relief_mapping_nodes(group_tree)
-        reconnect_relief_mapping_nodes(yp, baked_parallax)
+    for uv in yp.uvs:
+        parallax_prep = group_tree.nodes.get(uv.parallax_prep)
+        if parallax_prep:
+            parallax_prep.inputs['depth_scale'].default_value = self.displacement_height_ratio
+
+#def update_parallax_samples(self, context):
+#    group_tree = self.id_data
+#    yp = group_tree.yp
+#
+#    parallax = group_tree.nodes.get(BAKED_PARALLAX)
+#    if parallax:
+#        set_relief_mapping_nodes(yp, parallax)
+#
+#        rearrange_relief_mapping_nodes(group_tree)
+#        reconnect_relief_mapping_nodes(yp, parallax)
 
 def update_parallax_rim_hack(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
 
-    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
-    if baked_parallax:
+    parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if parallax:
         try:
-            baked_parallax.inputs['Rim Hack'].default_value = 1.0 if self.parallax_rim_hack else 0.0
-            baked_parallax.inputs['Rim Hack Hardness'].default_value = self.parallax_rim_hack_hardness
+            parallax.inputs['Rim Hack'].default_value = 1.0 if self.parallax_rim_hack else 0.0
+            parallax.inputs['Rim Hack Hardness'].default_value = self.parallax_rim_hack_hardness
         except: pass
 
-def update_displacement_num_of_layers(self, context):
+    for uv in yp.uvs:
+        parallax_prep = group_tree.nodes.get(uv.parallax_prep)
+        if parallax_prep:
+            parallax_prep.inputs['Rim Hack'].default_value = 1.0 if self.parallax_rim_hack else 0.0
+            parallax_prep.inputs['Rim Hack Hardness'].default_value = self.parallax_rim_hack_hardness
 
+def update_parallax_num_of_layers(self, context):
+
+    group_tree = self.id_data
+    yp = group_tree.yp
+
+    # Baked parallax
+    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if baked_parallax:
+        set_baked_parallax_node(yp, baked_parallax)
+
+        rearrange_parallax_layer_nodes(yp, baked_parallax)
+        reconnect_baked_parallax_layer_nodes(yp, baked_parallax)
+
+    # Parallax
+    parallax = group_tree.nodes.get(PARALLAX)
+    if parallax:
+        loop = parallax.node_tree.nodes.get('_parallax_loop')
+        create_delete_iterate_nodes(loop.node_tree, self.parallax_num_of_layers)
+
+        rearrange_parallax_layer_nodes(yp, parallax)
+        reconnect_parallax_layer_nodes(group_tree)
+
+    parallax.inputs['layer_depth'].default_value = 1.0 / self.parallax_num_of_layers
+
+    for uv in yp.uvs:
+        parallax_prep = group_tree.nodes.get(uv.parallax_prep)
+        if parallax_prep:
+            parallax_prep.inputs['layer_depth'].default_value = 1.0 / self.parallax_num_of_layers
+
+def update_displacement_ref_plane(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
 
     baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
     if baked_parallax:
-        set_parallax_node(yp, baked_parallax)
-
-        rearrange_parallax_nodes(group_tree)
-        reconnect_parallax_nodes(yp, baked_parallax)
-
-def update_displacement_ref_plane(self, context):
-    group_tree = self.id_data
-
-    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
-    if baked_parallax:
         baked_parallax.inputs['ref_plane'].default_value = self.displacement_ref_plane
+
+    for uv in yp.uvs:
+        parallax_prep = group_tree.nodes.get(uv.parallax_prep)
+        if parallax_prep:
+            parallax_prep.inputs['ref_plane'].default_value = self.displacement_ref_plane
 
 def update_channel_alpha(self, context):
     mat = get_active_material()
@@ -1914,11 +1977,14 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     # Displacement for normal channel
     enable_displacement = BoolProperty(default=False, update=update_channel_displacement)
+
+    enable_parallax = BoolProperty(default=False, update=update_channel_parallax)
+
     displacement_height_ratio = FloatProperty(default=0.02, min=-1.0, max=1.0,
             update=update_displacement_height_ratio)
 
-    displacement_num_of_layers = IntProperty(default=8, min=4, max=64,
-            update=update_displacement_num_of_layers)
+    parallax_num_of_layers = IntProperty(default=8, min=4, max=64,
+            update=update_parallax_num_of_layers)
 
     #parallax_num_of_linear_samples = IntProperty(default=20, min=4, max=64,
     #        update=update_parallax_samples)
@@ -1926,9 +1992,11 @@ class YPaintChannel(bpy.types.PropertyGroup):
     #parallax_num_of_binary_samples = IntProperty(default=5, min=4, max=64,
     #        update=update_parallax_samples)
 
-    parallax_rim_hack = BoolProperty(default=False, update=update_parallax_rim_hack)
+    parallax_rim_hack = BoolProperty(default=False, 
+            update=update_parallax_rim_hack)
 
-    parallax_rim_hack_hardness = FloatProperty(default=1.0, min=1.0, max=100.0, update=update_parallax_rim_hack)
+    parallax_rim_hack_hardness = FloatProperty(default=1.0, min=1.0, max=100.0, 
+            update=update_parallax_rim_hack)
 
     displacement_ref_plane = FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
             update=update_displacement_ref_plane)
@@ -1976,6 +2044,12 @@ class YPaintUV(bpy.types.PropertyGroup):
     tangent_flip = StringProperty(default='')
     bitangent = StringProperty(default='')
     bitangent_flip = StringProperty(default='')
+
+    parallax_prep = StringProperty(default='')
+    parallax_current_uv_mix = StringProperty(default='')
+    parallax_current_uv = StringProperty(default='')
+    parallax_delta_uv = StringProperty(default='')
+    parallax_mix = StringProperty(default='')
 
 class YPaint(bpy.types.PropertyGroup):
 
@@ -2042,11 +2116,11 @@ class YPaintMaterialProps(bpy.types.PropertyGroup):
 class YPaintTimer(bpy.types.PropertyGroup):
     time = StringProperty(default='')
 
-class YPaintMeshProps(bpy.types.PropertyGroup):
-    parallax_scale_min = FloatProperty(default=0.0)
-    parallax_scale_span = FloatProperty(default=1.0)
-    parallax_curvature_min = FloatProperty(default=0.0)
-    parallax_curvature_span = FloatProperty(default=1.0)
+#class YPaintMeshProps(bpy.types.PropertyGroup):
+#    parallax_scale_min = FloatProperty(default=0.0)
+#    parallax_scale_span = FloatProperty(default=1.0)
+#    parallax_curvature_min = FloatProperty(default=0.0)
+#    parallax_curvature_span = FloatProperty(default=1.0)
 
 @persistent
 def ypaint_hacks_and_scene_updates(scene):
@@ -2098,13 +2172,13 @@ def register():
     bpy.utils.register_class(YPaint)
     bpy.utils.register_class(YPaintMaterialProps)
     bpy.utils.register_class(YPaintTimer)
-    bpy.utils.register_class(YPaintMeshProps)
+    #bpy.utils.register_class(YPaintMeshProps)
 
     # YPaint Props
     bpy.types.ShaderNodeTree.yp = PointerProperty(type=YPaint)
     bpy.types.Material.yp = PointerProperty(type=YPaintMaterialProps)
     bpy.types.WindowManager.yptimer = PointerProperty(type=YPaintTimer)
-    bpy.types.Mesh.yp = PointerProperty(type=YPaintMeshProps)
+    #bpy.types.Mesh.yp = PointerProperty(type=YPaintMeshProps)
 
     # Handlers
     if hasattr(bpy.app.handlers, 'scene_update_pre'):
@@ -2128,7 +2202,7 @@ def unregister():
     bpy.utils.unregister_class(YPaint)
     bpy.utils.unregister_class(YPaintMaterialProps)
     bpy.utils.unregister_class(YPaintTimer)
-    bpy.utils.unregister_class(YPaintMeshProps)
+    #bpy.utils.unregister_class(YPaintMeshProps)
 
     # Remove handlers
     if hasattr(bpy.app.handlers, 'scene_update_pre'):
