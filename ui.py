@@ -1050,8 +1050,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 cccol = bbox.column(align=True)
 
                 brow = cccol.row(align=True)
-                brow.label(text='Displacement:') #, icon='INFO')
-                brow.prop(ch, 'enable_displacement', text='')
+                brow.label(text='Write Height:') #, icon='INFO')
+                brow.prop(ch, 'write_height', text='')
 
                 if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
 

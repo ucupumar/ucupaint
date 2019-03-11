@@ -63,7 +63,13 @@ normal_blend_items = (
         ('MIX', 'Mix', ''),
         #('VECTOR_MIX', 'Vector Mix', ''),
         ('OVERLAY', 'Overlay', ''),
-        ('COMPARE', 'Compare Height', '')
+        #('COMPARE', 'Compare Height', '')
+        )
+
+height_blend_items = (
+        ('REPLACE', 'Replace', ''),
+        ('COMPARE', 'Compare', ''),
+        ('ADD', 'Add', ''),
         )
 
 layer_type_items = (
@@ -1810,22 +1816,22 @@ def get_channel_index(root_ch):
 def get_layer_channel_max_height(ch):
 
     if ch.enable_transition_bump:
-        if not ch.transition_bump_flip:
-            max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
-        else: 
+        if ch.transition_bump_flip:
             #max_height = ch.transition_bump_distance + max(ch.bump_distance, 0.0)
             max_height = ch.transition_bump_distance + abs(ch.bump_distance)*2
+        else: 
+            max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
 
     else: max_height = abs(ch.bump_distance)
 
     return max_height
 
 def get_transition_disp_delta(ch):
-    if not ch.transition_bump_flip:
-        delta = ch.transition_bump_distance - abs(ch.bump_distance)
-    else: 
+    if ch.transition_bump_flip:
         #delta = -ch.transition_bump_distance - ch.bump_distance
         delta = -ch.transition_bump_distance - abs(ch.bump_distance)
+    else: 
+        delta = ch.transition_bump_distance - abs(ch.bump_distance)
 
     return delta
 

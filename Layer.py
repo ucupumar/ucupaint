@@ -2249,6 +2249,7 @@ def update_bump_distance(self, context):
             if self.enable_transition_bump:
                 disp_scale.inputs['RGB Max Height'].default_value = self.bump_distance
                 disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(self)
+                disp_scale.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
             else: disp_scale.inputs['Scale'].default_value = self.bump_distance
 
         #end_linear = group_tree.nodes.get(root_ch.end_linear)
@@ -2536,6 +2537,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default = 'MIX',
             update = update_blend_type)
 
+    height_blend = EnumProperty(
+            name = 'Height Blend Type',
+            items = normal_blend_items,
+            default = 'MIX',
+            update = update_blend_type)
+
     intensity_value = FloatProperty(
             name = 'Channel Intensity Factor', 
             description = 'Channel Intensity Factor',
@@ -2577,9 +2584,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=0.5, min=0.0, max=1.0,
             update=update_bump_base_value)
 
-    enable_displacement = BoolProperty(
-            name = 'Enable Displacement',
-            description = 'Enable displacement for this channel',
+    write_height = BoolProperty(
+            name = 'Write Height',
+            description = 'Write height for this layer channel',
             default = True)
 
     # For some occasion, modifiers are stored in a tree

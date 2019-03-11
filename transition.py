@@ -534,6 +534,7 @@ def update_transition_bump_distance(self, context):
         if disp_scale and 'Alpha Max Height' in disp_scale.inputs:
             disp_scale.inputs['Alpha Max Height'].default_value = get_transition_disp_max_height(self)
             disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(self)
+            disp_scale.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
 
 def update_transition_bump_chain(self, context):
     T = time.time()
