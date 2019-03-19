@@ -69,7 +69,7 @@ def check_all_channel_ios(yp):
         # Displacement IO
         if ch.type == 'NORMAL' and ch.enable_displacement:
 
-            name = ch.name + io_suffix['DISPLACEMENT']
+            name = ch.name + io_suffix['HEIGHT']
 
             create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, index, 
                     min_value = 0.0, max_value = 1.0, default_value = 0.5)
@@ -85,12 +85,12 @@ def check_all_channel_ios(yp):
                 #end_linear.operation = 'ADD'
                 #end_linear.inputs[1].default_value = 0.0
                 end_linear = new_node(group_tree, ch, 'end_linear', 'ShaderNodeGroup', 'Displacement Pack')
-                end_linear.node_tree = get_node_tree_lib(lib.DISP_PACK)
+                end_linear.node_tree = get_node_tree_lib(lib.HEIGHT_NORMALIZE)
 
                 max_height = get_displacement_max_height(ch)
                 if max_height != 0.0:
-                    end_linear.inputs['Normalized Scale'].default_value = 1.0/max_height
-                else: end_linear.inputs['Normalized Scale'].default_value = 0.0
+                    end_linear.inputs['Max Height'].default_value = max_height
+                else: end_linear.inputs['Max Height'].default_value = 1.0
         else:
 
             if ch.type == 'NORMAL':
@@ -1339,8 +1339,8 @@ def update_channel_name(self, context):
         group_tree.outputs[self.io_index+1].name = self.name + io_suffix['ALPHA']
 
     if self.type == 'NORMAL' and self.enable_displacement:
-        group_tree.inputs[self.io_index+1].name = self.name + io_suffix['DISPLACEMENT']
-        group_tree.outputs[self.io_index+1].name = self.name + io_suffix['DISPLACEMENT']
+        group_tree.inputs[self.io_index+1].name = self.name + io_suffix['HEIGHT']
+        group_tree.outputs[self.io_index+1].name = self.name + io_suffix['HEIGHT']
 
     #check_all_channel_ios(yp)
 
@@ -1629,6 +1629,12 @@ def update_channel_parallax(self, context):
     if not self.enable_displacement:
         return
 
+def update_enable_smooth_bump(self, context):
+    yp = self.id_data.yp
+
+    # Update channel io
+    check_all_channel_ios(yp)
+
 def update_channel_displacement(self, context):
     yp = self.id_data.yp
 
@@ -1639,7 +1645,7 @@ def update_channel_displacement(self, context):
 
         # Get alpha index
         #index = self.io_index+1
-        io_name = self.name + io_suffix['DISPLACEMENT']
+        io_name = self.name + io_suffix['HEIGHT']
 
         # Set node default_value
         node = get_active_ypaint_node()
@@ -1662,14 +1668,14 @@ def update_displacement_height_ratio(self, context):
             pack = depth_source_0.node_tree.nodes.get('_pack')
             if pack:
                 if self.displacement_height_ratio != 0.0:
-                    pack.inputs['Normalized Scale'].default_value = 1.0 / self.displacement_height_ratio
-                else: pack.inputs['Normalized Scale'].default_value = 0.0
+                    pack.inputs['Max Height'].default_value = self.displacement_height_ratio
+                else: pack.inputs['Max Height'].default_value = 1.0
 
             end_linear = group_tree.nodes.get(self.end_linear)
             if end_linear:
                 if self.displacement_height_ratio != 0.0:
-                    end_linear.inputs['Normalized Scale'].default_value = 1.0 / self.displacement_height_ratio
-                else: end_linear.inputs['Normalized Scale'].default_value = 0.0
+                    end_linear.inputs['Max Height'].default_value = self.displacement_height_ratio
+                else: end_linear.inputs['Max Height'].default_value = 1.0
 
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)
@@ -1969,6 +1975,12 @@ class YPaintChannel(bpy.types.PropertyGroup):
                      ('NORMAL', 'Normal', '')),
             default = 'RGB')
 
+    enable_smooth_bump = BoolProperty(
+            name = 'Enable Smooth Bump',
+            description = 'Enable smooth bump map.\nLooks better but bump height scaling will be different than standard bump map.\nSmooth bump map -> Texture space.\nStandard bump map -> World space',
+            default=True,
+            update=update_enable_smooth_bump)
+
     # Input output index
     io_index = IntProperty(default=-1)
 
@@ -1978,7 +1990,10 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Displacement for normal channel
     enable_displacement = BoolProperty(default=False, update=update_channel_displacement)
 
-    enable_parallax = BoolProperty(default=False, update=update_channel_parallax)
+    enable_parallax = BoolProperty(
+            name = 'Enable Parallax Mapping',
+            description = 'Enable Parallax Mapping.\nIt will use texture space scaling, so it may looks different when using it as real displacement map',
+            default=False, update=update_channel_parallax)
 
     displacement_height_ratio = FloatProperty(default=0.02, min=-1.0, max=1.0,
             update=update_displacement_height_ratio)

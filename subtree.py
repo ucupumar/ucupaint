@@ -187,7 +187,10 @@ def set_mask_uv_neighbor(tree, layer, mask):
 
     # Check transition bump chain
     if bump_ch:
-        chain = min(bump_ch.transition_bump_chain, len(layer.masks))
+        if bump_ch.write_height:
+            chain = 1000
+        else:
+            chain = min(bump_ch.transition_bump_chain, len(layer.masks))
         match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
         mask_idx = int(match.group(2))
         if mask_idx >= chain:
@@ -378,7 +381,11 @@ def check_create_bump_base(layer, tree, ch):
     if not skip and normal_map_type == 'FINE_BUMP_MAP':
 
         # Delete standard bump base first
-        remove_node(tree, ch, 'bump_base')
+        if ch.enable_transition_bump:
+            bump_base = replace_new_node(tree, ch, 'bump_base', 
+                    'ShaderNodeGroup', 'Bump Hack', lib.STRAIGHT_OVER_HACK)
+        else:
+            remove_node(tree, ch, 'bump_base')
 
         for d in neighbor_directions:
 
@@ -440,6 +447,8 @@ def check_mask_mix_nodes(layer, tree=None):
 
             mute = not c.enable or not mask.enable or not layer.enable_masks
 
+            #if root_ch.type == 'NORMAL' and ch.write_height:
+            #    chain = 10000
             if root_ch.type == 'NORMAL' and not trans_bump:
                 chain = min(ch.transition_bump_chain, len(layer.masks))
             elif trans_bump:
@@ -457,10 +466,24 @@ def check_mask_mix_nodes(layer, tree=None):
 
             if root_ch.type == 'NORMAL':
 
+                if i >= chain and trans_bump and ch == trans_bump:
+                    mix_pure = tree.nodes.get(c.mix_pure)
+                    if not mix_pure:
+                        mix_pure = new_node(tree, c, 'mix_pure', 'ShaderNodeMixRGB', 'Mask Blend Pure')
+                        mix_pure.blend_type = mask.blend_type
+                        mix_pure.inputs[0].default_value = 0.0 if mute else mask.intensity_value
+                        if yp.disable_quick_toggle:
+                            mix_pure.mute = mute
+                        else: mix_pure.mute = False
+                else:
+                    remove_node(tree, c, 'mix_pure')
+
                 if ((
-                    (not trans_bump and ch.normal_map_type in {'FINE_BUMP_MAP'}) or
-                    (trans_bump == ch and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}) 
-                    ) and i < chain):
+                    #(not trans_bump and ch.normal_map_type in {'FINE_BUMP_MAP'}) or
+                    #(trans_bump == ch and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}) 
+                    ch.normal_map_type == 'FINE_BUMP_MAP'
+                    #) and i < chain):
+                    )):
 
                     for d in neighbor_directions:
                         mix = tree.nodes.get(getattr(c, 'mix_' + d))
@@ -473,7 +496,10 @@ def check_mask_mix_nodes(layer, tree=None):
                                 mix.mute = mute
                             else: mix.mute = False
 
-                elif i >= chain and not trans_bump_flip and ch.transition_bump_crease:
+                elif i >= chain and (
+                        (not trans_bump_flip and ch.transition_bump_crease) #or 
+                        #ch.normal_map_type == 'BUMP_MAP'
+                        ):
 
                     mix_n = tree.nodes.get(c.mix_n)
                     if not mix_n:
@@ -523,9 +549,13 @@ def check_mask_source_tree(layer): #, ch=None):
         if chs: fine_bump = chs[0]
 
     if trans_bump:
-        chain = min(trans_bump.transition_bump_chain, len(layer.masks))
+        if trans_bump.write_height:
+            chain = 1000
+        else: chain = min(trans_bump.transition_bump_chain, len(layer.masks))
     elif fine_bump:
-        chain = min(fine_bump.transition_bump_chain, len(layer.masks))
+        if fine_bump.write_height:
+            chain = 1000
+        else: chain = min(fine_bump.transition_bump_chain, len(layer.masks))
     else: chain = -1
 
     for i, mask in enumerate(layer.masks):
@@ -864,12 +894,22 @@ def check_layer_tree_ios(layer, tree=None):
         # Displacement IO
         if root_ch.type == 'NORMAL' and root_ch.enable_displacement:
 
-            name = root_ch.name + io_suffix['DISPLACEMENT']
+            name = root_ch.name + io_suffix['HEIGHT']
 
             dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, index, dirty)
             dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, index, dirty)
 
             index += 1
+
+        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+
+            for d in neighbor_directions:
+                name = root_ch.name + io_suffix['HEIGHT'] + ' ' + d.upper()
+
+                dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, index, dirty)
+                dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, index, dirty)
+
+                index += 1
 
     # Tree background inputs
     if layer.type in {'BACKGROUND', 'GROUP'}:
@@ -893,7 +933,7 @@ def check_layer_tree_ios(layer, tree=None):
             # Displacement Input
             if root_ch.enable_displacement:
 
-                name = root_ch.name + io_suffix['DISPLACEMENT'] + io_suffix[layer.type]
+                name = root_ch.name + io_suffix['HEIGHT'] + io_suffix[layer.type]
                 dirty = create_input(tree, name, 'NodeSocketFloat',
                         valid_inputs, index, dirty)
                 index += 1
@@ -955,23 +995,153 @@ def check_layer_tree_ios(layer, tree=None):
 
 def update_disp_scale_node(tree, root_ch, ch):
 
-    if ch.enable_transition_bump:
-        disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
-                'ShaderNodeGroup', 'Displacement Scale', lib.DISP_SCALE_TRANS_BUMP, 
-                return_status = True, hard_replace=True)
+    #if ch.enable_transition_bump:
+    #    disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
+    #            'ShaderNodeGroup', 'Displacement Scale', lib.HEIGHT_SCALE_TRANS_BUMP, 
+    #            return_status = True, hard_replace=True)
 
-        disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(ch)
-        disp_scale.inputs['RGB Max Height'].default_value = ch.bump_distance
-        disp_scale.inputs['Alpha Max Height'].default_value = get_transition_disp_max_height(ch)
-        disp_scale.inputs['Total Max Height'].default_value = get_layer_channel_max_height(ch)
+    #    disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+    #    disp_scale.inputs['RGB Max Height'].default_value = ch.bump_distance
+    #    disp_scale.inputs['Alpha Max Height'].default_value = get_transition_disp_max_height(ch)
+    #    disp_scale.inputs['Total Max Height'].default_value = get_layer_channel_max_height(ch)
 
-    else:
-        disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
-                'ShaderNodeGroup', 'Displacement Scale', lib.DISP_SCALE, 
-                return_status = True, hard_replace=True)
+    #else:
+    #    disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
+    #            'ShaderNodeGroup', 'Displacement Scale', lib.HEIGHT_SCALE, 
+    #            return_status = True, hard_replace=True)
 
-        disp_scale.inputs['Scale'].default_value = ch.bump_distance #/ max_height
+    #    disp_scale.inputs['Scale'].default_value = ch.bump_distance #/ max_height
 
     max_height = get_displacement_max_height(root_ch)
     root_ch.displacement_height_ratio = max_height
+
+def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
+
+    #print("Checking channel normal map nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
+
+    yp = layer.id_data.yp
+    #if yp.halt_update: return
+
+    if root_ch.type != 'NORMAL': return
+    if layer.type in {'BACKGROUND', 'GROUP'}: return
+
+    # Normal nodes
+    if ch.normal_map_type == 'NORMAL_MAP':
+
+        #normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeNormalMap', 'Normal')
+        #normal.uv_map = layer.uv_name
+        normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeGroup', 'Normal', lib.NORMAL_MAP)
+
+        #normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
+        #        'Normal Backface Flip', lib.FLIP_BACKFACE_NORMAL)
+
+        #set_normal_backface_flip(normal_flip, yp.flip_backface)
+        remove_node(tree, ch, 'normal_flip')
+
+    # Bump nodes
+    elif ch.normal_map_type == 'BUMP_MAP':
+
+        normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeBump', 'Bump')
+        normal.inputs[1].default_value = ch.bump_distance
+
+        normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
+                'Normal Backface Flip', lib.FLIP_BACKFACE_BUMP)
+
+        set_bump_backface_flip(normal_flip, yp.flip_backface)
+
+    # Fine bump nodes
+    elif ch.normal_map_type == 'FINE_BUMP_MAP':
+
+        # Make sure to enable source tree and modifier tree
+        enable_layer_source_tree(layer, False)
+        Modifier.enable_modifiers_tree(ch, False)
+
+        #max_height = get_layer_channel_max_height(ch)
+        max_height = get_displacement_max_height(root_ch)
+
+        if ch.enable_transition_bump:
+            normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeGroup', 'Fine Bump', 
+                    lib.FINE_BUMP_FROM_TRANSITION, hard_replace=True)
+
+            normal.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+            normal.inputs['Transition Max Height'].default_value = get_transition_disp_max_height(ch)
+        else:
+
+            #normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeGroup', 
+            #        'Fine Bump', lib.FINE_BUMP, hard_replace=True)
+            #normal.inputs[0].default_value = get_fine_bump_distance(layer, ch.bump_distance)
+            normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeGroup', 
+                    'Fine Bump', lib.FINE_BUMP_FROM_HEIGHT, hard_replace=True)
+
+        normal.inputs['Value Max Height'].default_value = ch.bump_distance
+        normal.inputs['Total Max Height'].default_value = max_height
+        normal.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(layer, max_height)
+
+        remove_node(tree, ch, 'normal_flip')
+
+    if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} :
+
+        #max_height = get_layer_channel_max_height(ch)
+        max_height = get_displacement_max_height(root_ch)
+
+        if ch.enable_transition_bump:
+            height_process = replace_new_node(tree, ch, 'height_process', 'ShaderNodeGroup',
+                    'Height Process', lib.HEIGHT_PROCESS_TRANS_BUMP, hard_replace=True)
+
+            height_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+            height_process.inputs['Transition Max Height'].default_value = get_transition_disp_max_height(ch)
+        else:
+            height_process = replace_new_node(tree, ch, 'height_process', 'ShaderNodeGroup',
+                    'Height Process', lib.HEIGHT_PROCESS, hard_replace=True)
+
+        height_process.inputs['Value Max Height'].default_value = ch.bump_distance
+        height_process.inputs['Total Max Height'].default_value = max_height
+    else:
+        remove_node(tree, ch, 'height_process')
+
+    # Remove neighbor related nodes
+    if ch.normal_map_type != 'FINE_BUMP_MAP':
+
+        disable_layer_source_tree(layer, False)
+        Modifier.disable_modifiers_tree(ch, False)
+
+    # Create normal flip node
+    #if layer.type not in {'BACKGROUND', 'GROUP', 'COLOR'}:
+    #if ch.normal_map_type != '' or (ch.normal_map_type == '' and ch.enable_transition_bump):
+
+    #normal_flip = tree.nodes.get(ch.normal_flip)
+    #if not normal_flip:
+    #    normal_flip = new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 'Flip Backface Normal')
+    #    normal_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
+
+    #else:
+    #    remove_node(tree, ch, 'normal_flip')
+
+    # Update override color modifier
+    #for mod in ch.modifiers:
+    #    if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
+    #        if ch.normal_map_type == 'NORMAL_MAP':
+    #            mod.oc_col = (0.5, 0.5, 1.0, 1.0)
+    #        else:
+    #            val = ch.bump_base_value
+    #            mod.oc_col = (val, val, val, 1.0)
+
+    # Check bump base
+    check_create_bump_base(layer, tree, ch)
+
+    # Check mask multiplies
+    check_mask_mix_nodes(layer, tree)
+
+    # Check mask source tree
+    check_mask_source_tree(layer) #, ch)
+
+def get_fine_bump_distance(layer, distance):
+    scale = 200
+    #if layer.type == 'IMAGE':
+    #    source = get_layer_source(layer)
+    #    image = source.image
+    #    if image: scale = image.size[0] / 10
+
+    #return -1.0 * distance * scale
+    return distance * scale
 

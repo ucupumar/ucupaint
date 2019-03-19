@@ -195,6 +195,7 @@ io_suffix = {
         'BACKGROUND' : ' Background',
         'ALPHA' : ' Alpha',
         'DISPLACEMENT' : ' Displacement',
+        'HEIGHT' : ' Height',
         'UV' : ' UV',
         'TANGENT' : ' Tangent',
         'BITANGENT' : ' Bitangent',

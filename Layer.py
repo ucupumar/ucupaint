@@ -405,16 +405,6 @@ def update_channel_idx_new_layer(self, context):
                     self.rgb_to_intensity_color = (1,0,1)
                 else: self.rgb_to_intensity_color = (1,1,1)
 
-def get_fine_bump_distance(layer, distance):
-    scale = 200
-    #if layer.type == 'IMAGE':
-    #    source = get_layer_source(layer)
-    #    image = source.image
-    #    if image: scale = image.size[0] / 10
-
-    #return -1.0 * distance * scale
-    return distance * scale
-
 class YRefreshNeighborUV(bpy.types.Operator):
     """Refresh Neighbor UV"""
     bl_idname = "node.y_refresh_neighbor_uv"
@@ -1911,88 +1901,6 @@ def update_channel_enable(self, context):
 
     update_channel_intensity_value(ch, context)
 
-def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
-
-    #print("Checking channel normal map nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
-
-    yp = layer.id_data.yp
-    #if yp.halt_update: return
-
-    if root_ch.type != 'NORMAL': return
-    if layer.type in {'BACKGROUND', 'GROUP'}: return
-
-    # Normal nodes
-    if ch.normal_map_type == 'NORMAL_MAP':
-
-        #normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeNormalMap', 'Normal')
-        #normal.uv_map = layer.uv_name
-        normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeGroup', 'Normal', lib.NORMAL_MAP)
-
-        #normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
-        #        'Normal Backface Flip', lib.FLIP_BACKFACE_NORMAL)
-
-        #set_normal_backface_flip(normal_flip, yp.flip_backface)
-        remove_node(tree, ch, 'normal_flip')
-
-    # Bump nodes
-    elif ch.normal_map_type == 'BUMP_MAP':
-
-        normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeBump', 'Bump')
-        normal.inputs[1].default_value = ch.bump_distance
-
-        normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
-                'Normal Backface Flip', lib.FLIP_BACKFACE_BUMP)
-
-        set_bump_backface_flip(normal_flip, yp.flip_backface)
-
-    # Fine bump nodes
-    elif ch.normal_map_type == 'FINE_BUMP_MAP':
-
-        # Make sure to enable source tree and modifier tree
-        enable_layer_source_tree(layer, False)
-        Modifier.enable_modifiers_tree(ch, False)
-
-        normal = replace_new_node(tree, ch, 'normal', 'ShaderNodeGroup', 'Fine Bump', lib.FINE_BUMP)
-        normal.inputs[0].default_value = get_fine_bump_distance(layer, ch.bump_distance)
-
-        remove_node(tree, ch, 'normal_flip')
-
-    # Remove neighbor related nodes
-    if ch.normal_map_type != 'FINE_BUMP_MAP':
-
-        disable_layer_source_tree(layer, False)
-        Modifier.disable_modifiers_tree(ch, False)
-
-    # Create normal flip node
-    #if layer.type not in {'BACKGROUND', 'GROUP', 'COLOR'}:
-    #if ch.normal_map_type != '' or (ch.normal_map_type == '' and ch.enable_transition_bump):
-
-    #normal_flip = tree.nodes.get(ch.normal_flip)
-    #if not normal_flip:
-    #    normal_flip = new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 'Flip Backface Normal')
-    #    normal_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
-
-    #else:
-    #    remove_node(tree, ch, 'normal_flip')
-
-    # Update override color modifier
-    #for mod in ch.modifiers:
-    #    if mod.type == 'OVERRIDE_COLOR' and mod.oc_use_normal_base:
-    #        if ch.normal_map_type == 'NORMAL_MAP':
-    #            mod.oc_col = (0.5, 0.5, 1.0, 1.0)
-    #        else:
-    #            val = ch.bump_base_value
-    #            mod.oc_col = (val, val, val, 1.0)
-
-    # Check bump base
-    check_create_bump_base(layer, tree, ch)
-
-    # Check mask multiplies
-    check_mask_mix_nodes(layer, tree)
-
-    # Check mask source tree
-    check_mask_source_tree(layer) #, ch)
-
 def update_normal_map_type(self, context):
     yp = self.id_data.yp
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
@@ -2073,53 +1981,53 @@ def check_blend_type_nodes(root_ch, layer, ch):
         disp_ch = get_displacement_channel(yp)
 
         #if not root_ch.enable_displacement:
-        #    remove_node(tree, ch, 'disp_blend')
+        #    remove_node(tree, ch, 'height_blend')
 
         if root_ch == disp_ch:
             #ch_index = get_channel_index(root_ch)
 
-            disp_blend = tree.nodes.get(ch.disp_blend)
-            disp_scale = tree.nodes.get(ch.disp_scale)
+            height_blend = tree.nodes.get(ch.height_blend)
+            #disp_scale = tree.nodes.get(ch.disp_scale)
 
             max_height = get_displacement_max_height(root_ch)
             root_ch.displacement_height_ratio = max_height
 
             # Displacement blend node
-            if not disp_blend:
-                disp_blend = new_node(tree, ch, 'disp_blend', 'ShaderNodeMixRGB', 'Displacement Blend')
+            if not height_blend:
+                height_blend = new_node(tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend')
 
             #if ch.normal_blend == 'MIX':
-            #    #disp_blend.blend_type = 'MIX'
-            #    disp_blend, need_reconnect = replace_new_node(tree, ch, 'disp_blend', 
+            #    #height_blend.blend_type = 'MIX'
+            #    height_blend, need_reconnect = replace_new_node(tree, ch, 'height_blend', 
             #            'ShaderNodeGroup', 'Displacement Blend', lib.DISP_MIX, 
             #            return_status = True, hard_replace=True)
             #elif ch.normal_blend == 'OVERLAY':
-            #    #disp_blend.blend_type = 'ADD'
-            #    disp_blend, need_reconnect = replace_new_node(tree, ch, 'disp_blend', 
+            #    #height_blend.blend_type = 'ADD'
+            #    height_blend, need_reconnect = replace_new_node(tree, ch, 'height_blend', 
             #            'ShaderNodeGroup', 'Displacement Blend', lib.DISP_OVERLAY, 
             #            return_status = True, hard_replace=True)
 
             if ch.normal_blend == 'MIX':
-                disp_blend.blend_type = 'MIX'
+                height_blend.blend_type = 'MIX'
             elif ch.normal_blend == 'OVERLAY':
-                disp_blend.blend_type = 'ADD'
+                height_blend.blend_type = 'ADD'
 
             #if max_height > 0.0:
             #for l in yp.layers:
                 #ttree = get_tree(l)
                 #print(l.name)
                 #c = l.channels[ch_index]
-            #disp_blend = tree.nodes.get(ch.disp_blend)
-            #if disp_blend:
-            #    disp_blend.inputs['Scale'].default_value = ch.bump_distance #/ max_height
+            #height_blend = tree.nodes.get(ch.height_blend)
+            #if height_blend:
+            #    height_blend.inputs['Scale'].default_value = ch.bump_distance #/ max_height
 
             #if not disp_scale:
             #    disp_scale = new_node(tree, ch, 'disp_scale', 'ShaderNodeGroup', 'Displacement Scale')
-            #    disp_scale.node_tree = get_node_tree_lib(lib.DISP_SCALE)
+            #    disp_scale.node_tree = get_node_tree_lib(lib.HEIGHT_SCALE)
 
             #if ch.enable_transition_bump:
             #    disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
-            #            'ShaderNodeGroup', 'Displacement Scale', lib.DISP_SCALE_TRANS_BUMP, 
+            #            'ShaderNodeGroup', 'Displacement Scale', lib.HEIGHT_SCALE_TRANS_BUMP, 
             #            return_status = True, hard_replace=True)
 
             #    delta = ch.transition_bump_distance - abs(ch.bump_distance)
@@ -2136,8 +2044,23 @@ def check_blend_type_nodes(root_ch, layer, ch):
             update_disp_scale_node(tree, root_ch, ch)
 
         else:
-            remove_node(tree, ch, 'disp_blend')
+            remove_node(tree, ch, 'height_blend')
             remove_node(tree, ch, 'disp_scale')
+
+        if root_ch.enable_smooth_bump:
+
+            for d in neighbor_directions:
+                hb = tree.nodes.get(getattr(ch, 'height_blend_' + d))
+                if not hb:
+                    hb = new_node(tree, ch, 'height_blend_' + d, 'ShaderNodeMixRGB', 'Height Blend')
+
+                if ch.normal_blend == 'MIX':
+                    hb.blend_type = 'MIX'
+                elif ch.normal_blend == 'OVERLAY':
+                    hb.blend_type = 'ADD'
+        else:
+            for d in neighbor_directions:
+                remove_node(tree, ch, 'height_blend_' + d)
 
     elif root_ch.type == 'VALUE':
 
@@ -2218,6 +2141,20 @@ def update_bump_base_value(self, context):
 
     update_bump_base_value_(tree, self)
 
+def update_write_height(self, context):
+    yp = self.id_data.yp
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    ch_index = int(m.group(2))
+    root_ch = yp.channels[ch_index]
+    ch = self
+    tree = get_tree(layer)
+
+    check_channel_normal_map_nodes(tree, layer, root_ch, ch)
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer, ch_index)
+
 def update_bump_distance(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
@@ -2227,34 +2164,48 @@ def update_bump_distance(self, context):
     tree = get_tree(layer)
 
     normal = tree.nodes.get(self.normal)
+    max_height = get_displacement_max_height(root_ch)
 
     if normal:
         if self.normal_map_type == 'BUMP_MAP':
-            normal.inputs[1].default_value = self.bump_distance
+            #normal.inputs[1].default_value = self.bump_distance
+            normal.inputs[1].default_value = max_height
 
         elif self.normal_map_type == 'FINE_BUMP_MAP':
-            normal.inputs[0].default_value = get_fine_bump_distance(layer, self.bump_distance)
+            #normal.inputs[0].default_value = get_fine_bump_distance(layer, self.bump_distance)
+            normal.inputs[0].default_value = get_fine_bump_distance(layer, max_height)
 
-    disp_ch = get_displacement_channel(yp)
-    if disp_ch == root_ch:
+    #disp_ch = get_displacement_channel(yp)
+    #if disp_ch == root_ch:
 
-        max_height = get_displacement_max_height(root_ch)
-        root_ch.displacement_height_ratio = max_height
+    root_ch.displacement_height_ratio = max_height
 
-        #disp_blend = tree.nodes.get(self.disp_blend)
-        #if disp_blend:
-        #    disp_blend.inputs['Scale'].default_value = self.bump_distance
-        disp_scale = tree.nodes.get(self.disp_scale)
-        if disp_scale:
-            if self.enable_transition_bump:
-                disp_scale.inputs['RGB Max Height'].default_value = self.bump_distance
-                disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(self)
-                disp_scale.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
-            else: disp_scale.inputs['Scale'].default_value = self.bump_distance
+    #height_blend = tree.nodes.get(self.height_blend)
+    #if height_blend:
+    #    height_blend.inputs['Scale'].default_value = self.bump_distance
+    height_process = tree.nodes.get(self.height_process)
+    if height_process:
+        #if self.enable_transition_bump:
+        height_process.inputs['Value Max Height'].default_value = self.bump_distance
+        if 'Delta' in height_process.inputs:
+            height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
+        #height_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
+        height_process.inputs['Total Max Height'].default_value = max_height
+        #else: height_process.inputs['Scale'].default_value = self.bump_distance
 
-        #end_linear = group_tree.nodes.get(root_ch.end_linear)
-        #if end_linear:
-        #    pass
+    normal = tree.nodes.get(self.normal)
+    if normal:
+        #if self.enable_transition_bump and 'Value Max Height' in normal.inputs:
+        normal.inputs['Value Max Height'].default_value = self.bump_distance
+        if 'Delta' in height_process.inputs:
+            normal.inputs['Delta'].default_value = get_transition_disp_delta(self)
+        #normal.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
+        normal.inputs['Total Max Height'].default_value = max_height
+        #else: normal.inputs['Scale'].default_value = self.bump_distance
+
+    #end_linear = group_tree.nodes.get(root_ch.end_linear)
+    #if end_linear:
+    #    pass
 
 def set_layer_channel_linear_node(tree, layer, root_ch, ch):
 
@@ -2537,7 +2488,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default = 'MIX',
             update = update_blend_type)
 
-    height_blend = EnumProperty(
+    height_blend_type = EnumProperty(
             name = 'Height Blend Type',
             items = normal_blend_items,
             default = 'MIX',
@@ -2567,6 +2518,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Normal related
     normal = StringProperty(default='')
     normal_flip = StringProperty(default='')
+
+    # Height related
+    height_process = StringProperty(default='')
+    height_blend = StringProperty(default='')
+    height_blend_n = StringProperty(default='')
+    height_blend_s = StringProperty(default='')
+    height_blend_e = StringProperty(default='')
+    height_blend_w = StringProperty(default='')
     
     # Displacement blend
     disp_scale = StringProperty(default='')
@@ -2587,7 +2546,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     write_height = BoolProperty(
             name = 'Write Height',
             description = 'Write height for this layer channel',
-            default = True)
+            default = True,
+            update=update_write_height)
 
     # For some occasion, modifiers are stored in a tree
     mod_group = StringProperty(default='')

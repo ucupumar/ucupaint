@@ -249,6 +249,8 @@ def check_transition_bump_nodes(layer, tree, ch, ch_index):
     # Trigger normal channel update
     #ch.normal_map_type = ch.normal_map_type
     update_disp_scale_node(tree, root_ch, ch)
+
+    check_channel_normal_map_nodes(tree, layer, root_ch, ch)
     
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer) #, mod_reconnect=True)
@@ -278,12 +280,12 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
         Modifier.enable_modifiers_tree(ch)
 
         # Get fine bump
-        tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeGroup', 'Transition Fine Bump', lib.FINE_BUMP)
+        #tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeGroup', 'Transition Fine Bump', lib.FINE_BUMP)
 
-        if ch.transition_bump_flip or layer.type == 'BACKGROUND':
-        #if ch.transition_bump_flip:
-            tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance)
-        else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance)
+        #if ch.transition_bump_flip or layer.type == 'BACKGROUND':
+        ##if ch.transition_bump_flip:
+        #    tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance)
+        #else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance)
 
         remove_node(tree, ch, 'tb_bump_flip')
 
@@ -292,20 +294,20 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
         enable_layer_source_tree(layer)
         Modifier.enable_modifiers_tree(ch)
 
-        if ch.transition_bump_flip or layer.type == 'BACKGROUND':
-        #if ch.transition_bump_flip:
-            tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeGroup', 
-                    'Transition Curved Bump', lib.FLIP_CURVED_FINE_BUMP)
-        else: 
-            tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeGroup', 
-                    'Transition Curved Bump', lib.CURVED_FINE_BUMP)
+        #if ch.transition_bump_flip or layer.type == 'BACKGROUND':
+        ##if ch.transition_bump_flip:
+        #    tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeGroup', 
+        #            'Transition Curved Bump', lib.FLIP_CURVED_FINE_BUMP)
+        #else: 
+        #    tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeGroup', 
+        #            'Transition Curved Bump', lib.CURVED_FINE_BUMP)
 
-        if ch.transition_bump_flip or layer.type == 'BACKGROUND':
-        #if ch.transition_bump_flip:
-            tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance, True)
-        else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance, True)
+        #if ch.transition_bump_flip or layer.type == 'BACKGROUND':
+        ##if ch.transition_bump_flip:
+        #    tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance, True)
+        #else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance, True)
 
-        tb_bump.inputs['Offset'].default_value = ch.transition_bump_curved_offset
+        #tb_bump.inputs['Offset'].default_value = ch.transition_bump_curved_offset
 
         remove_node(tree, ch, 'tb_bump_flip')
 
@@ -315,12 +317,12 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
         Modifier.disable_modifiers_tree(ch)
 
         # Get bump
-        tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeBump', 'Transition Bump')
+        #tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeBump', 'Transition Bump')
 
-        if ch.transition_bump_flip or layer.type == 'BACKGROUND':
-        #if ch.transition_bump_flip:
-            tb_bump.inputs[1].default_value = -ch.transition_bump_distance
-        else: tb_bump.inputs[1].default_value = ch.transition_bump_distance
+        #if ch.transition_bump_flip or layer.type == 'BACKGROUND':
+        ##if ch.transition_bump_flip:
+        #    tb_bump.inputs[1].default_value = -ch.transition_bump_distance
+        #else: tb_bump.inputs[1].default_value = ch.transition_bump_distance
 
         tb_bump_flip = replace_new_node(tree, ch, 'tb_bump_flip', 'ShaderNodeGroup', 
                 'Transition Bump Backface Flip', lib.FLIP_BACKFACE_BUMP)
@@ -389,10 +391,10 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
         tb_intensity_multiplier.inputs['Sharpen'].default_value = 0.0
 
     # Add vector mix
-    tb_blend = tree.nodes.get(ch.tb_blend)
-    if not tb_blend:
-        tb_blend = new_node(tree, ch, 'tb_blend', 'ShaderNodeGroup', 'Transition Vector Blend')
-        tb_blend.node_tree = get_node_tree_lib(lib.VECTOR_MIX)
+    #tb_blend = tree.nodes.get(ch.tb_blend)
+    #if not tb_blend:
+    #    tb_blend = new_node(tree, ch, 'tb_blend', 'ShaderNodeGroup', 'Transition Vector Blend')
+    #    tb_blend.node_tree = get_node_tree_lib(lib.VECTOR_MIX)
 
     # Dealing with mask sources
     check_mask_source_tree(layer) #, ch)
@@ -496,27 +498,27 @@ def update_transition_bump_distance(self, context):
     ch = self
     tree = get_tree(layer)
 
-    tb_bump = tree.nodes.get(ch.tb_bump)
-    if tb_bump:
-        if ch.transition_bump_type == 'CURVED_BUMP_MAP':
-            if ch.transition_bump_flip or layer.type=='BACKGROUND':
-            #if ch.transition_bump_flip:
-                tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(
-                        ch.transition_bump_distance, True)
-            else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(
-                    ch.transition_bump_distance, True)
+    #tb_bump = tree.nodes.get(ch.tb_bump)
+    #if tb_bump:
+    #    if ch.transition_bump_type == 'CURVED_BUMP_MAP':
+    #        if ch.transition_bump_flip or layer.type=='BACKGROUND':
+    #        #if ch.transition_bump_flip:
+    #            tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(
+    #                    ch.transition_bump_distance, True)
+    #        else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(
+    #                ch.transition_bump_distance, True)
 
-        elif ch.transition_bump_type == 'FINE_BUMP_MAP':
-            if ch.transition_bump_flip or layer.type=='BACKGROUND':
-            #if ch.transition_bump_flip:
-                tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance)
-            else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance)
+    #    elif ch.transition_bump_type == 'FINE_BUMP_MAP':
+    #        if ch.transition_bump_flip or layer.type=='BACKGROUND':
+    #        #if ch.transition_bump_flip:
+    #            tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance)
+    #        else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance)
 
-        elif ch.transition_bump_type == 'BUMP_MAP':
-            if ch.transition_bump_flip or layer.type=='BACKGROUND':
-            #if ch.transition_bump_flip:
-                tb_bump.inputs[1].default_value = -ch.transition_bump_distance
-            else: tb_bump.inputs[1].default_value = ch.transition_bump_distance
+    #    elif ch.transition_bump_type == 'BUMP_MAP':
+    #        if ch.transition_bump_flip or layer.type=='BACKGROUND':
+    #        #if ch.transition_bump_flip:
+    #            tb_bump.inputs[1].default_value = -ch.transition_bump_distance
+    #        else: tb_bump.inputs[1].default_value = ch.transition_bump_distance
 
     if ch.transition_bump_crease:
         tb_crease = tree.nodes.get(ch.tb_crease)
@@ -530,11 +532,19 @@ def update_transition_bump_distance(self, context):
         max_height = get_displacement_max_height(root_ch)
         root_ch.displacement_height_ratio = max_height
 
-        disp_scale = tree.nodes.get(self.disp_scale)
-        if disp_scale and 'Alpha Max Height' in disp_scale.inputs:
-            disp_scale.inputs['Alpha Max Height'].default_value = get_transition_disp_max_height(self)
-            disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(self)
-            disp_scale.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
+        height_process = tree.nodes.get(self.height_process)
+        if height_process and 'Transition Max Height' in height_process.inputs:
+            height_process.inputs['Transition Max Height'].default_value = get_transition_disp_max_height(self)
+            height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
+            #height_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
+            height_process.inputs['Total Max Height'].default_value = max_height
+
+        normal = tree.nodes.get(self.normal)
+        if normal and 'Transition Max Height' in normal.inputs:
+            normal.inputs['Transition Max Height'].default_value = get_transition_disp_max_height(self)
+            normal.inputs['Delta'].default_value = get_transition_disp_delta(self)
+            #normal.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
+            normal.inputs['Total Max Height'].default_value = max_height
 
 def update_transition_bump_chain(self, context):
     T = time.time()
@@ -566,9 +576,9 @@ def update_transition_bump_curved_offset(self, context):
     tree = get_tree(layer)
     ch = self
 
-    tb_bump = tree.nodes.get(ch.tb_bump)
-    if tb_bump:
-        tb_bump.inputs['Offset'].default_value = ch.transition_bump_curved_offset
+    #tb_bump = tree.nodes.get(ch.tb_bump)
+    #if tb_bump:
+    #    tb_bump.inputs['Offset'].default_value = ch.transition_bump_curved_offset
 
 def update_transition_bump_fac(self, context):
 

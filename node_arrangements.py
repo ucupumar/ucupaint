@@ -186,11 +186,18 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             check_set_node_parent(tree, ch.bump_base_w, frame)
             check_set_node_parent(tree, ch.normal, frame)
             check_set_node_parent(tree, ch.normal_flip, frame)
+            check_set_node_parent(tree, ch.height_process, frame)
 
         # Blend
         frame = get_frame(tree, '__blend__', str(i), root_ch.name + ' Blend')
         check_set_node_parent(tree, ch.intensity, frame)
         check_set_node_parent(tree, ch.blend, frame)
+
+        if root_ch.type == 'NORMAL':
+            check_set_node_parent(tree, ch.height_blend, frame)
+            for d in neighbor_directions:
+                check_set_node_parent(tree, getattr(ch, 'height_blend_' + d), frame)
+
         #check_set_node_parent(tree, ch.normal_flip, frame)
         #check_set_node_parent(tree, ch.intensity_multiplier, frame)
 
@@ -216,6 +223,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
         for c in mask.channels:
             check_set_node_parent(tree, c.mix, frame)
+            check_set_node_parent(tree, c.mix_pure, frame)
             check_set_node_parent(tree, c.mix_n, frame)
             check_set_node_parent(tree, c.mix_s, frame)
             check_set_node_parent(tree, c.mix_e, frame)
@@ -432,10 +440,17 @@ def rearrange_transition_bump_nodes(tree, ch, loc):
 
 def rearrange_normal_process_nodes(tree, ch, loc):
 
-    bookmark_y = loc.y
+    bookmark_x = loc.x
 
     if check_set_node_loc(tree, ch.bump_base, loc):
         loc.x += 200
+
+    if check_set_node_loc(tree, ch.height_process, loc):
+        #loc.x += 200
+        loc.y -= 300
+
+    bookmark_y = loc.y
+    loc.x = bookmark_x
 
     loc.y -= 40
     if check_set_node_loc(tree, ch.bump_base_n, loc, hide=True):
@@ -450,7 +465,7 @@ def rearrange_normal_process_nodes(tree, ch, loc):
 
     if check_set_node_loc(tree, ch.bump_base_w, loc, hide=True):
         loc.y = bookmark_y
-        loc.x += 120
+        loc.x += 200
 
     if check_set_node_loc(tree, ch.normal, loc):
         loc.x += 200
@@ -664,8 +679,8 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.y = bookmark_y
             loc.x += 160
 
-        if bump_ch or chain == 0:
-            rearrange_normal_process_nodes(tree, ch, loc)
+        #if bump_ch or chain == 0:
+        #    rearrange_normal_process_nodes(tree, ch, loc)
 
         if loc.x > farthest_x: farthest_x = loc.x
 
@@ -793,14 +808,18 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.x = bookmark_x
             bookmark_y = loc.y
 
-            mul_n = tree.nodes.get(c.mix_n)
-            if not mul_n:
+            mix_n = tree.nodes.get(c.mix_n)
+            mix_pure = tree.nodes.get(c.mix_pure)
+            if not mix_n and not mix_pure:
 
                 if check_set_node_loc(tree, c.mix, loc):
                     loc.y -= 200.0
             else:
 
                 if check_set_node_loc(tree, c.mix, loc, True):
+                    loc.y -= 40
+
+                if check_set_node_loc(tree, c.mix_pure, loc, True):
                     loc.y -= 40
 
                 if check_set_node_loc(tree, c.mix_n, loc, True):
@@ -840,12 +859,20 @@ def rearrange_layer_nodes(layer, tree=None):
                     rearrange_transition_bump_nodes(tree, ch, loc)
                     loc.y -= 300
 
-                if not bump_ch:
-                    rearrange_normal_process_nodes(tree, ch, loc)
-                    loc.y -= 300
+                #if not bump_ch:
+                #    rearrange_normal_process_nodes(tree, ch, loc)
+                #    loc.y -= 300
 
             else:
                 loc.y = bookmark_y1
+
+            #if i == len(layer.masks)-1:
+
+            #    if root_ch.type == 'NORMAL':
+            #        loc.y = bookmark_y
+
+            #        rearrange_normal_process_nodes(tree, ch, loc)
+            #        loc.y -= 300
 
             if loc.x > farthest_x: farthest_x = loc.x
 
@@ -885,8 +912,27 @@ def rearrange_layer_nodes(layer, tree=None):
 
     bookmark_x = loc.x
 
+    for i, ch in enumerate(layer.channels):
+
+        root_ch = yp.channels[i]
+
+        if root_ch.type == 'NORMAL':
+
+            rearrange_normal_process_nodes(tree, ch, loc)
+            loc.y -= 300
+            loc.x += 30
+        else:
+            loc.y -= y_step
+
+        if loc.x > farthest_x: farthest_x = loc.x
+
+    loc.y = 0
+    bookmark_x = loc.x
+
     # Channel blends
     for i, ch in enumerate(layer.channels):
+
+        root_ch = yp.channels[i]
 
         loc.x = bookmark_x
         #loc.y = bookmarks_ys[i]
@@ -909,6 +955,8 @@ def rearrange_layer_nodes(layer, tree=None):
 
         if check_set_node_loc(tree, ch.intensity, loc):
             loc.x += 200
+
+        bookmark_x1 = loc.x
 
         if (ch.enable_transition_ramp and not flip_bump and ch.transition_ramp_intensity_unlink 
                 and ch.transition_ramp_blend_type == 'MIX'):
@@ -941,8 +989,19 @@ def rearrange_layer_nodes(layer, tree=None):
             y_offset += 170
             loc.x += 200
 
-        if check_set_node_loc(tree, ch.disp_blend, loc):
-            pass
+        loc.x = bookmark_x1
+
+        if root_ch.enable_smooth_bump:
+
+            if check_set_node_loc(tree, ch.height_blend, loc, True):
+                loc.y -= 40
+
+            for d in neighbor_directions:
+                if check_set_node_loc(tree, getattr(ch, 'height_blend_' + d), loc, True):
+                    loc.y -= 40
+        else:
+            if check_set_node_loc(tree, ch.height_blend, loc):
+                pass
 
         loc.y = save_y
         if loc.x < save_x:

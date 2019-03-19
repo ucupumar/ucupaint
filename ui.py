@@ -545,6 +545,11 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
             if channel.type == 'NORMAL':
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='INFO')
+                brow.label(text='Smooth Bump:')
+                brow.prop(channel, 'enable_smooth_bump', text='')
+
+                brow = bcol.row(align=True)
+                brow.label(text='', icon='INFO')
                 brow.label(text='Displacement:')
                 brow.prop(channel, 'enable_displacement', text='')
 
@@ -1060,14 +1065,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     brow.prop(ch, 'bump_distance', text='')
 
                     #if not ch.enable_transition_bump:
-                    brow = cccol.row(align=True)
-                    brow.active = not ch.enable_transition_bump
-                    brow.label(text='Bump Base:') #, icon='INFO')
-                    brow.prop(ch, 'bump_base_value', text='')
+                    #brow = cccol.row(align=True)
+                    #brow.active = not ch.enable_transition_bump
+                    #brow.label(text='Bump Base:') #, icon='INFO')
+                    #brow.prop(ch, 'bump_base_value', text='')
 
                     #if any(layer.masks):
                     brow = cccol.row(align=True)
-                    brow.active = not ch.enable_transition_bump and any(layer.masks)
+                    brow.active = not ch.enable_transition_bump and any(layer.masks) and not ch.write_height
                     brow.label(text='Affected Masks:') #, icon='INFO')
                     brow.prop(ch, 'transition_bump_chain', text='')
 

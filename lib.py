@@ -35,6 +35,9 @@ FINE_BUMP ='~yPL Fine Bump'
 CURVED_FINE_BUMP = '~yPL Curved Fine Bump'
 FLIP_CURVED_FINE_BUMP = '~yPL Flip Curved Fine Bump'
 
+FINE_BUMP_FROM_TRANSITION = '~yPL Fine Bump from Transition'
+FINE_BUMP_FROM_HEIGHT = '~yPL Fine Bump from Height'
+
 TRANSITION_AO = '~yPL Transition AO'
 TRANSITION_AO_BG_MIX = '~yPL Transition AO Background Mix'
 TRANSITION_AO_STRAIGHT_OVER = '~yPL Transition AO Straight Over'
@@ -59,12 +62,19 @@ PARALLAX_OCCLUSION = '~yPL Parallax Occlusion Mapping'
 PARALLAX_OCCLUSION_PREP = '~yPL Parallax Occlusion Mapping Preparation'
 PARALLAX_OCCLUSION_PROC = '~yPL Parallax Occlusion Mapping Process'
 
-DISP_SCALE = '~yPL Displacement Scale'
-DISP_SCALE_TRANS_BUMP = '~yPL Displacement Scale Transition Bump'
+HEIGHT_SCALE = '~yPL Height Scale'
+HEIGHT_SCALE_TRANS_BUMP = '~yPL Height Scale Transition Bump'
+HEIGHT_SCALE_TRANS_FINE_BUMP = '~yPL Height Scale Transition Fine Bump'
+HEIGHT_NORMALIZE = '~yPL Normalize Height'
+
+HEIGHT_PROCESS = '~yPL Height Process'
+HEIGHT_PROCESS_TRANS_BUMP = '~yPL Height Process Transition Bump'
+
 #DISP_MIX = '~yPL Displacement Mix'
 #DISP_OVERLAY = '~yPL Displacement Overlay'
+#HEIGHT_PACK = '~yPL Height Pack'
 
-DISP_PACK = '~yPL Displacement Pack'
+CURVE_VALUE = '~yPL Curve Value'
 
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'

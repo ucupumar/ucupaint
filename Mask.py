@@ -886,6 +886,9 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
     # Multiply between mask channels
     mix = StringProperty(default='')
 
+    # Pure mask without any extra multiplier or uv shift, useful for height process
+    mix_pure = StringProperty(default='')
+
     # Bump related
     mix_n = StringProperty(default='')
     mix_s = StringProperty(default='')
