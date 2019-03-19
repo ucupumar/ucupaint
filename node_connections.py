@@ -1415,26 +1415,27 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 #elif normal_map_type == 'BUMP_MAP':
 
                 #bump = nodes.get(ch.bump)
-                if normal and bump_base:
-
-                    create_link(tree, rgb, bump_base.inputs['Color2'])
+                if normal:
 
                     if ch.write_height:
                         chain_local = len(layer.masks)
                     else: chain_local = min(len(layer.masks), ch.transition_bump_chain)
 
-                    if not trans_bump_ch and len(layer.masks) > 0 and chain_local > 0:
-                        mix = nodes.get(layer.masks[chain_local-1].channels[i].mix).outputs[0]
-                        create_link(tree, mix, bump_base.inputs['Fac'])
-                    else:
-                        create_link(tree, alpha, bump_base.inputs['Fac'])
+                    if bump_base:
+                        create_link(tree, rgb, bump_base.inputs['Color2'])
+
+                        if not trans_bump_ch and len(layer.masks) > 0 and chain_local > 0:
+                            mix = nodes.get(layer.masks[chain_local-1].channels[i].mix).outputs[0]
+                            create_link(tree, mix, bump_base.inputs['Fac'])
+                        else:
+                            create_link(tree, alpha, bump_base.inputs['Fac'])
 
                     if height_process:
-                        create_link(tree, bump_base.outputs[0], height_process.inputs['Value'])
+                        if bump_base:
+                            create_link(tree, bump_base.outputs[0], height_process.inputs['Value'])
                         if 'Height' in normal.inputs:
                             create_link(tree, height_process.outputs[1], normal.inputs['Height'])
-                    else:
-                        if 'Height' in normal.inputs:
+                    elif 'Height' in normal.inputs and bump_base:
                             create_link(tree, bump_base.outputs[0], normal.inputs['Height'])
                     rgb = normal.outputs[0]
 
