@@ -35,8 +35,11 @@ FINE_BUMP ='~yPL Fine Bump'
 CURVED_FINE_BUMP = '~yPL Curved Fine Bump'
 FLIP_CURVED_FINE_BUMP = '~yPL Flip Curved Fine Bump'
 
-FINE_BUMP_FROM_TRANSITION = '~yPL Fine Bump from Transition'
-FINE_BUMP_FROM_HEIGHT = '~yPL Fine Bump from Height'
+FINE_BUMP_FROM_TRANSITION_MIX = '~yPL Fine Bump from Transition Mix'
+FINE_BUMP_FROM_TRANSITION_ADD = '~yPL Fine Bump from Transition Add'
+
+FINE_BUMP_FROM_HEIGHT_MIX = '~yPL Fine Bump from Height Mix'
+FINE_BUMP_FROM_HEIGHT_ADD = '~yPL Fine Bump from Height Add'
 
 TRANSITION_AO = '~yPL Transition AO'
 TRANSITION_AO_BG_MIX = '~yPL Transition AO Background Mix'
@@ -67,8 +70,10 @@ HEIGHT_SCALE_TRANS_BUMP = '~yPL Height Scale Transition Bump'
 HEIGHT_SCALE_TRANS_FINE_BUMP = '~yPL Height Scale Transition Fine Bump'
 HEIGHT_NORMALIZE = '~yPL Normalize Height'
 
-HEIGHT_PROCESS = '~yPL Height Process'
-HEIGHT_PROCESS_TRANS_BUMP = '~yPL Height Process Transition Bump'
+HEIGHT_PROCESS_MIX = '~yPL Height Process Mix'
+HEIGHT_PROCESS_ADD = '~yPL Height Process Add'
+HEIGHT_PROCESS_TRANS_BUMP_MIX = '~yPL Height Process Transition Bump Mix'
+HEIGHT_PROCESS_TRANS_BUMP_ADD = '~yPL Height Process Transition Bump Add'
 
 #DISP_MIX = '~yPL Displacement Mix'
 #DISP_OVERLAY = '~yPL Displacement Overlay'

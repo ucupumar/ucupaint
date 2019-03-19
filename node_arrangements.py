@@ -991,17 +991,17 @@ def rearrange_layer_nodes(layer, tree=None):
 
         loc.x = bookmark_x1
 
-        if root_ch.enable_smooth_bump:
+        #if root_ch.enable_smooth_bump:
 
-            if check_set_node_loc(tree, ch.height_blend, loc, True):
-                loc.y -= 40
+        #    if check_set_node_loc(tree, ch.height_blend, loc, True):
+        #        loc.y -= 40
 
-            for d in neighbor_directions:
-                if check_set_node_loc(tree, getattr(ch, 'height_blend_' + d), loc, True):
-                    loc.y -= 40
-        else:
-            if check_set_node_loc(tree, ch.height_blend, loc):
-                pass
+        #    for d in neighbor_directions:
+        #        if check_set_node_loc(tree, getattr(ch, 'height_blend_' + d), loc, True):
+        #            loc.y -= 40
+        #else:
+        #    if check_set_node_loc(tree, ch.height_blend, loc):
+        #        pass
 
         loc.y = save_y
         if loc.x < save_x:

@@ -340,7 +340,7 @@ class YBakeToLayer(bpy.types.Operator):
         items = blend_type_items,
         default = 'MIX')
 
-    normal_blend = EnumProperty(
+    normal_blend_type = EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX')
@@ -480,7 +480,7 @@ class YBakeToLayer(bpy.types.Operator):
                 rrow.prop(self, 'channel_idx', text='')
                 if channel:
                     if channel.type == 'NORMAL':
-                        rrow.prop(self, 'normal_blend', text='')
+                        rrow.prop(self, 'normal_blend_type', text='')
                         col.prop(self, 'normal_map_type', text='')
                     else: 
                         rrow.prop(self, 'blend_type', text='')
@@ -579,7 +579,7 @@ class YBakeToLayer(bpy.types.Operator):
         elif self.target_type == 'LAYER':
             yp.halt_update = True
             layer = Layer.add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
-                    self.normal_blend, self.normal_map_type, 'UV', self.uv_map, image)
+                    self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image)
             yp.halt_update = False
             active_id = yp.active_layer_index
         else:

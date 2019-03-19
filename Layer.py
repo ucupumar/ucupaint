@@ -39,9 +39,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
         #    if not disp_blend:
         #        disp_blend = new_node(tree, ch, 'disp_blend', 'ShaderNodeMixRGB', 'Displacement Blend')
 
-        #    #if ch.normal_blend == 'MIX':
+        #    #if ch.normal_blend_type == 'MIX':
         #    #    disp_blend.blend_type = 'MIX'
-        #    #elif ch.normal_blend == 'OVERLAY':
+        #    #elif ch.normal_blend_type == 'OVERLAY':
         #    #    disp_blend.blend_type = 'ADD'
         #else:
         #    remove_node(tree, ch, 'disp_blend')
@@ -133,7 +133,7 @@ def img_normal_map_type_items(self, context):
     return normal_map_type_items_('IMAGE')
 
 def add_new_layer(group_tree, layer_name, layer_type, channel_idx, 
-        blend_type, normal_blend, normal_map_type, 
+        blend_type, normal_blend_type, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, segment=None,
         add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1),
         solid_color = (1,1,1),
@@ -342,7 +342,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         if layer.type in {'GROUP', 'BACKGROUND'} or channel_idx == i or channel_idx == -1:
             ch.enable = True
             if root_ch.type == 'NORMAL':
-                ch.normal_blend = normal_blend
+                ch.normal_blend_type = normal_blend_type
             else:
                 ch.blend_type = blend_type
         else: 
@@ -456,7 +456,7 @@ class YNewLayer(bpy.types.Operator):
         items = blend_type_items,
         default = 'MIX')
 
-    normal_blend = EnumProperty(
+    normal_blend_type = EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX')
@@ -666,7 +666,7 @@ class YNewLayer(bpy.types.Operator):
             rrow.prop(self, 'channel_idx', text='')
             if channel:
                 if channel.type == 'NORMAL':
-                    rrow.prop(self, 'normal_blend', text='')
+                    rrow.prop(self, 'normal_blend_type', text='')
                     col.prop(self, 'normal_map_type', text='')
                 else: 
                     rrow.prop(self, 'blend_type', text='')
@@ -790,7 +790,7 @@ class YNewLayer(bpy.types.Operator):
         yp.halt_update = True
 
         layer = add_new_layer(node.node_tree, self.name, self.type, 
-                int(self.channel_idx), self.blend_type, self.normal_blend, 
+                int(self.channel_idx), self.blend_type, self.normal_blend_type, 
                 self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol, segment,
                 self.add_rgb_to_intensity, self.rgb_to_intensity_color, self.solid_color,
                 self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
@@ -873,7 +873,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         items = blend_type_items,
         default = 'MIX')
 
-    normal_blend = EnumProperty(
+    normal_blend_type = EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX')
@@ -968,7 +968,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         rrow.prop(self, 'channel_idx', text='')
         if channel:
             if channel.type == 'NORMAL':
-                rrow.prop(self, 'normal_blend', text='')
+                rrow.prop(self, 'normal_blend_type', text='')
                 col.prop(self, 'normal_map_type', text='')
             else: 
                 rrow.prop(self, 'blend_type', text='')
@@ -997,7 +997,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
                 except: pass
 
             add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
-                    self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map,
+                    self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map,
                     image, None, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
         node.node_tree.yp.halt_update = False
@@ -1044,7 +1044,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         items = blend_type_items,
         default = 'MIX')
 
-    normal_blend = EnumProperty(
+    normal_blend_type = EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX')
@@ -1160,7 +1160,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         rrow.prop(self, 'channel_idx', text='')
         if channel:
             if channel.type == 'NORMAL':
-                rrow.prop(self, 'normal_blend', text='')
+                rrow.prop(self, 'normal_blend_type', text='')
                 col.prop(self, 'normal_map_type', text='')
             else: 
                 rrow.prop(self, 'blend_type', text='')
@@ -1197,7 +1197,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             name = vcol.name
 
         add_new_layer(node.node_tree, name, self.type, int(self.channel_idx), self.blend_type, 
-                self.normal_blend, self.normal_map_type, self.texcoord_type, self.uv_map, 
+                self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map, 
                 image, vcol, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
 
         node.node_tree.yp.halt_update = False
@@ -1930,10 +1930,10 @@ def check_blend_type_nodes(root_ch, layer, ch):
     # Background layer always using mix blend type
     if layer.type == 'BACKGROUND':
         blend_type = 'MIX'
-        normal_blend = 'MIX'
+        normal_blend_type = 'MIX'
     else: 
         blend_type = ch.blend_type
-        normal_blend = ch.normal_blend
+        normal_blend_type = ch.normal_blend_type
 
     if root_ch.type == 'RGB':
 
@@ -1958,7 +1958,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if has_parent and normal_blend == 'MIX':
+        if has_parent and normal_blend_type == 'MIX':
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
@@ -1968,12 +1968,12 @@ def check_blend_type_nodes(root_ch, layer, ch):
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, 
                         return_status = True, hard_replace=True)
 
-        elif normal_blend == 'OVERLAY':
+        elif normal_blend_type == 'OVERLAY':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
                     return_status = True, hard_replace=True)
 
-        elif normal_blend == 'MIX':
+        elif normal_blend_type == 'MIX':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
                     return_status = True, hard_replace=True)
@@ -1986,31 +1986,31 @@ def check_blend_type_nodes(root_ch, layer, ch):
         if root_ch == disp_ch:
             #ch_index = get_channel_index(root_ch)
 
-            height_blend = tree.nodes.get(ch.height_blend)
+            #height_blend = tree.nodes.get(ch.height_blend)
             #disp_scale = tree.nodes.get(ch.disp_scale)
 
             max_height = get_displacement_max_height(root_ch)
             root_ch.displacement_height_ratio = max_height
 
             # Displacement blend node
-            if not height_blend:
-                height_blend = new_node(tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend')
+            #if not height_blend:
+            #    height_blend = new_node(tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend')
 
-            #if ch.normal_blend == 'MIX':
+            #if ch.normal_blend_type == 'MIX':
             #    #height_blend.blend_type = 'MIX'
             #    height_blend, need_reconnect = replace_new_node(tree, ch, 'height_blend', 
             #            'ShaderNodeGroup', 'Displacement Blend', lib.DISP_MIX, 
             #            return_status = True, hard_replace=True)
-            #elif ch.normal_blend == 'OVERLAY':
+            #elif ch.normal_blend_type == 'OVERLAY':
             #    #height_blend.blend_type = 'ADD'
             #    height_blend, need_reconnect = replace_new_node(tree, ch, 'height_blend', 
             #            'ShaderNodeGroup', 'Displacement Blend', lib.DISP_OVERLAY, 
             #            return_status = True, hard_replace=True)
 
-            if ch.normal_blend == 'MIX':
-                height_blend.blend_type = 'MIX'
-            elif ch.normal_blend == 'OVERLAY':
-                height_blend.blend_type = 'ADD'
+            #if ch.normal_blend_type == 'MIX':
+            #    height_blend.blend_type = 'MIX'
+            #elif ch.normal_blend_type == 'OVERLAY':
+            #    height_blend.blend_type = 'ADD'
 
             #if max_height > 0.0:
             #for l in yp.layers:
@@ -2048,19 +2048,23 @@ def check_blend_type_nodes(root_ch, layer, ch):
             remove_node(tree, ch, 'disp_scale')
 
         if root_ch.enable_smooth_bump:
+            pass
 
-            for d in neighbor_directions:
-                hb = tree.nodes.get(getattr(ch, 'height_blend_' + d))
-                if not hb:
-                    hb = new_node(tree, ch, 'height_blend_' + d, 'ShaderNodeMixRGB', 'Height Blend')
+            #for d in neighbor_directions:
+            #    hb = tree.nodes.get(getattr(ch, 'height_blend_' + d))
+            #    if not hb:
+            #        hb = new_node(tree, ch, 'height_blend_' + d, 'ShaderNodeMixRGB', 'Height Blend')
 
-                if ch.normal_blend == 'MIX':
-                    hb.blend_type = 'MIX'
-                elif ch.normal_blend == 'OVERLAY':
-                    hb.blend_type = 'ADD'
+            #    if ch.normal_blend_type == 'MIX':
+            #        hb.blend_type = 'MIX'
+            #    elif ch.normal_blend_type == 'OVERLAY':
+            #        hb.blend_type = 'ADD'
         else:
             for d in neighbor_directions:
                 remove_node(tree, ch, 'height_blend_' + d)
+
+        # Update normal map nodes
+        need_reconnect = check_channel_normal_map_nodes(tree, layer, root_ch, ch)
 
     elif root_ch.type == 'VALUE':
 
@@ -2424,6 +2428,14 @@ def update_channel_intensity_value(self, context):
     if intensity:
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
+    height_process = tree.nodes.get(ch.height_process)
+    if height_process:
+        height_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+
+    normal = tree.nodes.get(ch.normal)
+    if normal and 'Intensity' in normal.inputs:
+        normal.inputs['Intensity'].default_value = ch.intensity_value
+
     if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, layer, ch)
 
@@ -2482,7 +2494,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default = 'MIX',
             update = update_blend_type)
 
-    normal_blend = EnumProperty(
+    normal_blend_type = EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX',

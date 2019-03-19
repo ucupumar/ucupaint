@@ -1848,7 +1848,7 @@ def get_displacement_max_height(root_ch):
         c = l.channels[ch_index]
         ch_max_height = get_layer_channel_max_height(c)
         if (l.enable and c.enable and c.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} 
-                and c.normal_blend == 'MIX' and max_height < ch_max_height
+                and c.normal_blend_type == 'MIX' and max_height < ch_max_height
                 ):
             max_height = ch_max_height
 
@@ -1856,7 +1856,7 @@ def get_displacement_max_height(root_ch):
         c = l.channels[ch_index]
         ch_max_height = get_layer_channel_max_height(c)
         if (l.enable and c.enable and c.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} 
-                and c.normal_blend == 'OVERLAY'
+                and c.normal_blend_type == 'OVERLAY'
                 ):
             max_height += ch_max_height
 
