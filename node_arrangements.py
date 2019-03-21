@@ -184,7 +184,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             check_set_node_parent(tree, ch.bump_base_s, frame)
             check_set_node_parent(tree, ch.bump_base_e, frame)
             check_set_node_parent(tree, ch.bump_base_w, frame)
-            check_set_node_parent(tree, ch.normal, frame)
+            check_set_node_parent(tree, ch.normal_process, frame)
             check_set_node_parent(tree, ch.normal_flip, frame)
             check_set_node_parent(tree, ch.height_process, frame)
 
@@ -447,7 +447,7 @@ def rearrange_normal_process_nodes(tree, ch, loc):
 
     if check_set_node_loc(tree, ch.height_process, loc):
         #loc.x += 200
-        loc.y -= 300
+        loc.y -= 330
 
     bookmark_y = loc.y
     loc.x = bookmark_x
@@ -467,7 +467,7 @@ def rearrange_normal_process_nodes(tree, ch, loc):
         loc.y = bookmark_y
         loc.x += 200
 
-    if check_set_node_loc(tree, ch.normal, loc):
+    if check_set_node_loc(tree, ch.normal_process, loc):
         loc.x += 200
 
     if check_set_node_loc(tree, ch.normal_flip, loc):
@@ -763,7 +763,7 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, mask.uv_neighbor, loc):
             loc.y -= 320
 
-        if check_set_node_loc(tree, mask.mapping, loc):
+        if mask.group_node == '' and check_set_node_loc(tree, mask.mapping, loc):
             loc.y -= 290
 
         if check_set_node_loc(tree, mask.uv_map, loc):

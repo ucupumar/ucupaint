@@ -1839,30 +1839,88 @@ def get_transition_disp_delta(ch):
 def get_transition_disp_max_height(ch):
     return ch.transition_bump_distance if not ch.transition_bump_flip else -ch.transition_bump_distance
 
-def get_displacement_max_height(root_ch):
+def get_displacement_max_height(root_ch, ch=None):
     yp = root_ch.id_data.yp
     ch_index = get_channel_index(root_ch)
 
     max_height = 0.0
-    for l in yp.layers:
+    for l in reversed(yp.layers):
         c = l.channels[ch_index]
         ch_max_height = get_layer_channel_max_height(c)
-        if (l.enable and c.enable and c.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} 
-                and c.normal_blend_type == 'MIX' and max_height < ch_max_height
+        if (l.enable and c.enable and 
+                (c.write_height or (not c.write_height and c == ch)) and
+                #c.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} and
+                c.normal_blend_type == 'MIX' and max_height < ch_max_height
                 ):
             max_height = ch_max_height
+        if c == ch:
+            break
 
-    for l in yp.layers:
+    for l in reversed(yp.layers):
         c = l.channels[ch_index]
         ch_max_height = get_layer_channel_max_height(c)
-        if (l.enable and c.enable and c.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} 
-                and c.normal_blend_type == 'OVERLAY'
+        if (l.enable and c.enable and 
+                (c.write_height or (not c.write_height and c == ch)) and
+                #c.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} and
+                c.normal_blend_type == 'OVERLAY'
                 ):
             max_height += ch_max_height
+        if c == ch:
+            break
 
     #root_ch.displacement_height_ratio = max_height
 
     return max_height
+
+def get_smooth_bump_channels(layer):
+
+    yp = layer.id_data.yp
+
+    channels = []
+
+    for i, root_ch in enumerate(yp.channels):
+        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+            channels.append(layer.channels[i])
+
+    return channels
+
+def get_write_height_normal_channels(layer):
+    yp = layer.id_data.yp
+
+    channels = []
+
+    for i, root_ch in enumerate(yp.channels):
+        if root_ch.type == 'NORMAL':
+            ch = layer.channels[i]
+            if ch.write_height:
+                channels.append(ch)
+
+    return channels
+
+def get_bump_chain(layer, ch=None):
+
+    yp = layer.id_data.yp
+
+    chain = -1
+
+    # Try to get transition bump
+    trans_bump = get_transition_bump_channel(layer)
+
+    if trans_bump:
+        chain = trans_bump.transition_bump_chain 
+    else:
+
+        # Try to standard smooth bump if transition bump is not found
+        for i, c in enumerate(layer.channels):
+
+            if ch and c != ch: continue
+
+            if yp.channels[i].type == 'NORMAL':
+                chain_local = min(c.transition_bump_chain, len(layer.masks))
+                if chain_local > chain:
+                    chain = chain_local
+
+    return min(chain, len(layer.masks))
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

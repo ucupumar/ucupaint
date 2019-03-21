@@ -914,7 +914,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'source')
             remove_node(ttree, ch, 'linear')
 
-            remove_node(ttree, ch, 'normal')
+            remove_node(ttree, ch, 'normal_process')
             remove_node(ttree, ch, 'normal_flip')
             remove_node(ttree, ch, 'mod_n')
             remove_node(ttree, ch, 'mod_s')

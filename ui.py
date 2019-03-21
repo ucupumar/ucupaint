@@ -1058,23 +1058,25 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 brow.label(text='Write Height:') #, icon='INFO')
                 brow.prop(ch, 'write_height', text='')
 
+                #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+
+                brow = cccol.row(align=True)
                 if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
-
-                    brow = cccol.row(align=True)
                     brow.label(text='Max Height:') #, icon='INFO')
-                    brow.prop(ch, 'bump_distance', text='')
+                else: brow.label(text='Bump Height:') #, icon='INFO')
+                brow.prop(ch, 'bump_distance', text='')
 
-                    #if not ch.enable_transition_bump:
-                    #brow = cccol.row(align=True)
-                    #brow.active = not ch.enable_transition_bump
-                    #brow.label(text='Bump Base:') #, icon='INFO')
-                    #brow.prop(ch, 'bump_base_value', text='')
+                #if not ch.enable_transition_bump:
+                #brow = cccol.row(align=True)
+                #brow.active = not ch.enable_transition_bump
+                #brow.label(text='Bump Base:') #, icon='INFO')
+                #brow.prop(ch, 'bump_base_value', text='')
 
-                    #if any(layer.masks):
-                    brow = cccol.row(align=True)
-                    brow.active = not ch.enable_transition_bump and any(layer.masks) and not ch.write_height
-                    brow.label(text='Affected Masks:') #, icon='INFO')
-                    brow.prop(ch, 'transition_bump_chain', text='')
+                #if any(layer.masks):
+                brow = cccol.row(align=True)
+                brow.active = not ch.enable_transition_bump and any(layer.masks) and not ch.write_height
+                brow.label(text='Affected Masks:') #, icon='INFO')
+                brow.prop(ch, 'transition_bump_chain', text='')
 
                 #brow = cccol.row(align=True)
                 #brow.label(text='Invert Backface Normal')

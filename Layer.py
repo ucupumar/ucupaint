@@ -1839,7 +1839,7 @@ class YReplaceLayerType(bpy.types.Operator):
             for ch in layer.channels:
                 remove_node(tree, ch, 'bump_base')
                 #remove_node(tree, ch, 'bump')
-                remove_node(tree, ch, 'normal')
+                remove_node(tree, ch, 'normal_process')
 
         # Update linear stuff
         for i, ch in enumerate(layer.channels):
@@ -2156,6 +2156,9 @@ def update_write_height(self, context):
 
     check_channel_normal_map_nodes(tree, layer, root_ch, ch)
 
+    max_height = get_displacement_max_height(root_ch)
+    root_ch.displacement_height_ratio = max_height
+
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer, ch_index)
 
@@ -2167,45 +2170,52 @@ def update_bump_distance(self, context):
     root_ch = yp.channels[int(m.group(2))]
     tree = get_tree(layer)
 
-    normal = tree.nodes.get(self.normal)
-    max_height = get_displacement_max_height(root_ch)
+    normal_process = tree.nodes.get(self.normal_process)
+    max_height = get_displacement_max_height(root_ch, self)
 
-    if normal:
-        if self.normal_map_type == 'BUMP_MAP':
-            #normal.inputs[1].default_value = self.bump_distance
-            normal.inputs[1].default_value = max_height
+    #if normal_process:
+    #    if self.normal_map_type == 'BUMP_MAP':
+    #        #normal_process.inputs[1].default_value = self.bump_distance
+    #        normal_process.inputs[1].default_value = max_height
 
-        elif self.normal_map_type == 'FINE_BUMP_MAP':
-            #normal.inputs[0].default_value = get_fine_bump_distance(layer, self.bump_distance)
-            normal.inputs[0].default_value = get_fine_bump_distance(layer, max_height)
+    #    elif self.normal_map_type == 'FINE_BUMP_MAP':
+    #        #normal_process.inputs[0].default_value = get_fine_bump_distance(layer, self.bump_distance)
+    #        normal_process.inputs[0].default_value = get_fine_bump_distance(layer, max_height)
 
     #disp_ch = get_displacement_channel(yp)
     #if disp_ch == root_ch:
-
-    root_ch.displacement_height_ratio = max_height
 
     #height_blend = tree.nodes.get(self.height_blend)
     #if height_blend:
     #    height_blend.inputs['Scale'].default_value = self.bump_distance
     height_process = tree.nodes.get(self.height_process)
     if height_process:
-        #if self.enable_transition_bump:
-        height_process.inputs['Value Max Height'].default_value = self.bump_distance
-        if 'Delta' in height_process.inputs:
-            height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
-        #height_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
-        height_process.inputs['Total Max Height'].default_value = max_height
-        #else: height_process.inputs['Scale'].default_value = self.bump_distance
 
-    normal = tree.nodes.get(self.normal)
-    if normal:
-        #if self.enable_transition_bump and 'Value Max Height' in normal.inputs:
-        normal.inputs['Value Max Height'].default_value = self.bump_distance
-        if 'Delta' in height_process.inputs:
-            normal.inputs['Delta'].default_value = get_transition_disp_delta(self)
-        #normal.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
-        normal.inputs['Total Max Height'].default_value = max_height
-        #else: normal.inputs['Scale'].default_value = self.bump_distance
+        if self.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
+            height_process.inputs['Value Max Height'].default_value = self.bump_distance
+            if 'Delta' in height_process.inputs:
+                height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
+
+        elif self.normal_map_type == 'NORMAL_MAP':
+            height_process.inputs['Bump Height'].default_value = self.bump_distance
+
+        height_process.inputs['Total Max Height'].default_value = max_height
+
+    normal_process = tree.nodes.get(self.normal_process)
+    if normal_process:
+
+        if self.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
+            normal_process.inputs['Value Max Height'].default_value = self.bump_distance
+            if 'Delta' in height_process.inputs:
+                normal_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
+
+        elif self.normal_map_type == 'NORMAL_MAP':
+            normal_process.inputs['Bump Height'].default_value = self.bump_distance
+
+        normal_process.inputs['Total Max Height'].default_value = max_height
+
+    max_height = get_displacement_max_height(root_ch)
+    root_ch.displacement_height_ratio = max_height
 
     #end_linear = group_tree.nodes.get(root_ch.end_linear)
     #if end_linear:
@@ -2321,8 +2331,8 @@ def update_uv_name(self, context):
     #if bitangent: bitangent.uv_map = layer.uv_name
 
     for ch in layer.channels:
-        normal = nodes.get(ch.normal)
-        if normal and normal.type == 'NORMAL_MAP': normal.uv_map = layer.uv_name
+        normal_process = nodes.get(ch.normal_process)
+        if normal_process and normal_process.type == 'NORMAL_MAP': normal_process.uv_map = layer.uv_name
 
     # Update uv layer
     if obj.type == 'MESH' and not any([m for m in layer.masks if m.active_edit]) and layer == active_layer:
@@ -2432,9 +2442,9 @@ def update_channel_intensity_value(self, context):
     if height_process:
         height_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
 
-    normal = tree.nodes.get(ch.normal)
-    if normal and 'Intensity' in normal.inputs:
-        normal.inputs['Intensity'].default_value = ch.intensity_value
+    normal_process = tree.nodes.get(ch.normal_process)
+    if normal_process and 'Intensity' in normal_process.inputs:
+        normal_process.inputs['Intensity'].default_value = ch.intensity_value
 
     if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, layer, ch)
@@ -2528,7 +2538,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     source = StringProperty(default='')
 
     # Normal related
-    normal = StringProperty(default='')
+    #normal_map = StringProperty(default='')
+    normal_process = StringProperty(default='')
     normal_flip = StringProperty(default='')
 
     # Height related
