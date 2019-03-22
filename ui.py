@@ -979,9 +979,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     #crow.label(text='Type:') #, icon='INFO')
                     #crow.prop(ch, 'transition_bump_type', text='')
 
-                    crow = cccol.row(align=True)
-                    crow.label(text='Type:') #, icon='INFO')
-                    crow.prop(ch, 'transition_bump_type', text='')
+                    #crow = cccol.row(align=True)
+                    #crow.label(text='Type:') #, icon='INFO')
+                    #crow.prop(ch, 'transition_bump_type', text='')
 
                     crow = cccol.row(align=True)
                     crow.label(text='Edge 1:') #, icon='INFO')
@@ -999,10 +999,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     crow.label(text='Affected Masks:') #, icon='INFO')
                     crow.prop(ch, 'transition_bump_chain', text='')
 
-                    if ch.transition_bump_type == 'CURVED_BUMP_MAP':
-                        crow = cccol.row(align=True)
-                        crow.label(text='Offset:') #, icon='INFO')
-                        crow.prop(ch, 'transition_bump_curved_offset', text='')
+                    #if ch.transition_bump_type == 'CURVED_BUMP_MAP':
+                    #    crow = cccol.row(align=True)
+                    #    crow.label(text='Offset:') #, icon='INFO')
+                    #    crow.prop(ch, 'transition_bump_curved_offset', text='')
 
                     crow = cccol.row(align=True)
                     crow.active = layer.type != 'BACKGROUND'
@@ -1061,6 +1061,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
 
                 brow = cccol.row(align=True)
+                brow.active = not ch.enable_transition_bump or ch.normal_map_type != 'NORMAL_MAP'
                 if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
                     brow.label(text='Max Height:') #, icon='INFO')
                 else: brow.label(text='Bump Height:') #, icon='INFO')

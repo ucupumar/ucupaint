@@ -1459,10 +1459,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                         mix_e = nodes.get(c.mix_e)
                         mix_w = nodes.get(c.mix_w)
 
-                        malpha_n = create_link(tree, malpha_n, mix_n.inputs[1])[0]
-                        malpha_s = create_link(tree, malpha_s, mix_s.inputs[1])[0]
-                        malpha_e = create_link(tree, malpha_e, mix_e.inputs[1])[0]
-                        malpha_w = create_link(tree, malpha_w, mix_w.inputs[1])[0]
+                        if mix_n: malpha_n = create_link(tree, malpha_n, mix_n.inputs[1])[0]
+                        if mix_s: malpha_s = create_link(tree, malpha_s, mix_s.inputs[1])[0]
+                        if mix_e: malpha_e = create_link(tree, malpha_e, mix_e.inputs[1])[0]
+                        if mix_w: malpha_w = create_link(tree, malpha_w, mix_w.inputs[1])[0]
 
                     if 'Transition n' in normal_process.inputs: 
                         create_link(tree, malpha_n, normal_process.inputs['Transition n'])
@@ -1890,8 +1890,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                 if trans_bump_ch == ch:
                     #create_link(tree, intensity.outputs[0], height_process.inputs['Edge 1 Alpha'])
-                    if 'Edge 2 Alpha' in height_process.inputs:
-                        create_link(tree, alpha_before_intensity, height_process.inputs['Edge 2 Alpha'])
+                    if 'Edge 1 Alpha' in height_process.inputs:
+                        create_link(tree, alpha_before_intensity, height_process.inputs['Edge 1 Alpha'])
                     if 'Edge 1 Alpha' in normal_process.inputs:
                         create_link(tree, alpha_before_intensity, normal_process.inputs['Edge 1 Alpha'])
                 else:

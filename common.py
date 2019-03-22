@@ -1817,11 +1817,14 @@ def get_channel_index(root_ch):
 def get_layer_channel_max_height(ch):
 
     if ch.enable_transition_bump:
-        if ch.transition_bump_flip:
-            #max_height = ch.transition_bump_distance + max(ch.bump_distance, 0.0)
-            max_height = ch.transition_bump_distance + abs(ch.bump_distance)*2
-        else: 
-            max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
+        if ch.normal_map_type == 'NORMAL':
+            max_height = ch.transition_bump_distance
+        else:
+            if ch.transition_bump_flip:
+                #max_height = ch.transition_bump_distance + max(ch.bump_distance, 0.0)
+                max_height = ch.transition_bump_distance + abs(ch.bump_distance)*2
+            else: 
+                max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
 
     else: max_height = abs(ch.bump_distance)
 

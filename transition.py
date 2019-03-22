@@ -532,18 +532,29 @@ def update_transition_bump_distance(self, context):
         max_height = get_displacement_max_height(root_ch, ch)
 
         height_process = tree.nodes.get(self.height_process)
-        if height_process and 'Transition Max Height' in height_process.inputs:
-            height_process.inputs['Transition Max Height'].default_value = get_transition_disp_max_height(self)
-            height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
-            #height_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
+        if height_process: #and 'Transition Max Height' in height_process.inputs:
+            if self.normal_map_type == 'NORMAL_MAP':
+                height_process.inputs['Bump Height'].default_value = get_transition_disp_max_height(self)
+            else:
+                #if 'Transition Max Height' in height_process.inputs:
+                height_process.inputs['Transition Max Height'].default_value = get_transition_disp_max_height(self)
+                height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
+                #height_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
+
             height_process.inputs['Total Max Height'].default_value = max_height
 
         normal_process = tree.nodes.get(self.normal_process)
-        if normal_process and 'Transition Max Height' in normal_process.inputs:
-            normal_process.inputs['Transition Max Height'].default_value = get_transition_disp_max_height(self)
-            normal_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
-            #normal_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
-            normal_process.inputs['Total Max Height'].default_value = max_height
+        if normal_process: #and 'Transition Max Height' in normal_process.inputs:
+            if self.normal_map_type == 'NORMAL_MAP':
+                normal_process.inputs['Bump Height'].default_value = get_transition_disp_max_height(self)
+            else:
+                if 'Transition Max Height' in normal_process.inputs:
+                    normal_process.inputs['Transition Max Height'].default_value = get_transition_disp_max_height(self)
+                    normal_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
+                    #normal_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
+            
+            if 'Total Max Height' in normal_process.inputs:
+                normal_process.inputs['Total Max Height'].default_value = max_height
 
         max_height = get_displacement_max_height(root_ch)
         root_ch.displacement_height_ratio = max_height

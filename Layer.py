@@ -2205,14 +2205,16 @@ def update_bump_distance(self, context):
     if normal_process:
 
         if self.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
-            normal_process.inputs['Value Max Height'].default_value = self.bump_distance
-            if 'Delta' in height_process.inputs:
+            if 'Value Max Height' in normal_process.inputs:
+                normal_process.inputs['Value Max Height'].default_value = self.bump_distance
+            if 'Delta' in normal_process.inputs:
                 normal_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
 
         elif self.normal_map_type == 'NORMAL_MAP':
             normal_process.inputs['Bump Height'].default_value = self.bump_distance
 
-        normal_process.inputs['Total Max Height'].default_value = max_height
+        if 'Total Max Height' in normal_process.inputs:
+            normal_process.inputs['Total Max Height'].default_value = max_height
 
     max_height = get_displacement_max_height(root_ch)
     root_ch.displacement_height_ratio = max_height

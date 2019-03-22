@@ -176,24 +176,19 @@ def set_mask_uv_neighbor(tree, layer, mask):
     # NOTE: Checking transition bump everytime this function called is not that tidy
     # Check if transition bump channel is available
     bump_ch = get_transition_bump_channel(layer)
-    if bump_ch and bump_ch.transition_bump_type == 'BUMP_MAP':
-        #return False
-        bump_ch = None
+    #if bump_ch and bump_ch.transition_bump_type == 'BUMP_MAP':
+    #    #return False
+    #    bump_ch = None
+
+    smooth_chs = get_smooth_bump_channels(layer)
 
     if not bump_ch:
-        chs = [c for i,c in enumerate(layer.channels) 
-                if c.normal_map_type == 'FINE_BUMP_MAP' and yp.channels[i].type == 'NORMAL']
-        if chs: bump_ch = chs[0]
+        bump_ch = smooth_chs[0]
 
     # Check transition bump chain
-    if bump_ch:
+    if not any(smooth_chs) and bump_ch:
         match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
         mask_idx = int(match.group(2))
-
-        #if bump_ch.write_height:
-        #    chain = 1000
-        #else:
-        #    chain = min(bump_ch.transition_bump_chain, len(layer.masks))
 
         chain = get_bump_chain(layer, bump_ch)
         if mask_idx >= chain:
@@ -1068,7 +1063,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
 
         max_height = get_displacement_max_height(root_ch, ch)
 
-        normal_process.inputs['Bump Height'].default_value = ch.bump_distance
+        if not ch.enable_transition_bump:
+            normal_process.inputs['Bump Height'].default_value = ch.bump_distance
+        else: normal_process.inputs['Bump Height'].default_value = ch.transition_bump_distance
+
         normal_process.inputs['Total Max Height'].default_value = max_height
         normal_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(layer, max_height)
         normal_process.inputs['Intensity'].default_value = ch.intensity_value
@@ -1149,7 +1147,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
         height_process, need_reconnect = replace_new_node(tree, ch, 'height_process', 'ShaderNodeGroup',
                 'Height Process', lib_name, return_status=True, hard_replace=True)
 
-        height_process.inputs['Bump Height'].default_value = ch.bump_distance
+        if not ch.enable_transition_bump:
+            height_process.inputs['Bump Height'].default_value = ch.bump_distance
+        else: height_process.inputs['Bump Height'].default_value = ch.transition_bump_distance
 
     elif ch.enable_transition_bump:
 
