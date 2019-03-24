@@ -346,8 +346,9 @@ def add_new_modifier(parent, modifier_type):
 
     if match1: 
         # Enable modifier tree if fine bump map is used
-        if parent.normal_map_type == 'FINE_BUMP_MAP' or (
-                parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
+        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+        #if parent.normal_map_type == 'FINE_BUMP_MAP' or (
+        #        parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
             enable_modifiers_tree(parent)
     elif match2 and parent.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
         enable_modifiers_tree(parent)
@@ -1138,14 +1139,14 @@ def disable_modifiers_tree(parent, rearrange=False):
         root_ch = yp.channels[int(match1.group(2))]
 
         # Check if fine bump map is still used
-        if len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and (
-                parent.normal_map_type == 'FINE_BUMP_MAP'
-                or (parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})):
+        if len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+                #parent.normal_map_type == 'FINE_BUMP_MAP'
+                #or (parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})
             return
 
         # Check if channel use blur
-        if hasattr(parent, 'enable_blur') and parent.enable_blur:
-            return
+        #if hasattr(parent, 'enable_blur') and parent.enable_blur:
+        #    return
     elif match2:
         layer = parent
         if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:

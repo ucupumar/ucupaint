@@ -928,7 +928,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
 
         if root_ch.type == 'NORMAL':
 
-            if ch.normal_map_type == 'FINE_BUMP_MAP' and image:
+            #if ch.normal_map_type == 'FINE_BUMP_MAP' and image:
+            if root_ch.enable_smooth_bump and image:
 
                 uv_neighbor = layer_tree.nodes.get(layer.uv_neighbor)
                 cur_x = uv_neighbor.inputs[1].default_value 

@@ -111,12 +111,12 @@ def normal_map_type_items_(layer_type):
         items.append(('NORMAL_MAP', 'Normal Map', ''))
         items.append(('BUMP_MAP', 'Bump Map', ''))
         #if layer_type != 'VCOL':
-        items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
+        #items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
     else: 
         items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 0))
         items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 1))
         #if layer_type != 'VCOL':
-        items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 2))
+        #items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 2))
 
     return items
 
@@ -553,7 +553,8 @@ class YNewLayer(bpy.types.Operator):
             self.add_mask = False
 
         # Default normal map type is fine bump map
-        self.normal_map_type = 'FINE_BUMP_MAP'
+        #self.normal_map_type = 'FINE_BUMP_MAP'
+        self.normal_map_type = 'BUMP_MAP'
 
         # Layer name
         self.name = get_unique_name(name, items)
@@ -1776,9 +1777,12 @@ class YReplaceLayerType(bpy.types.Operator):
         yp.halt_reconnect = True
 
         # Standard bump map is easier to convert
-        fine_bump_channels = [ch for ch in layer.channels if ch.normal_map_type == 'FINE_BUMP_MAP']
+        #fine_bump_channels = [ch for ch in layer.channels if ch.normal_map_type == 'FINE_BUMP_MAP']
+        #for ch in fine_bump_channels:
+        #    ch.normal_map_type = 'BUMP_MAP'
+        fine_bump_channels = [ch for ch in yp.channels if ch.enable_smooth_bump]
         for ch in fine_bump_channels:
-            ch.normal_map_type = 'BUMP_MAP'
+            ch.enable_smooth_bump = False
 
         # Disable transition will also helps
         transition_channels = [ch for ch in layer.channels if ch.enable_transition_bump]
@@ -1848,7 +1852,8 @@ class YReplaceLayerType(bpy.types.Operator):
 
         # Back to use fine bump if conversion happen
         for ch in fine_bump_channels:
-            ch.normal_map_type = 'FINE_BUMP_MAP'
+            #ch.normal_map_type = 'FINE_BUMP_MAP'
+            ch.enable_smooth_bump = True
 
         # Bring back transition
         for ch in transition_channels:
@@ -2191,7 +2196,8 @@ def update_bump_distance(self, context):
     height_process = tree.nodes.get(self.height_process)
     if height_process:
 
-        if self.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
+        #if self.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
+        if self.normal_map_type == 'BUMP_MAP':
             height_process.inputs['Value Max Height'].default_value = self.bump_distance
             if 'Delta' in height_process.inputs:
                 height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
@@ -2204,7 +2210,8 @@ def update_bump_distance(self, context):
     normal_process = tree.nodes.get(self.normal_process)
     if normal_process:
 
-        if self.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
+        #if self.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
+        if self.normal_map_type == 'BUMP_MAP':
             if 'Value Max Height' in normal_process.inputs:
                 normal_process.inputs['Value Max Height'].default_value = self.bump_distance
             if 'Delta' in normal_process.inputs:
@@ -2623,10 +2630,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
             name = 'Bump Type',
             items = (
                 ('BUMP_MAP', 'Bump', ''),
-                ('FINE_BUMP_MAP', 'Fine Bump', ''),
+                #('FINE_BUMP_MAP', 'Fine Bump', ''),
                 ('CURVED_BUMP_MAP', 'Curved Bump', ''),
                 ),
-            default = 'FINE_BUMP_MAP',
+            default = 'BUMP_MAP',
             update=transition.update_enable_transition_bump)
 
     transition_bump_chain = IntProperty(

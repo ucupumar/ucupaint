@@ -1077,12 +1077,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
     # Get transition bump channel
     trans_bump_flip = False
-    fine_bump_ch = False
+    #fine_bump_ch = False
     trans_bump_ch = get_transition_bump_channel(layer)
     if trans_bump_ch:
         trans_bump_flip = trans_bump_ch.transition_bump_flip or layer.type == 'BACKGROUND'
         #trans_bump_flip = trans_bump_ch.transition_bump_flip
-        fine_bump_ch = trans_bump_ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
+        #fine_bump_ch = trans_bump_ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
 
     chain = -1
     if trans_bump_ch:
@@ -1407,17 +1407,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 #if layer.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
                 #    normal_map_type = 'BUMP_MAP'
 
-                if normal_map_type == 'NORMAL_MAP':
+                #if normal_map_type == 'NORMAL_MAP':
+                #if not root_ch.enable_smooth_bump:
 
-                    if normal_process:
-                        #rgb = create_link(tree, rgb, normal_process.inputs[1])[0]
+                if normal_process:
+                    #rgb = create_link(tree, rgb, normal_process.inputs[1])[0]
+                    if normal_map_type == 'NORMAL_MAP':
                         rgb = create_link(tree, rgb, normal_process.inputs['Normal Map'])[0]
 
                         create_link(tree, tangent, normal_process.inputs['Tangent'])
                         create_link(tree, bitangent, normal_process.inputs['Bitangent'])
 
-                        if height_process and 'Value' in normal_process.inputs:
-                            create_link(tree, height_process.outputs['Normalized Height'], 
+                    if height_process and 'Value' in normal_process.inputs:
+                        create_link(tree, height_process.outputs['Normalized Height'], 
                                     normal_process.inputs['Value'])
 
                 #elif normal_map_type == 'BUMP_MAP':
@@ -1909,24 +1911,24 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                         create_link(tree, alpha_before_intensity, height_process.inputs['Transition'])
                     else: create_link(tree, alpha_before_intensity, height_process.inputs['Alpha'])
 
-                    if 'Alpha' in normal_process.inputs:
-                        create_link(tree, alpha_before_intensity, normal_process.inputs['Alpha'])
+                if 'Alpha' in normal_process.inputs:
+                    create_link(tree, alpha_before_intensity, normal_process.inputs['Alpha'])
 
-                    if 'Alpha n' in normal_process.inputs:
-                        create_link(tree, malpha_n, normal_process.inputs['Alpha n'])
-                    if 'Alpha s' in normal_process.inputs:
-                        create_link(tree, malpha_s, normal_process.inputs['Alpha s'])
-                    if 'Alpha e' in normal_process.inputs:
-                        create_link(tree, malpha_e, normal_process.inputs['Alpha e'])
-                    if 'Alpha w' in normal_process.inputs:
-                        create_link(tree, malpha_w, normal_process.inputs['Alpha w'])
+                if 'Alpha n' in normal_process.inputs:
+                    create_link(tree, malpha_n, normal_process.inputs['Alpha n'])
+                if 'Alpha s' in normal_process.inputs:
+                    create_link(tree, malpha_s, normal_process.inputs['Alpha s'])
+                if 'Alpha e' in normal_process.inputs:
+                    create_link(tree, malpha_e, normal_process.inputs['Alpha e'])
+                if 'Alpha w' in normal_process.inputs:
+                    create_link(tree, malpha_w, normal_process.inputs['Alpha w'])
 
-                    #if ch.enable_transition_bump:
-                    #    create_link(tree, rgb_after_mod, disp_scale.inputs['RGB'])
-                    #    create_link(tree, transition_input, disp_scale.inputs['Alpha'])
-                    #    create_link(tree, tb_intensity_multiplier.outputs[0], disp_scale.inputs['Edge 2 Alpha'])
-                    #else:
-                    #    create_link(tree, rgb_after_mod, disp_scale.inputs[0])
+                #if ch.enable_transition_bump:
+                #    create_link(tree, rgb_after_mod, disp_scale.inputs['RGB'])
+                #    create_link(tree, transition_input, disp_scale.inputs['Alpha'])
+                #    create_link(tree, tb_intensity_multiplier.outputs[0], disp_scale.inputs['Edge 2 Alpha'])
+                #else:
+                #    create_link(tree, rgb_after_mod, disp_scale.inputs[0])
 
                 #elif height_blend: #and disp_scale:
                 #    create_link(tree, alpha, height_blend.inputs[0])
