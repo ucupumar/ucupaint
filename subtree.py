@@ -1040,20 +1040,29 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
     if root_ch.type != 'NORMAL': return False
     if layer.type in {'BACKGROUND', 'GROUP'}: return False
 
+    #max_height = get_layer_channel_max_height(ch)
+    max_height = get_displacement_max_height(root_ch, ch)
+
     # Normal nodes
     if ch.normal_map_type == 'NORMAL_MAP':
 
-        if not ch.enable_transition_bump:
+        if root_ch.enable_smooth_bump:
+            if not ch.enable_transition_bump:
 
-            if ch.normal_blend_type == 'MIX':
-                lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_BUMP_MIX
-            elif ch.normal_blend_type == 'OVERLAY':
-                lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_BUMP_ADD
+                if ch.normal_blend_type == 'MIX':
+                    lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_BUMP_MIX
+                elif ch.normal_blend_type == 'OVERLAY':
+                    lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_BUMP_ADD
+            else:
+                if ch.normal_blend_type == 'MIX':
+                    lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX
+                elif ch.normal_blend_type == 'OVERLAY':
+                    lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD
         else:
-            if ch.normal_blend_type == 'MIX':
-                lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX
-            elif ch.normal_blend_type == 'OVERLAY':
-                lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD
+            if not ch.enable_transition_bump:
+                lib_name = lib.NORMAL_MAP_PROCESS_BUMP
+            else:
+                lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_BUMP
 
         #normal_process = replace_new_node(tree, ch, 'normal_process', 'ShaderNodeNormalMap', 'Normal')
         #normal_process.uv_map = layer.uv_name
@@ -1061,15 +1070,14 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
                 tree, ch, 'normal_process', 'ShaderNodeGroup', 'Normal', lib_name, #lib.NORMAL_MAP,
                 return_status = True, hard_replace=True)
 
-        max_height = get_displacement_max_height(root_ch, ch)
-
         if not ch.enable_transition_bump:
             normal_process.inputs['Bump Height'].default_value = ch.bump_distance
         else: normal_process.inputs['Bump Height'].default_value = ch.transition_bump_distance
 
-        normal_process.inputs['Total Max Height'].default_value = max_height
-        normal_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(layer, max_height)
-        normal_process.inputs['Intensity'].default_value = ch.intensity_value
+        if root_ch.enable_smooth_bump:
+            normal_process.inputs['Total Max Height'].default_value = max_height
+            normal_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(layer, max_height)
+            normal_process.inputs['Intensity'].default_value = ch.intensity_value
 
         #normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
         #        'Normal Backface Flip', lib.FLIP_BACKFACE_NORMAL)
@@ -1095,9 +1103,6 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
         # Make sure to enable source tree and modifier tree
         enable_layer_source_tree(layer, False)
         Modifier.enable_modifiers_tree(ch, False)
-
-        #max_height = get_layer_channel_max_height(ch)
-        max_height = get_displacement_max_height(root_ch, ch)
 
         if ch.enable_transition_bump:
 
@@ -1133,9 +1138,6 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
         remove_node(tree, ch, 'normal_flip')
 
     #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} :
-
-    #max_height = get_layer_channel_max_height(ch)
-    max_height = get_displacement_max_height(root_ch, ch)
 
     if ch.normal_map_type == 'NORMAL_MAP':
 

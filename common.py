@@ -808,7 +808,7 @@ def create_info_nodes(tree):
             loc.y -= 40
             info.location = loc
 
-def check_duplicated_node_group(node_group):
+def check_duplicated_node_group(node_group, duplicated_trees = []):
 
     info_frame_found = False
 
@@ -820,12 +820,15 @@ def check_duplicated_node_group(node_group):
 
         if node.type == 'GROUP' and node.node_tree:
 
+            check_duplicated_node_group(node.node_tree, duplicated_trees)
+
             # Check if its node tree duplicated
             m = re.match(r'^(.+)\.\d{3}$', node.node_tree.name)
             if m:
                 ng = bpy.data.node_groups.get(m.group(1))
                 if ng:
                     #print(node.node_tree.name)
+                    #print('p:', node_group.name, 'm:', m.group(1), 'name:', node.node_tree.name)
 
                     # Remember current tree
                     prev_tree = node.node_tree
@@ -833,11 +836,13 @@ def check_duplicated_node_group(node_group):
                     # Replace new node
                     node.node_tree = ng
 
-                    # Remove previous tree
-                    if prev_tree.users == 0:
-                        bpy.data.node_groups.remove(prev_tree)
+                    if prev_tree not in duplicated_trees:
+                        duplicated_trees.append(prev_tree)
 
-            check_duplicated_node_group(node.node_tree)
+                    # Remove previous tree
+                    #if prev_tree.users == 0:
+                    #    #print(node_group.name + ' -> ' + prev_tree.name + ' removed!')
+                    #    bpy.data.node_groups.remove(prev_tree)
 
     # Create info frame if not found
     if not info_frame_found:
@@ -869,7 +874,14 @@ def get_node_tree_lib(name):
 
     # Check if another group is exists inside the group
     if node_tree: # and appended:
-        check_duplicated_node_group(node_tree)
+        duplicated_trees = []
+        check_duplicated_node_group(node_tree, duplicated_trees)
+
+        # Remove duplicated trees
+        for t in duplicated_trees:
+            bpy.data.node_groups.remove(t)
+        #print(duplicated_trees)
+        #print(node_tree.name + ' is loaded!')
 
     return node_tree
 

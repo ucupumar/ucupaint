@@ -1193,10 +1193,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             #        and ch.enable and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}):
             #if ch == trans_bump_ch and fine_bump_ch and i < chain:
 
+            mix_pure = nodes.get(c.mix_pure)
             mix_n = nodes.get(c.mix_n)
             mix_s = nodes.get(c.mix_s)
             mix_e = nodes.get(c.mix_e)
             mix_w = nodes.get(c.mix_w)
+
+            if mix_pure:
+                create_link(tree, mask_val, mix_pure.inputs[2])
 
             if mask.type == 'VCOL':
                 if mix_n: 
@@ -1411,6 +1415,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                         create_link(tree, tangent, normal_process.inputs['Tangent'])
                         create_link(tree, bitangent, normal_process.inputs['Bitangent'])
+
+                        if height_process and 'Value' in normal_process.inputs:
+                            create_link(tree, height_process.outputs['Normalized Height'], 
+                                    normal_process.inputs['Value'])
 
                 #elif normal_map_type == 'BUMP_MAP':
 

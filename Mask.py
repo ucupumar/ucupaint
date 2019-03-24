@@ -721,7 +721,10 @@ def update_mask_channel_intensity_value(self, context):
 
     mix = tree.nodes.get(self.mix)
     if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-    for d in neighbor_directions:
+    dirs = [d for d in neighbor_directions]
+    dirs.append('pure')
+    #print(dirs)
+    for d in dirs:
         mix = tree.nodes.get(getattr(self, 'mix_' + d))
         if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
 
