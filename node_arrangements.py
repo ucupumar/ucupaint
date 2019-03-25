@@ -446,9 +446,10 @@ def rearrange_normal_process_nodes(tree, ch, loc):
         loc.x += 200
 
     if check_set_node_loc(tree, ch.height_process, loc):
-        #loc.x += 200
+        loc.x += 200
         loc.y -= 330
 
+    farthest_x = loc.x
     bookmark_y = loc.y
     loc.x = bookmark_x
 
@@ -472,6 +473,9 @@ def rearrange_normal_process_nodes(tree, ch, loc):
 
     if check_set_node_loc(tree, ch.normal_flip, loc):
         loc.x += 200
+
+    if loc.x < farthest_x: 
+        loc.x = farthest_x
 
 def rearrange_layer_nodes(layer, tree=None):
     yp = layer.id_data.yp

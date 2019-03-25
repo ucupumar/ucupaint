@@ -1699,7 +1699,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                 if tb_crease_flip:
                     create_link(tree, tb_crease.outputs[0], tb_crease_flip.inputs[0])
-                    create_link(tree, bitangent, tb_crease_flip.inputs['Bitangent'])
+                    if 'Bitangent' in tb_crease_flip.inputs:
+                        create_link(tree, bitangent, tb_crease_flip.inputs['Bitangent'])
                     create_link(tree, tb_crease_flip.outputs[0], tb_crease_mix.inputs[2])
                 else:
                     create_link(tree, tb_crease.outputs[0], tb_crease_mix.inputs[2])
@@ -1714,10 +1715,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             #tb_blend = nodes.get(ch.tb_blend)
 
             if 'Edge 2 Alpha' in normal_process.inputs:
+                #if ch.transition_bump_flip or layer.type == 'BACKGROUND':
+                #    create_link(tree, intensity_multiplier.outputs[0], normal_process.inputs['Edge 2 Alpha'])
+                #else: 
                 create_link(tree, tb_intensity_multiplier.outputs[0], normal_process.inputs['Edge 2 Alpha'])
 
             if height_process:
                 if 'Edge 2 Alpha' in height_process.inputs:
+                    #if ch.transition_bump_flip or layer.type == 'BACKGROUND':
+                    #    create_link(tree, intensity_multiplier.outputs[0], height_process.inputs['Edge 2 Alpha'])
+                    #else: 
                     create_link(tree, tb_intensity_multiplier.outputs[0], height_process.inputs['Edge 2 Alpha'])
 
             create_link(tree, transition_input, tb_inverse.inputs[1])
@@ -1749,7 +1756,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 rgb = tao.outputs[0]
 
                 # Get bump intensity multiplier of transition bump
+                #if trans_bump_ch.transition_bump_flip or layer.type == 'BACKGROUND':
+                #    trans_im = nodes.get(trans_bump_ch.intensity_multiplier)
+                #else: 
                 trans_im = nodes.get(trans_bump_ch.tb_intensity_multiplier)
+
                 create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
 
                 if 'Bg Alpha' in tao.inputs and bg_alpha:

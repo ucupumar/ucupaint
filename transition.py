@@ -46,10 +46,21 @@ def check_transition_bump_influences_to_other_channels(layer, tree=None, target_
         check_transition_ramp_nodes(tree, layer, c)
 
         if bump_ch:
+
             im = tree.nodes.get(c.intensity_multiplier)
+
+            tr_ramp = tree.nodes.get(c.tr_ramp)
+            if tr_ramp and bump_ch.transition_bump_flip:
+                im_val = 1.0 + (bump_ch.transition_bump_second_edge_value - 1.0) * c.transition_bump_fac
+            else: im_val = 1.0 + (bump_ch.transition_bump_value - 1.0) * c.transition_bump_fac
+
             if not im:
-                im = lib.new_intensity_multiplier_node(tree, c, 'intensity_multiplier', 
-                        1.0 + (bump_ch.transition_bump_value - 1.0) * c.transition_bump_fac)
+
+                im = lib.new_intensity_multiplier_node(tree, c, 'intensity_multiplier', im_val)
+                        #1.0 + (bump_ch.transition_bump_value - 1.0) * c.transition_bump_fac)
+                        #1.0 + (im_val - 1.0) * c.transition_bump_fac)
+
+            im.inputs['Multiplier'].default_value = im_val
 
             # Invert other intensity multipler if mask bump flip active
             if bump_ch.transition_bump_flip or layer.type == 'BACKGROUND':
@@ -206,7 +217,10 @@ def set_transition_ramp_nodes(tree, layer, ch):
     load_ramp(tree, ch)
 
     if bump_ch:
-        multiplier_val = 1.0 + (bump_ch.transition_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
+        #multiplier_val = 1.0 + (bump_ch.transition_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
+        if bump_ch.transition_bump_flip:
+            multiplier_val = 1.0 + (bump_ch.transition_bump_value - 1.0) * ch.transition_bump_second_fac
+        else: multiplier_val = 1.0 + (bump_ch.transition_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
     else: multiplier_val = 1.0
 
     tr_ramp.inputs['Multiplier'].default_value = multiplier_val
@@ -388,15 +402,18 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
 
     if ch.transition_bump_flip or layer.type == 'BACKGROUND':
     #if ch.transition_bump_flip:
-        intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
-        tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
+        #intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
+        #tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
         intensity_multiplier.inputs['Sharpen'].default_value = 0.0
         tb_intensity_multiplier.inputs['Sharpen'].default_value = 1.0
     else:
-        intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
-        tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
+        #intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
+        #tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
         intensity_multiplier.inputs['Sharpen'].default_value = 1.0
         tb_intensity_multiplier.inputs['Sharpen'].default_value = 0.0
+
+    intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
+    tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
 
     # Add vector mix
     #tb_blend = tree.nodes.get(ch.tb_blend)
@@ -473,27 +490,40 @@ def update_transition_bump_value(self, context):
 
     if ch.transition_bump_flip or layer.type=='BACKGROUND':
     #if ch.transition_bump_flip:
-        if intensity_multiplier:
-            intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
-        if tb_intensity_multiplier:
-            tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
+        #if intensity_multiplier: intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
+        #if tb_intensity_multiplier: tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
+        pass
     else:
-        if intensity_multiplier:
-            intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
-        if tb_intensity_multiplier:
-            tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
+        #if intensity_multiplier: intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
+        #if tb_intensity_multiplier: tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
+        pass
+    if intensity_multiplier: intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
+    if tb_intensity_multiplier: tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
 
     for c in layer.channels:
         if c == ch: continue
 
         tr_ramp = tree.nodes.get(c.tr_ramp)
         if tr_ramp:
-            tr_ramp.inputs['Multiplier'].default_value = 1.0 + (
-                    ch.transition_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
 
-        im = tree.nodes.get(c.intensity_multiplier)
-        if im: 
-            im.inputs[1].default_value = 1.0 + (ch.transition_bump_value - 1.0) * c.transition_bump_fac
+            if ch.transition_bump_flip or layer.type=='BACKGROUND':
+                tr_ramp_mul = ch.transition_bump_value
+                tr_im_mul = ch.transition_bump_second_edge_value
+            else: 
+                tr_ramp_mul = ch.transition_bump_second_edge_value
+                tr_im_mul = ch.transition_bump_value
+
+            tr_ramp.inputs['Multiplier'].default_value = 1.0 + (
+                    #ch.transition_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
+                    tr_ramp_mul - 1.0) * c.transition_bump_second_fac
+
+            im = tree.nodes.get(c.intensity_multiplier)
+            if im: 
+                im.inputs[1].default_value = 1.0 + (tr_im_mul - 1.0) * c.transition_bump_fac
+        else:
+            im = tree.nodes.get(c.intensity_multiplier)
+            if im: 
+                im.inputs[1].default_value = 1.0 + (ch.transition_bump_value - 1.0) * c.transition_bump_fac
 
 def update_transition_bump_distance(self, context):
     if not self.enable: return
@@ -613,14 +643,26 @@ def update_transition_bump_fac(self, context):
 
     if ch != bump_ch:
 
-        im = tree.nodes.get(ch.intensity_multiplier)
-        if im: 
-            im.inputs[1].default_value = 1.0 + (bump_ch.transition_bump_value - 1.0) * ch.transition_bump_fac
+        if bump_ch.transition_bump_flip or layer.type=='BACKGROUND':
+            tr_ramp_mul = bump_ch.transition_bump_value
+            tr_im_mul = bump_ch.transition_bump_second_edge_value
+        else: 
+            tr_ramp_mul = bump_ch.transition_bump_second_edge_value
+            tr_im_mul = bump_ch.transition_bump_value
 
         tr_ramp = tree.nodes.get(ch.tr_ramp)
         if tr_ramp and bump_ch:
             tr_ramp.inputs['Multiplier'].default_value = 1.0 + (
-                    bump_ch.transition_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
+                    #bump_ch.transition_bump_second_edge_value - 1.0) * ch.transition_bump_second_fac
+                    tr_ramp_mul - 1.0) * ch.transition_bump_second_fac
+
+            im = tree.nodes.get(ch.intensity_multiplier)
+            if im: 
+                im.inputs[1].default_value = 1.0 + (tr_im_mul - 1.0) * ch.transition_bump_fac
+        else:
+            im = tree.nodes.get(ch.intensity_multiplier)
+            if im: 
+                im.inputs[1].default_value = 1.0 + (bump_ch.transition_bump_value - 1.0) * ch.transition_bump_fac
 
 def update_transition_ao_intensity(self, context):
 
