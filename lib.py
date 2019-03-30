@@ -70,6 +70,9 @@ HEIGHT_PROCESS_BUMP_ADD = '~yPL Height Process Bump Add'
 HEIGHT_PROCESS_TRANSITION_BUMP_MIX = '~yPL Height Process Transition Bump Mix'
 HEIGHT_PROCESS_TRANSITION_BUMP_ADD = '~yPL Height Process Transition Bump Add'
 
+HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_MIX = '~yPL Height Process Transition Bump Crease Mix'
+HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_ADD = '~yPL Height Process Transition Bump Crease Add'
+
 HEIGHT_PROCESS_NORMAL_MAP_MIX = '~yPL Height Process Normal Map Mix'
 HEIGHT_PROCESS_NORMAL_MAP_ADD = '~yPL Height Process Normal Map Add'
 
@@ -77,6 +80,9 @@ NORMAL_PROCESS_BUMP = '~yPL Normal Process Bump'
 
 NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_MIX = '~yPL Normal Process Transition Smooth Bump Mix'
 NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ADD = '~yPL Normal Process Transition Smooth Bump Add'
+
+NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX = '~yPL Normal Process Transition Smooth Bump Crease Mix'
+NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD = '~yPL Normal Process Transition Smooth Bump Crease Add'
 
 NORMAL_PROCESS_BUMP_MIX = '~yPL Normal Process Bump Mix'
 NORMAL_PROCESS_BUMP_ADD = '~yPL Normal Process Bump Add'
@@ -94,7 +100,7 @@ NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD = '~yPL Normal Map Process Transit
 #DISP_OVERLAY = '~yPL Displacement Overlay'
 #HEIGHT_PACK = '~yPL Height Pack'
 
-CURVE_VALUE = '~yPL Curve Value'
+EMULATED_CURVE = '~yPL Emulated Curve'
 
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'

@@ -352,36 +352,36 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
     #    set_bump_backface_flip(tb_bump_flip, yp.flip_backface)
 
     # Crease stuff
-    if ch.transition_bump_crease and not ch.transition_bump_flip and layer.type != 'BACKGROUND':
-    #if ch.transition_bump_crease and not ch.transition_bump_flip:
-        if ch.transition_bump_type == 'BUMP_MAP':
-            tb_crease = replace_new_node(tree, ch, 'tb_crease', 'ShaderNodeBump', 'Transition Bump Crease')
-            tb_crease.inputs[1].default_value = -ch.transition_bump_distance * ch.transition_bump_crease_factor
+    #if ch.transition_bump_crease and not ch.transition_bump_flip and layer.type != 'BACKGROUND':
+    ##if ch.transition_bump_crease and not ch.transition_bump_flip:
+    #    if ch.transition_bump_type == 'BUMP_MAP':
+    #        tb_crease = replace_new_node(tree, ch, 'tb_crease', 'ShaderNodeBump', 'Transition Bump Crease')
+    #        tb_crease.inputs[1].default_value = -ch.transition_bump_distance * ch.transition_bump_crease_factor
 
-            tb_crease_flip = replace_new_node(tree, ch, 'tb_crease_flip', 'ShaderNodeGroup', 
-                    'Transition Bump Crease Backface Flip', lib.FLIP_BACKFACE_BUMP)
+    #        tb_crease_flip = replace_new_node(tree, ch, 'tb_crease_flip', 'ShaderNodeGroup', 
+    #                'Transition Bump Crease Backface Flip', lib.FLIP_BACKFACE_BUMP)
 
-            set_bump_backface_flip(tb_crease_flip, yp.flip_backface)
-        else:
-            tb_crease = replace_new_node(tree, ch, 'tb_crease', 'ShaderNodeGroup', 
-                    'Transition Bump Crease', lib.FINE_BUMP)
-            tb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance) * ch.transition_bump_crease_factor
+    #        set_bump_backface_flip(tb_crease_flip, yp.flip_backface)
+    #    else:
+    #        tb_crease = replace_new_node(tree, ch, 'tb_crease', 'ShaderNodeGroup', 
+    #                'Transition Bump Crease', lib.FINE_BUMP)
+    #        tb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance) * ch.transition_bump_crease_factor
 
-            remove_node(tree, ch, 'tb_crease_flip')
+    #        remove_node(tree, ch, 'tb_crease_flip')
 
-        tb_crease_intensity = replace_new_node(tree, ch, 'tb_crease_intensity', 'ShaderNodeMath',
-                    'Transition Bump Crease Intensity')
-        tb_crease_intensity.operation = 'MULTIPLY'
-        tb_crease_intensity.inputs[1].default_value = ch.intensity_value if layer.enable else 0.0
+    #    tb_crease_intensity = replace_new_node(tree, ch, 'tb_crease_intensity', 'ShaderNodeMath',
+    #                'Transition Bump Crease Intensity')
+    #    tb_crease_intensity.operation = 'MULTIPLY'
+    #    tb_crease_intensity.inputs[1].default_value = ch.intensity_value if layer.enable else 0.0
 
-        tb_crease_mix = replace_new_node(tree, ch, 'tb_crease_mix', 'ShaderNodeGroup',
-                    'Transition Bump Crease Mix', lib.OVERLAY_NORMAL)
+    #    tb_crease_mix = replace_new_node(tree, ch, 'tb_crease_mix', 'ShaderNodeGroup',
+    #                'Transition Bump Crease Mix', lib.OVERLAY_NORMAL)
 
-    else:
-        remove_node(tree, ch, 'tb_crease')
-        remove_node(tree, ch, 'tb_crease_flip')
-        remove_node(tree, ch, 'tb_crease_intensity')
-        remove_node(tree, ch, 'tb_crease_mix')
+    #else:
+    #    remove_node(tree, ch, 'tb_crease')
+    #    remove_node(tree, ch, 'tb_crease_flip')
+    #    remove_node(tree, ch, 'tb_crease_intensity')
+    #    remove_node(tree, ch, 'tb_crease_mix')
 
     # Add inverse
     tb_inverse = tree.nodes.get(ch.tb_inverse)
@@ -467,14 +467,33 @@ def update_transition_bump_crease_factor(self, context):
     yp = self.id_data.yp
     match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
+    root_ch = yp.channels[int(match.group(2))]
     tree = get_tree(layer)
     ch = self
 
-    tb_crease = tree.nodes.get(ch.tb_crease)
-    if tb_crease:
-        if ch.transition_bump_type == 'BUMP_MAP':
-            tb_crease.inputs[1].default_value = -ch.transition_bump_distance * ch.transition_bump_crease_factor
-        else: tb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance) * ch.transition_bump_crease_factor
+    height_process = tree.nodes.get(ch.height_process)
+
+    if height_process:
+        height_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
+        height_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
+        height_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+
+    normal_process = tree.nodes.get(ch.normal_process)
+    if normal_process:
+        normal_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
+        normal_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
+        normal_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+        normal_process.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
+                ch.transition_bump_crease_factor * -ch.transition_bump_distance)
+
+    max_height = get_displacement_max_height(root_ch)
+    root_ch.displacement_height_ratio = max_height
+
+    #tb_crease = tree.nodes.get(ch.tb_crease)
+    #if tb_crease:
+    #    if ch.transition_bump_type == 'BUMP_MAP':
+    #        tb_crease.inputs[1].default_value = -ch.transition_bump_distance * ch.transition_bump_crease_factor
+    #    else: tb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance) * ch.transition_bump_crease_factor
 
 def update_transition_bump_value(self, context):
     if not self.enable: return
@@ -558,11 +577,11 @@ def update_transition_bump_distance(self, context):
     #            tb_bump.inputs[1].default_value = -ch.transition_bump_distance
     #        else: tb_bump.inputs[1].default_value = ch.transition_bump_distance
 
-    if ch.transition_bump_crease:
-        tb_crease = tree.nodes.get(ch.tb_crease)
-        if ch.transition_bump_type == 'BUMP_MAP':
-            tb_crease.inputs[1].default_value = ch.transition_bump_crease_factor * -ch.transition_bump_distance
-        else: tb_crease.inputs[0].default_value = ch.transition_bump_crease_factor * -get_transition_fine_bump_distance(ch.transition_bump_distance)
+    #if ch.transition_bump_crease:
+    #    tb_crease = tree.nodes.get(ch.tb_crease)
+    #    if ch.transition_bump_type == 'BUMP_MAP':
+    #        tb_crease.inputs[1].default_value = ch.transition_bump_crease_factor * -ch.transition_bump_distance
+    #    else: tb_crease.inputs[0].default_value = ch.transition_bump_crease_factor * -get_transition_fine_bump_distance(ch.transition_bump_distance)
 
     disp_ch = get_displacement_channel(yp)
     if disp_ch == root_ch:
@@ -572,10 +591,10 @@ def update_transition_bump_distance(self, context):
         height_process = tree.nodes.get(self.height_process)
         if height_process: #and 'Transition Max Height' in height_process.inputs:
             if self.normal_map_type == 'NORMAL_MAP':
-                height_process.inputs['Bump Height'].default_value = get_transition_disp_max_height(self)
+                height_process.inputs['Bump Height'].default_value = get_transition_bump_max_distance(self)
             else:
                 #if 'Transition Max Height' in height_process.inputs:
-                height_process.inputs['Transition Max Height'].default_value = get_transition_disp_max_height(self)
+                height_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(self)
                 height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
                 #height_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
 
@@ -584,10 +603,10 @@ def update_transition_bump_distance(self, context):
         normal_process = tree.nodes.get(self.normal_process)
         if normal_process: #and 'Transition Max Height' in normal_process.inputs:
             if self.normal_map_type == 'NORMAL_MAP':
-                normal_process.inputs['Bump Height'].default_value = get_transition_disp_max_height(self)
+                normal_process.inputs['Bump Height'].default_value = get_transition_bump_max_distance(self)
             else:
                 if 'Transition Max Height' in normal_process.inputs:
-                    normal_process.inputs['Transition Max Height'].default_value = get_transition_disp_max_height(self)
+                    normal_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(self)
                     normal_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
                     #normal_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
             

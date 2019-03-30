@@ -2184,8 +2184,8 @@ def update_bump_distance(self, context):
     #        normal_process.inputs[1].default_value = max_height
 
     #    elif self.normal_map_type == 'FINE_BUMP_MAP':
-    #        #normal_process.inputs[0].default_value = get_fine_bump_distance(layer, self.bump_distance)
-    #        normal_process.inputs[0].default_value = get_fine_bump_distance(layer, max_height)
+    #        #normal_process.inputs[0].default_value = get_fine_bump_distance(self.bump_distance)
+    #        normal_process.inputs[0].default_value = get_fine_bump_distance(max_height)
 
     #disp_ch = get_displacement_channel(yp)
     #if disp_ch == root_ch:
@@ -2678,11 +2678,30 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
             update=transition.update_transition_bump_fac)
 
+    transition_bump_falloff = BoolProperty(
+            name = 'Transition Bump Falloff',
+            default = False, update=transition.update_enable_transition_bump)
+
+    transition_bump_falloff_type = EnumProperty(
+            name = 'Transition Bump Falloff Type',
+            items = (
+                ('EMULATED_CURVE', 'Emulated Curve', ''),
+                ('CURVE', 'Curve', ''),
+                ),
+            default = 'EMULATED_CURVE',
+            update=transition.update_enable_transition_bump)
+
     tb_bump = StringProperty(default='')
     tb_bump_flip = StringProperty(default='')
     tb_inverse = StringProperty(default='')
     tb_intensity_multiplier = StringProperty(default='')
     tb_blend = StringProperty(default='')
+
+    tb_falloff = StringProperty(default='')
+    tb_falloff_n = StringProperty(default='')
+    tb_falloff_s = StringProperty(default='')
+    tb_falloff_e = StringProperty(default='')
+    tb_falloff_w = StringProperty(default='')
 
     tb_crease = StringProperty(default='')
     tb_crease_flip = StringProperty(default='')

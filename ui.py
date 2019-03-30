@@ -1017,6 +1017,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                         crow.prop(ch, 'transition_bump_crease_factor', text='')
                     crow.prop(ch, 'transition_bump_crease', text='')
 
+                    crow = cccol.row(align=True)
+                    #crow.active = layer.type != 'BACKGROUND'
+                    crow.label(text='Falloff:') #, icon='INFO')
+                    if ch.transition_bump_falloff:
+                        crow.prop(ch, 'transition_bump_falloff_type', text='')
+                    crow.prop(ch, 'transition_bump_falloff', text='')
+
                     #row.label(text='', icon='BLANK1')
 
             row = mcol.row(align=True)

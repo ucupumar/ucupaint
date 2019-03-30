@@ -1833,26 +1833,45 @@ def get_layer_channel_max_height(ch):
             max_height = ch.transition_bump_distance
         else:
             if ch.transition_bump_flip:
-                #max_height = ch.transition_bump_distance + max(ch.bump_distance, 0.0)
-                max_height = ch.transition_bump_distance + abs(ch.bump_distance)*2
+                #max_height = ch.transition_bump_distance + abs(ch.bump_distance)*2
+                max_height = abs(get_transition_bump_max_distance(ch)) + abs(ch.bump_distance)*2
+
             else: 
-                max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
+                #max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
+                max_height = abs(get_transition_bump_max_distance(ch)) + abs(ch.bump_distance)
 
     else: max_height = abs(ch.bump_distance)
 
     return max_height
 
-def get_transition_disp_delta(ch):
+def get_transition_bump_max_distance(ch):
     if ch.transition_bump_flip:
-        #delta = -ch.transition_bump_distance - ch.bump_distance
-        delta = -ch.transition_bump_distance - abs(ch.bump_distance)
-    else: 
-        delta = ch.transition_bump_distance - abs(ch.bump_distance)
+        return -ch.transition_bump_distance
+
+    if not ch.transition_bump_crease:
+        return ch.transition_bump_distance
+
+    tb = ch.transition_bump_distance
+    fac = ch.transition_bump_crease_factor
+
+    if fac <= 0.5:
+        return (1 - fac) * tb 
+
+    return fac * tb
+
+def get_transition_disp_delta(ch):
+    #if ch.transition_bump_flip:
+    #    #delta = -ch.transition_bump_distance - ch.bump_distance
+    #    delta = -ch.transition_bump_distance - abs(ch.bump_distance)
+    #else: 
+    #    delta = ch.transition_bump_distance - abs(ch.bump_distance)
+
+    delta = get_transition_bump_max_distance(ch) - abs(ch.bump_distance)
 
     return delta
 
-def get_transition_disp_max_height(ch):
-    return ch.transition_bump_distance if not ch.transition_bump_flip else -ch.transition_bump_distance
+#def get_transition_disp_max_height(ch):
+#    return ch.transition_bump_distance if not ch.transition_bump_flip else -ch.transition_bump_distance
 
 def get_displacement_max_height(root_ch, ch=None):
     yp = root_ch.id_data.yp
