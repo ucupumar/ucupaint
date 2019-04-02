@@ -722,8 +722,8 @@ def update_mask_channel_intensity_value(self, context):
     mix = tree.nodes.get(self.mix)
     if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
     dirs = [d for d in neighbor_directions]
-    dirs.append('pure')
-    #print(dirs)
+    dirs.extend(['pure', 'remains'])
+
     for d in dirs:
         mix = tree.nodes.get(getattr(self, 'mix_' + d))
         if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
@@ -748,7 +748,10 @@ def update_layer_mask_channel_enable(self, context):
         mix.mute = mute
     else: mix.mute = False
 
-    for d in neighbor_directions:
+    dirs = [d for d in neighbor_directions]
+    dirs.extend(['pure', 'remains'])
+
+    for d in dirs:
         mix = tree.nodes.get(getattr(self, 'mix_' + d))
         if mix: 
             if yp.disable_quick_toggle:
@@ -873,10 +876,13 @@ def update_mask_blend_type(self, context):
     tree = get_tree(layer)
     mask = self
 
+    dirs = [d for d in neighbor_directions]
+    dirs.extend(['pure', 'remains'])
+
     for c in mask.channels:
         mix = tree.nodes.get(c.mix)
         if mix: mix.blend_type = mask.blend_type
-        for d in neighbor_directions:
+        for d in dirs:
             mix = tree.nodes.get(getattr(c, 'mix_' + d))
             if mix: mix.blend_type = mask.blend_type
 
@@ -891,6 +897,9 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
 
     # Pure mask without any extra multiplier or uv shift, useful for height process
     mix_pure = StringProperty(default='')
+
+    # Remaining masks after chain
+    mix_remains = StringProperty(default='')
 
     # Bump related
     mix_n = StringProperty(default='')

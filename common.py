@@ -1829,22 +1829,25 @@ def get_channel_index(root_ch):
 def get_layer_channel_max_height(ch):
 
     if ch.enable_transition_bump:
-        if ch.normal_map_type == 'NORMAL':
+        if ch.normal_map_type == 'NORMAL_MAP':
             max_height = ch.transition_bump_distance
         else:
             if ch.transition_bump_flip:
                 #max_height = ch.transition_bump_distance + abs(ch.bump_distance)*2
-                max_height = abs(get_transition_bump_max_distance(ch)) + abs(ch.bump_distance)*2
+                max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + abs(ch.bump_distance)*2
 
             else: 
                 #max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
-                max_height = abs(get_transition_bump_max_distance(ch)) + abs(ch.bump_distance)
+                max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + abs(ch.bump_distance)
 
     else: max_height = abs(ch.bump_distance)
 
     return max_height
 
 def get_transition_bump_max_distance(ch):
+    return ch.transition_bump_distance if not ch.transition_bump_flip else -ch.transition_bump_distance
+
+def get_transition_bump_max_distance_with_crease(ch):
     if ch.transition_bump_flip:
         return -ch.transition_bump_distance
 
@@ -1869,9 +1872,6 @@ def get_transition_disp_delta(ch):
     delta = get_transition_bump_max_distance(ch) - abs(ch.bump_distance)
 
     return delta
-
-#def get_transition_disp_max_height(ch):
-#    return ch.transition_bump_distance if not ch.transition_bump_flip else -ch.transition_bump_distance
 
 def get_displacement_max_height(root_ch, ch=None):
     yp = root_ch.id_data.yp

@@ -2175,6 +2175,8 @@ def update_bump_distance(self, context):
     root_ch = yp.channels[int(m.group(2))]
     tree = get_tree(layer)
 
+    if self.normal_map_type == 'NORMAL_MAP' and self.enable_transition_bump: return
+
     normal_process = tree.nodes.get(self.normal_process)
     max_height = get_displacement_max_height(root_ch, self)
 
@@ -2189,7 +2191,6 @@ def update_bump_distance(self, context):
 
     #disp_ch = get_displacement_channel(yp)
     #if disp_ch == root_ch:
-
     #height_blend = tree.nodes.get(self.height_blend)
     #if height_blend:
     #    height_blend.inputs['Scale'].default_value = self.bump_distance
@@ -2201,7 +2202,6 @@ def update_bump_distance(self, context):
             height_process.inputs['Value Max Height'].default_value = self.bump_distance
             if 'Delta' in height_process.inputs:
                 height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
-
         elif self.normal_map_type == 'NORMAL_MAP':
             height_process.inputs['Bump Height'].default_value = self.bump_distance
 
@@ -2216,9 +2216,12 @@ def update_bump_distance(self, context):
                 normal_process.inputs['Value Max Height'].default_value = self.bump_distance
             if 'Delta' in normal_process.inputs:
                 normal_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
-
         elif self.normal_map_type == 'NORMAL_MAP':
             normal_process.inputs['Bump Height'].default_value = self.bump_distance
+
+        #if 'Bump Height Scale' in normal_process.inputs:
+        if root_ch.enable_smooth_bump: 
+            normal_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
         if 'Total Max Height' in normal_process.inputs:
             normal_process.inputs['Total Max Height'].default_value = max_height
@@ -2663,8 +2666,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
     transition_bump_crease_factor = FloatProperty(
             name = 'Transition Bump Crease Factor',
             description = 'Transition bump crease factor',
-            default=0.33, min=0.0, max=10.0,
+            default=0.33, min=0.0, max=1.0, subtype='FACTOR',
             update=transition.update_transition_bump_crease_factor)
+
+    transition_bump_crease_power = FloatProperty(
+            name = 'Transition Bump Crease Power',
+            description = 'Transition Bump Crease Power',
+            default=5.0, min=1.0, max=100.0,
+            update=transition.update_transition_bump_crease_power)
 
     transition_bump_fac = FloatProperty(
             name='Transition Bump Factor',

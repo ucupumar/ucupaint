@@ -832,7 +832,8 @@ def rearrange_layer_nodes(layer, tree=None):
 
             mix_n = tree.nodes.get(c.mix_n)
             mix_pure = tree.nodes.get(c.mix_pure)
-            if not mix_n and not mix_pure:
+            mix_remains = tree.nodes.get(c.mix_remains)
+            if not mix_n and not mix_pure and not mix_remains:
 
                 if check_set_node_loc(tree, c.mix, loc):
                     loc.y -= 200.0
@@ -842,6 +843,9 @@ def rearrange_layer_nodes(layer, tree=None):
                     loc.y -= 40
 
                 if check_set_node_loc(tree, c.mix_pure, loc, True):
+                    loc.y -= 40
+
+                if check_set_node_loc(tree, c.mix_remains, loc, True):
                     loc.y -= 40
 
                 if check_set_node_loc(tree, c.mix_n, loc, True):

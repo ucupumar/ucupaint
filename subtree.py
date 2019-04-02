@@ -503,8 +503,21 @@ def check_mask_mix_nodes(layer, tree=None):
                         if yp.disable_quick_toggle:
                             mix_pure.mute = mute
                         else: mix_pure.mute = False
+
                 else:
                     remove_node(tree, c, 'mix_pure')
+
+                if i >= chain and trans_bump and ch == trans_bump and ch.transition_bump_crease and not ch.write_height:
+                    mix_remains = tree.nodes.get(c.mix_remains)
+                    if not mix_remains:
+                        mix_remains = new_node(tree, c, 'mix_remains', 'ShaderNodeMixRGB', 'Mask Blend Remaining')
+                        mix_remains.blend_type = mask.blend_type
+                        mix_remains.inputs[0].default_value = 0.0 if mute else mask.intensity_value
+                        if yp.disable_quick_toggle:
+                            mix_remains.mute = mute
+                        else: mix_remains.mute = False
+                else:
+                    remove_node(tree, c, 'mix_remains')
 
                 if (
                     #(not trans_bump and ch.normal_map_type in {'FINE_BUMP_MAP'}) or
@@ -1104,7 +1117,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
 
         if not ch.enable_transition_bump:
             normal_process.inputs['Bump Height'].default_value = ch.bump_distance
-        else: normal_process.inputs['Bump Height'].default_value = ch.transition_bump_distance
+        else: 
+            if root_ch.enable_smooth_bump:
+                normal_process.inputs['Bump Height'].default_value = get_transition_bump_max_distance(ch)
+            else: normal_process.inputs['Bump Height'].default_value = ch.transition_bump_distance
 
         if root_ch.enable_smooth_bump:
             normal_process.inputs['Total Max Height'].default_value = max_height
@@ -1167,16 +1183,26 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
 
     if 'Crease Factor' in normal_process.inputs:
         normal_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
+    if 'Crease Power' in normal_process.inputs:
+        normal_process.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
     if 'Crease Height Scale' in normal_process.inputs:
         normal_process.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
                 ch.transition_bump_crease_factor * -ch.transition_bump_distance)
 
     if ch.normal_map_type == 'NORMAL_MAP':
 
-        if ch.normal_blend_type == 'MIX':
-            lib_name = lib.HEIGHT_PROCESS_NORMAL_MAP_MIX
-        elif ch.normal_blend_type == 'OVERLAY':
-            lib_name = lib.HEIGHT_PROCESS_NORMAL_MAP_ADD
+        if ch.enable_transition_bump:
+            if ch.normal_blend_type == 'MIX':
+                lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_MIX
+            elif ch.normal_blend_type == 'OVERLAY':
+                lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_ADD
+
+        else:
+
+            if ch.normal_blend_type == 'MIX':
+                lib_name = lib.HEIGHT_PROCESS_NORMAL_MAP_MIX
+            elif ch.normal_blend_type == 'OVERLAY':
+                lib_name = lib.HEIGHT_PROCESS_NORMAL_MAP_ADD
 
     #elif ch.normal_blend_type == 'BUMP_MAP':
     else:
@@ -1207,7 +1233,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
     if ch.normal_map_type == 'NORMAL_MAP':
         if not ch.enable_transition_bump:
             height_process.inputs['Bump Height'].default_value = ch.bump_distance
-        else: height_process.inputs['Bump Height'].default_value = ch.transition_bump_distance
+        else: 
+            height_process.inputs['Bump Height'].default_value = get_transition_bump_max_distance(ch)
 
     else:
         if ch.enable_transition_bump:
@@ -1221,6 +1248,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
 
     if 'Crease Factor' in height_process.inputs:
         height_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
+    if 'Crease Power' in height_process.inputs:
+        height_process.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
 
     # Remove neighbor related nodes
     if root_ch.enable_smooth_bump:
