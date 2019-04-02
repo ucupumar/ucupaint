@@ -507,7 +507,10 @@ def check_mask_mix_nodes(layer, tree=None):
                 else:
                     remove_node(tree, c, 'mix_pure')
 
-                if i >= chain and trans_bump and ch == trans_bump and ch.transition_bump_crease and not ch.write_height:
+                if i >= chain and (
+                    (trans_bump and ch == trans_bump and ch.transition_bump_crease and not ch.write_height) or
+                    (not trans_bump)
+                    ):
                     mix_remains = tree.nodes.get(c.mix_remains)
                     if not mix_remains:
                         mix_remains = new_node(tree, c, 'mix_remains', 'ShaderNodeMixRGB', 'Mask Blend Remaining')

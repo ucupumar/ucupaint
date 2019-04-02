@@ -1491,26 +1491,29 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
         if root_ch.type == 'NORMAL':
 
+            pure = alpha_after_mod
+            remains = one_value.outputs[0]
+
+            for j, mask in enumerate(layer.masks):
+                #if j < chain: break
+
+                c = mask.channels[i]
+                if j < chain:
+                    mix = nodes.get(c.mix)
+                    pure = mix.outputs[0]
+                else:
+                    mix_pure = nodes.get(c.mix_pure)
+                    if mix_pure: pure = create_link(tree, pure, mix_pure.inputs[1])[0]
+
+                if j >= chain:
+                    mix_remains = nodes.get(c.mix_remains)
+                    if mix_remains: remains = create_link(tree, remains, mix_remains.inputs[1])[0]
+
+            if 'Remaining Alpha' in normal_process.inputs:
+                create_link(tree, remains, normal_process.inputs['Remaining Alpha'])
+
             # Transition Bump
             if ch.enable_transition_bump and ch.enable:
-                pure = alpha_after_mod
-                remains = one_value.outputs[0]
-
-                for j, mask in enumerate(layer.masks):
-                    #if j < chain: break
-
-                    c = mask.channels[i]
-                    if j < chain:
-                        mix = nodes.get(c.mix)
-                        pure = mix.outputs[0]
-                    else:
-                        mix_pure = nodes.get(c.mix_pure)
-                        pure = create_link(tree, pure, mix_pure.inputs[1])[0]
-
-                    if j >= chain:
-                        mix_remains = nodes.get(c.mix_remains)
-                        if mix_remains: remains = create_link(tree, remains, mix_remains.inputs[1])[0]
-
                 create_link(tree, pure, height_process.inputs['Transition'])
                 if bump_base and 'Value' in height_process.inputs:
                     create_link(tree, bump_base.outputs[0], height_process.inputs['Value'])
@@ -1528,9 +1531,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                 if 'Edge 2 Alpha' in normal_process.inputs:
                     create_link(tree, tb_intensity_multiplier.outputs[0], normal_process.inputs['Edge 2 Alpha'])
-
-                if 'Remaining Alpha' in normal_process.inputs:
-                    create_link(tree, remains, normal_process.inputs['Remaining Alpha'])
 
                 if height_process and 'Edge 2 Alpha' in height_process.inputs:
                         create_link(tree, tb_intensity_multiplier.outputs[0], 
