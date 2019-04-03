@@ -1019,10 +1019,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
 
                     if ch.transition_bump_crease:
                         crow = cccol.row(align=True)
+                        crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
                         crow.label(text='Crease Factor:') #, icon='INFO')
                         crow.prop(ch, 'transition_bump_crease_factor', text='')
 
                         crow = cccol.row(align=True)
+                        crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
                         crow.label(text='Crease Power:') #, icon='INFO')
                         crow.prop(ch, 'transition_bump_crease_power', text='')
 

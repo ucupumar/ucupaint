@@ -472,7 +472,7 @@ def update_transition_bump_crease_factor(self, context):
     tree = get_tree(layer)
     ch = self
 
-    if not ch.enable_transition_bump: return
+    if not ch.enable_transition_bump or not ch.enable or not ch.transition_bump_crease or ch.transition_bump_flip: return
 
     height_process = tree.nodes.get(ch.height_process)
     if height_process:
@@ -499,7 +499,7 @@ def update_transition_bump_crease_power(self, context):
     tree = get_tree(layer)
     ch = self
 
-    if not ch.enable_transition_bump: return
+    if not ch.enable_transition_bump or not ch.enable or not ch.transition_bump_crease or ch.transition_bump_flip: return
 
     height_process = tree.nodes.get(ch.height_process)
     if height_process:
@@ -649,6 +649,7 @@ def update_transition_bump_chain(self, context):
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
     tree = get_tree(layer)
+    root_ch = yp.channels[int(m.group(2))]
     ch = self
 
     #if ch.enable_transition_bump and ch.enable:
@@ -658,6 +659,7 @@ def update_transition_bump_chain(self, context):
 
     # Trigger normal channel update
     #ch.normal_map_type = ch.normal_map_type
+    check_channel_normal_map_nodes(tree, layer, root_ch, ch)
 
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer) #, mod_reconnect=True)

@@ -1155,9 +1155,13 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
                         lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD
 
                 elif ch.normal_blend_type == 'MIX':
-                    lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_MIX
+                    if ch.transition_bump_chain == 0:
+                        lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ZERO_CHAIN_MIX
+                    else: lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_MIX
                 elif ch.normal_blend_type == 'OVERLAY':
-                    lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ADD
+                    if ch.transition_bump_chain == 0:
+                        lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ZERO_CHAIN_ADD
+                    else: lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ADD
             remove_node(tree, ch, 'normal_flip')
         else:
             lib_name = lib.NORMAL_PROCESS_BUMP
@@ -1254,6 +1258,12 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
         height_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
     if 'Crease Power' in height_process.inputs:
         height_process.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
+
+    if ch.enable_transition_bump and ch.enable and ch.transition_bump_crease and not ch.transition_bump_flip:
+        if not ch.write_height and not root_ch.enable_smooth_bump:
+            height_process.inputs['Remaining Filter'].default_value = 1.0
+        else:
+            height_process.inputs['Remaining Filter'].default_value = 0.0
 
     # Remove neighbor related nodes
     if root_ch.enable_smooth_bump:
