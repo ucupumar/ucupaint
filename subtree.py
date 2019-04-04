@@ -1102,8 +1102,13 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
                 elif ch.normal_blend_type == 'OVERLAY':
                     lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_BUMP_ADD
             else:
+                if not ch.transition_bump_flip and ch.transition_bump_crease:
+                    if ch.normal_blend_type == 'MIX':
+                        lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX
+                    elif ch.normal_blend_type == 'OVERLAY':
+                        lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD
 
-                if ch.normal_blend_type == 'MIX':
+                elif ch.normal_blend_type == 'MIX':
                     lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX
                 elif ch.normal_blend_type == 'OVERLAY':
                     lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD
@@ -1200,7 +1205,14 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
     if ch.normal_map_type == 'NORMAL_MAP':
 
         if ch.enable_transition_bump:
-            if ch.normal_blend_type == 'MIX':
+
+            if not ch.transition_bump_flip and ch.transition_bump_crease:
+                if ch.normal_blend_type == 'MIX':
+                    lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE_MIX
+                elif ch.normal_blend_type == 'OVERLAY':
+                    lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE_ADD
+
+            elif ch.normal_blend_type == 'MIX':
                 lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_MIX
             elif ch.normal_blend_type == 'OVERLAY':
                 lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_ADD

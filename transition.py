@@ -477,16 +477,18 @@ def update_transition_bump_crease_factor(self, context):
     height_process = tree.nodes.get(ch.height_process)
     if height_process:
         height_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
-        height_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
-        height_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+        if ch.normal_map_type != 'NORMAL_MAP':
+            height_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
+            height_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
 
     normal_process = tree.nodes.get(ch.normal_process)
     if normal_process:
         normal_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
-        normal_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
-        normal_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
-        normal_process.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
-                ch.transition_bump_crease_factor * -ch.transition_bump_distance)
+        if ch.normal_map_type != 'NORMAL_MAP':
+            normal_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
+            normal_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+        #normal_process.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
+        #        ch.transition_bump_crease_factor * -ch.transition_bump_distance)
 
     max_height = get_displacement_max_height(root_ch)
     root_ch.displacement_height_ratio = max_height

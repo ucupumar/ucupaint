@@ -1830,7 +1830,8 @@ def get_layer_channel_max_height(ch):
 
     if ch.enable_transition_bump:
         if ch.normal_map_type == 'NORMAL_MAP':
-            max_height = ch.transition_bump_distance
+            #max_height = ch.transition_bump_distance
+            max_height = abs(get_transition_bump_max_distance_with_crease(ch))
         else:
             if ch.transition_bump_flip:
                 #max_height = ch.transition_bump_distance + abs(ch.bump_distance)*2
