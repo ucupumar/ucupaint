@@ -2753,8 +2753,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
     tr_ramp = StringProperty(default='')
     tr_ramp_blend = StringProperty(default='')
 
-    # To save ramp
+    # To save ramp and falloff
     cache_ramp = StringProperty(default='')
+    cache_falloff_curve = StringProperty(default='')
 
     # Transition AO related
     enable_transition_ao = BoolProperty(name='Enable Transition AO', 

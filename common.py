@@ -332,7 +332,7 @@ def copy_node_props(source, dest, extras = []):
     copy_node_props_(source, dest, extras)
 
     if source.type == 'CURVE_RGB':
-        
+
         # Copy mapping props
         copy_node_props_(source.mapping, dest.mapping)
         
@@ -345,7 +345,9 @@ def copy_node_props(source, dest, extras = []):
             for j, point in enumerate(curve.points):
                 if j >= len(curve_copy.points):
                     point_copy = curve_copy.points.new(point.location[0], point.location[1])
-                else: point_copy = curve_copy.points[j]
+                else: 
+                    point_copy = curve_copy.points[j]
+                    point_copy.location = (point.location[0], point.location[1])
                 copy_node_props_(point, point_copy)
                 
             # Copy selection
@@ -1962,6 +1964,12 @@ def get_transition_bump_falloff_emulated_curve_value(ch):
         return -ch.transition_bump_falloff_emulated_curve_fac * 0.5 + 0.5
     else:
         return ch.transition_bump_falloff_emulated_curve_fac * 0.5 + 0.5
+
+def check_if_node_is_duplicated_from_lib(node, lib_name):
+    if not node or node.type != 'GROUP': return False
+    m = re.match(r'^' + lib_name + '_Copy\.*\d{0,3}$', node.node_tree.name)
+    if m: return True
+    return False
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

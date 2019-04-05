@@ -601,6 +601,9 @@ def rearrange_layer_nodes(layer, tree=None):
     for ch in layer.channels:
 
         if check_set_node_loc(tree, ch.cache_ramp, loc, hide=False):
+            loc.y -= 250
+
+        if check_set_node_loc(tree, ch.cache_falloff_curve, loc, hide=False):
             loc.y -= 270
 
     loc = Vector((-300, 0))

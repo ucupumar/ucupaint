@@ -441,20 +441,58 @@ def check_transition_bump_falloff(layer, tree, trans_bump, trans_bump_flip):
 
         if ch != trans_bump: continue
 
+        tb_falloff = tree.nodes.get(ch.tb_falloff)
+
+        if ((ch.transition_bump_falloff_type != 'CURVE' or not ch.transition_bump_falloff) and 
+                check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE)):
+            cache = tree.nodes.get(ch.cache_falloff_curve)
+            if not cache:
+                cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
+            curve_ref = tb_falloff.node_tree.nodes.get('_curve')
+            copy_node_props(curve_ref, cache)
+
         if ch.transition_bump_falloff:
-            tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
-                    lib.EMULATED_CURVE, hard_replace=True)
+
+            # Emulated curve without actual curve
             if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
+                tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                        lib.EMULATED_CURVE, hard_replace=True)
                 tb_falloff.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
+
+            elif ch.transition_bump_falloff_type == 'CURVE':
+                if not check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
+
+                    # Check cached curve
+                    cache = tree.nodes.get(ch.cache_falloff_curve)
+
+                    tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                            lib.FALLOFF_CURVE, hard_replace=True)
+                    duplicate_lib_node_tree(tb_falloff)
+
+                    if cache:
+                        curve = tb_falloff.node_tree.nodes.get('_curve')
+                        copy_node_props(cache, curve)
+                        remove_node(tree, ch, 'cache_falloff_curve')
+
+                inv0 = tb_falloff.node_tree.nodes.get('_inverse_0')
+                inv1 = tb_falloff.node_tree.nodes.get('_inverse_1')
+                inv0.mute = not ch.transition_bump_flip
+                inv1.mute = not ch.transition_bump_flip
+
         else:
             remove_node(tree, ch, 'tb_falloff')
 
         if ch.transition_bump_falloff and root_ch.enable_smooth_bump:
             for d in neighbor_directions:
-                tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
-                        lib.EMULATED_CURVE, hard_replace=True)
+
                 if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
+                    tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
+                            lib.EMULATED_CURVE, hard_replace=True)
                     tbf.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
+
+                elif ch.transition_bump_falloff_type == 'CURVE':
+                    tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
+                            tb_falloff.node_tree.name, hard_replace=True)
         else:
             for d in neighbor_directions:
                 remove_node(tree, ch, 'tb_falloff_' + d)
@@ -1158,11 +1196,6 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
                     lib_name = lib.NORMAL_PROCESS_BUMP_ADD
             else:
                 if not ch.transition_bump_flip and ch.transition_bump_crease:
-                    #if ch.transition_bump_falloff:
-                    #    if ch.normal_blend_type == 'MIX':
-                    #        lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_FALLOFF_MIX
-                    #    elif ch.normal_blend_type == 'OVERLAY':
-                    #        lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_FALLOFF_ADD
                     if ch.normal_blend_type == 'MIX':
                         lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX
                     elif ch.normal_blend_type == 'OVERLAY':
@@ -1239,11 +1272,6 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
         if ch.enable_transition_bump:
 
             if not ch.transition_bump_flip and ch.transition_bump_crease:
-                #if ch.transition_bump_falloff:
-                #    if ch.normal_blend_type == 'MIX':
-                #        lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_FALLOFF_MIX
-                #    elif ch.normal_blend_type == 'OVERLAY':
-                #        lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_FALLOFF_ADD
                 if ch.normal_blend_type == 'MIX':
                     lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_MIX
                 elif ch.normal_blend_type == 'OVERLAY':
