@@ -1425,6 +1425,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             tb_falloff_e = nodes.get(ch.tb_falloff_e)
             tb_falloff_w = nodes.get(ch.tb_falloff_w)
 
+            if chain == 0 or len(layer.masks) == 0:
+                if tb_falloff:
+                    end_chain = pure = create_link(tree, end_chain, tb_falloff.inputs[0])[0]
+                if tb_falloff_n:
+                    end_chain_n = malpha_n = create_link(tree, end_chain_n, tb_falloff_n.inputs[0])[0]
+                    end_chain_s = malpha_s = create_link(tree, end_chain_s, tb_falloff_s.inputs[0])[0]
+                    end_chain_e = malpha_e = create_link(tree, end_chain_e, tb_falloff_e.inputs[0])[0]
+                    end_chain_w = malpha_w = create_link(tree, end_chain_w, tb_falloff_w.inputs[0])[0]
+
             for j, mask in enumerate(layer.masks):
                 #if j < chain: break
                 #if not ch.write_height and j >= chain_local:
@@ -1438,14 +1447,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 mix_e = nodes.get(c.mix_e)
                 mix_w = nodes.get(c.mix_w)
 
-                if j < chain:
+                if tb_falloff and (j == chain-1 or (j == chain_local-1 and not trans_bump_ch)):
+                    pure = tb_falloff.outputs[0]
+                elif j < chain:
                     pure = mix.outputs[0]
                 else:
                     mix_pure = nodes.get(c.mix_pure)
-                    if mix_pure: 
-                        if tb_falloff:
-                            pure = create_link(tree, tb_falloff.outputs[0], mix_pure.inputs[1])[0]
-                        else: pure = create_link(tree, pure, mix_pure.inputs[1])[0]
+                    if mix_pure: pure = create_link(tree, pure, mix_pure.inputs[1])[0]
 
                 if j >= chain:
                     mix_remains = nodes.get(c.mix_remains)
