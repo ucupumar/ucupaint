@@ -1410,8 +1410,20 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             end_chain_e = alpha_e
             end_chain_w = alpha_w
 
+            end_chain_crease = alpha_after_mod
+            end_chain_crease_n = alpha_n
+            end_chain_crease_s = alpha_s
+            end_chain_crease_e = alpha_e
+            end_chain_crease_w = alpha_w
+
             pure = alpha_after_mod
             remains = one_value.outputs[0]
+
+            tb_falloff = nodes.get(ch.tb_falloff)
+            tb_falloff_n = nodes.get(ch.tb_falloff_n)
+            tb_falloff_s = nodes.get(ch.tb_falloff_s)
+            tb_falloff_e = nodes.get(ch.tb_falloff_e)
+            tb_falloff_w = nodes.get(ch.tb_falloff_w)
 
             for j, mask in enumerate(layer.masks):
                 #if j < chain: break
@@ -1430,7 +1442,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     pure = mix.outputs[0]
                 else:
                     mix_pure = nodes.get(c.mix_pure)
-                    if mix_pure: pure = create_link(tree, pure, mix_pure.inputs[1])[0]
+                    if mix_pure: 
+                        if tb_falloff:
+                            pure = create_link(tree, tb_falloff.outputs[0], mix_pure.inputs[1])[0]
+                        else: pure = create_link(tree, pure, mix_pure.inputs[1])[0]
 
                 if j >= chain:
                     mix_remains = nodes.get(c.mix_remains)
@@ -1448,26 +1463,29 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     if mix_w: malpha_w = create_link(tree, malpha_w, mix_w.inputs[1])[0]
 
                 if j == chain-1 or (j == chain_local-1 and not trans_bump_ch):
-                    #tb_falloff = nodes.get(ch.tb_falloff)
-                    tb_falloff_n = nodes.get(ch.tb_falloff_n)
-                    tb_falloff_s = nodes.get(ch.tb_falloff_s)
-                    tb_falloff_e = nodes.get(ch.tb_falloff_e)
-                    tb_falloff_w = nodes.get(ch.tb_falloff_w)
+                    
+                    end_chain_crease = mix.outputs[0]
+                    end_chain_crease_n = malpha_n
+                    end_chain_crease_s = malpha_s
+                    end_chain_crease_e = malpha_e
+                    end_chain_crease_w = malpha_w
 
-                    #if tb_falloff:
-                    #    pass
+                    if tb_falloff:
+                        create_link(tree, mix.outputs[0], tb_falloff.inputs[0])[0]
+                        end_chain = tb_falloff.outputs[0]
+                    else: 
+                        end_chain = mix.outputs[0]
 
                     if tb_falloff_n: 
-                        create_link(tree, malpha_n, tb_falloff_n.inputs[0])
-                        create_link(tree, malpha_s, tb_falloff_s.inputs[0])
-                        create_link(tree, malpha_e, tb_falloff_e.inputs[0])
-                        create_link(tree, malpha_w, tb_falloff_w.inputs[0])
-
-                    end_chain = mix.outputs[0]
-                    end_chain_n = malpha_n
-                    end_chain_s = malpha_s
-                    end_chain_e = malpha_e
-                    end_chain_w = malpha_w
+                        end_chain_n = malpha_n = create_link(tree, malpha_n, tb_falloff_n.inputs[0])[0]
+                        end_chain_s = malpha_s = create_link(tree, malpha_s, tb_falloff_s.inputs[0])[0]
+                        end_chain_e = malpha_e = create_link(tree, malpha_e, tb_falloff_e.inputs[0])[0]
+                        end_chain_w = malpha_w = create_link(tree, malpha_w, tb_falloff_w.inputs[0])[0]
+                    else:
+                        end_chain_n = malpha_n
+                        end_chain_s = malpha_s
+                        end_chain_e = malpha_e
+                        end_chain_w = malpha_w
 
             if 'Value n' in  normal_process.inputs: 
                 create_link(tree, rgb_n, normal_process.inputs['Value n'])
@@ -1558,6 +1576,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                         create_link(tree, intensity_multiplier.outputs[0], height_process.inputs['Edge 1 Alpha'])
                     if 'Edge 1 Alpha' in normal_process.inputs:
                         create_link(tree, intensity_multiplier.outputs[0], normal_process.inputs['Edge 1 Alpha'])
+
+                    if 'Transition Crease' in height_process.inputs:
+                        create_link(tree, end_chain_crease, height_process.inputs['Transition Crease'])
+
+                    if 'Transition Crease n' in normal_process.inputs:
+                        create_link(tree, end_chain_crease_n, normal_process.inputs['Transition Crease n'])
+                        create_link(tree, end_chain_crease_s, normal_process.inputs['Transition Crease s'])
+                        create_link(tree, end_chain_crease_e, normal_process.inputs['Transition Crease e'])
+                        create_link(tree, end_chain_crease_w, normal_process.inputs['Transition Crease w'])
 
                 else:
 

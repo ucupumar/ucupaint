@@ -494,6 +494,8 @@ def update_transition_bump_crease_factor(self, context):
     root_ch.displacement_height_ratio = max_height
 
 def update_transition_bump_crease_power(self, context):
+    if not self.enable: return
+
     yp = self.id_data.yp
     match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
@@ -501,7 +503,7 @@ def update_transition_bump_crease_power(self, context):
     tree = get_tree(layer)
     ch = self
 
-    if not ch.enable_transition_bump or not ch.enable or not ch.transition_bump_crease or ch.transition_bump_flip: return
+    if not ch.enable_transition_bump or not ch.transition_bump_crease or ch.transition_bump_flip: return
 
     height_process = tree.nodes.get(ch.height_process)
     if height_process:
@@ -510,6 +512,27 @@ def update_transition_bump_crease_power(self, context):
     normal_process = tree.nodes.get(ch.normal_process)
     if normal_process:
         normal_process.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
+
+def update_transition_bump_falloff_emulated_curve_fac(self, context):
+    if not self.enable: return
+
+    yp = self.id_data.yp
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    #root_ch = yp.channels[int(match.group(2))]
+    tree = get_tree(layer)
+    ch = self
+
+    if not ch.enable_transition_bump or not ch.transition_bump_falloff: return
+
+    val = get_transition_bump_falloff_emulated_curve_value(ch)
+
+    tb_falloff = tree.nodes.get(ch.tb_falloff)
+    if tb_falloff: tb_falloff.inputs[1].default_value = val
+
+    for d in neighbor_directions:
+        tbf = tree.nodes.get(getattr(ch, 'tb_falloff_' + d))
+        if tbf: tbf.inputs[1].default_value = val
 
 def update_transition_bump_value(self, context):
     if not self.enable: return

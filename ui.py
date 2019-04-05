@@ -1028,12 +1028,27 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                         crow.label(text='Crease Power:') #, icon='INFO')
                         crow.prop(ch, 'transition_bump_crease_power', text='')
 
+                        cccol.separator()
+
                     crow = cccol.row(align=True)
                     #crow.active = layer.type != 'BACKGROUND'
                     crow.label(text='Falloff:') #, icon='INFO')
-                    if ch.transition_bump_falloff:
-                        crow.prop(ch, 'transition_bump_falloff_type', text='')
                     crow.prop(ch, 'transition_bump_falloff', text='')
+
+                    if ch.transition_bump_falloff:
+
+                        crow = cccol.row(align=True)
+                        crow.label(text='Falloff Type :') #, icon='INFO')
+                        crow.prop(ch, 'transition_bump_falloff_type', text='')
+
+                        if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
+
+                            crow = cccol.row(align=True)
+                            crow.label(text='Falloff Factor:') #, icon='INFO')
+                            crow.prop(ch, 'transition_bump_falloff_emulated_curve_fac', text='')
+                        
+                        elif ch.transition_bump_falloff_type == 'CURVE':
+                            pass
 
                     #row.label(text='', icon='BLANK1')
 

@@ -2700,6 +2700,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default = 'EMULATED_CURVE',
             update=transition.update_enable_transition_bump)
 
+    transition_bump_falloff_emulated_curve_fac = FloatProperty(
+            name='Transition Bump Falloff Emulated Curve Factor',
+            description = 'Transition bump curve emulated curve factor',
+            default=1.0, min=-1.0, max=1.0, subtype='FACTOR',
+            update=transition.update_transition_bump_falloff_emulated_curve_fac)
+
     tb_bump = StringProperty(default='')
     tb_bump_flip = StringProperty(default='')
     tb_inverse = StringProperty(default='')

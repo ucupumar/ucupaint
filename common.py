@@ -1957,6 +1957,12 @@ def get_bump_chain(layer, ch=None):
 
     return min(chain, len(layer.masks))
 
+def get_transition_bump_falloff_emulated_curve_value(ch):
+    if ch.transition_bump_flip:
+        return -ch.transition_bump_falloff_emulated_curve_fac * 0.5 + 0.5
+    else:
+        return ch.transition_bump_falloff_emulated_curve_fac * 0.5 + 0.5
+
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1

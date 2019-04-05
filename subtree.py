@@ -444,6 +444,8 @@ def check_transition_bump_falloff(layer, tree, trans_bump, trans_bump_flip):
         if ch.transition_bump_falloff:
             tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
                     lib.EMULATED_CURVE, hard_replace=True)
+            if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
+                tb_falloff.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
         else:
             remove_node(tree, ch, 'tb_falloff')
 
@@ -451,6 +453,8 @@ def check_transition_bump_falloff(layer, tree, trans_bump, trans_bump_flip):
             for d in neighbor_directions:
                 tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
                         lib.EMULATED_CURVE, hard_replace=True)
+                if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
+                    tbf.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
         else:
             for d in neighbor_directions:
                 remove_node(tree, ch, 'tb_falloff_' + d)
@@ -1154,6 +1158,11 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
                     lib_name = lib.NORMAL_PROCESS_BUMP_ADD
             else:
                 if not ch.transition_bump_flip and ch.transition_bump_crease:
+                    #if ch.transition_bump_falloff:
+                    #    if ch.normal_blend_type == 'MIX':
+                    #        lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_FALLOFF_MIX
+                    #    elif ch.normal_blend_type == 'OVERLAY':
+                    #        lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_FALLOFF_ADD
                     if ch.normal_blend_type == 'MIX':
                         lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX
                     elif ch.normal_blend_type == 'OVERLAY':
@@ -1230,6 +1239,11 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
         if ch.enable_transition_bump:
 
             if not ch.transition_bump_flip and ch.transition_bump_crease:
+                #if ch.transition_bump_falloff:
+                #    if ch.normal_blend_type == 'MIX':
+                #        lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_FALLOFF_MIX
+                #    elif ch.normal_blend_type == 'OVERLAY':
+                #        lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_FALLOFF_ADD
                 if ch.normal_blend_type == 'MIX':
                     lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_MIX
                 elif ch.normal_blend_type == 'OVERLAY':
