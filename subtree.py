@@ -1001,7 +1001,7 @@ def check_layer_tree_ios(layer, tree=None):
             index += 1
 
         # Displacement IO
-        if root_ch.type == 'NORMAL' and root_ch.enable_displacement:
+        if root_ch.type == 'NORMAL': # and root_ch.enable_displacement:
 
             name = root_ch.name + io_suffix['HEIGHT']
 
@@ -1040,7 +1040,8 @@ def check_layer_tree_ios(layer, tree=None):
                 index += 1
 
             # Displacement Input
-            if root_ch.enable_displacement:
+            #if root_ch.enable_displacement:
+            if root_ch.type == 'NORMAL':
 
                 name = root_ch.name + io_suffix['HEIGHT'] + io_suffix[layer.type]
                 dirty = create_input(tree, name, 'NodeSocketFloat',

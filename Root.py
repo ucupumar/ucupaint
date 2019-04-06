@@ -67,7 +67,7 @@ def check_all_channel_ios(yp):
             index += 1
 
         # Displacement IO
-        if ch.type == 'NORMAL' and ch.enable_displacement:
+        if ch.type == 'NORMAL': #and ch.enable_displacement:
 
             name = ch.name + io_suffix['HEIGHT']
 
@@ -1338,7 +1338,7 @@ def update_channel_name(self, context):
         group_tree.inputs[self.io_index+1].name = self.name + io_suffix['ALPHA']
         group_tree.outputs[self.io_index+1].name = self.name + io_suffix['ALPHA']
 
-    if self.type == 'NORMAL' and self.enable_displacement:
+    if self.type == 'NORMAL': # and self.enable_displacement:
         group_tree.inputs[self.io_index+1].name = self.name + io_suffix['HEIGHT']
         group_tree.outputs[self.io_index+1].name = self.name + io_suffix['HEIGHT']
 
@@ -1404,7 +1404,7 @@ def update_preview_mode(self, context):
             mat.yp.ori_bsdf = ori_bsdf.name
 
         if ((channel.type == 'RGB' and channel.enable_alpha) or
-            (channel.type == 'NORMAL' and channel.enable_displacement)):
+            (channel.type == 'NORMAL')): #and channel.enable_displacement)):
             from_socket = [link.from_socket for link in preview.inputs[0].links]
             if not from_socket: 
                 tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
@@ -1624,10 +1624,11 @@ def update_channel_colorspace(self, context):
                     color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
                 else: color_ramp_linear.inputs[1].default_value = 1.0
 
-def update_channel_parallax(self, context):
-
-    if not self.enable_displacement:
-        return
+#def update_channel_parallax(self, context):
+#
+#    #if not self.enable_displacement:
+#    #    return
+#    pass
 
 def update_enable_smooth_bump(self, context):
     yp = self.id_data.yp
@@ -1641,16 +1642,16 @@ def update_channel_displacement(self, context):
     # Update channel io
     check_all_channel_ios(yp)
 
-    if self.enable_displacement:
+    #if self.enable_displacement:
 
-        # Get alpha index
-        #index = self.io_index+1
-        io_name = self.name + io_suffix['HEIGHT']
+    #    # Get alpha index
+    #    #index = self.io_index+1
+    #    io_name = self.name + io_suffix['HEIGHT']
 
-        # Set node default_value
-        node = get_active_ypaint_node()
-        #node.inputs[io_name].default_value = 0.5
-        node.inputs[io_name].default_value = 0.0
+    #    # Set node default_value
+    #    node = get_active_ypaint_node()
+    #    #node.inputs[io_name].default_value = 0.5
+    #    node.inputs[io_name].default_value = 0.0
 
 def update_displacement_height_ratio(self, context):
 
@@ -1990,10 +1991,10 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Displacement for normal channel
     enable_displacement = BoolProperty(default=False, update=update_channel_displacement)
 
-    enable_parallax = BoolProperty(
-            name = 'Enable Parallax Mapping',
-            description = 'Enable Parallax Mapping.\nIt will use texture space scaling, so it may looks different when using it as real displacement map',
-            default=False, update=update_channel_parallax)
+    #enable_parallax = BoolProperty(
+    #        name = 'Enable Parallax Mapping',
+    #        description = 'Enable Parallax Mapping.\nIt will use texture space scaling, so it may looks different when using it as real displacement map',
+    #        default=False, update=update_channel_parallax)
 
     displacement_height_ratio = FloatProperty(default=0.02, min=-1.0, max=1.0,
             update=update_displacement_height_ratio)
