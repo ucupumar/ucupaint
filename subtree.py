@@ -430,6 +430,19 @@ def check_create_bump_base(layer, tree, ch):
         for d in neighbor_directions:
             remove_node(tree, ch, 'bump_base_' + d)
 
+def save_transition_bump_falloff_cache(tree, ch):
+    tb_falloff = tree.nodes.get(ch.tb_falloff)
+
+    if (
+            (ch.transition_bump_falloff_type != 'CURVE' or not ch.transition_bump_falloff or 
+                not ch.enable_transition_bump or not ch.enable) and 
+            check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE)):
+        cache = tree.nodes.get(ch.cache_falloff_curve)
+        if not cache:
+            cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
+        curve_ref = tb_falloff.node_tree.nodes.get('_curve')
+        copy_node_props(curve_ref, cache)
+
 def check_transition_bump_falloff(layer, tree, trans_bump, trans_bump_flip):
 
     yp = layer.id_data.yp
@@ -441,15 +454,7 @@ def check_transition_bump_falloff(layer, tree, trans_bump, trans_bump_flip):
 
         if ch != trans_bump: continue
 
-        tb_falloff = tree.nodes.get(ch.tb_falloff)
-
-        if ((ch.transition_bump_falloff_type != 'CURVE' or not ch.transition_bump_falloff) and 
-                check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE)):
-            cache = tree.nodes.get(ch.cache_falloff_curve)
-            if not cache:
-                cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
-            curve_ref = tb_falloff.node_tree.nodes.get('_curve')
-            copy_node_props(curve_ref, cache)
+        save_transition_bump_falloff_cache(tree, ch)
 
         if ch.transition_bump_falloff:
 
@@ -460,6 +465,7 @@ def check_transition_bump_falloff(layer, tree, trans_bump, trans_bump_flip):
                 tb_falloff.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
 
             elif ch.transition_bump_falloff_type == 'CURVE':
+                tb_falloff = tree.nodes.get(ch.tb_falloff)
                 if not check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
 
                     # Check cached curve
@@ -1130,10 +1136,12 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
     if root_ch.type != 'NORMAL': return False
     if layer.type in {'BACKGROUND', 'GROUP'}: return False
 
+    mute = not layer.enable or not ch.enable
+
     #max_height = get_layer_channel_max_height(ch)
     max_height = get_displacement_max_height(root_ch, ch)
 
-    # Normal nodes
+    # Normal process
     if ch.normal_map_type == 'NORMAL_MAP':
 
         if root_ch.enable_smooth_bump:
@@ -1244,6 +1252,14 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
         normal_process.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
                 ch.transition_bump_crease_factor * -ch.transition_bump_distance)
 
+    if yp.disable_quick_toggle:
+        normal_process.mute = mute
+    else: normal_process.mute = False
+
+    if 'Intensity' in normal_process.inputs:
+        normal_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+
+    # Height Process
     if ch.normal_map_type == 'NORMAL_MAP':
 
         if ch.enable_transition_bump:
@@ -1318,6 +1334,13 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
             height_process.inputs['Remaining Filter'].default_value = 1.0
         else:
             height_process.inputs['Remaining Filter'].default_value = 0.0
+
+    if yp.disable_quick_toggle:
+        height_process.mute = mute
+    else: height_process.mute = False
+
+    if 'Intensity' in height_process.inputs:
+        height_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
 
     # Remove neighbor related nodes
     if root_ch.enable_smooth_bump:

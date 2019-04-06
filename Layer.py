@@ -1891,7 +1891,9 @@ def update_channel_enable(self, context):
     yp = self.id_data.yp
 
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    ch_index = int(m.group(2))
     layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[ch_index]
     ch = self
 
     tree = get_tree(layer)
@@ -1905,6 +1907,9 @@ def update_channel_enable(self, context):
         else: blend.mute = False
 
     update_channel_intensity_value(ch, context)
+
+    if root_ch.type == 'NORMAL':
+        transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
 
 def update_normal_map_type(self, context):
     yp = self.id_data.yp
@@ -2113,6 +2118,15 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     # Channel mute
     intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+
+    #if root_ch.type == 'NORMAL':
+    #    height_process = tree.nodes.get(ch.height_process)
+    #    if height_process:
+    #        height_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+
+    #    normal_process = tree.nodes.get(ch.normal_process)
+    #    if normal_process and 'Intensity' in normal_process.inputs:
+    #        normal_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
 
     return need_reconnect
 
@@ -2456,7 +2470,7 @@ def update_channel_intensity_value(self, context):
 
     normal_process = tree.nodes.get(ch.normal_process)
     if normal_process and 'Intensity' in normal_process.inputs:
-        normal_process.inputs['Intensity'].default_value = ch.intensity_value
+        normal_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
 
     if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, layer, ch)

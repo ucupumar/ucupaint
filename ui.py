@@ -1047,7 +1047,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                             crow.label(text='Falloff Factor:') #, icon='INFO')
                             crow.prop(ch, 'transition_bump_falloff_emulated_curve_fac', text='')
                         
-                        elif ch.transition_bump_falloff_type == 'CURVE':
+                        elif ch.transition_bump_falloff_type == 'CURVE' and ch.enable_transition_bump and ch.enable:
                             cccol.separator()
                             tbf = layer_tree.nodes.get(ch.tb_falloff)
                             curve = tbf.node_tree.nodes.get('_curve')

@@ -450,6 +450,14 @@ def remove_transition_bump_nodes(layer, tree, ch, ch_index):
     remove_node(tree, ch, 'tb_crease_intensity')
     remove_node(tree, ch, 'tb_crease_mix')
 
+    save_transition_bump_falloff_cache(tree, ch)
+
+    remove_node(tree, ch, 'tb_falloff')
+    remove_node(tree, ch, 'tb_falloff_n')
+    remove_node(tree, ch, 'tb_falloff_s')
+    remove_node(tree, ch, 'tb_falloff_e')
+    remove_node(tree, ch, 'tb_falloff_w')
+
     # Check mask related nodes
     check_mask_source_tree(layer)
     check_mask_mix_nodes(layer)

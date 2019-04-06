@@ -656,6 +656,10 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         io_name = ch.name
         io_alpha_name = ch.name + io_suffix['ALPHA']
         io_disp_name = ch.name + io_suffix['HEIGHT']
+        io_disp_n_name = ch.name + io_suffix['HEIGHT'] + ' N'
+        io_disp_s_name = ch.name + io_suffix['HEIGHT'] + ' S'
+        io_disp_e_name = ch.name + io_suffix['HEIGHT'] + ' E'
+        io_disp_w_name = ch.name + io_suffix['HEIGHT'] + ' W'
 
         #rgb = start.outputs[ch.io_index]
         rgb = start.outputs[io_name]
@@ -670,6 +674,17 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         else: 
             #disp = one_value.outputs[0]
             disp = None
+
+        if ch.enable_smooth_bump and ch.type == 'NORMAL':
+            disp_n = disp
+            disp_s = disp
+            disp_e = disp
+            disp_w = disp
+        else:
+            disp_n = disp
+            disp_s = disp
+            disp_e = disp
+            disp_w = disp
         
         if start_linear:
             rgb = create_link(tree, rgb, start_linear.inputs[0])[0]
@@ -760,6 +775,12 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             if disp:
                 #disp = create_link(tree, disp, node.inputs[ch.io_index+1])[ch.io_index+1]
                 disp = create_link(tree, disp, node.inputs[io_disp_name])[io_disp_name]
+
+            if disp_n:
+                disp_n = create_link(tree, disp_n, node.inputs[io_disp_n_name])[io_disp_n_name]
+                disp_s = create_link(tree, disp_s, node.inputs[io_disp_s_name])[io_disp_s_name]
+                disp_e = create_link(tree, disp_e, node.inputs[io_disp_e_name])[io_disp_e_name]
+                disp_w = create_link(tree, disp_w, node.inputs[io_disp_w_name])[io_disp_w_name]
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha)
 
