@@ -553,46 +553,47 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 #brow.label(text='Displacement:')
                 #brow.prop(channel, 'enable_displacement', text='')
 
-                #if channel.enable_displacement:
-
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='INFO')
                 brow.label(text='Parallax:')
-                brow.prop(channel, 'parallax_num_of_layers', text='')
+                if channel.enable_displacement:
+                    brow.prop(channel, 'parallax_num_of_layers', text='')
                 brow.prop(channel, 'enable_displacement', text='')
                 #brow.prop(channel, 'enable_parallax', text='')
 
-                brow = bcol.row(align=True)
-                brow.label(text='', icon='INFO')
-                brow.label(text='Height Ratio:')
-                brow.prop(channel, 'displacement_height_ratio', text='')
+                if channel.enable_displacement:
 
-                brow = bcol.row(align=True)
-                brow.label(text='', icon='INFO')
-                brow.label(text='Reference Plane:')
-                brow.prop(channel, 'displacement_ref_plane', text='')
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='INFO')
+                    brow.label(text='Height Ratio:')
+                    brow.prop(channel, 'displacement_height_ratio', text='')
 
-                #brow = bcol.row(align=True)
-                #brow.label(text='', icon='INFO')
-                #brow.label(text='Number of Samples:')
-                #brow.prop(channel, 'parallax_num_of_layers', text='')
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='INFO')
+                    brow.label(text='Reference Plane:')
+                    brow.prop(channel, 'displacement_ref_plane', text='')
 
-                #brow = bcol.row(align=True)
-                #brow.label(text='', icon='INFO')
-                #brow.label(text='Linear Samples:')
-                #brow.prop(channel, 'parallax_num_of_linear_samples', text='')
+                    #brow = bcol.row(align=True)
+                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='Number of Samples:')
+                    #brow.prop(channel, 'parallax_num_of_layers', text='')
 
-                #brow = bcol.row(align=True)
-                #brow.label(text='', icon='INFO')
-                #brow.label(text='Binary Samples:')
-                #brow.prop(channel, 'parallax_num_of_binary_samples', text='')
+                    #brow = bcol.row(align=True)
+                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='Linear Samples:')
+                    #brow.prop(channel, 'parallax_num_of_linear_samples', text='')
 
-                brow = bcol.row(align=True)
-                brow.label(text='', icon='INFO')
-                brow.label(text='Rim Hack:')
-                if channel.parallax_rim_hack:
-                    brow.prop(channel, 'parallax_rim_hack_hardness', text='')
-                brow.prop(channel, 'parallax_rim_hack', text='')
+                    #brow = bcol.row(align=True)
+                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='Binary Samples:')
+                    #brow.prop(channel, 'parallax_num_of_binary_samples', text='')
+
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='INFO')
+                    brow.label(text='Rim Hack:')
+                    if channel.parallax_rim_hack:
+                        brow.prop(channel, 'parallax_rim_hack_hardness', text='')
+                    brow.prop(channel, 'parallax_rim_hack', text='')
 
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
