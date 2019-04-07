@@ -34,7 +34,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
         root_ch = yp.channels[i]
 
         # Displacement blend node
-        #if root_ch.type == 'NORMAL' and root_ch.enable_displacement:
+        #if root_ch.type == 'NORMAL' and root_ch.enable_parallax:
         #    disp_blend = tree.nodes.get(ch.disp_blend)
         #    if not disp_blend:
         #        disp_blend = new_node(tree, ch, 'disp_blend', 'ShaderNodeMixRGB', 'Displacement Blend')
@@ -1869,8 +1869,9 @@ class YReplaceLayerType(bpy.types.Operator):
             lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
 
         # Check childrens which need rearrange
-        for i in child_ids:
-            lay = yp.layers[i]
+        #for i in child_ids:
+            #lay = yp.layers[i]
+        for lay in yp.layers:
             check_all_layer_channel_io_and_nodes(lay)
             rearrange_layer_nodes(lay)
             reconnect_layer_nodes(lay)
@@ -1990,7 +1991,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
         disp_ch = get_displacement_channel(yp)
 
-        #if not root_ch.enable_displacement:
+        #if not root_ch.enable_parallax:
         #    remove_node(tree, ch, 'height_blend')
 
         if root_ch == disp_ch:

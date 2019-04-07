@@ -551,17 +551,16 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 #brow = bcol.row(align=True)
                 #brow.label(text='', icon='INFO')
                 #brow.label(text='Displacement:')
-                #brow.prop(channel, 'enable_displacement', text='')
+                #brow.prop(channel, 'enable_parallax', text='')
 
                 brow = bcol.row(align=True)
                 brow.label(text='', icon='INFO')
                 brow.label(text='Parallax:')
-                if channel.enable_displacement:
+                if channel.enable_parallax:
                     brow.prop(channel, 'parallax_num_of_layers', text='')
-                brow.prop(channel, 'enable_displacement', text='')
-                #brow.prop(channel, 'enable_parallax', text='')
+                brow.prop(channel, 'enable_parallax', text='')
 
-                if channel.enable_displacement:
+                if channel.enable_parallax:
 
                     brow = bcol.row(align=True)
                     brow.label(text='', icon='INFO')

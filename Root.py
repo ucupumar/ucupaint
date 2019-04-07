@@ -67,7 +67,7 @@ def check_all_channel_ios(yp):
             index += 1
 
         # Displacement IO
-        if ch.type == 'NORMAL': #and ch.enable_displacement:
+        if ch.type == 'NORMAL': #and ch.enable_parallax:
 
             name = ch.name + io_suffix['HEIGHT']
 
@@ -225,7 +225,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     #for ch in yp.channels:
     #    if ch.type == 'RGB' and ch.enable_alpha:
     #        io_index += 1
-    #    if ch.type == 'NORMAL' and ch.enable_displacement:
+    #    if ch.type == 'NORMAL' and ch.enable_parallax:
     #        io_index += 1
 
     #channel.io_index = io_index
@@ -708,6 +708,12 @@ class YNewYPaintChannel(bpy.types.Operator):
             self.report({'ERROR'}, "Channel named '" + self.name +"' is already available!")
             return {'CANCELLED'}
 
+        # Check if normal channel already exists
+        norm_channnel = [c for c in channels if c.type == 'NORMAL']
+        if norm_channnel:
+            self.report({'ERROR'}, "Cannot add more than one normal channel!")
+            return {'CANCELLED'}
+
         # Create new yp channel
         channel = create_new_yp_channel(group_tree, self.name, self.type, 
                 non_color=self.colorspace == 'LINEAR')
@@ -984,7 +990,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         #    shift = 2
 
-        #if channel.type == 'NORMAL' and channel.enable_displacement:
+        #if channel.type == 'NORMAL' and channel.enable_parallax:
         #    inputs.remove(inputs[channel.io_index])
         #    outputs.remove(outputs[channel.io_index])
 
@@ -1338,7 +1344,7 @@ def update_channel_name(self, context):
         group_tree.inputs[self.io_index+1].name = self.name + io_suffix['ALPHA']
         group_tree.outputs[self.io_index+1].name = self.name + io_suffix['ALPHA']
 
-    if self.type == 'NORMAL': # and self.enable_displacement:
+    if self.type == 'NORMAL': # and self.enable_parallax:
         group_tree.inputs[self.io_index+1].name = self.name + io_suffix['HEIGHT']
         group_tree.outputs[self.io_index+1].name = self.name + io_suffix['HEIGHT']
 
@@ -1404,7 +1410,7 @@ def update_preview_mode(self, context):
             mat.yp.ori_bsdf = ori_bsdf.name
 
         if ((channel.type == 'RGB' and channel.enable_alpha) or
-            (channel.type == 'NORMAL')): #and channel.enable_displacement)):
+            (channel.type == 'NORMAL')): #and channel.enable_parallax)):
             from_socket = [link.from_socket for link in preview.inputs[0].links]
             if not from_socket: 
                 tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
@@ -1626,7 +1632,7 @@ def update_channel_colorspace(self, context):
 
 #def update_channel_parallax(self, context):
 #
-#    #if not self.enable_displacement:
+#    #if not self.enable_parallax:
 #    #    return
 #    pass
 
@@ -1642,7 +1648,7 @@ def update_channel_displacement(self, context):
     # Update channel io
     check_all_channel_ios(yp)
 
-    #if self.enable_displacement:
+    #if self.enable_parallax:
 
     #    # Get alpha index
     #    #index = self.io_index+1
@@ -1989,7 +1995,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     enable_alpha = BoolProperty(default=False, update=update_channel_alpha)
 
     # Displacement for normal channel
-    enable_displacement = BoolProperty(default=False, update=update_channel_displacement)
+    enable_parallax = BoolProperty(default=False, update=update_channel_displacement)
 
     #enable_parallax = BoolProperty(
     #        name = 'Enable Parallax Mapping',

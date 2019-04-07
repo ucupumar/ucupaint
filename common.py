@@ -1707,7 +1707,7 @@ def set_bitangent_backface_flip(node, flip_backface):
 
 def get_displacement_channel(yp):
     for ch in yp.channels:
-        if ch.type == 'NORMAL' and ch.enable_displacement:
+        if ch.type == 'NORMAL' and ch.enable_parallax:
             return ch
 
     return None

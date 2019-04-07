@@ -913,7 +913,7 @@ def check_uv_nodes(yp):
     #if uv_names:
     #disp_ch = None
     #for ch in yp.channels:
-    #    if ch.type == 'NORMAL' and ch.enable_displacement:
+    #    if ch.type == 'NORMAL' and ch.enable_parallax:
     #        disp_ch = ch
     #        break
 
@@ -1001,7 +1001,7 @@ def check_layer_tree_ios(layer, tree=None):
             index += 1
 
         # Displacement IO
-        if root_ch.type == 'NORMAL': # and root_ch.enable_displacement:
+        if root_ch.type == 'NORMAL': # and root_ch.enable_parallax:
 
             name = root_ch.name + io_suffix['HEIGHT']
 
@@ -1010,15 +1010,15 @@ def check_layer_tree_ios(layer, tree=None):
 
             index += 1
 
-        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+            if root_ch.enable_smooth_bump:
 
-            for d in neighbor_directions:
-                name = root_ch.name + io_suffix['HEIGHT'] + ' ' + d.upper()
+                for d in neighbor_directions:
+                    name = root_ch.name + io_suffix['HEIGHT'] + ' ' + d.upper()
 
-                dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, index, dirty)
-                dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, index, dirty)
+                    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, index, dirty)
+                    dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, index, dirty)
 
-                index += 1
+                    index += 1
 
     # Tree background inputs
     if layer.type in {'BACKGROUND', 'GROUP'}:
@@ -1040,13 +1040,22 @@ def check_layer_tree_ios(layer, tree=None):
                 index += 1
 
             # Displacement Input
-            #if root_ch.enable_displacement:
+            #if root_ch.enable_parallax:
             if root_ch.type == 'NORMAL':
 
                 name = root_ch.name + io_suffix['HEIGHT'] + io_suffix[layer.type]
                 dirty = create_input(tree, name, 'NodeSocketFloat',
                         valid_inputs, index, dirty)
                 index += 1
+
+                if root_ch.enable_smooth_bump:
+
+                    for d in neighbor_directions:
+                        name = root_ch.name + io_suffix['HEIGHT'] + ' ' + d.upper() + io_suffix[layer.type]
+
+                        dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, index, dirty)
+
+                        index += 1
 
     uv_names = [layer.uv_name]
 

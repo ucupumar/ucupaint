@@ -1132,7 +1132,7 @@ class YBakeChannels(bpy.types.Operator):
                 bpy.data.images.remove(alpha_img)
 
             # Bake displacement
-            if ch.type == 'NORMAL' and ch.enable_displacement:
+            if ch.type == 'NORMAL' and ch.enable_parallax:
 
                 # Displacement
 
