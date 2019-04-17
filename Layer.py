@@ -2571,6 +2571,11 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Height related
     height_process = StringProperty(default='')
+    height_process_n = StringProperty(default='')
+    height_process_s = StringProperty(default='')
+    height_process_e = StringProperty(default='')
+    height_process_w = StringProperty(default='')
+
     height_blend = StringProperty(default='')
     height_blend_n = StringProperty(default='')
     height_blend_s = StringProperty(default='')

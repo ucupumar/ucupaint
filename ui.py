@@ -562,15 +562,15 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
 
                 if channel.enable_parallax:
 
-                    brow = bcol.row(align=True)
-                    brow.label(text='', icon='INFO')
-                    brow.label(text='Height Ratio:')
-                    brow.prop(channel, 'displacement_height_ratio', text='')
+                    #brow = bcol.row(align=True)
+                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='Height Ratio:')
+                    #brow.prop(channel, 'displacement_height_ratio', text='')
 
-                    brow = bcol.row(align=True)
-                    brow.label(text='', icon='INFO')
-                    brow.label(text='Reference Plane:')
-                    brow.prop(channel, 'displacement_ref_plane', text='')
+                    #brow = bcol.row(align=True)
+                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='Reference Plane:')
+                    #brow.prop(channel, 'displacement_ref_plane', text='')
 
                     #brow = bcol.row(align=True)
                     #brow.label(text='', icon='INFO')

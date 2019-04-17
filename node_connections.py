@@ -788,10 +788,24 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha)
 
         if end_linear:
-            if ch.type != 'NORMAL':
-                rgb = create_link(tree, rgb, end_linear.inputs[0])[0]
-            elif disp:
-                disp = create_link(tree, disp, end_linear.inputs[0])[0]
+            if ch.type == 'NORMAL':
+                create_link(tree, rgb, end_linear.inputs['Normal Overlay'])[0]
+                
+            rgb = create_link(tree, rgb, end_linear.inputs[0])[0]
+
+            if disp:
+                disp = create_link(tree, disp, end_linear.inputs[0])[1]
+                if ch.enable_smooth_bump:
+                    create_link(tree, disp_n, end_linear.inputs['Height n'])
+                    create_link(tree, disp_s, end_linear.inputs['Height s'])
+                    create_link(tree, disp_e, end_linear.inputs['Height e'])
+                    create_link(tree, disp_w, end_linear.inputs['Height w'])
+
+                tangent = nodes.get(yp.uvs[0].tangent).outputs[0]
+                bitangent = nodes.get(yp.uvs[0].bitangent).outputs[0]
+
+                create_link(tree, tangent, end_linear.inputs['Tangent'])
+                create_link(tree, bitangent, end_linear.inputs['Bitangent'])
 
         if yp.use_baked and baked_uv:
             baked = nodes.get(ch.baked)
@@ -1540,7 +1554,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 if 'Remaining Alpha' in normal_process.inputs:
                     create_link(tree, remains, normal_process.inputs['Remaining Alpha'])
 
-                rgb = normal_process.outputs[0]
+                if root_ch.type == 'NORMAL' and ch.write_height:
+                    if 'Normal No Bump' in normal_process.outputs:
+                        rgb = normal_process.outputs['Normal No Bump']
+                    else: 
+                        rgb = geometry.outputs['Normal']
+                    #else: rgb = rgb_after_mod
+                else: rgb = normal_process.outputs[0]
 
             normal_flip = nodes.get(ch.normal_flip)
             if normal_flip:

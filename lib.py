@@ -121,6 +121,9 @@ NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD = '~yPL Normal Map Process 
 EMULATED_CURVE = '~yPL Emulated Curve'
 FALLOFF_CURVE = '~yPL Transition Bump Falloff Curve'
 
+FINE_BUMP_PROCESS = '~yPL Fine Bump Process'
+BUMP_PROCESS = '~yPL Bump Process'
+
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'
 
