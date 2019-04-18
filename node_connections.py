@@ -1239,8 +1239,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         alpha = start_alpha
         bg_alpha = None
 
+        #if root_ch.type == 'NORMAL':
+        #    height = rgb
+        #else: height = None
+
         if layer.type == 'GROUP':
-            rgb = source.outputs.get(root_ch.name + io_suffix['GROUP'])
+            if root_ch.type == 'NORMAL' and ch.enable_transition_bump:
+                rgb = source.outputs.get(root_ch.name + ' Height' + io_suffix['GROUP'])
+            else:
+                rgb = source.outputs.get(root_ch.name + io_suffix['GROUP'])
             alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
 
         elif layer.type == 'BACKGROUND':
@@ -1353,7 +1360,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 alpha_e = start_alpha
                 alpha_w = start_alpha
 
-            elif ch.enable_transition_bump and layer.type == 'GROUP' and uv_neighbor:
+            elif layer.type == 'GROUP':
+                rgb_n = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' N' + io_suffix['GROUP'])
+                rgb_s = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' S' + io_suffix['GROUP'])
+                rgb_e = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' E' + io_suffix['GROUP'])
+                rgb_w = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' W' + io_suffix['GROUP'])
+
+                alpha_n = alpha_after_mod
+                alpha_s = alpha_after_mod
+                alpha_e = alpha_after_mod
+                alpha_w = alpha_after_mod
+
+            #elif ch.enable_transition_bump and layer.type == 'GROUP' and uv_neighbor:
+            elif ch.enable_transition_bump and uv_neighbor:
                 create_link(tree, alpha_after_mod, uv_neighbor.inputs[0])
 
                 rgb_n = rgb_before_mod
@@ -1555,12 +1574,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     create_link(tree, remains, normal_process.inputs['Remaining Alpha'])
 
                 if root_ch.type == 'NORMAL' and ch.write_height:
-                    if 'Normal No Bump' in normal_process.outputs:
+                    if layer.type == 'GROUP':
+                        rgb = source.outputs.get(root_ch.name + io_suffix['GROUP'])
+                    elif 'Normal No Bump' in normal_process.outputs:
                         rgb = normal_process.outputs['Normal No Bump']
                     else: 
                         rgb = geometry.outputs['Normal']
-                    #else: rgb = rgb_after_mod
-                else: rgb = normal_process.outputs[0]
+                else: 
+                    rgb = normal_process.outputs[0]
 
             normal_flip = nodes.get(ch.normal_flip)
             if normal_flip:
@@ -1720,7 +1741,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 if prev_height:
                     create_link(tree, prev_height, height_process.inputs['Prev Height'])
 
-            if not ch.write_height:
+            if layer.type == 'GROUP' and not ch.enable_transition_bump:
+                #create_link(tree, rgb_after_mod, next_height)
+                #if prev_height_n and next_height_n: create_link(tree, prev_height_n, next_height_n)
+                #if prev_height_s and next_height_s: create_link(tree, prev_height_s, next_height_s)
+                #if prev_height_e and next_height_e: create_link(tree, prev_height_e, next_height_e)
+                #if prev_height_w and next_height_w: create_link(tree, prev_height_w, next_height_w)
+                pass
+            elif not ch.write_height:
                 if prev_height and next_height: create_link(tree, prev_height, next_height)
                 if prev_height_n and next_height_n: create_link(tree, prev_height_n, next_height_n)
                 if prev_height_s and next_height_s: create_link(tree, prev_height_s, next_height_s)
