@@ -1989,6 +1989,39 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
                     return_status = True, hard_replace=True)
 
+        #blend_height = tree.nodes.get(ch.blend_height)
+        #if not blend_height:
+        #    blend_height = new_node(tree, ch, 'blend_height', 'ShaderNodeMixRGB', 'Height Blend')
+
+        #if ch.normal_blend_type == 'MIX': blend_height.blend_type = 'MIX'
+        #elif ch.normal_blend_type == 'OVERLAY': blend_height.blend_type = 'ADD'
+
+        #intensity_height = tree.nodes.get(ch.intensity_height)
+        #if not intensity_height:
+        #    intensity_height = new_node(tree, ch, 'intensity_height', 'ShaderNodeMath', 'Height Intensity')
+        #    intensity_height.operation = 'MULTIPLY'
+
+        #if root_ch.enable_smooth_bump:
+        #    for d in neighbor_directions:
+
+        #        # Blend height
+        #        bh = tree.nodes.get(getattr(ch, 'blend_height_' + d))
+        #        if not bh:
+        #            bh = new_node(tree, ch, 'blend_height_' + d, 'ShaderNodeMixRGB', 'Height Blend ' + d)
+        #        if ch.normal_blend_type == 'MIX': bh.blend_type = 'MIX'
+        #        elif ch.normal_blend_type == 'OVERLAY': bh.blend_type = 'ADD'
+
+        #        # Intensity
+        #        inten = tree.nodes.get(getattr(ch, 'intensity_height_' + d))
+        #        if not inten:
+        #            bh = new_node(tree, ch, 'intensity_height_' + d, 'ShaderNodeMath', 'Height Intensity ' + d)
+        #            bh.operation = 'MULTIPLY'
+
+        #else:
+        #    for d in neighbor_directions:
+        #        remove_node(tree, ch, 'blend_height_' + d)
+        #        remove_node(tree, ch, 'intensity_height_' + d)
+
         disp_ch = get_displacement_channel(yp)
 
         #if not root_ch.enable_parallax:
@@ -2564,6 +2597,18 @@ class YLayerChannel(bpy.types.PropertyGroup):
     intensity = StringProperty(default='')
     source = StringProperty(default='')
 
+    intensity_height = StringProperty(default='')
+    intensity_height_n = StringProperty(default='')
+    intensity_height_s = StringProperty(default='')
+    intensity_height_e = StringProperty(default='')
+    intensity_height_w = StringProperty(default='')
+
+    blend_height = StringProperty(default='')
+    blend_height_n = StringProperty(default='')
+    blend_height_s = StringProperty(default='')
+    blend_height_e = StringProperty(default='')
+    blend_height_w = StringProperty(default='')
+
     # Normal related
     #normal_map = StringProperty(default='')
     normal_process = StringProperty(default='')
@@ -2571,17 +2616,18 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Height related
     height_process = StringProperty(default='')
+
+    height_process_temp = StringProperty(default='')
     height_process_n = StringProperty(default='')
     height_process_s = StringProperty(default='')
     height_process_e = StringProperty(default='')
     height_process_w = StringProperty(default='')
 
+    height_proc = StringProperty(default='')
     height_blend = StringProperty(default='')
-    height_blend_n = StringProperty(default='')
-    height_blend_s = StringProperty(default='')
-    height_blend_e = StringProperty(default='')
-    height_blend_w = StringProperty(default='')
-    
+    normal_proc = StringProperty(default='')
+    normal_blend = StringProperty(default='')
+
     # Displacement blend
     disp_scale = StringProperty(default='')
     disp_blend = StringProperty(default='')

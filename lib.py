@@ -64,9 +64,51 @@ HEIGHT_SCALE_TRANS_BUMP = '~yPL Height Scale Transition Bump'
 HEIGHT_SCALE_TRANS_FINE_BUMP = '~yPL Height Scale Transition Fine Bump'
 HEIGHT_NORMALIZE = '~yPL Normalize Height'
 
+# NEW ORDER
+
+HEIGHT_PROCESS = '~yPL Height Process'
+#HEIGHT_PROCESS_GROUP = '~yPL Height Process Group'
+HEIGHT_PROCESS_TRANSITION = '~yPL Height Process Transition'
+#HEIGHT_PROCESS_TRANSITION_GROUP = '~yPL Height Process Transition Group'
+HEIGHT_PROCESS_TRANSITION_CREASE = '~yPL Height Process Transition Crease'
+#HEIGHT_PROCESS_TRANSITION_CREASE_GROUP = '~yPL Height Process Transition Crease Group'
+HEIGHT_PROCESS_SMOOTH = '~yPL Height Process Smooth'
+#HEIGHT_PROCESS_SMOOTH_GROUP = '~yPL Height Process Smooth Group'
+HEIGHT_PROCESS_TRANSITION_SMOOTH = '~yPL Height Process Transition Smooth'
+#HEIGHT_PROCESS_TRANSITION_SMOOTH_GROUP = '~yPL Height Process Transition Smooth Group'
+HEIGHT_PROCESS_TRANSITION_SMOOTH_ZERO_CHAIN = '~yPL Height Process Transition Smooth Zero Chain'
+#HEIGHT_PROCESS_TRANSITION_SMOOTH_ZERO_CHAIN_GROUP = '~yPL Height Process Transition Smooth Zero Chain Group'
+HEIGHT_PROCESS_TRANSITION_SMOOTH_CREASE = '~yPL Height Process Transition Smooth Crease'
+#HEIGHT_PROCESS_TRANSITION_SMOOTH_CREASE_GROUP = '~yPL Height Process Transition Smooth Crease Group'
+
+HEIGHT_PROCESS_NORMAL_MAP = '~yPL Height Process Normal Map'
+HEIGHT_PROCESS_TRANSITION_NORMAL_MAP = '~yPL Height Process Transition Normal Map'
+HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE = '~yPL Height Process Transition Normal Map Crease'
+HEIGHT_PROCESS_SMOOTH_NORMAL_MAP = '~yPL Height Process Smooth Normal Map'
+HEIGHT_PROCESS_TRANSITION_SMOOTH_NORMAL_MAP = '~yPL Height Process Transition Smooth Normal Map'
+HEIGHT_PROCESS_TRANSITION_SMOOTH_NORMAL_MAP_CREASE = '~yPL Height Process Transition Smooth Normal Map Crease'
+
+HEIGHT_COMPARE = '~yPL Height Compare'
+HEIGHT_MIX_SMOOTH = '~yPL Height Mix Smooth'
+HEIGHT_ADD_SMOOTH = '~yPL Height Add Smooth'
+HEIGHT_COMPARE_SMOOTH = '~yPL Height Compare Smooth'
+
+NORMAL_PROCESS = '~yPL Normal Process'
+#NORMAL_PROCESS_GROUP = '~yPL Normal Process Group'
+NORMAL_PROCESS_SMOOTH = '~yPL Normal Process Smooth'
+#NORMAL_PROCESS_SMOOTH_GROUP = '~yPL Normal Process Smooth Group'
+
+NORMAL_MAP_PROCESS = '~yPL Normal Map Process'
+NORMAL_MAP_PROCESS_TRANSITION = '~yPL Normal Map Process Transition'
+NORMAL_MAP_PROCESS_SMOOTH = '~yPL Normal Map Process Smooth'
+NORMAL_MAP_PROCESS_SMOOTH_TRANSITION = '~yPL Normal Map Process Smooth Transition'
+
+# END OF NEW ORDER
+
 HEIGHT_PROCESS_BUMP_MIX = '~yPL Height Process Bump Mix'
 HEIGHT_PROCESS_BUMP_ADD = '~yPL Height Process Bump Add'
 
+HEIGHT_PROCESS_TRANSITION_BUMP = '~yPL Height Process Transition Bump'
 HEIGHT_PROCESS_TRANSITION_BUMP_MIX = '~yPL Height Process Transition Bump Mix'
 HEIGHT_PROCESS_TRANSITION_BUMP_ADD = '~yPL Height Process Transition Bump Add'
 

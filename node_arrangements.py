@@ -194,9 +194,17 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, ch.blend, frame)
 
         if root_ch.type == 'NORMAL':
+            check_set_node_parent(tree, ch.height_proc, frame)
             check_set_node_parent(tree, ch.height_blend, frame)
-            for d in neighbor_directions:
-                check_set_node_parent(tree, getattr(ch, 'height_blend_' + d), frame)
+            check_set_node_parent(tree, ch.normal_proc, frame)
+
+            #check_set_node_parent(tree, ch.blend_height, frame)
+            #check_set_node_parent(tree, ch.intensity_height, frame)
+            #check_set_node_parent(tree, ch.height_process_temp, frame)
+            #for d in neighbor_directions:
+            #    check_set_node_parent(tree, getattr(ch, 'blend_height_' + d), frame)
+            #    check_set_node_parent(tree, getattr(ch, 'intensity_height_' + d), frame)
+            #    check_set_node_parent(tree, getattr(ch, 'height_process_' + d), frame)
 
         #check_set_node_parent(tree, ch.normal_flip, frame)
         #check_set_node_parent(tree, ch.intensity_multiplier, frame)
@@ -982,6 +990,15 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.x += 200
                 y_offset += 90
 
+        if check_set_node_loc(tree, ch.height_proc, loc):
+            loc.x += 200
+
+        if check_set_node_loc(tree, ch.height_blend, loc):
+            loc.x += 200
+
+        if check_set_node_loc(tree, ch.normal_proc, loc):
+            loc.x += 200
+
         if check_set_node_loc(tree, ch.intensity, loc):
             loc.x += 200
 
@@ -993,51 +1010,62 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.x += 200
                 #y_offset += 60
 
-        save_y = loc.y
-        save_x = loc.x
+        #save_y = loc.y
+        #save_x = loc.x
 
-        loc.y -= 170
-        loc.x = bookmark_x
-
-        #if check_set_node_loc(tree, ch.normal_flip, loc):
-        #    loc.y -= 130
-        #    y_offset += 130
-
-        if check_set_node_loc(tree, ch.tb_crease_intensity, loc):
-            loc.x += 200
-
-        if check_set_node_loc(tree, ch.tb_crease_mix, loc):
-            loc.x += 200
-            loc.y -= 200
-            y_offset += 200
-            #y_offset += 170
-
-        #loc.y -= 170
-        loc.x = bookmark_x
-        if check_set_node_loc(tree, ch.disp_scale, loc):
-            y_offset += 170
-            loc.x += 200
-
-        loc.x = bookmark_x1
-
-        #if root_ch.enable_smooth_bump:
-
-        #    if check_set_node_loc(tree, ch.height_blend, loc, True):
-        #        loc.y -= 40
-
-        #    for d in neighbor_directions:
-        #        if check_set_node_loc(tree, getattr(ch, 'height_blend_' + d), loc, True):
-        #            loc.y -= 40
-        #else:
-        #    if check_set_node_loc(tree, ch.height_blend, loc):
-        #        pass
-
-        loc.y = save_y
-        if loc.x < save_x:
-            loc.x = save_x
+        #loc.y = save_y
+        #if loc.x < save_x:
+        #    loc.x = save_x
 
         if check_set_node_loc(tree, ch.blend, loc):
             loc.x += 250
+
+        #loc.y -= 170
+        #loc.x = bookmark_x1
+        #loc.x = bookmark_x
+
+        #if root_ch.enable_smooth_bump:
+
+            #save_y = loc.y
+
+            #if check_set_node_loc(tree, ch.height_process_temp, loc, True):
+            #    loc.y -= 60
+
+            #for d in neighbor_directions:
+            #    if check_set_node_loc(tree, getattr(ch, 'height_process_' + d), loc, True):
+            #        loc.y -= 60
+
+            #loc.y = save_y
+            #loc.x += 200
+
+            #if check_set_node_loc(tree, ch.intensity_height, loc, True):
+            #    loc.y -= 40
+
+            #for d in neighbor_directions:
+            #    if check_set_node_loc(tree, getattr(ch, 'intensity_height_' + d), loc, True):
+            #        loc.y -= 40
+
+            #loc.y = save_y
+            #loc.x += 200
+
+            #if check_set_node_loc(tree, ch.blend_height, loc, True):
+            #    loc.y -= 40
+
+            #for d in neighbor_directions:
+            #    if check_set_node_loc(tree, getattr(ch, 'blend_height_' + d), loc, True):
+            #        loc.y -= 40
+
+            #loc.x += 250
+        #else:
+            #if check_set_node_loc(tree, ch.height_process_temp, loc):
+            #    loc.x += 200
+
+            #if check_set_node_loc(tree, ch.intensity_height, loc):
+            #    loc.x += 200
+
+            #if check_set_node_loc(tree, ch.blend_height, loc):
+            #    loc.x += 250
+            #pass
 
         if loc.x > farthest_x: farthest_x = loc.x
 
