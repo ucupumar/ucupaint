@@ -2022,19 +2022,21 @@ def check_blend_type_nodes(root_ch, layer, ch):
         #        remove_node(tree, ch, 'blend_height_' + d)
         #        remove_node(tree, ch, 'intensity_height_' + d)
 
-        disp_ch = get_displacement_channel(yp)
+        #disp_ch = get_displacement_channel(yp)
+
+        update_disp_scale_node(tree, root_ch, ch)
 
         #if not root_ch.enable_parallax:
         #    remove_node(tree, ch, 'height_blend')
 
-        if root_ch == disp_ch:
+        #if root_ch == disp_ch:
             #ch_index = get_channel_index(root_ch)
 
             #height_blend = tree.nodes.get(ch.height_blend)
             #disp_scale = tree.nodes.get(ch.disp_scale)
 
-            max_height = get_displacement_max_height(root_ch)
-            root_ch.displacement_height_ratio = max_height
+            #max_height = get_displacement_max_height(root_ch)
+            #root_ch.displacement_height_ratio = max_height
 
             # Displacement blend node
             #if not height_blend:
@@ -2085,11 +2087,11 @@ def check_blend_type_nodes(root_ch, layer, ch):
             #            return_status = True, hard_replace=True)
 
             #    disp_scale.inputs['Scale'].default_value = ch.bump_distance #/ max_height
-            update_disp_scale_node(tree, root_ch, ch)
+            #update_disp_scale_node(tree, root_ch, ch)
 
-        else:
-            remove_node(tree, ch, 'height_blend')
-            remove_node(tree, ch, 'disp_scale')
+        #else:
+        #    remove_node(tree, ch, 'height_blend')
+        #    remove_node(tree, ch, 'disp_scale')
 
         if root_ch.enable_smooth_bump:
             pass
@@ -2145,13 +2147,16 @@ def check_blend_type_nodes(root_ch, layer, ch):
     else: blend.mute = False
 
     # Intensity nodes
-    intensity = tree.nodes.get(ch.intensity)
-    if not intensity:
-        intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
-        intensity.operation = 'MULTIPLY'
+    if root_ch.type == 'NORMAL':
+        remove_node(tree, ch, 'intensity')
+    else:
+        intensity = tree.nodes.get(ch.intensity)
+        if not intensity:
+            intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
+            intensity.operation = 'MULTIPLY'
 
-    # Channel mute
-    intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+        # Channel mute
+        intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
     #if root_ch.type == 'NORMAL':
     #    height_process = tree.nodes.get(ch.height_process)
@@ -2225,61 +2230,28 @@ def update_bump_distance(self, context):
 
     if self.normal_map_type == 'NORMAL_MAP' and self.enable_transition_bump: return
 
-    normal_process = tree.nodes.get(self.normal_process)
     max_height = get_displacement_max_height(root_ch, self)
 
-    #if normal_process:
-    #    if self.normal_map_type == 'BUMP_MAP':
-    #        #normal_process.inputs[1].default_value = self.bump_distance
-    #        normal_process.inputs[1].default_value = max_height
+    height_proc = tree.nodes.get(self.height_proc)
+    if height_proc:
 
-    #    elif self.normal_map_type == 'FINE_BUMP_MAP':
-    #        #normal_process.inputs[0].default_value = get_fine_bump_distance(self.bump_distance)
-    #        normal_process.inputs[0].default_value = get_fine_bump_distance(max_height)
-
-    #disp_ch = get_displacement_channel(yp)
-    #if disp_ch == root_ch:
-    #height_blend = tree.nodes.get(self.height_blend)
-    #if height_blend:
-    #    height_blend.inputs['Scale'].default_value = self.bump_distance
-    height_process = tree.nodes.get(self.height_process)
-    if height_process:
-
-        #if self.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
         if self.normal_map_type == 'BUMP_MAP':
-            height_process.inputs['Value Max Height'].default_value = self.bump_distance
-            if 'Delta' in height_process.inputs:
-                height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
+            height_proc.inputs['Value Max Height'].default_value = self.bump_distance
+            if 'Delta' in height_proc.inputs:
+                height_proc.inputs['Delta'].default_value = get_transition_disp_delta(self)
         elif self.normal_map_type == 'NORMAL_MAP':
-            height_process.inputs['Bump Height'].default_value = self.bump_distance
+            height_proc.inputs['Bump Height'].default_value = self.bump_distance
 
-        height_process.inputs['Total Max Height'].default_value = max_height
+    normal_proc = tree.nodes.get(self.normal_proc)
+    if normal_proc:
 
-    normal_process = tree.nodes.get(self.normal_process)
-    if normal_process:
-
-        #if self.normal_map_type in {'FINE_BUMP_MAP', 'BUMP_MAP'}:
-        if self.normal_map_type == 'BUMP_MAP':
-            if 'Value Max Height' in normal_process.inputs:
-                normal_process.inputs['Value Max Height'].default_value = self.bump_distance
-            if 'Delta' in normal_process.inputs:
-                normal_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
-        elif self.normal_map_type == 'NORMAL_MAP':
-            normal_process.inputs['Bump Height'].default_value = self.bump_distance
-
-        #if 'Bump Height Scale' in normal_process.inputs:
         if root_ch.enable_smooth_bump: 
-            normal_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+            normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
-        if 'Total Max Height' in normal_process.inputs:
-            normal_process.inputs['Total Max Height'].default_value = max_height
+        normal_proc.inputs['Max Height'].default_value = max_height
 
     max_height = get_displacement_max_height(root_ch)
     root_ch.displacement_height_ratio = max_height
-
-    #end_linear = group_tree.nodes.get(root_ch.end_linear)
-    #if end_linear:
-    #    pass
 
 def set_layer_channel_linear_node(tree, layer, root_ch, ch):
 
@@ -2498,13 +2470,13 @@ def update_channel_intensity_value(self, context):
     if intensity:
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
-    height_process = tree.nodes.get(ch.height_process)
-    if height_process:
-        height_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+    height_proc = tree.nodes.get(ch.height_proc)
+    if height_proc:
+        height_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
 
-    normal_process = tree.nodes.get(ch.normal_process)
-    if normal_process and 'Intensity' in normal_process.inputs:
-        normal_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+    #normal_process = tree.nodes.get(ch.normal_process)
+    #if normal_process and 'Intensity' in normal_process.inputs:
+    #    normal_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
 
     if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, layer, ch)

@@ -371,64 +371,23 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         # Rearrange nodes
         rearrange_layer_nodes(layer)
 
-def check_create_bump_base(layer, tree, ch):
-
-    normal_map_type = ch.normal_map_type
-    #if layer.type in {'VCOL', 'COLOR'} and ch.normal_map_type == 'FINE_BUMP_MAP':
-    #    normal_map_type = 'BUMP_MAP'
+def check_create_bump_base(layer, tree, root_ch, ch):
 
     skip = False
     if layer.type in {'BACKGROUND', 'GROUP'}: #or is_valid_to_remove_bump_nodes(layer, ch):
         skip = True
 
-    if not skip and normal_map_type == 'FINE_BUMP_MAP':
-
-        # Delete standard bump base first
-        if ch.enable_transition_bump:
-            bump_base = replace_new_node(tree, ch, 'bump_base', 
-                    'ShaderNodeGroup', 'Bump Hack', lib.STRAIGHT_OVER_HACK)
-        else:
-            remove_node(tree, ch, 'bump_base')
-
-        for d in neighbor_directions:
-
-            if ch.enable_transition_bump:
-                # Mask bump uses hack
-                bb = replace_new_node(tree, ch, 'bump_base_' + d, 
-                        'ShaderNodeGroup', 'bump_hack_' + d, lib.STRAIGHT_OVER_HACK) 
-
-            #else:
-            #    # Check standard bump base
-            #    bb = replace_new_node(tree, ch, 'bump_base_' + d, 'ShaderNodeMixRGB', 'bump_base_' + d)
-            #    #if replaced:
-            #    val = ch.bump_base_value
-            #    bb.inputs[0].default_value = 1.0
-            #    bb.inputs[1].default_value = (val, val, val, 1.0)
-
-    elif not skip and normal_map_type == 'BUMP_MAP':
-
-        # Delete fine bump bump bases first
-        for d in neighbor_directions:
-            remove_node(tree, ch, 'bump_base_' + d)
-
-        if ch.enable_transition_bump:
-
-            # Mask bump uses hack
-            bump_base = replace_new_node(tree, ch, 'bump_base', 
-                    'ShaderNodeGroup', 'Bump Hack', lib.STRAIGHT_OVER_HACK)
-
-        else:
-            # Check standard bump base
-            bump_base = replace_new_node(tree, ch, 'bump_base', 'ShaderNodeMixRGB', 'Bump Base')
-            #if replaced:
-            val = ch.bump_base_value
-            bump_base.inputs[0].default_value = 1.0
-            bump_base.inputs[1].default_value = (val, val, val, 1.0)
-
-    #else:
-    if not ch.enable_transition_bump:
-        # Delete all bump bases
+    if not skip and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
+        bump_base = replace_new_node(tree, ch, 'bump_base', 
+                'ShaderNodeGroup', 'Bump Hack', lib.STRAIGHT_OVER_HACK)
+    else:
         remove_node(tree, ch, 'bump_base')
+
+    if not skip and root_ch.enable_smooth_bump and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
+        for d in neighbor_directions:
+            bb = replace_new_node(tree, ch, 'bump_base_' + d, 
+                    'ShaderNodeGroup', 'bump_hack_' + d, lib.STRAIGHT_OVER_HACK) 
+    else:
         for d in neighbor_directions:
             remove_node(tree, ch, 'bump_base_' + d)
 
@@ -1281,208 +1240,221 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
     if root_ch.enable_smooth_bump:
         normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
+    # Normal flip
+    if ch.normal_map_type == 'NORMAL_MAP' or root_ch.enable_smooth_bump:
+        remove_node(tree, ch, 'normal_flip')
+    else:
+        normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
+                'Normal Backface Flip', lib.FLIP_BACKFACE_BUMP)
+
+        set_bump_backface_flip(normal_flip, yp.flip_backface)
+
+    # Remove deprecated nodes
+    remove_node(tree, ch, 'normal_process')
+    remove_node(tree, ch, 'height_process')
+
     ###### END OF NEW ORDER
 
     # Normal process
-    if layer.type == 'GROUP' and not ch.enable_transition_bump:
-        remove_node(tree, ch, 'normal_process')
-    else:
-        if ch.normal_map_type == 'NORMAL_MAP':
+    #if layer.type == 'GROUP' and not ch.enable_transition_bump:
+    #    remove_node(tree, ch, 'normal_process')
+    #else:
+    #    if ch.normal_map_type == 'NORMAL_MAP':
 
-            if root_ch.enable_smooth_bump:
-                if ch.enable_transition_bump:
-                    if not ch.transition_bump_flip and ch.transition_bump_crease:
-                        if ch.normal_blend_type == 'MIX':
-                            lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX
-                        elif ch.normal_blend_type == 'OVERLAY':
-                            lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD
+    #        if root_ch.enable_smooth_bump:
+    #            if ch.enable_transition_bump:
+    #                if not ch.transition_bump_flip and ch.transition_bump_crease:
+    #                    if ch.normal_blend_type == 'MIX':
+    #                        lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX
+    #                    elif ch.normal_blend_type == 'OVERLAY':
+    #                        lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD
 
-                    elif ch.normal_blend_type == 'MIX':
-                        lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX
-                    elif ch.normal_blend_type == 'OVERLAY':
-                        lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD
+    #                elif ch.normal_blend_type == 'MIX':
+    #                    lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX
+    #                elif ch.normal_blend_type == 'OVERLAY':
+    #                    lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD
 
-                else:
-                    if ch.normal_blend_type == 'MIX':
-                        lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_BUMP_MIX
-                    elif ch.normal_blend_type == 'OVERLAY':
-                        lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_BUMP_ADD
-            else:
-                if ch.enable_transition_bump:
-                    lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_BUMP
-                else:
-                    lib_name = lib.NORMAL_MAP_PROCESS_BUMP
+    #            else:
+    #                if ch.normal_blend_type == 'MIX':
+    #                    lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_BUMP_MIX
+    #                elif ch.normal_blend_type == 'OVERLAY':
+    #                    lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_BUMP_ADD
+    #        else:
+    #            if ch.enable_transition_bump:
+    #                lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION_BUMP
+    #            else:
+    #                lib_name = lib.NORMAL_MAP_PROCESS_BUMP
 
-            normal_process, need_reconnect = replace_new_node(
-                    tree, ch, 'normal_process', 'ShaderNodeGroup', 'Normal', lib_name, #lib.NORMAL_MAP,
-                    return_status = True, hard_replace=True)
+    #        normal_process, need_reconnect = replace_new_node(
+    #                tree, ch, 'normal_process', 'ShaderNodeGroup', 'Normal', lib_name, #lib.NORMAL_MAP,
+    #                return_status = True, hard_replace=True)
 
-            if ch.enable_transition_bump:
-                if root_ch.enable_smooth_bump:
-                    normal_process.inputs['Bump Height'].default_value = get_transition_bump_max_distance(ch)
-                else: normal_process.inputs['Bump Height'].default_value = ch.transition_bump_distance
-            else: 
-                normal_process.inputs['Bump Height'].default_value = ch.bump_distance
+    #        if ch.enable_transition_bump:
+    #            if root_ch.enable_smooth_bump:
+    #                normal_process.inputs['Bump Height'].default_value = get_transition_bump_max_distance(ch)
+    #            else: normal_process.inputs['Bump Height'].default_value = ch.transition_bump_distance
+    #        else: 
+    #            normal_process.inputs['Bump Height'].default_value = ch.bump_distance
 
-            if root_ch.enable_smooth_bump:
-                normal_process.inputs['Total Max Height'].default_value = max_height
-                normal_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
-                normal_process.inputs['Intensity'].default_value = ch.intensity_value
+    #        if root_ch.enable_smooth_bump:
+    #            normal_process.inputs['Total Max Height'].default_value = max_height
+    #            normal_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+    #            normal_process.inputs['Intensity'].default_value = ch.intensity_value
 
-            remove_node(tree, ch, 'normal_flip')
+    #        remove_node(tree, ch, 'normal_flip')
 
-        # Bump nodes
-        #elif ch.normal_map_type == 'BUMP_MAP':
-        else:
+    #    # Bump nodes
+    #    #elif ch.normal_map_type == 'BUMP_MAP':
+    #    else:
 
-            if root_ch.enable_smooth_bump:
+    #        if root_ch.enable_smooth_bump:
 
-                if ch.enable_transition_bump:
-                    if not ch.transition_bump_flip and ch.transition_bump_crease:
-                        if ch.normal_blend_type == 'MIX':
-                            lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX
-                        elif ch.normal_blend_type == 'OVERLAY':
-                            lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD
+    #            if ch.enable_transition_bump:
+    #                if not ch.transition_bump_flip and ch.transition_bump_crease:
+    #                    if ch.normal_blend_type == 'MIX':
+    #                        lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX
+    #                    elif ch.normal_blend_type == 'OVERLAY':
+    #                        lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD
 
-                    elif ch.normal_blend_type == 'MIX':
-                        if ch.transition_bump_chain == 0:
-                            lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ZERO_CHAIN_MIX
-                        else: lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_MIX
-                    elif ch.normal_blend_type == 'OVERLAY':
-                        if ch.transition_bump_chain == 0:
-                            lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ZERO_CHAIN_ADD
-                        else: lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ADD
-                else:
+    #                elif ch.normal_blend_type == 'MIX':
+    #                    if ch.transition_bump_chain == 0:
+    #                        lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ZERO_CHAIN_MIX
+    #                    else: lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_MIX
+    #                elif ch.normal_blend_type == 'OVERLAY':
+    #                    if ch.transition_bump_chain == 0:
+    #                        lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ZERO_CHAIN_ADD
+    #                    else: lib_name = lib.NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ADD
+    #            else:
 
-                    if ch.normal_blend_type == 'MIX':
-                        lib_name = lib.NORMAL_PROCESS_BUMP_MIX
-                    elif ch.normal_blend_type == 'OVERLAY':
-                        lib_name = lib.NORMAL_PROCESS_BUMP_ADD
+    #                if ch.normal_blend_type == 'MIX':
+    #                    lib_name = lib.NORMAL_PROCESS_BUMP_MIX
+    #                elif ch.normal_blend_type == 'OVERLAY':
+    #                    lib_name = lib.NORMAL_PROCESS_BUMP_ADD
 
-                remove_node(tree, ch, 'normal_flip')
-            else:
-                lib_name = lib.NORMAL_PROCESS_BUMP
+    #            remove_node(tree, ch, 'normal_flip')
+    #        else:
+    #            lib_name = lib.NORMAL_PROCESS_BUMP
 
-                normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
-                        'Normal Backface Flip', lib.FLIP_BACKFACE_BUMP)
+    #            normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
+    #                    'Normal Backface Flip', lib.FLIP_BACKFACE_BUMP)
 
-                set_bump_backface_flip(normal_flip, yp.flip_backface)
+    #            set_bump_backface_flip(normal_flip, yp.flip_backface)
 
-            normal_process, need_reconnect = replace_new_node(tree, ch, 'normal_process', 
-                    'ShaderNodeGroup', 'Normal Process', lib_name, return_status = True, hard_replace=True)
+    #        normal_process, need_reconnect = replace_new_node(tree, ch, 'normal_process', 
+    #                'ShaderNodeGroup', 'Normal Process', lib_name, return_status = True, hard_replace=True)
 
-            if root_ch.enable_smooth_bump:
-                if ch.enable_transition_bump:
-                    normal_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
-                    normal_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
+    #        if root_ch.enable_smooth_bump:
+    #            if ch.enable_transition_bump:
+    #                normal_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+    #                normal_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
 
-                normal_process.inputs['Value Max Height'].default_value = ch.bump_distance
-                normal_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
-                normal_process.inputs['Intensity'].default_value = ch.intensity_value
+    #            normal_process.inputs['Value Max Height'].default_value = ch.bump_distance
+    #            normal_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+    #            normal_process.inputs['Intensity'].default_value = ch.intensity_value
 
-            normal_process.inputs['Total Max Height'].default_value = max_height
+    #        normal_process.inputs['Total Max Height'].default_value = max_height
 
-        if 'Crease Factor' in normal_process.inputs:
-            normal_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
-        if 'Crease Power' in normal_process.inputs:
-            normal_process.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
-        if 'Crease Height Scale' in normal_process.inputs:
-            normal_process.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
-                    ch.transition_bump_crease_factor * -ch.transition_bump_distance)
+    #    if 'Crease Factor' in normal_process.inputs:
+    #        normal_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
+    #    if 'Crease Power' in normal_process.inputs:
+    #        normal_process.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
+    #    if 'Crease Height Scale' in normal_process.inputs:
+    #        normal_process.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
+    #                ch.transition_bump_crease_factor * -ch.transition_bump_distance)
 
-        if yp.disable_quick_toggle:
-            normal_process.mute = mute
-        else: normal_process.mute = False
+    #    if yp.disable_quick_toggle:
+    #        normal_process.mute = mute
+    #    else: normal_process.mute = False
 
-        if 'Intensity' in normal_process.inputs:
-            normal_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+    #    if 'Intensity' in normal_process.inputs:
+    #        normal_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
 
-    # Height Process
-    if layer.type == 'GROUP' and not ch.enable_transition_bump:
-        remove_node(tree, ch, 'height_process')
-    else:
+    ## Height Process
+    #if layer.type == 'GROUP' and not ch.enable_transition_bump:
+    #    remove_node(tree, ch, 'height_process')
+    #else:
 
-        if ch.normal_map_type == 'NORMAL_MAP':
+    #    if ch.normal_map_type == 'NORMAL_MAP':
 
-            if ch.enable_transition_bump:
+    #        if ch.enable_transition_bump:
 
-                if not ch.transition_bump_flip and ch.transition_bump_crease:
-                    if ch.normal_blend_type == 'MIX':
-                        lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE_MIX
-                    elif ch.normal_blend_type == 'OVERLAY':
-                        lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE_ADD
+    #            if not ch.transition_bump_flip and ch.transition_bump_crease:
+    #                if ch.normal_blend_type == 'MIX':
+    #                    lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE_MIX
+    #                elif ch.normal_blend_type == 'OVERLAY':
+    #                    lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE_ADD
 
-                elif ch.normal_blend_type == 'MIX':
-                    lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_MIX
-                elif ch.normal_blend_type == 'OVERLAY':
-                    lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_ADD
+    #            elif ch.normal_blend_type == 'MIX':
+    #                lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_MIX
+    #            elif ch.normal_blend_type == 'OVERLAY':
+    #                lib_name = lib.HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_ADD
 
-            else:
+    #        else:
 
-                if ch.normal_blend_type == 'MIX':
-                    lib_name = lib.HEIGHT_PROCESS_NORMAL_MAP_MIX
-                elif ch.normal_blend_type == 'OVERLAY':
-                    lib_name = lib.HEIGHT_PROCESS_NORMAL_MAP_ADD
+    #            if ch.normal_blend_type == 'MIX':
+    #                lib_name = lib.HEIGHT_PROCESS_NORMAL_MAP_MIX
+    #            elif ch.normal_blend_type == 'OVERLAY':
+    #                lib_name = lib.HEIGHT_PROCESS_NORMAL_MAP_ADD
 
-        #elif ch.normal_blend_type == 'BUMP_MAP':
-        else:
+    #    #elif ch.normal_blend_type == 'BUMP_MAP':
+    #    else:
 
-            if ch.enable_transition_bump:
+    #        if ch.enable_transition_bump:
 
-                if not ch.transition_bump_flip and ch.transition_bump_crease:
-                    if ch.normal_blend_type == 'MIX':
-                        lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_MIX
-                    elif ch.normal_blend_type == 'OVERLAY':
-                        lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_ADD
+    #            if not ch.transition_bump_flip and ch.transition_bump_crease:
+    #                if ch.normal_blend_type == 'MIX':
+    #                    lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_MIX
+    #                elif ch.normal_blend_type == 'OVERLAY':
+    #                    lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_ADD
 
-                elif ch.normal_blend_type == 'MIX':
-                    lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_MIX
-                elif ch.normal_blend_type == 'OVERLAY': 
-                    lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_ADD
+    #            elif ch.normal_blend_type == 'MIX':
+    #                lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_MIX
+    #            elif ch.normal_blend_type == 'OVERLAY': 
+    #                lib_name = lib.HEIGHT_PROCESS_TRANSITION_BUMP_ADD
 
-            else:
+    #        else:
 
-                if ch.normal_blend_type == 'MIX':
-                    lib_name = lib.HEIGHT_PROCESS_BUMP_MIX
-                elif ch.normal_blend_type == 'OVERLAY': 
-                    lib_name = lib.HEIGHT_PROCESS_BUMP_ADD
+    #            if ch.normal_blend_type == 'MIX':
+    #                lib_name = lib.HEIGHT_PROCESS_BUMP_MIX
+    #            elif ch.normal_blend_type == 'OVERLAY': 
+    #                lib_name = lib.HEIGHT_PROCESS_BUMP_ADD
 
-        height_process, need_reconnect = replace_new_node(tree, ch, 'height_process', 'ShaderNodeGroup',
-                'Height Process', lib_name, return_status=True, hard_replace=True)
+    #    height_process, need_reconnect = replace_new_node(tree, ch, 'height_process', 'ShaderNodeGroup',
+    #            'Height Process', lib_name, return_status=True, hard_replace=True)
 
-        if ch.normal_map_type == 'NORMAL_MAP':
-            if ch.enable_transition_bump:
-                height_process.inputs['Bump Height'].default_value = get_transition_bump_max_distance(ch)
-            else: 
-                height_process.inputs['Bump Height'].default_value = ch.bump_distance
+    #    if ch.normal_map_type == 'NORMAL_MAP':
+    #        if ch.enable_transition_bump:
+    #            height_process.inputs['Bump Height'].default_value = get_transition_bump_max_distance(ch)
+    #        else: 
+    #            height_process.inputs['Bump Height'].default_value = ch.bump_distance
 
-        else:
-            if ch.enable_transition_bump:
-                height_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
-                height_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
+    #    else:
+    #        if ch.enable_transition_bump:
+    #            height_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+    #            height_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
 
-            height_process.inputs['Value Max Height'].default_value = ch.bump_distance
+    #        height_process.inputs['Value Max Height'].default_value = ch.bump_distance
 
-        height_process.inputs['Total Max Height'].default_value = max_height
-        height_process.inputs['Intensity'].default_value = ch.intensity_value
+    #    height_process.inputs['Total Max Height'].default_value = max_height
+    #    height_process.inputs['Intensity'].default_value = ch.intensity_value
 
-        if 'Crease Factor' in height_process.inputs:
-            height_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
-        if 'Crease Power' in height_process.inputs:
-            height_process.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
+    #    if 'Crease Factor' in height_process.inputs:
+    #        height_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
+    #    if 'Crease Power' in height_process.inputs:
+    #        height_process.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
 
-        if ch.enable_transition_bump and ch.enable and ch.transition_bump_crease and not ch.transition_bump_flip:
-            if not ch.write_height and not root_ch.enable_smooth_bump:
-                height_process.inputs['Remaining Filter'].default_value = 1.0
-            else:
-                height_process.inputs['Remaining Filter'].default_value = 0.0
+    #    if ch.enable_transition_bump and ch.enable and ch.transition_bump_crease and not ch.transition_bump_flip:
+    #        if not ch.write_height and not root_ch.enable_smooth_bump:
+    #            height_process.inputs['Remaining Filter'].default_value = 1.0
+    #        else:
+    #            height_process.inputs['Remaining Filter'].default_value = 0.0
 
-        if yp.disable_quick_toggle:
-            height_process.mute = mute
-        else: height_process.mute = False
+    #    if yp.disable_quick_toggle:
+    #        height_process.mute = mute
+    #    else: height_process.mute = False
 
-        if 'Intensity' in height_process.inputs:
-            height_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+    #    if 'Intensity' in height_process.inputs:
+    #        height_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
 
     # Remove neighbor related nodes
     if root_ch.enable_smooth_bump:
@@ -1514,7 +1486,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
     #            mod.oc_col = (val, val, val, 1.0)
 
     # Check bump base
-    check_create_bump_base(layer, tree, ch)
+    check_create_bump_base(layer, tree, root_ch, ch)
 
     # Check mask multiplies
     check_mask_mix_nodes(layer, tree)

@@ -259,7 +259,7 @@ def check_transition_bump_nodes(layer, tree, ch, ch_index):
     check_mask_mix_nodes(layer, tree)
 
     # Check bump base
-    check_create_bump_base(layer, tree, ch)
+    check_create_bump_base(layer, tree, root_ch, ch)
 
     # Trigger normal channel update
     #ch.normal_map_type = ch.normal_map_type
@@ -482,21 +482,21 @@ def update_transition_bump_crease_factor(self, context):
 
     if not ch.enable_transition_bump or not ch.enable or not ch.transition_bump_crease or ch.transition_bump_flip: return
 
-    height_process = tree.nodes.get(ch.height_process)
-    if height_process:
-        height_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
+    height_proc = tree.nodes.get(ch.height_proc)
+    if height_proc:
+        height_proc.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
         if ch.normal_map_type != 'NORMAL_MAP':
-            height_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
-            height_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+            height_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
+            height_proc.inputs['Delta'].default_value = get_transition_disp_delta(ch)
 
-    normal_process = tree.nodes.get(ch.normal_process)
-    if normal_process:
-        normal_process.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
-        if ch.normal_map_type != 'NORMAL_MAP':
-            normal_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
-            normal_process.inputs['Delta'].default_value = get_transition_disp_delta(ch)
-        #normal_process.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
-        #        ch.transition_bump_crease_factor * -ch.transition_bump_distance)
+    #normal_proc = tree.nodes.get(ch.normal_proc)
+    #if normal_proc:
+    #    normal_proc.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
+    #    if ch.normal_map_type != 'NORMAL_MAP':
+    #        normal_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
+    #        normal_proc.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+    #    #normal_proc.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
+    #    #        ch.transition_bump_crease_factor * -ch.transition_bump_distance)
 
     max_height = get_displacement_max_height(root_ch)
     root_ch.displacement_height_ratio = max_height
@@ -513,13 +513,13 @@ def update_transition_bump_crease_power(self, context):
 
     if not ch.enable_transition_bump or not ch.transition_bump_crease or ch.transition_bump_flip: return
 
-    height_process = tree.nodes.get(ch.height_process)
-    if height_process:
-        height_process.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
+    height_proc = tree.nodes.get(ch.height_proc)
+    if height_proc:
+        height_proc.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
 
-    normal_process = tree.nodes.get(ch.normal_process)
-    if normal_process:
-        normal_process.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
+    #normal_proc = tree.nodes.get(ch.normal_proc)
+    #if normal_proc:
+    #    normal_proc.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
 
 def update_transition_bump_falloff_emulated_curve_fac(self, context):
     if not self.enable: return
@@ -642,35 +642,35 @@ def update_transition_bump_distance(self, context):
 
         max_height = get_displacement_max_height(root_ch, ch)
 
-        height_process = tree.nodes.get(self.height_process)
-        if height_process: #and 'Transition Max Height' in height_process.inputs:
+        height_proc = tree.nodes.get(self.height_proc)
+        if height_proc: #and 'Transition Max Height' in height_proc.inputs:
             if self.normal_map_type == 'NORMAL_MAP':
-                height_process.inputs['Bump Height'].default_value = get_transition_bump_max_distance(self)
+                height_proc.inputs['Bump Height'].default_value = get_transition_bump_max_distance(self)
             else:
-                #if 'Transition Max Height' in height_process.inputs:
-                height_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(self)
-                height_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
-                #height_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
+                #if 'Transition Max Height' in height_proc.inputs:
+                height_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(self)
+                height_proc.inputs['Delta'].default_value = get_transition_disp_delta(self)
+                #height_proc.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
 
-            height_process.inputs['Total Max Height'].default_value = max_height
+            #height_proc.inputs['Total Max Height'].default_value = max_height
 
-        normal_process = tree.nodes.get(self.normal_process)
-        if normal_process: #and 'Transition Max Height' in normal_process.inputs:
-            if self.normal_map_type == 'NORMAL_MAP':
-                if root_ch.enable_smooth_bump:
-                    normal_process.inputs['Bump Height'].default_value = get_transition_bump_max_distance(self)
-                else: normal_process.inputs['Bump Height'].default_value = ch.transition_bump_distance
-            else:
-                if 'Transition Max Height' in normal_process.inputs:
-                    normal_process.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(self)
-                    normal_process.inputs['Delta'].default_value = get_transition_disp_delta(self)
-                    #normal_process.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
+        normal_proc = tree.nodes.get(self.normal_proc)
+        if normal_proc: #and 'Transition Max Height' in normal_proc.inputs:
+            #if self.normal_map_type == 'NORMAL_MAP':
+            #    if root_ch.enable_smooth_bump:
+            #        normal_proc.inputs['Bump Height'].default_value = get_transition_bump_max_distance(self)
+            #    else: normal_proc.inputs['Bump Height'].default_value = ch.transition_bump_distance
+            #else:
+            #    if 'Transition Max Height' in normal_proc.inputs:
+            #        normal_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(self)
+            #        normal_proc.inputs['Delta'].default_value = get_transition_disp_delta(self)
+            #        #normal_proc.inputs['Total Max Height'].default_value = get_layer_channel_max_height(self)
             
-            if 'Total Max Height' in normal_process.inputs:
-                normal_process.inputs['Total Max Height'].default_value = max_height
+            #if 'Total Max Height' in normal_proc.inputs:
+            normal_proc.inputs['Max Height'].default_value = max_height
 
             if root_ch.enable_smooth_bump:
-                normal_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+                normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
         max_height = get_displacement_max_height(root_ch)
         root_ch.displacement_height_ratio = max_height

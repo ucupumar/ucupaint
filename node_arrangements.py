@@ -175,18 +175,18 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
         # Normal process
 
-        if root_ch.type == 'NORMAL':
+        #if root_ch.type == 'NORMAL':
 
-            frame = get_frame(tree, '__normal_process__', str(i), root_ch.name + ' Process')
+            #frame = get_frame(tree, '__normal_process__', str(i), root_ch.name + ' Process')
 
-            check_set_node_parent(tree, ch.bump_base, frame)
-            check_set_node_parent(tree, ch.bump_base_n, frame)
-            check_set_node_parent(tree, ch.bump_base_s, frame)
-            check_set_node_parent(tree, ch.bump_base_e, frame)
-            check_set_node_parent(tree, ch.bump_base_w, frame)
-            check_set_node_parent(tree, ch.normal_process, frame)
-            check_set_node_parent(tree, ch.normal_flip, frame)
-            check_set_node_parent(tree, ch.height_process, frame)
+            #check_set_node_parent(tree, ch.bump_base, frame)
+            #check_set_node_parent(tree, ch.bump_base_n, frame)
+            #check_set_node_parent(tree, ch.bump_base_s, frame)
+            #check_set_node_parent(tree, ch.bump_base_e, frame)
+            #check_set_node_parent(tree, ch.bump_base_w, frame)
+            #check_set_node_parent(tree, ch.normal_process, frame)
+            #check_set_node_parent(tree, ch.normal_flip, frame)
+            #check_set_node_parent(tree, ch.height_process, frame)
 
         # Blend
         frame = get_frame(tree, '__blend__', str(i), root_ch.name + ' Blend')
@@ -194,9 +194,16 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, ch.blend, frame)
 
         if root_ch.type == 'NORMAL':
+            check_set_node_parent(tree, ch.bump_base, frame)
+            check_set_node_parent(tree, ch.bump_base_n, frame)
+            check_set_node_parent(tree, ch.bump_base_s, frame)
+            check_set_node_parent(tree, ch.bump_base_e, frame)
+            check_set_node_parent(tree, ch.bump_base_w, frame)
+            
             check_set_node_parent(tree, ch.height_proc, frame)
             check_set_node_parent(tree, ch.height_blend, frame)
             check_set_node_parent(tree, ch.normal_proc, frame)
+            check_set_node_parent(tree, ch.normal_flip, frame)
 
             #check_set_node_parent(tree, ch.blend_height, frame)
             #check_set_node_parent(tree, ch.intensity_height, frame)
@@ -945,23 +952,23 @@ def rearrange_layer_nodes(layer, tree=None):
     check_set_node_loc(tree, TREE_START, loc)
 
     loc.x += 250
-    loc.y = 0
+    #loc.y = 0
 
-    bookmark_x = loc.x
+    #bookmark_x = loc.x
 
-    for i, ch in enumerate(layer.channels):
+    #for i, ch in enumerate(layer.channels):
 
-        root_ch = yp.channels[i]
+    #    root_ch = yp.channels[i]
 
-        if root_ch.type == 'NORMAL':
+    #    if root_ch.type == 'NORMAL':
 
-            rearrange_normal_process_nodes(tree, ch, loc)
-            loc.y -= 300
-            loc.x += 30
-        else:
-            loc.y -= y_step
+    #        rearrange_normal_process_nodes(tree, ch, loc)
+    #        loc.y -= 300
+    #        loc.x += 30
+    #    else:
+    #        loc.y -= y_step
 
-        if loc.x > farthest_x: farthest_x = loc.x
+    #    if loc.x > farthest_x: farthest_x = loc.x
 
     loc.y = 0
     bookmark_x = loc.x
@@ -990,14 +997,47 @@ def rearrange_layer_nodes(layer, tree=None):
                 loc.x += 200
                 y_offset += 90
 
-        if check_set_node_loc(tree, ch.height_proc, loc):
-            loc.x += 200
+        if root_ch.type == 'NORMAL':
+            save_y = loc.y
+            bump_base = tree.nodes.get(ch.bump_base)
+            bump_base_n = tree.nodes.get(ch.bump_base_n)
 
-        if check_set_node_loc(tree, ch.height_blend, loc):
-            loc.x += 200
+            if bump_base_n:
+                if check_set_node_loc(tree, ch.bump_base, loc, True):
+                    loc.y -= 40
 
-        if check_set_node_loc(tree, ch.normal_proc, loc):
-            loc.x += 200
+                if check_set_node_loc(tree, ch.bump_base_n, loc, True):
+                    loc.y -= 40
+
+                if check_set_node_loc(tree, ch.bump_base_s, loc, True):
+                    loc.y -= 40
+
+                if check_set_node_loc(tree, ch.bump_base_e, loc, True):
+                    loc.y -= 40
+
+                if check_set_node_loc(tree, ch.bump_base_w, loc, True):
+                    loc.y -= 40
+
+                loc.y = save_y
+                loc.x += 200
+
+            elif bump_base:
+                if check_set_node_loc(tree, ch.bump_base, loc):
+                    loc.x += 200
+
+                loc.y = save_y
+
+            if check_set_node_loc(tree, ch.height_proc, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.height_blend, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.normal_proc, loc):
+                loc.x += 200
+
+            if check_set_node_loc(tree, ch.normal_flip, loc):
+                loc.x += 200
 
         if check_set_node_loc(tree, ch.intensity, loc):
             loc.x += 200

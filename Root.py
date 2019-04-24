@@ -1679,14 +1679,14 @@ def update_displacement_height_ratio(self, context):
                     pack.inputs['Max Height'].default_value = max_height
                 else: pack.inputs['Max Height'].default_value = 1.0
 
-            end_linear = group_tree.nodes.get(self.end_linear)
-            if end_linear:
-                if max_height != 0.0:
-                    end_linear.inputs['Max Height'].default_value = max_height
-                else: end_linear.inputs['Max Height'].default_value = 1.0
+        end_linear = group_tree.nodes.get(self.end_linear)
+        if end_linear:
+            if max_height != 0.0:
+                end_linear.inputs['Max Height'].default_value = max_height
+            else: end_linear.inputs['Max Height'].default_value = 1.0
 
-                if self.enable_smooth_bump:
-                    end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+            if self.enable_smooth_bump:
+                end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)
