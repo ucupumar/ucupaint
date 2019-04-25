@@ -1321,7 +1321,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             height_proc = nodes.get(ch.height_proc)
             normal_proc = nodes.get(ch.normal_proc)
+
             height_blend = nodes.get(ch.height_blend)
+            height_blends = {}
+            for d in neighbor_directions:
+                height_blends[d] = nodes.get(getattr(ch, 'height_blend_' + d))
+
             spread_alpha = nodes.get(ch.spread_alpha)
             spread_alpha_n = nodes.get(ch.spread_alpha_n)
             spread_alpha_s = nodes.get(ch.spread_alpha_s)
@@ -1329,16 +1334,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             spread_alpha_w = nodes.get(ch.spread_alpha_w)
 
             prev_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
-            prev_height_n = start.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' n')
-            prev_height_s = start.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' s')
-            prev_height_e = start.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' e')
-            prev_height_w = start.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' w')
+            prev_heights = {}
+            for d in neighbor_directions:
+                prev_heights[d] = start.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' ' + d)
 
             next_height = end.inputs.get(root_ch.name + io_suffix['HEIGHT'])
-            next_height_n = end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + ' n')
-            next_height_s = end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + ' s')
-            next_height_e = end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + ' e')
-            next_height_w = end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + ' w')
+            next_heights = {}
+            for d in neighbor_directions:
+                next_heights[d] = end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + ' ' + d)
 
             # Get neighbor rgb
             if source_n and source_s and source_e and source_w:
@@ -1447,13 +1450,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     create_link(tree, alpha_s, spread_alpha_s.inputs['Alpha'])
                     create_link(tree, alpha_e, spread_alpha_e.inputs['Alpha'])
                     create_link(tree, alpha_w, spread_alpha_w.inputs['Alpha'])
-
-            #if root_ch.enable_smooth_bump:
-
-            #alpha_n = alpha_n
-            #alpha_s = alpha_s
-            #alpha_e = alpha_e
-            #alpha_w = alpha_w
 
             #if not trans_bump_ch:
             #chain_local = min(len(layer.masks), ch.transition_bump_chain)
@@ -1694,43 +1690,39 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 alpha_e = height_proc.outputs['Alpha e']
                 alpha_w = height_proc.outputs['Alpha w']
 
-            if 'Normal Alpha' in height_blend.outputs:
-                alpha = height_blend.outputs['Normal Alpha']
+            alphas = {}
+            alphas['n'] = alpha_n
+            alphas['s'] = alpha_s
+            alphas['e'] = alpha_e
+            alphas['w'] = alpha_w
 
-            if not root_ch.enable_smooth_bump and ch.normal_blend_type in {'MIX', 'OVERLAY'}:
+            #if not root_ch.enable_smooth_bump and ch.normal_blend_type in {'MIX', 'OVERLAY'}:
+            if ch.normal_blend_type in {'MIX', 'OVERLAY'}:
                 create_link(tree, height_alpha, height_blend.inputs[0])
                 create_link(tree, prev_height, height_blend.inputs[1])
                 create_link(tree, height_proc.outputs['Height'], height_blend.inputs[2])
-
-                create_link(tree, height_blend.outputs[0], normal_proc.inputs['Height'])
             else:
-                create_link(tree, height_proc.outputs['Height'], height_blend.inputs['Height'])
-                create_link(tree, prev_height, height_blend.inputs['Prev Height'])
                 create_link(tree, height_alpha, height_blend.inputs['Alpha'])
-
-                if root_ch.enable_smooth_bump:
-
-                    create_link(tree, alpha_n, height_blend.inputs['Alpha n'])
-                    create_link(tree, alpha_s, height_blend.inputs['Alpha s'])
-                    create_link(tree, alpha_e, height_blend.inputs['Alpha e'])
-                    create_link(tree, alpha_w, height_blend.inputs['Alpha w'])
-
-                    create_link(tree, prev_height_n, height_blend.inputs['Prev Height n'])
-                    create_link(tree, prev_height_s, height_blend.inputs['Prev Height s'])
-                    create_link(tree, prev_height_e, height_blend.inputs['Prev Height e'])
-                    create_link(tree, prev_height_w, height_blend.inputs['Prev Height w'])
-
-                    create_link(tree, height_proc.outputs['Height n'], height_blend.inputs['Height n'])
-                    create_link(tree, height_proc.outputs['Height s'], height_blend.inputs['Height s'])
-                    create_link(tree, height_proc.outputs['Height e'], height_blend.inputs['Height e'])
-                    create_link(tree, height_proc.outputs['Height w'], height_blend.inputs['Height w'])
+                create_link(tree, prev_height, height_blend.inputs['Prev Height'])
+                create_link(tree, height_proc.outputs['Height'], height_blend.inputs['Height'])
 
             if root_ch.enable_smooth_bump:
-                create_link(tree, height_blend.outputs['Height n'], normal_proc.inputs['Height n'])
-                create_link(tree, height_blend.outputs['Height s'], normal_proc.inputs['Height s'])
-                create_link(tree, height_blend.outputs['Height e'], normal_proc.inputs['Height e'])
-                create_link(tree, height_blend.outputs['Height w'], normal_proc.inputs['Height w'])
+                for d in neighbor_directions:
+                    if ch.normal_blend_type in {'MIX', 'OVERLAY'}:
+                        create_link(tree, alphas[d], height_blends[d].inputs[0])
+                        create_link(tree, prev_heights[d], height_blends[d].inputs[1])
+                        create_link(tree, height_proc.outputs['Height ' + d], height_blends[d].inputs[2])
+                    else:
+                        create_link(tree, alphas[d], height_blends[d].inputs['Alpha'])
+                        create_link(tree, prev_heights[d], height_blends[d].inputs['Prev Height'])
+                        create_link(tree, height_proc.outputs['Height ' + d], height_blends[d].inputs['Height'])
 
+                    create_link(tree, height_blends[d].outputs[0], normal_proc.inputs['Height ' + d])
+            else:
+                create_link(tree, height_blend.outputs[0], normal_proc.inputs['Height'])
+
+            if 'Normal Alpha' in height_blend.outputs:
+                alpha = height_blend.outputs['Normal Alpha']
             if 'Alpha' in normal_proc.inputs:
                 create_link(tree, alpha, normal_proc.inputs['Alpha'])
             if 'Tangent' in normal_proc.inputs:
@@ -1758,18 +1750,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 pass
             elif not ch.write_height:
                 if prev_height and next_height: create_link(tree, prev_height, next_height)
-                if prev_height_n and next_height_n: create_link(tree, prev_height_n, next_height_n)
-                if prev_height_s and next_height_s: create_link(tree, prev_height_s, next_height_s)
-                if prev_height_e and next_height_e: create_link(tree, prev_height_e, next_height_e)
-                if prev_height_w and next_height_w: create_link(tree, prev_height_w, next_height_w)
+                if root_ch.enable_smooth_bump:
+                    for d in neighbor_directions:
+                        create_link(tree, prev_heights[d], next_heights[d])
 
             else:
                 create_link(tree, height_blend.outputs[0], next_height)
                 if root_ch.enable_smooth_bump:
-                    create_link(tree, height_blend.outputs['Height n'], next_height_n)
-                    create_link(tree, height_blend.outputs['Height s'], next_height_s)
-                    create_link(tree, height_blend.outputs['Height e'], next_height_e)
-                    create_link(tree, height_blend.outputs['Height w'], next_height_w)
+                    for d in neighbor_directions:
+                        create_link(tree, height_blends[d].outputs[0], next_heights[d])
 
         # Transition AO
         if root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao: # and layer.type != 'BACKGROUND':

@@ -354,8 +354,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         if add_rgb_to_intensity:
 
             # If RGB to intensity is selected, bump base is better be 0.0
-            if root_ch.type == 'NORMAL':
-                ch.bump_base_value = 0.0
+            #if root_ch.type == 'NORMAL':
+            #    ch.bump_base_value = 0.0
 
             m = Modifier.add_new_modifier(ch, 'RGB_TO_INTENSITY')
             if channel_idx == i or channel_idx == -1:
@@ -1898,14 +1898,28 @@ def update_channel_enable(self, context):
     ch = self
 
     tree = get_tree(layer)
+
+    mute = not layer.enable or not ch.enable
+
     blend = tree.nodes.get(ch.blend)
-
     if blend:
-        mute = not layer.enable or not ch.enable
-
         if yp.disable_quick_toggle:
             blend.mute = mute
         else: blend.mute = False
+
+    if root_ch.type == 'NORMAL':
+        height_blend = tree.nodes.get(ch.height_blend)
+        if height_blend:
+            if yp.disable_quick_toggle:
+                height_blend.mute = mute
+            else: height_blend.mute = False
+
+        for d in neighbor_directions:
+            hb = tree.nodes.get(getattr(ch, 'height_blend_' + d))
+            if hb:
+                if yp.disable_quick_toggle:
+                    hb.mute = mute
+                else: hb.mute = False
 
     update_channel_intensity_value(ch, context)
 
@@ -2474,10 +2488,6 @@ def update_channel_intensity_value(self, context):
     if height_proc:
         height_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
 
-    #normal_process = tree.nodes.get(ch.normal_process)
-    #if normal_process and 'Intensity' in normal_process.inputs:
-    #    normal_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
-
     if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, layer, ch)
 
@@ -2615,11 +2625,11 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=0.05, min=-1.0, max=1.0, precision=3, # step=1,
             update=update_bump_distance)
 
-    bump_base_value = FloatProperty(
-            name='Bump Base', 
-            description= 'Value of empty area for bump map', 
-            default=0.5, min=0.0, max=1.0,
-            update=update_bump_base_value)
+    #bump_base_value = FloatProperty(
+    #        name='Bump Base', 
+    #        description= 'Value of empty area for bump map', 
+    #        default=0.5, min=0.0, max=1.0,
+    #        update=update_bump_base_value)
 
     write_height = BoolProperty(
             name = 'Write Height',
@@ -2635,11 +2645,11 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mod_w = StringProperty(default='')
 
     # Bump bases
-    bump_base = StringProperty(default='')
-    bump_base_n = StringProperty(default='')
-    bump_base_s = StringProperty(default='')
-    bump_base_e = StringProperty(default='')
-    bump_base_w = StringProperty(default='')
+    #bump_base = StringProperty(default='')
+    #bump_base_n = StringProperty(default='')
+    #bump_base_s = StringProperty(default='')
+    #bump_base_e = StringProperty(default='')
+    #bump_base_w = StringProperty(default='')
 
     spread_alpha = StringProperty(default='')
     spread_alpha_n = StringProperty(default='')

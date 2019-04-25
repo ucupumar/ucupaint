@@ -89,9 +89,9 @@ HEIGHT_PROCESS_TRANSITION_SMOOTH_NORMAL_MAP = '~yPL Height Process Transition Sm
 HEIGHT_PROCESS_TRANSITION_SMOOTH_NORMAL_MAP_CREASE = '~yPL Height Process Transition Smooth Normal Map Crease'
 
 HEIGHT_COMPARE = '~yPL Height Compare'
-HEIGHT_MIX_SMOOTH = '~yPL Height Mix Smooth'
-HEIGHT_ADD_SMOOTH = '~yPL Height Add Smooth'
-HEIGHT_COMPARE_SMOOTH = '~yPL Height Compare Smooth'
+#HEIGHT_MIX_SMOOTH = '~yPL Height Mix Smooth'
+#HEIGHT_ADD_SMOOTH = '~yPL Height Add Smooth'
+#HEIGHT_COMPARE_SMOOTH = '~yPL Height Compare Smooth'
 
 NORMAL_PROCESS = '~yPL Normal Process'
 #NORMAL_PROCESS_GROUP = '~yPL Normal Process Group'
