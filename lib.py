@@ -23,7 +23,7 @@ STRAIGHT_OVER_BG_VEC = '~yPL Straight Over Vector Background Mix'
 
 #STRAIGHT_OVER_BG_RAMP = '~yPL Straight Over Background Mix Ramp'
 
-STRAIGHT_OVER_HACK = '~yPL Straight Over Hack'
+SPREAD_ALPHA = '~yPL Spread Alpha'
 
 NEIGHBOR_UV ='~yPL Neighbor UV'
 NEIGHBOR_UV_TANGENT ='~yPL Neighbor UV (Tangent)'

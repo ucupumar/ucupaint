@@ -371,25 +371,29 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         # Rearrange nodes
         rearrange_layer_nodes(layer)
 
-def check_create_bump_base(layer, tree, root_ch, ch):
+def check_create_spread_alpha(layer, tree, root_ch, ch):
 
     skip = False
     if layer.type in {'BACKGROUND', 'GROUP'}: #or is_valid_to_remove_bump_nodes(layer, ch):
         skip = True
 
     if not skip and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
-        bump_base = replace_new_node(tree, ch, 'bump_base', 
-                'ShaderNodeGroup', 'Bump Hack', lib.STRAIGHT_OVER_HACK)
+        spread_alpha = replace_new_node(tree, ch, 'spread_alpha', 
+                'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA)
     else:
-        remove_node(tree, ch, 'bump_base')
+        remove_node(tree, ch, 'spread_alpha')
 
     if not skip and root_ch.enable_smooth_bump and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
         for d in neighbor_directions:
-            bb = replace_new_node(tree, ch, 'bump_base_' + d, 
-                    'ShaderNodeGroup', 'bump_hack_' + d, lib.STRAIGHT_OVER_HACK) 
+            bb = replace_new_node(tree, ch, 'spread_alpha_' + d, 
+                    'ShaderNodeGroup', 'Spread Alpha ' + d, lib.SPREAD_ALPHA) 
     else:
         for d in neighbor_directions:
-            remove_node(tree, ch, 'bump_base_' + d)
+            remove_node(tree, ch, 'spread_alpha_' + d)
+
+    #remove_node(tree, ch, 'bump_base')
+    #for d in neighbor_directions:
+    #    remove_node(tree, ch, 'bump_base_' + d)
 
 def save_transition_bump_falloff_cache(tree, ch):
     tb_falloff = tree.nodes.get(ch.tb_falloff)
@@ -1485,8 +1489,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch):
     #            val = ch.bump_base_value
     #            mod.oc_col = (val, val, val, 1.0)
 
-    # Check bump base
-    check_create_bump_base(layer, tree, root_ch, ch)
+    # Check spread alpha if its needed
+    check_create_spread_alpha(layer, tree, root_ch, ch)
 
     # Check mask multiplies
     check_mask_mix_nodes(layer, tree)

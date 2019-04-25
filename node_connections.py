@@ -1322,11 +1322,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             height_proc = nodes.get(ch.height_proc)
             normal_proc = nodes.get(ch.normal_proc)
             height_blend = nodes.get(ch.height_blend)
-            bump_base = nodes.get(ch.bump_base)
-            bump_base_n = nodes.get(ch.bump_base_n)
-            bump_base_s = nodes.get(ch.bump_base_s)
-            bump_base_e = nodes.get(ch.bump_base_e)
-            bump_base_w = nodes.get(ch.bump_base_w)
+            spread_alpha = nodes.get(ch.spread_alpha)
+            spread_alpha_n = nodes.get(ch.spread_alpha_n)
+            spread_alpha_s = nodes.get(ch.spread_alpha_s)
+            spread_alpha_e = nodes.get(ch.spread_alpha_e)
+            spread_alpha_w = nodes.get(ch.spread_alpha_w)
 
             prev_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
             prev_height_n = start.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' n')
@@ -1433,30 +1433,20 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 chain_local = len(layer.masks)
             else: chain_local = min(len(layer.masks), ch.transition_bump_chain)
 
-            if bump_base:
-                rgb = create_link(tree, rgb, bump_base.inputs['Color2'])[0]
-                create_link(tree, alpha_after_mod, bump_base.inputs['Fac'])
+            if spread_alpha:
+                rgb = create_link(tree, rgb, spread_alpha.inputs['Color'])[0]
+                create_link(tree, alpha_after_mod, spread_alpha.inputs['Alpha'])
 
-                #if not trans_bump_ch and len(layer.masks) > 0 and chain_local > 0:
-                #    mix = nodes.get(layer.masks[chain_local-1].channels[i].mix).outputs[0]
-                #    create_link(tree, mix, bump_base.inputs['Fac'])
-                #else:
-                #    create_link(tree, alpha_after_mod, bump_base.inputs['Fac'])
+                if spread_alpha_n:
+                    rgb_n = create_link(tree, rgb_n, spread_alpha_n.inputs['Color'])[0]
+                    rgb_s = create_link(tree, rgb_s, spread_alpha_s.inputs['Color'])[0]
+                    rgb_e = create_link(tree, rgb_e, spread_alpha_e.inputs['Color'])[0]
+                    rgb_w = create_link(tree, rgb_w, spread_alpha_w.inputs['Color'])[0]
 
-                if bump_base_n:
-                    rgb_n = create_link(tree, rgb_n, bump_base_n.inputs['Color2'])[0]
-                    rgb_s = create_link(tree, rgb_s, bump_base_s.inputs['Color2'])[0]
-                    rgb_e = create_link(tree, rgb_e, bump_base_e.inputs['Color2'])[0]
-                    rgb_w = create_link(tree, rgb_w, bump_base_w.inputs['Color2'])[0]
-
-                    create_link(tree, alpha_n, bump_base_n.inputs['Fac'])
-                    create_link(tree, alpha_s, bump_base_s.inputs['Fac'])
-                    create_link(tree, alpha_e, bump_base_e.inputs['Fac'])
-                    create_link(tree, alpha_w, bump_base_w.inputs['Fac'])
-
-            #if height_proc:
-            #    if bump_base and 'Value' in height_proc.inputs:
-            #        create_link(tree, bump_base.outputs[0], height_proc.inputs['Value'])
+                    create_link(tree, alpha_n, spread_alpha_n.inputs['Alpha'])
+                    create_link(tree, alpha_s, spread_alpha_s.inputs['Alpha'])
+                    create_link(tree, alpha_e, spread_alpha_e.inputs['Alpha'])
+                    create_link(tree, alpha_w, spread_alpha_w.inputs['Alpha'])
 
             #if root_ch.enable_smooth_bump:
 
@@ -1571,21 +1561,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             # Transition Bump
             if ch.enable_transition_bump and ch.enable:
-
-                #if bump_base and 'Value' in height_proc.inputs:
-                #    create_link(tree, bump_base.outputs[0], height_proc.inputs['Value'])
-
-                #if bump_base_n and bump_base_s and bump_base_e and bump_base_w:
-
-                #    create_link(tree, alpha_n, bump_base_n.inputs['Fac'])
-                #    create_link(tree, alpha_s, bump_base_s.inputs['Fac'])
-                #    create_link(tree, alpha_e, bump_base_e.inputs['Fac'])
-                #    create_link(tree, alpha_w, bump_base_w.inputs['Fac'])
-
-                #    rgb_n = create_link(tree, rgb_n, bump_base_n.inputs['Color2'])[0]
-                #    rgb_s = create_link(tree, rgb_s, bump_base_s.inputs['Color2'])[0]
-                #    rgb_e = create_link(tree, rgb_e, bump_base_e.inputs['Color2'])[0]
-                #    rgb_w = create_link(tree, rgb_w, bump_base_w.inputs['Color2'])[0]
 
                 if trans_bump_crease:
 

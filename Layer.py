@@ -2362,9 +2362,9 @@ def update_uv_name(self, context):
     #bitangent = nodes.get(layer.bitangent)
     #if bitangent: bitangent.uv_map = layer.uv_name
 
-    for ch in layer.channels:
-        normal_process = nodes.get(ch.normal_process)
-        if normal_process and normal_process.type == 'NORMAL_MAP': normal_process.uv_map = layer.uv_name
+    #for ch in layer.channels:
+    #    normal_process = nodes.get(ch.normal_process)
+    #    if normal_process and normal_process.type == 'NORMAL_MAP': normal_process.uv_map = layer.uv_name
 
     # Update uv layer
     if obj.type == 'MESH' and not any([m for m in layer.masks if m.active_edit]) and layer == active_layer:
@@ -2569,17 +2569,17 @@ class YLayerChannel(bpy.types.PropertyGroup):
     intensity = StringProperty(default='')
     source = StringProperty(default='')
 
-    intensity_height = StringProperty(default='')
-    intensity_height_n = StringProperty(default='')
-    intensity_height_s = StringProperty(default='')
-    intensity_height_e = StringProperty(default='')
-    intensity_height_w = StringProperty(default='')
+    #intensity_height = StringProperty(default='')
+    #intensity_height_n = StringProperty(default='')
+    #intensity_height_s = StringProperty(default='')
+    #intensity_height_e = StringProperty(default='')
+    #intensity_height_w = StringProperty(default='')
 
-    blend_height = StringProperty(default='')
-    blend_height_n = StringProperty(default='')
-    blend_height_s = StringProperty(default='')
-    blend_height_e = StringProperty(default='')
-    blend_height_w = StringProperty(default='')
+    #blend_height = StringProperty(default='')
+    #blend_height_n = StringProperty(default='')
+    #blend_height_s = StringProperty(default='')
+    #blend_height_e = StringProperty(default='')
+    #blend_height_w = StringProperty(default='')
 
     # Normal related
     #normal_map = StringProperty(default='')
@@ -2589,14 +2589,19 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Height related
     height_process = StringProperty(default='')
 
-    height_process_temp = StringProperty(default='')
-    height_process_n = StringProperty(default='')
-    height_process_s = StringProperty(default='')
-    height_process_e = StringProperty(default='')
-    height_process_w = StringProperty(default='')
+    #height_process_temp = StringProperty(default='')
+    #height_process_n = StringProperty(default='')
+    #height_process_s = StringProperty(default='')
+    #height_process_e = StringProperty(default='')
+    #height_process_w = StringProperty(default='')
 
     height_proc = StringProperty(default='')
     height_blend = StringProperty(default='')
+    height_blend_n = StringProperty(default='')
+    height_blend_s = StringProperty(default='')
+    height_blend_e = StringProperty(default='')
+    height_blend_w = StringProperty(default='')
+
     normal_proc = StringProperty(default='')
     normal_blend = StringProperty(default='')
 
@@ -2635,6 +2640,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
     bump_base_s = StringProperty(default='')
     bump_base_e = StringProperty(default='')
     bump_base_w = StringProperty(default='')
+
+    spread_alpha = StringProperty(default='')
+    spread_alpha_n = StringProperty(default='')
+    spread_alpha_s = StringProperty(default='')
+    spread_alpha_e = StringProperty(default='')
+    spread_alpha_w = StringProperty(default='')
 
     # Intensity Stuff
     intensity_multiplier = StringProperty(default='')

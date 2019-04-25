@@ -179,11 +179,11 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
             #frame = get_frame(tree, '__normal_process__', str(i), root_ch.name + ' Process')
 
-            #check_set_node_parent(tree, ch.bump_base, frame)
-            #check_set_node_parent(tree, ch.bump_base_n, frame)
-            #check_set_node_parent(tree, ch.bump_base_s, frame)
-            #check_set_node_parent(tree, ch.bump_base_e, frame)
-            #check_set_node_parent(tree, ch.bump_base_w, frame)
+            #check_set_node_parent(tree, ch.spread_alpha, frame)
+            #check_set_node_parent(tree, ch.spread_alpha_n, frame)
+            #check_set_node_parent(tree, ch.spread_alpha_s, frame)
+            #check_set_node_parent(tree, ch.spread_alpha_e, frame)
+            #check_set_node_parent(tree, ch.spread_alpha_w, frame)
             #check_set_node_parent(tree, ch.normal_process, frame)
             #check_set_node_parent(tree, ch.normal_flip, frame)
             #check_set_node_parent(tree, ch.height_process, frame)
@@ -194,11 +194,11 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         check_set_node_parent(tree, ch.blend, frame)
 
         if root_ch.type == 'NORMAL':
-            check_set_node_parent(tree, ch.bump_base, frame)
-            check_set_node_parent(tree, ch.bump_base_n, frame)
-            check_set_node_parent(tree, ch.bump_base_s, frame)
-            check_set_node_parent(tree, ch.bump_base_e, frame)
-            check_set_node_parent(tree, ch.bump_base_w, frame)
+            check_set_node_parent(tree, ch.spread_alpha, frame)
+            check_set_node_parent(tree, ch.spread_alpha_n, frame)
+            check_set_node_parent(tree, ch.spread_alpha_s, frame)
+            check_set_node_parent(tree, ch.spread_alpha_e, frame)
+            check_set_node_parent(tree, ch.spread_alpha_w, frame)
             
             check_set_node_parent(tree, ch.height_proc, frame)
             check_set_node_parent(tree, ch.height_blend, frame)
@@ -475,7 +475,7 @@ def rearrange_normal_process_nodes(tree, ch, loc):
 
     bookmark_x = loc.x
 
-    if check_set_node_loc(tree, ch.bump_base, loc):
+    if check_set_node_loc(tree, ch.spread_alpha, loc):
         loc.x += 200
 
     if check_set_node_loc(tree, ch.height_process, loc):
@@ -487,17 +487,17 @@ def rearrange_normal_process_nodes(tree, ch, loc):
     loc.x = bookmark_x
 
     loc.y -= 40
-    if check_set_node_loc(tree, ch.bump_base_n, loc, hide=True):
+    if check_set_node_loc(tree, ch.spread_alpha_n, loc, hide=True):
         loc.y -= 40
     else: loc.y += 40
 
-    if check_set_node_loc(tree, ch.bump_base_s, loc, hide=True):
+    if check_set_node_loc(tree, ch.spread_alpha_s, loc, hide=True):
         loc.y -= 40
 
-    if check_set_node_loc(tree, ch.bump_base_e, loc, hide=True):
+    if check_set_node_loc(tree, ch.spread_alpha_e, loc, hide=True):
         loc.y -= 40
 
-    if check_set_node_loc(tree, ch.bump_base_w, loc, hide=True):
+    if check_set_node_loc(tree, ch.spread_alpha_w, loc, hide=True):
         loc.y = bookmark_y
         loc.x += 200
 
@@ -999,30 +999,30 @@ def rearrange_layer_nodes(layer, tree=None):
 
         if root_ch.type == 'NORMAL':
             save_y = loc.y
-            bump_base = tree.nodes.get(ch.bump_base)
-            bump_base_n = tree.nodes.get(ch.bump_base_n)
+            spread_alpha = tree.nodes.get(ch.spread_alpha)
+            spread_alpha_n = tree.nodes.get(ch.spread_alpha_n)
 
-            if bump_base_n:
-                if check_set_node_loc(tree, ch.bump_base, loc, True):
+            if spread_alpha_n:
+                if check_set_node_loc(tree, ch.spread_alpha, loc, True):
                     loc.y -= 40
 
-                if check_set_node_loc(tree, ch.bump_base_n, loc, True):
+                if check_set_node_loc(tree, ch.spread_alpha_n, loc, True):
                     loc.y -= 40
 
-                if check_set_node_loc(tree, ch.bump_base_s, loc, True):
+                if check_set_node_loc(tree, ch.spread_alpha_s, loc, True):
                     loc.y -= 40
 
-                if check_set_node_loc(tree, ch.bump_base_e, loc, True):
+                if check_set_node_loc(tree, ch.spread_alpha_e, loc, True):
                     loc.y -= 40
 
-                if check_set_node_loc(tree, ch.bump_base_w, loc, True):
+                if check_set_node_loc(tree, ch.spread_alpha_w, loc, True):
                     loc.y -= 40
 
                 loc.y = save_y
                 loc.x += 200
 
-            elif bump_base:
-                if check_set_node_loc(tree, ch.bump_base, loc):
+            elif spread_alpha:
+                if check_set_node_loc(tree, ch.spread_alpha, loc):
                     loc.x += 200
 
                 loc.y = save_y
