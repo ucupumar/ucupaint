@@ -259,7 +259,7 @@ def check_transition_bump_nodes(layer, tree, ch, ch_index):
     check_mask_mix_nodes(layer, tree)
 
     # Check bump base
-    check_create_bump_base(layer, tree, root_ch, ch)
+    check_create_spread_alpha(layer, tree, root_ch, ch)
 
     # Trigger normal channel update
     #ch.normal_map_type = ch.normal_map_type

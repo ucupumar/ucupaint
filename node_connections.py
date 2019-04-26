@@ -801,11 +801,12 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     create_link(tree, disp_e, end_linear.inputs['Height e'])
                     create_link(tree, disp_w, end_linear.inputs['Height w'])
 
-                tangent = nodes.get(yp.uvs[0].tangent).outputs[0]
-                bitangent = nodes.get(yp.uvs[0].bitangent).outputs[0]
+                if len(yp.uvs) > 0:
+                    tangent = nodes.get(yp.uvs[0].tangent)
+                    create_link(tree, tangent.outputs[0], end_linear.inputs['Tangent'])
 
-                create_link(tree, tangent, end_linear.inputs['Tangent'])
-                create_link(tree, bitangent, end_linear.inputs['Bitangent'])
+                    bitangent = nodes.get(yp.uvs[0].bitangent)
+                    create_link(tree, bitangent.outputs[0], end_linear.inputs['Bitangent'])
 
         if yp.use_baked and baked_uv:
             baked = nodes.get(ch.baked)
