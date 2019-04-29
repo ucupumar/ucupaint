@@ -887,19 +887,20 @@ def get_node_tree_lib(name):
 
     return node_tree
 
-def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False, hard_replace=False):
+def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False, hard_replace=False, replaced=False):
     ''' Check if node is available, replace if available '''
 
     # Try to get the node first
     try: node = tree.nodes.get(getattr(entity, prop))
     except: return None, False
 
-    replaced = False
+    #replaced = False
 
     # Remove node if found and has different id name
     if node and node.bl_idname != node_id_name:
         remove_node(tree, entity, prop)
         node = None
+        replaced = True
 
     # Create new node
     if not node:

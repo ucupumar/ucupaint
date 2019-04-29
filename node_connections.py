@@ -178,62 +178,86 @@ def get_channel_inputs_length(yp, layer=None):
 
     return length
 
-def remove_all_prev_inputs(layer):
-    tree = layer.id_data
-    yp = tree.yp
-    node = tree.nodes.get(layer.group_node)
+def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
 
-    #for inp in node.inputs:
-    #    break_input_link(tree, inp)
+    yp = layer.id_data.yp
+    #node = tree.nodes.get(layer.group_node)
 
-    #for i in range(len(layer.channels)*2):
-    #    break_input_link(tree, node.inputs[i])
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        io_name = root_ch.name
-        io_alpha_name = root_ch.name + io_suffix['ALPHA']
-        io_disp_name = root_ch.name + io_suffix['HEIGHT']
 
+        if root_ch.type == 'NORMAL':
+
+            io_name = root_ch.name + io_suffix['HEIGHT']
+            if io_name in node.inputs:
+                break_input_link(tree, node.inputs[io_name])
+
+            io_name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
+            if io_name in node.inputs:
+                break_input_link(tree, node.inputs[io_name])
+
+            #if height_only: continue
+
+            if root_ch.enable_smooth_bump:
+                for d in neighbor_directions:
+                    io_name = root_ch.name + io_suffix['HEIGHT'] + ' ' + d
+                    if io_name in node.inputs:
+                        break_input_link(tree, node.inputs[io_name])
+
+                    io_name = root_ch.name + io_suffix['ALPHA'] + ' ' + d
+                    if io_name in node.inputs:
+                        break_input_link(tree, node.inputs[io_name])
+
+        #if height_only: continue
+
+        if root_ch.type != 'NORMAL':
+            io_name = root_ch.name
+            if io_name in node.inputs:
+                break_input_link(tree, node.inputs[io_name])
+
+        io_name = root_ch.name + io_suffix['ALPHA']
         if io_name in node.inputs:
             break_input_link(tree, node.inputs[io_name])
 
-        if io_alpha_name in node.inputs:
-            break_input_link(tree, node.inputs[io_alpha_name])
+def remove_all_children_inputs(tree, layer, node): #, height_only=False):
 
-        if io_disp_name in node.inputs:
-            break_input_link(tree, node.inputs[io_disp_name])
-
-def remove_all_children_inputs(layer):
-
-    tree = layer.id_data
-    yp = tree.yp
-    node = tree.nodes.get(layer.group_node)
+    yp = layer.id_data.yp
+    #node = tree.nodes.get(layer.group_node)
 
     if layer.type != 'GROUP':
         return
 
-    #if layer.parent_idx == -1:
-    #    offset = get_channel_inputs_length(yp)
-    #else: offset = len(layer.channels)*2
-    #offset = get_channel_inputs_length(yp, layer)
-
-    #for i, inp in enumerate(node.inputs):
-    #    if i >= offset:
-    #        break_input_link(tree, inp)
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        io_name = root_ch.name + io_suffix['GROUP']
-        io_alpha_name = root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP']
-        io_disp_name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP']
 
+        io_name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP']
         if io_name in node.inputs:
             break_input_link(tree, node.inputs[io_name])
 
-        if io_alpha_name in node.inputs:
-            break_input_link(tree, node.inputs[io_alpha_name])
+        io_name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP']
+        if io_name in node.inputs:
+            break_input_link(tree, node.inputs[io_name])
 
-        if io_disp_name in node.inputs:
-            break_input_link(tree, node.inputs[io_disp_name])
+        #if height_only: continue
+
+        if root_ch.type != 'NORMAL':
+            io_name = root_ch.name + io_suffix['GROUP']
+            if io_name in node.inputs:
+                break_input_link(tree, node.inputs[io_name])
+
+        io_name = root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP']
+        if io_name in node.inputs:
+            break_input_link(tree, node.inputs[io_name])
+
+        if root_ch.enable_smooth_bump:
+            for d in neighbor_directions:
+                io_name = root_ch.name + io_suffix['HEIGHT'] + ' ' + d + io_suffix['GROUP']
+                if io_name in node.inputs:
+                    break_input_link(tree, node.inputs[io_name])
+
+                io_name = root_ch.name + io_suffix['ALPHA'] + ' ' + d + io_suffix['GROUP']
+                if io_name in node.inputs:
+                    break_input_link(tree, node.inputs[io_name])
 
 def reconnect_relief_mapping_nodes(yp, node):
     disp_ch = get_displacement_channel(yp)
@@ -537,24 +561,37 @@ def reconnect_depth_layer_nodes(group_tree):
     pack = tree.nodes.get('_pack')
 
     io_disp_name = disp_ch.name + io_suffix['HEIGHT']
+    io_alpha_name = disp_ch.name + io_suffix['ALPHA']
+    io_disp_alpha_name = disp_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
 
-    prev_node = None
+    height = start.outputs['base']
+
+    #prev_node = None
     for i, layer in reversed(list(enumerate(yp.layers))):
+
+        if layer.parent_idx != -1: continue
 
         node = tree.nodes.get(layer.depth_group_node)
         #disp = create_link(tree, disp, node.inputs[io_disp_name])[io_disp_name]
-        if prev_node:
-            create_link(tree, prev_node.outputs[io_disp_name], node.inputs[io_disp_name])
-        prev_node = node
+        #if prev_node:
+        #    create_link(tree, prev_node.outputs[io_disp_name], node.inputs[io_disp_name])
+        #prev_node = node
+
+        height = create_link(tree, height, node.inputs[io_disp_name])[io_disp_name]
 
         if i == 0:
-            if pack:
-                create_link(tree, node.outputs[io_disp_name], pack.inputs[0])
-                create_link(tree, pack.outputs[0], end.inputs['depth_from_tex'])
-            else:
-                create_link(tree, node.outputs[io_disp_name], end.inputs['depth_from_tex'])
-        elif i == len(yp.layers)-1:
-            create_link(tree, start.outputs['base'], node.inputs[io_disp_name])
+            #create_link(tree, node.outputs[io_disp_name], pack.inputs[0])
+            create_link(tree, height, pack.inputs[0])
+            create_link(tree, pack.outputs[0], end.inputs['depth_from_tex'])
+
+        #if i == 0:
+        #    if pack:
+        #        create_link(tree, node.outputs[io_disp_name], pack.inputs[0])
+        #        create_link(tree, pack.outputs[0], end.inputs['depth_from_tex'])
+        #    else:
+        #        create_link(tree, node.outputs[io_disp_name], end.inputs['depth_from_tex'])
+        #elif i == len(yp.layers)-1:
+        #    create_link(tree, start.outputs['base'], node.inputs[io_disp_name])
 
         uv_names = []
         if layer.texcoord_type == 'UV':
@@ -572,6 +609,77 @@ def reconnect_depth_layer_nodes(group_tree):
             if inp and current_uv: 
                 create_link(tree, current_uv.outputs[0], inp)
 
+    # List of last members
+    last_members = []
+    for layer in yp.layers:
+        if is_bottom_member(layer):
+            last_members.append(layer)
+
+            # Remove input links from bottom member
+            node = tree.nodes.get(layer.depth_group_node)
+            remove_all_prev_inputs(tree, layer, node) #, height_only=True)
+
+        # Remove input links from group with no childrens
+        if layer.type == 'GROUP' and not has_childrens(layer):
+            node = tree.nodes.get(layer.depth_group_node)
+            remove_all_children_inputs(tree, layer, node) #, height_only=True)
+
+    # Group stuff
+    for layer in last_members:
+
+        node = tree.nodes.get(layer.depth_group_node)
+
+        cur_layer = layer
+        cur_node = node
+
+        #actual_last = True
+
+        while True:
+            # Get upper layer
+            upper_idx, upper_layer = get_upper_neighbor(cur_layer)
+            upper_node = tree.nodes.get(upper_layer.depth_group_node)
+
+            # Height should still connected to previous layer
+            #if actual_last and layer.type != 'GROUP':
+            #    idx = get_layer_index(layer)
+
+            #    for i, ch in enumerate(layer.channels):
+            #        root_ch = yp.channels[i]
+            #        if root_ch.type == 'NORMAL':
+
+            #            if idx != len(yp.layers)-1:
+            #                # Connect to previous layer height
+            #                lower_node = tree.nodes.get(yp.layers[idx+1].depth_group_node)
+            #                create_link(tree, lower_node.outputs[root_ch.name + io_suffix['HEIGHT']],
+            #                        upper_node.inputs[root_ch.name + io_suffix['HEIGHT']])
+            #            else:
+            #                # Connect to start height
+            #                create_link(tree, start.outputs['base'],
+            #                        upper_node.inputs[root_ch.name + io_suffix['HEIGHT']])
+            #            break
+            #    actual_last = False
+
+            # Connect
+            if upper_layer.parent_idx == cur_layer.parent_idx:
+                create_link(tree, cur_node.outputs[io_alpha_name], upper_node.inputs[io_alpha_name])
+                create_link(tree, cur_node.outputs[io_disp_name], upper_node.inputs[io_disp_name])
+                create_link(tree, cur_node.outputs[io_disp_alpha_name], upper_node.inputs[io_disp_alpha_name])
+            else:
+
+                create_link(tree, cur_node.outputs[io_disp_name], 
+                        upper_node.inputs[io_disp_name + io_suffix['GROUP']])
+
+                create_link(tree, cur_node.outputs[io_alpha_name], 
+                        upper_node.inputs[io_alpha_name + io_suffix['GROUP']])
+
+                create_link(tree, cur_node.outputs[io_disp_alpha_name], 
+                        upper_node.inputs[io_disp_alpha_name + io_suffix['GROUP']])
+
+                break
+
+            cur_layer = upper_layer
+            cur_node = upper_node
+
 def reconnect_yp_nodes(tree, ch_idx=-1):
     yp = tree.yp
     nodes = tree.nodes
@@ -584,6 +692,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     zero_value = nodes.get(ZERO_VALUE)
     texcoord = nodes.get(TEXCOORD)
     parallax = tree.nodes.get(PARALLAX)
+    geometry = tree.nodes.get(GEOMETRY)
 
     # UVs
 
@@ -884,10 +993,13 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             last_members.append(layer)
 
             # Remove input links from bottom member
-            remove_all_prev_inputs(layer)
+            node = tree.nodes.get(layer.group_node)
+            remove_all_prev_inputs(tree, layer, node)
 
+        # Remove input links from group with no childrens
         if layer.type == 'GROUP' and not has_childrens(layer):
-            remove_all_children_inputs(layer)
+            node = tree.nodes.get(layer.group_node)
+            remove_all_children_inputs(tree, layer, node)
 
     #print(last_members)
 
@@ -899,12 +1011,53 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         cur_layer = layer
         cur_node = node
 
+        actual_last = True
+
         while True:
             # Get upper layer
             upper_idx, upper_layer = get_upper_neighbor(cur_layer)
             upper_node = nodes.get(upper_layer.group_node)
 
             #print(upper_layer.name)
+
+            # Should always fill normal input
+            if actual_last:
+                for i, ch in enumerate(layer.channels):
+                    root_ch = yp.channels[i]
+                    if root_ch.type == 'NORMAL':
+
+                        create_link(tree, geometry.outputs['Normal'], node.inputs[root_ch.name])
+                        if layer.type == 'GROUP' and not has_childrens(layer):
+                            create_link(tree, geometry.outputs['Normal'], node.inputs[root_ch.name] + io_suffix['GROUP'])
+
+                actual_last = False
+
+            # Height should still connected to previous layer
+            #if actual_last and layer.type != 'GROUP':
+            #    idx = get_layer_index(layer)
+
+            #    for i, ch in enumerate(layer.channels):
+            #        root_ch = yp.channels[i]
+            #        if root_ch.type == 'NORMAL':
+
+            #            if idx != len(yp.layers)-1:
+            #                # Connect to previous layer height
+            #                lower_node = nodes.get(yp.layers[idx+1].group_node)
+            #                create_link(tree, lower_node.outputs[root_ch.name + io_suffix['HEIGHT']],
+            #                        upper_node.inputs[root_ch.name + io_suffix['HEIGHT']])
+
+            #                # Neighbor heights are also need connection
+            #                if root_ch.enable_smooth_bump:
+            #                    for d in neighbor_directions:
+            #                        create_link(tree, 
+            #                                lower_node.outputs[root_ch.name + io_suffix['HEIGHT'] + ' ' + d],
+            #                                upper_node.inputs[root_ch.name + io_suffix['HEIGHT']])
+            #            else:
+            #                # Connect to start height
+            #                create_link(tree, start.outputs[root_ch.name + io_suffix['HEIGHT']],
+            #                        upper_node.inputs[root_ch.name + io_suffix['HEIGHT']])
+            #            break
+            #    actual_last = False
 
             # Connect
             if upper_layer.parent_idx == cur_layer.parent_idx:
@@ -1018,7 +1171,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     uv_map = nodes.get(layer.uv_map)
     uv_neighbor = nodes.get(layer.uv_neighbor)
 
-    texcoord = nodes.get(layer.texcoord)
+    if layer.type == 'GROUP':
+        texcoord = source
+    else: texcoord = nodes.get(layer.texcoord)
 
     #texcoord = nodes.get(TEXCOORD)
     geometry = nodes.get(GEOMETRY)
@@ -1197,6 +1352,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             # Direction multiplies
             mix_pure = nodes.get(c.mix_pure)
             mix_remains = nodes.get(c.mix_remains)
+            mix_normal = nodes.get(c.mix_normal)
             mix_n = nodes.get(c.mix_n)
             mix_s = nodes.get(c.mix_s)
             mix_e = nodes.get(c.mix_e)
@@ -1207,6 +1363,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             if mix_remains:
                 create_link(tree, mask_val, mix_remains.inputs[2])
+
+            if mix_normal:
+                create_link(tree, mask_val, mix_normal.inputs[2])
 
             if mask.type == 'VCOL':
                 if mix_n: 
@@ -1240,16 +1399,24 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         alpha = start_alpha
         bg_alpha = None
 
-        #if root_ch.type == 'NORMAL':
-        #    height = rgb
-        #else: height = None
+        prev_rgb = start.outputs.get(root_ch.name)
+        prev_alpha = start.outputs.get(root_ch.name + io_suffix['ALPHA'])
+
+        height_alpha = None
+        normal_alpha = None
 
         if layer.type == 'GROUP':
             if root_ch.type == 'NORMAL' and ch.enable_transition_bump:
                 rgb = source.outputs.get(root_ch.name + ' Height' + io_suffix['GROUP'])
             else:
                 rgb = source.outputs.get(root_ch.name + io_suffix['GROUP'])
-            alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
+
+            if root_ch.type == 'NORMAL':
+                alpha = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
+                height_alpha = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
+                normal_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
+            else:
+                alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
 
         elif layer.type == 'BACKGROUND':
             rgb = source.outputs[root_ch.name + io_suffix['BACKGROUND']]
@@ -1257,9 +1424,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             if root_ch.enable_alpha:
                 bg_alpha = source.outputs[root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND']]
-
-        prev_rgb = start.outputs.get(root_ch.name)
-        prev_alpha = start.outputs.get(root_ch.name + io_suffix['ALPHA'])
 
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
             if ch.layer_input == 'ALPHA':
@@ -1284,7 +1448,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
         # Background layer won't use modifier outputs
         #if layer.type == 'BACKGROUND' or (layer.type == 'COLOR' and root_ch.type == 'NORMAL'):
-        if layer.type == 'BACKGROUND':
+        #if layer.type == 'BACKGROUND':
+        if layer.type == 'BACKGROUND' or (layer.type == 'GROUP' and root_ch.type == 'NORMAL'):
             #reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
             pass
         else:
@@ -1335,14 +1500,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             spread_alpha_w = nodes.get(ch.spread_alpha_w)
 
             prev_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
-            prev_heights = {}
-            for d in neighbor_directions:
-                prev_heights[d] = start.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' ' + d)
-
             next_height = end.inputs.get(root_ch.name + io_suffix['HEIGHT'])
+
+            prev_heights = {}
             next_heights = {}
-            for d in neighbor_directions:
-                next_heights[d] = end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + ' ' + d)
+            next_alphas = {}
+            prev_alphas = {}
+
+            if root_ch.enable_smooth_bump:
+                for d in neighbor_directions:
+                    prev_heights[d] = start.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' ' + d)
+                    next_heights[d] = end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + ' ' + d)
+                    prev_alphas[d] = start.outputs.get(root_ch.name + io_suffix['ALPHA'] + ' ' + d)
+                    next_alphas[d] = end.inputs.get(root_ch.name + io_suffix['ALPHA'] + ' ' + d)
 
             # Get neighbor rgb
             if source_n and source_s and source_e and source_w:
@@ -1377,12 +1547,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 rgb_e = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' e' + io_suffix['GROUP'])
                 rgb_w = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' w' + io_suffix['GROUP'])
 
-                alpha_n = alpha_after_mod
-                alpha_s = alpha_after_mod
-                alpha_e = alpha_after_mod
-                alpha_w = alpha_after_mod
+                alpha_n = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + ' n' + io_suffix['GROUP'])
+                alpha_s = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + ' s' + io_suffix['GROUP'])
+                alpha_e = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + ' e' + io_suffix['GROUP'])
+                alpha_w = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + ' w' + io_suffix['GROUP'])
 
-            #elif ch.enable_transition_bump and layer.type == 'GROUP' and uv_neighbor:
             elif ch.enable_transition_bump and uv_neighbor:
                 create_link(tree, alpha_after_mod, uv_neighbor.inputs[0])
 
@@ -1407,21 +1576,22 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 rgb_e = rgb
                 rgb_w = rgb
 
-            mod_n = nodes.get(ch.mod_n)
-            mod_s = nodes.get(ch.mod_s)
-            mod_e = nodes.get(ch.mod_e)
-            mod_w = nodes.get(ch.mod_w)
+            if layer.type != 'BACKGROUND' and not (layer.type == 'GROUP' and root_ch.type == 'NORMAL'):
+                mod_n = nodes.get(ch.mod_n)
+                mod_s = nodes.get(ch.mod_s)
+                mod_e = nodes.get(ch.mod_e)
+                mod_w = nodes.get(ch.mod_w)
 
-            if mod_n:
-                rgb_n = create_link(tree, rgb_n, mod_n.inputs[0])[0]
-                rgb_s = create_link(tree, rgb_s, mod_s.inputs[0])[0]
-                rgb_e = create_link(tree, rgb_e, mod_e.inputs[0])[0]
-                rgb_w = create_link(tree, rgb_w, mod_w.inputs[0])[0]
+                if mod_n:
+                    rgb_n = create_link(tree, rgb_n, mod_n.inputs[0])[0]
+                    rgb_s = create_link(tree, rgb_s, mod_s.inputs[0])[0]
+                    rgb_e = create_link(tree, rgb_e, mod_e.inputs[0])[0]
+                    rgb_w = create_link(tree, rgb_w, mod_w.inputs[0])[0]
 
-                alpha_n = create_link(tree, alpha_n, mod_n.inputs[1])[1]
-                alpha_s = create_link(tree, alpha_s, mod_s.inputs[1])[1]
-                alpha_e = create_link(tree, alpha_e, mod_e.inputs[1])[1]
-                alpha_w = create_link(tree, alpha_w, mod_w.inputs[1])[1]
+                    alpha_n = create_link(tree, alpha_n, mod_n.inputs[1])[1]
+                    alpha_s = create_link(tree, alpha_s, mod_s.inputs[1])[1]
+                    alpha_e = create_link(tree, alpha_e, mod_e.inputs[1])[1]
+                    alpha_w = create_link(tree, alpha_w, mod_w.inputs[1])[1]
 
             # Connect tangent if overlay blend is used
             if ch.normal_blend_type == 'OVERLAY':
@@ -1510,6 +1680,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     mix_remains = nodes.get(c.mix_remains)
                     if mix_remains: remains = create_link(tree, remains, mix_remains.inputs[1])[0]
 
+                mix_normal = nodes.get(c.mix_normal)
+                if mix_normal and normal_alpha: 
+                    normal_alpha = create_link(tree, normal_alpha, mix_normal.inputs[1])[0]
+
                 if j == chain and trans_bump_ch == ch and trans_bump_crease:
                     if mix_n: alpha_n = create_link(tree, one_value.outputs[0], mix_n.inputs[1])[0]
                     if mix_s: alpha_s = create_link(tree, one_value.outputs[0], mix_s.inputs[1])[0]
@@ -1555,6 +1729,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 create_link(tree, rgb_s, height_proc.inputs['Value s'])
                 create_link(tree, rgb_e, height_proc.inputs['Value e'])
                 create_link(tree, rgb_w, height_proc.inputs['Value w'])
+
+            if layer.type == 'GROUP':
+
+                normal_group = source.outputs.get(root_ch.name + io_suffix['GROUP'])
+                height_group = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP'])
+
+                create_link(tree, normal_group, normal_proc.inputs['Normal'])
+                create_link(tree, height_group, height_proc.inputs['Height'])
+                if root_ch.enable_smooth_bump:
+                    create_link(tree, rgb_n, height_proc.inputs['Height n'])
+                    create_link(tree, rgb_s, height_proc.inputs['Height s'])
+                    create_link(tree, rgb_e, height_proc.inputs['Height e'])
+                    create_link(tree, rgb_w, height_proc.inputs['Height w'])
 
             # Transition Bump
             if ch.enable_transition_bump and ch.enable:
@@ -1612,10 +1799,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                     else:
 
-                        #create_link(tree, pure, height_process.inputs['Transition'])
-
                         create_link(tree, pure, height_proc.inputs['Transition'])
-
                         if 'Transition n' in height_proc.inputs: 
                             create_link(tree, alpha_n, height_proc.inputs['Transition n'])
                             create_link(tree, alpha_s, height_proc.inputs['Transition s'])
@@ -1699,9 +1883,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             #if not root_ch.enable_smooth_bump and ch.normal_blend_type in {'MIX', 'OVERLAY'}:
             if ch.normal_blend_type in {'MIX', 'OVERLAY'}:
-                create_link(tree, height_alpha, height_blend.inputs[0])
-                create_link(tree, prev_height, height_blend.inputs[1])
-                create_link(tree, height_proc.outputs['Height'], height_blend.inputs[2])
+                if has_parent: #and ch.normal_blend_type == 'MIX':
+                    create_link(tree, prev_height, height_blend.inputs[0])
+                    create_link(tree, prev_alpha, height_blend.inputs[1])
+                    create_link(tree, height_proc.outputs['Height'], height_blend.inputs[2])
+                    height_alpha = create_link(tree, height_alpha, height_blend.inputs[3])[1]
+                else:
+                #elif ch.normal_blend_type in {'MIX', 'OVERLAY'}:
+                    create_link(tree, height_alpha, height_blend.inputs[0])
+                    create_link(tree, prev_height, height_blend.inputs[1])
+                    create_link(tree, height_proc.outputs['Height'], height_blend.inputs[2])
             else:
                 create_link(tree, height_alpha, height_blend.inputs['Alpha'])
                 create_link(tree, prev_height, height_blend.inputs['Prev Height'])
@@ -1710,9 +1901,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             if root_ch.enable_smooth_bump:
                 for d in neighbor_directions:
                     if ch.normal_blend_type in {'MIX', 'OVERLAY'}:
-                        create_link(tree, alphas[d], height_blends[d].inputs[0])
-                        create_link(tree, prev_heights[d], height_blends[d].inputs[1])
-                        create_link(tree, height_proc.outputs['Height ' + d], height_blends[d].inputs[2])
+                        if has_parent: #and ch.normal_blend_type == 'MIX':
+                            create_link(tree, prev_heights[d], height_blends[d].inputs[0])
+                            create_link(tree, prev_alphas[d], height_blends[d].inputs[1])
+                            create_link(tree, height_proc.outputs['Height ' + d], height_blends[d].inputs[2])
+                            alphas[d] = create_link(tree, alphas[d], height_blends[d].inputs[3])[1]
+                        else:
+                        #elif ch.normal_blend_type in {'MIX', 'OVERLAY'}:
+                            create_link(tree, alphas[d], height_blends[d].inputs[0])
+                            create_link(tree, prev_heights[d], height_blends[d].inputs[1])
+                            create_link(tree, height_proc.outputs['Height ' + d], height_blends[d].inputs[2])
                     else:
                         create_link(tree, alphas[d], height_blends[d].inputs['Alpha'])
                         create_link(tree, prev_heights[d], height_blends[d].inputs['Prev Height'])
@@ -1724,8 +1922,18 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             if 'Normal Alpha' in height_blend.outputs:
                 alpha = height_blend.outputs['Normal Alpha']
+
             if 'Alpha' in normal_proc.inputs:
                 create_link(tree, alpha, normal_proc.inputs['Alpha'])
+            if 'Normal Alpha' in normal_proc.inputs:
+                create_link(tree, normal_alpha, normal_proc.inputs['Normal Alpha'])
+
+            if layer.type == 'GROUP':
+                if ch.write_height:
+                    alpha = normal_proc.outputs['Normal Alpha']
+                else:
+                    alpha = normal_proc.outputs['Combined Alpha']
+
             if 'Tangent' in normal_proc.inputs:
                 create_link(tree, tangent, normal_proc.inputs['Tangent'])
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
@@ -1747,10 +1955,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                         create_link(tree, bitangent, normal_flip.inputs['Bitangent'])
                     rgb = create_link(tree, rgb, normal_flip.inputs[0])[0]
 
-            if layer.type == 'GROUP' and not ch.enable_transition_bump:
-                pass
-            elif not ch.write_height:
-                if prev_height and next_height: create_link(tree, prev_height, next_height)
+            if not ch.write_height:
+                create_link(tree, prev_height, next_height)
                 if root_ch.enable_smooth_bump:
                     for d in neighbor_directions:
                         create_link(tree, prev_heights[d], next_heights[d])
@@ -1760,6 +1966,24 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 if root_ch.enable_smooth_bump:
                     for d in neighbor_directions:
                         create_link(tree, height_blends[d].outputs[0], next_heights[d])
+
+            if has_parent:
+
+                if ch.write_height:
+                    create_link(tree, height_alpha, end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']))
+                else:
+                    create_link(tree, 
+                            start.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']),
+                            end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']))
+
+                if root_ch.enable_smooth_bump:
+
+                    if ch.write_height:
+                        for d in neighbor_directions:
+                            create_link(tree, alphas[d], next_alphas[d])
+                    else:
+                        for d in neighbor_directions:
+                            create_link(tree, prev_alphas[d], next_alphas[d])
 
         # Transition AO
         if root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao: # and layer.type != 'BACKGROUND':
@@ -1852,7 +2076,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
         # End node
         next_rgb = end.inputs.get(root_ch.name)
-        next_alpha = end.inputs.get(root_ch.name + io_suffix['ALPHA'])
 
         # Background layer only know mix
         if layer.type == 'BACKGROUND':
@@ -1862,16 +2085,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 blend_type = ch.normal_blend_type
             else: blend_type = ch.blend_type
 
-        if blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)):
+        if (
+                (blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
+                or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
+            ):
 
             create_link(tree, prev_rgb, blend.inputs[0])
             create_link(tree, prev_alpha, blend.inputs[1])
 
             create_link(tree, alpha, blend.inputs[3])
-            create_link(tree, blend.outputs[1], next_alpha)
 
             if bg_alpha:
                 create_link(tree, bg_alpha, blend.inputs[4])
+
         else:
             create_link(tree, alpha, blend.inputs[0])
             create_link(tree, prev_rgb, blend.inputs[1])
@@ -1882,6 +2108,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         #else: create_link(tree, prev_rgb, next_rgb)
         create_link(tree, blend.outputs[0], next_rgb)
 
-        if blend_type != 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)):
-            create_link(tree, prev_alpha, next_alpha)
+        # End alpha
+        next_alpha = end.inputs.get(root_ch.name + io_suffix['ALPHA'])
+        if next_alpha:
+            if (
+                (blend_type != 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
+                and not (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
+                #or (has_parent and root_ch.type == 'NORMAL' and not ch.write_height)
+                ):
+                create_link(tree, prev_alpha, next_alpha)
+            else:
+                create_link(tree, blend.outputs[1], next_alpha)
 

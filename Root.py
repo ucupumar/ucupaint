@@ -199,7 +199,7 @@ def create_new_group_tree(mat):
     group_tree.yp.version = get_current_version_str()
 
     # Create IO nodes
-    create_essential_nodes(group_tree, True, True)
+    create_essential_nodes(group_tree, True, True, True)
 
     # Create info nodes
     create_info_nodes(group_tree)

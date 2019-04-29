@@ -73,6 +73,9 @@ def remove_mask_channel_nodes(tree, c):
     remove_node(tree, c, 'mix_s')
     remove_node(tree, c, 'mix_e')
     remove_node(tree, c, 'mix_w')
+    remove_node(tree, c, 'mix_pure')
+    remove_node(tree, c, 'mix_remains')
+    remove_node(tree, c, 'mix_normal')
 
 def remove_mask_channel(tree, layer, ch_index):
 
@@ -722,7 +725,7 @@ def update_mask_channel_intensity_value(self, context):
     mix = tree.nodes.get(self.mix)
     if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
     dirs = [d for d in neighbor_directions]
-    dirs.extend(['pure', 'remains'])
+    dirs.extend(['pure', 'remains', 'normal'])
 
     for d in dirs:
         mix = tree.nodes.get(getattr(self, 'mix_' + d))
@@ -749,7 +752,7 @@ def update_layer_mask_channel_enable(self, context):
     else: mix.mute = False
 
     dirs = [d for d in neighbor_directions]
-    dirs.extend(['pure', 'remains'])
+    dirs.extend(['pure', 'remains', 'normal'])
 
     for d in dirs:
         mix = tree.nodes.get(getattr(self, 'mix_' + d))
@@ -877,7 +880,7 @@ def update_mask_blend_type(self, context):
     mask = self
 
     dirs = [d for d in neighbor_directions]
-    dirs.extend(['pure', 'remains'])
+    dirs.extend(['pure', 'remains', 'normal'])
 
     for c in mask.channels:
         mix = tree.nodes.get(c.mix)
@@ -900,6 +903,9 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
 
     # Remaining masks after chain
     mix_remains = StringProperty(default='')
+
+    # Normal and height has its own alpha if using group, this one is for normal
+    mix_normal = StringProperty(default='')
 
     # Bump related
     mix_n = StringProperty(default='')

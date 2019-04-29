@@ -4,6 +4,7 @@ from bpy.app.handlers import persistent
 
 # Node tree names
 OVERLAY_NORMAL = '~yPL Overlay Normal'
+OVERLAY_NORMAL_STRAIGHT_OVER = '~yPL Overlay Normal Straight Over'
 CHECK_INPUT_NORMAL = '~yPL Check Input Normal'
 
 NORMAL_MAP = '~yPL Normal Map'
@@ -20,6 +21,8 @@ STRAIGHT_OVER_VEC = '~yPL Straight Over Vector Mix'
 STRAIGHT_OVER_BG = '~yPL Straight Over Background Mix'
 STRAIGHT_OVER_BG_BW = '~yPL Straight Over Grayscale Background Mix'
 STRAIGHT_OVER_BG_VEC = '~yPL Straight Over Vector Background Mix'
+
+STRAIGHT_OVER_ADD = '~yPL Straight Over Add'
 
 #STRAIGHT_OVER_BG_RAMP = '~yPL Straight Over Background Mix Ramp'
 

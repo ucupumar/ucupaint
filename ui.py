@@ -1069,16 +1069,21 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 row.prop(chui, 'expand_bump_settings', text='', emboss=True, icon='INFO')
 
             #else:
-            #    row.label(text='', icon='INFO')
-            if bpy.app.version_string.startswith('2.8'):
-                split = row.split(factor=0.275)
-            else: split = row.split(percentage=0.275)
+            if layer.type == 'GROUP':
+                if chui.expand_bump_settings:
+                    row.label(text='Group Normal Settings:') #, icon='INFO')
+                else: row.label(text='Group Normal Settings') #, icon='INFO')
+            else:
+                #    row.label(text='', icon='INFO')
+                if bpy.app.version_string.startswith('2.8'):
+                    split = row.split(factor=0.275)
+                else: split = row.split(percentage=0.275)
 
-            split.label(text='Type:') #, icon='INFO')
-            srow = split.row(align=True)
-            srow.prop(ch, 'normal_map_type', text='')
-            if not chui.expand_bump_settings and ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
-                srow.prop(ch, 'bump_distance', text='')
+                split.label(text='Type:') #, icon='INFO')
+                srow = split.row(align=True)
+                srow.prop(ch, 'normal_map_type', text='')
+                if not chui.expand_bump_settings and ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+                    srow.prop(ch, 'bump_distance', text='')
 
             #row.label(text='', icon='BLANK1')
 
@@ -1098,24 +1103,19 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
 
                 #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
 
-                brow = cccol.row(align=True)
-                brow.active = not ch.enable_transition_bump or ch.normal_map_type != 'NORMAL_MAP'
-                if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
-                    brow.label(text='Max Height:') #, icon='INFO')
-                else: brow.label(text='Bump Height:') #, icon='INFO')
-                brow.prop(ch, 'bump_distance', text='')
+                if layer.type != 'GROUP':
+                    brow = cccol.row(align=True)
+                    brow.active = not ch.enable_transition_bump or ch.normal_map_type != 'NORMAL_MAP'
+                    if ch.normal_map_type == 'BUMP_MAP':
+                        brow.label(text='Max Height:') #, icon='INFO')
+                    else: brow.label(text='Bump Height:') #, icon='INFO')
+                    brow.prop(ch, 'bump_distance', text='')
 
-                #if not ch.enable_transition_bump:
-                #brow = cccol.row(align=True)
-                #brow.active = not ch.enable_transition_bump
-                #brow.label(text='Bump Base:') #, icon='INFO')
-                #brow.prop(ch, 'bump_base_value', text='')
-
-                #if any(layer.masks):
-                brow = cccol.row(align=True)
-                brow.active = not ch.enable_transition_bump and any(layer.masks) and not ch.write_height
-                brow.label(text='Affected Masks:') #, icon='INFO')
-                brow.prop(ch, 'transition_bump_chain', text='')
+                    #if any(layer.masks):
+                    brow = cccol.row(align=True)
+                    brow.active = not ch.enable_transition_bump and any(layer.masks) and not ch.write_height
+                    brow.label(text='Affected Masks:') #, icon='INFO')
+                    brow.prop(ch, 'transition_bump_chain', text='')
 
                 #brow = cccol.row(align=True)
                 #brow.label(text='Invert Backface Normal')

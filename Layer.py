@@ -241,6 +241,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     #uv_map.uv_map = uv_name
 
     #uv_map = new_node(tree, layer, 'uv_map', 'NodeGroupInput', 'UV Map Inputs')
+    #if layer_type != 'GROUP':
     texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
 
     # Add tangent and bitangent node
@@ -1967,16 +1968,16 @@ def check_blend_type_nodes(root_ch, layer, ch):
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG, return_status = True, 
-                        hard_replace=True)
+                        hard_replace=True, replaced=need_reconnect)
 
             else: 
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, 
-                        return_status = True, hard_replace=True)
+                        return_status = True, hard_replace=True, replaced=need_reconnect)
 
         else:
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True)
+                    'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True, replaced=need_reconnect)
 
             #if blend.blend_type != blend_type:
             #    blend.blend_type = blend_type
@@ -1987,21 +1988,26 @@ def check_blend_type_nodes(root_ch, layer, ch):
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
-                        return_status = True, hard_replace=True)
+                        return_status = True, hard_replace=True, replaced=need_reconnect)
             else:
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, 
-                        return_status = True, hard_replace=True)
+                        return_status = True, hard_replace=True, replaced=need_reconnect)
 
         elif normal_blend_type == 'OVERLAY':
-            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
-                    return_status = True, hard_replace=True)
+            if has_parent:
+                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                        'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL_STRAIGHT_OVER, 
+                        return_status = True, hard_replace=True, replaced=need_reconnect)
+            else:
+                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                        'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
+                        return_status = True, hard_replace=True, replaced=need_reconnect)
 
         elif normal_blend_type == 'MIX':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
-                    return_status = True, hard_replace=True)
+                    return_status = True, hard_replace=True, replaced=need_reconnect)
 
         #blend_height = tree.nodes.get(ch.blend_height)
         #if not blend_height:
@@ -2123,8 +2129,12 @@ def check_blend_type_nodes(root_ch, layer, ch):
             for d in neighbor_directions:
                 remove_node(tree, ch, 'height_blend_' + d)
 
+        print(need_reconnect)
+
         # Update normal map nodes
-        need_reconnect = check_channel_normal_map_nodes(tree, layer, root_ch, ch)
+        need_reconnect = check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect)
+
+        print(need_reconnect)
 
     elif root_ch.type == 'VALUE':
 
@@ -2132,15 +2142,15 @@ def check_blend_type_nodes(root_ch, layer, ch):
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, 
-                        return_status = True, hard_replace=True)
+                        return_status = True, hard_replace=True, replaced=need_reconnect)
             else:
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, 
-                        return_status = True, hard_replace=True)
+                        return_status = True, hard_replace=True, replaced=need_reconnect)
         else:
 
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True)
+                    'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True, replaced=need_reconnect)
 
     if root_ch.type != 'NORMAL' and blend.type == 'MIX_RGB' and blend.blend_type != blend_type:
         blend.blend_type = blend_type
@@ -2247,7 +2257,7 @@ def update_bump_distance(self, context):
     max_height = get_displacement_max_height(root_ch, self)
 
     height_proc = tree.nodes.get(self.height_proc)
-    if height_proc:
+    if height_proc and layer.type != 'GROUP':
 
         if self.normal_map_type == 'BUMP_MAP':
             height_proc.inputs['Value Max Height'].default_value = self.bump_distance
@@ -2487,6 +2497,10 @@ def update_channel_intensity_value(self, context):
     height_proc = tree.nodes.get(ch.height_proc)
     if height_proc:
         height_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+
+    normal_proc = tree.nodes.get(ch.normal_proc)
+    if normal_proc and 'Intensity' in normal_proc.inputs:
+        normal_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
 
     if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, layer, ch)

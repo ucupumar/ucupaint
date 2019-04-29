@@ -589,32 +589,35 @@ def rearrange_layer_nodes(layer, tree=None):
     if check_set_node_loc(tree, layer.uv_map, loc):
         loc.y -= 120
 
+    #if check_set_node_loc(tree, layer.tangent_flip, loc):
+    #    loc.y -= 120
+
+    #if check_set_node_loc(tree, layer.bitangent_flip, loc):
+    #    loc.y -= 120
+
+    #if check_set_node_loc(tree, layer.tangent, loc):
+    #    loc.y -= 160
+
+    #if check_set_node_loc(tree, layer.bitangent, loc):
+    #    loc.y -= 160
+
+    if layer.type == 'GROUP':
+        loc.y -= 500
+
     if check_set_node_loc(tree, ONE_VALUE, loc):
         loc.y -= 90
 
     if check_set_node_loc(tree, ZERO_VALUE, loc):
         loc.y -= 90
 
+    if check_set_node_loc(tree, GEOMETRY, loc):
+        loc.y -= 210
+
     if check_set_node_loc(tree, TEXCOORD, loc):
         loc.y -= 240
 
     if check_set_node_loc(tree, layer.texcoord, loc):
         loc.y -= 240
-
-    if check_set_node_loc(tree, layer.tangent_flip, loc):
-        loc.y -= 120
-
-    if check_set_node_loc(tree, layer.bitangent_flip, loc):
-        loc.y -= 120
-
-    if check_set_node_loc(tree, layer.tangent, loc):
-        loc.y -= 160
-
-    if check_set_node_loc(tree, layer.bitangent, loc):
-        loc.y -= 160
-
-    if check_set_node_loc(tree, GEOMETRY, loc):
-        loc.y -= 210
 
     loc = Vector((-600, 0))
 
@@ -857,7 +860,8 @@ def rearrange_layer_nodes(layer, tree=None):
             mix_n = tree.nodes.get(c.mix_n)
             mix_pure = tree.nodes.get(c.mix_pure)
             mix_remains = tree.nodes.get(c.mix_remains)
-            if not mix_n and not mix_pure and not mix_remains:
+            mix_normal = tree.nodes.get(c.mix_normal)
+            if not mix_n and not mix_pure and not mix_remains and not mix_normal:
 
                 if check_set_node_loc(tree, c.mix, loc):
                     loc.y -= 200.0
@@ -870,6 +874,9 @@ def rearrange_layer_nodes(layer, tree=None):
                     loc.y -= 40
 
                 if check_set_node_loc(tree, c.mix_remains, loc, True):
+                    loc.y -= 40
+
+                if check_set_node_loc(tree, c.mix_normal, loc, True):
                     loc.y -= 40
 
                 if check_set_node_loc(tree, c.mix_n, loc, True):
@@ -1354,6 +1361,8 @@ def rearrange_yp_nodes(group_tree):
             loc.y -= 90
             check_set_node_loc(group_tree, ZERO_VALUE, loc)
             loc.y -= 90
+            check_set_node_loc(group_tree, GEOMETRY, loc)
+            #loc.y -= 0
 
             # Rearrange uv nodes
             rearrange_uv_nodes(group_tree, loc)
