@@ -2254,7 +2254,7 @@ def update_bump_distance(self, context):
 
     if self.normal_map_type == 'NORMAL_MAP' and self.enable_transition_bump: return
 
-    max_height = get_displacement_max_height(root_ch, self)
+    max_height = get_displacement_max_height(root_ch, layer)
 
     height_proc = tree.nodes.get(self.height_proc)
     if height_proc and layer.type != 'GROUP':
@@ -2262,7 +2262,7 @@ def update_bump_distance(self, context):
         if self.normal_map_type == 'BUMP_MAP':
             height_proc.inputs['Value Max Height'].default_value = self.bump_distance
             if 'Delta' in height_proc.inputs:
-                height_proc.inputs['Delta'].default_value = get_transition_disp_delta(self)
+                height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, self)
         elif self.normal_map_type == 'NORMAL_MAP':
             height_proc.inputs['Bump Height'].default_value = self.bump_distance
 

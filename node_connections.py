@@ -877,6 +877,12 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
             if layer.parent_idx != -1: continue
 
+            # Group node with no children need normal input connected
+            if layer.type == 'GROUP' and not has_childrens(layer):
+                if ch.type == 'NORMAL':
+                    #create_link(tree, geometry.outputs['Normal'], node.inputs[ch.name])
+                    create_link(tree, geometry.outputs['Normal'], node.inputs[ch.name + io_suffix['GROUP']])
+
             #rgb = create_link(tree, rgb, node.inputs[ch.io_index])[ch.io_index]
             rgb = create_link(tree, rgb, node.inputs[io_name])[io_name]
             if ch.type =='RGB' and ch.enable_alpha:
@@ -1028,7 +1034,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
                         create_link(tree, geometry.outputs['Normal'], node.inputs[root_ch.name])
                         if layer.type == 'GROUP' and not has_childrens(layer):
-                            create_link(tree, geometry.outputs['Normal'], node.inputs[root_ch.name] + io_suffix['GROUP'])
+                            create_link(tree, geometry.outputs['Normal'], node.inputs[root_ch.name + io_suffix['GROUP']])
 
                 actual_last = False
 

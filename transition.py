@@ -487,14 +487,14 @@ def update_transition_bump_crease_factor(self, context):
         height_proc.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
         if ch.normal_map_type != 'NORMAL_MAP':
             height_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
-            height_proc.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+            height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, ch)
 
     #normal_proc = tree.nodes.get(ch.normal_proc)
     #if normal_proc:
     #    normal_proc.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
     #    if ch.normal_map_type != 'NORMAL_MAP':
     #        normal_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
-    #        normal_proc.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+    #        normal_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, ch)
     #    #normal_proc.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
     #    #        ch.transition_bump_crease_factor * -ch.transition_bump_distance)
 
@@ -612,7 +612,7 @@ def update_transition_bump_distance(self, context):
     disp_ch = get_displacement_channel(yp)
     if disp_ch == root_ch:
 
-        max_height = get_displacement_max_height(root_ch, ch)
+        max_height = get_displacement_max_height(root_ch, layer)
 
         height_proc = tree.nodes.get(self.height_proc)
         if height_proc: #and 'Transition Max Height' in height_proc.inputs:
@@ -620,7 +620,7 @@ def update_transition_bump_distance(self, context):
                 height_proc.inputs['Bump Height'].default_value = get_transition_bump_max_distance(self)
             else:
                 height_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(self)
-                height_proc.inputs['Delta'].default_value = get_transition_disp_delta(self)
+                height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, self)
 
         normal_proc = tree.nodes.get(self.normal_proc)
         if normal_proc:
@@ -981,7 +981,7 @@ def update_enable_transition_ramp(self, context):
 #    if disp_ch == root_ch:
 #        #max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
 #        #height_span = max_height * 2
-#        max_height = get_layer_channel_max_height(ch)
+#        max_height = get_layer_channel_max_height(layer, ch)
 #        delta = ch.transition_bump_distance - abs(ch.bump_distance)
 
 def update_enable_transition_bump(self, context):

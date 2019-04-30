@@ -1129,7 +1129,7 @@ def update_disp_scale_node(tree, root_ch, ch):
     #    disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(ch)
     #    disp_scale.inputs['RGB Max Height'].default_value = ch.bump_distance
     #    disp_scale.inputs['Alpha Max Height'].default_value = get_transition_bump_max_distance(ch)
-    #    disp_scale.inputs['Total Max Height'].default_value = get_layer_channel_max_height(ch)
+    #    disp_scale.inputs['Total Max Height'].default_value = get_layer_channel_max_height(layer, ch)
 
     #else:
     #    disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
@@ -1154,8 +1154,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
     mute = not layer.enable or not ch.enable
 
-    #max_height = get_layer_channel_max_height(ch)
-    max_height = get_displacement_max_height(root_ch, ch)
+    #max_height = get_layer_channel_max_height(layer, ch)
+    max_height = get_displacement_max_height(root_ch, layer)
 
     # Height Process
 
@@ -1213,7 +1213,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         if layer.type != 'GROUP':
             height_proc.inputs['Value Max Height'].default_value = ch.bump_distance
         if ch.enable_transition_bump:
-            height_proc.inputs['Delta'].default_value = get_transition_disp_delta(ch)
+            height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, ch)
             height_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
 
     height_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value

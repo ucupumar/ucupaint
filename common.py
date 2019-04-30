@@ -1829,22 +1829,44 @@ def get_channel_index(root_ch):
         if c == root_ch:
             return i
 
-def get_layer_channel_max_height(ch):
+def get_layer_channel_max_height(layer, ch, ch_idx=None):
+
+    if layer.type == 'GROUP':
+
+        if ch_idx == None: ch_idx = [i for i, c in enumerate(layer.channels) if c == ch][0]
+        childs = get_list_of_direct_childrens(layer)
+        if len(childs) == 0: return 0.0
+
+        # Check all of its childrens
+        base_distance = None
+        for child in childs:
+            for i, c in enumerate(child.channels):
+                if i != ch_idx: continue
+
+                h = get_layer_channel_max_height(child, c)
+
+                if base_distance == None or h > base_distance:
+                    base_distance = h
+
+    else: 
+        base_distance = abs(ch.bump_distance)
 
     if ch.enable_transition_bump:
-        if ch.normal_map_type == 'NORMAL_MAP':
+        if ch.normal_map_type == 'NORMAL_MAP' and layer.type != 'GROUP':
             #max_height = ch.transition_bump_distance
             max_height = abs(get_transition_bump_max_distance_with_crease(ch))
         else:
             if ch.transition_bump_flip:
                 #max_height = ch.transition_bump_distance + abs(ch.bump_distance)*2
-                max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + abs(ch.bump_distance)*2
+                max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + base_distance*2
 
             else: 
                 #max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
-                max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + abs(ch.bump_distance)
+                max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + base_distance
 
-    else: max_height = abs(ch.bump_distance)
+    else: 
+        #max_height = abs(ch.bump_distance)
+        max_height = base_distance
 
     return max_height
 
@@ -1866,47 +1888,83 @@ def get_transition_bump_max_distance_with_crease(ch):
 
     return fac * tb
 
-def get_transition_disp_delta(ch):
-    #if ch.transition_bump_flip:
-    #    #delta = -ch.transition_bump_distance - ch.bump_distance
-    #    delta = -ch.transition_bump_distance - abs(ch.bump_distance)
-    #else: 
-    #    delta = ch.transition_bump_distance - abs(ch.bump_distance)
+def get_max_childs_heights(layer, ch_idx):
 
-    delta = get_transition_bump_max_distance(ch) - abs(ch.bump_distance)
+    # Get childrens
+    childs = get_list_of_direct_childrens(layer)
+
+    if len(childs) == 0: return 0.0
+
+    max_child_heights = None
+    for child in childs:
+        for i, c in enumerate(child.channels):
+            if i != ch_idx: continue
+
+            # Do recursive the children is a group
+            if child.type == 'GROUP':
+                h = get_max_childs_heights(child, ch_idx)
+            else: 
+                h = get_layer_channel_max_height(child, c, ch_idx)
+
+            if max_child_heights == None or h > max_child_heights:
+                max_child_heights = h
+
+    return max_child_heights
+
+def get_transition_disp_delta(layer, ch):
+    if layer.type == 'GROUP':
+
+        # Get channel index
+        ch_idx = [i for i, c in enumerate(layer.channels) if c == ch][0]
+
+        max_child_heights = get_max_childs_heights(layer, ch_idx)
+        delta = get_transition_bump_max_distance(ch) - max_child_heights
+
+    else:
+        delta = get_transition_bump_max_distance(ch) - abs(ch.bump_distance)
 
     return delta
 
-def get_displacement_max_height(root_ch, ch=None):
-    yp = root_ch.id_data.yp
-    ch_index = get_channel_index(root_ch)
+def get_max_height_from_list_of_layers(layers, ch_index, layer=None, parent_check=False):
 
     max_height = 0.0
-    for l in reversed(yp.layers):
+
+    for l in reversed(layers):
+        if parent_check and l.parent_idx != -1: continue
         c = l.channels[ch_index]
-        ch_max_height = get_layer_channel_max_height(c)
+        ch_max_height = get_layer_channel_max_height(l, c)
         if (l.enable and c.enable and 
-                (c.write_height or (not c.write_height and c == ch)) and
-                #c.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} and
+                (c.write_height or (not c.write_height and l == layer)) and
                 c.normal_blend_type == 'MIX' and max_height < ch_max_height
                 ):
             max_height = ch_max_height
-        if c == ch:
+        if l == layer:
             break
 
-    for l in reversed(yp.layers):
+    for l in reversed(layers):
+        if parent_check and l.parent_idx != -1: continue
         c = l.channels[ch_index]
-        ch_max_height = get_layer_channel_max_height(c)
+        ch_max_height = get_layer_channel_max_height(l, c)
         if (l.enable and c.enable and 
-                (c.write_height or (not c.write_height and c == ch)) and
-                #c.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'} and
+                (c.write_height or (not c.write_height and l == layer)) and
                 c.normal_blend_type == 'OVERLAY'
                 ):
             max_height += ch_max_height
-        if c == ch:
+        if l == layer:
             break
 
-    #root_ch.displacement_height_ratio = max_height
+    return max_height
+
+def get_displacement_max_height(root_ch, layer=None):
+    yp = root_ch.id_data.yp
+    ch_index = get_channel_index(root_ch)
+
+    if layer and layer.parent_idx != -1:
+        parent = get_parent(layer)
+        layers = get_list_of_direct_childrens(parent)
+        max_height = get_max_height_from_list_of_layers(layers, ch_index, layer, parent_check=False)
+    else:
+        max_height = get_max_height_from_list_of_layers(yp.layers, ch_index, layer, parent_check=True)
 
     return max_height
 
