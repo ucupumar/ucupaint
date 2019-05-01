@@ -1803,6 +1803,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                         if 'Edge 1 Alpha' in height_proc.inputs:
                             create_link(tree, intensity_multiplier.outputs[0], height_proc.inputs['Edge 1 Alpha'])
 
+                        if 'Edge 1 Alpha' in normal_proc.inputs:
+                            create_link(tree, intensity_multiplier.outputs[0], normal_proc.inputs['Edge 1 Alpha'])
+
                     else:
 
                         create_link(tree, pure, height_proc.inputs['Transition'])
@@ -1851,8 +1854,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             # Height Blend
 
-            if 'Normal Alpha' in height_proc.outputs:
-                alpha = height_proc.outputs['Normal Alpha']
+            #if 'Normal Alpha' in height_proc.outputs and (ch.write_height or root_ch.enable_smooth_bump):
+            #    alpha = height_proc.outputs['Normal Alpha']
 
             height_alpha = alpha
 
@@ -1870,8 +1873,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                         alpha = height_proc.outputs['Filtered Alpha']
                     else: alpha = height_proc.outputs['Combined Alpha']
 
-                elif 'Normal Alpha' in height_proc.outputs:
+                #elif 'Normal Alpha' in height_proc.outputs:
+                elif 'Normal Alpha' in height_proc.outputs and (ch.write_height or root_ch.enable_smooth_bump):
                     alpha = height_proc.outputs['Normal Alpha']
+
+                if 'Normal Alpha' in height_proc.outputs and (not ch.write_height and not root_ch.enable_smooth_bump):
+                    height_alpha = height_proc.outputs['Normal Alpha']
 
                 alpha_n = alpha_s = alpha_e = alpha_w = alpha
 

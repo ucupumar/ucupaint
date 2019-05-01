@@ -22,7 +22,8 @@ STRAIGHT_OVER_BG = '~yPL Straight Over Background Mix'
 STRAIGHT_OVER_BG_BW = '~yPL Straight Over Grayscale Background Mix'
 STRAIGHT_OVER_BG_VEC = '~yPL Straight Over Vector Background Mix'
 
-STRAIGHT_OVER_ADD = '~yPL Straight Over Add'
+STRAIGHT_OVER_HEIGHT_MIX = '~yPL Straight Over Height Mix'
+STRAIGHT_OVER_HEIGHT_ADD = '~yPL Straight Over Height Add'
 
 #STRAIGHT_OVER_BG_RAMP = '~yPL Straight Over Background Mix Ramp'
 

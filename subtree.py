@@ -1235,7 +1235,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             if layer.parent_idx != -1:
                 height_blend, need_reconnect = replace_new_node(
                         tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                        lib.STRAIGHT_OVER, return_status=True, hard_replace=True, replaced=need_reconnect)
+                        lib.STRAIGHT_OVER_HEIGHT_MIX, return_status=True, hard_replace=True, replaced=need_reconnect)
+                if ch.write_height:
+                    height_blend.inputs['Divide'].default_value = 1.0
+                else: height_blend.inputs['Divide'].default_value = 0.0
             else:
 
                 height_blend, need_reconnect = replace_new_node(
@@ -1249,7 +1252,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             if layer.parent_idx != -1:
                 height_blend, need_reconnect = replace_new_node(
                         tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                        lib.STRAIGHT_OVER_ADD, return_status=True, hard_replace=True, replaced=need_reconnect)
+                        lib.STRAIGHT_OVER_HEIGHT_ADD, return_status=True, hard_replace=True, replaced=need_reconnect)
+                if ch.write_height:
+                    height_blend.inputs['Divide'].default_value = 1.0
+                else: height_blend.inputs['Divide'].default_value = 0.0
             else:
                 height_blend, need_reconnect = replace_new_node(
                         tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend', 
@@ -1266,7 +1272,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                     if layer.parent_idx != -1:
                         hb, need_reconnect = replace_new_node(
                                 tree, ch, 'height_blend_' + d, 'ShaderNodeGroup', 'Height Blend', 
-                                lib.STRAIGHT_OVER, return_status=True, hard_replace=True, replaced=need_reconnect)
+                                lib.STRAIGHT_OVER_HEIGHT_MIX, return_status=True, hard_replace=True, replaced=need_reconnect)
+                        if ch.write_height:
+                            hb.inputs['Divide'].default_value = 1.0
+                        else: hb.inputs['Divide'].default_value = 0.0
                     else:
 
                         hb, need_reconnect = replace_new_node(
@@ -1280,7 +1289,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                     if layer.parent_idx != -1:
                         hb, need_reconnect = replace_new_node(
                                 tree, ch, 'height_blend_' + d, 'ShaderNodeGroup', 'Height Blend', 
-                                lib.STRAIGHT_OVER_ADD, return_status=True, hard_replace=True, replaced=need_reconnect)
+                                lib.STRAIGHT_OVER_HEIGHT_ADD, return_status=True, hard_replace=True, replaced=need_reconnect)
+                        if ch.write_height:
+                            hb.inputs['Divide'].default_value = 1.0
+                        else: hb.inputs['Divide'].default_value = 0.0
                     else:
 
                         hb, need_reconnect = replace_new_node(
