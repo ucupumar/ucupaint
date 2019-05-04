@@ -1007,12 +1007,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     #    crow.prop(ch, 'transition_bump_curved_offset', text='')
 
                     crow = cccol.row(align=True)
-                    crow.active = layer.type != 'BACKGROUND'
+                    #crow.active = layer.type != 'BACKGROUND'
                     crow.label(text='Flip:') #, icon='INFO')
                     crow.prop(ch, 'transition_bump_flip', text='')
 
                     crow = cccol.row(align=True)
-                    crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
+                    #crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
+                    crow.active = not ch.transition_bump_flip
                     crow.label(text='Crease:') #, icon='INFO')
                     #if ch.transition_bump_crease:
                     #    crow.prop(ch, 'transition_bump_crease_factor', text='')

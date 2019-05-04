@@ -51,7 +51,7 @@ def check_transition_bump_influences_to_other_channels(layer, tree=None, target_
 
             #tr_ramp = tree.nodes.get(c.tr_ramp)
             #if tr_ramp or bump_ch.transition_bump_flip or layer.type=='BACKGROUND':
-            if bump_ch.transition_bump_flip or layer.type=='BACKGROUND':
+            if bump_ch.transition_bump_flip: #or layer.type=='BACKGROUND':
                 im_val = 1.0 + (bump_ch.transition_bump_second_edge_value - 1.0) * c.transition_bump_fac
             else: im_val = 1.0 + (bump_ch.transition_bump_value - 1.0) * c.transition_bump_fac
 
@@ -64,7 +64,7 @@ def check_transition_bump_influences_to_other_channels(layer, tree=None, target_
             im.inputs['Multiplier'].default_value = im_val
 
             # Invert other intensity multipler if mask bump flip active
-            if bump_ch.transition_bump_flip or layer.type == 'BACKGROUND':
+            if bump_ch.transition_bump_flip: #or layer.type == 'BACKGROUND':
             #if bump_ch.transition_bump_flip:
                 im.inputs['Invert'].default_value = 1.0
             else: im.inputs['Invert'].default_value = 0.0
@@ -83,15 +83,15 @@ def check_transition_ao_nodes(tree, layer, ch, bump_ch=None):
         match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
         root_ch = yp.channels[int(match.group(2))]
 
-        if layer.type == 'BACKGROUND' and ch.transition_ao_blend_type == 'MIX':
-        #if layer.type == 'BACKGROUND' and bump_ch.transition_bump_flip and ch.transition_ao_blend_type == 'MIX':
+        #if layer.type == 'BACKGROUND' and ch.transition_ao_blend_type == 'MIX':
+        if layer.type == 'BACKGROUND' and bump_ch.transition_bump_flip and ch.transition_ao_blend_type == 'MIX':
 
             tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
                     'Transition AO', lib.TRANSITION_AO_BG_MIX, return_status=True)
             if replaced: duplicate_lib_node_tree(tao)
 
-        elif layer.type == 'BACKGROUND' or bump_ch.transition_bump_flip:
-        #elif bump_ch.transition_bump_flip:
+        #elif layer.type == 'BACKGROUND' or bump_ch.transition_bump_flip:
+        elif bump_ch.transition_bump_flip:
 
             tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
                     'Transition AO', lib.TRANSITION_AO_FLIP, return_status=True)
@@ -174,8 +174,8 @@ def set_transition_ramp_nodes(tree, layer, ch):
     # Save previous ramp to cache
     save_ramp(tree, ch)
 
-    if bump_ch and (bump_ch.transition_bump_flip or layer.type == 'BACKGROUND'):
-    #if bump_ch and bump_ch.transition_bump_flip:
+    #if bump_ch and (bump_ch.transition_bump_flip or layer.type == 'BACKGROUND'):
+    if bump_ch and bump_ch.transition_bump_flip:
 
         tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
                 'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_FLIP, return_status=True)
@@ -195,8 +195,17 @@ def set_transition_ramp_nodes(tree, layer, ch):
             ramp_blend.blend_type = ch.transition_ramp_blend_type
 
     else:
-
-        if ch.transition_ramp_intensity_unlink and ch.transition_ramp_blend_type == 'MIX':
+        if layer.type == 'BACKGROUND' and ch.transition_ramp_blend_type == 'MIX':
+            if ch.transition_ramp_intensity_unlink:
+                tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
+                        'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_BG_MIX_UNLINK, return_status=True)
+            elif layer.parent_idx != -1:
+                tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
+                        'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_BG_MIX_CHILD, return_status=True)
+            else:
+                tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
+                        'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_BG_MIX, return_status=True)
+        elif ch.transition_ramp_intensity_unlink and ch.transition_ramp_blend_type == 'MIX':
             tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
                     'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_STRAIGHT_OVER, return_status=True)
         else:
@@ -574,12 +583,16 @@ def update_transition_bump_value(self, context):
         tr_ramp = tree.nodes.get(c.tr_ramp)
         if tr_ramp:
 
-            if ch.transition_bump_flip or layer.type=='BACKGROUND':
+            if ch.transition_bump_flip: #or layer.type=='BACKGROUND':
                 tr_ramp_mul = ch.transition_bump_value
                 tr_im_mul = ch.transition_bump_second_edge_value
             else: 
                 tr_ramp_mul = ch.transition_bump_second_edge_value
                 tr_im_mul = ch.transition_bump_value
+
+            #if ch.transition_bump_flip:
+            #    multiplier_val = 1.0 + (ch.transition_bump_value - 1.0) * c.transition_bump_second_fac
+            #else: multiplier_val = 1.0 + (ch.transition_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
 
             tr_ramp.inputs['Multiplier'].default_value = 1.0 + (
                     #ch.transition_bump_second_edge_value - 1.0) * c.transition_bump_second_fac
@@ -680,7 +693,7 @@ def update_transition_bump_fac(self, context):
 
     if ch != bump_ch:
 
-        if bump_ch.transition_bump_flip or layer.type=='BACKGROUND':
+        if bump_ch.transition_bump_flip: #or layer.type=='BACKGROUND':
             tr_ramp_mul = bump_ch.transition_bump_value
             tr_im_mul = bump_ch.transition_bump_second_edge_value
         else: 
@@ -699,7 +712,7 @@ def update_transition_bump_fac(self, context):
         else:
             im = tree.nodes.get(ch.intensity_multiplier)
             if im: 
-                if ch.transition_bump_flip or layer.type=='BACKGROUND':
+                if ch.transition_bump_flip: #or layer.type=='BACKGROUND':
                     im.inputs[1].default_value = 1.0 + (ch.transition_bump_second_edge_value - 1.0) * c.transition_bump_fac
                 else:
                     im.inputs[1].default_value = 1.0 + (ch.transition_bump_value - 1.0) * c.transition_bump_fac
@@ -958,6 +971,7 @@ def update_enable_transition_ramp(self, context):
     yp = self.id_data.yp
     match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
+    root_ch = yp.channels[int(match.group(2))]
     ch = self
 
     tree = get_tree(layer)
@@ -966,6 +980,8 @@ def update_enable_transition_ramp(self, context):
 
     # Update mask multiply
     check_mask_mix_nodes(layer, tree)
+
+    check_blend_type_nodes(root_ch, layer, ch)
 
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)

@@ -46,7 +46,10 @@ TRANSITION_AO_FLIP = '~yPL Transition AO Flip'
 
 RAMP = '~yPL Ramp'
 RAMP_STRAIGHT_OVER = '~yPL Ramp Straight Over'
-RAMP_STRAIGHT_OVER_BG = '~yPL Ramp Straight Over Background'
+#RAMP_STRAIGHT_OVER_BG = '~yPL Ramp Straight Over Background'
+RAMP_BG_MIX_UNLINK = '~yPL Ramp Background Mix Unlink'
+RAMP_BG_MIX_CHILD = '~yPL Ramp Background Mix Child'
+RAMP_BG_MIX = '~yPL Ramp Background Mix'
 
 RAMP_FLIP = '~yPL Ramp Flip'
 RAMP_FLIP_BLEND = '~yPL Ramp Flip Blend'

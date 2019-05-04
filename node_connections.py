@@ -1262,7 +1262,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     #fine_bump_ch = False
     trans_bump_ch = get_transition_bump_channel(layer)
     if trans_bump_ch:
-        trans_bump_flip = trans_bump_ch.transition_bump_flip or layer.type == 'BACKGROUND'
+        trans_bump_flip = trans_bump_ch.transition_bump_flip #or layer.type == 'BACKGROUND'
         trans_bump_crease = trans_bump_ch.transition_bump_crease and not trans_bump_flip
         #trans_bump_flip = trans_bump_ch.transition_bump_flip
         #fine_bump_ch = trans_bump_ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
@@ -1942,8 +1942,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 create_link(tree, normal_alpha, normal_proc.inputs['Normal Alpha'])
 
             if layer.type == 'GROUP':
-                if ch.write_height:
+                if ch.write_height: #and 'Normal Alpha' in normal_proc.outputs:
                     alpha = normal_proc.outputs['Normal Alpha']
+                #elif 'Combined Alpha' in normal_proc.outputs:
                 else:
                     alpha = normal_proc.outputs['Combined Alpha']
 
@@ -2034,7 +2035,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                             remaining_alpha = create_link(tree, remaining_alpha, mix_n.inputs[1])[0]
 
                 prev_rgb = tao.outputs[0]
-                create_link(tree, remaining_alpha, tao.inputs['Remaining Alpha'])
+                if 'Remaining Alpha' in tao.inputs:
+                    create_link(tree, remaining_alpha, tao.inputs['Remaining Alpha'])
 
                 if 'Input Alpha' in tao.inputs:
                     create_link(tree, prev_alpha, tao.inputs['Input Alpha'])
@@ -2048,7 +2050,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             tr_ramp = nodes.get(ch.tr_ramp)
             tr_ramp_blend = nodes.get(ch.tr_ramp_blend)
 
-            create_link(tree, transition_input, tr_ramp.inputs['Alpha'])
+            create_link(tree, transition_input, tr_ramp.inputs['Transition'])
 
             if trans_bump_flip:
 
@@ -2078,7 +2080,27 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 create_link(tree, rgb, tr_ramp.inputs['RGB'])
                 rgb = tr_ramp.outputs[0]
 
-                if ch.transition_ramp_intensity_unlink and ch.transition_ramp_blend_type == 'MIX':
+                if 'Bg Alpha' in tr_ramp.inputs and bg_alpha:
+                    create_link(tree, bg_alpha, tr_ramp.inputs['Bg Alpha'])
+                    bg_alpha = tr_ramp.outputs[1] #'Bg Alpha']
+                    #create_link(tree, alpha_before_intensity, tr_ramp.inputs['Remaining Alpha'])
+                    #create_link(tree, alpha, tr_ramp.inputs['Channel Intensity'])
+                    if ch.transition_ramp_intensity_unlink or layer.parent_idx != -1:
+                        create_link(tree, alpha, tr_ramp.inputs['Alpha'])
+
+                        if ch.transition_ramp_intensity_unlink:
+                            create_link(tree, alpha_before_intensity, tr_ramp.inputs['Alpha before Intensity'])
+
+                        create_link(tree, prev_rgb, tr_ramp.inputs['Input RGB'])
+                        create_link(tree, prev_alpha, tr_ramp.inputs['Input Alpha'])
+
+                        prev_rgb = tr_ramp.outputs[0]
+                        prev_alpha = tr_ramp.outputs[1]
+
+                        rgb = tr_ramp.outputs[2]
+                        alpha = tr_ramp.outputs[3]
+
+                elif ch.transition_ramp_intensity_unlink and ch.transition_ramp_blend_type == 'MIX':
                     create_link(tree, alpha_before_intensity, tr_ramp.inputs['Remaining Alpha'])
                     create_link(tree, alpha, tr_ramp.inputs['Channel Intensity'])
 
@@ -2108,7 +2130,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             create_link(tree, alpha, blend.inputs[3])
 
-            if bg_alpha:
+            if bg_alpha and len(blend.inputs) > 4:
                 create_link(tree, bg_alpha, blend.inputs[4])
 
         else:

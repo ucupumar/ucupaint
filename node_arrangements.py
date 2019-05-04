@@ -534,7 +534,7 @@ def rearrange_layer_nodes(layer, tree=None):
     chain = -1
     bump_ch = get_transition_bump_channel(layer)
     if bump_ch:
-        flip_bump = bump_ch.transition_bump_flip or layer.type == 'BACKGROUND'
+        flip_bump = bump_ch.transition_bump_flip #or layer.type == 'BACKGROUND'
         #flip_bump = bump_ch.transition_bump_flip
         chain = min(len(layer.masks), bump_ch.transition_bump_chain)
 
@@ -907,8 +907,10 @@ def rearrange_layer_nodes(layer, tree=None):
                     loc.y -= 230
 
                 #if not flip_bump and ch.enable and ch.enable_transition_ramp:
-                if ch.enable_transition_ramp and (not ch.transition_ramp_intensity_unlink 
-                        or flip_bump or ch.transition_ramp_blend_type != 'MIX'):
+                if ch.enable_transition_ramp and (
+                    (not ch.transition_ramp_intensity_unlink or flip_bump or ch.transition_ramp_blend_type != 'MIX') #or
+                    and not (layer.parent_idx != -1 and layer.type == 'BACKGROUND' and ch.transition_ramp_blend_type == 'MIX')
+                        ):
                     if check_set_node_loc(tree, ch.tr_ramp, loc):
                         loc.y -= 230
 
@@ -1081,8 +1083,11 @@ def rearrange_layer_nodes(layer, tree=None):
 
         bookmark_x1 = loc.x
 
-        if (ch.enable_transition_ramp and not flip_bump and ch.transition_ramp_intensity_unlink 
-                and ch.transition_ramp_blend_type == 'MIX'):
+        if (
+                (ch.enable_transition_ramp and not flip_bump and ch.transition_ramp_intensity_unlink 
+                and ch.transition_ramp_blend_type == 'MIX') or
+                (layer.parent_idx != -1 and layer.type == 'BACKGROUND' and ch.transition_ramp_blend_type == 'MIX')
+                ):
             if check_set_node_loc(tree, ch.tr_ramp, loc):
                 loc.x += 200
                 #y_offset += 60
