@@ -1994,8 +1994,9 @@ def update_write_height(self, context):
 
     check_channel_normal_map_nodes(tree, layer, root_ch, ch)
 
-    max_height = get_displacement_max_height(root_ch)
-    root_ch.displacement_height_ratio = max_height
+    #max_height = get_displacement_max_height(root_ch)
+    #root_ch.displacement_height_ratio = max_height
+    update_displacement_height_ratio(root_ch)
 
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer, ch_index)
@@ -2030,8 +2031,9 @@ def update_bump_distance(self, context):
 
         normal_proc.inputs['Max Height'].default_value = max_height
 
-    max_height = get_displacement_max_height(root_ch)
-    root_ch.displacement_height_ratio = max_height
+    #max_height = get_displacement_max_height(root_ch)
+    #root_ch.displacement_height_ratio = max_height
+    update_displacement_height_ratio(root_ch)
 
 def set_layer_channel_linear_node(tree, layer, root_ch, ch):
 

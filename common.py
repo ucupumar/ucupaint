@@ -1706,6 +1706,13 @@ def set_bitangent_backface_flip(node, flip_backface):
     else:
         node.mute = True
 
+def get_root_parallax_channel(yp):
+    for ch in yp.channels:
+        if ch.type == 'NORMAL' and ch.enable_parallax:
+            return ch
+
+    return None
+
 def get_root_height_channel(yp):
     for ch in yp.channels:
         if ch.type == 'NORMAL': # and ch.enable_parallax:
@@ -1766,7 +1773,8 @@ def set_relief_mapping_nodes(yp, node, img=None):
     ch = get_root_height_channel(yp)
 
     # Set node parameters
-    node.inputs[0].default_value = ch.displacement_height_ratio
+    #node.inputs[0].default_value = ch.displacement_height_ratio
+    node.inputs[0].default_value = get_displacement_max_height(ch)
     node.inputs[1].default_value = ch.displacement_ref_plane
 
     tree = node.node_tree
@@ -1793,7 +1801,8 @@ def set_baked_parallax_node(yp, node, img=None):
 
     # Set node parameters
     node.inputs['layer_depth'].default_value = 1.0 / ch.parallax_num_of_layers
-    node.inputs['depth_scale'].default_value = ch.displacement_height_ratio
+    #node.inputs['depth_scale'].default_value = ch.displacement_height_ratio
+    node.inputs['depth_scale'].default_value = get_displacement_max_height(ch)
     node.inputs['ref_plane'].default_value = ch.displacement_ref_plane
 
     tree = node.node_tree
@@ -2003,6 +2012,52 @@ def get_write_height_normal_channels(layer):
                 channels.append(ch)
 
     return channels
+
+def update_displacement_height_ratio(root_ch):
+
+    group_tree = root_ch.id_data
+    yp = group_tree.yp
+
+    max_height = get_displacement_max_height(root_ch)
+    #max_height = root_ch.displacement_height_ratio
+
+    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if baked_parallax:
+        baked_parallax.inputs['depth_scale'].default_value = max_height
+
+    parallax = group_tree.nodes.get(PARALLAX)
+    if parallax:
+        depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+        if depth_source_0:
+            pack = depth_source_0.node_tree.nodes.get('_pack')
+            if pack:
+                if max_height != 0.0:
+                    pack.inputs['Max Height'].default_value = max_height
+                else: pack.inputs['Max Height'].default_value = 1.0
+
+        end_linear = group_tree.nodes.get(root_ch.end_linear)
+        if end_linear:
+            if max_height != 0.0:
+                end_linear.inputs['Max Height'].default_value = max_height
+            else: end_linear.inputs['Max Height'].default_value = 1.0
+
+            if root_ch.enable_smooth_bump:
+                end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+
+    for uv in yp.uvs:
+        parallax_prep = group_tree.nodes.get(uv.parallax_prep)
+        if parallax_prep:
+            parallax_prep.inputs['depth_scale'].default_value = max_height
+
+def get_fine_bump_distance(distance):
+    scale = 200
+    #if layer.type == 'IMAGE':
+    #    source = get_layer_source(layer)
+    #    image = source.image
+    #    if image: scale = image.size[0] / 10
+
+    #return -1.0 * distance * scale
+    return distance * scale
 
 def get_bump_chain(layer, ch=None):
 

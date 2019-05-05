@@ -1168,8 +1168,8 @@ def rearrange_layer_nodes(layer, tree=None):
     rearrange_layer_frame_nodes(layer, tree)
 
 def rearrange_relief_mapping_nodes(group_tree):
-    ch = get_root_height_channel(group_tree.yp)
-    if not ch: return
+    parallax_ch = get_root_parallax_channel(group_tree.yp)
+    if not parallax_ch: return
 
     baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
     if baked_parallax:
@@ -1182,7 +1182,7 @@ def rearrange_relief_mapping_nodes(group_tree):
 
             loc.x += 200
 
-            for i in range(ch.parallax_num_of_linear_samples):
+            for i in range(parallax_ch.parallax_num_of_linear_samples):
                 if check_set_node_loc(tree, '_iterate_' + str(i), loc):
                     loc.x += 200
 
@@ -1197,15 +1197,15 @@ def rearrange_relief_mapping_nodes(group_tree):
 
             loc.x += 200
 
-            for i in range(ch.parallax_num_of_binary_samples):
+            for i in range(parallax_ch.parallax_num_of_binary_samples):
                 if check_set_node_loc(tree, '_iterate_' + str(i), loc):
                     loc.x += 200
 
             check_set_node_loc(tree, TREE_END, loc)
 
 def rearrange_parallax_layer_nodes(yp, parallax):
-    ch = get_root_height_channel(yp)
-    if not ch: return
+    parallax_ch = get_root_parallax_channel(yp)
+    if not parallax_ch: return
 
     loop = parallax.node_tree.nodes.get('_parallax_loop')
     if loop:
@@ -1216,7 +1216,7 @@ def rearrange_parallax_layer_nodes(yp, parallax):
 
         loc.x += 200
 
-        for i in range(ch.parallax_num_of_layers):
+        for i in range(parallax_ch.parallax_num_of_layers):
             if check_set_node_loc(tree, '_iterate_' + str(i), loc):
                 loc.x += 200
 
@@ -1303,8 +1303,8 @@ def rearrange_uv_nodes(group_tree, loc):
 def rearrange_depth_layer_nodes(group_tree):
     yp = group_tree.yp
 
-    disp_ch = get_root_height_channel(yp)
-    if not disp_ch: return
+    parallax_ch = get_root_parallax_channel(yp)
+    if not parallax_ch: return
 
     parallax = group_tree.nodes.get(PARALLAX)
     if not parallax: return

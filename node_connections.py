@@ -260,9 +260,9 @@ def remove_all_children_inputs(tree, layer, node): #, height_only=False):
                     break_input_link(tree, node.inputs[io_name])
 
 def reconnect_relief_mapping_nodes(yp, node):
-    disp_ch = get_root_height_channel(yp)
+    parallax_ch = get_root_parallax_channel(yp)
 
-    if not disp_ch: return
+    if not parallax_ch: return
 
     linear_loop = node.node_tree.nodes.get('_linear_search')
     binary_loop = node.node_tree.nodes.get('_binary_search')
@@ -273,7 +273,7 @@ def reconnect_relief_mapping_nodes(yp, node):
         loop_end = loop.node_tree.nodes.get(TREE_END)
         prev_it = None
 
-        for i in range (disp_ch.parallax_num_of_linear_samples):
+        for i in range (parallax_ch.parallax_num_of_linear_samples):
             it = loop.node_tree.nodes.get('_iterate_' + str(i))
             if not prev_it:
                 create_link(loop.node_tree, 
@@ -294,7 +294,7 @@ def reconnect_relief_mapping_nodes(yp, node):
             create_link(loop.node_tree,
                     loop_start.outputs['size'], it.inputs['size'])
 
-            if i == disp_ch.parallax_num_of_linear_samples-1:
+            if i == parallax_ch.parallax_num_of_linear_samples-1:
                 create_link(loop.node_tree, 
                         it.outputs['t'], loop_end.inputs['t'])
 
@@ -306,7 +306,7 @@ def reconnect_relief_mapping_nodes(yp, node):
         loop_end = loop.node_tree.nodes.get(TREE_END)
         prev_it = None
 
-        for i in range (disp_ch.parallax_num_of_binary_samples):
+        for i in range (parallax_ch.parallax_num_of_binary_samples):
             it = loop.node_tree.nodes.get('_iterate_' + str(i))
             if not prev_it:
                 create_link(loop.node_tree, 
@@ -330,7 +330,7 @@ def reconnect_relief_mapping_nodes(yp, node):
             create_link(loop.node_tree,
                     loop_start.outputs['dataz'], it.inputs['dataz'])
 
-            if i == disp_ch.parallax_num_of_binary_samples-1:
+            if i == parallax_ch.parallax_num_of_binary_samples-1:
                 create_link(loop.node_tree, 
                         it.outputs['t'], loop_end.inputs['t'])
 
@@ -340,8 +340,8 @@ def reconnect_parallax_layer_nodes(group_tree):
 
     yp = group_tree.yp
 
-    disp_ch = get_root_height_channel(yp)
-    if not disp_ch: return
+    parallax_ch = get_root_parallax_channel(yp)
+    if not parallax_ch: return
 
     parallax = group_tree.nodes.get(PARALLAX)
     if not parallax: return
@@ -354,7 +354,7 @@ def reconnect_parallax_layer_nodes(group_tree):
 
     prev_it = None
 
-    for i in range (disp_ch.parallax_num_of_layers):
+    for i in range (parallax_ch.parallax_num_of_layers):
         it = loop.node_tree.nodes.get('_iterate_' + str(i))
 
         if not prev_it:
@@ -386,7 +386,7 @@ def reconnect_parallax_layer_nodes(group_tree):
             create_link(loop.node_tree, loop_start.outputs[uv.name + START_UV], it.inputs[uv.name + START_UV])
             create_link(loop.node_tree, loop_start.outputs[uv.name + DELTA_UV], it.inputs[uv.name + DELTA_UV])
 
-        if i == disp_ch.parallax_num_of_layers-1:
+        if i == parallax_ch.parallax_num_of_layers-1:
 
             create_link(loop.node_tree, 
                     it.outputs['cur_layer_depth'], loop_end.inputs['cur_layer_depth'])
@@ -402,8 +402,8 @@ def reconnect_parallax_layer_nodes(group_tree):
         prev_it = it
 
 def reconnect_baked_parallax_layer_nodes(yp, node):
-    disp_ch = get_root_height_channel(yp)
-    if not disp_ch: return
+    parallax_ch = get_root_parallax_channel(yp)
+    if not parallax_ch: return
 
     loop = node.node_tree.nodes.get('_parallax_loop')
     if loop:
@@ -411,7 +411,7 @@ def reconnect_baked_parallax_layer_nodes(yp, node):
         loop_end = loop.node_tree.nodes.get(TREE_END)
         prev_it = None
 
-        for i in range (disp_ch.parallax_num_of_layers):
+        for i in range (parallax_ch.parallax_num_of_layers):
             it = loop.node_tree.nodes.get('_iterate_' + str(i))
             if not prev_it:
                 create_link(loop.node_tree, 
@@ -434,7 +434,7 @@ def reconnect_baked_parallax_layer_nodes(yp, node):
             create_link(loop.node_tree,
                     loop_start.outputs['layer_depth'], it.inputs['layer_depth'])
 
-            if i == disp_ch.parallax_num_of_layers-1:
+            if i == parallax_ch.parallax_num_of_layers-1:
                 create_link(loop.node_tree, 
                         it.outputs['cur_uv'], loop_end.inputs['cur_uv'])
                 create_link(loop.node_tree, 
@@ -448,8 +448,8 @@ def reconnect_parallax_process_nodes(group_tree): #, uv_maps, tangents, bitangen
 
     yp = group_tree.yp
 
-    disp_ch = get_root_height_channel(yp)
-    if not disp_ch: return
+    parallax_ch = get_root_parallax_channel(yp)
+    if not parallax_ch: return
 
     parallax = group_tree.nodes.get(PARALLAX)
     if not parallax: return
@@ -546,8 +546,8 @@ def reconnect_depth_layer_nodes(group_tree):
 
     yp = group_tree.yp
 
-    disp_ch = get_root_height_channel(yp)
-    if not disp_ch: return
+    parallax_ch = get_root_parallax_channel(yp)
+    if not parallax_ch: return
 
     parallax = group_tree.nodes.get(PARALLAX)
     if not parallax: return
@@ -560,9 +560,9 @@ def reconnect_depth_layer_nodes(group_tree):
 
     pack = tree.nodes.get('_pack')
 
-    io_disp_name = disp_ch.name + io_suffix['HEIGHT']
-    io_alpha_name = disp_ch.name + io_suffix['ALPHA']
-    io_disp_alpha_name = disp_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
+    io_disp_name = parallax_ch.name + io_suffix['HEIGHT']
+    io_alpha_name = parallax_ch.name + io_suffix['ALPHA']
+    io_disp_alpha_name = parallax_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
 
     height = start.outputs['base']
 
@@ -714,7 +714,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         create_link(tree, bitangent.outputs[0], bitangent_flip.inputs[0])
         bitangents[uv.name] = bitangent_flip.outputs[0]
 
-    disp_ch = get_root_height_channel(yp)
+    parallax_ch = get_root_parallax_channel(yp)
 
     baked_uv = yp.uvs.get(yp.baked_uv_name)
     if yp.use_baked and baked_uv:
@@ -723,7 +723,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         baked_bitangent = nodes.get(baked_uv.bitangent_flip).outputs[0]
 
     # Baked parallax
-    if disp_ch and yp.use_baked and baked_uv:
+    if parallax_ch and yp.use_baked and baked_uv:
         baked_parallax = nodes.get(BAKED_PARALLAX)
         if baked_parallax:
             reconnect_baked_parallax_layer_nodes(yp, baked_parallax)
@@ -739,7 +739,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     reconnect_depth_layer_nodes(tree)
 
     parallax = tree.nodes.get(PARALLAX)
-    if disp_ch and parallax:
+    if parallax_ch and parallax:
         for uv in yp.uvs:
             # Parallax preparations
             parallax_prep = tree.nodes.get(uv.parallax_prep)
@@ -751,7 +751,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                 create_link(tree, parallax_prep.outputs['start_uv'], parallax.inputs[uv.name + START_UV])
                 create_link(tree, parallax_prep.outputs['delta_uv'], parallax.inputs[uv.name + DELTA_UV])
 
-        disp = start.outputs.get(disp_ch.name + io_suffix['HEIGHT'])
+        disp = start.outputs.get(parallax_ch.name + io_suffix['HEIGHT'])
         if disp:
             create_link(tree, disp, parallax.inputs['base'])
     
@@ -825,7 +825,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             for uv_name in uv_names:
                 inp = node.inputs.get(uv_name + io_suffix['UV'])
                 if inp:
-                    if disp_ch and parallax:
+                    if parallax_ch and parallax:
                         create_link(tree, parallax.outputs[uv_name], inp)
                     else: create_link(tree, uv_maps[uv_name], inp)
 
@@ -1268,9 +1268,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         #fine_bump_ch = trans_bump_ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
 
     # Get normal/height channel
-    disp_ch = get_height_channel(layer)
-    if disp_ch and disp_ch.normal_blend_type == 'COMPARE':
-        compare_alpha = nodes.get(disp_ch.height_blend).outputs[1]
+    height_ch = get_height_channel(layer)
+    if height_ch and height_ch.normal_blend_type == 'COMPARE':
+        compare_alpha = nodes.get(height_ch.height_blend).outputs[1]
     else: compare_alpha = None
 
     chain = -1
@@ -2070,7 +2070,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                 # Extra alpha
                 if 'Extra Alpha' in tao.inputs:
-                    if disp_ch and disp_ch.normal_blend_type == 'COMPARE' and compare_alpha:
+                    if height_ch and height_ch.normal_blend_type == 'COMPARE' and compare_alpha:
                         create_link(tree, compare_alpha, tao.inputs['Extra Alpha'])
                     else:
                         break_input_link(tree, tao.inputs['Extra Alpha'])
@@ -2140,7 +2140,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     alpha = tr_ramp.outputs[1]
 
         # Extra alpha
-        if extra_alpha and disp_ch and disp_ch.normal_blend_type == 'COMPARE' and compare_alpha:
+        if extra_alpha and height_ch and height_ch.normal_blend_type == 'COMPARE' and compare_alpha:
             alpha = create_link(tree, alpha, extra_alpha.inputs[0])[0]
             create_link(tree, compare_alpha, extra_alpha.inputs[1])
 

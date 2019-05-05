@@ -799,7 +799,8 @@ def check_parallax_node(yp, disp_ch): #, uv):
                     uv.name + ' Parallax Preparation')
             parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
 
-        parallax_prep.inputs['depth_scale'].default_value = disp_ch.displacement_height_ratio
+        #parallax_prep.inputs['depth_scale'].default_value = disp_ch.displacement_height_ratio
+        parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(disp_ch)
         parallax_prep.inputs['ref_plane'].default_value = disp_ch.displacement_ref_plane
         parallax_prep.inputs['Rim Hack'].default_value = 1.0 if disp_ch.parallax_rim_hack else 0.0
         parallax_prep.inputs['Rim Hack Hardness'].default_value = disp_ch.parallax_rim_hack_hardness
@@ -894,7 +895,7 @@ def check_uv_nodes(yp):
     #        disp_ch = ch
     #        break
 
-    disp_ch = get_root_height_channel(yp)
+    disp_ch = get_root_parallax_channel(yp)
 
     if disp_ch:
         #if yp.baked_uv_name != '':
@@ -1138,8 +1139,9 @@ def update_disp_scale_node(tree, root_ch, ch):
 
     #    disp_scale.inputs['Scale'].default_value = ch.bump_distance #/ max_height
 
-    max_height = get_displacement_max_height(root_ch)
-    root_ch.displacement_height_ratio = max_height
+    #max_height = get_displacement_max_height(root_ch)
+    #root_ch.displacement_height_ratio = max_height
+    update_displacement_height_ratio(root_ch)
 
 def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=False):
 
@@ -1409,16 +1411,6 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     #print(need_reconnect)
 
     return need_reconnect
-
-def get_fine_bump_distance(distance):
-    scale = 200
-    #if layer.type == 'IMAGE':
-    #    source = get_layer_source(layer)
-    #    image = source.image
-    #    if image: scale = image.size[0] / 10
-
-    #return -1.0 * distance * scale
-    return distance * scale
 
 def check_blend_type_nodes(root_ch, layer, ch):
 

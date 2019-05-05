@@ -913,6 +913,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
             remove_node(ttree, ch, 'blend')
             remove_node(ttree, ch, 'intensity')
+            remove_node(ttree, ch, 'extra_alpha')
 
             remove_node(ttree, ch, 'disp_blend')
 
@@ -1661,40 +1662,40 @@ def update_channel_displacement(self, context):
     #    #node.inputs[io_name].default_value = 0.5
     #    node.inputs[io_name].default_value = 0.0
 
-def update_displacement_height_ratio(self, context):
-
-    group_tree = self.id_data
-    yp = group_tree.yp
-
-    max_height = self.displacement_height_ratio
-
-    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
-    if baked_parallax:
-        baked_parallax.inputs['depth_scale'].default_value = max_height
-
-    parallax = group_tree.nodes.get(PARALLAX)
-    if parallax:
-        depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
-        if depth_source_0:
-            pack = depth_source_0.node_tree.nodes.get('_pack')
-            if pack:
-                if max_height != 0.0:
-                    pack.inputs['Max Height'].default_value = max_height
-                else: pack.inputs['Max Height'].default_value = 1.0
-
-        end_linear = group_tree.nodes.get(self.end_linear)
-        if end_linear:
-            if max_height != 0.0:
-                end_linear.inputs['Max Height'].default_value = max_height
-            else: end_linear.inputs['Max Height'].default_value = 1.0
-
-            if self.enable_smooth_bump:
-                end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
-
-    for uv in yp.uvs:
-        parallax_prep = group_tree.nodes.get(uv.parallax_prep)
-        if parallax_prep:
-            parallax_prep.inputs['depth_scale'].default_value = max_height
+#def update_displacement_height_ratio(self, context):
+#
+#    group_tree = self.id_data
+#    yp = group_tree.yp
+#
+#    max_height = self.displacement_height_ratio
+#
+#    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+#    if baked_parallax:
+#        baked_parallax.inputs['depth_scale'].default_value = max_height
+#
+#    parallax = group_tree.nodes.get(PARALLAX)
+#    if parallax:
+#        depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+#        if depth_source_0:
+#            pack = depth_source_0.node_tree.nodes.get('_pack')
+#            if pack:
+#                if max_height != 0.0:
+#                    pack.inputs['Max Height'].default_value = max_height
+#                else: pack.inputs['Max Height'].default_value = 1.0
+#
+#        end_linear = group_tree.nodes.get(self.end_linear)
+#        if end_linear:
+#            if max_height != 0.0:
+#                end_linear.inputs['Max Height'].default_value = max_height
+#            else: end_linear.inputs['Max Height'].default_value = 1.0
+#
+#            if self.enable_smooth_bump:
+#                end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+#
+#    for uv in yp.uvs:
+#        parallax_prep = group_tree.nodes.get(uv.parallax_prep)
+#        if parallax_prep:
+#            parallax_prep.inputs['depth_scale'].default_value = max_height
 
 #def update_parallax_samples(self, context):
 #    group_tree = self.id_data
@@ -2009,8 +2010,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
     #        description = 'Enable Parallax Mapping.\nIt will use texture space scaling, so it may looks different when using it as real displacement map',
     #        default=False, update=update_channel_parallax)
 
-    displacement_height_ratio = FloatProperty(default=0.02, min=-1.0, max=1.0,
-            update=update_displacement_height_ratio)
+    #displacement_height_ratio = FloatProperty(default=0.02, min=-1.0, max=1.0,
+    #        update=update_displacement_height_ratio)
 
     parallax_num_of_layers = IntProperty(default=8, min=4, max=64,
             update=update_parallax_num_of_layers)

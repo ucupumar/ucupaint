@@ -511,8 +511,9 @@ def update_transition_bump_crease_factor(self, context):
     #    #normal_proc.inputs['Crease Height Scale'].default_value = get_fine_bump_distance(
     #    #        ch.transition_bump_crease_factor * -ch.transition_bump_distance)
 
-    max_height = get_displacement_max_height(root_ch)
-    root_ch.displacement_height_ratio = max_height
+    #max_height = get_displacement_max_height(root_ch)
+    #root_ch.displacement_height_ratio = max_height
+    update_displacement_height_ratio(root_ch)
 
 def update_transition_bump_crease_power(self, context):
     if not self.enable: return
@@ -646,8 +647,9 @@ def update_transition_bump_distance(self, context):
             if root_ch.enable_smooth_bump:
                 normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
-        max_height = get_displacement_max_height(root_ch)
-        root_ch.displacement_height_ratio = max_height
+        #max_height = get_displacement_max_height(root_ch)
+        #root_ch.displacement_height_ratio = max_height
+        update_displacement_height_ratio(root_ch)
 
 def update_transition_bump_chain(self, context):
     T = time.time()
