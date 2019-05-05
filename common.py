@@ -63,7 +63,7 @@ normal_blend_items = (
         ('MIX', 'Mix', ''),
         #('VECTOR_MIX', 'Vector Mix', ''),
         ('OVERLAY', 'Overlay', ''),
-        #('COMPARE', 'Compare Height', '')
+        ('COMPARE', 'Compare Height', '')
         )
 
 height_blend_items = (
@@ -1706,16 +1706,27 @@ def set_bitangent_backface_flip(node, flip_backface):
     else:
         node.mute = True
 
-def get_displacement_channel(yp):
+def get_root_height_channel(yp):
     for ch in yp.channels:
-        if ch.type == 'NORMAL' and ch.enable_parallax:
+        if ch.type == 'NORMAL': # and ch.enable_parallax:
+            return ch
+
+    return None
+
+def get_height_channel(layer):
+
+    yp = layer.id_data.yp
+
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i]
+        if root_ch.type == 'NORMAL':
             return ch
 
     return None
 
 #def get_parallax_uv(yp, disp_ch=None):
 #    if not disp_ch:
-#        disp_ch = get_displacement_channel(yp)
+#        disp_ch = get_root_height_channel(yp)
 #
 #    if not disp_ch:
 #        return None
@@ -1752,7 +1763,7 @@ def create_delete_iterate_nodes(tree, num_of_iteration):
         counter += 1
 
 def set_relief_mapping_nodes(yp, node, img=None):
-    ch = get_displacement_channel(yp)
+    ch = get_root_height_channel(yp)
 
     # Set node parameters
     node.inputs[0].default_value = ch.displacement_height_ratio
@@ -1778,7 +1789,7 @@ def set_relief_mapping_nodes(yp, node, img=None):
     create_delete_iterate_nodes(binary_loop.node_tree, ch.parallax_num_of_binary_samples)
 
 def set_baked_parallax_node(yp, node, img=None):
-    ch = get_displacement_channel(yp)
+    ch = get_root_height_channel(yp)
 
     # Set node parameters
     node.inputs['layer_depth'].default_value = 1.0 / ch.parallax_num_of_layers

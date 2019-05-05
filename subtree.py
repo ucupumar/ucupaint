@@ -894,7 +894,7 @@ def check_uv_nodes(yp):
     #        disp_ch = ch
     #        break
 
-    disp_ch = get_displacement_channel(yp)
+    disp_ch = get_root_height_channel(yp)
 
     if disp_ch:
         #if yp.baked_uv_name != '':
@@ -1036,7 +1036,7 @@ def check_layer_tree_ios(layer, tree=None):
 
             # Displacement Input
             #if root_ch.enable_parallax:
-            if root_ch.type == 'NORMAL':
+            if root_ch.type == 'NORMAL' and layer.type == 'GROUP':
 
                 name = root_ch.name + io_suffix['HEIGHT'] + io_suffix[layer.type]
                 dirty = create_input(tree, name, 'NodeSocketFloat',
@@ -1436,10 +1436,12 @@ def check_blend_type_nodes(root_ch, layer, ch):
     # Background layer always using mix blend type
     if layer.type == 'BACKGROUND':
         blend_type = 'MIX'
-        normal_blend_type = 'MIX'
+        #normal_blend_type = 'MIX'
     else: 
         blend_type = ch.blend_type
-        normal_blend_type = ch.normal_blend_type
+        #normal_blend_type = ch.normal_blend_type
+
+    normal_blend_type = ch.normal_blend_type
 
     if root_ch.type == 'RGB':
 
@@ -1462,9 +1464,6 @@ def check_blend_type_nodes(root_ch, layer, ch):
         else:
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True, replaced=need_reconnect)
-
-            #if blend.blend_type != blend_type:
-            #    blend.blend_type = blend_type
 
     elif root_ch.type == 'NORMAL':
 
@@ -1493,132 +1492,16 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
                     return_status = True, hard_replace=True, replaced=need_reconnect)
 
-        #blend_height = tree.nodes.get(ch.blend_height)
-        #if not blend_height:
-        #    blend_height = new_node(tree, ch, 'blend_height', 'ShaderNodeMixRGB', 'Height Blend')
-
-        #if ch.normal_blend_type == 'MIX': blend_height.blend_type = 'MIX'
-        #elif ch.normal_blend_type == 'OVERLAY': blend_height.blend_type = 'ADD'
-
-        #intensity_height = tree.nodes.get(ch.intensity_height)
-        #if not intensity_height:
-        #    intensity_height = new_node(tree, ch, 'intensity_height', 'ShaderNodeMath', 'Height Intensity')
-        #    intensity_height.operation = 'MULTIPLY'
-
-        #if root_ch.enable_smooth_bump:
-        #    for d in neighbor_directions:
-
-        #        # Blend height
-        #        bh = tree.nodes.get(getattr(ch, 'blend_height_' + d))
-        #        if not bh:
-        #            bh = new_node(tree, ch, 'blend_height_' + d, 'ShaderNodeMixRGB', 'Height Blend ' + d)
-        #        if ch.normal_blend_type == 'MIX': bh.blend_type = 'MIX'
-        #        elif ch.normal_blend_type == 'OVERLAY': bh.blend_type = 'ADD'
-
-        #        # Intensity
-        #        inten = tree.nodes.get(getattr(ch, 'intensity_height_' + d))
-        #        if not inten:
-        #            bh = new_node(tree, ch, 'intensity_height_' + d, 'ShaderNodeMath', 'Height Intensity ' + d)
-        #            bh.operation = 'MULTIPLY'
-
-        #else:
-        #    for d in neighbor_directions:
-        #        remove_node(tree, ch, 'blend_height_' + d)
-        #        remove_node(tree, ch, 'intensity_height_' + d)
-
-        #disp_ch = get_displacement_channel(yp)
-
         update_disp_scale_node(tree, root_ch, ch)
-
-        #if not root_ch.enable_parallax:
-        #    remove_node(tree, ch, 'height_blend')
-
-        #if root_ch == disp_ch:
-            #ch_index = get_channel_index(root_ch)
-
-            #height_blend = tree.nodes.get(ch.height_blend)
-            #disp_scale = tree.nodes.get(ch.disp_scale)
-
-            #max_height = get_displacement_max_height(root_ch)
-            #root_ch.displacement_height_ratio = max_height
-
-            # Displacement blend node
-            #if not height_blend:
-            #    height_blend = new_node(tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend')
-
-            #if ch.normal_blend_type == 'MIX':
-            #    #height_blend.blend_type = 'MIX'
-            #    height_blend, need_reconnect = replace_new_node(tree, ch, 'height_blend', 
-            #            'ShaderNodeGroup', 'Displacement Blend', lib.DISP_MIX, 
-            #            return_status = True, hard_replace=True)
-            #elif ch.normal_blend_type == 'OVERLAY':
-            #    #height_blend.blend_type = 'ADD'
-            #    height_blend, need_reconnect = replace_new_node(tree, ch, 'height_blend', 
-            #            'ShaderNodeGroup', 'Displacement Blend', lib.DISP_OVERLAY, 
-            #            return_status = True, hard_replace=True)
-
-            #if ch.normal_blend_type == 'MIX':
-            #    height_blend.blend_type = 'MIX'
-            #elif ch.normal_blend_type == 'OVERLAY':
-            #    height_blend.blend_type = 'ADD'
-
-            #if max_height > 0.0:
-            #for l in yp.layers:
-                #ttree = get_tree(l)
-                #print(l.name)
-                #c = l.channels[ch_index]
-            #height_blend = tree.nodes.get(ch.height_blend)
-            #if height_blend:
-            #    height_blend.inputs['Scale'].default_value = ch.bump_distance #/ max_height
-
-            #if not disp_scale:
-            #    disp_scale = new_node(tree, ch, 'disp_scale', 'ShaderNodeGroup', 'Displacement Scale')
-            #    disp_scale.node_tree = get_node_tree_lib(lib.HEIGHT_SCALE)
-
-            #if ch.enable_transition_bump:
-            #    disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
-            #            'ShaderNodeGroup', 'Displacement Scale', lib.HEIGHT_SCALE_TRANS_BUMP, 
-            #            return_status = True, hard_replace=True)
-
-            #    delta = ch.transition_bump_distance - abs(ch.bump_distance)
-            #    disp_scale.inputs['Delta'].default_value = delta
-            #    disp_scale.inputs['RGB Max Height'].default_value = ch.bump_distance
-            #    disp_scale.inputs['Alpha Max Height'].default_value = ch.transition_bump_distance
-
-            #else:
-            #    disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
-            #            'ShaderNodeGroup', 'Displacement Scale', lib.DISP_SCALE, 
-            #            return_status = True, hard_replace=True)
-
-            #    disp_scale.inputs['Scale'].default_value = ch.bump_distance #/ max_height
-            #update_disp_scale_node(tree, root_ch, ch)
-
-        #else:
-        #    remove_node(tree, ch, 'height_blend')
-        #    remove_node(tree, ch, 'disp_scale')
 
         if root_ch.enable_smooth_bump:
             pass
-
-            #for d in neighbor_directions:
-            #    hb = tree.nodes.get(getattr(ch, 'height_blend_' + d))
-            #    if not hb:
-            #        hb = new_node(tree, ch, 'height_blend_' + d, 'ShaderNodeMixRGB', 'Height Blend')
-
-            #    if ch.normal_blend_type == 'MIX':
-            #        hb.blend_type = 'MIX'
-            #    elif ch.normal_blend_type == 'OVERLAY':
-            #        hb.blend_type = 'ADD'
         else:
             for d in neighbor_directions:
                 remove_node(tree, ch, 'height_blend_' + d)
 
-        #print(need_reconnect)
-
         # Update normal map nodes
         need_reconnect = check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect)
-
-        #print(need_reconnect)
 
     elif root_ch.type == 'VALUE':
 
@@ -1639,16 +1522,10 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if root_ch.type != 'NORMAL' and blend.type == 'MIX_RGB' and blend.blend_type != blend_type:
         blend.blend_type = blend_type
 
-    #print(need_reconnect)
+    # Extra alpha
+    need_reconnect = check_extra_alpha(layer, need_reconnect)
 
-    # Blend mute
-    #mute = not layer.enable or not ch.enable
-    #intensity = nodes.get(ch.intensity)
-    #if intensity: intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-    #if ch.enable_transition_ramp:
-    #    tr_intensity = nodes.get(ch.tr_intensity)
-    #    if tr_intensity: tr_intensity.inputs[1].default_value = 0.0 if mute else ch.transition_ramp_intensity_value
-
+    # Mute
     mute = not layer.enable or not ch.enable
     if yp.disable_quick_toggle:
         blend.mute = mute
@@ -1666,14 +1543,30 @@ def check_blend_type_nodes(root_ch, layer, ch):
         # Channel mute
         intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
-    #if root_ch.type == 'NORMAL':
-    #    height_process = tree.nodes.get(ch.height_process)
-    #    if height_process:
-    #        height_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
-
-    #    normal_process = tree.nodes.get(ch.normal_process)
-    #    if normal_process and 'Intensity' in normal_process.inputs:
-    #        normal_process.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
-
     return need_reconnect
 
+def check_extra_alpha(layer, need_reconnect=False):
+
+    disp_ch = get_height_channel(layer)
+    if not disp_ch: return
+
+    tree = get_tree(layer)
+
+    for ch in layer.channels:
+        if disp_ch == ch: continue
+
+        extra_alpha = tree.nodes.get(ch.extra_alpha)
+
+        if disp_ch.enable and disp_ch.normal_blend_type == 'COMPARE':
+
+            if not extra_alpha:
+                extra_alpha = new_node(tree, ch, 'extra_alpha', 'ShaderNodeMath', 'Extra Alpha')
+                extra_alpha.operation = 'MULTIPLY'
+                need_reconnect = True
+
+        elif extra_alpha:
+            remove_node(tree, ch, 'extra_alpha')
+            need_reconnect = True
+
+    return need_reconnect
+    

@@ -191,6 +191,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         # Blend
         frame = get_frame(tree, '__blend__', str(i), root_ch.name + ' Blend')
         check_set_node_parent(tree, ch.intensity, frame)
+        check_set_node_parent(tree, ch.extra_alpha, frame)
         check_set_node_parent(tree, ch.blend, frame)
 
         if root_ch.type == 'NORMAL':
@@ -1099,6 +1100,9 @@ def rearrange_layer_nodes(layer, tree=None):
         #if loc.x < save_x:
         #    loc.x = save_x
 
+        if check_set_node_loc(tree, ch.extra_alpha, loc):
+            loc.x += 200
+
         if check_set_node_loc(tree, ch.blend, loc):
             loc.x += 250
 
@@ -1164,7 +1168,7 @@ def rearrange_layer_nodes(layer, tree=None):
     rearrange_layer_frame_nodes(layer, tree)
 
 def rearrange_relief_mapping_nodes(group_tree):
-    ch = get_displacement_channel(group_tree.yp)
+    ch = get_root_height_channel(group_tree.yp)
     if not ch: return
 
     baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
@@ -1200,7 +1204,7 @@ def rearrange_relief_mapping_nodes(group_tree):
             check_set_node_loc(tree, TREE_END, loc)
 
 def rearrange_parallax_layer_nodes(yp, parallax):
-    ch = get_displacement_channel(yp)
+    ch = get_root_height_channel(yp)
     if not ch: return
 
     loop = parallax.node_tree.nodes.get('_parallax_loop')
@@ -1299,7 +1303,7 @@ def rearrange_uv_nodes(group_tree, loc):
 def rearrange_depth_layer_nodes(group_tree):
     yp = group_tree.yp
 
-    disp_ch = get_displacement_channel(yp)
+    disp_ch = get_root_height_channel(yp)
     if not disp_ch: return
 
     parallax = group_tree.nodes.get(PARALLAX)

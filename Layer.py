@@ -1927,6 +1927,10 @@ def update_channel_enable(self, context):
     if root_ch.type == 'NORMAL':
         transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
 
+        #need_reconnect = check_extra_alpha(layer)
+        #if need_reconnect:
+        #    pass
+
 def update_normal_map_type(self, context):
     yp = self.id_data.yp
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
@@ -1951,7 +1955,12 @@ def update_blend_type(self, context):
     root_ch = yp.channels[ch_index]
 
     if check_blend_type_nodes(root_ch, layer, self): # and not yp.halt_reconnect:
-        reconnect_layer_nodes(layer, ch_index)
+
+        # Reconnect all layer channels if normal channel is updated
+        if root_ch.type == 'NORMAL':
+            reconnect_layer_nodes(layer) 
+        else: reconnect_layer_nodes(layer, ch_index)
+
         rearrange_layer_nodes(layer)
 
     print('INFO: Layer', layer.name, ' blend type is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -2339,6 +2348,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
     blend = StringProperty(default='')
     intensity = StringProperty(default='')
     source = StringProperty(default='')
+
+    extra_alpha = StringProperty(default='')
 
     #intensity_height = StringProperty(default='')
     #intensity_height_n = StringProperty(default='')

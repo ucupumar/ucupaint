@@ -274,7 +274,11 @@ def check_transition_bump_nodes(layer, tree, ch, ch_index):
     #ch.normal_map_type = ch.normal_map_type
     update_disp_scale_node(tree, root_ch, ch)
 
+    # Check normal map nodes
     check_channel_normal_map_nodes(tree, layer, root_ch, ch)
+
+    # Check extra alpha
+    check_extra_alpha(layer)
     
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer) #, mod_reconnect=True)
@@ -622,7 +626,7 @@ def update_transition_bump_distance(self, context):
 
     if not ch.enable_transition_bump: return
 
-    disp_ch = get_displacement_channel(yp)
+    disp_ch = get_root_height_channel(yp)
     if disp_ch == root_ch:
 
         max_height = get_displacement_max_height(root_ch, layer)
@@ -992,7 +996,7 @@ def update_enable_transition_ramp(self, context):
 
 #def check_transition_bump_displacement(yp, root_ch, ch):
 #
-#    disp_ch = get_displacement_channel(yp)
+#    disp_ch = get_root_height_channel(yp)
 #
 #    if disp_ch == root_ch:
 #        #max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))

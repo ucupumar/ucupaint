@@ -901,10 +901,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
 
         row.label(text=yp.channels[i].name + ':')
 
-        if layer.type != 'BACKGROUND':
-            if root_ch.type == 'NORMAL':
-                row.prop(ch, 'normal_blend_type', text='')
-            else: row.prop(ch, 'blend_type', text='')
+        #if layer.type != 'BACKGROUND':
+        if root_ch.type == 'NORMAL':
+            row.prop(ch, 'normal_blend_type', text='')
+        elif layer.type != 'BACKGROUND':
+            row.prop(ch, 'blend_type', text='')
 
         row.prop(ch, 'intensity_value', text='')
 
