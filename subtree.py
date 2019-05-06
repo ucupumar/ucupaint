@@ -773,9 +773,13 @@ def refresh_parallax_depth_img(yp, parallax, disp_img): #, disp_ch):
         #    node = new_node(tree, layer, 'depth_group_node', 'ShaderNodeGroup', layer.name)
         #    node.node_tree = n.node_tree
 
-def check_parallax_node(yp, disp_ch, node_name, disp_img=None, uv_name=''): #, uv):
+def check_parallax_node(yp, parallax_ch, node_name, disp_img=None, uv_name=''): #, uv):
 
     tree = yp.id_data
+
+    # Standard height channel is the fallback of parallax channel
+    if not parallax_ch:
+        parallax_ch = get_root_height_channel(yp)
 
     #parallax = tree.nodes.get(PARALLAX)
     parallax = tree.nodes.get(node_name)
@@ -799,9 +803,9 @@ def check_parallax_node(yp, disp_ch, node_name, disp_img=None, uv_name=''): #, u
 
     parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
 
-    create_delete_iterate_nodes(parallax_loop.node_tree, disp_ch.parallax_num_of_layers)
+    create_delete_iterate_nodes(parallax_loop.node_tree, parallax_ch.parallax_num_of_layers)
 
-    parallax.inputs['layer_depth'].default_value = 1.0 / disp_ch.parallax_num_of_layers
+    parallax.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
 
     if disp_img:
         refresh_parallax_depth_img(yp, parallax, disp_img)
@@ -823,12 +827,12 @@ def check_parallax_node(yp, disp_ch, node_name, disp_img=None, uv_name=''): #, u
                     uv.name + ' Parallax Preparation')
             parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
 
-        #parallax_prep.inputs['depth_scale'].default_value = disp_ch.displacement_height_ratio
-        parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(disp_ch)
-        parallax_prep.inputs['ref_plane'].default_value = disp_ch.displacement_ref_plane
-        parallax_prep.inputs['Rim Hack'].default_value = 1.0 if disp_ch.parallax_rim_hack else 0.0
-        parallax_prep.inputs['Rim Hack Hardness'].default_value = disp_ch.parallax_rim_hack_hardness
-        parallax_prep.inputs['layer_depth'].default_value = 1.0 / disp_ch.parallax_num_of_layers
+        #parallax_prep.inputs['depth_scale'].default_value = parallax_ch.displacement_height_ratio
+        parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(parallax_ch)
+        parallax_prep.inputs['ref_plane'].default_value = parallax_ch.displacement_ref_plane
+        parallax_prep.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
+        parallax_prep.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
+        parallax_prep.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
 
         check_start_delta_uv_inputs(parallax.node_tree, uv.name)
         check_parallax_mix(parallax.node_tree, uv)
@@ -857,13 +861,13 @@ def check_parallax_node(yp, disp_ch, node_name, disp_img=None, uv_name=''): #, u
     #    parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION)
     #    duplicate_lib_node_tree(parallax)
 
-    #parallax.inputs['depth_scale'].default_value = disp_ch.displacement_height_ratio
-    #parallax.inputs['ref_plane'].default_value = disp_ch.displacement_ref_plane
-    #parallax.inputs['Rim Hack'].default_value = 1.0 if disp_ch.parallax_rim_hack else 0.0
-    #parallax.inputs['Rim Hack Hardness'].default_value = disp_ch.parallax_rim_hack_hardness
+    #parallax.inputs['depth_scale'].default_value = parallax_ch.displacement_height_ratio
+    #parallax.inputs['ref_plane'].default_value = parallax_ch.displacement_ref_plane
+    #parallax.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
+    #parallax.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
 
     ## Search for displacement image
-    #baked_disp = tree.nodes.get(disp_ch.baked_disp)
+    #baked_disp = tree.nodes.get(parallax_ch.baked_disp)
     #if baked_disp and baked_disp.image:
     #    set_parallax_node(yp, parallax, baked_disp.image)
 

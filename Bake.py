@@ -1296,7 +1296,7 @@ class YBakeChannels(bpy.types.Operator):
         #set_bitangent_backface_flip(baked_bitangent_flip, yp.flip_backface)
 
         # Get parallax occlusion mapping
-        if disp_img and self.parallax_ch:
+        if disp_img: #and self.parallax_ch:
             check_parallax_node(yp, self.parallax_ch, BAKED_PARALLAX, disp_img, self.uv_map)
             #baked_parallax = tree.nodes.get(BAKED_PARALLAX)
             #if not baked_parallax:
