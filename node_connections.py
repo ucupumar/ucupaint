@@ -336,15 +336,15 @@ def reconnect_relief_mapping_nodes(yp, node):
 
             prev_it = it
 
-def reconnect_parallax_layer_nodes(group_tree):
+def reconnect_parallax_layer_nodes(group_tree, parallax):
 
     yp = group_tree.yp
 
     parallax_ch = get_root_parallax_channel(yp)
     if not parallax_ch: return
 
-    parallax = group_tree.nodes.get(PARALLAX)
-    if not parallax: return
+    #parallax = group_tree.nodes.get(PARALLAX)
+    #if not parallax: return
 
     loop = parallax.node_tree.nodes.get('_parallax_loop')
     if not loop: return
@@ -444,15 +444,12 @@ def reconnect_baked_parallax_layer_nodes(yp, node):
 
             prev_it = it
 
-def reconnect_parallax_process_nodes(group_tree): #, uv_maps, tangents, bitangents):
+def reconnect_parallax_process_nodes(group_tree, parallax, uv_name=''): #, uv_maps, tangents, bitangents):
 
     yp = group_tree.yp
 
-    parallax_ch = get_root_parallax_channel(yp)
-    if not parallax_ch: return
-
-    parallax = group_tree.nodes.get(PARALLAX)
-    if not parallax: return
+    #parallax = group_tree.nodes.get(PARALLAX)
+    #if not parallax: return
 
     tree = parallax.node_tree
 
@@ -478,6 +475,7 @@ def reconnect_parallax_process_nodes(group_tree): #, uv_maps, tangents, bitangen
     weight = tree.nodes.get('_weight')
     
     for uv in yp.uvs:
+        if uv_name != '' and uv.name != uv_name: continue
 
         # Parallax preparations
         #parallax_prep = group_tree.nodes.get(uv.parallax_prep)
@@ -514,6 +512,7 @@ def reconnect_parallax_process_nodes(group_tree): #, uv_maps, tangents, bitangen
         # Inside depth source
         delta_uv = depth_source_0.node_tree.nodes.get(uv.parallax_delta_uv)
         current_uv = depth_source_0.node_tree.nodes.get(uv.parallax_current_uv)
+        height_map = depth_source_0.node_tree.nodes.get(HEIGHT_MAP)
 
         create_link(depth_source_0.node_tree, depth_start.outputs['index'], delta_uv.inputs[1])
         create_link(depth_source_0.node_tree, depth_start.outputs[uv.name + DELTA_UV], delta_uv.inputs[2])
@@ -522,6 +521,10 @@ def reconnect_parallax_process_nodes(group_tree): #, uv_maps, tangents, bitangen
         create_link(depth_source_0.node_tree, delta_uv.outputs[0], current_uv.inputs[1])
 
         create_link(depth_source_0.node_tree, current_uv.outputs[0], depth_end.inputs[uv.name + CURRENT_UV])
+
+        if height_map:
+            create_link(depth_source_0.node_tree, current_uv.outputs[0], height_map.inputs[0])
+            create_link(depth_source_0.node_tree, height_map.outputs[0], depth_end.inputs[0])
 
         # Inside iteration
         create_link(iterate_0.node_tree, 
@@ -540,17 +543,11 @@ def reconnect_parallax_process_nodes(group_tree): #, uv_maps, tangents, bitangen
         create_link(iterate_0.node_tree, 
                 parallax_current_uv_mix.outputs[0], iterate_end.inputs[uv.name + CURRENT_UV])
 
-    reconnect_parallax_layer_nodes(group_tree)
+    reconnect_parallax_layer_nodes(group_tree, parallax)
 
-def reconnect_depth_layer_nodes(group_tree):
+def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
 
     yp = group_tree.yp
-
-    parallax_ch = get_root_parallax_channel(yp)
-    if not parallax_ch: return
-
-    parallax = group_tree.nodes.get(PARALLAX)
-    if not parallax: return
 
     depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
     tree = depth_source_0.node_tree
@@ -694,6 +691,11 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     parallax = tree.nodes.get(PARALLAX)
     geometry = tree.nodes.get(GEOMETRY)
 
+    # Parallax
+    parallax_ch = get_root_parallax_channel(yp)
+    parallax = tree.nodes.get(PARALLAX)
+    baked_parallax = tree.nodes.get(BAKED_PARALLAX)
+
     # UVs
 
     uv_maps = {}
@@ -714,47 +716,60 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         create_link(tree, bitangent.outputs[0], bitangent_flip.inputs[0])
         bitangents[uv.name] = bitangent_flip.outputs[0]
 
-    parallax_ch = get_root_parallax_channel(yp)
-
     baked_uv = yp.uvs.get(yp.baked_uv_name)
     if yp.use_baked and baked_uv:
-        baked_uv_map = nodes.get(baked_uv.uv_map).outputs[0]
+        if parallax_ch and baked_parallax:
+            baked_uv_map = baked_parallax.outputs[0]
+        else: baked_uv_map = nodes.get(baked_uv.uv_map).outputs[0]
+
         baked_tangent = nodes.get(baked_uv.tangent_flip).outputs[0]
         baked_bitangent = nodes.get(baked_uv.bitangent_flip).outputs[0]
 
     # Baked parallax
-    if parallax_ch and yp.use_baked and baked_uv:
-        baked_parallax = nodes.get(BAKED_PARALLAX)
+    #if parallax_ch and yp.use_baked and baked_uv:
+    #    baked_parallax = nodes.get(BAKED_PARALLAX)
+    #    if baked_parallax:
+    #        reconnect_baked_parallax_layer_nodes(yp, baked_parallax)
+
+    #        create_link(tree, baked_uv_map, baked_parallax.inputs['UV'])
+    #        create_link(tree, baked_tangent, baked_parallax.inputs['Tangent'])
+    #        create_link(tree, baked_bitangent, baked_parallax.inputs['Bitangent'])
+
+    #        baked_uv_map = baked_parallax.outputs[0]
+
+    # Parallax internal connections
+    if parallax_ch:
+        if parallax:
+            reconnect_parallax_process_nodes(tree, parallax) #, uv_maps, tangents, bitangents)
+            reconnect_depth_layer_nodes(tree, parallax_ch, parallax)
         if baked_parallax:
-            reconnect_baked_parallax_layer_nodes(yp, baked_parallax)
+            reconnect_parallax_process_nodes(tree, baked_parallax, yp.baked_uv_name) #, uv_maps, tangents, bitangents)
 
-            create_link(tree, baked_uv_map, baked_parallax.inputs['UV'])
-            create_link(tree, baked_tangent, baked_parallax.inputs['Tangent'])
-            create_link(tree, baked_bitangent, baked_parallax.inputs['Bitangent'])
-
-            baked_uv_map = baked_parallax.outputs[0]
-
-    # Parallax
-    reconnect_parallax_process_nodes(tree) #, uv_maps, tangents, bitangents)
-    reconnect_depth_layer_nodes(tree)
-
-    parallax = tree.nodes.get(PARALLAX)
-    if parallax_ch and parallax:
-        for uv in yp.uvs:
-            # Parallax preparations
-            parallax_prep = tree.nodes.get(uv.parallax_prep)
-            if parallax_prep:
-                create_link(tree, uv_maps[uv.name], parallax_prep.inputs['UV'])
-                create_link(tree, tangents[uv.name], parallax_prep.inputs['Tangent'])
-                create_link(tree, bitangents[uv.name], parallax_prep.inputs['Bitangent'])
-        
+    # Parallax preparations
+    for uv in yp.uvs:
+        parallax_prep = tree.nodes.get(uv.parallax_prep)
+        if parallax_prep:
+            create_link(tree, uv_maps[uv.name], parallax_prep.inputs['UV'])
+            create_link(tree, tangents[uv.name], parallax_prep.inputs['Tangent'])
+            create_link(tree, bitangents[uv.name], parallax_prep.inputs['Bitangent'])
+    
+            if parallax:
                 create_link(tree, parallax_prep.outputs['start_uv'], parallax.inputs[uv.name + START_UV])
                 create_link(tree, parallax_prep.outputs['delta_uv'], parallax.inputs[uv.name + DELTA_UV])
 
-        disp = start.outputs.get(parallax_ch.name + io_suffix['HEIGHT'])
-        if disp:
-            create_link(tree, disp, parallax.inputs['base'])
-    
+            if baked_parallax:
+                create_link(tree, parallax_prep.outputs['start_uv'], baked_parallax.inputs[uv.name + START_UV])
+                create_link(tree, parallax_prep.outputs['delta_uv'], baked_parallax.inputs[uv.name + DELTA_UV])
+
+    if parallax_ch:
+        if parallax:
+            disp = start.outputs.get(parallax_ch.name + io_suffix['HEIGHT'])
+            if disp: create_link(tree, disp, parallax.inputs['base'])
+
+        if baked_parallax:
+            disp = start.outputs.get(parallax_ch.name + io_suffix['HEIGHT'])
+            if disp: create_link(tree, disp, baked_parallax.inputs['base'])
+
     for i, ch in enumerate(yp.channels):
         if ch_idx != -1 and i != ch_idx: continue
 
@@ -974,9 +989,11 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
                     rgb = create_link(tree, rgb, baked_normal_flip.inputs[0])[0]
 
-                if ch.enable_parallax:
-                    baked_disp = nodes.get(ch.baked_disp)
-                    if baked_disp: disp = baked_disp.outputs[0]
+                #if ch.enable_parallax:
+                baked_disp = nodes.get(ch.baked_disp)
+                if baked_disp: 
+                    disp = baked_disp.outputs[0]
+                    create_link(tree, baked_uv_map, baked_disp.inputs[0])
 
             if ch.type == 'RGB' and ch.enable_alpha:
                 alpha = baked.outputs[1]
@@ -988,7 +1005,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         if ch.type == 'RGB' and ch.enable_alpha:
             #create_link(tree, alpha, end.inputs[ch.io_index+1])
             create_link(tree, alpha, end.inputs[io_alpha_name])
-        if ch.type == 'NORMAL' and ch.enable_parallax:
+        if ch.type == 'NORMAL': #and ch.enable_parallax:
             #create_link(tree, disp, end.inputs[ch.io_index+1])
             create_link(tree, disp, end.inputs[io_disp_name])
 

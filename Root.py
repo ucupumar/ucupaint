@@ -1712,12 +1712,12 @@ def update_parallax_rim_hack(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
 
-    parallax = group_tree.nodes.get(BAKED_PARALLAX)
-    if parallax:
-        try:
-            parallax.inputs['Rim Hack'].default_value = 1.0 if self.parallax_rim_hack else 0.0
-            parallax.inputs['Rim Hack Hardness'].default_value = self.parallax_rim_hack_hardness
-        except: pass
+    #parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    #if parallax:
+    #    try:
+    #        parallax.inputs['Rim Hack'].default_value = 1.0 if self.parallax_rim_hack else 0.0
+    #        parallax.inputs['Rim Hack Hardness'].default_value = self.parallax_rim_hack_hardness
+    #    except: pass
 
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)
@@ -1731,12 +1731,22 @@ def update_parallax_num_of_layers(self, context):
     yp = group_tree.yp
 
     # Baked parallax
+    #baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    #if baked_parallax:
+    #    set_baked_parallax_node(yp, baked_parallax)
+
+    #    rearrange_parallax_layer_nodes(yp, baked_parallax)
+    #    reconnect_baked_parallax_layer_nodes(yp, baked_parallax)
+
     baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
     if baked_parallax:
-        set_baked_parallax_node(yp, baked_parallax)
+        loop = baked_parallax.node_tree.nodes.get('_parallax_loop')
+        create_delete_iterate_nodes(loop.node_tree, self.parallax_num_of_layers)
 
         rearrange_parallax_layer_nodes(yp, baked_parallax)
-        reconnect_baked_parallax_layer_nodes(yp, baked_parallax)
+        reconnect_parallax_layer_nodes(group_tree, baked_parallax)
+
+        baked_parallax.inputs['layer_depth'].default_value = 1.0 / self.parallax_num_of_layers
 
     # Parallax
     parallax = group_tree.nodes.get(PARALLAX)
@@ -1745,9 +1755,9 @@ def update_parallax_num_of_layers(self, context):
         create_delete_iterate_nodes(loop.node_tree, self.parallax_num_of_layers)
 
         rearrange_parallax_layer_nodes(yp, parallax)
-        reconnect_parallax_layer_nodes(group_tree)
+        reconnect_parallax_layer_nodes(group_tree, parallax)
 
-    parallax.inputs['layer_depth'].default_value = 1.0 / self.parallax_num_of_layers
+        parallax.inputs['layer_depth'].default_value = 1.0 / self.parallax_num_of_layers
 
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)

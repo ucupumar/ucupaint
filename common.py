@@ -34,6 +34,8 @@ PARALLAX = 'Parallax'
 MOD_TREE_START = '__mod_start'
 MOD_TREE_END = '__mod_end'
 
+HEIGHT_MAP = 'Height Map'
+
 START_UV = ' Start UV'
 DELTA_UV = ' Delta UV'
 CURRENT_UV = ' Current UV'
@@ -822,14 +824,12 @@ def check_duplicated_node_group(node_group, duplicated_trees = []):
 
         if node.type == 'GROUP' and node.node_tree:
 
-            check_duplicated_node_group(node.node_tree, duplicated_trees)
-
             # Check if its node tree duplicated
             m = re.match(r'^(.+)\.\d{3}$', node.node_tree.name)
             if m:
                 ng = bpy.data.node_groups.get(m.group(1))
                 if ng:
-                    #print(node.node_tree.name)
+                    #print(node.name, node.node_tree.name, ng.name)
                     #print('p:', node_group.name, 'm:', m.group(1), 'name:', node.node_tree.name)
 
                     # Remember current tree
@@ -845,6 +845,8 @@ def check_duplicated_node_group(node_group, duplicated_trees = []):
                     #if prev_tree.users == 0:
                     #    #print(node_group.name + ' -> ' + prev_tree.name + ' removed!')
                     #    bpy.data.node_groups.remove(prev_tree)
+
+            check_duplicated_node_group(node.node_tree, duplicated_trees)
 
     # Create info frame if not found
     if not info_frame_found:
@@ -878,6 +880,8 @@ def get_node_tree_lib(name):
     if node_tree: # and appended:
         duplicated_trees = []
         check_duplicated_node_group(node_tree, duplicated_trees)
+
+        #print('dub', duplicated_trees)
 
         # Remove duplicated trees
         for t in duplicated_trees:
@@ -1733,7 +1737,7 @@ def get_height_channel(layer):
 
 #def get_parallax_uv(yp, disp_ch=None):
 #    if not disp_ch:
-#        disp_ch = get_root_height_channel(yp)
+#        disp_ch = get_root_parallax_channel(yp)
 #
 #    if not disp_ch:
 #        return None
@@ -1770,7 +1774,7 @@ def create_delete_iterate_nodes(tree, num_of_iteration):
         counter += 1
 
 def set_relief_mapping_nodes(yp, node, img=None):
-    ch = get_root_height_channel(yp)
+    ch = get_root_parallax_channel(yp)
 
     # Set node parameters
     #node.inputs[0].default_value = ch.displacement_height_ratio
@@ -1796,51 +1800,64 @@ def set_relief_mapping_nodes(yp, node, img=None):
     binary_loop = tree.nodes.get('_binary_search')
     create_delete_iterate_nodes(binary_loop.node_tree, ch.parallax_num_of_binary_samples)
 
-def set_baked_parallax_node(yp, node, img=None):
-    ch = get_root_height_channel(yp)
-
-    # Set node parameters
-    node.inputs['layer_depth'].default_value = 1.0 / ch.parallax_num_of_layers
-    #node.inputs['depth_scale'].default_value = ch.displacement_height_ratio
-    node.inputs['depth_scale'].default_value = get_displacement_max_height(ch)
-    node.inputs['ref_plane'].default_value = ch.displacement_ref_plane
-
-    tree = node.node_tree
-
-    if img:
-        depth_source = tree.nodes.get('_depth_source')
-        depth_from_tex = depth_source.node_tree.nodes.get('_depth_from_tex')
-        depth_from_tex.image = img
-
-    parallax_loop = tree.nodes.get('_parallax_loop')
-    create_delete_iterate_nodes(loop_tree, ch.parallax_num_of_layers)
-
-    #counter = 0
-    #while True:
-    #    it = loop_tree.nodes.get('_iterate_' + str(counter))
-
-    #    it_found = False
-    #    if it: it_found = True
-
-    #    if not it and counter < ch.parallax_num_of_layers:
-    #        it = loop_tree.nodes.new('ShaderNodeGroup')
-    #        it.name = '_iterate_' + str(counter)
-    #        it.node_tree = iter_tree
-
-    #    if it and counter >= ch.parallax_num_of_layers:
-    #        loop_tree.nodes.remove(it)
-
-    #    if not it_found and counter >= ch.parallax_num_of_layers:
-    #        break
-
-    #    counter += 1
-
-    #for n in parallax_loop.node_tree.nodes:
-    #    if n.type == 'GROUP':
-    #        iter_tree= n.node_tree
-    #        counter += 1
-
-    #if counter != 
+#def set_baked_parallax_node(yp, node, img=None):
+#    ch = get_root_parallax_channel(yp)
+#
+#    # Set node parameters
+#    #node.inputs['layer_depth'].default_value = 1.0 / ch.parallax_num_of_layers
+#    #node.inputs['depth_scale'].default_value = ch.displacement_height_ratio
+#    #node.inputs['depth_scale'].default_value = get_displacement_max_height(ch)
+#    #node.inputs['ref_plane'].default_value = ch.displacement_ref_plane
+#
+#    #delta_uv = tree.nodes.get(uv.parallax_delta_uv)
+#
+#    #if not delta_uv:
+#    #    delta_uv = new_node(tree, uv, 'parallax_delta_uv', 'ShaderNodeMixRGB', uv.name + DELTA_UV)
+#    #    delta_uv.inputs[0].default_value = 1.0
+#    #    delta_uv.blend_type = 'MULTIPLY'
+#
+#    #current_uv = tree.nodes.get(uv.parallax_current_uv)
+#
+#    #if not current_uv:
+#    #    current_uv = new_node(tree, uv, 'parallax_current_uv', 'ShaderNodeVectorMath', uv.name + CURRENT_UV)
+#    #    current_uv.operation = 'SUBTRACT'
+#
+#    tree = node.node_tree
+#
+#    if img:
+#        depth_source = tree.nodes.get('_depth_source')
+#        depth_from_tex = depth_source.node_tree.nodes.get('_depth_from_tex')
+#        depth_from_tex.image = img
+#
+#    parallax_loop = tree.nodes.get('_parallax_loop')
+#    create_delete_iterate_nodes(loop_tree, ch.parallax_num_of_layers)
+#
+#    #counter = 0
+#    #while True:
+#    #    it = loop_tree.nodes.get('_iterate_' + str(counter))
+#
+#    #    it_found = False
+#    #    if it: it_found = True
+#
+#    #    if not it and counter < ch.parallax_num_of_layers:
+#    #        it = loop_tree.nodes.new('ShaderNodeGroup')
+#    #        it.name = '_iterate_' + str(counter)
+#    #        it.node_tree = iter_tree
+#
+#    #    if it and counter >= ch.parallax_num_of_layers:
+#    #        loop_tree.nodes.remove(it)
+#
+#    #    if not it_found and counter >= ch.parallax_num_of_layers:
+#    #        break
+#
+#    #    counter += 1
+#
+#    #for n in parallax_loop.node_tree.nodes:
+#    #    if n.type == 'GROUP':
+#    #        iter_tree= n.node_tree
+#    #        counter += 1
+#
+#    #if counter != 
 
 def get_channel_index(root_ch):
     yp = root_ch.id_data.yp
@@ -2021,9 +2038,9 @@ def update_displacement_height_ratio(root_ch):
     max_height = get_displacement_max_height(root_ch)
     #max_height = root_ch.displacement_height_ratio
 
-    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
-    if baked_parallax:
-        baked_parallax.inputs['depth_scale'].default_value = max_height
+    #baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    #if baked_parallax:
+    #    baked_parallax.inputs['depth_scale'].default_value = max_height
 
     parallax = group_tree.nodes.get(PARALLAX)
     if parallax:

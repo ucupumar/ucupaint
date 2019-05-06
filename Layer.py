@@ -1553,6 +1553,12 @@ def remove_layer(yp, index):
     bpy.data.node_groups.remove(layer_tree)
     group_tree.nodes.remove(group_tree.nodes.get(layer.group_node))
 
+    # Remove node group from parallax tree
+    parallax = group_tree.nodes.get(PARALLAX)
+    if parallax:
+        depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+        depth_source_0.node_tree.nodes.remove(depth_source_0.node_tree.nodes.get(layer.depth_group_node))
+
     # Delete the layer
     yp.layers.remove(index)
 

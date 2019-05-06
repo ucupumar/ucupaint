@@ -1207,6 +1207,8 @@ def rearrange_parallax_layer_nodes(yp, parallax):
     parallax_ch = get_root_parallax_channel(yp)
     if not parallax_ch: return
 
+    #print('Par', parallax.name)
+
     loop = parallax.node_tree.nodes.get('_parallax_loop')
     if loop:
         tree = loop.node_tree
@@ -1222,10 +1224,13 @@ def rearrange_parallax_layer_nodes(yp, parallax):
 
         check_set_node_loc(tree, TREE_END, loc)
 
-def rearrange_parallax_process_internal_nodes(group_tree):
+def rearrange_parallax_process_internal_nodes(group_tree, node_name):
     yp = group_tree.yp
 
-    parallax = group_tree.nodes.get(PARALLAX)
+    #parallax = group_tree.nodes.get(PARALLAX)
+    parallax = group_tree.nodes.get(node_name)
+
+    #print('Metness', node_name)
 
     # Depth source nodes
     depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
@@ -1274,7 +1279,12 @@ def rearrange_uv_nodes(group_tree, loc):
         loc.y -= 210
 
     if check_set_node_loc(group_tree, PARALLAX, loc):
-        rearrange_parallax_process_internal_nodes(group_tree)
+        rearrange_parallax_process_internal_nodes(group_tree, PARALLAX)
+        loc.y -= 240
+
+    if check_set_node_loc(group_tree, BAKED_PARALLAX, loc):
+        rearrange_parallax_process_internal_nodes(group_tree, BAKED_PARALLAX)
+        #rearrange_parallax_layer_nodes(yp, baked_parallax)
         loc.y -= 240
 
     for uv in yp.uvs:
@@ -1473,15 +1483,15 @@ def rearrange_yp_nodes(group_tree):
 
         if loc.x > farthest_x: farthest_x = loc.x
 
-        if i == num_channels-1:
-            loc.x = ori_x
+        #if i == num_channels-1:
+        #    loc.x = ori_x
 
-            check_set_node_loc(group_tree, BAKED_PARALLAX, loc)
-            loc.y -= 190
+        #    check_set_node_loc(group_tree, BAKED_PARALLAX, loc)
+        #    loc.y -= 190
 
-            baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
-            if baked_parallax:
-                rearrange_parallax_layer_nodes(yp, baked_parallax)
+        #    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+        #    if baked_parallax:
+        #        rearrange_parallax_layer_nodes(yp, baked_parallax)
 
             #check_set_node_loc(group_tree, BAKED_UV, loc)
             #loc.y -= 120

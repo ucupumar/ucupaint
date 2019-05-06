@@ -9,7 +9,7 @@ from . import lib, Layer, Mask
 
 BL28_HACK = True
 
-def remember_before_bake(self, context):
+def remember_before_bake(self, context, yp):
     scene = self.scene
     obj = self.obj
     uv_layers = self.uv_layers
@@ -37,6 +37,10 @@ def remember_before_bake(self, context):
 
     # Remember ypui
     #self.ori_disable_temp_uv = ypui.disable_auto_temp_uv_update
+
+    # Remember yp
+    self.parallax_ch = get_root_parallax_channel(yp)
+    #self.use_parallax = True if parallax_ch else False
 
 def prepare_bake_settings(self, context, yp):
     scene = self.scene
@@ -68,7 +72,12 @@ def prepare_bake_settings(self, context, yp):
     # Disable auto temp uv update
     #ypui.disable_auto_temp_uv_update = True
 
-def recover_bake_settings(self, context):
+    # Disable parallax channel
+    #parallax_ch = get_root_parallax_channel(yp)
+    if self.parallax_ch:
+        self.parallax_ch.enable_parallax = False
+
+def recover_bake_settings(self, context, yp):
     scene = self.scene
     obj = self.obj
     uv_layers = self.uv_layers
@@ -105,6 +114,10 @@ def recover_bake_settings(self, context):
 
     # Recover ypui
     #ypui.disable_auto_temp_uv_update = self.ori_disable_temp_uv
+
+    # Recover parallax
+    if self.parallax_ch:
+        self.parallax_ch.enable_parallax = True
 
 def transfer_uv(obj, mat, entity, uv_map):
 
@@ -511,7 +524,7 @@ class YBakeToLayer(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Prepare bake settings
-        remember_before_bake(self, context)
+        remember_before_bake(self, context, yp)
         prepare_bake_settings(self, context, yp)
 
         # Create bake nodes
@@ -601,7 +614,7 @@ class YBakeToLayer(bpy.types.Operator):
         mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
         # Recover bake settings
-        recover_bake_settings(self, context)
+        recover_bake_settings(self, context, yp)
 
         # Reconnect and rearrange nodes
         #reconnect_yp_layer_nodes(node.node_tree)
@@ -698,7 +711,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         yp = node.node_tree.yp
 
         # Prepare bake settings
-        remember_before_bake(self, context)
+        remember_before_bake(self, context, yp)
         prepare_bake_settings(self, context, yp)
 
         for layer in yp.layers:
@@ -713,7 +726,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         #return {'FINISHED'}
 
         # Recover bake settings
-        recover_bake_settings(self, context)
+        recover_bake_settings(self, context, yp)
 
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
@@ -809,14 +822,14 @@ class YTransferLayerUV(bpy.types.Operator):
         yp = self.entity.id_data.yp
 
         # Prepare bake settings
-        remember_before_bake(self, context)
+        remember_before_bake(self, context, yp)
         prepare_bake_settings(self, context, yp)
 
         # Transfer UV
         transfer_uv(self.obj, mat, self.entity, self.uv_map)
 
         # Recover bake settings
-        recover_bake_settings(self, context)
+        recover_bake_settings(self, context, yp)
 
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
@@ -914,7 +927,7 @@ class YBakeChannels(bpy.types.Operator):
         yp = tree.yp
         obj = context.object
 
-        remember_before_bake(self, context)
+        remember_before_bake(self, context, yp)
 
         if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
 
@@ -1029,6 +1042,8 @@ class YBakeChannels(bpy.types.Operator):
         disp_img = None
         #obj_normal_img = None
 
+        #return {'FINISHED'}
+
         for ch in yp.channels:
 
             img_name = tree.name + ' ' + ch.name
@@ -1074,12 +1089,14 @@ class YBakeChannels(bpy.types.Operator):
             if ch.type == 'NORMAL':
                 img.generated_color = (0.5, 0.5, 1.0, 1.0)
             elif ch.type == 'VALUE':
-                val = node.inputs[ch.io_index].default_value
+                #val = node.inputs[ch.io_index].default_value
+                val = node.inputs[ch.name].default_value
                 img.generated_color = (val, val, val, 1.0)
             elif ch.enable_alpha:
                 img.generated_color = (0.0, 0.0, 0.0, 1.0)
             else:
-                col = node.inputs[ch.io_index].default_value
+                #col = node.inputs[ch.io_index].default_value
+                col = node.inputs[ch.name].default_value
                 col = Color((col[0], col[1], col[2]))
                 col = linear_to_srgb(col)
                 img.generated_color = (col.r, col.g, col.b, 1.0)
@@ -1092,7 +1109,8 @@ class YBakeChannels(bpy.types.Operator):
             tex.image = img
 
             # Links to bake
-            rgb = node.outputs[ch.io_index]
+            #rgb = node.outputs[ch.io_index]
+            rgb = node.outputs[ch.name]
             if ch.type == 'NORMAL':
                 rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
             if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL': # and not bpy.app.version_string.startswith('2.8'):
@@ -1108,7 +1126,8 @@ class YBakeChannels(bpy.types.Operator):
                 alpha_img = bpy.data.images.new(name='__TEMP__', width=self.width, height=self.height) 
 
                 # Bake setup
-                create_link(mat.node_tree, node.outputs[ch.io_index+1], linear.inputs[0])
+                #create_link(mat.node_tree, node.outputs[ch.io_index+1], linear.inputs[0])
+                create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], linear.inputs[0])
                 create_link(mat.node_tree, linear.outputs[0], emit.inputs[0])
                 tex.image = alpha_img
 
@@ -1132,7 +1151,7 @@ class YBakeChannels(bpy.types.Operator):
                 bpy.data.images.remove(alpha_img)
 
             # Bake displacement
-            if ch.type == 'NORMAL' and ch.enable_parallax:
+            if ch.type == 'NORMAL': # and ch.enable_parallax:
 
                 # Displacement
 
@@ -1155,7 +1174,8 @@ class YBakeChannels(bpy.types.Operator):
                 disp_img.generated_color = (0.5, 0.5, 0.5, 1.0)
 
                 # Bake setup
-                create_link(mat.node_tree, node.outputs[ch.io_index+1], linear.inputs[0])
+                #create_link(mat.node_tree, node.outputs[ch.io_index+1], linear.inputs[0])
+                create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], linear.inputs[0])
                 create_link(mat.node_tree, linear.outputs[0], emit.inputs[0])
                 tex.image = disp_img
 
@@ -1276,18 +1296,39 @@ class YBakeChannels(bpy.types.Operator):
         #set_bitangent_backface_flip(baked_bitangent_flip, yp.flip_backface)
 
         # Get parallax occlusion mapping
-        if disp_img:
-            baked_parallax = tree.nodes.get(BAKED_PARALLAX)
-            if not baked_parallax:
-                baked_parallax = tree.nodes.new('ShaderNodeGroup')
-                baked_parallax.name = BAKED_PARALLAX
-                baked_parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION)
-                duplicate_lib_node_tree(baked_parallax)
+        if disp_img and self.parallax_ch:
+            check_parallax_node(yp, self.parallax_ch, BAKED_PARALLAX, disp_img, self.uv_map)
+            #baked_parallax = tree.nodes.get(BAKED_PARALLAX)
+            #if not baked_parallax:
+            #    baked_parallax = tree.nodes.new('ShaderNodeGroup')
+            #    baked_parallax.name = BAKED_PARALLAX
+            #    #print(lib.PARALLAX_OCCLUSION_PROC)
+            #    baked_parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PROC)
+            #    #print(baked_parallax.node_tree.name)
+            #    baked_parallax.label = 'Baked Parallax Occlusion Mapping'
+            #    #duplicate_lib_node_tree(baked_parallax)
+            #    duplicate_lib_node_tree(baked_parallax)
 
-                depth_source = baked_parallax.node_tree.nodes.get('_depth_source')
-                depth_source.name += '_Copy'
+            #    depth_source_0 = baked_parallax.node_tree.nodes.get('_depth_source_0')
+            #    depth_source_0.node_tree.name += '_Copy'
+            #    
+            #    parallax_loop = baked_parallax.node_tree.nodes.get('_parallax_loop')
+            #    duplicate_lib_node_tree(parallax_loop)
 
-            set_baked_parallax_node(yp, baked_parallax, disp_img)
+            #    iterate_0 = parallax_loop.node_tree.nodes.get('_iterate_0')
+            #    duplicate_lib_node_tree(iterate_0)
+
+            #    check_start_delta_uv_inputs(baked_parallax.node_tree, self.uv_map)
+            #    check_start_delta_uv_inputs(depth_source_0.node_tree, self.uv_map)
+            #    check_start_delta_uv_inputs(parallax_loop.node_tree, uv.name)
+            #    check_start_delta_uv_inputs(iterate_0.node_tree, uv.name)
+
+            #    check_current_uv_outputs(baked_parallax.node_tree, self.uv_map)
+            #    check_current_uv_outputs(depth_source_0.node_tree, self.uv_map)
+            #    check_current_uv_outputs(parallax_loop.node_tree, self.uv_map)
+            #    check_current_uv_outputs(iterate_0.node_tree, self.uv_map)
+
+            #set_baked_parallax_node(yp, baked_parallax, disp_img)
 
         # Set uv map
         #baked_uv.uv_map = self.uv_map
@@ -1308,7 +1349,7 @@ class YBakeChannels(bpy.types.Operator):
         mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
         # Recover bake settings
-        recover_bake_settings(self, context)
+        recover_bake_settings(self, context, yp)
 
         # Update global uv
         check_uv_nodes(yp)

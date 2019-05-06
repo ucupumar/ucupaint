@@ -681,15 +681,11 @@ def create_uv_nodes(yp, uv_name):
 
     set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
-def check_parallax_process_outputs(yp, parallax):
+def check_parallax_process_outputs(parallax, uv_name):
 
-    tree = yp.id_data
-
-    for uv in yp.uvs:
-        
-        outp = parallax.node_tree.outputs.get(uv.name)
-        if not outp:
-            outp = parallax.node_tree.outputs.new('NodeSocketVector', uv.name)
+    outp = parallax.node_tree.outputs.get(uv_name)
+    if not outp:
+        outp = parallax.node_tree.outputs.new('NodeSocketVector', uv_name)
 
 def check_parallax_mix(tree, uv):
 
@@ -745,10 +741,7 @@ def check_depth_source_calculation(tree, uv):
         current_uv = new_node(tree, uv, 'parallax_current_uv', 'ShaderNodeVectorMath', uv.name + CURRENT_UV)
         current_uv.operation = 'SUBTRACT'
 
-def refresh_parallax_depth_source_layers(yp): #, disp_ch):
-
-    parallax = yp.id_data.nodes.get(PARALLAX)
-    if not parallax: return
+def refresh_parallax_depth_source_layers(yp, parallax): #, disp_ch):
 
     depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
     tree = depth_source_0.node_tree
@@ -760,17 +753,40 @@ def refresh_parallax_depth_source_layers(yp): #, disp_ch):
             node = new_node(tree, layer, 'depth_group_node', 'ShaderNodeGroup', layer.name)
             node.node_tree = n.node_tree
 
-def check_parallax_node(yp, disp_ch): #, uv):
+def refresh_parallax_depth_img(yp, parallax, disp_img): #, disp_ch):
+
+    depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+    tree = depth_source_0.node_tree
+
+    height_map = tree.nodes.get(HEIGHT_MAP)
+    if not height_map:
+        height_map = tree.nodes.new('ShaderNodeTexImage')
+        height_map.name = HEIGHT_MAP
+        height_map.color_space = 'NONE'
+
+    height_map.image = disp_img
+
+    #for layer in yp.layers:
+        #node = tree.nodes.get(layer.depth_group_node)
+        #if not node:
+        #    n = yp.id_data.nodes.get(layer.group_node)
+        #    node = new_node(tree, layer, 'depth_group_node', 'ShaderNodeGroup', layer.name)
+        #    node.node_tree = n.node_tree
+
+def check_parallax_node(yp, disp_ch, node_name, disp_img=None, uv_name=''): #, uv):
 
     tree = yp.id_data
 
-    parallax = tree.nodes.get(PARALLAX)
+    #parallax = tree.nodes.get(PARALLAX)
+    parallax = tree.nodes.get(node_name)
 
     if not parallax:
         parallax = tree.nodes.new('ShaderNodeGroup')
-        parallax.name = PARALLAX
+        #parallax.name = PARALLAX
+        parallax.name = node_name
         parallax.label = 'Parallax Occlusion Mapping'
         parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PROC)
+        duplicate_lib_node_tree(parallax)
 
         depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
         depth_source_0.node_tree.name += '_Copy'
@@ -787,10 +803,18 @@ def check_parallax_node(yp, disp_ch): #, uv):
 
     parallax.inputs['layer_depth'].default_value = 1.0 / disp_ch.parallax_num_of_layers
 
-    check_parallax_process_outputs(yp, parallax)
-    refresh_parallax_depth_source_layers(yp)
+    if disp_img:
+        refresh_parallax_depth_img(yp, parallax, disp_img)
+    else:
+        refresh_parallax_depth_source_layers(yp, parallax)
 
     for uv in yp.uvs:
+
+        if uv_name != '' and uv.name != uv_name: 
+            # Delete other uv io
+            continue
+
+        check_parallax_process_outputs(parallax, uv.name)
 
         parallax_prep = tree.nodes.get(uv.parallax_prep)
 
@@ -906,7 +930,8 @@ def check_uv_nodes(yp):
         #uv = get_parallax_uv(yp, disp_ch)
 
         #if uv:
-        check_parallax_node(yp, disp_ch)
+        #check_parallax_node(yp, disp_ch)
+        check_parallax_node(yp, disp_ch, PARALLAX)
 
     # Remove unused uv objects
     for i, uv in reversed(list(enumerate(yp.uvs))):
