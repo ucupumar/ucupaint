@@ -1243,7 +1243,13 @@ def rearrange_parallax_process_internal_nodes(group_tree, node_name):
         if check_set_node_loc(depth_source_0.node_tree, uv.parallax_delta_uv, loc):
             loc.y -= 200
 
+        elif check_set_node_loc(depth_source_0.node_tree, uv.baked_parallax_delta_uv, loc):
+            loc.y -= 200
+
         if check_set_node_loc(depth_source_0.node_tree, uv.parallax_current_uv, loc):
+            loc.y -= 200
+
+        elif check_set_node_loc(depth_source_0.node_tree, uv.baked_parallax_current_uv, loc):
             loc.y -= 200
 
     # Parallax iteration nodes
@@ -1257,6 +1263,8 @@ def rearrange_parallax_process_internal_nodes(group_tree, node_name):
     for uv in yp.uvs:
         if check_set_node_loc(iterate_0.node_tree, uv.parallax_current_uv_mix, loc):
             loc.y -= 200
+        elif check_set_node_loc(iterate_0.node_tree, uv.baked_parallax_current_uv_mix, loc):
+            loc.y -= 200
 
     # Parallax mix nodes
     parallax_end = parallax.node_tree.nodes.get(TREE_END)
@@ -1265,6 +1273,9 @@ def rearrange_parallax_process_internal_nodes(group_tree, node_name):
 
     for uv in yp.uvs:
         if check_set_node_loc(parallax.node_tree, uv.parallax_mix, loc):
+            loc.y -= 200
+
+        elif check_set_node_loc(parallax.node_tree, uv.baked_parallax_mix, loc):
             loc.y -= 200
 
     rearrange_parallax_layer_nodes(yp, parallax)

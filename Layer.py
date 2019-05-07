@@ -1676,6 +1676,10 @@ class YRemoveLayer(bpy.types.Operator):
             rearrange_layer_nodes(lay)
             reconnect_layer_nodes(lay)
 
+        # Update max height
+        height_ch = get_root_height_channel(yp)
+        if height_ch: update_displacement_height_ratio(height_ch)
+
         # Refresh layer channel blend nodes
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
@@ -1930,8 +1934,8 @@ def update_channel_enable(self, context):
 
     update_channel_intensity_value(ch, context)
 
-    if root_ch.type == 'NORMAL':
-        transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
+    #if root_ch.type == 'NORMAL':
+    #    transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
 
         #need_reconnect = check_extra_alpha(layer)
         #if need_reconnect:
@@ -2277,6 +2281,9 @@ def update_channel_intensity_value(self, context):
         tb_crease_intensity = tree.nodes.get(ch.tb_crease_intensity)
         if tb_crease_intensity:
             tb_crease_intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+
+    if root_ch.type == 'NORMAL':
+        transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
 
 def update_layer_enable(self, context):
     yp = self.id_data.yp

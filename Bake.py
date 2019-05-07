@@ -1297,6 +1297,7 @@ class YBakeChannels(bpy.types.Operator):
 
         # Get parallax occlusion mapping
         if disp_img: #and self.parallax_ch:
+            #print('self.uv_map:', self.uv_map)
             check_parallax_node(yp, self.parallax_ch, BAKED_PARALLAX, disp_img, self.uv_map)
             #baked_parallax = tree.nodes.get(BAKED_PARALLAX)
             #if not baked_parallax:
@@ -1329,6 +1330,8 @@ class YBakeChannels(bpy.types.Operator):
             #    check_current_uv_outputs(iterate_0.node_tree, self.uv_map)
 
             #set_baked_parallax_node(yp, baked_parallax, disp_img)
+
+            #return {'FINISHED'}
 
         # Set uv map
         #baked_uv.uv_map = self.uv_map

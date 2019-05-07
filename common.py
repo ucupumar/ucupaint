@@ -1905,6 +1905,9 @@ def get_layer_channel_max_height(layer, ch, ch_idx=None):
         #max_height = abs(ch.bump_distance)
         max_height = base_distance
 
+    # Multiply by intensity value
+    max_height *= ch.intensity_value
+
     return max_height
 
 def get_transition_bump_max_distance(ch):
@@ -1962,24 +1965,24 @@ def get_transition_disp_delta(layer, ch):
 
     return delta
 
-def get_max_height_from_list_of_layers(layers, ch_index, layer=None, parent_check=False):
+def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_only=False):
 
     max_height = 0.0
 
     for l in reversed(layers):
-        if parent_check and l.parent_idx != -1: continue
+        if top_layers_only and l.parent_idx != -1: continue
         c = l.channels[ch_index]
         ch_max_height = get_layer_channel_max_height(l, c)
         if (l.enable and c.enable and 
                 (c.write_height or (not c.write_height and l == layer)) and
-                c.normal_blend_type == 'MIX' and max_height < ch_max_height
+                c.normal_blend_type in {'MIX', 'COMPARE'} and max_height < ch_max_height
                 ):
             max_height = ch_max_height
         if l == layer:
             break
 
     for l in reversed(layers):
-        if parent_check and l.parent_idx != -1: continue
+        if top_layers_only and l.parent_idx != -1: continue
         c = l.channels[ch_index]
         ch_max_height = get_layer_channel_max_height(l, c)
         if (l.enable and c.enable and 
@@ -1999,9 +2002,9 @@ def get_displacement_max_height(root_ch, layer=None):
     if layer and layer.parent_idx != -1:
         parent = get_parent(layer)
         layers = get_list_of_direct_childrens(parent)
-        max_height = get_max_height_from_list_of_layers(layers, ch_index, layer, parent_check=False)
+        max_height = get_max_height_from_list_of_layers(layers, ch_index, layer, top_layers_only=False)
     else:
-        max_height = get_max_height_from_list_of_layers(yp.layers, ch_index, layer, parent_check=True)
+        max_height = get_max_height_from_list_of_layers(yp.layers, ch_index, layer, top_layers_only=True)
 
     return max_height
 

@@ -681,64 +681,94 @@ def create_uv_nodes(yp, uv_name):
 
     set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
-def check_parallax_process_outputs(parallax, uv_name):
+def check_parallax_process_outputs(parallax, uv_name, remove=False):
 
     outp = parallax.node_tree.outputs.get(uv_name)
-    if not outp:
+    if remove and outp:
+        parallax.node_tree.outputs.remove(outp)
+    elif not remove and not outp:
         outp = parallax.node_tree.outputs.new('NodeSocketVector', uv_name)
 
-def check_parallax_mix(tree, uv):
+def check_parallax_mix(tree, uv, baked=False, remove=False):
 
-    parallax_mix = tree.nodes.get(uv.parallax_mix)
+    if baked: parallax_mix = tree.nodes.get(uv.baked_parallax_mix)
+    else: parallax_mix = tree.nodes.get(uv.parallax_mix)
 
-    if not parallax_mix:
-        parallax_mix = new_node(tree, uv, 'parallax_mix', 'ShaderNodeMixRGB', uv.name + ' Final Mix')
+    if remove and parallax_mix:
+        tree.nodes.remove(parallax_mix)
+    elif not remove and not parallax_mix:
+        if baked: parallax_mix = new_node(tree, uv, 'baked_parallax_mix', 'ShaderNodeMixRGB', uv.name + ' Final Mix')
+        else: parallax_mix = new_node(tree, uv, 'parallax_mix', 'ShaderNodeMixRGB', uv.name + ' Final Mix')
 
-def check_start_delta_uv_inputs(tree, uv_name):
+def check_start_delta_uv_inputs(tree, uv_name, remove=False):
 
     start_uv_name = uv_name + START_UV
     delta_uv_name = uv_name + DELTA_UV
 
     start = tree.inputs.get(start_uv_name)
-    if not start:
+    if remove and start:
+        tree.inputs.remove(start)
+    elif not remove and not start:
         tree.inputs.new('NodeSocketVector', start_uv_name)
 
     delta = tree.inputs.get(delta_uv_name)
-    if not delta:
+    if remove and delta:
+        tree.inputs.remove(delta)
+    elif not remove and not delta:
         tree.inputs.new('NodeSocketVector', delta_uv_name)
 
-def check_current_uv_outputs(tree, uv_name):
+def check_current_uv_outputs(tree, uv_name, remove=False):
     current_uv_name = uv_name + CURRENT_UV
 
     current = tree.outputs.get(current_uv_name)
-    if not current:
+    if remove and current:
+        tree.outputs.remove(current)
+    elif not remove and not current:
         tree.outputs.new('NodeSocketVector', current_uv_name)
 
-def check_current_uv_inputs(tree, uv_name):
+def check_current_uv_inputs(tree, uv_name, remove=False):
     current_uv_name = uv_name + CURRENT_UV
 
     current = tree.inputs.get(current_uv_name)
-    if not current:
+    if remove and current:
+        tree.inputs.remove(current)
+    elif not remove and not current:
         tree.inputs.new('NodeSocketVector', current_uv_name)
 
-def check_iterate_current_uv_mix(tree, uv):
+def check_iterate_current_uv_mix(tree, uv, baked=False, remove=False):
 
-    current_uv_mix = check_new_node(tree, uv, 'parallax_current_uv_mix', 'ShaderNodeMixRGB', 
-                    uv.name + CURRENT_UV)
+    if baked: current_uv_mix = tree.inputs.get(uv.baked_parallax_current_uv_mix)
+    else: current_uv_mix = tree.inputs.get(uv.parallax_current_uv_mix)
 
-def check_depth_source_calculation(tree, uv):
+    if remove and current_uv_mix:
+        tree.nodes.remove(current_uv_mix)
+    elif not remove and not current_uv_mix:
+        if baked: current_uv_mix = new_node(tree, uv, 'baked_parallax_current_uv_mix', 
+                'ShaderNodeMixRGB', uv.name + CURRENT_UV)
+        else: current_uv_mix = new_node(tree, uv, 'parallax_current_uv_mix', 
+                'ShaderNodeMixRGB', uv.name + CURRENT_UV)
 
-    delta_uv = tree.nodes.get(uv.parallax_delta_uv)
+def check_depth_source_calculation(tree, uv, baked=False, remove=False):
 
-    if not delta_uv:
-        delta_uv = new_node(tree, uv, 'parallax_delta_uv', 'ShaderNodeMixRGB', uv.name + DELTA_UV)
+    if baked: delta_uv = tree.nodes.get(uv.baked_parallax_delta_uv)
+    else: delta_uv = tree.nodes.get(uv.parallax_delta_uv)
+
+    if remove and delta_uv:
+        tree.nodes.remove(delta_uv)
+    elif not remove and not delta_uv:
+        if baked: delta_uv = new_node(tree, uv, 'baked_parallax_delta_uv', 'ShaderNodeMixRGB', uv.name + DELTA_UV)
+        else: delta_uv = new_node(tree, uv, 'parallax_delta_uv', 'ShaderNodeMixRGB', uv.name + DELTA_UV)
         delta_uv.inputs[0].default_value = 1.0
         delta_uv.blend_type = 'MULTIPLY'
 
-    current_uv = tree.nodes.get(uv.parallax_current_uv)
+    if baked: current_uv = tree.nodes.get(uv.baked_parallax_current_uv)
+    else: current_uv = tree.nodes.get(uv.parallax_current_uv)
 
-    if not current_uv:
-        current_uv = new_node(tree, uv, 'parallax_current_uv', 'ShaderNodeVectorMath', uv.name + CURRENT_UV)
+    if remove and current_uv:
+        tree.nodes.remove(current_uv)
+    elif not remove and not current_uv:
+        if baked: current_uv = new_node(tree, uv, 'baked_parallax_current_uv', 'ShaderNodeVectorMath', uv.name + CURRENT_UV)
+        else: current_uv = new_node(tree, uv, 'parallax_current_uv', 'ShaderNodeVectorMath', uv.name + CURRENT_UV)
         current_uv.operation = 'SUBTRACT'
 
 def refresh_parallax_depth_source_layers(yp, parallax): #, disp_ch):
@@ -784,11 +814,18 @@ def check_parallax_node(yp, parallax_ch, node_name, disp_img=None, uv_name=''): 
     #parallax = tree.nodes.get(PARALLAX)
     parallax = tree.nodes.get(node_name)
 
+    # Displacement image means it's baked
+    baked = True if disp_img else False
+
     if not parallax:
         parallax = tree.nodes.new('ShaderNodeGroup')
         #parallax.name = PARALLAX
         parallax.name = node_name
-        parallax.label = 'Parallax Occlusion Mapping'
+
+        if baked:
+            parallax.label = 'Baked Parallax Occlusion Mapping'
+        else: parallax.label = 'Parallax Occlusion Mapping'
+
         parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PROC)
         duplicate_lib_node_tree(parallax)
 
@@ -807,21 +844,37 @@ def check_parallax_node(yp, parallax_ch, node_name, disp_img=None, uv_name=''): 
 
     parallax.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
 
-    if disp_img:
+    if disp_img != None:
         refresh_parallax_depth_img(yp, parallax, disp_img)
-    else:
-        refresh_parallax_depth_source_layers(yp, parallax)
+    else: refresh_parallax_depth_source_layers(yp, parallax)
+
+    depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+    parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
+    iterate_0 = parallax_loop.node_tree.nodes.get('_iterate_0')
 
     for uv in yp.uvs:
 
         if uv_name != '' and uv.name != uv_name: 
             # Delete other uv io
+            check_parallax_process_outputs(parallax, uv.name, remove=True)
+            check_start_delta_uv_inputs(parallax.node_tree, uv.name, remove=True)
+            check_parallax_mix(parallax.node_tree, uv, baked, remove=True)
+
+            check_start_delta_uv_inputs(depth_source_0.node_tree, uv.name, remove=True)
+            check_current_uv_outputs(depth_source_0.node_tree, uv.name, remove=True)
+            check_depth_source_calculation(depth_source_0.node_tree, uv, baked, remove=True)
+
+            check_start_delta_uv_inputs(parallax_loop.node_tree, uv.name, remove=True)
+            check_current_uv_outputs(parallax_loop.node_tree, uv.name, remove=True)
+            check_current_uv_inputs(parallax_loop.node_tree, uv.name, remove=True)
+
+            check_start_delta_uv_inputs(iterate_0.node_tree, uv.name, remove=True)
+            check_current_uv_outputs(iterate_0.node_tree, uv.name, remove=True)
+            check_current_uv_inputs(iterate_0.node_tree, uv.name, remove=True)
+            check_iterate_current_uv_mix(iterate_0.node_tree, uv, baked, remove=True)
             continue
 
-        check_parallax_process_outputs(parallax, uv.name)
-
         parallax_prep = tree.nodes.get(uv.parallax_prep)
-
         if not parallax_prep:
             parallax_prep = new_node(tree, uv, 'parallax_prep', 'ShaderNodeGroup', 
                     uv.name + ' Parallax Preparation')
@@ -834,24 +887,22 @@ def check_parallax_node(yp, parallax_ch, node_name, disp_img=None, uv_name=''): 
         parallax_prep.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
         parallax_prep.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
 
+        check_parallax_process_outputs(parallax, uv.name)
         check_start_delta_uv_inputs(parallax.node_tree, uv.name)
-        check_parallax_mix(parallax.node_tree, uv)
+        check_parallax_mix(parallax.node_tree, uv, baked)
 
-        depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
         check_start_delta_uv_inputs(depth_source_0.node_tree, uv.name)
         check_current_uv_outputs(depth_source_0.node_tree, uv.name)
-        check_depth_source_calculation(depth_source_0.node_tree, uv)
+        check_depth_source_calculation(depth_source_0.node_tree, uv, baked)
 
-        parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
         check_start_delta_uv_inputs(parallax_loop.node_tree, uv.name)
         check_current_uv_outputs(parallax_loop.node_tree, uv.name)
         check_current_uv_inputs(parallax_loop.node_tree, uv.name)
 
-        iterate_0 = parallax_loop.node_tree.nodes.get('_iterate_0')
         check_start_delta_uv_inputs(iterate_0.node_tree, uv.name)
         check_current_uv_outputs(iterate_0.node_tree, uv.name)
         check_current_uv_inputs(iterate_0.node_tree, uv.name)
-        check_iterate_current_uv_mix(iterate_0.node_tree, uv)
+        check_iterate_current_uv_mix(iterate_0.node_tree, uv, baked)
 
     #parallax = tree.nodes.get(uv.parallax)
 

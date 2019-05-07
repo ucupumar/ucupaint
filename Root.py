@@ -1744,7 +1744,7 @@ def update_parallax_num_of_layers(self, context):
         create_delete_iterate_nodes(loop.node_tree, self.parallax_num_of_layers)
 
         rearrange_parallax_layer_nodes(yp, baked_parallax)
-        reconnect_parallax_layer_nodes(group_tree, baked_parallax)
+        reconnect_parallax_layer_nodes(group_tree, baked_parallax, yp.baked_uv_name)
 
         baked_parallax.inputs['layer_depth'].default_value = 1.0 / self.parallax_num_of_layers
 
@@ -2091,6 +2091,11 @@ class YPaintUV(bpy.types.PropertyGroup):
     parallax_current_uv = StringProperty(default='')
     parallax_delta_uv = StringProperty(default='')
     parallax_mix = StringProperty(default='')
+
+    baked_parallax_current_uv_mix = StringProperty(default='')
+    baked_parallax_current_uv = StringProperty(default='')
+    baked_parallax_delta_uv = StringProperty(default='')
+    baked_parallax_mix = StringProperty(default='')
 
 class YPaint(bpy.types.PropertyGroup):
 
