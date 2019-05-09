@@ -965,32 +965,32 @@ class YBakeChannels(bpy.types.Operator):
                 t_attr.uv_map = uv.name
 
                 # Replace tangent and bitangent of all layer and masks
-                for layer in yp.layers:
-                    layer_tree = get_tree(layer)
+                #for layer in yp.layers:
+                #    layer_tree = get_tree(layer)
 
-                    if layer.uv_name == uv.name:
+                #    if layer.uv_name == uv.name:
 
-                        tangent = replace_new_node(layer_tree, layer, 'tangent', 'ShaderNodeTangent', 'Tangent')
-                        tangent.direction_type = 'UV_MAP'
-                        tangent.uv_map = uv.name
+                #        tangent = replace_new_node(layer_tree, layer, 'tangent', 'ShaderNodeTangent', 'Tangent')
+                #        tangent.direction_type = 'UV_MAP'
+                #        tangent.uv_map = uv.name
 
-                        bitangent = replace_new_node(
-                                layer_tree, layer, 'bitangent', 'ShaderNodeGroup', 'Bitangent', bt_tree.name)
+                #        bitangent = replace_new_node(
+                #                layer_tree, layer, 'bitangent', 'ShaderNodeGroup', 'Bitangent', bt_tree.name)
 
-                    for mask in layer.masks:
+                #    for mask in layer.masks:
 
-                        if mask.uv_name == uv.name:
+                #        if mask.uv_name == uv.name:
 
-                            tangent = layer_tree.nodes.get(mask.tangent)
-                            if tangent:
-                                tangent = replace_new_node(layer_tree, mask, 'tangent', 'ShaderNodeTangent', 'Tangent')
-                                tangent.direction_type = 'UV_MAP'
-                                tangent.uv_map = uv.name
+                #            tangent = layer_tree.nodes.get(mask.tangent)
+                #            if tangent:
+                #                tangent = replace_new_node(layer_tree, mask, 'tangent', 'ShaderNodeTangent', 'Tangent')
+                #                tangent.direction_type = 'UV_MAP'
+                #                tangent.uv_map = uv.name
 
-                            bitangent = layer_tree.nodes.get(mask.bitangent)
-                            if bitangent:
-                                bitangent = replace_new_node(
-                                        layer_tree, mask, 'bitangent', 'ShaderNodeGroup', 'Bitangent', bt_tree.name)
+                #            bitangent = layer_tree.nodes.get(mask.bitangent)
+                #            if bitangent:
+                #                bitangent = replace_new_node(
+                #                        layer_tree, mask, 'bitangent', 'ShaderNodeGroup', 'Bitangent', bt_tree.name)
 
             # Rearrange nodes
             for layer in yp.layers:
@@ -1192,63 +1192,6 @@ class YBakeChannels(bpy.types.Operator):
                 else:
                     baked_disp.image = disp_img
 
-                # Object space normal, needed for more precise parallax
-
-                #geom = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
-
-                #mul = mat.node_tree.nodes.new('ShaderNodeMixRGB')
-                #mul.blend_type = 'MULTIPLY'
-                #mul.inputs[0].default_value = 1.0
-                #mul.inputs[2].default_value = (0.5, 0.5, 0.5, 1.0)
-
-                #add = mat.node_tree.nodes.new('ShaderNodeMixRGB')
-                #add.blend_type = 'ADD'
-                #add.inputs[0].default_value = 1.0
-                #add.inputs[2].default_value = (0.5, 0.5, 0.5, 1.0)
-
-                #tran = mat.node_tree.nodes.new('ShaderNodeVectorTransform')
-
-                #baked_obj_normal = tree.nodes.get(ch.baked_obj_normal)
-                #if not baked_obj_normal:
-                #    baked_obj_normal = new_node(tree, ch, 'baked_obj_normal', 'ShaderNodeTexImage', 
-                #            'Baked ' + ch.name + ' Object Space')
-                #    baked_obj_normal.color_space = 'NONE'
-
-                #if baked_obj_normal.image:
-                #    obj_normal_image_name = baked_obj_normal.image.name
-                #    filepath = baked_obj_normal.image.filepath
-                #    baked_obj_normal.image.name = '____OBJ_NORMAL'
-                #else:
-                #    obj_normal_image_name = tree.name + ' ' + ch.name + ' Object Space'
-
-                ## Create target image
-                #obj_normal_img = bpy.data.images.new(name=obj_normal_image_name, width=self.width, height=self.height) 
-                #obj_normal_img.generated_color = (0.5, 0.5, 0.5, 1.0)
-
-                #create_link(mat.node_tree, geom.outputs['Normal'], tran.inputs[0])
-                #create_link(mat.node_tree, tran.outputs[0], mul.inputs[1])
-                #create_link(mat.node_tree, mul.outputs[0], add.inputs[1])
-                #create_link(mat.node_tree, add.outputs[0], emit.inputs[0])
-                #tex.image = obj_normal_img
-
-                ## Bake
-                #bpy.ops.object.bake()
-
-                ## Set baked displacement image
-                #if baked_obj_normal.image:
-                #    temp = baked_obj_normal.image
-                #    img_users = get_all_image_users(baked_obj_normal.image)
-                #    for user in img_users:
-                #        user.image = obj_normal_img
-                #    bpy.data.images.remove(temp)
-                #else:
-                #    baked_obj_normal.image = obj_normal_img
-
-                #simple_remove_node(mat.node_tree, geom)
-                #simple_remove_node(mat.node_tree, tran)
-                #simple_remove_node(mat.node_tree, mul)
-                #simple_remove_node(mat.node_tree, add)
-
             # Set image to baked node and replace all previously original users
             if baked.image:
                 temp = baked.image
@@ -1259,88 +1202,7 @@ class YBakeChannels(bpy.types.Operator):
             else:
                 baked.image = img
 
-        # Create Baked nodes
-
-        # Get uv map
-        #baked_uv = tree.nodes.get(BAKED_UV)
-        #if not baked_uv:
-        #    baked_uv = tree.nodes.new('ShaderNodeUVMap')
-        #    baked_uv.name = BAKED_UV
-
-        ## Get tangent
-        #baked_tangent = tree.nodes.get(BAKED_TANGENT)
-        #if not baked_tangent:
-        #    baked_tangent = tree.nodes.new('ShaderNodeNormalMap')
-        #    baked_tangent.name = BAKED_TANGENT
-        #    baked_tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
-
-        #baked_tangent_flip = tree.nodes.get(BAKED_TANGENT_FLIP)
-        #if not baked_tangent_flip:
-        #    baked_tangent_flip = tree.nodes.new('ShaderNodeGroup')
-        #    baked_tangent_flip.name = BAKED_TANGENT_FLIP
-        #    baked_tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
-        #set_tangent_backface_flip(baked_tangent_flip, yp.flip_backface)
-
-        ## Get bitangent
-        #baked_bitangent = tree.nodes.get(BAKED_BITANGENT)
-        #if not baked_bitangent:
-        #    baked_bitangent = tree.nodes.new('ShaderNodeNormalMap')
-        #    baked_bitangent.name = BAKED_BITANGENT
-        #    baked_bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
-
-        #baked_bitangent_flip = tree.nodes.get(BAKED_BITANGENT_FLIP)
-        #if not baked_bitangent_flip:
-        #    baked_bitangent_flip = tree.nodes.new('ShaderNodeGroup')
-        #    baked_bitangent_flip.name = BAKED_BITANGENT_FLIP
-        #    baked_bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
-        #set_bitangent_backface_flip(baked_bitangent_flip, yp.flip_backface)
-
-        # Get parallax occlusion mapping
-        if disp_img: #and self.parallax_ch:
-            #print('self.uv_map:', self.uv_map)
-            check_parallax_node(yp, self.parallax_ch, BAKED_PARALLAX, disp_img, self.uv_map)
-            #baked_parallax = tree.nodes.get(BAKED_PARALLAX)
-            #if not baked_parallax:
-            #    baked_parallax = tree.nodes.new('ShaderNodeGroup')
-            #    baked_parallax.name = BAKED_PARALLAX
-            #    #print(lib.PARALLAX_OCCLUSION_PROC)
-            #    baked_parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PROC)
-            #    #print(baked_parallax.node_tree.name)
-            #    baked_parallax.label = 'Baked Parallax Occlusion Mapping'
-            #    #duplicate_lib_node_tree(baked_parallax)
-            #    duplicate_lib_node_tree(baked_parallax)
-
-            #    depth_source_0 = baked_parallax.node_tree.nodes.get('_depth_source_0')
-            #    depth_source_0.node_tree.name += '_Copy'
-            #    
-            #    parallax_loop = baked_parallax.node_tree.nodes.get('_parallax_loop')
-            #    duplicate_lib_node_tree(parallax_loop)
-
-            #    iterate_0 = parallax_loop.node_tree.nodes.get('_iterate_0')
-            #    duplicate_lib_node_tree(iterate_0)
-
-            #    check_start_delta_uv_inputs(baked_parallax.node_tree, self.uv_map)
-            #    check_start_delta_uv_inputs(depth_source_0.node_tree, self.uv_map)
-            #    check_start_delta_uv_inputs(parallax_loop.node_tree, uv.name)
-            #    check_start_delta_uv_inputs(iterate_0.node_tree, uv.name)
-
-            #    check_current_uv_outputs(baked_parallax.node_tree, self.uv_map)
-            #    check_current_uv_outputs(depth_source_0.node_tree, self.uv_map)
-            #    check_current_uv_outputs(parallax_loop.node_tree, self.uv_map)
-            #    check_current_uv_outputs(iterate_0.node_tree, self.uv_map)
-
-            #set_baked_parallax_node(yp, baked_parallax, disp_img)
-
-            #return {'FINISHED'}
-
-        # Set uv map
-        #baked_uv.uv_map = self.uv_map
-        #baked_tangent.uv_map = self.uv_map
-        #baked_bitangent.uv_map = self.uv_map
-
         yp.baked_uv_name = self.uv_map
-
-        #return {'FINISHED'}
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)
@@ -1366,39 +1228,39 @@ class YBakeChannels(bpy.types.Operator):
             uvs = [uv for uv in self.uv_layers if not uv.name.startswith(TEMP_UV)]
 
             # Recover tangent and bitangent
-            for uv in uvs:
-                for layer in yp.layers:
-                    layer_tree = get_tree(layer)
+            #for uv in uvs:
+            #    for layer in yp.layers:
+            #        layer_tree = get_tree(layer)
 
-                    if layer.uv_name == uv.name:
+            #        if layer.uv_name == uv.name:
 
-                        tangent = replace_new_node(
-                                layer_tree, layer, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
-                        tangent.uv_map = uv.name
-                        tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+            #            tangent = replace_new_node(
+            #                    layer_tree, layer, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
+            #            tangent.uv_map = uv.name
+            #            tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
 
-                        bitangent = replace_new_node(
-                                layer_tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
-                        bitangent.uv_map = uv.name
-                        bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+            #            bitangent = replace_new_node(
+            #                    layer_tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
+            #            bitangent.uv_map = uv.name
+            #            bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
 
-                    for mask in layer.masks:
+            #        for mask in layer.masks:
 
-                        if mask.uv_name == uv.name:
+            #            if mask.uv_name == uv.name:
 
-                            tangent = layer_tree.nodes.get(mask.tangent)
-                            if tangent:
-                                tangent = replace_new_node(
-                                        layer_tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
-                                tangent.uv_map = uv.name
-                                tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+            #                tangent = layer_tree.nodes.get(mask.tangent)
+            #                if tangent:
+            #                    tangent = replace_new_node(
+            #                            layer_tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
+            #                    tangent.uv_map = uv.name
+            #                    tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
 
-                            bitangent = layer_tree.nodes.get(mask.bitangent)
-                            if bitangent:
-                                bitangent = replace_new_node(
-                                        layer_tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
-                                bitangent.uv_map = uv.name
-                                bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+            #                bitangent = layer_tree.nodes.get(mask.bitangent)
+            #                if bitangent:
+            #                    bitangent = replace_new_node(
+            #                            layer_tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
+            #                    bitangent.uv_map = uv.name
+            #                    bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
 
             # Remove vertex color
             for vcol_id in reversed(self.temp_vcol_ids):

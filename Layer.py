@@ -33,19 +33,6 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
 
-        # Displacement blend node
-        #if root_ch.type == 'NORMAL' and root_ch.enable_parallax:
-        #    disp_blend = tree.nodes.get(ch.disp_blend)
-        #    if not disp_blend:
-        #        disp_blend = new_node(tree, ch, 'disp_blend', 'ShaderNodeMixRGB', 'Displacement Blend')
-
-        #    #if ch.normal_blend_type == 'MIX':
-        #    #    disp_blend.blend_type = 'MIX'
-        #    #elif ch.normal_blend_type == 'OVERLAY':
-        #    #    disp_blend.blend_type = 'ADD'
-        #else:
-        #    remove_node(tree, ch, 'disp_blend')
-
         if ch.enable_transition_ramp:
             transition.check_transition_ramp_nodes(tree, layer, ch)
 
@@ -2134,38 +2121,16 @@ def update_uv_name(self, context):
 
     nodes = tree.nodes
 
-    #uv_map = nodes.get(layer.uv_map)
-    #if uv_map: 
-    #    # Cannot use temp uv as standard uv
-    #    if layer.uv_name == TEMP_UV:
-    #        layer.uv_name = uv_map.uv_map
-
-    #    uv_map.uv_map = layer.uv_name
-
     if layer.uv_name == TEMP_UV:
         if len(yp.uvs) > 0:
             for uv in yp.uvs:
                 layer.uv_name = uv.name
                 break
 
-    #tangent = nodes.get(layer.tangent)
-    #if tangent: tangent.uv_map = layer.uv_name
-
-    #bitangent = nodes.get(layer.bitangent)
-    #if bitangent: bitangent.uv_map = layer.uv_name
-
-    #for ch in layer.channels:
-    #    normal_process = nodes.get(ch.normal_process)
-    #    if normal_process and normal_process.type == 'NORMAL_MAP': normal_process.uv_map = layer.uv_name
-
     # Update uv layer
     if obj.type == 'MESH' and not any([m for m in layer.masks if m.active_edit]) and layer == active_layer:
 
         if layer.segment_name != '':
-            #if ypui.disable_auto_temp_uv_update:
-            #    update_image_editor_image(context, None)
-            #    yp.need_temp_uv_refresh = True
-            #else: 
             refresh_temp_uv(obj, layer)
         else:
             if hasattr(obj.data, 'uv_textures'):
@@ -2174,25 +2139,26 @@ def update_uv_name(self, context):
 
             uv_layers.active = uv_layers.get(layer.uv_name)
 
-            #for i, uv in enumerate(uv_layers):
-            #    if uv.name == layer.uv_name:
-            #        if uv_layers.active_index != i:
-            #            uv_layers.active_index = i
-            #        break
+    # Update global uv
+    yp_dirty = check_uv_nodes(yp)
+
+    # Update uv neighbor
+    uv_neighbor, layer_dirty = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+            lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
+            return_status=True, hard_replace=True)
 
     # Update neighbor uv if mask bump is active
-    rearrange = False
     for i, mask in enumerate(layer.masks):
         if set_mask_uv_neighbor(tree, layer, mask):
-            rearrange = True
-
-    # Update global uv
-    check_uv_nodes(yp)
+            layer_dirty = True
 
     # Update layer tree inputs
-    yp_dirty = True if check_layer_tree_ios(layer, tree) else False
+    if check_layer_tree_ios(layer, tree):
+        yp_dirty = True
 
-    if rearrange or yp_dirty: #and not yp.halt_reconnect:
+    #print()
+    if yp_dirty or layer_dirty: #and not yp.halt_reconnect:
+        #print(layer.name)
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
@@ -2208,31 +2174,12 @@ def update_texcoord_type(self, context):
 
     if yp.halt_update: return
 
-    # Check for normal channel for fine bump space switch
-    # UV is using Tangent space
-    # Generated, Normal, and object are using Object Space
-    # Camera and Window are using View Space
-    # Reflection actually aren't using view space, but whatever, no one use bump map in reflection texcoord
-    #for i, ch in enumerate(layer.channels):
-    #    root_ch = yp.channels[i]
-    #    if root_ch.type == 'NORMAL':
-
-    #uv_neighbor = tree.nodes.get(layer.uv_neighbor)
-    #if uv_neighbor:
-    #    cur_tree = uv_neighbor.node_tree
-    #    sel_tree = lib.get_neighbor_uv_tree(layer.texcoord_type)
-
-    #    if sel_tree != cur_tree:
-    #        uv_neighbor.node_tree = sel_tree
-
-    #        if cur_tree.users == 0:
-    #            bpy.data.node_groups.remove(cur_tree)
-    #if layer.type 
-    uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-            lib.get_neighbor_uv_tree_name(layer.texcoord_type), hard_replace=True)
-
     # Update global uv
     check_uv_nodes(yp)
+
+    # Update uv neighbor
+    uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+            lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
 
     # Update layer tree inputs
     yp_dirty = True if check_layer_tree_ios(layer, tree) else False

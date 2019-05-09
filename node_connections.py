@@ -609,6 +609,7 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
         for uv_name in uv_names:
             inp = node.inputs.get(uv_name + io_suffix['UV'])
             uv = yp.uvs.get(uv_name)
+            if not uv: continue
             current_uv = tree.nodes.get(uv.parallax_current_uv)
 
             if inp and current_uv: 
@@ -711,6 +712,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     bitangents = {}
 
     for uv in yp.uvs:
+        #print('Connecting', uv.name)
         uv_map = nodes.get(uv.uv_map)
         uv_maps[uv.name] = uv_map.outputs[0]
 
@@ -723,6 +725,21 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         bitangent_flip = nodes.get(uv.bitangent_flip)
         create_link(tree, bitangent.outputs[0], bitangent_flip.inputs[0])
         bitangents[uv.name] = bitangent_flip.outputs[0]
+
+    # Get main tangent and bitangent
+    tangent = None
+    bitangent = None
+
+    height_ch = get_root_height_channel(yp)
+    if height_ch and height_ch.main_uv != '':
+        uv = yp.uvs.get(height_ch.main_uv)
+        if uv:
+            tangent = nodes.get(uv.tangent)
+            bitangent = nodes.get(uv.bitangent)
+
+    if not tangent and len(yp.uvs) > 0:
+        tangent = nodes.get(yp.uvs[0].tangent)
+        bitangent = nodes.get(yp.uvs[0].bitangent)
 
     baked_uv = yp.uvs.get(yp.baked_uv_name)
     if yp.use_baked and baked_uv:
@@ -838,7 +855,11 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
             # UV inputs
             uv_names = []
-            if layer.texcoord_type == 'UV':
+
+            if height_ch and height_ch.main_uv != '':
+                uv_names.append(height_ch.main_uv)
+
+            if layer.texcoord_type == 'UV' and layer.uv_name not in uv_names:
                 uv_names.append(layer.uv_name)
 
             for mask in layer.masks:
@@ -846,6 +867,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     uv_names.append(mask.uv_name)
 
             for uv_name in uv_names:
+                uv = yp.uvs.get(uv_name)
+                if not uv: continue
                 inp = node.inputs.get(uv_name + io_suffix['UV'])
                 if inp:
                     if parallax_ch and parallax:
@@ -939,11 +962,12 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     create_link(tree, disp_e, end_linear.inputs['Height e'])
                     create_link(tree, disp_w, end_linear.inputs['Height w'])
 
-                if len(yp.uvs) > 0:
-                    tangent = nodes.get(yp.uvs[0].tangent)
-                    create_link(tree, tangent.outputs[0], end_linear.inputs['Tangent'])
+                #print()
+                #for i, u in enumerate(yp.uvs):
+                #    print(i, u.name)
 
-                    bitangent = nodes.get(yp.uvs[0].bitangent)
+                if tangent and bitangent:
+                    create_link(tree, tangent.outputs[0], end_linear.inputs['Tangent'])
                     create_link(tree, bitangent.outputs[0], end_linear.inputs['Bitangent'])
 
         if yp.use_baked and baked_uv:
@@ -1210,8 +1234,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     geometry = nodes.get(GEOMETRY)
     mapping = nodes.get(layer.mapping)
 
-    tangent = texcoord.outputs.get(layer.uv_name + io_suffix['TANGENT'])
-    bitangent = texcoord.outputs.get(layer.uv_name + io_suffix['BITANGENT'])
+    # Get tangent and bitangent
+    layer_tangent = texcoord.outputs.get(layer.uv_name + io_suffix['TANGENT'])
+    layer_bitangent = texcoord.outputs.get(layer.uv_name + io_suffix['BITANGENT'])
+
+    height_root_ch = get_root_height_channel(yp)
+    if height_root_ch and height_root_ch.main_uv != '':
+        tangent = texcoord.outputs.get(height_root_ch.main_uv + io_suffix['TANGENT'])
+        bitangent = texcoord.outputs.get(height_root_ch.main_uv + io_suffix['BITANGENT'])
+    else:
+        tangent = layer_tangent
+        bitangent = layer_bitangent
 
     # Texcoord
     if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
@@ -1229,6 +1262,18 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
         if uv_neighbor: 
             create_link(tree, vector, uv_neighbor.inputs[0])
+
+            if 'Tangent' in uv_neighbor.inputs:
+                create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
+                create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
+
+            if 'Entity Tangent' in uv_neighbor.inputs:
+                create_link(tree, layer_tangent, uv_neighbor.inputs['Entity Tangent'])
+                create_link(tree, layer_bitangent, uv_neighbor.inputs['Entity Bitangent'])
+
+            if 'Mask Tangent' in uv_neighbor.inputs:
+                create_link(tree, layer_tangent, uv_neighbor.inputs['Mask Tangent'])
+                create_link(tree, layer_bitangent, uv_neighbor.inputs['Mask Bitangent'])
 
             #if 'Tangent' in uv_neighbor.inputs:
             #    create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
@@ -1278,6 +1323,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     if layer.type in {'VCOL', 'GROUP'} and uv_neighbor:
         if layer.type == 'VCOL':
             create_link(tree, start_rgb, uv_neighbor.inputs[0])
+
         create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
         create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
 
@@ -1371,12 +1417,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             if 'Tangent' in mask_uv_neighbor.inputs:
                 create_link(tree, tangent, mask_uv_neighbor.inputs['Tangent'])
-            if 'Bitangent' in mask_uv_neighbor.inputs:
                 create_link(tree, bitangent, mask_uv_neighbor.inputs['Bitangent'])
+
             if 'Mask Tangent' in mask_uv_neighbor.inputs:
                 create_link(tree, mask_tangent, mask_uv_neighbor.inputs['Mask Tangent'])
-            if 'Mask Bitangent' in mask_uv_neighbor.inputs:
                 create_link(tree, mask_bitangent, mask_uv_neighbor.inputs['Mask Bitangent'])
+
+            if 'Entity Tangent' in mask_uv_neighbor.inputs:
+                create_link(tree, mask_tangent, mask_uv_neighbor.inputs['Entity Tangent'])
+                create_link(tree, mask_bitangent, mask_uv_neighbor.inputs['Entity Bitangent'])
 
         # Mask channels
         for j, c in enumerate(mask.channels):
@@ -2014,10 +2063,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             if not root_ch.enable_smooth_bump and not ch.write_height:
                 normal_flip = nodes.get(ch.normal_flip)
                 if normal_flip:
+
                     if 'Tangent' in normal_flip.inputs:
                         create_link(tree, tangent, normal_flip.inputs['Tangent'])
-                    if 'Bitangent' in normal_flip.inputs:
                         create_link(tree, bitangent, normal_flip.inputs['Bitangent'])
+
                     rgb = create_link(tree, rgb, normal_flip.inputs[0])[0]
 
             if not ch.write_height:

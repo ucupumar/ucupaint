@@ -1058,6 +1058,81 @@ class YAddSimpleUVs(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YFixMissingUV(bpy.types.Operator):
+    bl_idname = "node.y_fix_missing_uv"
+    bl_label = "Fix missing UV"
+    bl_description = "Fix missing UV"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    source_uv_name = StringProperty(name='Missing UV Name', description='Missing UV Name', default='')
+    target_uv_name = StringProperty(name='Target UV Name', description='Target UV Name', default='')
+
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        return obj and obj.type == 'MESH'
+
+    def invoke(self, context, event):
+        obj = context.object
+
+        self.target_uv_name = ''
+
+        if hasattr(obj.data, 'uv_textures'):
+            uv_layers = obj.data.uv_textures
+        else: uv_layers = obj.data.uv_layers
+
+        # UV Map collections update
+        self.uv_map_coll.clear()
+        for uv in uv_layers:
+            if not uv.name.startswith(TEMP_UV):
+                self.uv_map_coll.add().name = uv.name
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+
+        if bpy.app.version_string.startswith('2.8'):
+            row = self.layout.split(factor=0.5)
+        else: row = self.layout.split(percentage=0.5)
+
+        row.label(text='Remap ' + self.source_uv_name + ' to:')
+        row.prop_search(self, "target_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+    def execute(self, context):
+        obj = context.object
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        if hasattr(obj.data, 'uv_textures'):
+            uv_layers = obj.data.uv_textures
+        else: uv_layers = obj.data.uv_layers
+
+        if self.target_uv_name not in uv_layers:
+            self.report({'ERROR'}, "Target UV name is not found!")
+            return {'CANCELLED'}
+
+        # Check baked images uv
+        if yp.baked_uv_name == self.source_uv_name:
+            yp.baked_uv_name = self.target_uv_name
+
+        # Check height channel uv
+        height_ch = get_root_height_channel(yp)
+        if height_ch and height_ch.main_uv == self.source_uv_name:
+            height_ch.main_uv = self.target_uv_name
+
+        # Check layer and masks uv
+        for layer in yp.layers:
+            if layer.uv_name == self.source_uv_name:
+                layer.uv_name = self.target_uv_name
+
+            for mask in layer.masks:
+                if mask.uv_name == self.source_uv_name:
+                    mask.uv_name = self.target_uv_name
+
+        return {'FINISHED'}
+
 class YRenameYPaintTree(bpy.types.Operator):
     bl_idname = "node.y_rename_ypaint_tree"
     bl_label = "Rename " + ADDON_TITLE + " Group Name"
@@ -2038,6 +2113,9 @@ class YPaintChannel(bpy.types.PropertyGroup):
     parallax_rim_hack_hardness = FloatProperty(default=1.0, min=1.0, max=100.0, 
             update=update_parallax_rim_hack)
 
+    # Main uv is used for normal calculation of normal channel
+    main_uv = StringProperty(default='')
+
     displacement_ref_plane = FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
             update=update_displacement_ref_plane)
 
@@ -2208,6 +2286,7 @@ def register():
     bpy.utils.register_class(YMoveYPaintChannel)
     bpy.utils.register_class(YRemoveYPaintChannel)
     bpy.utils.register_class(YAddSimpleUVs)
+    bpy.utils.register_class(YFixMissingUV)
     bpy.utils.register_class(YRenameYPaintTree)
     bpy.utils.register_class(YChangeActiveYPaintNode)
     bpy.utils.register_class(YFixDuplicatedLayers)
@@ -2238,6 +2317,7 @@ def unregister():
     bpy.utils.unregister_class(YMoveYPaintChannel)
     bpy.utils.unregister_class(YRemoveYPaintChannel)
     bpy.utils.unregister_class(YAddSimpleUVs)
+    bpy.utils.unregister_class(YFixMissingUV)
     bpy.utils.unregister_class(YRenameYPaintTree)
     bpy.utils.unregister_class(YChangeActiveYPaintNode)
     bpy.utils.unregister_class(YFixDuplicatedLayers)

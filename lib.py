@@ -244,8 +244,26 @@ def load_custom_icons():
     custom_icons.load('collapsed_vector_channel', filepath + 'collapsed_vector_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_vector_channel', filepath + 'uncollapsed_vector_icon.png', 'IMAGE')
 
-def get_neighbor_uv_tree(texcoord_type, different_uv=False):
+def check_uv_difference_to_main_uv(entity):
+    yp = entity.id_data.yp
+    height_ch = get_root_height_channel(yp)
+    if height_ch:
+
+        # Set height channel main uv if its still empty
+        if height_ch.main_uv == '' and len(yp.uvs) > 0:
+            height_ch.main_uv = yp.uvs[0].name
+
+        # Check if entity uv is different to main uv
+        if height_ch.main_uv != '' and entity.uv_name != height_ch.main_uv:
+            return True
+
+    return False
+
+#def get_neighbor_uv_tree(texcoord_type, different_uv=False, entity=None):
+def get_neighbor_uv_tree(texcoord_type, entity):
+
     if texcoord_type == 'UV':
+        different_uv = check_uv_difference_to_main_uv(entity)
         if different_uv: return get_node_tree_lib(NEIGHBOR_UV_OTHER_UV)
         return get_node_tree_lib(NEIGHBOR_UV_TANGENT)
     if texcoord_type in {'Generated', 'Normal', 'Object'}:
@@ -253,8 +271,10 @@ def get_neighbor_uv_tree(texcoord_type, different_uv=False):
     if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
         return get_node_tree_lib(NEIGHBOR_UV_CAMERA)
 
-def get_neighbor_uv_tree_name(texcoord_type, different_uv=False):
+#def get_neighbor_uv_tree_name(texcoord_type, different_uv=False, entity=None):
+def get_neighbor_uv_tree_name(texcoord_type, entity=None):
     if texcoord_type == 'UV':
+        different_uv = check_uv_difference_to_main_uv(entity)
         if different_uv: return NEIGHBOR_UV_OTHER_UV
         return NEIGHBOR_UV_TANGENT
     if texcoord_type in {'Generated', 'Normal', 'Object'}:

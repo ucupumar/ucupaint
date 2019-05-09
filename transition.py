@@ -86,16 +86,16 @@ def check_transition_ao_nodes(tree, layer, ch, bump_ch=None):
         #if layer.type == 'BACKGROUND' and ch.transition_ao_blend_type == 'MIX':
         if layer.type == 'BACKGROUND' and bump_ch.transition_bump_flip and ch.transition_ao_blend_type == 'MIX':
 
-            tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
+            tao, dirty = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
                     'Transition AO', lib.TRANSITION_AO_BG_MIX, return_status=True)
-            if replaced: duplicate_lib_node_tree(tao)
+            if dirty: duplicate_lib_node_tree(tao)
 
         #elif layer.type == 'BACKGROUND' or bump_ch.transition_bump_flip:
         elif bump_ch.transition_bump_flip:
 
-            tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
+            tao, dirty = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
                     'Transition AO', lib.TRANSITION_AO_FLIP, return_status=True)
-            if replaced: duplicate_lib_node_tree(tao)
+            if dirty: duplicate_lib_node_tree(tao)
 
         elif ch.transition_ao_blend_type == 'MIX' and (
                 layer.parent_idx != -1 or (root_ch.type == 'RGB' and root_ch.enable_alpha)):
@@ -103,9 +103,9 @@ def check_transition_ao_nodes(tree, layer, ch, bump_ch=None):
                     'ShaderNodeGroup', 'Transition AO', lib.TRANSITION_AO_STRAIGHT_OVER)
 
         else:
-            tao, replaced = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
+            tao, dirty = replace_new_node(tree, ch, 'tao', 'ShaderNodeGroup', 
                     'Transition AO', lib.TRANSITION_AO, return_status=True)
-            if replaced: duplicate_lib_node_tree(tao)
+            if dirty: duplicate_lib_node_tree(tao)
 
         # Blend type
         ao_blend = tao.node_tree.nodes.get('_BLEND')
@@ -177,18 +177,18 @@ def set_transition_ramp_nodes(tree, layer, ch):
     #if bump_ch and (bump_ch.transition_bump_flip or layer.type == 'BACKGROUND'):
     if bump_ch and bump_ch.transition_bump_flip:
 
-        tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
+        tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
                 'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_FLIP, return_status=True)
-        if replaced: duplicate_lib_node_tree(tr_ramp)
+        if dirty: duplicate_lib_node_tree(tr_ramp)
 
         if (ch.transition_ramp_blend_type == 'MIX' and 
                 ((root_ch.type == 'RGB' and root_ch.enable_alpha) or layer.parent_idx != -1)):
             tr_ramp_blend = replace_new_node(tree, ch, 'tr_ramp_blend', 
                     'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_STRAIGHT_OVER_BLEND)
         else:
-            tr_ramp_blend, replaced = replace_new_node(tree, ch, 'tr_ramp_blend', 
+            tr_ramp_blend, dirty = replace_new_node(tree, ch, 'tr_ramp_blend', 
                     'ShaderNodeGroup', 'Transition Ramp Blend', lib.RAMP_FLIP_BLEND, return_status=True)
-            if replaced: duplicate_lib_node_tree(tr_ramp_blend)
+            if dirty: duplicate_lib_node_tree(tr_ramp_blend)
 
             # Get blend node
             ramp_blend = tr_ramp_blend.node_tree.nodes.get('_BLEND')
@@ -197,22 +197,22 @@ def set_transition_ramp_nodes(tree, layer, ch):
     else:
         if layer.type == 'BACKGROUND' and ch.transition_ramp_blend_type == 'MIX':
             if ch.transition_ramp_intensity_unlink:
-                tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
+                tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
                         'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_BG_MIX_UNLINK, return_status=True)
             elif layer.parent_idx != -1:
-                tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
+                tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
                         'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_BG_MIX_CHILD, return_status=True)
             else:
-                tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
+                tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
                         'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_BG_MIX, return_status=True)
         elif ch.transition_ramp_intensity_unlink and ch.transition_ramp_blend_type == 'MIX':
-            tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
+            tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
                     'ShaderNodeGroup', 'Transition Ramp', lib.RAMP_STRAIGHT_OVER, return_status=True)
         else:
-            tr_ramp, replaced = replace_new_node(tree, ch, 'tr_ramp', 
+            tr_ramp, dirty = replace_new_node(tree, ch, 'tr_ramp', 
                     'ShaderNodeGroup', 'Transition Ramp', lib.RAMP, return_status=True)
 
-        if replaced: duplicate_lib_node_tree(tr_ramp)
+        if dirty: duplicate_lib_node_tree(tr_ramp)
 
         # Get blend node
         ramp_blend = tr_ramp.node_tree.nodes.get('_BLEND')

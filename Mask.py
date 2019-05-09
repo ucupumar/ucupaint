@@ -814,23 +814,14 @@ def update_mask_uv_name(self, context):
     tree = get_tree(layer)
     mask = self
 
-    #uv_map = tree.nodes.get(mask.uv_map)
-
     # Cannot use temp uv as standard uv
     if mask.uv_name == TEMP_UV:
-        #mask.uv_name = uv_map.uv_map
         mask.uv_name = layer.uv_name
     
-    #uv_map.uv_map = mask.uv_name
-
     # Update uv layer
     if mask.active_edit and obj.type == 'MESH' and layer == active_layer:
 
         if mask.segment_name != '':
-            #if ypui.disable_auto_temp_uv_update:
-            #    update_image_editor_image(context, None)
-            #    yp.need_temp_uv_refresh = True
-            #else: 
             refresh_temp_uv(obj, mask)
         else:
 
@@ -840,20 +831,14 @@ def update_mask_uv_name(self, context):
 
             uv_layers.active = uv_layers.get(mask.uv_name)
 
-            #for i, uv in enumerate(uv_layers):
-            #    if uv.name == mask.uv_name:
-            #        if uv_layers.active_index != i:
-            #            uv_layers.active_index = i
-            #        break
-
     # Update global uv
-    check_uv_nodes(yp)
+    dirty = check_uv_nodes(yp)
 
     # Update layer tree inputs
     yp_dirty = True if check_layer_tree_ios(layer, tree) else False
 
     # Update neighbor uv if mask bump is active
-    if set_mask_uv_neighbor(tree, layer, self):
+    if set_mask_uv_neighbor(tree, layer, self) or dirty or yp_dirty:
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 

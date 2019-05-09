@@ -891,25 +891,25 @@ def get_node_tree_lib(name):
 
     return node_tree
 
-def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False, hard_replace=False, replaced=False):
+def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False, hard_replace=False, dirty=False):
     ''' Check if node is available, replace if available '''
 
     # Try to get the node first
     try: node = tree.nodes.get(getattr(entity, prop))
     except: return None, False
 
-    #replaced = False
+    #dirty = False
 
     # Remove node if found and has different id name
     if node and node.bl_idname != node_id_name:
         remove_node(tree, entity, prop)
         node = None
-        replaced = True
+        dirty = True
 
     # Create new node
     if not node:
         node = new_node(tree, entity, prop, node_id_name, label)
-        replaced = True
+        dirty = True
 
     if node.type == 'GROUP':
 
@@ -928,22 +928,22 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
             if hard_replace:
                 tree.nodes.remove(node)
                 node = new_node(tree, entity, prop, node_id_name, label)
-                replaced = True
+                dirty = True
 
             # Replace group tree
             node.node_tree = get_node_tree_lib(group_name)
 
             if not prev_tree:
-                replaced = True
+                dirty = True
 
             else:
                 # Compare previous group inputs with current group inputs
                 if len(prev_tree.inputs) != len(node.inputs):
-                    replaced = True
+                    dirty = True
                 else:
                     for i, inp in enumerate(node.inputs):
                         if inp.name != prev_tree.inputs[i].name:
-                            replaced = True
+                            dirty = True
                             break
 
                 # Remove previous tree if it has no user
@@ -951,7 +951,7 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
                     bpy.data.node_groups.remove(prev_tree)
 
     if return_status:
-        return node, replaced
+        return node, dirty
 
     return node
 
@@ -1607,8 +1607,11 @@ def refresh_temp_uv(obj, entity):
         uv_layers = obj.data.uv_layers
     else: uv_layers = obj.data.uv_textures
 
-    if uv_layers.active != uv_layers[entity.uv_name]:
-        uv_layers.active = uv_layers[entity.uv_name]
+    layer_uv = uv_layers.get(entity.uv_name)
+    if not layer_uv: return False
+
+    if uv_layers.active != layer_uv:
+        uv_layers.active = layer_uv
 
     # Delete previous temp uv
     for uv in uv_layers:
@@ -1734,21 +1737,6 @@ def get_height_channel(layer):
             return ch
 
     return None
-
-#def get_parallax_uv(yp, disp_ch=None):
-#    if not disp_ch:
-#        disp_ch = get_root_parallax_channel(yp)
-#
-#    if not disp_ch:
-#        return None
-#
-#    if yp.baked_uv_name != '':
-#        uv = yp.uvs.get(yp.baked_uv_name)
-#    elif len(yp.uvs) > 0:
-#        uv = yp.uvs[0]
-#    else: uv = None
-#
-#    return uv
 
 def create_delete_iterate_nodes(tree, num_of_iteration):
     iter_tree = tree.nodes.get('_iterate_0').node_tree

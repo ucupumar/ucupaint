@@ -107,7 +107,7 @@ def enable_layer_source_tree(layer, rearrange=False):
     #else: 
     elif layer.type != 'GROUP': 
         uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-                lib.get_neighbor_uv_tree_name(layer.texcoord_type), hard_replace=True)
+                lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
         set_uv_neighbor_resolution(layer, uv_neighbor)
 
     if rearrange:
@@ -210,13 +210,14 @@ def set_mask_uv_neighbor(tree, layer, mask):
         uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
     else:
 
-        different_uv = mask.texcoord_type == 'UV' and layer.uv_name != mask.uv_name
+        #different_uv = mask.texcoord_type == 'UV' and layer.uv_name != mask.uv_name
 
         # Check number of input
         prev_num_inputs = len(uv_neighbor.inputs)
 
         # Get new uv neighbor tree
-        uv_neighbor.node_tree = lib.get_neighbor_uv_tree(mask.texcoord_type, different_uv)
+        #uv_neighbor.node_tree = lib.get_neighbor_uv_tree(mask.texcoord_type, different_uv, entity=mask)
+        uv_neighbor.node_tree = lib.get_neighbor_uv_tree(mask.texcoord_type, entity=mask)
 
         # Check current number of input
         cur_num_inputs = len(uv_neighbor.inputs)
@@ -796,35 +797,57 @@ def refresh_parallax_depth_img(yp, parallax, disp_img): #, disp_ch):
 
     height_map.image = disp_img
 
-    #for layer in yp.layers:
-        #node = tree.nodes.get(layer.depth_group_node)
-        #if not node:
-        #    n = yp.id_data.nodes.get(layer.group_node)
-        #    node = new_node(tree, layer, 'depth_group_node', 'ShaderNodeGroup', layer.name)
-        #    node.node_tree = n.node_tree
-
-def check_parallax_node(yp, parallax_ch, node_name, disp_img=None, uv_name=''): #, uv):
+def check_parallax_prep_nodes(yp, unused_uvs=[]):
 
     tree = yp.id_data
 
-    # Standard height channel is the fallback of parallax channel
-    if not parallax_ch:
-        parallax_ch = get_root_height_channel(yp)
+    # Standard height channel is same as parallax channel (for now?)
+    parallax_ch = get_root_height_channel(yp)
+    if not parallax_ch: return
 
-    #parallax = tree.nodes.get(PARALLAX)
+    for uv in yp.uvs:
+        if uv in unused_uvs: continue
+        parallax_prep = tree.nodes.get(uv.parallax_prep)
+        if not parallax_prep:
+            parallax_prep = new_node(tree, uv, 'parallax_prep', 'ShaderNodeGroup', 
+                    uv.name + ' Parallax Preparation')
+            parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
+
+        #parallax_prep.inputs['depth_scale'].default_value = parallax_ch.displacement_height_ratio
+        parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(parallax_ch)
+        parallax_prep.inputs['ref_plane'].default_value = parallax_ch.displacement_ref_plane
+        parallax_prep.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
+        parallax_prep.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
+        parallax_prep.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
+
+def check_parallax_node(yp, unused_uvs=[], baked=False):
+
+    tree = yp.id_data
+
+    # Standard height channel is same as parallax channel (for now?)
+    parallax_ch = get_root_height_channel(yp)
+    if not parallax_ch: return
+
+    # Get parallax node
+    node_name = BAKED_PARALLAX if baked else PARALLAX
     parallax = tree.nodes.get(node_name)
 
-    # Displacement image means it's baked
-    baked = True if disp_img else False
+    # Displacement image needed for baked parallax
+    disp_img = None
+    if baked:
+        baked_disp = tree.nodes.get(parallax_ch.baked_disp)
+        if baked_disp:
+            disp_img = baked_disp.image
+        else:
+            return
 
+    # Create parallax node
     if not parallax:
         parallax = tree.nodes.new('ShaderNodeGroup')
-        #parallax.name = PARALLAX
         parallax.name = node_name
 
-        if baked:
-            parallax.label = 'Baked Parallax Occlusion Mapping'
-        else: parallax.label = 'Parallax Occlusion Mapping'
+        parallax.label = 'Parallax Occlusion Mapping'
+        if baked: parallax.label = 'Baked ' + parallax.label
 
         parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PROC)
         duplicate_lib_node_tree(parallax)
@@ -844,7 +867,7 @@ def check_parallax_node(yp, parallax_ch, node_name, disp_img=None, uv_name=''): 
 
     parallax.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
 
-    if disp_img != None:
+    if baked:
         refresh_parallax_depth_img(yp, parallax, disp_img)
     else: refresh_parallax_depth_source_layers(yp, parallax)
 
@@ -854,7 +877,7 @@ def check_parallax_node(yp, parallax_ch, node_name, disp_img=None, uv_name=''): 
 
     for uv in yp.uvs:
 
-        if uv_name != '' and uv.name != uv_name: 
+        if (baked and yp.baked_uv_name != uv.name) or uv in unused_uvs:
             # Delete other uv io
             check_parallax_process_outputs(parallax, uv.name, remove=True)
             check_start_delta_uv_inputs(parallax.node_tree, uv.name, remove=True)
@@ -874,19 +897,6 @@ def check_parallax_node(yp, parallax_ch, node_name, disp_img=None, uv_name=''): 
             check_iterate_current_uv_mix(iterate_0.node_tree, uv, baked, remove=True)
             continue
 
-        parallax_prep = tree.nodes.get(uv.parallax_prep)
-        if not parallax_prep:
-            parallax_prep = new_node(tree, uv, 'parallax_prep', 'ShaderNodeGroup', 
-                    uv.name + ' Parallax Preparation')
-            parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
-
-        #parallax_prep.inputs['depth_scale'].default_value = parallax_ch.displacement_height_ratio
-        parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(parallax_ch)
-        parallax_prep.inputs['ref_plane'].default_value = parallax_ch.displacement_ref_plane
-        parallax_prep.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
-        parallax_prep.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
-        parallax_prep.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
-
         check_parallax_process_outputs(parallax, uv.name)
         check_start_delta_uv_inputs(parallax.node_tree, uv.name)
         check_parallax_mix(parallax.node_tree, uv, baked)
@@ -904,24 +914,6 @@ def check_parallax_node(yp, parallax_ch, node_name, disp_img=None, uv_name=''): 
         check_current_uv_inputs(iterate_0.node_tree, uv.name)
         check_iterate_current_uv_mix(iterate_0.node_tree, uv, baked)
 
-    #parallax = tree.nodes.get(uv.parallax)
-
-    #if not parallax:
-    #    parallax = new_node(tree, uv, 'parallax', 'ShaderNodeGroup', 
-    #            uv.name + ' Parallax')
-    #    parallax.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION)
-    #    duplicate_lib_node_tree(parallax)
-
-    #parallax.inputs['depth_scale'].default_value = parallax_ch.displacement_height_ratio
-    #parallax.inputs['ref_plane'].default_value = parallax_ch.displacement_ref_plane
-    #parallax.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
-    #parallax.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
-
-    ## Search for displacement image
-    #baked_disp = tree.nodes.get(parallax_ch.baked_disp)
-    #if baked_disp and baked_disp.image:
-    #    set_parallax_node(yp, parallax, baked_disp.image)
-
 def remove_uv_nodes(uv):
     tree = uv.id_data
     yp = tree.yp
@@ -931,69 +923,89 @@ def remove_uv_nodes(uv):
     remove_node(tree, uv, 'tangent_flip')
     remove_node(tree, uv, 'bitangent')
     remove_node(tree, uv, 'bitangent_flip')
+    remove_node(tree, uv, 'parallax_prep')
 
     #yp.uvs.remove(uv)
 
 def check_uv_nodes(yp):
 
+    # Check for UV needed
     uv_names = []
 
-    # Check for UV needed
+    # Get active object
+    obj = bpy.context.object
 
     dirty = False
 
-    if yp.baked_uv_name != '':
-        uv = yp.uvs.get(yp.baked_uv_name)
+    if obj.type != 'MESH': return
+
+    if hasattr(obj.data, 'uv_textures'):
+        uv_layers = obj.data.uv_textures
+    else: uv_layers = obj.data.uv_layers
+
+    for uv_layer in uv_layers:
+        if uv_layer.name == TEMP_UV: continue
+        uv = yp.uvs.get(uv_layer.name)
         if not uv: 
             dirty = True
-            create_uv_nodes(yp, yp.baked_uv_name)
-        uv_names.append(yp.baked_uv_name)
+            create_uv_nodes(yp, uv_layer.name)
+        if uv_layer.name not in uv_names: uv_names.append(uv_layer.name)
 
-    for layer in yp.layers:
+    #else:
 
-        #if layer.texcoord_type == 'UV':
-        uv = yp.uvs.get(layer.uv_name)
-        if not uv: 
-            dirty = True
-            create_uv_nodes(yp, layer.uv_name)
-        if layer.uv_name not in uv_names: uv_names.append(layer.uv_name)
+    #    if yp.baked_uv_name != '':
+    #        uv = yp.uvs.get(yp.baked_uv_name)
+    #        if not uv: 
+    #            dirty = True
+    #            create_uv_nodes(yp, yp.baked_uv_name)
+    #        uv_names.append(yp.baked_uv_name)
 
-        for mask in layer.masks:
-            if mask.texcoord_type == 'UV':
-                uv = yp.uvs.get(mask.uv_name)
-                if not uv: 
-                    dirty = True
-                    create_uv_nodes(yp, mask.uv_name)
-                if mask.uv_name not in uv_names: uv_names.append(mask.uv_name)
+    #    for layer in yp.layers:
 
-    # Check for displacement channel
-    #if uv_names:
-    #disp_ch = None
-    #for ch in yp.channels:
-    #    if ch.type == 'NORMAL' and ch.enable_parallax:
-    #        disp_ch = ch
-    #        break
+    #        #if layer.texcoord_type == 'UV':
+    #        uv = yp.uvs.get(layer.uv_name)
+    #        if not uv: 
+    #            dirty = True
+    #            create_uv_nodes(yp, layer.uv_name)
+    #        if layer.uv_name not in uv_names: uv_names.append(layer.uv_name)
 
-    disp_ch = get_root_parallax_channel(yp)
+    #        for mask in layer.masks:
+    #            if mask.texcoord_type == 'UV':
+    #                uv = yp.uvs.get(mask.uv_name)
+    #                if not uv: 
+    #                    dirty = True
+    #                    create_uv_nodes(yp, mask.uv_name)
+    #                if mask.uv_name not in uv_names: uv_names.append(mask.uv_name)
 
-    if disp_ch:
-        #if yp.baked_uv_name != '':
-        #    uv = yp.uvs.get(yp.baked_uv_name)
-        #elif uv_names:
-        #    uv = yp.uvs.get(uv_names[0])
-        #else: uv = None
-        #uv = get_parallax_uv(yp, disp_ch)
-
-        #if uv:
-        #check_parallax_node(yp, disp_ch)
-        check_parallax_node(yp, disp_ch, PARALLAX)
-
-    # Remove unused uv objects
+    # Get unused uv objects
+    unused_uvs = []
+    unused_ids = []
     for i, uv in reversed(list(enumerate(yp.uvs))):
         if uv.name not in uv_names:
-            remove_uv_nodes(uv)
-            dirty = True
-            yp.uvs.remove(i)
+            unused_uvs.append(uv)
+            unused_ids.append(i)
+
+    # Check parallax preparation nodes
+    check_parallax_prep_nodes(yp, unused_uvs)
+
+    # Check standard parallax
+    check_parallax_node(yp, unused_uvs)
+
+    # Check baked parallax
+    check_parallax_node(yp, unused_uvs, baked=True)
+
+    # Remove unused uv objects
+    for i in unused_ids:
+        uv = yp.uvs[i]
+        remove_uv_nodes(uv)
+        dirty = True
+        yp.uvs.remove(i)
+
+    # Set main uv for normal channel
+    #height_ch = get_root_height_channel(yp)
+    #if height_ch and obj.type == 'MESH':
+    #    if height_ch.main_uv not in uv_names and len(yp.uvs) > 0:
+    #        height_ch.main_uv = yp.uvs[0].name
 
     return dirty
 
@@ -1145,49 +1157,94 @@ def check_layer_tree_ios(layer, tree=None):
                         dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, index, dirty)
                         index += 1
 
-    uv_names = [layer.uv_name]
+    # UV necessary container
+    uv_names = []
 
-    # Texcoord IO
-    name = layer.uv_name + io_suffix['UV']
-    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    index += 1
+    # Check height root channel
+    height_root_ch = get_root_height_channel(yp)
+    if height_root_ch and height_root_ch.main_uv != '' and height_root_ch.main_uv not in uv_names:
+        uv_names.append(height_root_ch.main_uv)
 
-    name = layer.uv_name + io_suffix['TANGENT']
-    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    index += 1
+    # Check layer uv
+    if layer.texcoord_type == 'UV' and layer.uv_name not in uv_names:
+        uv_names.append(layer.uv_name)
 
-    name = layer.uv_name + io_suffix['BITANGENT']
-    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    index += 1
+    # Check masks uvs
+    for mask in layer.masks:
+        if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names:
+            uv_names.append(mask.uv_name)
 
-    texcoords = ['UV']
-    if layer.texcoord_type != 'UV':
-        name = io_names[layer.texcoord_type]
+    # Create inputs
+    for uv_name in uv_names:
+        name = uv_name + io_suffix['UV']
         dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
         index += 1
+
+        name = uv_name + io_suffix['TANGENT']
+        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+        index += 1
+
+        name = uv_name + io_suffix['BITANGENT']
+        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+        index += 1
+
+    # Other than uv texcoord name container
+    texcoords = []
+
+    # Check layer
+    if layer.texcoord_type != 'UV':
         texcoords.append(layer.texcoord_type)
 
     for mask in layer.masks:
-        if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names:
-            name = mask.uv_name + io_suffix['UV']
-            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-            index += 1
-
-            name = mask.uv_name + io_suffix['TANGENT']
-            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-            index += 1
-
-            name = mask.uv_name + io_suffix['BITANGENT']
-            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-            index += 1
-
-            uv_names.append(mask.uv_name)
-
-        elif mask.texcoord_type not in texcoords:
-            name = io_names[mask.texcoord_type]
-            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-            index += 1
+        if mask.texcoord_type != 'UV' and mask.texcoord_type not in texcoords:
             texcoords.append(mask.texcoord_type)
+
+    for texcoord in texcoords:
+        name = io_names[texcoord]
+        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+        index += 1
+
+    # Texcoord IO
+    #name = layer.uv_name + io_suffix['UV']
+    #dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    #index += 1
+
+    #name = layer.uv_name + io_suffix['TANGENT']
+    #dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    #index += 1
+
+    #name = layer.uv_name + io_suffix['BITANGENT']
+    #dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    #index += 1
+
+    #texcoords = ['UV']
+    #if layer.texcoord_type != 'UV':
+    #    name = io_names[layer.texcoord_type]
+    #    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    #    index += 1
+    #    texcoords.append(layer.texcoord_type)
+
+    #for mask in layer.masks:
+    #    if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names:
+    #        name = mask.uv_name + io_suffix['UV']
+    #        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    #        index += 1
+
+    #        name = mask.uv_name + io_suffix['TANGENT']
+    #        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    #        index += 1
+
+    #        name = mask.uv_name + io_suffix['BITANGENT']
+    #        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    #        index += 1
+
+    #        uv_names.append(mask.uv_name)
+
+    #    elif mask.texcoord_type not in texcoords:
+    #        name = io_names[mask.texcoord_type]
+    #        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+    #        index += 1
+    #        texcoords.append(mask.texcoord_type)
 
     # Check for invalid io
     for inp in tree.inputs:
@@ -1285,7 +1342,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
     height_proc, need_reconnect = replace_new_node(
             tree, ch, 'height_proc', 'ShaderNodeGroup', 'Height Process', 
-            lib_name, return_status = True, hard_replace=True, replaced=need_reconnect)
+            lib_name, return_status = True, hard_replace=True, dirty=need_reconnect)
 
     if ch.normal_map_type == 'NORMAL_MAP':
         if ch.enable_transition_bump:
@@ -1317,7 +1374,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             if layer.parent_idx != -1:
                 height_blend, need_reconnect = replace_new_node(
                         tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                        lib.STRAIGHT_OVER_HEIGHT_MIX, return_status=True, hard_replace=True, replaced=need_reconnect)
+                        lib.STRAIGHT_OVER_HEIGHT_MIX, return_status=True, hard_replace=True, dirty=need_reconnect)
                 if ch.write_height:
                     height_blend.inputs['Divide'].default_value = 1.0
                 else: height_blend.inputs['Divide'].default_value = 0.0
@@ -1325,7 +1382,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
                 height_blend, need_reconnect = replace_new_node(
                         tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend', 
-                        return_status=True, replaced=need_reconnect) #, hard_replace=True)
+                        return_status=True, dirty=need_reconnect) #, hard_replace=True)
 
                 height_blend.blend_type = 'MIX'
 
@@ -1334,14 +1391,14 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             if layer.parent_idx != -1:
                 height_blend, need_reconnect = replace_new_node(
                         tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                        lib.STRAIGHT_OVER_HEIGHT_ADD, return_status=True, hard_replace=True, replaced=need_reconnect)
+                        lib.STRAIGHT_OVER_HEIGHT_ADD, return_status=True, hard_replace=True, dirty=need_reconnect)
                 if ch.write_height:
                     height_blend.inputs['Divide'].default_value = 1.0
                 else: height_blend.inputs['Divide'].default_value = 0.0
             else:
                 height_blend, need_reconnect = replace_new_node(
                         tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend', 
-                        return_status=True, replaced=need_reconnect) #, hard_replace=True)
+                        return_status=True, dirty=need_reconnect) #, hard_replace=True)
 
                 height_blend.blend_type = 'ADD'
 
@@ -1354,7 +1411,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                     if layer.parent_idx != -1:
                         hb, need_reconnect = replace_new_node(
                                 tree, ch, 'height_blend_' + d, 'ShaderNodeGroup', 'Height Blend', 
-                                lib.STRAIGHT_OVER_HEIGHT_MIX, return_status=True, hard_replace=True, replaced=need_reconnect)
+                                lib.STRAIGHT_OVER_HEIGHT_MIX, return_status=True, hard_replace=True, dirty=need_reconnect)
                         if ch.write_height:
                             hb.inputs['Divide'].default_value = 1.0
                         else: hb.inputs['Divide'].default_value = 0.0
@@ -1362,7 +1419,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
                         hb, need_reconnect = replace_new_node(
                             tree, ch, 'height_blend_' + d, 'ShaderNodeMixRGB', 'Height Blend', 
-                            return_status=True, replaced=need_reconnect) #, hard_replace=True)
+                            return_status=True, dirty=need_reconnect) #, hard_replace=True)
 
                         hb.blend_type = 'MIX'
 
@@ -1371,7 +1428,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                     if layer.parent_idx != -1:
                         hb, need_reconnect = replace_new_node(
                                 tree, ch, 'height_blend_' + d, 'ShaderNodeGroup', 'Height Blend', 
-                                lib.STRAIGHT_OVER_HEIGHT_ADD, return_status=True, hard_replace=True, replaced=need_reconnect)
+                                lib.STRAIGHT_OVER_HEIGHT_ADD, return_status=True, hard_replace=True, dirty=need_reconnect)
                         if ch.write_height:
                             hb.inputs['Divide'].default_value = 1.0
                         else: hb.inputs['Divide'].default_value = 0.0
@@ -1379,7 +1436,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
                         hb, need_reconnect = replace_new_node(
                             tree, ch, 'height_blend_' + d, 'ShaderNodeMixRGB', 'Height Blend', 
-                            return_status=True, replaced=need_reconnect) #, hard_replace=True)
+                            return_status=True, dirty=need_reconnect) #, hard_replace=True)
 
                         hb.blend_type = 'ADD'
 
@@ -1387,13 +1444,13 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         height_blend, need_reconnect = replace_new_node(
                 tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                lib.HEIGHT_COMPARE, return_status=True, hard_replace=True, replaced=need_reconnect)
+                lib.HEIGHT_COMPARE, return_status=True, hard_replace=True, dirty=need_reconnect)
 
         if root_ch.enable_smooth_bump:
             for d in neighbor_directions:
                 hb, need_reconnect = replace_new_node(
                     tree, ch, 'height_blend_' + d, 'ShaderNodeGroup', 'Height Blend', 
-                    lib.HEIGHT_COMPARE, return_status=True, hard_replace=True, replaced=need_reconnect)
+                    lib.HEIGHT_COMPARE, return_status=True, hard_replace=True, dirty=need_reconnect)
 
     if not root_ch.enable_smooth_bump:
         for d in neighbor_directions:
@@ -1449,7 +1506,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
     normal_proc, need_reconnect = replace_new_node(
             tree, ch, 'normal_proc', 'ShaderNodeGroup', 'Normal Process', 
-            lib_name, return_status = True, hard_replace=True, replaced=need_reconnect)
+            lib_name, return_status = True, hard_replace=True, dirty=need_reconnect)
 
     normal_proc.inputs['Max Height'].default_value = max_height
     if root_ch.enable_smooth_bump:
@@ -1526,16 +1583,16 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     ):
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG, return_status = True, 
-                        hard_replace=True, replaced=need_reconnect)
+                        hard_replace=True, dirty=need_reconnect)
 
             else: 
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER, 
-                        return_status = True, hard_replace=True, replaced=need_reconnect)
+                        return_status = True, hard_replace=True, dirty=need_reconnect)
 
         else:
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True, replaced=need_reconnect)
+                    'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True, dirty=need_reconnect)
 
     elif root_ch.type == 'NORMAL':
 
@@ -1543,26 +1600,26 @@ def check_blend_type_nodes(root_ch, layer, ch):
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
-                        return_status = True, hard_replace=True, replaced=need_reconnect)
+                        return_status = True, hard_replace=True, dirty=need_reconnect)
             else:
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, 
-                        return_status = True, hard_replace=True, replaced=need_reconnect)
+                        return_status = True, hard_replace=True, dirty=need_reconnect)
 
         elif normal_blend_type == 'OVERLAY':
             if has_parent:
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL_STRAIGHT_OVER, 
-                        return_status = True, hard_replace=True, replaced=need_reconnect)
+                        return_status = True, hard_replace=True, dirty=need_reconnect)
             else:
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
-                        return_status = True, hard_replace=True, replaced=need_reconnect)
+                        return_status = True, hard_replace=True, dirty=need_reconnect)
 
         elif normal_blend_type == 'MIX':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
-                    return_status = True, hard_replace=True, replaced=need_reconnect)
+                    return_status = True, hard_replace=True, dirty=need_reconnect)
 
         update_disp_scale_node(tree, root_ch, ch)
 
@@ -1581,15 +1638,15 @@ def check_blend_type_nodes(root_ch, layer, ch):
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, 
-                        return_status = True, hard_replace=True, replaced=need_reconnect)
+                        return_status = True, hard_replace=True, dirty=need_reconnect)
             else:
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BW, 
-                        return_status = True, hard_replace=True, replaced=need_reconnect)
+                        return_status = True, hard_replace=True, dirty=need_reconnect)
         else:
 
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True, replaced=need_reconnect)
+                    'ShaderNodeMixRGB', 'Blend', return_status = True, hard_replace=True, dirty=need_reconnect)
 
     if root_ch.type != 'NORMAL' and blend.type == 'MIX_RGB' and blend.blend_type != blend_type:
         blend.blend_type = blend_type
