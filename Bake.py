@@ -361,7 +361,7 @@ class YBakeToLayer(bpy.types.Operator):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this layer',
-            items = Layer.img_normal_map_type_items)
+            items = Layer.get_normal_map_type_items)
             #default = 'NORMAL_MAP')
 
     hdr = BoolProperty(name='32 bit Float', default=True)
@@ -377,7 +377,7 @@ class YBakeToLayer(bpy.types.Operator):
         yp = node.node_tree.yp
 
         # Default normal map type is bump
-        self.normal_map_type = 'FINE_BUMP_MAP'
+        self.normal_map_type = 'BUMP_MAP'
 
         # Use active uv layer name by default
         if hasattr(obj.data, 'uv_textures'):

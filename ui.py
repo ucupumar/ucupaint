@@ -1552,6 +1552,47 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
 
     box = layout.box()
 
+    # Check if any uv is missing
+    if is_a_mesh:
+
+        # Get missing uvs
+        uv_missings = []
+        #for uv in yp.uvs:
+        #    uv_layer = uv_layers.get(uv.name)
+        #    if not uv_layer:
+        #        uv_missings.append(uv.name)
+
+        # Check baked images
+        if yp.baked_uv_name != '':
+            uv_layer = uv_layers.get(yp.baked_uv_name)
+            if not uv_layer and yp.baked_uv_name not in uv_missings:
+                uv_missings.append(yp.baked_uv_name)
+
+        # Check main uv of height channel
+        height_ch = get_root_height_channel(yp)
+        if height_ch and height_ch.main_uv != '':
+            uv_layer = uv_layers.get(height_ch.main_uv)
+            if not uv_layer and height_ch.main_uv not in uv_missings:
+                uv_missings.append(height_ch.main_uv)
+
+        # Check layer and mask uv
+        for layer in yp.layers:
+            uv_layer = uv_layers.get(layer.uv_name)
+            if not uv_layer and layer.uv_name not in uv_missings:
+                uv_missings.append(layer.uv_name)
+
+            for mask in layer.masks:
+                uv_layer = uv_layers.get(mask.uv_name)
+                if not uv_layer and mask.uv_name not in uv_missings:
+                    uv_missings.append(mask.uv_name)
+
+        for uv_name in uv_missings:
+            row = box.row(align=True)
+            row.alert = True
+            title = 'UV ' + uv_name + ' is missing or renamed!'
+            row.operator("node.y_fix_missing_uv", text=title, icon='ERROR').source_uv_name = uv_name
+            row.alert = False
+
     if yp.use_baked:
         col = box.column(align=False)
         #bbox = col.box()
@@ -1599,47 +1640,6 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
         row.operator("node.y_add_simple_uvs", icon='ERROR')
         row.alert = False
         return
-
-    # Check if any uv is missing
-    if is_a_mesh:
-
-        # Get missing uvs
-        uv_missings = []
-        #for uv in yp.uvs:
-        #    uv_layer = uv_layers.get(uv.name)
-        #    if not uv_layer:
-        #        uv_missings.append(uv.name)
-
-        # Check baked images
-        if yp.baked_uv_name != '':
-            uv_layer = uv_layers.get(yp.baked_uv_name)
-            if not uv_layer and yp.baked_uv_name not in uv_missings:
-                uv_missings.append(yp.baked_uv_name)
-
-        # Check main uv of height channel
-        height_ch = get_root_height_channel(yp)
-        if height_ch and height_ch.main_uv != '':
-            uv_layer = uv_layers.get(height_ch.main_uv)
-            if not uv_layer and height_ch.main_uv not in uv_missings:
-                uv_missings.append(height_ch.main_uv)
-
-        # Check layer and mask uv
-        for layer in yp.layers:
-            uv_layer = uv_layers.get(layer.uv_name)
-            if not uv_layer and layer.uv_name not in uv_missings:
-                uv_missings.append(layer.uv_name)
-
-            for mask in layer.masks:
-                uv_layer = uv_layers.get(mask.uv_name)
-                if not uv_layer and mask.uv_name not in uv_missings:
-                    uv_missings.append(mask.uv_name)
-
-        for uv_name in uv_missings:
-            row = box.row(align=True)
-            row.alert = True
-            title = 'UV ' + uv_name + ' is missing or renamed!'
-            row.operator("node.y_fix_missing_uv", text=title, icon='ERROR').source_uv_name = uv_name
-            row.alert = False
 
     # Check duplicated layers (indicated by more than one users)
     #if len(yp.layers) > 0 and get_tree(yp.layers[-1]).users > 1:

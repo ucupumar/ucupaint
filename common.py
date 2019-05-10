@@ -1958,6 +1958,7 @@ def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_
     max_height = 0.0
 
     for l in reversed(layers):
+        if ch_index > len(l.channels)-1: continue
         if top_layers_only and l.parent_idx != -1: continue
         c = l.channels[ch_index]
         ch_max_height = get_layer_channel_max_height(l, c)
@@ -1970,6 +1971,7 @@ def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_
             break
 
     for l in reversed(layers):
+        if ch_index > len(l.channels)-1: continue
         if top_layers_only and l.parent_idx != -1: continue
         c = l.channels[ch_index]
         ch_max_height = get_layer_channel_max_height(l, c)

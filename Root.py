@@ -906,6 +906,10 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         # Collapse the UI
         #setattr(ypui, 'show_channel_modifiers_' + str(channel_idx), False)
 
+        # Disable smooth bump if active
+        if channel.type == 'NORMAL' and channel.enable_smooth_bump:
+            channel.enable_smooth_bump = False
+
         # Remove channel nodes from layers
         for layer in yp.layers:
             ch = layer.channels[channel_idx]
@@ -934,6 +938,10 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
             remove_node(ttree, ch, 'height_proc')
             remove_node(ttree, ch, 'height_blend')
+            remove_node(ttree, ch, 'height_blend_n')
+            remove_node(ttree, ch, 'height_blend_s')
+            remove_node(ttree, ch, 'height_blend_e')
+            remove_node(ttree, ch, 'height_blend_w')
             remove_node(ttree, ch, 'normal_proc')
 
             remove_node(ttree, ch, 'cache_ramp')
@@ -1103,7 +1111,8 @@ class YFixMissingUV(bpy.types.Operator):
     def execute(self, context):
         obj = context.object
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        group_tree = node.node_tree
+        yp = group_tree.yp
 
         if hasattr(obj.data, 'uv_textures'):
             uv_layers = obj.data.uv_textures
@@ -1116,6 +1125,12 @@ class YFixMissingUV(bpy.types.Operator):
         # Check baked images uv
         if yp.baked_uv_name == self.source_uv_name:
             yp.baked_uv_name = self.target_uv_name
+
+        # Check baked normal channel
+        for ch in yp.channels:
+            baked_normal = group_tree.nodes.get(ch.baked_normal)
+            if baked_normal and baked_normal.uv_map == self.source_uv_name:
+                baked_normal.uv_map = self.target_uv_name
 
         # Check height channel uv
         height_ch = get_root_height_channel(yp)

@@ -91,33 +91,17 @@ def layer_input_items(self, context):
 
     return items
 
-def normal_map_type_items_(layer_type):
+def get_normal_map_type_items(self, context):
     items = []
 
     if bpy.app.version_string.startswith('2.8'):
-        items.append(('NORMAL_MAP', 'Normal Map', ''))
         items.append(('BUMP_MAP', 'Bump Map', ''))
-        #if layer_type != 'VCOL':
-        #items.append(('FINE_BUMP_MAP', 'Fine Bump Map', ''))
+        items.append(('NORMAL_MAP', 'Normal Map', ''))
     else: 
-        items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 0))
-        items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 1))
-        #if layer_type != 'VCOL':
-        #items.append(('FINE_BUMP_MAP', 'Fine Bump Map', '', 'MATCAP_09', 2))
+        items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 0))
+        items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 1))
 
     return items
-
-def layer_channel_normal_map_type_items(self, context):
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    yp = self.id_data.yp
-    layer = yp.layers[int(m.group(1))]
-    return normal_map_type_items_(layer.type)
-
-def new_layer_channel_normal_map_type_items(self, context):
-    return normal_map_type_items_(self.type)
-
-def img_normal_map_type_items(self, context):
-    return normal_map_type_items_('IMAGE')
 
 def add_new_layer(group_tree, layer_name, layer_type, channel_idx, 
         blend_type, normal_blend_type, normal_map_type, 
@@ -492,7 +476,7 @@ class YNewLayer(bpy.types.Operator):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this layer',
-            items = new_layer_channel_normal_map_type_items)
+            items = get_normal_map_type_items)
             #default = 'BUMP_MAP')
 
     use_image_atlas = BoolProperty(
@@ -875,7 +859,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this layer',
-            items = img_normal_map_type_items)
+            items = get_normal_map_type_items)
             #default = 'NORMAL_MAP')
 
     rgb_to_intensity_color = FloatVectorProperty(
@@ -1049,7 +1033,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this layer',
-            items = img_normal_map_type_items)
+            items = get_normal_map_type_items)
             #default = 'BUMP_MAP')
 
     image_name = StringProperty(name="Image")
@@ -2268,7 +2252,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
-            items = layer_channel_normal_map_type_items,
+            items = get_normal_map_type_items,
             #default = 'BUMP_MAP',
             update = update_normal_map_type)
 
