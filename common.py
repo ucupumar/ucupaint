@@ -217,6 +217,7 @@ io_suffix = {
         'ALPHA' : ' Alpha',
         'DISPLACEMENT' : ' Displacement',
         'HEIGHT' : ' Height',
+        'MAX HEIGHT' : ' Max Height',
         'UV' : ' UV',
         'TANGENT' : ' Tangent',
         'BITANGENT' : ' Bitangent',
@@ -2081,6 +2082,12 @@ def update_displacement_height_ratio(root_ch):
 
             if root_ch.enable_smooth_bump:
                 end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+
+        end_max_height = group_tree.nodes.get(root_ch.end_max_height)
+        if end_max_height:
+            if max_height != 0.0:
+                end_max_height.outputs[0].default_value = max_height
+            else: end_max_height.outputs[0].default_value = 1.0
 
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)

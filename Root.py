@@ -30,7 +30,9 @@ colorspace_items = (
 def check_all_channel_ios(yp):
     group_tree = yp.id_data
 
-    index = 0
+    #index = 0
+    input_index = 0
+    output_index = 0
     valid_inputs = []
     valid_outputs = []
 
@@ -38,45 +40,58 @@ def check_all_channel_ios(yp):
 
         if ch.type == 'VALUE':
             create_input(group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
-                    valid_inputs, index, min_value = 0.0, max_value = 1.0)
+                    valid_inputs, input_index, min_value = 0.0, max_value = 1.0)
         elif ch.type == 'RGB':
             create_input(group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
-                    valid_inputs, index, default_value=(1,1,1,1))
+                    valid_inputs, input_index, default_value=(1,1,1,1))
         elif ch.type == 'NORMAL':
             # Use 999 as normal z value so it will fallback to use geometry normal at checking process
             create_input(group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
-                    valid_inputs, index, default_value=(999,999,999))
+                    valid_inputs, input_index, default_value=(999,999,999))
 
         create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
-                valid_outputs, index)
+                valid_outputs, output_index)
 
-        if ch.io_index != index:
-            ch.io_index = index
+        if ch.io_index != input_index:
+            ch.io_index = input_index
 
-        index += 1
+        #index += 1
+        input_index += 1
+        output_index += 1
 
         if ch.type == 'RGB' and ch.enable_alpha:
 
             name = ch.name + io_suffix['ALPHA']
 
-            create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, index, 
+            create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, 
                     min_value = 0.0, max_value = 1.0, default_value = 0.0)
 
-            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, index)
+            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
-            index += 1
+            #index += 1
+            input_index += 1
+            output_index += 1
 
         # Displacement IO
-        if ch.type == 'NORMAL': #and ch.enable_parallax:
+        if ch.type == 'NORMAL':
 
             name = ch.name + io_suffix['HEIGHT']
 
-            create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, index, 
+            create_input(group_tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, 
                     min_value = 0.0, max_value = 1.0, default_value = 0.5)
 
-            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, index)
+            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
-            index += 1
+            #index += 1
+            input_index += 1
+            output_index += 1
+
+            name = ch.name + io_suffix['MAX HEIGHT']
+
+            create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
+
+            #index += 1
+            output_index += 1
 
             # Add end linear for converting displacement map to grayscale
             if ch.enable_smooth_bump:
@@ -90,10 +105,10 @@ def check_all_channel_ios(yp):
             if max_height != 0.0:
                 end_linear.inputs['Max Height'].default_value = max_height
             else: end_linear.inputs['Max Height'].default_value = 1.0
-        else:
 
-            if ch.type == 'NORMAL':
-                remove_node(group_tree, ch, 'end_linear')
+            # Create a node to store max height
+            end_max_height = check_new_node(group_tree, ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
+            end_max_height.outputs[0].default_value = max_height
 
     # Check for invalid io
     for inp in group_tree.inputs:
@@ -981,6 +996,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
+        remove_node(group_tree, channel, 'end_max_height')
         remove_node(group_tree, channel, 'start_normal_filter')
         remove_node(group_tree, channel, 'baked')
         remove_node(group_tree, channel, 'baked_normal')
@@ -1548,9 +1564,9 @@ def update_active_yp_channel(self, context):
                 uv_layers = self.uv_layers = obj.data.uv_textures
             else: uv_layers = self.uv_layers = obj.data.uv_layers
 
-            baked_uv_map = tree.nodes.get(BAKED_UV)
-            if baked_uv_map:
-                uv_layers.active = uv_layers.get(baked_uv_map.uv_map)
+            #baked_uv_map = tree.nodes.get(BAKED_UV)
+            #if baked_uv_map:
+            #    uv_layers.active = uv_layers.get(baked_uv_map.uv_map)
 
 def update_layer_index(self, context):
     #T = time.time()
@@ -2132,6 +2148,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     end_linear = StringProperty(default='')
     start_normal_filter = StringProperty(default='')
     bump_process = StringProperty(default='')
+    end_max_height = StringProperty(default='')
 
     # Baked nodes
     baked = StringProperty(default='')

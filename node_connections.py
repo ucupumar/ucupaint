@@ -839,6 +839,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
         start_linear = nodes.get(ch.start_linear)
         end_linear = nodes.get(ch.end_linear)
+        end_max_height = nodes.get(ch.end_max_height)
         start_normal_filter = nodes.get(ch.start_normal_filter)
 
         io_name = ch.name
@@ -993,6 +994,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         if end_linear:
             if ch.type == 'NORMAL':
                 create_link(tree, rgb, end_linear.inputs['Normal Overlay'])[0]
+                if end_max_height:
+                    create_link(tree, end_max_height.outputs[0], end_linear.inputs['Max Height'])
                 
             rgb = create_link(tree, rgb, end_linear.inputs[0])[0]
 
@@ -1082,6 +1085,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         if ch.type == 'NORMAL': #and ch.enable_parallax:
             #create_link(tree, disp, end.inputs[ch.io_index+1])
             create_link(tree, disp, end.inputs[io_disp_name])
+            if end_max_height and ch.name + io_suffix['MAX HEIGHT'] in end.inputs:
+                create_link(tree, end_max_height.outputs[0], end.inputs[ch.name + io_suffix['MAX HEIGHT']])
 
     # List of last members
     last_members = []
