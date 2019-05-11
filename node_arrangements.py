@@ -246,6 +246,7 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         for c in mask.channels:
             check_set_node_parent(tree, c.mix, frame)
             check_set_node_parent(tree, c.mix_pure, frame)
+            check_set_node_parent(tree, c.mix_remains, frame)
             check_set_node_parent(tree, c.mix_n, frame)
             check_set_node_parent(tree, c.mix_s, frame)
             check_set_node_parent(tree, c.mix_e, frame)
@@ -1252,6 +1253,14 @@ def rearrange_parallax_process_internal_nodes(group_tree, node_name):
         elif check_set_node_loc(depth_source_0.node_tree, uv.baked_parallax_current_uv, loc):
             loc.y -= 200
 
+    for tc in texcoord_lists:
+
+        if check_set_node_loc(depth_source_0.node_tree, PARALLAX_DELTA_PREFIX + TEXCOORD_IO_PREFIX + tc, loc):
+            loc.y -= 200
+
+        if check_set_node_loc(depth_source_0.node_tree, PARALLAX_CURRENT_PREFIX + TEXCOORD_IO_PREFIX + tc, loc):
+            loc.y -= 200
+
     # Parallax iteration nodes
     parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
     iterate_0 = parallax_loop.node_tree.nodes.get('_iterate_0')
@@ -1266,6 +1275,11 @@ def rearrange_parallax_process_internal_nodes(group_tree, node_name):
         elif check_set_node_loc(iterate_0.node_tree, uv.baked_parallax_current_uv_mix, loc):
             loc.y -= 200
 
+    for tc in texcoord_lists:
+
+        if check_set_node_loc(iterate_0.node_tree, PARALLAX_CURRENT_MIX_PREFIX + TEXCOORD_IO_PREFIX + tc, loc):
+            loc.y -= 200
+
     # Parallax mix nodes
     parallax_end = parallax.node_tree.nodes.get(TREE_END)
     loc = parallax_end.location.copy()
@@ -1276,6 +1290,11 @@ def rearrange_parallax_process_internal_nodes(group_tree, node_name):
             loc.y -= 200
 
         elif check_set_node_loc(parallax.node_tree, uv.baked_parallax_mix, loc):
+            loc.y -= 200
+
+    for tc in texcoord_lists:
+
+        if check_set_node_loc(parallax.node_tree, PARALLAX_MIX_PREFIX + TEXCOORD_IO_PREFIX + tc, loc):
             loc.y -= 200
 
     rearrange_parallax_layer_nodes(yp, parallax)
@@ -1320,6 +1339,10 @@ def rearrange_uv_nodes(group_tree, loc):
 
         if check_set_node_loc(group_tree, uv.uv_map, loc):
             loc.y -= 120
+
+    for tc in texcoord_lists:
+        if check_set_node_loc(group_tree, tc + PARALLAX_PREP_SUFFIX, loc):
+            loc.y -= 280
 
 def rearrange_depth_layer_nodes(group_tree):
     yp = group_tree.yp

@@ -64,6 +64,8 @@ TEMP_BITANGENT = '~yPL Temp Bitangent'
 
 PARALLAX_OCCLUSION = '~yPL Parallax Occlusion Mapping'
 PARALLAX_OCCLUSION_PREP = '~yPL Parallax Occlusion Mapping Preparation'
+PARALLAX_OCCLUSION_PREP_OBJECT = '~yPL Parallax Occlusion Mapping Preparation (Object)'
+PARALLAX_OCCLUSION_PREP_CAMERA = '~yPL Parallax Occlusion Mapping Preparation (Camera)'
 PARALLAX_OCCLUSION_PROC = '~yPL Parallax Occlusion Mapping Process'
 
 HEIGHT_SCALE = '~yPL Height Scale'

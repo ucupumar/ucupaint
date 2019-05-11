@@ -696,10 +696,23 @@ def check_parallax_mix(tree, uv, baked=False, remove=False):
     else: parallax_mix = tree.nodes.get(uv.parallax_mix)
 
     if remove and parallax_mix:
-        tree.nodes.remove(parallax_mix)
+        if baked: remove_node(tree, uv, 'baked_parallax_mix')
+        else: remove_node(tree, uv, 'parallax_mix')
+        #tree.nodes.remove(parallax_mix)
     elif not remove and not parallax_mix:
         if baked: parallax_mix = new_node(tree, uv, 'baked_parallax_mix', 'ShaderNodeMixRGB', uv.name + ' Final Mix')
         else: parallax_mix = new_node(tree, uv, 'parallax_mix', 'ShaderNodeMixRGB', uv.name + ' Final Mix')
+
+def check_non_uv_parallax_mix(tree, texcoord_name, remove=False):
+
+    parallax_mix = tree.nodes.get(PARALLAX_MIX_PREFIX + TEXCOORD_IO_PREFIX + texcoord_name)
+
+    if remove and parallax_mix:
+        tree.nodes.remove(parallax_mix)
+    elif not remove and not parallax_mix:
+        parallax_mix = tree.nodes.new('ShaderNodeMixRGB')
+        parallax_mix.name = PARALLAX_MIX_PREFIX + TEXCOORD_IO_PREFIX + texcoord_name
+        parallax_mix.label = texcoord_name + ' Final Mix'
 
 def check_start_delta_uv_inputs(tree, uv_name, remove=False):
 
@@ -738,16 +751,28 @@ def check_current_uv_inputs(tree, uv_name, remove=False):
 
 def check_iterate_current_uv_mix(tree, uv, baked=False, remove=False):
 
-    if baked: current_uv_mix = tree.inputs.get(uv.baked_parallax_current_uv_mix)
-    else: current_uv_mix = tree.inputs.get(uv.parallax_current_uv_mix)
+    if baked: current_uv_mix = tree.nodes.get(uv.baked_parallax_current_uv_mix)
+    else: current_uv_mix = tree.nodes.get(uv.parallax_current_uv_mix)
 
     if remove and current_uv_mix:
-        tree.nodes.remove(current_uv_mix)
+        if baked: remove_node(tree, uv, 'baked_parallax_current_uv_mix')
+        else: remove_node(tree, uv, 'parallax_current_uv_mix')
     elif not remove and not current_uv_mix:
         if baked: current_uv_mix = new_node(tree, uv, 'baked_parallax_current_uv_mix', 
                 'ShaderNodeMixRGB', uv.name + CURRENT_UV)
         else: current_uv_mix = new_node(tree, uv, 'parallax_current_uv_mix', 
                 'ShaderNodeMixRGB', uv.name + CURRENT_UV)
+
+def check_non_uv_iterate_current_mix(tree, texcoord_name, remove=False):
+
+    current_mix = tree.nodes.get(PARALLAX_CURRENT_MIX_PREFIX + TEXCOORD_IO_PREFIX + texcoord_name)
+
+    if remove and current_mix:
+        tree.nodes.remove(current_mix)
+    elif not remove and not current_mix:
+        current_mix = tree.nodes.new('ShaderNodeMixRGB')
+        current_mix.name = PARALLAX_CURRENT_MIX_PREFIX + TEXCOORD_IO_PREFIX + texcoord_name
+        current_mix.label = texcoord_name + ' Current Mix'
 
 def check_depth_source_calculation(tree, uv, baked=False, remove=False):
 
@@ -755,7 +780,9 @@ def check_depth_source_calculation(tree, uv, baked=False, remove=False):
     else: delta_uv = tree.nodes.get(uv.parallax_delta_uv)
 
     if remove and delta_uv:
-        tree.nodes.remove(delta_uv)
+        if baked: remove_node(tree, uv, 'baked_parallax_delta_uv')
+        else: remove_node(tree, uv, 'parallax_delta_uv')
+        #tree.nodes.remove(delta_uv)
     elif not remove and not delta_uv:
         if baked: delta_uv = new_node(tree, uv, 'baked_parallax_delta_uv', 'ShaderNodeMixRGB', uv.name + DELTA_UV)
         else: delta_uv = new_node(tree, uv, 'parallax_delta_uv', 'ShaderNodeMixRGB', uv.name + DELTA_UV)
@@ -766,11 +793,36 @@ def check_depth_source_calculation(tree, uv, baked=False, remove=False):
     else: current_uv = tree.nodes.get(uv.parallax_current_uv)
 
     if remove and current_uv:
-        tree.nodes.remove(current_uv)
+        if baked: remove_node(tree, uv, 'baked_parallax_current_uv')
+        else: remove_node(tree, uv, 'parallax_current_uv')
+        #tree.nodes.remove(current_uv)
     elif not remove and not current_uv:
         if baked: current_uv = new_node(tree, uv, 'baked_parallax_current_uv', 'ShaderNodeVectorMath', uv.name + CURRENT_UV)
         else: current_uv = new_node(tree, uv, 'parallax_current_uv', 'ShaderNodeVectorMath', uv.name + CURRENT_UV)
         current_uv.operation = 'SUBTRACT'
+
+def check_non_uv_depth_source_calculation(tree, texcoord_name, remove=False):
+
+    delta = tree.nodes.get(PARALLAX_DELTA_PREFIX + TEXCOORD_IO_PREFIX + texcoord_name)
+
+    if remove and delta:
+        tree.nodes.remove(delta)
+    elif not remove and not delta:
+        delta = tree.nodes.new('ShaderNodeMixRGB')
+        delta.name = PARALLAX_DELTA_PREFIX + TEXCOORD_IO_PREFIX + texcoord_name
+        delta.label = texcoord_name + ' Delta'
+        delta.inputs[0].default_value = 1.0
+        delta.blend_type = 'MULTIPLY'
+
+    current = tree.nodes.get(PARALLAX_CURRENT_PREFIX + TEXCOORD_IO_PREFIX + texcoord_name)
+
+    if remove and current:
+        tree.nodes.remove(current)
+    elif not remove and not current:
+        current = tree.nodes.new('ShaderNodeVectorMath')
+        current.name = PARALLAX_CURRENT_PREFIX + TEXCOORD_IO_PREFIX + texcoord_name
+        current.label = texcoord_name + ' Current'
+        current.operation = 'SUBTRACT'
 
 def refresh_parallax_depth_source_layers(yp, parallax): #, disp_ch):
 
@@ -797,7 +849,7 @@ def refresh_parallax_depth_img(yp, parallax, disp_img): #, disp_ch):
 
     height_map.image = disp_img
 
-def check_parallax_prep_nodes(yp, unused_uvs=[]):
+def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
 
     tree = yp.id_data
 
@@ -805,6 +857,7 @@ def check_parallax_prep_nodes(yp, unused_uvs=[]):
     parallax_ch = get_root_height_channel(yp)
     if not parallax_ch: return
 
+    # Create parallax preparations for uvs
     for uv in yp.uvs:
         if uv in unused_uvs: continue
         parallax_prep = tree.nodes.get(uv.parallax_prep)
@@ -815,12 +868,38 @@ def check_parallax_prep_nodes(yp, unused_uvs=[]):
 
         #parallax_prep.inputs['depth_scale'].default_value = parallax_ch.displacement_height_ratio
         parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(parallax_ch)
-        parallax_prep.inputs['ref_plane'].default_value = parallax_ch.displacement_ref_plane
+        parallax_prep.inputs['ref_plane'].default_value = parallax_ch.parallax_ref_plane
         parallax_prep.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
         parallax_prep.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
         parallax_prep.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
 
-def check_parallax_node(yp, unused_uvs=[], baked=False):
+    # Create parallax preparations for texcoords other than UV
+    for tc in texcoord_lists:
+
+        parallax_prep = tree.nodes.get(tc + PARALLAX_PREP_SUFFIX)
+
+        if tc not in unused_texcoords:
+
+            if not parallax_prep:
+                parallax_prep = tree.nodes.new('ShaderNodeGroup')
+                if tc in {'Generated', 'Normal', 'Object'}:
+                    parallax_prep.node_tree = lib.get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP_OBJECT)
+                elif tc in {'Camera', 'Window', 'Reflection'}: 
+                    parallax_prep.node_tree = lib.get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP_CAMERA)
+                else:
+                    parallax_prep.node_tree = lib.get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
+                parallax_prep.name = parallax_prep.label = tc + PARALLAX_PREP_SUFFIX
+
+            parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(parallax_ch)
+            parallax_prep.inputs['ref_plane'].default_value = parallax_ch.parallax_ref_plane
+            parallax_prep.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
+            parallax_prep.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
+            parallax_prep.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
+
+        elif parallax_prep:
+            tree.nodes.remove(parallax_prep)
+
+def check_parallax_node(yp, unused_uvs=[], unused_texcoords=[], baked=False):
 
     tree = yp.id_data
 
@@ -875,9 +954,11 @@ def check_parallax_node(yp, unused_uvs=[], baked=False):
     parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
     iterate_0 = parallax_loop.node_tree.nodes.get('_iterate_0')
 
+    # Create IO and nodes for UV
     for uv in yp.uvs:
 
         if (baked and yp.baked_uv_name != uv.name) or uv in unused_uvs:
+
             # Delete other uv io
             check_parallax_process_outputs(parallax, uv.name, remove=True)
             check_start_delta_uv_inputs(parallax.node_tree, uv.name, remove=True)
@@ -895,6 +976,7 @@ def check_parallax_node(yp, unused_uvs=[], baked=False):
             check_current_uv_outputs(iterate_0.node_tree, uv.name, remove=True)
             check_current_uv_inputs(iterate_0.node_tree, uv.name, remove=True)
             check_iterate_current_uv_mix(iterate_0.node_tree, uv, baked, remove=True)
+
             continue
 
         check_parallax_process_outputs(parallax, uv.name)
@@ -913,6 +995,50 @@ def check_parallax_node(yp, unused_uvs=[], baked=False):
         check_current_uv_outputs(iterate_0.node_tree, uv.name)
         check_current_uv_inputs(iterate_0.node_tree, uv.name)
         check_iterate_current_uv_mix(iterate_0.node_tree, uv, baked)
+
+    # Baked parallax occlusion doesn't have to deal with non uv texture coordinates
+    if baked: return
+
+    # Create IO and nodes for Non-UV Texture Coordinates
+    for tc in texcoord_lists:
+
+        # Delete unused non UV io and nodes
+        if tc in unused_texcoords:
+            check_parallax_process_outputs(parallax, TEXCOORD_IO_PREFIX + tc, remove=True)
+            check_start_delta_uv_inputs(parallax.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+            check_non_uv_parallax_mix(parallax.node_tree, tc, remove=True)
+
+            check_start_delta_uv_inputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+            check_current_uv_outputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+            check_non_uv_depth_source_calculation(depth_source_0.node_tree, tc, remove=True)
+
+            check_start_delta_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+            check_current_uv_outputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+            check_current_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+
+            check_start_delta_uv_inputs(iterate_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+            check_current_uv_outputs(iterate_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+            check_current_uv_inputs(iterate_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+            check_non_uv_iterate_current_mix(iterate_0.node_tree, tc, remove=True)
+
+            continue
+
+        check_parallax_process_outputs(parallax, TEXCOORD_IO_PREFIX + tc)
+        check_start_delta_uv_inputs(parallax.node_tree, TEXCOORD_IO_PREFIX + tc)
+        check_non_uv_parallax_mix(parallax.node_tree, tc)
+
+        check_start_delta_uv_inputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+        check_current_uv_outputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+        check_non_uv_depth_source_calculation(depth_source_0.node_tree, tc)
+
+        check_start_delta_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc)
+        check_current_uv_outputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc)
+        check_current_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc)
+
+        check_start_delta_uv_inputs(iterate_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+        check_current_uv_outputs(iterate_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+        check_current_uv_inputs(iterate_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+        check_non_uv_iterate_current_mix(iterate_0.node_tree, tc)
 
 def remove_uv_nodes(uv):
     tree = uv.id_data
@@ -937,45 +1063,20 @@ def check_uv_nodes(yp):
 
     dirty = False
 
-    if obj.type != 'MESH': return
+    if obj.type == 'MESH':
 
-    if hasattr(obj.data, 'uv_textures'):
-        uv_layers = obj.data.uv_textures
-    else: uv_layers = obj.data.uv_layers
+        # Check uv layers of mesh objects
+        if hasattr(obj.data, 'uv_textures'):
+            uv_layers = obj.data.uv_textures
+        else: uv_layers = obj.data.uv_layers
 
-    for uv_layer in uv_layers:
-        if uv_layer.name == TEMP_UV: continue
-        uv = yp.uvs.get(uv_layer.name)
-        if not uv: 
-            dirty = True
-            create_uv_nodes(yp, uv_layer.name)
-        if uv_layer.name not in uv_names: uv_names.append(uv_layer.name)
-
-    #else:
-
-    #    if yp.baked_uv_name != '':
-    #        uv = yp.uvs.get(yp.baked_uv_name)
-    #        if not uv: 
-    #            dirty = True
-    #            create_uv_nodes(yp, yp.baked_uv_name)
-    #        uv_names.append(yp.baked_uv_name)
-
-    #    for layer in yp.layers:
-
-    #        #if layer.texcoord_type == 'UV':
-    #        uv = yp.uvs.get(layer.uv_name)
-    #        if not uv: 
-    #            dirty = True
-    #            create_uv_nodes(yp, layer.uv_name)
-    #        if layer.uv_name not in uv_names: uv_names.append(layer.uv_name)
-
-    #        for mask in layer.masks:
-    #            if mask.texcoord_type == 'UV':
-    #                uv = yp.uvs.get(mask.uv_name)
-    #                if not uv: 
-    #                    dirty = True
-    #                    create_uv_nodes(yp, mask.uv_name)
-    #                if mask.uv_name not in uv_names: uv_names.append(mask.uv_name)
+        for uv_layer in uv_layers:
+            if uv_layer.name == TEMP_UV: continue
+            uv = yp.uvs.get(uv_layer.name)
+            if not uv: 
+                dirty = True
+                create_uv_nodes(yp, uv_layer.name)
+            if uv_layer.name not in uv_names: uv_names.append(uv_layer.name)
 
     # Get unused uv objects
     unused_uvs = []
@@ -985,11 +1086,27 @@ def check_uv_nodes(yp):
             unused_uvs.append(uv)
             unused_ids.append(i)
 
+    # Check non uv texcoords
+    used_texcoords = []
+    for layer in yp.layers:
+        if layer.texcoord_type != 'UV' and layer.texcoord_type not in used_texcoords:
+            used_texcoords.append(layer.texcoord_type)
+
+            for mask in layer.masks:
+                if mask.texcoord_type != 'UV' and mask.texcoord_type not in used_texcoords:
+                    used_texcoords.append(mask.texcoord_type)
+
+    # Check for unused texcoords
+    unused_texcoords = []
+    for tc in texcoord_lists:
+        if tc not in used_texcoords:
+            unused_texcoords.append(tc)
+
     # Check parallax preparation nodes
-    check_parallax_prep_nodes(yp, unused_uvs)
+    check_parallax_prep_nodes(yp, unused_uvs, unused_texcoords)
 
     # Check standard parallax
-    check_parallax_node(yp, unused_uvs)
+    check_parallax_node(yp, unused_uvs, unused_texcoords)
 
     # Check baked parallax
     check_parallax_node(yp, unused_uvs, baked=True)
@@ -1000,12 +1117,6 @@ def check_uv_nodes(yp):
         remove_uv_nodes(uv)
         dirty = True
         yp.uvs.remove(i)
-
-    # Set main uv for normal channel
-    #height_ch = get_root_height_channel(yp)
-    #if height_ch and obj.type == 'MESH':
-    #    if height_ch.main_uv not in uv_names and len(yp.uvs) > 0:
-    #        height_ch.main_uv = yp.uvs[0].name
 
     return dirty
 

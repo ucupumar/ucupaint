@@ -343,9 +343,6 @@ def reconnect_parallax_layer_nodes(group_tree, parallax, uv_name=''):
     parallax_ch = get_root_parallax_channel(yp)
     if not parallax_ch: return
 
-    #parallax = group_tree.nodes.get(PARALLAX)
-    #if not parallax: return
-
     loop = parallax.node_tree.nodes.get('_parallax_loop')
     if not loop: return
 
@@ -365,6 +362,11 @@ def reconnect_parallax_layer_nodes(group_tree, parallax, uv_name=''):
                 if uv_name != '' and uv.name != uv_name: continue
                 create_link(loop.node_tree, 
                         loop_start.outputs[uv.name + CURRENT_UV], it.inputs[uv.name + CURRENT_UV])
+
+            for tc in texcoord_lists:
+                io_name = TEXCOORD_IO_PREFIX + tc + CURRENT_UV
+                if io_name in loop_start.outputs:
+                    create_link(loop.node_tree, loop_start.outputs[io_name], it.inputs[io_name])
         else:
             create_link(loop.node_tree, 
                     prev_it.outputs['cur_layer_depth'], it.inputs['cur_layer_depth'])
@@ -379,6 +381,11 @@ def reconnect_parallax_layer_nodes(group_tree, parallax, uv_name=''):
                 create_link(loop.node_tree, 
                         prev_it.outputs[uv.name + CURRENT_UV], it.inputs[uv.name + CURRENT_UV])
 
+            for tc in texcoord_lists:
+                io_name = TEXCOORD_IO_PREFIX + tc + CURRENT_UV
+                if io_name in prev_it.outputs:
+                    create_link(loop.node_tree, prev_it.outputs[io_name], it.inputs[io_name])
+
         create_link(loop.node_tree,
                 loop_start.outputs['layer_depth'], it.inputs['layer_depth'])
         create_link(loop.node_tree,
@@ -388,6 +395,14 @@ def reconnect_parallax_layer_nodes(group_tree, parallax, uv_name=''):
             if uv_name != '' and uv.name != uv_name: continue
             create_link(loop.node_tree, loop_start.outputs[uv.name + START_UV], it.inputs[uv.name + START_UV])
             create_link(loop.node_tree, loop_start.outputs[uv.name + DELTA_UV], it.inputs[uv.name + DELTA_UV])
+
+        for tc in texcoord_lists:
+            io_name = TEXCOORD_IO_PREFIX + tc + START_UV
+            if io_name in loop_start.outputs:
+                create_link(loop.node_tree, loop_start.outputs[io_name], it.inputs[io_name])
+            io_name = TEXCOORD_IO_PREFIX + tc + DELTA_UV
+            if io_name in loop_start.outputs:
+                create_link(loop.node_tree, loop_start.outputs[io_name], it.inputs[io_name])
 
         if i == parallax_ch.parallax_num_of_layers-1:
 
@@ -402,6 +417,11 @@ def reconnect_parallax_layer_nodes(group_tree, parallax, uv_name=''):
                 if uv_name != '' and uv.name != uv_name: continue
                 create_link(loop.node_tree, 
                         it.outputs[uv.name + CURRENT_UV], loop_end.inputs[uv.name + CURRENT_UV])
+
+            for tc in texcoord_lists:
+                io_name = TEXCOORD_IO_PREFIX + tc + CURRENT_UV
+                if io_name in it.outputs:
+                    create_link(loop.node_tree, it.outputs[io_name], loop_end.inputs[io_name])
 
         prev_it = it
 
@@ -481,16 +501,6 @@ def reconnect_parallax_process_nodes(group_tree, parallax, baked=False, uv_name=
     for uv in yp.uvs:
         if uv_name != '' and uv.name != uv_name: continue
 
-        # Parallax preparations
-        #parallax_prep = group_tree.nodes.get(uv.parallax_prep)
-        #if parallax_prep:
-        #    create_link(group_tree, uv_maps[uv.name], parallax_prep.inputs['UV'])
-        #    create_link(group_tree, tangents[uv.name], parallax_prep.inputs['Tangent'])
-        #    create_link(group_tree, bitangents[uv.name], parallax_prep.inputs['Bitangent'])
-    
-        #    create_link(group_tree, parallax_prep.outputs['start_uv'], parallax.inputs[uv.name + START_UV])
-        #    create_link(group_tree, parallax_prep.outputs['delta_uv'], parallax.inputs[uv.name + DELTA_UV])
-
         # Start and delta uv inputs
         create_link(tree, start.outputs[uv.name + START_UV], depth_source_0.inputs[uv.name + START_UV])
         create_link(tree, start.outputs[uv.name + START_UV], depth_source_1.inputs[uv.name + START_UV])
@@ -551,6 +561,62 @@ def reconnect_parallax_process_nodes(group_tree, parallax, baked=False, uv_name=
         create_link(iterate_0.node_tree, 
                 parallax_current_uv_mix.outputs[0], iterate_end.inputs[uv.name + CURRENT_UV])
 
+    if not baked:
+        for tc in texcoord_lists:
+
+            base_name = TEXCOORD_IO_PREFIX + tc
+            if base_name + START_UV not in start.outputs: continue
+
+            # Start and delta uv inputs
+            create_link(tree, start.outputs[base_name + START_UV], depth_source_0.inputs[base_name + START_UV])
+            create_link(tree, start.outputs[base_name + START_UV], depth_source_1.inputs[base_name + START_UV])
+            create_link(tree, start.outputs[base_name + START_UV], loop.inputs[base_name + START_UV])
+
+            create_link(tree, start.outputs[base_name + DELTA_UV], depth_source_0.inputs[base_name + DELTA_UV])
+            create_link(tree, start.outputs[base_name + DELTA_UV], depth_source_1.inputs[base_name + DELTA_UV])
+            create_link(tree, start.outputs[base_name + DELTA_UV], loop.inputs[base_name + DELTA_UV])
+
+            create_link(tree, depth_source_0.outputs[base_name + CURRENT_UV], loop.inputs[base_name + CURRENT_UV])
+
+            # Parallax final mix
+            parallax_mix = tree.nodes.get(PARALLAX_MIX_PREFIX + base_name)
+
+            create_link(tree, weight.outputs[0], parallax_mix.inputs[0])
+            create_link(tree, loop.outputs[base_name + CURRENT_UV], parallax_mix.inputs[1])
+            create_link(tree, depth_source_1.outputs[base_name + CURRENT_UV], parallax_mix.inputs[2])
+
+            # End uv
+            create_link(tree, parallax_mix.outputs[0], end.inputs[base_name])
+
+            # Inside depth source
+            delta_uv = depth_source_0.node_tree.nodes.get(PARALLAX_DELTA_PREFIX + base_name)
+            current_uv = depth_source_0.node_tree.nodes.get(PARALLAX_CURRENT_PREFIX + base_name)
+
+            create_link(depth_source_0.node_tree, depth_start.outputs['index'], delta_uv.inputs[1])
+            create_link(depth_source_0.node_tree, depth_start.outputs[base_name + DELTA_UV], delta_uv.inputs[2])
+
+            create_link(depth_source_0.node_tree, depth_start.outputs[base_name + START_UV], current_uv.inputs[0])
+            create_link(depth_source_0.node_tree, delta_uv.outputs[0], current_uv.inputs[1])
+
+            create_link(depth_source_0.node_tree, current_uv.outputs[0], depth_end.inputs[base_name + CURRENT_UV])
+
+            # Inside iteration
+            create_link(iterate_0.node_tree, 
+                    iterate_start.outputs[base_name + START_UV], iterate_depth.inputs[base_name + START_UV])
+            create_link(iterate_0.node_tree, 
+                    iterate_start.outputs[base_name + DELTA_UV], iterate_depth.inputs[base_name + DELTA_UV])
+
+            parallax_current_uv_mix = iterate_0.node_tree.nodes.get(PARALLAX_CURRENT_MIX_PREFIX + base_name)
+
+            create_link(iterate_0.node_tree, iterate_branch.outputs[0], parallax_current_uv_mix.inputs[0])
+            create_link(iterate_0.node_tree, 
+                    iterate_depth.outputs[base_name + CURRENT_UV], parallax_current_uv_mix.inputs[1])
+            create_link(iterate_0.node_tree, 
+                    iterate_start.outputs[base_name + CURRENT_UV], parallax_current_uv_mix.inputs[2])
+
+            create_link(iterate_0.node_tree, 
+                    parallax_current_uv_mix.outputs[0], iterate_end.inputs[base_name + CURRENT_UV])
+
     reconnect_parallax_layer_nodes(group_tree, parallax, uv_name)
 
 def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
@@ -571,32 +637,17 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
 
     height = start.outputs['base']
 
-    #prev_node = None
     for i, layer in reversed(list(enumerate(yp.layers))):
 
         if layer.parent_idx != -1: continue
 
         node = tree.nodes.get(layer.depth_group_node)
-        #disp = create_link(tree, disp, node.inputs[io_disp_name])[io_disp_name]
-        #if prev_node:
-        #    create_link(tree, prev_node.outputs[io_disp_name], node.inputs[io_disp_name])
-        #prev_node = node
 
         height = create_link(tree, height, node.inputs[io_disp_name])[io_disp_name]
 
         if i == 0:
-            #create_link(tree, node.outputs[io_disp_name], pack.inputs[0])
             create_link(tree, height, pack.inputs[0])
             create_link(tree, pack.outputs[0], end.inputs['depth_from_tex'])
-
-        #if i == 0:
-        #    if pack:
-        #        create_link(tree, node.outputs[io_disp_name], pack.inputs[0])
-        #        create_link(tree, pack.outputs[0], end.inputs['depth_from_tex'])
-        #    else:
-        #        create_link(tree, node.outputs[io_disp_name], end.inputs['depth_from_tex'])
-        #elif i == len(yp.layers)-1:
-        #    create_link(tree, start.outputs['base'], node.inputs[io_disp_name])
 
         uv_names = []
         if layer.texcoord_type == 'UV':
@@ -614,6 +665,13 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
 
             if inp and current_uv: 
                 create_link(tree, current_uv.outputs[0], inp)
+
+        for tc in texcoord_lists:
+            inp = node.inputs.get(TEXCOORD_IO_PREFIX + tc)
+            if not inp: continue
+            current_uv = tree.nodes.get(PARALLAX_CURRENT_PREFIX + TEXCOORD_IO_PREFIX + tc)
+            if not current_uv: continue
+            create_link(tree, current_uv.outputs[0], inp)
 
     # List of last members
     last_members = []
@@ -644,26 +702,6 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
             # Get upper layer
             upper_idx, upper_layer = get_upper_neighbor(cur_layer)
             upper_node = tree.nodes.get(upper_layer.depth_group_node)
-
-            # Height should still connected to previous layer
-            #if actual_last and layer.type != 'GROUP':
-            #    idx = get_layer_index(layer)
-
-            #    for i, ch in enumerate(layer.channels):
-            #        root_ch = yp.channels[i]
-            #        if root_ch.type == 'NORMAL':
-
-            #            if idx != len(yp.layers)-1:
-            #                # Connect to previous layer height
-            #                lower_node = tree.nodes.get(yp.layers[idx+1].depth_group_node)
-            #                create_link(tree, lower_node.outputs[root_ch.name + io_suffix['HEIGHT']],
-            #                        upper_node.inputs[root_ch.name + io_suffix['HEIGHT']])
-            #            else:
-            #                # Connect to start height
-            #                create_link(tree, start.outputs['base'],
-            #                        upper_node.inputs[root_ch.name + io_suffix['HEIGHT']])
-            #            break
-            #    actual_last = False
 
             # Connect
             if upper_layer.parent_idx == cur_layer.parent_idx:
@@ -750,18 +788,6 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         baked_tangent = nodes.get(baked_uv.tangent_flip).outputs[0]
         baked_bitangent = nodes.get(baked_uv.bitangent_flip).outputs[0]
 
-    # Baked parallax
-    #if parallax_ch and yp.use_baked and baked_uv:
-    #    baked_parallax = nodes.get(BAKED_PARALLAX)
-    #    if baked_parallax:
-    #        reconnect_baked_parallax_layer_nodes(yp, baked_parallax)
-
-    #        create_link(tree, baked_uv_map, baked_parallax.inputs['UV'])
-    #        create_link(tree, baked_tangent, baked_parallax.inputs['Tangent'])
-    #        create_link(tree, baked_bitangent, baked_parallax.inputs['Bitangent'])
-
-    #        baked_uv_map = baked_parallax.outputs[0]
-
     # Parallax internal connections
     if parallax_ch:
         if parallax:
@@ -774,7 +800,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     for uv in yp.uvs:
         parallax_prep = tree.nodes.get(uv.parallax_prep)
         if parallax_prep:
-            create_link(tree, uv_maps[uv.name], parallax_prep.inputs['UV'])
+            #create_link(tree, uv_maps[uv.name], parallax_prep.inputs['UV'])
+            create_link(tree, uv_maps[uv.name], parallax_prep.inputs[0])
             create_link(tree, tangents[uv.name], parallax_prep.inputs['Tangent'])
             create_link(tree, bitangents[uv.name], parallax_prep.inputs['Bitangent'])
     
@@ -785,6 +812,18 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             if baked_parallax and uv.name == yp.baked_uv_name:
                 create_link(tree, parallax_prep.outputs['start_uv'], baked_parallax.inputs[uv.name + START_UV])
                 create_link(tree, parallax_prep.outputs['delta_uv'], baked_parallax.inputs[uv.name + DELTA_UV])
+
+    # Non UV Parallax preparations
+    for tc in texcoord_lists:
+        parallax_prep = tree.nodes.get(tc + PARALLAX_PREP_SUFFIX)
+        if parallax_prep:
+            create_link(tree, texcoord.outputs[tc], parallax_prep.inputs[0])
+            create_link(tree, tangent.outputs[0], parallax_prep.inputs['Tangent'])
+            create_link(tree, bitangent.outputs[0], parallax_prep.inputs['Bitangent'])
+    
+            if parallax:
+                create_link(tree, parallax_prep.outputs['start_uv'], parallax.inputs[TEXCOORD_IO_PREFIX + tc + START_UV])
+                create_link(tree, parallax_prep.outputs['delta_uv'], parallax.inputs[TEXCOORD_IO_PREFIX + tc + DELTA_UV])
 
     if parallax_ch:
         if parallax:
@@ -892,7 +931,10 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
             for tc in texcoords:
                 inp = node.inputs.get(io_names[tc])
-                if inp: create_link(tree, texcoord.outputs[tc], inp)
+                if inp: 
+                    if parallax_ch and parallax:
+                        create_link(tree, parallax.outputs[TEXCOORD_IO_PREFIX + tc], inp)
+                    else: create_link(tree, texcoord.outputs[tc], inp)
 
             # Background layer
             if layer.type == 'BACKGROUND':

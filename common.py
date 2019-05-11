@@ -19,15 +19,24 @@ TREE_END = 'Group Output'
 ONE_VALUE = 'One Value'
 ZERO_VALUE = 'Zero Value'
 
-BAKED_UV = 'UV Map'
-BAKED_TANGENT = 'Baked Tangent'
-BAKED_TANGENT_FLIP = 'Baked Flip Backface Tangent'
-BAKED_BITANGENT = 'Baked Bitangent'
-BAKED_BITANGENT_FLIP = 'Baked Flip Backface Bitangent'
+#BAKED_UV = 'UV Map'
+#BAKED_TANGENT = 'Baked Tangent'
+#BAKED_TANGENT_FLIP = 'Baked Flip Backface Tangent'
+#BAKED_BITANGENT = 'Baked Bitangent'
+#BAKED_BITANGENT_FLIP = 'Baked Flip Backface Bitangent'
 BAKED_PARALLAX = 'Baked Parallax'
 
 TEXCOORD = 'Texture Coordinate'
 GEOMETRY = 'Geometry'
+
+#GENERATED_PARALLAX_PREP = 'Generated Parallax Preparation'
+#NORMAL_PARALLAX_PREP = 'Normal Parallax Preparation'
+#OBJECT_PARALLAX_PREP = 'Object Parallax Preparation'
+PARALLAX_PREP_SUFFIX = ' Parallax Preparation'
+
+#GENERATED_MATRIX_TRANSFORM = 'Generated Matrix Transform'
+#NORMAL_MATRIX_TRANSFORM = 'Normal Matrix Transform'
+#OBJECT_MATRIX_TRANSFORM = 'Object Matrix Transform'
 
 PARALLAX = 'Parallax'
 
@@ -128,14 +137,24 @@ layer_type_labels = {
         'GROUP' : 'Layer Group',
         }
 
+texcoord_lists = [
+        'Generated',
+        'Normal',
+        #'UV',
+        'Object',
+        'Camera',
+        'Window',
+        'Reflection',
+        ]
+
 texcoord_type_items = (
         ('Generated', 'Generated', ''),
         ('Normal', 'Normal', ''),
         ('UV', 'UV', ''),
         ('Object', 'Object', ''),
-        #('Camera', 'Camera', ''),
-        #('Window', 'Window', ''),
-        #('Reflection', 'Reflection', ''),
+        ('Camera', 'Camera', ''),
+        ('Window', 'Window', ''),
+        ('Reflection', 'Reflection', ''),
         )
 
 channel_socket_input_bl_idnames = {
@@ -207,7 +226,16 @@ io_names = {
         'Generated' : 'Texcoord Generated',
         'Object' : 'Texcoord Object',
         'Normal' : 'Texcoord Normal',
+        'Camera' : 'Texcoord Camera',
+        'Window' : 'Texcoord Window',
+        'Reflection' : 'Texcoord Reflection',
         }
+
+TEXCOORD_IO_PREFIX = 'Texcoord '
+PARALLAX_MIX_PREFIX = 'Parallax Mix '
+PARALLAX_DELTA_PREFIX = 'Parallax Delta '
+PARALLAX_CURRENT_PREFIX = 'Parallax Current '
+PARALLAX_CURRENT_MIX_PREFIX = 'Parallax Current Mix '
 
 GAMMA = 2.2
 
@@ -1767,7 +1795,7 @@ def set_relief_mapping_nodes(yp, node, img=None):
     # Set node parameters
     #node.inputs[0].default_value = ch.displacement_height_ratio
     node.inputs[0].default_value = get_displacement_max_height(ch)
-    node.inputs[1].default_value = ch.displacement_ref_plane
+    node.inputs[1].default_value = ch.parallax_ref_plane
 
     tree = node.node_tree
 
@@ -1795,7 +1823,7 @@ def set_relief_mapping_nodes(yp, node, img=None):
 #    #node.inputs['layer_depth'].default_value = 1.0 / ch.parallax_num_of_layers
 #    #node.inputs['depth_scale'].default_value = ch.displacement_height_ratio
 #    #node.inputs['depth_scale'].default_value = get_displacement_max_height(ch)
-#    #node.inputs['ref_plane'].default_value = ch.displacement_ref_plane
+#    #node.inputs['ref_plane'].default_value = ch.parallax_ref_plane
 #
 #    #delta_uv = tree.nodes.get(uv.parallax_delta_uv)
 #

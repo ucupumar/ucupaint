@@ -901,7 +901,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
                     self.uv_map_coll.add().name = uv.name
 
         # Normal map is the default
-        self.normal_map_type = 'NORMAL_MAP'
+        #self.normal_map_type = 'NORMAL_MAP'
 
         #return context.window_manager.invoke_props_dialog(self)
         context.window_manager.fileselect_add(self)

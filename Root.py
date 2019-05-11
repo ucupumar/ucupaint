@@ -1723,19 +1723,13 @@ def update_channel_colorspace(self, context):
                     color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
                 else: color_ramp_linear.inputs[1].default_value = 1.0
 
-#def update_channel_parallax(self, context):
-#
-#    #if not self.enable_parallax:
-#    #    return
-#    pass
-
 def update_enable_smooth_bump(self, context):
     yp = self.id_data.yp
 
     # Update channel io
     check_all_channel_ios(yp)
 
-def update_channel_displacement(self, context):
+def update_channel_parallax(self, context):
     yp = self.id_data.yp
 
     # Update channel io
@@ -1858,14 +1852,10 @@ def update_displacement_ref_plane(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
 
-    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
-    if baked_parallax:
-        baked_parallax.inputs['ref_plane'].default_value = self.displacement_ref_plane
-
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)
         if parallax_prep:
-            parallax_prep.inputs['ref_plane'].default_value = self.displacement_ref_plane
+            parallax_prep.inputs['ref_plane'].default_value = self.parallax_ref_plane
 
 def update_channel_alpha(self, context):
     mat = get_active_material()
@@ -2103,21 +2093,13 @@ class YPaintChannel(bpy.types.PropertyGroup):
     enable_alpha = BoolProperty(default=False, update=update_channel_alpha)
 
     # Displacement for normal channel
-    enable_parallax = BoolProperty(default=False, update=update_channel_displacement)
-
-    #enable_parallax = BoolProperty(
-    #        name = 'Enable Parallax Mapping',
-    #        description = 'Enable Parallax Mapping.\nIt will use texture space scaling, so it may looks different when using it as real displacement map',
-    #        default=False, update=update_channel_parallax)
-
-    #displacement_height_ratio = FloatProperty(default=0.02, min=-1.0, max=1.0,
-    #        update=update_displacement_height_ratio)
+    enable_parallax = BoolProperty(
+            name = 'Enable Parallax Mapping',
+            description = 'Enable Parallax Mapping.\nIt will use texture space scaling, so it may looks different when using it as real displacement map',
+            default=False, update=update_channel_parallax)
 
     parallax_num_of_layers = IntProperty(default=8, min=4, max=64,
             update=update_parallax_num_of_layers)
-
-    #parallax_num_of_linear_samples = IntProperty(default=20, min=4, max=64,
-    #        update=update_parallax_samples)
 
     #parallax_num_of_binary_samples = IntProperty(default=5, min=4, max=64,
     #        update=update_parallax_samples)
@@ -2128,11 +2110,12 @@ class YPaintChannel(bpy.types.PropertyGroup):
     parallax_rim_hack_hardness = FloatProperty(default=1.0, min=1.0, max=100.0, 
             update=update_parallax_rim_hack)
 
+    # Currently unused
+    parallax_ref_plane = FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
+            update=update_displacement_ref_plane)
+
     # Main uv is used for normal calculation of normal channel
     main_uv = StringProperty(default='')
-
-    displacement_ref_plane = FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
-            update=update_displacement_ref_plane)
 
     colorspace = EnumProperty(
             name = 'Color Space',
@@ -2152,11 +2135,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     # Baked nodes
     baked = StringProperty(default='')
-    #baked_1 = StringProperty(default='')
-    #baked_uv_map = StringProperty(default='')
     baked_normal = StringProperty(default='')
     baked_normal_flip = StringProperty(default='')
-    #baked_mix = StringProperty(default='')
 
     baked_disp = StringProperty(default='')
     baked_obj_normal = StringProperty(default='')
