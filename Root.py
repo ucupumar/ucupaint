@@ -1968,14 +1968,6 @@ def update_flip_backface(self, context):
     yp = self
     group_tree = yp.id_data
 
-    #baked_tangent_flip = group_tree.nodes.get(BAKED_TANGENT_FLIP)
-    #if baked_tangent_flip:
-    #    set_tangent_backface_flip(baked_tangent_flip, yp.flip_backface)
-
-    #baked_bitangent_flip = group_tree.nodes.get(BAKED_BITANGENT_FLIP)
-    #if baked_bitangent_flip:
-    #    set_bitangent_backface_flip(baked_bitangent_flip, yp.flip_backface)
-    
     for ch in yp.channels:
         baked_normal_flip = group_tree.nodes.get(ch.baked_normal_flip)
         if baked_normal_flip:
@@ -1989,43 +1981,6 @@ def update_flip_backface(self, context):
         bitangent_flip = group_tree.nodes.get(uv.bitangent_flip)
         if bitangent_flip:
             set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
-
-    #for layer in yp.layers:
-
-    #    tree = get_tree(layer)
-    #    
-    #    tangent_flip = tree.nodes.get(layer.tangent_flip)
-    #    if tangent_flip:
-    #        set_tangent_backface_flip(tangent_flip, yp.flip_backface)
-
-    #    bitangent_flip = tree.nodes.get(layer.bitangent_flip)
-    #    if bitangent_flip:
-    #        set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
-
-    #    for ch in layer.channels:
-    #        normal_flip = tree.nodes.get(ch.normal_flip)
-    #        if normal_flip:
-    #            if ch.normal_map_type == 'BUMP_MAP':
-    #                set_bump_backface_flip(normal_flip, yp.flip_backface)
-    #            elif ch.normal_map_type == 'NORMAL_MAP':
-    #                set_normal_backface_flip(normal_flip, yp.flip_backface)
-
-    #        tb_bump_flip = tree.nodes.get(ch.tb_bump_flip)
-    #        if tb_bump_flip:
-    #            set_bump_backface_flip(tb_bump_flip, yp.flip_backface)
-
-    #        tb_crease_flip = tree.nodes.get(ch.tb_crease_flip)
-    #        if tb_crease_flip:
-    #            set_bump_backface_flip(tb_crease_flip, yp.flip_backface)
-
-    #    for mask in layer.masks:
-    #        tangent_flip = tree.nodes.get(mask.tangent_flip)
-    #        if tangent_flip:
-    #            set_tangent_backface_flip(tangent_flip, yp.flip_backface)
-
-    #        bitangent_flip = tree.nodes.get(mask.bitangent_flip)
-    #        if bitangent_flip:
-    #            set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
 
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
