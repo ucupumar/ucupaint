@@ -36,7 +36,11 @@ class YPaintPreferences(AddonPreferences):
 
 @persistent
 def auto_save_images(scene):
-    ypup = bpy.context.user_preferences.addons[__package__].preferences
+
+    if bpy.app.version_string.startswith('2.8'):
+        ypup = bpy.context.preferences.addons[__package__].preferences
+    else: ypup = bpy.context.user_preferences.addons[__package__].preferences
+
     for tree in bpy.data.node_groups:
         if tree.yp.is_ypaint_node:
             if ypup.auto_save == 'ONLY_DIRTY':

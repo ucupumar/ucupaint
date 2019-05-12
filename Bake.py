@@ -932,15 +932,20 @@ class YBakeChannels(bpy.types.Operator):
         if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
 
             self.temp_vcol_ids = []
-            uvs = [uv for uv in self.uv_layers if not uv.name.startswith(TEMP_UV)]
+            #uvs = [uv for uv in self.uv_layers if not uv.name.startswith(TEMP_UV)]
+            #uvs = [self.uv_layers.get(uv.name) for uv in yp.uvs if not self.uv_layers.get(uv.name)]
 
-            if len(uvs) > MAX_VERTEX_DATA - len(obj.data.vertex_colors):
+            if len(yp.uvs) > MAX_VERTEX_DATA - len(obj.data.vertex_colors):
                 self.report({'ERROR'}, "Maximum vertex colors reached! Need at least " + str(len(uvs)) + " vertex color(s)!")
                 return {'CANCELLED'}
 
             # Create vertex color
-            for uv in uvs:
-                self.uv_layers.active = uv
+            #for uv in uvs:
+            for uv in yp.uvs:
+                uv_layer = self.uv_layers.get(uv.name)
+                if not uv_layer: continue
+
+                self.uv_layers.active = uv_layer
 
                 obj.data.calc_tangents()
 
@@ -963,6 +968,13 @@ class YBakeChannels(bpy.types.Operator):
                 bt_attr.attribute_name = vcol.name
                 t_attr = bt_tree.nodes.get('_tangent')
                 t_attr.uv_map = uv.name
+
+                temp_tangent = new_node(tree, uv, 'temp_tangent', 'ShaderNodeTangent', 'Temp Tangent')
+                temp_tangent.direction_type = 'UV_MAP'
+                temp_tangent.uv_map = uv.name
+
+                temp_bitangent = new_node(tree, uv, 'temp_bitangent', 'ShaderNodeGroup', 'Temp Bitangent')
+                temp_bitangent.node_tree = bt_tree
 
                 # Replace tangent and bitangent of all layer and masks
                 #for layer in yp.layers:
@@ -993,9 +1005,11 @@ class YBakeChannels(bpy.types.Operator):
                 #                        layer_tree, mask, 'bitangent', 'ShaderNodeGroup', 'Bitangent', bt_tree.name)
 
             # Rearrange nodes
-            for layer in yp.layers:
-                reconnect_layer_nodes(layer)
-                rearrange_layer_nodes(layer)
+            #for layer in yp.layers:
+            #    reconnect_layer_nodes(layer)
+            #    rearrange_layer_nodes(layer)
+            rearrange_yp_nodes(tree)
+            reconnect_yp_nodes(tree)
 
         #return {'FINISHED'}
 
@@ -1225,7 +1239,7 @@ class YBakeChannels(bpy.types.Operator):
         # Recover hack
         if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
 
-            uvs = [uv for uv in self.uv_layers if not uv.name.startswith(TEMP_UV)]
+            #uvs = [uv for uv in self.uv_layers if not uv.name.startswith(TEMP_UV)]
 
             # Recover tangent and bitangent
             #for uv in uvs:
@@ -1261,6 +1275,10 @@ class YBakeChannels(bpy.types.Operator):
             #                            layer_tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
             #                    bitangent.uv_map = uv.name
             #                    bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+
+            for uv in yp.uvs:
+                remove_node(tree, uv, 'temp_tangent')
+                remove_node(tree, uv, 'temp_bitangent')
 
             # Remove vertex color
             for vcol_id in reversed(self.temp_vcol_ids):

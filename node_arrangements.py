@@ -233,10 +233,10 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
         check_set_node_parent(tree, mask.uv_neighbor, frame)
         check_set_node_parent(tree, mask.uv_map, frame)
-        check_set_node_parent(tree, mask.tangent, frame)
-        check_set_node_parent(tree, mask.bitangent, frame)
-        check_set_node_parent(tree, mask.tangent_flip, frame)
-        check_set_node_parent(tree, mask.bitangent_flip, frame)
+        #check_set_node_parent(tree, mask.tangent, frame)
+        #check_set_node_parent(tree, mask.bitangent, frame)
+        #check_set_node_parent(tree, mask.tangent_flip, frame)
+        #check_set_node_parent(tree, mask.bitangent_flip, frame)
 
         check_set_node_parent(tree, mask.source_n, frame)
         check_set_node_parent(tree, mask.source_s, frame)
@@ -820,17 +820,17 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, mask.uv_map, loc):
             loc.y -= 130
 
-        if check_set_node_loc(tree, mask.tangent_flip, loc):
-            loc.y -= 120
+        #if check_set_node_loc(tree, mask.tangent_flip, loc):
+        #    loc.y -= 120
 
-        if check_set_node_loc(tree, mask.bitangent_flip, loc):
-            loc.y -= 120
+        #if check_set_node_loc(tree, mask.bitangent_flip, loc):
+        #    loc.y -= 120
 
-        if check_set_node_loc(tree, mask.tangent, loc):
-            loc.y -= 170
+        #if check_set_node_loc(tree, mask.tangent, loc):
+        #    loc.y -= 170
 
-        if check_set_node_loc(tree, mask.bitangent, loc):
-            loc.y -= 180
+        #if check_set_node_loc(tree, mask.bitangent, loc):
+        #    loc.y -= 180
 
         loc.y = 0
 
@@ -1324,6 +1324,12 @@ def rearrange_uv_nodes(group_tree, loc):
 
         if check_set_node_loc(group_tree, uv.parallax_prep, loc):
             loc.y -= 280
+
+        if check_set_node_loc(group_tree, uv.temp_tangent, loc):
+            loc.y -= 180
+
+        if check_set_node_loc(group_tree, uv.temp_bitangent, loc):
+            loc.y -= 180
 
         if check_set_node_loc(group_tree, uv.tangent_flip, loc):
             loc.y -= 180

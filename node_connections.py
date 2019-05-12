@@ -754,30 +754,46 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         uv_map = nodes.get(uv.uv_map)
         uv_maps[uv.name] = uv_map.outputs[0]
 
-        tangent = nodes.get(uv.tangent)
-        tangent_flip = nodes.get(uv.tangent_flip)
-        create_link(tree, tangent.outputs[0], tangent_flip.inputs[0])
-        tangents[uv.name] = tangent_flip.outputs[0]
+        temp_tangent = nodes.get(uv.temp_tangent)
+        if temp_tangent:
+            tangents[uv.name] = temp_tangent.outputs[0]
+        else:
+            tangent = nodes.get(uv.tangent)
+            tangent_flip = nodes.get(uv.tangent_flip)
+            create_link(tree, tangent.outputs[0], tangent_flip.inputs[0])
+            tangents[uv.name] = tangent_flip.outputs[0]
 
-        bitangent = nodes.get(uv.bitangent)
-        bitangent_flip = nodes.get(uv.bitangent_flip)
-        create_link(tree, bitangent.outputs[0], bitangent_flip.inputs[0])
-        bitangents[uv.name] = bitangent_flip.outputs[0]
+        temp_bitangent = nodes.get(uv.temp_bitangent)
+        if temp_bitangent:
+            bitangents[uv.name] = temp_bitangent.outputs[0]
+        else:
+            bitangent = nodes.get(uv.bitangent)
+            bitangent_flip = nodes.get(uv.bitangent_flip)
+            create_link(tree, bitangent.outputs[0], bitangent_flip.inputs[0])
+            bitangents[uv.name] = bitangent_flip.outputs[0]
 
     # Get main tangent and bitangent
-    tangent = None
-    bitangent = None
-
     height_ch = get_root_height_channel(yp)
+    main_uv = None
     if height_ch and height_ch.main_uv != '':
-        uv = yp.uvs.get(height_ch.main_uv)
-        if uv:
-            tangent = nodes.get(uv.tangent)
-            bitangent = nodes.get(uv.bitangent)
+        main_uv = yp.uvs.get(height_ch.main_uv)
 
-    if not tangent and len(yp.uvs) > 0:
-        tangent = nodes.get(yp.uvs[0].tangent)
-        bitangent = nodes.get(yp.uvs[0].bitangent)
+    if not main_uv and len(yp.uvs) > 0:
+        main_uv = yp.uvs[0]
+
+    if main_uv:
+        temp_tangent = nodes.get(uv.temp_tangent)
+        if temp_tangent:
+            tangent = temp_tangent
+        else: tangent = nodes.get(uv.tangent_flip)
+
+        temp_bitangent = nodes.get(uv.temp_bitangent)
+        if temp_bitangent:
+            bitangent = temp_bitangent
+        else: bitangent = nodes.get(uv.bitangent_flip)
+    else:
+        tangent = None
+        bitangent = None
 
     baked_uv = yp.uvs.get(yp.baked_uv_name)
     if yp.use_baked and baked_uv:

@@ -97,10 +97,14 @@ def save_pack_all(yp, only_dirty = True):
         if only_dirty and not image.is_dirty: continue
         T = time.time()
         if image.packed_file or image.filepath == '':
-            if image.is_float:
-                pack_float_image(image)
-                packed_float_images.append(image)
-            else: image.pack(as_png=True)
+            if bpy.app.version_string.startswith('2.8'):
+                image.pack()
+            else:
+                if image.is_float:
+                    pack_float_image(image)
+                    packed_float_images.append(image)
+                else: 
+                    image.pack(as_png=True)
 
             print('INFO:', image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         else:
@@ -176,9 +180,12 @@ class YPackImage(bpy.types.Operator):
         T = time.time()
 
         # Save file to temporary place first if image is float
-        if context.image.is_float:
-            pack_float_image(context.image)
-        else: context.image.pack(as_png=True)
+        if bpy.app.version_string.startswith('2.8'):
+            context.image.pack()
+        else:
+            if context.image.is_float:
+                pack_float_image(context.image)
+            else: context.image.pack(as_png=True)
 
         print('INFO:', context.image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

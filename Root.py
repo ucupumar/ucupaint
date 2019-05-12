@@ -2187,6 +2187,10 @@ class YPaintUV(bpy.types.PropertyGroup):
     baked_parallax_delta_uv = StringProperty(default='')
     baked_parallax_mix = StringProperty(default='')
 
+    # For baking
+    temp_tangent = StringProperty(default='')
+    temp_bitangent = StringProperty(default='')
+
 class YPaint(bpy.types.PropertyGroup):
 
     is_ypaint_node = BoolProperty(default=False)
