@@ -1001,6 +1001,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'baked')
         remove_node(group_tree, channel, 'baked_normal')
         remove_node(group_tree, channel, 'baked_normal_flip')
+        remove_node(group_tree, channel, 'baked_normal_prep')
 
         for mod in channel.modifiers:
             Modifier.delete_modifier_nodes(group_tree, mod)
@@ -1634,9 +1635,17 @@ def update_layer_index(self, context):
     if vcol and obj.data.vertex_colors.active != vcol:
         obj.data.vertex_colors.active = vcol
 
-    # Update uv layer
+    # Get height channel
+    height_ch = get_root_height_channel(yp)
+
     if obj.type == 'MESH':
 
+        # Update tangent sign if height channel and tangent sign hack is enabled
+        if height_ch and ypui.enable_tangent_sign_hacks:
+            for uv in yp.uvs:
+                refresh_tangent_sign_vcol(obj, uv.name)
+
+        # Update uv layer
         if ypui.disable_auto_temp_uv_update or not refresh_temp_uv(obj, src_of_img):
         #if not refresh_temp_uv(obj, src_of_img):
 
@@ -1973,14 +1982,22 @@ def update_flip_backface(self, context):
         if baked_normal_flip:
             set_normal_backface_flip(baked_normal_flip, yp.flip_backface)
 
-    for uv in yp.uvs:
-        tangent_flip = group_tree.nodes.get(uv.tangent_flip)
-        if tangent_flip:
-            set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+        baked_normal_prep = group_tree.nodes.get(ch.baked_normal_prep)
+        if baked_normal_prep:
+            baked_normal_prep.inputs['Flip Backface'].default_value = 1.0 if yp.flip_backface else 0.0
 
-        bitangent_flip = group_tree.nodes.get(uv.bitangent_flip)
-        if bitangent_flip:
-            set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+    for uv in yp.uvs:
+        #tangent_flip = group_tree.nodes.get(uv.tangent_flip)
+        #if tangent_flip:
+        #    set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+
+        #bitangent_flip = group_tree.nodes.get(uv.bitangent_flip)
+        #if bitangent_flip:
+        #    set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+
+        tangent_process = group_tree.nodes.get(uv.tangent_process)
+        if tangent_process:
+            tangent_process.inputs['Flip Backface'].default_value = 1.0 if yp.flip_backface else 0.0
 
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
@@ -2109,6 +2126,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked = StringProperty(default='')
     baked_normal = StringProperty(default='')
     baked_normal_flip = StringProperty(default='')
+    baked_normal_prep = StringProperty(default='')
 
     baked_disp = StringProperty(default='')
     baked_obj_normal = StringProperty(default='')
@@ -2130,6 +2148,7 @@ class YPaintUV(bpy.types.PropertyGroup):
     tangent_flip = StringProperty(default='')
     bitangent = StringProperty(default='')
     bitangent_flip = StringProperty(default='')
+    tangent_process = StringProperty(default='')
 
     parallax_prep = StringProperty(default='')
     parallax_current_uv_mix = StringProperty(default='')
@@ -2175,7 +2194,7 @@ class YPaint(bpy.types.PropertyGroup):
     flip_backface = BoolProperty(
             name= 'Flip Backface Normal',
             description= 'Flip Backface Normal so normal will face toward camera even at backface',
-            default=False, update=update_flip_backface)
+            default=True, update=update_flip_backface)
 
     # Path folder for auto save bake
     #bake_folder = StringProperty(default='')

@@ -652,9 +652,72 @@ def check_mask_source_tree(layer): #, ch=None):
     #    else:
     #        disable_mask_source_tree(layer, mask)
 
-def create_uv_nodes(yp, uv_name):
+def remove_tangent_sign_vcol(obj, uv_name):
+    vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
+    if vcol: vcol = obj.data.vertex_colors.remove(vcol)
+
+def refresh_tangent_sign_vcol(obj, uv_name):
+
+    # Set vertex color of bitangent sign
+    if hasattr(obj.data, 'uv_textures'):
+        uv_layers = obj.data.uv_textures
+    else: uv_layers = obj.data.uv_layers
+
+    uv_layer = uv_layers.get(uv_name)
+    if uv_layer:
+
+        # Set uv as active
+        ori_layer = uv_layers.active
+        uv_layers.active = uv_layer
+
+        obj.data.calc_tangents()
+
+        vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
+        if not vcol:
+            try: vcol = obj.data.vertex_colors.new(name='__tsign_' + uv_name)
+            except: return None
+
+        i = 0
+        for poly in obj.data.polygons:
+            for idx in poly.loop_indices:
+                vert = obj.data.loops[idx]
+                bs = vert.bitangent_sign
+                if bpy.app.version_string.startswith('2.8'):
+                    vcol.data[i].color = (bs, bs, bs, 1.0)
+                else: vcol.data[i].color = (bs, bs, bs)
+                i += 1
+
+        # Recover active uv
+        uv_layers.active = ori_layer
+
+        return vcol
+
+    return None
+
+def update_enable_tangent_sign_hacks(self, context):
+    node = get_active_ypaint_node()
+    tree = node.node_tree
+    yp = tree.yp
+    #ypui = context.window_manager.ypui
+    ypui = self
+    obj = context.object
+
+    for uv in yp.uvs:
+        tangent_process = tree.nodes.get(uv.tangent_process)
+        if tangent_process:
+            if ypui.enable_tangent_sign_hacks:
+                tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
+                tsign = tangent_process.node_tree.nodes.get('_tangent_sign')
+                vcol = refresh_tangent_sign_vcol(obj, uv.name)
+                if vcol: tsign.attribute_name = vcol.name
+            else:
+                tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 0.0
+                remove_tangent_sign_vcol(obj, uv.name)
+
+def create_uv_nodes(yp, uv_name, obj):
 
     tree = yp.id_data
+    ypui = bpy.context.window_manager.ypui
 
     uv = yp.uvs.add()
     uv.name = uv_name
@@ -662,25 +725,30 @@ def create_uv_nodes(yp, uv_name):
     uv_map = new_node(tree, uv, 'uv_map', 'ShaderNodeUVMap', uv_name)
     uv_map.uv_map = uv_name
 
-    tangent = new_node(tree, uv, 'tangent', 'ShaderNodeNormalMap', uv_name + ' Tangent')
-    tangent.uv_map = uv_name
-    tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
+    # Create tangent process which output both tangent and bitangent
+    tangent_process = new_node(tree, uv, 'tangent_process', 'ShaderNodeGroup', uv_name + ' Tangent Process')
+    tangent_process.node_tree = get_node_tree_lib(lib.TANGENT_PROCESS)
+    duplicate_lib_node_tree(tangent_process)
 
-    bitangent = new_node(tree, uv, 'bitangent', 'ShaderNodeNormalMap', uv_name + ' Bitangent')
-    bitangent.uv_map = uv_name
-    bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
+    tangent_process.inputs['Flip Backface'].default_value = 1.0 if yp.flip_backface else 0.0
 
-    tangent_flip = new_node(tree, uv, 'tangent_flip', 'ShaderNodeGroup', 
-            uv_name + ' Tangent Backface Flip')
-    tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
+    # Set values inside tangent process
+    tp_nodes = tangent_process.node_tree.nodes
+    node = tp_nodes.get('_tangent')
+    node.uv_map = uv_name
+    node = tp_nodes.get('_tangent_from_norm')
+    node.uv_map = uv_name
+    node = tp_nodes.get('_bitangent_from_norm')
+    node.uv_map = uv_name
 
-    set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+    if ypui.enable_tangent_sign_hacks:
+        tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
+        node = tp_nodes.get('_tangent_sign')
 
-    bitangent_flip = new_node(tree, uv, 'bitangent_flip', 'ShaderNodeGroup', 
-            uv_name + ' Bitangent Backface Flip')
-    bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
-
-    set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+        vcol = refresh_tangent_sign_vcol(obj, uv_name)
+        if vcol: node.attribute_name = vcol.name
+    else:
+        tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 0.0
 
 def check_parallax_process_outputs(parallax, uv_name, remove=False):
 
@@ -1040,16 +1108,19 @@ def check_parallax_node(yp, unused_uvs=[], unused_texcoords=[], baked=False):
         check_current_uv_inputs(iterate_0.node_tree, TEXCOORD_IO_PREFIX + tc)
         check_non_uv_iterate_current_mix(iterate_0.node_tree, tc)
 
-def remove_uv_nodes(uv):
+def remove_uv_nodes(uv, obj):
     tree = uv.id_data
     yp = tree.yp
 
     remove_node(tree, uv, 'uv_map')
+    remove_node(tree, uv, 'tangent_process')
     remove_node(tree, uv, 'tangent')
     remove_node(tree, uv, 'tangent_flip')
     remove_node(tree, uv, 'bitangent')
     remove_node(tree, uv, 'bitangent_flip')
     remove_node(tree, uv, 'parallax_prep')
+
+    remove_tangent_sign_vcol(obj, uv.name)
 
     #yp.uvs.remove(uv)
 
@@ -1075,7 +1146,7 @@ def check_uv_nodes(yp):
             uv = yp.uvs.get(uv_layer.name)
             if not uv: 
                 dirty = True
-                create_uv_nodes(yp, uv_layer.name)
+                create_uv_nodes(yp, uv_layer.name, obj)
             if uv_layer.name not in uv_names: uv_names.append(uv_layer.name)
 
     # Get unused uv objects
@@ -1114,7 +1185,7 @@ def check_uv_nodes(yp):
     # Remove unused uv objects
     for i in unused_ids:
         uv = yp.uvs[i]
-        remove_uv_nodes(uv)
+        remove_uv_nodes(uv, obj)
         dirty = True
         yp.uvs.remove(i)
 

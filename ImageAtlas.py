@@ -1,6 +1,7 @@
 import bpy, time, random, numpy
 from bpy.props import *
 from .common import *
+from .subtree import *
 
 def is_tile_available(x, y, width, height, atlas):
 
@@ -362,6 +363,12 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
             update_image_editor_image(context, image)
             context.scene.tool_settings.image_paint.canvas = image
 
+        # Update tangent sign if height channel and tangent sign hack is enabled
+        height_ch = get_root_height_channel(yp)
+        if height_ch and ypui.enable_tangent_sign_hacks:
+            for uv in yp.uvs:
+                refresh_tangent_sign_vcol(obj, uv.name)
+
         yp.need_temp_uv_refresh = False
 
         return {'FINISHED'}
@@ -420,6 +427,12 @@ class YBackToOriginalUV(bpy.types.Operator):
         if image:
             update_image_editor_image(context, None)
             context.scene.tool_settings.image_paint.canvas = None
+
+        # Update tangent sign if height channel and tangent sign hack is enabled
+        height_ch = get_root_height_channel(yp)
+        if height_ch and ypui.enable_tangent_sign_hacks:
+            for uv in yp.uvs:
+                refresh_tangent_sign_vcol(obj, uv.name)
 
         yp.need_temp_uv_refresh = True
 

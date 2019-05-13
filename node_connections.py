@@ -750,27 +750,28 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     bitangents = {}
 
     for uv in yp.uvs:
-        #print('Connecting', uv.name)
         uv_map = nodes.get(uv.uv_map)
         uv_maps[uv.name] = uv_map.outputs[0]
 
-        temp_tangent = nodes.get(uv.temp_tangent)
-        if temp_tangent:
-            tangents[uv.name] = temp_tangent.outputs[0]
-        else:
-            tangent = nodes.get(uv.tangent)
-            tangent_flip = nodes.get(uv.tangent_flip)
-            create_link(tree, tangent.outputs[0], tangent_flip.inputs[0])
-            tangents[uv.name] = tangent_flip.outputs[0]
+        #temp_tangent = nodes.get(uv.temp_tangent)
+        #if temp_tangent:
+        #    tangents[uv.name] = temp_tangent.outputs['Tangent']
+        #    bitangents[uv.name] = temp_tangent.outputs['Bitangent']
+        #else:
+        tangent_process = nodes.get(uv.tangent_process)
+        if tangent_process:
+            tangents[uv.name] = tangent_process.outputs['Tangent']
+            bitangents[uv.name] = tangent_process.outputs['Bitangent']
+        #else:
+        #    tangent = nodes.get(uv.tangent)
+        #    tangent_flip = nodes.get(uv.tangent_flip)
+        #    create_link(tree, tangent.outputs[0], tangent_flip.inputs[0])
+        #    tangents[uv.name] = tangent_flip.outputs[0]
 
-        temp_bitangent = nodes.get(uv.temp_bitangent)
-        if temp_bitangent:
-            bitangents[uv.name] = temp_bitangent.outputs[0]
-        else:
-            bitangent = nodes.get(uv.bitangent)
-            bitangent_flip = nodes.get(uv.bitangent_flip)
-            create_link(tree, bitangent.outputs[0], bitangent_flip.inputs[0])
-            bitangents[uv.name] = bitangent_flip.outputs[0]
+        #    bitangent = nodes.get(uv.bitangent)
+        #    bitangent_flip = nodes.get(uv.bitangent_flip)
+        #    create_link(tree, bitangent.outputs[0], bitangent_flip.inputs[0])
+        #    bitangents[uv.name] = bitangent_flip.outputs[0]
 
     # Get main tangent and bitangent
     height_ch = get_root_height_channel(yp)
@@ -782,15 +783,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         main_uv = yp.uvs[0]
 
     if main_uv:
-        temp_tangent = nodes.get(uv.temp_tangent)
-        if temp_tangent:
-            tangent = temp_tangent
-        else: tangent = nodes.get(uv.tangent_flip)
-
-        temp_bitangent = nodes.get(uv.temp_bitangent)
-        if temp_bitangent:
-            bitangent = temp_bitangent
-        else: bitangent = nodes.get(uv.bitangent_flip)
+        tangent = tangents[main_uv.name]
+        bitangent = bitangents[main_uv.name]
     else:
         tangent = None
         bitangent = None
@@ -801,8 +795,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             baked_uv_map = baked_parallax.outputs[0]
         else: baked_uv_map = nodes.get(baked_uv.uv_map).outputs[0]
 
-        baked_tangent = nodes.get(baked_uv.tangent_flip).outputs[0]
-        baked_bitangent = nodes.get(baked_uv.bitangent_flip).outputs[0]
+        baked_tangent = tangents[baked_uv.name]
+        baked_bitangent = bitangents[baked_uv.name]
 
     # Parallax internal connections
     if parallax_ch:
@@ -834,8 +828,9 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         parallax_prep = tree.nodes.get(tc + PARALLAX_PREP_SUFFIX)
         if parallax_prep:
             create_link(tree, texcoord.outputs[tc], parallax_prep.inputs[0])
-            create_link(tree, tangent.outputs[0], parallax_prep.inputs['Tangent'])
-            create_link(tree, bitangent.outputs[0], parallax_prep.inputs['Bitangent'])
+            if tangent and bitangent:
+                create_link(tree, tangent, parallax_prep.inputs['Tangent'])
+                create_link(tree, bitangent, parallax_prep.inputs['Bitangent'])
     
             if parallax:
                 create_link(tree, parallax_prep.outputs['start_uv'], parallax.inputs[TEXCOORD_IO_PREFIX + tc + START_UV])
@@ -1028,8 +1023,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                 #    print(i, u.name)
 
                 if tangent and bitangent:
-                    create_link(tree, tangent.outputs[0], end_linear.inputs['Tangent'])
-                    create_link(tree, bitangent.outputs[0], end_linear.inputs['Bitangent'])
+                    create_link(tree, tangent, end_linear.inputs['Tangent'])
+                    create_link(tree, bitangent, end_linear.inputs['Bitangent'])
 
         if yp.use_baked and baked_uv:
             baked = nodes.get(ch.baked)
@@ -1074,13 +1069,17 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                 baked_normal = nodes.get(ch.baked_normal)
                 rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
 
-                baked_normal_flip = nodes.get(ch.baked_normal_flip)
-                if baked_normal_flip:
+                #baked_normal_flip = nodes.get(ch.baked_normal_flip)
+                #if baked_normal_flip:
 
-                    create_link(tree, baked_tangent, baked_normal_flip.inputs['Tangent'])
-                    create_link(tree, baked_bitangent, baked_normal_flip.inputs['Bitangent'])
+                #    create_link(tree, baked_tangent, baked_normal_flip.inputs['Tangent'])
+                #    create_link(tree, baked_bitangent, baked_normal_flip.inputs['Bitangent'])
 
-                    rgb = create_link(tree, rgb, baked_normal_flip.inputs[0])[0]
+                #    rgb = create_link(tree, rgb, baked_normal_flip.inputs[0])[0]
+
+                baked_normal_prep = nodes.get(ch.baked_normal_prep)
+                if baked_normal_prep:
+                    rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
 
                 #if ch.enable_parallax:
                 baked_disp = nodes.get(ch.baked_disp)

@@ -1710,11 +1710,11 @@ def refresh_temp_uv(obj, entity):
 def set_bump_backface_flip(node, flip_backface):
     node.mute = False
     if flip_backface:
-        node.inputs['Eevee'].default_value = 0.0
+        node.inputs['Eevee'].default_value = 1.0
         node.inputs['Cycles'].default_value = 1.0
         node.inputs['Blender 2.7 Viewport'].default_value = 0.0
     else:
-        node.inputs['Eevee'].default_value = 1.0
+        node.inputs['Eevee'].default_value = 0.0
         node.inputs['Cycles'].default_value = 0.0
         node.inputs['Blender 2.7 Viewport'].default_value = 1.0
 

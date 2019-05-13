@@ -8,6 +8,7 @@ OVERLAY_NORMAL_STRAIGHT_OVER = '~yPL Overlay Normal Straight Over'
 CHECK_INPUT_NORMAL = '~yPL Check Input Normal'
 
 NORMAL_MAP = '~yPL Normal Map'
+NORMAL_MAP_PREP = '~yPL Normal Map Preparation'
 
 FLIP_BACKFACE_NORMAL = '~yPL Flip Backface Normal'
 FLIP_BACKFACE_BUMP = '~yPL Flip Backface Bump'
@@ -60,7 +61,8 @@ VECTOR_MIX ='~yPL Vector Mix'
 #INVERTED_MULTIPLIER ='~yPL Inverted Multiplier'
 INTENSITY_MULTIPLIER ='~yPL Intensity Multiplier'
 GET_BITANGENT ='~yPL Get Bitangent'
-TEMP_BITANGENT = '~yPL Temp Bitangent'
+BITANGENT_FROM_NATIVE_TANGENT = '~yPL Bitangent from Native Tangent'
+TANGENT_PROCESS = '~yPL Tangent Process'
 
 PARALLAX_OCCLUSION = '~yPL Parallax Occlusion Mapping'
 PARALLAX_OCCLUSION_PREP = '~yPL Parallax Occlusion Mapping Preparation'

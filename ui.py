@@ -1,8 +1,9 @@
 import bpy, re, time
 from bpy.props import *
 from bpy.app.handlers import persistent
-from . import lib, Modifier, MaskModifier
+from . import lib, Modifier, MaskModifier, Root
 from .common import *
+from .subtree import *
 
 def update_yp_ui():
 
@@ -2288,6 +2289,9 @@ class YPaintSpecialMenu(bpy.types.Menu):
         col.label(text='Performance Options:')
         col.prop(ypui, 'disable_auto_temp_uv_update')
         col.prop(yp, 'disable_quick_toggle')
+        col.separator()
+        col.label(text='Hacks:')
+        col.prop(ypui, 'enable_tangent_sign_hacks')
 
 class YNewLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_layer_menu"
@@ -2935,6 +2939,11 @@ class YPaintUI(bpy.types.PropertyGroup):
             name = 'Disable Transformed UV Auto Update',
             description = "UV won't be created automatically if layer with custom offset/rotation/scale is selected.\n(This can make selecting layer faster)",
             default=False)
+
+    enable_tangent_sign_hacks = BoolProperty(
+            name = 'Enable Tangent Sign VCol Hacks for Blender 2.8 Cycles',
+            description = "Tangent sign vertex color needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
+            default=False, update=update_enable_tangent_sign_hacks)
 
     #mask_ui = PointerProperty(type=YMaskUI)
 

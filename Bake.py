@@ -925,93 +925,25 @@ class YBakeChannels(bpy.types.Operator):
         node = get_active_ypaint_node()
         tree = node.node_tree
         yp = tree.yp
+        ypui = context.window_manager.ypui
         obj = context.object
 
         remember_before_bake(self, context, yp)
 
         if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
 
-            self.temp_vcol_ids = []
-            #uvs = [uv for uv in self.uv_layers if not uv.name.startswith(TEMP_UV)]
-            #uvs = [self.uv_layers.get(uv.name) for uv in yp.uvs if not self.uv_layers.get(uv.name)]
-
             if len(yp.uvs) > MAX_VERTEX_DATA - len(obj.data.vertex_colors):
                 self.report({'ERROR'}, "Maximum vertex colors reached! Need at least " + str(len(uvs)) + " vertex color(s)!")
                 return {'CANCELLED'}
 
-            # Create vertex color
-            #for uv in uvs:
+            # Update tangent sign vertex color
             for uv in yp.uvs:
-                uv_layer = self.uv_layers.get(uv.name)
-                if not uv_layer: continue
-
-                self.uv_layers.active = uv_layer
-
-                obj.data.calc_tangents()
-
-                vcol = obj.data.vertex_colors.new(name='__sign_' + uv.name)
-                self.temp_vcol_ids.append(len(obj.data.vertex_colors)-1)
-
-                i = 0
-                for poly in obj.data.polygons:
-                    for idx in poly.loop_indices:
-                        vert = obj.data.loops[idx]
-                        bs = vert.bitangent_sign
-                        if bpy.app.version_string.startswith('2.8'):
-                            vcol.data[i].color = (bs, bs, bs, 1.0)
-                        else: vcol.data[i].color = (bs, bs, bs)
-                        i += 1
-
-                bt_tree = get_node_tree_lib(lib.TEMP_BITANGENT)
-                bt_tree.name = '__bitangent_' + uv.name
-                bt_attr = bt_tree.nodes.get('_tangent_sign')
-                bt_attr.attribute_name = vcol.name
-                t_attr = bt_tree.nodes.get('_tangent')
-                t_attr.uv_map = uv.name
-
-                temp_tangent = new_node(tree, uv, 'temp_tangent', 'ShaderNodeTangent', 'Temp Tangent')
-                temp_tangent.direction_type = 'UV_MAP'
-                temp_tangent.uv_map = uv.name
-
-                temp_bitangent = new_node(tree, uv, 'temp_bitangent', 'ShaderNodeGroup', 'Temp Bitangent')
-                temp_bitangent.node_tree = bt_tree
-
-                # Replace tangent and bitangent of all layer and masks
-                #for layer in yp.layers:
-                #    layer_tree = get_tree(layer)
-
-                #    if layer.uv_name == uv.name:
-
-                #        tangent = replace_new_node(layer_tree, layer, 'tangent', 'ShaderNodeTangent', 'Tangent')
-                #        tangent.direction_type = 'UV_MAP'
-                #        tangent.uv_map = uv.name
-
-                #        bitangent = replace_new_node(
-                #                layer_tree, layer, 'bitangent', 'ShaderNodeGroup', 'Bitangent', bt_tree.name)
-
-                #    for mask in layer.masks:
-
-                #        if mask.uv_name == uv.name:
-
-                #            tangent = layer_tree.nodes.get(mask.tangent)
-                #            if tangent:
-                #                tangent = replace_new_node(layer_tree, mask, 'tangent', 'ShaderNodeTangent', 'Tangent')
-                #                tangent.direction_type = 'UV_MAP'
-                #                tangent.uv_map = uv.name
-
-                #            bitangent = layer_tree.nodes.get(mask.bitangent)
-                #            if bitangent:
-                #                bitangent = replace_new_node(
-                #                        layer_tree, mask, 'bitangent', 'ShaderNodeGroup', 'Bitangent', bt_tree.name)
-
-            # Rearrange nodes
-            #for layer in yp.layers:
-            #    reconnect_layer_nodes(layer)
-            #    rearrange_layer_nodes(layer)
-            rearrange_yp_nodes(tree)
-            reconnect_yp_nodes(tree)
-
-        #return {'FINISHED'}
+                tangent_process = tree.nodes.get(uv.tangent_process)
+                if tangent_process:
+                    tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
+                    tansign = tangent_process.node_tree.nodes.get('_tangent_sign')
+                    vcol = refresh_tangent_sign_vcol(obj, uv.name)
+                    if vcol: tansign.attribute_name = vcol.name
 
         # Disable use baked first
         if yp.use_baked:
@@ -1019,6 +951,8 @@ class YBakeChannels(bpy.types.Operator):
 
         # Prepare bake settings
         prepare_bake_settings(self, context, yp)
+
+        #return {'FINISHED'}
 
         # Create nodes
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -1037,10 +971,15 @@ class YBakeChannels(bpy.types.Operator):
         bt.uv_map = self.uv_map
 
         if BL28_HACK:
-            socket = bt.outputs[0].links[0].to_socket
-            hack_bt = norm.node_tree.nodes.new('ShaderNodeGroup')
-            hack_bt.node_tree = bpy.data.node_groups.get('__bitangent_' + self.uv_map)
-            create_link(norm.node_tree, hack_bt.outputs[0], socket)
+            bake_uv = yp.uvs.get(self.uv_map)
+            if bake_uv:
+                tangent_process = tree.nodes.get(bake_uv.tangent_process)
+                socket = bt.outputs[0].links[0].to_socket
+                hack_bt = norm.node_tree.nodes.new('ShaderNodeGroup')
+                #hack_bt.node_tree = bpy.data.node_groups.get('__bitangent_' + self.uv_map)
+                hack_bt.node_tree = tangent_process.node_tree
+                #create_link(norm.node_tree, hack_bt.outputs[0], socket)
+                create_link(norm.node_tree, hack_bt.outputs['Bitangent'], socket)
 
         # Set tex as active node
         mat.node_tree.nodes.active = tex
@@ -1079,13 +1018,19 @@ class YBakeChannels(bpy.types.Operator):
                 baked_normal.uv_map = self.uv_map
 
                 # Get normal flip
-                baked_normal_flip = tree.nodes.get(ch.baked_normal_flip)
-                if not baked_normal_flip:
-                    baked_normal_flip = new_node(tree, ch, 'baked_normal_flip', 'ShaderNodeGroup', 
-                            'Baked Normal Backface Flip')
-                    baked_normal_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
+                #baked_normal_flip = tree.nodes.get(ch.baked_normal_flip)
+                #if not baked_normal_flip:
+                #    baked_normal_flip = new_node(tree, ch, 'baked_normal_flip', 'ShaderNodeGroup', 
+                #            'Baked Normal Backface Flip')
+                #    baked_normal_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
 
-                set_normal_backface_flip(baked_normal_flip, yp.flip_backface)
+                #set_normal_backface_flip(baked_normal_flip, yp.flip_backface)
+
+                baked_normal_prep = tree.nodes.get(ch.baked_normal_prep)
+                if not baked_normal_prep:
+                    baked_normal_prep = new_node(tree, ch, 'baked_normal_prep', 'ShaderNodeGroup', 
+                            'Baked Normal Preparation')
+                    baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
 
             # Check if image is available
             if baked.image:
@@ -1130,6 +1075,9 @@ class YBakeChannels(bpy.types.Operator):
             if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL': # and not bpy.app.version_string.startswith('2.8'):
                 rgb = create_link(mat.node_tree, rgb, linear.inputs[0])[0]
             mat.node_tree.links.new(rgb, emit.inputs[0])
+
+            #if ch.type == 'NORMAL':
+            #    return {'FINISHED'}
 
             # Bake!
             bpy.ops.object.bake()
@@ -1238,56 +1186,8 @@ class YBakeChannels(bpy.types.Operator):
 
         # Recover hack
         if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
-
-            #uvs = [uv for uv in self.uv_layers if not uv.name.startswith(TEMP_UV)]
-
-            # Recover tangent and bitangent
-            #for uv in uvs:
-            #    for layer in yp.layers:
-            #        layer_tree = get_tree(layer)
-
-            #        if layer.uv_name == uv.name:
-
-            #            tangent = replace_new_node(
-            #                    layer_tree, layer, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
-            #            tangent.uv_map = uv.name
-            #            tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
-
-            #            bitangent = replace_new_node(
-            #                    layer_tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
-            #            bitangent.uv_map = uv.name
-            #            bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
-
-            #        for mask in layer.masks:
-
-            #            if mask.uv_name == uv.name:
-
-            #                tangent = layer_tree.nodes.get(mask.tangent)
-            #                if tangent:
-            #                    tangent = replace_new_node(
-            #                            layer_tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
-            #                    tangent.uv_map = uv.name
-            #                    tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
-
-            #                bitangent = layer_tree.nodes.get(mask.bitangent)
-            #                if bitangent:
-            #                    bitangent = replace_new_node(
-            #                            layer_tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
-            #                    bitangent.uv_map = uv.name
-            #                    bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
-
-            for uv in yp.uvs:
-                remove_node(tree, uv, 'temp_tangent')
-                remove_node(tree, uv, 'temp_bitangent')
-
-            # Remove vertex color
-            for vcol_id in reversed(self.temp_vcol_ids):
-                obj.data.vertex_colors.remove(obj.data.vertex_colors[vcol_id])
-
-            # Rearrange nodes
-            for layer in yp.layers:
-                reconnect_layer_nodes(layer)
-                rearrange_layer_nodes(layer)
+            # Refresh tangent sign hacks
+            update_enable_tangent_sign_hacks(ypui, context)
 
         # Rearrange
         rearrange_yp_nodes(tree)

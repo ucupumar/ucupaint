@@ -1343,6 +1343,9 @@ def rearrange_uv_nodes(group_tree, loc):
         if check_set_node_loc(group_tree, uv.bitangent, loc):
             loc.y -= 160
 
+        if check_set_node_loc(group_tree, uv.tangent_process, loc):
+            loc.y -= 160
+
         if check_set_node_loc(group_tree, uv.uv_map, loc):
             loc.y -= 120
 
@@ -1513,7 +1516,10 @@ def rearrange_yp_nodes(group_tree):
         if check_set_node_loc(group_tree, ch.baked_normal, loc):
             loc.x += 200
 
-        if check_set_node_loc(group_tree, ch.baked_normal_flip, loc):
+        #if check_set_node_loc(group_tree, ch.baked_normal_flip, loc):
+        #    loc.x += 200
+
+        if check_set_node_loc(group_tree, ch.baked_normal_prep, loc):
             loc.x += 200
 
         loc.y -= 270
