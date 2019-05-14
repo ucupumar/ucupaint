@@ -26,7 +26,10 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     source = new_node(tree, mask, 'source', layer_node_bl_idnames[mask_type], 'Mask Source')
     if image:
         source.image = image
-        source.color_space = 'NONE'
+        if hasattr(source, 'color_space'):
+            source.color_space = 'NONE'
+        #if bpy.app.version_string.startswith('2.8'):
+        image.colorspace_settings.name = 'Non-Color'
     elif vcol:
         source.attribute_name = vcol.name
 

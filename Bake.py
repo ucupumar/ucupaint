@@ -249,13 +249,13 @@ def transfer_uv(obj, mat, entity, uv_map):
                 target_pxs[offset_y + offset_x + i] = temp_pxs[temp_offset_y + temp_offset_x + i]
 
     # Bake alpha if using alpha
-    linear = None
+    srgb2lin = None
     if use_alpha:
-        linear = mat.node_tree.nodes.new('ShaderNodeGroup')
-        linear.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
+        srgb2lin = mat.node_tree.nodes.new('ShaderNodeGroup')
+        srgb2lin.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
 
-        mat.node_tree.links.new(src.outputs[1], linear.inputs[0])
-        mat.node_tree.links.new(linear.outputs[0], emit.inputs[0])
+        mat.node_tree.links.new(src.outputs[1], srgb2lin.inputs[0])
+        mat.node_tree.links.new(srgb2lin.outputs[0], emit.inputs[0])
 
         # Bake again!
         bpy.ops.object.bake()
@@ -281,8 +281,8 @@ def transfer_uv(obj, mat, entity, uv_map):
     simple_remove_node(mat.node_tree, mapp)
     if straight_over:
         simple_remove_node(mat.node_tree, straight_over)
-    if linear:
-        simple_remove_node(mat.node_tree, linear)
+    if srgb2lin:
+        simple_remove_node(mat.node_tree, srgb2lin)
 
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
@@ -606,7 +606,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)
-        #simple_remove_node(mat.node_tree, linear)
+        #simple_remove_node(mat.node_tree, srgb2lin)
         simple_remove_node(mat.node_tree, emit)
         simple_remove_node(mat.node_tree, src)
 
@@ -958,8 +958,11 @@ class YBakeChannels(bpy.types.Operator):
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
         emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
-        linear = mat.node_tree.nodes.new('ShaderNodeGroup')
-        linear.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
+        srgb2lin = mat.node_tree.nodes.new('ShaderNodeGroup')
+        srgb2lin.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
+
+        lin2srgb = mat.node_tree.nodes.new('ShaderNodeGroup')
+        lin2srgb.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
         norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL)
@@ -1006,9 +1009,10 @@ class YBakeChannels(bpy.types.Operator):
             baked = tree.nodes.get(ch.baked)
             if not baked:
                 baked = new_node(tree, ch, 'baked', 'ShaderNodeTexImage', 'Baked ' + ch.name)
-            if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
-                baked.color_space = 'NONE'
-            else: baked.color_space = 'COLOR'
+            if hasattr(baked, 'color_space'):
+                if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
+                    baked.color_space = 'NONE'
+                else: baked.color_space = 'COLOR'
             
             # Normal related nodes
             if ch.type == 'NORMAL':
@@ -1072,8 +1076,11 @@ class YBakeChannels(bpy.types.Operator):
             rgb = node.outputs[ch.name]
             if ch.type == 'NORMAL':
                 rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
-            if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL': # and not bpy.app.version_string.startswith('2.8'):
-                rgb = create_link(mat.node_tree, rgb, linear.inputs[0])[0]
+            if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
+                #if bpy.app.version_string.startswith('2.8'):
+                img.colorspace_settings.name = 'Non-Color'
+                if not bpy.app.version_string.startswith('2.8'):
+                    rgb = create_link(mat.node_tree, rgb, srgb2lin.inputs[0])[0]
             mat.node_tree.links.new(rgb, emit.inputs[0])
 
             #if ch.type == 'NORMAL':
@@ -1086,11 +1093,15 @@ class YBakeChannels(bpy.types.Operator):
             if ch.type == 'RGB' and ch.enable_alpha:
                 # Create temp image
                 alpha_img = bpy.data.images.new(name='__TEMP__', width=self.width, height=self.height) 
+                alpha_img.colorspace_settings.name = 'Non-Color'
+                if bpy.app.version_string.startswith('2.8'):
+                    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], emit.inputs[0])
+                else:
+                    # Bake setup
+                    #create_link(mat.node_tree, node.outputs[ch.io_index+1], srgb2lin.inputs[0])
+                    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], srgb2lin.inputs[0])
+                    create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
 
-                # Bake setup
-                #create_link(mat.node_tree, node.outputs[ch.io_index+1], linear.inputs[0])
-                create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], linear.inputs[0])
-                create_link(mat.node_tree, linear.outputs[0], emit.inputs[0])
                 tex.image = alpha_img
 
                 # Bake
@@ -1121,7 +1132,8 @@ class YBakeChannels(bpy.types.Operator):
                 if not baked_disp:
                     baked_disp = new_node(tree, ch, 'baked_disp', 'ShaderNodeTexImage', 
                             'Baked ' + ch.name + ' Displacement')
-                    baked_disp.color_space = 'NONE'
+                    if hasattr(baked_disp, 'color_space'):
+                        baked_disp.color_space = 'NONE'
 
                 if baked_disp.image:
                     disp_img_name = baked_disp.image.name
@@ -1134,11 +1146,16 @@ class YBakeChannels(bpy.types.Operator):
                 # Create target image
                 disp_img = bpy.data.images.new(name=disp_img_name, width=self.width, height=self.height) 
                 disp_img.generated_color = (0.5, 0.5, 0.5, 1.0)
+                disp_img.colorspace_settings.name = 'Non-Color'
 
                 # Bake setup
-                #create_link(mat.node_tree, node.outputs[ch.io_index+1], linear.inputs[0])
-                create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], linear.inputs[0])
-                create_link(mat.node_tree, linear.outputs[0], emit.inputs[0])
+                if bpy.app.version_string.startswith('2.8'):
+                    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], emit.inputs[0])
+                else:
+                    #create_link(mat.node_tree, node.outputs[ch.io_index+1], srgb2lin.inputs[0])
+                    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], srgb2lin.inputs[0])
+                    create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
+
                 tex.image = disp_img
 
                 # Bake
@@ -1168,7 +1185,8 @@ class YBakeChannels(bpy.types.Operator):
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)
-        simple_remove_node(mat.node_tree, linear)
+        simple_remove_node(mat.node_tree, srgb2lin)
+        simple_remove_node(mat.node_tree, lin2srgb)
         simple_remove_node(mat.node_tree, emit)
         simple_remove_node(mat.node_tree, norm)
 

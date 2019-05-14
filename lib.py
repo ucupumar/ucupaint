@@ -182,6 +182,7 @@ BAKE_NORMAL = '~yPL Bake Normal'
 
 # SRGB Stuff
 SRGB_2_LINEAR = '~yPL SRGB to Linear'
+LINEAR_2_SRGB = '~yPL Linear to SRGB'
 
 # Modifier tree names
 MOD_RGB2INT = '~yPL Mod RGB To Intensity'

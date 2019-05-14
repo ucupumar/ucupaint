@@ -913,7 +913,8 @@ def refresh_parallax_depth_img(yp, parallax, disp_img): #, disp_ch):
     if not height_map:
         height_map = tree.nodes.new('ShaderNodeTexImage')
         height_map.name = HEIGHT_MAP
-        height_map.color_space = 'NONE'
+        if hasattr(height_map, 'color_space'):
+            height_map.color_space = 'NONE'
 
     height_map.image = disp_img
 

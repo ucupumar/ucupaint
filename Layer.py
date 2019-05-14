@@ -153,6 +153,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     if image:
         layer.image_name = image.name
+        #if bpy.app.version_string.startswith('2.8'):
+        image.colorspace_settings.name = 'Non-Color'
 
     # Move new layer to current index
     last_index = len(yp.layers)-1
@@ -195,7 +197,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     if layer_type == 'IMAGE':
         # Always set non color to image node because of linear pipeline
-        source.color_space = 'NONE'
+        if hasattr(source, 'color_space'):
+            source.color_space = 'NONE'
 
         # Add new image if it's image layer
         source.image = image
@@ -1806,7 +1809,10 @@ class YReplaceLayerType(bpy.types.Operator):
             if self.type == 'IMAGE':
                 image = bpy.data.images.get(self.item_name)
                 source.image = image
-                source.color_space = 'NONE'
+                if hasattr(source, 'color_space'):
+                    source.color_space = 'NONE'
+                #if bpy.app.version_string.startswith('2.8'):
+                image.colorspace_settings.name = 'Non-Color'
             elif self.type == 'VCOL':
                 source.attribute_name = self.item_name
 

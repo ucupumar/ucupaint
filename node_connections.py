@@ -1067,6 +1067,11 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
             if ch.type == 'NORMAL':
                 baked_normal = nodes.get(ch.baked_normal)
+
+                baked_normal_prep = nodes.get(ch.baked_normal_prep)
+                if baked_normal_prep:
+                    rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
+
                 rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
 
                 #baked_normal_flip = nodes.get(ch.baked_normal_flip)
@@ -1076,10 +1081,6 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                 #    create_link(tree, baked_bitangent, baked_normal_flip.inputs['Bitangent'])
 
                 #    rgb = create_link(tree, rgb, baked_normal_flip.inputs[0])[0]
-
-                baked_normal_prep = nodes.get(ch.baked_normal_prep)
-                if baked_normal_prep:
-                    rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
 
                 #if ch.enable_parallax:
                 baked_disp = nodes.get(ch.baked_disp)

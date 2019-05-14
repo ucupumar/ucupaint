@@ -1513,14 +1513,14 @@ def rearrange_yp_nodes(group_tree):
         if check_set_node_loc(group_tree, ch.baked, loc):
             loc.x += 200
 
+        if check_set_node_loc(group_tree, ch.baked_normal_prep, loc):
+            loc.x += 200
+
         if check_set_node_loc(group_tree, ch.baked_normal, loc):
             loc.x += 200
 
         #if check_set_node_loc(group_tree, ch.baked_normal_flip, loc):
         #    loc.x += 200
-
-        if check_set_node_loc(group_tree, ch.baked_normal_prep, loc):
-            loc.x += 200
 
         loc.y -= 270
         save_x = loc.x
