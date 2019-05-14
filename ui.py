@@ -1810,6 +1810,8 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
 def main_draw(self, context):
 
     wm = context.window_manager
+    area = context.area
+    scene = context.scene
 
     # Timer
     if wm.yptimer.time != '':
@@ -1872,6 +1874,10 @@ def main_draw(self, context):
     row = layout.row(align=True)
     row.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
     row.label(text='Layers')
+
+    if (yp.enable_tangent_sign_hacks and area.type == 'VIEW_3D' and 
+            area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES'):
+        row.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
 
     if baked_found:
         row.prop(yp, 'use_baked', toggle=True, text='Use Baked')

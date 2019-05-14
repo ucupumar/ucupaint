@@ -686,7 +686,7 @@ def refresh_tangent_sign_vcol(obj, uv_name):
         for poly in obj.data.polygons:
             for idx in poly.loop_indices:
                 vert = obj.data.loops[idx]
-                bs = vert.bitangent_sign
+                bs = max(vert.bitangent_sign, 0.0)
                 if bpy.app.version_string.startswith('2.8'):
                     vcol.data[i].color = (bs, bs, bs, 1.0)
                 else: vcol.data[i].color = (bs, bs, bs)

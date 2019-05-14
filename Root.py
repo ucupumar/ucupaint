@@ -1405,7 +1405,7 @@ class YFixMissingData(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return True
+        return get_active_ypaint_node()
 
     def execute(self, context):
         group_node = get_active_ypaint_node()
@@ -1434,6 +1434,27 @@ class YFixMissingData(bpy.types.Operator):
                     elif (mask.type == 'VCOL' and obj.type == 'MESH' 
                             and not obj.data.vertex_colors.get(mask_src.attribute_name)):
                         fix_missing_vcol(obj, mask.name, mask_src)
+
+        return {'FINISHED'}
+
+class YRefreshTangentSignVcol(bpy.types.Operator):
+    bl_idname = "node.y_refresh_tangent_sign_vcol"
+    bl_label = "Refresh Tangent Sign Vertex Colors"
+    bl_description = "Refresh Tangent Sign Vertex Colors to make it works on Blender 2.8"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+        group_node = get_active_ypaint_node()
+        tree = group_node.node_tree
+        yp = tree.yp
+        obj = context.object
+
+        for uv in yp.uvs:
+            refresh_tangent_sign_vcol(obj, uv.name)
 
         return {'FINISHED'}
 
@@ -2286,6 +2307,7 @@ def register():
     bpy.utils.register_class(YChangeActiveYPaintNode)
     bpy.utils.register_class(YFixDuplicatedLayers)
     bpy.utils.register_class(YFixMissingData)
+    bpy.utils.register_class(YRefreshTangentSignVcol)
     bpy.utils.register_class(YNodeConnections)
     bpy.utils.register_class(YPaintChannel)
     bpy.utils.register_class(YPaintUV)
@@ -2317,6 +2339,7 @@ def unregister():
     bpy.utils.unregister_class(YChangeActiveYPaintNode)
     bpy.utils.unregister_class(YFixDuplicatedLayers)
     bpy.utils.unregister_class(YFixMissingData)
+    bpy.utils.unregister_class(YRefreshTangentSignVcol)
     bpy.utils.unregister_class(YNodeConnections)
     bpy.utils.unregister_class(YPaintChannel)
     bpy.utils.unregister_class(YPaintUV)
