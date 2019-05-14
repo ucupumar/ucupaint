@@ -1657,14 +1657,14 @@ def update_layer_index(self, context):
         obj.data.vertex_colors.active = vcol
 
     # Get height channel
-    height_ch = get_root_height_channel(yp)
+    #height_ch = get_root_height_channel(yp)
 
     if obj.type == 'MESH':
 
         # Update tangent sign if height channel and tangent sign hack is enabled
-        if height_ch and yp.enable_tangent_sign_hacks:
-            for uv in yp.uvs:
-                refresh_tangent_sign_vcol(obj, uv.name)
+        #if height_ch and yp.enable_tangent_sign_hacks:
+        #    for uv in yp.uvs:
+        #        refresh_tangent_sign_vcol(obj, uv.name)
 
         # Update uv layer
         if ypui.disable_auto_temp_uv_update or not refresh_temp_uv(obj, src_of_img):
@@ -2001,24 +2001,24 @@ def update_flip_backface(self, context):
     for ch in yp.channels:
         baked_normal_flip = group_tree.nodes.get(ch.baked_normal_flip)
         if baked_normal_flip:
-            set_normal_backface_flip(baked_normal_flip, yp.flip_backface)
+            set_normal_backface_flip(baked_normal_flip, yp.enable_backface_always_up)
 
         baked_normal_prep = group_tree.nodes.get(ch.baked_normal_prep)
         if baked_normal_prep:
-            baked_normal_prep.inputs['Flip Backface'].default_value = 1.0 if yp.flip_backface else 0.0
+            baked_normal_prep.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
 
     for uv in yp.uvs:
         #tangent_flip = group_tree.nodes.get(uv.tangent_flip)
         #if tangent_flip:
-        #    set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+        #    set_tangent_backface_flip(tangent_flip, yp.enable_backface_always_up)
 
         #bitangent_flip = group_tree.nodes.get(uv.bitangent_flip)
         #if bitangent_flip:
-        #    set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+        #    set_bitangent_backface_flip(bitangent_flip, yp.enable_backface_always_up)
 
         tangent_process = group_tree.nodes.get(uv.tangent_process)
         if tangent_process:
-            tangent_process.inputs['Flip Backface'].default_value = 1.0 if yp.flip_backface else 0.0
+            tangent_process.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
 
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
@@ -2212,9 +2212,9 @@ class YPaint(bpy.types.PropertyGroup):
     baked_uv_name = StringProperty(default='')
 
     # Flip backface
-    flip_backface = BoolProperty(
-            name= 'Flip Backface Normal',
-            description= 'Flip Backface Normal so normal will face toward camera even at backface',
+    enable_backface_always_up = BoolProperty(
+            name= 'Make backface normal always up',
+            description= 'Make sure normal will face toward camera even at backface',
             default=True, update=update_flip_backface)
 
     # Path folder for auto save bake

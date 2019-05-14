@@ -230,7 +230,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     #tangent_flip = new_node(tree, layer, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
     #tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
 
-    #set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+    #set_tangent_backface_flip(tangent_flip, yp.enable_backface_always_up)
 
     #bitangent = new_node(tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
     #bitangent.uv_map = uv_name
@@ -239,7 +239,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     #bitangent_flip = new_node(tree, layer, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
     #bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
 
-    #set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+    #set_bitangent_backface_flip(bitangent_flip, yp.enable_backface_always_up)
 
     #hacky_tangent = new_node(tree, layer, 'hacky_tangent', 'ShaderNodeNormalMap', 'Hacky Source Tangent')
     #hacky_tangent.uv_map = uv_name

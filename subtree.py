@@ -243,7 +243,7 @@ def set_mask_uv_neighbor(tree, layer, mask):
         #        tangent_flip = new_node(tree, mask, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
         #        tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
 
-        #        set_tangent_backface_flip(tangent_flip, yp.flip_backface)
+        #        set_tangent_backface_flip(tangent_flip, yp.enable_backface_always_up)
 
         #    if not bitangent:
         #        bitangent = new_node(tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
@@ -254,7 +254,7 @@ def set_mask_uv_neighbor(tree, layer, mask):
         #        bitangent_flip = new_node(tree, mask, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
         #        bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
 
-        #        set_bitangent_backface_flip(bitangent_flip, yp.flip_backface)
+        #        set_bitangent_backface_flip(bitangent_flip, yp.enable_backface_always_up)
 
         #    tangent.uv_map = mask.uv_name
         #    bitangent.uv_map = mask.uv_name
@@ -739,7 +739,7 @@ def create_uv_nodes(yp, uv_name, obj):
     tangent_process.node_tree = get_node_tree_lib(lib.TANGENT_PROCESS)
     duplicate_lib_node_tree(tangent_process)
 
-    tangent_process.inputs['Flip Backface'].default_value = 1.0 if yp.flip_backface else 0.0
+    tangent_process.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
 
     # Set values inside tangent process
     tp_nodes = tangent_process.node_tree.nodes
@@ -1714,7 +1714,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
                 'Normal Backface Flip', lib.FLIP_BACKFACE_BUMP)
 
-        set_bump_backface_flip(normal_flip, yp.flip_backface)
+        set_bump_backface_flip(normal_flip, yp.enable_backface_always_up)
 
     # Remove deprecated nodes
     remove_node(tree, ch, 'normal_process')

@@ -1032,7 +1032,7 @@ class YBakeChannels(bpy.types.Operator):
                 #            'Baked Normal Backface Flip')
                 #    baked_normal_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
 
-                #set_normal_backface_flip(baked_normal_flip, yp.flip_backface)
+                #set_normal_backface_flip(baked_normal_flip, yp.enable_backface_always_up)
 
                 baked_normal_prep = tree.nodes.get(ch.baked_normal_prep)
                 if not baked_normal_prep:

@@ -2290,7 +2290,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = row.column()
         col.label(text='Options:')
-        col.prop(yp, 'flip_backface')
+        col.prop(yp, 'enable_backface_always_up')
         col.separator()
         col.label(text='Performance Options:')
         col.prop(ypui, 'disable_auto_temp_uv_update')
