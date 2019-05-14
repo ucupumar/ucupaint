@@ -941,6 +941,7 @@ class YBakeChannels(bpy.types.Operator):
             for uv in yp.uvs:
                 tangent_process = tree.nodes.get(uv.tangent_process)
                 if tangent_process:
+                    tangent_process.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
                     tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
                     tansign = tangent_process.node_tree.nodes.get('_tangent_sign')
                     vcol = refresh_tangent_sign_vcol(obj, uv.name)
@@ -985,6 +986,8 @@ class YBakeChannels(bpy.types.Operator):
                 #hack_bt.node_tree = bpy.data.node_groups.get('__bitangent_' + self.uv_map)
                 hack_bt.node_tree = tangent_process.node_tree
                 #create_link(norm.node_tree, hack_bt.outputs[0], bt_socket)
+                hack_bt.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
+                hack_bt.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
                 create_link(norm.node_tree, hack_bt.outputs['Tangent'], t_socket)
                 create_link(norm.node_tree, hack_bt.outputs['Bitangent'], bt_socket)
 
@@ -1210,7 +1213,7 @@ class YBakeChannels(bpy.types.Operator):
         if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
         #if bpy.app.version_string.startswith('2.8'):
             # Refresh tangent sign hacks
-            update_enable_tangent_sign_hacks(ypui, context)
+            update_enable_tangent_sign_hacks(yp, context)
 
         # Rearrange
         rearrange_yp_nodes(tree)
