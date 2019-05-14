@@ -670,6 +670,11 @@ def refresh_tangent_sign_vcol(obj, uv_name):
         ori_layer = uv_layers.active
         uv_layers.active = uv_layer
 
+        # Cannot do this on edit mode
+        ori_mode = obj.mode
+        if ori_mode == 'EDIT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+
         obj.data.calc_tangents()
 
         vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
@@ -689,6 +694,10 @@ def refresh_tangent_sign_vcol(obj, uv_name):
 
         # Recover active uv
         uv_layers.active = ori_layer
+
+        # Back to edit mode if originally from there
+        if ori_mode == 'EDIT':
+            bpy.ops.object.mode_set(mode='EDIT')
 
         return vcol
 
