@@ -705,7 +705,7 @@ def update_enable_tangent_sign_hacks(self, context):
     for uv in yp.uvs:
         tangent_process = tree.nodes.get(uv.tangent_process)
         if tangent_process:
-            if ypui.enable_tangent_sign_hacks:
+            if yp.enable_tangent_sign_hacks:
                 tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
                 tsign = tangent_process.node_tree.nodes.get('_tangent_sign')
                 vcol = refresh_tangent_sign_vcol(obj, uv.name)
@@ -741,7 +741,7 @@ def create_uv_nodes(yp, uv_name, obj):
     node = tp_nodes.get('_bitangent_from_norm')
     node.uv_map = uv_name
 
-    if ypui.enable_tangent_sign_hacks:
+    if yp.enable_tangent_sign_hacks:
         tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
         node = tp_nodes.get('_tangent_sign')
 

@@ -930,7 +930,8 @@ class YBakeChannels(bpy.types.Operator):
 
         remember_before_bake(self, context, yp)
 
-        if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
+        if BL28_HACK:
+        #if bpy.app.version_string.startswith('2.8'):
 
             if len(yp.uvs) > MAX_VERTEX_DATA - len(obj.data.vertex_colors):
                 self.report({'ERROR'}, "Maximum vertex colors reached! Need at least " + str(len(uvs)) + " vertex color(s)!")
@@ -958,11 +959,11 @@ class YBakeChannels(bpy.types.Operator):
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
         emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
-        srgb2lin = mat.node_tree.nodes.new('ShaderNodeGroup')
-        srgb2lin.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
+        #srgb2lin = mat.node_tree.nodes.new('ShaderNodeGroup')
+        #srgb2lin.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
 
-        lin2srgb = mat.node_tree.nodes.new('ShaderNodeGroup')
-        lin2srgb.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
+        #lin2srgb = mat.node_tree.nodes.new('ShaderNodeGroup')
+        #lin2srgb.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
         norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL)
@@ -974,15 +975,18 @@ class YBakeChannels(bpy.types.Operator):
         bt.uv_map = self.uv_map
 
         if BL28_HACK:
+        #if bpy.app.version_string.startswith('2.8'):
             bake_uv = yp.uvs.get(self.uv_map)
             if bake_uv:
                 tangent_process = tree.nodes.get(bake_uv.tangent_process)
-                socket = bt.outputs[0].links[0].to_socket
+                t_socket = t.outputs[0].links[0].to_socket
+                bt_socket = bt.outputs[0].links[0].to_socket
                 hack_bt = norm.node_tree.nodes.new('ShaderNodeGroup')
                 #hack_bt.node_tree = bpy.data.node_groups.get('__bitangent_' + self.uv_map)
                 hack_bt.node_tree = tangent_process.node_tree
-                #create_link(norm.node_tree, hack_bt.outputs[0], socket)
-                create_link(norm.node_tree, hack_bt.outputs['Bitangent'], socket)
+                #create_link(norm.node_tree, hack_bt.outputs[0], bt_socket)
+                create_link(norm.node_tree, hack_bt.outputs['Tangent'], t_socket)
+                create_link(norm.node_tree, hack_bt.outputs['Bitangent'], bt_socket)
 
         # Set tex as active node
         mat.node_tree.nodes.active = tex
@@ -1079,28 +1083,28 @@ class YBakeChannels(bpy.types.Operator):
             if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
                 #if bpy.app.version_string.startswith('2.8'):
                 img.colorspace_settings.name = 'Non-Color'
-                if not bpy.app.version_string.startswith('2.8'):
-                    rgb = create_link(mat.node_tree, rgb, srgb2lin.inputs[0])[0]
+                #if not bpy.app.version_string.startswith('2.8'):
+                #    rgb = create_link(mat.node_tree, rgb, srgb2lin.inputs[0])[0]
             mat.node_tree.links.new(rgb, emit.inputs[0])
-
-            #if ch.type == 'NORMAL':
-            #    return {'FINISHED'}
 
             # Bake!
             bpy.ops.object.bake()
+
+            #if ch.type == 'NORMAL':
+            #    return {'FINISHED'}
 
             # Bake alpha
             if ch.type == 'RGB' and ch.enable_alpha:
                 # Create temp image
                 alpha_img = bpy.data.images.new(name='__TEMP__', width=self.width, height=self.height) 
                 alpha_img.colorspace_settings.name = 'Non-Color'
-                if bpy.app.version_string.startswith('2.8'):
-                    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], emit.inputs[0])
-                else:
-                    # Bake setup
-                    #create_link(mat.node_tree, node.outputs[ch.io_index+1], srgb2lin.inputs[0])
-                    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], srgb2lin.inputs[0])
-                    create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
+                #if bpy.app.version_string.startswith('2.8'):
+                create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], emit.inputs[0])
+                #else:
+                #    # Bake setup
+                #    #create_link(mat.node_tree, node.outputs[ch.io_index+1], srgb2lin.inputs[0])
+                #    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], srgb2lin.inputs[0])
+                #    create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
 
                 tex.image = alpha_img
 
@@ -1149,12 +1153,12 @@ class YBakeChannels(bpy.types.Operator):
                 disp_img.colorspace_settings.name = 'Non-Color'
 
                 # Bake setup
-                if bpy.app.version_string.startswith('2.8'):
-                    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], emit.inputs[0])
-                else:
-                    #create_link(mat.node_tree, node.outputs[ch.io_index+1], srgb2lin.inputs[0])
-                    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], srgb2lin.inputs[0])
-                    create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
+                #if bpy.app.version_string.startswith('2.8'):
+                create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], emit.inputs[0])
+                #else:
+                #    #create_link(mat.node_tree, node.outputs[ch.io_index+1], srgb2lin.inputs[0])
+                #    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], srgb2lin.inputs[0])
+                #    create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
 
                 tex.image = disp_img
 
@@ -1185,8 +1189,8 @@ class YBakeChannels(bpy.types.Operator):
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)
-        simple_remove_node(mat.node_tree, srgb2lin)
-        simple_remove_node(mat.node_tree, lin2srgb)
+        #simple_remove_node(mat.node_tree, srgb2lin)
+        #simple_remove_node(mat.node_tree, lin2srgb)
         simple_remove_node(mat.node_tree, emit)
         simple_remove_node(mat.node_tree, norm)
 
@@ -1204,6 +1208,7 @@ class YBakeChannels(bpy.types.Operator):
 
         # Recover hack
         if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
+        #if bpy.app.version_string.startswith('2.8'):
             # Refresh tangent sign hacks
             update_enable_tangent_sign_hacks(ypui, context)
 

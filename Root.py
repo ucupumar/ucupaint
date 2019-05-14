@@ -1641,7 +1641,7 @@ def update_layer_index(self, context):
     if obj.type == 'MESH':
 
         # Update tangent sign if height channel and tangent sign hack is enabled
-        if height_ch and ypui.enable_tangent_sign_hacks:
+        if height_ch and yp.enable_tangent_sign_hacks:
             for uv in yp.uvs:
                 refresh_tangent_sign_vcol(obj, uv.name)
 
@@ -2204,6 +2204,11 @@ class YPaint(bpy.types.PropertyGroup):
             name = 'Disable Quick Toggle',
             description = 'Disable quick toggle to improve shader performance',
             default=False, update=update_disable_quick_toggle)
+
+    enable_tangent_sign_hacks = BoolProperty(
+            name = 'Enable Tangent Sign VCol Hacks for Blender 2.8 Cycles',
+            description = "Tangent sign vertex color needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
+            default=False, update=update_enable_tangent_sign_hacks)
 
     # HACK: Refresh tree to remove glitchy normal
     refresh_tree = BoolProperty(default=False)
