@@ -966,7 +966,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 brow.label(text='Transition Bump:')
 
                 if ch.enable_transition_bump and not chui.expand_transition_bump_settings:
-                    brow.prop(ch, 'transition_bump_value', text='')
+                    #brow.prop(ch, 'transition_bump_value', text='')
+                    brow.prop(ch, 'transition_bump_distance', text='')
 
                 brow.context_pointer_set('parent', ch)
                 if bpy.app.version_string.startswith('2.8'):
@@ -992,16 +993,16 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     #crow.prop(ch, 'transition_bump_type', text='')
 
                     crow = cccol.row(align=True)
+                    crow.label(text='Max Height:') #, icon='INFO')
+                    crow.prop(ch, 'transition_bump_distance', text='')
+
+                    crow = cccol.row(align=True)
                     crow.label(text='Edge 1:') #, icon='INFO')
                     crow.prop(ch, 'transition_bump_value', text='')
 
                     crow = cccol.row(align=True)
                     crow.label(text='Edge 2:') #, icon='INFO')
                     crow.prop(ch, 'transition_bump_second_edge_value', text='')
-
-                    crow = cccol.row(align=True)
-                    crow.label(text='Max Height:') #, icon='INFO')
-                    crow.prop(ch, 'transition_bump_distance', text='')
 
                     crow = cccol.row(align=True)
                     crow.label(text='Affected Masks:') #, icon='INFO')
@@ -1089,7 +1090,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 split.label(text='Type:') #, icon='INFO')
                 srow = split.row(align=True)
                 srow.prop(ch, 'normal_map_type', text='')
-                if not chui.expand_bump_settings and ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+                if not chui.expand_bump_settings: #and ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
                     srow.prop(ch, 'bump_distance', text='')
 
             #row.label(text='', icon='BLANK1')

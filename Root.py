@@ -2226,6 +2226,14 @@ class YPaint(bpy.types.PropertyGroup):
             description = 'Disable quick toggle to improve shader performance',
             default=False, update=update_disable_quick_toggle)
 
+    #performance_mode = EnumProperty(
+    #        name = 'Performance Mode',
+    #        description = 'Performance mode to make this addon useful for various cases',
+    #        items = (('QUICK_TOGGLE', 'Quick toggle, but can be painfully slow if using more than 4 layers', ''),
+    #                 ('SLOW_TOGGLE', 'Slow toggle, but can be useful with many layers', ''),
+    #                 ),
+    #        default='SLOW_TOGGLE')
+
     enable_tangent_sign_hacks = BoolProperty(
             name = 'Enable Tangent Sign VCol Hacks for Blender 2.8 Cycles',
             description = "Tangent sign vertex color needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",

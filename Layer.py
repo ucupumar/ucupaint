@@ -469,12 +469,12 @@ class YNewLayer(bpy.types.Operator):
     use_image_atlas = BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
-            default=False)
+            default=True)
 
     use_image_atlas_for_mask = BoolProperty(
             name = 'Use Image Atlas for Mask',
             description='Use Image Atlas for Mask',
-            default=False)
+            default=True)
 
     uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
