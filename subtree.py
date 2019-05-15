@@ -59,6 +59,7 @@ def enable_layer_source_tree(layer, rearrange=False):
         # Get current source for reference
         source_ref = layer_tree.nodes.get(layer.source)
         mapping_ref = layer_tree.nodes.get(layer.mapping)
+        linear_ref = layer_tree.nodes.get(layer.linear)
 
         # Create source tree
         source_tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + layer.name + ' Source', 'ShaderNodeTree')
@@ -72,8 +73,13 @@ def enable_layer_source_tree(layer, rearrange=False):
         # Copy source from reference
         source = new_node(source_tree, layer, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
         mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
+
+        if linear_ref: 
+            linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGroup')
+            linear.node_tree = linear_ref.node_tree
 
         # Create source node group
         source_group = new_node(layer_tree, layer, 'source_group', 'ShaderNodeGroup', 'source_group')
@@ -91,6 +97,7 @@ def enable_layer_source_tree(layer, rearrange=False):
         # Remove previous source
         layer_tree.nodes.remove(source_ref)
         if mapping_ref: layer_tree.nodes.remove(mapping_ref)
+        if linear_ref: layer_tree.nodes.remove(linear_ref)
     
         # Bring modifiers to source tree
         if layer.type == 'IMAGE':
@@ -144,12 +151,18 @@ def disable_layer_source_tree(layer, rearrange=True):
         source_group = layer_tree.nodes.get(layer.source_group)
         source_ref = source_group.node_tree.nodes.get(layer.source)
         mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
+        linear_ref = source_group.node_tree.nodes.get(layer.linear)
 
         # Create new source
         source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
         mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
+
+        if linear_ref: 
+            linear = new_node(layer_tree, layer, 'linear', 'ShaderNodeGroup')
+            linear.node_tree = linear_ref.node_tree
 
         # Bring back layer modifier to original tree
         if layer.type == 'IMAGE':
@@ -277,6 +290,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
         mapping_ref = layer_tree.nodes.get(mask.mapping)
+        linear_ref = layer_tree.nodes.get(mask.linear)
 
         # Create mask tree
         mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
@@ -295,8 +309,13 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         # Copy nodes from reference
         source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
         mapping = new_node(mask_tree, mask, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
+
+        if linear_ref: 
+            linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGroup')
+            linear.node_tree = linear_ref.node_tree
 
         # Create source node group
         group_node = new_node(layer_tree, mask, 'group_node', 'ShaderNodeGroup', 'source_group')
@@ -317,6 +336,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         # Remove previous nodes
         layer_tree.nodes.remove(source_ref)
         if mapping_ref: layer_tree.nodes.remove(mapping_ref)
+        if linear_ref: layer_tree.nodes.remove(linear_ref)
 
     # Create uv neighbor
     set_mask_uv_neighbor(layer_tree, layer, mask)
@@ -341,13 +361,19 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
 
         source_ref = mask_tree.nodes.get(mask.source)
         mapping_ref = mask_tree.nodes.get(mask.mapping)
+        linear_ref = mask_tree.nodes.get(mask.linear)
         group_node = layer_tree.nodes.get(mask.group_node)
 
         # Create new nodes
         source = new_node(layer_tree, mask, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
         mapping = new_node(layer_tree, mask, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
+
+        if linear_ref: 
+            linear = new_node(layer_tree, mask, 'linear', 'ShaderNodeGroup')
+            linear.node_tree = linear_ref.node_tree
 
         for mod in mask.modifiers:
             MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)
@@ -1891,3 +1917,46 @@ def check_extra_alpha(layer, need_reconnect=False):
 
     return need_reconnect
     
+def check_layer_image_linear_node(layer, source_tree=None):
+
+    if not source_tree: source_tree = get_source_tree(layer)
+
+    if layer.type == 'IMAGE':
+
+        source = source_tree.nodes.get(layer.source)
+        image = source.image
+
+        # Create linear if image type is srgb
+        if image.colorspace_settings.name == 'sRGB':
+            linear = source_tree.nodes.get(layer.linear)
+            if not linear:
+                #linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
+                linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGroup', 'Linear')
+                linear.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
+
+            return
+
+    # Delete linear
+    remove_node(source_tree, layer, 'linear')
+
+def check_mask_image_linear_node(mask, mask_tree=None):
+
+    if not mask_tree: mask_tree = get_mask_tree(mask)
+
+    if mask.type == 'IMAGE':
+
+        source = mask_tree.nodes.get(mask.source)
+        image = source.image
+
+        # Create linear if image type is srgb
+        if image.colorspace_settings.name == 'sRGB':
+            linear = mask_tree.nodes.get(mask.linear)
+            if not linear:
+                #linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGamma', 'Linear')
+                linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGroup', 'Linear')
+                linear.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
+
+            return
+
+    # Delete linear
+    remove_node(mask_tree, mask, 'linear')

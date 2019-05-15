@@ -1198,6 +1198,7 @@ def reconnect_source_internal_nodes(layer):
 
     source = tree.nodes.get(layer.source)
     mapping = tree.nodes.get(layer.mapping)
+    linear = tree.nodes.get(layer.linear)
     start = tree.nodes.get(TREE_START)
     solid = tree.nodes.get(ONE_VALUE)
     end = tree.nodes.get(TREE_END)
@@ -1212,6 +1213,10 @@ def reconnect_source_internal_nodes(layer):
 
     rgb = source.outputs[0]
     alpha = source.outputs[1]
+
+    if linear:
+        rgb = create_link(tree, rgb, linear.inputs[0])[0]
+
     if layer.type not in {'IMAGE', 'VCOL'}:
         rgb_1 = source.outputs[1]
         alpha = solid.outputs[0]
@@ -1296,6 +1301,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     #texcoord = nodes.get(TEXCOORD)
     geometry = nodes.get(GEOMETRY)
     mapping = nodes.get(layer.mapping)
+    linear = nodes.get(layer.linear)
 
     # Get tangent and bitangent
     layer_tangent = texcoord.outputs.get(layer.uv_name + io_suffix['TANGENT'])
@@ -1312,10 +1318,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     # Texcoord
     if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
         if layer.texcoord_type == 'UV':
-            #vector = uv_map.outputs[0]
             vector = texcoord.outputs.get(layer.uv_name + io_suffix['UV'])
-        else: 
-            vector = texcoord.outputs[io_names[layer.texcoord_type]]
+        else: vector = texcoord.outputs[io_names[layer.texcoord_type]]
 
         if source_group or not mapping:
             create_link(tree, vector, source.inputs[0])
@@ -1353,6 +1357,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     start_rgb_1 = None
     if layer.type != 'COLOR':
         start_rgb_1 = source.outputs[1]
+
+    if not source_group and linear:
+        start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
 
     # Alpha
     if layer.type == 'IMAGE' or source_group:
@@ -1586,10 +1593,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         extra_alpha = nodes.get(ch.extra_alpha)
         blend = nodes.get(ch.blend)
 
-        linear = nodes.get(ch.linear)
-        if linear:
-            create_link(tree, rgb, linear.inputs[0])
-            rgb = linear.outputs[0]
+        ch_linear = nodes.get(ch.linear)
+        if ch_linear:
+            create_link(tree, rgb, ch_linear.inputs[0])
+            rgb = ch_linear.outputs[0]
 
         mod_group = nodes.get(ch.mod_group)
 

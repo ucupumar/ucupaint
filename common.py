@@ -416,10 +416,10 @@ def copy_node_props(source, dest, extras = []):
 
 def update_image_editor_image(context, image):
     for area in context.screen.areas:
-        if area.type == 'IMAGE_EDITOR':
-            if not area.spaces[0].use_image_pin:
-                if area.spaces[0].image != image:
-                    area.spaces[0].image = image
+        if area.type == 'IMAGE_EDITOR' and not area.spaces[0].use_image_pin and area.spaces[0].image != image:
+            area.spaces[0].image = image
+            # Hack for Blender 2.8 which keep pinning image automatically
+            area.spaces[0].use_image_pin = False
 
 # Check if name already available on the list
 def get_unique_name(name, items, surname = ''):

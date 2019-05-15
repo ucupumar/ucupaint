@@ -28,8 +28,6 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         source.image = image
         if hasattr(source, 'color_space'):
             source.color_space = 'NONE'
-        #if bpy.app.version_string.startswith('2.8'):
-        image.colorspace_settings.name = 'Non-Color'
     elif vcol:
         source.attribute_name = vcol.name
 
@@ -65,6 +63,9 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
 
     # Check mask source tree
     check_mask_source_tree(layer)
+
+    # Check mask linear
+    #check_mask_image_linear_node(mask)
 
     yp.halt_update = False
 
@@ -110,6 +111,7 @@ def remove_mask(layer, mask, obj):
 
     remove_node(tree, mask, 'source', obj=obj)
     remove_node(tree, mask, 'mapping')
+    remove_node(tree, mask, 'linear')
     remove_node(tree, mask, 'uv_map')
 
     # Remove mask modifiers
@@ -328,6 +330,9 @@ class YNewLayerMask(bpy.types.Operator):
                     img.generated_color = (0,0,0,1)
                 img.use_alpha = False
 
+            if img.colorspace_settings.name != 'Linear':
+                img.colorspace_settings.name = 'Linear'
+
         # New vertex color
         elif self.type == 'VCOL':
             vcol = obj.data.vertex_colors.new(name=self.name)
@@ -450,6 +455,9 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             if self.relative:
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
+
+            if image.colorspace_settings.name != 'Linear':
+                image.colorspace_settings.name = 'Linear'
 
             # Add new mask
             mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None)
@@ -576,6 +584,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             image = bpy.data.images.get(self.image_name)
             name = image.name
+            if image.colorspace_settings.name != 'Linear':
+                image.colorspace_settings.name = 'Linear'
         elif self.type == 'VCOL':
             vcol = obj.data.vertex_colors.get(self.vcol_name)
             name = vcol.name
@@ -636,6 +646,7 @@ class YMoveLayerMask(bpy.types.Operator):
         tree = get_tree(layer)
         check_mask_mix_nodes(layer, tree)
         check_mask_source_tree(layer) #, bump_ch)
+        #check_mask_image_linear_node(mask)
 
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
@@ -989,6 +1000,8 @@ class YLayerMask(bpy.types.PropertyGroup):
     uv_map = StringProperty(default='')
     uv_neighbor = StringProperty(default='')
     mapping = StringProperty(default='')
+
+    linear = StringProperty(default='')
 
     need_temp_uv_refresh = BoolProperty(default=False)
 

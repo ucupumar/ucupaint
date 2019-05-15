@@ -171,6 +171,7 @@ def transfer_uv(obj, mat, entity, uv_map):
     # Create temp image as bake target
     temp_image = bpy.data.images.new(name='__TEMP',
             width=width, height=height, alpha=True, float_buffer=image.is_float)
+    temp_image.colorspace_settings.name = 'Linear'
     temp_image.generated_color = col
 
     # Create bake nodes
@@ -249,13 +250,14 @@ def transfer_uv(obj, mat, entity, uv_map):
                 target_pxs[offset_y + offset_x + i] = temp_pxs[temp_offset_y + temp_offset_x + i]
 
     # Bake alpha if using alpha
-    srgb2lin = None
+    #srgb2lin = None
     if use_alpha:
-        srgb2lin = mat.node_tree.nodes.new('ShaderNodeGroup')
-        srgb2lin.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
+        #srgb2lin = mat.node_tree.nodes.new('ShaderNodeGroup')
+        #srgb2lin.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
 
-        mat.node_tree.links.new(src.outputs[1], srgb2lin.inputs[0])
-        mat.node_tree.links.new(srgb2lin.outputs[0], emit.inputs[0])
+        #mat.node_tree.links.new(src.outputs[1], srgb2lin.inputs[0])
+        #mat.node_tree.links.new(srgb2lin.outputs[0], emit.inputs[0])
+        mat.node_tree.links.new(src.outputs[1], emit.inputs[0])
 
         # Bake again!
         bpy.ops.object.bake()
@@ -281,8 +283,8 @@ def transfer_uv(obj, mat, entity, uv_map):
     simple_remove_node(mat.node_tree, mapp)
     if straight_over:
         simple_remove_node(mat.node_tree, straight_over)
-    if srgb2lin:
-        simple_remove_node(mat.node_tree, srgb2lin)
+    #if srgb2lin:
+    #    simple_remove_node(mat.node_tree, srgb2lin)
 
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
@@ -563,6 +565,7 @@ class YBakeToLayer(bpy.types.Operator):
         image = bpy.data.images.new(name=self.name,
                 width=self.width, height=self.height, alpha=True, float_buffer=self.hdr)
         image.generated_color = (1.0, 1.0, 1.0, 1.0) if self.type == 'AO' else (0.73, 0.73, 0.73, 1.0)
+        image.colorspace_settings.name = 'Linear'
 
         # Set bake image
         tex.image = image
@@ -1085,7 +1088,7 @@ class YBakeChannels(bpy.types.Operator):
                 rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
             if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
                 #if bpy.app.version_string.startswith('2.8'):
-                img.colorspace_settings.name = 'Non-Color'
+                img.colorspace_settings.name = 'Linear'
                 #if not bpy.app.version_string.startswith('2.8'):
                 #    rgb = create_link(mat.node_tree, rgb, srgb2lin.inputs[0])[0]
             mat.node_tree.links.new(rgb, emit.inputs[0])
@@ -1100,7 +1103,7 @@ class YBakeChannels(bpy.types.Operator):
             if ch.type == 'RGB' and ch.enable_alpha:
                 # Create temp image
                 alpha_img = bpy.data.images.new(name='__TEMP__', width=self.width, height=self.height) 
-                alpha_img.colorspace_settings.name = 'Non-Color'
+                alpha_img.colorspace_settings.name = 'Linear'
                 #if bpy.app.version_string.startswith('2.8'):
                 create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], emit.inputs[0])
                 #else:
@@ -1153,7 +1156,7 @@ class YBakeChannels(bpy.types.Operator):
                 # Create target image
                 disp_img = bpy.data.images.new(name=disp_img_name, width=self.width, height=self.height) 
                 disp_img.generated_color = (0.5, 0.5, 0.5, 1.0)
-                disp_img.colorspace_settings.name = 'Non-Color'
+                disp_img.colorspace_settings.name = 'Linear'
 
                 # Bake setup
                 #if bpy.app.version_string.startswith('2.8'):

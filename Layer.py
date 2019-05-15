@@ -22,12 +22,17 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     # Check layer tree io
     check_layer_tree_ios(layer, tree)
 
+    # Get source_tree
+    source_tree = get_source_tree(layer, tree)
+
     # Mapping node
     if layer.type not in {'BACKGROUND', 'VCOL', 'GROUP', 'COLOR'}:
-        source_tree = get_source_tree(layer, tree)
         mapping = source_tree.nodes.get(layer.mapping)
         if not mapping:
             mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
+
+    # Linear node
+    #check_layer_image_linear_node(layer, source_tree)
 
     # Channel nodes
     for i, ch in enumerate(layer.channels):
@@ -153,8 +158,6 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     if image:
         layer.image_name = image.name
-        #if bpy.app.version_string.startswith('2.8'):
-        image.colorspace_settings.name = 'Non-Color'
 
     # Move new layer to current index
     last_index = len(yp.layers)-1
@@ -210,43 +213,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         col = (solid_color[0], solid_color[1], solid_color[2], 1.0)
         source.outputs[0].default_value = col
 
-    # Add uv map node
-    #uv_map = new_node(tree, layer, 'uv_map', 'ShaderNodeUVMap', 'UV Map')
-    #uv_map.uv_map = uv_name
-
-    #uv_map = new_node(tree, layer, 'uv_map', 'NodeGroupInput', 'UV Map Inputs')
-    #if layer_type != 'GROUP':
+    # Add texcoord node
     texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
-
-    # Add tangent and bitangent node
-    #tangent = new_node(tree, layer, 'tangent', 'ShaderNodeTangent', 'Source Tangent')
-    #tangent.direction_type = 'UV_MAP'
-    #tangent.uv_map = uv_name
-
-    #tangent = new_node(tree, layer, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
-    #tangent.uv_map = uv_name
-    #tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
-
-    #tangent_flip = new_node(tree, layer, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
-    #tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
-
-    #set_tangent_backface_flip(tangent_flip, yp.enable_backface_always_up)
-
-    #bitangent = new_node(tree, layer, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
-    #bitangent.uv_map = uv_name
-    #bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
-
-    #bitangent_flip = new_node(tree, layer, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
-    #bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
-
-    #set_bitangent_backface_flip(bitangent_flip, yp.enable_backface_always_up)
-
-    #hacky_tangent = new_node(tree, layer, 'hacky_tangent', 'ShaderNodeNormalMap', 'Hacky Source Tangent')
-    #hacky_tangent.uv_map = uv_name
-    #hacky_tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
-
-    #bitangent = new_node(tree, layer, 'bitangent', 'ShaderNodeGroup', 'Source Bitangent')
-    #bitangent.node_tree = get_node_tree_lib(lib.GET_BITANGENT)
 
     # Set layer coordinate type
     layer.texcoord_type = texcoord_type
@@ -276,6 +244,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                     mask_image.generated_color = (0,0,0,1)
                 #mask_image.generated_color = (0,0,0,1)
                 mask_image.use_alpha = False
+
+            if mask_image.colorspace_settings.name != 'Linear':
+                mask_image.colorspace_settings.name = 'Linear'
 
         # New vertex color
         elif mask_type == 'VCOL':
@@ -345,9 +316,6 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 shortcut_created = True
 
         # Set linear node of layer channel
-        #if root_ch.type == 'NORMAL':
-        #    set_layer_channel_linear_node(tree, layer, root_ch, ch, custom_value=(0.5,0.5,1))
-        #else: set_layer_channel_linear_node(tree, layer, root_ch, ch)
         set_layer_channel_linear_node(tree, layer, root_ch, ch)
 
     # Check and create layer channel nodes
@@ -392,6 +360,22 @@ class YRefreshNeighborUV(bpy.types.Operator):
 
     def execute(self, context):
         set_uv_neighbor_resolution(context.layer)
+        return {'FINISHED'}
+
+class YUseLinearColorSpace(bpy.types.Operator):
+    """This addon need to linear color space image to works properly"""
+    bl_idname = "node.y_use_linear_color_space"
+    bl_label = "Use Linear Color Space"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'layer') and hasattr(context, 'channel') and hasattr(context, 'image') and context.image
+
+    def execute(self, context):
+        #set_uv_neighbor_resolution(context.layer)
+        #print(context.image.name)
+        context.image.colorspace_settings.name = 'Linear'
         return {'FINISHED'}
 
 class YNewLayer(bpy.types.Operator):
@@ -756,6 +740,9 @@ class YNewLayer(bpy.types.Operator):
                 img.generated_color = color
                 img.use_alpha = False if self.add_rgb_to_intensity else True
 
+            if img.colorspace_settings.name != 'Linear':
+                img.colorspace_settings.name = 'Linear'
+
             update_image_editor_image(context, img)
 
         vcol = None
@@ -972,6 +959,9 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
+            if image.colorspace_settings.name != 'Linear':
+                image.colorspace_settings.name = 'Linear'
+
             add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map,
                     image, None, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
@@ -1168,6 +1158,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             image = bpy.data.images.get(self.image_name)
             name = image.name
+            if image.colorspace_settings.name != 'Linear':
+                image.colorspace_settings.name = 'Linear'
         elif self.type == 'VCOL':
             vcol = obj.data.vertex_colors.get(self.vcol_name)
             name = vcol.name
@@ -1811,8 +1803,8 @@ class YReplaceLayerType(bpy.types.Operator):
                 source.image = image
                 if hasattr(source, 'color_space'):
                     source.color_space = 'NONE'
-                #if bpy.app.version_string.startswith('2.8'):
-                image.colorspace_settings.name = 'Non-Color'
+                if image.colorspace_settings.name != 'Linear':
+                    image.colorspace_settings.name = 'Linear'
             elif self.type == 'VCOL':
                 source.attribute_name = self.item_name
 
@@ -2024,67 +2016,23 @@ def update_bump_distance(self, context):
 
 def set_layer_channel_linear_node(tree, layer, root_ch, ch):
 
-    #if custom_value: 
-    #    if root_ch.type in {'RGB', 'NORMAL'}:
-    #        ch.custom_color = custom_value
-    #    else: ch.custom_value = custom_value
-
     if (root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB' 
-            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} and ch.layer_input == 'RGB' and not ch.gamma_space):
+            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} 
+            and ch.layer_input == 'RGB' and not ch.gamma_space):
+
         if root_ch.type == 'VALUE':
             linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
-            #linear.inputs[0].default_value = ch.custom_value
             linear.inputs[1].default_value = 1.0
             linear.operation = 'POWER'
         elif root_ch.type == 'RGB':
             linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
-            #if custom_value: col = custom_value
-            #col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
-            #linear.inputs[0].default_value = col
 
-        #if root_ch.colorspace == 'SRGB' and (ch.layer_input == 'CUSTOM' or not ch.gamma_space):
-        #if not ch.gamma_space:
-        #    linear.inputs[1].default_value = 1.0 / GAMMA
-        #else: linear.inputs[1].default_value = 1.0
         linear.inputs[1].default_value = 1.0 / GAMMA
-
     else:
         remove_node(tree, ch, 'linear')
 
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
-
-    #if root_ch.type == 'NORMAL' and ch.layer_input == 'CUSTOM':
-    #    source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', 'Custom')
-    #    col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
-    #    source.outputs[0].default_value = col
-    #else:
-    #    remove_node(tree, ch, 'source')
-
-#def update_custom_input(self, context):
-#    yp = self.id_data.yp
-#
-#    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-#    layer = yp.layers[int(m.group(1))]
-#    root_ch = yp.channels[int(m.group(2))]
-#    tree = get_tree(layer)
-#    ch = self
-#
-#    ch_source = tree.nodes.get(ch.source)
-#    if ch_source:
-#        if root_ch.type in {'RGB', 'NORMAL'}:
-#            col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
-#            ch_source.outputs[0].default_value = col
-#        elif root_ch.type == 'VALUE':
-#            ch_source.outputs[0].default_value = ch.custom_value
-#
-#    linear = tree.nodes.get(ch.linear)
-#    if linear:
-#        if root_ch.type == 'RGB':
-#            col = (ch.custom_color[0], ch.custom_color[1], ch.custom_color[2], 1.0)
-#            linear.inputs[0].default_value = col
-#        elif root_ch.type == 'VALUE':
-#            linear.inputs[0].default_value = ch.custom_value
 
 def update_layer_input(self, context):
     yp = self.id_data.yp
@@ -2671,6 +2619,9 @@ class YLayer(bpy.types.PropertyGroup):
     source_w = StringProperty(default='')
     source_group = StringProperty(default='')
 
+    # Linear node
+    linear = StringProperty(default='')
+
     # Layer type cache
     cache_brick = StringProperty(default='')
     cache_checker = StringProperty(default='')
@@ -2715,6 +2666,7 @@ class YLayer(bpy.types.PropertyGroup):
 
 def register():
     bpy.utils.register_class(YRefreshNeighborUV)
+    bpy.utils.register_class(YUseLinearColorSpace)
     bpy.utils.register_class(YNewLayer)
     bpy.utils.register_class(YOpenImageToLayer)
     bpy.utils.register_class(YOpenAvailableDataToLayer)
@@ -2729,6 +2681,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(YRefreshNeighborUV)
+    bpy.utils.unregister_class(YUseLinearColorSpace)
     bpy.utils.unregister_class(YNewLayer)
     bpy.utils.unregister_class(YOpenImageToLayer)
     bpy.utils.unregister_class(YOpenAvailableDataToLayer)

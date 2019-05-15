@@ -396,6 +396,9 @@ def rearrange_source_tree_nodes(layer):
         loc.x += 380
 
     if check_set_node_loc(source_tree, layer.source, loc):
+        loc.x += 280
+
+    if check_set_node_loc(source_tree, layer.linear, loc):
         loc.x += 200
 
     if layer.type in {'IMAGE', 'VCOL'}:
@@ -422,6 +425,9 @@ def rearrange_mask_tree_nodes(mask):
         loc.x += 380
 
     if check_set_node_loc(tree, mask.source, loc):
+        loc.x += 280
+
+    if check_set_node_loc(tree, mask.linear, loc):
         loc.x += 180
 
     arrange_mask_modifier_nodes(tree, mask, loc)
@@ -550,25 +556,29 @@ def rearrange_layer_nodes(layer, tree=None):
         rearrange_source_tree_nodes(layer)
         loc.y -= 40
 
-    elif check_set_node_loc(tree, layer.source, loc, hide=False):
-        if layer.type == 'BRICK':
-            loc.y -= 400
-        elif layer.type == 'CHECKER':
-            loc.y -= 170
-        elif layer.type == 'GRADIENT':
+    else:
+        if check_set_node_loc(tree, layer.linear, loc, hide=False):
             loc.y -= 140
-        elif layer.type == 'MAGIC':
-            loc.y -= 180
-        elif layer.type == 'MUSGRAVE':
-            loc.y -= 270
-        elif layer.type == 'NOISE':
-            loc.y -= 170
-        elif layer.type == 'VORONOI':
-            loc.y -= 170
-        elif layer.type == 'VORONOI':
-            loc.y -= 260
-        else:
-            loc.y -= 260
+
+        if check_set_node_loc(tree, layer.source, loc, hide=False):
+            if layer.type == 'BRICK':
+                loc.y -= 400
+            elif layer.type == 'CHECKER':
+                loc.y -= 170
+            elif layer.type == 'GRADIENT':
+                loc.y -= 140
+            elif layer.type == 'MAGIC':
+                loc.y -= 180
+            elif layer.type == 'MUSGRAVE':
+                loc.y -= 270
+            elif layer.type == 'NOISE':
+                loc.y -= 170
+            elif layer.type == 'VORONOI':
+                loc.y -= 170
+            elif layer.type == 'VORONOI':
+                loc.y -= 260
+            else:
+                loc.y -= 260
 
     if check_set_node_loc(tree, layer.source_n, loc, hide=True):
         loc.y -= 40
@@ -796,8 +806,12 @@ def rearrange_layer_nodes(layer, tree=None):
             rearrange_mask_tree_nodes(mask)
             loc.y -= 40
 
-        elif check_set_node_loc(tree, mask.source, loc):
-            loc.y -= 270
+        else:
+            if check_set_node_loc(tree, mask.linear, loc):
+                loc.y -= 140
+
+            if check_set_node_loc(tree, mask.source, loc):
+                loc.y -= 270
 
         if check_set_node_loc(tree, mask.source_n, loc, True):
             loc.y -= 40

@@ -1798,6 +1798,14 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
         col = box.column()
         col.active = layer.enable and not is_parent_hidden(layer)
 
+        if (
+            (image and image.colorspace_settings.name != 'Linear') or 
+            (mask_image and mask_image.colorspace_settings.name != 'Linear')
+            ):
+            col.alert = True
+            col.operator('node.y_use_linear_color_space', text='Please Use Linear Color Space', icon='ERROR')
+            col.alert = False
+
         # Source
         draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh, custom_icon_enable)
 
