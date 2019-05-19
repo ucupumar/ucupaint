@@ -687,7 +687,8 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
     # List of last members
     last_members = []
     for layer in yp.layers:
-        if is_bottom_member(layer):
+        if not layer.enable: continue
+        if is_bottom_member(layer): # and layer.enable:
             last_members.append(layer)
 
             # Remove input links from bottom member
@@ -916,6 +917,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             if not layer.enable:
                 for inp in node.inputs:
                     break_input_link(tree, inp)
+                for outp in node.outputs:
+                    break_input_link(tree, outp)
 
                 continue
 
@@ -1064,6 +1067,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     # List of last members
     last_members = []
     for layer in yp.layers:
+        if not layer.enable: continue
         if is_bottom_member(layer):
             last_members.append(layer)
 
@@ -1088,7 +1092,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
         # Dictionary of Outputs
         outs = {}
-        for outp in outs:
+        for outp in node.outputs:
             outs[outp.name] = outp
 
         while True:
@@ -1147,7 +1151,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     for inp in upper_node.inputs:
                         if inp.name in outs:
                             outs[inp.name] = create_link(tree, outs[inp.name], inp)[inp.name]
-                        else: outs[inp.name] = upper_node.outputs[inp.name]
+                        elif inp.name in upper_node.outputs: 
+                            outs[inp.name] = upper_node.outputs[inp.name]
 
                 cur_layer = upper_layer
                 cur_node = upper_node
