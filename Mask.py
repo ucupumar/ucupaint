@@ -166,7 +166,7 @@ class YNewLayerMask(bpy.types.Operator):
     use_image_atlas = BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
-            default=False)
+            default=True)
 
     @classmethod
     def poll(cls, context):
@@ -758,22 +758,30 @@ def update_layer_mask_channel_enable(self, context):
     mask = layer.masks[int(match.group(2))]
     tree = get_tree(layer)
 
-    mute = not self.enable or not mask.enable or not layer.enable_masks
+    check_mask_mix_nodes(layer, tree, mask, self)
 
-    mix = tree.nodes.get(self.mix)
-    if yp.disable_quick_toggle:
-        mix.mute = mute
-    else: mix.mute = False
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
-    dirs = [d for d in neighbor_directions]
-    dirs.extend(['pure', 'remains', 'normal'])
+    #mute = not self.enable or not mask.enable or not layer.enable_masks
 
-    for d in dirs:
-        mix = tree.nodes.get(getattr(self, 'mix_' + d))
-        if mix: 
-            if yp.disable_quick_toggle:
-                mix.mute = mute
-            else: mix.mute = False
+    #mix = tree.nodes.get(self.mix)
+    #if mix:
+    #    #if yp.disable_quick_toggle:
+    #    #    mix.mute = mute
+    #    #else: mix.mute = False
+    #    mix.mute = mute
+
+    #dirs = [d for d in neighbor_directions]
+    #dirs.extend(['pure', 'remains', 'normal'])
+
+    #for d in dirs:
+    #    mix = tree.nodes.get(getattr(self, 'mix_' + d))
+    #    if mix: 
+    #        #if yp.disable_quick_toggle:
+    #        #    mix.mute = mute
+    #        #else: mix.mute = False
+    #        mix.mute = mute
 
     update_mask_channel_intensity_value(self, context)
 
@@ -781,8 +789,17 @@ def update_layer_mask_enable(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
 
-    for ch in self.channels:
-        update_layer_mask_channel_enable(ch, context)
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    tree = get_tree(layer)
+
+    check_mask_mix_nodes(layer, tree, self)
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
+
+    #for ch in self.channels:
+    #    update_layer_mask_channel_enable(ch, context)
 
     self.active_edit = self.enable and self.type == 'IMAGE'
 
@@ -790,8 +807,12 @@ def update_enable_layer_masks(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
 
-    for mask in self.masks:
-        update_layer_mask_enable(mask, context)
+    #for mask in self.masks:
+    #    update_layer_mask_enable(mask, context)
+    check_mask_mix_nodes(self)
+
+    rearrange_layer_nodes(self)
+    reconnect_layer_nodes(self)
 
 def update_mask_texcoord_type(self, context):
     yp = self.id_data.yp
@@ -799,6 +820,7 @@ def update_mask_texcoord_type(self, context):
 
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
+    mask_idx = int(match.group(2))
     tree = get_tree(layer)
 
     # Update global uv
@@ -807,7 +829,7 @@ def update_mask_texcoord_type(self, context):
     # Update layer tree inputs
     yp_dirty = True if check_layer_tree_ios(layer, tree) else False
 
-    set_mask_uv_neighbor(tree, layer, self)
+    set_mask_uv_neighbor(tree, layer, self, mask_idx)
 
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
@@ -824,6 +846,7 @@ def update_mask_uv_name(self, context):
 
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
+    mask_idx = int(match.group(2))
     active_layer = yp.layers[yp.active_layer_index]
     tree = get_tree(layer)
     mask = self
@@ -852,9 +875,13 @@ def update_mask_uv_name(self, context):
     yp_dirty = True if check_layer_tree_ios(layer, tree) else False
 
     # Update neighbor uv if mask bump is active
-    if set_mask_uv_neighbor(tree, layer, self) or dirty or yp_dirty:
-        rearrange_layer_nodes(layer)
-        reconnect_layer_nodes(layer)
+    #if dirty or yp_dirty:
+    #if set_mask_uv_neighbor(tree, layer, self, mask_idx) or dirty or yp_dirty:
+
+    set_mask_uv_neighbor(tree, layer, self, mask_idx)
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
     if yp_dirty:
         rearrange_yp_nodes(self.id_data)

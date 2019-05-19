@@ -939,19 +939,20 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
             if root_ch.enable_smooth_bump and image:
 
                 uv_neighbor = layer_tree.nodes.get(layer.uv_neighbor)
-                cur_x = uv_neighbor.inputs[1].default_value 
-                cur_y = uv_neighbor.inputs[2].default_value 
+                if uv_neighbor:
+                    cur_x = uv_neighbor.inputs[1].default_value 
+                    cur_y = uv_neighbor.inputs[2].default_value 
 
-                mapping = get_layer_mapping(layer)
-                correct_x = image.size[0] * mapping.scale[0]
-                correct_y = image.size[1] * mapping.scale[1]
+                    mapping = get_layer_mapping(layer)
+                    correct_x = image.size[0] * mapping.scale[0]
+                    correct_y = image.size[1] * mapping.scale[1]
 
-                if cur_x != correct_x or cur_y != correct_y:
-                    brow = mcol.row(align=True)
-                    brow.alert = True
-                    brow.context_pointer_set('channel', ch)
-                    brow.context_pointer_set('image', image)
-                    brow.operator('node.y_refresh_neighbor_uv', icon='ERROR')
+                    if cur_x != correct_x or cur_y != correct_y:
+                        brow = mcol.row(align=True)
+                        brow.alert = True
+                        brow.context_pointer_set('channel', ch)
+                        brow.context_pointer_set('image', image)
+                        brow.operator('node.y_refresh_neighbor_uv', icon='ERROR')
 
             if ch.show_transition_bump or ch.enable_transition_bump:
 
@@ -2303,7 +2304,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
         col.separator()
         col.label(text='Performance Options:')
         col.prop(ypui, 'disable_auto_temp_uv_update')
-        col.prop(yp, 'disable_quick_toggle')
+        #col.prop(yp, 'disable_quick_toggle')
         col.separator()
         col.label(text='Hacks:')
         col.prop(yp, 'enable_tangent_sign_hacks')
@@ -2693,6 +2694,7 @@ class YLayerMaskMenu(bpy.types.Menu):
 
         col.operator('node.y_new_mask_modifier', text='Invert', icon='MODIFIER').type = 'INVERT'
         col.operator('node.y_new_mask_modifier', text='Ramp', icon='MODIFIER').type = 'RAMP'
+        col.operator('node.y_new_mask_modifier', text='Curve', icon='MODIFIER').type = 'CURVE'
 
 class YAddModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_modifier_menu"

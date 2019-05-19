@@ -37,9 +37,17 @@ def reconnect_mask_modifier_nodes(tree, mod, start_value):
 
         value = ramp_mix.outputs[0]
 
+    elif mod.type == 'CURVE':
+        curve = tree.nodes.get(mod.curve)
+        create_link(tree, value, curve.inputs[1])
+        value = curve.outputs[0]
+
     return value
 
 def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
+
+    if not mod.enable:
+        return start_rgb, start_alpha
 
     rgb = start_rgb
     alpha = start_alpha
@@ -637,17 +645,17 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
 
     height = start.outputs['base']
 
+    parallax_ch_idx = get_channel_index(parallax_ch)
+
     for i, layer in reversed(list(enumerate(yp.layers))):
 
+        #if yp.disable_quick_toggle and (not layer.enable or not layer.channels[parallax_ch_idx].enable): continue
+        if not layer.enable or not layer.channels[parallax_ch_idx].enable: continue
         if layer.parent_idx != -1: continue
 
         node = tree.nodes.get(layer.depth_group_node)
 
         height = create_link(tree, height, node.inputs[io_disp_name])[io_disp_name]
-
-        if i == 0:
-            create_link(tree, height, pack.inputs[0])
-            create_link(tree, pack.outputs[0], end.inputs['depth_from_tex'])
 
         uv_names = []
         if layer.texcoord_type == 'UV':
@@ -673,6 +681,9 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
             if not current_uv: continue
             create_link(tree, current_uv.outputs[0], inp)
 
+    create_link(tree, height, pack.inputs[0])
+    create_link(tree, pack.outputs[0], end.inputs['depth_from_tex'])
+
     # List of last members
     last_members = []
     for layer in yp.layers:
@@ -697,6 +708,9 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
         cur_node = node
 
         #actual_last = True
+        io_alpha = cur_node.outputs.get(io_alpha_name)
+        io_disp = cur_node.outputs.get(io_disp_name)
+        io_disp_alpha = cur_node.outputs.get(io_disp_alpha_name)
 
         while True:
             # Get upper layer
@@ -705,24 +719,44 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
 
             # Connect
             if upper_layer.parent_idx == cur_layer.parent_idx:
-                create_link(tree, cur_node.outputs[io_alpha_name], upper_node.inputs[io_alpha_name])
-                create_link(tree, cur_node.outputs[io_disp_name], upper_node.inputs[io_disp_name])
-                create_link(tree, cur_node.outputs[io_disp_alpha_name], upper_node.inputs[io_disp_alpha_name])
+
+                #if not yp.disable_quick_toggle or upper_layer.enable:
+                if upper_layer.enable:
+
+                    if io_alpha_name in upper_node.inputs:
+                        if io_alpha:
+                            io_alpha = create_link(tree, io_alpha, upper_node.inputs[io_alpha_name])[io_alpha_name]
+                        else: io_alpha = upper_node.outputs[io_alpha_name]
+
+                    if io_disp_name in upper_node.inputs:
+                        if io_disp:
+                            io_disp = create_link(tree, io_disp, upper_node.inputs[io_disp_name])[io_disp_name]
+                        else: io_disp = upper_node.outputs[io_disp_name]
+
+
+                    if io_disp_alpha_name in upper_node.inputs:
+                        if io_disp_alpha:
+                            io_disp_alpha = create_link(tree, io_disp_alpha, upper_node.inputs[io_disp_alpha_name])[io_disp_alpha_name]
+                        else: io_disp_alpha = upper_node.outputs[io_disp_alpha_name]
+
+                cur_layer = upper_layer
+                cur_node = upper_node
+
             else:
 
-                create_link(tree, cur_node.outputs[io_disp_name], 
-                        upper_node.inputs[io_disp_name + io_suffix['GROUP']])
+                io_name = io_alpha_name + io_suffix['GROUP']
+                if io_alpha and io_name in upper_node.inputs:
+                    create_link(tree, cur_node.outputs[io_alpha_name], upper_node.inputs[io_name])
 
-                create_link(tree, cur_node.outputs[io_alpha_name], 
-                        upper_node.inputs[io_alpha_name + io_suffix['GROUP']])
+                io_name = io_disp_name + io_suffix['GROUP']
+                if io_disp and io_name in upper_node.inputs:
+                    create_link(tree, io_disp, upper_node.inputs[io_name])
 
-                create_link(tree, cur_node.outputs[io_disp_alpha_name], 
-                        upper_node.inputs[io_disp_alpha_name + io_suffix['GROUP']])
+                io_name = io_disp_alpha_name + io_suffix['GROUP']
+                if io_disp_alpha and io_name in upper_node.inputs:
+                    create_link(tree, cur_node.outputs[io_disp_alpha_name], upper_node.inputs[io_name])
 
                 break
-
-            cur_layer = upper_layer
-            cur_node = upper_node
 
 def reconnect_yp_nodes(tree, ch_idx=-1):
     yp = tree.yp
@@ -753,25 +787,10 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         uv_map = nodes.get(uv.uv_map)
         uv_maps[uv.name] = uv_map.outputs[0]
 
-        #temp_tangent = nodes.get(uv.temp_tangent)
-        #if temp_tangent:
-        #    tangents[uv.name] = temp_tangent.outputs['Tangent']
-        #    bitangents[uv.name] = temp_tangent.outputs['Bitangent']
-        #else:
         tangent_process = nodes.get(uv.tangent_process)
         if tangent_process:
             tangents[uv.name] = tangent_process.outputs['Tangent']
             bitangents[uv.name] = tangent_process.outputs['Bitangent']
-        #else:
-        #    tangent = nodes.get(uv.tangent)
-        #    tangent_flip = nodes.get(uv.tangent_flip)
-        #    create_link(tree, tangent.outputs[0], tangent_flip.inputs[0])
-        #    tangents[uv.name] = tangent_flip.outputs[0]
-
-        #    bitangent = nodes.get(uv.bitangent)
-        #    bitangent_flip = nodes.get(uv.bitangent_flip)
-        #    create_link(tree, bitangent.outputs[0], bitangent_flip.inputs[0])
-        #    bitangents[uv.name] = bitangent_flip.outputs[0]
 
     # Get main tangent and bitangent
     height_ch = get_root_height_channel(yp)
@@ -810,7 +829,6 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     for uv in yp.uvs:
         parallax_prep = tree.nodes.get(uv.parallax_prep)
         if parallax_prep:
-            #create_link(tree, uv_maps[uv.name], parallax_prep.inputs['UV'])
             create_link(tree, uv_maps[uv.name], parallax_prep.inputs[0])
             create_link(tree, tangents[uv.name], parallax_prep.inputs['Tangent'])
             create_link(tree, bitangents[uv.name], parallax_prep.inputs['Bitangent'])
@@ -845,6 +863,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             disp = start.outputs.get(parallax_ch.name + io_suffix['HEIGHT'])
             if disp: create_link(tree, disp, baked_parallax.inputs['base'])
 
+    #print()
+
     for i, ch in enumerate(yp.channels):
         if ch_idx != -1 and i != ch_idx: continue
 
@@ -861,29 +881,15 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         io_disp_e_name = ch.name + io_suffix['HEIGHT'] + ' e'
         io_disp_w_name = ch.name + io_suffix['HEIGHT'] + ' w'
 
-        #rgb = start.outputs[ch.io_index]
         rgb = start.outputs[io_name]
         if ch.enable_alpha and ch.type == 'RGB':
-            #alpha = start.outputs[ch.io_index+1]
             alpha = start.outputs[io_alpha_name]
         else: alpha = one_value.outputs[0]
 
-        #if ch.enable_parallax and ch.type == 'NORMAL':
-        #    #disp = start.outputs[ch.io_index+1]
-        #    disp = start.outputs[io_disp_name]
-        #else: 
-        #    #disp = one_value.outputs[0]
-        #    disp = None
         if ch.type == 'NORMAL':
             disp = start.outputs[io_disp_name]
         else: disp = None
 
-        #if ch.enable_smooth_bump and ch.type == 'NORMAL':
-        #    disp_n = disp
-        #    disp_s = disp
-        #    disp_e = disp
-        #    disp_w = disp
-        #else:
         disp_n = disp
         disp_s = disp
         disp_e = disp
@@ -902,7 +908,21 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         # Layers loop
         for j, layer in reversed(list(enumerate(yp.layers))):
 
+            #print(ch.name, layer.name)
+
             node = nodes.get(layer.group_node)
+
+            #if yp.disable_quick_toggle and not layer.enable:
+            if not layer.enable:
+                for inp in node.inputs:
+                    break_input_link(tree, inp)
+
+                continue
+
+            layer_ch = layer.channels[i]
+            #if yp.disable_quick_toggle and not layer_ch.enable:
+            if not layer_ch.enable:
+                continue
 
             # UV inputs
             uv_names = []
@@ -956,21 +976,14 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                 inp_disp = node.inputs.get(ch.name + io_suffix['HEIGHT'] + io_suffix['BACKGROUND'])
 
                 if layer.parent_idx == -1:
-
-                    #create_link(tree, bg_rgb, node.inputs[bg_index])
                     create_link(tree, bg_rgb, inp)
-                    #if ch.type =='RGB' and ch.enable_alpha:
                     if inp_alpha:
-                        #create_link(tree, bg_alpha, node.inputs[bg_index+1])
                         create_link(tree, bg_alpha, inp_alpha)
                     if inp_disp:
                         create_link(tree, bg_disp, inp_disp)
                 else:
-                    #break_input_link(tree, node.inputs[bg_index])
                     break_input_link(tree, inp)
-                    #if ch.type =='RGB' and ch.enable_alpha:
                     if inp_alpha:
-                        #break_input_link(tree, node.inputs[bg_index+1])
                         break_input_link(tree, inp_alpha)
                     if inp_disp:
                         break_input_link(tree, inp_disp)
@@ -980,18 +993,13 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             # Group node with no children need normal input connected
             if layer.type == 'GROUP' and not has_childrens(layer):
                 if ch.type == 'NORMAL':
-                    #create_link(tree, geometry.outputs['Normal'], node.inputs[ch.name])
                     create_link(tree, geometry.outputs['Normal'], node.inputs[ch.name + io_suffix['GROUP']])
 
-            #rgb = create_link(tree, rgb, node.inputs[ch.io_index])[ch.io_index]
             rgb = create_link(tree, rgb, node.inputs[io_name])[io_name]
             if ch.type =='RGB' and ch.enable_alpha:
-                #alpha = create_link(tree, alpha, node.inputs[ch.io_index+1])[ch.io_index+1]
                 alpha = create_link(tree, alpha, node.inputs[io_alpha_name])[io_alpha_name]
 
-            #if ch.type =='NORMAL' and ch.enable_parallax:
             if disp:
-                #disp = create_link(tree, disp, node.inputs[ch.io_index+1])[ch.io_index+1]
                 disp = create_link(tree, disp, node.inputs[io_disp_name])[io_disp_name]
 
             if ch.type == 'NORMAL' and ch.enable_smooth_bump:
@@ -1018,10 +1026,6 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     create_link(tree, disp_e, end_linear.inputs['Height e'])
                     create_link(tree, disp_w, end_linear.inputs['Height w'])
 
-                #print()
-                #for i, u in enumerate(yp.uvs):
-                #    print(i, u.name)
-
                 if tangent and bitangent:
                     create_link(tree, tangent, end_linear.inputs['Tangent'])
                     create_link(tree, bitangent, end_linear.inputs['Bitangent'])
@@ -1029,41 +1033,6 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         if yp.use_baked and baked_uv:
             baked = nodes.get(ch.baked)
             rgb = baked.outputs[0]
-
-        #if yp.use_baked:
-        #    baked = nodes.get(ch.baked)
-        #    baked_uv_map = nodes.get(BAKED_UV)
-        #    baked_tangent = nodes.get(BAKED_TANGENT)
-        #    baked_tangent_flip = nodes.get(BAKED_TANGENT_FLIP)
-        #    baked_bitangent = nodes.get(BAKED_BITANGENT)
-        #    baked_bitangent_flip = nodes.get(BAKED_BITANGENT_FLIP)
-        #    baked_parallax = nodes.get(BAKED_PARALLAX)
-
-        #    rgb = baked.outputs[0]
-
-        #    if baked_tangent:
-        #        baked_tangent = baked_tangent.outputs[0]
-
-        #        if baked_tangent_flip:
-        #            baked_tangent = create_link(tree, baked_tangent, baked_tangent_flip.inputs[0])[0]
-
-        #    if baked_bitangent:
-        #        baked_bitangent = baked_bitangent.outputs[0]
-
-        #        if baked_bitangent_flip:
-        #            baked_bitangent = create_link(tree, baked_bitangent, baked_bitangent_flip.inputs[0])[0]
-
-        #    baked_uv_map = baked_uv_map.outputs[0]
-        #    if baked_parallax:
-        #        reconnect_baked_parallax_layer_nodes(yp, baked_parallax)
-
-        #        create_link(tree, baked_uv_map, baked_parallax.inputs['UV'])
-        #        create_link(tree, baked_tangent, baked_parallax.inputs['Tangent'])
-        #        create_link(tree, baked_bitangent, baked_parallax.inputs['Bitangent'])
-
-        #        baked_uv_map = baked_parallax.outputs[0]
-
-        #    create_link(tree, baked_uv_map, baked.inputs[0])
 
             if ch.type == 'NORMAL':
                 baked_normal = nodes.get(ch.baked_normal)
@@ -1074,15 +1043,6 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
                 rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
 
-                #baked_normal_flip = nodes.get(ch.baked_normal_flip)
-                #if baked_normal_flip:
-
-                #    create_link(tree, baked_tangent, baked_normal_flip.inputs['Tangent'])
-                #    create_link(tree, baked_bitangent, baked_normal_flip.inputs['Bitangent'])
-
-                #    rgb = create_link(tree, rgb, baked_normal_flip.inputs[0])[0]
-
-                #if ch.enable_parallax:
                 baked_disp = nodes.get(ch.baked_disp)
                 if baked_disp: 
                     disp = baked_disp.outputs[0]
@@ -1093,13 +1053,10 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
             create_link(tree, baked_uv_map, baked.inputs[0])
 
-        #create_link(tree, rgb, end.inputs[ch.io_index])
         create_link(tree, rgb, end.inputs[io_name])
         if ch.type == 'RGB' and ch.enable_alpha:
-            #create_link(tree, alpha, end.inputs[ch.io_index+1])
             create_link(tree, alpha, end.inputs[io_alpha_name])
         if ch.type == 'NORMAL': #and ch.enable_parallax:
-            #create_link(tree, disp, end.inputs[ch.io_index+1])
             create_link(tree, disp, end.inputs[io_disp_name])
             if end_max_height and ch.name + io_suffix['MAX HEIGHT'] in end.inputs:
                 create_link(tree, end_max_height.outputs[0], end.inputs[ch.name + io_suffix['MAX HEIGHT']])
@@ -1119,8 +1076,6 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             node = tree.nodes.get(layer.group_node)
             remove_all_children_inputs(tree, layer, node)
 
-    #print(last_members)
-
     # Group stuff
     for layer in last_members:
 
@@ -1131,12 +1086,15 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
         actual_last = True
 
+        # Dictionary of Outputs
+        outs = {}
+        for outp in outs:
+            outs[outp.name] = outp
+
         while True:
             # Get upper layer
             upper_idx, upper_layer = get_upper_neighbor(cur_layer)
             upper_node = nodes.get(upper_layer.group_node)
-
-            #print(upper_layer.name)
 
             # Should always fill normal input
             if actual_last:
@@ -1144,9 +1102,12 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     root_ch = yp.channels[i]
                     if root_ch.type == 'NORMAL':
 
-                        create_link(tree, geometry.outputs['Normal'], node.inputs[root_ch.name])
-                        if layer.type == 'GROUP' and not has_childrens(layer):
-                            create_link(tree, geometry.outputs['Normal'], node.inputs[root_ch.name + io_suffix['GROUP']])
+                        if root_ch.name in node.inputs:
+                            create_link(tree, geometry.outputs['Normal'], node.inputs[root_ch.name])
+                        
+                        io_name = root_ch.name + io_suffix['GROUP']
+                        if layer.type == 'GROUP' and not has_childrens(layer) and io_name in node.inputs:
+                            create_link(tree, geometry.outputs['Normal'], node.inputs[io_name])
 
                 actual_last = False
 
@@ -1179,19 +1140,27 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
             # Connect
             if upper_layer.parent_idx == cur_layer.parent_idx:
-                for i, outp in enumerate(cur_node.outputs):
-                    create_link(tree, outp, upper_node.inputs[i])
+                #if not yp.disable_quick_toggle or upper_layer.enable:
+                if upper_layer.enable:
+                    #for i, outp in enumerate(cur_node.outputs):
+                    #    create_link(tree, outp, upper_node.inputs[i])
+                    for inp in upper_node.inputs:
+                        if inp.name in outs:
+                            outs[inp.name] = create_link(tree, outs[inp.name], inp)[inp.name]
+                        else: outs[inp.name] = upper_node.outputs[inp.name]
+
+                cur_layer = upper_layer
+                cur_node = upper_node
             else:
 
-                for i, outp in enumerate(cur_node.outputs):
-                    create_link(tree, outp, upper_node.inputs[outp.name + io_suffix['GROUP']])
+                #for i, outp in enumerate(cur_node.outputs):
+                #    create_link(tree, outp, upper_node.inputs[outp.name + io_suffix['GROUP']])
+                for output_name, outp in outs.items():
+                    io_name =  output_name + io_suffix['GROUP']
+                    if io_name in upper_node.inputs:
+                        create_link(tree, outp, upper_node.inputs[io_name])
 
                 break
-
-            cur_layer = upper_layer
-            cur_node = upper_node
-
-        #print(upper_layer.name)
 
 def reconnect_source_internal_nodes(layer):
     tree = get_source_tree(layer)
@@ -1476,10 +1445,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     create_link(tree, texcoord.outputs[io_names[mask.texcoord_type]],
                             mask_uv_neighbor.inputs[0])
 
-                create_link(tree, mask_uv_neighbor.outputs['n'], mask_source_n.inputs[0])
-                create_link(tree, mask_uv_neighbor.outputs['s'], mask_source_s.inputs[0])
-                create_link(tree, mask_uv_neighbor.outputs['e'], mask_source_e.inputs[0])
-                create_link(tree, mask_uv_neighbor.outputs['w'], mask_source_w.inputs[0])
+                if mask_source_n: create_link(tree, mask_uv_neighbor.outputs['n'], mask_source_n.inputs[0])
+                if mask_source_s: create_link(tree, mask_uv_neighbor.outputs['s'], mask_source_s.inputs[0])
+                if mask_source_e: create_link(tree, mask_uv_neighbor.outputs['e'], mask_source_e.inputs[0])
+                if mask_source_w: create_link(tree, mask_uv_neighbor.outputs['w'], mask_source_w.inputs[0])
 
             # Mask tangent
             mask_tangent = texcoord.outputs.get(mask.uv_name + io_suffix['TANGENT'])
@@ -1502,8 +1471,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             root_ch = yp.channels[j]
             ch = layer.channels[j]
 
+            #if yp.disable_quick_toggle and not ch.enable:
+            if not ch.enable:
+                continue
+
             mask_mix = nodes.get(c.mix)
-            create_link(tree, mask_val, mask_mix.inputs[2])
+            if mask_mix:
+                create_link(tree, mask_val, mask_mix.inputs[2])
 
             # Direction multiplies
             mix_pure = nodes.get(c.mix_pure)
@@ -1547,6 +1521,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
     # Layer Channels
     for i, ch in enumerate(layer.channels):
+
+        #if yp.disable_quick_toggle and not ch.enable: continue
+        if not ch.enable: continue
 
         root_ch = yp.channels[i]
 
@@ -1623,7 +1600,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         # Mask multiplies
         for j, mask in enumerate(layer.masks):
             mask_mix = nodes.get(mask.channels[i].mix)
-            alpha = create_link(tree, alpha, mask_mix.inputs[1])[0]
+            if mask_mix:
+                alpha = create_link(tree, alpha, mask_mix.inputs[1])[0]
 
             if j == chain-1 and intensity_multiplier:
                 transition_input = alpha
@@ -1828,7 +1806,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 if tb_falloff and (j == chain-1 or (j == chain_local-1 and not trans_bump_ch)):
                     pure = tb_falloff.outputs[0]
                 elif j < chain:
-                    pure = mix.outputs[0]
+                    if mix: pure = mix.outputs[0]
                 else:
                     mix_pure = nodes.get(c.mix_pure)
                     if mix_pure: pure = create_link(tree, pure, mix_pure.inputs[1])[0]
@@ -1854,7 +1832,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                 if j == chain-1 or (j == chain_local-1 and not trans_bump_ch):
                     
-                    end_chain_crease = mix.outputs[0]
+                    if mix:
+                        end_chain_crease = mix.outputs[0]
+                    #else: end_chain_crease = alpha
                     end_chain_crease_n = alpha_n
                     end_chain_crease_s = alpha_s
                     end_chain_crease_e = alpha_e
@@ -1863,7 +1843,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     if tb_falloff:
                         create_link(tree, mix.outputs[0], tb_falloff.inputs[0])[0]
                         end_chain = tb_falloff.outputs[0]
-                    else: 
+                    elif mix: 
                         end_chain = mix.outputs[0]
 
                     if tb_falloff_n: 
@@ -2118,7 +2098,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 else:
                     alpha = normal_proc.outputs['Combined Alpha']
 
-            if 'Tangent' in normal_proc.inputs:
+            if tangent and bitangent and 'Tangent' in normal_proc.inputs:
                 create_link(tree, tangent, normal_proc.inputs['Tangent'])
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
 

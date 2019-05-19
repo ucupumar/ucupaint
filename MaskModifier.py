@@ -7,10 +7,12 @@ from .node_arrangements import *
 mask_modifier_type_items = (
         ('INVERT', 'Invert', 'Invert', 'MODIFIER', 0),
         ('RAMP', 'Ramp', '', 'MODIFIER', 1),
+        ('CURVE', 'Curve', '', 'MODIFIER', 2),
         )
 
 can_be_expanded = {
         'RAMP',
+        'CURVE',
         }
 
 def update_mask_modifier_enable(self, context):
@@ -26,15 +28,22 @@ def update_mask_modifier_enable(self, context):
     if mod.type == 'INVERT':
         invert = tree.nodes.get(mod.invert)
         if invert:
-            #invert.mute = not mod.enable
+            invert.mute = not mod.enable
             invert.inputs[0].default_value = 1.0 if mod.enable else 0.0
 
     elif mod.type == 'RAMP':
 
         ramp_mix = tree.nodes.get(mod.ramp_mix)
         if ramp_mix:
-            #ramp_mix.mute = not mod.enable
-            ramp_mix.inputs[0].default_value = 1.0 if mod.enable else 0.0
+            ramp_mix.mute = not mod.enable
+            #ramp_mix.inputs[0].default_value = 1.0 if mod.enable else 0.0
+
+    elif mod.type == 'CURVE':
+
+        curve = tree.nodes.get(mod.curve)
+        if curve:
+            curve.mute = not mod.enable
+            #curve.inputs[0].default_value = 1.0 if mod.enable else 0.0
 
 def add_modifier_nodes(mod, tree, ref_tree=None):
 
@@ -66,6 +75,17 @@ def add_modifier_nodes(mod, tree, ref_tree=None):
         else:
             ramp_mix.inputs[0].default_value = 1.0
 
+    elif mod.type == 'CURVE':
+        if ref_tree:
+            curve_ref = ref_tree.nodes.get(mod.curve)
+
+        curve = new_node(tree, mod, 'curve', 'ShaderNodeRGBCurve', 'Curve')
+
+        if ref_tree:
+            copy_node_props(curve_ref, curve)
+
+            ref_tree.nodes.remove(curve_ref)
+
 def delete_modifier_nodes(tree, mod):
 
     if mod.type == 'INVERT':
@@ -74,6 +94,9 @@ def delete_modifier_nodes(tree, mod):
     elif mod.type == 'RAMP':
         remove_node(tree, mod, 'ramp')
         remove_node(tree, mod, 'ramp_mix')
+
+    elif mod.type == 'CURVE':
+        remove_node(tree, mod, 'curve')
 
 def add_new_mask_modifier(mask, modifier_type):
     tree = get_mask_tree(mask)
@@ -91,6 +114,10 @@ def draw_modifier_properties(tree, m, layout):
     if m.type == 'RAMP':
         ramp = tree.nodes.get(m.ramp)
         layout.template_color_ramp(ramp, "color_ramp", expand=True)
+
+    elif m.type == 'CURVE':
+        curve = tree.nodes.get(m.curve)
+        curve.draw_buttons_ext(bpy.context, layout)
 
 class YNewMaskModifier(bpy.types.Operator):
     bl_idname = "node.y_new_mask_modifier"
@@ -224,6 +251,7 @@ class YMaskModifier(bpy.types.PropertyGroup):
     ramp = StringProperty(default='')
     ramp_mix = StringProperty(default='')
     invert = StringProperty(default='')
+    curve = StringProperty(default='')
 
     # UI
     expand_content = BoolProperty(default=True)

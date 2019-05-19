@@ -20,30 +20,33 @@ def get_transition_fine_bump_distance(distance, is_curved=False):
 
 def check_transition_bump_influences_to_other_channels(layer, tree=None, target_ch = None):
 
+    yp = layer.id_data.yp
+
     if not tree: tree = get_tree(layer)
 
     # Trying to get bump channel
     bump_ch = get_transition_bump_channel(layer)
 
-    # Transition AO update
-    for i, c in enumerate(layer.channels):
-        check_transition_ao_nodes(tree, layer, c, bump_ch)
-
-    # Intensity multiplier is only created if transition bump channel is available
-    #if not bump_ch: 
-        #remove_transition_bump_influence_nodes_to_other_channels(layer, tree)
-        #return
-
     # Add intensity multiplier to other channel mask
     for i, c in enumerate(layer.channels):
-
-        # If target channel is set, its the only one will be processed
-        if target_ch and target_ch != c: continue
 
         # NOTE: Bump channel supposed to be already had a mask intensity multipler
         if c == bump_ch: continue
 
+        # If target channel is set, its the only one will be processed
+        if target_ch and target_ch != c: continue
+
+        # Transition AO update
+        check_transition_ao_nodes(tree, layer, c, bump_ch)
+
+        # Transition Ramp update
         check_transition_ramp_nodes(tree, layer, c)
+
+        # Remove node if channel is disabled
+        #if yp.disable_quick_toggle and not c.enable: 
+        if not c.enable: 
+            remove_node(tree, c, 'intensity_multiplier')
+            continue
 
         if bump_ch:
 
@@ -74,7 +77,10 @@ def get_transition_ao_intensity(ch):
 
 def check_transition_ao_nodes(tree, layer, ch, bump_ch=None):
 
-    if not bump_ch or not ch.enable_transition_ao:
+    yp = layer.id_data.yp
+
+    #if (not bump_ch or not ch.enable_transition_ao) or (yp.disable_quick_toggle and not ch.enable):
+    if (not bump_ch or not ch.enable_transition_ao) or not ch.enable:
         remove_node(tree, ch, 'tao')
 
     elif bump_ch != ch and ch.enable_transition_ao:
@@ -241,6 +247,12 @@ def set_transition_ramp_nodes(tree, layer, ch):
 
 def check_transition_ramp_nodes(tree, layer, ch):
 
+    yp = layer.id_data.yp
+    #if yp.disable_quick_toggle and not ch.enable:
+    if not ch.enable:
+        remove_transition_ramp_nodes(tree, ch)
+        return
+
     if ch.enable_transition_ramp:
         set_transition_ramp_nodes(tree, layer, ch)
     else: remove_transition_ramp_nodes(tree, ch)
@@ -251,6 +263,79 @@ def remove_transition_ramp_nodes(tree, ch):
 
     remove_node(tree, ch, 'tr_ramp')
     remove_node(tree, ch, 'tr_ramp_blend')
+
+def save_transition_bump_falloff_cache(tree, ch):
+    tb_falloff = tree.nodes.get(ch.tb_falloff)
+
+    if (
+            (ch.transition_bump_falloff_type != 'CURVE' or not ch.transition_bump_falloff or 
+                not ch.enable_transition_bump or not ch.enable) and 
+            check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE)):
+        cache = tree.nodes.get(ch.cache_falloff_curve)
+        if not cache:
+            cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
+        curve_ref = tb_falloff.node_tree.nodes.get('_curve')
+        copy_node_props(curve_ref, cache)
+
+def check_transition_bump_falloff(layer, tree):
+
+    yp = layer.id_data.yp
+
+    trans_bump = get_transition_bump_channel(layer)
+    if not trans_bump: return
+
+    root_ch = [yp.channels[i] for i, ch in enumerate(layer.channels) if ch == trans_bump][0]
+    ch = trans_bump
+
+    save_transition_bump_falloff_cache(tree, ch)
+
+    # Transition bump falloff
+    if ch.transition_bump_falloff:
+
+        # Emulated curve without actual curve
+        if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
+            tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                    lib.EMULATED_CURVE, hard_replace=True)
+            tb_falloff.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
+
+        elif ch.transition_bump_falloff_type == 'CURVE':
+            tb_falloff = tree.nodes.get(ch.tb_falloff)
+            if not check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
+
+                # Check cached curve
+                cache = tree.nodes.get(ch.cache_falloff_curve)
+
+                tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                        lib.FALLOFF_CURVE, hard_replace=True)
+                duplicate_lib_node_tree(tb_falloff)
+
+                if cache:
+                    curve = tb_falloff.node_tree.nodes.get('_curve')
+                    copy_node_props(cache, curve)
+                    remove_node(tree, ch, 'cache_falloff_curve')
+
+            inv0 = tb_falloff.node_tree.nodes.get('_inverse_0')
+            inv1 = tb_falloff.node_tree.nodes.get('_inverse_1')
+            inv0.mute = not ch.transition_bump_flip
+            inv1.mute = not ch.transition_bump_flip
+
+    else:
+        remove_node(tree, ch, 'tb_falloff')
+
+    if ch.transition_bump_falloff and root_ch.enable_smooth_bump:
+        for d in neighbor_directions:
+
+            if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
+                tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
+                        lib.EMULATED_CURVE, hard_replace=True)
+                tbf.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
+
+            elif ch.transition_bump_falloff_type == 'CURVE':
+                tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
+                        tb_falloff.node_tree.name, hard_replace=True)
+    else:
+        for d in neighbor_directions:
+            remove_node(tree, ch, 'tb_falloff_' + d)
 
 def check_transition_bump_nodes(layer, tree, ch, ch_index):
 
@@ -264,8 +349,14 @@ def check_transition_bump_nodes(layer, tree, ch, ch_index):
     # Add intensity multiplier to other channel
     check_transition_bump_influences_to_other_channels(layer, tree)
 
-    # Set mask multiply nodes
-    check_mask_mix_nodes(layer, tree)
+    # Dealing with mask sources
+    #check_mask_source_tree(layer) #, ch)
+
+    # Set mask mix nodes
+    #check_mask_mix_nodes(layer, tree)
+
+    # Update transition bump falloff
+    check_transition_bump_falloff(layer, tree)
 
     # Check bump base
     check_create_spread_alpha(layer, tree, root_ch, ch)
@@ -280,9 +371,6 @@ def check_transition_bump_nodes(layer, tree, ch, ch_index):
     # Check extra alpha
     check_extra_alpha(layer)
     
-    rearrange_layer_nodes(layer)
-    reconnect_layer_nodes(layer) #, mod_reconnect=True)
-
 def set_transition_bump_nodes(layer, tree, ch, ch_index):
 
     yp = layer.id_data.yp
@@ -309,93 +397,6 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
                 'Transition Bump Backface Flip', lib.FLIP_BACKFACE_BUMP)
 
         set_bump_backface_flip(tb_bump_flip, yp.enable_backface_always_up)
-
-    #if ch.transition_bump_type == 'FINE_BUMP_MAP':
-
-    #    #enable_layer_source_tree(layer)
-    #    #Modifier.enable_modifiers_tree(ch)
-
-    #    # Get fine bump
-    #    #tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeGroup', 'Transition Fine Bump', lib.FINE_BUMP)
-
-    #    #if ch.transition_bump_flip or layer.type == 'BACKGROUND':
-    #    ##if ch.transition_bump_flip:
-    #    #    tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance)
-    #    #else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance)
-
-    #    remove_node(tree, ch, 'tb_bump_flip')
-
-    #if ch.transition_bump_type == 'CURVED_BUMP_MAP':
-
-    #    #enable_layer_source_tree(layer)
-    #    #Modifier.enable_modifiers_tree(ch)
-
-    #    #if ch.transition_bump_flip or layer.type == 'BACKGROUND':
-    #    ##if ch.transition_bump_flip:
-    #    #    tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeGroup', 
-    #    #            'Transition Curved Bump', lib.FLIP_CURVED_FINE_BUMP)
-    #    #else: 
-    #    #    tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeGroup', 
-    #    #            'Transition Curved Bump', lib.CURVED_FINE_BUMP)
-
-    #    #if ch.transition_bump_flip or layer.type == 'BACKGROUND':
-    #    ##if ch.transition_bump_flip:
-    #    #    tb_bump.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance, True)
-    #    #else: tb_bump.inputs[0].default_value = get_transition_fine_bump_distance(ch.transition_bump_distance, True)
-
-    #    #tb_bump.inputs['Offset'].default_value = ch.transition_bump_curved_offset
-
-    #    remove_node(tree, ch, 'tb_bump_flip')
-
-    #if ch.transition_bump_type == 'BUMP_MAP':
-
-    #    disable_layer_source_tree(layer, False)
-    #    Modifier.disable_modifiers_tree(ch)
-
-    #    # Get bump
-    #    #tb_bump = replace_new_node(tree, ch, 'tb_bump', 'ShaderNodeBump', 'Transition Bump')
-
-    #    #if ch.transition_bump_flip or layer.type == 'BACKGROUND':
-    #    ##if ch.transition_bump_flip:
-    #    #    tb_bump.inputs[1].default_value = -ch.transition_bump_distance
-    #    #else: tb_bump.inputs[1].default_value = ch.transition_bump_distance
-
-    #    tb_bump_flip = replace_new_node(tree, ch, 'tb_bump_flip', 'ShaderNodeGroup', 
-    #            'Transition Bump Backface Flip', lib.FLIP_BACKFACE_BUMP)
-
-    #    set_bump_backface_flip(tb_bump_flip, yp.enable_backface_always_up)
-
-    # Crease stuff
-    #if ch.transition_bump_crease and not ch.transition_bump_flip and layer.type != 'BACKGROUND':
-    ##if ch.transition_bump_crease and not ch.transition_bump_flip:
-    #    if ch.transition_bump_type == 'BUMP_MAP':
-    #        tb_crease = replace_new_node(tree, ch, 'tb_crease', 'ShaderNodeBump', 'Transition Bump Crease')
-    #        tb_crease.inputs[1].default_value = -ch.transition_bump_distance * ch.transition_bump_crease_factor
-
-    #        tb_crease_flip = replace_new_node(tree, ch, 'tb_crease_flip', 'ShaderNodeGroup', 
-    #                'Transition Bump Crease Backface Flip', lib.FLIP_BACKFACE_BUMP)
-
-    #        set_bump_backface_flip(tb_crease_flip, yp.enable_backface_always_up)
-    #    else:
-    #        tb_crease = replace_new_node(tree, ch, 'tb_crease', 'ShaderNodeGroup', 
-    #                'Transition Bump Crease', lib.FINE_BUMP)
-    #        tb_crease.inputs[0].default_value = -get_transition_fine_bump_distance(ch.transition_bump_distance) * ch.transition_bump_crease_factor
-
-    #        remove_node(tree, ch, 'tb_crease_flip')
-
-    #    tb_crease_intensity = replace_new_node(tree, ch, 'tb_crease_intensity', 'ShaderNodeMath',
-    #                'Transition Bump Crease Intensity')
-    #    tb_crease_intensity.operation = 'MULTIPLY'
-    #    tb_crease_intensity.inputs[1].default_value = ch.intensity_value if layer.enable else 0.0
-
-    #    tb_crease_mix = replace_new_node(tree, ch, 'tb_crease_mix', 'ShaderNodeGroup',
-    #                'Transition Bump Crease Mix', lib.OVERLAY_NORMAL)
-
-    #else:
-    #    remove_node(tree, ch, 'tb_crease')
-    #    remove_node(tree, ch, 'tb_crease_flip')
-    #    remove_node(tree, ch, 'tb_crease_intensity')
-    #    remove_node(tree, ch, 'tb_crease_mix')
 
     # Add inverse
     tb_inverse = tree.nodes.get(ch.tb_inverse)
@@ -429,15 +430,6 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
     intensity_multiplier.inputs[1].default_value = ch.transition_bump_value
     tb_intensity_multiplier.inputs[1].default_value = ch.transition_bump_second_edge_value
 
-    # Add vector mix
-    #tb_blend = tree.nodes.get(ch.tb_blend)
-    #if not tb_blend:
-    #    tb_blend = new_node(tree, ch, 'tb_blend', 'ShaderNodeGroup', 'Transition Vector Blend')
-    #    tb_blend.node_tree = get_node_tree_lib(lib.VECTOR_MIX)
-
-    # Dealing with mask sources
-    check_mask_source_tree(layer) #, ch)
-
 def remove_transition_bump_influence_nodes_to_other_channels(layer, tree):
     # Delete intensity multiplier from ramp
     for c in layer.channels:
@@ -456,12 +448,6 @@ def remove_transition_bump_nodes(layer, tree, ch, ch_index):
     remove_node(tree, ch, 'tb_bump_flip')
     remove_node(tree, ch, 'tb_inverse')
     remove_node(tree, ch, 'tb_intensity_multiplier')
-    remove_node(tree, ch, 'tb_blend')
-
-    remove_node(tree, ch, 'tb_crease')
-    remove_node(tree, ch, 'tb_crease_flip')
-    remove_node(tree, ch, 'tb_crease_intensity')
-    remove_node(tree, ch, 'tb_crease_mix')
 
     save_transition_bump_falloff_cache(tree, ch)
 
@@ -663,8 +649,8 @@ def update_transition_bump_chain(self, context):
 
     #if ch.enable_transition_bump and ch.enable:
 
-    check_mask_mix_nodes(layer, tree)
-    check_mask_source_tree(layer) #, ch)
+    #check_mask_mix_nodes(layer, tree)
+    #check_mask_source_tree(layer) #, ch)
 
     # Trigger normal channel update
     #ch.normal_map_type = ch.normal_map_type
@@ -996,16 +982,6 @@ def update_enable_transition_ramp(self, context):
         print('INFO: Transition ramp is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     else: print('INFO: Transition ramp is disabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-#def check_transition_bump_displacement(yp, root_ch, ch):
-#
-#    disp_ch = get_root_height_channel(yp)
-#
-#    if disp_ch == root_ch:
-#        #max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
-#        #height_span = max_height * 2
-#        max_height = get_layer_channel_max_height(layer, ch)
-#        delta = ch.transition_bump_distance - abs(ch.bump_distance)
-
 def update_enable_transition_bump(self, context):
     T = time.time()
 
@@ -1020,7 +996,8 @@ def update_enable_transition_bump(self, context):
 
     check_transition_bump_nodes(layer, tree, ch, ch_index)
 
-    #check_transition_bump_displacement(yp, root_ch, ch)
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer) #, mod_reconnect=True)
 
     if ch.enable_transition_bump:
         print('INFO: Transition bump is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')

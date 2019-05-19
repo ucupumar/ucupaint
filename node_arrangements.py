@@ -134,9 +134,10 @@ def rearrange_yp_frame_nodes(yp):
         #check_set_node_parent(tree, ch.end_linear, frame)
 
         # Modifiers
-        frame = get_frame(tree, '__modifiers__', str(i), ch.name + ' Final Modifiers')
-        for mod in ch.modifiers:
-            check_set_node_parent(tree, mod.frame, frame)
+        #frame = get_frame(tree, '__modifiers__', str(i), ch.name + ' Final Modifiers')
+        #for mod in ch.modifiers:
+        #    check_set_node_parent(tree, mod.frame, frame)
+        pass
 
     clean_unused_frames(tree)
 
@@ -150,25 +151,25 @@ def rearrange_layer_frame_nodes(layer, tree=None):
         root_ch = yp.channels[i]
 
         # Modifiers
-        if len(ch.modifiers) > 0:
+        #if len(ch.modifiers) > 0:
 
-            frame = get_frame(tree, '__modifier__', str(i), root_ch.name + ' Modifiers')
+        #    frame = get_frame(tree, '__modifier__', str(i), root_ch.name + ' Modifiers')
 
-            #check_set_node_parent(tree, ch.start_rgb, frame)
-            #check_set_node_parent(tree, ch.start_alpha, frame)
-            #check_set_node_parent(tree, ch.end_rgb, frame)
-            #check_set_node_parent(tree, ch.end_alpha, frame)
+        #    #check_set_node_parent(tree, ch.start_rgb, frame)
+        #    #check_set_node_parent(tree, ch.start_alpha, frame)
+        #    #check_set_node_parent(tree, ch.end_rgb, frame)
+        #    #check_set_node_parent(tree, ch.end_alpha, frame)
 
-            # Modifiers
-            if ch.mod_group != '':
-                check_set_node_parent(tree, ch.mod_group, frame)
-                check_set_node_parent(tree, ch.mod_n, frame)
-                check_set_node_parent(tree, ch.mod_s, frame)
-                check_set_node_parent(tree, ch.mod_e, frame)
-                check_set_node_parent(tree, ch.mod_w, frame)
-            else:
-                for mod in ch.modifiers:
-                    check_set_node_parent(tree, mod.frame, frame)
+        #    # Modifiers
+        #    if ch.mod_group != '':
+        #        check_set_node_parent(tree, ch.mod_group, frame)
+        #        check_set_node_parent(tree, ch.mod_n, frame)
+        #        check_set_node_parent(tree, ch.mod_s, frame)
+        #        check_set_node_parent(tree, ch.mod_e, frame)
+        #        check_set_node_parent(tree, ch.mod_w, frame)
+        #    else:
+        #        for mod in ch.modifiers:
+        #            check_set_node_parent(tree, mod.frame, frame)
 
         #check_set_node_parent(tree, ch.linear, frame)
         #check_set_node_parent(tree, ch.source, frame)
@@ -233,15 +234,13 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
         check_set_node_parent(tree, mask.uv_neighbor, frame)
         check_set_node_parent(tree, mask.uv_map, frame)
-        #check_set_node_parent(tree, mask.tangent, frame)
-        #check_set_node_parent(tree, mask.bitangent, frame)
-        #check_set_node_parent(tree, mask.tangent_flip, frame)
-        #check_set_node_parent(tree, mask.bitangent_flip, frame)
 
         check_set_node_parent(tree, mask.source_n, frame)
         check_set_node_parent(tree, mask.source_s, frame)
         check_set_node_parent(tree, mask.source_e, frame)
         check_set_node_parent(tree, mask.source_w, frame)
+
+        check_set_node_parent(tree, mask.mapping, frame)
 
         for c in mask.channels:
             check_set_node_parent(tree, c.mix, frame)
@@ -268,6 +267,10 @@ def arrange_mask_modifier_nodes(tree, mask, loc):
 
             if check_set_node_loc(tree, m.ramp_mix, loc):
                 loc.x += 170.0
+
+        elif m.type == 'CURVE':
+            if check_set_node_loc(tree, m.curve, loc):
+                loc.x += 265.0
 
     return loc
 
@@ -476,12 +479,12 @@ def rearrange_transition_bump_nodes(tree, ch, loc):
     save_x = loc.x
     loc.x = ori_x
 
-    loc.y -= 300.0
-    if not check_set_node_loc(tree, ch.tb_crease, loc):
-        loc.y += 300.0
+    #loc.y -= 300.0
+    #if not check_set_node_loc(tree, ch.tb_crease, loc):
+    #    loc.y += 300.0
 
-    loc.x += 200
-    check_set_node_loc(tree, ch.tb_crease_flip, loc)
+    #loc.x += 200
+    #check_set_node_loc(tree, ch.tb_crease_flip, loc)
 
     loc.x = save_x
 

@@ -1973,25 +1973,25 @@ def update_channel_alpha(self, context):
 
     yp.refresh_tree = True
 
-def update_disable_quick_toggle(self, context):
-    yp = self
-
-    for layer in yp.layers:
-        Layer.update_layer_enable(layer, context)
-
-        for mod in layer.modifiers:
-            Modifier.update_modifier_enable(mod, context)
-
-        for ch in layer.channels:
-            for mod in ch.modifiers:
-                Modifier.update_modifier_enable(mod, context)
-
-        for mask in layer.masks:
-            Mask.update_layer_mask_enable(mask, context)
-
-    for ch in yp.channels:
-        for mod in ch.modifiers:
-            Modifier.update_modifier_enable(mod, context)
+#def update_disable_quick_toggle(self, context):
+#    yp = self
+#
+#    for layer in yp.layers:
+#        Layer.update_layer_enable(layer, context)
+#
+#        for mod in layer.modifiers:
+#            Modifier.update_modifier_enable(mod, context)
+#
+#        for ch in layer.channels:
+#            for mod in ch.modifiers:
+#                Modifier.update_modifier_enable(mod, context)
+#
+#        for mask in layer.masks:
+#            Mask.update_layer_mask_enable(mask, context)
+#
+#    for ch in yp.channels:
+#        for mod in ch.modifiers:
+#            Modifier.update_modifier_enable(mod, context)
 
 def update_flip_backface(self, context):
 
@@ -2221,10 +2221,10 @@ class YPaint(bpy.types.PropertyGroup):
     #bake_folder = StringProperty(default='')
 
     # Disable quick toggle for better shader performance
-    disable_quick_toggle = BoolProperty(
-            name = 'Disable Quick Toggle',
-            description = 'Disable quick toggle to improve shader performance',
-            default=False, update=update_disable_quick_toggle)
+    #disable_quick_toggle = BoolProperty(
+    #        name = 'Disable Quick Toggle',
+    #        description = 'Disable quick toggle to improve shader performance',
+    #        default=False, update=update_disable_quick_toggle)
 
     #performance_mode = EnumProperty(
     #        name = 'Performance Mode',

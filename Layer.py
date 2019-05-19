@@ -34,23 +34,26 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     # Linear node
     #check_layer_image_linear_node(layer, source_tree)
 
+    #print(specific_ch.enable)
+
+    # Update transition related nodes
+    height_root_ch = get_root_height_channel(yp)
+    if height_root_ch:
+        ch_index = get_channel_index(height_root_ch)
+        height_ch = layer.channels[ch_index]
+        transition.check_transition_bump_nodes(layer, tree, height_ch, ch_index)
+
     # Channel nodes
     for i, ch in enumerate(layer.channels):
+        if specific_ch and specific_ch != ch: continue
         root_ch = yp.channels[i]
-
-        if ch.enable_transition_ramp:
-            transition.check_transition_ramp_nodes(tree, layer, ch)
-
-        if ch.enable_transition_ao:
-            bump_ch = get_transition_bump_channel(layer)
-            transition.check_transition_ao_nodes(tree, layer, ch, bump_ch)
 
         # Update layer ch blend type
         check_blend_type_nodes(root_ch, layer, ch)
 
-        # Normal related nodes created by it's normal map type
-        if root_ch.type == 'NORMAL':
-            check_channel_normal_map_nodes(tree, layer, root_ch, ch)
+        if root_ch.type != 'NORMAL': # Because normal map related nodes should already created
+            # Check mask mix nodes
+            check_mask_mix_nodes(layer, tree, specific_ch=ch)
 
 def channel_items(self, context):
     node = get_active_ypaint_node()
@@ -123,6 +126,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     # Halt rearrangements and reconnections until all nodes already created
     yp.halt_reconnect = True
+    #yp.halt_update = True
 
     # Get parent dict
     parent_dict = get_parent_dict(yp)
@@ -170,11 +174,6 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     yp.layers.move(last_index, index)
     layer = yp.layers[index] # Repoint to new index
-
-    # Remap other layers parent
-    #for i, lay in enumerate(yp.layers):
-    #    if i > index and lay.parent_idx != -1:
-    #        lay.parent_idx += 1
 
     # Remap parents
     for lay in yp.layers:
@@ -261,23 +260,6 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 mask_uv_name, mask_image, mask_vcol, mask_segment)
         mask.active_edit = True
 
-        #if mask_segment:
-        #    scale_x = mask_width/mask_image.size[0]
-        #    scale_y = mask_height/mask_image.size[1]
-
-        #    offset_x = scale_x * mask_segment.tile_x
-        #    offset_y = scale_y * mask_segment.tile_y
-
-        #    mapping = get_mask_mapping(mask)
-        #    if mapping:
-        #        mapping.scale[0] = scale_x
-        #        mapping.scale[1] = scale_y
-
-        #        mapping.translation[0] = offset_x
-        #        mapping.translation[1] = offset_y
-
-        #    refresh_temp_uv(obj, mask)
-
     # Fill channel layer props
     shortcut_created = False
     for i, ch in enumerate(layer.channels):
@@ -299,17 +281,11 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
         if add_rgb_to_intensity:
 
-            # If RGB to intensity is selected, bump base is better be 0.0
-            #if root_ch.type == 'NORMAL':
-            #    ch.bump_base_value = 0.0
-
             m = Modifier.add_new_modifier(ch, 'RGB_TO_INTENSITY')
             if channel_idx == i or channel_idx == -1:
                 col = (rgb_to_intensity_color[0], rgb_to_intensity_color[1], rgb_to_intensity_color[2], 1)
                 mod_tree = get_mod_tree(m)
                 m.rgb2i_col = col
-                #rgb2i = mod_tree.nodes.get(m.rgb2i)
-                #rgb2i.inputs[2].default_value = col
 
             if ch.enable and root_ch.type == 'RGB' and not shortcut_created:
                 m.shortcut = True
@@ -326,6 +302,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     # Unhalt rearrangements and reconnections since all nodes already created
     yp.halt_reconnect = False
+    #yp.halt_update = False
 
     # Rearrange node inside layers
     rearrange_layer_nodes(layer)
@@ -1869,7 +1846,9 @@ class YReplaceLayerType(bpy.types.Operator):
         return {'FINISHED'}
 
 def update_channel_enable(self, context):
+    T = time.time()
     yp = self.id_data.yp
+    wm = context.window_manager
 
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     ch_index = int(m.group(2))
@@ -1879,29 +1858,42 @@ def update_channel_enable(self, context):
 
     tree = get_tree(layer)
 
-    mute = not layer.enable or not ch.enable
+    #if yp.disable_quick_toggle:
+    check_all_layer_channel_io_and_nodes(layer, tree, ch)
 
-    blend = tree.nodes.get(ch.blend)
-    if blend:
-        if yp.disable_quick_toggle:
-            blend.mute = mute
-        else: blend.mute = False
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
-    if root_ch.type == 'NORMAL':
-        height_blend = tree.nodes.get(ch.height_blend)
-        if height_blend:
-            if yp.disable_quick_toggle:
-                height_blend.mute = mute
-            else: height_blend.mute = False
+    rearrange_yp_nodes(self.id_data)
+    reconnect_yp_nodes(self.id_data)
 
-        for d in neighbor_directions:
-            hb = tree.nodes.get(getattr(ch, 'height_blend_' + d))
-            if hb:
-                if yp.disable_quick_toggle:
-                    hb.mute = mute
-                else: hb.mute = False
+    #print(ch.enable)
 
-    update_channel_intensity_value(ch, context)
+    #return
+
+    #mute = not layer.enable or not ch.enable
+
+    #blend = tree.nodes.get(ch.blend)
+    #if blend:
+    #    if yp.disable_quick_toggle:
+    #        blend.mute = mute
+    #    else: blend.mute = False
+
+    #if root_ch.type == 'NORMAL':
+    #    height_blend = tree.nodes.get(ch.height_blend)
+    #    if height_blend:
+    #        if yp.disable_quick_toggle:
+    #            height_blend.mute = mute
+    #        else: height_blend.mute = False
+
+    #    for d in neighbor_directions:
+    #        hb = tree.nodes.get(getattr(ch, 'height_blend_' + d))
+    #        if hb:
+    #            if yp.disable_quick_toggle:
+    #                hb.mute = mute
+    #            else: hb.mute = False
+
+    #update_channel_intensity_value(ch, context)
 
     #if root_ch.type == 'NORMAL':
     #    transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
@@ -1909,6 +1901,9 @@ def update_channel_enable(self, context):
         #need_reconnect = check_extra_alpha(layer)
         #if need_reconnect:
         #    pass
+
+    print('INFO: Channel', root_ch.name, ' of ' + layer.name + ' is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    wm.yptimer.time = str(time.time())
 
 def update_normal_map_type(self, context):
     yp = self.id_data.yp
@@ -1928,6 +1923,7 @@ def update_blend_type(self, context):
 
     wm = context.window_manager
     yp = self.id_data.yp
+    if yp.halt_update: return
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
     ch_index = int(m.group(2))
@@ -2087,7 +2083,7 @@ def update_uv_name(self, context):
 
     # Update neighbor uv if mask bump is active
     for i, mask in enumerate(layer.masks):
-        if set_mask_uv_neighbor(tree, layer, mask):
+        if set_mask_uv_neighbor(tree, layer, mask, i):
             layer_dirty = True
 
     # Update layer tree inputs
@@ -2168,17 +2164,25 @@ def update_channel_intensity_value(self, context):
             tb_crease_intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
     if root_ch.type == 'NORMAL':
-        transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
+        #transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
+        update_displacement_height_ratio(root_ch)
 
 def update_layer_enable(self, context):
+    T = time.time()
     yp = self.id_data.yp
     layer = self
     tree = get_tree(layer)
 
-    for ch in layer.channels:
-        update_channel_enable(ch, context)
+    #for ch in layer.channels:
+    #    update_channel_enable(ch, context)
+
+    #if yp.disable_quick_toggle:
+    rearrange_yp_nodes(layer.id_data)
+    reconnect_yp_nodes(layer.id_data)
 
     context.window_manager.yptimer.time = str(time.time())
+
+    print('INFO: Layer', layer.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_layer_name(self, context):
     yp = self.id_data.yp
@@ -2248,35 +2252,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
     blend = StringProperty(default='')
     intensity = StringProperty(default='')
     source = StringProperty(default='')
-
     extra_alpha = StringProperty(default='')
 
-    #intensity_height = StringProperty(default='')
-    #intensity_height_n = StringProperty(default='')
-    #intensity_height_s = StringProperty(default='')
-    #intensity_height_e = StringProperty(default='')
-    #intensity_height_w = StringProperty(default='')
-
-    #blend_height = StringProperty(default='')
-    #blend_height_n = StringProperty(default='')
-    #blend_height_s = StringProperty(default='')
-    #blend_height_e = StringProperty(default='')
-    #blend_height_w = StringProperty(default='')
-
-    # Normal related
-    #normal_map = StringProperty(default='')
-    normal_process = StringProperty(default='')
-    normal_flip = StringProperty(default='')
-
     # Height related
-    height_process = StringProperty(default='')
-
-    #height_process_temp = StringProperty(default='')
-    #height_process_n = StringProperty(default='')
-    #height_process_s = StringProperty(default='')
-    #height_process_e = StringProperty(default='')
-    #height_process_w = StringProperty(default='')
-
     height_proc = StringProperty(default='')
     height_blend = StringProperty(default='')
     height_blend_n = StringProperty(default='')
@@ -2284,24 +2262,16 @@ class YLayerChannel(bpy.types.PropertyGroup):
     height_blend_e = StringProperty(default='')
     height_blend_w = StringProperty(default='')
 
+    # Normal related
     normal_proc = StringProperty(default='')
-    normal_blend = StringProperty(default='')
-
-    # Displacement blend
-    disp_scale = StringProperty(default='')
-    disp_blend = StringProperty(default='')
+    #normal_blend = StringProperty(default='')
+    normal_flip = StringProperty(default='')
 
     bump_distance = FloatProperty(
             name='Bump Height Range', 
             description= 'Bump height range.\n(White equals this value, black equals negative of this value)', 
             default=0.05, min=-1.0, max=1.0, precision=3, # step=1,
             update=update_bump_distance)
-
-    #bump_base_value = FloatProperty(
-    #        name='Bump Base', 
-    #        description= 'Value of empty area for bump map', 
-    #        default=0.5, min=0.0, max=1.0,
-    #        update=update_bump_base_value)
 
     write_height = BoolProperty(
             name = 'Write Height',
@@ -2316,13 +2286,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     mod_e = StringProperty(default='')
     mod_w = StringProperty(default='')
 
-    # Bump bases
-    #bump_base = StringProperty(default='')
-    #bump_base_n = StringProperty(default='')
-    #bump_base_s = StringProperty(default='')
-    #bump_base_e = StringProperty(default='')
-    #bump_base_w = StringProperty(default='')
-
+    # Spread alpha hack nodes
     spread_alpha = StringProperty(default='')
     spread_alpha_n = StringProperty(default='')
     spread_alpha_s = StringProperty(default='')
@@ -2359,16 +2323,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
             description= 'Transition bump height range.\n(White equals this value, black equals negative of this value)', 
             default=0.05, min=0.0, max=1.0, precision=3, # step=1,
             update=transition.update_transition_bump_distance)
-
-    transition_bump_type = EnumProperty(
-            name = 'Bump Type',
-            items = (
-                ('BUMP_MAP', 'Bump', ''),
-                #('FINE_BUMP_MAP', 'Fine Bump', ''),
-                ('CURVED_BUMP_MAP', 'Curved Bump', ''),
-                ),
-            default = 'BUMP_MAP',
-            update=transition.update_enable_transition_bump)
 
     transition_bump_chain = IntProperty(
             name = 'Transition bump chain',
@@ -2441,7 +2395,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     tb_bump_flip = StringProperty(default='')
     tb_inverse = StringProperty(default='')
     tb_intensity_multiplier = StringProperty(default='')
-    tb_blend = StringProperty(default='')
+    #tb_blend = StringProperty(default='')
 
     tb_falloff = StringProperty(default='')
     tb_falloff_n = StringProperty(default='')
@@ -2449,10 +2403,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
     tb_falloff_e = StringProperty(default='')
     tb_falloff_w = StringProperty(default='')
 
-    tb_crease = StringProperty(default='')
-    tb_crease_flip = StringProperty(default='')
-    tb_crease_intensity = StringProperty(default='')
-    tb_crease_mix = StringProperty(default='')
+    #tb_crease = StringProperty(default='')
+    #tb_crease_flip = StringProperty(default='')
+    #tb_crease_intensity = StringProperty(default='')
+    #tb_crease_mix = StringProperty(default='')
 
     # Transition ramp related
     enable_transition_ramp = BoolProperty(name='Enable Transition Ramp', description='Enable alpha transition ramp', 

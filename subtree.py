@@ -59,7 +59,6 @@ def enable_layer_source_tree(layer, rearrange=False):
         # Get current source for reference
         source_ref = layer_tree.nodes.get(layer.source)
         mapping_ref = layer_tree.nodes.get(layer.mapping)
-        linear_ref = layer_tree.nodes.get(layer.linear)
 
         # Create source tree
         source_tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + layer.name + ' Source', 'ShaderNodeTree')
@@ -77,10 +76,6 @@ def enable_layer_source_tree(layer, rearrange=False):
         mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
 
-        if linear_ref: 
-            linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGroup')
-            linear.node_tree = linear_ref.node_tree
-
         # Create source node group
         source_group = new_node(layer_tree, layer, 'source_group', 'ShaderNodeGroup', 'source_group')
         source_n = new_node(layer_tree, layer, 'source_n', 'ShaderNodeGroup', 'source_n')
@@ -97,7 +92,6 @@ def enable_layer_source_tree(layer, rearrange=False):
         # Remove previous source
         layer_tree.nodes.remove(source_ref)
         if mapping_ref: layer_tree.nodes.remove(mapping_ref)
-        if linear_ref: layer_tree.nodes.remove(linear_ref)
     
         # Bring modifiers to source tree
         if layer.type == 'IMAGE':
@@ -126,24 +120,16 @@ def enable_layer_source_tree(layer, rearrange=False):
 
 def disable_layer_source_tree(layer, rearrange=True):
 
-    #if layer.type == 'VCOL': return
-
     yp = layer.id_data.yp
 
     # Check if fine bump map is used on some of layer channels
-    fine_bump_found = False
-    #blur_found = False
-    #for i, ch in enumerate(layer.channels):
-    #    if yp.channels[i].type == 'NORMAL' and (ch.normal_map_type == 'FINE_BUMP_MAP' 
-    #            or (ch.enable_transition_bump and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})):
-    #        fine_bump_found = True
-    #    #if hasattr(ch, 'enable_blur') and ch.enable_blur:
-    #    #    blur_found =True
-    for root_ch in yp.channels:
-        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-            fine_bump_found = True
+    smooth_bump_ch = None
+    for i, root_ch in enumerate(yp.channels):
+        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and layer.channels[i].enable:
+            smooth_bump_ch = root_ch
 
-    if (layer.type != 'VCOL' and layer.source_group == '') or fine_bump_found: return #or blur_found: return
+    if (layer.type != 'VCOL' and layer.source_group == '') or smooth_bump_ch:
+        return
 
     layer_tree = get_tree(layer)
 
@@ -151,7 +137,6 @@ def disable_layer_source_tree(layer, rearrange=True):
         source_group = layer_tree.nodes.get(layer.source_group)
         source_ref = source_group.node_tree.nodes.get(layer.source)
         mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
-        linear_ref = source_group.node_tree.nodes.get(layer.linear)
 
         # Create new source
         source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
@@ -159,10 +144,6 @@ def disable_layer_source_tree(layer, rearrange=True):
 
         mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
-
-        if linear_ref: 
-            linear = new_node(layer_tree, layer, 'linear', 'ShaderNodeGroup')
-            linear.node_tree = linear_ref.node_tree
 
         # Bring back layer modifier to original tree
         if layer.type == 'IMAGE':
@@ -187,97 +168,38 @@ def disable_layer_source_tree(layer, rearrange=True):
         # Rearrange nodes
         rearrange_layer_nodes(layer)
 
-def set_mask_uv_neighbor(tree, layer, mask):
+def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 
     yp = layer.id_data.yp
 
-    # NOTE: Checking transition bump everytime this function called is not that tidy
-    # Check if transition bump channel is available
-    bump_ch = get_transition_bump_channel(layer)
-    #if bump_ch and bump_ch.transition_bump_type == 'BUMP_MAP':
-    #    #return False
-    #    bump_ch = None
+    # Check if smooth bump channel is available
+    smooth_bump_ch = get_smooth_bump_channel(layer)
 
-    smooth_chs = get_smooth_bump_channels(layer)
+    # Get channel that write height
+    write_height_ch = get_write_height_normal_channel(layer)
 
-    if not bump_ch:
-        bump_ch = smooth_chs[0]
-
-    # Check transition bump chain
-    if not any(smooth_chs) and bump_ch:
+    # Get mask index
+    if mask_idx == -1:
         match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
         mask_idx = int(match.group(2))
 
-        chain = get_bump_chain(layer, bump_ch)
-        if mask_idx >= chain:
-            return False
+    # Get chain
+    chain = get_bump_chain(layer)
 
-    dirty = False
+    if smooth_bump_ch and smooth_bump_ch.enable and (write_height_ch or mask_idx < chain):
 
-    uv_neighbor = tree.nodes.get(mask.uv_neighbor)
-    if not uv_neighbor:
-        uv_neighbor = new_node(tree, mask, 'uv_neighbor', 'ShaderNodeGroup', 'Mask UV Neighbor')
-        dirty = True
+        if mask.type == 'VCOL': 
+            lib_name = lib.NEIGHBOR_FAKE
+        else: lib_name = lib.get_neighbor_uv_tree_name(mask.texcoord_type, entity=mask)
 
-    if mask.type == 'VCOL':
-        uv_neighbor.node_tree = get_node_tree_lib(lib.NEIGHBOR_FAKE)
-    else:
-
-        #different_uv = mask.texcoord_type == 'UV' and layer.uv_name != mask.uv_name
-
-        # Check number of input
-        prev_num_inputs = len(uv_neighbor.inputs)
-
-        # Get new uv neighbor tree
-        #uv_neighbor.node_tree = lib.get_neighbor_uv_tree(mask.texcoord_type, different_uv, entity=mask)
-        uv_neighbor.node_tree = lib.get_neighbor_uv_tree(mask.texcoord_type, entity=mask)
-
-        # Check current number of input
-        cur_num_inputs = len(uv_neighbor.inputs)
-
-        # Need reconnect of number of inputs different
-        if prev_num_inputs != cur_num_inputs:
-            dirty = True
+        uv_neighbor, dirty = replace_new_node(tree, mask, 'uv_neighbor', 
+                'ShaderNodeGroup', 'Spread Alpha Hack', lib_name, return_status=True, hard_replace=True)
 
         set_uv_neighbor_resolution(mask, uv_neighbor)
 
-        #if different_uv:
-        #    tangent = tree.nodes.get(mask.tangent)
-        #    tangent_flip = tree.nodes.get(mask.tangent_flip)
-        #    bitangent = tree.nodes.get(mask.bitangent)
-        #    bitangent_flip = tree.nodes.get(mask.bitangent_flip)
+        return dirty
 
-        #    if not tangent:
-        #        tangent = new_node(tree, mask, 'tangent', 'ShaderNodeNormalMap', 'Tangent')
-        #        tangent.inputs[1].default_value = (1.0, 0.5, 0.5, 1.0)
-        #        dirty = True
-
-        #    if not tangent_flip:
-        #        tangent_flip = new_node(tree, mask, 'tangent_flip', 'ShaderNodeGroup', 'Tangent Backface Flip')
-        #        tangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_TANGENT)
-
-        #        set_tangent_backface_flip(tangent_flip, yp.enable_backface_always_up)
-
-        #    if not bitangent:
-        #        bitangent = new_node(tree, mask, 'bitangent', 'ShaderNodeNormalMap', 'Bitangent')
-        #        bitangent.inputs[1].default_value = (0.5, 1.0, 0.5, 1.0)
-        #        dirty = True
-
-        #    if not bitangent_flip:
-        #        bitangent_flip = new_node(tree, mask, 'bitangent_flip', 'ShaderNodeGroup', 'Bitangent Backface Flip')
-        #        bitangent_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_BITANGENT)
-
-        #        set_bitangent_backface_flip(bitangent_flip, yp.enable_backface_always_up)
-
-        #    tangent.uv_map = mask.uv_name
-        #    bitangent.uv_map = mask.uv_name
-        #else:
-        #    remove_node(tree, mask, 'tangent')
-        #    remove_node(tree, mask, 'bitangent')
-        #    remove_node(tree, mask, 'tangent_flip')
-        #    remove_node(tree, mask, 'bitangent_flip')
-
-    return dirty
+    return False
 
 def enable_mask_source_tree(layer, mask, reconnect = False):
 
@@ -286,11 +208,15 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
     layer_tree = get_tree(layer)
 
+    # Create uv neighbor
+    set_mask_uv_neighbor(layer_tree, layer, mask)
+
+    #return
+
     if mask.type != 'VCOL':
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
         mapping_ref = layer_tree.nodes.get(mask.mapping)
-        linear_ref = layer_tree.nodes.get(mask.linear)
 
         # Create mask tree
         mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
@@ -301,21 +227,15 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         mask_tree.outputs.new('NodeSocketFloat', 'Value')
 
         create_essential_nodes(mask_tree)
-        #start = mask_tree.nodes.new('NodeGroupInput')
-        #start.name = TREE_START
-        #end = mask_tree.nodes.new('NodeGroupOutput')
-        #end.name = TREE_END
 
         # Copy nodes from reference
-        source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)
+        #source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)
+        source = new_node(mask_tree, mask, 'source', 'ShaderNodeTexImage')
         copy_node_props(source_ref, source)
+        #source.image = source_ref.image
 
         mapping = new_node(mask_tree, mask, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
-
-        if linear_ref: 
-            linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGroup')
-            linear.node_tree = linear_ref.node_tree
 
         # Create source node group
         group_node = new_node(layer_tree, mask, 'group_node', 'ShaderNodeGroup', 'source_group')
@@ -336,10 +256,6 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         # Remove previous nodes
         layer_tree.nodes.remove(source_ref)
         if mapping_ref: layer_tree.nodes.remove(mapping_ref)
-        if linear_ref: layer_tree.nodes.remove(linear_ref)
-
-    # Create uv neighbor
-    set_mask_uv_neighbor(layer_tree, layer, mask)
 
     if reconnect:
         # Reconnect outside nodes
@@ -361,7 +277,6 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
 
         source_ref = mask_tree.nodes.get(mask.source)
         mapping_ref = mask_tree.nodes.get(mask.mapping)
-        linear_ref = mask_tree.nodes.get(mask.linear)
         group_node = layer_tree.nodes.get(mask.group_node)
 
         # Create new nodes
@@ -370,10 +285,6 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
 
         mapping = new_node(layer_tree, mask, 'mapping', 'ShaderNodeMapping')
         if mapping_ref: copy_node_props(mapping_ref, mapping)
-
-        if linear_ref: 
-            linear = new_node(layer_tree, mask, 'linear', 'ShaderNodeGroup')
-            linear.node_tree = linear_ref.node_tree
 
         for mod in mask.modifiers:
             MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)
@@ -401,7 +312,8 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
 def check_create_spread_alpha(layer, tree, root_ch, ch):
 
     skip = False
-    if layer.type in {'BACKGROUND', 'GROUP'}: #or is_valid_to_remove_bump_nodes(layer, ch):
+    #if layer.type in {'BACKGROUND', 'GROUP'}: #or is_valid_to_remove_bump_nodes(layer, ch):
+    if layer.type != 'IMAGE':
         skip = True
 
     if not skip and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
@@ -422,115 +334,50 @@ def check_create_spread_alpha(layer, tree, root_ch, ch):
     #for d in neighbor_directions:
     #    remove_node(tree, ch, 'bump_base_' + d)
 
-def save_transition_bump_falloff_cache(tree, ch):
-    tb_falloff = tree.nodes.get(ch.tb_falloff)
-
-    if (
-            (ch.transition_bump_falloff_type != 'CURVE' or not ch.transition_bump_falloff or 
-                not ch.enable_transition_bump or not ch.enable) and 
-            check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE)):
-        cache = tree.nodes.get(ch.cache_falloff_curve)
-        if not cache:
-            cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
-        curve_ref = tb_falloff.node_tree.nodes.get('_curve')
-        copy_node_props(curve_ref, cache)
-
-def check_transition_bump_falloff(layer, tree, trans_bump, trans_bump_flip):
-
-    yp = layer.id_data.yp
-
-    # Transition bump falloff
-    for i, ch in enumerate(layer.channels):
-
-        root_ch = yp.channels[i]
-
-        if ch != trans_bump: continue
-
-        save_transition_bump_falloff_cache(tree, ch)
-
-        if ch.transition_bump_falloff:
-
-            # Emulated curve without actual curve
-            if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
-                tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
-                        lib.EMULATED_CURVE, hard_replace=True)
-                tb_falloff.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
-
-            elif ch.transition_bump_falloff_type == 'CURVE':
-                tb_falloff = tree.nodes.get(ch.tb_falloff)
-                if not check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
-
-                    # Check cached curve
-                    cache = tree.nodes.get(ch.cache_falloff_curve)
-
-                    tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
-                            lib.FALLOFF_CURVE, hard_replace=True)
-                    duplicate_lib_node_tree(tb_falloff)
-
-                    if cache:
-                        curve = tb_falloff.node_tree.nodes.get('_curve')
-                        copy_node_props(cache, curve)
-                        remove_node(tree, ch, 'cache_falloff_curve')
-
-                inv0 = tb_falloff.node_tree.nodes.get('_inverse_0')
-                inv1 = tb_falloff.node_tree.nodes.get('_inverse_1')
-                inv0.mute = not ch.transition_bump_flip
-                inv1.mute = not ch.transition_bump_flip
-
-        else:
-            remove_node(tree, ch, 'tb_falloff')
-
-        if ch.transition_bump_falloff and root_ch.enable_smooth_bump:
-            for d in neighbor_directions:
-
-                if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
-                    tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
-                            lib.EMULATED_CURVE, hard_replace=True)
-                    tbf.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
-
-                elif ch.transition_bump_falloff_type == 'CURVE':
-                    tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
-                            tb_falloff.node_tree.name, hard_replace=True)
-        else:
-            for d in neighbor_directions:
-                remove_node(tree, ch, 'tb_falloff_' + d)
-
-def check_mask_mix_nodes(layer, tree=None):
+def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None):
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
 
     trans_bump = get_transition_bump_channel(layer)
+    trans_bump_flip = trans_bump.transition_bump_flip if trans_bump else False
 
-    trans_bump_flip = False
-    if trans_bump:
-        trans_bump_flip = trans_bump.transition_bump_flip #or layer.type == 'BACKGROUND'
-
-        # Update transition bump falloff
-        check_transition_bump_falloff(layer, tree, trans_bump, trans_bump_flip)
+    chain = get_bump_chain(layer)
 
     for i, mask in enumerate(layer.masks):
+        if specific_mask and mask != specific_mask: continue
+
         for j, c in enumerate(mask.channels):
 
             ch = layer.channels[j]
             root_ch = yp.channels[j]
 
-            mute = not c.enable or not mask.enable or not layer.enable_masks
+            if specific_ch and ch != specific_ch: continue
 
-            if root_ch.type == 'NORMAL' and not trans_bump:
-                chain = min(ch.transition_bump_chain, len(layer.masks))
-            elif trans_bump:
-                chain = min(trans_bump.transition_bump_chain, len(layer.masks))
-            else: chain = -1
+            #if yp.disable_quick_toggle and not ch.enable:
+            if not ch.enable or not layer.enable_masks or not mask.enable or not c.enable:
+                remove_node(tree, c, 'mix')
+                remove_node(tree, c, 'mix_n')
+                if root_ch.type == 'NORMAL':
+                    remove_node(tree, c, 'mix_s')
+                    remove_node(tree, c, 'mix_e')
+                    remove_node(tree, c, 'mix_w')
+                    remove_node(tree, c, 'mix_pure')
+                    remove_node(tree, c, 'mix_remains')
+                    remove_node(tree, c, 'mix_normal')
+                continue
+
+            #if root_ch.type == 'NORMAL' and not trans_bump:
+            #    chain = min(ch.transition_bump_chain, len(layer.masks))
+            #elif trans_bump:
+            #    chain = min(trans_bump.transition_bump_chain, len(layer.masks))
+            #else: chain = -1
 
             mix = tree.nodes.get(c.mix)
             if not mix:
                 mix = new_node(tree, c, 'mix', 'ShaderNodeMixRGB', 'Mask Blend')
                 mix.blend_type = mask.blend_type
-                mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-                if yp.disable_quick_toggle:
-                    mix.mute = mute
-                else: mix.mute = False
+                mix.inputs[0].default_value = mask.intensity_value
 
             if root_ch.type == 'NORMAL':
 
@@ -539,10 +386,7 @@ def check_mask_mix_nodes(layer, tree=None):
                     if not mix_pure:
                         mix_pure = new_node(tree, c, 'mix_pure', 'ShaderNodeMixRGB', 'Mask Blend Pure')
                         mix_pure.blend_type = mask.blend_type
-                        mix_pure.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-                        if yp.disable_quick_toggle:
-                            mix_pure.mute = mute
-                        else: mix_pure.mute = False
+                        mix_pure.inputs[0].default_value = mask.intensity_value
 
                 else:
                     remove_node(tree, c, 'mix_pure')
@@ -556,10 +400,7 @@ def check_mask_mix_nodes(layer, tree=None):
                     if not mix_remains:
                         mix_remains = new_node(tree, c, 'mix_remains', 'ShaderNodeMixRGB', 'Mask Blend Remaining')
                         mix_remains.blend_type = mask.blend_type
-                        mix_remains.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-                        if yp.disable_quick_toggle:
-                            mix_remains.mute = mute
-                        else: mix_remains.mute = False
+                        mix_remains.inputs[0].default_value = mask.intensity_value
                 else:
                     remove_node(tree, c, 'mix_remains')
 
@@ -578,27 +419,8 @@ def check_mask_mix_nodes(layer, tree=None):
                         if not mix:
                             mix = new_node(tree, c, 'mix_' + d, 'ShaderNodeMixRGB', 'Mask Blend ' + d)
                             mix.blend_type = mask.blend_type
-                            mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-                            if yp.disable_quick_toggle:
-                                mix.mute = mute
-                            else: mix.mute = False
+                            mix.inputs[0].default_value = mask.intensity_value
 
-                #elif i >= chain and (
-                #        (not trans_bump_flip and ch.transition_bump_crease) #or 
-                #        #ch.normal_map_type == 'BUMP_MAP'
-                #        ):
-
-                #    mix_n = tree.nodes.get(c.mix_n)
-                #    if not mix_n:
-                #        mix_n = new_node(tree, c, 'mix_n', 'ShaderNodeMixRGB', 'Mask Blend n')
-                #        mix_n.blend_type = mask.blend_type
-                #        mix_n.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-                #        if yp.disable_quick_toggle:
-                #            mix_n.mute = mute
-                #        else: mix_n.mute = False
-
-                #    for d in ['s', 'e', 'w']:
-                #        remove_node(tree, c, 'mix_' + d)
                 else:
                     for d in neighbor_directions:
                         remove_node(tree, c, 'mix_' + d)
@@ -608,10 +430,7 @@ def check_mask_mix_nodes(layer, tree=None):
                     if not mix_normal:
                         mix_normal = new_node(tree, c, 'mix_normal', 'ShaderNodeMixRGB', 'Mask Normal')
                         mix_normal.blend_type = mask.blend_type
-                        mix_normal.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-                        if yp.disable_quick_toggle:
-                            mix_normal.mute = mute
-                        else: mix_normal.mute = False
+                        mix_normal.inputs[0].default_value = mask.intensity_value
                 else:
                     remove_node(tree, c, 'mix_normal')
 
@@ -626,57 +445,24 @@ def check_mask_mix_nodes(layer, tree=None):
                     if not mix_n:
                         mix_n = new_node(tree, c, 'mix_n', 'ShaderNodeMixRGB', 'Mask Blend n')
                         mix_n.blend_type = mask.blend_type
-                        mix_n.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-                        if yp.disable_quick_toggle:
-                            mix_n.mute = mute
-                        else: mix_n.mute = False
+                        mix_n.inputs[0].default_value = mask.intensity_value
                 else:
                     remove_node(tree, c, 'mix_n')
 
-def check_mask_source_tree(layer): #, ch=None):
+def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
 
     yp = layer.id_data.yp
 
-    smooth_bump_chs = get_smooth_bump_channels(layer)
-    write_height_chs = get_write_height_normal_channels(layer)
-
-    if any(smooth_bump_chs):
-        chain = get_bump_chain(layer)
-    else: chain = -1
+    smooth_bump_ch = get_smooth_bump_channel(layer)
+    write_height_ch = get_write_height_normal_channel(layer)
+    chain = get_bump_chain(layer)
 
     for i, mask in enumerate(layer.masks):
-        if any(smooth_bump_chs) and (any(write_height_chs) or i < chain):
+        if specific_mask and specific_mask != mask: continue
+
+        if smooth_bump_ch and smooth_bump_ch.enable and (write_height_ch or i < chain):
             enable_mask_source_tree(layer, mask)
-        else:
-            disable_mask_source_tree(layer, mask)
-
-    ## Try to get transition bump
-    #trans_bump = get_transition_bump_channel(layer)
-
-    ## Try to get fine bump if transition bump is not found
-    #fine_bump = None
-    #if not trans_bump:
-    #    chs = [c for i,c in enumerate(layer.channels) 
-    #            if c.normal_map_type == 'FINE_BUMP_MAP' and yp.channels[i].type == 'NORMAL']
-    #    if chs: fine_bump = chs[0]
-
-    #if trans_bump:
-    #    chain = min(trans_bump.transition_bump_chain, len(layer.masks))
-    #elif fine_bump:
-    #    chain = min(fine_bump.transition_bump_chain, len(layer.masks))
-    #else: chain = -1
-
-    #for i, mask in enumerate(layer.masks):
-
-    #    if (
-    #        (trans_bump and trans_bump.write_height) or
-    #        (fine_bump and fine_bump.write_height) or
-    #        (((trans_bump and trans_bump.transition_bump_type != 'BUMP_MAP') or fine_bump) and i < chain)
-
-    #        ):
-    #        enable_mask_source_tree(layer, mask)
-    #    else:
-    #        disable_mask_source_tree(layer, mask)
+        else: disable_mask_source_tree(layer, mask)
 
 def remove_tangent_sign_vcol(obj, uv_name):
     vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
@@ -1268,6 +1054,8 @@ def check_layer_tree_ios(layer, tree=None):
     
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
+        #if yp.disable_quick_toggle and not ch.enable: continue
+        if not ch.enable: continue
         root_ch = yp.channels[i]
 
         dirty = create_input(tree, root_ch.name, channel_socket_input_bl_idnames[root_ch.type], 
@@ -1330,6 +1118,9 @@ def check_layer_tree_ios(layer, tree=None):
     if layer.type in {'BACKGROUND', 'GROUP'}:
 
         for i, ch in enumerate(layer.channels):
+            #if yp.disable_quick_toggle and not ch.enable: continue
+            if not ch.enable: continue
+
             root_ch = yp.channels[i]
 
             name = root_ch.name + io_suffix[layer.type]
@@ -1346,7 +1137,6 @@ def check_layer_tree_ios(layer, tree=None):
                 index += 1
 
             # Displacement Input
-            #if root_ch.enable_parallax:
             if root_ch.type == 'NORMAL' and layer.type == 'GROUP':
 
                 name = root_ch.name + io_suffix['HEIGHT'] + io_suffix[layer.type]
@@ -1380,6 +1170,7 @@ def check_layer_tree_ios(layer, tree=None):
 
     # Check height root channel
     height_root_ch = get_root_height_channel(yp)
+    height_ch = get_height_channel(layer)
     if height_root_ch and height_root_ch.main_uv != '' and height_root_ch.main_uv not in uv_names:
         uv_names.append(height_root_ch.main_uv)
 
@@ -1398,13 +1189,16 @@ def check_layer_tree_ios(layer, tree=None):
         dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
         index += 1
 
-        name = uv_name + io_suffix['TANGENT']
-        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-        index += 1
+        #if height_ch and not (yp.disable_quick_toggle and not height_ch.enable):
+        if height_ch and height_ch.enable:
 
-        name = uv_name + io_suffix['BITANGENT']
-        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-        index += 1
+            name = uv_name + io_suffix['TANGENT']
+            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+            index += 1
+
+            name = uv_name + io_suffix['BITANGENT']
+            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
+            index += 1
 
     # Other than uv texcoord name container
     texcoords = []
@@ -1422,48 +1216,6 @@ def check_layer_tree_ios(layer, tree=None):
         dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
         index += 1
 
-    # Texcoord IO
-    #name = layer.uv_name + io_suffix['UV']
-    #dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    #index += 1
-
-    #name = layer.uv_name + io_suffix['TANGENT']
-    #dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    #index += 1
-
-    #name = layer.uv_name + io_suffix['BITANGENT']
-    #dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    #index += 1
-
-    #texcoords = ['UV']
-    #if layer.texcoord_type != 'UV':
-    #    name = io_names[layer.texcoord_type]
-    #    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    #    index += 1
-    #    texcoords.append(layer.texcoord_type)
-
-    #for mask in layer.masks:
-    #    if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names:
-    #        name = mask.uv_name + io_suffix['UV']
-    #        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    #        index += 1
-
-    #        name = mask.uv_name + io_suffix['TANGENT']
-    #        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    #        index += 1
-
-    #        name = mask.uv_name + io_suffix['BITANGENT']
-    #        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    #        index += 1
-
-    #        uv_names.append(mask.uv_name)
-
-    #    elif mask.texcoord_type not in texcoords:
-    #        name = io_names[mask.texcoord_type]
-    #        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, index, dirty)
-    #        index += 1
-    #        texcoords.append(mask.texcoord_type)
-
     # Check for invalid io
     for inp in tree.inputs:
         if inp not in valid_inputs:
@@ -1476,46 +1228,69 @@ def check_layer_tree_ios(layer, tree=None):
     return dirty
 
 def update_disp_scale_node(tree, root_ch, ch):
-
-    #if ch.enable_transition_bump:
-    #    disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
-    #            'ShaderNodeGroup', 'Displacement Scale', lib.HEIGHT_SCALE_TRANS_BUMP, 
-    #            return_status = True, hard_replace=True)
-
-    #    disp_scale.inputs['Delta'].default_value = get_transition_disp_delta(ch)
-    #    disp_scale.inputs['RGB Max Height'].default_value = ch.bump_distance
-    #    disp_scale.inputs['Alpha Max Height'].default_value = get_transition_bump_max_distance(ch)
-    #    disp_scale.inputs['Total Max Height'].default_value = get_layer_channel_max_height(layer, ch)
-
-    #else:
-    #    disp_scale, need_reconnect = replace_new_node(tree, ch, 'disp_scale', 
-    #            'ShaderNodeGroup', 'Displacement Scale', lib.HEIGHT_SCALE, 
-    #            return_status = True, hard_replace=True)
-
-    #    disp_scale.inputs['Scale'].default_value = ch.bump_distance #/ max_height
-
-    #max_height = get_displacement_max_height(root_ch)
-    #root_ch.displacement_height_ratio = max_height
     update_displacement_height_ratio(root_ch)
+
+def remove_layer_normal_channel_nodes(root_ch, layer, ch, tree=None):
+
+    if not tree: tree = get_tree(layer)
+
+    # Remove neighbor related nodes
+    if root_ch.enable_smooth_bump:
+        disable_layer_source_tree(layer, False)
+        Modifier.disable_modifiers_tree(ch, False)
+
+    remove_node(tree, ch, 'spread_alpha')
+    remove_node(tree, ch, 'spread_alpha_n')
+    remove_node(tree, ch, 'spread_alpha_s')
+    remove_node(tree, ch, 'spread_alpha_e')
+    remove_node(tree, ch, 'spread_alpha_w')
+
+    remove_node(tree, ch, 'height_proc')
+    remove_node(tree, ch, 'height_blend')
+    remove_node(tree, ch, 'height_blend_n')
+    remove_node(tree, ch, 'height_blend_s')
+    remove_node(tree, ch, 'height_blend_e')
+    remove_node(tree, ch, 'height_blend_w')
+
+    remove_node(tree, ch, 'normal_proc')
+    remove_node(tree, ch, 'normal_flip')
 
 def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=False):
 
     #print("Checking channel normal map nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
 
     yp = layer.id_data.yp
-    #if yp.halt_update: return
 
-    if root_ch.type != 'NORMAL': return False
-    #if layer.type in {'BACKGROUND', 'GROUP'}: return False
-    #if layer.type in {'BACKGROUND'}: return False
+    if root_ch.type != 'NORMAL': return need_reconnect
 
-    mute = not layer.enable or not ch.enable
+    # Check mask source tree
+    check_mask_source_tree(layer) #, ch)
 
-    #max_height = get_layer_channel_max_height(layer, ch)
+    # Check mask mix nodes
+    check_mask_mix_nodes(layer, tree)
+
+    # Return if channel is disabled
+    if not ch.enable:
+        remove_layer_normal_channel_nodes(root_ch, layer, ch, tree)
+
+        return need_reconnect
+
+    # Check spread alpha if its needed
+    check_create_spread_alpha(layer, tree, root_ch, ch)
+
+    # Remove neighbor related nodes
+    if root_ch.enable_smooth_bump:
+        enable_layer_source_tree(layer)
+        Modifier.enable_modifiers_tree(ch)
+    else:
+        disable_layer_source_tree(layer, False)
+        Modifier.disable_modifiers_tree(ch, False)
+
+    #mute = not layer.enable or not ch.enable
+
     max_height = get_displacement_max_height(root_ch, layer)
 
     # Height Process
-
     if ch.normal_map_type == 'NORMAL_MAP':
         if root_ch.enable_smooth_bump:
             if ch.enable_transition_bump:
@@ -1573,7 +1348,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, ch)
             height_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
 
-    height_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+    #height_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+    height_proc.inputs['Intensity'].default_value = ch.intensity_value
 
     if ch.enable_transition_bump and ch.enable and ch.transition_bump_crease and not ch.transition_bump_flip:
         height_proc.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
@@ -1731,7 +1507,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
     if 'Intensity' in normal_proc.inputs:
-        normal_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+        #normal_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+        normal_proc.inputs['Intensity'].default_value = ch.intensity_value
 
     # Normal flip
     if ch.normal_map_type == 'NORMAL_MAP' or root_ch.enable_smooth_bump:
@@ -1742,53 +1519,44 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         set_bump_backface_flip(normal_flip, yp.enable_backface_always_up)
 
-    # Remove deprecated nodes
-    remove_node(tree, ch, 'normal_process')
-    remove_node(tree, ch, 'height_process')
-
-    # Remove neighbor related nodes
-    if root_ch.enable_smooth_bump:
-        enable_layer_source_tree(layer)
-        Modifier.enable_modifiers_tree(ch)
-    else:
-        disable_layer_source_tree(layer, False)
-        Modifier.disable_modifiers_tree(ch, False)
-
-    # Check spread alpha if its needed
-    check_create_spread_alpha(layer, tree, root_ch, ch)
-
-    # Check mask multiplies
-    check_mask_mix_nodes(layer, tree)
-
-    # Check mask source tree
-    check_mask_source_tree(layer) #, ch)
-
-    #print(need_reconnect)
-
     return need_reconnect
+
+def remove_layer_channel_nodes(layer, ch, tree=None):
+    if not tree: tree = get_tree(layer)
+
+    remove_node(tree, ch, 'intensity')
+    remove_node(tree, ch, 'blend')
+    remove_node(tree, ch, 'extra_alpha')
 
 def check_blend_type_nodes(root_ch, layer, ch):
 
     #print("Checking blend type nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
-
-    need_reconnect = False
 
     yp = layer.id_data.yp
     tree = get_tree(layer)
     nodes = tree.nodes
     blend = nodes.get(ch.blend)
 
+    need_reconnect = False
+
+    # Update normal map nodes
+    if root_ch.type == 'NORMAL':
+        need_reconnect = check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect)
+
+    # Extra alpha
+    need_reconnect = check_extra_alpha(layer, need_reconnect)
+
+    #if yp.disable_quick_toggle and not ch.enable:
+    if not ch.enable:
+        remove_layer_channel_nodes(layer, ch, tree)
+        return need_reconnect
+
     has_parent = layer.parent_idx != -1
 
     # Background layer always using mix blend type
     if layer.type == 'BACKGROUND':
         blend_type = 'MIX'
-        #normal_blend_type = 'MIX'
-    else: 
-        blend_type = ch.blend_type
-        #normal_blend_type = ch.normal_blend_type
-
-    normal_blend_type = ch.normal_blend_type
+    else: blend_type = ch.blend_type
 
     if root_ch.type == 'RGB':
 
@@ -1814,7 +1582,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if has_parent and normal_blend_type == 'MIX':
+        if has_parent and ch.normal_blend_type == 'MIX':
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
@@ -1824,7 +1592,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, 
                         return_status = True, hard_replace=True, dirty=need_reconnect)
 
-        elif normal_blend_type == 'OVERLAY':
+        elif ch.normal_blend_type == 'OVERLAY':
             if has_parent:
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL_STRAIGHT_OVER, 
@@ -1834,21 +1602,16 @@ def check_blend_type_nodes(root_ch, layer, ch):
                         'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
                         return_status = True, hard_replace=True, dirty=need_reconnect)
 
-        elif normal_blend_type == 'MIX':
+        elif ch.normal_blend_type == 'MIX':
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
                     return_status = True, hard_replace=True, dirty=need_reconnect)
 
         update_disp_scale_node(tree, root_ch, ch)
 
-        if root_ch.enable_smooth_bump:
-            pass
-        else:
+        if not root_ch.enable_smooth_bump:
             for d in neighbor_directions:
                 remove_node(tree, ch, 'height_blend_' + d)
-
-        # Update normal map nodes
-        need_reconnect = check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect)
 
     elif root_ch.type == 'VALUE':
 
@@ -1869,14 +1632,12 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if root_ch.type != 'NORMAL' and blend.type == 'MIX_RGB' and blend.blend_type != blend_type:
         blend.blend_type = blend_type
 
-    # Extra alpha
-    need_reconnect = check_extra_alpha(layer, need_reconnect)
-
     # Mute
-    mute = not layer.enable or not ch.enable
-    if yp.disable_quick_toggle:
-        blend.mute = mute
-    else: blend.mute = False
+    #mute = not layer.enable or not ch.enable
+    #if yp.disable_quick_toggle:
+    #    blend.mute = mute
+    #else: blend.mute = False
+    #blend.mute = mute
 
     # Intensity nodes
     if root_ch.type == 'NORMAL':
@@ -1888,7 +1649,8 @@ def check_blend_type_nodes(root_ch, layer, ch):
             intensity.operation = 'MULTIPLY'
 
         # Channel mute
-        intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+        #intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+        intensity.inputs[1].default_value = ch.intensity_value
 
     return need_reconnect
 

@@ -342,14 +342,17 @@ def linear_to_srgb(inp):
 def copy_node_props_(source, dest, extras = []):
     #print()
     props = dir(source)
-    filters = ['rna_type', 'name', 'location']
+    filters = ['rna_type', 'name', 'location', 'parent']
     filters.extend(extras)
+    #print()
     for prop in props:
         if prop.startswith('__'): continue
         if prop.startswith('bl_'): continue
         if prop in filters: continue
         val = getattr(source, prop)
         if 'bpy_func' in str(type(val)): continue
+        if 'bpy_prop' in str(type(val)): continue
+        #print(prop, str(type(getattr(source, prop))))
         # Copy stuff here
         try: 
             setattr(dest, prop, val)
@@ -623,10 +626,10 @@ def create_essential_nodes(tree, solid_value=False, texcoord = False, geometry=F
         node.label = 'One Value'
         node.outputs[0].default_value = 1.0
 
-        node = tree.nodes.new('ShaderNodeValue')
-        node.name = ZERO_VALUE
-        node.label = 'Zero Value'
-        node.outputs[0].default_value = 0.0
+        #node = tree.nodes.new('ShaderNodeValue')
+        #node.name = ZERO_VALUE
+        #node.label = 'Zero Value'
+        #node.outputs[0].default_value = 0.0
 
     if geometry:
         node = tree.nodes.new('ShaderNodeNewGeometry')
@@ -745,16 +748,25 @@ def new_node(tree, entity, prop, node_id_name, label=''):
 
     return node
 
-def check_new_node(tree, entity, prop, node_id_name, label=''):
+def check_new_node(tree, entity, prop, node_id_name, label='', return_dirty=False):
     ''' Check if node is available, if not, create one '''
+
+    dirty = False
 
     # Try to get the node first
     try: node = tree.nodes.get(getattr(entity, prop))
-    except: return None
+    except: 
+        if return_dirty:
+            return None, dirty
+        return None
 
     # Create new node if not found
     if not node:
         node = new_node(tree, entity, prop, node_id_name, label)
+        dirty = True
+
+    if return_dirty:
+        return node, dirty
 
     return node
 
@@ -2027,6 +2039,16 @@ def get_displacement_max_height(root_ch, layer=None):
 
     return max_height
 
+def get_smooth_bump_channel(layer):
+
+    yp = layer.id_data.yp
+
+    for i, root_ch in enumerate(yp.channels):
+        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+            return layer.channels[i]
+
+    return None
+
 def get_smooth_bump_channels(layer):
 
     yp = layer.id_data.yp
@@ -2051,6 +2073,17 @@ def get_write_height_normal_channels(layer):
                 channels.append(ch)
 
     return channels
+
+def get_write_height_normal_channel(layer):
+    yp = layer.id_data.yp
+
+    for i, root_ch in enumerate(yp.channels):
+        if root_ch.type == 'NORMAL':
+            ch = layer.channels[i]
+            if ch.write_height:
+                return ch
+
+    return None
 
 def update_displacement_height_ratio(root_ch):
 
@@ -2110,22 +2143,26 @@ def get_bump_chain(layer, ch=None):
 
     chain = -1
 
+    height_ch = get_height_channel(layer)
+    if height_ch:
+        chain = height_ch.transition_bump_chain
+
     # Try to get transition bump
-    trans_bump = get_transition_bump_channel(layer)
+    #trans_bump = get_transition_bump_channel(layer)
 
-    if trans_bump:
-        chain = trans_bump.transition_bump_chain 
-    else:
+    #if trans_bump:
+    #    chain = trans_bump.transition_bump_chain 
+    #else:
 
-        # Try to standard smooth bump if transition bump is not found
-        for i, c in enumerate(layer.channels):
+    #    # Try to standard smooth bump if transition bump is not found
+    #    for i, c in enumerate(layer.channels):
 
-            if ch and c != ch: continue
+    #        if ch and c != ch: continue
 
-            if yp.channels[i].type == 'NORMAL':
-                chain_local = min(c.transition_bump_chain, len(layer.masks))
-                if chain_local > chain:
-                    chain = chain_local
+    #        if yp.channels[i].type == 'NORMAL':
+    #            chain_local = min(c.transition_bump_chain, len(layer.masks))
+    #            if chain_local > chain:
+    #                chain = chain_local
 
     return min(chain, len(layer.masks))
 
