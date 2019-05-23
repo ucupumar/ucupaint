@@ -1258,7 +1258,7 @@ def rearrange_parallax_layer_nodes_(yp, parallax):
 
     loop = parallax.node_tree.nodes.get('_parallax_loop')
     if loop:
-        top_level_count = calculate_parallax_top_level_count(parallax_ch.parallax_num_of_layers)
+        top_level_count = calculate_parallax_top_level_count(int(parallax_ch.parallax_num_of_layers))
         rearrange_parallax_iteration(loop.node_tree, '_iterate_', top_level_count)
 
         #group_needed = calculate_group_needed(parallax_ch.parallax_num_of_layers)
@@ -1271,26 +1271,26 @@ def rearrange_parallax_layer_nodes_(yp, parallax):
         # Rearrange parallax depth group source
         rearrange_parallax_depth_group(loop.node_tree)
 
-def rearrange_parallax_layer_nodes(yp, parallax):
-    parallax_ch = get_root_parallax_channel(yp)
-    if not parallax_ch: return
-
-    #print('Par', parallax.name)
-
-    loop = parallax.node_tree.nodes.get('_parallax_loop')
-    if loop:
-        tree = loop.node_tree
-        
-        loc = Vector((0,0))
-        check_set_node_loc(tree, TREE_START, loc)
-
-        loc.x += 200
-
-        for i in range(parallax_ch.parallax_num_of_layers):
-            if check_set_node_loc(tree, '_iterate_' + str(i), loc):
-                loc.x += 200
-
-        check_set_node_loc(tree, TREE_END, loc)
+#def rearrange_parallax_layer_nodes(yp, parallax):
+#    parallax_ch = get_root_parallax_channel(yp)
+#    if not parallax_ch: return
+#
+#    #print('Par', parallax.name)
+#
+#    loop = parallax.node_tree.nodes.get('_parallax_loop')
+#    if loop:
+#        tree = loop.node_tree
+#        
+#        loc = Vector((0,0))
+#        check_set_node_loc(tree, TREE_START, loc)
+#
+#        loc.x += 200
+#
+#        for i in range(int(parallax_ch.parallax_num_of_layers)):
+#            if check_set_node_loc(tree, '_iterate_' + str(i), loc):
+#                loc.x += 200
+#
+#        check_set_node_loc(tree, TREE_END, loc)
 
 def rearrange_parallax_process_internal_nodes(group_tree, node_name):
     yp = group_tree.yp

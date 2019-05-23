@@ -1868,39 +1868,41 @@ def update_parallax_num_of_layers(self, context):
     #    rearrange_parallax_layer_nodes(yp, baked_parallax)
     #    reconnect_baked_parallax_layer_nodes(yp, baked_parallax)
 
+    num_of_layers = int(self.parallax_num_of_layers)
+
     baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
     if baked_parallax:
         loop = baked_parallax.node_tree.nodes.get('_parallax_loop')
-        #create_delete_iterate_nodes(loop.node_tree, self.parallax_num_of_layers)
-        #create_delete_iterate_nodes_(loop.node_tree, self.parallax_num_of_layers)
-        create_delete_iterate_nodes__(loop.node_tree, self.parallax_num_of_layers)
+        #create_delete_iterate_nodes(loop.node_tree, num_of_layers)
+        #create_delete_iterate_nodes_(loop.node_tree, num_of_layers)
+        create_delete_iterate_nodes__(loop.node_tree, num_of_layers)
 
         #rearrange_parallax_layer_nodes(yp, baked_parallax)
         #reconnect_parallax_layer_nodes(group_tree, baked_parallax, yp.baked_uv_name)
         rearrange_parallax_layer_nodes_(yp, baked_parallax)
         reconnect_parallax_layer_nodes__(group_tree, baked_parallax, yp.baked_uv_name)
 
-        baked_parallax.inputs['layer_depth'].default_value = 1.0 / self.parallax_num_of_layers
+        baked_parallax.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
     # Parallax
     parallax = group_tree.nodes.get(PARALLAX)
     if parallax:
         loop = parallax.node_tree.nodes.get('_parallax_loop')
-        #create_delete_iterate_nodes(loop.node_tree, self.parallax_num_of_layers)
-        #create_delete_iterate_nodes_(loop.node_tree, self.parallax_num_of_layers)
-        create_delete_iterate_nodes__(loop.node_tree, self.parallax_num_of_layers)
+        #create_delete_iterate_nodes(loop.node_tree, num_of_layers)
+        #create_delete_iterate_nodes_(loop.node_tree, num_of_layers)
+        create_delete_iterate_nodes__(loop.node_tree, num_of_layers)
 
         #rearrange_parallax_layer_nodes(yp, parallax)
         #reconnect_parallax_layer_nodes(group_tree, parallax)
         rearrange_parallax_layer_nodes_(yp, parallax)
         reconnect_parallax_layer_nodes__(group_tree, parallax)
 
-        parallax.inputs['layer_depth'].default_value = 1.0 / self.parallax_num_of_layers
+        parallax.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)
         if parallax_prep:
-            parallax_prep.inputs['layer_depth'].default_value = 1.0 / self.parallax_num_of_layers
+            parallax_prep.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
 def update_displacement_ref_plane(self, context):
     group_tree = self.id_data
@@ -2115,7 +2117,20 @@ class YPaintChannel(bpy.types.PropertyGroup):
             description = 'Enable Parallax Mapping.\nIt will use texture space scaling, so it may looks different when using it as real displacement map',
             default=False, update=update_channel_parallax)
 
-    parallax_num_of_layers = IntProperty(default=8, min=4, max=128,
+    #parallax_num_of_layers = IntProperty(default=8, min=4, max=128,
+    #        update=update_parallax_num_of_layers)
+    parallax_num_of_layers = EnumProperty(
+            name = 'Parallax Mapping Number of Layers',
+            description = 'Parallax Mapping Number of Layers',
+            items = (('4', '4', ''),
+                     ('8', '8', ''),
+                     ('16', '16', ''),
+                     ('32', '32', ''),
+                     ('64', '64', ''),
+                     ('96', '96', ''),
+                     ('128', '128', ''),
+                     ),
+            default='8',
             update=update_parallax_num_of_layers)
 
     #parallax_num_of_binary_samples = IntProperty(default=5, min=4, max=64,

@@ -408,7 +408,6 @@ def reconnect_parallax_layer_nodes_(group_tree, parallax, uv_name=''):
     loop = parallax.node_tree.nodes.get('_parallax_loop')
     if not loop: return
 
-    #group_needed = calculate_group_needed(parallax_ch.parallax_num_of_layers)
     connect_parallax_iteration(loop.node_tree, '_iterate_group_')
 
     # Connect inside iterate group
@@ -417,98 +416,100 @@ def reconnect_parallax_layer_nodes_(group_tree, parallax, uv_name=''):
 
     connect_parallax_iteration(iterate_group_0.node_tree, '_iterate_')
 
-def reconnect_parallax_layer_nodes(group_tree, parallax, uv_name=''):
-
-    yp = group_tree.yp
-
-    parallax_ch = get_root_parallax_channel(yp)
-    if not parallax_ch: return
-
-    loop = parallax.node_tree.nodes.get('_parallax_loop')
-    if not loop: return
-
-    loop_start = loop.node_tree.nodes.get(TREE_START)
-    loop_end = loop.node_tree.nodes.get(TREE_END)
-
-    prev_it = None
-
-    for i in range (parallax_ch.parallax_num_of_layers):
-        it = loop.node_tree.nodes.get('_iterate_' + str(i))
-
-        if not prev_it:
-            create_link(loop.node_tree, 
-                    loop_start.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
-
-            for uv in yp.uvs:
-                if uv_name != '' and uv.name != uv_name: continue
-                create_link(loop.node_tree, 
-                        loop_start.outputs[uv.name + CURRENT_UV], it.inputs[uv.name + CURRENT_UV])
-
-            for tc in texcoord_lists:
-                io_name = TEXCOORD_IO_PREFIX + tc + CURRENT_UV
-                if io_name in loop_start.outputs:
-                    create_link(loop.node_tree, loop_start.outputs[io_name], it.inputs[io_name])
-        else:
-            create_link(loop.node_tree, 
-                    prev_it.outputs['cur_layer_depth'], it.inputs['cur_layer_depth'])
-            create_link(loop.node_tree, 
-                    prev_it.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
-
-            create_link(loop.node_tree, 
-                    prev_it.outputs['index'], it.inputs['index'])
-
-            for uv in yp.uvs:
-                if uv_name != '' and uv.name != uv_name: continue
-                create_link(loop.node_tree, 
-                        prev_it.outputs[uv.name + CURRENT_UV], it.inputs[uv.name + CURRENT_UV])
-
-            for tc in texcoord_lists:
-                io_name = TEXCOORD_IO_PREFIX + tc + CURRENT_UV
-                if io_name in prev_it.outputs:
-                    create_link(loop.node_tree, prev_it.outputs[io_name], it.inputs[io_name])
-
-        create_link(loop.node_tree,
-                loop_start.outputs['layer_depth'], it.inputs['layer_depth'])
-        create_link(loop.node_tree,
-                loop_start.outputs['base'], it.inputs['base'])
-
-        for uv in yp.uvs:
-            if uv_name != '' and uv.name != uv_name: continue
-            create_link(loop.node_tree, loop_start.outputs[uv.name + START_UV], it.inputs[uv.name + START_UV])
-            create_link(loop.node_tree, loop_start.outputs[uv.name + DELTA_UV], it.inputs[uv.name + DELTA_UV])
-
-        for tc in texcoord_lists:
-            io_name = TEXCOORD_IO_PREFIX + tc + START_UV
-            if io_name in loop_start.outputs:
-                create_link(loop.node_tree, loop_start.outputs[io_name], it.inputs[io_name])
-            io_name = TEXCOORD_IO_PREFIX + tc + DELTA_UV
-            if io_name in loop_start.outputs:
-                create_link(loop.node_tree, loop_start.outputs[io_name], it.inputs[io_name])
-
-        if i == parallax_ch.parallax_num_of_layers-1:
-
-            create_link(loop.node_tree, 
-                    it.outputs['cur_layer_depth'], loop_end.inputs['cur_layer_depth'])
-            create_link(loop.node_tree, 
-                    it.outputs['depth_from_tex'], loop_end.inputs['depth_from_tex'])
-            create_link(loop.node_tree, 
-                    it.outputs['index'], loop_end.inputs['index'])
-
-            for uv in yp.uvs:
-                if uv_name != '' and uv.name != uv_name: continue
-                create_link(loop.node_tree, 
-                        it.outputs[uv.name + CURRENT_UV], loop_end.inputs[uv.name + CURRENT_UV])
-
-            for tc in texcoord_lists:
-                io_name = TEXCOORD_IO_PREFIX + tc + CURRENT_UV
-                if io_name in it.outputs:
-                    create_link(loop.node_tree, it.outputs[io_name], loop_end.inputs[io_name])
-
-        prev_it = it
+#def reconnect_parallax_layer_nodes(group_tree, parallax, uv_name=''):
+#
+#    yp = group_tree.yp
+#
+#    parallax_ch = get_root_parallax_channel(yp)
+#    if not parallax_ch: return
+#
+#    loop = parallax.node_tree.nodes.get('_parallax_loop')
+#    if not loop: return
+#
+#    loop_start = loop.node_tree.nodes.get(TREE_START)
+#    loop_end = loop.node_tree.nodes.get(TREE_END)
+#
+#    prev_it = None
+#
+#    for i in range (parallax_ch.parallax_num_of_layers):
+#        it = loop.node_tree.nodes.get('_iterate_' + str(i))
+#
+#        if not prev_it:
+#            create_link(loop.node_tree, 
+#                    loop_start.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
+#
+#            for uv in yp.uvs:
+#                if uv_name != '' and uv.name != uv_name: continue
+#                create_link(loop.node_tree, 
+#                        loop_start.outputs[uv.name + CURRENT_UV], it.inputs[uv.name + CURRENT_UV])
+#
+#            for tc in texcoord_lists:
+#                io_name = TEXCOORD_IO_PREFIX + tc + CURRENT_UV
+#                if io_name in loop_start.outputs:
+#                    create_link(loop.node_tree, loop_start.outputs[io_name], it.inputs[io_name])
+#        else:
+#            create_link(loop.node_tree, 
+#                    prev_it.outputs['cur_layer_depth'], it.inputs['cur_layer_depth'])
+#            create_link(loop.node_tree, 
+#                    prev_it.outputs['depth_from_tex'], it.inputs['depth_from_tex'])
+#
+#            create_link(loop.node_tree, 
+#                    prev_it.outputs['index'], it.inputs['index'])
+#
+#            for uv in yp.uvs:
+#                if uv_name != '' and uv.name != uv_name: continue
+#                create_link(loop.node_tree, 
+#                        prev_it.outputs[uv.name + CURRENT_UV], it.inputs[uv.name + CURRENT_UV])
+#
+#            for tc in texcoord_lists:
+#                io_name = TEXCOORD_IO_PREFIX + tc + CURRENT_UV
+#                if io_name in prev_it.outputs:
+#                    create_link(loop.node_tree, prev_it.outputs[io_name], it.inputs[io_name])
+#
+#        create_link(loop.node_tree,
+#                loop_start.outputs['layer_depth'], it.inputs['layer_depth'])
+#        create_link(loop.node_tree,
+#                loop_start.outputs['base'], it.inputs['base'])
+#
+#        for uv in yp.uvs:
+#            if uv_name != '' and uv.name != uv_name: continue
+#            create_link(loop.node_tree, loop_start.outputs[uv.name + START_UV], it.inputs[uv.name + START_UV])
+#            create_link(loop.node_tree, loop_start.outputs[uv.name + DELTA_UV], it.inputs[uv.name + DELTA_UV])
+#
+#        for tc in texcoord_lists:
+#            io_name = TEXCOORD_IO_PREFIX + tc + START_UV
+#            if io_name in loop_start.outputs:
+#                create_link(loop.node_tree, loop_start.outputs[io_name], it.inputs[io_name])
+#            io_name = TEXCOORD_IO_PREFIX + tc + DELTA_UV
+#            if io_name in loop_start.outputs:
+#                create_link(loop.node_tree, loop_start.outputs[io_name], it.inputs[io_name])
+#
+#        if i == parallax_ch.parallax_num_of_layers-1:
+#
+#            create_link(loop.node_tree, 
+#                    it.outputs['cur_layer_depth'], loop_end.inputs['cur_layer_depth'])
+#            create_link(loop.node_tree, 
+#                    it.outputs['depth_from_tex'], loop_end.inputs['depth_from_tex'])
+#            create_link(loop.node_tree, 
+#                    it.outputs['index'], loop_end.inputs['index'])
+#
+#            for uv in yp.uvs:
+#                if uv_name != '' and uv.name != uv_name: continue
+#                create_link(loop.node_tree, 
+#                        it.outputs[uv.name + CURRENT_UV], loop_end.inputs[uv.name + CURRENT_UV])
+#
+#            for tc in texcoord_lists:
+#                io_name = TEXCOORD_IO_PREFIX + tc + CURRENT_UV
+#                if io_name in it.outputs:
+#                    create_link(loop.node_tree, it.outputs[io_name], loop_end.inputs[io_name])
+#
+#        prev_it = it
 
 def reconnect_baked_parallax_layer_nodes(yp, node):
     parallax_ch = get_root_parallax_channel(yp)
     if not parallax_ch: return
+
+    num_of_layers = int(parallax_ch.parallax_num_of_layers)
 
     loop = node.node_tree.nodes.get('_parallax_loop')
     if loop:
@@ -516,7 +517,7 @@ def reconnect_baked_parallax_layer_nodes(yp, node):
         loop_end = loop.node_tree.nodes.get(TREE_END)
         prev_it = None
 
-        for i in range (parallax_ch.parallax_num_of_layers):
+        for i in range (num_of_layers):
             it = loop.node_tree.nodes.get('_iterate_' + str(i))
             if not prev_it:
                 create_link(loop.node_tree, 
@@ -539,7 +540,7 @@ def reconnect_baked_parallax_layer_nodes(yp, node):
             create_link(loop.node_tree,
                     loop_start.outputs['layer_depth'], it.inputs['layer_depth'])
 
-            if i == parallax_ch.parallax_num_of_layers-1:
+            if i == num_of_layers-1:
                 create_link(loop.node_tree, 
                         it.outputs['cur_uv'], loop_end.inputs['cur_uv'])
                 create_link(loop.node_tree, 

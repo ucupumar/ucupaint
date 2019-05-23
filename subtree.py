@@ -747,6 +747,8 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
     parallax_ch = get_root_height_channel(yp)
     if not parallax_ch: return
 
+    num_of_layers = int(parallax_ch.parallax_num_of_layers)
+
     # Create parallax preparations for uvs
     for uv in yp.uvs:
         if uv in unused_uvs: continue
@@ -761,7 +763,7 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
         parallax_prep.inputs['ref_plane'].default_value = parallax_ch.parallax_ref_plane
         parallax_prep.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
         parallax_prep.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
-        parallax_prep.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
+        parallax_prep.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
     # Create parallax preparations for texcoords other than UV
     for tc in texcoord_lists:
@@ -784,7 +786,7 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
             parallax_prep.inputs['ref_plane'].default_value = parallax_ch.parallax_ref_plane
             parallax_prep.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
             parallax_prep.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
-            parallax_prep.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
+            parallax_prep.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
         elif parallax_prep:
             tree.nodes.remove(parallax_prep)
@@ -796,6 +798,8 @@ def check_parallax_node(yp, unused_uvs=[], unused_texcoords=[], baked=False):
     # Standard height channel is same as parallax channel (for now?)
     parallax_ch = get_root_height_channel(yp)
     if not parallax_ch: return
+
+    num_of_layers = int(parallax_ch.parallax_num_of_layers)
 
     # Get parallax node
     node_name = BAKED_PARALLAX if baked else PARALLAX
@@ -833,11 +837,11 @@ def check_parallax_node(yp, unused_uvs=[], unused_texcoords=[], baked=False):
 
     parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
 
-    #create_delete_iterate_nodes(parallax_loop.node_tree, parallax_ch.parallax_num_of_layers)
-    #create_delete_iterate_nodes_(parallax_loop.node_tree, parallax_ch.parallax_num_of_layers)
-    create_delete_iterate_nodes__(parallax_loop.node_tree, parallax_ch.parallax_num_of_layers)
+    #create_delete_iterate_nodes(parallax_loop.node_tree, num_of_layers)
+    #create_delete_iterate_nodes_(parallax_loop.node_tree, num_of_layers)
+    create_delete_iterate_nodes__(parallax_loop.node_tree, num_of_layers)
 
-    parallax.inputs['layer_depth'].default_value = 1.0 / parallax_ch.parallax_num_of_layers
+    parallax.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
     if baked:
         refresh_parallax_depth_img(yp, parallax, disp_img)
