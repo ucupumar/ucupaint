@@ -1,4 +1,4 @@
-import bpy, os, sys, re, time, numpy
+import bpy, os, sys, re, time, numpy, math
 from mathutils import *
 from bpy.app.handlers import persistent
 #from .__init__ import bl_info
@@ -48,6 +48,9 @@ HEIGHT_MAP = 'Height Map'
 START_UV = ' Start UV'
 DELTA_UV = ' Delta UV'
 CURRENT_UV = ' Current UV'
+
+ITERATE_GROUP = 'yP Iterate Parallax Group'
+PARALLAX_DIVIDER = 4
 
 blend_type_items = (("MIX", "Mix", ""),
 	             ("ADD", "Add", ""),
@@ -607,7 +610,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
     setattr(entity, prop, '')
     #entity[prop] = ''
 
-def create_essential_nodes(tree, solid_value=False, texcoord = False, geometry=False):
+def create_essential_nodes(tree, solid_value=False, texcoord=False, geometry=False):
 
     # Start
     node = tree.nodes.new('NodeGroupInput')
@@ -1779,8 +1782,189 @@ def get_height_channel(layer):
 
     return None
 
+def match_io_between_node_tree(source, target):
+
+    valid_inputs = []
+    valid_outputs = []
+
+    # Copy inputs
+    for inp in source.inputs:
+        target_inp = target.inputs.get(inp.name)
+
+        if target_inp and target_inp.bl_socket_idname != inp.bl_socket_idname:
+            target.inputs.remove(target_inp)
+            target_inp = None
+
+        if not target_inp:
+            target_inp = target.inputs.new(inp.bl_socket_idname, inp.name)
+            target_inp.default_value = inp.default_value
+
+        valid_inputs.append(target_inp)
+
+    # Copy outputs
+    for outp in source.outputs:
+        target_outp = target.outputs.get(outp.name)
+
+        if target_outp and target_outp.bl_socket_idname != outp.bl_socket_idname:
+            target.outputs.remove(target_outp)
+            target_outp = None
+
+        if not target_outp:
+            target_outp = target.outputs.new(outp.bl_socket_idname, outp.name)
+            target_outp.default_value = outp.default_value
+
+        valid_outputs.append(target_outp)
+
+    # Remove invalid inputs
+    for inp in target.inputs:
+        if inp not in valid_inputs:
+            target.inputs.remove(inp)
+
+    # Remove invalid outputs
+    for outp in target.outputs:
+        if outp not in valid_outputs:
+            target.outputs.remove(outp)
+
+def create_iterate_group_nodes(iter_tree, match_io=False):
+
+    group_tree = bpy.data.node_groups.new(ITERATE_GROUP, 'ShaderNodeTree')
+    create_essential_nodes(group_tree)
+
+    for i in range(PARALLAX_DIVIDER):
+        it = group_tree.nodes.new('ShaderNodeGroup')
+        it.name = '_iterate_' + str(i)
+        it.node_tree = iter_tree
+
+    if match_io:
+        match_io_between_node_tree(iter_tree, group_tree)
+
+    return group_tree
+
+def calculate_group_needed(num_of_iteration):
+    return int(num_of_iteration/PARALLAX_DIVIDER)
+
+def calculate_parallax_group_depth(num_of_iteration):
+    #iter_inside = 1
+    #depth = 1
+    #while True:
+    #    divider = iter_inside * PARALLAX_DIVIDER
+    #    if (num_of_iteration / divider) < 1.0:
+    #        break
+    #    depth += 1
+    #return depth
+    return int(math.log(num_of_iteration, PARALLAX_DIVIDER))
+
+def calculate_parallax_top_level_count(num_of_iteration):
+    return int(num_of_iteration / pow(PARALLAX_DIVIDER, calculate_parallax_group_depth(num_of_iteration)))
+
+def create_delete_iterate_nodes__(tree, num_of_iteration):
+    iter_tree = tree.nodes.get('_iterate').node_tree
+
+    # Get group depth
+    depth = calculate_parallax_group_depth(num_of_iteration)
+    #print(depth)
+
+    # Top level group needed
+    #top_level_count = int(num_of_iteration / pow(PARALLAX_DIVIDER, depth))
+    top_level_count = calculate_parallax_top_level_count(num_of_iteration)
+
+    # Create group depth node
+    counter = 0
+    while True:
+        ig = tree.nodes.get('_iterate_depth_' + str(counter))
+
+        ig_found = False
+        if ig: ig_found = True
+
+        if not ig and counter < depth:
+            ig = tree.nodes.new('ShaderNodeGroup')
+            ig.name = '_iterate_depth_' + str(counter)
+            #ig.node_tree = iter_group.node_tree
+
+        if ig and counter >= depth:
+            if ig.node_tree:
+                bpy.data.node_groups.remove(ig.node_tree)
+            tree.nodes.remove(ig)
+
+        if not ig_found and counter >= depth:
+            break
+
+        counter += 1
+
+    # Fill group depth
+    cur_tree = iter_tree
+    for i in range(depth):
+        ig = tree.nodes.get('_iterate_depth_' + str(i))
+        if ig and not ig.node_tree:
+            #print('Aaaaaa')
+            ig.node_tree = create_iterate_group_nodes(cur_tree, True)
+
+        if ig and ig.node_tree:
+            cur_tree = ig.node_tree
+
+    # Create top level group
+    top_level = tree.nodes.get('_iterate_depth_' + str(depth-1))
+    if top_level:
+        top_level_tree = top_level.node_tree
+    else: top_level_tree = iter_tree
+
+    counter = 0
+    while True:
+        it = tree.nodes.get('_iterate_' + str(counter))
+
+        it_found = False
+        if it: it_found = True
+
+        if not it and counter < top_level_count:
+            it = tree.nodes.new('ShaderNodeGroup')
+            it.name = '_iterate_' + str(counter)
+
+        if it:
+            if counter >= top_level_count:
+                tree.nodes.remove(it)
+            elif it.node_tree != top_level_tree:
+                it.node_tree = top_level_tree
+
+        if not it_found and counter >= top_level_count:
+            break
+
+        counter += 1
+
+def create_delete_iterate_nodes_(tree, num_of_iteration):
+    iter_tree = tree.nodes.get('_iterate').node_tree
+    
+    # Calculate group needed
+    group_needed = calculate_group_needed(num_of_iteration)
+
+    # Create group
+    iter_group = tree.nodes.get('_iterate_group_0')
+    if not iter_group:
+        iter_group = tree.nodes.new('ShaderNodeGroup')
+        iter_group.node_tree = create_iterate_group_nodes(iter_tree, True)
+        iter_group.name = '_iterate_group_0'
+
+    counter = 0
+    while True:
+        ig = tree.nodes.get('_iterate_group_' + str(counter))
+
+        ig_found = False
+        if ig: ig_found = True
+
+        if not ig and counter < group_needed:
+            ig = tree.nodes.new('ShaderNodeGroup')
+            ig.name = '_iterate_group_' + str(counter)
+            ig.node_tree = iter_group.node_tree
+
+        if ig and counter >= group_needed:
+            tree.nodes.remove(ig)
+
+        if not ig_found and counter >= group_needed:
+            break
+
+        counter += 1
+
 def create_delete_iterate_nodes(tree, num_of_iteration):
-    iter_tree = tree.nodes.get('_iterate_0').node_tree
+    iter_tree = tree.nodes.get('_iterate').node_tree
 
     counter = 0
     while True:

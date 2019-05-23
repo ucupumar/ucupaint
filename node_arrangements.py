@@ -1221,6 +1221,56 @@ def rearrange_relief_mapping_nodes(group_tree):
 
             check_set_node_loc(tree, TREE_END, loc)
 
+def rearrange_parallax_iteration(tree, prefix, iter_count):
+    loc = Vector((0,0))
+    check_set_node_loc(tree, TREE_START, loc)
+
+    loc.x += 200
+
+    for i in range(iter_count):
+        if check_set_node_loc(tree, prefix + str(i), loc):
+            loc.x += 200
+
+    check_set_node_loc(tree, TREE_END, loc)
+
+def rearrange_parallax_depth_group(tree):
+    loc = Vector((0,0))
+
+    iterate = tree.nodes.get('_iterate')
+    loc.x = iterate.location.x
+    loc.y = iterate.location.y - 400
+
+    counter = 0
+    while True:
+        if check_set_node_loc(tree, '_iterate_depth_' + str(counter), loc):
+            idp = tree.nodes.get('_iterate_depth_' + str(counter))
+            rearrange_parallax_iteration(idp.node_tree, '_iterate_', PARALLAX_DIVIDER)
+            loc.y -= 400
+            counter += 1
+        else:
+            break
+
+def rearrange_parallax_layer_nodes_(yp, parallax):
+    parallax_ch = get_root_parallax_channel(yp)
+    if not parallax_ch: return
+
+    #print('Par', parallax.name)
+
+    loop = parallax.node_tree.nodes.get('_parallax_loop')
+    if loop:
+        top_level_count = calculate_parallax_top_level_count(parallax_ch.parallax_num_of_layers)
+        rearrange_parallax_iteration(loop.node_tree, '_iterate_', top_level_count)
+
+        #group_needed = calculate_group_needed(parallax_ch.parallax_num_of_layers)
+        #rearrange_parallax_iteration(loop.node_tree, '_iterate_group_', group_needed)
+
+        #iterate_group_0 = loop.node_tree.nodes.get('_iterate_group_0')
+        #if iterate_group_0:
+        #    rearrange_parallax_iteration(iterate_group_0.node_tree, '_iterate_', PARALLAX_DIVIDER)
+
+        # Rearrange parallax depth group source
+        rearrange_parallax_depth_group(loop.node_tree)
+
 def rearrange_parallax_layer_nodes(yp, parallax):
     parallax_ch = get_root_parallax_channel(yp)
     if not parallax_ch: return
@@ -1280,21 +1330,21 @@ def rearrange_parallax_process_internal_nodes(group_tree, node_name):
 
     # Parallax iteration nodes
     parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
-    iterate_0 = parallax_loop.node_tree.nodes.get('_iterate_0')
+    iterate = parallax_loop.node_tree.nodes.get('_iterate')
 
-    depth_mix = iterate_0.node_tree.nodes.get('_depth_from_tex_mix')
+    depth_mix = iterate.node_tree.nodes.get('_depth_from_tex_mix')
     loc = depth_mix.location.copy()
     loc.y -= 200
 
     for uv in yp.uvs:
-        if check_set_node_loc(iterate_0.node_tree, uv.parallax_current_uv_mix, loc):
+        if check_set_node_loc(iterate.node_tree, uv.parallax_current_uv_mix, loc):
             loc.y -= 200
-        elif check_set_node_loc(iterate_0.node_tree, uv.baked_parallax_current_uv_mix, loc):
+        elif check_set_node_loc(iterate.node_tree, uv.baked_parallax_current_uv_mix, loc):
             loc.y -= 200
 
     for tc in texcoord_lists:
 
-        if check_set_node_loc(iterate_0.node_tree, PARALLAX_CURRENT_MIX_PREFIX + TEXCOORD_IO_PREFIX + tc, loc):
+        if check_set_node_loc(iterate.node_tree, PARALLAX_CURRENT_MIX_PREFIX + TEXCOORD_IO_PREFIX + tc, loc):
             loc.y -= 200
 
     # Parallax mix nodes
@@ -1314,7 +1364,8 @@ def rearrange_parallax_process_internal_nodes(group_tree, node_name):
         if check_set_node_loc(parallax.node_tree, PARALLAX_MIX_PREFIX + TEXCOORD_IO_PREFIX + tc, loc):
             loc.y -= 200
 
-    rearrange_parallax_layer_nodes(yp, parallax)
+    #rearrange_parallax_layer_nodes(yp, parallax)
+    rearrange_parallax_layer_nodes_(yp, parallax)
 
 def rearrange_uv_nodes(group_tree, loc):
     yp = group_tree.yp
