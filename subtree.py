@@ -744,10 +744,10 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
     tree = yp.id_data
 
     # Standard height channel is same as parallax channel (for now?)
-    parallax_ch = get_root_height_channel(yp)
-    if not parallax_ch: return
+    height_ch = get_root_height_channel(yp)
+    if not height_ch: return
 
-    num_of_layers = int(parallax_ch.parallax_num_of_layers)
+    num_of_layers = int(height_ch.parallax_num_of_layers)
 
     # Create parallax preparations for uvs
     for uv in yp.uvs:
@@ -758,11 +758,11 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
                     uv.name + ' Parallax Preparation')
             parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
 
-        #parallax_prep.inputs['depth_scale'].default_value = parallax_ch.displacement_height_ratio
-        parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(parallax_ch)
-        parallax_prep.inputs['ref_plane'].default_value = parallax_ch.parallax_ref_plane
-        parallax_prep.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
-        parallax_prep.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
+        #parallax_prep.inputs['depth_scale'].default_value = height_ch.displacement_height_ratio
+        parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(height_ch)
+        parallax_prep.inputs['ref_plane'].default_value = height_ch.parallax_ref_plane
+        parallax_prep.inputs['Rim Hack'].default_value = 1.0 if height_ch.parallax_rim_hack else 0.0
+        parallax_prep.inputs['Rim Hack Hardness'].default_value = height_ch.parallax_rim_hack_hardness
         parallax_prep.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
     # Create parallax preparations for texcoords other than UV
@@ -782,10 +782,10 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
                     parallax_prep.node_tree = lib.get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
                 parallax_prep.name = parallax_prep.label = tc + PARALLAX_PREP_SUFFIX
 
-            parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(parallax_ch)
-            parallax_prep.inputs['ref_plane'].default_value = parallax_ch.parallax_ref_plane
-            parallax_prep.inputs['Rim Hack'].default_value = 1.0 if parallax_ch.parallax_rim_hack else 0.0
-            parallax_prep.inputs['Rim Hack Hardness'].default_value = parallax_ch.parallax_rim_hack_hardness
+            parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(height_ch)
+            parallax_prep.inputs['ref_plane'].default_value = height_ch.parallax_ref_plane
+            parallax_prep.inputs['Rim Hack'].default_value = 1.0 if height_ch.parallax_rim_hack else 0.0
+            parallax_prep.inputs['Rim Hack Hardness'].default_value = height_ch.parallax_rim_hack_hardness
             parallax_prep.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
         elif parallax_prep:
@@ -796,10 +796,10 @@ def check_parallax_node(yp, unused_uvs=[], unused_texcoords=[], baked=False):
     tree = yp.id_data
 
     # Standard height channel is same as parallax channel (for now?)
-    parallax_ch = get_root_height_channel(yp)
-    if not parallax_ch: return
+    height_ch = get_root_height_channel(yp)
+    if not height_ch: return
 
-    num_of_layers = int(parallax_ch.parallax_num_of_layers)
+    num_of_layers = int(height_ch.parallax_num_of_layers)
 
     # Get parallax node
     node_name = BAKED_PARALLAX if baked else PARALLAX
@@ -808,7 +808,7 @@ def check_parallax_node(yp, unused_uvs=[], unused_texcoords=[], baked=False):
     # Displacement image needed for baked parallax
     disp_img = None
     if baked:
-        baked_disp = tree.nodes.get(parallax_ch.baked_disp)
+        baked_disp = tree.nodes.get(height_ch.baked_disp)
         if baked_disp:
             disp_img = baked_disp.image
         else:
@@ -836,10 +836,6 @@ def check_parallax_node(yp, unused_uvs=[], unused_texcoords=[], baked=False):
         duplicate_lib_node_tree(iterate)
 
     parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
-
-    #create_delete_iterate_nodes(parallax_loop.node_tree, num_of_layers)
-    #create_delete_iterate_nodes_(parallax_loop.node_tree, num_of_layers)
-    create_delete_iterate_nodes__(parallax_loop.node_tree, num_of_layers)
 
     parallax.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
@@ -904,56 +900,60 @@ def check_parallax_node(yp, unused_uvs=[], unused_texcoords=[], baked=False):
         #check_current_uv_inputs(iterate_group_0.node_tree, uv.name)
 
     # Baked parallax occlusion doesn't have to deal with non uv texture coordinates
-    if baked: return
+    if not baked:
 
-    # Create IO and nodes for Non-UV Texture Coordinates
-    for tc in texcoord_lists:
+        # Create IO and nodes for Non-UV Texture Coordinates
+        for tc in texcoord_lists:
 
-        # Delete unused non UV io and nodes
-        if tc in unused_texcoords:
-            check_parallax_process_outputs(parallax, TEXCOORD_IO_PREFIX + tc, remove=True)
-            check_start_delta_uv_inputs(parallax.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
-            check_non_uv_parallax_mix(parallax.node_tree, tc, remove=True)
+            # Delete unused non UV io and nodes
+            if tc in unused_texcoords:
+                check_parallax_process_outputs(parallax, TEXCOORD_IO_PREFIX + tc, remove=True)
+                check_start_delta_uv_inputs(parallax.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                check_non_uv_parallax_mix(parallax.node_tree, tc, remove=True)
 
-            check_start_delta_uv_inputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
-            check_current_uv_outputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
-            check_non_uv_depth_source_calculation(depth_source_0.node_tree, tc, remove=True)
+                check_start_delta_uv_inputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                check_current_uv_outputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                check_non_uv_depth_source_calculation(depth_source_0.node_tree, tc, remove=True)
 
-            check_start_delta_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
-            check_current_uv_outputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
-            check_current_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                check_start_delta_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                check_current_uv_outputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                check_current_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
 
-            check_start_delta_uv_inputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
-            check_current_uv_outputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
-            check_current_uv_inputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
-            check_non_uv_iterate_current_mix(iterate.node_tree, tc, remove=True)
+                check_start_delta_uv_inputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                check_current_uv_outputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                check_current_uv_inputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                check_non_uv_iterate_current_mix(iterate.node_tree, tc, remove=True)
 
-            #check_start_delta_uv_inputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
-            #check_current_uv_outputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
-            #check_current_uv_inputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                #check_start_delta_uv_inputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                #check_current_uv_outputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
+                #check_current_uv_inputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc, remove=True)
 
-            continue
+                continue
 
-        check_parallax_process_outputs(parallax, TEXCOORD_IO_PREFIX + tc)
-        check_start_delta_uv_inputs(parallax.node_tree, TEXCOORD_IO_PREFIX + tc)
-        check_non_uv_parallax_mix(parallax.node_tree, tc)
+            check_parallax_process_outputs(parallax, TEXCOORD_IO_PREFIX + tc)
+            check_start_delta_uv_inputs(parallax.node_tree, TEXCOORD_IO_PREFIX + tc)
+            check_non_uv_parallax_mix(parallax.node_tree, tc)
 
-        check_start_delta_uv_inputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc)
-        check_current_uv_outputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc)
-        check_non_uv_depth_source_calculation(depth_source_0.node_tree, tc)
+            check_start_delta_uv_inputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+            check_current_uv_outputs(depth_source_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+            check_non_uv_depth_source_calculation(depth_source_0.node_tree, tc)
 
-        check_start_delta_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc)
-        check_current_uv_outputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc)
-        check_current_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc)
+            check_start_delta_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc)
+            check_current_uv_outputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc)
+            check_current_uv_inputs(parallax_loop.node_tree, TEXCOORD_IO_PREFIX + tc)
 
-        check_start_delta_uv_inputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc)
-        check_current_uv_outputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc)
-        check_current_uv_inputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc)
-        check_non_uv_iterate_current_mix(iterate.node_tree, tc)
+            check_start_delta_uv_inputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc)
+            check_current_uv_outputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc)
+            check_current_uv_inputs(iterate.node_tree, TEXCOORD_IO_PREFIX + tc)
+            check_non_uv_iterate_current_mix(iterate.node_tree, tc)
 
-        #check_start_delta_uv_inputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc)
-        #check_current_uv_outputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc)
-        #check_current_uv_inputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+            #check_start_delta_uv_inputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+            #check_current_uv_outputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+            #check_current_uv_inputs(iterate_group_0.node_tree, TEXCOORD_IO_PREFIX + tc)
+
+    #create_delete_iterate_nodes(parallax_loop.node_tree, num_of_layers)
+    #create_delete_iterate_nodes_(parallax_loop.node_tree, num_of_layers)
+    create_delete_iterate_nodes__(parallax_loop.node_tree, num_of_layers)
 
 def remove_uv_nodes(uv, obj):
     tree = uv.id_data

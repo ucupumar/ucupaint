@@ -18,7 +18,7 @@ def pack_float_image(image):
     #if image.filepath == '':
     #if original_path == '':
     if bpy.path.basename(original_path) == '':
-        if image.use_alpha:
+        if hasattr(image, 'use_alpha') and image.use_alpha:
             settings.file_format = 'PNG'
             settings.color_depth = '16'
             settings.compression = 15

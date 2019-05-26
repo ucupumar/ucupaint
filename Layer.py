@@ -11,13 +11,14 @@ from .subtree import *
 DEFAULT_NEW_IMG_SUFFIX = ' Layer'
 DEFAULT_NEW_VCOL_SUFFIX = ' VCol'
 
-def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #, has_parent=False):
+def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #, check_uvs=False): #, has_parent=False):
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
 
     # Check uv maps
-    check_uv_nodes(yp)
+    #if check_uvs:
+    #    check_uv_nodes(yp)
 
     # Check layer tree io
     check_layer_tree_ios(layer, tree)
@@ -242,7 +243,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 elif mask_color == 'BLACK':
                     mask_image.generated_color = (0,0,0,1)
                 #mask_image.generated_color = (0,0,0,1)
-                mask_image.use_alpha = False
+                if hasattr(mask_image, 'use_alpha'):
+                    mask_image.use_alpha = False
 
             if mask_image.colorspace_settings.name != 'Linear':
                 mask_image.colorspace_settings.name = 'Linear'
@@ -293,6 +295,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
         # Set linear node of layer channel
         set_layer_channel_linear_node(tree, layer, root_ch, ch)
+
+    # Check uv maps
+    check_uv_nodes(yp)
 
     # Check and create layer channel nodes
     check_all_layer_channel_io_and_nodes(layer, tree) #, has_parent=has_parent)
@@ -715,7 +720,8 @@ class YNewLayer(bpy.types.Operator):
                 #img.generated_type = self.generated_type
                 img.generated_type = 'BLANK'
                 img.generated_color = color
-                img.use_alpha = False if self.add_rgb_to_intensity else True
+                if hasattr(img, 'use_alpha'):
+                    img.use_alpha = False if self.add_rgb_to_intensity else True
 
             if img.colorspace_settings.name != 'Linear':
                 img.colorspace_settings.name = 'Linear'
@@ -1240,6 +1246,9 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
         layer = yp.layers[yp.active_layer_index]
         #has_parent = layer.parent_idx != -1
 
+        # Check uv maps
+        check_uv_nodes(yp)
+
         #if layer.type == 'GROUP' or has_parent:
         check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
         rearrange_layer_nodes(layer)
@@ -1611,6 +1620,9 @@ class YRemoveLayer(bpy.types.Operator):
         for lay in yp.layers:
             lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
 
+        # Check uv maps
+        check_uv_nodes(yp)
+
         # Check childrens
         #if need_reconnect_layers:
         for i in child_ids:
@@ -1825,6 +1837,9 @@ class YReplaceLayerType(bpy.types.Operator):
         for lay in yp.layers:
             lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
 
+        # Check uv maps
+        check_uv_nodes(yp)
+
         # Check childrens which need rearrange
         #for i in child_ids:
             #lay = yp.layers[i]
@@ -1857,6 +1872,9 @@ def update_channel_enable(self, context):
     ch = self
 
     tree = get_tree(layer)
+
+    # Check uv maps
+    check_uv_nodes(yp)
 
     #if yp.disable_quick_toggle:
     check_all_layer_channel_io_and_nodes(layer, tree, ch)

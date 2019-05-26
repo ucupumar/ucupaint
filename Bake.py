@@ -1058,7 +1058,8 @@ class YBakeChannels(bpy.types.Operator):
             img = bpy.data.images.new(name=img_name,
                     width=self.width, height=self.height) #, alpha=True, float_buffer=self.hdr)
             img.generated_type = 'BLANK'
-            img.use_alpha = True
+            if hasattr(img, 'use_alpha'):
+                img.use_alpha = True
             if ch.type == 'NORMAL':
                 img.generated_color = (0.5, 0.5, 1.0, 1.0)
             elif ch.type == 'VALUE':

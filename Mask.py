@@ -328,7 +328,8 @@ class YNewLayerMask(bpy.types.Operator):
                     img.generated_color = (1,1,1,1)
                 elif self.color_option == 'BLACK':
                     img.generated_color = (0,0,0,1)
-                img.use_alpha = False
+                if hasattr(img, 'use_alpha'):
+                    img.use_alpha = False
 
             if img.colorspace_settings.name != 'Linear':
                 img.colorspace_settings.name = 'Linear'

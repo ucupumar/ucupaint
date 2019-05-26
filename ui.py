@@ -151,7 +151,8 @@ def draw_image_props(source, layout, entity=None):
         col.template_colorspace_settings(image, "colorspace_settings")
         #col.prop(image, 'use_view_as_render')
         col.prop(image, 'alpha_mode')
-        col.prop(image, 'use_alpha')
+        if hasattr(image, 'use_alpha'):
+            col.prop(image, 'use_alpha')
         #col.prop(image, 'use_fields')
 
 def draw_tex_props(source, layout):

@@ -119,6 +119,9 @@ def check_all_channel_ios(yp):
         if outp not in valid_outputs:
             group_tree.outputs.remove(outp)
 
+    # Check uv maps
+    check_uv_nodes(yp)
+
     # Move layer IO
     for layer in yp.layers:
         Layer.check_all_layer_channel_io_and_nodes(layer)
@@ -199,6 +202,9 @@ def create_yp_channel_nodes(group_tree, channel, channel_idx):
 
         # Add new nodes
         Layer.check_all_layer_channel_io_and_nodes(t, layer_tree, specific_ch=c)
+
+    # Check uv maps
+    check_uv_nodes(yp)
 
 def create_new_group_tree(mat):
 
