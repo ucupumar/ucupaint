@@ -1207,11 +1207,13 @@ class YBakeChannels(bpy.types.Operator):
         # Recover bake settings
         recover_bake_settings(self, context, yp)
 
+        # Use bake results
+        yp.halt_update = True
+        yp.use_baked = True
+        yp.halt_update = False
+
         # Update global uv
         check_uv_nodes(yp)
-
-        # Use bake results
-        yp.use_baked = True
 
         # Recover hack
         if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
@@ -1251,6 +1253,15 @@ class YBakeChannels(bpy.types.Operator):
 
 def update_use_baked(self, context):
     tree = self.id_data
+    yp = tree.yp
+
+    if yp.halt_update: return
+
+    # Check uv nodes
+    check_uv_nodes(yp)
+
+    # Reconnect nodes
+    rearrange_yp_nodes(tree)
     reconnect_yp_nodes(tree)
 
     # Trigger active image update

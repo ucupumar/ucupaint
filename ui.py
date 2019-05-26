@@ -560,6 +560,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 brow.label(text='Parallax:')
                 if channel.enable_parallax:
                     brow.prop(channel, 'parallax_num_of_layers', text='')
+                    brow.prop(channel, 'baked_parallax_num_of_layers', text='')
                 brow.prop(channel, 'enable_parallax', text='')
 
                 if channel.enable_parallax:

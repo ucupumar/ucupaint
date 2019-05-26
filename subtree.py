@@ -739,7 +739,7 @@ def refresh_parallax_depth_img(yp, parallax, disp_img): #, disp_ch):
 
     height_map.image = disp_img
 
-def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
+def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[], baked=False):
 
     tree = yp.id_data
 
@@ -747,30 +747,36 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
     height_ch = get_root_height_channel(yp)
     if not height_ch: return
 
-    num_of_layers = int(height_ch.parallax_num_of_layers)
+    if baked: num_of_layers = int(height_ch.baked_parallax_num_of_layers)
+    else: num_of_layers = int(height_ch.parallax_num_of_layers)
+
+    max_height = get_displacement_max_height(height_ch)
 
     # Create parallax preparations for uvs
     for uv in yp.uvs:
         if uv in unused_uvs: continue
-        parallax_prep = tree.nodes.get(uv.parallax_prep)
-        if not parallax_prep:
-            parallax_prep = new_node(tree, uv, 'parallax_prep', 'ShaderNodeGroup', 
-                    uv.name + ' Parallax Preparation')
-            parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
+        if not height_ch.enable_parallax:
+            remove_node(tree, uv, 'parallax_prep')
+        else:
+            parallax_prep = tree.nodes.get(uv.parallax_prep)
+            if not parallax_prep:
+                parallax_prep = new_node(tree, uv, 'parallax_prep', 'ShaderNodeGroup', 
+                        uv.name + ' Parallax Preparation')
+                parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
 
-        #parallax_prep.inputs['depth_scale'].default_value = height_ch.displacement_height_ratio
-        parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(height_ch)
-        parallax_prep.inputs['ref_plane'].default_value = height_ch.parallax_ref_plane
-        parallax_prep.inputs['Rim Hack'].default_value = 1.0 if height_ch.parallax_rim_hack else 0.0
-        parallax_prep.inputs['Rim Hack Hardness'].default_value = height_ch.parallax_rim_hack_hardness
-        parallax_prep.inputs['layer_depth'].default_value = 1.0 / num_of_layers
+            #parallax_prep.inputs['depth_scale'].default_value = height_ch.displacement_height_ratio
+            parallax_prep.inputs['depth_scale'].default_value = max_height
+            parallax_prep.inputs['ref_plane'].default_value = height_ch.parallax_ref_plane
+            parallax_prep.inputs['Rim Hack'].default_value = 1.0 if height_ch.parallax_rim_hack else 0.0
+            parallax_prep.inputs['Rim Hack Hardness'].default_value = height_ch.parallax_rim_hack_hardness
+            parallax_prep.inputs['layer_depth'].default_value = 1.0 / num_of_layers
 
     # Create parallax preparations for texcoords other than UV
     for tc in texcoord_lists:
 
         parallax_prep = tree.nodes.get(tc + PARALLAX_PREP_SUFFIX)
 
-        if tc not in unused_texcoords:
+        if tc not in unused_texcoords and height_ch.enable_parallax:
 
             if not parallax_prep:
                 parallax_prep = tree.nodes.new('ShaderNodeGroup')
@@ -782,7 +788,7 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
                     parallax_prep.node_tree = lib.get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
                 parallax_prep.name = parallax_prep.label = tc + PARALLAX_PREP_SUFFIX
 
-            parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(height_ch)
+            parallax_prep.inputs['depth_scale'].default_value = max_height
             parallax_prep.inputs['ref_plane'].default_value = height_ch.parallax_ref_plane
             parallax_prep.inputs['Rim Hack'].default_value = 1.0 if height_ch.parallax_rim_hack else 0.0
             parallax_prep.inputs['Rim Hack Hardness'].default_value = height_ch.parallax_rim_hack_hardness
@@ -791,19 +797,66 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[]):
         elif parallax_prep:
             tree.nodes.remove(parallax_prep)
 
-def check_parallax_node(yp, unused_uvs=[], unused_texcoords=[], baked=False):
+def clear_parallax_node_data(yp, parallax, baked=False):
+
+    depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
+    parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
+    iterate = parallax_loop.node_tree.nodes.get('_iterate')
+
+    # Remove iterate depth
+    counter = 0
+    while True:
+        it = parallax_loop.node_tree.nodes.get('_iterate_depth_' + str(counter))
+
+        if it and it.node_tree:
+            bpy.data.node_groups.remove(it.node_tree)
+        else: break
+
+        counter += 1
+
+    # Remove node trees
+    bpy.data.node_groups.remove(iterate.node_tree)
+    bpy.data.node_groups.remove(parallax_loop.node_tree)
+    bpy.data.node_groups.remove(depth_source_0.node_tree)
+
+    # Clear parallax uv node names
+    for uv in yp.uvs:
+        if not baked:
+            uv.parallax_current_uv_mix = ''
+            uv.parallax_current_uv = ''
+            uv.parallax_delta_uv = ''
+            uv.parallax_mix = ''
+        else:
+            uv.baked_parallax_current_uv_mix = ''
+            uv.baked_parallax_current_uv = ''
+            uv.baked_parallax_delta_uv = ''
+            uv.baked_parallax_mix = ''
+
+    # Clear parallax layer node names
+    if not baked:
+        for layer in yp.layers:
+            layer.depth_group_node = ''
+
+def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked=False):
 
     tree = yp.id_data
 
     # Standard height channel is same as parallax channel (for now?)
-    height_ch = get_root_height_channel(yp)
-    if not height_ch: return
+    #height_ch = get_root_height_channel(yp)
+    #if not height_ch: return
 
-    num_of_layers = int(height_ch.parallax_num_of_layers)
+    if baked: num_of_layers = int(height_ch.baked_parallax_num_of_layers)
+    else: num_of_layers = int(height_ch.parallax_num_of_layers)
 
     # Get parallax node
     node_name = BAKED_PARALLAX if baked else PARALLAX
     parallax = tree.nodes.get(node_name)
+
+    if not height_ch.enable_parallax or (baked and not yp.use_baked) or (not baked and yp.use_baked):
+        if parallax:
+            clear_parallax_node_data(yp, parallax, baked)
+            simple_remove_node(tree, parallax, True)
+        return
 
     # Displacement image needed for baked parallax
     disp_img = None
@@ -954,6 +1007,7 @@ def check_parallax_node(yp, unused_uvs=[], unused_texcoords=[], baked=False):
     #create_delete_iterate_nodes(parallax_loop.node_tree, num_of_layers)
     #create_delete_iterate_nodes_(parallax_loop.node_tree, num_of_layers)
     create_delete_iterate_nodes__(parallax_loop.node_tree, num_of_layers)
+    #update_displacement_height_ratio(height_ch)
 
 def remove_uv_nodes(uv, obj):
     tree = uv.id_data
@@ -1021,13 +1075,20 @@ def check_uv_nodes(yp):
             unused_texcoords.append(tc)
 
     # Check parallax preparation nodes
-    check_parallax_prep_nodes(yp, unused_uvs, unused_texcoords)
+    check_parallax_prep_nodes(yp, unused_uvs, unused_texcoords, baked=yp.use_baked)
+
+    # Get height channel
+    height_ch = get_root_height_channel(yp)
+    if not height_ch: return
 
     # Check standard parallax
-    check_parallax_node(yp, unused_uvs, unused_texcoords)
+    check_parallax_node(yp, height_ch, unused_uvs, unused_texcoords)
 
     # Check baked parallax
-    check_parallax_node(yp, unused_uvs, baked=True)
+    check_parallax_node(yp, height_ch, unused_uvs, baked=True)
+
+    # Update max height to parallax nodes
+    update_displacement_height_ratio(height_ch)
 
     # Remove unused uv objects
     for i in unused_ids:
@@ -1252,9 +1313,6 @@ def check_layer_tree_ios(layer, tree=None):
 
     return dirty
 
-def update_disp_scale_node(tree, root_ch, ch):
-    update_displacement_height_ratio(root_ch)
-
 def remove_layer_normal_channel_nodes(root_ch, layer, ch, tree=None):
 
     if not tree: tree = get_tree(layer)
@@ -1314,6 +1372,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     #mute = not layer.enable or not ch.enable
 
     max_height = get_displacement_max_height(root_ch, layer)
+    update_displacement_height_ratio(root_ch)
 
     # Height Process
     if ch.normal_map_type == 'NORMAL_MAP':
@@ -1631,8 +1690,6 @@ def check_blend_type_nodes(root_ch, layer, ch):
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
                     return_status = True, hard_replace=True, dirty=need_reconnect)
-
-        update_disp_scale_node(tree, root_ch, ch)
 
         if not root_ch.enable_smooth_bump:
             for d in neighbor_directions:

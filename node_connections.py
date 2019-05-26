@@ -509,7 +509,7 @@ def reconnect_baked_parallax_layer_nodes(yp, node):
     parallax_ch = get_root_parallax_channel(yp)
     if not parallax_ch: return
 
-    num_of_layers = int(parallax_ch.parallax_num_of_layers)
+    num_of_layers = int(parallax_ch.baked_parallax_num_of_layers)
 
     loop = node.node_tree.nodes.get('_parallax_loop')
     if loop:

@@ -49,7 +49,7 @@ START_UV = ' Start UV'
 DELTA_UV = ' Delta UV'
 CURRENT_UV = ' Current UV'
 
-ITERATE_GROUP = 'yP Iterate Parallax Group'
+ITERATE_GROUP = '~yP Iterate Parallax Group'
 PARALLAX_DIVIDER = 4
 
 blend_type_items = (("MIX", "Mix", ""),
@@ -530,6 +530,21 @@ def get_active_ypaint_node():
 
     return None
 
+#def remove_tree_data_recursive(node):
+#
+#    try: tree = node.node_tree
+#    except: return
+#    
+#    for n in tree.nodes:
+#        if n.type == 'GROUP' and n.node_tree:
+#            remove_tree_data_recursive(n)
+#            n.node_tree = None
+#
+#    node.node_tree = None
+#
+#    if tree.users == 0:
+#        bpy.data.node_groups.remove(tree)
+
 def simple_remove_node(tree, node, remove_data=True):
     scene = bpy.context.scene
 
@@ -544,6 +559,8 @@ def simple_remove_node(tree, node, remove_data=True):
         elif node.bl_idname == 'ShaderNodeGroup':
             if node.node_tree and node.node_tree.users == 1:
                 bpy.data.node_groups.remove(node.node_tree)
+
+            #remove_tree_data_recursive(node)
 
     tree.nodes.remove(node)
 
@@ -2269,17 +2286,24 @@ def get_write_height_normal_channel(layer):
 
     return None
 
-def update_displacement_height_ratio(root_ch):
+def update_displacement_height_ratio(root_ch, max_height=None):
 
     group_tree = root_ch.id_data
     yp = group_tree.yp
 
-    max_height = get_displacement_max_height(root_ch)
+    if not max_height: max_height = get_displacement_max_height(root_ch)
     #max_height = root_ch.displacement_height_ratio
 
-    #baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
-    #if baked_parallax:
-    #    baked_parallax.inputs['depth_scale'].default_value = max_height
+    baked_parallax = group_tree.nodes.get(BAKED_PARALLAX)
+    if baked_parallax:
+        #baked_parallax.inputs['depth_scale'].default_value = max_height
+        depth_source_0 = baked_parallax.node_tree.nodes.get('_depth_source_0')
+        if depth_source_0:
+            pack = depth_source_0.node_tree.nodes.get('_pack')
+            if pack:
+                if max_height != 0.0:
+                    pack.inputs['Max Height'].default_value = max_height
+                else: pack.inputs['Max Height'].default_value = 1.0
 
     parallax = group_tree.nodes.get(PARALLAX)
     if parallax:
