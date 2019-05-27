@@ -363,7 +363,8 @@ def check_transition_bump_nodes(layer, tree, ch, ch_index):
 
     # Trigger normal channel update
     #ch.normal_map_type = ch.normal_map_type
-    update_disp_scale_node(tree, root_ch, ch)
+    #update_disp_scale_node(tree, root_ch, ch)
+    update_displacement_height_ratio(root_ch)
 
     # Check normal map nodes
     check_channel_normal_map_nodes(tree, layer, root_ch, ch)
