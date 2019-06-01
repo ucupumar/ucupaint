@@ -1056,7 +1056,7 @@ class YBakeChannels(bpy.types.Operator):
 
             #Create new image
             img = bpy.data.images.new(name=img_name,
-                    width=self.width, height=self.height) #, alpha=True, float_buffer=self.hdr)
+                    width=self.width, height=self.height, alpha=True) #, alpha=True, float_buffer=self.hdr)
             img.generated_type = 'BLANK'
             if hasattr(img, 'use_alpha'):
                 img.use_alpha = True
@@ -1137,7 +1137,54 @@ class YBakeChannels(bpy.types.Operator):
             # Bake displacement
             if ch.type == 'NORMAL': # and ch.enable_parallax:
 
-                # Displacement
+                ### Normal overlay only
+
+                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                if not baked_normal_overlay:
+                    baked_normal_overlay = new_node(tree, ch, 'baked_normal_overlay', 'ShaderNodeTexImage', 
+                            'Baked ' + ch.name + ' Overlay Only')
+                    if hasattr(baked_normal_overlay, 'color_space'):
+                        baked_normal_overlay.color_space = 'NONE'
+
+                if baked_normal_overlay.image:
+                    norm_img_name = baked_normal_overlay.image.name
+                    filepath = baked_normal_overlay.image.filepath
+                    baked_normal_overlay.image.name = '____NORM_TEMP'
+                else:
+                    norm_img_name = tree.name + ' ' + ch.name + ' Overlay Only'
+
+                # Create target image
+                norm_img = bpy.data.images.new(name=norm_img_name, width=self.width, height=self.height) 
+                norm_img.generated_color = (0.5, 0.5, 1.0, 1.0)
+                norm_img.colorspace_settings.name = 'Linear'
+
+                # Bake setup (doing little bit doing hacky reconnection here)
+                end = tree.nodes.get(TREE_END)
+                ori_soc = end.inputs[ch.name].links[0].from_socket
+                end_linear = tree.nodes.get(ch.end_linear)
+                soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
+                create_link(tree, soc, end.inputs[ch.name])
+                #create_link(mat.node_tree, node.outputs[ch.name], emit.inputs[0])
+
+                tex.image = norm_img
+
+                # Bake
+                bpy.ops.object.bake()
+
+                # Recover connection
+                create_link(tree, ori_soc, end.inputs[ch.name])
+
+                # Set baked normal overlay image
+                if baked_normal_overlay.image:
+                    temp = baked_normal_overlay.image
+                    img_users = get_all_image_users(baked_normal_overlay.image)
+                    for user in img_users:
+                        user.image = norm_img
+                    bpy.data.images.remove(temp)
+                else:
+                    baked_normal_overlay.image = norm_img
+
+                ### Displacement
 
                 baked_disp = tree.nodes.get(ch.baked_disp)
                 if not baked_disp:
@@ -1151,7 +1198,6 @@ class YBakeChannels(bpy.types.Operator):
                     filepath = baked_disp.image.filepath
                     baked_disp.image.name = '____DISP_TEMP'
                 else:
-                    #disp_img_name = baked_disp.image.name
                     disp_img_name = tree.name + ' ' + ch.name + ' Displacement'
 
                 # Create target image
@@ -1160,13 +1206,7 @@ class YBakeChannels(bpy.types.Operator):
                 disp_img.colorspace_settings.name = 'Linear'
 
                 # Bake setup
-                #if bpy.app.version_string.startswith('2.8'):
                 create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], emit.inputs[0])
-                #else:
-                #    #create_link(mat.node_tree, node.outputs[ch.io_index+1], srgb2lin.inputs[0])
-                #    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], srgb2lin.inputs[0])
-                #    create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
-
                 tex.image = disp_img
 
                 # Bake
@@ -1211,6 +1251,10 @@ class YBakeChannels(bpy.types.Operator):
         yp.halt_update = True
         yp.use_baked = True
         yp.halt_update = False
+
+        # Check subdiv Setup
+        height_ch = get_root_height_channel(yp)
+        check_subdiv_setup(height_ch)
 
         # Update global uv
         check_uv_nodes(yp)
@@ -1257,6 +1301,10 @@ def update_use_baked(self, context):
 
     if yp.halt_update: return
 
+    # Check subdiv setup
+    height_ch = get_root_height_channel(yp)
+    check_subdiv_setup(height_ch)
+
     # Check uv nodes
     check_uv_nodes(yp)
 
@@ -1269,6 +1317,135 @@ def update_use_baked(self, context):
         self.active_channel_index = self.active_channel_index
     else:
         self.active_layer_index = self.active_layer_index
+
+def check_subdiv_setup(height_ch):
+    tree = height_ch.id_data
+    yp = tree.yp
+
+    if not height_ch: return
+    obj = bpy.context.object
+
+    baked_disp = tree.nodes.get(height_ch.baked_disp)
+    end_max_height = tree.nodes.get(height_ch.end_max_height)
+    if not baked_disp or not baked_disp.image or not end_max_height: return
+    img = baked_disp.image
+
+    max_height = end_max_height.outputs[0].default_value
+
+    subsurf = get_subsurf_modifier(obj)
+    displace = get_displace_modifier(obj)
+
+    if yp.use_baked and height_ch.enable_subdiv_setup:
+        #subsurf = None
+        #displace = None
+        #for mod in obj.modifiers:
+        #    if mod.type == 'SUBSURF':
+        #        subsurf = mod
+        #    if mod.type == 'DISPLACE':
+        #        displace = mod
+
+        if not subsurf:
+            subsurf = obj.modifiers.new('Subsurf', 'SUBSURF')
+            #subsurf = obj.modifiers.new('yP_Subsurf', 'SUBSURF')
+            #displace = obj.modifiers.new('yP_Displace', 'DISPLACE')
+
+        if not displace:
+            displace = obj.modifiers.new('yP_Displace', 'DISPLACE')
+
+        tex = displace.texture
+
+        if not tex:
+            tex = bpy.data.textures.new(img.name, 'IMAGE')
+            tex.image = img
+            displace.texture = tex
+            displace.texture_coords = 'UV'
+
+        displace.strength = height_ch.subdiv_tweak * max_height
+        displace.mid_level = height_ch.parallax_ref_plane
+        displace.uv_layer = yp.baked_uv_name
+
+        subsurf.render_levels = height_ch.subdiv_on_level
+        subsurf.levels = height_ch.subdiv_on_level
+
+    else:
+
+        for mod in obj.modifiers:
+            #if mod.type == 'SUBSURF' and mod.name == 'yP_Subsurf':
+            #    obj.modifiers.remove(mod)
+            if mod.type == 'DISPLACE' and mod.name == 'yP_Displace':
+                if mod.texture:
+                    bpy.data.textures.remove(mod.texture)
+                obj.modifiers.remove(mod)
+
+        # Get remaining non named subsurf
+        #subsurf = None
+        #for mod in obj.modifiers:
+        #    if mod.type == 'SUBSURF':
+        #        subsurf = mod
+
+        if subsurf:
+            subsurf.render_levels = height_ch.subdiv_off_level
+            subsurf.levels = height_ch.subdiv_off_level
+
+def update_enable_subdiv_setup(self, context):
+    obj = context.object
+    tree = self.id_data
+    yp = tree.yp
+
+    # Check uv nodes to enable/disable parallax
+    check_uv_nodes(yp)
+
+    # Check subdiv setup
+    check_subdiv_setup(self)
+
+    # Reconnect nodes
+    rearrange_yp_nodes(tree)
+    reconnect_yp_nodes(tree)
+
+def update_subdiv_tweak(self, context):
+    obj = context.object
+    tree = self.id_data
+    yp = tree.yp
+
+    height_ch = self
+
+    end_max_height = tree.nodes.get(height_ch.end_max_height)
+    if not end_max_height: return
+    max_height = end_max_height.outputs[0].default_value
+
+    displace = get_displace_modifier(obj)
+    if not displace: return
+
+    displace.strength = height_ch.subdiv_tweak * max_height
+
+def update_subdiv_on_off_level(self, context):
+    obj = context.object
+    tree = self.id_data
+    yp = tree.yp
+
+    height_ch = self
+
+    subsurf = get_subsurf_modifier(obj)
+    if not subsurf: return
+
+    if self.enable_subdiv_setup and yp.use_baked:
+        subsurf.render_levels = height_ch.subdiv_on_level
+        subsurf.levels = height_ch.subdiv_on_level
+    else:
+        subsurf.render_levels = height_ch.subdiv_off_level
+        subsurf.levels = height_ch.subdiv_off_level
+
+def update_subdiv_standard_type(self, context):
+    obj = context.object
+    tree = self.id_data
+    yp = tree.yp
+
+    height_ch = self
+
+    subsurf = get_subsurf_modifier(obj)
+    if not subsurf: return
+
+    subsurf.subdivision_type = height_ch.subdiv_standard_type
 
 def register():
     bpy.utils.register_class(YBakeToLayer)

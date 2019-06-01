@@ -2179,6 +2179,28 @@ class YPaintChannel(bpy.types.PropertyGroup):
     parallax_ref_plane = FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
             update=update_displacement_ref_plane)
 
+    # Real subdivision using height map
+    enable_subdiv_setup = BoolProperty(
+            name = 'Enable Subdivision Setup',
+            description = 'Enable subdivision setup. Only works if baked results is used.',
+            default=False, update=Bake.update_enable_subdiv_setup)
+
+    subdiv_standard_type = EnumProperty(
+            name = 'Subdivision Standard Type',
+            description = 'Subdivision Standard Type',
+            items = (
+                ('CATMULL_CLARK', 'Catmull-Clark', ''),
+                ('SIMPLE', 'Simple', ''),
+                ),
+            default = 'CATMULL_CLARK',
+            update=Bake.update_subdiv_standard_type
+            )
+    
+    subdiv_on_level = IntProperty(default=3, min=0, max=10, update=Bake.update_subdiv_on_off_level)
+    subdiv_off_level = IntProperty(default=1, min=0, max=10, update=Bake.update_subdiv_on_off_level)
+
+    subdiv_tweak = FloatProperty(default=1.0, min=0.0, max=10.0, update=Bake.update_subdiv_tweak)
+
     # Main uv is used for normal calculation of normal channel
     main_uv = StringProperty(default='')
 
@@ -2206,11 +2228,13 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_normal_prep = StringProperty(default='')
 
     baked_disp = StringProperty(default='')
-    baked_obj_normal = StringProperty(default='')
+    baked_normal_overlay = StringProperty(default='')
 
     # UI related
     expand_content = BoolProperty(default=False)
     expand_base_vector = BoolProperty(default=True)
+    expand_subdiv_settings = BoolProperty(default=False)
+    expand_parallax_settings = BoolProperty(default=False)
 
     # Connection related
     ori_alpha_to = CollectionProperty(type=YNodeConnections)

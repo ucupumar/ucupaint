@@ -2336,7 +2336,7 @@ def update_displacement_height_ratio(root_ch, max_height=None):
             parallax_prep.inputs['depth_scale'].default_value = max_height
 
 def get_fine_bump_distance(distance):
-    scale = 200
+    scale = 400
     #if layer.type == 'IMAGE':
     #    source = get_layer_source(layer)
     #    image = source.image
@@ -2385,6 +2385,22 @@ def check_if_node_is_duplicated_from_lib(node, lib_name):
     m = re.match(r'^' + lib_name + '_Copy\.*\d{0,3}$', node.node_tree.name)
     if m: return True
     return False
+
+def get_subsurf_modifier(obj, keyword=''):
+    for mod in obj.modifiers:
+        if mod.type == 'SUBSURF':
+            if keyword != '' and keyword != mod.name: continue
+            return mod
+
+    return None
+
+def get_displace_modifier(obj, keyword=''):
+    for mod in obj.modifiers:
+        if mod.type == 'DISPLACE':
+            if keyword != '' and keyword != mod.name: continue
+            return mod
+
+    return None
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

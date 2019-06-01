@@ -90,6 +90,10 @@ def save_pack_all(yp, only_dirty = True):
         if baked_disp and baked_disp.image:
             images.append(baked_disp.image)
 
+        baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+        if baked_normal_overlay and baked_normal_overlay.image:
+            images.append(baked_normal_overlay.image)
+
     packed_float_images = []
 
     # Save/pack images

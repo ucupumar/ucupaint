@@ -38,6 +38,8 @@ def update_yp_ui():
             channel = yp.channels[yp.active_channel_index]
             ypui.channel_ui.expand_content = channel.expand_content
             ypui.channel_ui.expand_base_vector = channel.expand_base_vector
+            ypui.channel_ui.expand_subdiv_settings = channel.expand_subdiv_settings
+            ypui.channel_ui.expand_parallax_settings = channel.expand_parallax_settings
             ypui.channel_ui.modifiers.clear()
 
             # Construct channel UI objects
@@ -556,14 +558,52 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 #brow.prop(channel, 'enable_parallax', text='')
 
                 brow = bcol.row(align=True)
-                brow.label(text='', icon='INFO')
+                brow.active = channel.enable_parallax and (not yp.use_baked or not channel.enable_subdiv_setup)
+
+                if custom_icon_enable:
+                    if chui.expand_parallax_settings:
+                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                    brow.prop(chui, 'expand_parallax_settings', text='', emboss=False, icon_value=icon_value)
+                else:
+                    brow.prop(chui, 'expand_parallax_settings', text='', emboss=True, icon='INFO')
+
+                #brow.label(text='', icon='INFO')
+
                 brow.label(text='Parallax:')
-                if channel.enable_parallax:
+                #if channel.enable_parallax:
+                if not chui.expand_parallax_settings and channel.enable_parallax:
                     brow.prop(channel, 'parallax_num_of_layers', text='')
                     brow.prop(channel, 'baked_parallax_num_of_layers', text='')
                 brow.prop(channel, 'enable_parallax', text='')
 
-                if channel.enable_parallax:
+                if chui.expand_parallax_settings:
+
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='BLANK1')
+                    bbox = brow.box()
+                    bbcol = bbox.column() #align=True)
+                    bbcol.active = channel.enable_parallax and (not yp.use_baked or not channel.enable_subdiv_setup)
+
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Steps:')
+                    brow.prop(channel, 'parallax_num_of_layers', text='')
+
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Steps (Baked):')
+                    brow.prop(channel, 'baked_parallax_num_of_layers', text='')
+
+                    brow = bbcol.row(align=True)
+                    #brow.label(text='', icon='INFO')
+                    brow.label(text='Rim Hack:')
+                    if channel.parallax_rim_hack:
+                        brow.prop(channel, 'parallax_rim_hack_hardness', text='')
+                    brow.prop(channel, 'parallax_rim_hack', text='')
+
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Main UV: ' + channel.main_uv)
+
+                #if channel.enable_parallax:
 
                     #brow = bcol.row(align=True)
                     #brow.label(text='', icon='INFO')
@@ -590,16 +630,59 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                     #brow.label(text='Binary Samples:')
                     #brow.prop(channel, 'parallax_num_of_binary_samples', text='')
 
-                    brow = bcol.row(align=True)
-                    brow.label(text='', icon='INFO')
-                    brow.label(text='Rim Hack:')
-                    if channel.parallax_rim_hack:
-                        brow.prop(channel, 'parallax_rim_hack_hardness', text='')
-                    brow.prop(channel, 'parallax_rim_hack', text='')
+                    #brow = bcol.row(align=True)
+                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='Rim Hack:')
+                    #if channel.parallax_rim_hack:
+                    #    brow.prop(channel, 'parallax_rim_hack_hardness', text='')
+                    #brow.prop(channel, 'parallax_rim_hack', text='')
 
                 brow = bcol.row(align=True)
-                brow.label(text='', icon='INFO')
-                brow.label(text='Main UV: ' + channel.main_uv)
+                #brow.label(text='', icon='INFO')
+
+                if custom_icon_enable:
+                    if chui.expand_subdiv_settings:
+                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                    brow.prop(chui, 'expand_subdiv_settings', text='', emboss=False, icon_value=icon_value)
+                else:
+                    brow.prop(chui, 'expand_subdiv_settings', text='', emboss=True, icon='INFO')
+
+                brow.label(text='Subdiv Setup:')
+                brow.active = yp.use_baked
+                brow.prop(channel, 'enable_subdiv_setup', text='')
+
+                if chui.expand_subdiv_settings:
+
+                    #subsurf = get_subsurf_modifier(context.object)
+                    #displace = get_displace_modifier(context.object)
+
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='BLANK1')
+                    bbox = brow.box()
+                    bbcol = bbox.column() #align=True)
+                    bbcol.active = yp.use_baked
+
+                    #if subsurf:
+                    #    brow = bbcol.row(align=True)
+                    #    brow.label(text='Type:')
+                    #    brow.prop(subsurf, 'subdivision_type', expand=True)
+                    
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Type:')
+                    brow.prop(channel, 'subdiv_standard_type', expand=True)
+
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Setup Off Level:')
+                    brow.prop(channel, 'subdiv_off_level', text='')
+
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Setup On Level:')
+                    brow.prop(channel, 'subdiv_on_level', text='')
+
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Subdiv Tweak:')
+                    brow.prop(channel, 'subdiv_tweak', text='')
 
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
@@ -1637,6 +1720,32 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
 
                 if baked.image.packed_file:
                     row.label(text='', icon='PACKAGE')
+
+            if root_ch.type == 'NORMAL':
+
+                baked_normal_overlay = nodes.get(root_ch.baked_normal_overlay)
+                if baked_normal_overlay and baked_normal_overlay.image:
+                    row = col.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    if baked_normal_overlay.image.is_dirty:
+                        label = baked_normal_overlay.image.name + ' *'
+                    else: label = baked_normal_overlay.image.name
+                    row.label(text=label, icon='IMAGE_DATA')
+
+                    if baked_normal_overlay.image.packed_file:
+                        row.label(text='', icon='PACKAGE')
+
+                baked_disp = nodes.get(root_ch.baked_disp)
+                if baked_disp and baked_disp.image:
+                    row = col.row(align=True)
+                    row.label(text='', icon='BLANK1')
+                    if baked_disp.image.is_dirty:
+                        label = baked_disp.image.name + ' *'
+                    else: label = baked_disp.image.name
+                    row.label(text=label, icon='IMAGE_DATA')
+
+                    if baked_disp.image.packed_file:
+                        row.label(text='', icon='PACKAGE')
         return
 
     if is_a_mesh and not uv_found:
@@ -2841,6 +2950,10 @@ def update_channel_ui(self, context):
         ch.expand_bump_settings = self.expand_bump_settings
     if hasattr(ch, 'expand_base_vector'):
         ch.expand_base_vector = self.expand_base_vector
+    if hasattr(ch, 'expand_subdiv_settings'):
+        ch.expand_subdiv_settings = self.expand_subdiv_settings
+    if hasattr(ch, 'expand_parallax_settings'):
+        ch.expand_parallax_settings = self.expand_parallax_settings
     if hasattr(ch, 'expand_intensity_settings'):
         ch.expand_intensity_settings = self.expand_intensity_settings
     if hasattr(ch, 'expand_transition_bump_settings'):
@@ -2897,6 +3010,8 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_transition_bump_settings = BoolProperty(default=True, update=update_channel_ui)
     expand_transition_ramp_settings = BoolProperty(default=True, update=update_channel_ui)
     expand_transition_ao_settings = BoolProperty(default=True, update=update_channel_ui)
+    expand_subdiv_settings = BoolProperty(default=False, update=update_channel_ui)
+    expand_parallax_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_input_settings = BoolProperty(default=True, update=update_channel_ui)
     modifiers = CollectionProperty(type=YModifierUI)
 

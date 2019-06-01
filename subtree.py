@@ -852,7 +852,10 @@ def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked
     node_name = BAKED_PARALLAX if baked else PARALLAX
     parallax = tree.nodes.get(node_name)
 
-    if not height_ch.enable_parallax or (baked and not yp.use_baked) or (not baked and yp.use_baked):
+    if (not height_ch.enable_parallax or 
+            (baked and not yp.use_baked) or (not baked and yp.use_baked) or
+            (yp.use_baked and height_ch.enable_subdiv_setup)
+            ):
         if parallax:
             clear_parallax_node_data(yp, parallax, baked)
             simple_remove_node(tree, parallax, True)

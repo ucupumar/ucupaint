@@ -1118,6 +1118,10 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             rgb = baked.outputs[0]
 
             if ch.type == 'NORMAL':
+                baked_normal_overlay = nodes.get(ch.baked_normal_overlay)
+                if ch.enable_subdiv_setup and baked_normal_overlay:
+                    rgb = baked_normal_overlay.outputs[0]
+
                 baked_normal = nodes.get(ch.baked_normal)
 
                 baked_normal_prep = nodes.get(ch.baked_normal_prep)
