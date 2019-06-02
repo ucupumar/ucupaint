@@ -857,6 +857,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     parallax_ch = get_root_parallax_channel(yp)
     parallax = tree.nodes.get(PARALLAX)
     baked_parallax = tree.nodes.get(BAKED_PARALLAX)
+    baked_parallax_filter = tree.nodes.get(BAKED_PARALLAX_FILTER)
 
     # UVs
 
@@ -891,9 +892,17 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
     baked_uv = yp.uvs.get(yp.baked_uv_name)
     if yp.use_baked and baked_uv:
+
+        baked_uv_map = nodes.get(baked_uv.uv_map).outputs[0]
+
         if parallax_ch and baked_parallax:
-            baked_uv_map = baked_parallax.outputs[0]
-        else: baked_uv_map = nodes.get(baked_uv.uv_map).outputs[0]
+            if baked_parallax_filter:
+                create_link(tree, baked_uv_map, baked_parallax_filter.inputs['Cycles'])
+                create_link(tree, baked_parallax.outputs[0], baked_parallax_filter.inputs['Eevee'])
+                create_link(tree, baked_parallax.outputs[0], baked_parallax_filter.inputs['Blender 2.7 Viewport'])
+                baked_uv_map = baked_parallax_filter.outputs[0]
+            else:
+                baked_uv_map = baked_parallax.outputs[0]
 
         baked_tangent = tangents[baked_uv.name]
         baked_bitangent = bitangents[baked_uv.name]
@@ -952,6 +961,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         start_linear = nodes.get(ch.start_linear)
         end_linear = nodes.get(ch.end_linear)
         end_max_height = nodes.get(ch.end_max_height)
+        end_max_height_tweak = nodes.get(ch.end_max_height_tweak)
         start_normal_filter = nodes.get(ch.start_normal_filter)
 
         io_name = ch.name
@@ -1113,13 +1123,13 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     create_link(tree, tangent, end_linear.inputs['Tangent'])
                     create_link(tree, bitangent, end_linear.inputs['Bitangent'])
 
-        if yp.use_baked and baked_uv:
+        if yp.use_baked: # and baked_uv:
             baked = nodes.get(ch.baked)
             rgb = baked.outputs[0]
 
             if ch.type == 'NORMAL':
                 baked_normal_overlay = nodes.get(ch.baked_normal_overlay)
-                if ch.enable_subdiv_setup and baked_normal_overlay:
+                if ch.enable_subdiv_setup and not ch.subdiv_adaptive and baked_normal_overlay:
                     rgb = baked_normal_overlay.outputs[0]
 
                 baked_normal = nodes.get(ch.baked_normal)
@@ -1145,8 +1155,12 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             create_link(tree, alpha, end.inputs[io_alpha_name])
         if ch.type == 'NORMAL': #and ch.enable_parallax:
             create_link(tree, disp, end.inputs[io_disp_name])
-            if end_max_height and ch.name + io_suffix['MAX HEIGHT'] in end.inputs:
-                create_link(tree, end_max_height.outputs[0], end.inputs[ch.name + io_suffix['MAX HEIGHT']])
+            if ch.name + io_suffix['MAX HEIGHT'] in end.inputs and end_max_height:
+                if end_max_height_tweak:
+                    create_link(tree, end_max_height.outputs[0], end_max_height_tweak.inputs[0])
+                    create_link(tree, end_max_height_tweak.outputs[0], end.inputs[ch.name + io_suffix['MAX HEIGHT']])
+                else:
+                    create_link(tree, end_max_height.outputs[0], end.inputs[ch.name + io_suffix['MAX HEIGHT']])
 
     # List of last members
     last_members = []

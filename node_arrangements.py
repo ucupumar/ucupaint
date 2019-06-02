@@ -1384,6 +1384,9 @@ def rearrange_uv_nodes(group_tree, loc):
         rearrange_parallax_process_internal_nodes(group_tree, PARALLAX)
         loc.y -= 240
 
+    if check_set_node_loc(group_tree, BAKED_PARALLAX_FILTER, loc):
+        loc.y -= 180
+
     if check_set_node_loc(group_tree, BAKED_PARALLAX, loc):
         rearrange_parallax_process_internal_nodes(group_tree, BAKED_PARALLAX)
         #rearrange_parallax_layer_nodes(yp, baked_parallax)
@@ -1569,6 +1572,9 @@ def rearrange_yp_nodes(group_tree):
                 loc.y -= 170
             elif channel.type == 'NORMAL':
                 loc.y -= 320
+
+        if check_set_node_loc(group_tree, channel.end_max_height_tweak, loc):
+            loc.y -= 160
 
         if check_set_node_loc(group_tree, channel.end_max_height, loc):
             loc.y -= 110

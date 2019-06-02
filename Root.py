@@ -27,10 +27,9 @@ colorspace_items = (
     ('SRGB', 'Color Data', '')
 )
 
-def check_all_channel_ios(yp):
+def check_all_channel_ios(yp, reconnect=True):
     group_tree = yp.id_data
 
-    #index = 0
     input_index = 0
     output_index = 0
     valid_inputs = []
@@ -55,7 +54,6 @@ def check_all_channel_ios(yp):
         if ch.io_index != input_index:
             ch.io_index = input_index
 
-        #index += 1
         input_index += 1
         output_index += 1
 
@@ -68,7 +66,6 @@ def check_all_channel_ios(yp):
 
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
-            #index += 1
             input_index += 1
             output_index += 1
 
@@ -82,16 +79,22 @@ def check_all_channel_ios(yp):
 
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
-            #index += 1
             input_index += 1
             output_index += 1
 
             name = ch.name + io_suffix['MAX HEIGHT']
-
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
-            #index += 1
             output_index += 1
+
+            #if yp.use_baked and ch.enable_subdiv_setup and ch.subdiv_adaptive:
+            #    name = ch.name + io_suffix['DISPLACEMENT']
+
+            #    if bpy.app.version_string.startswith('2.8'):
+            #        create_output(group_tree, name, 'NodeSocketVector', valid_outputs, output_index)
+            #    else: create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
+
+            #    output_index += 1
 
             # Add end linear for converting displacement map to grayscale
             if ch.enable_smooth_bump:
@@ -128,12 +131,17 @@ def check_all_channel_ios(yp):
     # Move layer IO
     for layer in yp.layers:
         Layer.check_all_layer_channel_io_and_nodes(layer)
-        rearrange_layer_nodes(layer)
-        reconnect_layer_nodes(layer)
+        #check_all_layer_channel_io_and_nodes(layer)
 
-    # Rearrange nodes
-    rearrange_yp_nodes(group_tree)
-    reconnect_yp_nodes(group_tree)
+    if reconnect:
+        # Rearrange layers
+        for layer in yp.layers:
+            rearrange_layer_nodes(layer)
+            reconnect_layer_nodes(layer)
+
+        # Rearrange nodes
+        rearrange_yp_nodes(group_tree)
+        reconnect_yp_nodes(group_tree)
 
 def set_input_default_value(group_node, channel, custom_value=None):
     #channel = group_node.node_tree.yp.channels[index]
@@ -205,6 +213,7 @@ def create_yp_channel_nodes(group_tree, channel, channel_idx):
 
         # Add new nodes
         Layer.check_all_layer_channel_io_and_nodes(t, layer_tree, specific_ch=c)
+        #check_all_layer_channel_io_and_nodes(t, layer_tree, specific_ch=c)
 
     # Check uv maps
     check_uv_nodes(yp)
@@ -1002,6 +1011,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
             # Update layer ios
             Layer.check_all_layer_channel_io_and_nodes(layer, ttree) #, has_parent=has_parent)
+            #check_all_layer_channel_io_and_nodes(layer, ttree) #, has_parent=has_parent)
 
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
@@ -1501,6 +1511,7 @@ def update_channel_name(self, context):
     for layer in yp.layers:
         tree = get_tree(layer)
         Layer.check_all_layer_channel_io_and_nodes(layer, tree)
+        #check_all_layer_channel_io_and_nodes(layer, tree)
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
@@ -2195,11 +2206,20 @@ class YPaintChannel(bpy.types.PropertyGroup):
             default = 'CATMULL_CLARK',
             update=Bake.update_subdiv_standard_type
             )
+
+    subdiv_adaptive = BoolProperty(
+            name = 'Use Adaptive Subdivision',
+            description = 'Use Adaptive Subdivision (only works on Cycles)',
+            default=False, update=Bake.update_enable_subdiv_setup
+            )
     
     subdiv_on_level = IntProperty(default=3, min=0, max=10, update=Bake.update_subdiv_on_off_level)
     subdiv_off_level = IntProperty(default=1, min=0, max=10, update=Bake.update_subdiv_on_off_level)
 
     subdiv_tweak = FloatProperty(default=1.0, min=0.0, max=10.0, update=Bake.update_subdiv_tweak)
+
+    subdiv_global_dicing = FloatProperty(subtype='PIXEL', default=1.0, min=0.5, max=1000,
+            update=Bake.update_subdiv_global_dicing)
 
     # Main uv is used for normal calculation of normal channel
     main_uv = StringProperty(default='')
@@ -2220,6 +2240,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     start_normal_filter = StringProperty(default='')
     bump_process = StringProperty(default='')
     end_max_height = StringProperty(default='')
+    end_max_height_tweak = StringProperty(default='')
 
     # Baked nodes
     baked = StringProperty(default='')
@@ -2353,7 +2374,7 @@ class YPaintTimer(bpy.types.PropertyGroup):
 @persistent
 def ypaint_hacks_and_scene_updates(scene):
     # Get active yp node
-    group_node =  get_active_ypaint_node()
+    group_node = get_active_ypaint_node()
     if not group_node: return
     tree = group_node.node_tree
     yp = tree.yp

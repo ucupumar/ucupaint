@@ -558,7 +558,8 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 #brow.prop(channel, 'enable_parallax', text='')
 
                 brow = bcol.row(align=True)
-                brow.active = channel.enable_parallax and (not yp.use_baked or not channel.enable_subdiv_setup)
+                brow.active = channel.enable_parallax and (
+                        not yp.use_baked or not channel.enable_subdiv_setup or channel.subdiv_adaptive)
 
                 if custom_icon_enable:
                     if chui.expand_parallax_settings:
@@ -583,7 +584,8 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                     brow.label(text='', icon='BLANK1')
                     bbox = brow.box()
                     bbcol = bbox.column() #align=True)
-                    bbcol.active = channel.enable_parallax and (not yp.use_baked or not channel.enable_subdiv_setup)
+                    bbcol.active = channel.enable_parallax and (
+                            not yp.use_baked or not channel.enable_subdiv_setup or channel.subdiv_adaptive)
 
                     brow = bbcol.row(align=True)
                     brow.label(text='Steps:')
@@ -667,18 +669,35 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                     #    brow = bbcol.row(align=True)
                     #    brow.label(text='Type:')
                     #    brow.prop(subsurf, 'subdivision_type', expand=True)
-                    
+
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Adaptive (Cycles Only):')
+                    brow.prop(channel, 'subdiv_adaptive', text='')
+
                     brow = bbcol.row(align=True)
                     brow.label(text='Type:')
                     brow.prop(channel, 'subdiv_standard_type', expand=True)
 
+                    #if not channel.enable_subdiv_setup or channel.subdiv_adaptive:
                     brow = bbcol.row(align=True)
-                    brow.label(text='Setup Off Level:')
+                    if channel.subdiv_adaptive:
+                        brow.label(text='Viewport Level:')
+                    else: brow.label(text='Setup Off Level:')
                     brow.prop(channel, 'subdiv_off_level', text='')
 
-                    brow = bbcol.row(align=True)
-                    brow.label(text='Setup On Level:')
-                    brow.prop(channel, 'subdiv_on_level', text='')
+                    if channel.subdiv_adaptive:
+                        brow = bbcol.row(align=True)
+                        brow.label(text='Global Dicing:')
+                        brow.prop(channel, 'subdiv_global_dicing', text='')
+
+                        brow = bbcol.row(align=True)
+                        brow.label(text='Dicing Scale:')
+                        brow.prop(context.object.cycles, 'dicing_rate', text='')
+                    else:
+                    #if channel.enable_subdiv_setup and not channel.subdiv_adaptive:
+                        brow = bbcol.row(align=True)
+                        brow.label(text='Setup On Level:')
+                        brow.prop(channel, 'subdiv_on_level', text='')
 
                     brow = bbcol.row(align=True)
                     brow.label(text='Subdiv Tweak:')

@@ -114,6 +114,8 @@ NORMAL_MAP_PROCESS_TRANSITION = '~yPL Normal Map Process Transition'
 NORMAL_MAP_PROCESS_SMOOTH = '~yPL Normal Map Process Smooth'
 NORMAL_MAP_PROCESS_SMOOTH_TRANSITION = '~yPL Normal Map Process Smooth Transition'
 
+ENGINE_FILTER = '~yPL Engine Filter'
+
 # END OF NEW ORDER
 
 #HEIGHT_PROCESS_BUMP_MIX = '~yPL Height Process Bump Mix'

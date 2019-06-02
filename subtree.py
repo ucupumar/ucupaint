@@ -837,6 +837,13 @@ def clear_parallax_node_data(yp, parallax, baked=False):
         for layer in yp.layers:
             layer.depth_group_node = ''
 
+def check_adaptive_subdiv_nodes(yp, height_ch, baked=False):
+
+    if baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
+        pass
+    else:
+        pass
+
 def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked=False):
 
     tree = yp.id_data
@@ -851,14 +858,16 @@ def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked
     # Get parallax node
     node_name = BAKED_PARALLAX if baked else PARALLAX
     parallax = tree.nodes.get(node_name)
+    baked_parallax_filter = tree.nodes.get(BAKED_PARALLAX_FILTER)
 
     if (not height_ch.enable_parallax or 
             (baked and not yp.use_baked) or (not baked and yp.use_baked) or
-            (yp.use_baked and height_ch.enable_subdiv_setup)
+            (yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive)
             ):
         if parallax:
             clear_parallax_node_data(yp, parallax, baked)
             simple_remove_node(tree, parallax, True)
+            if baked_parallax_filter: simple_remove_node(tree, baked_parallax_filter, True)
         return
 
     # Displacement image needed for baked parallax
@@ -890,6 +899,16 @@ def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked
         #iterate = parallax_loop.node_tree.nodes.get('_iterate_0')
         iterate = parallax_loop.node_tree.nodes.get('_iterate')
         duplicate_lib_node_tree(iterate)
+
+    # Check baked parallax filter
+    if baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
+        if not baked_parallax_filter:
+            baked_parallax_filter = tree.nodes.new('ShaderNodeGroup')
+            baked_parallax_filter.name = BAKED_PARALLAX_FILTER
+            baked_parallax_filter.node_tree = get_node_tree_lib(lib.ENGINE_FILTER)
+            baked_parallax_filter.label = 'Baked Parallax Filter'
+    elif baked_parallax_filter:
+        simple_remove_node(tree, baked_parallax_filter, True)
 
     parallax_loop = parallax.node_tree.nodes.get('_parallax_loop')
 

@@ -25,6 +25,7 @@ ZERO_VALUE = 'Zero Value'
 #BAKED_BITANGENT = 'Baked Bitangent'
 #BAKED_BITANGENT_FLIP = 'Baked Flip Backface Bitangent'
 BAKED_PARALLAX = 'Baked Parallax'
+BAKED_PARALLAX_FILTER = 'Baked Parallax Filter'
 
 TEXCOORD = 'Texture Coordinate'
 GEOMETRY = 'Geometry'
@@ -546,6 +547,7 @@ def get_active_ypaint_node():
 #        bpy.data.node_groups.remove(tree)
 
 def simple_remove_node(tree, node, remove_data=True):
+    #if not node: return
     scene = bpy.context.scene
 
     if remove_data:
