@@ -731,11 +731,8 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
 
         #if yp.disable_quick_toggle and (not layer.enable or not layer.channels[parallax_ch_idx].enable): continue
         if not layer.enable or not layer.channels[parallax_ch_idx].enable: continue
-        if layer.parent_idx != -1: continue
 
         node = tree.nodes.get(layer.depth_group_node)
-
-        height = create_link(tree, height, node.inputs[io_disp_name])[io_disp_name]
 
         uv_names = []
         if layer.texcoord_type == 'UV':
@@ -760,6 +757,10 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
             current_uv = tree.nodes.get(PARALLAX_CURRENT_PREFIX + TEXCOORD_IO_PREFIX + tc)
             if not current_uv: continue
             create_link(tree, current_uv.outputs[0], inp)
+
+        if layer.parent_idx != -1: continue
+
+        height = create_link(tree, height, node.inputs[io_disp_name])[io_disp_name]
 
     create_link(tree, height, pack.inputs[0])
     create_link(tree, pack.outputs[0], end.inputs['depth_from_tex'])
