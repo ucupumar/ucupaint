@@ -489,9 +489,14 @@ class YNewLayer(bpy.types.Operator):
         if self.type != 'IMAGE':
             self.add_rgb_to_intensity = False
 
-        # Make sure add rgb to intensity is inactive
-        if self.type not in {'COLOR', 'BACKGROUND', 'GROUP'}:
+        # Make sure add mask is inactive
+        if self.type not in {'COLOR', 'BACKGROUND'}: #, 'GROUP'}:
             self.add_mask = False
+
+        # Use white color mask as default for group
+        if self.type == 'GROUP':
+            self.mask_color = 'WHITE'
+        else: self.mask_color = 'BLACK'
 
         # Default normal map type is fine bump map
         #self.normal_map_type = 'FINE_BUMP_MAP'

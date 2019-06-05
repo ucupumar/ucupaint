@@ -827,7 +827,8 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
 
                 io_name = io_alpha_name + io_suffix['GROUP']
                 if io_alpha and io_name in upper_node.inputs:
-                    create_link(tree, cur_node.outputs[io_alpha_name], upper_node.inputs[io_name])
+                    #create_link(tree, cur_node.outputs[io_alpha_name], upper_node.inputs[io_name])
+                    create_link(tree, io_alpha, upper_node.inputs[io_name])
 
                 io_name = io_disp_name + io_suffix['GROUP']
                 if io_disp and io_name in upper_node.inputs:
@@ -835,7 +836,8 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
 
                 io_name = io_disp_alpha_name + io_suffix['GROUP']
                 if io_disp_alpha and io_name in upper_node.inputs:
-                    create_link(tree, cur_node.outputs[io_disp_alpha_name], upper_node.inputs[io_name])
+                    #create_link(tree, cur_node.outputs[io_disp_alpha_name], upper_node.inputs[io_name])
+                    create_link(tree, io_disp_alpha, upper_node.inputs[io_name])
 
                 break
 
