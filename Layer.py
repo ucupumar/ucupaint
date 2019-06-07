@@ -2285,6 +2285,22 @@ class YLayerChannel(bpy.types.PropertyGroup):
     height_blend_e = StringProperty(default='')
     height_blend_w = StringProperty(default='')
 
+    # For pack/unpack height io
+    height_pack_ons = StringProperty(default='')
+    height_unpack_ons = StringProperty(default='')
+    height_pack_ew = StringProperty(default='')
+    height_unpack_ew = StringProperty(default='')
+
+    height_alpha_pack_ons = StringProperty(default='')
+    height_alpha_unpack_ons = StringProperty(default='')
+    height_alpha_pack_ew = StringProperty(default='')
+    height_alpha_unpack_ew = StringProperty(default='')
+
+    height_group_unpack_ons = StringProperty(default='')
+    height_group_unpack_ew = StringProperty(default='')
+    height_alpha_group_unpack_ons = StringProperty(default='')
+    height_alpha_group_unpack_ew = StringProperty(default='')
+
     # Normal related
     normal_proc = StringProperty(default='')
     #normal_blend = StringProperty(default='')

@@ -555,6 +555,21 @@ def rearrange_layer_nodes(layer, tree=None):
     # Back to source nodes
     loc = Vector((0, 0))
 
+    # Arrange pack unpack height group
+    if layer.type == 'GROUP':
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i] 
+            if root_ch.type == 'NORMAL':
+
+                if check_set_node_loc(tree, ch.height_group_unpack_ons, loc):
+                    loc.y -= 140
+                if check_set_node_loc(tree, ch.height_group_unpack_ew, loc):
+                    loc.y -= 140
+                if check_set_node_loc(tree, ch.height_alpha_group_unpack_ons, loc):
+                    loc.y -= 140
+                if check_set_node_loc(tree, ch.height_alpha_group_unpack_ew, loc):
+                    loc.y -= 140
+
     if layer.source_group != '' and check_set_node_loc(tree, layer.source_group, loc, hide=True):
         rearrange_source_tree_nodes(layer)
         loc.y -= 40
@@ -982,11 +997,24 @@ def rearrange_layer_nodes(layer, tree=None):
     #loc.y = y_mid
     loc.y = 0
 
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i] 
+        if root_ch.type == 'NORMAL':
+
+            if check_set_node_loc(tree, ch.height_unpack_ons, loc):
+                loc.y -= 140
+            if check_set_node_loc(tree, ch.height_unpack_ew, loc):
+                loc.y -= 140
+            if check_set_node_loc(tree, ch.height_alpha_unpack_ons, loc):
+                loc.y -= 140
+            if check_set_node_loc(tree, ch.height_alpha_unpack_ew, loc):
+                loc.y -= 140
+
     # Start node
     check_set_node_loc(tree, TREE_START, loc)
 
     loc.x += 250
-    #loc.y = 0
+    loc.y = 0
 
     #bookmark_x = loc.x
 
@@ -1181,6 +1209,20 @@ def rearrange_layer_nodes(layer, tree=None):
     #loc.y = mid_y
     #loc.y = y_mid
     loc.y = 0
+
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i] 
+        if root_ch.type == 'NORMAL':
+
+            if check_set_node_loc(tree, ch.height_pack_ons, loc):
+                loc.y -= 140
+            if check_set_node_loc(tree, ch.height_pack_ew, loc):
+                loc.y -= 140
+            if check_set_node_loc(tree, ch.height_alpha_pack_ons, loc):
+                loc.y -= 140
+            if check_set_node_loc(tree, ch.height_alpha_pack_ew, loc):
+                loc.y -= 140
+
     check_set_node_loc(tree, TREE_END, loc)
 
     rearrange_layer_frame_nodes(layer, tree)
@@ -1455,7 +1497,10 @@ def rearrange_depth_layer_nodes(group_tree):
         if check_set_node_loc(tree, t.depth_group_node, loc):
             loc.x += 200
 
-    if check_set_node_loc(tree, '_pack', loc):
+    if check_set_node_loc(tree, '_normalize', loc):
+        loc.y -= 170
+
+    if check_set_node_loc(tree, '_unpack', loc):
         loc.x += 200
 
     check_set_node_loc(tree, TREE_END, loc)
