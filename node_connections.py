@@ -1646,7 +1646,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
         if layer.type == 'GROUP':
             if root_ch.type == 'NORMAL' and ch.enable_transition_bump:
-                rgb = source.outputs.get(root_ch.name + ' Height' + io_suffix['GROUP'])
+                #rgb = source.outputs.get(root_ch.name + ' Height' + io_suffix['GROUP'])
+                rgb = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP'])
             else:
                 rgb = source.outputs.get(root_ch.name + io_suffix['GROUP'])
 
