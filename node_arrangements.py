@@ -205,10 +205,10 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             check_set_node_parent(tree, ch.height_proc, frame)
 
             check_set_node_parent(tree, ch.height_blend, frame)
-            check_set_node_parent(tree, ch.height_blend_n, frame)
-            check_set_node_parent(tree, ch.height_blend_s, frame)
-            check_set_node_parent(tree, ch.height_blend_e, frame)
-            check_set_node_parent(tree, ch.height_blend_w, frame)
+            #check_set_node_parent(tree, ch.height_blend_n, frame)
+            #check_set_node_parent(tree, ch.height_blend_s, frame)
+            #check_set_node_parent(tree, ch.height_blend_e, frame)
+            #check_set_node_parent(tree, ch.height_blend_w, frame)
 
             check_set_node_parent(tree, ch.normal_proc, frame)
             check_set_node_parent(tree, ch.normal_flip, frame)
@@ -993,15 +993,6 @@ def rearrange_layer_nodes(layer, tree=None):
     #loc.y = y_mid
     loc.y = 0
 
-    for i, ch in enumerate(layer.channels):
-        root_ch = yp.channels[i] 
-        if root_ch.type == 'NORMAL':
-
-            if check_set_node_loc(tree, ch.height_unpack, loc):
-                loc.y -= 250
-            if check_set_node_loc(tree, ch.height_alpha_unpack, loc):
-                loc.y -= 250
-
     # Start node
     check_set_node_loc(tree, TREE_START, loc)
 
@@ -1085,31 +1076,31 @@ def rearrange_layer_nodes(layer, tree=None):
             #if check_set_node_loc(tree, ch.height_blend, loc):
             #    loc.x += 200
             save_y = loc.y
-            height_blend = tree.nodes.get(ch.height_blend)
-            height_blend_n = tree.nodes.get(ch.height_blend_n)
+            #height_blend = tree.nodes.get(ch.height_blend)
+            #height_blend_n = tree.nodes.get(ch.height_blend_n)
 
-            if height_blend_n:
-                if check_set_node_loc(tree, ch.height_blend, loc, True):
-                    loc.y -= 40
+            #if height_blend_n:
+            #    if check_set_node_loc(tree, ch.height_blend, loc, True):
+            #        loc.y -= 40
 
-                if check_set_node_loc(tree, ch.height_blend_n, loc, True):
-                    loc.y -= 40
+            #    if check_set_node_loc(tree, ch.height_blend_n, loc, True):
+            #        loc.y -= 40
 
-                if check_set_node_loc(tree, ch.height_blend_s, loc, True):
-                    loc.y -= 40
+            #    if check_set_node_loc(tree, ch.height_blend_s, loc, True):
+            #        loc.y -= 40
 
-                if check_set_node_loc(tree, ch.height_blend_e, loc, True):
-                    loc.y -= 40
+            #    if check_set_node_loc(tree, ch.height_blend_e, loc, True):
+            #        loc.y -= 40
 
-                if check_set_node_loc(tree, ch.height_blend_w, loc, True):
-                    loc.y -= 40
+            #    if check_set_node_loc(tree, ch.height_blend_w, loc, True):
+            #        loc.y -= 40
 
-                loc.y = save_y
+            #    loc.y = save_y
+            #    loc.x += 200
+
+            #elif height_blend:
+            if check_set_node_loc(tree, ch.height_blend, loc):
                 loc.x += 200
-
-            elif height_blend:
-                if check_set_node_loc(tree, ch.height_blend, loc):
-                    loc.x += 200
 
             if check_set_node_loc(tree, ch.normal_proc, loc):
                 loc.x += 200
@@ -1201,15 +1192,6 @@ def rearrange_layer_nodes(layer, tree=None):
     #loc.y = mid_y
     #loc.y = y_mid
     loc.y = 0
-
-    for i, ch in enumerate(layer.channels):
-        root_ch = yp.channels[i] 
-        if root_ch.type == 'NORMAL':
-
-            if check_set_node_loc(tree, ch.height_pack, loc):
-                loc.y -= 250
-            if check_set_node_loc(tree, ch.height_alpha_pack, loc):
-                loc.y -= 250
 
     check_set_node_loc(tree, TREE_END, loc)
 

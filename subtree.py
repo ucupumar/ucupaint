@@ -567,30 +567,7 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
 
 def check_create_height_pack(layer, tree, height_root_ch, height_ch):
     
-    # Standard height pack unpack
-    if height_root_ch.enable_smooth_bump:
-
-        height_unpack = replace_new_node(tree, height_ch, 'height_unpack', 
-                'ShaderNodeGroup', 'Unpack Height', lib.UNPACK_ONSEW)
-        height_pack = replace_new_node(tree, height_ch, 'height_pack', 
-                'ShaderNodeGroup', 'Pack Height', lib.PACK_ONSEW)
-
-    else:
-        remove_node(tree, height_ch, 'height_pack')
-        remove_node(tree, height_ch, 'height_unpack')
-
-    # Height pack unpack inside group
-    if height_root_ch.enable_smooth_bump and layer.parent_idx != -1:
-
-        height_alpha_unpack = replace_new_node(tree, height_ch, 'height_alpha_unpack', 
-                'ShaderNodeGroup', 'Unpack Height Alpha', lib.UNPACK_ONSEW)
-        height_alpha_pack = replace_new_node(tree, height_ch, 'height_alpha_pack', 
-                'ShaderNodeGroup', 'Pack Height Alpha', lib.PACK_ONSEW)
-    else:
-        remove_node(tree, height_ch, 'height_alpha_pack')
-        remove_node(tree, height_ch, 'height_alpha_unpack')
-
-    # Height unpack unpack for group layer
+    # Height unpack for group layer
     if height_root_ch.enable_smooth_bump and layer.type == 'GROUP':
 
         height_group_unpack = replace_new_node(tree, height_ch, 'height_group_unpack', 
@@ -1430,10 +1407,10 @@ def remove_layer_normal_channel_nodes(root_ch, layer, ch, tree=None):
 
     remove_node(tree, ch, 'height_proc')
     remove_node(tree, ch, 'height_blend')
-    remove_node(tree, ch, 'height_blend_n')
-    remove_node(tree, ch, 'height_blend_s')
-    remove_node(tree, ch, 'height_blend_e')
-    remove_node(tree, ch, 'height_blend_w')
+    #remove_node(tree, ch, 'height_blend_n')
+    #remove_node(tree, ch, 'height_blend_s')
+    #remove_node(tree, ch, 'height_blend_e')
+    #remove_node(tree, ch, 'height_blend_w')
 
     remove_node(tree, ch, 'normal_proc')
     remove_node(tree, ch, 'normal_flip')
@@ -1553,116 +1530,68 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         if ch.normal_blend_type == 'MIX':
 
             if layer.parent_idx != -1:
+                if root_ch.enable_smooth_bump:
+                    lib_name = lib.STRAIGHT_OVER_HEIGHT_MIX_SMOOTH
+                else: lib_name = lib.STRAIGHT_OVER_HEIGHT_MIX
+
                 height_blend, need_reconnect = replace_new_node(
                         tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                        lib.STRAIGHT_OVER_HEIGHT_MIX, return_status=True, hard_replace=True, dirty=need_reconnect)
+                        lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
+
                 if ch.write_height:
                     height_blend.inputs['Divide'].default_value = 1.0
                 else: height_blend.inputs['Divide'].default_value = 0.0
             else:
+                if root_ch.enable_smooth_bump:
+                    height_blend, need_reconnect = replace_new_node(
+                            tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
+                            lib.HEIGHT_MIX_SMOOTH, return_status=True, hard_replace=True, dirty=need_reconnect)
+                else:
+                    height_blend, need_reconnect = replace_new_node(
+                            tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend', 
+                            return_status=True, dirty=need_reconnect) #, hard_replace=True)
 
-                height_blend, need_reconnect = replace_new_node(
-                        tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend', 
-                        return_status=True, dirty=need_reconnect) #, hard_replace=True)
-
-                height_blend.blend_type = 'MIX'
+                    height_blend.blend_type = 'MIX'
 
         elif ch.normal_blend_type == 'OVERLAY':
 
             if layer.parent_idx != -1:
+                if root_ch.enable_smooth_bump:
+                    lib_name = lib.STRAIGHT_OVER_HEIGHT_ADD_SMOOTH
+                else: lib_name = lib.STRAIGHT_OVER_HEIGHT_ADD
+
                 height_blend, need_reconnect = replace_new_node(
                         tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                        lib.STRAIGHT_OVER_HEIGHT_ADD, return_status=True, hard_replace=True, dirty=need_reconnect)
+                        lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
+
                 if ch.write_height:
                     height_blend.inputs['Divide'].default_value = 1.0
                 else: height_blend.inputs['Divide'].default_value = 0.0
             else:
-                height_blend, need_reconnect = replace_new_node(
-                        tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend', 
-                        return_status=True, dirty=need_reconnect) #, hard_replace=True)
-
-                height_blend.blend_type = 'ADD'
-
-        if root_ch.enable_smooth_bump:
-            for d in neighbor_directions:
-
-
-                if ch.normal_blend_type == 'MIX':
-
-                    if layer.parent_idx != -1:
-                        hb, need_reconnect = replace_new_node(
-                                tree, ch, 'height_blend_' + d, 'ShaderNodeGroup', 'Height Blend', 
-                                lib.STRAIGHT_OVER_HEIGHT_MIX, return_status=True, hard_replace=True, dirty=need_reconnect)
-                        if ch.write_height:
-                            hb.inputs['Divide'].default_value = 1.0
-                        else: hb.inputs['Divide'].default_value = 0.0
-                    else:
-
-                        hb, need_reconnect = replace_new_node(
-                            tree, ch, 'height_blend_' + d, 'ShaderNodeMixRGB', 'Height Blend', 
+                if root_ch.enable_smooth_bump:
+                    height_blend, need_reconnect = replace_new_node(
+                            tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
+                            lib.HEIGHT_ADD_SMOOTH, return_status=True, hard_replace=True, dirty=need_reconnect)
+                else:
+                    height_blend, need_reconnect = replace_new_node(
+                            tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend', 
                             return_status=True, dirty=need_reconnect) #, hard_replace=True)
 
-                        hb.blend_type = 'MIX'
-
-                elif ch.normal_blend_type == 'OVERLAY':
-
-                    if layer.parent_idx != -1:
-                        hb, need_reconnect = replace_new_node(
-                                tree, ch, 'height_blend_' + d, 'ShaderNodeGroup', 'Height Blend', 
-                                lib.STRAIGHT_OVER_HEIGHT_ADD, return_status=True, hard_replace=True, dirty=need_reconnect)
-                        if ch.write_height:
-                            hb.inputs['Divide'].default_value = 1.0
-                        else: hb.inputs['Divide'].default_value = 0.0
-                    else:
-
-                        hb, need_reconnect = replace_new_node(
-                            tree, ch, 'height_blend_' + d, 'ShaderNodeMixRGB', 'Height Blend', 
-                            return_status=True, dirty=need_reconnect) #, hard_replace=True)
-
-                        hb.blend_type = 'ADD'
+                    height_blend.blend_type = 'ADD'
 
     else:
 
+        if root_ch.enable_smooth_bump:
+            lib_name = lib.HEIGHT_COMPARE_SMOOTH
+        else: lib_name = lib.HEIGHT_COMPARE
+
         height_blend, need_reconnect = replace_new_node(
                 tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-                lib.HEIGHT_COMPARE, return_status=True, hard_replace=True, dirty=need_reconnect)
-
-        if root_ch.enable_smooth_bump:
-            for d in neighbor_directions:
-                hb, need_reconnect = replace_new_node(
-                    tree, ch, 'height_blend_' + d, 'ShaderNodeGroup', 'Height Blend', 
-                    lib.HEIGHT_COMPARE, return_status=True, hard_replace=True, dirty=need_reconnect)
+                lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
 
     if not root_ch.enable_smooth_bump:
         for d in neighbor_directions:
             remove_node(tree, ch, 'normal_flip_' + d)
-
-    #if root_ch.enable_smooth_bump:
-    #    if ch.normal_blend_type == 'MIX':
-    #        lib_name = lib.HEIGHT_MIX_SMOOTH
-    #    elif ch.normal_blend_type == 'OVERLAY':
-    #        lib_name = lib.HEIGHT_ADD_SMOOTH
-    #    else:
-    #        lib_name = lib.HEIGHT_COMPARE_SMOOTH
-
-    #    height_blend, need_reconnect = replace_new_node(
-    #            tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-    #            lib_name, return_status = True, hard_replace=True)
-    #else:
-    #    if ch.normal_blend_type == 'MIX':
-    #        height_blend, need_reconnect = replace_new_node(
-    #                tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend', 
-    #                return_status = True, hard_replace=True)
-    #        height_blend.blend_type = 'MIX'
-    #    elif ch.normal_blend_type == 'OVERLAY':
-    #        height_blend, need_reconnect = replace_new_node(
-    #                tree, ch, 'height_blend', 'ShaderNodeMixRGB', 'Height Blend', 
-    #                return_status = True, hard_replace=True)
-    #        height_blend.blend_type = 'ADD'
-    #    else:
-    #        height_blend, need_reconnect = replace_new_node(
-    #                tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
-    #                lib.HEIGHT_COMPARE, return_status = True, hard_replace=True)
 
     # Normal Process
     if ch.normal_map_type == 'NORMAL_MAP':
