@@ -583,9 +583,9 @@ def check_create_height_pack(layer, tree, height_root_ch, height_ch):
     if height_root_ch.enable_smooth_bump and layer.parent_idx != -1:
 
         height_alpha_unpack = replace_new_node(tree, height_ch, 'height_alpha_unpack', 
-                'ShaderNodeGroup', 'Unpack Height', lib.UNPACK_ONSEW)
+                'ShaderNodeGroup', 'Unpack Height Alpha', lib.UNPACK_ONSEW)
         height_alpha_pack = replace_new_node(tree, height_ch, 'height_alpha_pack', 
-                'ShaderNodeGroup', 'Pack Height', lib.PACK_ONSEW)
+                'ShaderNodeGroup', 'Pack Height Alpha', lib.PACK_ONSEW)
     else:
         remove_node(tree, height_ch, 'height_alpha_pack')
         remove_node(tree, height_ch, 'height_alpha_unpack')
@@ -594,9 +594,9 @@ def check_create_height_pack(layer, tree, height_root_ch, height_ch):
     if height_root_ch.enable_smooth_bump and layer.type == 'GROUP':
 
         height_group_unpack = replace_new_node(tree, height_ch, 'height_group_unpack', 
-                'ShaderNodeGroup', 'Unpack Height', lib.UNPACK_ONSEW)
+                'ShaderNodeGroup', 'Unpack Height Group', lib.UNPACK_ONSEW)
         height_alpha_group_unpack = replace_new_node(tree, height_ch, 'height_alpha_group_unpack', 
-                'ShaderNodeGroup', 'Pack Height', lib.UNPACK_ONSEW)
+                'ShaderNodeGroup', 'Pack Height Alpha Group', lib.UNPACK_ONSEW)
     else:
         remove_node(tree, height_ch, 'height_group_unpack')
         remove_node(tree, height_ch, 'height_alpha_group_unpack')
