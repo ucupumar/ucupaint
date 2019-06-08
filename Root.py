@@ -977,20 +977,12 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'height_blend_w')
             remove_node(ttree, ch, 'normal_proc')
 
-            remove_node(ttree, ch, 'height_pack_ons')
-            remove_node(ttree, ch, 'height_unpack_ons')
-            remove_node(ttree, ch, 'height_pack_ew')
-            remove_node(ttree, ch, 'height_unpack_ew')
-
-            remove_node(ttree, ch, 'height_alpha_pack_ons')
-            remove_node(ttree, ch, 'height_alpha_unpack_ons')
-            remove_node(ttree, ch, 'height_alpha_pack_ew')
-            remove_node(ttree, ch, 'height_alpha_unpack_ew')
-
-            remove_node(ttree, ch, 'height_group_unpack_ons')
-            remove_node(ttree, ch, 'height_group_unpack_ew')
-            remove_node(ttree, ch, 'height_alpha_group_unpack_ons')
-            remove_node(ttree, ch, 'height_alpha_group_unpack_ew')
+            remove_node(ttree, ch, 'height_pack')
+            remove_node(ttree, ch, 'height_unpack')
+            remove_node(ttree, ch, 'height_alpha_pack')
+            remove_node(ttree, ch, 'height_alpha_unpack')
+            remove_node(ttree, ch, 'height_group_unpack')
+            remove_node(ttree, ch, 'height_alpha_group_unpack')
 
             remove_node(ttree, ch, 'cache_ramp')
 

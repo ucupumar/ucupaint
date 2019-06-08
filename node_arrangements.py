@@ -561,14 +561,10 @@ def rearrange_layer_nodes(layer, tree=None):
             root_ch = yp.channels[i] 
             if root_ch.type == 'NORMAL':
 
-                if check_set_node_loc(tree, ch.height_group_unpack_ons, loc):
-                    loc.y -= 140
-                if check_set_node_loc(tree, ch.height_group_unpack_ew, loc):
-                    loc.y -= 140
-                if check_set_node_loc(tree, ch.height_alpha_group_unpack_ons, loc):
-                    loc.y -= 140
-                if check_set_node_loc(tree, ch.height_alpha_group_unpack_ew, loc):
-                    loc.y -= 140
+                if check_set_node_loc(tree, ch.height_group_unpack, loc):
+                    loc.y -= 250
+                if check_set_node_loc(tree, ch.height_alpha_group_unpack, loc):
+                    loc.y -= 250
 
     if layer.source_group != '' and check_set_node_loc(tree, layer.source_group, loc, hide=True):
         rearrange_source_tree_nodes(layer)
@@ -1001,14 +997,10 @@ def rearrange_layer_nodes(layer, tree=None):
         root_ch = yp.channels[i] 
         if root_ch.type == 'NORMAL':
 
-            if check_set_node_loc(tree, ch.height_unpack_ons, loc):
-                loc.y -= 140
-            if check_set_node_loc(tree, ch.height_unpack_ew, loc):
-                loc.y -= 140
-            if check_set_node_loc(tree, ch.height_alpha_unpack_ons, loc):
-                loc.y -= 140
-            if check_set_node_loc(tree, ch.height_alpha_unpack_ew, loc):
-                loc.y -= 140
+            if check_set_node_loc(tree, ch.height_unpack, loc):
+                loc.y -= 250
+            if check_set_node_loc(tree, ch.height_alpha_unpack, loc):
+                loc.y -= 250
 
     # Start node
     check_set_node_loc(tree, TREE_START, loc)
@@ -1214,14 +1206,10 @@ def rearrange_layer_nodes(layer, tree=None):
         root_ch = yp.channels[i] 
         if root_ch.type == 'NORMAL':
 
-            if check_set_node_loc(tree, ch.height_pack_ons, loc):
-                loc.y -= 140
-            if check_set_node_loc(tree, ch.height_pack_ew, loc):
-                loc.y -= 140
-            if check_set_node_loc(tree, ch.height_alpha_pack_ons, loc):
-                loc.y -= 140
-            if check_set_node_loc(tree, ch.height_alpha_pack_ew, loc):
-                loc.y -= 140
+            if check_set_node_loc(tree, ch.height_pack, loc):
+                loc.y -= 250
+            if check_set_node_loc(tree, ch.height_alpha_pack, loc):
+                loc.y -= 250
 
     check_set_node_loc(tree, TREE_END, loc)
 

@@ -116,6 +116,9 @@ NORMAL_MAP_PROCESS_SMOOTH_TRANSITION = '~yPL Normal Map Process Smooth Transitio
 
 ENGINE_FILTER = '~yPL Engine Filter'
 
+UNPACK_ONSEW = '~yPL Unpack ONSEW'
+PACK_ONSEW = '~yPL Pack ONSEW'
+
 # END OF NEW ORDER
 
 #HEIGHT_PROCESS_BUMP_MIX = '~yPL Height Process Bump Mix'

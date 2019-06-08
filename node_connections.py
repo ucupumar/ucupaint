@@ -1667,27 +1667,26 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
 
-                height_group_unpack_ons = nodes.get(ch.height_group_unpack_ons)
-                height_group_unpack_ew = nodes.get(ch.height_group_unpack_ew)
-                height_alpha_group_unpack_ons = nodes.get(ch.height_alpha_group_unpack_ons)
-                height_alpha_group_unpack_ew = nodes.get(ch.height_alpha_group_unpack_ew)
+                height_group_unpack = nodes.get(ch.height_group_unpack)
+                height_alpha_group_unpack = nodes.get(ch.height_alpha_group_unpack)
 
                 # Connect
                 create_link(tree, source.outputs[root_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['GROUP']],
-                        height_group_unpack_ons.inputs[0])
+                        height_group_unpack.inputs[0])
                 create_link(tree, source.outputs[root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['GROUP']],
-                        height_group_unpack_ew.inputs[0])
+                        height_group_unpack.inputs[1])
+
                 create_link(tree, 
                         source.outputs[root_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['ALPHA'] + io_suffix['GROUP']],
-                        height_alpha_group_unpack_ons.inputs[0])
+                        height_alpha_group_unpack.inputs[0])
                 create_link(tree, 
                         source.outputs[root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['ALPHA'] + io_suffix['GROUP']],
-                        height_alpha_group_unpack_ew.inputs[0])
+                        height_alpha_group_unpack.inputs[1])
 
             if root_ch.type == 'NORMAL' and ch.enable_transition_bump:
                 #rgb = source.outputs.get(root_ch.name + ' Height' + io_suffix['GROUP'])
                 if root_ch.enable_smooth_bump:
-                    rgb = height_group_unpack_ons.outputs[0]
+                    rgb = height_group_unpack.outputs[0]
                 else: rgb = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP'])
             else:
                 rgb = source.outputs.get(root_ch.name + io_suffix['GROUP'])
@@ -1698,7 +1697,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 #    height_alpha = height_alpha_group_unpack_ons.outputs[0]
                 #else: height_alpha = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
                 if root_ch.enable_smooth_bump:
-                    alpha = height_alpha_group_unpack_ons.outputs[0]
+                    alpha = height_alpha_group_unpack.outputs[0]
                 else: alpha = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
                 normal_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
             else:
@@ -1789,33 +1788,26 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             # Pack/Unpack height
             if root_ch.enable_smooth_bump:
-                height_unpack_ons = nodes.get(ch.height_unpack_ons)
-                height_unpack_ew = nodes.get(ch.height_unpack_ew)
-                height_pack_ons = nodes.get(ch.height_pack_ons)
-                height_pack_ew = nodes.get(ch.height_pack_ew)
-
-                height_alpha_unpack_ons = nodes.get(ch.height_alpha_unpack_ons)
-                height_alpha_unpack_ew = nodes.get(ch.height_alpha_unpack_ew)
-                height_alpha_pack_ons = nodes.get(ch.height_alpha_pack_ons)
-                height_alpha_pack_ew = nodes.get(ch.height_alpha_pack_ew)
+                height_unpack = nodes.get(ch.height_unpack)
+                height_pack = nodes.get(ch.height_pack)
+                height_alpha_unpack= nodes.get(ch.height_alpha_unpack)
+                height_alpha_pack = nodes.get(ch.height_alpha_pack)
 
                 # Connect unpack nodes
-                create_link(tree, start.outputs[root_ch.name + io_suffix['HEIGHT_ONS']], height_unpack_ons.inputs[0])
-                create_link(tree, start.outputs[root_ch.name + io_suffix['HEIGHT_EW']], height_unpack_ew.inputs[0])
-                create_link(tree, height_pack_ons.outputs[0], end.inputs[root_ch.name + io_suffix['HEIGHT_ONS']])
-                create_link(tree, height_pack_ew.outputs[0], end.inputs[root_ch.name + io_suffix['HEIGHT_EW']])
+                create_link(tree, start.outputs[root_ch.name + io_suffix['HEIGHT_ONS']], height_unpack.inputs[0])
+                create_link(tree, start.outputs[root_ch.name + io_suffix['HEIGHT_EW']], height_unpack.inputs[1])
+                create_link(tree, height_pack.outputs[0], end.inputs[root_ch.name + io_suffix['HEIGHT_ONS']])
+                create_link(tree, height_pack.outputs[1], end.inputs[root_ch.name + io_suffix['HEIGHT_EW']])
 
-                if height_alpha_unpack_ons:
+                if height_alpha_unpack:
                     create_link(tree, start.outputs[root_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['ALPHA']], 
-                            height_alpha_unpack_ons.inputs[0])
-                if height_alpha_unpack_ew:
+                            height_alpha_unpack.inputs[0])
                     create_link(tree, start.outputs[root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['ALPHA']], 
-                            height_alpha_unpack_ew.inputs[0])
-                if height_alpha_pack_ons:
-                    create_link(tree, height_alpha_pack_ons.outputs[0], 
+                            height_alpha_unpack.inputs[1])
+                if height_alpha_pack:
+                    create_link(tree, height_alpha_pack.outputs[0], 
                             end.inputs[root_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['ALPHA']])
-                if height_alpha_pack_ew:
-                    create_link(tree, height_alpha_pack_ew.outputs[0], 
+                    create_link(tree, height_alpha_pack.outputs[1], 
                             end.inputs[root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['ALPHA']])
 
             prev_heights = {}
@@ -1831,38 +1823,32 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 next_height_alpha = end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'])
 
             else:
-                #for d in neighbor_directions:
-                #    prev_heights[d] = start.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' ' + d)
-                #    next_heights[d] = end.inputs.get(root_ch.name + io_suffix['HEIGHT'] + ' ' + d)
-                #    prev_alphas[d] = start.outputs.get(root_ch.name + io_suffix['ALPHA'] + ' ' + d)
-                #    next_alphas[d] = end.inputs.get(root_ch.name + io_suffix['ALPHA'] + ' ' + d)
 
-                prev_height = height_unpack_ons.outputs[0]
-                prev_heights['n'] = height_unpack_ons.outputs[1]
-                prev_heights['s'] = height_unpack_ons.outputs[2]
-                prev_heights['e'] = height_unpack_ew.outputs[0]
-                prev_heights['w'] = height_unpack_ew.outputs[1]
+                prev_height = height_unpack.outputs[0]
+                prev_heights['n'] = height_unpack.outputs[1]
+                prev_heights['s'] = height_unpack.outputs[2]
+                prev_heights['e'] = height_unpack.outputs[3]
+                prev_heights['w'] = height_unpack.outputs[4]
 
-                next_height = height_pack_ons.inputs[0]
-                next_heights['n'] = height_pack_ons.inputs[1]
-                next_heights['s'] = height_pack_ons.inputs[2]
-                next_heights['e'] = height_pack_ew.inputs[0]
-                next_heights['w'] = height_pack_ew.inputs[1]
+                next_height = height_pack.inputs[0]
+                next_heights['n'] = height_pack.inputs[1]
+                next_heights['s'] = height_pack.inputs[2]
+                next_heights['e'] = height_pack.inputs[3]
+                next_heights['w'] = height_pack.inputs[4]
 
-                if (height_alpha_unpack_ons and height_alpha_unpack_ew and
-                    height_alpha_pack_ons and height_alpha_pack_ew):
+                if height_alpha_unpack and height_alpha_pack:
 
-                    prev_height_alpha = height_alpha_unpack_ons.outputs[0]
-                    prev_alphas['n'] = height_alpha_unpack_ons.outputs[1]
-                    prev_alphas['s'] = height_alpha_unpack_ons.outputs[2]
-                    prev_alphas['e'] = height_alpha_unpack_ew.outputs[0]
-                    prev_alphas['w'] = height_alpha_unpack_ew.outputs[1]
+                    prev_height_alpha = height_alpha_unpack.outputs[0]
+                    prev_alphas['n'] = height_alpha_unpack.outputs[1]
+                    prev_alphas['s'] = height_alpha_unpack.outputs[2]
+                    prev_alphas['e'] = height_alpha_unpack.outputs[3]
+                    prev_alphas['w'] = height_alpha_unpack.outputs[4]
 
-                    next_height_alpha = height_alpha_pack_ons.inputs[0]
-                    next_alphas['n'] = height_alpha_pack_ons.inputs[1]
-                    next_alphas['s'] = height_alpha_pack_ons.inputs[2]
-                    next_alphas['e'] = height_alpha_pack_ew.inputs[0]
-                    next_alphas['w'] = height_alpha_pack_ew.inputs[1]
+                    next_height_alpha = height_alpha_pack.inputs[0]
+                    next_alphas['n'] = height_alpha_pack.inputs[1]
+                    next_alphas['s'] = height_alpha_pack.inputs[2]
+                    next_alphas['e'] = height_alpha_pack.inputs[3]
+                    next_alphas['w'] = height_alpha_pack.inputs[4]
                 else:
                     for d in neighbor_directions:
                         prev_alphas[d] = None
@@ -1908,15 +1894,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             elif layer.type == 'GROUP':
 
                 if root_ch.enable_smooth_bump:
-                    rgb_n = height_group_unpack_ons.outputs[1]
-                    rgb_s = height_group_unpack_ons.outputs[2]
-                    rgb_e = height_group_unpack_ew.outputs[0]
-                    rgb_w = height_group_unpack_ew.outputs[1]
+                    rgb_n = height_group_unpack.outputs[1]
+                    rgb_s = height_group_unpack.outputs[2]
+                    rgb_e = height_group_unpack.outputs[3]
+                    rgb_w = height_group_unpack.outputs[4]
 
-                    alpha_n = height_alpha_group_unpack_ons.outputs[1]
-                    alpha_s = height_alpha_group_unpack_ons.outputs[2]
-                    alpha_e = height_alpha_group_unpack_ew.outputs[0]
-                    alpha_w = height_alpha_group_unpack_ew.outputs[1]
+                    alpha_n = height_alpha_group_unpack.outputs[1]
+                    alpha_s = height_alpha_group_unpack.outputs[2]
+                    alpha_e = height_alpha_group_unpack.outputs[3]
+                    alpha_w = height_alpha_group_unpack.outputs[4]
 
                 #rgb_n = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' n' + io_suffix['GROUP'])
                 #rgb_s = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' s' + io_suffix['GROUP'])
@@ -2111,7 +2097,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 create_link(tree, normal_group, normal_proc.inputs['Normal'])
 
                 if root_ch.enable_smooth_bump:
-                    height_group = height_group_unpack_ons.outputs[0]
+                    height_group = height_group_unpack.outputs[0]
                 else: height_group = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP'])
                 create_link(tree, height_group, height_proc.inputs['Height'])
 
