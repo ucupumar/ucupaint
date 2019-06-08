@@ -725,7 +725,9 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
     else: io_height_name = parallax_ch.name + io_suffix['HEIGHT']
 
     io_alpha_name = parallax_ch.name + io_suffix['ALPHA']
-    io_height_alpha_name = parallax_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
+    if parallax_ch.enable_smooth_bump:
+        io_height_alpha_name = parallax_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['ALPHA']
+    else: io_height_alpha_name = parallax_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
 
     height = start.outputs['base']
 
@@ -1867,6 +1869,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                         next_alphas[d] = None
 
             # Get neighbor rgb
+            alpha_n = alpha_after_mod
+            alpha_s = alpha_after_mod
+            alpha_e = alpha_after_mod
+            alpha_w = alpha_after_mod
+
+            rgb_n = rgb
+            rgb_s = rgb
+            rgb_e = rgb
+            rgb_w = rgb
+
             if source_n and source_s and source_e and source_w:
                 if layer.type not in {'IMAGE', 'VCOL'} and ch.layer_input == 'ALPHA':
                     source_index = 2
@@ -1895,15 +1907,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
             elif layer.type == 'GROUP':
 
-                rgb_n = height_group_unpack_ons.outputs[1]
-                rgb_s = height_group_unpack_ons.outputs[2]
-                rgb_e = height_group_unpack_ew.outputs[0]
-                rgb_w = height_group_unpack_ew.outputs[1]
+                if root_ch.enable_smooth_bump:
+                    rgb_n = height_group_unpack_ons.outputs[1]
+                    rgb_s = height_group_unpack_ons.outputs[2]
+                    rgb_e = height_group_unpack_ew.outputs[0]
+                    rgb_w = height_group_unpack_ew.outputs[1]
 
-                alpha_n = height_alpha_group_unpack_ons.outputs[1]
-                alpha_s = height_alpha_group_unpack_ons.outputs[2]
-                alpha_e = height_alpha_group_unpack_ew.outputs[0]
-                alpha_w = height_alpha_group_unpack_ew.outputs[1]
+                    alpha_n = height_alpha_group_unpack_ons.outputs[1]
+                    alpha_s = height_alpha_group_unpack_ons.outputs[2]
+                    alpha_e = height_alpha_group_unpack_ew.outputs[0]
+                    alpha_w = height_alpha_group_unpack_ew.outputs[1]
 
                 #rgb_n = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' n' + io_suffix['GROUP'])
                 #rgb_s = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + ' s' + io_suffix['GROUP'])
@@ -1927,17 +1940,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 alpha_s = uv_neighbor.outputs['s']
                 alpha_e = uv_neighbor.outputs['e']
                 alpha_w = uv_neighbor.outputs['w']
-
-            else:
-                alpha_n = alpha_after_mod
-                alpha_s = alpha_after_mod
-                alpha_e = alpha_after_mod
-                alpha_w = alpha_after_mod
-
-                rgb_n = rgb
-                rgb_s = rgb
-                rgb_e = rgb
-                rgb_w = rgb
 
             if layer.type != 'BACKGROUND' and not (layer.type == 'GROUP' and root_ch.type == 'NORMAL'):
                 mod_n = nodes.get(ch.mod_n)
