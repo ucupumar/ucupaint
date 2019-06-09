@@ -2315,10 +2315,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Spread alpha hack nodes
     spread_alpha = StringProperty(default='')
-    spread_alpha_n = StringProperty(default='')
-    spread_alpha_s = StringProperty(default='')
-    spread_alpha_e = StringProperty(default='')
-    spread_alpha_w = StringProperty(default='')
+    #spread_alpha_n = StringProperty(default='')
+    #spread_alpha_s = StringProperty(default='')
+    #spread_alpha_e = StringProperty(default='')
+    #spread_alpha_w = StringProperty(default='')
 
     # Intensity Stuff
     intensity_multiplier = StringProperty(default='')

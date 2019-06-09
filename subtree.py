@@ -586,18 +586,22 @@ def check_create_spread_alpha(layer, tree, root_ch, ch):
         skip = True
 
     if not skip and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
-        spread_alpha = replace_new_node(tree, ch, 'spread_alpha', 
-                'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA)
+        if root_ch.enable_smooth_bump:
+            spread_alpha = replace_new_node(tree, ch, 'spread_alpha', 
+                    'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA_SMOOTH)
+        else:
+            spread_alpha = replace_new_node(tree, ch, 'spread_alpha', 
+                    'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA)
     else:
         remove_node(tree, ch, 'spread_alpha')
 
-    if not skip and root_ch.enable_smooth_bump and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
-        for d in neighbor_directions:
-            bb = replace_new_node(tree, ch, 'spread_alpha_' + d, 
-                    'ShaderNodeGroup', 'Spread Alpha ' + d, lib.SPREAD_ALPHA) 
-    else:
-        for d in neighbor_directions:
-            remove_node(tree, ch, 'spread_alpha_' + d)
+    #elif not skip and root_ch.enable_smooth_bump and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
+        #for d in neighbor_directions:
+        #    bb = replace_new_node(tree, ch, 'spread_alpha_' + d, 
+        #            'ShaderNodeGroup', 'Spread Alpha ' + d, lib.SPREAD_ALPHA) 
+    #else:
+    #    for d in neighbor_directions:
+    #        remove_node(tree, ch, 'spread_alpha_' + d)
 
     #remove_node(tree, ch, 'bump_base')
     #for d in neighbor_directions:
@@ -1400,10 +1404,10 @@ def remove_layer_normal_channel_nodes(root_ch, layer, ch, tree=None):
         Modifier.disable_modifiers_tree(ch, False)
 
     remove_node(tree, ch, 'spread_alpha')
-    remove_node(tree, ch, 'spread_alpha_n')
-    remove_node(tree, ch, 'spread_alpha_s')
-    remove_node(tree, ch, 'spread_alpha_e')
-    remove_node(tree, ch, 'spread_alpha_w')
+    #remove_node(tree, ch, 'spread_alpha_n')
+    #remove_node(tree, ch, 'spread_alpha_s')
+    #remove_node(tree, ch, 'spread_alpha_e')
+    #remove_node(tree, ch, 'spread_alpha_w')
 
     remove_node(tree, ch, 'height_proc')
     remove_node(tree, ch, 'height_blend')

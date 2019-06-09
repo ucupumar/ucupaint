@@ -1774,10 +1774,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             height_blend = nodes.get(ch.height_blend)
 
             spread_alpha = nodes.get(ch.spread_alpha)
-            spread_alpha_n = nodes.get(ch.spread_alpha_n)
-            spread_alpha_s = nodes.get(ch.spread_alpha_s)
-            spread_alpha_e = nodes.get(ch.spread_alpha_e)
-            spread_alpha_w = nodes.get(ch.spread_alpha_w)
+            #spread_alpha_n = nodes.get(ch.spread_alpha_n)
+            #spread_alpha_s = nodes.get(ch.spread_alpha_s)
+            #spread_alpha_e = nodes.get(ch.spread_alpha_e)
+            #spread_alpha_w = nodes.get(ch.spread_alpha_w)
 
             if root_ch.enable_smooth_bump:
 
@@ -1904,17 +1904,27 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             if spread_alpha:
                 rgb = create_link(tree, rgb, spread_alpha.inputs['Color'])[0]
                 create_link(tree, alpha_after_mod, spread_alpha.inputs['Alpha'])
+                if root_ch.enable_smooth_bump:
+                    rgb_n = create_link(tree, rgb_n, spread_alpha.inputs['Color n'])['Color n']
+                    rgb_s = create_link(tree, rgb_s, spread_alpha.inputs['Color s'])['Color s']
+                    rgb_e = create_link(tree, rgb_e, spread_alpha.inputs['Color e'])['Color e']
+                    rgb_w = create_link(tree, rgb_w, spread_alpha.inputs['Color w'])['Color w']
 
-                if spread_alpha_n:
-                    rgb_n = create_link(tree, rgb_n, spread_alpha_n.inputs['Color'])[0]
-                    rgb_s = create_link(tree, rgb_s, spread_alpha_s.inputs['Color'])[0]
-                    rgb_e = create_link(tree, rgb_e, spread_alpha_e.inputs['Color'])[0]
-                    rgb_w = create_link(tree, rgb_w, spread_alpha_w.inputs['Color'])[0]
+                    create_link(tree, alpha_n, spread_alpha.inputs['Alpha n'])
+                    create_link(tree, alpha_s, spread_alpha.inputs['Alpha s'])
+                    create_link(tree, alpha_e, spread_alpha.inputs['Alpha e'])
+                    create_link(tree, alpha_w, spread_alpha.inputs['Alpha w'])
 
-                    create_link(tree, alpha_n, spread_alpha_n.inputs['Alpha'])
-                    create_link(tree, alpha_s, spread_alpha_s.inputs['Alpha'])
-                    create_link(tree, alpha_e, spread_alpha_e.inputs['Alpha'])
-                    create_link(tree, alpha_w, spread_alpha_w.inputs['Alpha'])
+                #if spread_alpha_n:
+                #    rgb_n = create_link(tree, rgb_n, spread_alpha_n.inputs['Color'])[0]
+                #    rgb_s = create_link(tree, rgb_s, spread_alpha_s.inputs['Color'])[0]
+                #    rgb_e = create_link(tree, rgb_e, spread_alpha_e.inputs['Color'])[0]
+                #    rgb_w = create_link(tree, rgb_w, spread_alpha_w.inputs['Color'])[0]
+
+                #    create_link(tree, alpha_n, spread_alpha_n.inputs['Alpha'])
+                #    create_link(tree, alpha_s, spread_alpha_s.inputs['Alpha'])
+                #    create_link(tree, alpha_e, spread_alpha_e.inputs['Alpha'])
+                #    create_link(tree, alpha_w, spread_alpha_w.inputs['Alpha'])
 
             #if not trans_bump_ch:
             #chain_local = min(len(layer.masks), ch.transition_bump_chain)
@@ -2156,6 +2166,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             # Height Blend
 
             height_alpha = alpha
+            alpha_ns = None
+            alpha_ew = None
 
             if 'Alpha' in height_proc.inputs:
                 alpha = create_link(tree, alpha_before_intensity, height_proc.inputs['Alpha'])['Alpha']
@@ -2173,7 +2185,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 elif 'Normal Alpha' in height_proc.outputs and (ch.write_height or root_ch.enable_smooth_bump):
                     alpha = height_proc.outputs['Normal Alpha']
 
-                alpha_n = alpha_s = alpha_e = alpha_w = alpha
+                alpha_ns = alpha_ew = alpha
 
             # Height Alpha
             if 'Filtered Alpha' in height_proc.outputs and (not ch.write_height and not root_ch.enable_smooth_bump):
@@ -2185,17 +2197,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             elif 'Alpha' in height_proc.outputs:
                 height_alpha = height_proc.outputs['Alpha']
 
-            if 'Alpha n' in height_proc.outputs:
-                alpha_n = height_proc.outputs['Alpha n']
-                alpha_s = height_proc.outputs['Alpha s']
-                alpha_e = height_proc.outputs['Alpha e']
-                alpha_w = height_proc.outputs['Alpha w']
-
-            alphas = {}
-            alphas['n'] = alpha_n
-            alphas['s'] = alpha_s
-            alphas['e'] = alpha_e
-            alphas['w'] = alpha_w
+            if 'Alpha NS' in height_proc.outputs:
+                alpha_ns = height_proc.outputs['Alpha NS']
+            if 'Alpha EW' in height_proc.outputs:
+                alpha_ew = height_proc.outputs['Alpha EW']
 
             if not root_ch.enable_smooth_bump:
 
@@ -2228,8 +2233,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     create_link(tree, prev_height_alpha_ons, height_blend.inputs['Prev Height Alpha ONS'])
                     create_link(tree, prev_height_alpha_ew, height_blend.inputs['Prev Height Alpha EW'])
 
-                for d in neighbor_directions:
-                    create_link(tree, alphas[d], height_blend.inputs['Alpha ' + d])
+                #for d in neighbor_directions:
+                #    create_link(tree, alphas[d], height_blend.inputs['Alpha ' + d])
+
+                if alpha_ns: create_link(tree, alpha_ns, height_blend.inputs['Alpha NS'])
+                if alpha_ew: create_link(tree, alpha_ew, height_blend.inputs['Alpha EW'])
 
                 create_link(tree, height_blend.outputs['Height ONS'], normal_proc.inputs['Height ONS'])
                 create_link(tree, height_blend.outputs['Height EW'], normal_proc.inputs['Height EW'])

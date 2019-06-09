@@ -29,6 +29,7 @@ STRAIGHT_OVER_HEIGHT_ADD = '~yPL Straight Over Height Add'
 #STRAIGHT_OVER_BG_RAMP = '~yPL Straight Over Background Mix Ramp'
 
 SPREAD_ALPHA = '~yPL Spread Alpha'
+SPREAD_ALPHA_SMOOTH = '~yPL Spread Alpha Smooth'
 
 NEIGHBOR_UV ='~yPL Neighbor UV'
 NEIGHBOR_UV_TANGENT ='~yPL Neighbor UV (Tangent)'
