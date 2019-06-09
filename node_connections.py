@@ -2220,7 +2220,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                 create_link(tree, prev_height_ons, height_blend.inputs['Prev Height ONS'])
                 create_link(tree, prev_height_ew, height_blend.inputs['Prev Height EW'])
-                create_link(tree, height_proc.outputs['Height'], height_blend.inputs['Height'])
+                create_link(tree, height_proc.outputs['Height ONS'], height_blend.inputs['Height ONS'])
+                create_link(tree, height_proc.outputs['Height EW'], height_blend.inputs['Height EW'])
                 create_link(tree, height_alpha, height_blend.inputs['Alpha'])
 
                 if has_parent:
@@ -2229,7 +2230,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                 for d in neighbor_directions:
                     create_link(tree, alphas[d], height_blend.inputs['Alpha ' + d])
-                    create_link(tree, height_proc.outputs['Height ' + d], height_blend.inputs['Height ' + d])
 
                 create_link(tree, height_blend.outputs['Height ONS'], normal_proc.inputs['Height ONS'])
                 create_link(tree, height_blend.outputs['Height EW'], normal_proc.inputs['Height EW'])
