@@ -449,7 +449,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
         else: lib_name = lib.get_neighbor_uv_tree_name(mask.texcoord_type, entity=mask)
 
         uv_neighbor, dirty = replace_new_node(tree, mask, 'uv_neighbor', 
-                'ShaderNodeGroup', 'Spread Alpha Hack', lib_name, return_status=True, hard_replace=True)
+                'ShaderNodeGroup', 'UV Neighbor', lib_name, return_status=True, hard_replace=True)
 
         set_uv_neighbor_resolution(mask, uv_neighbor)
 
