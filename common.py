@@ -9,7 +9,7 @@ MAX_VERTEX_DATA = 8
 
 LAYERGROUP_PREFIX = '~yP Layer '
 MASKGROUP_PREFIX = '~yP Mask '
-ADDON_NAME = 'yTexLayers'
+ADDON_NAME = 'painty'
 ADDON_TITLE = 'Painty'
 
 INFO_PREFIX = '__yp_info_'
