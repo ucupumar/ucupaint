@@ -2280,10 +2280,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Height related
     height_proc = StringProperty(default='')
     height_blend = StringProperty(default='')
-    height_blend_n = StringProperty(default='')
-    height_blend_s = StringProperty(default='')
-    height_blend_e = StringProperty(default='')
-    height_blend_w = StringProperty(default='')
+    #height_blend_n = StringProperty(default='')
+    #height_blend_s = StringProperty(default='')
+    #height_blend_e = StringProperty(default='')
+    #height_blend_w = StringProperty(default='')
+
+    # For pack/unpack height io
+    height_group_unpack = StringProperty(default='')
+    height_alpha_group_unpack = StringProperty(default='')
 
     # Normal related
     normal_proc = StringProperty(default='')
@@ -2311,10 +2315,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Spread alpha hack nodes
     spread_alpha = StringProperty(default='')
-    spread_alpha_n = StringProperty(default='')
-    spread_alpha_s = StringProperty(default='')
-    spread_alpha_e = StringProperty(default='')
-    spread_alpha_w = StringProperty(default='')
+    #spread_alpha_n = StringProperty(default='')
+    #spread_alpha_s = StringProperty(default='')
+    #spread_alpha_e = StringProperty(default='')
+    #spread_alpha_w = StringProperty(default='')
 
     # Intensity Stuff
     intensity_multiplier = StringProperty(default='')

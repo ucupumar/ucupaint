@@ -82,7 +82,7 @@ def check_all_channel_ios(yp, reconnect=True):
             input_index += 1
             output_index += 1
 
-            name = ch.name + io_suffix['MAX HEIGHT']
+            name = ch.name + io_suffix['MAX_HEIGHT']
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
             output_index += 1
@@ -964,18 +964,17 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'mod_e')
             remove_node(ttree, ch, 'mod_w')
             remove_node(ttree, ch, 'spread_alpha')
-            remove_node(ttree, ch, 'spread_alpha_n')
-            remove_node(ttree, ch, 'spread_alpha_s')
-            remove_node(ttree, ch, 'spread_alpha_e')
-            remove_node(ttree, ch, 'spread_alpha_w')
+            #remove_node(ttree, ch, 'spread_alpha_n')
+            #remove_node(ttree, ch, 'spread_alpha_s')
+            #remove_node(ttree, ch, 'spread_alpha_e')
+            #remove_node(ttree, ch, 'spread_alpha_w')
 
             remove_node(ttree, ch, 'height_proc')
             remove_node(ttree, ch, 'height_blend')
-            remove_node(ttree, ch, 'height_blend_n')
-            remove_node(ttree, ch, 'height_blend_s')
-            remove_node(ttree, ch, 'height_blend_e')
-            remove_node(ttree, ch, 'height_blend_w')
             remove_node(ttree, ch, 'normal_proc')
+
+            remove_node(ttree, ch, 'height_group_unpack')
+            remove_node(ttree, ch, 'height_alpha_group_unpack')
 
             remove_node(ttree, ch, 'cache_ramp')
 
@@ -1827,7 +1826,7 @@ def update_channel_parallax(self, context):
 #    if parallax:
 #        depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
 #        if depth_source_0:
-#            pack = depth_source_0.node_tree.nodes.get('_pack')
+#            pack = depth_source_0.node_tree.nodes.get('_normalize')
 #            if pack:
 #                if max_height != 0.0:
 #                    pack.inputs['Max Height'].default_value = max_height

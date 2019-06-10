@@ -221,7 +221,9 @@ io_suffix = {
         'ALPHA' : ' Alpha',
         'DISPLACEMENT' : ' Displacement',
         'HEIGHT' : ' Height',
-        'MAX HEIGHT' : ' Max Height',
+        'MAX_HEIGHT' : ' Max Height',
+        'HEIGHT_ONS' : ' Height ONS',
+        'HEIGHT_EW' : ' Height EW',
         'UV' : ' UV',
         'TANGENT' : ' Tangent',
         'BITANGENT' : ' Bitangent',
@@ -2301,7 +2303,7 @@ def update_displacement_height_ratio(root_ch, max_height=None):
         #baked_parallax.inputs['depth_scale'].default_value = max_height
         depth_source_0 = baked_parallax.node_tree.nodes.get('_depth_source_0')
         if depth_source_0:
-            pack = depth_source_0.node_tree.nodes.get('_pack')
+            pack = depth_source_0.node_tree.nodes.get('_normalize')
             if pack:
                 if max_height != 0.0:
                     pack.inputs['Max Height'].default_value = max_height
@@ -2311,7 +2313,7 @@ def update_displacement_height_ratio(root_ch, max_height=None):
     if parallax:
         depth_source_0 = parallax.node_tree.nodes.get('_depth_source_0')
         if depth_source_0:
-            pack = depth_source_0.node_tree.nodes.get('_pack')
+            pack = depth_source_0.node_tree.nodes.get('_normalize')
             if pack:
                 if max_height != 0.0:
                     pack.inputs['Max Height'].default_value = max_height

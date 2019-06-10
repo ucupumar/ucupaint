@@ -29,6 +29,7 @@ STRAIGHT_OVER_HEIGHT_ADD = '~yPL Straight Over Height Add'
 #STRAIGHT_OVER_BG_RAMP = '~yPL Straight Over Background Mix Ramp'
 
 SPREAD_ALPHA = '~yPL Spread Alpha'
+SPREAD_ALPHA_SMOOTH = '~yPL Spread Alpha Smooth'
 
 NEIGHBOR_UV ='~yPL Neighbor UV'
 NEIGHBOR_UV_TANGENT ='~yPL Neighbor UV (Tangent)'
@@ -100,9 +101,12 @@ HEIGHT_PROCESS_TRANSITION_SMOOTH_NORMAL_MAP = '~yPL Height Process Transition Sm
 HEIGHT_PROCESS_TRANSITION_SMOOTH_NORMAL_MAP_CREASE = '~yPL Height Process Transition Smooth Normal Map Crease'
 
 HEIGHT_COMPARE = '~yPL Height Compare'
-#HEIGHT_MIX_SMOOTH = '~yPL Height Mix Smooth'
-#HEIGHT_ADD_SMOOTH = '~yPL Height Add Smooth'
-#HEIGHT_COMPARE_SMOOTH = '~yPL Height Compare Smooth'
+HEIGHT_MIX_SMOOTH = '~yPL Height Mix Smooth'
+HEIGHT_ADD_SMOOTH = '~yPL Height Add Smooth'
+HEIGHT_COMPARE_SMOOTH = '~yPL Height Compare Smooth'
+STRAIGHT_OVER_HEIGHT_MIX_SMOOTH = '~yPL Straight Over Height Mix Smooth'
+STRAIGHT_OVER_HEIGHT_ADD_SMOOTH = '~yPL Straight Over Height Add Smooth'
+STRAIGHT_OVER_HEIGHT_COMPARE_SMOOTH = '~yPL Straight Over Height Compare Smooth'
 
 NORMAL_PROCESS = '~yPL Normal Process'
 #NORMAL_PROCESS_GROUP = '~yPL Normal Process Group'
@@ -115,6 +119,9 @@ NORMAL_MAP_PROCESS_SMOOTH = '~yPL Normal Map Process Smooth'
 NORMAL_MAP_PROCESS_SMOOTH_TRANSITION = '~yPL Normal Map Process Smooth Transition'
 
 ENGINE_FILTER = '~yPL Engine Filter'
+
+UNPACK_ONSEW = '~yPL Unpack ONSEW'
+PACK_ONSEW = '~yPL Pack ONSEW'
 
 # END OF NEW ORDER
 
