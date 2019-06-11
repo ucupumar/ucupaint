@@ -123,6 +123,8 @@ ENGINE_FILTER = '~yPL Engine Filter'
 UNPACK_ONSEW = '~yPL Unpack ONSEW'
 PACK_ONSEW = '~yPL Pack ONSEW'
 
+BL27_DISP = '~yPL Blender 2.7 Displacement'
+
 # END OF NEW ORDER
 
 #HEIGHT_PROCESS_BUMP_MIX = '~yPL Height Process Bump Mix'

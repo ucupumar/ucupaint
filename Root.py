@@ -2215,7 +2215,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     subdiv_on_level = IntProperty(default=3, min=0, max=10, update=Bake.update_subdiv_on_off_level)
     subdiv_off_level = IntProperty(default=1, min=0, max=10, update=Bake.update_subdiv_on_off_level)
 
-    subdiv_tweak = FloatProperty(default=1.0, min=0.0, max=10.0, update=Bake.update_subdiv_tweak)
+    subdiv_tweak = FloatProperty(default=1.0, min=0.0, max=1000.0, update=Bake.update_subdiv_tweak)
 
     subdiv_global_dicing = FloatProperty(subtype='PIXEL', default=1.0, min=0.5, max=1000,
             update=Bake.update_subdiv_global_dicing)
@@ -2259,6 +2259,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Connection related
     ori_alpha_to = CollectionProperty(type=YNodeConnections)
     ori_alpha_from = PointerProperty(type=YNodeConnections)
+
+    ori_normal_to = CollectionProperty(type=YNodeConnections)
 
 class YPaintUV(bpy.types.PropertyGroup):
     name = StringProperty(default='')

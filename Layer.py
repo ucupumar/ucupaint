@@ -2280,10 +2280,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Height related
     height_proc = StringProperty(default='')
     height_blend = StringProperty(default='')
-    #height_blend_n = StringProperty(default='')
-    #height_blend_s = StringProperty(default='')
-    #height_blend_e = StringProperty(default='')
-    #height_blend_w = StringProperty(default='')
 
     # For pack/unpack height io
     height_group_unpack = StringProperty(default='')
@@ -2315,10 +2311,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # Spread alpha hack nodes
     spread_alpha = StringProperty(default='')
-    #spread_alpha_n = StringProperty(default='')
-    #spread_alpha_s = StringProperty(default='')
-    #spread_alpha_e = StringProperty(default='')
-    #spread_alpha_w = StringProperty(default='')
 
     # Intensity Stuff
     intensity_multiplier = StringProperty(default='')
@@ -2422,18 +2414,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
     tb_bump_flip = StringProperty(default='')
     tb_inverse = StringProperty(default='')
     tb_intensity_multiplier = StringProperty(default='')
-    #tb_blend = StringProperty(default='')
 
     tb_falloff = StringProperty(default='')
     tb_falloff_n = StringProperty(default='')
     tb_falloff_s = StringProperty(default='')
     tb_falloff_e = StringProperty(default='')
     tb_falloff_w = StringProperty(default='')
-
-    #tb_crease = StringProperty(default='')
-    #tb_crease_flip = StringProperty(default='')
-    #tb_crease_intensity = StringProperty(default='')
-    #tb_crease_mix = StringProperty(default='')
 
     # Transition ramp related
     enable_transition_ramp = BoolProperty(name='Enable Transition Ramp', description='Enable alpha transition ramp', 

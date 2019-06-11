@@ -1387,10 +1387,33 @@ def check_subdiv_setup(height_ch):
     try: output_mat = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output][0]
     except: return
 
+    # Get active ypaint node
+    node = get_active_ypaint_node()
+    norm_outp = node.outputs[height_ch.name]
+
+    # Recover normal for Blender 2.7
+    if not bpy.app.version_string.startswith('2.8'):
+
+        if not yp.use_baked or not height_ch.enable_subdiv_setup or (
+                height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive):
+
+            # Relink will only be proceed if no new links found
+            link_found = any([l for l in norm_outp.links])
+            if not link_found:
+
+                # Try to relink to original connections
+                for con in height_ch.ori_normal_to:
+                    try:
+                        node_to = mat.node_tree.nodes.get(con.node)
+                        socket_to = node_to.inputs[con.socket]
+                        if len(socket_to.links) < 1:
+                            mat.node_tree.links.new(norm_outp, socket_to)
+                    except: pass
+                
+            height_ch.ori_normal_to.clear()
+
     # Adaptive subdiv
     if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
-
-        node = get_active_ypaint_node()
 
         if not subsurf:
             subsurf = obj.modifiers.new('Subsurf', 'SUBSURF')
@@ -1402,29 +1425,89 @@ def check_subdiv_setup(height_ch):
         scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
         scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
         obj.cycles.use_adaptive_subdivision = True
-        #mat.cycles.displacement_method = 'BOTH'
-        mat.cycles.displacement_method = 'DISPLACEMENT'
 
         # Check output connection
-        norm_outp = node.outputs[height_ch.name]
         height_outp = node.outputs[height_ch.name + io_suffix['HEIGHT']]
-        max_height_outp = node.outputs[height_ch.name + io_suffix['MAX HEIGHT']]
+        max_height_outp = node.outputs[height_ch.name + io_suffix['MAX_HEIGHT']]
 
-        # Search for displacement node
-        disp = None
-        for link in height_outp.links:
-            if link.to_node.type == 'DISPLACEMENT':
-                disp = link.to_node
+        if bpy.app.version_string.startswith('2.8'):
+            #mat.cycles.displacement_method = 'BOTH'
+            mat.cycles.displacement_method = 'DISPLACEMENT'
 
-        # Create one if there's none
-        if not disp:
-            disp = mat.node_tree.nodes.new('ShaderNodeDisplacement')
-            disp.location.x = node.location.x #+ 200
-            disp.location.y = node.location.y - 400
+            # Search for displacement node
+            height_matches = []
+            for link in height_outp.links:
+                if link.to_node.type == 'DISPLACEMENT':
+                    #disp = link.to_node
+                    height_matches.append(link.to_node)
 
-        create_link(mat.node_tree, disp.outputs[0], output_mat.inputs['Displacement'])
-        create_link(mat.node_tree, height_outp, disp.inputs['Height'])
-        create_link(mat.node_tree, max_height_outp, disp.inputs['Scale'])
+            max_height_matches = []
+            for link in max_height_outp.links:
+                if link.to_node.type == 'DISPLACEMENT':
+                    max_height_matches.append(link.to_node)
+
+            disp = None
+            for n in height_matches:
+                if n in max_height_matches:
+                    disp = n
+                    break
+
+            # Create one if there's none
+            if not disp:
+                disp = mat.node_tree.nodes.new('ShaderNodeDisplacement')
+                disp.location.x = node.location.x #+ 200
+                disp.location.y = node.location.y - 400
+
+            create_link(mat.node_tree, disp.outputs[0], output_mat.inputs['Displacement'])
+            create_link(mat.node_tree, height_outp, disp.inputs['Height'])
+            create_link(mat.node_tree, max_height_outp, disp.inputs['Scale'])
+
+        else:
+            # Remember normal connection, because it will be disconnected to avoid render error
+            for link in norm_outp.links:
+                con = height_ch.ori_normal_to.add()
+                con.node = link.to_node.name
+                con.socket = link.to_socket.name
+
+            # Remove normal connection because it will produce render error
+            break_output_link(mat.node_tree, norm_outp)
+
+            # Set displacement mode
+            #mat.cycles.displacement_method = 'BOTH'
+            mat.cycles.displacement_method = 'TRUE'
+
+            # Search for displacement node
+            height_matches = []
+            for link in height_outp.links:
+                #if link.to_node.type == 'MATH' and link.to_node.operation == 'MULTIPLY':
+                if link.to_node.type == 'GROUP' and link.to_node.node_tree.name == lib.BL27_DISP:
+                    #disp = link.to_node
+                    height_matches.append(link.to_node)
+
+            max_height_matches = []
+            for link in max_height_outp.links:
+                #if link.to_node.type == 'MATH' and link.to_node.operation == 'MULTIPLY':
+                if link.to_node.type == 'GROUP' and link.to_node.node_tree.name == lib.BL27_DISP:
+                    max_height_matches.append(link.to_node)
+
+            disp = None
+            for n in height_matches:
+                if n in max_height_matches:
+                    disp = n
+                    break
+
+            # Create one if there's none
+            if not disp:
+                #disp = mat.node_tree.nodes.new('ShaderNodeMath')
+                #disp.operation = 'MULTIPLY'
+                disp = mat.node_tree.nodes.new('ShaderNodeGroup')
+                disp.node_tree = get_node_tree_lib(lib.BL27_DISP)
+                disp.location.x = node.location.x #+ 200
+                disp.location.y = node.location.y - 400
+
+            create_link(mat.node_tree, disp.outputs[0], output_mat.inputs['Displacement'])
+            create_link(mat.node_tree, height_outp, disp.inputs[0])
+            create_link(mat.node_tree, max_height_outp, disp.inputs[1])
 
     else:
         obj.cycles.use_adaptive_subdivision = False

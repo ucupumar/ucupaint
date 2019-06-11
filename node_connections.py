@@ -19,6 +19,10 @@ def break_input_link(tree, inp):
     for link in inp.links:
         tree.links.remove(link)
 
+def break_output_link(tree, outp):
+    for link in outp.links:
+        tree.links.remove(link)
+
 def reconnect_mask_modifier_nodes(tree, mod, start_value):
     
     value = start_value
