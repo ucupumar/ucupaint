@@ -1,5 +1,6 @@
 import bpy, time
 from .common import *
+from mathutils import *
 from bpy.app.handlers import persistent
 
 # Node tree names
@@ -124,6 +125,8 @@ UNPACK_ONSEW = '~yPL Unpack ONSEW'
 PACK_ONSEW = '~yPL Pack ONSEW'
 
 BL27_DISP = '~yPL Blender 2.7 Displacement'
+
+SMOOTH_PREFIX = '~yPL Smooth '
 
 # END OF NEW ORDER
 
@@ -315,6 +318,74 @@ def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
     #    print(root_ch.name, prop)
 
     return im
+
+def get_smooth_mix_node(blend_type):
+    tree = bpy.data.node_groups.get(SMOOTH_PREFIX + blend_type)
+    if not tree:
+        tree = bpy.data.node_groups.new(SMOOTH_PREFIX + blend_type, 'ShaderNodeTree')
+
+        # IO
+        inp = tree.inputs.new('NodeSocketFloatFactor', 'Fac')
+        inp.min_value = 0.0
+        inp.max_value = 1.0
+
+        tree.inputs.new('NodeSocketColor', 'Color1')
+        for d in neighbor_directions:
+            tree.inputs.new('NodeSocketColor', 'Color1 ' + d)
+
+        tree.inputs.new('NodeSocketColor', 'Color2')
+        for d in neighbor_directions:
+            tree.inputs.new('NodeSocketColor', 'Color2 ' + d)
+
+        tree.outputs.new('NodeSocketColor', 'Color')
+        for d in neighbor_directions:
+            tree.outputs.new('NodeSocketColor', 'Color ' + d)
+
+        # Nodes
+        create_essential_nodes(tree)
+
+        start = tree.nodes.get(TREE_START)
+        end = tree.nodes.get(TREE_END)
+
+        loc = Vector((0, 0))
+
+        start.location = loc
+
+        mixes = {}
+        mix = tree.nodes.new('ShaderNodeMixRGB')
+        mix.name = '_mix'
+        mix.blend_type = blend_type
+
+        loc.x += 200
+        mix.location = loc
+
+        tree.links.new(start.outputs['Fac'], mix.inputs['Fac'])
+        tree.links.new(start.outputs['Color1'], mix.inputs['Color1'])
+        tree.links.new(start.outputs['Color2'], mix.inputs['Color2'])
+        tree.links.new(mix.outputs[0], end.inputs['Color'])
+
+        for d in neighbor_directions:
+            mix = tree.nodes.new('ShaderNodeMixRGB')
+            mix.name = '_mix_' + d
+            mix.blend_type = blend_type
+
+            loc.y -= 200
+            mix.location = loc
+
+            tree.links.new(start.outputs['Fac'], mix.inputs['Fac'])
+            tree.links.new(start.outputs['Color1 ' + d], mix.inputs['Color1'])
+            tree.links.new(start.outputs['Color2 ' + d], mix.inputs['Color2'])
+            tree.links.new(mix.outputs[0], end.inputs['Color ' + d])
+
+        loc.x += 200
+        end.location.x = loc.x
+
+    return tree
+
+def clean_unused_libraries():
+    for ng in bpy.data.node_groups:
+        if ng.name.startswith('~yPL ') and ng.users == 0:
+            bpy.data.node_groups.remove(ng)
 
 #@persistent
 #def load_libraries(scene):

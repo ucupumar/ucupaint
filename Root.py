@@ -1794,6 +1794,9 @@ def update_enable_smooth_bump(self, context):
     # Update channel io
     check_all_channel_ios(yp)
 
+    # Clean unused libraries
+    lib.clean_unused_libraries()
+
 def update_channel_parallax(self, context):
     yp = self.id_data.yp
 

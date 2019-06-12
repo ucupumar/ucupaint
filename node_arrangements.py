@@ -246,10 +246,10 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             check_set_node_parent(tree, c.mix, frame)
             check_set_node_parent(tree, c.mix_pure, frame)
             check_set_node_parent(tree, c.mix_remains, frame)
-            check_set_node_parent(tree, c.mix_n, frame)
-            check_set_node_parent(tree, c.mix_s, frame)
-            check_set_node_parent(tree, c.mix_e, frame)
-            check_set_node_parent(tree, c.mix_w, frame)
+            #check_set_node_parent(tree, c.mix_n, frame)
+            #check_set_node_parent(tree, c.mix_s, frame)
+            #check_set_node_parent(tree, c.mix_e, frame)
+            #check_set_node_parent(tree, c.mix_w, frame)
 
     clean_unused_frames(tree)
 
@@ -887,39 +887,38 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.x = bookmark_x
             bookmark_y = loc.y
 
-            mix_n = tree.nodes.get(c.mix_n)
+            #mix_n = tree.nodes.get(c.mix_n)
             mix_pure = tree.nodes.get(c.mix_pure)
             mix_remains = tree.nodes.get(c.mix_remains)
             mix_normal = tree.nodes.get(c.mix_normal)
-            if not mix_n and not mix_pure and not mix_remains and not mix_normal:
+            #if not mix_n and not mix_pure and not mix_remains and not mix_normal:
 
-                if check_set_node_loc(tree, c.mix, loc):
-                    loc.y -= 200.0
-            else:
+            if check_set_node_loc(tree, c.mix, loc, True):
+                loc.y -= 40
 
-                if check_set_node_loc(tree, c.mix, loc, True):
-                    loc.y -= 40
+            if check_set_node_loc(tree, c.mix_pure, loc, True):
+                loc.y -= 40
 
-                if check_set_node_loc(tree, c.mix_pure, loc, True):
-                    loc.y -= 40
+            if check_set_node_loc(tree, c.mix_remains, loc, True):
+                loc.y -= 40
 
-                if check_set_node_loc(tree, c.mix_remains, loc, True):
-                    loc.y -= 40
+            if check_set_node_loc(tree, c.mix_normal, loc, True):
+                loc.y -= 40
 
-                if check_set_node_loc(tree, c.mix_normal, loc, True):
-                    loc.y -= 40
+            #if check_set_node_loc(tree, c.mix_n, loc, True):
+            #    loc.y -= 40
 
-                if check_set_node_loc(tree, c.mix_n, loc, True):
-                    loc.y -= 40
+            #if check_set_node_loc(tree, c.mix_s, loc, True):
+            #    loc.y -= 40
 
-                if check_set_node_loc(tree, c.mix_s, loc, True):
-                    loc.y -= 40
+            #if check_set_node_loc(tree, c.mix_e, loc, True):
+            #    loc.y -= 40
 
-                if check_set_node_loc(tree, c.mix_e, loc, True):
-                    loc.y -= 40
+            #if check_set_node_loc(tree, c.mix_w, loc, True):
+            #    loc.y -= 40
 
-                if check_set_node_loc(tree, c.mix_w, loc, True):
-                    loc.y -= 40
+            if check_set_node_loc(tree, c.mix, loc):
+                loc.y -= 200.0
 
             loc.x += 230
             bookmark_y1 = loc.y

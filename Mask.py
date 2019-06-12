@@ -739,8 +739,9 @@ def update_mask_channel_intensity_value(self, context):
 
     mix = tree.nodes.get(self.mix)
     if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
-    dirs = [d for d in neighbor_directions]
-    dirs.extend(['pure', 'remains', 'normal'])
+    #dirs = [d for d in neighbor_directions]
+    #dirs.extend(['pure', 'remains', 'normal'])
+    dirs = ['pure', 'remains', 'normal']
 
     for d in dirs:
         mix = tree.nodes.get(getattr(self, 'mix_' + d))
@@ -906,15 +907,23 @@ def update_mask_blend_type(self, context):
     tree = get_tree(layer)
     mask = self
 
-    dirs = [d for d in neighbor_directions]
-    dirs.extend(['pure', 'remains', 'normal'])
+    #dirs = [d for d in neighbor_directions]
+    #dirs.extend(['pure', 'remains', 'normal'])
 
-    for c in mask.channels:
-        mix = tree.nodes.get(c.mix)
-        if mix: mix.blend_type = mask.blend_type
-        for d in dirs:
-            mix = tree.nodes.get(getattr(c, 'mix_' + d))
-            if mix: mix.blend_type = mask.blend_type
+    #for c in mask.channels:
+    #    mix = tree.nodes.get(c.mix)
+    #    if mix: mix.blend_type = mask.blend_type
+    #    for d in dirs:
+    #        mix = tree.nodes.get(getattr(c, 'mix_' + d))
+    #        if mix: mix.blend_type = mask.blend_type
+
+    check_mask_mix_nodes(layer, tree, mask)
+
+    # Rearrange nodes
+    rearrange_layer_nodes(layer)
+
+    # Reconnect nodes
+    reconnect_layer_nodes(layer)
 
 def update_mask_transform(self, context):
     update_mapping(self)
@@ -935,10 +944,10 @@ class YLayerMaskChannel(bpy.types.PropertyGroup):
     mix_normal = StringProperty(default='')
 
     # Bump related
-    mix_n = StringProperty(default='')
-    mix_s = StringProperty(default='')
-    mix_e = StringProperty(default='')
-    mix_w = StringProperty(default='')
+    #mix_n = StringProperty(default='')
+    #mix_s = StringProperty(default='')
+    #mix_e = StringProperty(default='')
+    #mix_w = StringProperty(default='')
 
     # UI related
     expand_content = BoolProperty(default=False)

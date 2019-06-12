@@ -1605,17 +1605,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 continue
 
             mask_mix = nodes.get(c.mix)
-            if mask_mix:
-                create_link(tree, mask_val, mask_mix.inputs[2])
+            #if mask_mix:
+            #    create_link(tree, mask_val, mask_mix.inputs[2])
 
             # Direction multiplies
             mix_pure = nodes.get(c.mix_pure)
             mix_remains = nodes.get(c.mix_remains)
             mix_normal = nodes.get(c.mix_normal)
-            mix_n = nodes.get(c.mix_n)
-            mix_s = nodes.get(c.mix_s)
-            mix_e = nodes.get(c.mix_e)
-            mix_w = nodes.get(c.mix_w)
+            #mix_n = nodes.get(c.mix_n)
+            #mix_s = nodes.get(c.mix_s)
+            #mix_e = nodes.get(c.mix_e)
+            #mix_w = nodes.get(c.mix_w)
 
             if mix_pure:
                 create_link(tree, mask_val, mix_pure.inputs[2])
@@ -1626,24 +1626,48 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             if mix_normal:
                 create_link(tree, mask_val, mix_normal.inputs[2])
 
-            if mask.type == 'VCOL':
-                if mix_n: 
-                    if mask_uv_neighbor:
-                        create_link(tree, mask_uv_neighbor.outputs['n'], mix_n.inputs[2])
-                    else: create_link(tree, mask_val, mix_n.inputs[2])
+            if mask_mix:
+                if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+                    create_link(tree, mask_val, mask_mix.inputs['Color2'])
+                    if mask.type == 'VCOL':
+                        if mask_uv_neighbor:
+                            create_link(tree, mask_uv_neighbor.outputs['n'], mask_mix.inputs['Color2 n'])
+                        else: create_link(tree, mask_val, mask_mix.inputs[2])
 
-                if mix_s: create_link(tree, mask_uv_neighbor.outputs['s'], mix_s.inputs[2])
-                if mix_e: create_link(tree, mask_uv_neighbor.outputs['e'], mix_e.inputs[2])
-                if mix_w: create_link(tree, mask_uv_neighbor.outputs['w'], mix_w.inputs[2])
-            else:
-                if mix_n:
-                    if mask_source_n: 
-                        create_link(tree, mask_source_n.outputs[0], mix_n.inputs[2])
-                    else: create_link(tree, mask_val, mix_n.inputs[2])
+                        create_link(tree, mask_uv_neighbor.outputs['s'], mask_mix.inputs['Color2 s'])
+                        create_link(tree, mask_uv_neighbor.outputs['e'], mask_mix.inputs['Color2 e'])
+                        create_link(tree, mask_uv_neighbor.outputs['w'], mask_mix.inputs['Color2 w'])
+                    else:
+                        #if 'Color2 n' in mask_mix.inputs:
+                        if mask_source_n: 
+                            create_link(tree, mask_source_n.outputs[0], mask_mix.inputs['Color2 n'])
+                        else: 
+                            create_link(tree, mask_val, mask_mix.inputs['Color2 n'])
 
-                if mix_s and mask_source_s: create_link(tree, mask_source_s.outputs[0], mix_s.inputs[2])
-                if mix_e and mask_source_e: create_link(tree, mask_source_e.outputs[0], mix_e.inputs[2])
-                if mix_w and mask_source_w: create_link(tree, mask_source_w.outputs[0], mix_w.inputs[2])
+                        if mask_source_s: create_link(tree, mask_source_s.outputs[0], mask_mix.inputs['Color2 s'])
+                        if mask_source_e: create_link(tree, mask_source_e.outputs[0], mask_mix.inputs['Color2 e'])
+                        if mask_source_w: create_link(tree, mask_source_w.outputs[0], mask_mix.inputs['Color2 w'])
+                else:
+                    create_link(tree, mask_val, mask_mix.inputs[2])
+
+            #if mask.type == 'VCOL':
+            #    if mix_n: 
+            #        if mask_uv_neighbor:
+            #            create_link(tree, mask_uv_neighbor.outputs['n'], mix_n.inputs[2])
+            #        else: create_link(tree, mask_val, mix_n.inputs[2])
+
+            #    if mix_s: create_link(tree, mask_uv_neighbor.outputs['s'], mix_s.inputs[2])
+            #    if mix_e: create_link(tree, mask_uv_neighbor.outputs['e'], mix_e.inputs[2])
+            #    if mix_w: create_link(tree, mask_uv_neighbor.outputs['w'], mix_w.inputs[2])
+            #else:
+            #    if mix_n:
+            #        if mask_source_n: 
+            #            create_link(tree, mask_source_n.outputs[0], mix_n.inputs[2])
+            #        else: create_link(tree, mask_val, mix_n.inputs[2])
+
+            #    if mix_s and mask_source_s: create_link(tree, mask_source_s.outputs[0], mix_s.inputs[2])
+            #    if mix_e and mask_source_e: create_link(tree, mask_source_e.outputs[0], mix_e.inputs[2])
+            #    if mix_w and mask_source_w: create_link(tree, mask_source_w.outputs[0], mix_w.inputs[2])
 
     # Parent flag
     has_parent = layer.parent_idx != -1
@@ -1967,14 +1991,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 #if j < chain: break
                 #if not ch.write_height and j >= chain_local:
                 #    break
+                if not mask.enable: continue
 
                 c = mask.channels[i]
 
                 mix = nodes.get(c.mix)
-                mix_n = nodes.get(c.mix_n)
-                mix_s = nodes.get(c.mix_s)
-                mix_e = nodes.get(c.mix_e)
-                mix_w = nodes.get(c.mix_w)
+                #mix_n = nodes.get(c.mix_n)
+                #mix_s = nodes.get(c.mix_s)
+                #mix_e = nodes.get(c.mix_e)
+                #mix_w = nodes.get(c.mix_w)
 
                 if tb_falloff and (j == chain-1 or (j == chain_local-1 and not trans_bump_ch)):
                     pure = tb_falloff.outputs[0]
@@ -1992,16 +2017,28 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 if mix_normal and normal_alpha: 
                     normal_alpha = create_link(tree, normal_alpha, mix_normal.inputs[1])[0]
 
-                if j == chain and trans_bump_ch == ch and trans_bump_crease:
-                    if mix_n: alpha_n = create_link(tree, one_value.outputs[0], mix_n.inputs[1])[0]
-                    if mix_s: alpha_s = create_link(tree, one_value.outputs[0], mix_s.inputs[1])[0]
-                    if mix_e: alpha_e = create_link(tree, one_value.outputs[0], mix_e.inputs[1])[0]
-                    if mix_w: alpha_w = create_link(tree, one_value.outputs[0], mix_w.inputs[1])[0]
-                else:
-                    if mix_n: alpha_n = create_link(tree, alpha_n, mix_n.inputs[1])[0]
-                    if mix_s: alpha_s = create_link(tree, alpha_s, mix_s.inputs[1])[0]
-                    if mix_e: alpha_e = create_link(tree, alpha_e, mix_e.inputs[1])[0]
-                    if mix_w: alpha_w = create_link(tree, alpha_w, mix_w.inputs[1])[0]
+                if root_ch.enable_smooth_bump:
+                    if j == chain and trans_bump_ch == ch and trans_bump_crease:
+                        alpha_n = create_link(tree, one_value.outputs[0], mix.inputs['Color1 n'])['Color n']
+                        alpha_s = create_link(tree, one_value.outputs[0], mix.inputs['Color1 s'])['Color s']
+                        alpha_e = create_link(tree, one_value.outputs[0], mix.inputs['Color1 e'])['Color e']
+                        alpha_w = create_link(tree, one_value.outputs[0], mix.inputs['Color1 w'])['Color w']
+                    else:
+                        alpha_n = create_link(tree, alpha_n, mix.inputs['Color1 n'])['Color n']
+                        alpha_s = create_link(tree, alpha_s, mix.inputs['Color1 s'])['Color s']
+                        alpha_e = create_link(tree, alpha_e, mix.inputs['Color1 e'])['Color e']
+                        alpha_w = create_link(tree, alpha_w, mix.inputs['Color1 w'])['Color w']
+
+                #if j == chain and trans_bump_ch == ch and trans_bump_crease:
+                #    if mix_n: alpha_n = create_link(tree, one_value.outputs[0], mix_n.inputs[1])[0]
+                #    if mix_s: alpha_s = create_link(tree, one_value.outputs[0], mix_s.inputs[1])[0]
+                #    if mix_e: alpha_e = create_link(tree, one_value.outputs[0], mix_e.inputs[1])[0]
+                #    if mix_w: alpha_w = create_link(tree, one_value.outputs[0], mix_w.inputs[1])[0]
+                #else:
+                #    if mix_n: alpha_n = create_link(tree, alpha_n, mix_n.inputs[1])[0]
+                #    if mix_s: alpha_s = create_link(tree, alpha_s, mix_s.inputs[1])[0]
+                #    if mix_e: alpha_e = create_link(tree, alpha_e, mix_e.inputs[1])[0]
+                #    if mix_w: alpha_w = create_link(tree, alpha_w, mix_w.inputs[1])[0]
 
                 if j == chain-1 or (j == chain_local-1 and not trans_bump_ch):
                     
@@ -2343,9 +2380,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 remaining_alpha = one_value.outputs[0]
                 for j, mask in enumerate(layer.masks):
                     if j >= chain:
-                        mix_n = nodes.get(mask.channels[i].mix_n)
-                        if mix_n:
-                            remaining_alpha = create_link(tree, remaining_alpha, mix_n.inputs[1])[0]
+                        mix_remains = nodes.get(mask.channels[i].mix_remains)
+                        if mix_remains:
+                            remaining_alpha = create_link(tree, remaining_alpha, mix_remains.inputs[1])[0]
 
                 prev_rgb = tao.outputs[0]
                 if 'Remaining Alpha' in tao.inputs:
@@ -2383,9 +2420,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                 for j, mask in enumerate(layer.masks):
                     if j >= chain:
-                        mix_n = nodes.get(mask.channels[i].mix_n)
-                        if mix_n:
-                            trans_ramp_input = create_link(tree, trans_ramp_input, mix_n.inputs[1])[0]
+                        mix_remains = nodes.get(mask.channels[i].mix_remains)
+                        if mix_remains:
+                            trans_ramp_input = create_link(tree, trans_ramp_input, mix_remains.inputs[1])[0]
 
                 create_link(tree, trans_ramp_input, tr_ramp_blend.inputs['Ramp Alpha'])
                 prev_rgb = tr_ramp_blend.outputs[0]

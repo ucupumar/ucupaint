@@ -630,27 +630,36 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
             #if yp.disable_quick_toggle and not ch.enable:
             if not ch.enable or not layer.enable_masks or not mask.enable or not c.enable:
                 remove_node(tree, c, 'mix')
-                remove_node(tree, c, 'mix_n')
+                remove_node(tree, c, 'mix_remains')
                 if root_ch.type == 'NORMAL':
-                    remove_node(tree, c, 'mix_s')
-                    remove_node(tree, c, 'mix_e')
-                    remove_node(tree, c, 'mix_w')
+                    #remove_node(tree, c, 'mix_n')
+                    #remove_node(tree, c, 'mix_s')
+                    #remove_node(tree, c, 'mix_e')
+                    #remove_node(tree, c, 'mix_w')
                     remove_node(tree, c, 'mix_pure')
-                    remove_node(tree, c, 'mix_remains')
                     remove_node(tree, c, 'mix_normal')
                 continue
 
-            #if root_ch.type == 'NORMAL' and not trans_bump:
-            #    chain = min(ch.transition_bump_chain, len(layer.masks))
-            #elif trans_bump:
-            #    chain = min(trans_bump.transition_bump_chain, len(layer.masks))
-            #else: chain = -1
-
-            mix = tree.nodes.get(c.mix)
-            if not mix:
-                mix = new_node(tree, c, 'mix', 'ShaderNodeMixRGB', 'Mask Blend')
+            if (root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and
+                (ch.write_height or (not ch.write_height and i < chain))
+                ):
+                mix = tree.nodes.get(c.mix)
+                if mix and (mix.type != 'GROUP' or not mix.name.endswith(mask.blend_type)):
+                    remove_node(tree, c, 'mix')
+                    mix = None
+                if not mix:
+                    mix = new_node(tree, c, 'mix', 'ShaderNodeGroup', 'Mask Blend')
+                    mix.node_tree = lib.get_smooth_mix_node(mask.blend_type)
+                    mix.inputs[0].default_value = mask.intensity_value
+            else:
+                mix = tree.nodes.get(c.mix)
+                if mix and mix.type != 'MIX_RGB':
+                    remove_node(tree, c, 'mix')
+                    mix = None
+                if not mix:
+                    mix = new_node(tree, c, 'mix', 'ShaderNodeMixRGB', 'Mask Blend')
+                    mix.inputs[0].default_value = mask.intensity_value
                 mix.blend_type = mask.blend_type
-                mix.inputs[0].default_value = mask.intensity_value
 
             if root_ch.type == 'NORMAL':
 
@@ -665,62 +674,56 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     remove_node(tree, c, 'mix_pure')
 
                 if i >= chain and (
-                    #(trans_bump and ch == trans_bump and ch.transition_bump_crease and not ch.write_height) or
                     (trans_bump and ch == trans_bump and ch.transition_bump_crease) or
                     (not trans_bump)
                     ):
                     mix_remains = tree.nodes.get(c.mix_remains)
                     if not mix_remains:
                         mix_remains = new_node(tree, c, 'mix_remains', 'ShaderNodeMixRGB', 'Mask Blend Remaining')
-                        mix_remains.blend_type = mask.blend_type
                         mix_remains.inputs[0].default_value = mask.intensity_value
+                    mix_remains.blend_type = mask.blend_type
                 else:
                     remove_node(tree, c, 'mix_remains')
 
-                if (
-                    #(not trans_bump and ch.normal_map_type in {'FINE_BUMP_MAP'}) or
-                    #(trans_bump == ch and ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}) 
-                    #ch.normal_map_type == 'FINE_BUMP_MAP' and
-                    root_ch.enable_smooth_bump and
-                    (ch.write_height or (not ch.write_height and i < chain))
-                    #) and i < chain):
-                    ):
+                #if (root_ch.enable_smooth_bump and
+                #    (ch.write_height or (not ch.write_height and i < chain))
+                #    ):
 
-                    for d in neighbor_directions:
-                        mix = tree.nodes.get(getattr(c, 'mix_' + d))
+                #    for d in neighbor_directions:
+                #        mix = tree.nodes.get(getattr(c, 'mix_' + d))
 
-                        if not mix:
-                            mix = new_node(tree, c, 'mix_' + d, 'ShaderNodeMixRGB', 'Mask Blend ' + d)
-                            mix.blend_type = mask.blend_type
-                            mix.inputs[0].default_value = mask.intensity_value
+                #        if not mix:
+                #            mix = new_node(tree, c, 'mix_' + d, 'ShaderNodeMixRGB', 'Mask Blend ' + d)
+                #            mix.blend_type = mask.blend_type
+                #            mix.inputs[0].default_value = mask.intensity_value
 
-                else:
-                    for d in neighbor_directions:
-                        remove_node(tree, c, 'mix_' + d)
+                #else:
+                #    for d in neighbor_directions:
+                #        remove_node(tree, c, 'mix_' + d)
 
                 if layer.type == 'GROUP':
                     mix_normal = tree.nodes.get(c.mix_normal)
                     if not mix_normal:
                         mix_normal = new_node(tree, c, 'mix_normal', 'ShaderNodeMixRGB', 'Mask Normal')
-                        mix_normal.blend_type = mask.blend_type
                         mix_normal.inputs[0].default_value = mask.intensity_value
+                    mix_normal.blend_type = mask.blend_type
                 else:
                     remove_node(tree, c, 'mix_normal')
 
             else: 
                 if (trans_bump and i >= chain and (
                     (trans_bump_flip and ch.enable_transition_ramp) or 
-                    #(not trans_bump_flip and ch.enable_transition_ramp and ch.transition_ramp_intensity_unlink) or
                     (not trans_bump_flip and ch.enable_transition_ao)
                     )):
-                    mix_n = tree.nodes.get(c.mix_n)
+                    mix_remains = tree.nodes.get(c.mix_remains)
 
-                    if not mix_n:
-                        mix_n = new_node(tree, c, 'mix_n', 'ShaderNodeMixRGB', 'Mask Blend n')
-                        mix_n.blend_type = mask.blend_type
-                        mix_n.inputs[0].default_value = mask.intensity_value
+                    if not mix_remains:
+                        mix_remains = new_node(tree, c, 'mix_remains', 'ShaderNodeMixRGB', 'Mask Blend n')
+                        mix_remains.inputs[0].default_value = mask.intensity_value
+
+                    mix_remains.blend_type = mask.blend_type
                 else:
-                    remove_node(tree, c, 'mix_n')
+                    remove_node(tree, c, 'mix_remains')
 
 def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
 
@@ -1593,9 +1596,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
                 lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
 
-    if not root_ch.enable_smooth_bump:
-        for d in neighbor_directions:
-            remove_node(tree, ch, 'normal_flip_' + d)
+    #if not root_ch.enable_smooth_bump:
+    #    for d in neighbor_directions:
+    #        remove_node(tree, ch, 'normal_flip_' + d)
 
     # Normal Process
     if ch.normal_map_type == 'NORMAL_MAP':
@@ -1727,9 +1730,9 @@ def check_blend_type_nodes(root_ch, layer, ch):
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
                     return_status = True, hard_replace=True, dirty=need_reconnect)
 
-        if not root_ch.enable_smooth_bump:
-            for d in neighbor_directions:
-                remove_node(tree, ch, 'height_blend_' + d)
+        #if not root_ch.enable_smooth_bump:
+        #    for d in neighbor_directions:
+        #        remove_node(tree, ch, 'height_blend_' + d)
 
     elif root_ch.type == 'VALUE':
 
