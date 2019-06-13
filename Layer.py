@@ -2416,10 +2416,10 @@ class YLayerChannel(bpy.types.PropertyGroup):
     tb_intensity_multiplier = StringProperty(default='')
 
     tb_falloff = StringProperty(default='')
-    tb_falloff_n = StringProperty(default='')
-    tb_falloff_s = StringProperty(default='')
-    tb_falloff_e = StringProperty(default='')
-    tb_falloff_w = StringProperty(default='')
+    #tb_falloff_n = StringProperty(default='')
+    #tb_falloff_s = StringProperty(default='')
+    #tb_falloff_e = StringProperty(default='')
+    #tb_falloff_w = StringProperty(default='')
 
     # Transition ramp related
     enable_transition_ramp = BoolProperty(name='Enable Transition Ramp', description='Enable alpha transition ramp', 

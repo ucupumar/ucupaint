@@ -449,23 +449,23 @@ def rearrange_transition_bump_nodes(tree, ch, loc):
     #if check_set_node_loc(tree, ch.tb_bump_flip, loc):
     #    loc.x += 170.0
 
-    tb_falloff_n = tree.nodes.get(ch.tb_falloff_n)
-    
-    if tb_falloff_n:
+    #tb_falloff_n = tree.nodes.get(ch.tb_falloff_n)
+    #
+    #if tb_falloff_n:
 
-        if check_set_node_loc(tree, ch.tb_falloff, loc, True):
-            loc.y -= 40
-        if check_set_node_loc(tree, ch.tb_falloff_n, loc, True):
-            loc.y -= 40
-        if check_set_node_loc(tree, ch.tb_falloff_s, loc, True):
-            loc.y -= 40
-        if check_set_node_loc(tree, ch.tb_falloff_e, loc, True):
-            loc.y -= 40
-        if check_set_node_loc(tree, ch.tb_falloff_w, loc, True):
-            loc.y -= 40
-    else:
-        if check_set_node_loc(tree, ch.tb_falloff, loc):
-            loc.y -= 150
+    #    if check_set_node_loc(tree, ch.tb_falloff, loc, True):
+    #        loc.y -= 40
+    #    if check_set_node_loc(tree, ch.tb_falloff_n, loc, True):
+    #        loc.y -= 40
+    #    if check_set_node_loc(tree, ch.tb_falloff_s, loc, True):
+    #        loc.y -= 40
+    #    if check_set_node_loc(tree, ch.tb_falloff_e, loc, True):
+    #        loc.y -= 40
+    #    if check_set_node_loc(tree, ch.tb_falloff_w, loc, True):
+    #        loc.y -= 40
+    #else:
+    #    if check_set_node_loc(tree, ch.tb_falloff, loc):
+    #        loc.y -= 150
 
     if check_set_node_loc(tree, ch.tb_inverse, loc):
         loc.x += 170.0
@@ -473,11 +473,19 @@ def rearrange_transition_bump_nodes(tree, ch, loc):
     if check_set_node_loc(tree, ch.tb_intensity_multiplier, loc):
         loc.x += 170.0
 
+    save_x = loc.x
+    loc.x = ori_x
+
+    loc.y -= 170
+
+    if check_set_node_loc(tree, ch.tb_falloff, loc):
+        loc.y -= 150
+
     #if check_set_node_loc(tree, ch.tb_blend, loc):
     #    loc.x += 200.0
 
-    save_x = loc.x
-    loc.x = ori_x
+    #save_x = loc.x
+    #loc.x = ori_x
 
     #loc.y -= 300.0
     #if not check_set_node_loc(tree, ch.tb_crease, loc):

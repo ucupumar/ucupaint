@@ -267,15 +267,22 @@ def remove_transition_ramp_nodes(tree, ch):
 def save_transition_bump_falloff_cache(tree, ch):
     tb_falloff = tree.nodes.get(ch.tb_falloff)
 
-    if (
-            (ch.transition_bump_falloff_type != 'CURVE' or not ch.transition_bump_falloff or 
-                not ch.enable_transition_bump or not ch.enable) and 
-            check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE)):
-        cache = tree.nodes.get(ch.cache_falloff_curve)
-        if not cache:
-            cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
-        curve_ref = tb_falloff.node_tree.nodes.get('_curve')
-        copy_node_props(curve_ref, cache)
+    if (ch.transition_bump_falloff_type != 'CURVE' or not ch.transition_bump_falloff or 
+        not ch.enable_transition_bump or not ch.enable):
+
+        if check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
+            cache = tree.nodes.get(ch.cache_falloff_curve)
+            if not cache:
+                cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
+            curve_ref = tb_falloff.node_tree.nodes.get('_curve')
+            copy_node_props(curve_ref, cache)
+        elif check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE_SMOOTH):
+            cache = tree.nodes.get(ch.cache_falloff_curve)
+            if not cache:
+                cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
+            ori = tb_falloff.node_tree.nodes.get('_original')
+            curve_ref = ori.node_tree.nodes.get('_curve')
+            copy_node_props(curve_ref, cache)
 
 def check_transition_bump_falloff(layer, tree):
 
@@ -294,48 +301,83 @@ def check_transition_bump_falloff(layer, tree):
 
         # Emulated curve without actual curve
         if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
-            tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
-                    lib.EMULATED_CURVE, hard_replace=True)
-            tb_falloff.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
+
+            if root_ch.enable_smooth_bump:
+                tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                        lib.EMULATED_CURVE_SMOOTH, hard_replace=True)
+            else:
+                tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                        lib.EMULATED_CURVE, hard_replace=True)
+
+            tb_falloff.inputs['Fac'].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
 
         elif ch.transition_bump_falloff_type == 'CURVE':
-            tb_falloff = tree.nodes.get(ch.tb_falloff)
-            if not check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
+            tb_falloff = ori = tree.nodes.get(ch.tb_falloff)
+            if root_ch.enable_smooth_bump:
 
-                # Check cached curve
-                cache = tree.nodes.get(ch.cache_falloff_curve)
+                if not check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE_SMOOTH):
 
-                tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                    tb_falloff = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
+                            lib.FALLOFF_CURVE_SMOOTH, hard_replace=True)
+                    duplicate_lib_node_tree(tb_falloff)
+
+                    # Duplicate group inside group
+                    ori = tb_falloff.node_tree.nodes.get('_original')
+                    if not check_if_node_is_duplicated_from_lib(ori, lib.FALLOFF_CURVE):
+                        duplicate_lib_node_tree(ori)
+
+                    # Use duplicated group to other directions
+                    for n in tb_falloff.node_tree.nodes:
+                        if n.type == 'GROUP' and n != ori:
+                            prev_tree = n.node_tree
+                            n.node_tree = ori.node_tree
+                            if prev_tree and prev_tree.users == 0: bpy.data.node_groups.remove(prev_tree)
+
+                    # Check cached curve
+                    cache = tree.nodes.get(ch.cache_falloff_curve)
+                    if cache:
+                        curve = ori.node_tree.nodes.get('_curve')
+                        copy_node_props(cache, curve)
+                        remove_node(tree, ch, 'cache_falloff_curve')
+                else:
+                    ori = tb_falloff.node_tree.nodes.get('_original')
+
+            elif not check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
+
+                tb_falloff = ori = replace_new_node(tree, ch, 'tb_falloff', 'ShaderNodeGroup', 'Falloff', 
                         lib.FALLOFF_CURVE, hard_replace=True)
                 duplicate_lib_node_tree(tb_falloff)
 
+                # Check cached curve
+                cache = tree.nodes.get(ch.cache_falloff_curve)
                 if cache:
                     curve = tb_falloff.node_tree.nodes.get('_curve')
                     copy_node_props(cache, curve)
                     remove_node(tree, ch, 'cache_falloff_curve')
 
-            inv0 = tb_falloff.node_tree.nodes.get('_inverse_0')
-            inv1 = tb_falloff.node_tree.nodes.get('_inverse_1')
+            inv0 = ori.node_tree.nodes.get('_inverse_0')
+            inv1 = ori.node_tree.nodes.get('_inverse_1')
+
             inv0.mute = not ch.transition_bump_flip
             inv1.mute = not ch.transition_bump_flip
 
     else:
         remove_node(tree, ch, 'tb_falloff')
 
-    if ch.transition_bump_falloff and root_ch.enable_smooth_bump:
-        for d in neighbor_directions:
+    #if ch.transition_bump_falloff and root_ch.enable_smooth_bump:
+    #    for d in neighbor_directions:
 
-            if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
-                tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
-                        lib.EMULATED_CURVE, hard_replace=True)
-                tbf.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
+    #        if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
+    #            tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
+    #                    lib.EMULATED_CURVE, hard_replace=True)
+    #            tbf.inputs[1].default_value = get_transition_bump_falloff_emulated_curve_value(ch)
 
-            elif ch.transition_bump_falloff_type == 'CURVE':
-                tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
-                        tb_falloff.node_tree.name, hard_replace=True)
-    else:
-        for d in neighbor_directions:
-            remove_node(tree, ch, 'tb_falloff_' + d)
+    #        elif ch.transition_bump_falloff_type == 'CURVE':
+    #            tbf = replace_new_node(tree, ch, 'tb_falloff_' + d, 'ShaderNodeGroup', 'Falloff ' + d, 
+    #                    tb_falloff.node_tree.name, hard_replace=True)
+    #else:
+    #    for d in neighbor_directions:
+    #        remove_node(tree, ch, 'tb_falloff_' + d)
 
 def check_transition_bump_nodes(layer, tree, ch, ch_index):
 
@@ -537,11 +579,12 @@ def update_transition_bump_falloff_emulated_curve_fac(self, context):
     val = get_transition_bump_falloff_emulated_curve_value(ch)
 
     tb_falloff = tree.nodes.get(ch.tb_falloff)
-    if tb_falloff: tb_falloff.inputs[1].default_value = val
+    if tb_falloff: 
+        tb_falloff.inputs['Fac'].default_value = val
 
-    for d in neighbor_directions:
-        tbf = tree.nodes.get(getattr(ch, 'tb_falloff_' + d))
-        if tbf: tbf.inputs[1].default_value = val
+    #for d in neighbor_directions:
+    #    tbf = tree.nodes.get(getattr(ch, 'tb_falloff_' + d))
+    #    if tbf: tbf.inputs[1].default_value = val
 
 def update_transition_bump_value(self, context):
     if not self.enable: return

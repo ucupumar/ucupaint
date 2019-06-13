@@ -186,7 +186,9 @@ SMOOTH_PREFIX = '~yPL Smooth '
 #HEIGHT_PACK = '~yPL Height Pack'
 
 EMULATED_CURVE = '~yPL Emulated Curve'
-FALLOFF_CURVE = '~yPL Transition Bump Falloff Curve'
+EMULATED_CURVE_SMOOTH = '~yPL Emulated Curve Smooth'
+FALLOFF_CURVE = '~yPL Falloff Curve'
+FALLOFF_CURVE_SMOOTH = '~yPL Falloff Curve Smooth'
 
 FINE_BUMP_PROCESS = '~yPL Fine Bump Process'
 BUMP_PROCESS = '~yPL Bump Process'

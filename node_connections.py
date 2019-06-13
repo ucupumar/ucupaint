@@ -1973,19 +1973,25 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             remains = one_value.outputs[0]
 
             tb_falloff = nodes.get(ch.tb_falloff)
-            tb_falloff_n = nodes.get(ch.tb_falloff_n)
-            tb_falloff_s = nodes.get(ch.tb_falloff_s)
-            tb_falloff_e = nodes.get(ch.tb_falloff_e)
-            tb_falloff_w = nodes.get(ch.tb_falloff_w)
+            #tb_falloff_n = nodes.get(ch.tb_falloff_n)
+            #tb_falloff_s = nodes.get(ch.tb_falloff_s)
+            #tb_falloff_e = nodes.get(ch.tb_falloff_e)
+            #tb_falloff_w = nodes.get(ch.tb_falloff_w)
 
             if chain == 0 or len(layer.masks) == 0:
                 if tb_falloff:
                     end_chain = pure = create_link(tree, end_chain, tb_falloff.inputs[0])[0]
-                if tb_falloff_n:
-                    end_chain_n = alpha_n = create_link(tree, end_chain_n, tb_falloff_n.inputs[0])[0]
-                    end_chain_s = alpha_s = create_link(tree, end_chain_s, tb_falloff_s.inputs[0])[0]
-                    end_chain_e = alpha_e = create_link(tree, end_chain_e, tb_falloff_e.inputs[0])[0]
-                    end_chain_w = alpha_w = create_link(tree, end_chain_w, tb_falloff_w.inputs[0])[0]
+                #if tb_falloff_n:
+                #    end_chain_n = alpha_n = create_link(tree, end_chain_n, tb_falloff_n.inputs[0])[0]
+                #    end_chain_s = alpha_s = create_link(tree, end_chain_s, tb_falloff_s.inputs[0])[0]
+                #    end_chain_e = alpha_e = create_link(tree, end_chain_e, tb_falloff_e.inputs[0])[0]
+                #    end_chain_w = alpha_w = create_link(tree, end_chain_w, tb_falloff_w.inputs[0])[0]
+
+                    if root_ch.enable_smooth_bump:
+                        end_chain_n = alpha_n = create_link(tree, end_chain_n, tb_falloff.inputs['Value n'])['Value n']
+                        end_chain_s = alpha_s = create_link(tree, end_chain_n, tb_falloff.inputs['Value s'])['Value s']
+                        end_chain_e = alpha_e = create_link(tree, end_chain_n, tb_falloff.inputs['Value e'])['Value e']
+                        end_chain_w = alpha_w = create_link(tree, end_chain_n, tb_falloff.inputs['Value w'])['Value w']
 
             for j, mask in enumerate(layer.masks):
                 #if j < chain: break
@@ -2056,11 +2062,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                     elif mix: 
                         end_chain = mix.outputs[0]
 
-                    if tb_falloff_n: 
-                        end_chain_n = alpha_n = create_link(tree, alpha_n, tb_falloff_n.inputs[0])[0]
-                        end_chain_s = alpha_s = create_link(tree, alpha_s, tb_falloff_s.inputs[0])[0]
-                        end_chain_e = alpha_e = create_link(tree, alpha_e, tb_falloff_e.inputs[0])[0]
-                        end_chain_w = alpha_w = create_link(tree, alpha_w, tb_falloff_w.inputs[0])[0]
+                    #if tb_falloff_n: 
+                    #    end_chain_n = alpha_n = create_link(tree, alpha_n, tb_falloff_n.inputs[0])[0]
+                    #    end_chain_s = alpha_s = create_link(tree, alpha_s, tb_falloff_s.inputs[0])[0]
+                    #    end_chain_e = alpha_e = create_link(tree, alpha_e, tb_falloff_e.inputs[0])[0]
+                    #    end_chain_w = alpha_w = create_link(tree, alpha_w, tb_falloff_w.inputs[0])[0]
+                    if tb_falloff and root_ch.enable_smooth_bump: 
+                        end_chain_n = alpha_n = create_link(tree, alpha_n, tb_falloff.inputs['Value n'])['Value n']
+                        end_chain_s = alpha_s = create_link(tree, alpha_s, tb_falloff.inputs['Value s'])['Value s']
+                        end_chain_e = alpha_e = create_link(tree, alpha_e, tb_falloff.inputs['Value e'])['Value e']
+                        end_chain_w = alpha_w = create_link(tree, alpha_w, tb_falloff.inputs['Value w'])['Value w']
                     else:
                         end_chain_n = alpha_n
                         end_chain_s = alpha_s

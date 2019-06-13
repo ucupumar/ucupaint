@@ -588,6 +588,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
 
             elif node.bl_idname == 'ShaderNodeGroup':
                 if node.node_tree and node.node_tree.users == 1:
+                    remove_tree_inside_tree(node.node_tree)
                     bpy.data.node_groups.remove(node.node_tree)
 
             elif (obj and obj.type == 'MESH' #and obj.active_material and obj.active_material.users == 1
@@ -956,6 +957,14 @@ def get_node_tree_lib(name):
 
     return node_tree
 
+def remove_tree_inside_tree(tree):
+    for node in tree.nodes:
+        if node.type == 'GROUP':
+            if node.node_tree and node.node_tree.users == 1:
+                remove_tree_inside_tree(node.node_tree)
+                bpy.data.node_groups.remove(node.node_tree)
+            else: node.node_tree = None
+
 def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False, hard_replace=False, dirty=False):
     ''' Check if node is available, replace if available '''
 
@@ -1013,6 +1022,7 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
 
                 # Remove previous tree if it has no user
                 if prev_tree.users == 0:
+                    remove_tree_inside_tree(prev_tree)
                     bpy.data.node_groups.remove(prev_tree)
 
     if return_status:
@@ -1207,10 +1217,15 @@ def get_showed_transition_bump_channel(layer):
     return bump_ch
 
 # BLENDER_28_GROUP_INPUT_HACK
-def duplicate_lib_node_tree(node):
+def duplicate_lib_node_tree(node): #, duplicate_group_inside=False):
     node.node_tree.name += '_Copy'
     if node.node_tree.users > 1:
         node.node_tree = node.node_tree.copy()
+
+    #if duplicate_group_inside:
+    #    for n in node.node_tree.nodes:
+    #        if n.type == 'GROUP':
+    #            duplicate_lib_node_tree(n, True)
 
     # Make sure input match to actual node its connected to
     #for n in node.node_tree.nodes:

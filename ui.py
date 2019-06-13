@@ -1164,6 +1164,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                         elif ch.transition_bump_falloff_type == 'CURVE' and ch.enable_transition_bump and ch.enable:
                             cccol.separator()
                             tbf = layer_tree.nodes.get(ch.tb_falloff)
+                            if root_ch.enable_smooth_bump:
+                                tbf = tbf.node_tree.nodes.get('_original')
                             curve = tbf.node_tree.nodes.get('_curve')
                             curve.draw_buttons_ext(context, cccol)
 
