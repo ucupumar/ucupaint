@@ -841,6 +841,19 @@ class YTransferLayerUV(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YResizeImage(bpy.types.Operator):
+    bl_idname = "node.y_resize_image"
+    bl_label = "Resize Image Layer/Mask"
+    bl_description = "Resize image of layer or mask"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    def execute(self, context):
+        return {'FINISHED'}
+
 class YBakeChannels(bpy.types.Operator):
     """Bake Channels to Image(s)"""
     bl_idname = "node.y_bake_channels"
@@ -1592,6 +1605,7 @@ def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YTransferSomeLayerUV)
     bpy.utils.register_class(YTransferLayerUV)
+    bpy.utils.register_class(YResizeImage)
     bpy.utils.register_class(YBakeChannels)
     #bpy.utils.register_class(YDisableBakeResult)
 
@@ -1599,5 +1613,6 @@ def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YTransferSomeLayerUV)
     bpy.utils.unregister_class(YTransferLayerUV)
+    bpy.utils.unregister_class(YResizeImage)
     bpy.utils.unregister_class(YBakeChannels)
     #bpy.utils.unregister_class(YDisableBakeResult)

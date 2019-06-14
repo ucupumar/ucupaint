@@ -2572,6 +2572,9 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         #self.layout.separator()
         #self.layout.operator('node.y_transfer_layer_uv', text='Transfer Active Layer UV', icon='GROUP_UVS')
         #self.layout.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon='GROUP_UVS')
+        
+        self.layout.separator()
+        self.layout.operator('node.y_resize_image', text='Resize Image', icon='IMAGE_DATA')
 
         self.layout.separator()
         self.layout.operator('node.y_pack_image', icon='PACKAGE')
