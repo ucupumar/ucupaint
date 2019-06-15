@@ -2025,6 +2025,7 @@ def main_draw(self, context):
     row.label(text='Layers')
 
     if (area.type == 'VIEW_3D' and area.spaces[0].shading.type == 'RENDERED' 
+            and bpy.app.version_string.startswith('2.8')
             and scene.render.engine == 'CYCLES' and not yp.enable_tangent_sign_hacks):
         rrow = row.row(align=True)
         rrow.alert = True
