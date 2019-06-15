@@ -301,7 +301,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             #update=update_quick_setup_type)
 
     color = BoolProperty(name='Color', default=True)
-    metallic = BoolProperty(name='Metallic', default=False)
+    metallic = BoolProperty(name='Metallic', default=True)
     roughness = BoolProperty(name='Roughness', default=True)
     normal = BoolProperty(name='Normal', default=True)
 
@@ -370,6 +370,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
 
+        transp_node_needed = not(bpy.app.version_string.startswith('2.8') and self.type == 'PRINCIPLED')
+
         main_bsdf = None
         trans_bsdf = None
         mix_bsdf = None
@@ -384,12 +386,19 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             output_in = [l.from_node for l in output.inputs[0].links]
             if output_in: 
                 output_in = output_in[0]
-                if output_in.type == 'MIX_SHADER' and not any([l for l in output_in.inputs[0].links]):
 
-                    if self.type == 'PRINCIPLED':
-                        bsdf_type = 'BSDF_PRINCIPLED'
-                    elif self.type == 'DIFFUSE':
-                        bsdf_type = 'BSDF_DIFFUSE'
+                if self.type == 'PRINCIPLED':
+                    bsdf_type = 'BSDF_PRINCIPLED'
+                elif self.type == 'DIFFUSE':
+                    bsdf_type = 'BSDF_DIFFUSE'
+
+
+                if not transp_node_needed:
+                    if output_in.type == 'PRINCIPLED':
+                        main_bsdf = output_in
+                        mat_out = output
+
+                elif output_in.type == 'MIX_SHADER' and not any([l for l in output_in.inputs[0].links]):
 
                     # Try to search for transparent and main bsdf
                     if (any([l for l in output_in.inputs[1].links if l.from_node.type == 'BSDF_TRANSPARENT']) and
@@ -409,7 +418,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 mat_out.location = output.location.copy()
                 mat_out.location.x += 180
 
-        if not mix_bsdf:
+        if transp_node_needed and not mix_bsdf:
             mix_bsdf = nodes.new('ShaderNodeMixShader')
             mix_bsdf.inputs[0].default_value = 1.0
             links.new(mix_bsdf.outputs[0], mat_out.inputs[0])
@@ -417,7 +426,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             mix_bsdf.location = mat_out.location.copy()
             mat_out.location.x += 180
 
-        if not trans_bsdf:
+        if transp_node_needed and not trans_bsdf:
             trans_bsdf = nodes.new('ShaderNodeBsdfTransparent')
             links.new(trans_bsdf.outputs[0], mix_bsdf.inputs[1])
 
@@ -433,11 +442,17 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             elif self.type == 'DIFFUSE':
                 main_bsdf = nodes.new('ShaderNodeBsdfDiffuse')
 
-            links.new(main_bsdf.outputs[0], mix_bsdf.inputs[2])
+            if transp_node_needed:
+                links.new(main_bsdf.outputs[0], mix_bsdf.inputs[2])
+            else: links.new(main_bsdf.outputs[0], mat_out.inputs[0])
 
             # Rearrange position
-            main_bsdf.location = trans_bsdf.location.copy()
-            main_bsdf.location.y -= 90
+            if transp_node_needed:
+                main_bsdf.location = trans_bsdf.location.copy()
+                main_bsdf.location.y -= 90
+            else:
+                main_bsdf.location = mat_out.location.copy()
+                mat_out.location.x += 270
 
         group_tree = create_new_group_tree(mat)
 
@@ -477,7 +492,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             # Enable, link, and disable alpha to remember which input was alpha connected to
             ch_color.enable_alpha = True
             #links.new(node.outputs[ch_color.io_index+1], mix_bsdf.inputs[0])
-            links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], mix_bsdf.inputs[0])
+            if transp_node_needed:
+                links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], mix_bsdf.inputs[0])
+            else: links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], main_bsdf.inputs['Alpha'])
             ch_color.enable_alpha = False
 
         if ch_metallic:
@@ -502,13 +519,15 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         if output:
             node.location = main_bsdf.location.copy()
             main_bsdf.location.x += 180
-            trans_bsdf.location.x += 180
-            mix_bsdf.location.x += 180
+            if transp_node_needed:
+                trans_bsdf.location.x += 180
+                mix_bsdf.location.x += 180
             mat_out.location.x += 180
         else:
             main_bsdf.location.y += 300
-            trans_bsdf.location.y += 300
-            mix_bsdf.location.y += 300
+            if transp_node_needed:
+                trans_bsdf.location.y += 300
+                mix_bsdf.location.y += 300
             mat_out.location.y += 300
             node.location = main_bsdf.location.copy()
             node.location.x -= 180
