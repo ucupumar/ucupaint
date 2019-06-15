@@ -1997,12 +1997,11 @@ def main_draw(self, context):
     ypui = wm.ypui
 
     # Check for baked node
-    baked_found = False
+    baked_found = True
     for ch in yp.channels:
         baked = nodes.get(ch.baked)
-        if baked: 
-            baked_found = True
-            break
+        if not baked: 
+            baked_found = False
 
     icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -2143,45 +2142,32 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 
         group_node = get_active_ypaint_node()
-        #if not group_node: return
         inputs = group_node.inputs
+        yp = group_node.node_tree.yp
 
         row = layout.row()
 
         if hasattr(lib, 'custom_icons'):
             icon_value = lib.custom_icons[lib.channel_custom_icon_dict[item.type]].icon_id
             row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.prop(item, 'name', text='', emboss=False, icon=lib.channel_icon_dict[item.type])
+        else: row.prop(item, 'name', text='', emboss=False, icon=lib.channel_icon_dict[item.type])
 
-        if item.type == 'RGB':
-            row = row.row(align=True)
+        if not yp.use_baked:
+            if item.type == 'RGB':
+                row = row.row(align=True)
 
-        if len(inputs[item.io_index].links) == 0:
-            #if BLENDER_28_GROUP_INPUT_HACK:
-            #    if item.type == 'VALUE':
-            #        row.prop(item, 'val_input', text='') #, emboss=False)
-            #    elif item.type == 'RGB':
-            #        row.prop(item, 'col_input', text='', icon='COLOR') #, emboss=False)
-            #else:
-            if item.type == 'VALUE':
-                row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
-            elif item.type == 'RGB':
-                row.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
-            #elif item.type == 'NORMAL':
-            #    socket = inputs[item.io_index]
-            #    socket.draw(context, row, group_node, iface_(socket.name, socket.bl_rna.translation_context))
-            #    #row.prop(inputs[item.io_index], 'default_value', text='', expand=False)
-        else:
-            row.label(text='', icon='LINKED')
+            if len(inputs[item.io_index].links) == 0:
+                if item.type == 'VALUE':
+                    row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
+                elif item.type == 'RGB':
+                    row.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
+            else:
+                row.label(text='', icon='LINKED')
 
-        if item.type=='RGB' and item.enable_alpha:
-            if len(inputs[item.io_index+1].links) == 0:
-                #if BLENDER_28_GROUP_INPUT_HACK:
-                #    row.prop(item,'val_input', text='')
-                #else: 
-                row.prop(inputs[item.io_index+1], 'default_value', text='')
-            else: row.label(text='', icon='LINKED')
+            if item.type=='RGB' and item.enable_alpha:
+                if len(inputs[item.io_index+1].links) == 0:
+                    row.prop(inputs[item.io_index+1], 'default_value', text='')
+                else: row.label(text='', icon='LINKED')
 
 class NODE_UL_YPaint_layers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):

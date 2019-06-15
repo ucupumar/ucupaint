@@ -24,7 +24,8 @@ def remember_before_bake(self, context, yp):
     self.ori_use_clear = scene.render.bake.use_clear
 
     # Remember uv
-    self.ori_active_uv = uv_layers.active
+    #self.ori_active_uv = uv_layers.active
+    self.ori_active_uv = uv_layers.active.name
 
     # Remember scene objects
     if bpy.app.version_string.startswith('2.8'):
@@ -58,7 +59,8 @@ def prepare_bake_settings(self, context, yp):
 
     # Disable other object selections and select only active object
     if bpy.app.version_string.startswith('2.8'):
-        for o in scene.objects:
+        #for o in scene.objects:
+        for o in context.view_layer.objects:
             o.select_set(False)
         obj.select_set(True)
     else:
@@ -95,11 +97,14 @@ def recover_bake_settings(self, context, yp):
         scene.world.light_settings.distance = self.ori_distance
 
     # Recover uv
-    uv_layers.active = self.ori_active_uv
+    uv_layers.active = uv_layers.get(self.ori_active_uv)
+
+    #return
 
     # Disable other object selections
     if bpy.app.version_string.startswith('2.8'):
-        for o in scene.objects:
+        #for o in scene.objects:
+        for o in context.view_layer.objects:
             if o in self.ori_active_selected_objs:
                 o.select_set(True)
             else: o.select_set(False)
@@ -296,6 +301,260 @@ def transfer_uv(obj, mat, entity, uv_map):
     # Change uv of entity
     entity.uv_name = uv_map
 
+def bake_channel(width, height, uv_map, mat, node, ch):
+
+    tree = node.node_tree
+    yp = tree.yp
+
+    # Create setup nodes
+    tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+
+    if ch.type == 'NORMAL':
+        norm = mat.node_tree.nodes.new('ShaderNodeGroup')
+        norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL)
+
+        t = norm.node_tree.nodes.get('_tangent')
+        t.uv_map = uv_map
+        
+        bt = norm.node_tree.nodes.get('_bitangent')
+        bt.uv_map = uv_map
+
+        if BL28_HACK:
+        #if bpy.app.version_string.startswith('2.8'):
+            bake_uv = yp.uvs.get(uv_map)
+            if bake_uv:
+                tangent_process = tree.nodes.get(bake_uv.tangent_process)
+                t_socket = t.outputs[0].links[0].to_socket
+                bt_socket = bt.outputs[0].links[0].to_socket
+                hack_bt = norm.node_tree.nodes.new('ShaderNodeGroup')
+                hack_bt.node_tree = tangent_process.node_tree
+                hack_bt.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
+                hack_bt.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
+                create_link(norm.node_tree, hack_bt.outputs['Tangent'], t_socket)
+                create_link(norm.node_tree, hack_bt.outputs['Bitangent'], bt_socket)
+
+    # Set tex as active node
+    mat.node_tree.nodes.active = tex
+
+    # Get output node and remember original bsdf input
+    output = get_active_mat_output_node(mat.node_tree)
+    ori_bsdf = output.inputs[0].links[0].from_socket
+
+    # Connect emit to output material
+    mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+
+    # Set nodes
+    baked = tree.nodes.get(ch.baked)
+    if not baked:
+        baked = new_node(tree, ch, 'baked', 'ShaderNodeTexImage', 'Baked ' + ch.name)
+    if hasattr(baked, 'color_space'):
+        if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
+            baked.color_space = 'NONE'
+        else: baked.color_space = 'COLOR'
+    
+    # Normal related nodes
+    if ch.type == 'NORMAL':
+        baked_normal = tree.nodes.get(ch.baked_normal)
+        if not baked_normal:
+            baked_normal = new_node(tree, ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
+        baked_normal.uv_map = uv_map
+
+        baked_normal_prep = tree.nodes.get(ch.baked_normal_prep)
+        if not baked_normal_prep:
+            baked_normal_prep = new_node(tree, ch, 'baked_normal_prep', 'ShaderNodeGroup', 
+                    'Baked Normal Preparation')
+            baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
+
+    # Baked image names
+    img_name = tree.name + ' ' + ch.name
+    filepath = ''
+
+    # Check if image is available
+    if baked.image:
+        img_name = baked.image.name
+        filepath = baked.image.filepath
+        baked.image.name = '____TEMP'
+        #if baked.image.users == 1:
+        #    bpy.data.images.remove(baked.image)
+
+    #Create new image
+    img = bpy.data.images.new(name=img_name,
+            width=width, height=height, alpha=True) #, alpha=True, float_buffer=hdr)
+    img.generated_type = 'BLANK'
+    if hasattr(img, 'use_alpha'):
+        img.use_alpha = True
+    if ch.type == 'NORMAL':
+        img.generated_color = (0.5, 0.5, 1.0, 1.0)
+    elif ch.type == 'VALUE':
+        #val = node.inputs[ch.io_index].default_value
+        val = node.inputs[ch.name].default_value
+        img.generated_color = (val, val, val, 1.0)
+    elif ch.enable_alpha:
+        img.generated_color = (0.0, 0.0, 0.0, 1.0)
+    else:
+        #col = node.inputs[ch.io_index].default_value
+        col = node.inputs[ch.name].default_value
+        col = Color((col[0], col[1], col[2]))
+        col = linear_to_srgb(col)
+        img.generated_color = (col.r, col.g, col.b, 1.0)
+
+    # Set filepath
+    if filepath != '':
+        img.filepath = filepath
+
+    # Set image to tex node
+    tex.image = img
+
+    # Links to bake
+    #rgb = node.outputs[ch.io_index]
+    rgb = node.outputs[ch.name]
+    if ch.type == 'NORMAL':
+        rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
+    if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
+        #if bpy.app.version_string.startswith('2.8'):
+        img.colorspace_settings.name = 'Linear'
+        #if not bpy.app.version_string.startswith('2.8'):
+        #    rgb = create_link(mat.node_tree, rgb, srgb2lin.inputs[0])[0]
+    mat.node_tree.links.new(rgb, emit.inputs[0])
+
+    # Bake!
+    bpy.ops.object.bake()
+
+    # Bake alpha
+    if ch.type == 'RGB' and ch.enable_alpha:
+        # Create temp image
+        alpha_img = bpy.data.images.new(name='__TEMP__', width=width, height=height) 
+        alpha_img.colorspace_settings.name = 'Linear'
+        create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], emit.inputs[0])
+
+        tex.image = alpha_img
+
+        # Bake
+        bpy.ops.object.bake()
+
+        # Copy alpha pixels to main image alpha channel
+        img_pxs = list(img.pixels)
+        alp_pxs = list(alpha_img.pixels)
+
+        for y in range(height):
+            offset_y = width * 4 * y
+            for x in range(width):
+                a = alp_pxs[offset_y + (x*4)]
+                #a = srgb_to_linear_per_element(a)
+                img_pxs[offset_y + (x*4) + 3] = a
+
+        img.pixels = img_pxs
+
+        # Remove temp image
+        bpy.data.images.remove(alpha_img)
+
+    # Bake displacement
+    if ch.type == 'NORMAL': # and ch.enable_parallax:
+
+        ### Normal overlay only
+
+        baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+        if not baked_normal_overlay:
+            baked_normal_overlay = new_node(tree, ch, 'baked_normal_overlay', 'ShaderNodeTexImage', 
+                    'Baked ' + ch.name + ' Overlay Only')
+            if hasattr(baked_normal_overlay, 'color_space'):
+                baked_normal_overlay.color_space = 'NONE'
+
+        if baked_normal_overlay.image:
+            norm_img_name = baked_normal_overlay.image.name
+            filepath = baked_normal_overlay.image.filepath
+            baked_normal_overlay.image.name = '____NORM_TEMP'
+        else:
+            norm_img_name = tree.name + ' ' + ch.name + ' Overlay Only'
+
+        # Create target image
+        norm_img = bpy.data.images.new(name=norm_img_name, width=width, height=height) 
+        norm_img.generated_color = (0.5, 0.5, 1.0, 1.0)
+        norm_img.colorspace_settings.name = 'Linear'
+
+        # Bake setup (doing little bit doing hacky reconnection here)
+        end = tree.nodes.get(TREE_END)
+        ori_soc = end.inputs[ch.name].links[0].from_socket
+        end_linear = tree.nodes.get(ch.end_linear)
+        soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
+        create_link(tree, soc, end.inputs[ch.name])
+        #create_link(mat.node_tree, node.outputs[ch.name], emit.inputs[0])
+
+        tex.image = norm_img
+
+        # Bake
+        bpy.ops.object.bake()
+
+        # Recover connection
+        create_link(tree, ori_soc, end.inputs[ch.name])
+
+        # Set baked normal overlay image
+        if baked_normal_overlay.image:
+            temp = baked_normal_overlay.image
+            img_users = get_all_image_users(baked_normal_overlay.image)
+            for user in img_users:
+                user.image = norm_img
+            bpy.data.images.remove(temp)
+        else:
+            baked_normal_overlay.image = norm_img
+
+        ### Displacement
+
+        baked_disp = tree.nodes.get(ch.baked_disp)
+        if not baked_disp:
+            baked_disp = new_node(tree, ch, 'baked_disp', 'ShaderNodeTexImage', 
+                    'Baked ' + ch.name + ' Displacement')
+            if hasattr(baked_disp, 'color_space'):
+                baked_disp.color_space = 'NONE'
+
+        if baked_disp.image:
+            disp_img_name = baked_disp.image.name
+            filepath = baked_disp.image.filepath
+            baked_disp.image.name = '____DISP_TEMP'
+        else:
+            disp_img_name = tree.name + ' ' + ch.name + ' Displacement'
+
+        # Create target image
+        disp_img = bpy.data.images.new(name=disp_img_name, width=width, height=height) 
+        disp_img.generated_color = (0.5, 0.5, 0.5, 1.0)
+        disp_img.colorspace_settings.name = 'Linear'
+
+        # Bake setup
+        create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], emit.inputs[0])
+        tex.image = disp_img
+
+        # Bake
+        bpy.ops.object.bake()
+
+        # Set baked displacement image
+        if baked_disp.image:
+            temp = baked_disp.image
+            img_users = get_all_image_users(baked_disp.image)
+            for user in img_users:
+                user.image = disp_img
+            bpy.data.images.remove(temp)
+        else:
+            baked_disp.image = disp_img
+
+    # Set image to baked node and replace all previously original users
+    if baked.image:
+        temp = baked.image
+        img_users = get_all_image_users(baked.image)
+        for user in img_users:
+            user.image = img
+        bpy.data.images.remove(temp)
+    else:
+        baked.image = img
+
+    simple_remove_node(mat.node_tree, tex)
+    simple_remove_node(mat.node_tree, emit)
+    if ch.type == 'NORMAL':
+        simple_remove_node(mat.node_tree, norm)
+
+    # Recover original bsdf
+    mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+
 class YBakeToLayer(bpy.types.Operator):
     bl_idname = "node.y_bake_to_layer"
     bl_label = "Bake To Layer"
@@ -367,6 +626,12 @@ class YBakeToLayer(bpy.types.Operator):
             #default = 'NORMAL_MAP')
 
     hdr = BoolProperty(name='32 bit Float', default=True)
+
+    use_baked_disp = BoolProperty(
+            name='Use Baked Displacement Map',
+            description='Use baked displacement map, this will also apply subdiv setup on object',
+            default=False
+            )
 
     @classmethod
     def poll(cls, context):
@@ -448,6 +713,7 @@ class YBakeToLayer(bpy.types.Operator):
         yp = node.node_tree.yp
 
         channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        height_root_ch = get_root_height_channel(yp)
 
         if bpy.app.version_string.startswith('2.8'):
             row = self.layout.split(factor=0.4)
@@ -480,6 +746,9 @@ class YBakeToLayer(bpy.types.Operator):
         col.label(text='Samples:')
         col.label(text='Margin:')
 
+        if height_root_ch:
+            col.label(text='')
+
         col = row.column(align=False)
 
         if len(self.overwrite_coll) > 0:
@@ -508,10 +777,14 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'samples', text='')
         col.prop(self, 'margin', text='')
 
+        if height_root_ch:
+            col.prop(self, 'use_baked_disp')
+
     def execute(self, context):
         mat = get_active_material()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
+        tree = node.node_tree
         ypui = context.window_manager.ypui
         active_layer = None
         if len(yp.layers) > 0:
@@ -528,6 +801,69 @@ class YBakeToLayer(bpy.types.Operator):
         # Prepare bake settings
         remember_before_bake(self, context, yp)
         prepare_bake_settings(self, context, yp)
+
+        # If use baked disp, need to bake normal and height map first
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and self.use_baked_disp:
+
+            # Check if baked displacement already there
+            baked_disp = tree.nodes.get(height_root_ch.baked_disp)
+
+            if baked_disp and baked_disp.image:
+                disp_width = baked_disp.image.size[0]
+                disp_height = baked_disp.image.size[1]
+            else:
+                disp_width = 1024
+                disp_height = 1024
+
+            if yp.baked_uv_name != '':
+                disp_uv = yp.baked_uv_name
+            else: disp_uv = yp.uvs[0].name
+            
+            # Use 1 sample for baking height
+            context.scene.cycles.samples = 1
+
+            # Bake height channel
+            bake_channel(disp_width, disp_height, disp_uv, mat, node, height_root_ch)
+
+            # Set baked name
+            if yp.baked_uv_name == '':
+                yp.baked_uv_name = disp_uv
+
+            # Recover original bake samples
+            context.scene.cycles.samples = self.samples
+
+            # Get subsurf modifier
+            #subsurf = get_subsurf_modifier(obj)
+
+            #subsurf_found = True
+            #if not subsurf:
+            #    subsurf_found = False
+            #    subsurf = obj.modifiers.new('_temp_subsurf', 'SUBSURF')
+            #    subsurf.render_levels = height_ch.subdiv_on_level
+            #else:
+            #    ori_level = subsurf.render_levels
+
+            ## Get displace modifier
+            #displace = get_displace_modifier(obj)
+            #if not displace:
+            #    displace = obj.modifiers.new('_temp_displace', 'DISPLACE')
+
+            #end_max_height = tree.nodes.get(height_root_ch.end_max_height)
+            #max_height = end_max_height.outputs[0].default_value
+
+            #displace.strength = height_root_ch.subdiv_tweak * max_height
+            #displace.mid_level = height_root_ch.parallax_ref_plane
+            #displace.uv_layer = disp_uv
+
+            # Set to use baked
+            yp.use_baked = True
+            ori_subdiv_setup = height_root_ch.enable_subdiv_setup
+            ori_subdiv_adaptive = height_root_ch.subdiv_adaptive
+            height_root_ch.subdiv_adaptive = False
+            height_root_ch.enable_subdiv_setup = True
+
+        #return {'FINISHED'}
 
         # Create bake nodes
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -616,8 +952,16 @@ class YBakeToLayer(bpy.types.Operator):
         # Recover original bsdf
         mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
+        # Recover subdiv setup
+        if height_root_ch and self.use_baked_disp:
+            yp.use_baked = False
+            height_root_ch.subdiv_adaptive = ori_subdiv_adaptive
+            height_root_ch.enable_subdiv_setup = ori_subdiv_setup
+
         # Recover bake settings
         recover_bake_settings(self, context, yp)
+
+        #return {'FINISHED'}
 
         # Reconnect and rearrange nodes
         #reconnect_yp_layer_nodes(node.node_tree)
@@ -1109,18 +1453,13 @@ class YResizeImage(bpy.types.Operator):
 
         scaled_img.pixels = target_pxs
 
-        # Set image to source node
-        if mask_entity:
-            source = get_mask_source(entity)
-        else: source = get_layer_source(entity)
-
-        source.image = scaled_img
-        ori_name = image.name
+        # Replace original image to scaled image
+        replace_image(image, scaled_img)
 
         # Remove temp datas
         if straight_over.node_tree.users == 1:
             bpy.data.node_groups.remove(straight_over.node_tree)
-        #bpy.data.images.remove(alpha_img)
+        bpy.data.images.remove(alpha_img)
         bpy.data.materials.remove(mat)
         plane = plane_obj.data
         bpy.ops.object.delete()
@@ -1129,11 +1468,7 @@ class YResizeImage(bpy.types.Operator):
         # Recover settings
         recover_after_resize(self, context)
 
-        # Remove prev image/segment
-        if not segment:
-            bpy.data.images.remove(image)
-            scaled_img.name = ori_name
-        else:
+        if segment:
             entity.segment_name = new_segment.name
             segment.unused = True
             update_mapping(entity)
@@ -1259,292 +1594,12 @@ class YBakeChannels(bpy.types.Operator):
         # Prepare bake settings
         prepare_bake_settings(self, context, yp)
 
-        #return {'FINISHED'}
-
-        # Create nodes
-        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-        emit = mat.node_tree.nodes.new('ShaderNodeEmission')
-
-        #srgb2lin = mat.node_tree.nodes.new('ShaderNodeGroup')
-        #srgb2lin.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
-
-        #lin2srgb = mat.node_tree.nodes.new('ShaderNodeGroup')
-        #lin2srgb.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
-
-        norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-        norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL)
-
-        t = norm.node_tree.nodes.get('_tangent')
-        t.uv_map = self.uv_map
-        
-        bt = norm.node_tree.nodes.get('_bitangent')
-        bt.uv_map = self.uv_map
-
-        if BL28_HACK:
-        #if bpy.app.version_string.startswith('2.8'):
-            bake_uv = yp.uvs.get(self.uv_map)
-            if bake_uv:
-                tangent_process = tree.nodes.get(bake_uv.tangent_process)
-                t_socket = t.outputs[0].links[0].to_socket
-                bt_socket = bt.outputs[0].links[0].to_socket
-                hack_bt = norm.node_tree.nodes.new('ShaderNodeGroup')
-                #hack_bt.node_tree = bpy.data.node_groups.get('__bitangent_' + self.uv_map)
-                hack_bt.node_tree = tangent_process.node_tree
-                #create_link(norm.node_tree, hack_bt.outputs[0], bt_socket)
-                hack_bt.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
-                hack_bt.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
-                create_link(norm.node_tree, hack_bt.outputs['Tangent'], t_socket)
-                create_link(norm.node_tree, hack_bt.outputs['Bitangent'], bt_socket)
-
-        # Set tex as active node
-        mat.node_tree.nodes.active = tex
-
-        # Get output node and remember original bsdf input
-        output = get_active_mat_output_node(mat.node_tree)
-        ori_bsdf = output.inputs[0].links[0].from_socket
-
-        # Connect emit to output material
-        mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
-
-        # Displacement image
-        disp_img = None
-        #obj_normal_img = None
-
-        #return {'FINISHED'}
-
+        # Bake channels
         for ch in yp.channels:
+            bake_channel(self.width, self.height, self.uv_map, mat, node, ch)
 
-            img_name = tree.name + ' ' + ch.name
-            filepath = ''
-
-            # Set nodes
-            baked = tree.nodes.get(ch.baked)
-            if not baked:
-                baked = new_node(tree, ch, 'baked', 'ShaderNodeTexImage', 'Baked ' + ch.name)
-            if hasattr(baked, 'color_space'):
-                if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
-                    baked.color_space = 'NONE'
-                else: baked.color_space = 'COLOR'
-            
-            # Normal related nodes
-            if ch.type == 'NORMAL':
-                baked_normal = tree.nodes.get(ch.baked_normal)
-                if not baked_normal:
-                    baked_normal = new_node(tree, ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
-                baked_normal.uv_map = self.uv_map
-
-                # Get normal flip
-                #baked_normal_flip = tree.nodes.get(ch.baked_normal_flip)
-                #if not baked_normal_flip:
-                #    baked_normal_flip = new_node(tree, ch, 'baked_normal_flip', 'ShaderNodeGroup', 
-                #            'Baked Normal Backface Flip')
-                #    baked_normal_flip.node_tree = get_node_tree_lib(lib.FLIP_BACKFACE_NORMAL)
-
-                #set_normal_backface_flip(baked_normal_flip, yp.enable_backface_always_up)
-
-                baked_normal_prep = tree.nodes.get(ch.baked_normal_prep)
-                if not baked_normal_prep:
-                    baked_normal_prep = new_node(tree, ch, 'baked_normal_prep', 'ShaderNodeGroup', 
-                            'Baked Normal Preparation')
-                    baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
-
-            # Check if image is available
-            if baked.image:
-                img_name = baked.image.name
-                filepath = baked.image.filepath
-                baked.image.name = '____TEMP'
-                #if baked.image.users == 1:
-                #    bpy.data.images.remove(baked.image)
-
-            #Create new image
-            img = bpy.data.images.new(name=img_name,
-                    width=self.width, height=self.height, alpha=True) #, alpha=True, float_buffer=self.hdr)
-            img.generated_type = 'BLANK'
-            if hasattr(img, 'use_alpha'):
-                img.use_alpha = True
-            if ch.type == 'NORMAL':
-                img.generated_color = (0.5, 0.5, 1.0, 1.0)
-            elif ch.type == 'VALUE':
-                #val = node.inputs[ch.io_index].default_value
-                val = node.inputs[ch.name].default_value
-                img.generated_color = (val, val, val, 1.0)
-            elif ch.enable_alpha:
-                img.generated_color = (0.0, 0.0, 0.0, 1.0)
-            else:
-                #col = node.inputs[ch.io_index].default_value
-                col = node.inputs[ch.name].default_value
-                col = Color((col[0], col[1], col[2]))
-                col = linear_to_srgb(col)
-                img.generated_color = (col.r, col.g, col.b, 1.0)
-
-            # Set filepath
-            if filepath != '':
-                img.filepath = filepath
-
-            # Set image to tex node
-            tex.image = img
-
-            # Links to bake
-            #rgb = node.outputs[ch.io_index]
-            rgb = node.outputs[ch.name]
-            if ch.type == 'NORMAL':
-                rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
-            if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
-                #if bpy.app.version_string.startswith('2.8'):
-                img.colorspace_settings.name = 'Linear'
-                #if not bpy.app.version_string.startswith('2.8'):
-                #    rgb = create_link(mat.node_tree, rgb, srgb2lin.inputs[0])[0]
-            mat.node_tree.links.new(rgb, emit.inputs[0])
-
-            # Bake!
-            bpy.ops.object.bake()
-
-            #if ch.type == 'NORMAL':
-            #    return {'FINISHED'}
-
-            # Bake alpha
-            if ch.type == 'RGB' and ch.enable_alpha:
-                # Create temp image
-                alpha_img = bpy.data.images.new(name='__TEMP__', width=self.width, height=self.height) 
-                alpha_img.colorspace_settings.name = 'Linear'
-                #if bpy.app.version_string.startswith('2.8'):
-                create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], emit.inputs[0])
-                #else:
-                #    # Bake setup
-                #    #create_link(mat.node_tree, node.outputs[ch.io_index+1], srgb2lin.inputs[0])
-                #    create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], srgb2lin.inputs[0])
-                #    create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
-
-                tex.image = alpha_img
-
-                # Bake
-                bpy.ops.object.bake()
-
-                # Copy alpha pixels to main image alpha channel
-                img_pxs = list(img.pixels)
-                alp_pxs = list(alpha_img.pixels)
-
-                for y in range(self.height):
-                    offset_y = self.width * 4 * y
-                    for x in range(self.width):
-                        a = alp_pxs[offset_y + (x*4)]
-                        #a = srgb_to_linear_per_element(a)
-                        img_pxs[offset_y + (x*4) + 3] = a
-
-                img.pixels = img_pxs
-
-                # Remove temp image
-                bpy.data.images.remove(alpha_img)
-
-            # Bake displacement
-            if ch.type == 'NORMAL': # and ch.enable_parallax:
-
-                ### Normal overlay only
-
-                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                if not baked_normal_overlay:
-                    baked_normal_overlay = new_node(tree, ch, 'baked_normal_overlay', 'ShaderNodeTexImage', 
-                            'Baked ' + ch.name + ' Overlay Only')
-                    if hasattr(baked_normal_overlay, 'color_space'):
-                        baked_normal_overlay.color_space = 'NONE'
-
-                if baked_normal_overlay.image:
-                    norm_img_name = baked_normal_overlay.image.name
-                    filepath = baked_normal_overlay.image.filepath
-                    baked_normal_overlay.image.name = '____NORM_TEMP'
-                else:
-                    norm_img_name = tree.name + ' ' + ch.name + ' Overlay Only'
-
-                # Create target image
-                norm_img = bpy.data.images.new(name=norm_img_name, width=self.width, height=self.height) 
-                norm_img.generated_color = (0.5, 0.5, 1.0, 1.0)
-                norm_img.colorspace_settings.name = 'Linear'
-
-                # Bake setup (doing little bit doing hacky reconnection here)
-                end = tree.nodes.get(TREE_END)
-                ori_soc = end.inputs[ch.name].links[0].from_socket
-                end_linear = tree.nodes.get(ch.end_linear)
-                soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
-                create_link(tree, soc, end.inputs[ch.name])
-                #create_link(mat.node_tree, node.outputs[ch.name], emit.inputs[0])
-
-                tex.image = norm_img
-
-                # Bake
-                bpy.ops.object.bake()
-
-                # Recover connection
-                create_link(tree, ori_soc, end.inputs[ch.name])
-
-                # Set baked normal overlay image
-                if baked_normal_overlay.image:
-                    temp = baked_normal_overlay.image
-                    img_users = get_all_image_users(baked_normal_overlay.image)
-                    for user in img_users:
-                        user.image = norm_img
-                    bpy.data.images.remove(temp)
-                else:
-                    baked_normal_overlay.image = norm_img
-
-                ### Displacement
-
-                baked_disp = tree.nodes.get(ch.baked_disp)
-                if not baked_disp:
-                    baked_disp = new_node(tree, ch, 'baked_disp', 'ShaderNodeTexImage', 
-                            'Baked ' + ch.name + ' Displacement')
-                    if hasattr(baked_disp, 'color_space'):
-                        baked_disp.color_space = 'NONE'
-
-                if baked_disp.image:
-                    disp_img_name = baked_disp.image.name
-                    filepath = baked_disp.image.filepath
-                    baked_disp.image.name = '____DISP_TEMP'
-                else:
-                    disp_img_name = tree.name + ' ' + ch.name + ' Displacement'
-
-                # Create target image
-                disp_img = bpy.data.images.new(name=disp_img_name, width=self.width, height=self.height) 
-                disp_img.generated_color = (0.5, 0.5, 0.5, 1.0)
-                disp_img.colorspace_settings.name = 'Linear'
-
-                # Bake setup
-                create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], emit.inputs[0])
-                tex.image = disp_img
-
-                # Bake
-                bpy.ops.object.bake()
-
-                # Set baked displacement image
-                if baked_disp.image:
-                    temp = baked_disp.image
-                    img_users = get_all_image_users(baked_disp.image)
-                    for user in img_users:
-                        user.image = disp_img
-                    bpy.data.images.remove(temp)
-                else:
-                    baked_disp.image = disp_img
-
-            # Set image to baked node and replace all previously original users
-            if baked.image:
-                temp = baked.image
-                img_users = get_all_image_users(baked.image)
-                for user in img_users:
-                    user.image = img
-                bpy.data.images.remove(temp)
-            else:
-                baked.image = img
-
+        # Set baked uv
         yp.baked_uv_name = self.uv_map
-
-        # Remove temp bake nodes
-        simple_remove_node(mat.node_tree, tex)
-        #simple_remove_node(mat.node_tree, srgb2lin)
-        #simple_remove_node(mat.node_tree, lin2srgb)
-        simple_remove_node(mat.node_tree, emit)
-        simple_remove_node(mat.node_tree, norm)
-
-        # Recover original bsdf
-        mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
         # Recover bake settings
         recover_bake_settings(self, context, yp)
@@ -1562,8 +1617,8 @@ class YBakeChannels(bpy.types.Operator):
         check_uv_nodes(yp)
 
         # Recover hack
-        if BL28_HACK: # and bpy.app.version_string.startswith('2.8'):
         #if bpy.app.version_string.startswith('2.8'):
+        if BL28_HACK:
             # Refresh tangent sign hacks
             update_enable_tangent_sign_hacks(yp, context)
 
@@ -1659,6 +1714,11 @@ def check_subdiv_setup(height_ch):
         subsurf.render_levels = height_ch.subdiv_off_level
         subsurf.levels = height_ch.subdiv_off_level
 
+    # Set subsurf to visible
+    if subsurf:
+        subsurf.show_render = True
+        subsurf.show_viewport = True
+
     # Displace
     if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
 
@@ -1676,6 +1736,10 @@ def check_subdiv_setup(height_ch):
         displace.strength = height_ch.subdiv_tweak * max_height
         displace.mid_level = height_ch.parallax_ref_plane
         displace.uv_layer = yp.baked_uv_name
+
+        # Set displace to visible
+        displace.show_render = True
+        displace.show_viewport = True
 
     else:
 

@@ -761,7 +761,7 @@ class YNewYPaintChannel(bpy.types.Operator):
 
         # Check if normal channel already exists
         norm_channnel = [c for c in channels if c.type == 'NORMAL']
-        if norm_channnel:
+        if norm_channnel and self.type == 'NORMAL':
             self.report({'ERROR'}, "Cannot add more than one normal channel!")
             return {'CANCELLED'}
 
@@ -1275,6 +1275,10 @@ class YFixDuplicatedLayers(bpy.types.Operator):
         return layer_tree.users > 1
 
     def execute(self, context):
+
+        self.report({'ERROR'}, "This feature is not supported yet! You should delete this node!")
+        return {'CANCELLED'}
+
         ypui = context.window_manager.ypui
         group_node = get_active_ypaint_node()
         tree = group_node.node_tree

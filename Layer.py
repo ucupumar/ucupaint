@@ -1884,6 +1884,8 @@ def update_channel_enable(self, context):
     #if yp.disable_quick_toggle:
     check_all_layer_channel_io_and_nodes(layer, tree, ch)
 
+    if yp.halt_reconnect: return
+
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
 

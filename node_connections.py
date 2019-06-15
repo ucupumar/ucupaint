@@ -1151,30 +1151,32 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
 
         if yp.use_baked: # and baked_uv:
             baked = nodes.get(ch.baked)
-            rgb = baked.outputs[0]
+            if baked:
+                rgb = baked.outputs[0]
+
+                if ch.type == 'RGB' and ch.enable_alpha:
+                    alpha = baked.outputs[1]
+
+                create_link(tree, baked_uv_map, baked.inputs[0])
 
             if ch.type == 'NORMAL':
                 baked_normal_overlay = nodes.get(ch.baked_normal_overlay)
                 if ch.enable_subdiv_setup and not ch.subdiv_adaptive and baked_normal_overlay:
                     rgb = baked_normal_overlay.outputs[0]
-
-                baked_normal = nodes.get(ch.baked_normal)
+                    create_link(tree, baked_uv_map, baked_normal_overlay.inputs[0])
 
                 baked_normal_prep = nodes.get(ch.baked_normal_prep)
                 if baked_normal_prep:
                     rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
 
-                rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
+                baked_normal = nodes.get(ch.baked_normal)
+                if baked_normal:
+                    rgb = create_link(tree, rgb, baked_normal.inputs[1])[0]
 
                 baked_disp = nodes.get(ch.baked_disp)
                 if baked_disp: 
                     height = baked_disp.outputs[0]
                     create_link(tree, baked_uv_map, baked_disp.inputs[0])
-
-            if ch.type == 'RGB' and ch.enable_alpha:
-                alpha = baked.outputs[1]
-
-            create_link(tree, baked_uv_map, baked.inputs[0])
 
         create_link(tree, rgb, end.inputs[io_name])
         if ch.type == 'RGB' and ch.enable_alpha:

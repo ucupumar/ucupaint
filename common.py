@@ -697,18 +697,21 @@ def get_all_image_users(image):
 
 def replace_image(old_image, new_image, yp=None, uv_name = ''):
 
+    if old_image == new_image: return
+
     # Rename
     old_name = old_image.name
     old_image.name = '_____temp'
     new_image.name = old_name
 
     # Set filepath
-    if new_image.filepath == '' and old_image.filepath != '':
+    if new_image.filepath == '' and old_image.filepath != '' and not old_image.packed_file:
         new_image.filepath = old_image.filepath
 
     # Replace all users
     users = get_all_image_users(old_image)
     for user in users:
+        #print(user)
         user.image = new_image
 
     replaceds = users
@@ -2407,7 +2410,7 @@ def check_if_node_is_duplicated_from_lib(node, lib_name):
 
 def get_subsurf_modifier(obj, keyword=''):
     for mod in obj.modifiers:
-        if mod.type == 'SUBSURF':
+        if mod.type == 'SUBSURF': # and mod.show_render and mod.show_viewport:
             if keyword != '' and keyword != mod.name: continue
             return mod
 
@@ -2415,7 +2418,7 @@ def get_subsurf_modifier(obj, keyword=''):
 
 def get_displace_modifier(obj, keyword=''):
     for mod in obj.modifiers:
-        if mod.type == 'DISPLACE':
+        if mod.type == 'DISPLACE': # and mod.show_render and mod.show_viewport:
             if keyword != '' and keyword != mod.name: continue
             return mod
 
