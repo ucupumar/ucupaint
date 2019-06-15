@@ -2119,6 +2119,20 @@ class NODE_PT_YPaint(bpy.types.Panel):
     def draw(self, context):
         main_draw(self, context)
 
+class NODE_PT_YPaintUI(bpy.types.Panel):
+    bl_space_type = 'NODE_EDITOR'
+    bl_label = ADDON_TITLE + " " + get_current_version_str()
+    bl_region_type = 'UI'
+    bl_category = ADDON_TITLE
+
+    @classmethod
+    def poll(cls, context):
+        return (context.object and context.object.type in possible_object_types 
+                and context.scene.render.engine in {'CYCLES', 'BLENDER_EEVEE'} and context.space_data.tree_type == 'ShaderNodeTree')
+
+    def draw(self, context):
+        main_draw(self, context)
+
 class VIEW3D_PT_YPaint_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_label = ADDON_TITLE + " " + get_current_version_str()
@@ -2137,6 +2151,7 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     #bl_context = "object"
     bl_region_type = 'UI'
+    bl_category = ADDON_TITLE
     #bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
@@ -3188,9 +3203,13 @@ def register():
     bpy.utils.register_class(YMaterialUI)
     bpy.utils.register_class(NODE_UL_YPaint_channels)
     bpy.utils.register_class(NODE_UL_YPaint_layers)
-    bpy.utils.register_class(NODE_PT_YPaint)
+
     if not bpy.app.version_string.startswith('2.8'):
         bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
+        bpy.utils.register_class(NODE_PT_YPaint)
+    else: 
+        bpy.utils.register_class(NODE_PT_YPaintUI)
+
     bpy.utils.register_class(VIEW3D_PT_YPaint_ui)
     bpy.utils.register_class(YPaintUI)
 
@@ -3227,9 +3246,13 @@ def unregister():
     bpy.utils.unregister_class(YMaterialUI)
     bpy.utils.unregister_class(NODE_UL_YPaint_channels)
     bpy.utils.unregister_class(NODE_UL_YPaint_layers)
-    bpy.utils.unregister_class(NODE_PT_YPaint)
+
     if not bpy.app.version_string.startswith('2.8'):
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
+        bpy.utils.unregister_class(NODE_PT_YPaint)
+    else: 
+        bpy.utils.unregister_class(NODE_PT_YPaintUI)
+
     bpy.utils.unregister_class(VIEW3D_PT_YPaint_ui)
     bpy.utils.unregister_class(YPaintUI)
 

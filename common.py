@@ -2119,8 +2119,6 @@ def get_channel_index(root_ch):
             return i
 
 def get_layer_channel_index(layer, ch):
-    yp = root_ch.id_data.yp
-
     for i, c in enumerate(layer.channels):
         if c == ch:
             return i

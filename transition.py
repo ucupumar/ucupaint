@@ -382,9 +382,8 @@ def check_transition_bump_falloff(layer, tree):
 def check_transition_bump_nodes(layer, tree, ch):
 
     yp = layer.id_data.yp
-    root_ch = yp.channels[ch_index]
-
     ch_index = get_layer_channel_index(layer, ch)
+    root_ch = yp.channels[ch_index]
 
     if ch.enable_transition_bump and ch.enable:
         set_transition_bump_nodes(layer, tree, ch, ch_index)
