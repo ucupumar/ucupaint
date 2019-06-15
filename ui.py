@@ -2024,6 +2024,13 @@ def main_draw(self, context):
     row.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
     row.label(text='Layers')
 
+    if (area.type == 'VIEW_3D' and area.spaces[0].shading.type == 'RENDERED' 
+            and scene.render.engine == 'CYCLES' and not yp.enable_tangent_sign_hacks):
+        rrow = row.row(align=True)
+        rrow.alert = True
+        rrow.prop(yp, 'enable_tangent_sign_hacks', text='Fix Tangent', icon='ERROR', toggle=True)
+        rrow.alert = False
+
     if (yp.enable_tangent_sign_hacks and area.type == 'VIEW_3D' and 
             area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES'):
         row.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
