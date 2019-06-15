@@ -379,10 +379,12 @@ def check_transition_bump_falloff(layer, tree):
     #    for d in neighbor_directions:
     #        remove_node(tree, ch, 'tb_falloff_' + d)
 
-def check_transition_bump_nodes(layer, tree, ch, ch_index):
+def check_transition_bump_nodes(layer, tree, ch):
 
     yp = layer.id_data.yp
     root_ch = yp.channels[ch_index]
+
+    ch_index = get_layer_channel_index(layer, ch)
 
     if ch.enable_transition_bump and ch.enable:
         set_transition_bump_nodes(layer, tree, ch, ch_index)
@@ -1038,7 +1040,7 @@ def update_enable_transition_bump(self, context):
     ch = self
     tree = get_tree(layer)
 
-    check_transition_bump_nodes(layer, tree, ch, ch_index)
+    check_transition_bump_nodes(layer, tree, ch)
 
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer) #, mod_reconnect=True)

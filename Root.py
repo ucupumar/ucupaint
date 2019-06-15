@@ -1276,8 +1276,8 @@ class YFixDuplicatedLayers(bpy.types.Operator):
 
     def execute(self, context):
 
-        self.report({'ERROR'}, "This feature is not supported yet! You should delete this node!")
-        return {'CANCELLED'}
+        #self.report({'ERROR'}, "This feature is not supported yet! You should delete this node!")
+        #return {'CANCELLED'}
 
         ypui = context.window_manager.ypui
         group_node = get_active_ypaint_node()
@@ -1358,9 +1358,10 @@ class YFixDuplicatedLayers(bpy.types.Operator):
                         imgs.append(img)
                         #mask_source.image = img.copy()
 
-            # Duplicate channel modifiers
+            # Duplicate some channel nodes
             for i, ch in enumerate(layer.channels):
 
+                # Modifier group
                 mod_group = ttree.nodes.get(ch.mod_group)
                 if mod_group:
                     mod_group.node_tree = mod_group.node_tree.copy()
@@ -1368,12 +1369,52 @@ class YFixDuplicatedLayers(bpy.types.Operator):
                     for d in neighbor_directions:
                         m = ttree.nodes.get(getattr(ch, 'mod_' + d))
                         if m: m.node_tree = mod_group.node_tree
-                
+
+                # Transition Ramp
+                tr_ramp = ttree.nodes.get(ch.tr_ramp)
+                if tr_ramp and '_Copy' in tr_ramp.node_tree.name: 
+                    tr_ramp.node_tree = tr_ramp.node_tree.copy()
+
+                # Transition Ramp Blend
+                tr_ramp_blend = ttree.nodes.get(ch.tr_ramp_blend)
+                if tr_ramp_blend and '_Copy' in tr_ramp_blend.node_tree.name: 
+                    tr_ramp_blend.node_tree = tr_ramp_blend.node_tree.copy()
+
+                # Transition AO
+                tao = ttree.nodes.get(ch.tao)
+                if tao and '_Copy' in tao.node_tree.name: 
+                    tao.node_tree = tao.node_tree.copy()
+
+                # Transition Bump Falloff
+                tb_falloff = ttree.nodes.get(ch.tb_falloff)
+                if tb_falloff and '_Copy' in tb_falloff.node_tree.name: 
+                    tb_falloff.node_tree = tb_falloff.node_tree.copy()
+
+                    ori = tb_falloff.node_tree.nodes.get('_original')
+                    if ori and '_Copy' in ori.node_tree.name: 
+                        ori.node_tree = ori.node_tree.copy()
+
+                        for n in tb_falloff.node_tree.nodes:
+                            if n.type == 'GROUP' and n != ori:
+                                n.node_tree = ori.node_tree
+
+            # Duplicate uv nodes
+            for uv in yp.uvs:
+                tangent_process = tree.nodes.get(uv.tangent_process)
+                if tangent_process and '_Copy' in tangent_process.node_tree.name: 
+                    tangent_process.node_tree = tangent_process.node_tree.copy()
+
+            # Delete parallax node because it's too complicated to duplicate
+            parallax = tree.nodes.get(PARALLAX)
+            if parallax: tree.nodes.remove(parallax)
+            baked_parallax = tree.nodes.get(BAKED_PARALLAX)
+            if baked_parallax: tree.nodes.remove(baked_parallax)
+
             # Duplicate single user lib tree
-            for node in ttree.nodes:
-                if (node.type == 'GROUP' and node.node_tree and 
-                        re.match(r'^.+_Copy\.*\d{0,3}$', node.node_tree.name)):
-                    node.node_tree = node.node_tree.copy()
+            #for node in ttree.nodes:
+            #    if (node.type == 'GROUP' and node.node_tree and 
+            #            re.match(r'^.+_Copy\.*\d{0,3}$', node.node_tree.name)):
+            #        node.node_tree = node.node_tree.copy()
 
         if ypui.make_image_single_user:
 
@@ -1387,6 +1428,15 @@ class YFixDuplicatedLayers(bpy.types.Operator):
                     #path = baked.image.filepath
                     #ext = os.path.splitext(path)[1]
                     #baked.image.filepath = os.path.dirname(path) + baked.image.name + ext
+
+                if ch.type == 'NORMAL':
+                    baked_disp = tree.nodes.get(ch.baked_disp)
+                    if baked_disp and baked_disp.image:
+                        baked_disp.image = baked_disp.image.copy()
+
+                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image:
+                        baked_normal_overlay.image = baked_normal_overlay.image.copy()
 
             already_copied_ids = []
 
@@ -1420,6 +1470,11 @@ class YFixDuplicatedLayers(bpy.types.Operator):
                         if j != i and imgg == img:
                             img_nodes[j].image = img_nodes[i].image
                             already_copied_ids.append(j)
+
+        # Recover possibly deleted parallax
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            height_root_ch.enable_parallax = height_root_ch.enable_parallax
 
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index

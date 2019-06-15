@@ -2118,6 +2118,13 @@ def get_channel_index(root_ch):
         if c == root_ch:
             return i
 
+def get_layer_channel_index(layer, ch):
+    yp = root_ch.id_data.yp
+
+    for i, c in enumerate(layer.channels):
+        if c == ch:
+            return i
+
 def get_layer_channel_max_height(layer, ch, ch_idx=None):
 
     if layer.type == 'GROUP':
@@ -2423,6 +2430,26 @@ def get_displace_modifier(obj, keyword=''):
             return mod
 
     return None
+
+def get_default_uv_name(yp, obj):
+    if hasattr(obj.data, 'uv_textures'):
+        uv_layers = obj.data.uv_textures
+    else: uv_layers = obj.data.uv_layers
+
+    uv_name = ''
+
+    if obj.type == 'MESH' and len(uv_layers) > 0:
+        active_name = uv_layers.active.name
+        if active_name == TEMP_UV:
+            if len(yp.layers) > 0:
+                uv_name = yp.layers[yp.active_layer_index].uv_name
+            else:
+                for uv_layer in uv_layers:
+                    if uv_layer.name != TEMP_UV:
+                        uv_name = uv_layer.name
+        else: uv_name = uv_layers.active.name
+
+    return uv_name
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

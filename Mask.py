@@ -212,10 +212,8 @@ class YNewLayerMask(bpy.types.Operator):
         if obj.type != 'MESH':
             self.texcoord_type = 'Generated'
         elif len(obj.data.uv_layers) > 0:
-            # Use active uv layer name by default
-            if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_name = yp.layers[yp.active_layer_index].uv_name
-            else: self.uv_name = obj.data.uv_layers.active.name
+
+            self.uv_name = get_default_uv_name(yp, obj)
 
             # UV Map collections update
             self.uv_map_coll.clear()
@@ -405,10 +403,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
-            #self.uv_map = obj.data.uv_layers.active.name
-            if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_map = yp.layers[yp.active_layer_index].uv_name
-            else: self.uv_map = obj.data.uv_layers.active.name
+
+            self.uv_map = get_default_uv_name(yp, obj)
 
             # UV Map collections update
             self.uv_map_coll.clear()
@@ -513,10 +509,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
-            #self.uv_map = obj.data.uv_layers.active.name
-            if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_map = yp.layers[yp.active_layer_index].uv_name
-            else: self.uv_map = obj.data.uv_layers.active.name
+
+            self.uv_map = get_default_uv_name(yp, obj)
 
             # UV Map collections update
             self.uv_map_coll.clear()

@@ -899,7 +899,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     if not main_uv and len(yp.uvs) > 0:
         main_uv = yp.uvs[0]
 
-    if main_uv:
+    if main_uv and tangents and bitangents:
         tangent = tangents[main_uv.name]
         bitangent = bitangents[main_uv.name]
     else:

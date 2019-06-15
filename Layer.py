@@ -38,11 +38,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     #print(specific_ch.enable)
 
     # Update transition related nodes
-    height_root_ch = get_root_height_channel(yp)
-    if height_root_ch:
-        ch_index = get_channel_index(height_root_ch)
-        height_ch = layer.channels[ch_index]
-        transition.check_transition_bump_nodes(layer, tree, height_ch, ch_index)
+    height_ch = get_height_channel(layer)
+    if height_ch:
+        transition.check_transition_bump_nodes(layer, tree, height_ch)
 
     # Channel nodes
     for i, ch in enumerate(layer.channels):
@@ -115,7 +113,7 @@ def get_normal_map_type_items(self, context):
 def add_new_layer(group_tree, layer_name, layer_type, channel_idx, 
         blend_type, normal_blend_type, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, segment=None,
-        add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1),
+        #add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1),
         solid_color = (1,1,1),
         add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False
@@ -281,17 +279,17 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         if root_ch.type == 'NORMAL':
             ch.normal_map_type = normal_map_type
 
-        if add_rgb_to_intensity:
+        #if add_rgb_to_intensity:
 
-            m = Modifier.add_new_modifier(ch, 'RGB_TO_INTENSITY')
-            if channel_idx == i or channel_idx == -1:
-                col = (rgb_to_intensity_color[0], rgb_to_intensity_color[1], rgb_to_intensity_color[2], 1)
-                mod_tree = get_mod_tree(m)
-                m.rgb2i_col = col
+        #    m = Modifier.add_new_modifier(ch, 'RGB_TO_INTENSITY')
+        #    if channel_idx == i or channel_idx == -1:
+        #        col = (rgb_to_intensity_color[0], rgb_to_intensity_color[1], rgb_to_intensity_color[2], 1)
+        #        mod_tree = get_mod_tree(m)
+        #        m.rgb2i_col = col
 
-            if ch.enable and root_ch.type == 'RGB' and not shortcut_created:
-                m.shortcut = True
-                shortcut_created = True
+        #    if ch.enable and root_ch.type == 'RGB' and not shortcut_created:
+        #        m.shortcut = True
+        #        shortcut_created = True
 
         # Set linear node of layer channel
         set_layer_channel_linear_node(tree, layer, root_ch, ch)
@@ -319,16 +317,18 @@ def update_channel_idx_new_layer(self, context):
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
 
-    if self.channel_idx == '-1':
-        self.rgb_to_intensity_color = (1,1,1)
-        return
+    pass
 
-    if hasattr(self, 'rgb_to_intensity_color'):
-        for i, ch in enumerate(yp.channels):
-            if self.channel_idx == str(i):
-                if ch.type == 'RGB':
-                    self.rgb_to_intensity_color = (1,0,1)
-                else: self.rgb_to_intensity_color = (1,1,1)
+    #if self.channel_idx == '-1':
+    #    self.rgb_to_intensity_color = (1,1,1)
+    #    return
+
+    #if hasattr(self, 'rgb_to_intensity_color'):
+    #    for i, ch in enumerate(yp.channels):
+    #        if self.channel_idx == str(i):
+    #            if ch.type == 'RGB':
+    #                self.rgb_to_intensity_color = (1,0,1)
+    #            else: self.rgb_to_intensity_color = (1,1,1)
 
 class YRefreshNeighborUV(bpy.types.Operator):
     """Refresh Neighbor UV"""
@@ -402,13 +402,13 @@ class YNewLayer(bpy.types.Operator):
             items = normal_blend_items,
             default = 'MIX')
 
-    add_rgb_to_intensity = BoolProperty(
-            name = 'Add RGB To Intensity',
-            description = 'Add RGB To Intensity modifier to all channels of newly created layer',
-            default=False)
+    #add_rgb_to_intensity = BoolProperty(
+    #        name = 'Add RGB To Intensity',
+    #        description = 'Add RGB To Intensity modifier to all channels of newly created layer',
+    #        default=False)
 
-    rgb_to_intensity_color = FloatVectorProperty(
-            name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
+    #rgb_to_intensity_color = FloatVectorProperty(
+    #        name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
     solid_color = FloatVectorProperty(
             name='Solid Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
@@ -471,9 +471,9 @@ class YNewLayer(bpy.types.Operator):
         yp = node.node_tree.yp
         obj = context.object
 
-        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
-        if channel and channel.type == 'RGB':
-            self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
+        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        #if channel and channel.type == 'RGB':
+        #    self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
 
         if self.type == 'IMAGE':
             name = obj.active_material.name + DEFAULT_NEW_IMG_SUFFIX
@@ -486,8 +486,8 @@ class YNewLayer(bpy.types.Operator):
             items = yp.layers
 
         # Make sure add rgb to intensity is inactive
-        if self.type != 'IMAGE':
-            self.add_rgb_to_intensity = False
+        #if self.type != 'IMAGE':
+        #    self.add_rgb_to_intensity = False
 
         # Make sure add mask is inactive
         if self.type not in {'COLOR', 'BACKGROUND'}: #, 'GROUP'}:
@@ -513,19 +513,10 @@ class YNewLayer(bpy.types.Operator):
             #self.texcoord_type = 'Object'
             self.texcoord_type = 'Generated'
         else:
-            # Use active uv layer name by default
-            if hasattr(obj.data, 'uv_textures'):
-                uv_layers = obj.data.uv_textures
-            else: uv_layers = obj.data.uv_layers
-
-            # Use active uv layer name by default
-            if obj.type == 'MESH' and len(uv_layers) > 0:
-                active_name = uv_layers.active.name
-                if active_name == TEMP_UV:
-                    self.uv_map = yp.layers[yp.active_layer_index].uv_name
-                else: self.uv_map = uv_layers.active.name
-
-                self.mask_uv_name = self.uv_map
+            if obj.type == 'MESH':
+                uv_name = get_default_uv_name(yp, obj)
+                self.uv_map = uv_name
+                self.mask_uv_name = uv_name
 
                 # UV Map collections update
                 self.uv_map_coll.clear()
@@ -573,11 +564,11 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.label(text='Color:')
 
-        if self.type == 'IMAGE':
-            col.label(text='')
+        #if self.type == 'IMAGE':
+        #    col.label(text='')
 
-        if self.add_rgb_to_intensity:
-            col.label(text='RGB To Intensity Color:')
+        #if self.add_rgb_to_intensity:
+        #    col.label(text='RGB To Intensity Color:')
 
         if self.type == 'IMAGE':
             #if not self.add_rgb_to_intensity:
@@ -621,11 +612,11 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.prop(self, 'solid_color', text='')
 
-        if self.type == 'IMAGE':
-            col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
+        #if self.type == 'IMAGE':
+        #    col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
 
-        if self.add_rgb_to_intensity:
-            col.prop(self, 'rgb_to_intensity_color', text='')
+        #if self.add_rgb_to_intensity:
+        #    col.prop(self, 'rgb_to_intensity_color', text='')
 
         if self.type == 'IMAGE':
             #if not self.add_rgb_to_intensity:
@@ -717,16 +708,19 @@ class YNewLayer(bpy.types.Operator):
                 img = segment.id_data
             else:
 
-                alpha = False if self.add_rgb_to_intensity else True
+                #alpha = False if self.add_rgb_to_intensity else True
+                alpha = True
                 #color = (0,0,0,1) if self.add_rgb_to_intensity else self.color
-                color = (0,0,0,1) if self.add_rgb_to_intensity else (0,0,0,0)
+                #color = (0,0,0,1) if self.add_rgb_to_intensity else (0,0,0,0)
+                color = (0,0,0,0)
                 img = bpy.data.images.new(name=self.name, 
                         width=self.width, height=self.height, alpha=alpha, float_buffer=self.hdr)
                 #img.generated_type = self.generated_type
                 img.generated_type = 'BLANK'
                 img.generated_color = color
                 if hasattr(img, 'use_alpha'):
-                    img.use_alpha = False if self.add_rgb_to_intensity else True
+                    #img.use_alpha = False if self.add_rgb_to_intensity else True
+                    img.use_alpha = True
 
             if img.colorspace_settings.name != 'Linear':
                 img.colorspace_settings.name = 'Linear'
@@ -743,7 +737,8 @@ class YNewLayer(bpy.types.Operator):
         layer = add_new_layer(node.node_tree, self.name, self.type, 
                 int(self.channel_idx), self.blend_type, self.normal_blend_type, 
                 self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol, segment,
-                self.add_rgb_to_intensity, self.rgb_to_intensity_color, self.solid_color,
+                #self.add_rgb_to_intensity, self.rgb_to_intensity_color, 
+                self.solid_color,
                 self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
                 self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask)
 
@@ -829,10 +824,10 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             items = normal_blend_items,
             default = 'MIX')
 
-    add_rgb_to_intensity = BoolProperty(
-            name = 'Add RGB To Intensity',
-            description = 'Add RGB To Intensity modifier to all channels of newly created layer',
-            default=False)
+    #add_rgb_to_intensity = BoolProperty(
+    #        name = 'Add RGB To Intensity',
+    #        description = 'Add RGB To Intensity modifier to all channels of newly created layer',
+    #        default=False)
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
@@ -840,8 +835,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             items = get_normal_map_type_items)
             #default = 'NORMAL_MAP')
 
-    rgb_to_intensity_color = FloatVectorProperty(
-            name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
+    #rgb_to_intensity_color = FloatVectorProperty(
+    #        name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
     uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
@@ -858,19 +853,16 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
-        if channel and channel.type == 'RGB':
-            self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
+        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        #if channel and channel.type == 'RGB':
+        #    self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
 
         # Use active uv layer name by default
-        if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
-            active_name = obj.data.uv_layers.active.name
-            if active_name == TEMP_UV:
-                self.uv_map = yp.layers[yp.active_layer_index].uv_name
-            else: self.uv_map = obj.data.uv_layers.active.name
+        if obj.type == 'MESH':
+            self.uv_map = get_default_uv_name(yp, obj)
 
             # UV Map collections update
             self.uv_map_coll.clear()
@@ -903,9 +895,9 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         if channel and channel.type == 'NORMAL':
             col.label(text='Type:')
 
-        if self.add_rgb_to_intensity:
-            col.label(text='')
-            col.label(text='RGB2I Color:')
+        #if self.add_rgb_to_intensity:
+        #    col.label(text='')
+        #    col.label(text='RGB2I Color:')
 
         col = row.column()
         crow = col.row(align=True)
@@ -924,10 +916,10 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             else: 
                 rrow.prop(self, 'blend_type', text='')
 
-        col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
+        #col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
 
-        if self.add_rgb_to_intensity:
-            col.prop(self, 'rgb_to_intensity_color', text='')
+        #if self.add_rgb_to_intensity:
+        #    col.prop(self, 'rgb_to_intensity_color', text='')
 
         self.layout.prop(self, 'relative')
 
@@ -952,7 +944,9 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
             add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map,
-                    image, None, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
+                    image, None, None, 
+                    #self.add_rgb_to_intensity, self.rgb_to_intensity_color
+                    )
 
         node.node_tree.yp.halt_update = False
 
@@ -1003,13 +997,13 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             items = normal_blend_items,
             default = 'MIX')
 
-    add_rgb_to_intensity = BoolProperty(
-            name = 'Add RGB To Intensity',
-            description = 'Add RGB To Intensity modifier to all channels of newly created layer',
-            default=False)
+    #add_rgb_to_intensity = BoolProperty(
+    #        name = 'Add RGB To Intensity',
+    #        description = 'Add RGB To Intensity modifier to all channels of newly created layer',
+    #        default=False)
 
-    rgb_to_intensity_color = FloatVectorProperty(
-            name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
+    #rgb_to_intensity_color = FloatVectorProperty(
+    #        name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',
@@ -1035,18 +1029,16 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
-        if channel and channel.type == 'RGB':
-            self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
+        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        #if channel and channel.type == 'RGB':
+        #    self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
 
         # Use active uv layer name by default
-        if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
-            if obj.data.uv_layers.active.name == TEMP_UV:
-                self.uv_map = yp.layers[yp.active_layer_index].uv_name
-            else: self.uv_map = obj.data.uv_layers.active.name
+        if obj.type == 'MESH':
+            self.uv_map = get_default_uv_name(yp, obj)
 
             # UV Map collections update
             self.uv_map_coll.clear()
@@ -1054,8 +1046,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
 
-        if self.type == 'VCOL':
-            self.add_rgb_to_intensity = False
+        #if self.type == 'VCOL':
+        #    self.add_rgb_to_intensity = False
 
         if self.type == 'IMAGE':
             # Update image names
@@ -1096,9 +1088,9 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         if channel and channel.type == 'NORMAL':
             col.label(text='Type:')
 
-        if self.type == 'IMAGE' and self.add_rgb_to_intensity:
-            col.label(text='')
-            col.label(text='RGB2I Color:')
+        #if self.type == 'IMAGE' and self.add_rgb_to_intensity:
+        #    col.label(text='')
+        #    col.label(text='RGB2I Color:')
 
         col = row.column()
 
@@ -1119,11 +1111,11 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             else: 
                 rrow.prop(self, 'blend_type', text='')
 
-        if self.type == 'IMAGE':
-            col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
+        #if self.type == 'IMAGE':
+        #    col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
 
-            if self.add_rgb_to_intensity:
-                col.prop(self, 'rgb_to_intensity_color', text='')
+        #    if self.add_rgb_to_intensity:
+        #        col.prop(self, 'rgb_to_intensity_color', text='')
 
     def execute(self, context):
         T = time.time()
@@ -1154,7 +1146,9 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         add_new_layer(node.node_tree, name, self.type, int(self.channel_idx), self.blend_type, 
                 self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map, 
-                image, vcol, None, self.add_rgb_to_intensity, self.rgb_to_intensity_color)
+                image, vcol, None, 
+                #self.add_rgb_to_intensity, self.rgb_to_intensity_color
+                )
 
         node.node_tree.yp.halt_update = False
 
@@ -1921,7 +1915,7 @@ def update_channel_enable(self, context):
     #update_channel_intensity_value(ch, context)
 
     #if root_ch.type == 'NORMAL':
-    #    transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
+    #    transition.check_transition_bump_nodes(layer, tree, ch)
 
         #need_reconnect = check_extra_alpha(layer)
         #if need_reconnect:
@@ -2189,7 +2183,7 @@ def update_channel_intensity_value(self, context):
             tb_crease_intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
     if root_ch.type == 'NORMAL':
-        #transition.check_transition_bump_nodes(layer, tree, ch, ch_index)
+        #transition.check_transition_bump_nodes(layer, tree, ch)
         update_displacement_height_ratio(root_ch)
 
 def update_layer_enable(self, context):
