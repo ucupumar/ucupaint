@@ -2311,7 +2311,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
 
         # Debug parent
-        #row.label(text=str(index) + ' (' + str(layer.parent_idx) + ')')
+        row.label(text=str(index) + ' (' + str(layer.parent_idx) + ')')
 
         # Active image/layer label
         if len(editable_masks) > 0:
@@ -2529,6 +2529,11 @@ class YNewLayerMenu(bpy.types.Menu):
         c.mask_type = 'VCOL'
 
         col.separator()
+
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='New Duplicated Layer')
+        c.make_image_blank = False
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='New Blank Layer with copied setup')
+        c.make_image_blank = True
 
         col = row.column()
         #col.label(text='Generated:')

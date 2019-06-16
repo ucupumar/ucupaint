@@ -1284,137 +1284,27 @@ class YFixDuplicatedLayers(bpy.types.Operator):
         tree = group_node.node_tree
         yp = tree.yp
 
-        #img_mappings = []
-        img_users = []
-        img_nodes = []
-        imgs = []
-
         # Make all layers single(dual) user
-        for layer in yp.layers:
-            oldtree = get_tree(layer)
-            ttree = oldtree.copy()
-            node = tree.nodes.get(layer.group_node)
-            node.node_tree = ttree
+        #for layer in yp.layers:
+        Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=ypui.make_image_single_user)
 
-            # Duplicate layer source groups
-            if layer.source_group != '':
-                source_group = ttree.nodes.get(layer.source_group)
-                source_group.node_tree = source_group.node_tree.copy()
-                source = source_group.node_tree.nodes.get(layer.source)
+        # Duplicate uv nodes
+        for uv in yp.uvs:
+            tangent_process = tree.nodes.get(uv.tangent_process)
+            if tangent_process and '_Copy' in tangent_process.node_tree.name: 
+                tangent_process.node_tree = tangent_process.node_tree.copy()
 
-                for d in neighbor_directions:
-                    s = ttree.nodes.get(getattr(layer, 'source_' + d))
-                    if s: s.node_tree = source_group.node_tree
+        # Delete parallax node because it's too complicated to duplicate
+        parallax = tree.nodes.get(PARALLAX)
+        if parallax: tree.nodes.remove(parallax)
+        baked_parallax = tree.nodes.get(BAKED_PARALLAX)
+        if baked_parallax: tree.nodes.remove(baked_parallax)
 
-                # Duplicate layer modifier groups
-                mod_group = source_group.node_tree.nodes.get(layer.mod_group)
-                if mod_group:
-                    mod_group.node_tree = mod_group.node_tree.copy()
-
-                    mod_group_1 = source_group.node_tree.nodes.get(layer.mod_group_1)
-                    if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
-
-            else:
-                source = ttree.nodes.get(layer.source)
-
-                # Duplicate layer modifier groups
-                mod_group = ttree.nodes.get(layer.mod_group)
-                if mod_group:
-                    mod_group.node_tree = mod_group.node_tree.copy()
-
-                    mod_group_1 = ttree.nodes.get(layer.mod_group_1)
-                    if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
-
-            if layer.type == 'IMAGE': # and ypui.make_image_single_user:
-                img = source.image
-                if img:
-                    #mapping = get_layer_mapping(layer)
-                    #img_mappings.append(mapping)
-                    img_users.append(layer)
-                    img_nodes.append(source)
-                    imgs.append(img)
-                    #source.image = img.copy()
-
-            # Duplicate masks
-            for mask in layer.masks:
-                if mask.group_node != '':
-                    mask_group =  ttree.nodes.get(mask.group_node)
-                    mask_group.node_tree = mask_group.node_tree.copy()
-                    mask_source = mask_group.node_tree.nodes.get(mask.source)
-
-                    for d in neighbor_directions:
-                        s = ttree.nodes.get(getattr(mask, 'source_' + d))
-                        if s: s.node_tree = mask_group.node_tree
-                else:
-                    mask_source = ttree.nodes.get(mask.source)
-
-                if mask.type == 'IMAGE': # and ypui.make_image_single_user:
-                    img = mask_source.image
-                    if img:
-                        #mapping = get_mask_mapping(mask)
-                        #img_mappings.append(mapping)
-                        img_users.append(mask)
-                        img_nodes.append(mask_source)
-                        imgs.append(img)
-                        #mask_source.image = img.copy()
-
-            # Duplicate some channel nodes
-            for i, ch in enumerate(layer.channels):
-
-                # Modifier group
-                mod_group = ttree.nodes.get(ch.mod_group)
-                if mod_group:
-                    mod_group.node_tree = mod_group.node_tree.copy()
-
-                    for d in neighbor_directions:
-                        m = ttree.nodes.get(getattr(ch, 'mod_' + d))
-                        if m: m.node_tree = mod_group.node_tree
-
-                # Transition Ramp
-                tr_ramp = ttree.nodes.get(ch.tr_ramp)
-                if tr_ramp and '_Copy' in tr_ramp.node_tree.name: 
-                    tr_ramp.node_tree = tr_ramp.node_tree.copy()
-
-                # Transition Ramp Blend
-                tr_ramp_blend = ttree.nodes.get(ch.tr_ramp_blend)
-                if tr_ramp_blend and '_Copy' in tr_ramp_blend.node_tree.name: 
-                    tr_ramp_blend.node_tree = tr_ramp_blend.node_tree.copy()
-
-                # Transition AO
-                tao = ttree.nodes.get(ch.tao)
-                if tao and '_Copy' in tao.node_tree.name: 
-                    tao.node_tree = tao.node_tree.copy()
-
-                # Transition Bump Falloff
-                tb_falloff = ttree.nodes.get(ch.tb_falloff)
-                if tb_falloff and '_Copy' in tb_falloff.node_tree.name: 
-                    tb_falloff.node_tree = tb_falloff.node_tree.copy()
-
-                    ori = tb_falloff.node_tree.nodes.get('_original')
-                    if ori and '_Copy' in ori.node_tree.name: 
-                        ori.node_tree = ori.node_tree.copy()
-
-                        for n in tb_falloff.node_tree.nodes:
-                            if n.type == 'GROUP' and n != ori:
-                                n.node_tree = ori.node_tree
-
-            # Duplicate uv nodes
-            for uv in yp.uvs:
-                tangent_process = tree.nodes.get(uv.tangent_process)
-                if tangent_process and '_Copy' in tangent_process.node_tree.name: 
-                    tangent_process.node_tree = tangent_process.node_tree.copy()
-
-            # Delete parallax node because it's too complicated to duplicate
-            parallax = tree.nodes.get(PARALLAX)
-            if parallax: tree.nodes.remove(parallax)
-            baked_parallax = tree.nodes.get(BAKED_PARALLAX)
-            if baked_parallax: tree.nodes.remove(baked_parallax)
-
-            # Duplicate single user lib tree
-            #for node in ttree.nodes:
-            #    if (node.type == 'GROUP' and node.node_tree and 
-            #            re.match(r'^.+_Copy\.*\d{0,3}$', node.node_tree.name)):
-            #        node.node_tree = node.node_tree.copy()
+        # Duplicate single user lib tree
+        #for node in ttree.nodes:
+        #    if (node.type == 'GROUP' and node.node_tree and 
+        #            re.match(r'^.+_Copy\.*\d{0,3}$', node.node_tree.name)):
+        #        node.node_tree = node.node_tree.copy()
 
         if ypui.make_image_single_user:
 
@@ -1437,39 +1327,6 @@ class YFixDuplicatedLayers(bpy.types.Operator):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
                         baked_normal_overlay.image = baked_normal_overlay.image.copy()
-
-            already_copied_ids = []
-
-            # Copy image on layer and masks
-            for i, img in enumerate(imgs):
-
-                if img.yia.is_image_atlas:
-                    segment = img.yia.segments.get(img_users[i].segment_name)
-
-                    # create new segment based on previous one
-                    new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
-                            img.yia.color, img.is_float, img, segment)
-
-                    #print(img_users[i], new_segment.tile_x, new_segment.tile_y)
-
-                    img_users[i].segment_name = new_segment.name
-
-                    # Change image if different image is returned
-                    if new_segment.id_data != img:
-                        img_nodes[i].image = new_segment.id_data
-
-                    # Update layer transform
-                    update_mapping(img_users[i])
-
-                elif i not in already_copied_ids:
-                    # Copy image if not atlas
-                    img_nodes[i].image = img.copy()
-
-                    # Check other nodes using the same image
-                    for j, imgg in enumerate(imgs):
-                        if j != i and imgg == img:
-                            img_nodes[j].image = img_nodes[i].image
-                            already_copied_ids.append(j)
 
         # Recover possibly deleted parallax
         height_root_ch = get_root_height_channel(yp)

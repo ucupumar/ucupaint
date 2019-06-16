@@ -694,6 +694,8 @@ class YRemoveLayerMask(bpy.types.Operator):
         return {'FINISHED'}
 
 def update_mask_active_image_edit(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
     if self.halt_update: return
 
     # Only image mask can be edited
@@ -742,6 +744,8 @@ def update_mask_channel_intensity_value(self, context):
         if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
 
 def update_mask_intensity_value(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
     for c in self.channels:
         update_mask_channel_intensity_value(c, context)
 
@@ -886,6 +890,7 @@ def update_mask_uv_name(self, context):
 def update_mask_name(self, context):
 
     yp = self.id_data.yp
+    if yp.halt_update: return
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
     src = get_mask_source(self)
@@ -896,6 +901,7 @@ def update_mask_name(self, context):
 def update_mask_blend_type(self, context):
 
     yp = self.id_data.yp
+    if yp.halt_update: return
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
@@ -920,6 +926,8 @@ def update_mask_blend_type(self, context):
     reconnect_layer_nodes(layer)
 
 def update_mask_transform(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
     update_mapping(self)
 
 class YLayerMaskChannel(bpy.types.PropertyGroup):

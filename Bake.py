@@ -1630,28 +1630,6 @@ class YBakeChannels(bpy.types.Operator):
 
         return {'FINISHED'}
 
-#class YDisableBakeResult(bpy.types.Operator):
-#    """Disable Baked Image Result"""
-#    bl_idname = "node.y_disable_baked_result"
-#    bl_label = "Disable Bake Result"
-#    bl_options = {'REGISTER', 'UNDO'}
-#
-#    @classmethod
-#    def poll(cls, context):
-#        node = get_active_ypaint_node()
-#        return node and node.node_tree.yp.use_baked
-#
-#    def execute(self, context):
-#        node = get_active_ypaint_node()
-#        tree = node.node_tree
-#        yp = tree.yp
-#
-#        yp.use_baked = False
-#
-#        reconnect_yp_nodes(tree)
-#
-#        return {'FINISHED'}
-
 def update_use_baked(self, context):
     tree = self.id_data
     yp = tree.yp
@@ -1960,7 +1938,6 @@ def register():
     bpy.utils.register_class(YTransferLayerUV)
     bpy.utils.register_class(YResizeImage)
     bpy.utils.register_class(YBakeChannels)
-    #bpy.utils.register_class(YDisableBakeResult)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
@@ -1968,4 +1945,3 @@ def unregister():
     bpy.utils.unregister_class(YTransferLayerUV)
     bpy.utils.unregister_class(YResizeImage)
     bpy.utils.unregister_class(YBakeChannels)
-    #bpy.utils.unregister_class(YDisableBakeResult)

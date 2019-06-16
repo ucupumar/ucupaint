@@ -352,7 +352,7 @@ def enable_layer_source_tree(layer, rearrange=False):
         # Bring modifiers to source tree
         if layer.type == 'IMAGE':
             for mod in layer.modifiers:
-                Modifier.add_modifier_nodes(mod, source_tree, layer_tree)
+                Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
         else:
             move_mod_group(layer, layer_tree, source_tree)
 
@@ -404,7 +404,7 @@ def disable_layer_source_tree(layer, rearrange=True):
         # Bring back layer modifier to original tree
         if layer.type == 'IMAGE':
             for mod in layer.modifiers:
-                Modifier.add_modifier_nodes(mod, layer_tree, source_group.node_tree)
+                Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
         else:
             move_mod_group(layer, source_group.node_tree, layer_tree)
 
@@ -507,7 +507,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         source_w.node_tree = mask_tree
 
         for mod in mask.modifiers:
-            MaskModifier.add_modifier_nodes(mod, mask_tree, layer_tree)
+            MaskModifier.check_modifier_nodes(mod, mask_tree, layer_tree)
 
         # Remove previous nodes
         layer_tree.nodes.remove(source_ref)
@@ -543,7 +543,7 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         for mod in mask.modifiers:
-            MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)
+            MaskModifier.check_modifier_nodes(mod, layer_tree, mask_tree)
 
         # Remove previous source
         remove_node(layer_tree, mask, 'group_node')

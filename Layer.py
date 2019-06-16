@@ -1809,7 +1809,7 @@ class YReplaceLayerType(bpy.types.Operator):
         if layer.type == 'BACKGROUND':
             # Remove bump and its base
             for ch in layer.channels:
-                remove_node(tree, ch, 'bump_base')
+                #remove_node(tree, ch, 'bump_base')
                 #remove_node(tree, ch, 'bump')
                 remove_node(tree, ch, 'normal_process')
 
@@ -1859,9 +1859,268 @@ class YReplaceLayerType(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False):
+
+    yp = tree.yp
+
+    img_users = []
+    img_nodes = []
+    imgs = []
+
+    for layer in yp.layers:
+        if specific_layer and layer != specific_layer: continue
+
+        oldtree = get_tree(layer)
+        ttree = oldtree.copy()
+        node = tree.nodes.get(layer.group_node)
+        node.node_tree = ttree
+
+        # Duplicate layer source groups
+        if layer.source_group != '':
+            source_group = ttree.nodes.get(layer.source_group)
+            source_group.node_tree = source_group.node_tree.copy()
+            source = source_group.node_tree.nodes.get(layer.source)
+
+            for d in neighbor_directions:
+                s = ttree.nodes.get(getattr(layer, 'source_' + d))
+                if s: s.node_tree = source_group.node_tree
+
+            # Duplicate layer modifier groups
+            mod_group = source_group.node_tree.nodes.get(layer.mod_group)
+            if mod_group:
+                mod_group.node_tree = mod_group.node_tree.copy()
+
+                mod_group_1 = source_group.node_tree.nodes.get(layer.mod_group_1)
+                if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
+
+        else:
+            source = ttree.nodes.get(layer.source)
+
+            # Duplicate layer modifier groups
+            mod_group = ttree.nodes.get(layer.mod_group)
+            if mod_group:
+                mod_group.node_tree = mod_group.node_tree.copy()
+
+                mod_group_1 = ttree.nodes.get(layer.mod_group_1)
+                if mod_group_1: mod_group_1.node_tree = mod_group.node_tree
+
+        if layer.type == 'IMAGE': # and ypui.make_image_single_user:
+            img = source.image
+            if img:
+                #mapping = get_layer_mapping(layer)
+                #img_mappings.append(mapping)
+                img_users.append(layer)
+                img_nodes.append(source)
+                imgs.append(img)
+                #source.image = img.copy()
+
+        # Duplicate masks
+        for mask in layer.masks:
+            if mask.group_node != '':
+                mask_group =  ttree.nodes.get(mask.group_node)
+                mask_group.node_tree = mask_group.node_tree.copy()
+                mask_source = mask_group.node_tree.nodes.get(mask.source)
+
+                for d in neighbor_directions:
+                    s = ttree.nodes.get(getattr(mask, 'source_' + d))
+                    if s: s.node_tree = mask_group.node_tree
+            else:
+                mask_source = ttree.nodes.get(mask.source)
+
+            if mask.type == 'IMAGE': # and ypui.make_image_single_user:
+                img = mask_source.image
+                if img:
+                    #mapping = get_mask_mapping(mask)
+                    #img_mappings.append(mapping)
+                    img_users.append(mask)
+                    img_nodes.append(mask_source)
+                    imgs.append(img)
+                    #mask_source.image = img.copy()
+
+        # Duplicate some channel nodes
+        for i, ch in enumerate(layer.channels):
+
+            # Modifier group
+            mod_group = ttree.nodes.get(ch.mod_group)
+            if mod_group:
+                mod_group.node_tree = mod_group.node_tree.copy()
+
+                for d in neighbor_directions:
+                    m = ttree.nodes.get(getattr(ch, 'mod_' + d))
+                    if m: m.node_tree = mod_group.node_tree
+
+            # Transition Ramp
+            tr_ramp = ttree.nodes.get(ch.tr_ramp)
+            if tr_ramp and '_Copy' in tr_ramp.node_tree.name: 
+                tr_ramp.node_tree = tr_ramp.node_tree.copy()
+
+            # Transition Ramp Blend
+            tr_ramp_blend = ttree.nodes.get(ch.tr_ramp_blend)
+            if tr_ramp_blend and '_Copy' in tr_ramp_blend.node_tree.name: 
+                tr_ramp_blend.node_tree = tr_ramp_blend.node_tree.copy()
+
+            # Transition AO
+            tao = ttree.nodes.get(ch.tao)
+            if tao and '_Copy' in tao.node_tree.name: 
+                tao.node_tree = tao.node_tree.copy()
+
+            # Transition Bump Falloff
+            tb_falloff = ttree.nodes.get(ch.tb_falloff)
+            if tb_falloff and '_Copy' in tb_falloff.node_tree.name: 
+                tb_falloff.node_tree = tb_falloff.node_tree.copy()
+
+                ori = tb_falloff.node_tree.nodes.get('_original')
+                if ori and '_Copy' in ori.node_tree.name: 
+                    ori.node_tree = ori.node_tree.copy()
+
+                    for n in tb_falloff.node_tree.nodes:
+                        if n.type == 'GROUP' and n != ori:
+                            n.node_tree = ori.node_tree
+
+    # Make all images single user
+    if make_image_single_user:
+
+        already_copied_ids = []
+
+        # Copy image on layer and masks
+        for i, img in enumerate(imgs):
+
+            if img.yia.is_image_atlas:
+                segment = img.yia.segments.get(img_users[i].segment_name)
+
+                # create new segment based on previous one
+                if make_image_blank:
+                    new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
+                            img.yia.color, img.is_float)
+                else:
+                    new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
+                            img.yia.color, img.is_float, img, segment)
+
+                #print(img_users[i], new_segment.tile_x, new_segment.tile_y)
+
+                img_users[i].segment_name = new_segment.name
+
+                # Change image if different image is returned
+                if new_segment.id_data != img:
+                    img_nodes[i].image = new_segment.id_data
+
+                # Update layer transform
+                update_mapping(img_users[i])
+
+            elif i not in already_copied_ids:
+                # Copy image if not atlas
+                if make_image_blank:
+
+                    if hasattr(img, 'use_alpha'):
+                        alpha = img.use_alpha
+                    else: alpha = True
+
+                    img_nodes[i].image = bpy.data.images.new(get_unique_name(img.name, bpy.data.images), 
+                            width=img.size[0], height=img.size[1], alpha=alpha, float_buffer=img.is_float)
+                    img_nodes[i].image.generated_color = (0,0,0,0)
+                    img_nodes[i].image.colorspace_settings.name = 'Linear'
+
+                else:
+                    img_nodes[i].image = img.copy()
+
+                # Check other nodes using the same image
+                for j, imgg in enumerate(imgs):
+                    if j != i and imgg == img:
+                        img_nodes[j].image = img_nodes[i].image
+                        already_copied_ids.append(j)
+
+class YDuplicateLayer(bpy.types.Operator):
+    bl_idname = "node.y_duplicate_layer"
+    bl_label = "Duplicate layer"
+    bl_description = "Duplicate Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    make_image_blank = BoolProperty(default=False)
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def execute(self, context):
+        T = time.time()
+
+        wm = context.window_manager
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        # Get parent dict
+        parent_dict = get_parent_dict(yp)
+
+        # Get active layer
+        layer_idx = yp.active_layer_index
+        layer = yp.layers[layer_idx]
+
+        # Get all childrens
+        childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
+
+        # Collect relevant ids to duplicate
+        relevant_layers = [layer]
+        relevant_ids = [layer_idx]
+        relevant_layers.extend(childs)
+        relevant_ids.extend(child_ids)
+
+        # Halt update to prevent needless reconnection
+        yp.halt_update = True
+
+        # List of newly created ids
+        created_ids = []
+
+        # Duplicate all relevant layers
+        for i, l in enumerate(relevant_layers):
+            idx = relevant_ids[i]
+
+            # Create new layer
+            new_layer = yp.layers.add()
+            new_layer.name = get_unique_name(l.name, yp.layers)
+            copy_id_props(l, new_layer, ['name'])
+
+            # Duplicate groups
+            group_node = tree.nodes.get(l.group_node)
+            new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', group_node.label)
+            new_group_node.node_tree = group_node.node_tree
+
+            # Duplicate images and some nodes inside
+            duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank)
+
+            #yp.layers.move(len(yp.layers)-1, idx)
+            created_ids.append(len(yp.layers)-1)
+
+        # Move duplicated layer to current index
+        for i, idx in enumerate(created_ids):
+            relevant_id = relevant_ids[i]
+            yp.layers.move(idx, relevant_id)
+
+        # Remap parent index
+        for lay in yp.layers:
+            if lay.name in parent_dict:
+                lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
+        # Revert back halt update
+        yp.halt_update = False
+
+        # Rearrange and reconnect
+        rearrange_yp_nodes(tree)
+        reconnect_yp_nodes(tree)
+
+        # Refresh active layer
+        yp.active_layer_index = yp.active_layer_index
+
+        print('INFO: Layer', layer.name, 'is duplicated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return {'FINISHED'}
+
 def update_channel_enable(self, context):
     T = time.time()
     yp = self.id_data.yp
+    if yp.halt_update: return
     wm = context.window_manager
 
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
@@ -1926,6 +2185,7 @@ def update_channel_enable(self, context):
 
 def update_normal_map_type(self, context):
     yp = self.id_data.yp
+    if yp.halt_update: return
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
     root_ch = yp.channels[int(m.group(2))]
@@ -1962,6 +2222,7 @@ def update_blend_type(self, context):
 
 def update_flip_backface_normal(self, context):
     yp = self.id_data.yp
+    if yp.halt_update: return
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
     tree = get_tree(layer)
@@ -1969,16 +2230,9 @@ def update_flip_backface_normal(self, context):
     normal_flip = tree.nodes.get(self.normal_flip)
     normal_flip.mute = self.invert_backface_normal
 
-def update_bump_base_value(self, context):
-    yp = self.id_data.yp
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(m.group(1))]
-    tree = get_tree(layer)
-
-    update_bump_base_value_(tree, self)
-
 def update_write_height(self, context):
     yp = self.id_data.yp
+    if yp.halt_update: return
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
     ch_index = int(m.group(2))
@@ -1998,6 +2252,7 @@ def update_write_height(self, context):
 def update_bump_distance(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
+    if yp.halt_update: return
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
     root_ch = yp.channels[int(m.group(2))]
@@ -2051,6 +2306,7 @@ def set_layer_channel_linear_node(tree, layer, root_ch, ch):
 
 def update_layer_input(self, context):
     yp = self.id_data.yp
+    if yp.halt_update: return
 
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
@@ -2148,6 +2404,7 @@ def update_texcoord_type(self, context):
 
 def update_channel_intensity_value(self, context):
     yp = self.id_data.yp
+    if yp.halt_update: return
 
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
@@ -2189,6 +2446,7 @@ def update_channel_intensity_value(self, context):
 def update_layer_enable(self, context):
     T = time.time()
     yp = self.id_data.yp
+    if yp.halt_update: return
     layer = self
     tree = get_tree(layer)
 
@@ -2205,6 +2463,7 @@ def update_layer_enable(self, context):
 
 def update_layer_name(self, context):
     yp = self.id_data.yp
+    if yp.halt_update: return
     if self.type == 'IMAGE' and self.segment_name != '': return
 
     src = get_layer_source(self)
@@ -2502,6 +2761,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
 def update_layer_color_chortcut(self, context):
     layer = self
+    yp = layer.id_data.yp
+    if yp.halt_update: return
 
     # If color shortcut is active, disable other shortcut
     if layer.type == 'COLOR' and layer.color_shortcut:
@@ -2514,6 +2775,8 @@ def update_layer_color_chortcut(self, context):
                 m.shortcut = False
 
 def update_layer_transform(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
     update_mapping(self)
 
 class YLayer(bpy.types.PropertyGroup):
@@ -2639,6 +2902,7 @@ def register():
     bpy.utils.register_class(YRemoveLayer)
     bpy.utils.register_class(YRemoveLayerMenu)
     bpy.utils.register_class(YReplaceLayerType)
+    bpy.utils.register_class(YDuplicateLayer)
     bpy.utils.register_class(YLayerChannel)
     bpy.utils.register_class(YLayer)
 
@@ -2654,5 +2918,6 @@ def unregister():
     bpy.utils.unregister_class(YRemoveLayer)
     bpy.utils.unregister_class(YRemoveLayerMenu)
     bpy.utils.unregister_class(YReplaceLayerType)
+    bpy.utils.unregister_class(YDuplicateLayer)
     bpy.utils.unregister_class(YLayerChannel)
     bpy.utils.unregister_class(YLayer)

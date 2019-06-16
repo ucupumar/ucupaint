@@ -68,7 +68,7 @@ def get_modifier_channel_type(mod, return_non_color=False):
 
     return channel_type
 
-def add_modifier_nodes(m, tree, ref_tree=None):
+def check_modifier_nodes(m, tree, ref_tree=None):
 
     yp = m.id_data.yp
     nodes = tree.nodes
@@ -397,7 +397,7 @@ def add_new_modifier(parent, modifier_type):
     m.type = modifier_type
     #m.channel_type = root_ch.type
 
-    add_modifier_nodes(m, tree)
+    check_modifier_nodes(m, tree)
 
     if match1: 
         # Enable modifier tree if fine bump map is used
@@ -719,9 +719,10 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
 def update_modifier_enable(self, context):
 
     yp = self.id_data.yp
+    if yp.halt_update: return
     tree = get_mod_tree(self)
 
-    add_modifier_nodes(self, tree)
+    check_modifier_nodes(self, tree)
 
     match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     match2 = re.match(r'yp\.layers\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
@@ -833,6 +834,7 @@ def update_modifier_enable(self, context):
 def update_modifier_shortcut(self, context):
 
     yp = self.id_data.yp
+    if yp.halt_update: return
 
     mod = self
 
@@ -863,7 +865,8 @@ def update_modifier_shortcut(self, context):
                     m.shortcut = False
 
 def update_invert_channel(self, context):
-    if not self.enable: return
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
     channel_type = get_modifier_channel_type(self)
     tree = get_mod_tree(self)
     invert = tree.nodes.get(self.invert)
@@ -877,7 +880,8 @@ def update_invert_channel(self, context):
         invert.inputs[5].default_value = 1.0 if self.invert_a_enable and self.enable else 0.0
 
 def update_use_clamp(self, context):
-    if not self.enable: return
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
     tree = get_mod_tree(self)
 
     if self.type == 'MULTIPLIER':
@@ -886,7 +890,8 @@ def update_use_clamp(self, context):
 
 def update_multiplier_val_input(self, context):
 
-    if not self.enable: return
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
     channel_type = get_modifier_channel_type(self)
     tree = get_mod_tree(self)
 
@@ -902,7 +907,8 @@ def update_multiplier_val_input(self, context):
 
 def update_brightcon_value(self, context):
 
-    if not self.enable: return
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
     channel_type = get_modifier_channel_type(self)
     tree = get_mod_tree(self)
 
@@ -913,7 +919,8 @@ def update_brightcon_value(self, context):
 
 def update_huesat_value(self, context):
 
-    if not self.enable: return
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
     channel_type = get_modifier_channel_type(self)
     tree = get_mod_tree(self)
 
@@ -924,7 +931,8 @@ def update_huesat_value(self, context):
         huesat.inputs['Value'].default_value = self.huesat_value_val if self.enable else 0.0
 
 def update_rgb2i_col(self, context):
-    if not self.enable: return
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
     tree = get_mod_tree(self)
 
     if self.type == 'RGB_TO_INTENSITY':
@@ -933,7 +941,8 @@ def update_rgb2i_col(self, context):
 
 def update_oc_col(self, context):
 
-    if not self.enable: return
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
     channel_type = get_modifier_channel_type(self)
     tree = get_mod_tree(self)
 
@@ -1100,7 +1109,7 @@ def enable_modifiers_tree(parent, rearrange = False):
         mod_group_1.node_tree = mod_tree
 
     for mod in parent.modifiers:
-        add_modifier_nodes(mod, mod_tree, layer_tree)
+        check_modifier_nodes(mod, mod_tree, layer_tree)
 
     if rearrange:
         rearrange_layer_nodes(layer)
@@ -1146,7 +1155,7 @@ def disable_modifiers_tree(parent, rearrange=False):
 
     # Add new copied modifier nodes on layer tree
     for mod in parent.modifiers:
-        add_modifier_nodes(mod, layer_tree, mod_group.node_tree)
+        check_modifier_nodes(mod, layer_tree, mod_group.node_tree)
 
     # Remove modifier tree
     remove_node(layer_tree, parent, 'mod_group')

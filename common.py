@@ -345,6 +345,38 @@ def linear_to_srgb(inp):
 
         return c
 
+def copy_id_props(source, dest, extras = []):
+    props = dir(source)
+    #print()
+    #print(source)
+    filters = ['bl_rna', 'rna_type']
+    filters.extend(extras)
+
+    for prop in props:
+        if prop.startswith('__'): continue
+        if prop in filters: continue
+        #print(prop)
+        try: val = getattr(source, prop)
+        except:
+            print('Error prop:', prop)
+            continue
+        attr_type = str(type(val))
+        #print(attr_type, prop)
+
+        if 'bpy_prop_collection_idprop' in attr_type:
+            dest_val = getattr(dest, prop)
+            for subval in val:
+                dest_subval = dest_val.add()
+                copy_id_props(subval, dest_subval)
+
+        elif 'bpy_prop_array' in attr_type:
+            dest_val = getattr(dest, prop)
+            for i, subval in enumerate(val):
+                dest_val[i] = subval
+        else:
+            try: setattr(dest, prop, val)
+            except: print('Error set prop:', prop)
+
 def copy_node_props_(source, dest, extras = []):
     #print()
     props = dir(source)
@@ -439,7 +471,14 @@ def get_unique_name(name, items, surname = ''):
 
     name_found = [item for item in items if item.name == unique_name]
     if name_found:
-        i = 1
+
+        m = re.match(r'^(.+)\s(\d*)$', name)
+        if m:
+            name = m.group(1)
+            i = int(m.group(2))
+        else:
+            i = 1
+
         while True:
 
             if surname != '':
@@ -1447,6 +1486,23 @@ def get_list_of_direct_childrens(layer):
             childs.append(t)
 
     return childs
+
+def get_list_of_all_childs_and_child_ids(layer):
+    yp = layer.id_data.yp
+
+    if layer.type != 'GROUP':
+        return [], []
+
+    layer_idx = get_layer_index(layer)
+
+    childs = []
+    child_ids = []
+    for i, t in enumerate(yp.layers):
+        if t.parent_idx == layer_idx or t.parent_idx in child_ids:
+            childs.append(t)
+            child_ids.append(i)
+
+    return childs, child_ids
 
 def get_list_of_parent_ids(layer):
 
