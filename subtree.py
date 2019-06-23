@@ -58,7 +58,8 @@ def check_layer_tree_ios(layer, tree=None):
         output_index += 1
 
         # Alpha IO
-        if (root_ch.type == 'RGB' and root_ch.enable_alpha) or has_parent:
+        #if (root_ch.type == 'RGB' and root_ch.enable_alpha) or has_parent:
+        if root_ch.enable_alpha or has_parent:
 
             name = root_ch.name + io_suffix['ALPHA']
             dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
@@ -1714,7 +1715,8 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if has_parent and ch.normal_blend_type == 'MIX':
+        #if has_parent and ch.normal_blend_type == 'MIX':
+        if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type == 'MIX':
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
@@ -1745,7 +1747,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'VALUE':
 
-        if has_parent and blend_type == 'MIX':
+        if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_BW, 

@@ -19,26 +19,13 @@ TREE_END = 'Group Output'
 ONE_VALUE = 'One Value'
 ZERO_VALUE = 'Zero Value'
 
-#BAKED_UV = 'UV Map'
-#BAKED_TANGENT = 'Baked Tangent'
-#BAKED_TANGENT_FLIP = 'Baked Flip Backface Tangent'
-#BAKED_BITANGENT = 'Baked Bitangent'
-#BAKED_BITANGENT_FLIP = 'Baked Flip Backface Bitangent'
 BAKED_PARALLAX = 'Baked Parallax'
 BAKED_PARALLAX_FILTER = 'Baked Parallax Filter'
 
 TEXCOORD = 'Texture Coordinate'
 GEOMETRY = 'Geometry'
 
-#GENERATED_PARALLAX_PREP = 'Generated Parallax Preparation'
-#NORMAL_PARALLAX_PREP = 'Normal Parallax Preparation'
-#OBJECT_PARALLAX_PREP = 'Object Parallax Preparation'
 PARALLAX_PREP_SUFFIX = ' Parallax Preparation'
-
-#GENERATED_MATRIX_TRANSFORM = 'Generated Matrix Transform'
-#NORMAL_MATRIX_TRANSFORM = 'Normal Matrix Transform'
-#OBJECT_MATRIX_TRANSFORM = 'Object Matrix Transform'
-
 PARALLAX = 'Parallax'
 
 MOD_TREE_START = '__mod_start'
@@ -388,16 +375,34 @@ def copy_node_props_(source, dest, extras = []):
         if prop.startswith('bl_'): continue
         if prop in filters: continue
         val = getattr(source, prop)
-        if 'bpy_func' in str(type(val)): continue
-        if 'bpy_prop' in str(type(val)): continue
+        attr_type = str(type(val))
+        if 'bpy_func' in attr_type: continue
+        #if 'bpy_prop' in attr_type: continue
         #print(prop, str(type(getattr(source, prop))))
         # Copy stuff here
-        try: 
-            setattr(dest, prop, val)
-            #print('SUCCESS:', prop, val)
-        except: 
-            #print('FAILED:', prop, val)
-            pass
+
+        #if 'bpy_prop_collection_idprop' in attr_type:
+        #    dest_val = getattr(dest, prop)
+        #    for subval in val:
+        #        dest_subval = dest_val.add()
+        #        copy_id_props(subval, dest_subval)
+
+        if 'bpy_prop_array' in attr_type:
+            dest_val = getattr(dest, prop)
+            for i, subval in enumerate(val):
+                try: 
+                    dest_val[i] = subval
+                    #print('SUCCESS:', prop, dest_val[i])
+                except: 
+                    #print('FAILED:', prop, dest_val[i])
+                    pass
+        else:
+            try: 
+                setattr(dest, prop, val)
+                #print('SUCCESS:', prop, val)
+            except: 
+                #print('FAILED:', prop, val)
+                pass
 
 def copy_node_props(source, dest, extras = []):
     # Copy node props
@@ -2485,11 +2490,15 @@ def get_displace_modifier(obj, keyword=''):
 
     return None
 
-def get_default_uv_name(yp, obj):
+def get_uv_layers(obj):
     if hasattr(obj.data, 'uv_textures'):
         uv_layers = obj.data.uv_textures
     else: uv_layers = obj.data.uv_layers
 
+    return uv_layers
+
+def get_default_uv_name(yp, obj):
+    uv_layers = get_uv_layers(obj)
     uv_name = ''
 
     if obj.type == 'MESH' and len(uv_layers) > 0:

@@ -31,6 +31,7 @@ STRAIGHT_OVER_HEIGHT_ADD = '~yPL Straight Over Height Add'
 
 SPREAD_ALPHA = '~yPL Spread Alpha'
 SPREAD_ALPHA_SMOOTH = '~yPL Spread Alpha Smooth'
+SPREAD_NORMALIZED_HEIGHT = '~yPL Spread Normalized Height'
 
 NEIGHBOR_UV ='~yPL Neighbor UV'
 NEIGHBOR_UV_TANGENT ='~yPL Neighbor UV (Tangent)'

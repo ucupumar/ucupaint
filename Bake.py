@@ -5,14 +5,15 @@ from .common import *
 from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib, Layer, Mask, ImageAtlas
+from . import lib, Layer, Mask, ImageAtlas, Modifier
 
 BL28_HACK = True
 
 def remember_before_bake(self, context, yp):
     scene = self.scene
+    #scene = context.scene
     obj = self.obj
-    uv_layers = self.uv_layers
+    uv_layers = get_uv_layers(obj)
     ypui = context.window_manager.ypui
 
     # Remember render settings
@@ -45,8 +46,9 @@ def remember_before_bake(self, context, yp):
 
 def prepare_bake_settings(self, context, yp):
     scene = self.scene
+    #scene = context.scene
     obj = self.obj
-    uv_layers = self.uv_layers
+    uv_layers = get_uv_layers(obj)
     ypui = context.window_manager.ypui
 
     scene.render.engine = 'CYCLES'
@@ -82,7 +84,7 @@ def prepare_bake_settings(self, context, yp):
 def recover_bake_settings(self, context, yp):
     scene = self.scene
     obj = self.obj
-    uv_layers = self.uv_layers
+    uv_layers = get_uv_layers(obj)
     ypui = context.window_manager.ypui
 
     scene.render.engine = self.ori_engine
@@ -126,10 +128,7 @@ def recover_bake_settings(self, context, yp):
 
 def transfer_uv(obj, mat, entity, uv_map):
 
-    if hasattr(obj.data, 'uv_textures'):
-        uv_layers = obj.data.uv_textures
-    else: uv_layers = obj.data.uv_layers
-
+    uv_layers = get_uv_layers(obj)
     uv_layers.active = uv_layers.get(uv_map)
 
     # Check entity
@@ -301,16 +300,41 @@ def transfer_uv(obj, mat, entity, uv_map):
     # Change uv of entity
     entity.uv_name = uv_map
 
-def bake_channel(width, height, uv_map, mat, node, ch):
+def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None):
 
     tree = node.node_tree
     yp = tree.yp
 
+    ch = None
+    img = None
+    segment = None
+    if target_layer:
+        if target_layer.type != 'IMAGE':
+            return False
+
+        source = get_layer_source(target_layer)
+        if not source.image:
+            return False
+
+        if source.image.yia.is_image_atlas and target_layer.segment_name != '':
+            segment = source.image.yia.segments.get(target_layer.segment_name)
+        else:
+            img_name = source.image.name
+            img = source.image.copy()
+            img.name = img_name
+
+        ch = target_layer.channels[get_channel_index(root_ch)]
+
     # Create setup nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+    #lin2srgb = mat.node_tree.nodes.new('ShaderNodeGroup')
+    #lin2srgb.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
+    #srgb2lin = mat.node_tree.nodes.new('ShaderNodeGroup')
+    #srgb2lin.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
 
-    if ch.type == 'NORMAL':
+    if root_ch.type == 'NORMAL':
+
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
         norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL)
 
@@ -344,91 +368,244 @@ def bake_channel(width, height, uv_map, mat, node, ch):
     # Connect emit to output material
     mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
-    # Set nodes
-    baked = tree.nodes.get(ch.baked)
-    if not baked:
-        baked = new_node(tree, ch, 'baked', 'ShaderNodeTexImage', 'Baked ' + ch.name)
-    if hasattr(baked, 'color_space'):
-        if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
-            baked.color_space = 'NONE'
-        else: baked.color_space = 'COLOR'
-    
-    # Normal related nodes
-    if ch.type == 'NORMAL':
-        baked_normal = tree.nodes.get(ch.baked_normal)
-        if not baked_normal:
-            baked_normal = new_node(tree, ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
-        baked_normal.uv_map = uv_map
-
-        baked_normal_prep = tree.nodes.get(ch.baked_normal_prep)
-        if not baked_normal_prep:
-            baked_normal_prep = new_node(tree, ch, 'baked_normal_prep', 'ShaderNodeGroup', 
-                    'Baked Normal Preparation')
-            baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
-
-    # Baked image names
-    img_name = tree.name + ' ' + ch.name
-    filepath = ''
-
-    # Check if image is available
-    if baked.image:
-        img_name = baked.image.name
-        filepath = baked.image.filepath
-        baked.image.name = '____TEMP'
-        #if baked.image.users == 1:
-        #    bpy.data.images.remove(baked.image)
-
-    #Create new image
-    img = bpy.data.images.new(name=img_name,
-            width=width, height=height, alpha=True) #, alpha=True, float_buffer=hdr)
-    img.generated_type = 'BLANK'
-    if hasattr(img, 'use_alpha'):
-        img.use_alpha = True
-    if ch.type == 'NORMAL':
-        img.generated_color = (0.5, 0.5, 1.0, 1.0)
-    elif ch.type == 'VALUE':
-        #val = node.inputs[ch.io_index].default_value
-        val = node.inputs[ch.name].default_value
-        img.generated_color = (val, val, val, 1.0)
-    elif ch.enable_alpha:
-        img.generated_color = (0.0, 0.0, 0.0, 1.0)
+    # Image name
+    if segment:
+        img_name = '__TEMP_SEGMENT_'
+        filepath = ''
+    elif not img:
+        img_name = tree.name + ' ' + root_ch.name
+        filepath = ''
     else:
-        #col = node.inputs[ch.io_index].default_value
-        col = node.inputs[ch.name].default_value
-        col = Color((col[0], col[1], col[2]))
-        col = linear_to_srgb(col)
-        img.generated_color = (col.r, col.g, col.b, 1.0)
+        img_name = img.name
+        filepath = img.filepath
 
-    # Set filepath
-    if filepath != '':
-        img.filepath = filepath
+    if not target_layer:
+        # Set nodes
+        baked = tree.nodes.get(root_ch.baked)
+        if not baked:
+            baked = new_node(tree, root_ch, 'baked', 'ShaderNodeTexImage', 'Baked ' + root_ch.name)
+        if hasattr(baked, 'color_space'):
+            if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL':
+                baked.color_space = 'NONE'
+            else: baked.color_space = 'COLOR'
+        
+        # Normal related nodes
+        if root_ch.type == 'NORMAL':
+            baked_normal = tree.nodes.get(root_ch.baked_normal)
+            if not baked_normal:
+                baked_normal = new_node(tree, root_ch, 'baked_normal', 'ShaderNodeNormalMap', 'Baked Normal')
+            baked_normal.uv_map = uv_map
 
-    # Set image to tex node
-    tex.image = img
+            baked_normal_prep = tree.nodes.get(root_ch.baked_normal_prep)
+            if not baked_normal_prep:
+                baked_normal_prep = new_node(tree, root_ch, 'baked_normal_prep', 'ShaderNodeGroup', 
+                        'Baked Normal Preparation')
+                baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
 
-    # Links to bake
-    #rgb = node.outputs[ch.io_index]
-    rgb = node.outputs[ch.name]
-    if ch.type == 'NORMAL':
-        rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
-    if ch.colorspace == 'LINEAR' or ch.type == 'NORMAL':
-        #if bpy.app.version_string.startswith('2.8'):
-        img.colorspace_settings.name = 'Linear'
-        #if not bpy.app.version_string.startswith('2.8'):
-        #    rgb = create_link(mat.node_tree, rgb, srgb2lin.inputs[0])[0]
-    mat.node_tree.links.new(rgb, emit.inputs[0])
+        # Check if image is available
+        if baked.image:
+            img_name = baked.image.name
+            filepath = baked.image.filepath
+            baked.image.name = '____TEMP'
+            #if baked.image.users == 1:
+            #    bpy.data.images.remove(baked.image)
 
-    # Bake!
-    bpy.ops.object.bake()
+    if not img:
+
+        if segment:
+            width = segment.width
+            height = segment.height
+
+        #Create new image
+        img = bpy.data.images.new(name=img_name,
+                width=width, height=height, alpha=True) #, alpha=True, float_buffer=hdr)
+        img.generated_type = 'BLANK'
+
+        if hasattr(img, 'use_alpha'):
+            img.use_alpha = True
+
+        if segment:
+            if source.image.yia.color == 'WHITE':
+                img.generated_color = (1.0, 1.0, 1.0, 1.0)
+            elif source.image.yia.color == 'BLACK':
+                img.generated_color = (0.0, 0.0, 0.0, 1.0)
+            else: img.generated_color = (0.0, 0.0, 0.0, 0.0)
+
+        elif root_ch.type == 'NORMAL':
+            img.generated_color = (0.5, 0.5, 1.0, 1.0)
+
+        elif root_ch.type == 'VALUE':
+            val = node.inputs[root_ch.name].default_value
+            img.generated_color = (val, val, val, 1.0)
+
+        elif root_ch.enable_alpha:
+            img.generated_color = (0.0, 0.0, 0.0, 1.0)
+
+        else:
+            col = node.inputs[root_ch.name].default_value
+            col = Color((col[0], col[1], col[2]))
+            col = linear_to_srgb(col)
+            img.generated_color = (col.r, col.g, col.b, 1.0)
+
+        # Set filepath
+        if filepath != '':
+            img.filepath = filepath
+
+        # Set colorspace to linear
+        if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL':
+            img.colorspace_settings.name = 'Linear'
+
+    # Bake main image
+    if (
+        (target_layer and (root_ch.type != 'NORMAL' or ch.normal_map_type == 'NORMAL_MAP')) or
+        (not target_layer)
+        ):
+
+        # Set image to tex node
+        tex.image = img
+
+        # Links to bake
+        rgb = node.outputs[root_ch.name]
+        if root_ch.type == 'NORMAL':
+            rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
+        #elif root_ch.colorspace != 'LINEAR' and target_layer:
+        #elif target_layer:
+            #rgb = create_link(mat.node_tree, rgb, lin2srgb.inputs[0])[0]
+
+        mat.node_tree.links.new(rgb, emit.inputs[0])
+
+        #return
+
+        # Bake!
+        bpy.ops.object.bake()
+
+    # Bake displacement
+    if root_ch.type == 'NORMAL': # and root_ch.enable_parallax:
+
+        if not target_layer:
+
+            ### Normal overlay only
+            baked_normal_overlay = tree.nodes.get(root_ch.baked_normal_overlay)
+            if not baked_normal_overlay:
+                baked_normal_overlay = new_node(tree, root_ch, 'baked_normal_overlay', 'ShaderNodeTexImage', 
+                        'Baked ' + root_ch.name + ' Overlay Only')
+                if hasattr(baked_normal_overlay, 'color_space'):
+                    baked_normal_overlay.color_space = 'NONE'
+
+            if baked_normal_overlay.image:
+                norm_img_name = baked_normal_overlay.image.name
+                filepath = baked_normal_overlay.image.filepath
+                baked_normal_overlay.image.name = '____NORM_TEMP'
+            else:
+                norm_img_name = tree.name + ' ' + root_ch.name + ' Overlay Only'
+
+            # Create target image
+            norm_img = bpy.data.images.new(name=norm_img_name, width=width, height=height) 
+            norm_img.generated_color = (0.5, 0.5, 1.0, 1.0)
+            norm_img.colorspace_settings.name = 'Linear'
+
+            # Bake setup (doing little bit doing hacky reconnection here)
+            end = tree.nodes.get(TREE_END)
+            ori_soc = end.inputs[root_ch.name].links[0].from_socket
+            end_linear = tree.nodes.get(root_ch.end_linear)
+            soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
+            create_link(tree, soc, end.inputs[root_ch.name])
+            #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
+
+            tex.image = norm_img
+
+            # Bake
+            bpy.ops.object.bake()
+
+            # Recover connection
+            create_link(tree, ori_soc, end.inputs[root_ch.name])
+
+            # Set baked normal overlay image
+            if baked_normal_overlay.image:
+                temp = baked_normal_overlay.image
+                img_users = get_all_image_users(baked_normal_overlay.image)
+                for user in img_users:
+                    user.image = norm_img
+                bpy.data.images.remove(temp)
+            else:
+                baked_normal_overlay.image = norm_img
+
+            ### Displacement
+
+            # Create target image
+            baked_disp = tree.nodes.get(root_ch.baked_disp)
+            if not baked_disp:
+                baked_disp = new_node(tree, root_ch, 'baked_disp', 'ShaderNodeTexImage', 
+                        'Baked ' + root_ch.name + ' Displacement')
+                if hasattr(baked_disp, 'color_space'):
+                    baked_disp.color_space = 'NONE'
+
+            if baked_disp.image:
+                disp_img_name = baked_disp.image.name
+                filepath = baked_disp.image.filepath
+                baked_disp.image.name = '____DISP_TEMP'
+            else:
+                disp_img_name = tree.name + ' ' + root_ch.name + ' Displacement'
+
+            disp_img = bpy.data.images.new(name=disp_img_name, width=width, height=height) 
+            disp_img.generated_color = (0.5, 0.5, 0.5, 1.0)
+            disp_img.colorspace_settings.name = 'Linear'
+        elif ch.normal_map_type == 'BUMP_MAP':
+            disp_img = img
+        else: disp_img = None
+
+        if disp_img:
+
+            # Bake setup
+            # Spread height only created if layer has no parent
+            if target_layer and target_layer.parent_idx == -1:
+                spread_height = mat.node_tree.nodes.new('ShaderNodeGroup')
+                spread_height.node_tree = get_node_tree_lib(lib.SPREAD_NORMALIZED_HEIGHT)
+
+                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], 
+                        spread_height.inputs[0])
+                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], 
+                        spread_height.inputs[1])
+                create_link(mat.node_tree, spread_height.outputs[0], emit.inputs[0])
+
+                #create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], srgb2lin.inputs[0])
+                #create_link(mat.node_tree, srgb2lin.outputs[0], emit.inputs[0])
+            else:
+                spread_height = None
+                create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['HEIGHT']], emit.inputs[0])
+            tex.image = disp_img
+
+            #return
+
+            # Bake
+            bpy.ops.object.bake()
+
+            if not target_layer:
+
+                # Set baked displacement image
+                if baked_disp.image:
+                    temp = baked_disp.image
+                    img_users = get_all_image_users(baked_disp.image)
+                    for user in img_users:
+                        user.image = disp_img
+                    bpy.data.images.remove(temp)
+                else:
+                    baked_disp.image = disp_img
+
+            if spread_height:
+                simple_remove_node(mat.node_tree, spread_height)
 
     # Bake alpha
-    if ch.type == 'RGB' and ch.enable_alpha:
+    #if root_ch.type != 'NORMAL' and root_ch.enable_alpha:
+    if root_ch.enable_alpha:
         # Create temp image
         alpha_img = bpy.data.images.new(name='__TEMP__', width=width, height=height) 
         alpha_img.colorspace_settings.name = 'Linear'
-        create_link(mat.node_tree, node.outputs[ch.name + io_suffix['ALPHA']], emit.inputs[0])
+        create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], emit.inputs[0])
 
         tex.image = alpha_img
+
+        #return
 
         # Bake
         bpy.ops.object.bake()
@@ -446,114 +623,63 @@ def bake_channel(width, height, uv_map, mat, node, ch):
 
         img.pixels = img_pxs
 
+        #return
+
         # Remove temp image
         bpy.data.images.remove(alpha_img)
 
-    # Bake displacement
-    if ch.type == 'NORMAL': # and ch.enable_parallax:
-
-        ### Normal overlay only
-
-        baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-        if not baked_normal_overlay:
-            baked_normal_overlay = new_node(tree, ch, 'baked_normal_overlay', 'ShaderNodeTexImage', 
-                    'Baked ' + ch.name + ' Overlay Only')
-            if hasattr(baked_normal_overlay, 'color_space'):
-                baked_normal_overlay.color_space = 'NONE'
-
-        if baked_normal_overlay.image:
-            norm_img_name = baked_normal_overlay.image.name
-            filepath = baked_normal_overlay.image.filepath
-            baked_normal_overlay.image.name = '____NORM_TEMP'
-        else:
-            norm_img_name = tree.name + ' ' + ch.name + ' Overlay Only'
-
-        # Create target image
-        norm_img = bpy.data.images.new(name=norm_img_name, width=width, height=height) 
-        norm_img.generated_color = (0.5, 0.5, 1.0, 1.0)
-        norm_img.colorspace_settings.name = 'Linear'
-
-        # Bake setup (doing little bit doing hacky reconnection here)
-        end = tree.nodes.get(TREE_END)
-        ori_soc = end.inputs[ch.name].links[0].from_socket
-        end_linear = tree.nodes.get(ch.end_linear)
-        soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
-        create_link(tree, soc, end.inputs[ch.name])
-        #create_link(mat.node_tree, node.outputs[ch.name], emit.inputs[0])
-
-        tex.image = norm_img
-
-        # Bake
-        bpy.ops.object.bake()
-
-        # Recover connection
-        create_link(tree, ori_soc, end.inputs[ch.name])
-
-        # Set baked normal overlay image
-        if baked_normal_overlay.image:
-            temp = baked_normal_overlay.image
-            img_users = get_all_image_users(baked_normal_overlay.image)
+    if not target_layer:
+        # Set image to baked node and replace all previously original users
+        if baked.image:
+            temp = baked.image
+            img_users = get_all_image_users(baked.image)
             for user in img_users:
-                user.image = norm_img
+                user.image = img
             bpy.data.images.remove(temp)
         else:
-            baked_normal_overlay.image = norm_img
-
-        ### Displacement
-
-        baked_disp = tree.nodes.get(ch.baked_disp)
-        if not baked_disp:
-            baked_disp = new_node(tree, ch, 'baked_disp', 'ShaderNodeTexImage', 
-                    'Baked ' + ch.name + ' Displacement')
-            if hasattr(baked_disp, 'color_space'):
-                baked_disp.color_space = 'NONE'
-
-        if baked_disp.image:
-            disp_img_name = baked_disp.image.name
-            filepath = baked_disp.image.filepath
-            baked_disp.image.name = '____DISP_TEMP'
-        else:
-            disp_img_name = tree.name + ' ' + ch.name + ' Displacement'
-
-        # Create target image
-        disp_img = bpy.data.images.new(name=disp_img_name, width=width, height=height) 
-        disp_img.generated_color = (0.5, 0.5, 0.5, 1.0)
-        disp_img.colorspace_settings.name = 'Linear'
-
-        # Bake setup
-        create_link(mat.node_tree, node.outputs[ch.name + io_suffix['HEIGHT']], emit.inputs[0])
-        tex.image = disp_img
-
-        # Bake
-        bpy.ops.object.bake()
-
-        # Set baked displacement image
-        if baked_disp.image:
-            temp = baked_disp.image
-            img_users = get_all_image_users(baked_disp.image)
-            for user in img_users:
-                user.image = disp_img
-            bpy.data.images.remove(temp)
-        else:
-            baked_disp.image = disp_img
-
-    # Set image to baked node and replace all previously original users
-    if baked.image:
-        temp = baked.image
-        img_users = get_all_image_users(baked.image)
-        for user in img_users:
-            user.image = img
-        bpy.data.images.remove(temp)
-    else:
-        baked.image = img
+            baked.image = img
 
     simple_remove_node(mat.node_tree, tex)
     simple_remove_node(mat.node_tree, emit)
-    if ch.type == 'NORMAL':
+    #simple_remove_node(mat.node_tree, lin2srgb)
+    #simple_remove_node(mat.node_tree, srgb2lin)
+    if root_ch.type == 'NORMAL':
         simple_remove_node(mat.node_tree, norm)
 
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+
+    # Set image to target layer
+    if target_layer:
+        ori_img = source.image
+
+        if segment:
+            start_x = width * segment.tile_x
+            start_y = height * segment.tile_y
+
+            target_pxs = list(ori_img.pixels)
+            temp_pxs = list(img.pixels)
+
+            for y in range(height):
+                temp_offset_y = width * 4 * y
+                offset_y = ori_img.size[0] * 4 * (y + start_y)
+                for x in range(width):
+                    temp_offset_x = 4 * x
+                    offset_x = 4 * (x + start_x)
+                    for i in range(4):
+                        target_pxs[offset_y + offset_x + i] = temp_pxs[temp_offset_y + temp_offset_x + i]
+
+            ori_img.pixels = target_pxs
+
+            # Remove temp image
+            bpy.data.images.remove(img)
+        else:
+            source.image = img
+
+            if ori_img.users == 0:
+                bpy.data.images.remove(ori_img)
+
+        return True
 
 class YBakeToLayer(bpy.types.Operator):
     bl_idname = "node.y_bake_to_layer"
@@ -647,9 +773,7 @@ class YBakeToLayer(bpy.types.Operator):
         self.normal_map_type = 'BUMP_MAP'
 
         # Use active uv layer name by default
-        if hasattr(obj.data, 'uv_textures'):
-            uv_layers = self.uv_layers = obj.data.uv_textures
-        else: uv_layers = self.uv_layers = obj.data.uv_layers
+        uv_layers = get_uv_layers(obj)
 
         # UV Map collections update
         self.uv_map_coll.clear()
@@ -824,7 +948,7 @@ class YBakeToLayer(bpy.types.Operator):
             context.scene.cycles.samples = 1
 
             # Bake height channel
-            bake_channel(disp_width, disp_height, disp_uv, mat, node, height_root_ch)
+            bake_channel(disp_uv, mat, node, height_root_ch, disp_width, disp_height)
 
             # Set baked name
             if yp.baked_uv_name == '':
@@ -1008,9 +1132,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         scene = self.scene = context.scene
 
         # Use active uv layer name by default
-        if hasattr(obj.data, 'uv_textures'):
-            uv_layers = self.uv_layers = obj.data.uv_textures
-        else: uv_layers = self.uv_layers = obj.data.uv_layers
+        uv_layers = get_uv_layers(obj)
 
         # UV Map collections update
         self.uv_map_coll.clear()
@@ -1117,9 +1239,7 @@ class YTransferLayerUV(bpy.types.Operator):
             return self.execute(context)
 
         # Use active uv layer name by default
-        if hasattr(obj.data, 'uv_textures'):
-            uv_layers = self.uv_layers = obj.data.uv_textures
-        else: uv_layers = self.uv_layers = obj.data.uv_layers
+        uv_layers = get_uv_layers(obj)
 
         # UV Map collections update
         self.uv_map_coll.clear()
@@ -1345,9 +1465,7 @@ class YResizeImage(bpy.types.Operator):
 
         # If using image atlas, transform uv
         if segment:
-            if bpy.app.version_string.startswith('2.8'):
-                uv_layers = plane_obj.data.uv_layers
-            else: uv_layers = plane_obj.data.uv_textures
+            uv_layers = get_uv_layers(plane_obj)
 
             # Transform current uv using previous segment
             #uv_layer = uv_layers.active
@@ -1509,9 +1627,7 @@ class YBakeChannels(bpy.types.Operator):
         scene = self.scene = context.scene
 
         # Use active uv layer name by default
-        if hasattr(obj.data, 'uv_textures'):
-            uv_layers = self.uv_layers = obj.data.uv_textures
-        else: uv_layers = self.uv_layers = obj.data.uv_layers
+        uv_layers = get_uv_layers(obj)
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(uv_layers) > 0:
@@ -1596,7 +1712,7 @@ class YBakeChannels(bpy.types.Operator):
 
         # Bake channels
         for ch in yp.channels:
-            bake_channel(self.width, self.height, self.uv_map, mat, node, ch)
+            bake_channel(self.uv_map, mat, node, ch, self.width, self.height)
 
         # Set baked uv
         yp.baked_uv_name = self.uv_map
@@ -1627,6 +1743,403 @@ class YBakeChannels(bpy.types.Operator):
         reconnect_yp_nodes(tree)
 
         print('INFO:', tree.name, 'channels is baked at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+
+        return {'FINISHED'}
+
+def merge_channel_items(self, context):
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
+    layer = yp.layers[yp.active_layer_index]
+    #layer = self.layer
+    #neighbor_layer = self.neighbor_layer
+
+    items = []
+
+    counter = 0
+    for i, ch in enumerate(yp.channels):
+        if not layer.channels[i].enable: continue
+        if hasattr(lib, 'custom_icons'):
+            icon_name = lib.channel_custom_icon_dict[ch.type]
+            items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, counter))
+        else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], counter))
+        counter += 1
+
+    return items
+
+def remember_and_disable_layer_modifiers_and_transforms(layer, disable_masks=False):
+    yp = layer.id_data.yp
+
+    oris = {}
+
+    oris['mods'] = []
+    for mod in layer.modifiers:
+        oris['mods'].append(mod.enable)
+        mod.enable = False
+
+    oris['ch_mods'] = {}
+    oris['ch_trans_bumps'] = []
+    oris['ch_trans_aos'] = []
+    oris['ch_trans_ramps'] = []
+
+    for i, c in enumerate(layer.channels):
+        rch = yp.channels[i]
+        ch_name = rch.name
+
+        oris['ch_mods'][ch_name] = []
+        for mod in c.modifiers:
+            oris['ch_mods'][ch_name].append(mod.enable)
+            mod.enable = False
+
+        oris['ch_trans_bumps'].append(c.enable_transition_bump)
+        oris['ch_trans_aos'].append(c.enable_transition_ao)
+        oris['ch_trans_ramps'].append(c.enable_transition_ramp)
+
+        if rch.type == 'NORMAL':
+            if c.enable_transition_bump:
+                c.enable_transition_bump = False
+        else:
+            if c.enable_transition_ao:
+                c.enable_transition_ao = False
+            if c.enable_transition_ramp:
+                c.enable_transition_ramp = False
+
+    oris['masks'] = []
+    for i, m in enumerate(layer.masks):
+        oris['masks'].append(m.enable)
+        if m.enable and disable_masks:
+            m.enable = False
+
+    return oris
+
+def recover_layer_modifiers_and_transforms(layer, oris):
+    yp = layer.id_data.yp
+
+    # Recover original layer modifiers
+    for i, mod in enumerate(layer.modifiers):
+        mod.enable = oris['mods'][i]
+
+    for i, c in enumerate(layer.channels):
+        rch = yp.channels[i]
+        ch_name = rch.name
+
+        # Recover original channel modifiers
+        for j, mod in enumerate(c.modifiers):
+            mod.enable = oris['ch_mods'][ch_name][j]
+
+        # Recover original channel transition effects
+        if rch.type == 'NORMAL':
+            if oris['ch_trans_bumps'][i]:
+                c.enable_transition_bump = oris['ch_trans_bumps'][i]
+        else:
+            if oris['ch_trans_aos'][i]:
+                c.enable_transition_ao = oris['ch_trans_aos'][i]
+            if oris['ch_trans_ramps'][i]:
+                c.enable_transition_ramp = oris['ch_trans_ramps'][i]
+
+    for i, m in enumerate(layer.masks):
+        if oris['masks'][i] != m.enable:
+            m.enable = oris['masks'][i]
+
+def remove_layer_modifiers_and_transforms(layer):
+    yp = layer.id_data.yp
+
+    # Remove layer modifiers
+    for i, mod in reversed(list(enumerate(layer.modifiers))):
+
+        # Delete the nodes
+        mod_tree = get_mod_tree(layer)
+        Modifier.delete_modifier_nodes(mod_tree, mod)
+        layer.modifiers.remove(i)
+
+    for i, c in enumerate(layer.channels):
+        rch = yp.channels[i]
+        ch_name = rch.name
+
+        # Remove channel modifiers
+        for j, mod in reversed(list(enumerate(c.modifiers))):
+
+            # Delete the nodes
+            mod_tree = get_mod_tree(c)
+            Modifier.delete_modifier_nodes(mod_tree, mod)
+            c.modifiers.remove(j)
+
+        # Remove channel transition effects
+        if rch.type == 'NORMAL' and c.enable_transition_bump: 
+            c.enable_transition_bump = False
+            c.show_transition_bump = False
+        else:
+            if c.enable_transition_ao:
+                c.enable_transition_ao = False
+                c.show_transition_ao = False
+            if c.enable_transition_ramp:
+                c.enable_transition_ramp = False
+                c.show_transition_ramp = False
+
+    # Remove layer masks
+    for i, m in enumerate(layer.masks):
+        Mask.remove_mask(layer, m, bpy.context.object)
+
+class YMergeLayer(bpy.types.Operator):
+    bl_idname = "node.y_merge_layer"
+    bl_label = "Merge layer"
+    bl_description = "Merge Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    direction = EnumProperty(
+            name = 'Direction',
+            items = (('UP', 'Up', ''),
+                     ('DOWN', 'Down', '')),
+            default = 'UP')
+
+    channel_idx = EnumProperty(
+            name = 'Channel',
+            description = 'Channel for merge reference',
+            items = merge_channel_items)
+            #update=update_channel_idx_new_layer)
+
+    apply_modifiers = BoolProperty(
+            name = 'Apply Layer Modifiers',
+            description = 'Apply layer modifiers',
+            default = False)
+
+    apply_neighbor_modifiers = BoolProperty(
+            name = 'Apply Neighbor Modifiers',
+            description = 'Apply neighbor modifiers',
+            default = True)
+
+    height_aware = BoolProperty(
+            name = 'Height Aware',
+            description = 'Height will take account for merge',
+            default = True)
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return (context.object and group_node and len(group_node.node_tree.yp.layers) > 0 
+                and len(group_node.node_tree.yp.channels) > 0)
+
+    def invoke(self, context, event):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        # Get active layer
+        layer_idx = self.layer_idx = yp.active_layer_index
+        layer = self.layer = yp.layers[layer_idx]
+
+        self.error_message = ''
+
+        enabled_chs =  [ch for ch in layer.channels if ch.enable]
+        if not any(enabled_chs):
+            self.error_message = "Need at least one layer channel enabled!"
+
+        if self.direction == 'UP':
+            neighbor_idx, neighbor_layer = self.neighbor_idx, self.neighbor_layer = get_upper_neighbor(layer)
+        elif self.direction == 'DOWN':
+            neighbor_idx, neighbor_layer = self.neighbor_idx, self.neighbor_layer = get_lower_neighbor(layer)
+
+        if not neighbor_layer:
+            self.error_message = "No neighbor found!"
+
+        elif not neighbor_layer.enable or not layer.enable:
+            self.error_message = "Both layer should be enabled!"
+
+        elif neighbor_layer.parent_idx != layer.parent_idx:
+            self.error_message = "Cannot merge with layer with different parent!"
+
+        elif neighbor_layer.type == 'GROUP' or layer.type == 'GROUP':
+            self.error_message = "Merge doesn't works with layer group!"
+
+        # Get height channnel
+        height_root_ch = self.height_root_ch = get_root_height_channel(yp)
+        height_ch_idx = self.height_ch_idx = get_channel_index(height_root_ch)
+
+        if height_root_ch and neighbor_layer:
+            height_ch = self.height_ch = layer.channels[height_ch_idx] 
+            neighbor_height_ch = self.neighbor_height_ch = neighbor_layer.channels[height_ch_idx] 
+
+            if (layer.channels[height_ch_idx].enable and 
+                neighbor_layer.channels[height_ch_idx].enable):
+                if height_ch.normal_map_type != neighbor_height_ch.normal_map_type:
+                    self.error_message =  "These two layers has different normal map type!"
+        else:
+            height_ch = self.height_ch = None
+            neighbor_height_ch = self.neighbor_height_ch = None
+
+        # Get source
+        self.source = get_layer_source(layer)
+
+        if layer.type == 'IMAGE':
+            if not self.source.image:
+                self.error_message = "This layer has no image!"
+
+        if self.error_message != '':
+            return self.execute(context)
+
+        # Set default value for channel index
+        for i, c in enumerate(layer.channels):
+            nc = neighbor_layer.channels[i]
+            if c.enable and nc.enable:
+                self.channel_idx = str(i)
+                break
+
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def draw(self, context):
+        #col = self.layout.column()
+        if bpy.app.version_string.startswith('2.8'):
+            row = self.layout.split(factor=0.5)
+        else: row = self.layout.split(percentage=0.5)
+
+        col = row.column(align=False)
+        col.label(text='Main Channel:')
+        col.label(text='Apply Modifiers:')
+        col.label(text='Apply Neighbor Modifiers:')
+
+        col = row.column(align=False)
+        col.prop(self, 'channel_idx', text='')
+        col.prop(self, 'apply_modifiers', text='')
+        col.prop(self, 'apply_neighbor_modifiers', text='')
+
+    def execute(self, context):
+        T = time.time()
+
+        wm = context.window_manager
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+        obj = context.object
+        mat = obj.active_material
+        scene = context.scene
+
+        if self.error_message != '':
+            self.report({'ERROR'}, self.error_message)
+            return {'CANCELLED'}
+
+        # Localize variables
+        layer = self.layer
+        layer_idx = self.layer_idx
+        neighbor_layer = self.neighbor_layer
+        neighbor_idx = self.neighbor_idx
+        source = self.source
+
+        # Height channel
+        height_root_ch = self.height_root_ch
+        height_ch = self.height_ch
+        neighbor_height_ch = self.neighbor_height_ch
+
+        # Get main reference channel
+        main_ch = yp.channels[int(self.channel_idx)]
+        ch = layer.channels[int(self.channel_idx)]
+        neighbor_ch = neighbor_layer.channels[int(self.channel_idx)]
+
+        # Get parent dict
+        parent_dict = get_parent_dict(yp)
+
+        # Check layer
+        if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
+
+            self.scene = context.scene
+            self.samples = 1
+            self.margin = 5
+            self.uv_map = layer.uv_name
+            self.obj = obj
+
+            remember_before_bake(self, context, yp)
+            prepare_bake_settings(self, context, yp)
+
+            #yp.halt_update = True
+
+            # Ge list of parent ids
+            #pids = get_list_of_parent_ids(layer)
+
+            # Disable other layers
+            #layer_oris = []
+            #for i, l in enumerate(yp.layers):
+            #    layer_oris.append(l.enable)
+            #    #if i in pids:
+            #    #    l.enable = True
+            #    if l not in {layer, neighbor_layer}:
+            #        l.enable = False
+
+            # Get max height
+            if height_root_ch and main_ch.type == 'NORMAL':
+                end_max_height = tree.nodes.get(height_root_ch.end_max_height)
+                ori_max_height = end_max_height.outputs[0].default_value
+                max_height = get_max_height_from_list_of_layers([layer, neighbor_layer], int(self.channel_idx))
+                end_max_height.outputs[0].default_value = max_height
+
+            # Disable modfiers and transformations if apply modifiers is not enabled
+            if not self.apply_modifiers:
+                mod_oris = remember_and_disable_layer_modifiers_and_transforms(layer, True)
+
+            if not self.apply_neighbor_modifiers:
+                neighbor_oris = remember_and_disable_layer_modifiers_and_transforms(neighbor_layer, False)
+
+            # Make sure to Use mix on layer channel
+            if main_ch.type != 'NORMAL':
+                ori_blend_type = ch.blend_type
+                ch.blend_type = 'MIX'
+            else:
+                ori_blend_type = ch.normal_blend_type
+                ch.normal_blend_type = 'MIX'
+
+            #yp.halt_update = False
+
+            # Enable alpha on main channel (will also update all the nodes)
+            ori_enable_alpha = main_ch.enable_alpha
+            main_ch.enable_alpha = True
+
+            # Reconnect tree with merged layer ids
+            reconnect_yp_nodes(tree, [layer_idx, neighbor_idx])
+
+            # Bake main channel
+            merge_success = bake_channel(layer.uv_name, mat, node, main_ch, target_layer=layer)
+            #return {'FINISHED'}
+
+            # Recover bake settings
+            recover_bake_settings(self, context, yp)
+
+            if not self.apply_modifiers:
+                recover_layer_modifiers_and_transforms(layer, mod_oris)
+            else: remove_layer_modifiers_and_transforms(layer)
+
+            # Recover layer enable
+            #for i, le in enumerate(layer_oris):
+            #    if yp.layers[i].enable != le:
+            #        yp.layers[i].enable = le
+
+            # Recover max height
+            if height_root_ch and main_ch.type == 'NORMAL':
+                end_max_height.outputs[0].default_value = ori_max_height
+
+            # Recover original props
+            main_ch.enable_alpha = ori_enable_alpha
+            if main_ch.type != 'NORMAL':
+                ch.blend_type = ori_blend_type
+            else: ch.normal_blend_type = ori_blend_type
+
+            if merge_success:
+                # Remove neighbor layer
+                Layer.remove_layer(yp, neighbor_idx)
+
+                if height_ch and main_ch.type == 'NORMAL' and height_ch.normal_map_type == 'BUMP_MAP':
+                    height_ch.bump_distance = max_height
+
+                rearrange_yp_nodes(tree)
+                reconnect_yp_nodes(tree)
+
+                # Refresh index routine
+                yp.active_layer_index = min(layer_idx, neighbor_idx)
+            else:
+                self.report({'ERROR'}, "Merge failed for some reason!")
+                return {'CANCELLED'}
+            
+        #elif (layer.type == 'COLOR' and neighbor_layer.type == 'COLOR' 
+        #        and len(layer.masks) != 0 and len(neighbor_layer.masks) == len(layer.masks)):
+        #    pass
+        else:
+            self.report({'ERROR'}, "This kind of merge is not supported yet (or ever)!")
+            return {'CANCELLED'}
 
         return {'FINISHED'}
 
@@ -1938,6 +2451,7 @@ def register():
     bpy.utils.register_class(YTransferLayerUV)
     bpy.utils.register_class(YResizeImage)
     bpy.utils.register_class(YBakeChannels)
+    bpy.utils.register_class(YMergeLayer)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
@@ -1945,3 +2459,4 @@ def unregister():
     bpy.utils.unregister_class(YTransferLayerUV)
     bpy.utils.unregister_class(YResizeImage)
     bpy.utils.unregister_class(YBakeChannels)
+    bpy.utils.unregister_class(YMergeLayer)

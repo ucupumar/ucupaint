@@ -524,27 +524,20 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
             if len(channel.modifiers) > 0:
                 brow.label(text='', icon='BLANK1')
 
-            if channel.type == 'RGB':
-                brow = bcol.row(align=True)
-                brow.label(text='', icon='INFO')
-                if channel.enable_alpha:
-                    inp_alpha = node.inputs[channel.io_index+1]
-                    #brow = bcol.row(align=True)
-                    #brow.label(text='', icon='BLANK1')
-                    brow.label(text='Base Alpha:')
-                    if len(node.inputs[channel.io_index+1].links)==0:
-                        #if BLENDER_28_GROUP_INPUT_HACK:
-                        #    brow.prop(channel,'val_input', text='')
-                        #else:
-                        brow.prop(inp_alpha, 'default_value', text='')
-                    else:
-                        brow.label(text='', icon='LINKED')
-                else:
-                    brow.label(text='Alpha:')
-                brow.prop(channel, 'enable_alpha', text='')
+            #if channel.type == 'RGB':
+            brow = bcol.row(align=True)
+            brow.label(text='', icon='INFO')
+            if channel.enable_alpha:
+                inp_alpha = node.inputs[channel.io_index+1]
+                brow.label(text='Base Alpha:')
+                if len(node.inputs[channel.io_index+1].links)==0:
+                    brow.prop(inp_alpha, 'default_value', text='')
+                else: brow.label(text='', icon='LINKED')
+            else: brow.label(text='Alpha:')
+            brow.prop(channel, 'enable_alpha', text='')
 
-                #if len(channel.modifiers) > 0:
-                #    brow.label(text='', icon='BLANK1')
+            #if len(channel.modifiers) > 0:
+            #    brow.label(text='', icon='BLANK1')
 
             if channel.type == 'NORMAL':
                 brow = bcol.row(align=True)
@@ -2311,7 +2304,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
 
         # Debug parent
-        row.label(text=str(index) + ' (' + str(layer.parent_idx) + ')')
+        #row.label(text=str(index) + ' (' + str(layer.parent_idx) + ')')
 
         # Active image/layer label
         if len(editable_masks) > 0:
@@ -2584,38 +2577,49 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         return get_active_ypaint_node()
 
     def draw(self, context):
-        #self.layout.context_pointer_set('space_data', context.screen.areas[6].spaces[0])
-        #self.layout.operator('image.save_as', icon='FILE_TICK')
-        if hasattr(context, 'image') and context.image:
-            self.layout.label(text='Active Image: ' + context.image.name, icon='IMAGE_DATA')
-        else:
-            self.layout.label(text='No active image')
 
-        #self.layout.separator()
-        #self.layout.operator('node.y_transfer_layer_uv', text='Transfer Active Layer UV', icon='GROUP_UVS')
-        #self.layout.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon='GROUP_UVS')
+        row = self.layout.row()
+        col = row.column()
+        
+        col.operator('node.y_merge_layer', text='Merge Up', icon='TRIA_UP').direction = 'UP'
+        col.operator('node.y_merge_layer', text='Merge Down', icon='TRIA_DOWN').direction = 'DOWN'
+
+        col.separator()
+
+        col = row.column()
+
+        #col.context_pointer_set('space_data', context.screen.areas[6].spaces[0])
+        #col.operator('image.save_as', icon='FILE_TICK')
+        if hasattr(context, 'image') and context.image:
+            col.label(text='Active Image: ' + context.image.name, icon='IMAGE_DATA')
+        else:
+            col.label(text='No active image')
+
+        #col.separator()
+        #col.operator('node.y_transfer_layer_uv', text='Transfer Active Layer UV', icon='GROUP_UVS')
+        #col.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon='GROUP_UVS')
         
         #if hasattr(context, 'image') and context.image:
-        self.layout.separator()
-        self.layout.operator('node.y_resize_image', text='Resize Image', icon='FULLSCREEN_ENTER')
+        col.separator()
+        col.operator('node.y_resize_image', text='Resize Image', icon='FULLSCREEN_ENTER')
 
-        self.layout.separator()
-        self.layout.operator('node.y_pack_image', icon='PACKAGE')
-        self.layout.operator('node.y_save_image', icon='FILE_TICK')
+        col.separator()
+        col.operator('node.y_pack_image', icon='PACKAGE')
+        col.operator('node.y_save_image', icon='FILE_TICK')
         if hasattr(context, 'image') and context.image.packed_file:
-            self.layout.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
+            col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
         else:
             if bpy.app.version_string.startswith('2.8'):
-                self.layout.operator('node.y_save_as_image', text='Save As Image')
-                self.layout.operator('node.y_save_pack_all', text='Save/Pack All')
+                col.operator('node.y_save_as_image', text='Save As Image')
+                col.operator('node.y_save_pack_all', text='Save/Pack All')
             else: 
-                self.layout.operator('node.y_save_as_image', text='Save As Image', icon='SAVE_AS')
-                self.layout.operator('node.y_save_pack_all', text='Save/Pack All', icon='FILE_TICK')
+                col.operator('node.y_save_as_image', text='Save As Image', icon='SAVE_AS')
+                col.operator('node.y_save_pack_all', text='Save/Pack All', icon='FILE_TICK')
 
-        self.layout.separator()
-        self.layout.operator("node.y_reload_image", icon='FILE_REFRESH')
-        self.layout.separator()
-        self.layout.operator("node.y_invert_image", icon='IMAGE_ALPHA')
+        col.separator()
+        col.operator("node.y_reload_image", icon='FILE_REFRESH')
+        col.separator()
+        col.operator("node.y_invert_image", icon='IMAGE_ALPHA')
 
 class YUVSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_uv_special_menu"

@@ -2452,6 +2452,9 @@ def update_layer_enable(self, context):
 
     #for ch in layer.channels:
     #    update_channel_enable(ch, context)
+    height_root_ch = get_root_height_channel(yp)
+    if height_root_ch:
+        update_displacement_height_ratio(height_root_ch)
 
     #if yp.disable_quick_toggle:
     rearrange_yp_nodes(layer.id_data)

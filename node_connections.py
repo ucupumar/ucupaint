@@ -177,18 +177,18 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
 
     return rgb, alpha
 
-def get_channel_inputs_length(yp, layer=None):
-    length = 0
-    for ch in yp.channels:
-        length += 1
-
-        if (ch.type == 'RGB' and ch.enable_alpha) or (layer and layer.parent_idx != -1):
-            length += 1
-
-        if ch.type == 'NORMAL' and ch.enable_parallax:
-            length += 1
-
-    return length
+#def get_channel_inputs_length(yp, layer=None):
+#    length = 0
+#    for ch in yp.channels:
+#        length += 1
+#
+#        if (ch.type == 'RGB' and ch.enable_alpha) or (layer and layer.parent_idx != -1):
+#            length += 1
+#
+#        if ch.type == 'NORMAL' and ch.enable_parallax:
+#            length += 1
+#
+#    return length
 
 def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
 
@@ -855,7 +855,8 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
 
                 break
 
-def reconnect_yp_nodes(tree, ch_idx=-1):
+#def reconnect_yp_nodes(tree, ch_idx=-1):
+def reconnect_yp_nodes(tree, merged_layer_ids = []):
     yp = tree.yp
     nodes = tree.nodes
 
@@ -972,7 +973,7 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
     #print()
 
     for i, ch in enumerate(yp.channels):
-        if ch_idx != -1 and i != ch_idx: continue
+        #if ch_idx != -1 and i != ch_idx: continue
 
         start_linear = nodes.get(ch.start_linear)
         end_linear = nodes.get(ch.end_linear)
@@ -992,7 +993,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
         io_height_ew_name = ch.name + io_suffix['HEIGHT_EW']
 
         rgb = start.outputs[io_name]
-        if ch.enable_alpha and ch.type == 'RGB':
+        #if ch.enable_alpha and ch.type == 'RGB':
+        if ch.enable_alpha:
             alpha = start.outputs[io_alpha_name]
         else: alpha = one_value.outputs[0]
 
@@ -1035,7 +1037,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             node = nodes.get(layer.group_node)
 
             #if yp.disable_quick_toggle and not layer.enable:
-            if not layer.enable:
+            if ((merged_layer_ids and j not in merged_layer_ids) or not layer.enable):
+            #if not layer.enable:
                 for inp in node.inputs:
                     break_input_link(tree, inp)
                 for outp in node.outputs:
@@ -1112,7 +1115,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     if inp_height:
                         break_input_link(tree, inp_height)
 
-            if layer.parent_idx != -1: continue
+            # Merge process doesn't care with parents
+            if not merged_layer_ids and layer.parent_idx != -1: continue
 
             # Group node with no children need normal input connected
             if layer.type == 'GROUP' and not has_childrens(layer):
@@ -1120,7 +1124,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     create_link(tree, geometry.outputs['Normal'], node.inputs[ch.name + io_suffix['GROUP']])
 
             rgb = create_link(tree, rgb, node.inputs[io_name])[io_name]
-            if ch.type =='RGB' and ch.enable_alpha:
+            #if ch.type =='RGB' and ch.enable_alpha:
+            if ch.enable_alpha:
                 alpha = create_link(tree, alpha, node.inputs[io_alpha_name])[io_alpha_name]
 
             if height_ons:
@@ -1154,7 +1159,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
             if baked:
                 rgb = baked.outputs[0]
 
-                if ch.type == 'RGB' and ch.enable_alpha:
+                #if ch.type == 'RGB' and ch.enable_alpha:
+                if ch.enable_alpha:
                     alpha = baked.outputs[1]
 
                 create_link(tree, baked_uv_map, baked.inputs[0])
@@ -1179,7 +1185,8 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     create_link(tree, baked_uv_map, baked_disp.inputs[0])
 
         create_link(tree, rgb, end.inputs[io_name])
-        if ch.type == 'RGB' and ch.enable_alpha:
+        #if ch.type == 'RGB' and ch.enable_alpha:
+        if ch.enable_alpha:
             create_link(tree, alpha, end.inputs[io_alpha_name])
         if ch.type == 'NORMAL': #and ch.enable_parallax:
             create_link(tree, height, end.inputs[io_height_name])
@@ -1189,6 +1196,9 @@ def reconnect_yp_nodes(tree, ch_idx=-1):
                     create_link(tree, end_max_height_tweak.outputs[0], end.inputs[ch.name + io_suffix['MAX_HEIGHT']])
                 else:
                     create_link(tree, end_max_height.outputs[0], end.inputs[ch.name + io_suffix['MAX_HEIGHT']])
+
+    # Merge process doesn't care with parents
+    if merged_layer_ids: return
 
     # List of last members
     last_members = []
@@ -2496,7 +2506,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             else: blend_type = ch.blend_type
 
         if (
-                (blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
+                #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
+                (blend_type == 'MIX' and (has_parent or root_ch.enable_alpha))
                 or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
             ):
 
@@ -2522,7 +2533,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         next_alpha = end.inputs.get(root_ch.name + io_suffix['ALPHA'])
         if next_alpha:
             if (
-                (blend_type != 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
+                #(blend_type != 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
+                (blend_type != 'MIX' and (has_parent or root_ch.enable_alpha))
                 and not (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
                 #or (has_parent and root_ch.type == 'NORMAL' and not ch.write_height)
                 ):

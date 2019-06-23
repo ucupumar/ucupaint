@@ -434,13 +434,13 @@ def set_transition_bump_nodes(layer, tree, ch, ch_index):
                 c.enable_transition_bump = False
                 yp.halt_update = False
 
-    if root_ch.enable_smooth_bump:
-        remove_node(tree, ch, 'tb_bump_flip')
-    else:
-        tb_bump_flip = replace_new_node(tree, ch, 'tb_bump_flip', 'ShaderNodeGroup', 
-                'Transition Bump Backface Flip', lib.FLIP_BACKFACE_BUMP)
+    #if root_ch.enable_smooth_bump:
+    #    remove_node(tree, ch, 'tb_bump_flip')
+    #else:
+    #    tb_bump_flip = replace_new_node(tree, ch, 'tb_bump_flip', 'ShaderNodeGroup', 
+    #            'Transition Bump Backface Flip', lib.FLIP_BACKFACE_BUMP)
 
-        set_bump_backface_flip(tb_bump_flip, yp.enable_backface_always_up)
+    #    set_bump_backface_flip(tb_bump_flip, yp.enable_backface_always_up)
 
     # Add inverse
     tb_inverse = tree.nodes.get(ch.tb_inverse)

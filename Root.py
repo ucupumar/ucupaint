@@ -57,7 +57,8 @@ def check_all_channel_ios(yp, reconnect=True):
         input_index += 1
         output_index += 1
 
-        if ch.type == 'RGB' and ch.enable_alpha:
+        #if ch.type == 'RGB' and ch.enable_alpha:
+        if ch.enable_alpha:
 
             name = ch.name + io_suffix['ALPHA']
 
@@ -159,9 +160,6 @@ def set_input_default_value(group_node, channel, custom_value=None):
         #group_node.inputs[channel.io_index].default_value = (1,1,1,1)
         group_node.inputs[channel.name].default_value = (1,1,1,1)
 
-        if channel.enable_alpha:
-            #group_node.inputs[channel.io_index+1].default_value = 1.0
-            group_node.inputs[channel.name + io_suffix['ALPHA']].default_value = 1.0
     if channel.type == 'VALUE':
         #group_node.inputs[channel.io_index].default_value = 0.0
         group_node.inputs[channel.name].default_value = 0.0
@@ -169,6 +167,10 @@ def set_input_default_value(group_node, channel, custom_value=None):
         # Use 999 as normal z value so it will fallback to use geometry normal at checking process
         #group_node.inputs[channel.io_index].default_value = (999,999,999)
         group_node.inputs[channel.name].default_value = (999,999,999)
+
+    if channel.enable_alpha:
+        #group_node.inputs[channel.io_index+1].default_value = 1.0
+        group_node.inputs[channel.name + io_suffix['ALPHA']].default_value = 1.0
 
 def create_yp_channel_nodes(group_tree, channel, channel_idx):
     yp = group_tree.yp
@@ -782,16 +784,16 @@ class YNewYPaintChannel(bpy.types.Operator):
             mat.node_tree.links.new(node.outputs[channel.name], inp)
 
             # Search for possible alpha input
-            if self.type == 'RGB':
-                for l in target_node.outputs[0].links:
-                    if l.to_node.type == 'MIX_SHADER' and not any([m for m in l.to_node.inputs[0].links]):
-                        for n in l.to_node.inputs[1].links:
-                            if n.from_node.type == 'BSDF_TRANSPARENT':
-                                channel.enable_alpha = True
-                                #mat.node_tree.links.new(node.outputs[channel.io_index+1], l.to_node.inputs[0])
-                                mat.node_tree.links.new(
-                                        node.outputs[channel.name+io_suffix['ALPHA']], l.to_node.inputs[0])
-                                channel.enable_alpha = False
+            #if self.type == 'RGB':
+            for l in target_node.outputs[0].links:
+                if l.to_node.type == 'MIX_SHADER' and not any([m for m in l.to_node.inputs[0].links]):
+                    for n in l.to_node.inputs[1].links:
+                        if n.from_node.type == 'BSDF_TRANSPARENT':
+                            channel.enable_alpha = True
+                            #mat.node_tree.links.new(node.outputs[channel.io_index+1], l.to_node.inputs[0])
+                            mat.node_tree.links.new(
+                                    node.outputs[channel.name+io_suffix['ALPHA']], l.to_node.inputs[0])
+                            channel.enable_alpha = False
 
         # Set input default value
         if inp and self.type != 'NORMAL': 
@@ -1424,13 +1426,21 @@ def update_channel_name(self, context):
     group_tree.inputs[self.io_index].name = self.name
     group_tree.outputs[self.io_index].name = self.name
 
-    if self.type == 'RGB' and self.enable_alpha:
-        group_tree.inputs[self.io_index+1].name = self.name + io_suffix['ALPHA']
-        group_tree.outputs[self.io_index+1].name = self.name + io_suffix['ALPHA']
+    shift = 1
+    #if self.type == 'RGB' and self.enable_alpha:
+    if self.enable_alpha:
+        group_tree.inputs[self.io_index+shift].name = self.name + io_suffix['ALPHA']
+        group_tree.outputs[self.io_index+shift].name = self.name + io_suffix['ALPHA']
+        shift += 1
 
     if self.type == 'NORMAL': # and self.enable_parallax:
-        group_tree.inputs[self.io_index+1].name = self.name + io_suffix['HEIGHT']
-        group_tree.outputs[self.io_index+1].name = self.name + io_suffix['HEIGHT']
+        group_tree.inputs[self.io_index+shift].name = self.name + io_suffix['HEIGHT']
+        group_tree.outputs[self.io_index+shift].name = self.name + io_suffix['HEIGHT']
+
+        shift += 1
+
+        #group_tree.inputs[self.io_index+shift].name = self.name + io_suffix['MAX_HEIGHT']
+        group_tree.outputs[self.io_index+shift].name = self.name + io_suffix['MAX_HEIGHT']
 
     #check_all_channel_ios(yp)
 
@@ -1494,7 +1504,8 @@ def update_preview_mode(self, context):
         if ori_bsdf != preview:
             mat.yp.ori_bsdf = ori_bsdf.name
 
-        if ((channel.type == 'RGB' and channel.enable_alpha) or
+        #if ((channel.type == 'RGB' and channel.enable_alpha) or
+        if (channel.enable_alpha or
             (channel.type == 'NORMAL')): #and channel.enable_parallax)):
             from_socket = [link.from_socket for link in preview.inputs[0].links]
             if not from_socket: 
@@ -1884,12 +1895,20 @@ def update_channel_alpha(self, context):
     inputs = group_tree.inputs
     outputs = group_tree.outputs
 
+    # Check any alpha channels
+    alpha_chs = []
+    for ch in yp.channels:
+        if ch.enable_alpha:
+            alpha_chs.append(ch)
+
     if not self.enable_alpha:
-        # Set material to use opaque
-        if hasattr(mat, 'blend_method'): # Blender 2.8
-            mat.blend_method = 'OPAQUE'
-        else: # Blender 2.7
-            mat.game_settings.alpha_blend = 'OPAQUE'
+
+        if not any(alpha_chs):
+            # Set material to use opaque
+            if hasattr(mat, 'blend_method'): # Blender 2.8
+                mat.blend_method = 'OPAQUE'
+            else: # Blender 2.7
+                mat.game_settings.alpha_blend = 'OPAQUE'
 
         node = get_active_ypaint_node()
         inp = node.inputs[self.io_index+1]
@@ -1909,11 +1928,12 @@ def update_channel_alpha(self, context):
 
     if self.enable_alpha:
 
-        # Set material to use alpha blend
-        if hasattr(mat, 'blend_method'): # Blender 2.8
-            mat.blend_method = 'HASHED'
-        else: # Blender 2.7
-            mat.game_settings.alpha_blend = 'ALPHA'
+        if any(alpha_chs):
+            # Set material to use alpha blend
+            if hasattr(mat, 'blend_method'): # Blender 2.8
+                mat.blend_method = 'HASHED'
+            else: # Blender 2.7
+                mat.game_settings.alpha_blend = 'ALPHA'
 
         # Get alpha index
         #alpha_index = self.io_index+1
