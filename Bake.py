@@ -1907,10 +1907,10 @@ class YMergeLayer(bpy.types.Operator):
             description = 'Apply neighbor modifiers',
             default = True)
 
-    height_aware = BoolProperty(
-            name = 'Height Aware',
-            description = 'Height will take account for merge',
-            default = True)
+    #height_aware = BoolProperty(
+    #        name = 'Height Aware',
+    #        description = 'Height will take account for merge',
+    #        default = True)
 
     @classmethod
     def poll(cls, context):
@@ -2140,6 +2140,28 @@ class YMergeLayer(bpy.types.Operator):
         else:
             self.report({'ERROR'}, "This kind of merge is not supported yet (or ever)!")
             return {'CANCELLED'}
+
+        return {'FINISHED'}
+
+class YMergeMask(bpy.types.Operator):
+    bl_idname = "node.y_merge_mask"
+    bl_label = "Merge mask"
+    bl_description = "Merge Mask"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    direction = EnumProperty(
+            name = 'Direction',
+            items = (('UP', 'Up', ''),
+                     ('DOWN', 'Down', '')),
+            default = 'UP')
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'mask') and hasattr(context, 'layer')
+
+    def execute(self, context):
+        self.report({'ERROR'}, "Not implemented yet!")
+        return {'CANCELLED'}
 
         return {'FINISHED'}
 
@@ -2452,6 +2474,7 @@ def register():
     bpy.utils.register_class(YResizeImage)
     bpy.utils.register_class(YBakeChannels)
     bpy.utils.register_class(YMergeLayer)
+    bpy.utils.register_class(YMergeMask)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
@@ -2460,3 +2483,4 @@ def unregister():
     bpy.utils.unregister_class(YResizeImage)
     bpy.utils.unregister_class(YBakeChannels)
     bpy.utils.unregister_class(YMergeLayer)
+    bpy.utils.unregister_class(YMergeMask)

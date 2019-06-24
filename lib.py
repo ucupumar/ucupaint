@@ -120,6 +120,8 @@ NORMAL_MAP_PROCESS_TRANSITION = '~yPL Normal Map Process Transition'
 NORMAL_MAP_PROCESS_SMOOTH = '~yPL Normal Map Process Smooth'
 NORMAL_MAP_PROCESS_SMOOTH_TRANSITION = '~yPL Normal Map Process Smooth Transition'
 
+ADVANCED_EMISSION_VIEWER = '~yPL Advanced Emission Viewer'
+
 ENGINE_FILTER = '~yPL Engine Filter'
 
 UNPACK_ONSEW = '~yPL Unpack ONSEW'

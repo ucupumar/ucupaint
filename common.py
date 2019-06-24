@@ -37,8 +37,14 @@ START_UV = ' Start UV'
 DELTA_UV = ' Delta UV'
 CURRENT_UV = ' Current UV'
 
+LAYER_VIEWER = '_Layer Viewer'
+LAYER_ALPHA_VIEWER = '_Layer Alpha Viewer'
+EMISSION_VIEWER = 'Emission Viewer'
+
 ITERATE_GROUP = '~yP Iterate Parallax Group'
 PARALLAX_DIVIDER = 4
+
+BUMP_MULTIPLY_TWEAK = 5
 
 blend_type_items = (("MIX", "Mix", ""),
 	             ("ADD", "Add", ""),
@@ -695,10 +701,10 @@ def create_essential_nodes(tree, solid_value=False, texcoord=False, geometry=Fal
         node.label = 'One Value'
         node.outputs[0].default_value = 1.0
 
-        #node = tree.nodes.new('ShaderNodeValue')
-        #node.name = ZERO_VALUE
-        #node.label = 'Zero Value'
-        #node.outputs[0].default_value = 0.0
+        node = tree.nodes.new('ShaderNodeValue')
+        node.name = ZERO_VALUE
+        node.label = 'Zero Value'
+        node.outputs[0].default_value = 0.0
 
     if geometry:
         node = tree.nodes.new('ShaderNodeNewGeometry')
@@ -1011,6 +1017,72 @@ def remove_tree_inside_tree(tree):
                 remove_tree_inside_tree(node.node_tree)
                 bpy.data.node_groups.remove(node.node_tree)
             else: node.node_tree = None
+
+def simple_replace_new_node(tree, node_name, node_id_name, label='', group_name='', return_status=False, hard_replace=False, dirty=False):
+    ''' Check if node is available, replace if available '''
+
+    # Try to get the node first
+    node = tree.nodes.get(node_name)
+
+    # Remove node if found and has different id name
+    if node and node.bl_idname != node_id_name:
+        simple_remove_node(tree, node)
+        node = None
+        dirty = True
+
+    # Create new node
+    if not node:
+        node = tree.nodes.new(node_id_name)
+        node.name = node_name
+        node.label = label
+        dirty = True
+
+    if node.type == 'GROUP':
+
+        # Get previous tree
+        prev_tree = node.node_tree
+
+        # Check if group is copied
+        if prev_tree:
+            m = re.match(r'^' + group_name + '_Copy\.*\d{0,3}$', prev_tree.name)
+        else: m = None
+
+        #print(prev_tree)
+
+        if not prev_tree or (prev_tree.name != group_name and not m):
+
+            if hard_replace:
+                tree.nodes.remove(node)
+                node = tree.nodes.new(node_id_name)
+                node.name = node_name
+                node.label = label
+                dirty = True
+
+            # Replace group tree
+            node.node_tree = get_node_tree_lib(group_name)
+
+            if not prev_tree:
+                dirty = True
+
+            else:
+                # Compare previous group inputs with current group inputs
+                if len(prev_tree.inputs) != len(node.inputs):
+                    dirty = True
+                else:
+                    for i, inp in enumerate(node.inputs):
+                        if inp.name != prev_tree.inputs[i].name:
+                            dirty = True
+                            break
+
+                # Remove previous tree if it has no user
+                if prev_tree.users == 0:
+                    remove_tree_inside_tree(prev_tree)
+                    bpy.data.node_groups.remove(prev_tree)
+
+    if return_status:
+        return node, dirty
+
+    return node
 
 def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False, hard_replace=False, dirty=False):
     ''' Check if node is available, replace if available '''

@@ -864,11 +864,15 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
     start = nodes.get(TREE_START)
     end = nodes.get(TREE_END)
-    one_value = nodes.get(ONE_VALUE)
-    zero_value = nodes.get(ZERO_VALUE)
+
     texcoord = nodes.get(TEXCOORD)
     parallax = tree.nodes.get(PARALLAX)
     geometry = tree.nodes.get(GEOMETRY)
+
+    one_value = nodes.get(ONE_VALUE)
+    if one_value: one_value = one_value.outputs[0]
+    zero_value = nodes.get(ZERO_VALUE)
+    if zero_value: zero_value = zero_value.outputs[0]
 
     # Parallax
     parallax_ch = get_root_parallax_channel(yp)
@@ -996,7 +1000,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         #if ch.enable_alpha and ch.type == 'RGB':
         if ch.enable_alpha:
             alpha = start.outputs[io_alpha_name]
-        else: alpha = one_value.outputs[0]
+        else: alpha = one_value
 
         if ch.type == 'NORMAL':
             if ch.enable_smooth_bump:
@@ -1036,9 +1040,29 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             node = nodes.get(layer.group_node)
 
+            if yp.layer_preview_mode:
+
+                if ch == yp.channels[yp.active_channel_index] and layer == yp.layers[yp.active_layer_index]:
+
+                    col_preview = end.inputs.get(LAYER_VIEWER)
+                    alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
+                    if col_preview:
+                        #create_link(tree, rgb, col_preview)
+                        if not layer.enable and zero_value:
+                            create_link(tree, zero_value, col_preview)
+                        else: create_link(tree, node.outputs[LAYER_VIEWER], col_preview)
+                    if alpha_preview:
+                        if not layer.enable and zero_value:
+                            create_link(tree, zero_value, alpha_preview)
+                        else: create_link(tree, node.outputs[LAYER_ALPHA_VIEWER], alpha_preview)
+                else:
+                    continue
+
             #if yp.disable_quick_toggle and not layer.enable:
-            if ((merged_layer_ids and j not in merged_layer_ids) or not layer.enable):
-            #if not layer.enable:
+            if (
+                (merged_layer_ids and j not in merged_layer_ids) or 
+                not layer.enable
+                ):
                 for inp in node.inputs:
                     break_input_link(tree, inp)
                 for outp in node.outputs:
@@ -1386,6 +1410,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     start = nodes.get(TREE_START)
     end = nodes.get(TREE_END)
     one_value = nodes.get(ONE_VALUE)
+    if one_value: one_value = one_value.outputs[0]
+    zero_value = nodes.get(ZERO_VALUE)
+    if zero_value: zero_value = zero_value.outputs[0]
 
     source_group = nodes.get(layer.source_group)
 
@@ -1474,8 +1501,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     # Alpha
     if layer.type == 'IMAGE' or source_group:
         start_alpha = source.outputs[1]
-    else: start_alpha = one_value.outputs[0]
-    start_alpha_1 = one_value.outputs[0]
+    else: start_alpha = one_value
+    start_alpha_1 = one_value
 
     if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
         start_rgb_1 = source_group.outputs[2]
@@ -1497,7 +1524,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
             mod_group_1 = nodes.get(layer.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
-                    tree, layer, source.outputs[1], one_value.outputs[0], mod_group_1)
+                    tree, layer, source.outputs[1], one_value, mod_group_1)
 
     # UV neighbor vertex color
     if layer.type in {'VCOL', 'GROUP'} and uv_neighbor:
@@ -1687,10 +1714,26 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
     # Layer Channels
     for i, ch in enumerate(layer.channels):
 
-        #if yp.disable_quick_toggle and not ch.enable: continue
-        if not ch.enable: continue
-
         root_ch = yp.channels[i]
+
+        #if yp.disable_quick_toggle and not ch.enable: continue
+        if not ch.enable: 
+            
+            # Disabled channel layer preview
+            if yp.layer_preview_mode:
+                if root_ch == yp.channels[yp.active_channel_index]:
+                    col_preview = end.inputs.get(LAYER_VIEWER)
+                    if col_preview and zero_value:
+                        create_link(tree, zero_value, col_preview)
+                    alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
+                    if alpha_preview and zero_value:
+                        create_link(tree, zero_value, alpha_preview)
+                    #break_input_link(tree, col_preview)
+                    #break_input_link(tree, alpha_preview)
+                    #col_preview.default_value = (0,0,0,0)
+                    #alpha_preview.default_value = 0
+
+            continue
 
         # Rgb and alpha start
         rgb = start_rgb
@@ -1741,7 +1784,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
         elif layer.type == 'BACKGROUND':
             rgb = source.outputs[root_ch.name + io_suffix['BACKGROUND']]
-            alpha = one_value.outputs[0]
+            alpha = one_value
 
             if root_ch.enable_alpha:
                 bg_alpha = source.outputs[root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND']]
@@ -1982,7 +2025,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             end_chain_crease_w = alpha_w
 
             pure = alpha_after_mod
-            remains = one_value.outputs[0]
+            remains = one_value
 
             tb_falloff = nodes.get(ch.tb_falloff)
             #tb_falloff_n = nodes.get(ch.tb_falloff_n)
@@ -2037,10 +2080,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
 
                 if root_ch.enable_smooth_bump:
                     if j == chain and trans_bump_ch == ch and trans_bump_crease:
-                        alpha_n = create_link(tree, one_value.outputs[0], mix.inputs['Color1 n'])['Color n']
-                        alpha_s = create_link(tree, one_value.outputs[0], mix.inputs['Color1 s'])['Color s']
-                        alpha_e = create_link(tree, one_value.outputs[0], mix.inputs['Color1 e'])['Color e']
-                        alpha_w = create_link(tree, one_value.outputs[0], mix.inputs['Color1 w'])['Color w']
+                        alpha_n = create_link(tree, one_value, mix.inputs['Color1 n'])['Color n']
+                        alpha_s = create_link(tree, one_value, mix.inputs['Color1 s'])['Color s']
+                        alpha_e = create_link(tree, one_value, mix.inputs['Color1 e'])['Color e']
+                        alpha_w = create_link(tree, one_value, mix.inputs['Color1 w'])['Color w']
                     else:
                         alpha_n = create_link(tree, alpha_n, mix.inputs['Color1 n'])['Color n']
                         alpha_s = create_link(tree, alpha_s, mix.inputs['Color1 s'])['Color s']
@@ -2048,10 +2091,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                         alpha_w = create_link(tree, alpha_w, mix.inputs['Color1 w'])['Color w']
 
                 #if j == chain and trans_bump_ch == ch and trans_bump_crease:
-                #    if mix_n: alpha_n = create_link(tree, one_value.outputs[0], mix_n.inputs[1])[0]
-                #    if mix_s: alpha_s = create_link(tree, one_value.outputs[0], mix_s.inputs[1])[0]
-                #    if mix_e: alpha_e = create_link(tree, one_value.outputs[0], mix_e.inputs[1])[0]
-                #    if mix_w: alpha_w = create_link(tree, one_value.outputs[0], mix_w.inputs[1])[0]
+                #    if mix_n: alpha_n = create_link(tree, one_value, mix_n.inputs[1])[0]
+                #    if mix_s: alpha_s = create_link(tree, one_value, mix_s.inputs[1])[0]
+                #    if mix_e: alpha_e = create_link(tree, one_value, mix_e.inputs[1])[0]
+                #    if mix_w: alpha_w = create_link(tree, one_value, mix_w.inputs[1])[0]
                 #else:
                 #    if mix_n: alpha_n = create_link(tree, alpha_n, mix_n.inputs[1])[0]
                 #    if mix_s: alpha_s = create_link(tree, alpha_s, mix_s.inputs[1])[0]
@@ -2093,15 +2136,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             if 'Value' in height_proc.inputs:
                 #create_link(tree, rgb_after_mod, height_proc.inputs['Value'])
                 if layer.type == 'BACKGROUND':
-                    create_link(tree, one_value.outputs[0], height_proc.inputs['Value'])
+                    create_link(tree, one_value, height_proc.inputs['Value'])
                 else: create_link(tree, rgb, height_proc.inputs['Value'])
 
             if 'Value n' in  height_proc.inputs: 
                 if layer.type == 'BACKGROUND':
-                    create_link(tree, one_value.outputs[0], height_proc.inputs['Value n'])
-                    create_link(tree, one_value.outputs[0], height_proc.inputs['Value s'])
-                    create_link(tree, one_value.outputs[0], height_proc.inputs['Value e'])
-                    create_link(tree, one_value.outputs[0], height_proc.inputs['Value w'])
+                    create_link(tree, one_value, height_proc.inputs['Value n'])
+                    create_link(tree, one_value, height_proc.inputs['Value s'])
+                    create_link(tree, one_value, height_proc.inputs['Value e'])
+                    create_link(tree, one_value, height_proc.inputs['Value w'])
                 else:
                     create_link(tree, rgb_n, height_proc.inputs['Value n'])
                     create_link(tree, rgb_s, height_proc.inputs['Value s'])
@@ -2400,7 +2443,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
 
                 # Dealing with chain
-                remaining_alpha = one_value.outputs[0]
+                remaining_alpha = one_value
                 for j, mask in enumerate(layer.masks):
                     if j >= chain:
                         mix_remains = nodes.get(mask.channels[i].mix_remains)
@@ -2542,3 +2585,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             else:
                 create_link(tree, blend.outputs[1], next_alpha)
 
+        # Layer preview
+        if yp.layer_preview_mode:
+            if root_ch == yp.channels[yp.active_channel_index]:
+                col_preview = end.inputs.get(LAYER_VIEWER)
+                if col_preview:
+                    if root_ch.type == 'NORMAL': create_link(tree, normal_proc.outputs[0], col_preview)
+                    else: create_link(tree, rgb, col_preview)
+                alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
+                if alpha_preview:
+                    create_link(tree, alpha, alpha_preview)
+                

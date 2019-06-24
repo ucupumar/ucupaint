@@ -138,6 +138,11 @@ class YInvertImage(bpy.types.Operator):
         return hasattr(context, 'image') and context.image
 
     def execute(self, context):
+
+        if context.image.yia.is_image_atlas:
+            self.report({'ERROR'}, 'Cannot invert image atlas!')
+            return {'CANCELLED'}
+
         # Copy context
         override = bpy.context.copy()
         override['edit_image'] = context.image

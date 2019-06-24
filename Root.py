@@ -117,6 +117,14 @@ def check_all_channel_ios(yp, reconnect=True):
             end_max_height = check_new_node(group_tree, ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
             end_max_height.outputs[0].default_value = max_height
 
+    if yp.layer_preview_mode:
+        create_output(group_tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index)
+        output_index += 1
+
+        name = 'Layer Alpha Viewer'
+        create_output(group_tree, LAYER_ALPHA_VIEWER, 'NodeSocketFloat', valid_outputs, output_index)
+        output_index += 1
+
     # Check for invalid io
     for inp in group_tree.inputs:
         if inp not in valid_inputs:
@@ -1468,70 +1476,136 @@ def update_channel_name(self, context):
     print('INFO: Channel renamed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
+def get_preview(mat, output=None, advanced=False):
+    tree = mat.node_tree
+    #nodes = tree.nodes
+
+    # Search for output
+    if not output:
+        output = get_active_mat_output_node(tree)
+
+    if not output: return None
+
+    if advanced:
+        preview, dirty = simple_replace_new_node(
+                tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
+                lib.ADVANCED_EMISSION_VIEWER, return_status=True, hard_replace=True)
+        if dirty:
+            # Set blend method to alpha
+            if hasattr(mat, 'blend_method'): # Blender 2.8
+                blend_method = mat.blend_method
+                mat.blend_method = 'HASHED'
+            else: # Blender 2.7
+                blend_method = mat.game_settings.alpha_blend
+                mat.game_settings.alpha_blend = 'ALPHA'
+            mat.yp.ori_blend_method = blend_method
+    else:
+        preview, dirty = simple_replace_new_node(
+                tree, EMISSION_VIEWER, 'ShaderNodeEmission', 'Emission Viewer', 
+                return_status=True)
+    if dirty:
+        preview.hide = True
+        preview.location = (output.location.x, output.location.y + 30.0)
+
+    # Remember output and original bsdf
+    ori_bsdf = output.inputs[0].links[0].from_node
+
+    # Only remember original BSDF if its not the preview node itself
+    if ori_bsdf != preview:
+        mat.yp.ori_bsdf = ori_bsdf.name
+
+    return preview
+
+def remove_preview(mat, advanced=False):
+    nodes = mat.node_tree.nodes
+    preview = nodes.get(EMISSION_VIEWER)
+
+    if preview: 
+        simple_remove_node(mat.node_tree, preview)
+        if advanced:
+            # Recover blend method
+            if hasattr(mat, 'blend_method'): # Blender 2.8
+                mat.blend_method = mat.yp.ori_blend_method
+            else: # Blender 2.7
+                mat.game_settings.alpha_blend = mat.yp.ori_blend_method
+            mat.yp.ori_blend_method = ''
+
+    bsdf = nodes.get(mat.yp.ori_bsdf)
+    output = get_active_mat_output_node(mat.node_tree)
+    mat.yp.ori_bsdf = ''
+
+    if bsdf and output:
+        mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+def update_layer_preview_mode(self, context):
+    try:
+        mat = bpy.context.object.active_material
+        tree = mat.node_tree
+        group_node = get_active_ypaint_node()
+        yp = group_node.node_tree.yp
+        index = yp.active_channel_index
+        channel = yp.channels[index]
+    except: return
+
+    if yp.preview_mode:
+        yp.preview_mode = False
+    
+    check_all_channel_ios(yp)
+
+    # Get preview node
+    if self.layer_preview_mode:
+        output = get_active_mat_output_node(mat.node_tree)
+        preview = get_preview(mat, output, True)
+        if not preview: return
+
+        tree.links.new(group_node.outputs[LAYER_VIEWER], preview.inputs[0])
+        tree.links.new(group_node.outputs[LAYER_ALPHA_VIEWER], preview.inputs[1])
+        tree.links.new(preview.outputs[0], output.inputs[0])
+
+        # Set gamma
+        if channel.colorspace != 'LINEAR':
+            preview.inputs[2].default_value = 2.2
+        else: preview.inputs[2].default_value = 1.0
+    else:
+        remove_preview(mat)
+        #reconnect_yp_nodes(tree)
+
 def update_preview_mode(self, context):
     try:
         mat = bpy.context.object.active_material
         tree = mat.node_tree
-        nodes = tree.nodes
         group_node = get_active_ypaint_node()
         yp = group_node.node_tree.yp
-        channel = yp.channels[yp.active_channel_index]
         index = yp.active_channel_index
+        channel = yp.channels[index]
     except: return
 
-    # Search for preview node
-    preview = nodes.get('Emission Viewer')
+    if yp.layer_preview_mode:
+        yp.layer_preview_mode = False
 
     if self.preview_mode:
+        output = get_active_mat_output_node(mat.node_tree)
+        preview = get_preview(mat, output)
+        if not preview: return
 
-        # Search for output
-        output = get_active_mat_output_node(tree)
-
-        if not output: return
-
-        # Remember output and original bsdf
-        mat.yp.ori_output = output.name
-        ori_bsdf = output.inputs[0].links[0].from_node
-
-        if not preview:
-            preview = nodes.new('ShaderNodeEmission')
-            preview.name = 'Emission Viewer'
-            preview.label = 'Preview'
-            preview.hide = True
-            preview.location = (output.location.x, output.location.y + 30.0)
-
-        # Only remember original BSDF if its not the preview node itself
-        if ori_bsdf != preview:
-            mat.yp.ori_bsdf = ori_bsdf.name
-
-        #if ((channel.type == 'RGB' and channel.enable_alpha) or
-        if (channel.enable_alpha or
-            (channel.type == 'NORMAL')): #and channel.enable_parallax)):
-            from_socket = [link.from_socket for link in preview.inputs[0].links]
-            if not from_socket: 
-                tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
-            else:
-                from_socket = from_socket[0]
-                color_output = group_node.outputs[channel.io_index]
-                alpha_output = group_node.outputs[channel.io_index+1]
-                if from_socket == color_output:
-                    tree.links.new(alpha_output, preview.inputs[0])
-                else:
-                    tree.links.new(color_output, preview.inputs[0])
-        else:
+        from_socket = [link.from_socket for link in preview.inputs[0].links]
+        if not from_socket or (from_socket and not from_socket[0].name.startswith(channel.name)):
+            # Connect first output
             tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
+        else:
+            from_socket = from_socket[0]
+            outs = [o for o in group_node.outputs if o.name.startswith(channel.name)]
+
+            # Cycle outpus
+            for i, o in enumerate(outs):
+                if o == from_socket:
+                    if i != len(outs)-1:
+                        tree.links.new(outs[i+1], preview.inputs[0])
+                    else: tree.links.new(outs[0], preview.inputs[0])
+
         tree.links.new(preview.outputs[0], output.inputs[0])
     else:
-        try: nodes.remove(preview)
-        except: pass
-
-        bsdf = nodes.get(mat.yp.ori_bsdf)
-        output = nodes.get(mat.yp.ori_output)
-        mat.yp.ori_bsdf = ''
-        mat.yp.ori_output = ''
-
-        try: tree.links.new(bsdf.outputs[0], output.inputs[0])
-        except: pass
+        remove_preview(mat)
 
 def update_active_yp_channel(self, context):
     obj = context.object
@@ -1539,7 +1613,9 @@ def update_active_yp_channel(self, context):
     yp = tree.yp
     ch = yp.channels[yp.active_channel_index]
     
-    if yp.preview_mode: yp.preview_mode = True
+    #if yp.preview_mode: yp.preview_mode = True
+    if yp.preview_mode: update_preview_mode(yp, context)
+    if yp.layer_preview_mode: update_layer_preview_mode(yp, context)
 
     if yp.use_baked:
         baked = tree.nodes.get(ch.baked)
@@ -1573,6 +1649,8 @@ def update_layer_index(self, context):
     layer = self.layers[self.active_layer_index]
     tree = get_tree(layer)
     yp = layer.id_data.yp
+
+    if yp.layer_preview_mode: update_layer_preview_mode(yp, context)
 
     # Set image paint mode to Image
     scene.tool_settings.image_paint.mode = 'IMAGE'
@@ -2267,6 +2345,16 @@ class YPaint(bpy.types.PropertyGroup):
     #temp_channels = CollectionProperty(type=YChannelUI)
     preview_mode = BoolProperty(default=False, update=update_preview_mode)
 
+    # Layer Preview Mode
+    layer_preview_mode = BoolProperty(
+            name= 'Enable Layer Preview Mode',
+            description= 'Enable layer preview mode',
+            default=False,
+            update=update_layer_preview_mode)
+
+    # Mode exclusively for merging mask
+    merge_mask_mode = BoolProperty(default=False)
+
     # Toggle to use baked results or not
     use_baked = BoolProperty(default=False, update=Bake.update_use_baked)
     baked_uv_name = StringProperty(default='')
@@ -2276,6 +2364,12 @@ class YPaint(bpy.types.PropertyGroup):
             name= 'Make backface normal always up',
             description= 'Make sure normal will face toward camera even at backface',
             default=True, update=update_flip_backface)
+
+    # Layer alpha Viewer Mode
+    #enable_layer_alpha_viewer = BoolProperty(
+    #        name= 'Enable Layer Alpha Viewer Mode',
+    #        description= 'Enable layer alpha viewer mode',
+    #        default=False)
 
     # Path folder for auto save bake
     #bake_folder = StringProperty(default='')
@@ -2318,7 +2412,7 @@ class YPaint(bpy.types.PropertyGroup):
 
 class YPaintMaterialProps(bpy.types.PropertyGroup):
     ori_bsdf = StringProperty(default='')
-    ori_output = StringProperty(default='')
+    ori_blend_method = StringProperty(default='')
     active_ypaint_node = StringProperty(default='')
 
 class YPaintTimer(bpy.types.PropertyGroup):

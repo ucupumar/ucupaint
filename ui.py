@@ -1863,7 +1863,15 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
     col = box.column()
 
     row = col.row()
-    row.template_list("NODE_UL_YPaint_layers", "", yp,
+    rcol = row.column()
+    if len(yp.layers) > 0:
+        pcol = rcol.column()
+        if yp.layer_preview_mode: pcol.alert = True
+        if custom_icon_enable:
+            pcol.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
+        else: pcol.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='HIDE_OFF')
+
+    rcol.template_list("NODE_UL_YPaint_layers", "", yp,
             "layers", yp, "active_layer_index", rows=5, maxrows=5)  
 
     rcol = row.column(align=True)
@@ -2578,13 +2586,18 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
     def draw(self, context):
 
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
         row = self.layout.row()
         col = row.column()
         
-        col.operator('node.y_merge_layer', text='Merge Up', icon='TRIA_UP').direction = 'UP'
-        col.operator('node.y_merge_layer', text='Merge Down', icon='TRIA_DOWN').direction = 'DOWN'
+        col.operator('node.y_merge_layer', text='Merge Layer Up', icon='TRIA_UP').direction = 'UP'
+        col.operator('node.y_merge_layer', text='Merge Layer Down', icon='TRIA_DOWN').direction = 'DOWN'
 
         col.separator()
+
+        col.prop(yp, 'layer_preview_mode', text='Layer Only Viewer')
 
         col = row.column()
 
@@ -2836,11 +2849,19 @@ class YLayerMaskMenu(bpy.types.Menu):
             col.operator('node.y_invert_image', text='Invert Image', icon='IMAGE_ALPHA')
 
         col.separator()
+
         op = col.operator('node.y_move_layer_mask', icon='TRIA_UP', text='Move Mask Up')
         op.direction = 'UP'
-
         op = col.operator('node.y_move_layer_mask', icon='TRIA_DOWN', text='Move Mask Down')
         op.direction = 'DOWN'
+
+        col.separator()
+
+        op = col.operator('node.y_merge_mask', icon='TRIA_UP', text='Merge Mask Up')
+        op.direction = 'UP'
+        op = col.operator('node.y_merge_mask', icon='TRIA_DOWN', text='Merge Mask Down')
+        op.direction = 'DOWN'
+
         col.separator()
 
         op = col.operator('node.y_transfer_layer_uv', icon='GROUP_UVS', text='Transfer UV')

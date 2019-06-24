@@ -19,11 +19,12 @@ def create_input(tree, name, socket_type, valid_inputs, index,
 
     return dirty
 
-def create_output(tree, name, socket_type, valid_outputs, index, dirty=False):
+def create_output(tree, name, socket_type, valid_outputs, index, dirty=False, default_value=None):
 
     outp = tree.outputs.get(name)
     if not outp:
         outp = tree.outputs.new(socket_type, name)
+        if default_value != None: outp.default_value = default_value
         dirty = True
     valid_outputs.append(outp)
     fix_io_index(outp, tree.outputs, index)
@@ -237,7 +238,7 @@ def check_layer_tree_ios(layer, tree=None):
     # Other than uv texcoord name container
     texcoords = []
 
-    # Check layer
+    # Check layer texcoords
     if layer.texcoord_type != 'UV':
         texcoords.append(layer.texcoord_type)
 
@@ -249,6 +250,13 @@ def check_layer_tree_ios(layer, tree=None):
         name = io_names[texcoord]
         dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
         input_index += 1
+
+    if yp.layer_preview_mode:
+        dirty = create_output(tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index, dirty)
+        output_index += 1
+
+        dirty = create_output(tree, LAYER_ALPHA_VIEWER, 'NodeSocketFloat', valid_outputs, output_index, dirty)
+        output_index += 1
 
     # Check for invalid io
     for inp in tree.inputs:
@@ -508,7 +516,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         source_w.node_tree = mask_tree
 
         for mod in mask.modifiers:
-            MaskModifier.check_modifier_nodes(mod, mask_tree, layer_tree)
+            MaskModifier.add_modifier_nodes(mod, mask_tree, layer_tree)
 
         # Remove previous nodes
         layer_tree.nodes.remove(source_ref)
@@ -544,7 +552,7 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         for mod in mask.modifiers:
-            MaskModifier.check_modifier_nodes(mod, layer_tree, mask_tree)
+            MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)
 
         # Remove previous source
         remove_node(layer_tree, mask, 'group_node')
