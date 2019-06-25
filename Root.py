@@ -1537,6 +1537,21 @@ def remove_preview(mat, advanced=False):
     if bsdf and output:
         mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
+#def update_merge_mask_mode(self, context):
+#    if not self.layer_preview_mode:
+#        return
+#
+#    try:
+#        mat = bpy.context.object.active_material
+#        tree = mat.node_tree
+#        group_node = get_active_ypaint_node()
+#        yp = group_node.node_tree.yp
+#        channel = yp.channels[yp.active_channel_index]
+#        layer = yp.layers[yp.active_layer_index]
+#    except: return
+#
+#    layer_tree = get_tree(layer)
+
 def update_layer_preview_mode(self, context):
     try:
         mat = bpy.context.object.active_material
@@ -2353,7 +2368,8 @@ class YPaint(bpy.types.PropertyGroup):
             update=update_layer_preview_mode)
 
     # Mode exclusively for merging mask
-    merge_mask_mode = BoolProperty(default=False)
+    #merge_mask_mode = BoolProperty(default=False,
+    #        update=update_merge_mask_mode)
 
     # Toggle to use baked results or not
     use_baked = BoolProperty(default=False, update=Bake.update_use_baked)

@@ -1398,7 +1398,7 @@ def reconnect_mask_internal_nodes(mask):
 
     create_link(tree, val, end.inputs[0])
 
-def reconnect_layer_nodes(layer, ch_idx=-1):
+def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     yp = layer.id_data.yp
 
     #print('Reconnect layer ' + layer.name)
@@ -1558,6 +1558,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
         #else: 
         chain = min(len(layer.masks), trans_bump_ch.transition_bump_chain)
 
+    # Root mask value for merging mask
+    root_mask_val = one_value
+
     # Layer Masks
     for i, mask in enumerate(layer.masks):
 
@@ -1634,6 +1637,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
                 create_link(tree, mask_tangent, mask_uv_neighbor.inputs['Entity Tangent'])
                 create_link(tree, mask_bitangent, mask_uv_neighbor.inputs['Entity Bitangent'])
 
+        # Mask root mix
+        mmix = nodes.get(mask.mix)
+        if mmix:
+            root_mask_val = create_link(tree, root_mask_val, mmix.inputs[1])[0]
+            create_link(tree, mask_val, mmix.inputs[2])
+
         # Mask channels
         for j, c in enumerate(mask.channels):
             root_ch = yp.channels[j]
@@ -1707,6 +1716,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1):
             #    if mix_s and mask_source_s: create_link(tree, mask_source_s.outputs[0], mix_s.inputs[2])
             #    if mix_e and mask_source_e: create_link(tree, mask_source_e.outputs[0], mix_e.inputs[2])
             #    if mix_w and mask_source_w: create_link(tree, mask_source_w.outputs[0], mix_w.inputs[2])
+
+    if merge_mask and yp.layer_preview_mode:
+        alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
+        if alpha_preview:
+            create_link(tree, root_mask_val, alpha_preview)
+        return
 
     # Parent flag
     has_parent = layer.parent_idx != -1

@@ -746,7 +746,18 @@ def update_mask_channel_intensity_value(self, context):
 def update_mask_intensity_value(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
-    for c in self.channels:
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    mask = layer.masks[int(match.group(2))]
+    tree = get_tree(layer)
+
+    mute = not mask.enable or not layer.enable_masks
+
+    mix = tree.nodes.get(mask.mix)
+    if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
+
+    for c in mask.channels:
         update_mask_channel_intensity_value(c, context)
 
 def update_layer_mask_channel_enable(self, context):
@@ -1041,6 +1052,9 @@ class YLayerMask(bpy.types.PropertyGroup):
     mapping = StringProperty(default='')
 
     linear = StringProperty(default='')
+
+    # Only useful for merging mask for now
+    mix = StringProperty(default='')
 
     need_temp_uv_refresh = BoolProperty(default=False)
 

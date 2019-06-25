@@ -5,7 +5,7 @@ from .common import *
 from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib, Layer, Mask, ImageAtlas, Modifier
+from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier
 
 BL28_HACK = True
 
@@ -2157,11 +2157,173 @@ class YMergeMask(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'mask') and hasattr(context, 'layer')
+        return get_active_ypaint_node() and hasattr(context, 'mask') and hasattr(context, 'layer')
 
     def execute(self, context):
-        self.report({'ERROR'}, "Not implemented yet!")
-        return {'CANCELLED'}
+        mask = context.mask
+        layer = context.layer
+        yp = layer.id_data.yp
+        obj = context.object
+        mat = obj.active_material
+        scene = context.scene
+        node = get_active_ypaint_node()
+
+        # Get number of masks
+        num_masks = len(layer.masks)
+        if num_masks < 2: return {'CANCELLED'}
+
+        # Get mask index
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        index = int(m.group(2))
+
+        # Get neighbor index
+        if self.direction == 'UP' and index > 0:
+            neighbor_idx = index-1
+        elif self.direction == 'DOWN' and index < num_masks-1:
+            neighbor_idx = index+1
+        else:
+            return {'CANCELLED'}
+
+        if mask.type != 'IMAGE':
+            self.report({'ERROR'}, "Need image mask!")
+            return {'CANCELLED'}
+
+        # Get source
+        source = get_mask_source(mask)
+        if not source.image:
+            self.report({'ERROR'}, "Mask image is missing!")
+            return {'CANCELLED'}
+
+        # Target image
+        segment = None
+        if source.image.yia.is_image_atlas and mask.segment_name != '':
+            segment = source.image.yia.segments.get(mask.segment_name)
+            width = segment.width
+            height = segment.height
+
+            img = bpy.data.images.new(name='__TEMP',
+                    width=width, height=height, alpha=True, float_buffer=source.image.is_float)
+
+            if source.image.yia.color == 'WHITE':
+                img.generated_color = (1.0, 1.0, 1.0, 1.0)
+            elif source.image.yia.color == 'BLACK':
+                img.generated_color = (0.0, 0.0, 0.0, 1.0)
+            else: img.generated_color = (0.0, 0.0, 0.0, 0.0)
+
+            img.colorspace_settings.name = 'Linear'
+        else:
+            img = source.image.copy()
+            width = target_img.size[0]
+            height = target_img.size[1]
+
+        # Activate layer preview mode
+        ori_layer_preview_mode = yp.layer_preview_mode
+        yp.layer_preview_mode = True
+
+        # Get neighbor mask
+        neighbor_mask = layer.masks[neighbor_idx]
+
+        # Disable modifiers
+        #ori_mods = []
+        #for i, mod in enumerate(mask.modifiers):
+        #    ori_mods.append(mod.enable)
+        #    mod.enable = False
+
+        # Get layer tree
+        tree = get_tree(layer)
+
+        # Create mask mix nodes
+        for m in [mask, neighbor_mask]:
+            mix = new_node(tree, m, 'mix', 'ShaderNodeMixRGB', 'Mix')
+            mix.blend_type = m.blend_type
+            mix.inputs[0].default_value = m.intensity_value
+
+        # Reconnect nodes
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer, merge_mask=True)
+
+        # Prepare to bake
+        self.scene = context.scene
+        self.samples = 1
+        self.margin = 5
+        self.uv_map = mask.uv_name
+        self.obj = obj
+
+        remember_before_bake(self, context, yp)
+        prepare_bake_settings(self, context, yp)
+
+        # Get material output
+        output = get_active_mat_output_node(mat.node_tree)
+        ori_bsdf = output.inputs[0].links[0].from_socket
+
+        # Create bake nodes
+        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+
+        # Set image
+        tex.image = img
+        mat.node_tree.nodes.active = tex
+
+        # Connect
+        mat.node_tree.links.new(node.outputs[LAYER_ALPHA_VIEWER], emit.inputs[0])
+        mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+
+        # Bake
+        bpy.ops.object.bake()
+
+        # Copy results to original image
+        target_pxs = list(source.image.pixels)
+        temp_pxs = list(img.pixels)
+
+        if segment:
+            start_x = width * segment.tile_x
+            start_y = height * segment.tile_y
+        else:
+            start_x = 0
+            start_y = 0
+
+        for y in range(height):
+            temp_offset_y = width * 4 * y
+            offset_y = source.image.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                temp_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for i in range(3):
+                    target_pxs[offset_y + offset_x + i] = temp_pxs[temp_offset_y + temp_offset_x + i]
+
+        source.image.pixels = target_pxs
+
+        # Remove temp image
+        bpy.data.images.remove(img)
+
+        # Remove mask mix nodes
+        for m in [mask, neighbor_mask]:
+            remove_node(tree, m, 'mix')
+
+        # Remove modifiers
+        for i, mod in reversed(list(enumerate(mask.modifiers))):
+            MaskModifier.delete_modifier_nodes(tree, mod)
+            mask.modifiers.remove(i)
+
+        # Remove neighbor mask
+        Mask.remove_mask(layer, neighbor_mask, obj)
+
+        # Remove bake nodes
+        simple_remove_node(mat.node_tree, tex)
+        simple_remove_node(mat.node_tree, emit)
+
+        # Recover original bsdf
+        mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+
+        # Recover bake settings
+        recover_bake_settings(self, context, yp)
+
+        # Revert back preview mode 
+        yp.layer_preview_mode = ori_layer_preview_mode
+
+        # Set current mask as active
+        mask.active_edit = True
+        yp.active_layer_index = yp.active_layer_index
 
         return {'FINISHED'}
 

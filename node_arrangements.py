@@ -879,6 +879,9 @@ def rearrange_layer_nodes(layer, tree=None):
 
         bookmark_x = loc.x
 
+        if check_set_node_loc(tree, mask.mix, loc, True):
+            loc.y -= 40
+
         # Mask channels
         for j, c in enumerate(mask.channels):
 
