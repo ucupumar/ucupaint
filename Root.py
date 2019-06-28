@@ -2479,8 +2479,9 @@ def ypaint_hacks_and_scene_updates(scene):
 
 @persistent
 def ypaint_last_object_update(scene):
-    obj = bpy.context.object
-    if scene.yp.last_object != obj.name:
+    try: obj = bpy.context.object
+    except: return
+    if obj and scene.yp.last_object != obj.name:
         scene.yp.last_object = obj.name
         node = get_active_ypaint_node()
 
