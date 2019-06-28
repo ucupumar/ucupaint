@@ -101,7 +101,7 @@ def layer_input_items(self, context):
 def get_normal_map_type_items(self, context):
     items = []
 
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         items.append(('BUMP_MAP', 'Bump Map', ''))
         items.append(('NORMAL_MAP', 'Normal Map', ''))
     else: 
@@ -549,7 +549,7 @@ class YNewLayer(bpy.types.Operator):
 
         channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
 
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
         col = row.column(align=False)
@@ -1692,7 +1692,7 @@ class YReplaceLayerType(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
 
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             split = layout.split(factor=0.35, align=True)
         else: split = layout.split(percentage=0.35)
 

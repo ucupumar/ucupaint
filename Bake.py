@@ -29,12 +29,12 @@ def remember_before_bake(self, context, yp):
     self.ori_active_uv = uv_layers.active.name
 
     # Remember scene objects
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         self.ori_active_selected_objs = [o for o in scene.objects if o.select_get()]
     else: self.ori_active_selected_objs = [o for o in scene.objects if o.select]
 
     # Remember world settings
-    if bpy.app.version_string.startswith('2.8') and scene.world:
+    if is_28() and scene.world:
         self.ori_distance = scene.world.light_settings.distance
 
     # Remember ypui
@@ -60,7 +60,7 @@ def prepare_bake_settings(self, context, yp):
     scene.render.bake.use_clear = False
 
     # Disable other object selections and select only active object
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         #for o in scene.objects:
         for o in context.view_layer.objects:
             o.select_set(False)
@@ -95,7 +95,7 @@ def recover_bake_settings(self, context, yp):
     scene.render.bake.use_clear = self.ori_use_clear
 
     # Recover world settings
-    if bpy.app.version_string.startswith('2.8') and scene.world:
+    if is_28() and scene.world:
         scene.world.light_settings.distance = self.ori_distance
 
     # Recover uv
@@ -104,7 +104,7 @@ def recover_bake_settings(self, context, yp):
     #return
 
     # Disable other object selections
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         #for o in scene.objects:
         for o in context.view_layer.objects:
             if o in self.ori_active_selected_objs:
@@ -345,7 +345,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         bt.uv_map = uv_map
 
         if BL28_HACK:
-        #if bpy.app.version_string.startswith('2.8'):
+        #if is_28():
             bake_uv = yp.uvs.get(uv_map)
             if bake_uv:
                 tangent_process = tree.nodes.get(bake_uv.tangent_process)
@@ -839,7 +839,7 @@ class YBakeToLayer(bpy.types.Operator):
         channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         height_root_ch = get_root_height_channel(yp)
 
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
@@ -1002,7 +1002,7 @@ class YBakeToLayer(bpy.types.Operator):
             src.inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
 
             # Links
-            if bpy.app.version_string.startswith('2.8'):
+            if is_28():
                 src.inputs[1].default_value = self.ao_distance
 
                 mat.node_tree.links.new(src.outputs[0], emit.inputs[0])
@@ -1147,7 +1147,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
 
     def draw(self, context):
 
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
@@ -1253,7 +1253,7 @@ class YTransferLayerUV(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
@@ -1340,7 +1340,7 @@ def recover_after_resize(self, context):
     scene.render.bake.use_clear = self.ori_use_clear
 
     # Deselect all
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         for obj in context.view_layer.objects:
             obj.select_set(False)
     else:
@@ -1348,14 +1348,14 @@ def recover_after_resize(self, context):
             obj.select = False
 
     # Recover select
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         for obj in self.selected_objects:
             obj.select_set(True)
     else:
         for obj in self.selected_objects:
             obj.select = True
 
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         context.view_layer.objects.active = self.object
     else: scene.objects.active = self.object
 
@@ -1382,7 +1382,7 @@ class YResizeImage(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
         col = row.column(align=True)
@@ -1451,7 +1451,7 @@ class YResizeImage(bpy.types.Operator):
             start_y = 0
 
         # Deselect all objects
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             for obj in self.selected_objects:
                 obj.select_set(False)
         else:
@@ -1648,7 +1648,7 @@ class YBakeChannels(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
         col = row.column(align=True)
@@ -1687,7 +1687,7 @@ class YBakeChannels(bpy.types.Operator):
         remember_before_bake(self, context, yp)
 
         if BL28_HACK:
-        #if bpy.app.version_string.startswith('2.8'):
+        #if is_28():
 
             if len(yp.uvs) > MAX_VERTEX_DATA - len(obj.data.vertex_colors):
                 self.report({'ERROR'}, "Maximum vertex colors reached! Need at least " + str(len(uvs)) + " vertex color(s)!")
@@ -1733,7 +1733,7 @@ class YBakeChannels(bpy.types.Operator):
         check_uv_nodes(yp)
 
         # Recover hack
-        #if bpy.app.version_string.startswith('2.8'):
+        #if is_28():
         if BL28_HACK:
             # Refresh tangent sign hacks
             update_enable_tangent_sign_hacks(yp, context)
@@ -1986,7 +1986,7 @@ class YMergeLayer(bpy.types.Operator):
 
     def draw(self, context):
         #col = self.layout.column()
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.5)
         else: row = self.layout.split(percentage=0.5)
 
@@ -2433,7 +2433,7 @@ def check_subdiv_setup(height_ch):
     norm_outp = node.outputs[height_ch.name]
 
     # Recover normal for Blender 2.7
-    if not bpy.app.version_string.startswith('2.8'):
+    if not is_28():
 
         if not yp.use_baked or not height_ch.enable_subdiv_setup or (
                 height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive):
@@ -2471,7 +2471,7 @@ def check_subdiv_setup(height_ch):
         height_outp = node.outputs[height_ch.name + io_suffix['HEIGHT']]
         max_height_outp = node.outputs[height_ch.name + io_suffix['MAX_HEIGHT']]
 
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             #mat.cycles.displacement_method = 'BOTH'
             mat.cycles.displacement_method = 'DISPLACEMENT'
 

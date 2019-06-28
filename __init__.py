@@ -70,22 +70,23 @@
 # - Replace new node can detect duplicated node group (V)
 # - Transfer UV (V)
 # - Add more comments to blender bug report about reflection fix (It should be only calculated on glossy/reflection code, not on diffuse)
-# - Make every node name unique (using hash?)
-# - Deals with blender 2.8 vertex color alpha
 # - Refactor for more consistent class names and properties (V)
 # - Fix backface consistency with Blender 2.8 & 2.7 (V)
+# - Height based bump channel (similar to substance) (V)
+# - Per layer preview (V)
+# - Duplicate layer (V)
+# - Merge layer/mask (~V, still a simple implementation but useful)
 
 # TODO:
+# - Make every node name unique (using hash?)
+# - Deals with blender 2.8 vertex color alpha
 # - Eraser brush (check for ypanel implementation)
-# - Height based bump channel (similar to substance)
 # - Using only one channel on layer mask
 # - Node Group Layer (Smart Material?)
 # - Upper layer affect below layer (?):
 #   - Refraction
 #   - Blur (X?, Already covered by native SSS)
-# - Preview extra
-#   - Matcap view on Normal preview
-#   - Per layer preview
+# - Matcap view on Normal preview
 # - Transition
 #   - Ramp works with non flip background (V, too complicated and has little use)
 #   - Bump works with non flip background (V, too complicated and has little use)
@@ -93,7 +94,6 @@
 #   - Highpoly
 #   - Blur (can be only applied on select layer channel)
 #   - 'Ignore below' blend for bake channel result
-# - Duplicate layer
 # - Armory support (X, proper bake system is better be the solution)
 #
 # TODO OPT:
@@ -107,12 +107,12 @@
 # - Transition AO at flip produce wrong result (V)
 # - Bring back modifier on normal channel at Color layer (V)
 # - Childen layers produce wrong result after delete parent only (V)
-# - Float image still lose precision after packed (its very apparent on bump effect)
-# - Musgrave fine bump cannot read below 0.0
+# - Float image still lose precision after packed (its very apparent on bump effect) (V, not a problem on Blender 2.8)
+# - Musgrave fine bump cannot read below 0.0 (??)
 #
 # KNOWN ISSUES:
-# - Cycles has limit of 32 images per material, NOT per node_tree
-# - Limit decrease to 20 images if alpha is used
+# - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas
+# - Limit decrease to 20 images if alpha is used (V) Can be get around by using image atlas
 # - Use of cineon images will cause crash (??)
 
 bl_info = {

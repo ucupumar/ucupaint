@@ -164,7 +164,7 @@ def copy_segment_pixels(img_from, segment_from, img_to, segment_to):
 
 def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_from=None, segment_from=None):
 
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         ypup = bpy.context.preferences.addons[__package__].preferences
     else: ypup = bpy.context.user_preferences.addons[__package__].preferences
 

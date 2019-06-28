@@ -91,7 +91,7 @@ def check_all_channel_ios(yp, reconnect=True):
             #if yp.use_baked and ch.enable_subdiv_setup and ch.subdiv_adaptive:
             #    name = ch.name + io_suffix['DISPLACEMENT']
 
-            #    if bpy.app.version_string.startswith('2.8'):
+            #    if is_28():
             #        create_output(group_tree, name, 'NodeSocketVector', valid_outputs, output_index)
             #    else: create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
@@ -332,7 +332,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
     def draw(self, context):
         #row = self.layout.row()
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.35)
         else: row = self.layout.split(percentage=0.35)
 
@@ -353,7 +353,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         ccol.prop(self, 'roughness', toggle=True)
         ccol.prop(self, 'normal', toggle=True)
 
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             col.prop(self, 'mute_texture_paint_overlay')
 
     def execute(self, context):
@@ -380,7 +380,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
 
-        transp_node_needed = not(bpy.app.version_string.startswith('2.8') and self.type == 'PRINCIPLED')
+        transp_node_needed = not(is_28() and self.type == 'PRINCIPLED')
 
         main_bsdf = None
         trans_bsdf = None
@@ -543,7 +543,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             node.location.x -= 180
 
         # Disable overlay on Blender 2.8
-        if bpy.app.version_string.startswith('2.8') and self.mute_texture_paint_overlay:
+        if is_28() and self.mute_texture_paint_overlay:
             screen = context.screen
             for area in context.screen.areas:
                 if area.type == 'VIEW_3D':
@@ -632,7 +632,7 @@ class YNewYPaintNode(bpy.types.Operator):
         return result
 
 def new_channel_items(self, context):
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         items = [('VALUE', 'Value', '', lib.channel_icon_dict['VALUE'], 0),
                  ('RGB', 'RGB', '', lib.channel_icon_dict['RGB'], 1),
                  ('NORMAL', 'Normal', '', lib.channel_icon_dict['NORMAL'], 2)]
@@ -729,7 +729,7 @@ class YNewYPaintChannel(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
@@ -1165,7 +1165,7 @@ class YFixMissingUV(bpy.types.Operator):
 
     def draw(self, context):
 
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.5)
         else: row = self.layout.split(percentage=0.5)
 
@@ -1649,7 +1649,9 @@ def update_active_yp_channel(self, context):
 def update_layer_index(self, context):
     #T = time.time()
     scene = context.scene
-    obj = context.object
+    if hasattr(bpy.context, 'object'): obj = bpy.context.object
+    elif is_28(): obj = bpy.context.view_layer.objects.active
+    if not obj: return
     group_tree = self.id_data
     nodes = group_tree.nodes
     ypui = context.window_manager.ypui
@@ -2434,6 +2436,9 @@ class YPaintMaterialProps(bpy.types.PropertyGroup):
 class YPaintTimer(bpy.types.PropertyGroup):
     time = StringProperty(default='')
 
+class YPaintSceneProps(bpy.types.PropertyGroup):
+    last_object = StringProperty(default='')
+
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min = FloatProperty(default=0.0)
 #    parallax_scale_span = FloatProperty(default=1.0)
@@ -2472,6 +2477,17 @@ def ypaint_hacks_and_scene_updates(scene):
                 layer.image_name = img.name
                 yp.active_layer_index = yp.active_layer_index
 
+@persistent
+def ypaint_last_object_update(scene):
+    obj = bpy.context.object
+    if scene.yp.last_object != obj.name:
+        scene.yp.last_object = obj.name
+        node = get_active_ypaint_node()
+
+        # Refresh layer index to update editor image
+        if node and len(node.node_tree.yp.layers) > 0 :
+            node.node_tree.yp.active_layer_index = node.node_tree.yp.active_layer_index
+
 def register():
     bpy.utils.register_class(YQuickYPaintNodeSetup)
     bpy.utils.register_class(YNewYPaintNode)
@@ -2492,16 +2508,21 @@ def register():
     bpy.utils.register_class(YPaint)
     bpy.utils.register_class(YPaintMaterialProps)
     bpy.utils.register_class(YPaintTimer)
+    bpy.utils.register_class(YPaintSceneProps)
     #bpy.utils.register_class(YPaintMeshProps)
 
     # YPaint Props
     bpy.types.ShaderNodeTree.yp = PointerProperty(type=YPaint)
     bpy.types.Material.yp = PointerProperty(type=YPaintMaterialProps)
     bpy.types.WindowManager.yptimer = PointerProperty(type=YPaintTimer)
+    bpy.types.Scene.yp = PointerProperty(type=YPaintSceneProps)
     #bpy.types.Mesh.yp = PointerProperty(type=YPaintMeshProps)
 
     # Handlers
-    if hasattr(bpy.app.handlers, 'scene_update_pre'):
+    if is_28():
+        bpy.app.handlers.depsgraph_update_post.append(ypaint_last_object_update)
+    else:
+        bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
 
 def unregister():
@@ -2524,9 +2545,13 @@ def unregister():
     bpy.utils.unregister_class(YPaint)
     bpy.utils.unregister_class(YPaintMaterialProps)
     bpy.utils.unregister_class(YPaintTimer)
+    bpy.utils.unregister_class(YPaintSceneProps)
     #bpy.utils.unregister_class(YPaintMeshProps)
 
     # Remove handlers
-    if hasattr(bpy.app.handlers, 'scene_update_pre'):
+    if is_28():
+        bpy.app.handlers.depsgraph_update_post.remove(ypaint_last_object_update)
+    else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
+        bpy.app.handlers.scene_update_pre.remove(ypaint_last_object_update)
 

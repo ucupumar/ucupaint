@@ -243,11 +243,19 @@ def get_current_version_str():
     bl_info = sys.modules[ADDON_NAME].bl_info
     return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
 
+def is_28():
+    if bpy.app.version_string.startswith('2.8'):
+        return True
+    else: return False
+
 def get_active_material():
     scene = bpy.context.scene
     engine = scene.render.engine
-    if not hasattr(bpy.context, 'object'): return None
-    obj = bpy.context.object
+    obj = None
+    if hasattr(bpy.context, 'object'):
+        obj = bpy.context.object
+    elif is_28():
+        obj = bpy.context.view_layer.objects.active
 
     if not obj: return None
 
@@ -1286,7 +1294,7 @@ def change_layer_name(yp, obj, src, layer, texes):
 def set_obj_vertex_colors(obj, vcol, color):
     if obj.type != 'MESH': return
 
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         col = (color[0], color[1], color[2], 1.0)
     else: col = color
 
@@ -1819,7 +1827,7 @@ def refresh_temp_uv(obj, entity):
         mapping = get_mask_mapping(entity)
     else: return False
 
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         uv_layers = obj.data.uv_layers
     else: uv_layers = obj.data.uv_textures
 
@@ -1872,7 +1880,7 @@ def refresh_temp_uv(obj, entity):
     arr.shape = (arr.shape[0]//2, 2)
 
     # Matrix transformation for each uv coordinates
-    if bpy.app.version_string.startswith('2.8'):
+    if is_28():
         for uv in arr:
             vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
             vec = m @ vec

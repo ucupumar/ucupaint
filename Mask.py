@@ -229,7 +229,7 @@ class YNewLayerMask(bpy.types.Operator):
     def draw(self, context):
         obj = context.object
 
-        if bpy.app.version_string.startswith('2.8'):
+        if is_28():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
