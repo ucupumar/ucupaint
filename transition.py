@@ -267,22 +267,22 @@ def remove_transition_ramp_nodes(tree, ch):
 def save_transition_bump_falloff_cache(tree, ch):
     tb_falloff = tree.nodes.get(ch.tb_falloff)
 
-    if (ch.transition_bump_falloff_type != 'CURVE' or not ch.transition_bump_falloff or 
-        not ch.enable_transition_bump or not ch.enable):
+    #if (ch.transition_bump_falloff_type != 'CURVE' or not ch.transition_bump_falloff or 
+    #    not ch.enable_transition_bump or not ch.enable):
 
-        if check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
-            cache = tree.nodes.get(ch.cache_falloff_curve)
-            if not cache:
-                cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
-            curve_ref = tb_falloff.node_tree.nodes.get('_curve')
-            copy_node_props(curve_ref, cache)
-        elif check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE_SMOOTH):
-            cache = tree.nodes.get(ch.cache_falloff_curve)
-            if not cache:
-                cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
-            ori = tb_falloff.node_tree.nodes.get('_original')
-            curve_ref = ori.node_tree.nodes.get('_curve')
-            copy_node_props(curve_ref, cache)
+    if check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE):
+        cache = tree.nodes.get(ch.cache_falloff_curve)
+        if not cache:
+            cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
+        curve_ref = tb_falloff.node_tree.nodes.get('_curve')
+        copy_node_props(curve_ref, cache)
+    elif check_if_node_is_duplicated_from_lib(tb_falloff, lib.FALLOFF_CURVE_SMOOTH):
+        cache = tree.nodes.get(ch.cache_falloff_curve)
+        if not cache:
+            cache = new_node(tree, ch, 'cache_falloff_curve', 'ShaderNodeRGBCurve', 'Falloff Curve Cache')
+        ori = tb_falloff.node_tree.nodes.get('_original')
+        curve_ref = ori.node_tree.nodes.get('_curve')
+        copy_node_props(curve_ref, cache)
 
 def check_transition_bump_falloff(layer, tree):
 
@@ -484,6 +484,8 @@ def remove_transition_bump_influence_nodes_to_other_channels(layer, tree):
 
 def remove_transition_bump_nodes(layer, tree, ch, ch_index):
 
+    save_transition_bump_falloff_cache(tree, ch)
+
     disable_layer_source_tree(layer, False)
     Modifier.disable_modifiers_tree(ch)
 
@@ -492,8 +494,6 @@ def remove_transition_bump_nodes(layer, tree, ch, ch_index):
     remove_node(tree, ch, 'tb_bump_flip')
     remove_node(tree, ch, 'tb_inverse')
     remove_node(tree, ch, 'tb_intensity_multiplier')
-
-    save_transition_bump_falloff_cache(tree, ch)
 
     remove_node(tree, ch, 'tb_falloff')
     remove_node(tree, ch, 'tb_falloff_n')
