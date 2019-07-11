@@ -756,9 +756,7 @@ def remove_tangent_sign_vcol(obj, uv_name):
 def refresh_tangent_sign_vcol(obj, uv_name):
 
     # Set vertex color of bitangent sign
-    if hasattr(obj.data, 'uv_textures'):
-        uv_layers = obj.data.uv_textures
-    else: uv_layers = obj.data.uv_layers
+    uv_layers = get_uv_layers(obj)
 
     uv_layer = uv_layers.get(uv_name)
     if uv_layer:
@@ -772,22 +770,115 @@ def refresh_tangent_sign_vcol(obj, uv_name):
         if ori_mode == 'EDIT':
             bpy.ops.object.mode_set(mode='OBJECT')
 
-        obj.data.calc_tangents()
-
+        # Get vertex color
         vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
         if not vcol:
             try: vcol = obj.data.vertex_colors.new(name='__tsign_' + uv_name)
             except: return None
 
-        i = 0
-        for poly in obj.data.polygons:
-            for idx in poly.loop_indices:
-                vert = obj.data.loops[idx]
-                bs = max(vert.bitangent_sign, 0.0)
+            # Set default color to be white
+            if is_28():
+                for d in vcol.data: 
+                    d.color = (1.0, 1.0, 1.0, 1.0)
+            else: 
+                for d in vcol.data: 
+                    d.color = (1.0, 1.0, 1.0)
+
+        # Use try except because ngon can cause error 
+        try:
+            # Calc tangents
+            obj.data.calc_tangents()
+
+            # Set tangent sign to vertex color
+            i = 0
+            for poly in obj.data.polygons:
+                for idx in poly.loop_indices:
+                    vert = obj.data.loops[idx]
+                    bs = max(vert.bitangent_sign, 0.0)
+                    if is_28():
+                        vcol.data[i].color = (bs, bs, bs, 1.0)
+                    else: vcol.data[i].color = (bs, bs, bs)
+                    i += 1
+
+        # If using ngon, need a temporary mesh
+        except:
+
+            # Remember selection
+            if is_28():
+                ori_select = [o for o in bpy.context.view_layer.objects if o.select_get()]
+            else: ori_select = [o for o in bpy.context.scene.objects if o.select]
+
+            temp_ob = obj.copy()
+            temp_ob.data = obj.data.copy()
+            temp_ob.name = '___TEMP__'
+
+            if is_28():
+                bpy.context.collection.objects.link(temp_ob)
+                bpy.context.view_layer.objects.active = temp_ob
+            else: 
+                bpy.context.scene.objects.link(temp_ob)
+                bpy.context.scene.objects.active = temp_ob
+
+            # Triangulate ngon faces on temp object
+            bpy.ops.object.select_all(action='DESELECT')
+            bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.select_all(action='DESELECT')
+            bpy.ops.mesh.select_mode(type="FACE")
+            bpy.ops.mesh.select_face_by_sides(number=4, type='GREATER')
+            bpy.ops.mesh.quads_convert_to_tris()
+            bpy.ops.mesh.tris_convert_to_quads()
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+            # Remove all modifiers on temp object
+            for mod in temp_ob.modifiers:
+                bpy.ops.object.modifier_remove(modifier=mod.name)
+
+            # Calc tangents
+            temp_ob.data.calc_tangents()
+
+            # Set tangent sign to vertex color
+            temp_vcol = temp_ob.data.vertex_colors.get('__tsign_' + uv_name)
+            i = 0
+            for poly in temp_ob.data.polygons:
+                for idx in poly.loop_indices:
+                    vert = temp_ob.data.loops[idx]
+                    bs = max(vert.bitangent_sign, 0.0)
+                    if is_28():
+                        temp_vcol.data[i].color = (bs, bs, bs, 1.0)
+                    else: temp_vcol.data[i].color = (bs, bs, bs)
+                    i += 1
+
+            # Add data transfer to original object
+            mod_name = 'Transferz'
+            mod = obj.modifiers.new(mod_name, 'DATA_TRANSFER')
+            
+            # Set active object back to the original mesh
+            if is_28():
+                bpy.context.view_layer.objects.active = obj
+            else: bpy.context.scene.objects.active = obj
+
+            # Move data transfer modifier to the top
+            for i in range(len(obj.modifiers)-1):
+                bpy.ops.object.modifier_move_up(modifier=mod_name)
+                
+            # Set transfer object
+            mod.object = temp_ob
+            mod.use_loop_data = True
+            mod.data_types_loops = {'VCOL'}
+            
+            # Apply modifier
+            bpy.ops.object.modifier_apply(modifier=mod_name)
+
+            # Delete temp object
+            temp_me = temp_ob.data
+            bpy.data.objects.remove(temp_ob)
+            bpy.data.meshes.remove(temp_me)
+
+            # Set back original select
+            for o in ori_select:
                 if is_28():
-                    vcol.data[i].color = (bs, bs, bs, 1.0)
-                else: vcol.data[i].color = (bs, bs, bs)
-                i += 1
+                    o.select_set(True)
+                else: o.select = True
 
         # Recover active uv
         uv_layers.active = ori_layer
@@ -1351,9 +1442,7 @@ def check_uv_nodes(yp):
     if obj.type == 'MESH':
 
         # Check uv layers of mesh objects
-        if hasattr(obj.data, 'uv_textures'):
-            uv_layers = obj.data.uv_textures
-        else: uv_layers = obj.data.uv_layers
+        uv_layers = get_uv_layers(obj)
 
         for uv_layer in uv_layers:
             if uv_layer.name == TEMP_UV: continue

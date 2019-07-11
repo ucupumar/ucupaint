@@ -30,7 +30,7 @@ def remember_before_bake(self, context, yp):
 
     # Remember scene objects
     if is_28():
-        self.ori_active_selected_objs = [o for o in scene.objects if o.select_get()]
+        self.ori_active_selected_objs = [o for o in context.view_layer.objects if o.select_get()]
     else: self.ori_active_selected_objs = [o for o in scene.objects if o.select]
 
     # Remember world settings
