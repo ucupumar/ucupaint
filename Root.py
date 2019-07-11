@@ -296,6 +296,17 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 #        self.roughness = False
 #        self.normal = False
 
+#def get_closest_bsdf(node, valid_types=['BSDF_PRINCIPLED', 'BSDF_DIFFUSE']):
+#    for inp in node.inputs:
+#        for link in inp.links:
+#            if link.from_node.type in valid_types:
+#                return link.from_node
+#            else:
+#                n = get_closest_bsdf(link.from_node, valid_types)
+#                if n: return n
+#
+#    return None
+
 class YQuickYPaintNodeSetup(bpy.types.Operator):
     bl_idname = "node.y_quick_ypaint_node_setup"
     bl_label = "Quick " + ADDON_TITLE + " Node Setup"
@@ -325,6 +336,23 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         return context.object
 
     def invoke(self, context, event):
+        #mat = get_active_material()
+
+        ## Get target bsdf
+        #self.target_bsdf = None
+        #if mat and mat.node_tree: # and is_28():
+        #    output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+        #    if output:
+
+        #        bsdf_node = get_closest_bsdf(output[0])
+        #        if bsdf_node:
+        #            if bsdf_node.type == 'BSDF_PRINCIPLED':
+        #                self.type = 'PRINCIPLED'
+        #            elif bsdf_node.type == 'BSDF_DIFFUSE':
+        #                self.type = 'DIFFUSE'
+        #            self.target_bsdf = bsdf_node
+        #            #print(bsdf_node)
+
         return context.window_manager.invoke_props_dialog(self)
 
     def check(self, context):
@@ -402,9 +430,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 elif self.type == 'DIFFUSE':
                     bsdf_type = 'BSDF_DIFFUSE'
 
-
                 if not transp_node_needed:
-                    if output_in.type == 'PRINCIPLED':
+                    if output_in.type == 'BSDF_PRINCIPLED':
                         main_bsdf = output_in
                         mat_out = output
 
@@ -418,6 +445,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                             mix_bsdf = output_in
                             trans_bsdf = mix_bsdf.inputs[1].links[0].from_node
                             main_bsdf = mix_bsdf.inputs[2].links[0].from_node
+
+        print(main_bsdf)
 
         if not mat_out:
             mat_out = nodes.new(type='ShaderNodeOutputMaterial')
