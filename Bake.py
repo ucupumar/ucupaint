@@ -2397,9 +2397,24 @@ def check_subdiv_setup(height_ch):
     # Displace
     if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
 
+        mod_len = len(obj.modifiers)
+
         displace = get_displace_modifier(obj)
         if not displace:
             displace = obj.modifiers.new('yP_Displace', 'DISPLACE')
+
+            # Check modifier index
+            for i, m in enumerate(obj.modifiers):
+                if m == subsurf:
+                    subsurf_idx = i
+                elif m == displace:
+                    displace_idx = i
+
+            # Move up if displace is not directly below subsurf
+            #if displace_idx != subsurf_idx+1:
+            delta = displace_idx - subsurf_idx - 1
+            for i in range(delta):
+                bpy.ops.object.modifier_move_up(modifier=displace.name)
 
         tex = displace.texture
         if not tex:
