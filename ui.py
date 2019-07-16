@@ -1679,14 +1679,16 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            uv_layer = uv_layers.get(layer.uv_name)
-            if not uv_layer and layer.uv_name not in uv_missings:
-                uv_missings.append(layer.uv_name)
+            if layer.type != 'VCOL':
+                uv_layer = uv_layers.get(layer.uv_name)
+                if not uv_layer and layer.uv_name not in uv_missings:
+                    uv_missings.append(layer.uv_name)
 
             for mask in layer.masks:
-                uv_layer = uv_layers.get(mask.uv_name)
-                if not uv_layer and mask.uv_name not in uv_missings:
-                    uv_missings.append(mask.uv_name)
+                if mask.type != 'VCOL':
+                    uv_layer = uv_layers.get(mask.uv_name)
+                    if not uv_layer and mask.uv_name not in uv_missings:
+                        uv_missings.append(mask.uv_name)
 
         for uv_name in uv_missings:
             row = box.row(align=True)
@@ -2026,7 +2028,7 @@ def main_draw(self, context):
     row.label(text='Layers')
 
     if (area.type == 'VIEW_3D' and area.spaces[0].shading.type == 'RENDERED' 
-            and is_28()
+            and is_28() and get_root_height_channel(yp)
             and scene.render.engine == 'CYCLES' and not yp.enable_tangent_sign_hacks):
         rrow = row.row(align=True)
         rrow.alert = True

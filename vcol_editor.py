@@ -22,6 +22,11 @@ def linear_to_srgb(inp):
 
         return c
 
+def is_28():
+    if bpy.app.version_string.startswith('2.8'):
+        return True
+    else: return False
+
 class YVcolFill(bpy.types.Operator):
     bl_idname = "mesh.y_vcol_fill"
     bl_label = "Vertex Color Fill"
@@ -77,6 +82,9 @@ class YVcolFill(bpy.types.Operator):
             color = (0,0,0)
         else:
             color = linear_to_srgb(context.scene.ve_edit.color)
+
+        if is_28():
+            color = (color[0], color[1], color[2], 1.0)
 
         if ve.fill_mode == 'FACE':
             for loop_index in loop_indices:
