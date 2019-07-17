@@ -925,8 +925,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             else:
                 baked_uv_map = baked_parallax.outputs[0]
 
-        baked_tangent = tangents[baked_uv.name]
-        baked_bitangent = bitangents[baked_uv.name]
+        #baked_tangent = tangents[baked_uv.name]
+        #baked_bitangent = bitangents[baked_uv.name]
 
     # Parallax internal connections
     if parallax_ch:

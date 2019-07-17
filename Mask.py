@@ -64,6 +64,9 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     # Check mask source tree
     check_mask_source_tree(layer)
 
+    # Check layer io
+    check_layer_tree_ios(layer, tree)
+
     # Check mask linear
     #check_mask_image_linear_node(mask)
 
@@ -350,6 +353,9 @@ class YNewLayerMask(bpy.types.Operator):
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
+        rearrange_yp_nodes(layer.id_data)
+        reconnect_yp_nodes(layer.id_data)
+
         ypui.layer_ui.expand_masks = True
         ypui.need_update = True
 
@@ -461,6 +467,9 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+
+        rearrange_yp_nodes(layer.id_data)
+        reconnect_yp_nodes(layer.id_data)
 
         # Update UI
         wm.ypui.need_update = True
@@ -594,6 +603,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+
+        rearrange_yp_nodes(layer.id_data)
+        reconnect_yp_nodes(layer.id_data)
 
         ypui.layer_ui.expand_masks = True
         ypui.need_update = True

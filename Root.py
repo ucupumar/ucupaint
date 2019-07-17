@@ -446,8 +446,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                             trans_bsdf = mix_bsdf.inputs[1].links[0].from_node
                             main_bsdf = mix_bsdf.inputs[2].links[0].from_node
 
-        print(main_bsdf)
-
         if not mat_out:
             mat_out = nodes.new(type='ShaderNodeOutputMaterial')
             mat_out.is_active_output = True

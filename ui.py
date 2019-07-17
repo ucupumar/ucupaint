@@ -783,11 +783,12 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             row = row.row(align=True)
             row.alert = True
             row.operator('node.y_back_to_original_uv', icon='EDITMODE_HLT', text='Edit Original UV')
-    elif yp.need_temp_uv_refresh:
-    #if ypui.disable_auto_temp_uv_update and yp.need_temp_uv_refresh:
-        row = row.row(align=True)
-        row.alert = True
-        row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Transformed UV')
+    else:
+        #if ypui.disable_auto_temp_uv_update and yp.need_temp_uv_refresh:
+        if yp.need_temp_uv_refresh:
+            row = row.row(align=True)
+            row.alert = True
+            row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Transformed UV')
 
     #if layer.type != 'GROUP':
     if is_28():

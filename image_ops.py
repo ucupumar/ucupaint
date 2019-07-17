@@ -396,14 +396,17 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         return hasattr(context, 'image') and context.image
 
     def draw(self, context):
-        split = self.layout.split(percentage=0.5)
+        if is_28(): 
+            split = self.layout.split(factor=0.5)
+        else: split = self.layout.split(percentage=0.5)
+
         split.prop(self, 'file_format', text='')
         row = split.row(align=True)
         row.prop(self, 'color_mode', expand=True)
 
         if self.file_format in {'PNG', 'JPEG2000', 'DPX', 'OPEN_EXR_MULTILAYER', 'OPEN_EXR', 'TIFF'}:
             row = self.layout.row()
-            row.label('Color Depth:')
+            row.label(text='Color Depth:')
             row.prop(self, 'color_depth', expand=True)
 
         if self.file_format == 'PNG':
@@ -558,7 +561,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         settings.use_zbuffer = self.use_zbuffer
 
         # Save image
-        image.save_render(self.filepath, tmpscene)
+        image.save_render(self.filepath, scene=tmpscene)
 
         if not self.copy:
             image.filepath = self.filepath

@@ -76,6 +76,11 @@
 # - Per layer preview (V)
 # - Duplicate layer (V)
 # - Merge layer/mask (~V, still a simple implementation but useful)
+# - Show warning if active uv isn't the transformed one
+# - Add Emission Quick Node Setup
+# - Prevent unused channel bake
+# - FXAA image operator to remove jagged pixels from baking or bucket fill
+# - Blur image operator
 
 # TODO:
 # - Make every node name unique (using hash?)
@@ -109,6 +114,9 @@
 # - Childen layers produce wrong result after delete parent only (V)
 # - Float image still lose precision after packed (its very apparent on bump effect) (V, not a problem on Blender 2.8)
 # - Musgrave fine bump cannot read below 0.0 (??)
+# - Bake result is slightly darker when using emission shader (or any shader?? not thoroughly tested yet)
+# - Alpha fail to connect to original target socket when toggling channel use alpha
+# - UV overlay on image editor is not transformed if uv is transformed
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas

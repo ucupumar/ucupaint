@@ -1727,7 +1727,8 @@ class YBakeChannels(bpy.types.Operator):
 
         # Check subdiv Setup
         height_ch = get_root_height_channel(yp)
-        check_subdiv_setup(height_ch)
+        if height_ch:
+            check_subdiv_setup(height_ch)
 
         # Update global uv
         check_uv_nodes(yp)
@@ -2335,7 +2336,8 @@ def update_use_baked(self, context):
 
     # Check subdiv setup
     height_ch = get_root_height_channel(yp)
-    check_subdiv_setup(height_ch)
+    if height_ch:
+        check_subdiv_setup(height_ch)
 
     # Check uv nodes
     check_uv_nodes(yp)

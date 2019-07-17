@@ -1251,6 +1251,16 @@ def get_layer_mapping(layer):
     tree = get_source_tree(layer)
     return tree.nodes.get(layer.mapping)
 
+def get_entity_mapping(entity):
+
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if m1: return get_layer_mapping(entity)
+    elif m2: return get_mask_mapping(entity)
+
+    return None
+
 def get_neighbor_uv_space_input(texcoord_type):
     if texcoord_type == 'UV':
         return 0.0 # Tangent Space
