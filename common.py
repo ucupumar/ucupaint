@@ -1291,8 +1291,16 @@ def change_layer_name(yp, obj, src, layer, texes):
 
     yp.halt_update = False
 
-def set_obj_vertex_colors(obj, vcol, color):
+def set_obj_vertex_colors(obj, vcol_name, color):
     if obj.type != 'MESH': return
+
+    ori_mode = None
+    if obj.mode != 'OBJECT':
+        ori_mode = obj.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    vcol = obj.data.vertex_colors.get(vcol_name)
+    if not vcol: return
 
     if is_28():
         col = (color[0], color[1], color[2], 1.0)
@@ -1301,6 +1309,9 @@ def set_obj_vertex_colors(obj, vcol, color):
     for poly in obj.data.polygons:
         for loop_index in poly.loop_indices:
             vcol.data[loop_index].color = col
+
+    if ori_mode:
+        bpy.ops.object.mode_set(mode=ori_mode)
 
 def force_bump_base_value(tree, ch, value):
     col = (value, value, value, 1.0)
@@ -1827,9 +1838,7 @@ def refresh_temp_uv(obj, entity):
         mapping = get_mask_mapping(entity)
     else: return False
 
-    if is_28():
-        uv_layers = obj.data.uv_layers
-    else: uv_layers = obj.data.uv_textures
+    uv_layers = get_uv_layers(obj)
 
     layer_uv = uv_layers.get(entity.uv_name)
     if not layer_uv: return False
@@ -2593,6 +2602,49 @@ def get_default_uv_name(yp, obj):
         else: uv_name = uv_layers.active.name
 
     return uv_name
+
+def get_active_image_and_stuffs(yp):
+
+    image = None
+    uv_name = ''
+    vcol = None
+    src_of_img = None
+    mapping = None
+
+    layer = yp.layers[yp.active_layer_index]
+    tree = get_tree(layer)
+
+    for mask in layer.masks:
+        if mask.active_edit:
+            source = get_mask_source(mask)
+            if mask.type == 'IMAGE':
+                uv_name = mask.uv_name
+                image = source.image
+                src_of_img = mask
+                mapping = get_mask_mapping(mask)
+            elif mask.type == 'VCOL' and obj.type == 'MESH':
+                vcol = obj.data.vertex_colors.get(source.attribute_name)
+
+    if not image and layer.type == 'IMAGE':
+        uv_name = layer.uv_name
+        source = get_layer_source(layer, tree)
+        image = source.image
+        src_of_img = layer
+        mapping = get_layer_mapping(layer)
+
+    if not vcol and layer.type == 'VCOL' and obj.type == 'MESH':
+        source = get_layer_source(layer, tree)
+        vcol = obj.data.vertex_colors.get(source.attribute_name)
+
+    return image, uv_name, src_of_img, mapping, vcol
+
+def set_active_uv_layer(obj, uv_name):
+    uv_layers = get_uv_layers(obj)
+
+    for i, uv in enumerate(uv_layers):
+        if uv.name == uv_name:
+            if uv_layers.active_index != i:
+                uv_layers.active_index = i
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

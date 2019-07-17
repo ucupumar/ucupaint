@@ -336,9 +336,9 @@ class YNewLayerMask(bpy.types.Operator):
         elif self.type == 'VCOL':
             vcol = obj.data.vertex_colors.new(name=self.name)
             if self.color_option == 'WHITE':
-                set_obj_vertex_colors(obj, vcol, (1.0, 1.0, 1.0))
+                set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0))
             elif self.color_option == 'BLACK':
-                set_obj_vertex_colors(obj, vcol, (0.0, 0.0, 0.0))
+                set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0))
 
         # Add new mask
         mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment)

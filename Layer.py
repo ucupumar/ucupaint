@@ -251,9 +251,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         elif mask_type == 'VCOL':
             mask_vcol = obj.data.vertex_colors.new(name=mask_name)
             if mask_color == 'WHITE':
-                set_obj_vertex_colors(obj, mask_vcol, (1.0, 1.0, 1.0))
+                set_obj_vertex_colors(obj, mask_vcol.name, (1.0, 1.0, 1.0))
             elif mask_color == 'BLACK':
-                set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
+                set_obj_vertex_colors(obj, mask_vcol.name, (0.0, 0.0, 0.0))
             #set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
 
         mask = Mask.add_new_mask(layer, mask_name, mask_type, 'UV', #texcoord_type, 
@@ -730,7 +730,7 @@ class YNewLayer(bpy.types.Operator):
         vcol = None
         if self.type == 'VCOL':
             vcol = obj.data.vertex_colors.new(name=self.name)
-            set_obj_vertex_colors(obj, vcol, (1.0, 1.0, 1.0))
+            set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0))
 
         yp.halt_update = True
 

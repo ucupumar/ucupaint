@@ -345,21 +345,11 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
         yp = layer.id_data.yp
         ypui = context.window_manager.ypui
 
-        image = None
+        uv_layers = get_uv_layers(obj)
 
-        for mask in layer.masks:
-            if mask.type == 'IMAGE' and mask.active_edit:
-                refresh_temp_uv(obj, mask)
-                source = get_mask_source(mask)
-                image = source.image
-                #return {'FINISHED'}
-        
-        if not image and layer.type == 'IMAGE':
-            refresh_temp_uv(obj, layer)
-            source = get_layer_source(layer)
-            image = source.image
-
+        image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(yp)
         if image:
+            refresh_temp_uv(obj, src_of_img)
             update_image_editor_image(context, image)
             context.scene.tool_settings.image_paint.canvas = image
 

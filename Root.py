@@ -1180,9 +1180,7 @@ class YFixMissingUV(bpy.types.Operator):
 
         self.target_uv_name = ''
 
-        if hasattr(obj.data, 'uv_textures'):
-            uv_layers = obj.data.uv_textures
-        else: uv_layers = obj.data.uv_layers
+        uv_layers = get_uv_layers(obj)
 
         # UV Map collections update
         self.uv_map_coll.clear()
@@ -1207,9 +1205,7 @@ class YFixMissingUV(bpy.types.Operator):
         group_tree = node.node_tree
         yp = group_tree.yp
 
-        if hasattr(obj.data, 'uv_textures'):
-            uv_layers = obj.data.uv_textures
-        else: uv_layers = obj.data.uv_layers
+        uv_layers = get_uv_layers(obj)
 
         if self.target_uv_name not in uv_layers:
             self.report({'ERROR'}, "Target UV name is not found!")
@@ -1667,9 +1663,7 @@ def update_active_yp_channel(self, context):
             update_image_editor_image(context, baked.image)
 
         if obj.type == 'MESH':
-            if hasattr(obj.data, 'uv_textures'):
-                uv_layers = self.uv_layers = obj.data.uv_textures
-            else: uv_layers = self.uv_layers = obj.data.uv_layers
+            self.uv_layers = uv_layers = get_uv_layers(obj)
 
             #baked_uv_map = tree.nodes.get(BAKED_UV)
             #if baked_uv_map:
@@ -1692,42 +1686,15 @@ def update_layer_index(self, context):
         #print('INFO: Active layer is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         return
 
-    layer = self.layers[self.active_layer_index]
-    tree = get_tree(layer)
-    yp = layer.id_data.yp
+    yp = self
 
     if yp.layer_preview_mode: update_layer_preview_mode(yp, context)
 
     # Set image paint mode to Image
     scene.tool_settings.image_paint.mode = 'IMAGE'
 
-    uv_name = ''
-    image = None
-    vcol = None
-    src_of_img = None
-    mapping = None
-
-    for mask in layer.masks:
-        if mask.active_edit:
-            source = get_mask_source(mask)
-            if mask.type == 'IMAGE':
-                uv_name = mask.uv_name
-                image = source.image
-                src_of_img = mask
-                mapping = get_mask_mapping(mask)
-            elif mask.type == 'VCOL' and obj.type == 'MESH':
-                vcol = obj.data.vertex_colors.get(source.attribute_name)
-
-    if not image and layer.type == 'IMAGE':
-        uv_name = layer.uv_name
-        source = get_layer_source(layer, tree)
-        image = source.image
-        src_of_img = layer
-        mapping = get_layer_mapping(layer)
-
-    if not vcol and layer.type == 'VCOL' and obj.type == 'MESH':
-        source = get_layer_source(layer, tree)
-        vcol = obj.data.vertex_colors.get(source.attribute_name)
+    # Get active image
+    image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(yp)
 
     # Update image editor
     #if src_of_img and src_of_img.segment_name != '' and ypui.disable_auto_temp_uv_update:
@@ -1759,9 +1726,7 @@ def update_layer_index(self, context):
         if ypui.disable_auto_temp_uv_update or not refresh_temp_uv(obj, src_of_img):
         #if not refresh_temp_uv(obj, src_of_img):
 
-            if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
-                uv_layers = obj.data.uv_textures
-            else: uv_layers = obj.data.uv_layers
+            uv_layers = get_uv_layers(obj)
 
             for i, uv in enumerate(uv_layers):
                 if uv.name == uv_name:
@@ -2516,7 +2481,12 @@ def ypaint_last_object_update(scene):
 
         # Refresh layer index to update editor image
         if node and len(node.node_tree.yp.layers) > 0 :
-            node.node_tree.yp.active_layer_index = node.node_tree.yp.active_layer_index
+            #node.node_tree.yp.active_layer_index = node.node_tree.yp.active_layer_index
+            image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(node.node_tree.yp)
+            #print(image)
+            if image:
+                update_image_editor_image(bpy.context, image)
+                scene.tool_settings.image_paint.canvas = image
 
 def register():
     bpy.utils.register_class(YQuickYPaintNodeSetup)

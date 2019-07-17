@@ -762,7 +762,7 @@ def refresh_tangent_sign_vcol(obj, uv_name):
     if uv_layer:
 
         # Set uv as active
-        ori_layer = uv_layers.active
+        ori_layer_name = uv_layers.active.name
         uv_layers.active = uv_layer
 
         # Cannot do this on edit mode
@@ -813,7 +813,7 @@ def refresh_tangent_sign_vcol(obj, uv_name):
             temp_ob.name = '___TEMP__'
 
             if is_28():
-                bpy.context.collection.objects.link(temp_ob)
+                bpy.context.scene.collection.objects.link(temp_ob)
                 bpy.context.view_layer.objects.active = temp_ob
             else: 
                 bpy.context.scene.objects.link(temp_ob)
@@ -881,7 +881,7 @@ def refresh_tangent_sign_vcol(obj, uv_name):
                 else: o.select = True
 
         # Recover active uv
-        uv_layers.active = ori_layer
+        set_active_uv_layer(obj, ori_layer_name)
 
         # Back to edit mode if originally from there
         if ori_mode == 'EDIT':
