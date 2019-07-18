@@ -453,6 +453,8 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 
     if smooth_bump_ch and smooth_bump_ch.enable and (write_height_ch or mask_idx < chain):
 
+        print('ntob')
+
         if mask.type == 'VCOL': 
             lib_name = lib.NEIGHBOR_FAKE
         else: lib_name = lib.get_neighbor_uv_tree_name(mask.texcoord_type, entity=mask)
@@ -755,6 +757,11 @@ def remove_tangent_sign_vcol(obj, uv_name):
 
 def refresh_tangent_sign_vcol(obj, uv_name):
 
+    # Cannot do this on edit mode
+    ori_mode = obj.mode
+    if ori_mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+
     # Set vertex color of bitangent sign
     uv_layers = get_uv_layers(obj)
 
@@ -765,16 +772,14 @@ def refresh_tangent_sign_vcol(obj, uv_name):
         ori_layer_name = uv_layers.active.name
         uv_layers.active = uv_layer
 
-        # Cannot do this on edit mode
-        ori_mode = obj.mode
-        if ori_mode == 'EDIT':
-            bpy.ops.object.mode_set(mode='OBJECT')
-
         # Get vertex color
         vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
         if not vcol:
             try: vcol = obj.data.vertex_colors.new(name='__tsign_' + uv_name)
-            except: return None
+            except: 
+                if ori_mode == 'EDIT':
+                    bpy.ops.object.mode_set(mode='EDIT')
+                return None
 
             # Set default color to be white
             if is_28():
@@ -848,17 +853,30 @@ def refresh_tangent_sign_vcol(obj, uv_name):
                     else: temp_vcol.data[i].color = (bs, bs, bs)
                     i += 1
 
-            # Add data transfer to original object
-            mod_name = 'Transferz'
-            mod = obj.modifiers.new(mod_name, 'DATA_TRANSFER')
-            
             # Set active object back to the original mesh
             if is_28():
                 bpy.context.view_layer.objects.active = obj
             else: bpy.context.scene.objects.active = obj
 
+            # Number of original modifiers
+            num_mods = len(obj.modifiers)
+
+            # Remember original enabled modifiers
+            ori_show_render_mods = []
+            ori_show_viewport_mods = []
+            for m in obj.modifiers:
+                ori_show_viewport_mods.append(m.show_viewport)
+                ori_show_render_mods.append(m.show_render)
+                m.show_viewport = False
+                m.show_render = False
+            
+            # Add data transfer to original object
+            mod_name = 'Transferz'
+            mod = obj.modifiers.new(mod_name, 'DATA_TRANSFER')
+
             # Move data transfer modifier to the top
-            for i in range(len(obj.modifiers)-1):
+            #for i in range(len(obj.modifiers)-1):
+            for i in range(num_mods):
                 bpy.ops.object.modifier_move_up(modifier=mod_name)
                 
             # Set transfer object
@@ -868,6 +886,13 @@ def refresh_tangent_sign_vcol(obj, uv_name):
             
             # Apply modifier
             bpy.ops.object.modifier_apply(modifier=mod_name)
+
+            # Recover original enabled modifiers
+            for i, m in enumerate(obj.modifiers):
+                if ori_show_viewport_mods[i]:
+                    m.show_viewport = ori_show_viewport_mods[i]
+                if ori_show_render_mods[i]:
+                    m.show_render = ori_show_render_mods[i]
 
             # Delete temp object
             temp_me = temp_ob.data
@@ -888,6 +913,10 @@ def refresh_tangent_sign_vcol(obj, uv_name):
             bpy.ops.object.mode_set(mode='EDIT')
 
         return vcol
+
+    # Back to edit mode if originally from there
+    if ori_mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='EDIT')
 
     return None
 
@@ -1455,6 +1484,8 @@ def check_uv_nodes(yp):
             check_actual_uv_nodes(yp, uv, obj)
             if uv_layer.name not in uv_names: uv_names.append(uv_layer.name)
 
+    #return
+
     # Get unused uv objects
     unused_uvs = []
     unused_ids = []
@@ -1536,6 +1567,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     yp = layer.id_data.yp
 
     if root_ch.type != 'NORMAL': return need_reconnect
+
+    print('ntab')
 
     # Check mask source tree
     check_mask_source_tree(layer) #, ch)

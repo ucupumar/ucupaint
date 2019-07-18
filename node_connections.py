@@ -1467,17 +1467,18 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if uv_neighbor: 
             create_link(tree, vector, uv_neighbor.inputs[0])
 
-            if 'Tangent' in uv_neighbor.inputs:
+            if tangent and 'Tangent' in uv_neighbor.inputs:
                 create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
                 create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
 
-            if 'Entity Tangent' in uv_neighbor.inputs:
-                create_link(tree, layer_tangent, uv_neighbor.inputs['Entity Tangent'])
-                create_link(tree, layer_bitangent, uv_neighbor.inputs['Entity Bitangent'])
+            if layer_tangent:
+                if 'Entity Tangent' in uv_neighbor.inputs:
+                    create_link(tree, layer_tangent, uv_neighbor.inputs['Entity Tangent'])
+                    create_link(tree, layer_bitangent, uv_neighbor.inputs['Entity Bitangent'])
 
-            if 'Mask Tangent' in uv_neighbor.inputs:
-                create_link(tree, layer_tangent, uv_neighbor.inputs['Mask Tangent'])
-                create_link(tree, layer_bitangent, uv_neighbor.inputs['Mask Bitangent'])
+                if 'Mask Tangent' in uv_neighbor.inputs:
+                    create_link(tree, layer_tangent, uv_neighbor.inputs['Mask Tangent'])
+                    create_link(tree, layer_bitangent, uv_neighbor.inputs['Mask Bitangent'])
 
             #if 'Tangent' in uv_neighbor.inputs:
             #    create_link(tree, tangent, uv_neighbor.inputs['Tangent'])

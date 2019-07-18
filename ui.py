@@ -785,10 +785,10 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             row.operator('node.y_back_to_original_uv', icon='EDITMODE_HLT', text='Edit Original UV')
     else:
         #if ypui.disable_auto_temp_uv_update and yp.need_temp_uv_refresh:
-        if yp.need_temp_uv_refresh:
+        if yp.need_temp_uv_refresh or is_active_uv_map_match_entity(obj, layer):
             row = row.row(align=True)
             row.alert = True
-            row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Transformed UV')
+            row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
     #if layer.type != 'GROUP':
     if is_28():
@@ -883,10 +883,10 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 bbox.prop(layer, 'rotation')
                 bbox.prop(layer, 'scale')
 
-                if yp.need_temp_uv_refresh:
+                if yp.need_temp_uv_refresh or is_active_uv_map_match_entity(obj, layer):
                     rrow = bbox.row(align=True)
                     rrow.alert = True
-                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh Transformed UV')
+                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
     layout.separator()
 
@@ -1590,10 +1590,11 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
                 rbox.prop(mask, 'rotation')
                 rbox.prop(mask, 'scale')
 
-                if mask.type == 'IMAGE' and mask.active_edit and yp.need_temp_uv_refresh:
+                if mask.type == 'IMAGE' and mask.active_edit and (
+                        yp.need_temp_uv_refresh or is_active_uv_map_match_entity(obj, mask)):
                     rrow = rbox.row(align=True)
                     rrow.alert = True
-                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh Transformed UV')
+                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
         draw_mask_modifier_stack(layer, mask, rrcol, maskui, custom_icon_enable)
 

@@ -1813,6 +1813,36 @@ def update_mapping(entity):
         if m1 or (m2 and entity.active_edit):
             yp.need_temp_uv_refresh = True
 
+def is_active_uv_map_match_entity(obj, entity):
+
+    if entity.type != 'IMAGE' or entity.texcoord_type != 'UV': return False
+    mapping = get_entity_mapping(entity)
+
+    #m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    #m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    ## Get source
+    #if m1: 
+    #    source = get_layer_source(entity)
+    #    mapping = get_layer_mapping(entity)
+    #elif m2: 
+    #    source = get_mask_source(entity)
+    #    mapping = get_mask_mapping(entity)
+    #else:
+    #    return
+
+    uv_layers = get_uv_layers(obj)
+    uv_layer = uv_layers.active
+
+    if is_transformed(mapping):
+        if uv_layer.name != TEMP_UV:
+            return True
+
+    elif entity.uv_name in uv_layers and entity.uv_name != uv_layer.name:
+        return True
+
+    return False
+
 def is_transformed(mapping):
     if (mapping.translation[0] != 0.0 or
         mapping.translation[1] != 0.0 or
@@ -1848,10 +1878,18 @@ def refresh_temp_uv(obj, entity):
         mapping = get_mask_mapping(entity)
     else: return False
 
+    # Cannot do this on edit mode
+    ori_mode = obj.mode
+    if ori_mode == 'EDIT':
+        bpy.ops.object.mode_set(mode='OBJECT')
+
     uv_layers = get_uv_layers(obj)
 
     layer_uv = uv_layers.get(entity.uv_name)
-    if not layer_uv: return False
+    if not layer_uv: 
+        if ori_mode == 'EDIT':
+            bpy.ops.object.mode_set(mode='EDIT')
+        return False
 
     if uv_layers.active != layer_uv:
         uv_layers.active = layer_uv
@@ -1860,21 +1898,22 @@ def refresh_temp_uv(obj, entity):
     for uv in uv_layers:
         if uv.name == TEMP_UV:
             uv_layers.remove(uv)
+            break
 
     if not is_transformed(mapping):
+        if ori_mode == 'EDIT':
+            bpy.ops.object.mode_set(mode='EDIT')
         return False
 
     img = source.image
-    if not img: return False
+    if not img: 
+        if ori_mode == 'EDIT':
+            bpy.ops.object.mode_set(mode='EDIT')
+        return False
 
     # New uv layers
     temp_uv_layer = uv_layers.new(name=TEMP_UV)
     uv_layers.active = temp_uv_layer
-
-    # Cannot do this on edit mode
-    ori_mode = obj.mode
-    if ori_mode == 'EDIT':
-        bpy.ops.object.mode_set(mode='OBJECT')
 
     # Create transformation matrix
     # Scale
@@ -1895,7 +1934,8 @@ def refresh_temp_uv(obj, entity):
 
     # Create numpy array to store uv coordinates
     arr = numpy.zeros(len(obj.data.loops)*2, dtype=numpy.float32)
-    obj.data.uv_layers.active.data.foreach_get('uv', arr)
+    #obj.data.uv_layers.active.data.foreach_get('uv', arr)
+    temp_uv_layer.data.foreach_get('uv', arr)
     arr.shape = (arr.shape[0]//2, 2)
 
     # Matrix transformation for each uv coordinates
@@ -1913,7 +1953,8 @@ def refresh_temp_uv(obj, entity):
             uv[1] = vec[1]
 
     # Set back uv coordinates
-    obj.data.uv_layers.active.data.foreach_set('uv', arr.ravel())
+    #obj.data.uv_layers.active.data.foreach_set('uv', arr.ravel())
+    temp_uv_layer.data.foreach_set('uv', arr.ravel())
 
     # Back to edit mode if originally from there
     if ori_mode == 'EDIT':
@@ -2278,6 +2319,13 @@ def get_channel_index(root_ch):
         if c == root_ch:
             return i
 
+def get_channel_index_by_name(yp, name):
+    for i, ch in enumerate(yp.channels):
+        if ch.name == name:
+            return i
+
+    return None
+
 def get_layer_channel_index(layer, ch):
     for i, c in enumerate(layer.channels):
         if c == ch:
@@ -2590,7 +2638,8 @@ def get_displace_modifier(obj, keyword=''):
     return None
 
 def get_uv_layers(obj):
-    if hasattr(obj.data, 'uv_textures'):
+    #if hasattr(obj.data, 'uv_textures'):
+    if not is_28():
         uv_layers = obj.data.uv_textures
     else: uv_layers = obj.data.uv_layers
 
@@ -2613,7 +2662,7 @@ def get_default_uv_name(yp, obj):
 
     return uv_name
 
-def get_active_image_and_stuffs(yp):
+def get_active_image_and_stuffs(obj, yp):
 
     image = None
     uv_name = ''

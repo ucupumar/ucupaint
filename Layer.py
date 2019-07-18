@@ -61,12 +61,14 @@ def channel_items(self, context):
     items = []
 
     for i, ch in enumerate(yp.channels):
-        if hasattr(lib, 'custom_icons'):
+        #if hasattr(lib, 'custom_icons'):
+        if not is_28():
             icon_name = lib.channel_custom_icon_dict[ch.type]
             items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
         else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], i))
 
-    if hasattr(lib, 'custom_icons'):
+    #if hasattr(lib, 'custom_icons'):
+    if not is_28():
         items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
     else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
 
@@ -313,11 +315,11 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     return layer
 
-def update_channel_idx_new_layer(self, context):
-    node = get_active_ypaint_node()
-    yp = node.node_tree.yp
-
-    pass
+#def update_channel_idx_new_layer(self, context):
+#    node = get_active_ypaint_node()
+#    yp = node.node_tree.yp
+#
+#    pass
 
     #if self.channel_idx == '-1':
     #    self.rgb_to_intensity_color = (1,1,1)
@@ -388,8 +390,8 @@ class YNewLayer(bpy.types.Operator):
     channel_idx = EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items,
-            update=update_channel_idx_new_layer)
+            items = channel_items)
+            #update=update_channel_idx_new_layer)
 
     blend_type = EnumProperty(
         name = 'Blend',
@@ -547,7 +549,12 @@ class YNewLayer(bpy.types.Operator):
             self.layout.label(text='No channel found! Still want to create a layer?', icon='ERROR')
             return
 
-        channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        try:
+            channel_idx = int(self.channel_idx)
+            if channel_idx != -1:
+                channel = yp.channels[channel_idx]
+            else: channel = None
+        except: channel = None
 
         if is_28():
             row = self.layout.split(factor=0.4)
@@ -734,8 +741,11 @@ class YNewLayer(bpy.types.Operator):
 
         yp.halt_update = True
 
+        try: channel_idx = int(self.channel_idx)
+        except: channel_idx = 0
+
         layer = add_new_layer(node.node_tree, self.name, self.type, 
-                int(self.channel_idx), self.blend_type, self.normal_blend_type, 
+                channel_idx, self.blend_type, self.normal_blend_type, 
                 self.normal_map_type, self.texcoord_type, self.uv_map, img, vcol, segment,
                 #self.add_rgb_to_intensity, self.rgb_to_intensity_color, 
                 self.solid_color,
@@ -811,8 +821,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     channel_idx = EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items,
-            update=update_channel_idx_new_layer)
+            items = channel_items)
+            #update=update_channel_idx_new_layer)
 
     blend_type = EnumProperty(
         name = 'Blend',
@@ -984,8 +994,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
     channel_idx = EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items,
-            update=update_channel_idx_new_layer)
+            items = channel_items)
+            #update=update_channel_idx_new_layer)
 
     blend_type = EnumProperty(
         name = 'Blend',
@@ -1598,10 +1608,7 @@ class YRemoveLayer(bpy.types.Operator):
             remove_layer(yp, layer_idx)
 
         # Remove temp uv layer
-        if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
-            uv_layers = obj.data.uv_textures
-        else: uv_layers = obj.data.uv_layers
-
+        uv_layers = get_uv_layers(obj)
         for uv in uv_layers:
             if uv.name == TEMP_UV:
                 uv_layers.remove(uv)
@@ -2330,6 +2337,7 @@ def update_uv_name(self, context):
 
     nodes = tree.nodes
 
+    # Use first uv is temp uv is selected
     if layer.uv_name == TEMP_UV:
         if len(yp.uvs) > 0:
             for uv in yp.uvs:
@@ -2342,19 +2350,23 @@ def update_uv_name(self, context):
         if layer.segment_name != '':
             refresh_temp_uv(obj, layer)
         else:
-            if hasattr(obj.data, 'uv_textures'):
-                uv_layers = obj.data.uv_textures
-            else: uv_layers = obj.data.uv_layers
-
+            uv_layers = get_uv_layers(obj)
             uv_layers.active = uv_layers.get(layer.uv_name)
 
     # Update global uv
     yp_dirty = check_uv_nodes(yp)
+    layer_dirty = False
+
+    return
 
     # Update uv neighbor
-    uv_neighbor, layer_dirty = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-            lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
-            return_status=True, hard_replace=True)
+    smooth_bump_ch = get_smooth_bump_channel(layer)
+    if smooth_bump_ch and smooth_bump_ch.enable:
+        uv_neighbor, layer_dirty = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+                lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
+                return_status=True, hard_replace=True)
+    #else:
+    #    remove_node(tree, layer, 'uv_neighbor')
 
     # Update neighbor uv if mask bump is active
     for i, mask in enumerate(layer.masks):
@@ -2376,6 +2388,8 @@ def update_uv_name(self, context):
         rearrange_yp_nodes(group_tree)
         reconnect_yp_nodes(group_tree)
 
+    print(layer.uv_name)
+
 def update_texcoord_type(self, context):
     yp = self.id_data.yp
     layer = self
@@ -2387,8 +2401,12 @@ def update_texcoord_type(self, context):
     check_uv_nodes(yp)
 
     # Update uv neighbor
-    uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-            lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
+    smooth_bump_ch = get_smooth_bump_channel(layer)
+    if smooth_bump_ch and smooth_bump_ch.enable:
+        uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+                lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
+    #else:
+    #    remove_node(tree, layer, 'uv_neighbor')
 
     # Update layer tree inputs
     yp_dirty = True if check_layer_tree_ios(layer, tree) else False

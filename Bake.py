@@ -732,8 +732,8 @@ class YBakeToLayer(bpy.types.Operator):
     channel_idx = EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = Layer.channel_items,
-            update=Layer.update_channel_idx_new_layer)
+            items = Layer.channel_items)
+            #update=Layer.update_channel_idx_new_layer)
 
     blend_type = EnumProperty(
         name = 'Blend',

@@ -1692,7 +1692,7 @@ def update_layer_index(self, context):
     scene.tool_settings.image_paint.mode = 'IMAGE'
 
     # Get active image
-    image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(yp)
+    image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
     # Update image editor
     #if src_of_img and src_of_img.segment_name != '' and ypui.disable_auto_temp_uv_update:
@@ -2480,7 +2480,7 @@ def ypaint_last_object_update(scene):
         # Refresh layer index to update editor image
         if node and len(node.node_tree.yp.layers) > 0 :
             #node.node_tree.yp.active_layer_index = node.node_tree.yp.active_layer_index
-            image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(node.node_tree.yp)
+            image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, node.node_tree.yp)
             #print(image)
             if image:
                 update_image_editor_image(bpy.context, image)

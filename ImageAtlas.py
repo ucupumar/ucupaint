@@ -347,11 +347,13 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
 
         uv_layers = get_uv_layers(obj)
 
-        image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(yp)
+        image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
         if image:
             refresh_temp_uv(obj, src_of_img)
             update_image_editor_image(context, image)
             context.scene.tool_settings.image_paint.canvas = image
+
+        #return {'FINISHED'}
 
         # Update tangent sign if height channel and tangent sign hack is enabled
         height_ch = get_root_height_channel(yp)
