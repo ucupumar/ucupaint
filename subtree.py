@@ -1484,8 +1484,6 @@ def check_uv_nodes(yp):
             check_actual_uv_nodes(yp, uv, obj)
             if uv_layer.name not in uv_names: uv_names.append(uv_layer.name)
 
-    #return
-
     # Get unused uv objects
     unused_uvs = []
     unused_ids = []
@@ -1515,7 +1513,7 @@ def check_uv_nodes(yp):
 
     # Get height channel
     height_ch = get_root_height_channel(yp)
-    if not height_ch: return
+    if not height_ch: return dirty
 
     # Check standard parallax
     check_parallax_node(yp, height_ch, unused_uvs, unused_texcoords)

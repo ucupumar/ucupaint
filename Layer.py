@@ -2354,41 +2354,40 @@ def update_uv_name(self, context):
             uv_layers.active = uv_layers.get(layer.uv_name)
 
     # Update global uv
-    yp_dirty = check_uv_nodes(yp)
-    layer_dirty = False
-
-    return
+    #yp_dirty = check_uv_nodes(yp)
+    check_uv_nodes(yp)
+    #layer_dirty = False
 
     # Update uv neighbor
     smooth_bump_ch = get_smooth_bump_channel(layer)
     if smooth_bump_ch and smooth_bump_ch.enable:
-        uv_neighbor, layer_dirty = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+        #uv_neighbor, layer_dirty = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+        uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
-                return_status=True, hard_replace=True)
+                #return_status=True, hard_replace=True)
+                return_status=False, hard_replace=True)
     #else:
     #    remove_node(tree, layer, 'uv_neighbor')
 
     # Update neighbor uv if mask bump is active
     for i, mask in enumerate(layer.masks):
-        if set_mask_uv_neighbor(tree, layer, mask, i):
-            layer_dirty = True
+        set_mask_uv_neighbor(tree, layer, mask, i)
+        #if set_mask_uv_neighbor(tree, layer, mask, i):
+        #    layer_dirty = True
 
     # Update layer tree inputs
-    if check_layer_tree_ios(layer, tree):
-        yp_dirty = True
+    check_layer_tree_ios(layer, tree)
+    #if check_layer_tree_ios(layer, tree):
+        #yp_dirty = True
 
-    #print()
-    if yp_dirty or layer_dirty: #and not yp.halt_reconnect:
-        #print(layer.name)
-        rearrange_layer_nodes(layer)
-        reconnect_layer_nodes(layer)
+    #if yp_dirty or layer_dirty: #and not yp.halt_reconnect:
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
     # Update layer tree inputs
-    if yp_dirty:
-        rearrange_yp_nodes(group_tree)
-        reconnect_yp_nodes(group_tree)
-
-    print(layer.uv_name)
+    #if yp_dirty:
+    rearrange_yp_nodes(group_tree)
+    reconnect_yp_nodes(group_tree)
 
 def update_texcoord_type(self, context):
     yp = self.id_data.yp
@@ -2409,16 +2408,17 @@ def update_texcoord_type(self, context):
     #    remove_node(tree, layer, 'uv_neighbor')
 
     # Update layer tree inputs
-    yp_dirty = True if check_layer_tree_ios(layer, tree) else False
+    #yp_dirty = True if check_layer_tree_ios(layer, tree) else False
+    check_layer_tree_ios(layer, tree)
 
     #if not yp.halt_reconnect:
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
 
     # Update layer tree inputs
-    if yp_dirty:
-        rearrange_yp_nodes(self.id_data)
-        reconnect_yp_nodes(self.id_data)
+    #if yp_dirty:
+    rearrange_yp_nodes(self.id_data)
+    reconnect_yp_nodes(self.id_data)
 
 def update_channel_intensity_value(self, context):
     yp = self.id_data.yp

@@ -1601,6 +1601,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else:
                 create_link(tree, mask_vector, mask_source.inputs[0])
 
+
         # Mask uv neighbor
         mask_uv_neighbor = nodes.get(mask.uv_neighbor)
         if mask_uv_neighbor:
@@ -1723,7 +1724,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if alpha_preview:
             create_link(tree, root_mask_val, alpha_preview)
         return
-
+    
     # Parent flag
     has_parent = layer.parent_idx != -1
 
