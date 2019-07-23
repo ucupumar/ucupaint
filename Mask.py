@@ -250,7 +250,8 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type != 'VCOL':
             col.label(text='Vector:')
-            col.label(text='')
+            if self.type == 'IMAGE':
+                col.label(text='')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -269,7 +270,8 @@ class YNewLayerMask(bpy.types.Operator):
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 crow.prop_search(self, "uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
-            col.prop(self, 'use_image_atlas')
+                if self.type == 'IMAGE':
+                    col.prop(self, 'use_image_atlas')
 
         if self.get_to_be_cleared_image_atlas(context):
             col = self.layout.column(align=True)
