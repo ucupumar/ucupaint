@@ -759,6 +759,18 @@ class YBakeToLayer(bpy.types.Operator):
             default=False
             )
 
+    flip_normals = BoolProperty(
+            name='Flip Normals',
+            description='Flip normal of mesh',
+            default=False
+            )
+
+    only_local = BoolProperty(
+            name='Only Local',
+            description='Only bake local ambient occlusion',
+            default=False
+            )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -826,6 +838,12 @@ class YBakeToLayer(bpy.types.Operator):
             self.overwrite_name = self.overwrite_coll[0].name
         else:
             self.overwrite = False
+        
+        # Set default float image
+        if self.type == 'AO':
+            self.hdr = False
+        elif self.type == 'POINTINESS':
+            self.hdr = True
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -862,6 +880,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         if self.type == 'AO':
             col.label(text='AO Distance:')
+            col.label(text='')
 
         col.label(text='')
         col.label(text='Width:')
@@ -869,6 +888,7 @@ class YBakeToLayer(bpy.types.Operator):
         col.label(text='UV Map:')
         col.label(text='Samples:')
         col.label(text='Margin:')
+        col.label(text='')
 
         if height_root_ch:
             col.label(text='')
@@ -893,13 +913,16 @@ class YBakeToLayer(bpy.types.Operator):
                     else: 
                         rrow.prop(self, 'blend_type', text='')
 
-        col.prop(self, 'ao_distance', text='')
+        if self.type == 'AO':
+            col.prop(self, 'ao_distance', text='')
+            col.prop(self, 'only_local')
         col.prop(self, 'hdr')
         col.prop(self, 'width', text='')
         col.prop(self, 'height', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
         col.prop(self, 'margin', text='')
+        col.prop(self, 'flip_normals')
 
         if height_root_ch:
             col.prop(self, 'use_baked_disp')
@@ -908,6 +931,7 @@ class YBakeToLayer(bpy.types.Operator):
         mat = get_active_material()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
+        obj = context.object
         tree = node.node_tree
         ypui = context.window_manager.ypui
         active_layer = None
@@ -925,6 +949,42 @@ class YBakeToLayer(bpy.types.Operator):
         # Prepare bake settings
         remember_before_bake(self, context, yp)
         prepare_bake_settings(self, context, yp)
+
+        # Disable few modifiers
+        ori_mods = [m.show_render for m in obj.modifiers]
+        for m in obj.modifiers:
+            if m.type == 'SOLIDIFY':
+                m.show_render = False
+            elif m.type == 'MIRROR':
+                m.show_render = False
+
+        # Flip normals setup
+        if self.flip_normals:
+            ori_mode = obj.mode
+            bpy.ops.object.mode_set(mode = 'EDIT')
+            bpy.ops.mesh.reveal()
+            bpy.ops.mesh.select_all(action='SELECT')
+            bpy.ops.mesh.flip_normals()
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+
+        # Need to assign all polygon to active material if there are multiple materials
+        ori_mat_ids = []
+        if len(obj.data.materials) > 1:
+            active_mat_id = [i for i, m in enumerate(obj.data.materials) if m == mat][0]
+            for p in obj.data.polygons:
+                ori_mat_ids.append(p.material_index)
+                p.material_index = active_mat_id
+
+        # If use only local, hide other objects
+        if self.type == 'AO' and self.only_local:
+            ori_hide_renders = {}
+            if is_28():
+                obs = bpy.context.view_layer.objects
+            else: obs = bpy.context.scene.objects
+            for o in obs:
+                if o.type == 'MESH' and o != obj:
+                    ori_hide_renders[o.name] = o.hide_render
+                    o.hide_render = True
 
         # If use baked disp, need to bake normal and height map first
         height_root_ch = get_root_height_channel(yp)
@@ -1081,6 +1141,30 @@ class YBakeToLayer(bpy.types.Operator):
             yp.use_baked = False
             height_root_ch.subdiv_adaptive = ori_subdiv_adaptive
             height_root_ch.enable_subdiv_setup = ori_subdiv_setup
+
+        # Recover modifiers
+        for i, m in enumerate(obj.modifiers):
+            if ori_mods[i] != m.show_render:
+                m.show_render = ori_mods[i]
+
+        # Recover material index
+        if ori_mat_ids:
+            for i, p in enumerate(obj.data.polygons):
+                if ori_mat_ids[i] != p.material_index:
+                    p.material_index = ori_mat_ids[i]
+
+        # Recover flip normals setup
+        if self.flip_normals:
+            bpy.ops.object.mode_set(mode = 'EDIT')
+            bpy.ops.mesh.flip_normals()
+            bpy.ops.mesh.select_all(action='DESELECT')
+            bpy.ops.object.mode_set(mode = ori_mode)
+
+        # Recover hidden objects
+        if self.type == 'AO' and self.only_local:
+            for o in obs:
+                if o.type == 'MESH' and o != obj and o.hide_render != ori_hide_renders[o.name]:
+                    o.hide_render = ori_hide_renders[o.name]
 
         # Recover bake settings
         recover_bake_settings(self, context, yp)
