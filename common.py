@@ -653,35 +653,37 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
                     and hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == 'ShaderNodeAttribute'):
                 vcol = obj.data.vertex_colors.get(node.attribute_name)
 
-                T = time.time()
+                if vcol:
 
-                # Check if other layer use this vertex color
-                other_users_found = False
-                for ng in bpy.data.node_groups:
-                    for t in ng.yp.layers:
+                    T = time.time()
 
-                        # Search for vcol layer
-                        if t.type == 'VCOL':
-                            src = get_layer_source(t)
-                            if src != node and src.attribute_name == vcol.name:
-                                other_users_found = True
-                                break
+                    # Check if other layer use this vertex color
+                    other_users_found = False
+                    for ng in bpy.data.node_groups:
+                        for t in ng.yp.layers:
 
-                        # Search for mask layer
-                        for m in t.masks:
-                            if m.type == 'VCOL':
-                                src = get_mask_source(m)
+                            # Search for vcol layer
+                            if t.type == 'VCOL':
+                                src = get_layer_source(t)
                                 if src != node and src.attribute_name == vcol.name:
                                     other_users_found = True
                                     break
 
-                print('INFO: Searching on entire node groups to search for vcol takes', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+                            # Search for mask layer
+                            for m in t.masks:
+                                if m.type == 'VCOL':
+                                    src = get_mask_source(m)
+                                    if src != node and src.attribute_name == vcol.name:
+                                        other_users_found = True
+                                        break
 
-                #other_user_found = False
-                #for t in yp.layers:
-                #    if t.type == 'VCOL':
-                if not other_users_found:
-                    obj.data.vertex_colors.remove(vcol)
+                    print('INFO: Searching on entire node groups to search for vcol takes', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
+                    #other_user_found = False
+                    #for t in yp.layers:
+                    #    if t.type == 'VCOL':
+                    if not other_users_found:
+                        obj.data.vertex_colors.remove(vcol)
 
         # Remove the node itself
         #print('Node ' + prop + ' from ' + str(entity) + ' removed!')
