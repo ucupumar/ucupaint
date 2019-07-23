@@ -1403,12 +1403,12 @@ def remember_before_resize(self, context):
     self.ori_margin = scene.render.bake.margin
     self.ori_use_clear = scene.render.bake.use_clear
 
-def prepare_bake_resize_settings(self, context):
+def prepare_bake_resize_settings(self, context, samples):
     scene = context.scene
 
     scene.render.engine = 'CYCLES'
     scene.cycles.bake_type = 'EMIT'
-    scene.cycles.samples = 1
+    scene.cycles.samples = samples
     scene.render.threads_mode = 'AUTO'
     scene.render.bake.margin = 0
     scene.render.bake.use_clear = False
@@ -1454,6 +1454,10 @@ class YResizeImage(bpy.types.Operator):
     width = IntProperty(name='Width', default = 1024, min=1, max=4096)
     height = IntProperty(name='Height', default = 1024, min=1, max=4096)
 
+    samples = IntProperty(name='Bake Samples', 
+            description='Bake Samples, more means less jagged on generated image', 
+            default=1, min=1)
+
     @classmethod
     def poll(cls, context):
         #return hasattr(context, 'image') and hasattr(context, 'layer')
@@ -1473,11 +1477,13 @@ class YResizeImage(bpy.types.Operator):
 
         col.label(text='Width:')
         col.label(text='Height:')
+        col.label(text='Samples:')
 
         col = row.column(align=True)
 
         col.prop(self, 'width', text='')
         col.prop(self, 'height', text='')
+        col.prop(self, 'samples', text='')
 
     def execute(self, context):
         if not hasattr(self, 'image') or not hasattr(self, 'layer'):
@@ -1489,7 +1495,7 @@ class YResizeImage(bpy.types.Operator):
         yp = layer.id_data.yp
 
         remember_before_resize(self, context)
-        prepare_bake_resize_settings(self, context)
+        prepare_bake_resize_settings(self, context, self.samples)
 
         # Get entity
         entity = layer
