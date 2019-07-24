@@ -2793,7 +2793,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         col.operator('node.y_new_layer_mask', icon='IMAGE_DATA', text='New Image Mask').type = 'IMAGE'
         if is_28():
             col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon='FILEBROWSER')
-            col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='FILEBROWSER')
+            col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='FILEBROWSER').type = 'IMAGE'
         else:
             col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon='IMASEL')
             col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='IMASEL').type = 'IMAGE'
