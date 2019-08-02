@@ -1895,6 +1895,7 @@ def refresh_temp_uv(obj, entity):
 
     if uv_layers.active != layer_uv:
         uv_layers.active = layer_uv
+        layer_uv.active_render = True
 
     # Delete previous temp uv
     for uv in uv_layers:
@@ -1916,6 +1917,7 @@ def refresh_temp_uv(obj, entity):
     # New uv layers
     temp_uv_layer = uv_layers.new(name=TEMP_UV)
     uv_layers.active = temp_uv_layer
+    temp_uv_layer.active_render = True
 
     # Create transformation matrix
     # Scale
