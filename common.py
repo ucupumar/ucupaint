@@ -2678,13 +2678,18 @@ def get_active_image_and_stuffs(obj, yp):
     for mask in layer.masks:
         if mask.active_edit:
             source = get_mask_source(mask)
+
             if mask.type == 'IMAGE':
                 uv_name = mask.uv_name
                 image = source.image
                 src_of_img = mask
                 mapping = get_mask_mapping(mask)
             elif mask.type == 'VCOL' and obj.type == 'MESH':
-                vcol = obj.data.vertex_colors.get(source.attribute_name)
+                # If source is empty, still try to get vertex color
+                if source.attribute_name == '':
+                    vcol = obj.data.vertex_colors.get(mask.name)
+                    if vcol: source.attribute_name = vcol.name
+                else: vcol = obj.data.vertex_colors.get(source.attribute_name)
 
     if not image and layer.type == 'IMAGE':
         uv_name = layer.uv_name

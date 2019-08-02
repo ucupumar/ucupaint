@@ -1773,6 +1773,13 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
         row.alert = False
         return
 
+    # If error happens, halt update can stuck on, add button to disable it
+    if yp.halt_update:
+        row = box.row(align=True)
+        row.alert = True
+        row.prop(yp, 'halt_update', text='Disable Halt Update', icon='ERROR')
+        row.alert = False
+
     # Check if parallax is enabled
     height_root_ch = get_root_height_channel(yp)
     if height_root_ch: enable_parallax = height_root_ch.enable_parallax
@@ -2301,11 +2308,12 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             row.active = m.active_edit
             if m.active_edit:
                 mask = m
+                src = mask_tree.nodes.get(m.source)
                 if m.type == 'IMAGE':
-                    src = mask_tree.nodes.get(m.source)
                     active_mask_image = src.image
                     row.label(text='', icon_value=src.image.preview.icon_id)
                 elif m.type == 'VCOL':
+                    #active_vcol_mask = obj.data.vertex_colors.get(src.attribute_name)
                     active_vcol_mask = m
                     row.label(text='', icon='GROUP_VCOL')
             else:

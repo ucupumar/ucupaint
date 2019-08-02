@@ -1735,6 +1735,10 @@ def update_layer_index(self, context):
                 if uv.name == TEMP_UV:
                     uv_layers.remove(uv)
 
+    # Make sure halt update is kept off if error happens
+    #if yp.halt_update: 
+    #    yp.halt_update = False
+
     #yp.need_temp_uv_refresh = False
 
     #print('INFO: Active layer is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
