@@ -78,8 +78,10 @@
 # - Merge layer/mask (~V, still a simple implementation but useful)
 # - Show warning if active uv isn't the transformed one (~V, don't remember exactly)
 # - Add Emission Quick Node Setup
-# - Prevent unused channel bake
+# - Prevent unused channel bake (V)
 # - Add simple vertex color editor on layer manager
+# - Temporary bake hemi/fake lighting so it can works with bump on cycles
+# - Add support for baking vertex color to image
 
 # TODO:
 # - Make every node name unique (using hash?)

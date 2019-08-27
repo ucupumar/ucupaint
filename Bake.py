@@ -1815,9 +1815,11 @@ class YBakeChannels(bpy.types.Operator):
 
         # Bake channels
         for ch in yp.channels:
-            #if ch.type == 'NORMAL':
-            bake_channel(self.uv_map, mat, node, ch, self.width, self.height, use_hdr=self.hdr)
-            #return {'FINISHED'}
+            ch.no_layer_using = not is_any_layer_using_channel(ch)
+            if not ch.no_layer_using:
+                #if ch.type == 'NORMAL':
+                bake_channel(self.uv_map, mat, node, ch, self.width, self.height, use_hdr=self.hdr)
+                #return {'FINISHED'}
 
         # Set baked uv
         yp.baked_uv_name = self.uv_map

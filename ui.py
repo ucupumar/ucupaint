@@ -1725,7 +1725,9 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
             root_ch = yp.channels[yp.active_channel_index]
 
             baked = nodes.get(root_ch.baked)
-            if baked and baked.image:
+            if not baked or not baked.image:
+                col.label(text='No layer is using this channel !')
+            else:
                 row = col.row(align=True)
                 #label = 'Baked Image (' + root_ch.name + '):'
                 label = 'Baked ' + root_ch.name + ':'
@@ -2031,11 +2033,11 @@ def main_draw(self, context):
     ypui = wm.ypui
 
     # Check for baked node
-    baked_found = True
+    baked_found = False
     for ch in yp.channels:
         baked = nodes.get(ch.baked)
-        if not baked: 
-            baked_found = False
+        if baked: 
+            baked_found = True
 
     icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -2209,7 +2211,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
             row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
         else: row.prop(item, 'name', text='', emboss=False, icon=lib.channel_icon_dict[item.type])
 
-        if not yp.use_baked:
+        if not yp.use_baked or item.no_layer_using:
             if item.type == 'RGB':
                 row = row.row(align=True)
 

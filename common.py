@@ -2724,6 +2724,17 @@ def set_active_uv_layer(obj, uv_name):
             if uv_layers.active_index != i:
                 uv_layers.active_index = i
 
+def is_any_layer_using_channel(root_ch):
+
+    yp = root_ch.id_data.yp
+    ch_idx = get_channel_index(root_ch)
+
+    for layer in yp.layers:
+        if layer.channels[ch_idx].enable:
+            return True
+
+    return False
+
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1

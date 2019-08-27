@@ -2228,6 +2228,9 @@ class YPaintChannel(bpy.types.PropertyGroup):
     #parallax_num_of_binary_samples = IntProperty(default=5, min=4, max=64,
     #        update=update_parallax_samples)
 
+    # To mark if channel needed to be baked or not
+    no_layer_using = BoolProperty(default=True)
+
     parallax_rim_hack = BoolProperty(default=False, 
             update=update_parallax_rim_hack)
 
