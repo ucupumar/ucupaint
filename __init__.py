@@ -76,11 +76,10 @@
 # - Per layer preview (V)
 # - Duplicate layer (V)
 # - Merge layer/mask (~V, still a simple implementation but useful)
-# - Show warning if active uv isn't the transformed one
+# - Show warning if active uv isn't the transformed one (~V, don't remember exactly)
 # - Add Emission Quick Node Setup
 # - Prevent unused channel bake
-# - FXAA image operator to remove jagged pixels from baking or bucket fill
-# - Blur image operator
+# - Add simple vertex color editor on layer manager
 
 # TODO:
 # - Make every node name unique (using hash?)
@@ -100,6 +99,8 @@
 #   - Blur (can be only applied on select layer channel)
 #   - 'Ignore below' blend for bake channel result
 # - Armory support (X, proper bake system is better be the solution)
+# - FXAA image operator to remove jagged pixels from baking or bucket fill
+# - Blur image operator
 #
 # TODO OPT:
 # - Lazy node calling (can be useful to prevent missing error)
@@ -116,12 +117,13 @@
 # - Musgrave fine bump cannot read below 0.0 (??)
 # - Bake result is slightly darker when using emission shader (or any shader?? not thoroughly tested yet)
 # - Alpha fail to connect to original target socket when toggling channel use alpha
-# - UV overlay on image editor is not transformed if uv is transformed
+# - UV overlay on image editor is not transformed if uv is transformed (V)
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas
 # - Limit decrease to 20 images if alpha is used (V) Can be get around by using image atlas
 # - Use of cineon images will cause crash (??)
+# - Hemi/fake lighting layer doesn't work with bump/normal on cycles, no known workaround found
 
 bl_info = {
     "name": "Painty",

@@ -509,6 +509,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             norm_img.generated_color = (0.5, 0.5, 1.0, 1.0)
             norm_img.colorspace_settings.name = 'Linear'
 
+            tex.image = norm_img
+
             # Bake setup (doing little bit doing hacky reconnection here)
             end = tree.nodes.get(TREE_END)
             ori_soc = end.inputs[root_ch.name].links[0].from_socket
@@ -517,10 +519,10 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             create_link(tree, soc, end.inputs[root_ch.name])
             #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
 
-            tex.image = norm_img
-
             # Bake
             bpy.ops.object.bake()
+
+            #return
 
             # Recover connection
             create_link(tree, ori_soc, end.inputs[root_ch.name])
@@ -1813,6 +1815,7 @@ class YBakeChannels(bpy.types.Operator):
 
         # Bake channels
         for ch in yp.channels:
+            #if ch.type == 'NORMAL':
             bake_channel(self.uv_map, mat, node, ch, self.width, self.height, use_hdr=self.hdr)
             #return {'FINISHED'}
 
