@@ -794,6 +794,9 @@ def refresh_tangent_sign_vcol(obj, uv_name):
             # Calc tangents
             obj.data.calc_tangents()
 
+            # Get vcol again after calculate tangent to prevent error
+            vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
+
             # Set tangent sign to vertex color
             i = 0
             for poly in obj.data.polygons:
@@ -911,6 +914,9 @@ def refresh_tangent_sign_vcol(obj, uv_name):
         # Back to edit mode if originally from there
         if ori_mode == 'EDIT':
             bpy.ops.object.mode_set(mode='EDIT')
+
+        # Get vcol again to make sure the data is consistent
+        vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
 
         return vcol
 

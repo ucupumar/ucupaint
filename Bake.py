@@ -300,7 +300,7 @@ def transfer_uv(obj, mat, entity, uv_map):
     # Change uv of entity
     entity.uv_name = uv_map
 
-def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None):
+def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False):
 
     tree = node.node_tree
     yp = tree.yp
@@ -450,6 +450,11 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         # Set filepath
         if filepath != '':
             img.filepath = filepath
+
+        # Use hdr if not baking normal
+        if root_ch.type != 'NORMAL' and use_hdr:
+            img.use_generated_float = True
+            img.colorspace_settings.name = 'Linear'
 
         # Set colorspace to linear
         if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL':
@@ -1706,6 +1711,8 @@ class YBakeChannels(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
+    hdr = BoolProperty(name='32 bit Float', default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -1745,6 +1752,7 @@ class YBakeChannels(bpy.types.Operator):
 
         col.label(text='Width:')
         col.label(text='Height:')
+        col.label(text='')
         col.separator()
         col.label(text='Samples:')
         col.label(text='Margin:')
@@ -1755,6 +1763,7 @@ class YBakeChannels(bpy.types.Operator):
 
         col.prop(self, 'width', text='')
         col.prop(self, 'height', text='')
+        col.prop(self, 'hdr')
         col.separator()
 
         col.prop(self, 'samples', text='')
@@ -1793,6 +1802,8 @@ class YBakeChannels(bpy.types.Operator):
                     vcol = refresh_tangent_sign_vcol(obj, uv.name)
                     if vcol: tansign.attribute_name = vcol.name
 
+        #return {'FINISHED'}
+
         # Disable use baked first
         if yp.use_baked:
             yp.use_baked = False
@@ -1802,7 +1813,8 @@ class YBakeChannels(bpy.types.Operator):
 
         # Bake channels
         for ch in yp.channels:
-            bake_channel(self.uv_map, mat, node, ch, self.width, self.height)
+            bake_channel(self.uv_map, mat, node, ch, self.width, self.height, use_hdr=self.hdr)
+            #return {'FINISHED'}
 
         # Set baked uv
         yp.baked_uv_name = self.uv_map
