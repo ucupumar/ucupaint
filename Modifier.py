@@ -1060,7 +1060,7 @@ def enable_modifiers_tree(parent, rearrange = False):
     elif match2:
         layer = parent
         name = layer.name
-        if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
+        if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
             return
     else:
         return

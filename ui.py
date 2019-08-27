@@ -157,6 +157,16 @@ def draw_image_props(source, layout, entity=None):
             col.prop(image, 'use_alpha')
         #col.prop(image, 'use_fields')
 
+def draw_hemi_props(entity, source, layout):
+    col = layout.column()
+    col.prop(entity, 'hemi_space', text='Space')
+    col.label(text='Light Direction:')
+
+    # Get light direction
+    norm = source.node_tree.nodes.get('Normal')
+
+    col.prop(norm.outputs[0], 'default_value', text='')
+
 def draw_tex_props(source, layout):
 
     title = source.bl_idname.replace('ShaderNodeTex', '')
@@ -838,10 +848,12 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 draw_image_props(source, bbox, layer)
             elif layer.type == 'COLOR':
                 draw_solid_color_props(layer, source, bbox)
+            elif layer.type == 'HEMI':
+                draw_hemi_props(layer, source, bbox)
             else: draw_tex_props(source, bbox)
 
         # Vector
-        if layer.type != 'COLOR':
+        if layer.type not in {'COLOR', 'HEMI'}:
             row = rcol.row(align=True)
 
             if custom_icon_enable:
@@ -979,7 +991,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
         #expandable = True
         expandable = (
                 len(ch.modifiers) > 0 or 
-                layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'} or 
+                layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'} or 
                 root_ch.type == 'NORMAL' or
                 ch.show_transition_ramp or
                 ch.show_transition_ao or
@@ -1357,7 +1369,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
         draw_modifier_stack(context, ch, root_ch.type, modcol, 
                 ypui.layer_ui.channels[i], custom_icon_enable, layer)
 
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
             row = mcol.row(align=True)
 
             input_settings_available = (ch.layer_input != 'ALPHA' 
@@ -1545,10 +1557,12 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
             rbox = rrow.box()
             if mask_image:
                 draw_image_props(mask_source, rbox, mask)
+            elif mask.type == 'HEMI':
+                draw_hemi_props(mask, mask_source, rbox)
             else: draw_tex_props(mask_source, rbox)
 
         # Vector row
-        if mask.type != 'VCOL':
+        if mask.type not in {'VCOL', 'HEMI'}:
             rrow = rrcol.row(align=True)
 
             if custom_icon_enable:
@@ -1681,13 +1695,13 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type != 'VCOL':
+            if layer.type not in {'VCOL', 'HEMI'}:
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
 
             for mask in layer.masks:
-                if mask.type != 'VCOL':
+                if mask.type not in {'VCOL', 'HEMI'}:
                     uv_layer = uv_layers.get(mask.uv_name)
                     if not uv_layer and mask.uv_name not in uv_missings:
                         uv_missings.append(mask.uv_name)
@@ -2559,6 +2573,11 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_new_layer", text='Voronoi').type = 'VORONOI'
         col.operator("node.y_new_layer", text='Wave').type = 'WAVE'
 
+        col.separator()
+        if is_28():
+            col.operator("node.y_new_layer", icon='LIGHT', text='Fake Lighting').type = 'HEMI'
+        else: col.operator("node.y_new_layer", icon='LAMP', text='Fake Lighting').type = 'HEMI'
+
         col = row.column()
         c = col.operator("node.y_bake_to_layer", icon='RENDER_STILL', text='Ambient Occlusion')
         c.type = 'AO'
@@ -2826,6 +2845,11 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Voronoi').type = 'VORONOI'
         col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Wave').type = 'WAVE'
 
+        col.separator()
+        if is_28():
+            col.operator("node.y_new_layer_mask", icon='LIGHT', text='Fake Lighting').type = 'HEMI'
+        else: col.operator("node.y_new_layer_mask", icon='LAMP', text='Fake Lighting').type = 'HEMI'
+
         col = row.column()
         c = col.operator("node.y_bake_to_layer", icon='RENDER_STILL', text='Ambient Occlusion')
         c.type = 'AO'
@@ -2967,6 +2991,11 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col.operator('node.y_replace_layer_type', text='Noise', icon='TEXTURE').type = 'NOISE'
         col.operator('node.y_replace_layer_type', text='Voronoi', icon='TEXTURE').type = 'VORONOI'
         col.operator('node.y_replace_layer_type', text='Wave', icon='TEXTURE').type = 'WAVE'
+
+        col.separator()
+        if is_28():
+            col.operator("node.y_replace_layer_type", icon='LIGHT', text='Fake Lighting').type = 'HEMI'
+        else: col.operator("node.y_replace_layer_type", icon='LAMP', text='Fake Lighting').type = 'HEMI'
 
         #col = row.column()
         #col.label(text='Options:')

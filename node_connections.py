@@ -1351,7 +1351,7 @@ def reconnect_source_internal_nodes(layer):
     if linear:
         rgb = create_link(tree, rgb, linear.inputs[0])[0]
 
-    if layer.type not in {'IMAGE', 'VCOL'}:
+    if layer.type not in {'IMAGE', 'VCOL', 'HEMI'}:
         rgb_1 = source.outputs[1]
         alpha = solid.outputs[0]
         alpha_1 = solid.outputs[0]
@@ -1368,7 +1368,7 @@ def reconnect_source_internal_nodes(layer):
         create_link(tree, rgb_1, end.inputs[2])
         create_link(tree, alpha_1, end.inputs[3])
 
-    if layer.type in {'IMAGE', 'VCOL'}:
+    if layer.type in {'IMAGE', 'VCOL', 'HEMI'}:
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha)
 
@@ -1384,7 +1384,7 @@ def reconnect_mask_internal_nodes(mask):
     start = tree.nodes.get(TREE_START)
     end = tree.nodes.get(TREE_END)
 
-    if mask.type != 'VCOL':
+    if mask.type not in {'VCOL', 'HEMI'}:
         if mapping:
             create_link(tree, start.outputs[0], mapping.inputs[0])
             create_link(tree, mapping.outputs[0], source.inputs[0])
@@ -1453,7 +1453,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         bitangent = layer_bitangent
 
     # Texcoord
-    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
+    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
         if layer.texcoord_type == 'UV':
             vector = texcoord.outputs.get(layer.uv_name + io_suffix['UV'])
         else: vector = texcoord.outputs[io_names[layer.texcoord_type]]
@@ -1493,7 +1493,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # RGB
     start_rgb = source.outputs[0]
     start_rgb_1 = None
-    if layer.type != 'COLOR':
+    if layer.type not in {'COLOR', 'HEMI'}:
         start_rgb_1 = source.outputs[1]
 
     if not source_group and linear:
@@ -1505,7 +1505,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     else: start_alpha = one_value
     start_alpha_1 = one_value
 
-    if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+    if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI'}:
         start_rgb_1 = source_group.outputs[2]
         start_alpha_1 = source_group.outputs[3]
 
@@ -1522,18 +1522,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             start_rgb, start_alpha = reconnect_all_modifier_nodes(
                     tree, layer, start_rgb, start_alpha, mod_group)
 
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
             mod_group_1 = nodes.get(layer.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
                     tree, layer, source.outputs[1], one_value, mod_group_1)
 
     # UV neighbor vertex color
-    if layer.type in {'VCOL', 'GROUP'} and uv_neighbor:
-        if layer.type == 'VCOL':
+    if layer.type in {'VCOL', 'GROUP', 'HEMI'} and uv_neighbor:
+        if layer.type in {'VCOL', 'HEMI'}:
             create_link(tree, start_rgb, uv_neighbor.inputs[0])
 
-        create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
-        create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
+        if tangent and bitangent:
+            create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
+            create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
 
     # Get transition bump channel
     trans_bump_flip = False
@@ -1587,7 +1588,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Mask texcoord
         #mask_uv_map = nodes.get(mask.uv_map)
-        if mask.type != 'VCOL':
+        if mask.type not in {'VCOL', 'HEMI'}:
             if mask.texcoord_type == 'UV':
                 #mask_vector = mask_uv_map.outputs[0]
                 #mask_vector = mask_uv_map.outputs[0]
@@ -1606,7 +1607,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         mask_uv_neighbor = nodes.get(mask.uv_neighbor)
         if mask_uv_neighbor:
 
-            if mask.type == 'VCOL':
+            if mask.type in {'VCOL', 'HEMI'}:
                 #create_link(tree, mask_source.outputs[0], mask_uv_neighbor.inputs[0])
                 create_link(tree, mask_val, mask_uv_neighbor.inputs[0])
             else:
@@ -1679,7 +1680,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if mask_mix:
                 if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
                     create_link(tree, mask_val, mask_mix.inputs['Color2'])
-                    if mask.type == 'VCOL':
+                    if mask.type in {'VCOL', 'HEMI'}:
                         if mask_uv_neighbor:
                             create_link(tree, mask_uv_neighbor.outputs['n'], mask_mix.inputs['Color2 n'])
                         else: create_link(tree, mask_val, mask_mix.inputs[2])
@@ -1806,7 +1807,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if root_ch.enable_alpha:
                 bg_alpha = source.outputs[root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND']]
 
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'}:
             if ch.layer_input == 'ALPHA':
                 rgb = start_rgb_1
                 alpha = start_alpha_1
@@ -1909,7 +1910,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             rgb_w = rgb
 
             if source_n and source_s and source_e and source_w:
-                if layer.type not in {'IMAGE', 'VCOL'} and ch.layer_input == 'ALPHA':
+                if layer.type not in {'IMAGE', 'VCOL', 'HEMI'} and ch.layer_input == 'ALPHA':
                     source_index = 2
                 else: source_index = 0
 
@@ -1923,7 +1924,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 alpha_e = source_e.outputs[source_index+1]
                 alpha_w = source_w.outputs[source_index+1]
 
-            elif layer.type == 'VCOL' and uv_neighbor:
+            elif layer.type in {'VCOL', 'HEMI'} and uv_neighbor:
                 rgb_n = uv_neighbor.outputs['n']
                 rgb_s = uv_neighbor.outputs['s']
                 rgb_e = uv_neighbor.outputs['e']

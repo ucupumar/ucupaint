@@ -97,6 +97,7 @@ layer_type_items = (
         ('BACKGROUND', 'Background', ''),
         ('COLOR', 'Solid Color', ''),
         ('GROUP', 'Group', ''),
+        ('HEMI', 'Fake Lighting', ''),
         )
 
 mask_type_items = (
@@ -113,6 +114,13 @@ mask_type_items = (
         ('VORONOI', 'Voronoi', ''),
         ('WAVE', 'Wave', ''),
         ('VCOL', 'Vertex Color', ''),
+        ('HEMI', 'Fake Lighting', ''),
+        )
+
+hemi_space_items = (
+        ('WORLD', 'World Space', ''),
+        ('OBJECT', 'Object Space', ''),
+        ('CAMERA', 'Camera Space', ''),
         )
 
 layer_type_labels = {
@@ -132,6 +140,7 @@ layer_type_labels = {
         'BACKGROUND' : 'Background',
         'COLOR' : 'Solid Color',
         'GROUP' : 'Layer Group',
+        'HEMI' : 'Fake Lighting',
         }
 
 texcoord_lists = [
@@ -206,6 +215,7 @@ layer_node_bl_idnames = {
         'BACKGROUND' : 'NodeGroupInput',
         'COLOR' : 'ShaderNodeRGB',
         'GROUP' : 'NodeGroupInput',
+        'HEMI' : 'ShaderNodeGroup',
         }
 
 io_suffix = {

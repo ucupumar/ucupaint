@@ -112,6 +112,16 @@ def get_normal_map_type_items(self, context):
 
     return items
 
+def load_hemi_props(layer, source):
+    norm = source.node_tree.nodes.get('Normal')
+    if norm: norm.outputs[0].default_value = layer.hemi_vector
+    trans = source.node_tree.nodes.get('Vector Transform')
+    if trans: trans.convert_from = layer.hemi_space
+
+def save_hemi_props(layer, source):
+    norm = source.node_tree.nodes.get('Normal')
+    if norm: layer.hemi_vector = norm.outputs[0].default_value
+
 def add_new_layer(group_tree, layer_name, layer_type, channel_idx, 
         blend_type, normal_blend_type, normal_map_type, 
         texcoord_type, uv_name='', image=None, vcol=None, segment=None,
@@ -212,6 +222,12 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     elif layer_type == 'COLOR':
         col = (solid_color[0], solid_color[1], solid_color[2], 1.0)
         source.outputs[0].default_value = col
+
+    elif layer_type == 'HEMI':
+        source.node_tree = get_node_tree_lib(lib.HEMI)
+        duplicate_lib_node_tree(source)
+
+        load_hemi_props(layer, source)
 
     # Add texcoord node
     texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
@@ -504,6 +520,11 @@ class YNewLayer(bpy.types.Operator):
         #self.normal_map_type = 'FINE_BUMP_MAP'
         self.normal_map_type = 'BUMP_MAP'
 
+        # Fake lighting default blend type is add
+        if self.type == 'HEMI':
+            self.blend_type = 'ADD'
+        else: self.blend_type = 'MIX'
+
         # Layer name
         self.name = get_unique_name(name, items)
 
@@ -584,7 +605,7 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='Width:')
             col.label(text='Height:')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
             col.label(text='Vector:')
 
         if self.type == 'IMAGE':
@@ -633,7 +654,7 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -1746,6 +1767,11 @@ class YReplaceLayerType(bpy.types.Operator):
             segment.unused = True
             layer.segment_name = ''
 
+        # Save hemi vector
+        if layer.type == 'HEMI':
+            src = get_layer_source(layer)
+            save_hemi_props(layer, src)
+
         yp.halt_reconnect = True
 
         # Standard bump map is easier to convert
@@ -1767,7 +1793,7 @@ class YReplaceLayerType(bpy.types.Operator):
         source = source_tree.nodes.get(layer.source)
 
         # Save source to cache if it's not image, vertex color, or background
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
             setattr(layer, 'cache_' + layer.type.lower(), source.name)
             # Remove uv input link
             if any(source.inputs) and any(source.inputs[0].links):
@@ -1777,13 +1803,13 @@ class YReplaceLayerType(bpy.types.Operator):
             remove_node(source_tree, layer, 'source', remove_data=False)
 
         # Disable modifier tree
-        if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'} and 
-                self.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR'}):
+        if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'} and 
+                self.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'}):
             Modifier.disable_modifiers_tree(layer)
 
         # Try to get available cache
         cache = None
-        if self.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP'}:
+        if self.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
             cache = tree.nodes.get(getattr(layer, 'cache_' + self.type.lower()))
 
         if cache:
@@ -1802,6 +1828,11 @@ class YReplaceLayerType(bpy.types.Operator):
                     image.colorspace_settings.name = 'Linear'
             elif self.type == 'VCOL':
                 source.attribute_name = self.item_name
+            elif self.type == 'HEMI':
+                source.node_tree = get_node_tree_lib(lib.HEMI)
+                duplicate_lib_node_tree(source)
+
+                load_hemi_props(layer, source)
 
         # Change layer type
         ori_type = layer.type
@@ -1920,6 +1951,8 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                 img_nodes.append(source)
                 imgs.append(img)
                 #source.image = img.copy()
+        elif layer.type == 'HEMI':
+            duplicate_lib_node_tree(source)
 
         # Duplicate masks
         for mask in layer.masks:
@@ -1943,6 +1976,8 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                     img_nodes.append(mask_source)
                     imgs.append(img)
                     #mask_source.image = img.copy()
+            elif mask.type == 'HEMI':
+                duplicate_lib_node_tree(mask_source)
 
         # Duplicate some channel nodes
         for i, ch in enumerate(layer.channels):
@@ -2420,6 +2455,13 @@ def update_texcoord_type(self, context):
     rearrange_yp_nodes(self.id_data)
     reconnect_yp_nodes(self.id_data)
 
+def update_hemi_space(self, context):
+    if self.type != 'HEMI': return
+
+    source = get_layer_source(self)
+    trans = source.node_tree.nodes.get('Vector Transform')
+    if trans: trans.convert_from = self.hemi_space
+
 def update_channel_intensity_value(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -2827,6 +2869,19 @@ class YLayer(bpy.types.PropertyGroup):
         items = texcoord_type_items,
         default = 'UV',
         update=update_texcoord_type)
+
+    # Fake lighting related
+
+    hemi_space = EnumProperty(
+            name = 'Fake Lighting Space',
+            description = 'Fake lighting space',
+            items = hemi_space_items,
+            default = 'OBJECT',
+            update=update_hemi_space)
+
+    hemi_vector = FloatVectorProperty(
+            name='Cache Hemi vector', size=3, precision=3,
+            default=(0.0, 0.0, 1.0))
 
     # To detect change of layer image
     image_name = StringProperty(default='')

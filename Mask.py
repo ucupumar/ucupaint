@@ -31,7 +31,11 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     elif vcol:
         source.attribute_name = vcol.name
 
-    if mask_type != 'VCOL':
+    if mask_type == 'HEMI':
+        source.node_tree = get_node_tree_lib(lib.HEMI)
+        duplicate_lib_node_tree(source)
+
+    if mask_type not in {'VCOL', 'HEMI'}:
         #uv_map = new_node(tree, mask, 'uv_map', 'ShaderNodeUVMap', 'Mask UV Map')
         #uv_map.uv_map = uv_name
         mask.uv_name = uv_name
@@ -248,7 +252,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.label(text='')
 
-        if self.type != 'VCOL':
+        if self.type not in {'VCOL', 'HEMI'}:
             col.label(text='Vector:')
             if self.type == 'IMAGE':
                 col.label(text='')
@@ -265,7 +269,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.prop(self, 'hdr')
 
-        if self.type != 'VCOL':
+        if self.type not in {'VCOL', 'HEMI'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -912,6 +916,13 @@ def update_mask_uv_name(self, context):
         rearrange_yp_nodes(self.id_data)
         reconnect_yp_nodes(self.id_data)
 
+def update_mask_hemi_space(self, context):
+    if self.type != 'HEMI': return
+
+    source = get_mask_source(self)
+    trans = source.node_tree.nodes.get('Vector Transform')
+    if trans: trans.convert_from = self.hemi_space
+
 def update_mask_name(self, context):
 
     yp = self.id_data.yp
@@ -1014,6 +1025,13 @@ class YLayerMask(bpy.types.PropertyGroup):
         items = texcoord_type_items,
         default = 'UV',
         update=update_mask_texcoord_type)
+
+    hemi_space = EnumProperty(
+            name = 'Fake Lighting Space',
+            description = 'Fake lighting space',
+            items = hemi_space_items,
+            default = 'OBJECT',
+            update=update_mask_hemi_space)
 
     uv_name = StringProperty(default='', update=update_mask_uv_name)
 

@@ -78,6 +78,8 @@ HEIGHT_SCALE_TRANS_BUMP = '~yPL Height Scale Transition Bump'
 HEIGHT_SCALE_TRANS_FINE_BUMP = '~yPL Height Scale Transition Fine Bump'
 HEIGHT_NORMALIZE = '~yPL Normalize Height'
 
+HEMI = '~yPL Hemi'
+
 # NEW ORDER
 
 HEIGHT_PROCESS = '~yPL Height Process'
