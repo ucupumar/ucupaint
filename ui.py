@@ -1981,41 +1981,16 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
 
     rcol.menu("NODE_MT_y_layer_list_special_menu", text='', icon='DOWNARROW_HLT')
 
-    # Get active vcol
-    if mask_vcol: active_vcol = mask_vcol
-    elif vcol: active_vcol = vcol
-    else: active_vcol = None
-
-    if obj.type == 'MESH' and active_vcol:
-
-        if active_vcol != obj.data.vertex_colors.active:
-            box.alert = True
-            box.operator('mesh.y_set_active_vcol', text='Fix Active Vcol Mismatch!', icon='ERROR').vcol_name = active_vcol.name
-            box.alert = False
-
-        if obj.mode == 'EDIT':
-            ve = context.scene.ve_edit
-
-            bbox = box.box()
-            col = bbox.column()
-            row = col.row(align=True)
-            row.label(text='', icon='GROUP_VCOL')
-            row.label(text='Fill ' + obj.data.vertex_colors.active.name + ':')
-            row = col.row(align=True)
-            row.prop(ve, 'fill_mode', text='') #, expand=True)
-            row.separator()
-            row.operator('mesh.y_vcol_fill', text='White').color_option = 'WHITE'
-            row.operator('mesh.y_vcol_fill', text='Black').color_option = 'BLACK'
-            row.separator()
-            row.operator('mesh.y_vcol_fill', text='Color').color_option = 'CUSTOM'
-
-            row.prop(ve, "color", text="", icon='COLOR')
-
     if layer:
         layer_tree = get_tree(layer)
 
         col = box.column()
         col.active = layer.enable and not is_parent_hidden(layer)
+
+        # Get active vcol
+        if mask_vcol: active_vcol = mask_vcol
+        elif vcol: active_vcol = vcol
+        else: active_vcol = None
 
         if (
             (image and image.colorspace_settings.name != 'Linear') or 
@@ -2024,6 +1999,31 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
             col.alert = True
             col.operator('node.y_use_linear_color_space', text='Please Use Linear Color Space', icon='ERROR')
             col.alert = False
+
+        if obj.type == 'MESH' and active_vcol: # and layer.enable:
+
+            if active_vcol != obj.data.vertex_colors.active:
+                col.alert = True
+                col.operator('mesh.y_set_active_vcol', text='Fix Active Vcol Mismatch!', icon='ERROR').vcol_name = active_vcol.name
+                col.alert = False
+
+            if obj.mode == 'EDIT':
+                ve = context.scene.ve_edit
+
+                bbox = col.box()
+                ccol = bbox.column()
+                row = ccol.row(align=True)
+                row.label(text='', icon='GROUP_VCOL')
+                row.label(text='Fill ' + obj.data.vertex_colors.active.name + ':')
+                row = ccol.row(align=True)
+                row.prop(ve, 'fill_mode', text='') #, expand=True)
+                row.separator()
+                row.operator('mesh.y_vcol_fill', text='White').color_option = 'WHITE'
+                row.operator('mesh.y_vcol_fill', text='Black').color_option = 'BLACK'
+                row.separator()
+                row.operator('mesh.y_vcol_fill', text='Color').color_option = 'CUSTOM'
+
+                row.prop(ve, "color", text="", icon='COLOR')
 
         # Source
         draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh, custom_icon_enable)
