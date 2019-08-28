@@ -1725,7 +1725,7 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
             root_ch = yp.channels[yp.active_channel_index]
 
             baked = nodes.get(root_ch.baked)
-            if not baked or not baked.image:
+            if not baked or not baked.image or root_ch.no_layer_using:
                 col.label(text='No layer is using this channel !')
             else:
                 row = col.row(align=True)

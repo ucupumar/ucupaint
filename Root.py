@@ -317,6 +317,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             name = 'Type',
             items = (('PRINCIPLED', 'Principled', ''),
                      ('DIFFUSE', 'Diffuse', ''),
+                     ('EMISSION', 'Emission', ''),
                      ),
             default = 'PRINCIPLED')
             #update=update_quick_setup_type)
@@ -366,20 +367,24 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         col = row.column()
         col.label(text='Type:')
-        ccol = col.column(align=True)
-        ccol.label(text='Channels:')
-        if self.type == 'PRINCIPLED':
+        if self.type != 'EMISSION':
+            ccol = col.column(align=True)
+            ccol.label(text='Channels:')
+
+            if self.type == 'PRINCIPLED':
+                ccol.label(text='')
             ccol.label(text='')
-        ccol.label(text='')
-        ccol.label(text='')
+            ccol.label(text='')
+
         col = row.column()
         col.prop(self, 'type', text='')
-        ccol = col.column(align=True)
-        ccol.prop(self, 'color', toggle=True)
-        if self.type == 'PRINCIPLED':
-            ccol.prop(self, 'metallic', toggle=True)
-        ccol.prop(self, 'roughness', toggle=True)
-        ccol.prop(self, 'normal', toggle=True)
+        if self.type != 'EMISSION':
+            ccol = col.column(align=True)
+            ccol.prop(self, 'color', toggle=True)
+            if self.type == 'PRINCIPLED':
+                ccol.prop(self, 'metallic', toggle=True)
+            ccol.prop(self, 'roughness', toggle=True)
+            ccol.prop(self, 'normal', toggle=True)
 
         if is_28():
             col.prop(self, 'mute_texture_paint_overlay')
@@ -429,6 +434,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                     bsdf_type = 'BSDF_PRINCIPLED'
                 elif self.type == 'DIFFUSE':
                     bsdf_type = 'BSDF_DIFFUSE'
+                elif self.type == 'EMISSION':
+                    bsdf_type = 'EMISSION'
 
                 if not transp_node_needed:
                     if output_in.type == 'BSDF_PRINCIPLED':
@@ -478,6 +485,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 main_bsdf.inputs[3].default_value = (0.8, 0.8, 0.8, 1.0) # Use eevee default value
             elif self.type == 'DIFFUSE':
                 main_bsdf = nodes.new('ShaderNodeBsdfDiffuse')
+            elif self.type == 'EMISSION':
+                main_bsdf = nodes.new('ShaderNodeEmission')
 
             if transp_node_needed:
                 links.new(main_bsdf.outputs[0], mix_bsdf.inputs[2])
@@ -509,14 +518,15 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         if self.color:
             ch_color = create_new_yp_channel(group_tree, 'Color', 'RGB', non_color=False)
 
-        if self.type == 'PRINCIPLED' and self.metallic:
-            ch_metallic = create_new_yp_channel(group_tree, 'Metallic', 'VALUE', non_color=True)
+        if self.type != 'EMISSION':
+            if self.type == 'PRINCIPLED' and self.metallic:
+                ch_metallic = create_new_yp_channel(group_tree, 'Metallic', 'VALUE', non_color=True)
 
-        if self.roughness:
-            ch_roughness = create_new_yp_channel(group_tree, 'Roughness', 'VALUE', non_color=True)
+            if self.roughness:
+                ch_roughness = create_new_yp_channel(group_tree, 'Roughness', 'VALUE', non_color=True)
 
-        if self.normal:
-            ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
+            if self.normal:
+                ch_normal = create_new_yp_channel(group_tree, 'Normal', 'NORMAL')
 
         # Update io
         check_all_channel_ios(group_tree.yp)
