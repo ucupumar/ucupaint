@@ -27,6 +27,30 @@ def is_28():
         return True
     else: return False
 
+class YSetActiveVcol(bpy.types.Operator):
+    bl_idname = "mesh.y_set_active_vcol"
+    bl_label = "Set Active Vertex Color"
+    bl_description = "Set active vertex color"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    vcol_name = StringProperty(default='')
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH'
+
+    def execute(self, context):
+        obj = context.object
+        mesh = obj.data
+        vcol = mesh.vertex_colors.get(self.vcol_name)
+
+        if vcol:
+            mesh.vertex_colors.active = vcol
+            return {'FINISHED'}
+
+        self.report({'ERROR'}, "There's no vertex color named " + self.vcol_name + '!')
+        return {'CANCELLED'}
+
 class YVcolFill(bpy.types.Operator):
     bl_idname = "mesh.y_vcol_fill"
     bl_label = "Vertex Color Fill"
@@ -208,6 +232,7 @@ def register():
     bpy.types.Scene.ve_edit = PointerProperty(type=YVcolEditorProps)
 
     bpy.utils.register_class(YVcolFill)
+    bpy.utils.register_class(YSetActiveVcol)
 
 def unregister():
     bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
@@ -216,3 +241,4 @@ def unregister():
     bpy.utils.unregister_class(YVcolEditorProps)
 
     bpy.utils.unregister_class(YVcolFill)
+    bpy.utils.unregister_class(YSetActiveVcol)

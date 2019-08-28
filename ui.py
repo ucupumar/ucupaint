@@ -167,6 +167,9 @@ def draw_hemi_props(entity, source, layout):
 
     col.prop(norm.outputs[0], 'default_value', text='')
 
+def draw_vcol_props(entity, vcol, layout):
+    layout.label(text='You can also edit vertex color on edit mode')
+
 def draw_tex_props(source, layout):
 
     title = source.bl_idname.replace('ShaderNodeTex', '')
@@ -807,6 +810,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     if layer.type == 'GROUP': return
     if layer.type in {'VCOL', 'BACKGROUND'} and len(layer.modifiers) == 0: return
+    #if layer.type in {'BACKGROUND'} and len(layer.modifiers) == 0: return
     if not lui.expand_content: return
 
     rrow = layout.row(align=True)
@@ -819,6 +823,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             lui, custom_icon_enable, layer)
 
     if layer.type not in {'VCOL', 'BACKGROUND'}:
+    #if layer.type not in {'BACKGROUND'}:
         row = rcol.row(align=True)
 
         if custom_icon_enable:
@@ -833,11 +838,19 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
             row.prop(lui, 'expand_source', text='', emboss=False, icon_value=icon_value)
         else:
-            icon = 'IMAGE_DATA' if layer.type == 'IMAGE' else 'TEXTURE'
+            if layer.type == 'IMAGE':
+                icon = 'IMAGE_DATA'
+            #elif layer.type == 'VCOL':
+            #    icon = 'GROUP_VCOL'
+            else:
+                icon = 'TEXTURE'
+            #icon = 'IMAGE_DATA' if layer.type == 'IMAGE' else 'TEXTURE'
             row.prop(lui, 'expand_source', text='', emboss=True, icon=icon)
 
         if image:
             row.label(text='Source: ' + image.name)
+        elif vcol:
+            row.label(text='Source: ' + vcol.name)
         else: row.label(text='Source: ' + layer.name)
 
         if lui.expand_source:
@@ -848,12 +861,14 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 draw_image_props(source, bbox, layer)
             elif layer.type == 'COLOR':
                 draw_solid_color_props(layer, source, bbox)
+            elif layer.type == 'VCOL':
+                draw_vcol_props(layer, vcol, bbox)
             elif layer.type == 'HEMI':
                 draw_hemi_props(layer, source, bbox)
             else: draw_tex_props(source, bbox)
 
         # Vector
-        if layer.type not in {'COLOR', 'HEMI'}:
+        if layer.type not in {'VCOL', 'COLOR', 'HEMI'}:
             row = rcol.row(align=True)
 
             if custom_icon_enable:
@@ -1855,6 +1870,7 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
     image = None
     vcol = None
     mask_image = None
+    mask_vcol = None
     mask = None
     mask_idx = 0
 
@@ -1867,11 +1883,14 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                 if m.active_edit:
                     mask = m
                     mask_idx = i
+                    source = get_mask_source(m)
                     if m.type == 'IMAGE':
-                        mask_tree = get_mask_tree(m)
-                        source = mask_tree.nodes.get(m.source)
+                        #mask_tree = get_mask_tree(m)
+                        #source = mask_tree.nodes.get(m.source)
                         #image = source.image
                         mask_image = source.image
+                    elif m.type == 'VCOL' and is_a_mesh:
+                        mask_vcol = obj.data.vertex_colors.get(source.attribute_name)
 
             # Use layer image if there is no mask image
             #if not mask:
@@ -1879,7 +1898,7 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
             source = get_layer_source(layer, layer_tree)
             if layer.type == 'IMAGE':
                 image = source.image
-            elif layer.type == 'VCOL' and obj.type == 'MESH':
+            elif layer.type == 'VCOL' and is_a_mesh:
                 vcol = obj.data.vertex_colors.get(source.attribute_name)
 
     # Set pointer for active layer and image
@@ -1961,6 +1980,36 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
         rcol.operator("node.y_move_layer", text='', icon='TRIA_DOWN').direction = 'DOWN'
 
     rcol.menu("NODE_MT_y_layer_list_special_menu", text='', icon='DOWNARROW_HLT')
+
+    # Get active vcol
+    if mask_vcol: active_vcol = mask_vcol
+    elif vcol: active_vcol = vcol
+    else: active_vcol = None
+
+    if obj.type == 'MESH' and active_vcol:
+
+        if active_vcol != obj.data.vertex_colors.active:
+            box.alert = True
+            box.operator('mesh.y_set_active_vcol', text='Fix Active Vcol Mismatch!', icon='ERROR').vcol_name = active_vcol.name
+            box.alert = False
+
+        if obj.mode == 'EDIT':
+            ve = context.scene.ve_edit
+
+            bbox = box.box()
+            col = bbox.column()
+            row = col.row(align=True)
+            row.label(text='', icon='GROUP_VCOL')
+            row.label(text='Fill ' + obj.data.vertex_colors.active.name + ':')
+            row = col.row(align=True)
+            row.prop(ve, 'fill_mode', text='') #, expand=True)
+            row.separator()
+            row.operator('mesh.y_vcol_fill', text='White').color_option = 'WHITE'
+            row.operator('mesh.y_vcol_fill', text='Black').color_option = 'BLACK'
+            row.separator()
+            row.operator('mesh.y_vcol_fill', text='Color').color_option = 'CUSTOM'
+
+            row.prop(ve, "color", text="", icon='COLOR')
 
     if layer:
         layer_tree = get_tree(layer)
@@ -2064,7 +2113,7 @@ def main_draw(self, context):
             area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES'):
         row.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
 
-    if baked_found:
+    if baked_found or yp.use_baked:
         row.prop(yp, 'use_baked', toggle=True, text='Use Baked')
 
     if ypui.show_layers :

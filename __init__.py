@@ -79,7 +79,7 @@
 # - Show warning if active uv isn't the transformed one (~V, don't remember exactly)
 # - Add Emission Quick Node Setup (V)
 # - Prevent unused channel bake (V)
-# - Add simple vertex color editor on layer manager
+# - Add simple vertex color editor on layer manager (V)
 # - Temporary bake hemi/fake lighting so it can works with bump on cycles
 # - Add support for baking vertex color to image
 
