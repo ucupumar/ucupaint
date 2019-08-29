@@ -2735,6 +2735,28 @@ def is_any_layer_using_channel(root_ch):
 
     return False
 
+def get_layer_type_icon(layer_type):
+
+    if layer_type == 'IMAGE':
+        return 'IMAGE_DATA'
+    elif layer_type == 'VCOL':
+        return 'GROUP_VCOL'
+    elif layer_type == 'BACKGROUND':
+        return 'IMAGE_RGB_ALPHA'
+    elif layer_type == 'GROUP':
+        return 'FILE_FOLDER'
+    elif layer_type == 'COLOR':
+        return 'COLOR'
+    elif layer_type == 'HEMI':
+        if is_28(): return 'LIGHT'
+        return 'LAMP'
+
+    return 'TEXTURE'
+
+def save_hemi_props(layer, source):
+    norm = source.node_tree.nodes.get('Normal')
+    if norm: layer.hemi_vector = norm.outputs[0].default_value
+
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1

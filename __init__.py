@@ -125,7 +125,7 @@
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas
 # - Limit decrease to 20 images if alpha is used (V) Can be get around by using image atlas
 # - Use of cineon images will cause crash (??)
-# - Hemi/fake lighting layer doesn't work with bump/normal on cycles, no known workaround found
+# - Hemi/fake lighting layer doesn't work with bump/normal on cycles, no known workaround found (~V, hemi temp bake is already implemeted)
 
 bl_info = {
     "name": "Painty",
@@ -143,6 +143,7 @@ if "bpy" in locals():
     import imp
     imp.reload(image_ops)
     imp.reload(common)
+    imp.reload(bake_common)
     imp.reload(mesh_ops)
     imp.reload(lib)
     imp.reload(ui)
@@ -162,7 +163,7 @@ if "bpy" in locals():
     imp.reload(Root)
     #print("Reloaded multifiles")
 else:
-    from . import image_ops, common, mesh_ops, lib, ui, subtree, node_arrangements, node_connections, preferences
+    from . import image_ops, common, bake_common, mesh_ops, lib, ui, subtree, node_arrangements, node_connections, preferences
     from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Bake, Root
     #print("Imported multifiles")
 

@@ -1072,6 +1072,24 @@ class YLayerMask(bpy.types.PropertyGroup):
 
     modifiers = CollectionProperty(type=MaskModifier.YMaskModifier)
 
+    # For temporary bake
+    use_temp_bake = BoolProperty(
+            name = 'Use Temporary Bake',
+            description = 'Use temporary bake, it can be useful for prevent glitch on cycles',
+            default = False,
+            )
+
+    original_type = EnumProperty(
+            name = 'Original Mask Type',
+            items = mask_type_items,
+            default = 'IMAGE')
+
+    # For fake lighting
+
+    hemi_vector = FloatVectorProperty(
+            name='Cache Hemi vector', size=3, precision=3,
+            default=(0.0, 0.0, 1.0))
+
     # Nodes
     source = StringProperty(default='')
     source_n = StringProperty(default='')

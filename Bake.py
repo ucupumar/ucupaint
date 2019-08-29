@@ -2,129 +2,13 @@ import bpy, re, time
 from bpy.props import *
 from mathutils import *
 from .common import *
+from .bake_common import *
 from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier
 
 BL28_HACK = True
-
-def remember_before_bake(self, context, yp):
-    scene = self.scene
-    #scene = context.scene
-    obj = self.obj
-    uv_layers = get_uv_layers(obj)
-    ypui = context.window_manager.ypui
-
-    # Remember render settings
-    self.ori_engine = scene.render.engine
-    self.ori_bake_type = scene.cycles.bake_type
-    self.ori_samples = scene.cycles.samples
-    self.ori_threads_mode = scene.render.threads_mode
-    self.ori_margin = scene.render.bake.margin
-    self.ori_use_clear = scene.render.bake.use_clear
-
-    # Remember uv
-    #self.ori_active_uv = uv_layers.active
-    self.ori_active_uv = uv_layers.active.name
-
-    # Remember scene objects
-    if is_28():
-        self.ori_active_selected_objs = [o for o in context.view_layer.objects if o.select_get()]
-    else: self.ori_active_selected_objs = [o for o in scene.objects if o.select]
-
-    # Remember world settings
-    if is_28() and scene.world:
-        self.ori_distance = scene.world.light_settings.distance
-
-    # Remember ypui
-    #self.ori_disable_temp_uv = ypui.disable_auto_temp_uv_update
-
-    # Remember yp
-    self.parallax_ch = get_root_parallax_channel(yp)
-    #self.use_parallax = True if parallax_ch else False
-
-def prepare_bake_settings(self, context, yp):
-    scene = self.scene
-    #scene = context.scene
-    obj = self.obj
-    uv_layers = get_uv_layers(obj)
-    ypui = context.window_manager.ypui
-
-    scene.render.engine = 'CYCLES'
-    scene.cycles.bake_type = 'EMIT'
-    scene.cycles.samples = self.samples
-    scene.render.threads_mode = 'AUTO'
-    scene.render.bake.margin = self.margin
-    #scene.render.bake.use_clear = True
-    scene.render.bake.use_clear = False
-
-    # Disable other object selections and select only active object
-    if is_28():
-        #for o in scene.objects:
-        for o in context.view_layer.objects:
-            o.select_set(False)
-        obj.select_set(True)
-    else:
-        for o in scene.objects:
-            o.select = False
-        obj.select = True
-
-    # Set active uv layers
-    uv_layers.active = uv_layers.get(self.uv_map)
-
-    # Disable auto temp uv update
-    #ypui.disable_auto_temp_uv_update = True
-
-    # Disable parallax channel
-    #parallax_ch = get_root_parallax_channel(yp)
-    if self.parallax_ch:
-        self.parallax_ch.enable_parallax = False
-
-def recover_bake_settings(self, context, yp):
-    scene = self.scene
-    obj = self.obj
-    uv_layers = get_uv_layers(obj)
-    ypui = context.window_manager.ypui
-
-    scene.render.engine = self.ori_engine
-    scene.cycles.bake_type = self.ori_bake_type
-    scene.cycles.samples = self.ori_samples
-    scene.render.threads_mode = self.ori_threads_mode
-    scene.render.bake.margin = self.ori_margin
-    scene.render.bake.use_clear = self.ori_use_clear
-
-    # Recover world settings
-    if is_28() and scene.world:
-        scene.world.light_settings.distance = self.ori_distance
-
-    # Recover uv
-    uv_layers.active = uv_layers.get(self.ori_active_uv)
-
-    #return
-
-    # Disable other object selections
-    if is_28():
-        #for o in scene.objects:
-        for o in context.view_layer.objects:
-            if o in self.ori_active_selected_objs:
-                o.select_set(True)
-            else: o.select_set(False)
-    else:
-        for o in scene.objects:
-            if o in self.ori_active_selected_objs:
-                o.select = True
-            else: o.select = False
-
-    # Recover active object
-    #scene.objects.active = self.ori_active_obj
-
-    # Recover ypui
-    #ypui.disable_auto_temp_uv_update = self.ori_disable_temp_uv
-
-    # Recover parallax
-    if self.parallax_ch:
-        self.parallax_ch.enable_parallax = True
 
 def transfer_uv(obj, mat, entity, uv_map):
 
@@ -304,6 +188,18 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
     tree = node.node_tree
     yp = tree.yp
+
+    # Check if temp bake is necessary
+    temp_baked = []
+    if root_ch.type == 'NORMAL':
+        for lay in yp.layers:
+            if lay.type in {'HEMI'} and not lay.use_temp_bake:
+                temp_bake(bpy.context, lay, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
+                temp_baked.append(lay)
+            for mask in lay.masks:
+                if mask.type in {'HEMI'} and not mask.use_temp_bake:
+                    temp_bake(bpy.context, mask, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
+                    temp_baked.append(mask)
 
     ch = None
     img = None
@@ -655,6 +551,10 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+
+    # Recover baked temp
+    for ent in temp_baked:
+        disable_temp_bake(ent)
 
     # Set image to target layer
     if target_layer:
@@ -2435,6 +2335,213 @@ class YMergeMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map):
+
+    m1 = re.match(r'yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if not m1 and not m2: return
+
+    yp = entity.id_data.yp
+    obj = context.object
+    scene = context.scene
+
+    # Prepare bake settings
+    book = remember_before_bake_(scene, obj, context, yp)
+    prepare_bake_settings_(book, scene, obj, context, yp, samples, margin, uv_map)
+
+    mat = get_active_material()
+    name = entity.name + ' Temp'
+
+    # New target image
+    image = bpy.data.images.new(name=name,
+            width=width, height=height, alpha=True, float_buffer=hdr)
+    image.colorspace_settings.name = 'Linear'
+
+    if entity.type == 'HEMI':
+
+        if m1: source = get_layer_source(entity)
+        else: source = get_mask_source(entity)
+
+        # Create bake nodes
+        source_copy = mat.node_tree.nodes.new(source.bl_idname)
+        source_copy.node_tree = source.node_tree
+
+        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+        output = get_active_mat_output_node(mat.node_tree)
+        ori_bsdf = output.inputs[0].links[0].from_socket
+
+        # Connect emit to output material
+        mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+        mat.node_tree.links.new(source_copy.outputs[0], output.inputs[0])
+
+        # Set active texture
+        tex.image = image
+        mat.node_tree.nodes.active = tex
+
+        # Bake
+        bpy.ops.object.bake()
+
+        # Recover link
+        mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+
+        # Remove temp nodes
+        mat.node_tree.nodes.remove(tex)
+        simple_remove_node(mat.node_tree, emit)
+        simple_remove_node(mat.node_tree, source_copy)
+
+        # Set entity original type
+        entity.original_type = 'HEMI'
+
+    # Set entity flag
+    entity.use_temp_bake = True
+
+    # Recover bake settings
+    recover_bake_settings_(book, context, yp)
+
+    # Replace layer with temp image
+    if m1: 
+        Layer.replace_layer_type(entity, 'IMAGE', image.name, remove_data=True)
+    else: Layer.replace_mask_type(entity, 'IMAGE', image.name, remove_data=True)
+
+    # Set uv
+    entity.uv_name = uv_map
+
+    return image
+
+def disable_temp_bake(entity):
+    if not entity.use_temp_bake: return
+
+    m1 = re.match(r'yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    # Replace layer type
+    if m1: Layer.replace_layer_type(entity, entity.original_type, remove_data=True)
+    else: Layer.replace_mask_type(entity, entity.original_type, remove_data=True)
+
+    # Set entity attribute
+    entity.use_temp_bake = False
+
+
+class YBakeTempImage(bpy.types.Operator):
+    bl_idname = "node.y_bake_temp_image"
+    bl_label = "Bake temporary image of layer"
+    bl_description = "Bake temporary image of layer, can be useful to prefent glitch on cycles"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    uv_map = StringProperty(default='')
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    samples = IntProperty(name='Bake Samples', 
+            description='Bake Samples, more means less jagged on generated textures', 
+            default=1, min=1)
+
+    margin = IntProperty(name='Bake Margin',
+            description = 'Bake margin in pixels',
+            default=5, subtype='PIXEL')
+
+    width = IntProperty(name='Width', default = 1024, min=1, max=4096)
+    height = IntProperty(name='Height', default = 1024, min=1, max=4096)
+
+    hdr = BoolProperty(name='32 bit Float', default=True)
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() #and hasattr(context, 'parent')
+
+    def invoke(self, context, event):
+        obj = context.object
+
+        self.auto_cancel = False
+        if not hasattr(context, 'parent'):
+            self.auto_cancel = True
+            return self.execute(context)
+
+        self.parent = context.parent
+
+        if self.parent.type not in {'HEMI'}:
+            self.auto_cancel = True
+            return self.execute(context)
+
+        # Use active uv layer name by default
+        uv_layers = get_uv_layers(obj)
+
+        # UV Map collections update
+        self.uv_map_coll.clear()
+        for uv in uv_layers:
+            if not uv.name.startswith(TEMP_UV):
+                self.uv_map_coll.add().name = uv.name
+
+        if len(self.uv_map_coll) > 0:
+            self.uv_map = self.uv_map_coll[0].name
+
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        if is_28():
+            row = self.layout.split(factor=0.4)
+        else: row = self.layout.split(percentage=0.4)
+
+        col = row.column(align=False)
+
+        #col.label(text='')
+        col.label(text='Width:')
+        col.label(text='Height:')
+        col.label(text='')
+        col.label(text='UV Map:')
+        col.label(text='Samples:')
+        col.label(text='Margin:')
+
+        col = row.column(align=False)
+
+        #col.prop(self, 'hdr')
+        col.prop(self, 'width', text='')
+        col.prop(self, 'height', text='')
+        col.prop(self, 'hdr')
+        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        col.prop(self, 'samples', text='')
+        col.prop(self, 'margin', text='')
+
+    def execute(self, context):
+
+        if not hasattr(self, 'parent'):
+            self.report({'ERROR'}, "Context is incorrect!")
+            return {'CANCELLED'}
+
+        entity = self.parent
+        if entity.type not in {'HEMI'}:
+            self.report({'ERROR'}, "This layer type is not supported (yet)!")
+            return {'CANCELLED'}
+
+        # Bake temp image
+        image = temp_bake(context, entity, self.width, self.height, self.hdr, self.samples , self.margin, self.uv_map)
+
+        return {'FINISHED'}
+
+class YDisableTempImage(bpy.types.Operator):
+    bl_idname = "node.y_disable_temp_image"
+    bl_label = "Disable Baked temporary image of layer"
+    bl_description = "Disable bake temporary image of layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and hasattr(context, 'parent')
+
+    def execute(self, context):
+        entity = context.parent
+        if not entity.use_temp_bake:
+            self.report({'ERROR'}, "This layer is not temporarily baked!")
+            return {'CANCELLED'}
+
+        disable_temp_bake(entity)
+
+        return {'FINISHED'}
+
 def update_use_baked(self, context):
     tree = self.id_data
     yp = tree.yp
@@ -2761,6 +2868,8 @@ def register():
     bpy.utils.register_class(YBakeChannels)
     bpy.utils.register_class(YMergeLayer)
     bpy.utils.register_class(YMergeMask)
+    bpy.utils.register_class(YBakeTempImage)
+    bpy.utils.register_class(YDisableTempImage)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
@@ -2770,3 +2879,5 @@ def unregister():
     bpy.utils.unregister_class(YBakeChannels)
     bpy.utils.unregister_class(YMergeLayer)
     bpy.utils.unregister_class(YMergeMask)
+    bpy.utils.unregister_class(YBakeTempImage)
+    bpy.utils.unregister_class(YDisableTempImage)

@@ -4,6 +4,7 @@ from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
 from . import Modifier, lib, Blur, Mask, transition, ImageAtlas
 from .common import *
+#from .bake_common import *
 from .node_arrangements import *
 from .node_connections import *
 from .subtree import *
@@ -117,10 +118,6 @@ def load_hemi_props(layer, source):
     if norm: norm.outputs[0].default_value = layer.hemi_vector
     trans = source.node_tree.nodes.get('Vector Transform')
     if trans: trans.convert_from = layer.hemi_space
-
-def save_hemi_props(layer, source):
-    norm = source.node_tree.nodes.get('Normal')
-    if norm: layer.hemi_vector = norm.outputs[0].default_value
 
 def add_new_layer(group_tree, layer_name, layer_type, channel_idx, 
         blend_type, normal_blend_type, normal_map_type, 
@@ -1677,6 +1674,304 @@ class YRemoveLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def replace_layer_type(layer, new_type, item_name='', remove_data=False):
+
+    yp = layer.id_data.yp
+
+    # Remember parents
+    parent_dict = get_parent_dict(yp)
+    child_ids = []
+
+    # If layer type is group, get childrens and repoint child parents
+    if layer.type == 'GROUP':
+        # Get childrens and repoint child parents
+        child_ids = get_list_of_direct_child_ids(layer)
+        for i in child_ids:
+            parent_dict[yp.layers[i].name] = parent_dict[layer.name]
+
+    # Remove segment if original layer using image atlas
+    if layer.type == 'IMAGE' and layer.segment_name != '':
+        src = get_layer_source(layer)
+        segment = src.image.yia.segments.get(layer.segment_name)
+        segment.unused = True
+        layer.segment_name = ''
+
+    # Save hemi vector
+    if layer.type == 'HEMI':
+        src = get_layer_source(layer)
+        save_hemi_props(layer, src)
+
+    yp.halt_reconnect = True
+
+    # Standard bump map is easier to convert
+    #fine_bump_channels = [ch for ch in layer.channels if ch.normal_map_type == 'FINE_BUMP_MAP']
+    #for ch in fine_bump_channels:
+    #    ch.normal_map_type = 'BUMP_MAP'
+    fine_bump_channels = [ch for ch in yp.channels if ch.enable_smooth_bump]
+    for ch in fine_bump_channels:
+        ch.enable_smooth_bump = False
+
+    # Disable transition will also helps
+    transition_channels = [ch for ch in layer.channels if ch.enable_transition_bump]
+    for ch in transition_channels:
+        ch.enable_transition_bump = False
+
+    # Current source
+    tree = get_tree(layer)
+    source_tree = get_source_tree(layer)
+    source = source_tree.nodes.get(layer.source)
+
+    # Save source to cache if it's not image, vertex color, or background
+    if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
+        setattr(layer, 'cache_' + layer.type.lower(), source.name)
+        # Remove uv input link
+        if any(source.inputs) and any(source.inputs[0].links):
+            tree.links.remove(source.inputs[0].links[0])
+        source.label = ''
+    else:
+        remove_node(source_tree, layer, 'source', remove_data=remove_data)
+
+    # Disable modifier tree
+    if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'} and 
+            new_type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'}):
+        Modifier.disable_modifiers_tree(layer)
+
+    # Try to get available cache
+    cache = None
+    if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
+        cache = tree.nodes.get(getattr(layer, 'cache_' + new_type.lower()))
+
+    if cache:
+        layer.source = cache.name
+        setattr(layer, 'cache_' + new_type.lower(), '')
+        cache.label = 'Source'
+    else:
+        source = new_node(source_tree, layer, 'source', layer_node_bl_idnames[new_type], 'Source')
+
+        if new_type == 'IMAGE':
+            image = bpy.data.images.get(item_name)
+            source.image = image
+            if hasattr(source, 'color_space'):
+                source.color_space = 'NONE'
+            if image.colorspace_settings.name != 'Linear':
+                image.colorspace_settings.name = 'Linear'
+        elif new_type == 'VCOL':
+            source.attribute_name = item_name
+        elif new_type == 'HEMI':
+            source.node_tree = get_node_tree_lib(lib.HEMI)
+            duplicate_lib_node_tree(source)
+
+            load_hemi_props(layer, source)
+
+    # Change layer type
+    ori_type = layer.type
+    layer.type = new_type
+
+    # Enable modifiers tree if generated texture is used
+    if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+        Modifier.enable_modifiers_tree(layer)
+
+    # Update group ios
+    check_all_layer_channel_io_and_nodes(layer, tree)
+    if layer.type == 'BACKGROUND':
+        # Remove bump and its base
+        for ch in layer.channels:
+            #remove_node(tree, ch, 'bump_base')
+            #remove_node(tree, ch, 'bump')
+            remove_node(tree, ch, 'normal_process')
+
+    # Update linear stuff
+    for i, ch in enumerate(layer.channels):
+        root_ch = yp.channels[i]
+        set_layer_channel_linear_node(tree, layer, root_ch, ch)
+
+    # Back to use fine bump if conversion happen
+    for ch in fine_bump_channels:
+        #ch.normal_map_type = 'FINE_BUMP_MAP'
+        ch.enable_smooth_bump = True
+
+    # Bring back transition
+    for ch in transition_channels:
+        ch.enable_transition_bump = True
+
+    # Update uv neighbor
+    set_uv_neighbor_resolution(layer)
+
+    yp.halt_reconnect = False
+
+    # Remap parents
+    for lay in yp.layers:
+        lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
+    # Check uv maps
+    check_uv_nodes(yp)
+
+    # Check childrens which need rearrange
+    #for i in child_ids:
+        #lay = yp.layers[i]
+    for lay in yp.layers:
+        check_all_layer_channel_io_and_nodes(lay)
+        rearrange_layer_nodes(lay)
+        reconnect_layer_nodes(lay)
+
+    #rearrange_layer_nodes(layer)
+    #reconnect_layer_nodes(layer)
+
+    if layer.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
+        rearrange_yp_nodes(layer.id_data)
+        reconnect_yp_nodes(layer.id_data)
+
+def replace_mask_type(mask, new_type, item_name='', remove_data=False):
+
+    yp = mask.id_data.yp
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', mask.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+
+    # Remove segment if original mask using image atlas
+    if mask.type == 'IMAGE' and mask.segment_name != '':
+        src = get_mask_source(mask)
+        segment = src.image.yia.segments.get(mask.segment_name)
+        segment.unused = True
+        mask.segment_name = ''
+
+    # Save hemi vector
+    if mask.type == 'HEMI':
+        src = get_mask_source(mask)
+        save_hemi_props(mask, src)
+
+    yp.halt_reconnect = True
+
+    # Standard bump map is easier to convert
+    #fine_bump_channels = [ch for ch in mask.channels if ch.normal_map_type == 'FINE_BUMP_MAP']
+    #for ch in fine_bump_channels:
+    #    ch.normal_map_type = 'BUMP_MAP'
+    fine_bump_channels = [ch for ch in yp.channels if ch.enable_smooth_bump]
+    for ch in fine_bump_channels:
+        ch.enable_smooth_bump = False
+
+    # Disable transition will also helps
+    transition_channels = [ch for ch in layer.channels if ch.enable_transition_bump]
+    for ch in transition_channels:
+        ch.enable_transition_bump = False
+
+    # Current source
+    tree = get_mask_tree(mask)
+    #source_tree = get_source_tree(mask)
+    #source = source_tree.nodes.get(mask.source)
+    source = get_mask_source(mask)
+
+    # Save source to cache if it's not image, vertex color, or background
+    #if mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
+    #    setattr(mask, 'cache_' + mask.type.lower(), source.name)
+    #    # Remove uv input link
+    #    if any(source.inputs) and any(source.inputs[0].links):
+    #        tree.links.remove(source.inputs[0].links[0])
+    #    source.label = ''
+    #else:
+    #    remove_node(source_tree, mask, 'source', remove_data=remove_data)
+    remove_node(tree, mask, 'source', remove_data=remove_data)
+
+    # Disable modifier tree
+    #if (mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'} and 
+    #        new_type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'}):
+    #    Modifier.disable_modifiers_tree(mask)
+
+    # Try to get available cache
+    #cache = None
+    #if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
+    #    cache = tree.nodes.get(getattr(mask, 'cache_' + new_type.lower()))
+
+    #if cache:
+    #    mask.source = cache.name
+    #    setattr(mask, 'cache_' + new_type.lower(), '')
+    #    cache.label = 'Source'
+    #else:
+
+    #source = new_node(source_tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
+    source = new_node(tree, mask, 'source', layer_node_bl_idnames[new_type], 'Source')
+
+    if new_type == 'IMAGE':
+        image = bpy.data.images.get(item_name)
+        source.image = image
+        if hasattr(source, 'color_space'):
+            source.color_space = 'NONE'
+        if image.colorspace_settings.name != 'Linear':
+            image.colorspace_settings.name = 'Linear'
+    elif new_type == 'VCOL':
+        source.attribute_name = item_name
+    elif new_type == 'HEMI':
+        source.node_tree = get_node_tree_lib(lib.HEMI)
+        duplicate_lib_node_tree(source)
+
+        load_hemi_props(mask, source)
+
+    # Change mask type
+    ori_type = mask.type
+    mask.type = new_type
+
+    # Enable modifiers tree if generated texture is used
+    if mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+        Modifier.enable_modifiers_tree(mask)
+
+    # Update group ios
+    check_all_layer_channel_io_and_nodes(layer, tree)
+    #if mask.type == 'BACKGROUND':
+    #    # Remove bump and its base
+    #    for ch in mask.channels:
+    #        #remove_node(tree, ch, 'bump_base')
+    #        #remove_node(tree, ch, 'bump')
+    #        remove_node(tree, ch, 'normal_process')
+
+    mapping = tree.nodes.get(mask.mapping)
+    if new_type == 'IMAGE' :
+        if not mapping:
+            mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
+    else:
+        remove_node(tree, mask, 'mapping')
+
+    # Update linear stuff
+    #for i, ch in enumerate(mask.channels):
+    #    root_ch = yp.channels[i]
+    #    set_layer_channel_linear_node(tree, mask, root_ch, ch)
+
+    # Back to use fine bump if conversion happen
+    for ch in fine_bump_channels:
+        #ch.normal_map_type = 'FINE_BUMP_MAP'
+        ch.enable_smooth_bump = True
+
+    # Bring back transition
+    for ch in transition_channels:
+        ch.enable_transition_bump = True
+
+    # Update uv neighbor
+    #set_uv_neighbor_resolution(mask)
+
+    yp.halt_reconnect = False
+
+    # Check uv maps
+    check_uv_nodes(yp)
+
+    # Check childrens which need rearrange
+    #for i in child_ids:
+        #lay = yp.layers[i]
+    #for lay in yp.layers:
+    #    check_all_layer_channel_io_and_nodes(lay)
+    #    rearrange_layer_nodes(lay)
+    #    reconnect_layer_nodes(lay)
+
+    for lay in yp.layers:
+        check_all_layer_channel_io_and_nodes(lay)
+        rearrange_layer_nodes(lay)
+        reconnect_layer_nodes(lay)
+
+    #rearrange_layer_nodes(layer)
+    #reconnect_layer_nodes(layer)
+
+    #if mask.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
+    rearrange_yp_nodes(mask.id_data)
+    reconnect_yp_nodes(mask.id_data)
+
 class YReplaceLayerType(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_type"
     bl_label = "Replace Layer Type"
@@ -1740,6 +2035,10 @@ class YReplaceLayerType(bpy.types.Operator):
         layer = self.layer
         yp = layer.id_data.yp
 
+        if layer.use_temp_bake:
+            self.report({'ERROR'}, "Cannot replace temporarily baked layer!")
+            return {'CANCELLED'}
+
         if self.type == layer.type: return {'CANCELLED'}
         #if layer.type == 'GROUP':
         #    self.report({'ERROR'}, "You can't change type of group layer!")
@@ -1749,148 +2048,7 @@ class YReplaceLayerType(bpy.types.Operator):
             self.report({'ERROR'}, "Form is cannot be empty!")
             return {'CANCELLED'}
 
-        # Remember parents
-        parent_dict = get_parent_dict(yp)
-        child_ids = []
-
-        # If layer type is group, get childrens and repoint child parents
-        if layer.type == 'GROUP':
-            # Get childrens and repoint child parents
-            child_ids = get_list_of_direct_child_ids(layer)
-            for i in child_ids:
-                parent_dict[yp.layers[i].name] = parent_dict[layer.name]
-
-        # Remove segment if original layer using image atlas
-        if layer.type == 'IMAGE' and layer.segment_name != '':
-            src = get_layer_source(layer)
-            segment = src.image.yia.segments.get(layer.segment_name)
-            segment.unused = True
-            layer.segment_name = ''
-
-        # Save hemi vector
-        if layer.type == 'HEMI':
-            src = get_layer_source(layer)
-            save_hemi_props(layer, src)
-
-        yp.halt_reconnect = True
-
-        # Standard bump map is easier to convert
-        #fine_bump_channels = [ch for ch in layer.channels if ch.normal_map_type == 'FINE_BUMP_MAP']
-        #for ch in fine_bump_channels:
-        #    ch.normal_map_type = 'BUMP_MAP'
-        fine_bump_channels = [ch for ch in yp.channels if ch.enable_smooth_bump]
-        for ch in fine_bump_channels:
-            ch.enable_smooth_bump = False
-
-        # Disable transition will also helps
-        transition_channels = [ch for ch in layer.channels if ch.enable_transition_bump]
-        for ch in transition_channels:
-            ch.enable_transition_bump = False
-
-        # Current source
-        tree = get_tree(layer)
-        source_tree = get_source_tree(layer)
-        source = source_tree.nodes.get(layer.source)
-
-        # Save source to cache if it's not image, vertex color, or background
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
-            setattr(layer, 'cache_' + layer.type.lower(), source.name)
-            # Remove uv input link
-            if any(source.inputs) and any(source.inputs[0].links):
-                tree.links.remove(source.inputs[0].links[0])
-            source.label = ''
-        else:
-            remove_node(source_tree, layer, 'source', remove_data=False)
-
-        # Disable modifier tree
-        if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'} and 
-                self.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'}):
-            Modifier.disable_modifiers_tree(layer)
-
-        # Try to get available cache
-        cache = None
-        if self.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
-            cache = tree.nodes.get(getattr(layer, 'cache_' + self.type.lower()))
-
-        if cache:
-            layer.source = cache.name
-            setattr(layer, 'cache_' + self.type.lower(), '')
-            cache.label = 'Source'
-        else:
-            source = new_node(source_tree, layer, 'source', layer_node_bl_idnames[self.type], 'Source')
-
-            if self.type == 'IMAGE':
-                image = bpy.data.images.get(self.item_name)
-                source.image = image
-                if hasattr(source, 'color_space'):
-                    source.color_space = 'NONE'
-                if image.colorspace_settings.name != 'Linear':
-                    image.colorspace_settings.name = 'Linear'
-            elif self.type == 'VCOL':
-                source.attribute_name = self.item_name
-            elif self.type == 'HEMI':
-                source.node_tree = get_node_tree_lib(lib.HEMI)
-                duplicate_lib_node_tree(source)
-
-                load_hemi_props(layer, source)
-
-        # Change layer type
-        ori_type = layer.type
-        layer.type = self.type
-
-        # Enable modifiers tree if generated texture is used
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
-            Modifier.enable_modifiers_tree(layer)
-
-        # Update group ios
-        check_all_layer_channel_io_and_nodes(layer, tree)
-        if layer.type == 'BACKGROUND':
-            # Remove bump and its base
-            for ch in layer.channels:
-                #remove_node(tree, ch, 'bump_base')
-                #remove_node(tree, ch, 'bump')
-                remove_node(tree, ch, 'normal_process')
-
-        # Update linear stuff
-        for i, ch in enumerate(layer.channels):
-            root_ch = yp.channels[i]
-            set_layer_channel_linear_node(tree, layer, root_ch, ch)
-
-        # Back to use fine bump if conversion happen
-        for ch in fine_bump_channels:
-            #ch.normal_map_type = 'FINE_BUMP_MAP'
-            ch.enable_smooth_bump = True
-
-        # Bring back transition
-        for ch in transition_channels:
-            ch.enable_transition_bump = True
-
-        # Update uv neighbor
-        set_uv_neighbor_resolution(layer)
-
-        yp.halt_reconnect = False
-
-        # Remap parents
-        for lay in yp.layers:
-            lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
-
-        # Check uv maps
-        check_uv_nodes(yp)
-
-        # Check childrens which need rearrange
-        #for i in child_ids:
-            #lay = yp.layers[i]
-        for lay in yp.layers:
-            check_all_layer_channel_io_and_nodes(lay)
-            rearrange_layer_nodes(lay)
-            reconnect_layer_nodes(lay)
-
-        rearrange_layer_nodes(layer)
-        reconnect_layer_nodes(layer)
-
-        if layer.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
-            rearrange_yp_nodes(layer.id_data)
-            reconnect_yp_nodes(layer.id_data)
+        replace_layer_type(self.layer, self.type, self.item_name)
 
         print('INFO: Layer', layer.name, 'is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
@@ -2870,6 +3028,19 @@ class YLayer(bpy.types.PropertyGroup):
         default = 'UV',
         update=update_texcoord_type)
 
+    # For temporary bake
+    use_temp_bake = BoolProperty(
+            name = 'Use Temporary Bake',
+            description = 'Use temporary bake, it can be useful for prevent glitch on cycles',
+            default = False,
+            #update=update_layer_temp_bake
+            )
+
+    original_type = EnumProperty(
+            name = 'Original Layer Type',
+            items = layer_type_items,
+            default = 'IMAGE')
+
     # Fake lighting related
 
     hemi_space = EnumProperty(
@@ -2920,6 +3091,8 @@ class YLayer(bpy.types.PropertyGroup):
     source_e = StringProperty(default='')
     source_w = StringProperty(default='')
     source_group = StringProperty(default='')
+
+    source_temp = StringProperty(default='')
 
     # Linear node
     linear = StringProperty(default='')

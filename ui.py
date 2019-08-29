@@ -776,6 +776,16 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     elif layer.type == 'GROUP':
         row.label(text='', icon='FILE_FOLDER')
         row.label(text=layer.name)
+    elif layer.type == 'HEMI':
+        if custom_icon_enable:
+            if lui.expand_content:
+                icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
+            row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        else:
+            if is_28(): row.prop(lui, 'expand_content', text='', emboss=True, icon='LIGHT')
+            else: row.prop(lui, 'expand_content', text='', emboss=True, icon='LAMP')
+        row.label(text=layer.name)
     else:
         title = source.bl_idname.replace('ShaderNodeTex', '')
         if custom_icon_enable:
@@ -802,6 +812,10 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             row = row.row(align=True)
             row.alert = True
             row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+
+    if layer.use_temp_bake:
+        row = row.row(align=True)
+        row.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
 
     #if layer.type != 'GROUP':
     if is_28():
@@ -857,7 +871,11 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             row = rcol.row(align=True)
             row.label(text='', icon='BLANK1')
             bbox = row.box()
-            if image:
+
+            if layer.use_temp_bake:
+                bbox.context_pointer_set('parent', layer)
+                bbox.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
+            elif image:
                 draw_image_props(source, bbox, layer)
             elif layer.type == 'COLOR':
                 draw_solid_color_props(layer, source, bbox)
@@ -1570,7 +1588,10 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon='BLANK1')
             rbox = rrow.box()
-            if mask_image:
+            if mask.use_temp_bake:
+                rbox.context_pointer_set('parent', mask)
+                rbox.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
+            elif mask_image:
                 draw_image_props(mask_source, rbox, mask)
             elif mask.type == 'HEMI':
                 draw_hemi_props(mask, mask_source, rbox)
@@ -1873,14 +1894,17 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
     mask_vcol = None
     mask = None
     mask_idx = 0
+    #entity = None
 
     if len(yp.layers) > 0:
         layer = yp.layers[yp.active_layer_index]
+        #layer = entity = yp.layers[yp.active_layer_index]
 
         if layer:
             # Check for active mask
             for i, m in enumerate(layer.masks):
                 if m.active_edit:
+                    #mask = entity = m
                     mask = m
                     mask_idx = i
                     source = get_mask_source(m)
@@ -1905,6 +1929,7 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
     if layer: box.context_pointer_set('layer', layer)
     if mask_image: box.context_pointer_set('image', mask_image)
     elif image: box.context_pointer_set('image', image)
+    #if entity: box.context_pointer_set('entity', entity)
 
     col = box.column()
 
@@ -2327,6 +2352,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             elif image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
             #elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
             elif layer.type == 'VCOL': row.prop(layer, 'name', text='', emboss=False, icon='GROUP_VCOL')
+            elif layer.type == 'HEMI': 
+                if is_28(): row.prop(layer, 'name', text='', emboss=False, icon='LIGHT')
+                else: row.prop(layer, 'name', text='', emboss=False, icon='LAMP')
             elif layer.type == 'COLOR': row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
             elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon='IMAGE_RGB_ALPHA')
             elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon='FILE_FOLDER')
@@ -2716,6 +2744,10 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         col.separator()
         col.operator("node.y_invert_image", icon='IMAGE_ALPHA')
 
+        #if hasattr(context, 'entity') and context.entity:
+        #    col = row.column()
+        #    col.label(text=context.entity.name, icon=get_layer_type_icon(context.entity.type))
+
 class YUVSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_uv_special_menu"
     bl_label = "UV Special Menu"
@@ -2966,6 +2998,14 @@ class YLayerMaskMenu(bpy.types.Menu):
         col.operator('node.y_new_mask_modifier', text='Ramp', icon='MODIFIER').type = 'RAMP'
         col.operator('node.y_new_mask_modifier', text='Curve', icon='MODIFIER').type = 'CURVE'
 
+        col = row.column(align=True)
+        col.context_pointer_set('parent', mask)
+        col.label(text='Advanced')
+        if not mask.use_temp_bake:
+            col.operator('node.y_bake_temp_image', text='Bake Temp Image', icon='RENDER_STILL')
+        else:
+            col.operator('node.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
+
 class YAddModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_modifier_menu"
     bl_label = "Add Modifier Menu"
@@ -3047,6 +3087,14 @@ class YLayerSpecialMenu(bpy.types.Menu):
         if is_28():
             col.operator("node.y_replace_layer_type", icon='LIGHT', text='Fake Lighting').type = 'HEMI'
         else: col.operator("node.y_replace_layer_type", icon='LAMP', text='Fake Lighting').type = 'HEMI'
+
+        #if context.parent.type == 'HEMI':
+        col = row.column()
+        col.label(text='Advanced')
+        if context.parent.use_temp_bake:
+            col.operator('node.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
+        else:
+            col.operator('node.y_bake_temp_image', text='Bake Temp Image', icon='RENDER_STILL')
 
         #col = row.column()
         #col.label(text='Options:')
