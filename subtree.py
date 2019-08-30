@@ -495,9 +495,11 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
         create_essential_nodes(mask_tree)
 
+
         # Copy nodes from reference
-        #source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)
-        source = new_node(mask_tree, mask, 'source', 'ShaderNodeTexImage')
+        source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)
+        #source = new_node(mask_tree, mask, 'source', 'ShaderNodeTexImage')
+        #print(source, source_ref)
         copy_node_props(source_ref, source)
         #source.image = source_ref.image
 

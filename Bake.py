@@ -1358,6 +1358,9 @@ class YResizeImage(bpy.types.Operator):
     bl_description = "Resize image of layer or mask"
     bl_options = {'REGISTER', 'UNDO'}
 
+    layer_name = StringProperty(default='')
+    image_name = StringProperty(default='')
+
     width = IntProperty(name='Width', default = 1024, min=1, max=4096)
     height = IntProperty(name='Height', default = 1024, min=1, max=4096)
 
@@ -1371,9 +1374,9 @@ class YResizeImage(bpy.types.Operator):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
     def invoke(self, context, event):
-        if hasattr(context, 'image') and hasattr(context, 'layer'):
-            self.image = context.image
-            self.layer = context.layer
+        #if hasattr(context, 'image') and hasattr(context, 'layer'):
+        #    self.image = context.image
+        #    self.layer = context.layer
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
@@ -1393,13 +1396,22 @@ class YResizeImage(bpy.types.Operator):
         col.prop(self, 'samples', text='')
 
     def execute(self, context):
-        if not hasattr(self, 'image') or not hasattr(self, 'layer'):
-            self.report({'ERROR'}, "No active image/layer found!")
-            return {'CANCELLED'}
 
-        image = self.image
-        layer = self.layer
-        yp = layer.id_data.yp
+        #if not hasattr(self, 'image') or not hasattr(self, 'layer'):
+        #    self.report({'ERROR'}, "No active image/layer found!")
+        #    return {'CANCELLED'}
+
+        #image = self.image
+        #layer = self.layer
+        #yp = layer.id_data.yp
+
+        yp = get_active_ypaint_node().node_tree.yp
+        layer = yp.layers.get(self.layer_name)
+        image = bpy.data.images.get(self.image_name)
+
+        if not layer or not image:
+            self.report({'ERROR'}, "Image/layer is not found!")
+            return {'CANCELLED'}
 
         remember_before_resize(self, context)
         prepare_bake_resize_settings(self, context, self.samples)

@@ -2724,7 +2724,11 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         
         #if hasattr(context, 'image') and context.image:
         col.separator()
-        col.operator('node.y_resize_image', text='Resize Image', icon='FULLSCREEN_ENTER')
+        op = col.operator('node.y_resize_image', text='Resize Image', icon='FULLSCREEN_ENTER')
+        if hasattr(context, 'layer'):
+            op.layer_name = context.layer.name
+        if hasattr(context, 'image'):
+            op.image_name = context.image.name
 
         col.separator()
         col.operator('node.y_pack_image', icon='PACKAGE')
