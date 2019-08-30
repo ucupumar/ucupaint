@@ -184,7 +184,7 @@ def transfer_uv(obj, mat, entity, uv_map):
     # Change uv of entity
     entity.uv_name = uv_map
 
-def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False):
+def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, aa_level=1):
 
     tree = node.node_tree
     yp = tree.yp
@@ -1296,30 +1296,6 @@ class YTransferLayerUV(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def remember_before_resize(self, context):
-    scene = context.scene
-    self.object = context.object
-    self.mode = context.object.mode
-    self.selected_objects = [ob for ob in context.selected_objects]
-
-    # Remember render settings
-    self.ori_engine = scene.render.engine
-    self.ori_bake_type = scene.cycles.bake_type
-    self.ori_samples = scene.cycles.samples
-    self.ori_threads_mode = scene.render.threads_mode
-    self.ori_margin = scene.render.bake.margin
-    self.ori_use_clear = scene.render.bake.use_clear
-
-def prepare_bake_resize_settings(self, context, samples):
-    scene = context.scene
-
-    scene.render.engine = 'CYCLES'
-    scene.cycles.bake_type = 'EMIT'
-    scene.cycles.samples = samples
-    scene.render.threads_mode = 'AUTO'
-    scene.render.bake.margin = 0
-    scene.render.bake.use_clear = False
-
 def recover_after_resize(self, context):
     scene = context.scene
 
@@ -1351,6 +1327,175 @@ def recover_after_resize(self, context):
     else: scene.objects.active = self.object
 
     bpy.ops.object.mode_set(mode = self.mode)
+
+def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None):
+
+    book = remember_before_bake_()
+
+    if segment:
+        ori_width = segment.width
+        ori_height = segment.height
+    else:
+        ori_width = image.size[0]
+        ori_height = image.size[1]
+
+    if ori_width == width and ori_height == height:
+        return
+
+    if segment:
+        new_segment = ImageAtlas.get_set_image_atlas_segment(
+                    width, height, image.yia.color, image.is_float) #, ypup.image_atlas_size)
+        scaled_img = new_segment.id_data
+
+        ori_start_x = segment.width * segment.tile_x
+        ori_start_y = segment.height * segment.tile_y
+
+        start_x = width * new_segment.tile_x
+        start_y = height * new_segment.tile_y
+    else:
+        scaled_img = bpy.data.images.new(name='__TEMP__', 
+            width=width, height=height, alpha=True, float_buffer=image.is_float)
+        scaled_img.colorspace_settings.name = colorspace
+        if image.filepath != '' and not image.packed_file:
+            scaled_img.filepath = image.filepath
+
+        start_x = 0
+        start_y = 0
+
+        new_segment = None
+
+    # Create new plane
+    bpy.ops.object.mode_set(mode = 'OBJECT')
+    bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
+    plane_obj = bpy.context.view_layer.objects.active
+
+    prepare_bake_settings_(book, plane_obj, bpy.context, samples=samples, margin=margin)
+
+    # If using image atlas, transform uv
+    if segment:
+        uv_layers = get_uv_layers(plane_obj)
+
+        # Transform current uv using previous segment
+        #uv_layer = uv_layers.active
+        for i, d in enumerate(plane_obj.data.uv_layers.active.data):
+            if i == 0: # Top right
+                d.uv.x = (ori_start_x + segment.width) / image.size[0]
+                d.uv.y = (ori_start_y + segment.height) / image.size[1]
+            elif i == 1: # Top left
+                d.uv.x = ori_start_x / image.size[0]
+                d.uv.y = (ori_start_y + segment.height) / image.size[1]
+            elif i == 2: # Bottom left
+                d.uv.x = ori_start_x / image.size[0]
+                d.uv.y = ori_start_y / image.size[1]
+            elif i == 3: # Bottom right
+                d.uv.x = (ori_start_x + segment.width) / image.size[0]
+                d.uv.y = ori_start_y / image.size[1]
+
+        # Create new uv and transform it using new segment
+        temp_uv_layer = uv_layers.new(name='__TEMP')
+        uv_layers.active = temp_uv_layer
+        for i, d in enumerate(plane_obj.data.uv_layers.active.data):
+            if i == 0: # Top right
+                d.uv.x = (start_x + width) / scaled_img.size[0]
+                d.uv.y = (start_y + height) / scaled_img.size[1]
+            elif i == 1: # Top left
+                d.uv.x = start_x / scaled_img.size[0]
+                d.uv.y = (start_y + height) / scaled_img.size[1]
+            elif i == 2: # Bottom left
+                d.uv.x = start_x / scaled_img.size[0]
+                d.uv.y = start_y / scaled_img.size[1]
+            elif i == 3: # Bottom right
+                d.uv.x = (start_x + width) / scaled_img.size[0]
+                d.uv.y = start_y / scaled_img.size[1]
+
+    #return{'FINISHED'}
+
+    mat = bpy.data.materials.new('__TEMP__')
+    mat.use_nodes = True
+    plane_obj.active_material = mat
+
+    output = get_active_mat_output_node(mat.node_tree)
+    emi = mat.node_tree.nodes.new('ShaderNodeEmission')
+    uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
+    uv_map.uv_map = 'UVMap'
+    target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    target_tex.image = scaled_img
+    source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    source_tex.image = image
+    straight_over = mat.node_tree.nodes.new('ShaderNodeGroup')
+    straight_over.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
+    straight_over.inputs[1].default_value = 0.0
+
+    # Connect nodes
+    mat.node_tree.links.new(uv_map.outputs[0], source_tex.inputs[0])
+    mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
+    mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
+    mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
+    mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
+    mat.node_tree.nodes.active = target_tex
+
+    # Bake
+    bpy.ops.object.bake()
+
+    # Create alpha image as bake target
+    alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
+            width=width, height=height, alpha=True, float_buffer=image.is_float)
+    alpha_img.colorspace_settings.name = 'Linear'
+
+    # Retransform back uv
+    if segment:
+        for i, d in enumerate(plane_obj.data.uv_layers.active.data):
+            if i == 0: # Top right
+                d.uv.x = 1.0
+                d.uv.y = 1.0
+            elif i == 1: # Top left
+                d.uv.x = 0.0
+                d.uv.y = 1.0
+            elif i == 2: # Bottom left
+                d.uv.x = 0.0
+                d.uv.y = 0.0
+            elif i == 3: # Bottom right
+                d.uv.x = 1.0
+                d.uv.y = 0.0
+
+    # Setup texture
+    target_tex.image = alpha_img
+    mat.node_tree.links.new(source_tex.outputs[1], emi.inputs[0])
+
+    # Bake again!
+    bpy.ops.object.bake()
+
+    # Copy alpha image to scaled image
+    target_pxs = list(scaled_img.pixels)
+    temp_pxs = list(alpha_img.pixels)
+
+    for y in range(height):
+        temp_offset_y = width * 4 * y
+        offset_y = scaled_img.size[0] * 4 * (y + start_y)
+        for x in range(width):
+            temp_offset_x = 4 * x
+            offset_x = 4 * (x + start_x)
+            target_pxs[offset_y + offset_x + 3] = temp_pxs[temp_offset_y + temp_offset_x]
+
+    scaled_img.pixels = target_pxs
+
+    # Replace original image to scaled image
+    replace_image(image, scaled_img)
+
+    # Remove temp datas
+    if straight_over.node_tree.users == 1:
+        bpy.data.node_groups.remove(straight_over.node_tree)
+    bpy.data.images.remove(alpha_img)
+    bpy.data.materials.remove(mat)
+    plane = plane_obj.data
+    bpy.ops.object.delete()
+    bpy.data.meshes.remove(plane)
+
+    # Recover settings
+    #recover_after_resize(self, context)
+    recover_bake_settings_(book, bpy.context)
+
+    return scaled_img, new_segment
 
 class YResizeImage(bpy.types.Operator):
     bl_idname = "node.y_resize_image"
@@ -1413,9 +1558,6 @@ class YResizeImage(bpy.types.Operator):
             self.report({'ERROR'}, "Image/layer is not found!")
             return {'CANCELLED'}
 
-        remember_before_resize(self, context)
-        prepare_bake_resize_settings(self, context, self.samples)
-
         # Get entity
         entity = layer
         mask_entity = False
@@ -1439,163 +1581,9 @@ class YResizeImage(bpy.types.Operator):
             self.report({'ERROR'}, "This image already had the same size!")
             return {'CANCELLED'}
 
-        if segment:
-            new_segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, image.yia.color, image.is_float) #, ypup.image_atlas_size)
-            scaled_img = new_segment.id_data
+        scaled_img, new_segment = resize_image(image, self.width, self.height, 'Linear', self.samples, 0, segment)
 
-            ori_start_x = segment.width * segment.tile_x
-            ori_start_y = segment.height * segment.tile_y
-
-            start_x = self.width * new_segment.tile_x
-            start_y = self.height * new_segment.tile_y
-        else:
-            scaled_img = bpy.data.images.new(name='__TEMP__', 
-                width=self.width, height=self.height, alpha=True, float_buffer=image.is_float)
-            scaled_img.colorspace_settings.name = 'Linear'
-            if image.filepath != '' and not image.packed_file:
-                scaled_img.filepath = image.filepath
-
-            start_x = 0
-            start_y = 0
-
-        # Deselect all objects
-        if is_28():
-            for obj in self.selected_objects:
-                obj.select_set(False)
-        else:
-            for obj in self.selected_objects:
-                obj.select = False
-
-        # Create new plane
-        bpy.ops.object.mode_set(mode = 'OBJECT')
-        bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
-        plane_obj = context.view_layer.objects.active
-
-        # If using image atlas, transform uv
-        if segment:
-            uv_layers = get_uv_layers(plane_obj)
-
-            # Transform current uv using previous segment
-            #uv_layer = uv_layers.active
-            for i, d in enumerate(plane_obj.data.uv_layers.active.data):
-                if i == 0: # Top right
-                    d.uv.x = (ori_start_x + segment.width) / image.size[0]
-                    d.uv.y = (ori_start_y + segment.height) / image.size[1]
-                elif i == 1: # Top left
-                    d.uv.x = ori_start_x / image.size[0]
-                    d.uv.y = (ori_start_y + segment.height) / image.size[1]
-                elif i == 2: # Bottom left
-                    d.uv.x = ori_start_x / image.size[0]
-                    d.uv.y = ori_start_y / image.size[1]
-                elif i == 3: # Bottom right
-                    d.uv.x = (ori_start_x + segment.width) / image.size[0]
-                    d.uv.y = ori_start_y / image.size[1]
-
-            # Create new uv and transform it using new segment
-            temp_uv_layer = uv_layers.new(name='__TEMP')
-            uv_layers.active = temp_uv_layer
-            for i, d in enumerate(plane_obj.data.uv_layers.active.data):
-                if i == 0: # Top right
-                    d.uv.x = (start_x + self.width) / scaled_img.size[0]
-                    d.uv.y = (start_y + self.height) / scaled_img.size[1]
-                elif i == 1: # Top left
-                    d.uv.x = start_x / scaled_img.size[0]
-                    d.uv.y = (start_y + self.height) / scaled_img.size[1]
-                elif i == 2: # Bottom left
-                    d.uv.x = start_x / scaled_img.size[0]
-                    d.uv.y = start_y / scaled_img.size[1]
-                elif i == 3: # Bottom right
-                    d.uv.x = (start_x + self.width) / scaled_img.size[0]
-                    d.uv.y = start_y / scaled_img.size[1]
-
-        #return{'FINISHED'}
-
-        mat = bpy.data.materials.new('__TEMP__')
-        mat.use_nodes = True
-        plane_obj.active_material = mat
-
-        output = get_active_mat_output_node(mat.node_tree)
-        emi = mat.node_tree.nodes.new('ShaderNodeEmission')
-        uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
-        uv_map.uv_map = 'UVMap'
-        target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-        target_tex.image = scaled_img
-        source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-        source_tex.image = image
-        straight_over = mat.node_tree.nodes.new('ShaderNodeGroup')
-        straight_over.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
-        straight_over.inputs[1].default_value = 0.0
-
-        # Connect nodes
-        mat.node_tree.links.new(uv_map.outputs[0], source_tex.inputs[0])
-        mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
-        mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
-        mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
-        mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
-        mat.node_tree.nodes.active = target_tex
-
-        # Bake
-        bpy.ops.object.bake()
-
-        # Create alpha image as bake target
-        alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
-                width=self.width, height=self.height, alpha=True, float_buffer=image.is_float)
-        alpha_img.colorspace_settings.name = 'Linear'
-
-        # Retransform back uv
-        if segment:
-            for i, d in enumerate(plane_obj.data.uv_layers.active.data):
-                if i == 0: # Top right
-                    d.uv.x = 1.0
-                    d.uv.y = 1.0
-                elif i == 1: # Top left
-                    d.uv.x = 0.0
-                    d.uv.y = 1.0
-                elif i == 2: # Bottom left
-                    d.uv.x = 0.0
-                    d.uv.y = 0.0
-                elif i == 3: # Bottom right
-                    d.uv.x = 1.0
-                    d.uv.y = 0.0
-
-        # Setup texture
-        target_tex.image = alpha_img
-        mat.node_tree.links.new(source_tex.outputs[1], emi.inputs[0])
-
-        # Bake again!
-        bpy.ops.object.bake()
-
-        # Copy alpha image to scaled image
-        target_pxs = list(scaled_img.pixels)
-        temp_pxs = list(alpha_img.pixels)
-
-        for y in range(self.height):
-            temp_offset_y = self.width * 4 * y
-            offset_y = scaled_img.size[0] * 4 * (y + start_y)
-            for x in range(self.width):
-                temp_offset_x = 4 * x
-                offset_x = 4 * (x + start_x)
-                target_pxs[offset_y + offset_x + 3] = temp_pxs[temp_offset_y + temp_offset_x]
-
-        scaled_img.pixels = target_pxs
-
-        # Replace original image to scaled image
-        replace_image(image, scaled_img)
-
-        # Remove temp datas
-        if straight_over.node_tree.users == 1:
-            bpy.data.node_groups.remove(straight_over.node_tree)
-        bpy.data.images.remove(alpha_img)
-        bpy.data.materials.remove(mat)
-        plane = plane_obj.data
-        bpy.ops.object.delete()
-        bpy.data.meshes.remove(plane)
-
-        # Recover settings
-        recover_after_resize(self, context)
-
-        if segment:
+        if new_segment:
             entity.segment_name = new_segment.name
             segment.unused = True
             update_mapping(entity)
@@ -1626,6 +1614,11 @@ class YBakeChannels(bpy.types.Operator):
             default=5, subtype='PIXEL')
 
     hdr = BoolProperty(name='32 bit Float', default=False)
+
+    aa_level = IntProperty(
+        name='Anti Aliasing Level',
+        description='Super Sample Anti Aliasing Level (1=off)',
+        default=1, min=1, max=2)
 
     @classmethod
     def poll(cls, context):
@@ -1670,6 +1663,7 @@ class YBakeChannels(bpy.types.Operator):
         col.separator()
         col.label(text='Samples:')
         col.label(text='Margin:')
+        col.label(text='AA Level:')
         col.separator()
         col.label(text='UV Map:')
 
@@ -1682,6 +1676,7 @@ class YBakeChannels(bpy.types.Operator):
 
         col.prop(self, 'samples', text='')
         col.prop(self, 'margin', text='')
+        col.prop(self, 'aa_level', text='')
         col.separator()
 
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
@@ -1697,7 +1692,8 @@ class YBakeChannels(bpy.types.Operator):
         ypui = context.window_manager.ypui
         obj = context.object
 
-        remember_before_bake(self, context, yp)
+        #remember_before_bake(self, context, yp)
+        book = remember_before_bake_(yp)
 
         if BL28_HACK:
         #if is_28():
@@ -1722,22 +1718,51 @@ class YBakeChannels(bpy.types.Operator):
         if yp.use_baked:
             yp.use_baked = False
 
+        # AA setup
+        #if self.aa_level > 1:
+        margin = self.margin * self.aa_level
+        width = self.width * self.aa_level
+        height = self.height * self.aa_level
+
         # Prepare bake settings
-        prepare_bake_settings(self, context, yp)
+        #prepare_bake_settings(self, context, yp)
+        prepare_bake_settings_(book, obj, context, yp, self.samples, margin, self.uv_map)
 
         # Bake channels
         for ch in yp.channels:
             ch.no_layer_using = not is_any_layer_using_channel(ch)
             if not ch.no_layer_using:
                 #if ch.type == 'NORMAL':
-                bake_channel(self.uv_map, mat, node, ch, self.width, self.height, use_hdr=self.hdr)
+                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=self.hdr)
                 #return {'FINISHED'}
+
+        # AA process
+        if self.aa_level > 1:
+            for ch in yp.channels:
+
+                baked = tree.nodes.get(ch.baked)
+                if baked and baked.image:
+                    resize_image(baked.image, self.width, self.height, 
+                            baked.image.colorspace_settings.name)
+
+                if ch.type == 'NORMAL':
+
+                    baked_disp = tree.nodes.get(ch.baked_disp)
+                    if baked_disp and baked_disp.image:
+                        resize_image(baked_disp.image, self.width, self.height, 
+                                baked.image.colorspace_settings.name)
+
+                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image:
+                        resize_image(baked_normal_overlay.image, self.width, self.height, 
+                                baked.image.colorspace_settings.name)
 
         # Set baked uv
         yp.baked_uv_name = self.uv_map
 
         # Recover bake settings
-        recover_bake_settings(self, context, yp)
+        #recover_bake_settings(self, context, yp)
+        recover_bake_settings_(book, context, yp)
 
         # Use bake results
         yp.halt_update = True
@@ -2356,11 +2381,11 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map):
 
     yp = entity.id_data.yp
     obj = context.object
-    scene = context.scene
+    #scene = context.scene
 
     # Prepare bake settings
-    book = remember_before_bake_(scene, obj, context, yp)
-    prepare_bake_settings_(book, scene, obj, context, yp, samples, margin, uv_map)
+    book = remember_before_bake_(yp)
+    prepare_bake_settings_(book, obj, context, yp, samples, margin, uv_map)
 
     mat = get_active_material()
     name = entity.name + ' Temp'
