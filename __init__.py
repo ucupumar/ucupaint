@@ -80,8 +80,10 @@
 # - Add Emission Quick Node Setup (V)
 # - Prevent unused channel bake (V)
 # - Add simple vertex color editor on layer manager (V)
-# - Temporary bake hemi/fake lighting so it can works with bump on cycles
-# - Add support for baking vertex color to image
+# - Temporary bake hemi/fake lighting so it can works with bump on cycles (V)
+# - Add support for baking vertex color to image (X, kinda not needed)
+# - Add clamp color option on root channel (V)
+# - Clean up bake codes
 
 # TODO:
 # - Make every node name unique (using hash?)

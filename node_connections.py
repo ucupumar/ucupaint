@@ -981,6 +981,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         start_linear = nodes.get(ch.start_linear)
         end_linear = nodes.get(ch.end_linear)
+        clamp = nodes.get(ch.clamp)
         end_max_height = nodes.get(ch.end_max_height)
         end_max_height_tweak = nodes.get(ch.end_max_height_tweak)
         start_normal_filter = nodes.get(ch.start_normal_filter)
@@ -1177,6 +1178,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     create_link(tree, bitangent, end_linear.inputs['Bitangent'])
             else:
                 rgb = create_link(tree, rgb, end_linear.inputs[0])[0]
+
+                if clamp:
+                    rgb = create_link(tree, rgb, clamp.inputs[1])[0]
 
         if yp.use_baked and not ch.no_layer_using: # and baked_uv:
             baked = nodes.get(ch.baked)

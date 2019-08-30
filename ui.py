@@ -549,6 +549,13 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
             else: brow.label(text='Alpha:')
             brow.prop(channel, 'enable_alpha', text='')
 
+            if channel.type in {'RGB', 'VALUE'}:
+                brow = bcol.row(align=True)
+                brow.active = not yp.use_baked or channel.no_layer_using
+                brow.label(text='', icon='INFO')
+                brow.label(text='Use Clamp:')
+                brow.prop(channel, 'use_clamp', text='')
+
             #if len(channel.modifiers) > 0:
             #    brow.label(text='', icon='BLANK1')
 

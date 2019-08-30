@@ -27,6 +27,22 @@ colorspace_items = (
     ('SRGB', 'Color Data', '')
 )
 
+def check_channel_clamp(tree, root_ch):
+    
+    if root_ch.type == 'RGB':
+        if root_ch.use_clamp:
+            clamp = tree.nodes.get(root_ch.clamp)
+            if not clamp:
+                clamp = new_node(tree, root_ch, 'clamp', 'ShaderNodeMixRGB')
+                clamp.inputs[0].default_value = 0.0
+                clamp.use_clamp = True
+        else:
+            remove_node(tree, root_ch, 'clamp')
+
+    elif root_ch.type == 'VALUE':
+        end_linear = tree.nodes.get(root_ch.end_linear)
+        if end_linear: end_linear.use_clamp = root_ch.use_clamp
+
 def check_all_channel_ios(yp, reconnect=True):
     group_tree = yp.id_data
 
@@ -117,6 +133,9 @@ def check_all_channel_ios(yp, reconnect=True):
             end_max_height = check_new_node(group_tree, ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
             end_max_height.outputs[0].default_value = max_height
 
+        # Check clamps
+        check_channel_clamp(group_tree, ch)
+
     if yp.layer_preview_mode:
         create_output(group_tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index)
         output_index += 1
@@ -199,6 +218,8 @@ def create_yp_channel_nodes(group_tree, channel, channel_idx):
             end_linear = new_node(group_tree, channel, 'end_linear', 'ShaderNodeMath', 'End Linear')
             end_linear.operation = 'POWER'
         end_linear.inputs[1].default_value = GAMMA
+
+        check_channel_clamp(group_tree, channel)
 
     if channel.type == 'NORMAL':
         start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
@@ -2114,6 +2135,16 @@ def update_flip_backface(self, context):
         if tangent_process:
             tangent_process.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
 
+def update_channel_use_clamp(self, context):
+
+    if self.type == 'NORMAL': return
+
+    group_tree = self.id_data
+    check_channel_clamp(group_tree, self)
+
+    rearrange_yp_nodes(group_tree)
+    reconnect_yp_nodes(group_tree)
+
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
 #    group_tree = group_node.node_tree
@@ -2188,6 +2219,12 @@ class YPaintChannel(bpy.types.PropertyGroup):
             description = 'Enable smooth bump map.\nLooks better but bump height scaling will be different than standard bump map.\nSmooth bump map -> Texture space.\nStandard bump map -> World space',
             default=True,
             update=update_enable_smooth_bump)
+
+    use_clamp = BoolProperty(
+            name = 'Use Clamp',
+            description = 'Clamp result to 0..1 range',
+            default = True,
+            update=update_channel_use_clamp)
 
     # Input output index
     io_index = IntProperty(default=-1)
@@ -2298,6 +2335,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Node names
     start_linear = StringProperty(default='')
     end_linear = StringProperty(default='')
+    clamp = StringProperty(default='')
     start_normal_filter = StringProperty(default='')
     bump_process = StringProperty(default='')
     end_max_height = StringProperty(default='')

@@ -1613,7 +1613,7 @@ class YBakeChannels(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
-    hdr = BoolProperty(name='32 bit Float', default=False)
+    #hdr = BoolProperty(name='32 bit Float', default=False)
 
     aa_level = IntProperty(
         name='Anti Aliasing Level',
@@ -1659,7 +1659,7 @@ class YBakeChannels(bpy.types.Operator):
 
         col.label(text='Width:')
         col.label(text='Height:')
-        col.label(text='')
+        #col.label(text='')
         col.separator()
         col.label(text='Samples:')
         col.label(text='Margin:')
@@ -1671,7 +1671,7 @@ class YBakeChannels(bpy.types.Operator):
 
         col.prop(self, 'width', text='')
         col.prop(self, 'height', text='')
-        col.prop(self, 'hdr')
+        #col.prop(self, 'hdr')
         col.separator()
 
         col.prop(self, 'samples', text='')
@@ -1733,7 +1733,9 @@ class YBakeChannels(bpy.types.Operator):
             ch.no_layer_using = not is_any_layer_using_channel(ch)
             if not ch.no_layer_using:
                 #if ch.type == 'NORMAL':
-                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=self.hdr)
+                #bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=self.hdr)
+                use_hdr = not ch.use_clamp
+                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr)
                 #return {'FINISHED'}
 
         # AA process
