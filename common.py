@@ -661,6 +661,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
 
             elif (obj and obj.type == 'MESH' #and obj.active_material and obj.active_material.users == 1
                     and hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == 'ShaderNodeAttribute'):
+                mat = obj.active_material
                 vcol = obj.data.vertex_colors.get(node.attribute_name)
 
                 if vcol:
@@ -668,6 +669,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
                     T = time.time()
 
                     # Check if other layer use this vertex color
+                    # NOTE: Searching on all node groups can be deveiving, need recursion only on mesh materials
                     other_users_found = False
                     for ng in bpy.data.node_groups:
                         for t in ng.yp.layers:
@@ -687,13 +689,26 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
                                         other_users_found = True
                                         break
 
-                    print('INFO: Searching on entire node groups to search for vcol takes', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
                     #other_user_found = False
                     #for t in yp.layers:
                     #    if t.type == 'VCOL':
                     if not other_users_found:
-                        obj.data.vertex_colors.remove(vcol)
+
+                        if mat.users > 1:
+                            obs = []
+                            for o in get_scene_objects():
+                                if o.type != 'MESH': continue
+                                if mat.name in o.data.materials and vcol.name in o.data.vertex_colors:
+                                    obs.append(o)
+                                
+                        else: obs = [obj]
+
+                        for o in obs:
+                            vcol = o.data.vertex_colors.get(node.attribute_name)
+                            o.data.vertex_colors.remove(vcol)
+
+                    print('INFO: Searching on entire node groups to search for vcol takes', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
         # Remove the node itself
         #print('Node ' + prop + ' from ' + str(entity) + ' removed!')
@@ -1286,9 +1301,12 @@ def change_layer_name(yp, obj, src, layer, texes):
 
     yp.halt_update = True
 
-    if layer.type == 'VCOL' and obj.type == 'MESH':
+    mat = obj.active_material
 
+    if layer.type == 'VCOL' and obj.type == 'MESH':
+        
         # Get vertex color from node
+        ori_name = src.attribute_name
         vcol = obj.data.vertex_colors.get(src.attribute_name)
 
         # Temporarily change its name to temp name so it won't affect unique name
@@ -1300,6 +1318,13 @@ def change_layer_name(yp, obj, src, layer, texes):
         # Set vertex color name and attribute node
         vcol.name = layer.name
         src.attribute_name = layer.name
+
+        if mat.users > 1:
+            for o in get_scene_objects():
+                if o.type != 'MESH' or o == obj: continue
+                if mat.name in o.data.materials and ori_name in o.data.vertex_colors:
+                    other_v = o.data.vertex_colors.get(ori_name)
+                    other_v.name = layer.name
 
     elif layer.type == 'IMAGE':
         src.image.name = '___TEMP___'
@@ -2756,6 +2781,11 @@ def get_layer_type_icon(layer_type):
 def save_hemi_props(layer, source):
     norm = source.node_tree.nodes.get('Normal')
     if norm: layer.hemi_vector = norm.outputs[0].default_value
+
+def get_scene_objects():
+    if is_28():
+        return bpy.context.view_layer.objects
+    else: return bpy.context.scene.objects
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

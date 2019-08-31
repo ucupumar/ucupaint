@@ -853,18 +853,13 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "Overwrite layer/mask cannot be empty!")
             return {'CANCELLED'}
 
-        # All objects pointer
-        if is_28():
-            obs = bpy.context.view_layer.objects
-        else: obs = bpy.context.scene.objects
-
         # Remember things
         book = remember_before_bake_(yp)
 
         # Get all objects using material
         if mat.users > 1:
             objs = []
-            for ob in bpy.context.view_layer.objects:
+            for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
                 for i, m in enumerate(ob.data.materials):
                     ob.active_material = m
@@ -897,7 +892,7 @@ class YBakeToLayer(bpy.types.Operator):
         # If use only local, hide other objects
         if self.type == 'AO' and self.only_local:
             ori_hide_renders = {}
-            for o in obs:
+            for o in get_scene_objects():
                 if o.type == 'MESH' and o not in objs:
                     ori_hide_renders[o.name] = o.hide_render
                     o.hide_render = True
@@ -1100,7 +1095,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Recover hidden objects
         if self.type == 'AO' and self.only_local:
-            for o in obs:
+            for o in get_scene_objects():
                 if o.type == 'MESH' and o not in objs and o.hide_render != ori_hide_renders[o.name]:
                     o.hide_render = ori_hide_renders[o.name]
 

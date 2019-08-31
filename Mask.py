@@ -286,6 +286,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.auto_cancel: return {'CANCELLED'}
 
         obj = context.object
+        mat = obj.active_material
         ypui = context.window_manager.ypui
         layer = self.layer
         #ypup = bpy.context.user_preferences.addons[__package__].preferences
@@ -343,11 +344,23 @@ class YNewLayerMask(bpy.types.Operator):
 
         # New vertex color
         elif self.type == 'VCOL':
-            vcol = obj.data.vertex_colors.new(name=self.name)
-            if self.color_option == 'WHITE':
-                set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0))
-            elif self.color_option == 'BLACK':
-                set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0))
+            #vcol = obj.data.vertex_colors.new(name=self.name)
+            #if self.color_option == 'WHITE':
+            #    set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0))
+            #elif self.color_option == 'BLACK':
+            #    set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0))
+            if mat.users > 1:
+                for o in get_scene_objects():
+                    if o.type != 'MESH': continue
+                    if mat.name in o.data.materials and self.name not in o.data.vertex_colors:
+                        try:
+                            vcol = o.data.vertex_colors.new(name=self.name)
+                            if mask_color == 'WHITE':
+                                set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                            elif mask_color == 'BLACK':
+                                set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0))
+                            o.data.vertex_colors.active = vcol
+                        except: pass
 
         # Add new mask
         mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment)
@@ -581,6 +594,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         yp = layer.id_data.yp
         ypui = context.window_manager.ypui
         obj = context.object
+        mat = obj.active_material
 
         if self.type == 'IMAGE' and self.image_name == '':
             self.report({'ERROR'}, "No image selected!")
@@ -599,6 +613,16 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         elif self.type == 'VCOL':
             vcol = obj.data.vertex_colors.get(self.vcol_name)
             name = vcol.name
+
+            if mat.users > 1:
+                for o in get_scene_objects():
+                    if o.type != 'MESH' or o == obj: continue
+                    if mat.name in o.data.materials and self.vcol_name not in o.data.vertex_colors:
+                        try:
+                            other_v = o.data.vertex_colors.new(name=self.vcol_name)
+                            set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0))
+                            o.data.vertex_colors.active = other_v
+                        except: pass
 
         # Add new mask
         mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol)

@@ -73,59 +73,64 @@ class YVcolFill(bpy.types.Operator):
 
     def execute(self, context):
 
-        obj = context.object
-        mesh = obj.data
-        ve = context.scene.ve_edit
-        bm = bmesh.from_edit_mesh(mesh)
-
-        bm.verts.ensure_lookup_table()
-        bm.edges.ensure_lookup_table()
-        bm.faces.ensure_lookup_table()
-
-        if ve.fill_mode == 'FACE':
-            #face_indices = []
-            loop_indices = []
-            for face in bm.faces:
-                if face.select:
-                    #face_indices.append(face.index)
-                    for loop in face.loops:
-                        loop_indices.append(loop.index)
-
-        else:
-            vert_indices = []
-            for vert in bm.verts:
-                if vert.select:
-                    vert_indices.append(vert.index)
-
-        bpy.ops.object.mode_set(mode='OBJECT')
-        vcol = obj.data.vertex_colors.active
-
-        if self.color_option == 'WHITE':
-            color = (1,1,1)
-        elif self.color_option == 'BLACK':
-            color = (0,0,0)
-        else:
-            color = linear_to_srgb(context.scene.ve_edit.color)
-
         if is_28():
-            color = (color[0], color[1], color[2], 1.0)
+            objs = context.objects_in_mode
+        else: objs = [context.object]
 
-        if ve.fill_mode == 'FACE':
-            for loop_index in loop_indices:
-                vcol.data[loop_index].color = color
-        else:
-            for poly in mesh.polygons:
-                for loop_index in poly.loop_indices:
-                    loop_vert_index = mesh.loops[loop_index].vertex_index
-                    if loop_vert_index in vert_indices:
-                        vcol.data[loop_index].color = color
+        for obj in objs:
 
-        bpy.ops.object.mode_set(mode='EDIT')
+            mesh = obj.data
+            ve = context.scene.ve_edit
+            bm = bmesh.from_edit_mesh(mesh)
 
-        #pal = bpy.data.palettes.get('SuperPalette')
-        #if not pal:
-        #    pal = bpy.data.palettes.new('SuperPalette')
-        #context.scene.ve_edit.palette = pal
+            bm.verts.ensure_lookup_table()
+            bm.edges.ensure_lookup_table()
+            bm.faces.ensure_lookup_table()
+
+            if ve.fill_mode == 'FACE':
+                #face_indices = []
+                loop_indices = []
+                for face in bm.faces:
+                    if face.select:
+                        #face_indices.append(face.index)
+                        for loop in face.loops:
+                            loop_indices.append(loop.index)
+
+            else:
+                vert_indices = []
+                for vert in bm.verts:
+                    if vert.select:
+                        vert_indices.append(vert.index)
+
+            bpy.ops.object.mode_set(mode='OBJECT')
+            vcol = obj.data.vertex_colors.active
+
+            if self.color_option == 'WHITE':
+                color = (1,1,1)
+            elif self.color_option == 'BLACK':
+                color = (0,0,0)
+            else:
+                color = linear_to_srgb(context.scene.ve_edit.color)
+
+            if is_28():
+                color = (color[0], color[1], color[2], 1.0)
+
+            if ve.fill_mode == 'FACE':
+                for loop_index in loop_indices:
+                    vcol.data[loop_index].color = color
+            else:
+                for poly in mesh.polygons:
+                    for loop_index in poly.loop_indices:
+                        loop_vert_index = mesh.loops[loop_index].vertex_index
+                        if loop_vert_index in vert_indices:
+                            vcol.data[loop_index].color = color
+
+            bpy.ops.object.mode_set(mode='EDIT')
+
+            #pal = bpy.data.palettes.get('SuperPalette')
+            #if not pal:
+            #    pal = bpy.data.palettes.new('SuperPalette')
+            #context.scene.ve_edit.palette = pal
 
         return {'FINISHED'}
 

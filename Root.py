@@ -1403,7 +1403,7 @@ class YFixDuplicatedLayers(bpy.types.Operator):
         return {'FINISHED'}
 
 def fix_missing_vcol(obj, name, src):
-    vcol = obj.data.vertex_colors.new(name)
+    vcol = obj.data.vertex_colors.new(name=name)
     src.attribute_name = name
 
 def fix_missing_img(name, src, is_mask=False):

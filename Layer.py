@@ -131,6 +131,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     yp = group_tree.yp
     #ypup = bpy.context.user_preferences.addons[__package__].preferences
     obj = bpy.context.object
+    mat = obj.active_material
 
     # Halt rearrangements and reconnections until all nodes already created
     yp.halt_reconnect = True
@@ -264,12 +265,18 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
         # New vertex color
         elif mask_type == 'VCOL':
-            mask_vcol = obj.data.vertex_colors.new(name=mask_name)
-            if mask_color == 'WHITE':
-                set_obj_vertex_colors(obj, mask_vcol.name, (1.0, 1.0, 1.0))
-            elif mask_color == 'BLACK':
-                set_obj_vertex_colors(obj, mask_vcol.name, (0.0, 0.0, 0.0))
-            #set_obj_vertex_colors(obj, mask_vcol, (0.0, 0.0, 0.0))
+            if mat.users > 1:
+                for o in get_scene_objects():
+                    if o.type != 'MESH': continue
+                    if mat.name in o.data.materials and mask_name not in o.data.vertex_colors:
+                        try:
+                            mask_vcol = o.data.vertex_colors.new(name=mask_name)
+                            if mask_color == 'WHITE':
+                                set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0))
+                            elif mask_color == 'BLACK':
+                                set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0))
+                            o.data.vertex_colors.active = mask_vcol
+                        except: pass
 
         mask = Mask.add_new_mask(layer, mask_name, mask_type, 'UV', #texcoord_type, 
                 mask_uv_name, mask_image, mask_vcol, mask_segment)
@@ -687,6 +694,7 @@ class YNewLayer(bpy.types.Operator):
         wm = context.window_manager
         area = context.area
         obj = context.object
+        mat = obj.active_material
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         ypui = context.window_manager.ypui
@@ -754,8 +762,15 @@ class YNewLayer(bpy.types.Operator):
 
         vcol = None
         if self.type == 'VCOL':
-            vcol = obj.data.vertex_colors.new(name=self.name)
-            set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0))
+            if mat.users > 1:
+                for o in get_scene_objects():
+                    if o.type != 'MESH': continue
+                    if mat.name in o.data.materials and self.name not in o.data.vertex_colors:
+                        try:
+                            vcol = o.data.vertex_colors.new(name=self.name)
+                            set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                            o.data.vertex_colors.active = vcol
+                        except: pass
 
         yp.halt_update = True
 
@@ -1149,6 +1164,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         T = time.time()
 
         obj = context.object
+        mat = obj.active_material
         wm = context.window_manager
         node = get_active_ypaint_node()
 
@@ -1171,6 +1187,16 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         elif self.type == 'VCOL':
             vcol = obj.data.vertex_colors.get(self.vcol_name)
             name = vcol.name
+
+            if mat.users > 1:
+                for o in get_scene_objects():
+                    if o.type != 'MESH' or o == obj: continue
+                    if mat.name in o.data.materials and self.vcol_name not in o.data.vertex_colors:
+                        try:
+                            other_v = o.data.vertex_colors.new(name=self.vcol_name)
+                            set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0))
+                            o.data.vertex_colors.active = other_v
+                        except: pass
 
         add_new_layer(node.node_tree, name, self.type, int(self.channel_idx), self.blend_type, 
                 self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map, 
