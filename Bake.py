@@ -838,9 +838,9 @@ class YBakeToLayer(bpy.types.Operator):
         mat = get_active_material()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
-        obj = context.object
         tree = node.node_tree
         ypui = context.window_manager.ypui
+
         active_layer = None
         if len(yp.layers) > 0:
             active_layer = yp.layers[yp.active_layer_index]
@@ -853,45 +853,75 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "Overwrite layer/mask cannot be empty!")
             return {'CANCELLED'}
 
-        # Prepare bake settings
-        remember_before_bake(self, context, yp)
-        prepare_bake_settings(self, context, yp)
+        # All objects pointer
+        if is_28():
+            obs = bpy.context.view_layer.objects
+        else: obs = bpy.context.scene.objects
 
-        # Disable few modifiers
-        ori_mods = [m.show_render for m in obj.modifiers]
-        for m in obj.modifiers:
-            if m.type == 'SOLIDIFY':
-                m.show_render = False
-            elif m.type == 'MIRROR':
-                m.show_render = False
+        # Remember things
+        book = remember_before_bake_(yp)
+
+        # Get all objects using material
+        if mat.users > 1:
+            objs = []
+            for ob in bpy.context.view_layer.objects:
+                if ob.type != 'MESH': continue
+                for i, m in enumerate(ob.data.materials):
+                    ob.active_material = m
+                    if ob not in objs:
+                        objs.append(ob)
+        else:
+            objs = [context.object]
+
+        # Prepare bake settings
+        prepare_bake_settings_(book, objs, yp, samples=self.samples, margin=self.margin)
 
         # Flip normals setup
         if self.flip_normals:
-            ori_mode = obj.mode
-            bpy.ops.object.mode_set(mode = 'EDIT')
-            bpy.ops.mesh.reveal()
-            bpy.ops.mesh.select_all(action='SELECT')
-            bpy.ops.mesh.flip_normals()
-            bpy.ops.object.mode_set(mode = 'OBJECT')
-
-        # Need to assign all polygon to active material if there are multiple materials
-        ori_mat_ids = []
-        if len(obj.data.materials) > 1:
-            active_mat_id = [i for i, m in enumerate(obj.data.materials) if m == mat][0]
-            for p in obj.data.polygons:
-                ori_mat_ids.append(p.material_index)
-                p.material_index = active_mat_id
+            #ori_mode[obj.name] = obj.mode
+            if is_28():
+                bpy.ops.object.mode_set(mode = 'EDIT')
+                bpy.ops.mesh.reveal()
+                bpy.ops.mesh.select_all(action='SELECT')
+                bpy.ops.mesh.flip_normals()
+                bpy.ops.object.mode_set(mode = 'OBJECT')
+            else:
+                for obj in objs:
+                    context.scene.objects.active = obj
+                    bpy.ops.object.mode_set(mode = 'EDIT')
+                    bpy.ops.mesh.reveal()
+                    bpy.ops.mesh.select_all(action='SELECT')
+                    bpy.ops.mesh.flip_normals()
+                    bpy.ops.object.mode_set(mode = 'OBJECT')
 
         # If use only local, hide other objects
         if self.type == 'AO' and self.only_local:
             ori_hide_renders = {}
-            if is_28():
-                obs = bpy.context.view_layer.objects
-            else: obs = bpy.context.scene.objects
             for o in obs:
-                if o.type == 'MESH' and o != obj:
+                if o.type == 'MESH' and o not in objs:
                     ori_hide_renders[o.name] = o.hide_render
                     o.hide_render = True
+
+        # More setup
+        ori_mods = {}
+        ori_mat_ids = {}
+        for obj in objs:
+
+            # Disable few modifiers
+            ori_mods[obj.name] = [m.show_render for m in obj.modifiers]
+            for m in obj.modifiers:
+                if m.type == 'SOLIDIFY':
+                    m.show_render = False
+                elif m.type == 'MIRROR':
+                    m.show_render = False
+
+            # Need to assign all polygon to active material if there are multiple materials
+            ori_mat_ids[obj.name] = []
+            if len(obj.data.materials) > 1:
+                active_mat_id = [i for i, m in enumerate(obj.data.materials) if m == mat][0]
+                for p in obj.data.polygons:
+                    ori_mat_ids[obj.name].append(p.material_index)
+                    p.material_index = active_mat_id
 
         # If use baked disp, need to bake normal and height map first
         height_root_ch = get_root_height_channel(yp)
@@ -1049,32 +1079,33 @@ class YBakeToLayer(bpy.types.Operator):
             height_root_ch.subdiv_adaptive = ori_subdiv_adaptive
             height_root_ch.enable_subdiv_setup = ori_subdiv_setup
 
-        # Recover modifiers
-        for i, m in enumerate(obj.modifiers):
-            if ori_mods[i] != m.show_render:
-                m.show_render = ori_mods[i]
+        for obj in objs:
+            # Recover modifiers
+            for i, m in enumerate(obj.modifiers):
+                if ori_mods[obj.name][i] != m.show_render:
+                    m.show_render = ori_mods[obj.name][i]
 
-        # Recover material index
-        if ori_mat_ids:
-            for i, p in enumerate(obj.data.polygons):
-                if ori_mat_ids[i] != p.material_index:
-                    p.material_index = ori_mat_ids[i]
+            # Recover material index
+            if ori_mat_ids[obj.name]:
+                for i, p in enumerate(obj.data.polygons):
+                    if ori_mat_ids[obj.name][i] != p.material_index:
+                        p.material_index = ori_mat_ids[obj.name][i]
 
         # Recover flip normals setup
         if self.flip_normals:
             bpy.ops.object.mode_set(mode = 'EDIT')
             bpy.ops.mesh.flip_normals()
             bpy.ops.mesh.select_all(action='DESELECT')
-            bpy.ops.object.mode_set(mode = ori_mode)
+            #bpy.ops.object.mode_set(mode = ori_mode)
 
         # Recover hidden objects
         if self.type == 'AO' and self.only_local:
             for o in obs:
-                if o.type == 'MESH' and o != obj and o.hide_render != ori_hide_renders[o.name]:
+                if o.type == 'MESH' and o not in objs and o.hide_render != ori_hide_renders[o.name]:
                     o.hide_render = ori_hide_renders[o.name]
 
         # Recover bake settings
-        recover_bake_settings(self, context, yp)
+        recover_bake_settings_(book, yp)
 
         #return {'FINISHED'}
 
@@ -1296,38 +1327,6 @@ class YTransferLayerUV(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def recover_after_resize(self, context):
-    scene = context.scene
-
-    scene.render.engine = self.ori_engine
-    scene.cycles.bake_type = self.ori_bake_type
-    scene.cycles.samples = self.ori_samples
-    scene.render.threads_mode = self.ori_threads_mode
-    scene.render.bake.margin = self.ori_margin
-    scene.render.bake.use_clear = self.ori_use_clear
-
-    # Deselect all
-    if is_28():
-        for obj in context.view_layer.objects:
-            obj.select_set(False)
-    else:
-        for obj in scene.objects:
-            obj.select = False
-
-    # Recover select
-    if is_28():
-        for obj in self.selected_objects:
-            obj.select_set(True)
-    else:
-        for obj in self.selected_objects:
-            obj.select = True
-
-    if is_28():
-        context.view_layer.objects.active = self.object
-    else: scene.objects.active = self.object
-
-    bpy.ops.object.mode_set(mode = self.mode)
-
 def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None):
 
     book = remember_before_bake_()
@@ -1369,7 +1368,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
     plane_obj = bpy.context.view_layer.objects.active
 
-    prepare_bake_settings_(book, plane_obj, bpy.context, samples=samples, margin=margin)
+    prepare_bake_settings_(book, [plane_obj], samples=samples, margin=margin)
 
     # If using image atlas, transform uv
     if segment:
@@ -1492,8 +1491,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     bpy.data.meshes.remove(plane)
 
     # Recover settings
-    #recover_after_resize(self, context)
-    recover_bake_settings_(book, bpy.context)
+    recover_bake_settings_(book)
 
     return scaled_img, new_segment
 
@@ -1692,7 +1690,6 @@ class YBakeChannels(bpy.types.Operator):
         ypui = context.window_manager.ypui
         obj = context.object
 
-        #remember_before_bake(self, context, yp)
         book = remember_before_bake_(yp)
 
         if BL28_HACK:
@@ -1725,8 +1722,7 @@ class YBakeChannels(bpy.types.Operator):
         height = self.height * self.aa_level
 
         # Prepare bake settings
-        #prepare_bake_settings(self, context, yp)
-        prepare_bake_settings_(book, obj, context, yp, self.samples, margin, self.uv_map)
+        prepare_bake_settings_(book, [obj], yp, self.samples, margin, self.uv_map)
 
         # Bake channels
         for ch in yp.channels:
@@ -1763,8 +1759,7 @@ class YBakeChannels(bpy.types.Operator):
         yp.baked_uv_name = self.uv_map
 
         # Recover bake settings
-        #recover_bake_settings(self, context, yp)
-        recover_bake_settings_(book, context, yp)
+        recover_bake_settings_(book, yp)
 
         # Use bake results
         yp.halt_update = True
@@ -2387,7 +2382,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map):
 
     # Prepare bake settings
     book = remember_before_bake_(yp)
-    prepare_bake_settings_(book, obj, context, yp, samples, margin, uv_map)
+    prepare_bake_settings_(book, [obj], yp, samples, margin, uv_map)
 
     mat = get_active_material()
     name = entity.name + ' Temp'
@@ -2437,7 +2432,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map):
     entity.use_temp_bake = True
 
     # Recover bake settings
-    recover_bake_settings_(book, context, yp)
+    recover_bake_settings_(book, yp)
 
     # Replace layer with temp image
     if m1: 
