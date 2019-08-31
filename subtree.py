@@ -757,8 +757,7 @@ def remove_tangent_sign_vcol(obj, uv_name):
     vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
     if vcol: vcol = obj.data.vertex_colors.remove(vcol)
 
-def refresh_tangent_sign_vcol(obj, uv_name):
-
+def actual_refresh_tangent_sign_vcol(obj, uv_name):
     # Cannot do this on edit mode
     ori_mode = obj.mode
     if ori_mode == 'EDIT':
@@ -927,6 +926,20 @@ def refresh_tangent_sign_vcol(obj, uv_name):
         bpy.ops.object.mode_set(mode='EDIT')
 
     return None
+
+def refresh_tangent_sign_vcol(obj, uv_name):
+
+    vcol = actual_refresh_tangent_sign_vcol(obj, uv_name)
+
+    mat = obj.active_material
+
+    if mat.users > 1:
+        for ob in get_scene_objects():
+            if ob.type != 'MESH' or ob == obj: continue
+            if mat.name in ob.data.materials:
+                pass
+
+    return vcol
 
 def update_enable_tangent_sign_hacks(self, context):
     node = get_active_ypaint_node()

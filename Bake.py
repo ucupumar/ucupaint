@@ -857,16 +857,15 @@ class YBakeToLayer(bpy.types.Operator):
         book = remember_before_bake_(yp)
 
         # Get all objects using material
+        objs = [context.object]
         if mat.users > 1:
-            objs = []
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
                 for i, m in enumerate(ob.data.materials):
-                    ob.active_material = m
-                    if ob not in objs:
-                        objs.append(ob)
-        else:
-            objs = [context.object]
+                    if m == mat:
+                        ob.active_material_index = i
+                        if ob not in objs:
+                            objs.append(ob)
 
         # Prepare bake settings
         prepare_bake_settings_(book, objs, yp, samples=self.samples, margin=self.margin)
@@ -1678,12 +1677,12 @@ class YBakeChannels(bpy.types.Operator):
 
         T = time.time()
 
-        mat = get_active_material()
         node = get_active_ypaint_node()
         tree = node.node_tree
         yp = tree.yp
         ypui = context.window_manager.ypui
         obj = context.object
+        mat = obj.active_material
 
         book = remember_before_bake_(yp)
 
@@ -1710,6 +1709,29 @@ class YBakeChannels(bpy.types.Operator):
         if yp.use_baked:
             yp.use_baked = False
 
+        # Get all objects using material
+        objs = [obj]
+        if mat.users > 1:
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                for i, m in enumerate(ob.data.materials):
+                    if m == mat:
+                        ob.active_material_index = i
+                        if ob not in objs:
+                            objs.append(ob)
+
+        # Multi materials setup
+        ori_mat_ids = {}
+        for ob in objs:
+
+            # Need to assign all polygon to active material if there are multiple materials
+            ori_mat_ids[ob.name] = []
+            if len(ob.data.materials) > 1:
+                active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat][0]
+                for p in ob.data.polygons:
+                    ori_mat_ids[ob.name].append(p.material_index)
+                    p.material_index = active_mat_id
+
         # AA setup
         #if self.aa_level > 1:
         margin = self.margin * self.aa_level
@@ -1717,14 +1739,12 @@ class YBakeChannels(bpy.types.Operator):
         height = self.height * self.aa_level
 
         # Prepare bake settings
-        prepare_bake_settings_(book, [obj], yp, self.samples, margin, self.uv_map)
+        prepare_bake_settings_(book, objs, yp, self.samples, margin, self.uv_map)
 
         # Bake channels
         for ch in yp.channels:
             ch.no_layer_using = not is_any_layer_using_channel(ch)
             if not ch.no_layer_using:
-                #if ch.type == 'NORMAL':
-                #bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=self.hdr)
                 use_hdr = not ch.use_clamp
                 bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr)
                 #return {'FINISHED'}
@@ -1756,6 +1776,12 @@ class YBakeChannels(bpy.types.Operator):
         # Recover bake settings
         recover_bake_settings_(book, yp)
 
+        for ob in objs:
+            # Recover material index
+            if ori_mat_ids[ob.name]:
+                for i, p in enumerate(ob.data.polygons):
+                    if ori_mat_ids[ob.name][i] != p.material_index:
+                        p.material_index = ori_mat_ids[ob.name][i]
         # Use bake results
         yp.halt_update = True
         yp.use_baked = True

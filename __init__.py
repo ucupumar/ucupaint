@@ -128,6 +128,7 @@
 # - Limit decrease to 20 images if alpha is used (V) Can be get around by using image atlas
 # - Use of cineon images will cause crash (??)
 # - Hemi/fake lighting layer doesn't work with bump/normal on cycles, no known workaround found (~V, hemi temp bake is already implemeted)
+# - Baking object with multi materials need temporary uv manipulation, without that all uv will be baked, which is not ideals
 
 bl_info = {
     "name": "Painty",
