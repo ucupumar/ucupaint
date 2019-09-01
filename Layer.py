@@ -2544,6 +2544,7 @@ def update_layer_input(self, context):
 
 def update_uv_name(self, context):
     obj = context.object
+    mat = obj.active_material
     group_tree = self.id_data
     yp = group_tree.yp
     if yp.halt_update: return
@@ -2556,7 +2557,7 @@ def update_uv_name(self, context):
 
     nodes = tree.nodes
 
-    # Use first uv is temp uv is selected
+    # Use first uv if temp uv is selected
     if layer.uv_name == TEMP_UV:
         if len(yp.uvs) > 0:
             for uv in yp.uvs:
@@ -2571,6 +2572,16 @@ def update_uv_name(self, context):
         else:
             uv_layers = get_uv_layers(obj)
             uv_layers.active = uv_layers.get(layer.uv_name)
+
+        # Check for other objects with same material
+        if mat.users > 1:
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if mat.name in ob.data.materials:
+                    uvls = get_uv_layers(ob)
+                    if layer.uv_name not in uvls:
+                        uvl = uvls.new(name=layer.uv_name)
+                        uvls.active = uvl
 
     # Update global uv
     #yp_dirty = check_uv_nodes(yp)

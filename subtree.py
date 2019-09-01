@@ -754,9 +754,21 @@ def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
         else: disable_mask_source_tree(layer, mask)
 
 def remove_tangent_sign_vcol(obj, uv_name):
-    vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
-    if vcol: vcol = obj.data.vertex_colors.remove(vcol)
+    mat = obj.active_material
 
+    objs = []
+    if obj.type == 'MESH':
+        objs.append(obj)
+
+    if mat.users > 1:
+        for ob in get_scene_objects():
+            if ob.type != 'MESH': continue
+            if mat.name in ob.data.materials and ob not in objs:
+                objs.append(ob)
+
+    for ob in objs:
+        vcol = ob.data.vertex_colors.get('__tsign_' + uv_name)
+        if vcol: vcol = ob.data.vertex_colors.remove(vcol)
 
 def recover_tangent_sign_process(ori_obj, ori_mode, ori_selects):
 
@@ -1512,10 +1524,22 @@ def check_uv_nodes(yp):
 
     # Get active object
     obj = bpy.context.object
+    mat = obj.active_material
+
+    objs = []
+    if obj.type == 'MESH':
+        objs.append(obj)
+
+    if mat.users > 1:
+        for ob in get_scene_objects():
+            if ob.type != 'MESH': continue
+            if mat.name in ob.data.materials and ob not in objs:
+                objs.append(ob)
 
     dirty = False
 
-    if obj.type == 'MESH':
+    #if obj.type == 'MESH':
+    for obj in objs:
 
         # Check uv layers of mesh objects
         uv_layers = get_uv_layers(obj)
