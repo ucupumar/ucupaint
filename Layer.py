@@ -2574,7 +2574,7 @@ def update_uv_name(self, context):
             uv_layers.active = uv_layers.get(layer.uv_name)
 
         # Check for other objects with same material
-        if mat.users > 1:
+        if mat.users > 1 and layer.uv_name != '':
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
                 if mat.name in ob.data.materials:
