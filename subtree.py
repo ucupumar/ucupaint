@@ -757,11 +757,40 @@ def remove_tangent_sign_vcol(obj, uv_name):
     vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
     if vcol: vcol = obj.data.vertex_colors.remove(vcol)
 
+
+def recover_tangent_sign_process(ori_obj, ori_mode, ori_selects):
+
+    # Recover selected and active objects
+    bpy.ops.object.select_all(action='DESELECT')
+    for o in ori_selects:
+        if is_28(): o.select_set(True)
+        else: o.select = True
+
+    if is_28(): bpy.context.view_layer.objects.active = ori_obj
+    else: bpy.context.scene.objects.active = ori_obj
+
+    # Back to original mode
+    if ori_mode != ori_obj.mode:
+        bpy.ops.object.mode_set(mode=ori_mode)
+
 def actual_refresh_tangent_sign_vcol(obj, uv_name):
+
     # Cannot do this on edit mode
-    ori_mode = obj.mode
-    if ori_mode == 'EDIT':
+    ori_obj = bpy.context.object
+    ori_mode = ori_obj.mode
+    if ori_mode != 'OBJECT':
         bpy.ops.object.mode_set(mode='OBJECT')
+
+    # Select only relevant object
+    ori_selects = [o for o in bpy.context.selected_objects]
+    bpy.ops.object.select_all(action='DESELECT')
+
+    if is_28(): 
+        obj.select_set(True)
+        bpy.context.view_layer.objects.active = obj
+    else: 
+        obj.select = True
+        bpy.context.scene.objects.active = obj
 
     # Set vertex color of bitangent sign
     uv_layers = get_uv_layers(obj)
@@ -778,8 +807,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
         if not vcol:
             try: vcol = obj.data.vertex_colors.new(name='__tsign_' + uv_name)
             except: 
-                if ori_mode == 'EDIT':
-                    bpy.ops.object.mode_set(mode='EDIT')
+                recover_tangent_sign_process(ori_obj, ori_mode, ori_selects)
                 return None
 
             # Set default color to be white
@@ -912,18 +940,16 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
         # Recover active uv
         set_active_uv_layer(obj, ori_layer_name)
 
-        # Back to edit mode if originally from there
-        if ori_mode == 'EDIT':
-            bpy.ops.object.mode_set(mode='EDIT')
+        # Recovers
+        recover_tangent_sign_process(ori_obj, ori_mode, ori_selects)
 
         # Get vcol again to make sure the data is consistent
         vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
 
         return vcol
 
-    # Back to edit mode if originally from there
-    if ori_mode == 'EDIT':
-        bpy.ops.object.mode_set(mode='EDIT')
+    # Recovers
+    recover_tangent_sign_process(ori_obj, ori_mode, ori_selects)
 
     return None
 
@@ -937,7 +963,7 @@ def refresh_tangent_sign_vcol(obj, uv_name):
         for ob in get_scene_objects():
             if ob.type != 'MESH' or ob == obj: continue
             if mat.name in ob.data.materials:
-                pass
+                other_v = actual_refresh_tangent_sign_vcol(ob, uv_name)
 
     return vcol
 
