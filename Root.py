@@ -1463,6 +1463,7 @@ class YFixMissingData(bpy.types.Operator):
                     fix_missing_vcol(obj, layer.name, src)
 
                 for mask in layer.masks:
+                    mask_src = get_mask_source(mask)
                     if (mask.type == 'VCOL' and obj.type == 'MESH' 
                             and not obj.data.vertex_colors.get(mask_src.attribute_name)):
                         fix_missing_vcol(obj, mask.name, mask_src)
