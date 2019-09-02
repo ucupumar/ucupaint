@@ -1396,6 +1396,11 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
 
         new_segment = None
 
+    # Set active collection to be root collection
+    if is_28():
+        ori_layer_collection = bpy.context.view_layer.active_layer_collection
+        bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
+
     # Create new plane
     bpy.ops.object.mode_set(mode = 'OBJECT')
     bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
@@ -1525,6 +1530,10 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
 
     # Recover settings
     recover_bake_settings_(book)
+
+    # Recover original active layer collection
+    if is_28():
+        bpy.context.view_layer.active_layer_collection = ori_layer_collection
 
     return scaled_img, new_segment
 
