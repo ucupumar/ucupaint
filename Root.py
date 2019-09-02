@@ -1458,6 +1458,7 @@ class YFixMissingData(bpy.types.Operator):
         # Fix missing vcols
         for obj in objs:
             for layer in yp.layers:
+                src = get_layer_source(layer)
                 if (layer.type == 'VCOL' and obj.type == 'MESH' 
                         and not obj.data.vertex_colors.get(src.attribute_name)):
                     fix_missing_vcol(obj, layer.name, src)
