@@ -344,23 +344,24 @@ class YNewLayerMask(bpy.types.Operator):
 
         # New vertex color
         elif self.type == 'VCOL':
-            #vcol = obj.data.vertex_colors.new(name=self.name)
-            #if self.color_option == 'WHITE':
-            #    set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0))
-            #elif self.color_option == 'BLACK':
-            #    set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0))
+
+            objs = [obj]
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
-                    if mat.name in o.data.materials and self.name not in o.data.vertex_colors:
-                        try:
-                            vcol = o.data.vertex_colors.new(name=self.name)
-                            if mask_color == 'WHITE':
-                                set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
-                            elif mask_color == 'BLACK':
-                                set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0))
-                            o.data.vertex_colors.active = vcol
-                        except: pass
+                    if mat.name in o.data.materials and o not in objs:
+                        objs.append(o)
+
+            for o in objs:
+                if self.name not in o.data.vertex_colors:
+                    try:
+                        vcol = o.data.vertex_colors.new(name=self.name)
+                        if mask_color == 'WHITE':
+                            set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                        elif mask_color == 'BLACK':
+                            set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0))
+                        o.data.vertex_colors.active = vcol
+                    except: pass
 
         # Add new mask
         mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment)

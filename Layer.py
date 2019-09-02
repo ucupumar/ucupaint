@@ -265,18 +265,23 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
         # New vertex color
         elif mask_type == 'VCOL':
+            objs = [obj]
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
-                    if mat.name in o.data.materials and mask_name not in o.data.vertex_colors:
-                        try:
-                            mask_vcol = o.data.vertex_colors.new(name=mask_name)
-                            if mask_color == 'WHITE':
-                                set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0))
-                            elif mask_color == 'BLACK':
-                                set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0))
-                            o.data.vertex_colors.active = mask_vcol
-                        except: pass
+                    if mat.name in o.data.materials and o not in objs:
+                        objs.append(o)
+
+            for o in objs:
+                if mask_name not in o.data.vertex_colors:
+                    try:
+                        mask_vcol = o.data.vertex_colors.new(name=mask_name)
+                        if mask_color == 'WHITE':
+                            set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0))
+                        elif mask_color == 'BLACK':
+                            set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0))
+                        o.data.vertex_colors.active = mask_vcol
+                    except: pass
 
         mask = Mask.add_new_mask(layer, mask_name, mask_type, 'UV', #texcoord_type, 
                 mask_uv_name, mask_image, mask_vcol, mask_segment)
@@ -762,15 +767,21 @@ class YNewLayer(bpy.types.Operator):
 
         vcol = None
         if self.type == 'VCOL':
+
+            objs = [obj]
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
-                    if mat.name in o.data.materials and self.name not in o.data.vertex_colors:
-                        try:
-                            vcol = o.data.vertex_colors.new(name=self.name)
-                            set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
-                            o.data.vertex_colors.active = vcol
-                        except: pass
+                    if mat.name in o.data.materials and o not in objs:
+                        objs.append(o)
+
+            for o in objs:
+                if self.name not in o.data.vertex_colors:
+                    try:
+                        vcol = o.data.vertex_colors.new(name=self.name)
+                        set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                        o.data.vertex_colors.active = vcol
+                    except: pass
 
         yp.halt_update = True
 
