@@ -678,6 +678,11 @@ class YBakeToLayer(bpy.types.Operator):
             default=False
             )
 
+    force_bake_all_polygons = BoolProperty(
+            name='Force Bake all Polygons',
+            description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
+            default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -800,6 +805,8 @@ class YBakeToLayer(bpy.types.Operator):
         if height_root_ch:
             col.label(text='')
 
+        col.label(text='')
+
         col = row.column(align=False)
 
         if len(self.overwrite_coll) > 0:
@@ -833,6 +840,8 @@ class YBakeToLayer(bpy.types.Operator):
 
         if height_root_ch:
             col.prop(self, 'use_baked_disp')
+
+        col.prop(self, 'force_bake_all_polygons')
 
     def execute(self, context):
         mat = get_active_material()
@@ -899,6 +908,7 @@ class YBakeToLayer(bpy.types.Operator):
         # More setup
         ori_mods = {}
         ori_mat_ids = {}
+        ori_loop_locs = {}
         for obj in objs:
 
             # Disable few modifiers
@@ -909,11 +919,28 @@ class YBakeToLayer(bpy.types.Operator):
                 elif m.type == 'MIRROR':
                     m.show_render = False
 
-            # Need to assign all polygon to active material if there are multiple materials
             ori_mat_ids[obj.name] = []
+            ori_loop_locs[obj.name] = []
+
             if len(obj.data.materials) > 1:
                 active_mat_id = [i for i, m in enumerate(obj.data.materials) if m == mat][0]
+
+                uv_layers = get_uv_layers(obj)
+                uvl = uv_layers.get(self.uv_map)
+
                 for p in obj.data.polygons:
+
+                    # Set uv location to (0,0) if not using current material
+                    if uvl and not self.force_bake_all_polygons:
+                        uv_locs = []
+                        for li in p.loop_indices:
+                            uv_locs.append(uvl.data[li].uv.copy())
+                            if p.material_index != active_mat_id:
+                                uvl.data[li].uv = Vector((0.0, 0.0))
+
+                        ori_loop_locs[obj.name].append(uv_locs)
+
+                    # Need to assign all polygon to active material if there are multiple materials
                     ori_mat_ids[obj.name].append(p.material_index)
                     p.material_index = active_mat_id
 
@@ -1084,6 +1111,18 @@ class YBakeToLayer(bpy.types.Operator):
                 for i, p in enumerate(obj.data.polygons):
                     if ori_mat_ids[obj.name][i] != p.material_index:
                         p.material_index = ori_mat_ids[obj.name][i]
+
+            if ori_loop_locs[obj.name]:
+
+                # Get uv map
+                uv_layers = get_uv_layers(obj)
+                uvl = uv_layers.get(self.uv_map)
+
+                # Recover uv locations
+                if uvl:
+                    for i, p in enumerate(obj.data.polygons):
+                        for j, li in enumerate(p.loop_indices):
+                            uvl.data[li].uv = ori_loop_locs[obj.name][i][j]
 
         # Recover flip normals setup
         if self.flip_normals:
@@ -1612,6 +1651,11 @@ class YBakeChannels(bpy.types.Operator):
         description='Super Sample Anti Aliasing Level (1=off)',
         default=1, min=1, max=2)
 
+    force_bake_all_polygons = BoolProperty(
+            name='Force Bake all Polygons',
+            description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
+            default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -1658,6 +1702,8 @@ class YBakeChannels(bpy.types.Operator):
         col.label(text='AA Level:')
         col.separator()
         col.label(text='UV Map:')
+        col.separator()
+        col.label(text='')
 
         col = row.column(align=True)
 
@@ -1672,6 +1718,8 @@ class YBakeChannels(bpy.types.Operator):
         col.separator()
 
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        col.separator()
+        col.prop(self, 'force_bake_all_polygons')
 
     def execute(self, context):
 
@@ -1722,13 +1770,33 @@ class YBakeChannels(bpy.types.Operator):
 
         # Multi materials setup
         ori_mat_ids = {}
+        ori_loop_locs = {}
         for ob in objs:
+
+            # Get uv map
+            uv_layers = get_uv_layers(ob)
+            uvl = uv_layers.get(self.uv_map)
 
             # Need to assign all polygon to active material if there are multiple materials
             ori_mat_ids[ob.name] = []
+            ori_loop_locs[ob.name] = []
+
             if len(ob.data.materials) > 1:
+
                 active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat][0]
                 for p in ob.data.polygons:
+
+                    # Set uv location to (0,0) if not using current material
+                    if uvl and not self.force_bake_all_polygons:
+                        uv_locs = []
+                        for li in p.loop_indices:
+                            uv_locs.append(uvl.data[li].uv.copy())
+                            if p.material_index != active_mat_id:
+                                uvl.data[li].uv = Vector((0.0, 0.0))
+
+                        ori_loop_locs[ob.name].append(uv_locs)
+
+                    # Set active mat
                     ori_mat_ids[ob.name].append(p.material_index)
                     p.material_index = active_mat_id
 
@@ -1782,6 +1850,20 @@ class YBakeChannels(bpy.types.Operator):
                 for i, p in enumerate(ob.data.polygons):
                     if ori_mat_ids[ob.name][i] != p.material_index:
                         p.material_index = ori_mat_ids[ob.name][i]
+
+            if ori_loop_locs[ob.name]:
+
+                # Get uv map
+                uv_layers = get_uv_layers(ob)
+                uvl = uv_layers.get(self.uv_map)
+
+                # Recover uv locations
+                if uvl:
+                    for i, p in enumerate(ob.data.polygons):
+                        for j, li in enumerate(p.loop_indices):
+                            #print(ori_loop_locs[ob.name][i][j])
+                            uvl.data[li].uv = ori_loop_locs[ob.name][i][j]
+
         # Use bake results
         yp.halt_update = True
         yp.use_baked = True
