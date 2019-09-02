@@ -1713,49 +1713,6 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
 
     box = layout.box()
 
-    # Check if any uv is missing
-    if is_a_mesh:
-
-        # Get missing uvs
-        uv_missings = []
-        #for uv in yp.uvs:
-        #    uv_layer = uv_layers.get(uv.name)
-        #    if not uv_layer:
-        #        uv_missings.append(uv.name)
-
-        # Check baked images
-        if yp.baked_uv_name != '':
-            uv_layer = uv_layers.get(yp.baked_uv_name)
-            if not uv_layer and yp.baked_uv_name not in uv_missings:
-                uv_missings.append(yp.baked_uv_name)
-
-        # Check main uv of height channel
-        height_ch = get_root_height_channel(yp)
-        if height_ch and height_ch.main_uv != '':
-            uv_layer = uv_layers.get(height_ch.main_uv)
-            if not uv_layer and height_ch.main_uv not in uv_missings:
-                uv_missings.append(height_ch.main_uv)
-
-        # Check layer and mask uv
-        for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI'}:
-                uv_layer = uv_layers.get(layer.uv_name)
-                if not uv_layer and layer.uv_name not in uv_missings:
-                    uv_missings.append(layer.uv_name)
-
-            for mask in layer.masks:
-                if mask.type not in {'VCOL', 'HEMI'}:
-                    uv_layer = uv_layers.get(mask.uv_name)
-                    if not uv_layer and mask.uv_name not in uv_missings:
-                        uv_missings.append(mask.uv_name)
-
-        for uv_name in uv_missings:
-            row = box.row(align=True)
-            row.alert = True
-            title = 'UV ' + uv_name + ' is missing or renamed!'
-            row.operator("node.y_fix_missing_uv", text=title, icon='ERROR').source_uv_name = uv_name
-            row.alert = False
-
     if yp.use_baked:
         col = box.column(align=False)
         #bbox = col.box()
@@ -1869,20 +1826,20 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                 missing_data = True
                 break
 
-            # Also check mask source
-            for mask in layer.masks:
-                if mask.type in {'IMAGE' , 'VCOL'}:
-                    mask_src = get_mask_source(mask)
+        # Also check mask source
+        for mask in layer.masks:
+            if mask.type in {'IMAGE' , 'VCOL'}:
+                mask_src = get_mask_source(mask)
 
-                    if ((mask.type == 'IMAGE' and not mask_src.image) or 
-                        (mask.type == 'VCOL' and obj.type == 'MESH' 
-                            and not obj.data.vertex_colors.get(mask_src.attribute_name))
-                        ):
-                        missing_data = True
-                        break
+                if ((mask.type == 'IMAGE' and not mask_src.image) or 
+                    (mask.type == 'VCOL' and obj.type == 'MESH' 
+                        and not obj.data.vertex_colors.get(mask_src.attribute_name))
+                    ):
+                    missing_data = True
+                    break
 
-            if missing_data:
-                break
+        if missing_data:
+            break
     
     # Show missing data button
     if missing_data:
@@ -1891,6 +1848,63 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
         row.operator("node.y_fix_missing_data", icon='ERROR')
         row.alert = False
         return
+
+    # Check if any uv is missing
+    if is_a_mesh:
+
+        # Get missing uvs
+        uv_missings = []
+        #for uv in yp.uvs:
+        #    uv_layer = uv_layers.get(uv.name)
+        #    if not uv_layer:
+        #        uv_missings.append(uv.name)
+
+        # Check baked images
+        if yp.baked_uv_name != '':
+            uv_layer = uv_layers.get(yp.baked_uv_name)
+            if not uv_layer and yp.baked_uv_name not in uv_missings:
+                uv_missings.append(yp.baked_uv_name)
+
+        # Check main uv of height channel
+        height_ch = get_root_height_channel(yp)
+        if height_ch and height_ch.main_uv != '':
+            uv_layer = uv_layers.get(height_ch.main_uv)
+            if not uv_layer and height_ch.main_uv not in uv_missings:
+                uv_missings.append(height_ch.main_uv)
+
+        # Check layer and mask uv
+        for layer in yp.layers:
+            if layer.type not in {'VCOL', 'HEMI'}:
+                uv_layer = uv_layers.get(layer.uv_name)
+                if not uv_layer and layer.uv_name not in uv_missings:
+                    uv_missings.append(layer.uv_name)
+
+            for mask in layer.masks:
+                if mask.type not in {'VCOL', 'HEMI'}:
+                    uv_layer = uv_layers.get(mask.uv_name)
+                    if not uv_layer and mask.uv_name not in uv_missings:
+                        uv_missings.append(mask.uv_name)
+
+        for uv_name in uv_missings:
+            row = box.row(align=True)
+            row.alert = True
+            title = 'UV ' + uv_name + ' is missing or renamed!'
+            row.operator("node.y_fix_missing_uv", text=title, icon='ERROR').source_uv_name = uv_name
+            row.alert = False
+
+    # Check if tangent refresh is needed
+    need_tangent_refresh = False
+    if height_root_ch and yp.enable_tangent_sign_hacks:
+        for uv in yp.uvs:
+            if TANGENT_SIGN_PREFIX + uv.name not in obj.data.vertex_colors:
+                need_tangent_refresh = True
+                break
+
+    if need_tangent_refresh:
+        row = box.row(align=True)
+        row.alert = True
+        row.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent Sign Hacks is missing!')
+        row.alert = False
 
     # Get layer, image and set context pointer
     layer = None
@@ -2071,6 +2085,7 @@ def main_draw(self, context):
     wm = context.window_manager
     area = context.area
     scene = context.scene
+    obj = context.object
 
     # Timer
     if wm.yptimer.time != '':
@@ -2133,16 +2148,20 @@ def main_draw(self, context):
     row.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
     row.label(text='Layers')
 
+    height_root_ch = get_root_height_channel(yp)
+
     if (area.type == 'VIEW_3D' and area.spaces[0].shading.type == 'RENDERED' 
-            and is_28() and get_root_height_channel(yp)
+            and is_28() and height_root_ch
             and scene.render.engine == 'CYCLES' and not yp.enable_tangent_sign_hacks):
         rrow = row.row(align=True)
         rrow.alert = True
         rrow.prop(yp, 'enable_tangent_sign_hacks', text='Fix Tangent', icon='ERROR', toggle=True)
         rrow.alert = False
 
-    if (yp.enable_tangent_sign_hacks and area.type == 'VIEW_3D' and 
-            area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES'):
+    scenario_1 = (yp.enable_tangent_sign_hacks and area.type == 'VIEW_3D' and 
+            area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')
+
+    if scenario_1:
         row.operator('node.y_refresh_tangent_sign_vcol', icon='FILE_REFRESH', text='Tangent')
 
     if baked_found or yp.use_baked:

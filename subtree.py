@@ -767,7 +767,7 @@ def remove_tangent_sign_vcol(obj, uv_name):
                 objs.append(ob)
 
     for ob in objs:
-        vcol = ob.data.vertex_colors.get('__tsign_' + uv_name)
+        vcol = ob.data.vertex_colors.get(TANGENT_SIGN_PREFIX + uv_name)
         if vcol: vcol = ob.data.vertex_colors.remove(vcol)
 
 def recover_tangent_sign_process(ori_obj, ori_mode, ori_selects):
@@ -786,6 +786,8 @@ def recover_tangent_sign_process(ori_obj, ori_mode, ori_selects):
         bpy.ops.object.mode_set(mode=ori_mode)
 
 def actual_refresh_tangent_sign_vcol(obj, uv_name):
+
+    if obj.type != 'MESH': return None
 
     # Cannot do this on edit mode
     ori_obj = bpy.context.object
@@ -815,9 +817,9 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
         uv_layers.active = uv_layer
 
         # Get vertex color
-        vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
+        vcol = obj.data.vertex_colors.get(TANGENT_SIGN_PREFIX + uv_name)
         if not vcol:
-            try: vcol = obj.data.vertex_colors.new(name='__tsign_' + uv_name)
+            try: vcol = obj.data.vertex_colors.new(name=TANGENT_SIGN_PREFIX + uv_name)
             except: 
                 recover_tangent_sign_process(ori_obj, ori_mode, ori_selects)
                 return None
@@ -836,7 +838,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
             obj.data.calc_tangents()
 
             # Get vcol again after calculate tangent to prevent error
-            vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
+            vcol = obj.data.vertex_colors.get(TANGENT_SIGN_PREFIX + uv_name)
 
             # Set tangent sign to vertex color
             i = 0
@@ -886,7 +888,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
             temp_ob.data.calc_tangents()
 
             # Set tangent sign to vertex color
-            temp_vcol = temp_ob.data.vertex_colors.get('__tsign_' + uv_name)
+            temp_vcol = temp_ob.data.vertex_colors.get(TANGENT_SIGN_PREFIX + uv_name)
             i = 0
             for poly in temp_ob.data.polygons:
                 for idx in poly.loop_indices:
@@ -956,7 +958,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
         recover_tangent_sign_process(ori_obj, ori_mode, ori_selects)
 
         # Get vcol again to make sure the data is consistent
-        vcol = obj.data.vertex_colors.get('__tsign_' + uv_name)
+        vcol = obj.data.vertex_colors.get(TANGENT_SIGN_PREFIX + uv_name)
 
         return vcol
 
@@ -1517,7 +1519,7 @@ def remove_uv_nodes(uv, obj):
 
     #yp.uvs.remove(uv)
 
-def check_uv_nodes(yp):
+def check_uv_nodes(yp, generate_missings=False):
 
     # Check for UV needed
     uv_names = []
@@ -1526,34 +1528,20 @@ def check_uv_nodes(yp):
     obj = bpy.context.object
     mat = obj.active_material
 
-    objs = []
-    if obj.type == 'MESH':
-        objs.append(obj)
-
-    if mat.users > 1:
-        for ob in get_scene_objects():
-            if ob.type != 'MESH': continue
-            if mat.name in ob.data.materials and ob not in objs:
-                objs.append(ob)
-
     dirty = False
 
-    #if obj.type == 'MESH':
-    for obj in objs:
-
-        # Check uv layers of mesh objects
-        uv_layers = get_uv_layers(obj)
-
-        for uv_layer in uv_layers:
-            if uv_layer.name == TEMP_UV: continue
-            uv = yp.uvs.get(uv_layer.name)
+    # Collect uv names from layers
+    for layer in yp.layers:
+        if layer.texcoord_type == 'UV' and layer.uv_name != '':
+            uv = yp.uvs.get(layer.uv_name)
             if not uv: 
                 dirty = True
                 uv = yp.uvs.add()
-                uv.name = uv_layer.name
+                uv.name = layer.uv_name
 
-            check_actual_uv_nodes(yp, uv, obj)
-            if uv_layer.name not in uv_names: uv_names.append(uv_layer.name)
+            if uv.name not in uv_names: 
+                #check_actual_uv_nodes(yp, uv, obj)
+                uv_names.append(uv.name)
 
     # Get unused uv objects
     unused_uvs = []
@@ -1584,16 +1572,15 @@ def check_uv_nodes(yp):
 
     # Get height channel
     height_ch = get_root_height_channel(yp)
-    if not height_ch: return dirty
+    if height_ch: 
+        # Check standard parallax
+        check_parallax_node(yp, height_ch, unused_uvs, unused_texcoords)
 
-    # Check standard parallax
-    check_parallax_node(yp, height_ch, unused_uvs, unused_texcoords)
+        # Check baked parallax
+        check_parallax_node(yp, height_ch, unused_uvs, baked=True)
 
-    # Check baked parallax
-    check_parallax_node(yp, height_ch, unused_uvs, baked=True)
-
-    # Update max height to parallax nodes
-    update_displacement_height_ratio(height_ch)
+        # Update max height to parallax nodes
+        update_displacement_height_ratio(height_ch)
 
     # Remove unused uv objects
     for i in unused_ids:
@@ -1601,6 +1588,30 @@ def check_uv_nodes(yp):
         remove_uv_nodes(uv, obj)
         dirty = True
         yp.uvs.remove(i)
+
+    # Check actual uv nodes
+    for uv in yp.uvs:
+        check_actual_uv_nodes(yp, uv, obj)
+
+    # Generate missing uvs for some objects
+    if generate_missings:
+
+        objs = []
+        if obj.type == 'MESH':
+            objs.append(obj)
+
+        if mat.users > 1:
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if mat.name in ob.data.materials and ob not in objs:
+                    objs.append(ob)
+
+        for ob in objs:
+            uvls = get_uv_layers(ob)
+            for uv in yp.uvs:
+                if uv.name not in uvls:
+                    uvl = uvls.new(name=uv.name)
+                    uvls.active = uvl
 
     return dirty
 

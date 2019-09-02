@@ -65,6 +65,8 @@ blend_type_items = (("MIX", "Mix", ""),
 
 TEMP_UV = '~TL Temp Paint UV'
 
+TANGENT_SIGN_PREFIX = '__tsign_'
+
 neighbor_directions = ['n', 's', 'e', 'w']
 
 normal_blend_items = (

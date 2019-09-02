@@ -1429,17 +1429,16 @@ class YFixMissingData(bpy.types.Operator):
         tree = group_node.node_tree
         yp = tree.yp
         obj = context.object
+        mat = obj.active_material
 
         for layer in yp.layers:
+            
             if layer.type in {'IMAGE' , 'VCOL'}:
                 src = get_layer_source(layer)
 
                 if layer.type == 'IMAGE' and not src.image:
                     fix_missing_img(layer.name, src, False)
 
-                elif (layer.type == 'VCOL' and obj.type == 'MESH' 
-                        and not obj.data.vertex_colors.get(src.attribute_name)):
-                    fix_missing_vcol(obj, layer.name, src)
 
             for mask in layer.masks:
                 if mask.type in {'IMAGE' , 'VCOL'}:
@@ -1448,9 +1447,34 @@ class YFixMissingData(bpy.types.Operator):
                     if mask.type == 'IMAGE' and not mask_src.image:
                         fix_missing_img(mask.name, mask_src, True)
 
-                    elif (mask.type == 'VCOL' and obj.type == 'MESH' 
+        # Get relevant objects
+        objs = [obj]
+        if mat.users > 1:
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if mat.name in ob.data.materials and ob not in objs:
+                    objs.append(ob)
+
+        # Fix missing vcols
+        for obj in objs:
+            for layer in yp.layers:
+                if (layer.type == 'VCOL' and obj.type == 'MESH' 
+                        and not obj.data.vertex_colors.get(src.attribute_name)):
+                    fix_missing_vcol(obj, layer.name, src)
+
+                for mask in layer.masks:
+                    if (mask.type == 'VCOL' and obj.type == 'MESH' 
                             and not obj.data.vertex_colors.get(mask_src.attribute_name)):
                         fix_missing_vcol(obj, mask.name, mask_src)
+
+        # Fix missing uvs
+        check_uv_nodes(yp, generate_missings=True)
+
+        # If there's height channel, refresh uv maps to get tangent hacks
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch:
+            for uv in yp.uvs:
+                refresh_tangent_sign_vcol(obj, uv.name)
 
         return {'FINISHED'}
 
