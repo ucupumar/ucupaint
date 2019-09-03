@@ -117,6 +117,7 @@ mask_type_items = (
         ('WAVE', 'Wave', ''),
         ('VCOL', 'Vertex Color', ''),
         ('HEMI', 'Fake Lighting', ''),
+        ('OBJECT_INDEX', 'Object Index', ''),
         )
 
 hemi_space_items = (
@@ -218,6 +219,7 @@ layer_node_bl_idnames = {
         'COLOR' : 'ShaderNodeRGB',
         'GROUP' : 'NodeGroupInput',
         'HEMI' : 'ShaderNodeGroup',
+        'OBJECT_INDEX' : 'ShaderNodeGroup',
         }
 
 io_suffix = {

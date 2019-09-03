@@ -78,6 +78,10 @@ HEIGHT_SCALE_TRANS_BUMP = '~yPL Height Scale Transition Bump'
 HEIGHT_SCALE_TRANS_FINE_BUMP = '~yPL Height Scale Transition Fine Bump'
 HEIGHT_NORMALIZE = '~yPL Normalize Height'
 
+OBJECT_INDEX_EQUAL = '~yPL Object Index Equal'
+OBJECT_INDEX_GREATER_THAN = '~yPL Object Index Greater Than'
+OBJECT_INDEX_LESS_THAN = '~yPL Object Index Less Than'
+
 HEMI = '~yPL Hemi'
 
 # NEW ORDER

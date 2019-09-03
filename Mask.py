@@ -8,6 +8,9 @@ from .node_connections import *
 from .node_arrangements import *
 from .subtree import *
 
+#def check_object_index_props(entity, source=None):
+#    source.inputs[0].default_value = entity.object_index
+
 def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None):
     yp = layer.id_data.yp
     yp.halt_update = True
@@ -35,7 +38,12 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         source.node_tree = get_node_tree_lib(lib.HEMI)
         duplicate_lib_node_tree(source)
 
-    if mask_type not in {'VCOL', 'HEMI'}:
+    if mask_type == 'OBJECT_INDEX':
+        source.node_tree = get_node_tree_lib(lib.OBJECT_INDEX_EQUAL)
+        source.inputs[0].default_value = mask.object_index
+        #duplicate_lib_node_tree(source)
+
+    if mask_type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
         #uv_map = new_node(tree, mask, 'uv_map', 'ShaderNodeUVMap', 'Mask UV Map')
         #uv_map.uv_map = uv_name
         mask.uv_name = uv_name
@@ -252,7 +260,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.label(text='')
 
-        if self.type not in {'VCOL', 'HEMI'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
             col.label(text='Vector:')
             if self.type == 'IMAGE':
                 col.label(text='')
@@ -269,7 +277,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.prop(self, 'hdr')
 
-        if self.type not in {'VCOL', 'HEMI'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -986,6 +994,13 @@ def update_mask_blend_type(self, context):
     # Reconnect nodes
     reconnect_layer_nodes(layer)
 
+def update_mask_object_index(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    source = get_mask_source(self)
+    source.inputs[0].default_value = self.object_index
+
 def update_mask_transform(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -1096,6 +1111,14 @@ class YLayerMask(bpy.types.PropertyGroup):
     channels = CollectionProperty(type=YLayerMaskChannel)
 
     modifiers = CollectionProperty(type=MaskModifier.YMaskModifier)
+
+    # For object index
+    object_index = IntProperty(
+            name = 'Object Index',
+            description = 'Object Pass Index',
+            default = 0,
+            min=0,
+            update=update_mask_object_index)
 
     # For temporary bake
     use_temp_bake = BoolProperty(

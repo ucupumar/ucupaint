@@ -157,6 +157,10 @@ def draw_image_props(source, layout, entity=None):
             col.prop(image, 'use_alpha')
         #col.prop(image, 'use_fields')
 
+def draw_object_index_props(entity, layout):
+    col = layout.column()
+    col.prop(entity, 'object_index')
+
 def draw_hemi_props(entity, source, layout):
     col = layout.column()
     col.prop(entity, 'hemi_space', text='Space')
@@ -893,7 +897,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             else: draw_tex_props(source, bbox)
 
         # Vector
-        if layer.type not in {'VCOL', 'COLOR', 'HEMI'}:
+        if layer.type not in {'VCOL', 'COLOR', 'HEMI', 'OBJECT_INDEX'}:
             row = rcol.row(align=True)
 
             if custom_icon_enable:
@@ -1031,7 +1035,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
         #expandable = True
         expandable = (
                 len(ch.modifiers) > 0 or 
-                layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'} or 
+                layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'} or 
                 root_ch.type == 'NORMAL' or
                 ch.show_transition_ramp or
                 ch.show_transition_ao or
@@ -1409,7 +1413,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
         draw_modifier_stack(context, ch, root_ch.type, modcol, 
                 ypui.layer_ui.channels[i], custom_icon_enable, layer)
 
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
             row = mcol.row(align=True)
 
             input_settings_available = (ch.layer_input != 'ALPHA' 
@@ -1602,10 +1606,12 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
                 draw_image_props(mask_source, rbox, mask)
             elif mask.type == 'HEMI':
                 draw_hemi_props(mask, mask_source, rbox)
+            elif mask.type == 'OBJECT_INDEX':
+                draw_object_index_props(mask, rbox)
             else: draw_tex_props(mask_source, rbox)
 
         # Vector row
-        if mask.type not in {'VCOL', 'HEMI'}:
+        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
             rrow = rrcol.row(align=True)
 
             if custom_icon_enable:
@@ -1874,13 +1880,13 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI'}:
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
 
             for mask in layer.masks:
-                if mask.type not in {'VCOL', 'HEMI'}:
+                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
                     uv_layer = uv_layers.get(mask.uv_name)
                     if not uv_layer and mask.uv_name not in uv_missings:
                         uv_missings.append(mask.uv_name)
@@ -2110,12 +2116,22 @@ def main_draw(self, context):
     #layout.operator("node.y_debug_mesh", icon='MESH_DATA')
     #layout.operator("node.y_test_ray", icon='MESH_DATA')
 
+    icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
+    row = layout.row(align=True)
+    row.prop(ypui, 'show_object', emboss=False, text='', icon=icon)
+    if obj:
+        row.label(text='Object: ' + obj.name)
+    else: row.label(text='Object: -')
+
+    if ypui.show_object:
+        box = layout.box()
+        col = box.column()
+        col.prop(obj, 'pass_index')
+        #row = box.row()
+
     icon = 'TRIA_DOWN' if ypui.show_materials else 'TRIA_RIGHT'
     row = layout.row(align=True)
     row.prop(ypui, 'show_materials', emboss=False, text='', icon=icon)
-    #if ypui.show_materials:
-    #    row.label(text='Materials')
-    #else: 
     if mat:
         row.label(text='Material: ' + mat.name)
     else: row.label(text='Material: -')
@@ -3018,6 +3034,9 @@ class YAddLayerMaskMenu(bpy.types.Menu):
             col.operator("node.y_new_layer_mask", icon='LIGHT', text='Fake Lighting').type = 'HEMI'
         else: col.operator("node.y_new_layer_mask", icon='LAMP', text='Fake Lighting').type = 'HEMI'
 
+        col.separator()
+        col.operator("node.y_new_layer_mask", icon='OBJECT_DATA', text='Object Index').type = 'OBJECT_INDEX'
+
         col = row.column()
         c = col.operator("node.y_bake_to_layer", icon='RENDER_STILL', text='Ambient Occlusion')
         c.type = 'AO'
@@ -3357,6 +3376,7 @@ class YMaterialUI(bpy.types.PropertyGroup):
     active_ypaint_node = StringProperty(default='') #, update=update_mat_active_yp_node)
 
 class YPaintUI(bpy.types.PropertyGroup):
+    show_object = BoolProperty(default=False)
     show_materials = BoolProperty(default=False)
     show_channels = BoolProperty(default=True)
     show_layers = BoolProperty(default=True)
