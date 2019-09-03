@@ -106,6 +106,7 @@
 # - Armory support (X, proper bake system is better be the solution)
 # - FXAA image operator to remove jagged pixels from baking or bucket fill
 # - Blur image operator
+# - Add greater than and less than operation to object index mask
 #
 # TODO OPT:
 # - Lazy node calling (can be useful to prevent missing error)
