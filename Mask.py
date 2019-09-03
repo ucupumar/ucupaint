@@ -11,7 +11,7 @@ from .subtree import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
-def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None):
+def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0):
     yp = layer.id_data.yp
     yp.halt_update = True
 
@@ -40,8 +40,8 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
 
     if mask_type == 'OBJECT_INDEX':
         source.node_tree = get_node_tree_lib(lib.OBJECT_INDEX_EQUAL)
-        source.inputs[0].default_value = mask.object_index
-        #duplicate_lib_node_tree(source)
+        mask.object_index = object_index
+        source.inputs[0].default_value = object_index
 
     if mask_type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
         #uv_map = new_node(tree, mask, 'uv_map', 'ShaderNodeUVMap', 'Mask UV Map')
@@ -183,6 +183,13 @@ class YNewLayerMask(bpy.types.Operator):
             description='Use Image Atlas',
             default=True)
 
+    # For object index
+    object_index = IntProperty(
+            name = 'Object Index',
+            description = 'Object Pass Index',
+            default = 0,
+            min=0)
+
     @classmethod
     def poll(cls, context):
         return True
@@ -265,6 +272,9 @@ class YNewLayerMask(bpy.types.Operator):
             if self.type == 'IMAGE':
                 col.label(text='')
 
+        if self.type == 'OBJECT_INDEX':
+            col.label(text='Object Index')
+
         col = row.column(align=False)
         col.prop(self, 'name', text='')
         if self.type == 'IMAGE':
@@ -289,6 +299,9 @@ class YNewLayerMask(bpy.types.Operator):
             col = self.layout.column(align=True)
             col.label(text='INFO: An unused atlas segment can be used.', icon='ERROR')
             col.label(text='It will take a couple seconds to clear.')
+        
+        if self.type == 'OBJECT_INDEX':
+            col.prop(self, 'object_index', text='')
 
     def execute(self, context):
         if self.auto_cancel: return {'CANCELLED'}
@@ -372,7 +385,7 @@ class YNewLayerMask(bpy.types.Operator):
                     except: pass
 
         # Add new mask
-        mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment)
+        mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'}:
