@@ -328,6 +328,51 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 #
 #    return None
 
+class YSelectMaterialPolygons(bpy.types.Operator):
+    bl_idname = "material.y_select_all_material_polygons"
+    bl_label = "Select All Material Polygons"
+    bl_description = "Select all polygons using this material"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object
+
+    def execute(self, context):
+
+        if not is_28():
+            self.report({'ERROR'}, "This feature only works on Blender 2.8+")
+            return {'CANCELLED'}
+
+        obj = context.object
+        mat = obj.active_material
+
+        objs = []
+        for o in get_scene_objects():
+            if o.type != 'MESH': continue
+            if mat.name in o.data.materials:
+                o.select_set(True)
+                objs.append(o)
+            else: o.select_set(False)
+
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.context.tool_settings.mesh_select_mode = (False, False, True)
+        bpy.ops.mesh.select_all(action='DESELECT')
+
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        for o in objs:
+            active_mat_id = [i for i, m in enumerate(o.data.materials) if m == mat][0]
+            # Select polygons
+            for p in o.data.polygons:
+                if p.material_index == active_mat_id:
+                    p.select = True
+                else: p.select = False
+
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        return {'FINISHED'}
+
 class YQuickYPaintNodeSetup(bpy.types.Operator):
     bl_idname = "node.y_quick_ypaint_node_setup"
     bl_label = "Quick " + ADDON_TITLE + " Node Setup"
@@ -418,7 +463,12 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         if not mat:
             mat = bpy.data.materials.new(obj.name)
             mat.use_nodes = True
-            obj.data.materials.append(mat)
+
+            if len(obj.material_slots) > 0:
+                matslot = obj.material_slots[obj.active_material_index]
+                matslot.material = mat
+            else:
+                obj.data.materials.append(mat)
 
             # Remove default nodes
             for n in mat.node_tree.nodes:
@@ -1572,10 +1622,10 @@ def get_preview(mat, output=None, advanced=False):
                 lib.ADVANCED_EMISSION_VIEWER, return_status=True, hard_replace=True)
         if dirty:
             # Set blend method to alpha
-            if hasattr(mat, 'blend_method'): # Blender 2.8
+            if is_28():
                 blend_method = mat.blend_method
                 mat.blend_method = 'HASHED'
-            else: # Blender 2.7
+            else:
                 blend_method = mat.game_settings.alpha_blend
                 mat.game_settings.alpha_blend = 'ALPHA'
             mat.yp.ori_blend_method = blend_method
@@ -1604,9 +1654,9 @@ def remove_preview(mat, advanced=False):
         simple_remove_node(mat.node_tree, preview)
         if advanced:
             # Recover blend method
-            if hasattr(mat, 'blend_method'): # Blender 2.8
+            if is_28():
                 mat.blend_method = mat.yp.ori_blend_method
-            else: # Blender 2.7
+            else:
                 mat.game_settings.alpha_blend = mat.yp.ori_blend_method
             mat.yp.ori_blend_method = ''
 
@@ -2053,9 +2103,9 @@ def update_channel_alpha(self, context):
 
         if not any(alpha_chs):
             # Set material to use opaque
-            if hasattr(mat, 'blend_method'): # Blender 2.8
+            if is_28():
                 mat.blend_method = 'OPAQUE'
-            else: # Blender 2.7
+            else:
                 mat.game_settings.alpha_blend = 'OPAQUE'
 
         node = get_active_ypaint_node()
@@ -2078,9 +2128,9 @@ def update_channel_alpha(self, context):
 
         if any(alpha_chs):
             # Set material to use alpha blend
-            if hasattr(mat, 'blend_method'): # Blender 2.8
+            if is_28():
                 mat.blend_method = 'HASHED'
-            else: # Blender 2.7
+            else:
                 mat.game_settings.alpha_blend = 'ALPHA'
 
         # Get alpha index
@@ -2568,6 +2618,7 @@ def ypaint_last_object_update(scene):
                 scene.tool_settings.image_paint.canvas = image
 
 def register():
+    bpy.utils.register_class(YSelectMaterialPolygons)
     bpy.utils.register_class(YQuickYPaintNodeSetup)
     bpy.utils.register_class(YNewYPaintNode)
     bpy.utils.register_class(YPaintNodeInputCollItem)
@@ -2605,6 +2656,7 @@ def register():
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
 
 def unregister():
+    bpy.utils.unregister_class(YSelectMaterialPolygons)
     bpy.utils.unregister_class(YQuickYPaintNodeSetup)
     bpy.utils.unregister_class(YNewYPaintNode)
     bpy.utils.unregister_class(YPaintNodeInputCollItem)

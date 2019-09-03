@@ -2086,6 +2086,9 @@ def main_draw(self, context):
     area = context.area
     scene = context.scene
     obj = context.object
+    mat = obj.active_material
+    #slot = context.material_slot
+    #space = context.space_data
 
     # Timer
     if wm.yptimer.time != '':
@@ -2100,17 +2103,74 @@ def main_draw(self, context):
     else: custom_icon_enable = False
 
     node = get_active_ypaint_node()
+    ypui = wm.ypui
 
     layout = self.layout
 
     #layout.operator("node.y_debug_mesh", icon='MESH_DATA')
     #layout.operator("node.y_test_ray", icon='MESH_DATA')
 
+    icon = 'TRIA_DOWN' if ypui.show_materials else 'TRIA_RIGHT'
+    row = layout.row(align=True)
+    row.prop(ypui, 'show_materials', emboss=False, text='', icon=icon)
+    #if ypui.show_materials:
+    #    row.label(text='Materials')
+    #else: 
+    if mat:
+        row.label(text='Material: ' + mat.name)
+    else: row.label(text='Material: -')
+
+    if ypui.show_materials:
+        is_sortable = len(obj.material_slots) > 1
+        rows = 2
+        if (is_sortable):
+            rows = 4
+        box = layout.box()
+        row = box.row()
+        row.template_list("MATERIAL_UL_matslots", "", obj, "material_slots", obj, "active_material_index", rows=rows)
+        col = row.column(align=True)
+        col.operator("object.material_slot_add", icon='ADD', text="")
+        col.operator("object.material_slot_remove", icon='REMOVE', text="")
+
+        col.menu("MATERIAL_MT_y_special_menu", icon='DOWNARROW_HLT', text="")
+
+        if is_sortable:
+            col.separator()
+
+            col.operator("object.material_slot_move", icon='TRIA_UP', text="").direction = 'UP'
+            col.operator("object.material_slot_move", icon='TRIA_DOWN', text="").direction = 'DOWN'
+
+        if obj.mode == 'EDIT':
+            row = box.row(align=True)
+            row.operator("object.material_slot_assign", text="Assign")
+            row.operator("object.material_slot_select", text="Select")
+            row.operator("object.material_slot_deselect", text="Deselect")
+
+        box.template_ID(obj, "active_material", new="material.new")
+
+        #split = box.split(factor=0.65)
+
+        #if obj:
+        #    split.template_ID(obj, "active_material", new="material.new")
+        #    row = split.row()
+
+        #    if slot:
+        #        row.prop(slot, "link", text="")
+        #    else:
+        #        row.label()
+        #elif mat:
+        #    split.template_ID(space, "pin_id")
+        #    split.separator()
+
     if not node:
         layout.label(text="No active " + ADDON_TITLE + " node!", icon='ERROR')
         layout.operator("node.y_quick_ypaint_node_setup", icon='NODETREE')
 
         return
+
+    group_tree = node.node_tree
+    nodes = group_tree.nodes
+    yp = group_tree.yp
 
     #layout.label(text='Active: ' + node.node_tree.name, icon='NODETREE')
     row = layout.row(align=True)
@@ -2122,11 +2182,6 @@ def main_draw(self, context):
     if is_28():
         row.menu("NODE_MT_ypaint_special_menu", text='', icon='PREFERENCES')
     else: row.menu("NODE_MT_ypaint_special_menu", text='', icon='SCRIPTWIN')
-
-    group_tree = node.node_tree
-    nodes = group_tree.nodes
-    yp = group_tree.yp
-    ypui = wm.ypui
 
     # Check for baked node
     baked_found = False
@@ -3036,6 +3091,19 @@ class YLayerMaskMenu(bpy.types.Menu):
         else:
             col.operator('node.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
 
+class YMaterialSpecialMenu(bpy.types.Menu):
+    bl_idname = "MATERIAL_MT_y_special_menu"
+    bl_label = "Material Special Menu"
+    bl_description = 'Material Special Menu'
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def draw(self, context):
+        col = self.layout.column()
+        col.operator('material.y_select_all_material_polygons', icon='FACESEL')
+
 class YAddModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_modifier_menu"
     bl_label = "Add Modifier Menu"
@@ -3289,6 +3357,7 @@ class YMaterialUI(bpy.types.PropertyGroup):
     active_ypaint_node = StringProperty(default='') #, update=update_mat_active_yp_node)
 
 class YPaintUI(bpy.types.PropertyGroup):
+    show_materials = BoolProperty(default=False)
     show_channels = BoolProperty(default=True)
     show_layers = BoolProperty(default=True)
     show_stats = BoolProperty(default=False)
@@ -3401,6 +3470,7 @@ def register():
     bpy.utils.register_class(YTransitionAOMenu)
     bpy.utils.register_class(YAddLayerMaskMenu)
     bpy.utils.register_class(YLayerMaskMenu)
+    bpy.utils.register_class(YMaterialSpecialMenu)
     bpy.utils.register_class(YAddModifierMenu)
     bpy.utils.register_class(YLayerSpecialMenu)
     bpy.utils.register_class(YModifierUI)
@@ -3444,6 +3514,7 @@ def unregister():
     bpy.utils.unregister_class(YTransitionAOMenu)
     bpy.utils.unregister_class(YAddLayerMaskMenu)
     bpy.utils.unregister_class(YLayerMaskMenu)
+    bpy.utils.unregister_class(YMaterialSpecialMenu)
     bpy.utils.unregister_class(YAddModifierMenu)
     bpy.utils.unregister_class(YLayerSpecialMenu)
     bpy.utils.unregister_class(YModifierUI)
