@@ -859,6 +859,16 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                 ori_select = [o for o in bpy.context.view_layer.objects if o.select_get()]
             else: ori_select = [o for o in bpy.context.scene.objects if o.select]
 
+            # If object has multi users, get all related objects
+            related_objs = []
+            if obj.data.users > 1:
+                for o in get_scene_objects():
+                    if o.data == obj.data and o != obj:
+                        related_objs.append(o)
+
+                # Make object data single user
+                obj.data = obj.data.copy()
+
             temp_ob = obj.copy()
             temp_ob.data = obj.data.copy()
             temp_ob.name = '___TEMP__'
@@ -951,6 +961,16 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                     o.select_set(True)
                 else: o.select = True
 
+            # Bring object data to related objects
+            if related_objs:
+                ori_mesh = related_objs[0].data
+                ori_name = ori_mesh.name
+                for o in related_objs:
+                    o.data = obj.data
+
+                bpy.data.meshes.remove(ori_mesh)
+                o.data.name = ori_name
+
         # Recover active uv
         set_active_uv_layer(obj, ori_layer_name)
 
@@ -973,11 +993,15 @@ def refresh_tangent_sign_vcol(obj, uv_name):
 
     mat = obj.active_material
 
+    # Flag for already processed mesh
+    meshes_done = [obj.data]
+
     if mat.users > 1:
         for ob in get_scene_objects():
             if ob.type != 'MESH' or ob == obj: continue
-            if mat.name in ob.data.materials:
+            if mat.name in ob.data.materials and ob.data not in meshes_done:
                 other_v = actual_refresh_tangent_sign_vcol(ob, uv_name)
+                meshes_done.append(ob.data)
 
     return vcol
 

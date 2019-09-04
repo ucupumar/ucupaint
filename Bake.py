@@ -867,14 +867,16 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Get all objects using material
         objs = [context.object]
+        meshes = [context.object.data]
         if mat.users > 1:
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
                 for i, m in enumerate(ob.data.materials):
                     if m == mat:
                         ob.active_material_index = i
-                        if ob not in objs:
+                        if ob not in objs and ob.data not in meshes:
                             objs.append(ob)
+                            meshes.append(ob.data)
 
         # Prepare bake settings
         prepare_bake_settings_(book, objs, yp, samples=self.samples, margin=self.margin)
@@ -1768,14 +1770,16 @@ class YBakeChannels(bpy.types.Operator):
 
         # Get all objects using material
         objs = [obj]
+        meshes = [obj.data]
         if mat.users > 1:
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
                 for i, m in enumerate(ob.data.materials):
                     if m == mat:
                         ob.active_material_index = i
-                        if ob not in objs:
+                        if ob not in objs and ob.data not in meshes:
                             objs.append(ob)
+                            meshes.append(ob.data)
 
         # Multi materials setup
         ori_mat_ids = {}
