@@ -334,12 +334,41 @@ class YSelectMaterialPolygons(bpy.types.Operator):
     bl_description = "Select all polygons using this material"
     bl_options = {'REGISTER', 'UNDO'}
 
+    uv_map = StringProperty(
+            name='Active UV Map', 
+            description="It will create one if other objects does not have it.\nIf empty, it will use whatever current active uv map for each objects", 
+            default='')
+
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
     @classmethod
     def poll(cls, context):
         return context.object
 
-    def execute(self, context):
+    def invoke(self, context, event):
+        if not is_28():
+            self.execute(context)
 
+        obj = context.object
+
+        node = get_active_ypaint_node()
+        if node: yp = node.node_tree.yp
+        else: yp = None
+
+        # UV Map collections update
+        self.uv_map = get_default_uv_name(obj, yp)
+
+        self.uv_map_coll.clear()
+        for uv in get_uv_layers(obj):
+            if not uv.name.startswith(TEMP_UV):
+                self.uv_map_coll.add().name = uv.name
+
+        return context.window_manager.invoke_props_dialog(self, width=400)
+
+    def draw(self, context):
+        self.layout.prop_search(self, "uv_map", self, "uv_map_coll", icon='GROUP_UVS')
+
+    def execute(self, context):
         if not is_28():
             self.report({'ERROR'}, "This feature only works on Blender 2.8+")
             return {'CANCELLED'}
@@ -362,6 +391,17 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='OBJECT')
 
         for o in objs:
+
+            if self.uv_map != '':
+                # Get uv layer
+                uv_layers = get_uv_layers(o)
+                uvl = uv_layers.get(self.uv_map)
+
+                # Create one if it didn't exist
+                if not uvl:
+                    uvl = uv_layers.new(name=self.uv_map)
+                uv_layers.active = uvl
+
             active_mat_id = [i for i, m in enumerate(o.data.materials) if m == mat][0]
             # Select polygons
             for p in o.data.polygons:

@@ -546,7 +546,7 @@ class YNewLayer(bpy.types.Operator):
             self.texcoord_type = 'Generated'
         else:
             if obj.type == 'MESH':
-                uv_name = get_default_uv_name(yp, obj)
+                uv_name = get_default_uv_name(obj, yp)
                 self.uv_map = uv_name
                 self.mask_uv_name = uv_name
 
@@ -916,7 +916,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
         # Use active uv layer name by default
         if obj.type == 'MESH':
-            self.uv_map = get_default_uv_name(yp, obj)
+            self.uv_map = get_default_uv_name(obj, yp)
 
             # UV Map collections update
             self.uv_map_coll.clear()
@@ -1092,7 +1092,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         # Use active uv layer name by default
         if obj.type == 'MESH':
-            self.uv_map = get_default_uv_name(yp, obj)
+            self.uv_map = get_default_uv_name(obj, yp)
 
             # UV Map collections update
             self.uv_map_coll.clear()

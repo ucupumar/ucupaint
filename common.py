@@ -2688,14 +2688,14 @@ def get_uv_layers(obj):
 
     return uv_layers
 
-def get_default_uv_name(yp, obj):
+def get_default_uv_name(obj, yp=None):
     uv_layers = get_uv_layers(obj)
     uv_name = ''
 
     if obj.type == 'MESH' and len(uv_layers) > 0:
         active_name = uv_layers.active.name
         if active_name == TEMP_UV:
-            if len(yp.layers) > 0:
+            if yp and len(yp.layers) > 0:
                 uv_name = yp.layers[yp.active_layer_index].uv_name
             else:
                 for uv_layer in uv_layers:
