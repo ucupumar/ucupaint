@@ -3159,6 +3159,11 @@ class YAddModifierMenu(bpy.types.Menu):
 
             #col.label(context.parent.path_from_id())
 
+            if root_ch.type != 'NORMAL':
+                col = row.column()
+                col.label(text='Extra Props')
+                col.prop(context.parent, 'use_clamp')
+
 class YLayerSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_special_menu"
     bl_label = "Layer Special Menu"

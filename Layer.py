@@ -2738,6 +2738,19 @@ def update_layer_name(self, context):
     src = get_layer_source(self)
     change_layer_name(yp, context.object, src, self, yp.layers)
 
+def update_layer_channel_use_clamp(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[int(m.group(2))]
+    tree = get_tree(layer)
+
+    if root_ch.type == 'NORMAL': return
+
+    check_blend_type_nodes(root_ch, layer, self)
+
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
 
@@ -2754,6 +2767,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
             description='Make sure layer input is in linear space',
             default = False,
             update = update_layer_input)
+
+    use_clamp = BoolProperty(
+            name = 'Use Clamp',
+            description = 'Clamp result to 0..1 range',
+            default = False,
+            update=update_layer_channel_use_clamp)
 
     normal_map_type = EnumProperty(
             name = 'Normal Map Type',

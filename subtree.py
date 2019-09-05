@@ -1998,6 +1998,12 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if root_ch.type != 'NORMAL' and blend.type == 'MIX_RGB' and blend.blend_type != blend_type:
         blend.blend_type = blend_type
 
+    if root_ch.type != 'NORMAL':
+        if blend.type == 'GROUP' and 'Clamp' in blend.inputs:
+            blend.inputs['Clamp'].default_value = 1.0 if ch.use_clamp else 0.0
+        elif hasattr(blend, 'use_clamp'):
+            blend.use_clamp = ch.use_clamp
+
     # Mute
     #mute = not layer.enable or not ch.enable
     #if yp.disable_quick_toggle:
