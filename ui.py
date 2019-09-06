@@ -2467,6 +2467,10 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
                 elif layer.type == 'COLOR': 
                     row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='COLOR')
+                elif layer.type == 'HEMI': 
+                    if is_28():
+                        row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='LIGHT')
+                    else: row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='LAMP')
                 elif layer.type == 'BACKGROUND': 
                     row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='IMAGE_RGB_ALPHA')
                 elif layer.type == 'GROUP': 
@@ -2481,6 +2485,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.label(text='', icon='GROUP_VCOL')
                 elif layer.type == 'COLOR': 
                     row.label(text='', icon='COLOR')
+                elif layer.type == 'HEMI': 
+                    if is_28(): row.label(text='', icon='LIGHT')
+                    else: row.label(text='', icon='LAMP')
                 elif layer.type == 'BACKGROUND': 
                     row.label(text='', icon='IMAGE_RGB_ALPHA')
                 elif layer.type == 'GROUP': 
@@ -3260,6 +3267,7 @@ def update_layer_ui(self, context):
     layer.expand_content = self.expand_content
     layer.expand_vector = self.expand_vector
     layer.expand_masks = self.expand_masks
+    layer.expand_source = self.expand_source
 
 def update_channel_ui(self, context):
     ypui = context.window_manager.ypui
