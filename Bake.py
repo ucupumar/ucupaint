@@ -746,8 +746,26 @@ class YBakeToLayer(bpy.types.Operator):
                         self.overwrite_coll.add().name = source.image.name
 
         if len(self.overwrite_coll) > 0:
+
             self.overwrite = True
             self.overwrite_name = self.overwrite_coll[0].name
+            if self.target_type == 'LAYER':
+                overwrite_entity = yp.layers.get(self.overwrite_coll[0].name)
+            else: 
+                active_layer = yp.layers[yp.active_layer_index]
+                overwrite_entity = active_layer.masks.get(self.overwrite_coll[0].name)
+
+            if overwrite_entity:
+                self.uv_map = overwrite_entity.uv_name
+                if self.target_type == 'LAYER':
+                    source = get_layer_source(overwrite_entity)
+                else: source = get_mask_source(overwrite_entity)
+                if overwrite_entity.type == 'IMAGE' and source.image:
+                    if not source.image.yia.is_image_atlas:
+                        self.width = source.image.size[0]
+                        self.height = source.image.size[1]
+                    else:
+                        pass # TODO
         else:
             self.overwrite = False
         
