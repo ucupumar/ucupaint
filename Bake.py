@@ -679,6 +679,10 @@ class YBakeChannels(bpy.types.Operator):
 
     #hdr = BoolProperty(name='32 bit Float', default=False)
 
+    fxaa = BoolProperty(name='Use FXAA', 
+            description = "Use FXAA to baked images (doesn't work with float images)",
+            default=True)
+
     aa_level = IntProperty(
         name='Anti Aliasing Level',
         description='Super Sample Anti Aliasing Level (1=off)',
@@ -748,6 +752,7 @@ class YBakeChannels(bpy.types.Operator):
         col.label(text='UV Map:')
         col.separator()
         col.label(text='')
+        col.label(text='')
 
         col = row.column(align=True)
 
@@ -763,6 +768,7 @@ class YBakeChannels(bpy.types.Operator):
 
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.separator()
+        col.prop(self, 'fxaa', text='Use FXAA')
         col.prop(self, 'force_bake_all_polygons')
 
     def execute(self, context):
@@ -883,6 +889,27 @@ class YBakeChannels(bpy.types.Operator):
                     if baked_normal_overlay and baked_normal_overlay.image:
                         resize_image(baked_normal_overlay.image, self.width, self.height, 
                                 baked.image.colorspace_settings.name)
+
+        # FXAA
+        if self.fxaa:
+            for ch in yp.channels:
+                # FXAA doesn't work with hdr image
+                if not ch.use_clamp: continue
+
+                baked = tree.nodes.get(ch.baked)
+                if baked and baked.image:
+                    fxaa_image(baked.image)
+                    #return {'FINISHED'}
+
+                if ch.type == 'NORMAL':
+
+                    baked_disp = tree.nodes.get(ch.baked_disp)
+                    if baked_disp and baked_disp.image:
+                        fxaa_image(baked_disp.image)
+
+                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image:
+                        fxaa_image(baked_normal_overlay.image)
 
         # Set baked uv
         yp.baked_uv_name = self.uv_map
@@ -1404,8 +1431,8 @@ class YMergeMask(bpy.types.Operator):
             img.colorspace_settings.name = 'Linear'
         else:
             img = source.image.copy()
-            width = target_img.size[0]
-            height = target_img.size[1]
+            width = img.size[0]
+            height = img.size[1]
 
         # Activate layer preview mode
         ori_layer_preview_mode = yp.layer_preview_mode
