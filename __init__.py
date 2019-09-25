@@ -165,11 +165,12 @@ if "bpy" in locals():
     imp.reload(Blur)
     imp.reload(Layer)
     imp.reload(Bake)
+    imp.reload(BakeToLayer)
     imp.reload(Root)
     #print("Reloaded multifiles")
 else:
     from . import image_ops, common, bake_common, mesh_ops, lib, ui, subtree, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Bake, Root
+    from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Bake, BakeToLayer, Root
     #print("Imported multifiles")
 
 import bpy 
@@ -192,6 +193,7 @@ def register():
     Blur.register()
     Layer.register()
     Bake.register()
+    BakeToLayer.register()
     Root.register()
 
     print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is registered!')
@@ -213,6 +215,7 @@ def unregister():
     Blur.unregister()
     Layer.unregister()
     Bake.unregister()
+    BakeToLayer.unregister()
     Root.unregister()
 
     print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is unregistered!')
