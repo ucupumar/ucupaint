@@ -83,6 +83,7 @@
 # - Temporary bake hemi/fake lighting so it can works with bump on cycles (V)
 # - Add support for baking vertex color to image (X, kinda not needed)
 # - Add clamp color option on root channel (V)
+# - FXAA option when baking (V)
 # - Object index mask should not generate neighbor uv
 # - Clean up bake codes
 

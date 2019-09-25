@@ -2068,8 +2068,8 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                 row.label(text='', icon='GROUP_VCOL')
                 row.label(text='Fill ' + obj.data.vertex_colors.active.name + ':')
                 row = ccol.row(align=True)
-                row.prop(ve, 'fill_mode', text='') #, expand=True)
-                row.separator()
+                #row.prop(ve, 'fill_mode', text='') #, expand=True)
+                #row.separator()
                 row.operator('mesh.y_vcol_fill', text='White').color_option = 'WHITE'
                 row.operator('mesh.y_vcol_fill', text='Black').color_option = 'BLACK'
                 row.separator()

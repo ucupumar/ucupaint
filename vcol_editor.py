@@ -77,6 +77,10 @@ class YVcolFill(bpy.types.Operator):
             objs = context.objects_in_mode
         else: objs = [context.object]
 
+        if context.tool_settings.mesh_select_mode[0] or context.tool_settings.mesh_select_mode[1]:
+            fill_mode = 'VERTEX'
+        else: fill_mode = 'FACE'
+
         for obj in objs:
 
             mesh = obj.data
@@ -87,7 +91,8 @@ class YVcolFill(bpy.types.Operator):
             bm.edges.ensure_lookup_table()
             bm.faces.ensure_lookup_table()
 
-            if ve.fill_mode == 'FACE':
+            #if ve.fill_mode == 'FACE':
+            if fill_mode == 'FACE':
                 #face_indices = []
                 loop_indices = []
                 for face in bm.faces:
@@ -115,7 +120,8 @@ class YVcolFill(bpy.types.Operator):
             if is_28():
                 color = (color[0], color[1], color[2], 1.0)
 
-            if ve.fill_mode == 'FACE':
+            #if ve.fill_mode == 'FACE':
+            if fill_mode == 'FACE':
                 for loop_index in loop_indices:
                     vcol.data[loop_index].color = color
             else:
@@ -176,11 +182,11 @@ def vcol_editor_draw(self, context):
 
     ccol.prop(ve, "color", text="")
 
-    col.separator()
+    #col.separator()
 
-    row = col.row(align=True)
-    row.label(text='Mode:')
-    row.prop(ve, 'fill_mode', expand=True)
+    #row = col.row(align=True)
+    #row.label(text='Mode:')
+    #row.prop(ve, 'fill_mode', expand=True)
 
     #col.template_palette(ve, "palette", color=True)
 
@@ -219,14 +225,14 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
     show_vcol_list = BoolProperty(name='Show Vertex Color List',
             description='Show vertex color list', default=False)
 
-    fill_mode = EnumProperty(
-            name = 'Fill Mode',
-            description='Vertex color fill mode',
-            items = (
-                ('FACE', 'Face', ''),
-                ('VERTEX', 'Vertex', ''),
-                ),
-            default='FACE')
+    #fill_mode = EnumProperty(
+    #        name = 'Fill Mode',
+    #        description='Vertex color fill mode',
+    #        items = (
+    #            ('FACE', 'Face', ''),
+    #            ('VERTEX', 'Vertex', ''),
+    #            ),
+    #        default='FACE')
 
 def register():
     bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
