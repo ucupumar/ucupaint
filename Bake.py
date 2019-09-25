@@ -960,6 +960,9 @@ class YBakeChannels(bpy.types.Operator):
         rearrange_yp_nodes(tree)
         reconnect_yp_nodes(tree)
 
+        # Refresh active channel index
+        yp.active_channel_index = yp.active_channel_index
+
         print('INFO:', tree.name, 'channels is baked at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}

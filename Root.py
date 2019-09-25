@@ -1806,13 +1806,18 @@ def update_active_yp_channel(self, context):
         baked = tree.nodes.get(ch.baked)
         if baked and baked.image:
             update_image_editor_image(context, baked.image)
+            context.scene.tool_settings.image_paint.canvas = baked.image
+        else:
+            update_image_editor_image(context, None)
+            context.scene.tool_settings.image_paint.canvas = None
 
         if obj.type == 'MESH':
-            self.uv_layers = uv_layers = get_uv_layers(obj)
+            uv_layers = get_uv_layers(obj)
 
-            #baked_uv_map = tree.nodes.get(BAKED_UV)
-            #if baked_uv_map:
-            #    uv_layers.active = uv_layers.get(baked_uv_map.uv_map)
+            baked_uv_map = uv_layers.get(yp.baked_uv_name)
+            if baked_uv_map: 
+                uv_layers.active = baked_uv_map
+                baked_uv_map.active_render = True
 
 def update_layer_index(self, context):
     #T = time.time()
