@@ -2770,6 +2770,10 @@ class YNewLayerMenu(bpy.types.Menu):
         c.type = 'POINTINESS'
         c.target_type = 'LAYER'
 
+        c = col.operator("node.y_bake_to_layer", text='Cavity')
+        c.type = 'CAVITY'
+        c.target_type = 'LAYER'
+
 class YBakedImageMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_baked_image_menu"
     bl_label = "Baked Image Menu"
@@ -3051,6 +3055,10 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         c = col.operator("node.y_bake_to_layer", text='Pointiness')
         c.type = 'POINTINESS'
+        c.target_type = 'MASK'
+
+        c = col.operator("node.y_bake_to_layer", text='Cavity')
+        c.type = 'CAVITY'
         c.target_type = 'MASK'
 
 class YLayerMaskMenu(bpy.types.Menu):
