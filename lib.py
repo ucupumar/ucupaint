@@ -84,7 +84,10 @@ OBJECT_INDEX_LESS_THAN = '~yPL Object Index Less Than'
 
 HEMI = '~yPL Hemi'
 FXAA = '~yPL FXAA'
+
 CAVITY = '~yPL Cavity'
+DUST = '~yPL Dust'
+PAINT_BASE = '~yPL Paint Base'
 
 # NEW ORDER
 
