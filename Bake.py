@@ -8,8 +8,6 @@ from .node_connections import *
 from .node_arrangements import *
 from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier
 
-BL28_HACK = True
-
 def transfer_uv(obj, mat, entity, uv_map):
 
     uv_layers = get_uv_layers(obj)

@@ -2786,6 +2786,10 @@ class YNewLayerMenu(bpy.types.Menu):
         c.type = 'BEVEL_NORMAL'
         c.target_type = 'LAYER'
 
+        c = col.operator("node.y_bake_to_layer", text='Bevel Grayscale')
+        c.type = 'BEVEL_MASK'
+        c.target_type = 'LAYER'
+
 class YBakedImageMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_baked_image_menu"
     bl_label = "Baked Image Menu"
@@ -3079,6 +3083,10 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         c = col.operator("node.y_bake_to_layer", text='Paint Base')
         c.type = 'PAINT_BASE'
+        c.target_type = 'MASK'
+
+        c = col.operator("node.y_bake_to_layer", text='Bevel Grayscale')
+        c.type = 'BEVEL_MASK'
         c.target_type = 'MASK'
 
 class YLayerMaskMenu(bpy.types.Menu):
