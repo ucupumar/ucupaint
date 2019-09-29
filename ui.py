@@ -2782,7 +2782,7 @@ class YNewLayerMenu(bpy.types.Menu):
         c.type = 'PAINT_BASE'
         c.target_type = 'LAYER'
 
-        c = col.operator("node.y_bake_to_layer", text='Bevel Normal (Still Broken)')
+        c = col.operator("node.y_bake_to_layer", text='Bevel Normal')
         c.type = 'BEVEL_NORMAL'
         c.target_type = 'LAYER'
 
