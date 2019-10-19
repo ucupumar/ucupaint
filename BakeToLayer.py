@@ -252,7 +252,7 @@ class YBakeToLayer(bpy.types.Operator):
             #if active_name == TEMP_UV:
             #    self.uv_map = yp.layers[yp.active_layer_index].uv_name
             #else: self.uv_map = uv_layers.active.name
-        if len(self.uv_map_coll) > 0:
+        if len(self.uv_map_coll) > 0 and len(self.overwrite_coll) == 0:
             self.uv_map = self.uv_map_coll[0].name
 
         # Set default float image

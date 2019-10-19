@@ -1567,6 +1567,18 @@ def check_uv_nodes(yp, generate_missings=False):
                 #check_actual_uv_nodes(yp, uv, obj)
                 uv_names.append(uv.name)
 
+        for mask in layer.masks:
+            if mask.texcoord_type == 'UV' and mask.uv_name != '':
+                uv = yp.uvs.get(mask.uv_name)
+                if not uv: 
+                    dirty = True
+                    uv = yp.uvs.add()
+                    uv.name = mask.uv_name
+
+                if uv.name not in uv_names: 
+                    #check_actual_uv_nodes(yp, uv, obj)
+                    uv_names.append(uv.name)
+
     # Get unused uv objects
     unused_uvs = []
     unused_ids = []
@@ -1581,9 +1593,9 @@ def check_uv_nodes(yp, generate_missings=False):
         if layer.texcoord_type != 'UV' and layer.texcoord_type not in used_texcoords:
             used_texcoords.append(layer.texcoord_type)
 
-            for mask in layer.masks:
-                if mask.texcoord_type != 'UV' and mask.texcoord_type not in used_texcoords:
-                    used_texcoords.append(mask.texcoord_type)
+        for mask in layer.masks:
+            if mask.texcoord_type != 'UV' and mask.texcoord_type not in used_texcoords:
+                used_texcoords.append(mask.texcoord_type)
 
     # Check for unused texcoords
     unused_texcoords = []
