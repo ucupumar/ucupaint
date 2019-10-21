@@ -912,6 +912,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         bitangent = None
 
     baked_uv = yp.uvs.get(yp.baked_uv_name)
+    #print('Baked UV_Name:', yp.baked_uv_name, baked_uv)
     if yp.use_baked and baked_uv:
 
         baked_uv_map = nodes.get(baked_uv.uv_map).outputs[0]

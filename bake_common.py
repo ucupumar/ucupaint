@@ -118,7 +118,9 @@ def prepare_bake_settings(self, context, yp):
     if self.parallax_ch:
         self.parallax_ch.enable_parallax = False
 
-def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT'):
+def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
+        disable_problematic_modifiers=False):
+
     #scene = self.scene
     scene = bpy.context.scene
     #obj = bpy.context.object
@@ -147,6 +149,14 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
             o.select = False
         for obj in objs:
             obj.select = True
+
+    if disable_problematic_modifiers:
+        book['disabled_mods'] = []
+        for obj in objs:
+            for mod in obj.modifiers:
+                if mod.show_render and mod.type in {'MIRROR', 'SOLIDIFY'}:
+                    mod.show_render = False
+                    book['disabled_mods'].append(mod)
 
     # Set active uv layers
     if uv_map != '':
@@ -272,6 +282,11 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
     # Recover parallax
     if book['parallax_ch']:
         book['parallax_ch'].enable_parallax = True
+
+    # Recover modifiers
+    if 'disabled_mods' in book:
+        for mod in book['disabled_mods']:
+            mod.show_render = True
 
 def fxaa_image(image):
     book = remember_before_bake_()
@@ -438,27 +453,28 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     if root_ch.type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-        norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL)
+        #norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL)
+        norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
 
-        t = norm.node_tree.nodes.get('_tangent')
-        t.uv_map = uv_map
-        
-        bt = norm.node_tree.nodes.get('_bitangent')
-        bt.uv_map = uv_map
+        #t = norm.node_tree.nodes.get('_tangent')
+        #t.uv_map = uv_map
+        #
+        #bt = norm.node_tree.nodes.get('_bitangent')
+        #bt.uv_map = uv_map
 
-        if BL28_HACK:
-        #if is_28():
-            bake_uv = yp.uvs.get(uv_map)
-            if bake_uv:
-                tangent_process = tree.nodes.get(bake_uv.tangent_process)
-                t_socket = t.outputs[0].links[0].to_socket
-                bt_socket = bt.outputs[0].links[0].to_socket
-                hack_bt = norm.node_tree.nodes.new('ShaderNodeGroup')
-                hack_bt.node_tree = tangent_process.node_tree
-                hack_bt.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
-                hack_bt.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
-                create_link(norm.node_tree, hack_bt.outputs['Tangent'], t_socket)
-                create_link(norm.node_tree, hack_bt.outputs['Bitangent'], bt_socket)
+        #if BL28_HACK:
+        ##if is_28():
+        #    bake_uv = yp.uvs.get(uv_map)
+        #    if bake_uv:
+        #        tangent_process = tree.nodes.get(bake_uv.tangent_process)
+        #        t_socket = t.outputs[0].links[0].to_socket
+        #        bt_socket = bt.outputs[0].links[0].to_socket
+        #        hack_bt = norm.node_tree.nodes.new('ShaderNodeGroup')
+        #        hack_bt.node_tree = tangent_process.node_tree
+        #        hack_bt.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
+        #        hack_bt.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
+        #        create_link(norm.node_tree, hack_bt.outputs['Tangent'], t_socket)
+        #        create_link(norm.node_tree, hack_bt.outputs['Bitangent'], bt_socket)
 
     # Set tex as active node
     mat.node_tree.nodes.active = tex
@@ -581,7 +597,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         mat.node_tree.links.new(rgb, emit.inputs[0])
 
-        #return
+        #if root_ch.type == 'NORMAL':
+        #    return
 
         # Bake!
         bpy.ops.object.bake()

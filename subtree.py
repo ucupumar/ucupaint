@@ -1554,6 +1554,18 @@ def check_uv_nodes(yp, generate_missings=False):
 
     dirty = False
 
+    # Get baked uv name
+    if yp.baked_uv_name != '':
+        uv = yp.uvs.get(yp.baked_uv_name)
+        if not uv:
+            dirty = True
+            uv = yp.uvs.add()
+            uv.name = yp.baked_uv_name
+
+        if uv.name not in uv_names: 
+            #check_actual_uv_nodes(yp, uv, obj)
+            uv_names.append(uv.name)
+
     # Collect uv names from layers
     for layer in yp.layers:
         if layer.texcoord_type == 'UV' and layer.uv_name != '':

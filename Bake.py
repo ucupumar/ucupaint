@@ -857,12 +857,13 @@ class YBakeChannels(bpy.types.Operator):
         height = self.height * self.aa_level
 
         # Prepare bake settings
-        prepare_bake_settings_(book, objs, yp, self.samples, margin, self.uv_map)
+        prepare_bake_settings_(book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True)
 
         # Bake channels
         for ch in yp.channels:
             ch.no_layer_using = not is_any_layer_using_channel(ch)
             if not ch.no_layer_using:
+                #if ch.type != 'NORMAL': continue
                 use_hdr = not ch.use_clamp
                 bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr)
                 #return {'FINISHED'}
