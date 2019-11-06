@@ -1708,9 +1708,7 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
     obj = context.object
     is_a_mesh = True if obj and obj.type == 'MESH' else False
 
-    if is_28():
-        uv_layers = obj.data.uv_layers
-    else: uv_layers = obj.data.uv_textures
+    uv_layers = get_uv_layers(obj)
 
     # Check if uv is found
     uv_found = False

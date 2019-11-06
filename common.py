@@ -2681,7 +2681,8 @@ def get_displace_modifier(obj, keyword=''):
     return None
 
 def get_uv_layers(obj):
-    #if hasattr(obj.data, 'uv_textures'):
+    if obj.type != 'MESH': return None
+
     if not is_28():
         uv_layers = obj.data.uv_textures
     else: uv_layers = obj.data.uv_layers
