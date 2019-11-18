@@ -251,25 +251,45 @@ def draw_tex_props(source, layout):
 
     elif title == 'Musgrave':
 
-        row = col.row()
-        col = row.column(align=True)
-        col.label(text='Type:')
-        col.separator()
-        col.label(text='Scale:')
-        col.label(text='Detail:')
-        col.label(text='Dimension:')
-        col.label(text='Lacunarity:')
-        col.label(text='Offset:')
-        col.label(text='Gain:')
-        col = row.column(align=True)
-        col.prop(source, 'musgrave_type', text='')
-        col.separator()
-        col.prop(source.inputs[1], 'default_value', text='')
-        col.prop(source.inputs[2], 'default_value', text='')
-        col.prop(source.inputs[3], 'default_value', text='')
-        col.prop(source.inputs[4], 'default_value', text='')
-        col.prop(source.inputs[5], 'default_value', text='')
-        col.prop(source.inputs[6], 'default_value', text='')
+        if is_greater_than_281():
+            row = col.row()
+            col = row.column(align=True)
+            col.label(text='Dimensions:')
+            col.label(text='Type:')
+            col.separator()
+            col.label(text='Scale:')
+            col.label(text='Detail:')
+            col.label(text='Dimension:')
+            col.label(text='Lacunarity:')
+            col = row.column(align=True)
+            col.prop(source, 'musgrave_dimensions', text='')
+            col.prop(source, 'musgrave_type', text='')
+            col.separator()
+            col.prop(source.inputs[1], 'default_value', text='')
+            col.prop(source.inputs[2], 'default_value', text='')
+            col.prop(source.inputs[3], 'default_value', text='')
+            col.prop(source.inputs[4], 'default_value', text='')
+        else:
+
+            row = col.row()
+            col = row.column(align=True)
+            col.label(text='Type:')
+            col.separator()
+            col.label(text='Scale:')
+            col.label(text='Detail:')
+            col.label(text='Dimension:')
+            col.label(text='Lacunarity:')
+            col.label(text='Offset:')
+            col.label(text='Gain:')
+            col = row.column(align=True)
+            col.prop(source, 'musgrave_type', text='')
+            col.separator()
+            col.prop(source.inputs[1], 'default_value', text='')
+            col.prop(source.inputs[2], 'default_value', text='')
+            col.prop(source.inputs[3], 'default_value', text='')
+            col.prop(source.inputs[4], 'default_value', text='')
+            col.prop(source.inputs[5], 'default_value', text='')
+            col.prop(source.inputs[6], 'default_value', text='')
 
     elif title == 'Noise':
 
@@ -1036,7 +1056,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
         #expandable = True
         expandable = (
                 len(ch.modifiers) > 0 or 
-                layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'} or 
+                layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'} or 
                 root_ch.type == 'NORMAL' or
                 ch.show_transition_ramp or
                 ch.show_transition_ao or
@@ -1418,7 +1438,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
         draw_modifier_stack(context, ch, root_ch.type, modcol, 
                 ypui.layer_ui.channels[i], custom_icon_enable, layer)
 
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             row = mcol.row(align=True)
 
             input_settings_available = (ch.layer_input != 'ALPHA' 

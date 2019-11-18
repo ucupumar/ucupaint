@@ -1351,12 +1351,14 @@ def reconnect_source_internal_nodes(layer):
         create_link(tree, start.outputs[0], source.inputs[0])
 
     rgb = source.outputs[0]
-    alpha = source.outputs[1]
+    if layer.type == 'MUSGRAVE':
+        alpha = solid.outputs[0]
+    else: alpha = source.outputs[1]
 
     if linear:
         rgb = create_link(tree, rgb, linear.inputs[0])[0]
 
-    if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+    if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         rgb_1 = source.outputs[1]
         alpha = solid.outputs[0]
         alpha_1 = solid.outputs[0]
@@ -1373,7 +1375,7 @@ def reconnect_source_internal_nodes(layer):
         create_link(tree, rgb_1, end.inputs[2])
         create_link(tree, alpha_1, end.inputs[3])
 
-    if layer.type in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+    if layer.type in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, layer, rgb, alpha)
 
@@ -1498,7 +1500,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # RGB
     start_rgb = source.outputs[0]
     start_rgb_1 = None
-    if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX'}:
+    if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         start_rgb_1 = source.outputs[1]
 
     if not source_group and linear:
@@ -1510,7 +1512,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     else: start_alpha = one_value
     start_alpha_1 = one_value
 
-    if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI', 'OBJECT_INDEX'}:
+    if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         start_rgb_1 = source_group.outputs[2]
         start_alpha_1 = source_group.outputs[3]
 
@@ -1527,7 +1529,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             start_rgb, start_alpha = reconnect_all_modifier_nodes(
                     tree, layer, start_rgb, start_alpha, mod_group)
 
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             mod_group_1 = nodes.get(layer.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
                     tree, layer, source.outputs[1], one_value, mod_group_1)
@@ -1811,7 +1813,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if root_ch.enable_alpha:
                 bg_alpha = source.outputs[root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND']]
 
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             if ch.layer_input == 'ALPHA':
                 rgb = start_rgb_1
                 alpha = start_alpha_1

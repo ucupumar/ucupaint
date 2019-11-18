@@ -1811,8 +1811,12 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
     if 'ResX' not in uv_neighbor.inputs: return
 
     if entity.type == 'IMAGE' and source.image:
-        uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.scale[0]
-        uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.scale[1]
+        if is_greater_than_281():
+            uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.inputs[3].default_value[0]
+            uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.inputs[3].default_value[1]
+        else:
+            uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.scale[0]
+            uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.scale[1]
     else:
         uv_neighbor.inputs['ResX'].default_value = 1000.0
         uv_neighbor.inputs['ResY'].default_value = 1000.0

@@ -297,7 +297,7 @@ def refresh_source_tree_ios(source_tree, layer_type):
     alp1 = source_tree.outputs.get('Alpha 1')
     #solid = source_tree.nodes.get(ONE_VALUE)
 
-    if layer_type != 'IMAGE':
+    if layer_type not in {'IMAGE', 'MUSGRAVE'}:
 
         if not col1: col1 = source_tree.outputs.new('NodeSocketColor', 'Color 1')
         if not alp1: alp1 = source_tree.outputs.new('NodeSocketFloat', 'Alpha 1')
@@ -359,7 +359,7 @@ def enable_layer_source_tree(layer, rearrange=False):
         if mapping_ref: layer_tree.nodes.remove(mapping_ref)
     
         # Bring modifiers to source tree
-        if layer.type == 'IMAGE':
+        if layer.type in {'IMAGE', 'MUSGRAVE'}:
             for mod in layer.modifiers:
                 Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
         else:
