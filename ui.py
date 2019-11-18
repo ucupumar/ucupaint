@@ -575,8 +575,9 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 #brow.prop(channel, 'enable_parallax', text='')
 
                 brow = bcol.row(align=True)
-                brow.active = channel.enable_parallax and (
-                        not yp.use_baked or not channel.enable_subdiv_setup or channel.subdiv_adaptive)
+                #brow.active = channel.enable_parallax and (
+                #        not yp.use_baked or not channel.enable_subdiv_setup or channel.subdiv_adaptive)
+                brow.active = not yp.use_baked or not channel.enable_subdiv_setup or channel.subdiv_adaptive
 
                 if custom_icon_enable:
                     if chui.expand_parallax_settings:
@@ -1098,8 +1099,12 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     cur_y = uv_neighbor.inputs[2].default_value 
 
                     mapping = get_layer_mapping(layer)
-                    correct_x = image.size[0] * mapping.scale[0]
-                    correct_y = image.size[1] * mapping.scale[1]
+                    if is_greater_than_281():
+                        correct_x = image.size[0] * mapping.inputs[3].default_value[0]
+                        correct_y = image.size[1] * mapping.inputs[3].default_value[1]
+                    else:
+                        correct_x = image.size[0] * mapping.scale[0]
+                        correct_y = image.size[1] * mapping.scale[1]
 
                     if cur_x != correct_x or cur_y != correct_y:
                         brow = mcol.row(align=True)

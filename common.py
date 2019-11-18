@@ -253,12 +253,21 @@ PARALLAX_CURRENT_MIX_PREFIX = 'Parallax Current Mix '
 
 GAMMA = 2.2
 
+def versiontuple(v):
+    return tuple(map(int, (v.split("."))))
+
 def get_current_version_str():
     bl_info = sys.modules[ADDON_NAME].bl_info
     return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
 
 def is_28():
     if bpy.app.version_string.startswith('2.8'):
+        return True
+    else: return False
+
+def is_greater_than_281():
+    ver = bpy.app.version_string[:4]
+    if versiontuple(ver) >= versiontuple('2.81'):
         return True
     else: return False
 
@@ -1844,9 +1853,14 @@ def update_mapping(entity):
         offset_x = scale_x * segment.tile_x + offset_x * scale_x
         offset_y = scale_y * segment.tile_y + offset_y * scale_y
 
-    mapping.translation = (offset_x, offset_y, offset_z)
-    mapping.rotation = entity.rotation
-    mapping.scale = (scale_x, scale_y, scale_z)
+    if is_greater_than_281():
+        mapping.inputs[1].default_value = (offset_x, offset_y, offset_z)
+        mapping.inputs[2].default_value = entity.rotation
+        mapping.inputs[3].default_value = (scale_x, scale_y, scale_z)
+    else:
+        mapping.translation = (offset_x, offset_y, offset_z)
+        mapping.rotation = entity.rotation
+        mapping.scale = (scale_x, scale_y, scale_z)
 
     set_uv_neighbor_resolution(entity, source=source, mapping=mapping)
 
@@ -1885,18 +1899,32 @@ def is_active_uv_map_match_entity(obj, entity):
     return False
 
 def is_transformed(mapping):
-    if (mapping.translation[0] != 0.0 or
-        mapping.translation[1] != 0.0 or
-        mapping.translation[2] != 0.0 or
-        mapping.rotation[0] != 0.0 or
-        mapping.rotation[1] != 0.0 or
-        mapping.rotation[2] != 0.0 or
-        mapping.scale[0] != 1.0 or
-        mapping.scale[1] != 1.0 or
-        mapping.scale[2] != 1.0
-        ):
-        return True
-    return False
+    if is_greater_than_281():
+        if (mapping.inputs[1].default_value[0] != 0.0 or
+            mapping.inputs[1].default_value[1] != 0.0 or
+            mapping.inputs[1].default_value[2] != 0.0 or
+            mapping.inputs[2].default_value[0] != 0.0 or
+            mapping.inputs[2].default_value[1] != 0.0 or
+            mapping.inputs[2].default_value[2] != 0.0 or
+            mapping.inputs[3].default_value[0] != 1.0 or
+            mapping.inputs[3].default_value[1] != 1.0 or
+            mapping.inputs[3].default_value[2] != 1.0
+            ):
+            return True
+        return False
+    else:
+        if (mapping.translation[0] != 0.0 or
+            mapping.translation[1] != 0.0 or
+            mapping.translation[2] != 0.0 or
+            mapping.rotation[0] != 0.0 or
+            mapping.rotation[1] != 0.0 or
+            mapping.rotation[2] != 0.0 or
+            mapping.scale[0] != 1.0 or
+            mapping.scale[1] != 1.0 or
+            mapping.scale[2] != 1.0
+            ):
+            return True
+        return False
 
 def refresh_temp_uv(obj, entity): 
 
@@ -1960,20 +1988,41 @@ def refresh_temp_uv(obj, entity):
 
     # Create transformation matrix
     # Scale
-    m = Matrix((
-        (mapping.scale[0], 0, 0),
-        (0, mapping.scale[1], 0),
-        (0, 0, mapping.scale[2])
-        ))
+    if not is_greater_than_281():
+        m = Matrix((
+            (mapping.scale[0], 0, 0),
+            (0, mapping.scale[1], 0),
+            (0, 0, mapping.scale[2])
+            ))
 
-    # Rotate
-    m.rotate(Euler((mapping.rotation[0], mapping.rotation[1], mapping.rotation[2])))
+        # Rotate
+        m.rotate(Euler((mapping.rotation[0], mapping.rotation[1], mapping.rotation[2])))
 
-    # Translate
-    m = m.to_4x4()
-    m[0][3] = mapping.translation[0]
-    m[1][3] = mapping.translation[1]
-    m[2][3] = mapping.translation[2]
+        # Translate
+        m = m.to_4x4()
+        if is_greater_than_281():
+            m[0][3] = mapping.inputs[1].default_value[0]
+            m[1][3] = mapping.inputs[1].default_value[1]
+            m[2][3] = mapping.inputs[1].default_value[2]
+        else:
+            m[0][3] = mapping.translation[0]
+            m[1][3] = mapping.translation[1]
+            m[2][3] = mapping.translation[2]
+    else:
+        m = Matrix((
+            (mapping.inputs[3].default_value[0], 0, 0),
+            (0, mapping.inputs[3].default_value[1], 0),
+            (0, 0, mapping.inputs[3].default_value[2])
+            ))
+
+        # Rotate
+        m.rotate(Euler((mapping.inputs[2].default_value[0], mapping.inputs[2].default_value[1], mapping.inputs[2].default_value[2])))
+
+        # Translate
+        m = m.to_4x4()
+        m[0][3] = mapping.inputs[1].default_value[0]
+        m[1][3] = mapping.inputs[1].default_value[1]
+        m[2][3] = mapping.inputs[1].default_value[2]
 
     # Create numpy array to store uv coordinates
     arr = numpy.zeros(len(obj.data.loops)*2, dtype=numpy.float32)
