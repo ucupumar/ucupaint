@@ -87,8 +87,16 @@ def layer_input_items(self, context):
 
     label = layer_type_labels[layer.type]
 
-    items.append(('RGB', label + ' Color',  ''))
-    items.append(('ALPHA', label + ' Factor',  ''))
+    #if is_greater_than_281() and layer.type in {'NOISE'}:
+    #    items.append(('RGB', label + ' Color',  ''))
+    #    items.append(('ALPHA', label + ' Factor',  ''))
+    #else:
+    if is_greater_than_281() and layer.type == 'VORONOI':
+        items.append(('RGB', label + ' Color',  ''))
+        items.append(('ALPHA', label + ' Distance',  ''))
+    else:
+        items.append(('RGB', label + ' Color',  ''))
+        items.append(('ALPHA', label + ' Factor',  ''))
         
     #if layer.type == 'IMAGE':
     #    items.append(('ALPHA', label + ' Alpha',  ''))

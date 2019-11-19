@@ -265,10 +265,10 @@ def draw_tex_props(source, layout):
             col.prop(source, 'musgrave_dimensions', text='')
             col.prop(source, 'musgrave_type', text='')
             col.separator()
-            col.prop(source.inputs[1], 'default_value', text='')
             col.prop(source.inputs[2], 'default_value', text='')
             col.prop(source.inputs[3], 'default_value', text='')
             col.prop(source.inputs[4], 'default_value', text='')
+            col.prop(source.inputs[5], 'default_value', text='')
         else:
 
             row = col.row()
@@ -293,26 +293,63 @@ def draw_tex_props(source, layout):
 
     elif title == 'Noise':
 
-        row = col.row()
-        col = row.column(align=True)
-        col.label(text='Scale:')
-        col.label(text='Detail:')
-        col.label(text='Distortion:')
-        col = row.column(align=True)
-        for i in range (1,4):
-            col.prop(source.inputs[i], 'default_value', text='')
+        if is_greater_than_281():
+            row = col.row()
+            col = row.column(align=True)
+            col.label(text='Dimensions:')
+            col.separator()
+            col.label(text='Scale:')
+            col.label(text='Detail:')
+            col.label(text='Distortion:')
+            col = row.column(align=True)
+            col.prop(source, 'noise_dimensions', text='')
+            col.separator()
+            for i in range (2,5):
+                col.prop(source.inputs[i], 'default_value', text='')
+        else:
+            row = col.row()
+            col = row.column(align=True)
+            col.label(text='Scale:')
+            col.label(text='Detail:')
+            col.label(text='Distortion:')
+            col = row.column(align=True)
+            for i in range (1,4):
+                col.prop(source.inputs[i], 'default_value', text='')
 
     elif title == 'Voronoi':
 
-        row = col.row()
-        col = row.column(align=True)
-        col.label(text='Coloring:')
-        col.separator()
-        col.label(text='Scale:')
-        col = row.column(align=True)
-        col.prop(source, 'coloring', text='')
-        col.separator()
-        col.prop(source.inputs[1], 'default_value', text='')
+        if is_greater_than_281():
+            row = col.row()
+            col = row.column(align=True)
+            col.label(text='Dimensions:')
+            col.label(text='Feature:')
+            col.label(text='Distance:')
+            col.separator()
+            col.label(text='Scale:')
+            col.label(text='Randomness:')
+            col = row.column(align=True)
+            col.prop(source, 'voronoi_dimensions', text='')
+            col.prop(source, 'feature', text='')
+            col.prop(source, 'distance', text='')
+            col.separator()
+            col.prop(source.inputs[2], 'default_value', text='')
+            col.prop(source.inputs[5], 'default_value', text='')
+        else:
+            row = col.row()
+            col = row.column(align=True)
+            col.label(text='Coloring:')
+            if is_28():
+                col.label(text='Distance:')
+                col.label(text='Feature:')
+            col.separator()
+            col.label(text='Scale:')
+            col = row.column(align=True)
+            col.prop(source, 'coloring', text='')
+            if is_28():
+                col.prop(source, 'distance', text='')
+                col.prop(source, 'feature', text='')
+            col.separator()
+            col.prop(source.inputs[1], 'default_value', text='')
 
     elif title == 'Wave':
 

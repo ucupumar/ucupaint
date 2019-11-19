@@ -1814,7 +1814,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 bg_alpha = source.outputs[root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND']]
 
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
-            if ch.layer_input == 'ALPHA':
+            if is_greater_than_281():
+                if (
+                    (layer.type in {'NOISE', 'VORONOI'} and ch.layer_input == 'RGB') or 
+                    (layer.type not in {'NOISE', 'VORONOI'} and ch.layer_input == 'ALPHA')
+                    ):
+                    rgb = start_rgb_1
+                    alpha = start_alpha_1
+            elif ch.layer_input == 'ALPHA':
                 rgb = start_rgb_1
                 alpha = start_alpha_1
 
@@ -1916,9 +1923,18 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             rgb_w = rgb
 
             if source_n and source_s and source_e and source_w:
-                if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX'} and ch.layer_input == 'ALPHA':
-                    source_index = 2
-                else: source_index = 0
+                if is_greater_than_281():
+                    if (
+                        (ch.layer_input == 'RGB' and layer.type in {'NOISE', 'VORONOI'}) or
+                        (ch.layer_input == 'ALPHA' and layer.type not in {'NOISE', 'VORONOI'})
+                        ):
+                        source_index = 2
+                    else:
+                        source_index = 0
+                else:
+                    if ch.layer_input == 'ALPHA' and layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+                        source_index = 2
+                    else: source_index = 0
 
                 rgb_n = source_n.outputs[source_index]
                 rgb_s = source_s.outputs[source_index]
