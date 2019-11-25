@@ -2004,14 +2004,9 @@ def refresh_temp_uv(obj, entity):
 
         # Translate
         m = m.to_4x4()
-        if is_greater_than_281():
-            m[0][3] = mapping.inputs[1].default_value[0]
-            m[1][3] = mapping.inputs[1].default_value[1]
-            m[2][3] = mapping.inputs[1].default_value[2]
-        else:
-            m[0][3] = mapping.translation[0]
-            m[1][3] = mapping.translation[1]
-            m[2][3] = mapping.translation[2]
+        m[0][3] = mapping.translation[0]
+        m[1][3] = mapping.translation[1]
+        m[2][3] = mapping.translation[2]
     else:
         m = Matrix((
             (mapping.inputs[3].default_value[0], 0, 0),
