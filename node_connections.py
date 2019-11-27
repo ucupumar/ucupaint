@@ -1183,7 +1183,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 if clamp:
                     rgb = create_link(tree, rgb, clamp.inputs[1])[0]
 
-        if yp.use_baked and not ch.no_layer_using: # and baked_uv:
+        if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked: # and baked_uv:
             baked = nodes.get(ch.baked)
             if baked:
                 rgb = baked.outputs[0]

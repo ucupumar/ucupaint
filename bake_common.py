@@ -1,7 +1,7 @@
 import bpy
 from .common import *
 from .node_connections import *
-from . import lib
+from . import lib, Layer
 
 BL28_HACK = True
 
@@ -810,4 +810,93 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 bpy.data.images.remove(ori_img)
 
         return True
+
+def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map):
+
+    m1 = re.match(r'yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if not m1 and not m2: return
+
+    yp = entity.id_data.yp
+    obj = context.object
+    #scene = context.scene
+
+    # Prepare bake settings
+    book = remember_before_bake_(yp)
+    prepare_bake_settings_(book, [obj], yp, samples, margin, uv_map)
+
+    mat = get_active_material()
+    name = entity.name + ' Temp'
+
+    # New target image
+    image = bpy.data.images.new(name=name,
+            width=width, height=height, alpha=True, float_buffer=hdr)
+    image.colorspace_settings.name = 'Linear'
+
+    if entity.type == 'HEMI':
+
+        if m1: source = get_layer_source(entity)
+        else: source = get_mask_source(entity)
+
+        # Create bake nodes
+        source_copy = mat.node_tree.nodes.new(source.bl_idname)
+        source_copy.node_tree = source.node_tree
+
+        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+        output = get_active_mat_output_node(mat.node_tree)
+        ori_bsdf = output.inputs[0].links[0].from_socket
+
+        # Connect emit to output material
+        mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+        mat.node_tree.links.new(source_copy.outputs[0], output.inputs[0])
+
+        # Set active texture
+        tex.image = image
+        mat.node_tree.nodes.active = tex
+
+        # Bake
+        bpy.ops.object.bake()
+
+        # Recover link
+        mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+
+        # Remove temp nodes
+        mat.node_tree.nodes.remove(tex)
+        simple_remove_node(mat.node_tree, emit)
+        simple_remove_node(mat.node_tree, source_copy)
+
+        # Set entity original type
+        entity.original_type = 'HEMI'
+
+    # Set entity flag
+    entity.use_temp_bake = True
+
+    # Recover bake settings
+    recover_bake_settings_(book, yp)
+
+    # Replace layer with temp image
+    if m1: 
+        Layer.replace_layer_type(entity, 'IMAGE', image.name, remove_data=True)
+    else: Layer.replace_mask_type(entity, 'IMAGE', image.name, remove_data=True)
+
+    # Set uv
+    entity.uv_name = uv_map
+
+    return image
+
+def disable_temp_bake(entity):
+    if not entity.use_temp_bake: return
+
+    m1 = re.match(r'yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    # Replace layer type
+    if m1: Layer.replace_layer_type(entity, entity.original_type, remove_data=True)
+    else: Layer.replace_mask_type(entity, entity.original_type, remove_data=True)
+
+    # Set entity attribute
+    entity.use_temp_bake = False
+
 

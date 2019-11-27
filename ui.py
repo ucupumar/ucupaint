@@ -1790,6 +1790,11 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
         if len(yp.channels) > 0:
             root_ch = yp.channels[yp.active_channel_index]
 
+            #col.prop(root_ch, 'disable_global_baked', text='Disable Baked Image(s)')
+
+            #col = box.column(align=False)
+            #col.active = not root_ch.disable_global_baked
+
             baked = nodes.get(root_ch.baked)
             if not baked or not baked.image or root_ch.no_layer_using:
                 col.label(text='No layer is using this channel !')
@@ -1804,7 +1809,9 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                 else:
                     row.label(text=label, icon=lib.channel_icon_dict[root_ch.type])
 
+                row.context_pointer_set('root_ch', root_ch)
                 row.context_pointer_set('image', baked.image)
+
 
                 if is_28():
                     row.menu("NODE_MT_y_baked_image_menu", text='', icon='PREFERENCES')
@@ -1812,10 +1819,13 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
 
                 #row.label(text='Baked Image (' + root_ch.name + '):')
                 row = col.row(align=True)
+                row.active = not root_ch.disable_global_baked
                 row.label(text='', icon='BLANK1')
                 if baked.image.is_dirty:
                     label = baked.image.name + ' *'
                 else: label = baked.image.name
+                if root_ch.disable_global_baked:
+                    label += ' (Disabled)'
                 row.label(text=label, icon='IMAGE_DATA')
 
                 if baked.image.packed_file:
@@ -1826,10 +1836,13 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                 baked_normal_overlay = nodes.get(root_ch.baked_normal_overlay)
                 if baked_normal_overlay and baked_normal_overlay.image:
                     row = col.row(align=True)
+                    row.active = not root_ch.disable_global_baked
                     row.label(text='', icon='BLANK1')
                     if baked_normal_overlay.image.is_dirty:
                         label = baked_normal_overlay.image.name + ' *'
                     else: label = baked_normal_overlay.image.name
+                    if root_ch.disable_global_baked:
+                        label += ' (Disabled)'
                     row.label(text=label, icon='IMAGE_DATA')
 
                     if baked_normal_overlay.image.packed_file:
@@ -1838,10 +1851,13 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                 baked_disp = nodes.get(root_ch.baked_disp)
                 if baked_disp and baked_disp.image:
                     row = col.row(align=True)
+                    row.active = not root_ch.disable_global_baked
                     row.label(text='', icon='BLANK1')
                     if baked_disp.image.is_dirty:
                         label = baked_disp.image.name + ' *'
                     else: label = baked_disp.image.name
+                    if root_ch.disable_global_baked:
+                        label += ' (Disabled)'
                     row.label(text=label, icon='IMAGE_DATA')
 
                     if baked_disp.image.packed_file:
@@ -2861,6 +2877,16 @@ class YBakedImageMenu(bpy.types.Menu):
 
     def draw(self, context):
         col = self.layout.column()
+
+        #node = get_active_ypaint_node()
+        #yp = node.node_tree.yp
+        #try:
+        #    root_ch = yp.channels[yp.active_channel_index]
+        col.prop(context.root_ch, 'disable_global_baked', text='Disable Baked Image(s)', icon='RESTRICT_RENDER_ON')
+        col.separator()
+        #except Exception as e: 
+        #    print(e)
+
         #col.label('Ya dun sai')
         col.operator('node.y_pack_image', icon='PACKAGE')
         col.operator('node.y_save_image', icon='FILE_TICK')

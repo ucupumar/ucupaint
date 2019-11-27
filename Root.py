@@ -2266,6 +2266,12 @@ def update_channel_use_clamp(self, context):
     rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)
 
+def update_channel_disable_global_baked(self, context):
+    group_tree = self.id_data
+
+    rearrange_yp_nodes(group_tree)
+    reconnect_yp_nodes(group_tree)
+
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
 #    group_tree = group_node.node_tree
@@ -2392,6 +2398,16 @@ class YPaintChannel(bpy.types.PropertyGroup):
                      ),
             default='32',
             update=update_parallax_num_of_layers)
+
+    disable_global_baked = BoolProperty(
+            name = 'Disable Global Baked', 
+            description = 'Disable baked image for this channel if global baked is on',
+            default=False, update=update_channel_disable_global_baked)
+
+    #use_baked = BoolProperty(
+    #        name = 'Use Baked Image', 
+    #        description = 'Use baked image for this channel',
+    #        default=False)
 
     #parallax_num_of_binary_samples = IntProperty(default=5, min=4, max=64,
     #        update=update_parallax_samples)
