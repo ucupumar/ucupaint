@@ -1695,11 +1695,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         create_link(tree, mask_uv_neighbor.outputs['e'], mask_mix.inputs['Color2 e'])
                         create_link(tree, mask_uv_neighbor.outputs['w'], mask_mix.inputs['Color2 w'])
                     else:
-                        #if 'Color2 n' in mask_mix.inputs:
-                        if mask_source_n: 
-                            create_link(tree, mask_source_n.outputs[0], mask_mix.inputs['Color2 n'])
-                        else: 
-                            create_link(tree, mask_val, mask_mix.inputs['Color2 n'])
+                        if 'Color2 n' in mask_mix.inputs:
+                            if mask_source_n: 
+                                create_link(tree, mask_source_n.outputs[0], mask_mix.inputs['Color2 n'])
+                            else: 
+                                create_link(tree, mask_val, mask_mix.inputs['Color2 n'])
 
                         if mask_source_s: create_link(tree, mask_source_s.outputs[0], mask_mix.inputs['Color2 s'])
                         if mask_source_e: create_link(tree, mask_source_e.outputs[0], mask_mix.inputs['Color2 e'])
@@ -2124,7 +2124,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         alpha_s = create_link(tree, one_value, mix.inputs['Color1 s'])['Color s']
                         alpha_e = create_link(tree, one_value, mix.inputs['Color1 e'])['Color e']
                         alpha_w = create_link(tree, one_value, mix.inputs['Color1 w'])['Color w']
-                    else:
+                    elif 'Color1 n' in mix.inputs:
                         alpha_n = create_link(tree, alpha_n, mix.inputs['Color1 n'])['Color n']
                         alpha_s = create_link(tree, alpha_s, mix.inputs['Color1 s'])['Color s']
                         alpha_e = create_link(tree, alpha_e, mix.inputs['Color1 e'])['Color e']
