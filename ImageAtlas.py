@@ -43,11 +43,16 @@ def get_available_tile(width, height, atlas):
 
     return []
 
-def create_image_atlas(color='BLACK', size=8192, hdr=False):
+def create_image_atlas(color='BLACK', size=8192, hdr=False, name=''):
+
+    if name != '':
+        name = '~' + name + ' Image Atlas'
+    else: name = '~Image Atlas'
 
     if hdr:
-        name = get_unique_name('~Image Atlas HDR', bpy.data.images)
-    else: name = get_unique_name('~Image Atlas', bpy.data.images)
+        name += ' HDR'
+
+    name = get_unique_name(name, bpy.data.images)
 
     img = bpy.data.images.new(name=name, 
             width=size, height=size, alpha=True, float_buffer=hdr)
@@ -81,10 +86,9 @@ def create_image_atlas_segment(atlas, width, height):
 
     return segment
 
-def clear_unused_segments(atlas):
-    img = atlas.id_data
-
-    pxs = list(img.pixels)
+def clear_segment(segment):
+    img = segment.id_data
+    atlas = img.yia
 
     if atlas.color == 'BLACK':
         col = (0.0, 0.0, 0.0, 1.0)
@@ -93,23 +97,29 @@ def clear_unused_segments(atlas):
     else:
         col = (0.0, 0.0, 0.0, 0.0)
 
+    pxs = list(img.pixels)
+
+    # Recolor segment
+    start_x = segment.width * segment.tile_x
+    end_x = start_x + segment.width
+
+    start_y = segment.height * segment.tile_y
+    end_y = start_y + segment.height
+
+    for y in range(start_y, end_y):
+        offset_y = img.size[0] * 4 * y
+        for x in range(start_x, end_x):
+            for i in range(4):
+                pxs[offset_y + (x*4) + i] = col[i]
+
+    img.pixels = pxs
+
+def clear_unused_segments(atlas):
+
     # Recolor unused segments
     for segment in atlas.segments:
         if segment.unused:
-
-            start_x = segment.width * segment.tile_x
-            end_x = start_x + segment.width
-
-            start_y = segment.height * segment.tile_y
-            end_y = start_y + segment.height
-
-            for y in range(start_y, end_y):
-                offset_y = img.size[0] * 4 * y
-                for x in range(start_x, end_x):
-                    for i in range(4):
-                        pxs[offset_y + (x*4) + i] = col[i]
-
-    img.pixels = pxs
+            clear_segment(segment)
 
     # Remove unused segments
     for i, segment in reversed(list(enumerate(atlas.segments))):
@@ -162,7 +172,7 @@ def copy_segment_pixels(img_from, segment_from, img_to, segment_to):
 
     img_to.pixels = to_pxs
 
-def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_from=None, segment_from=None):
+def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_from=None, segment_from=None, yp=None):
 
     if is_28():
         ypup = bpy.context.preferences.addons[__package__].preferences
@@ -170,8 +180,17 @@ def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_fro
 
     segment = None
 
+    # Get bunch of images
+
+    if yp and ypup.unique_image_atlas_per_yp:
+        images = get_yp_images(yp)
+        name = yp.id_data.name
+    else:
+        images = bpy.data.images
+        name = ''
+
     # Serach for available image atlas
-    for img in bpy.data.images:
+    for img in images:
         #if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
         if img.yia.is_image_atlas and img.yia.color == color and img.is_float == hdr:
             segment = create_image_atlas_segment(img.yia, width, height)
@@ -187,7 +206,7 @@ def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_fro
         else: new_atlas_size = ypup.image_atlas_size
 
         # If proper image atlas can't be found, create new one
-        img = create_image_atlas(color, new_atlas_size, hdr)
+        img = create_image_atlas(color, new_atlas_size, hdr, name)
         segment = create_image_atlas_segment(img.yia, width, height)
         #if segment: return segment
 

@@ -317,6 +317,7 @@ class YNewLayerMask(bpy.types.Operator):
         mat = obj.active_material
         ypui = context.window_manager.ypui
         layer = self.layer
+        yp = layer.id_data.yp
         #ypup = bpy.context.user_preferences.addons[__package__].preferences
 
         # Check if object is not a mesh
@@ -355,7 +356,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             if self.use_image_atlas:
                 segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, self.color_option, self.hdr) #, ypup.image_atlas_size)
+                        self.width, self.height, self.color_option, self.hdr, yp=yp) #, ypup.image_atlas_size)
                 img = segment.id_data
             else:
                 img = bpy.data.images.new(name=self.name, 

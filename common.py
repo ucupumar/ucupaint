@@ -948,7 +948,7 @@ def create_info_nodes(tree):
     infos.append(info)
 
     info = nodes.new('NodeFrame')
-    info.label = 'Please use this panel: Node Editor > Tools > ' + ADDON_TITLE
+    info.label = 'Please use this panel: Node Editor > Properties > ' + ADDON_TITLE
     #info.label = 'Please use this panel: Node Editor > Tools > Misc'
     info.use_custom_color = True
     info.color = (1.0, 0.5, 0.5)
@@ -2839,6 +2839,23 @@ def get_scene_objects():
     if is_28():
         return bpy.context.view_layer.objects
     else: return bpy.context.scene.objects
+
+def get_yp_images(yp):
+
+    images = []
+
+    for layer in yp.layers:
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source and source.image and source.image not in images:
+                images.append(source.image)
+        for mask in layer.masks:
+            if mask.type == 'IMAGE':
+                source = get_mask_source(mask)
+                if source and source.image and source.image not in images:
+                    images.append(source.image)
+
+    return images
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

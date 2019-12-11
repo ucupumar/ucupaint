@@ -29,10 +29,16 @@ class YPaintPreferences(AddonPreferences):
             description = 'HDR Image Atlas Size',
             default = 2048)
 
+    unique_image_atlas_per_yp = BoolProperty(
+            name = 'Use unique Image Atlas per ' + ADDON_TITLE + ' tree',
+            description = 'Try to use different image atlas per ' + ADDON_TITLE + ' tree',
+            default = True)
+
     def draw(self, context):
         self.layout.prop(self, 'auto_save')
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
+        self.layout.prop(self, 'unique_image_atlas_per_yp')
 
 @persistent
 def auto_save_images(scene):

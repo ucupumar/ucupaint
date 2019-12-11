@@ -255,7 +255,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         if mask_type == 'IMAGE':
             if use_image_atlas_for_mask:
                 mask_segment = ImageAtlas.get_set_image_atlas_segment(
-                        mask_width, mask_height, mask_color, mask_use_hdr) #, ypup.image_atlas_size)
+                        mask_width, mask_height, mask_color, mask_use_hdr, yp=yp) #, ypup.image_atlas_size)
                 mask_image = mask_segment.id_data
             else:
                 mask_image = bpy.data.images.new(mask_name, 
@@ -750,7 +750,7 @@ class YNewLayer(bpy.types.Operator):
 
             if self.use_image_atlas:
                 segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, 'TRANSPARENT', self.hdr) #, ypup.image_atlas_size)
+                        self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
                 img = segment.id_data
             else:
 
@@ -2111,6 +2111,10 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
 
     yp = tree.yp
 
+    if is_28():
+        ypup = bpy.context.preferences.addons[__package__].preferences
+    else: ypup = bpy.context.user_preferences.addons[__package__].preferences
+
     img_users = []
     img_nodes = []
     imgs = []
@@ -2233,31 +2237,42 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
     if make_image_single_user:
 
         already_copied_ids = []
+        copied_image_atlas = {}
 
         # Copy image on layer and masks
         for i, img in enumerate(imgs):
 
             if img.yia.is_image_atlas:
                 segment = img.yia.segments.get(img_users[i].segment_name)
+                new_segment = None
 
                 # create new segment based on previous one
                 if make_image_blank:
                     new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
-                            img.yia.color, img.is_float)
+                            img.yia.color, img.is_float, yp=yp)
+
+                # If using different image atlas per yp, just copy the image (unless specific layer is on)
+                elif ypup.unique_image_atlas_per_yp and not specific_layer:
+                    if img.name not in copied_image_atlas:
+                        copied_image_atlas[img.name] = img.copy()
+                    img_nodes[i].image = copied_image_atlas[img.name]
+
                 else:
                     new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
                             img.yia.color, img.is_float, img, segment)
 
                 #print(img_users[i], new_segment.tile_x, new_segment.tile_y)
 
-                img_users[i].segment_name = new_segment.name
+                if new_segment:
 
-                # Change image if different image is returned
-                if new_segment.id_data != img:
-                    img_nodes[i].image = new_segment.id_data
+                    img_users[i].segment_name = new_segment.name
 
-                # Update layer transform
-                update_mapping(img_users[i])
+                    # Change image if different image is returned
+                    if new_segment.id_data != img:
+                        img_nodes[i].image = new_segment.id_data
+
+                    # Update layer transform
+                    update_mapping(img_users[i])
 
             elif i not in already_copied_ids:
                 # Copy image if not atlas
