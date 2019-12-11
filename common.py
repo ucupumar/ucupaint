@@ -9,8 +9,8 @@ MAX_VERTEX_DATA = 8
 
 LAYERGROUP_PREFIX = '~yP Layer '
 MASKGROUP_PREFIX = '~yP Mask '
-ADDON_NAME = 'painty'
-ADDON_TITLE = 'Painty'
+ADDON_NAME = 'ypaint'
+ADDON_TITLE = 'yPaint'
 
 INFO_PREFIX = '__yp_info_'
 
@@ -948,8 +948,8 @@ def create_info_nodes(tree):
     infos.append(info)
 
     info = nodes.new('NodeFrame')
-    #info.label = 'Please use this panel: Node Editor > Tools > ' + ADDON_TITLE
-    info.label = 'Please use this panel: Node Editor > Tools > Misc'
+    info.label = 'Please use this panel: Node Editor > Tools > ' + ADDON_TITLE
+    #info.label = 'Please use this panel: Node Editor > Tools > Misc'
     info.use_custom_color = True
     info.color = (1.0, 0.5, 0.5)
     info.width = 580.0

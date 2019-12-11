@@ -134,11 +134,11 @@
 # - Baking object with multi materials need temporary uv manipulation, without that all uv will be baked, which is not ideals (V)
 
 bl_info = {
-    "name": "Painty",
+    "name": "yPaint",
     "author": "Yusuf Umar",
     "version": (0, 1, 0),
     "blender": (2, 80, 0),
-    "location": "Node Editor > Properties > Painty",
+    "location": "Node Editor > Properties > yPaint",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
     "warning" : "This is alpha version, incompability to future releases might happen",
     #"wiki_url": "http://patreon.com/ucupumar",

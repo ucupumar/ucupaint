@@ -815,11 +815,18 @@ class YNewLayer(bpy.types.Operator):
 
             mapping = get_layer_mapping(layer)
             if mapping:
-                mapping.scale[0] = scale_x
-                mapping.scale[1] = scale_y
+                if is_greater_than_281():
+                    mapping.inputs[3].default_value[0] = scale_x
+                    mapping.inputs[3].default_value[1] = scale_y
 
-                mapping.translation[0] = offset_x
-                mapping.translation[1] = offset_y
+                    mapping.inputs[0].default_value[0] = offset_x
+                    mapping.inputs[0].default_value[1] = offset_y
+                else:
+                    mapping.scale[0] = scale_x
+                    mapping.scale[1] = scale_y
+
+                    mapping.translation[0] = offset_x
+                    mapping.translation[1] = offset_y
 
             refresh_temp_uv(obj, layer)
 
