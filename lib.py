@@ -238,6 +238,7 @@ channel_icon_dict = {
         }
 
 def load_custom_icons():
+    import bpy.utils.previews
     # Custom Icon
     if not hasattr(bpy.utils, 'previews'): return
     global custom_icons
@@ -253,20 +254,53 @@ def load_custom_icons():
     custom_icons.load('add_modifier', filepath + 'add_modifier_icon.png', 'IMAGE')
     custom_icons.load('add_mask', filepath + 'add_mask_icon.png', 'IMAGE')
 
+    custom_icons.load('texture', filepath + 'texture_icon.png', 'IMAGE')
     custom_icons.load('collapsed_texture', filepath + 'collapsed_texture_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_texture', filepath + 'uncollapsed_texture_icon.png', 'IMAGE')
+
+    custom_icons.load('image', filepath + 'image_icon.png', 'IMAGE')
     custom_icons.load('collapsed_image', filepath + 'collapsed_image_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_image', filepath + 'uncollapsed_image_icon.png', 'IMAGE')
+
+    custom_icons.load('modifier', filepath + 'modifier_icon.png', 'IMAGE')
     custom_icons.load('collapsed_modifier', filepath + 'collapsed_modifier_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_modifier', filepath + 'uncollapsed_modifier_icon.png', 'IMAGE')
+
+    custom_icons.load('input', filepath + 'input_icon.png', 'IMAGE')
     custom_icons.load('collapsed_input', filepath + 'collapsed_input_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_input', filepath + 'uncollapsed_input_icon.png', 'IMAGE')
+
+    custom_icons.load('uv', filepath + 'uv_icon.png', 'IMAGE')
     custom_icons.load('collapsed_uv', filepath + 'collapsed_uv_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_uv', filepath + 'uncollapsed_uv_icon.png', 'IMAGE')
+
+    custom_icons.load('mask', filepath + 'mask_icon.png', 'IMAGE')
+    custom_icons.load('disabled_mask', filepath + 'disabled_mask_icon.png', 'IMAGE')
     custom_icons.load('collapsed_mask', filepath + 'collapsed_mask_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_mask', filepath + 'uncollapsed_mask_icon.png', 'IMAGE')
+
     custom_icons.load('collapsed_vcol', filepath + 'collapsed_vcol_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_vcol', filepath + 'uncollapsed_vcol_icon.png', 'IMAGE')
+
+    custom_icons.load('vertex_color', filepath + 'vertex_color_icon.png', 'IMAGE')
+
+    custom_icons.load('bake', filepath + 'bake_icon.png', 'IMAGE')
+    custom_icons.load('group', filepath + 'group_icon.png', 'IMAGE')
+    custom_icons.load('background', filepath + 'background_icon.png', 'IMAGE')
+    custom_icons.load('blend', filepath + 'blend_icon.png', 'IMAGE')
+    custom_icons.load('open_image', filepath + 'open_image_icon.png', 'IMAGE')
+    custom_icons.load('nodetree', filepath + 'nodetree_icon.png', 'IMAGE')
+    custom_icons.load('rename', filepath + 'rename_icon.png', 'IMAGE')
+
+    custom_icons.load('object_index', filepath + 'object_index_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_object_index', filepath + 'collapsed_object_index_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_object_index', filepath + 'uncollapsed_object_index_icon.png', 'IMAGE')
+
+    custom_icons.load('hemi', filepath + 'hemi_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_hemi', filepath + 'collapsed_hemi_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_hemi', filepath + 'uncollapsed_hemi_icon.png', 'IMAGE')
+
+    custom_icons.load('color', filepath + 'color_icon.png', 'IMAGE')
     custom_icons.load('collapsed_color', filepath + 'collapsed_color_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_color', filepath + 'uncollapsed_color_icon.png', 'IMAGE')
 
@@ -279,6 +313,10 @@ def load_custom_icons():
     custom_icons.load('uncollapsed_value_channel', filepath + 'uncollapsed_value_icon.png', 'IMAGE')
     custom_icons.load('collapsed_vector_channel', filepath + 'collapsed_vector_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_vector_channel', filepath + 'uncollapsed_vector_icon.png', 'IMAGE')
+
+
+def get_icon(custom_icon_name):
+    return custom_icons[custom_icon_name].icon_id
 
 def check_uv_difference_to_main_uv(entity):
     yp = entity.id_data.yp

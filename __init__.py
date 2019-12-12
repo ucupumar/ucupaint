@@ -172,12 +172,14 @@ if "bpy" in locals():
 else:
     from . import image_ops, common, bake_common, mesh_ops, lib, ui, subtree, node_arrangements, node_connections, preferences
     from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Bake, BakeToLayer, Root
+    #from . import transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Bake, BakeToLayer, Root
     #print("Imported multifiles")
 
 import bpy 
 #from bpy.app.translations import pgettext_iface as iface_
 
 def register():
+    #import bpy.utils.previews
     # Register classes
     #bpy.utils.register_module(__name__)
     image_ops.register()

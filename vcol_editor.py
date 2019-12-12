@@ -2,6 +2,11 @@ import bpy, bmesh
 from mathutils import *
 from bpy.props import *
 
+def is_28():
+    if bpy.app.version_string.startswith('2.8'):
+        return True
+    else: return False
+
 def linear_to_srgb_per_element(e):
     if e > 0.0031308:
         return 1.055 * (pow(e, (1.0 / 2.4))) - 0.055
@@ -236,7 +241,8 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
 
 def register():
     bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
-    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+    if not is_28():
+    #if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
         bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.register_class(YVcolEditorProps)
 
@@ -247,7 +253,8 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
-    if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+    #if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
+    if not is_28():
         bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.unregister_class(YVcolEditorProps)
 

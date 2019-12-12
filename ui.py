@@ -105,7 +105,7 @@ def draw_image_props(source, layout, entity=None):
     col = layout.column()
 
     if image.yia.is_image_atlas:
-        col.label(text=image.name, icon='IMAGE_DATA')
+        col.label(text=image.name, icon_value=lib.get_icon('image'))
         segment = image.yia.segments.get(entity.segment_name)
         if segment:
             row = col.row()
@@ -378,7 +378,7 @@ def draw_solid_color_props(layer, source, layout):
     row.label(text='Shortcut on list:')
     row.prop(layer, 'color_shortcut', text='')
 
-def draw_mask_modifier_stack(layer, mask, layout, ui, custom_icon_enable):
+def draw_mask_modifier_stack(layer, mask, layout, ui): #, custom_icon_enable):
     ypui = bpy.context.window_manager.ypui
     tree = get_mask_tree(mask)
 
@@ -394,15 +394,15 @@ def draw_mask_modifier_stack(layer, mask, layout, ui, custom_icon_enable):
         row = layout.row(align=True)
 
         if can_be_expanded:
-            if custom_icon_enable:
-                if modui.expand_content:
-                    icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
-                row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-            else:
-                row.prop(modui, 'expand_content', text='', icon='MODIFIER')
+            #if custom_icon_enable:
+            if modui.expand_content:
+                icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
+            row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            #else:
+            #    row.prop(modui, 'expand_content', text='', icon_value=lib.get_icon('modifier'))
         else:
-            row.label(text='', icon='MODIFIER')
+            row.label(text='', icon_value=lib.get_icon('modifier'))
 
         row.label(text=m.name)
 
@@ -422,7 +422,8 @@ def draw_mask_modifier_stack(layer, mask, layout, ui, custom_icon_enable):
             box.active = m.enable
             MaskModifier.draw_modifier_properties(tree, m, box)
 
-def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_enable, layer=None, extra_blank=False):
+#def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_enable, layer=None, extra_blank=False):
+def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False):
 
     ypui = context.window_manager.ypui
 
@@ -439,15 +440,15 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_e
         row = layout.row(align=True)
 
         if can_be_expanded:
-            if custom_icon_enable:
-                if modui.expand_content:
-                    icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
-                row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-            else:
-                row.prop(modui, 'expand_content', text='', icon='MODIFIER')
+            #if custom_icon_enable:
+            if modui.expand_content:
+                icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
+            row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            #else:
+            #    row.prop(modui, 'expand_content', text='', icon_value=lib.get_icon('modifier'))
         else:
-            row.label(text='', icon='MODIFIER')
+            row.label(text='', icon_value=lib.get_icon('modifier'))
         
         row.label(text=m.name)
 
@@ -481,7 +482,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_e
             Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, box, False)
             #row.label(text='', icon='BLANK1')
 
-def draw_root_channels_ui(context, layout, node, custom_icon_enable):
+def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
     group_tree = node.node_tree
     nodes = group_tree.nodes
     yp = group_tree.yp
@@ -495,7 +496,8 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
     if len(yp.channels) > 0:
         pcol = rcol.column()
         if yp.preview_mode: pcol.alert = True
-        if custom_icon_enable:
+        #if custom_icon_enable:
+        if not is_28():
             pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
         else: pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
 
@@ -526,15 +528,15 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
 
         row = mcol.row(align=True)
 
-        if custom_icon_enable:
-            icon_name = lib.channel_custom_icon_dict[channel.type]
-            if chui.expand_content:
-                icon_name = 'uncollapsed_' + icon_name
-            else: icon_name = 'collapsed_' + icon_name
-            icon_value = lib.custom_icons[icon_name].icon_id
-            row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.prop(chui, 'expand_content', text='', emboss=True, icon=lib.channel_icon_dict[channel.type])
+        #if custom_icon_enable:
+        icon_name = lib.channel_custom_icon_dict[channel.type]
+        if chui.expand_content:
+            icon_name = 'uncollapsed_' + icon_name
+        else: icon_name = 'collapsed_' + icon_name
+        icon_value = lib.custom_icons[icon_name].icon_id
+        row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        #else:
+        #    row.prop(chui, 'expand_content', text='', emboss=True, icon=lib.channel_icon_dict[channel.type])
 
         row.label(text=channel.name + ' Channel')
 
@@ -552,7 +554,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
             row.label(text='', icon='BLANK1')
             bcol = row.column()
 
-            draw_modifier_stack(context, channel, channel.type, bcol, chui, custom_icon_enable)
+            draw_modifier_stack(context, channel, channel.type, bcol, chui) #, custom_icon_enable)
 
             inp = node.inputs[channel.io_index]
 
@@ -564,9 +566,9 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 #        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                 #    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
                 #    brow.prop(chui, 'expand_base_vector', text='', emboss=False, icon_value=icon_value)
-                #else: brow.label(text='', icon='INFO')
+                #else: brow.label(text='', icon_value=lib.get_icon('input'))
 
-                brow.label(text='', icon='INFO')
+                brow.label(text='', icon_value=lib.get_icon('input'))
 
                 if channel.type == 'RGB':
                     brow.label(text='Background:')
@@ -600,7 +602,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
 
             #if channel.type == 'RGB':
             brow = bcol.row(align=True)
-            brow.label(text='', icon='INFO')
+            brow.label(text='', icon_value=lib.get_icon('input'))
             if channel.enable_alpha:
                 inp_alpha = node.inputs[channel.io_index+1]
                 brow.label(text='Base Alpha:')
@@ -613,7 +615,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
                 brow.active = not yp.use_baked or channel.no_layer_using
-                brow.label(text='', icon='INFO')
+                brow.label(text='', icon_value=lib.get_icon('input'))
                 brow.label(text='Use Clamp:')
                 brow.prop(channel, 'use_clamp', text='')
 
@@ -622,12 +624,12 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
 
             if channel.type == 'NORMAL':
                 brow = bcol.row(align=True)
-                brow.label(text='', icon='INFO')
+                brow.label(text='', icon_value=lib.get_icon('input'))
                 brow.label(text='Smooth Bump:')
                 brow.prop(channel, 'enable_smooth_bump', text='')
 
                 #brow = bcol.row(align=True)
-                #brow.label(text='', icon='INFO')
+                #brow.label(text='', icon_value=lib.get_icon('input'))
                 #brow.label(text='Displacement:')
                 #brow.prop(channel, 'enable_parallax', text='')
 
@@ -636,15 +638,15 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 #        not yp.use_baked or not channel.enable_subdiv_setup or channel.subdiv_adaptive)
                 brow.active = not yp.use_baked or not channel.enable_subdiv_setup or channel.subdiv_adaptive
 
-                if custom_icon_enable:
-                    if chui.expand_parallax_settings:
-                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                    brow.prop(chui, 'expand_parallax_settings', text='', emboss=False, icon_value=icon_value)
-                else:
-                    brow.prop(chui, 'expand_parallax_settings', text='', emboss=True, icon='INFO')
+                #if custom_icon_enable:
+                if chui.expand_parallax_settings:
+                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                brow.prop(chui, 'expand_parallax_settings', text='', emboss=False, icon_value=icon_value)
+                #else:
+                #    brow.prop(chui, 'expand_parallax_settings', text='', emboss=True, icon_value=lib.get_icon('input'))
 
-                #brow.label(text='', icon='INFO')
+                #brow.label(text='', icon_value=lib.get_icon('input'))
 
                 brow.label(text='Parallax:')
                 #if channel.enable_parallax:
@@ -671,7 +673,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                     brow.prop(channel, 'baked_parallax_num_of_layers', text='')
 
                     brow = bbcol.row(align=True)
-                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='', icon_value=lib.get_icon('input'))
                     brow.label(text='Rim Hack:')
                     if channel.parallax_rim_hack:
                         brow.prop(channel, 'parallax_rim_hack_hardness', text='')
@@ -683,47 +685,47 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 #if channel.enable_parallax:
 
                     #brow = bcol.row(align=True)
-                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='', icon_value=lib.get_icon('input'))
                     #brow.label(text='Height Ratio:')
                     #brow.prop(channel, 'displacement_height_ratio', text='')
 
                     #brow = bcol.row(align=True)
-                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='', icon_value=lib.get_icon('input'))
                     #brow.label(text='Reference Plane:')
                     #brow.prop(channel, 'displacement_ref_plane', text='')
 
                     #brow = bcol.row(align=True)
-                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='', icon_value=lib.get_icon('input'))
                     #brow.label(text='Number of Samples:')
                     #brow.prop(channel, 'parallax_num_of_layers', text='')
 
                     #brow = bcol.row(align=True)
-                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='', icon_value=lib.get_icon('input'))
                     #brow.label(text='Linear Samples:')
                     #brow.prop(channel, 'parallax_num_of_linear_samples', text='')
 
                     #brow = bcol.row(align=True)
-                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='', icon_value=lib.get_icon('input'))
                     #brow.label(text='Binary Samples:')
                     #brow.prop(channel, 'parallax_num_of_binary_samples', text='')
 
                     #brow = bcol.row(align=True)
-                    #brow.label(text='', icon='INFO')
+                    #brow.label(text='', icon_value=lib.get_icon('input'))
                     #brow.label(text='Rim Hack:')
                     #if channel.parallax_rim_hack:
                     #    brow.prop(channel, 'parallax_rim_hack_hardness', text='')
                     #brow.prop(channel, 'parallax_rim_hack', text='')
 
                 brow = bcol.row(align=True)
-                #brow.label(text='', icon='INFO')
+                #brow.label(text='', icon_value=lib.get_icon('input'))
 
-                if custom_icon_enable:
-                    if chui.expand_subdiv_settings:
-                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                    brow.prop(chui, 'expand_subdiv_settings', text='', emboss=False, icon_value=icon_value)
-                else:
-                    brow.prop(chui, 'expand_subdiv_settings', text='', emboss=True, icon='INFO')
+                #if custom_icon_enable:
+                if chui.expand_subdiv_settings:
+                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                brow.prop(chui, 'expand_subdiv_settings', text='', emboss=False, icon_value=icon_value)
+                #else:
+                #    brow.prop(chui, 'expand_subdiv_settings', text='', emboss=True, icon_value=lib.get_icon('input'))
 
                 brow.label(text='Subdiv Setup:')
                 brow.active = yp.use_baked
@@ -780,7 +782,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
 
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
-                brow.label(text='', icon='INFO')
+                brow.label(text='', icon_value=lib.get_icon('input'))
 
                 if is_28():
                     split = brow.split(factor=0.375, align=True)
@@ -790,7 +792,7 @@ def draw_root_channels_ui(context, layout, node, custom_icon_enable):
                 split.label(text='Space:')
                 split.prop(channel, 'colorspace', text='')
 
-def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh, custom_icon_enable):
+def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh): #, custom_icon_enable):
     obj = context.object
     yp = layer.id_data.yp
     ypui = context.window_manager.ypui
@@ -799,71 +801,72 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     row = layout.row(align=True)
     if image:
-        if custom_icon_enable:
-            if lui.expand_content:
-                icon_value = lib.custom_icons["uncollapsed_image"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_image"].icon_id
-            row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.prop(lui, 'expand_content', text='', emboss=True, icon='IMAGE_DATA')
+        #if custom_icon_enable:
+        if lui.expand_content:
+            icon_value = lib.custom_icons["uncollapsed_image"].icon_id
+        else: icon_value = lib.custom_icons["collapsed_image"].icon_id
+        row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        #else:
+        #    row.prop(lui, 'expand_content', text='', emboss=True, icon_value=lib.get_icon('image'))
         if image.yia.is_image_atlas:
             row.label(text=layer.name)
         else: row.label(text=image.name)
     elif vcol:
         if len(layer.modifiers) > 0:
-            if custom_icon_enable:
-                if lui.expand_content:
-                    icon_value = lib.custom_icons["uncollapsed_vcol"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_vcol"].icon_id
-                row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-            else:
-                row.prop(lui, 'expand_content', text='', emboss=True, icon='GROUP_VCOL')
+            #if custom_icon_enable:
+            if lui.expand_content:
+                icon_value = lib.custom_icons["uncollapsed_vcol"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_vcol"].icon_id
+            row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            #else:
+            #    row.prop(lui, 'expand_content', text='', emboss=True, icon='GROUP_VCOL')
         else:
-            row.label(text='', icon='GROUP_VCOL')
+            #row.label(text='', icon='GROUP_VCOL')
+            row.label(text='', icon_value=lib.get_icon('vertex_color'))
         row.label(text=vcol.name)
     elif layer.type == 'BACKGROUND':
         if len(layer.modifiers) > 0:
-            if custom_icon_enable:
-                if lui.expand_content:
-                    icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
-                row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-            else:
-                row.prop(lui, 'expand_content', text='', emboss=True, icon='TEXTURE')
-        else:
-            row.label(text='', icon='TEXTURE')
-        row.label(text=layer.name)
-    elif layer.type == 'COLOR':
-        if custom_icon_enable:
-            if lui.expand_content:
-                icon_value = lib.custom_icons["uncollapsed_color"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_color"].icon_id
-            row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.prop(lui, 'expand_content', text='', emboss=True, icon='COLOR')
-        row.label(text=layer.name)
-    elif layer.type == 'GROUP':
-        row.label(text='', icon='FILE_FOLDER')
-        row.label(text=layer.name)
-    elif layer.type == 'HEMI':
-        if custom_icon_enable:
+            #if custom_icon_enable:
             if lui.expand_content:
                 icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
             else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
             row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+            #else:
+            #    row.prop(lui, 'expand_content', text='', emboss=True, icon_value=lib.get_icon('texture'))
         else:
-            if is_28(): row.prop(lui, 'expand_content', text='', emboss=True, icon='LIGHT')
-            else: row.prop(lui, 'expand_content', text='', emboss=True, icon='LAMP')
+            #row.label(text='', icon='TEXTURE')
+            row.label(text='', icon_value=lib.get_icon('texture'))
+        row.label(text=layer.name)
+    elif layer.type == 'COLOR':
+        #if custom_icon_enable:
+        if lui.expand_content:
+            icon_value = lib.custom_icons["uncollapsed_color"].icon_id
+        else: icon_value = lib.custom_icons["collapsed_color"].icon_id
+        row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        #else:
+        #    row.prop(lui, 'expand_content', text='', emboss=True, icon='COLOR')
+        row.label(text=layer.name)
+    elif layer.type == 'GROUP':
+        row.label(text='', icon_value=lib.get_icon('group'))
+        row.label(text=layer.name)
+    elif layer.type == 'HEMI':
+        #if custom_icon_enable:
+        if lui.expand_content:
+            icon_value = lib.custom_icons["uncollapsed_hemi"].icon_id
+        else: icon_value = lib.custom_icons["collapsed_hemi"].icon_id
+        row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        #else:
+        #    row.prop(lui, 'expand_content', text='', emboss=True, icon_value=lib.get_icon('hemi'))
         row.label(text=layer.name)
     else:
         title = source.bl_idname.replace('ShaderNodeTex', '')
-        if custom_icon_enable:
-            if lui.expand_content:
-                icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
-            row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.prop(lui, 'expand_content', text='', emboss=True, icon='TEXTURE')
+        #if custom_icon_enable:
+        if lui.expand_content:
+            icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
+        else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
+        row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        #else:
+        #    row.prop(lui, 'expand_content', text='', emboss=True, icon='TEXTURE')
         row.label(text=title)
 
     row.context_pointer_set('parent', layer)
@@ -902,33 +905,37 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     modcol = rcol.column()
     modcol.active = layer.type not in {'BACKGROUND', 'GROUP'}
+    #draw_modifier_stack(context, layer, 'RGB', modcol, 
+    #        lui, custom_icon_enable, layer)
     draw_modifier_stack(context, layer, 'RGB', modcol, 
-            lui, custom_icon_enable, layer)
+            lui, layer)
 
     if layer.type not in {'VCOL', 'BACKGROUND'}:
     #if layer.type not in {'BACKGROUND'}:
         row = rcol.row(align=True)
 
-        if custom_icon_enable:
-            if layer.type == 'IMAGE':
-                suffix = 'image'
-            elif layer.type == 'COLOR':
-                suffix = 'color'
-            else: suffix = 'texture'
+        #if custom_icon_enable:
+        if layer.type == 'IMAGE':
+            suffix = 'image'
+        elif layer.type == 'COLOR':
+            suffix = 'color'
+        elif layer.type == 'HEMI':
+            suffix = 'hemi'
+        else: suffix = 'texture'
 
-            if lui.expand_source:
-                icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
-            else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
-            row.prop(lui, 'expand_source', text='', emboss=False, icon_value=icon_value)
-        else:
-            if layer.type == 'IMAGE':
-                icon = 'IMAGE_DATA'
-            #elif layer.type == 'VCOL':
-            #    icon = 'GROUP_VCOL'
-            else:
-                icon = 'TEXTURE'
-            #icon = 'IMAGE_DATA' if layer.type == 'IMAGE' else 'TEXTURE'
-            row.prop(lui, 'expand_source', text='', emboss=True, icon=icon)
+        if lui.expand_source:
+            icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
+        else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
+        row.prop(lui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+        #else:
+        #    if layer.type == 'IMAGE':
+        #        icon = 'IMAGE_DATA'
+        #    #elif layer.type == 'VCOL':
+        #    #    icon = 'GROUP_VCOL'
+        #    else:
+        #        icon = 'TEXTURE'
+        #    #icon = 'IMAGE_DATA' if layer.type == 'IMAGE' else 'TEXTURE'
+        #    row.prop(lui, 'expand_source', text='', emboss=True, icon=icon)
 
         if image:
             row.label(text='Source: ' + image.name)
@@ -958,13 +965,13 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         if layer.type not in {'VCOL', 'COLOR', 'HEMI', 'OBJECT_INDEX'}:
             row = rcol.row(align=True)
 
-            if custom_icon_enable:
-                if lui.expand_vector:
-                    icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-                row.prop(lui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
-            else:
-                row.prop(lui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
+            #if custom_icon_enable:
+            if lui.expand_vector:
+                icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+            row.prop(lui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+            #else:
+            #    row.prop(lui, 'expand_vector', text='', emboss=True, icon_value=lib.get_icon('uv'))
 
             if is_28():
                 split = row.split(factor=0.275, align=True)
@@ -1004,19 +1011,19 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     layout.separator()
 
-def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_enable):
+def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_icon_enable):
 
     yp = layer.id_data.yp
     ypui = context.window_manager.ypui
     lui = ypui.layer_ui
     
     row = layout.row(align=True)
-    if custom_icon_enable:
-        if lui.expand_channels:
-            icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
-        else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
-        row.prop(lui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
-    else: row.prop(lui, 'expand_channels', text='', emboss=True, icon='GROUP_VERTEX')
+    #if custom_icon_enable:
+    if lui.expand_channels:
+        icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
+    else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
+    row.prop(lui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
+    #else: row.prop(lui, 'expand_channels', text='', emboss=True, icon='GROUP_VERTEX')
 
     #label = 'Channels:'
     #if not lui.expand_channels:
@@ -1054,9 +1061,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
     if not lui.expand_channels:
         return
 
-    if custom_icon_enable:
-        row.prop(ypui, 'expand_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
-    else: row.prop(ypui, 'expand_channels', text='', emboss=True, icon = 'GROUP_VERTEX')
+    #if custom_icon_enable:
+    row.prop(ypui, 'expand_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
+    #else: row.prop(ypui, 'expand_channels', text='', emboss=True, icon = 'GROUP_VERTEX')
 
     rrow = layout.row(align=True)
     rrow.label(text='', icon='BLANK1')
@@ -1100,21 +1107,21 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 showed_bump_ch_found
                 )
 
-        if custom_icon_enable:
-            icon_name = lib.channel_custom_icon_dict[root_ch.type]
-            if expandable:
-                if chui.expand_content:
-                    icon_name = 'uncollapsed_' + icon_name
-                else: icon_name = 'collapsed_' + icon_name
-            icon_value = lib.custom_icons[icon_name].icon_id
-            if expandable:
-                row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-            else: row.label(text='', icon_value=icon_value)
-        else:
-            icon = lib.channel_icon_dict[root_ch.type]
-            if expandable:
-                row.prop(chui, 'expand_content', text='', emboss=True, icon=icon)
-            else: row.label(text='', icon=icon)
+        #if custom_icon_enable:
+        icon_name = lib.channel_custom_icon_dict[root_ch.type]
+        if expandable:
+            if chui.expand_content:
+                icon_name = 'uncollapsed_' + icon_name
+            else: icon_name = 'collapsed_' + icon_name
+        icon_value = lib.custom_icons[icon_name].icon_id
+        if expandable:
+            row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        else: row.label(text='', icon_value=icon_value)
+        #else:
+        #    icon = lib.channel_icon_dict[root_ch.type]
+        #    if expandable:
+        #        row.prop(chui, 'expand_content', text='', emboss=True, icon=icon)
+        #    else: row.label(text='', icon=icon)
 
         row.label(text=yp.channels[i].name + ':')
 
@@ -1173,13 +1180,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
             if ch.show_transition_bump or ch.enable_transition_bump:
 
                 brow = mcol.row(align=True)
-                if custom_icon_enable:
-                    if chui.expand_transition_bump_settings:
-                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                    brow.prop(chui, 'expand_transition_bump_settings', text='', emboss=False, icon_value=icon_value)
-                else:
-                    brow.prop(chui, 'expand_transition_bump_settings', text='', emboss=True, icon='MOD_MASK')
+                #if custom_icon_enable:
+                if chui.expand_transition_bump_settings:
+                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                brow.prop(chui, 'expand_transition_bump_settings', text='', emboss=False, icon_value=icon_value)
+                #else:
+                #    brow.prop(chui, 'expand_transition_bump_settings', text='', emboss=True, icon='MOD_MASK')
                 brow.label(text='Transition Bump:')
 
                 if ch.enable_transition_bump and not chui.expand_transition_bump_settings:
@@ -1202,43 +1209,43 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     cccol = bbox.column(align=True)
 
                     #crow = cccol.row(align=True)
-                    #crow.label(text='Type:') #, icon='INFO')
+                    #crow.label(text='Type:') #, icon_value=lib.get_icon('input'))
                     #crow.prop(ch, 'transition_bump_type', text='')
 
                     #crow = cccol.row(align=True)
-                    #crow.label(text='Type:') #, icon='INFO')
+                    #crow.label(text='Type:') #, icon_value=lib.get_icon('input'))
                     #crow.prop(ch, 'transition_bump_type', text='')
 
                     crow = cccol.row(align=True)
-                    crow.label(text='Max Height:') #, icon='INFO')
+                    crow.label(text='Max Height:') #, icon_value=lib.get_icon('input'))
                     crow.prop(ch, 'transition_bump_distance', text='')
 
                     crow = cccol.row(align=True)
-                    crow.label(text='Edge 1:') #, icon='INFO')
+                    crow.label(text='Edge 1:') #, icon_value=lib.get_icon('input'))
                     crow.prop(ch, 'transition_bump_value', text='')
 
                     crow = cccol.row(align=True)
-                    crow.label(text='Edge 2:') #, icon='INFO')
+                    crow.label(text='Edge 2:') #, icon_value=lib.get_icon('input'))
                     crow.prop(ch, 'transition_bump_second_edge_value', text='')
 
                     crow = cccol.row(align=True)
-                    crow.label(text='Affected Masks:') #, icon='INFO')
+                    crow.label(text='Affected Masks:') #, icon_value=lib.get_icon('input'))
                     crow.prop(ch, 'transition_bump_chain', text='')
 
                     #if ch.transition_bump_type == 'CURVED_BUMP_MAP':
                     #    crow = cccol.row(align=True)
-                    #    crow.label(text='Offset:') #, icon='INFO')
+                    #    crow.label(text='Offset:') #, icon_value=lib.get_icon('input'))
                     #    crow.prop(ch, 'transition_bump_curved_offset', text='')
 
                     crow = cccol.row(align=True)
                     #crow.active = layer.type != 'BACKGROUND'
-                    crow.label(text='Flip:') #, icon='INFO')
+                    crow.label(text='Flip:') #, icon_value=lib.get_icon('input'))
                     crow.prop(ch, 'transition_bump_flip', text='')
 
                     crow = cccol.row(align=True)
                     #crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
                     crow.active = not ch.transition_bump_flip
-                    crow.label(text='Crease:') #, icon='INFO')
+                    crow.label(text='Crease:') #, icon_value=lib.get_icon('input'))
                     #if ch.transition_bump_crease:
                     #    crow.prop(ch, 'transition_bump_crease_factor', text='')
                     crow.prop(ch, 'transition_bump_crease', text='')
@@ -1246,31 +1253,31 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     if ch.transition_bump_crease:
                         crow = cccol.row(align=True)
                         crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
-                        crow.label(text='Crease Factor:') #, icon='INFO')
+                        crow.label(text='Crease Factor:') #, icon_value=lib.get_icon('input'))
                         crow.prop(ch, 'transition_bump_crease_factor', text='')
 
                         crow = cccol.row(align=True)
                         crow.active = layer.type != 'BACKGROUND' and not ch.transition_bump_flip
-                        crow.label(text='Crease Power:') #, icon='INFO')
+                        crow.label(text='Crease Power:') #, icon_value=lib.get_icon('input'))
                         crow.prop(ch, 'transition_bump_crease_power', text='')
 
                         cccol.separator()
 
                     crow = cccol.row(align=True)
                     #crow.active = layer.type != 'BACKGROUND'
-                    crow.label(text='Falloff:') #, icon='INFO')
+                    crow.label(text='Falloff:') #, icon_value=lib.get_icon('input'))
                     crow.prop(ch, 'transition_bump_falloff', text='')
 
                     if ch.transition_bump_falloff:
 
                         crow = cccol.row(align=True)
-                        crow.label(text='Falloff Type :') #, icon='INFO')
+                        crow.label(text='Falloff Type :') #, icon_value=lib.get_icon('input'))
                         crow.prop(ch, 'transition_bump_falloff_type', text='')
 
                         if ch.transition_bump_falloff_type == 'EMULATED_CURVE':
 
                             crow = cccol.row(align=True)
-                            crow.label(text='Falloff Factor:') #, icon='INFO')
+                            crow.label(text='Falloff Factor:') #, icon_value=lib.get_icon('input'))
                             crow.prop(ch, 'transition_bump_falloff_emulated_curve_fac', text='')
                         
                         elif ch.transition_bump_falloff_type == 'CURVE' and ch.enable_transition_bump and ch.enable:
@@ -1287,26 +1294,26 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
             #row.active = layer.type != 'COLOR'
             #row.active = not is_valid_to_remove_bump_nodes(layer, ch)
 
-            if custom_icon_enable:
-                if chui.expand_bump_settings:
-                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
-            else:
-                row.prop(chui, 'expand_bump_settings', text='', emboss=True, icon='INFO')
+            #if custom_icon_enable:
+            if chui.expand_bump_settings:
+                icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+            row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
+            #else:
+            #    row.prop(chui, 'expand_bump_settings', text='', emboss=True, icon_value=lib.get_icon('input'))
 
             #else:
             if layer.type == 'GROUP':
                 if chui.expand_bump_settings:
-                    row.label(text='Group Normal Settings:') #, icon='INFO')
-                else: row.label(text='Group Normal Settings') #, icon='INFO')
+                    row.label(text='Group Normal Settings:') #, icon_value=lib.get_icon('input'))
+                else: row.label(text='Group Normal Settings') #, icon_value=lib.get_icon('input'))
             else:
-                #    row.label(text='', icon='INFO')
+                #    row.label(text='', icon_value=lib.get_icon('input'))
                 if is_28():
                     split = row.split(factor=0.275)
                 else: split = row.split(percentage=0.275)
 
-                split.label(text='Type:') #, icon='INFO')
+                split.label(text='Type:') #, icon_value=lib.get_icon('input'))
                 srow = split.row(align=True)
                 srow.prop(ch, 'normal_map_type', text='')
                 if not chui.expand_bump_settings: #and ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
@@ -1325,7 +1332,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 cccol = bbox.column(align=True)
 
                 brow = cccol.row(align=True)
-                brow.label(text='Write Height:') #, icon='INFO')
+                brow.label(text='Write Height:') #, icon_value=lib.get_icon('input'))
                 brow.prop(ch, 'write_height', text='')
 
                 #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
@@ -1334,14 +1341,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     brow = cccol.row(align=True)
                     brow.active = not ch.enable_transition_bump or ch.normal_map_type != 'NORMAL_MAP'
                     if ch.normal_map_type == 'BUMP_MAP':
-                        brow.label(text='Max Height:') #, icon='INFO')
-                    else: brow.label(text='Bump Height:') #, icon='INFO')
+                        brow.label(text='Max Height:') #, icon_value=lib.get_icon('input'))
+                    else: brow.label(text='Bump Height:') #, icon_value=lib.get_icon('input'))
                     brow.prop(ch, 'bump_distance', text='')
 
                     #if any(layer.masks):
                     brow = cccol.row(align=True)
                     brow.active = not ch.enable_transition_bump and any(layer.masks) and not ch.write_height
-                    brow.label(text='Affected Masks:') #, icon='INFO')
+                    brow.label(text='Affected Masks:') #, icon_value=lib.get_icon('input'))
                     brow.prop(ch, 'transition_bump_chain', text='')
 
                 #brow = cccol.row(align=True)
@@ -1361,15 +1368,15 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
 
                 tr_ramp = layer_tree.nodes.get(ch.tr_ramp)
                 if not tr_ramp:
-                    row.label(text='', icon='INFO')
+                    row.label(text='', icon_value=lib.get_icon('input'))
                 else:
-                    if custom_icon_enable:
-                        if chui.expand_transition_ramp_settings:
-                            icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                        else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                        row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=False, icon_value=icon_value)
-                    else:
-                        row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=True, icon='MOD_MASK')
+                    #if custom_icon_enable:
+                    if chui.expand_transition_ramp_settings:
+                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                    row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=False, icon_value=icon_value)
+                    #else:
+                    #    row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=True, icon='MOD_MASK')
                 row.label(text='Transition Ramp:')
                 if ch.enable_transition_ramp and not chui.expand_transition_ramp_settings:
                     row.prop(ch, 'transition_ramp_intensity_value', text='')
@@ -1413,13 +1420,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                 # Transition AO
                 row = mcol.row(align=True)
                 row.active = bump_ch_found #and layer.type != 'BACKGROUND'
-                if custom_icon_enable:
-                    if chui.expand_transition_ao_settings:
-                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                    row.prop(chui, 'expand_transition_ao_settings', text='', emboss=False, icon_value=icon_value)
-                else:
-                    row.prop(chui, 'expand_transition_ao_settings', text='', emboss=True, icon='MOD_MASK')
+                #if custom_icon_enable:
+                if chui.expand_transition_ao_settings:
+                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                row.prop(chui, 'expand_transition_ao_settings', text='', emboss=False, icon_value=icon_value)
+                #else:
+                #    row.prop(chui, 'expand_transition_ao_settings', text='', emboss=True, icon='MOD_MASK')
                 row.label(text='Transition AO:')
                 if ch.enable_transition_ao and not chui.expand_transition_ao_settings:
                     row.prop(ch, 'transition_ao_intensity', text='')
@@ -1464,7 +1471,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
             if showed_bump_ch_found:
                 row = mcol.row(align=True)
                 row.active = bump_ch_found
-                row.label(text='', icon='INFO')
+                row.label(text='', icon_value=lib.get_icon('input'))
                 row.label(text='Transition Factor')
                 row.prop(ch, 'transition_bump_fac', text='')
 
@@ -1472,8 +1479,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
 
         modcol = mcol.column()
         modcol.active = layer.type != 'BACKGROUND'
+        #draw_modifier_stack(context, ch, root_ch.type, modcol, 
+        #        ypui.layer_ui.channels[i], custom_icon_enable, layer)
         draw_modifier_stack(context, ch, root_ch.type, modcol, 
-                ypui.layer_ui.channels[i], custom_icon_enable, layer)
+                ypui.layer_ui.channels[i], layer)
 
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             row = mcol.row(align=True)
@@ -1482,17 +1491,17 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
                     and root_ch.colorspace == 'SRGB' and root_ch.type != 'NORMAL' )
 
             if input_settings_available:
-                if custom_icon_enable:
-                    if chui.expand_input_settings:
-                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                    row.prop(chui, 'expand_input_settings', text='', emboss=False, icon_value=icon_value)
-                else:
-                    row.prop(chui, 'expand_input_settings', text='', emboss=True, icon='INFO')
+                #if custom_icon_enable:
+                if chui.expand_input_settings:
+                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                row.prop(chui, 'expand_input_settings', text='', emboss=False, icon_value=icon_value)
+                #else:
+                #    row.prop(chui, 'expand_input_settings', text='', emboss=True, icon_value=lib.get_icon('input'))
             else:
-                row.label(text='', icon='INFO')
+                row.label(text='', icon_value=lib.get_icon('input'))
 
-            #row.label(text='', icon='INFO')
+            #row.label(text='', icon_value=lib.get_icon('input'))
             if is_28():
                 split = row.split(factor=0.275)
             else: split = row.split(percentage=0.275)
@@ -1517,7 +1526,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
 
         if hasattr(ch, 'enable_blur'):
             row = mcol.row(align=True)
-            row.label(text='', icon='INFO')
+            row.label(text='', icon_value=lib.get_icon('input'))
             row.label(text='Blur')
             row.prop(ch, 'enable_blur', text='')
 
@@ -1534,7 +1543,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image, custom_icon_e
 
     layout.separator()
 
-def draw_layer_masks(context, layout, layer, custom_icon_enable):
+def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
     obj = context.object
     yp = layer.id_data.yp
     ypui = context.window_manager.ypui
@@ -1545,13 +1554,16 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
 
     row = col.row(align=True)
     if len(layer.masks) > 0:
-        if custom_icon_enable:
-            if lui.expand_masks:
-                icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
-            row.prop(lui, 'expand_masks', text='', emboss=False, icon_value=icon_value)
-        else: row.prop(lui, 'expand_masks', text='', emboss=True, icon='MOD_MASK')
-    else: row.label(text='', icon='MOD_MASK')
+        #if custom_icon_enable:
+        if lui.expand_masks:
+            icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
+        else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
+        row.prop(lui, 'expand_masks', text='', emboss=False, icon_value=icon_value)
+        #else: row.prop(lui, 'expand_masks', text='', emboss=True, icon='MOD_MASK')
+    else: 
+        icon_value = lib.custom_icons["mask"].icon_id
+        row.label(text='', icon_value=icon_value)
+        #row.label(text='', icon='MOD_MASK')
 
     #label = 'Masks'
 
@@ -1574,12 +1586,14 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
 
     row.label(text=label)
 
-    if custom_icon_enable:
-        #row.menu('NODE_MT_y_add_layer_mask_menu', text='', icon_value = lib.custom_icons['add_mask'].icon_id)
-        row.menu('NODE_MT_y_add_layer_mask_menu', text='', icon='ZOOMIN')
-    else: 
-        #row.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='MOD_MASK')
+    #if custom_icon_enable:
+    #row.menu('NODE_MT_y_add_layer_mask_menu', text='', icon_value = lib.custom_icons['add_mask'].icon_id)
+    if is_28():
         row.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='ADD')
+    else: row.menu('NODE_MT_y_add_layer_mask_menu', text='', icon='ZOOMIN')
+    #else: 
+    #    #row.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='MOD_MASK')
+    #    row.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='ADD')
 
     if not lui.expand_masks or len(layer.masks) == 0: return
 
@@ -1597,13 +1611,13 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
         row = rcol.row(align=True)
         row.active = mask.enable
 
-        if custom_icon_enable:
-            if maskui.expand_content:
-                icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
-            row.prop(maskui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        else:
-            row.prop(maskui, 'expand_content', text='', emboss=True, icon='MOD_MASK')
+        #if custom_icon_enable:
+        if maskui.expand_content:
+            icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
+        else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
+        row.prop(maskui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        #else:
+        #    row.prop(maskui, 'expand_content', text='', emboss=True, icon='MOD_MASK')
 
         mask_image = None
         mask_tree = get_mask_tree(mask)
@@ -1616,9 +1630,10 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
         else: row.label(text=mask.name)
 
         if mask.type == 'IMAGE':
-            row.prop(mask, 'active_edit', text='', toggle=True, icon='IMAGE_DATA')
+            row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
         elif mask.type == 'VCOL':
-            row.prop(mask, 'active_edit', text='', toggle=True, icon='GROUP_VCOL')
+            #row.prop(mask, 'active_edit', text='', toggle=True, icon='GROUP_VCOL')
+            row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
 
         row.context_pointer_set('mask', mask)
 
@@ -1641,17 +1656,25 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
         rrow = rrcol.row(align=True)
 
         if mask.type == 'VCOL':
-            rrow.label(text='', icon='GROUP_VCOL')
+            #rrow.label(text='', icon='GROUP_VCOL')
+            rrow.label(text='', icon_value=lib.get_icon('vertex_color'))
         else:
-            if custom_icon_enable:
-                suffix = 'image' if mask.type == 'IMAGE' else 'texture'
-                if maskui.expand_source:
-                    icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
-                else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
-                rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+            #if custom_icon_enable:
+            if mask.type == 'IMAGE':
+                suffix = 'image' 
+            elif mask.type == 'HEMI':
+                suffix = 'hemi' 
+            elif mask.type == 'OBJECT_INDEX':
+                suffix = 'object_index' 
             else:
-                icon = 'IMAGE_DATA' if mask.type == 'IMAGE' else 'TEXTURE'
-                rrow.prop(maskui, 'expand_source', text='', emboss=True, icon=icon)
+                suffix = 'texture' 
+            if maskui.expand_source:
+                icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
+            else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
+            rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+            #else:
+            #    icon = 'IMAGE_DATA' if mask.type == 'IMAGE' else 'TEXTURE'
+            #    rrow.prop(maskui, 'expand_source', text='', emboss=True, icon=icon)
 
         if mask_image:
             rrow.label(text='Source: ' + mask_image.name)
@@ -1676,13 +1699,13 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
         if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
             rrow = rrcol.row(align=True)
 
-            if custom_icon_enable:
-                if maskui.expand_vector:
-                    icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
-                else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
-                rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
-            else:
-                rrow.prop(maskui, 'expand_vector', text='', emboss=True, icon='GROUP_UVS')
+            #if custom_icon_enable:
+            if maskui.expand_vector:
+                icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
+            rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
+            #else:
+            #    rrow.prop(maskui, 'expand_vector', text='', emboss=True, icon_value=lib.get_icon('uv'))
 
             if is_28():
                 splits = rrow.split(factor=0.3)
@@ -1721,23 +1744,23 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
                     rrow.alert = True
                     rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
-        draw_mask_modifier_stack(layer, mask, rrcol, maskui, custom_icon_enable)
+        draw_mask_modifier_stack(layer, mask, rrcol, maskui) #, custom_icon_enable)
 
         rrow = rrcol.row(align=True)
-        rrow.label(text='', icon='IMAGE_ZDEPTH')
+        rrow.label(text='', icon_value=lib.get_icon('blend'))
         rrow.label(text='Blend:')
         rrow.prop(mask, 'blend_type', text='')
         rrow.prop(mask, 'intensity_value', text='')
 
         # Mask Channels row
         rrow = rrcol.row(align=True)
-        if custom_icon_enable:
-            if maskui.expand_channels:
-                icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
-            rrow.prop(maskui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
-        else:
-            rrow.prop(maskui, 'expand_channels', text='', emboss=True, icon='GROUP_VERTEX')
+        #if custom_icon_enable:
+        if maskui.expand_channels:
+            icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
+        else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
+        rrow.prop(maskui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
+        #else:
+        #    rrow.prop(maskui, 'expand_channels', text='', emboss=True, icon='GROUP_VERTEX')
         rrow.label(text='Channels')
 
         if maskui.expand_channels:
@@ -1751,18 +1774,18 @@ def draw_layer_masks(context, layout, layer, custom_icon_enable):
             for k, c in enumerate(mask.channels):
                 rrow = bcol.row(align=True)
                 root_ch = yp.channels[k]
-                if custom_icon_enable:
-                    rrow.label(text='', 
-                            icon_value=lib.custom_icons[lib.channel_custom_icon_dict[root_ch.type]].icon_id)
-                else:
-                    rrow.label(text='', icon = lib.channel_icon_dict[root_ch.type])
+                #if custom_icon_enable:
+                rrow.label(text='', 
+                        icon_value=lib.custom_icons[lib.channel_custom_icon_dict[root_ch.type]].icon_id)
+                #else:
+                #    rrow.label(text='', icon = lib.channel_icon_dict[root_ch.type])
                 rrow.label(text=root_ch.name)
                 rrow.prop(c, 'enable', text='')
 
         if i < len(layer.masks)-1:
             rcol.separator()
 
-def draw_layers_ui(context, layout, node, custom_icon_enable):
+def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     group_tree = node.node_tree
     nodes = group_tree.nodes
     yp = group_tree.yp
@@ -1802,12 +1825,12 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                 row = col.row(align=True)
                 #label = 'Baked Image (' + root_ch.name + '):'
                 label = 'Baked ' + root_ch.name + ':'
-                if custom_icon_enable:
-                    icon_name = lib.channel_custom_icon_dict[root_ch.type]
-                    icon_value = lib.custom_icons[icon_name].icon_id
-                    row.label(text=label, icon_value=icon_value)
-                else:
-                    row.label(text=label, icon=lib.channel_icon_dict[root_ch.type])
+                #if custom_icon_enable:
+                icon_name = lib.channel_custom_icon_dict[root_ch.type]
+                icon_value = lib.custom_icons[icon_name].icon_id
+                row.label(text=label, icon_value=icon_value)
+                #else:
+                #    row.label(text=label, icon=lib.channel_icon_dict[root_ch.type])
 
                 row.context_pointer_set('root_ch', root_ch)
                 row.context_pointer_set('image', baked.image)
@@ -1826,7 +1849,7 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                 else: label = baked.image.name
                 if root_ch.disable_global_baked:
                     label += ' (Disabled)'
-                row.label(text=label, icon='IMAGE_DATA')
+                row.label(text=label, icon_value=lib.get_icon('image'))
 
                 if baked.image.packed_file:
                     row.label(text='', icon='PACKAGE')
@@ -1843,7 +1866,7 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                     else: label = baked_normal_overlay.image.name
                     if root_ch.disable_global_baked:
                         label += ' (Disabled)'
-                    row.label(text=label, icon='IMAGE_DATA')
+                    row.label(text=label, icon_value=lib.get_icon('image'))
 
                     if baked_normal_overlay.image.packed_file:
                         row.label(text='', icon='PACKAGE')
@@ -1858,7 +1881,7 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                     else: label = baked_disp.image.name
                     if root_ch.disable_global_baked:
                         label += ' (Disabled)'
-                    row.label(text=label, icon='IMAGE_DATA')
+                    row.label(text=label, icon_value=lib.get_icon('image'))
 
                     if baked_disp.image.packed_file:
                         row.label(text='', icon='PACKAGE')
@@ -2041,7 +2064,8 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
     if len(yp.layers) > 0:
         pcol = rcol.column()
         if yp.layer_preview_mode: pcol.alert = True
-        if custom_icon_enable:
+        #if custom_icon_enable:
+        if not is_28():
             pcol.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
         else: pcol.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='HIDE_OFF')
 
@@ -2141,7 +2165,8 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                 bbox = col.box()
                 ccol = bbox.column()
                 row = ccol.row(align=True)
-                row.label(text='', icon='GROUP_VCOL')
+                #row.label(text='', icon='GROUP_VCOL')
+                row.label(text='', icon_value=lib.get_icon('vertex_color'))
                 row.label(text='Fill ' + obj.data.vertex_colors.active.name + ':')
                 row = ccol.row(align=True)
                 #row.prop(ve, 'fill_mode', text='') #, expand=True)
@@ -2154,13 +2179,13 @@ def draw_layers_ui(context, layout, node, custom_icon_enable):
                 row.prop(ve, "color", text="", icon='COLOR')
 
         # Source
-        draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh, custom_icon_enable)
+        draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh) #, custom_icon_enable)
 
         # Channels
-        draw_layer_channels(context, col, layer, layer_tree, image, custom_icon_enable)
+        draw_layer_channels(context, col, layer, layer_tree, image) #, custom_icon_enable)
 
         # Masks
-        draw_layer_masks(context, col, layer, custom_icon_enable)
+        draw_layer_masks(context, col, layer) #, custom_icon_enable)
 
 def main_draw(self, context):
 
@@ -2180,9 +2205,9 @@ def main_draw(self, context):
     # Update ui props first
     update_yp_ui()
 
-    if hasattr(lib, 'custom_icons'):
-        custom_icon_enable = True
-    else: custom_icon_enable = False
+    #if hasattr(lib, 'custom_icons'):
+    #    custom_icon_enable = True
+    #else: custom_icon_enable = False
 
     node = get_active_ypaint_node()
     ypui = wm.ypui
@@ -2256,7 +2281,7 @@ def main_draw(self, context):
 
     if not node:
         layout.label(text="No active " + ADDON_TITLE + " node!", icon='ERROR')
-        layout.operator("node.y_quick_ypaint_node_setup", icon='NODETREE')
+        layout.operator("node.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
 
         return
 
@@ -2264,9 +2289,9 @@ def main_draw(self, context):
     nodes = group_tree.nodes
     yp = group_tree.yp
 
-    #layout.label(text='Active: ' + node.node_tree.name, icon='NODETREE')
+    #layout.label(text='Active: ' + node.node_tree.name, icon_value=lib.get_icon('nodetree'))
     row = layout.row(align=True)
-    row.label(text='', icon='NODETREE')
+    row.label(text='', icon_value=lib.get_icon('nodetree'))
     #row.label(text='Active: ' + node.node_tree.name)
     row.label(text=node.node_tree.name)
     #row.prop(node.node_tree, 'name', text='')
@@ -2288,7 +2313,7 @@ def main_draw(self, context):
     row.label(text='Channels')
 
     if ypui.show_channels:
-        draw_root_channels_ui(context, layout, node, custom_icon_enable)
+        draw_root_channels_ui(context, layout, node) #, custom_icon_enable)
 
     icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -2316,7 +2341,7 @@ def main_draw(self, context):
         row.prop(yp, 'use_baked', toggle=True, text='Use Baked')
 
     if ypui.show_layers :
-        draw_layers_ui(context, layout, node, custom_icon_enable)
+        draw_layers_ui(context, layout, node) #, custom_icon_enable)
 
     # Stats
     icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'
@@ -2361,12 +2386,14 @@ def main_draw(self, context):
         box = layout.box()
         col = box.column()
         #col = layout.column(align=True)
-        col.label(text='Number of Images: ' + str(len(images)), icon='IMAGE_DATA')
-        col.label(text='Number of Vertex Colors: ' + str(len(vcols)), icon='GROUP_VCOL')
-        col.label(text='Number of Generated Textures: ' + str(num_gen_texs), icon='TEXTURE')
+        col.label(text='Number of Images: ' + str(len(images)), icon_value=lib.get_icon('image'))
+        #col.label(text='Number of Vertex Colors: ' + str(len(vcols)), icon='GROUP_VCOL')
+        col.label(text='Number of Vertex Colors: ' + str(len(vcols)), icon_value=lib.get_icon('vertex_color'))
+        #col.label(text='Number of Generated Textures: ' + str(num_gen_texs), icon='TEXTURE')
+        col.label(text='Number of Generated Textures: ' + str(num_gen_texs), icon_value=lib.get_icon('texture'))
 
-        #col.operator('node.y_new_image_atlas_segment_test', icon='IMAGE_DATA')
-        #col.operator('node.y_uv_transform_test', icon='GROUP_UVS')
+        #col.operator('node.y_new_image_atlas_segment_test', icon_value=lib.get_icon('image'))
+        #col.operator('node.y_uv_transform_test', icon_value=lib.get_icon('uv'))
 
     # Hide support this addon panel for now
     return
@@ -2454,10 +2481,10 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
 
         row = layout.row()
 
-        if hasattr(lib, 'custom_icons'):
-            icon_value = lib.custom_icons[lib.channel_custom_icon_dict[item.type]].icon_id
-            row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
-        else: row.prop(item, 'name', text='', emboss=False, icon=lib.channel_icon_dict[item.type])
+        #if hasattr(lib, 'custom_icons'):
+        icon_value = lib.custom_icons[lib.channel_custom_icon_dict[item.type]].icon_id
+        row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
+        #else: row.prop(item, 'name', text='', emboss=False, icon=lib.channel_icon_dict[item.type])
 
         if not yp.use_baked or item.no_layer_using:
             if item.type == 'RGB':
@@ -2525,14 +2552,20 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 row.prop(layer, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
             elif image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
             #elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
-            elif layer.type == 'VCOL': row.prop(layer, 'name', text='', emboss=False, icon='GROUP_VCOL')
+            elif layer.type == 'VCOL': 
+                #row.prop(layer, 'name', text='', emboss=False, icon='GROUP_VCOL')
+                row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
             elif layer.type == 'HEMI': 
-                if is_28(): row.prop(layer, 'name', text='', emboss=False, icon='LIGHT')
-                else: row.prop(layer, 'name', text='', emboss=False, icon='LAMP')
-            elif layer.type == 'COLOR': row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
-            elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon='IMAGE_RGB_ALPHA')
-            elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon='FILE_FOLDER')
-            else: row.prop(layer, 'name', text='', emboss=False, icon='TEXTURE')
+                row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('hemi'))
+            elif layer.type == 'COLOR': 
+                #row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
+                icon_value = lib.custom_icons["color"].icon_id
+                row.prop(layer, 'name', text='', emboss=False, icon_value=icon_value)
+            elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
+            elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
+            else: 
+                #row.prop(layer, 'name', text='', emboss=False, icon='TEXTURE')
+                row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
         else:
             if active_image_mask:
                 row.active = False
@@ -2541,36 +2574,37 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                             icon_value=image.preview.icon_id)
                 #elif vcol: 
                 elif layer.type == 'VCOL': 
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
+                    #row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 elif layer.type == 'COLOR': 
                     row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='COLOR')
                 elif layer.type == 'HEMI': 
-                    if is_28():
-                        row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='LIGHT')
-                    else: row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='LAMP')
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
                 elif layer.type == 'BACKGROUND': 
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='IMAGE_RGB_ALPHA')
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('background'))
                 elif layer.type == 'GROUP': 
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='FILE_FOLDER')
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('group'))
                 else: 
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
+                    #row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
+                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
             else:
                 if image: 
                     row.label(text='', icon_value=image.preview.icon_id)
                 #elif vcol: 
                 elif layer.type == 'VCOL': 
-                    row.label(text='', icon='GROUP_VCOL')
+                    #row.label(text='', icon='GROUP_VCOL')
+                    row.label(text='', icon_value=lib.get_icon('vertex_color'))
                 elif layer.type == 'COLOR': 
                     row.label(text='', icon='COLOR')
                 elif layer.type == 'HEMI': 
-                    if is_28(): row.label(text='', icon='LIGHT')
-                    else: row.label(text='', icon='LAMP')
+                    row.label(text='', icon_value=lib.get_icon('hemi'))
                 elif layer.type == 'BACKGROUND': 
-                    row.label(text='', icon='IMAGE_RGB_ALPHA')
+                    row.label(text='', icon_value=lib.get_icon('background'))
                 elif layer.type == 'GROUP': 
-                    row.label(text='', icon='FILE_FOLDER')
+                    row.label(text='', icon_value=lib.get_icon('group'))
                 else: 
-                    row.label(text='', icon='TEXTURE')
+                    #row.label(text='', icon='TEXTURE')
+                    row.label(text='', icon_value=lib.get_icon('texture'))
 
         # Image mask icons
         active_mask_image = None
@@ -2589,13 +2623,15 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 elif m.type == 'VCOL':
                     #active_vcol_mask = obj.data.vertex_colors.get(src.attribute_name)
                     active_vcol_mask = m
-                    row.label(text='', icon='GROUP_VCOL')
+                    #row.label(text='', icon='GROUP_VCOL')
+                    row.label(text='', icon_value=lib.get_icon('vertex_color'))
             else:
                 if m.type == 'IMAGE':
                     src = mask_tree.nodes.get(m.source)
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                 elif m.type == 'VCOL':
-                    row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
+                    #row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
 
         # Debug parent
         #row.label(text=str(index) + ' (' + str(layer.parent_idx) + ')')
@@ -2625,9 +2661,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
         if active_image:
             # Asterisk icon to indicate dirty image
             if active_image.is_dirty:
-                if hasattr(lib, 'custom_icons'):
-                    row.label(text='', icon_value=lib.custom_icons['asterisk'].icon_id)
-                else: row.label(text='', icon='FREEZE')
+                #if hasattr(lib, 'custom_icons'):
+                row.label(text='', icon_value=lib.custom_icons['asterisk'].icon_id)
+                #else: row.label(text='', icon='FREEZE')
 
             # Indicate packed image
             if active_image.packed_file:
@@ -2688,12 +2724,16 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             row = master.row()
             #row.active = is_hidden
             row.active = layer.enable_masks
-            row.prop(layer, 'enable_masks', emboss=False, text='', icon='MOD_MASK')
+            if layer.enable_masks:
+                icon_value = lib.custom_icons["mask"].icon_id
+            else: icon_value = lib.custom_icons["disabled_mask"].icon_id
+            row.prop(layer, 'enable_masks', emboss=False, text='', icon_value=icon_value)
+            #row.prop(layer, 'enable_masks', emboss=False, text='', icon='MOD_MASK')
 
         # Layer visibility
         row = master.row()
         row.active = is_hidden
-        if hasattr(lib, 'custom_icons'):
+        if not is_28():
             if layer.enable: eye_icon = 'RESTRICT_VIEW_OFF'
             else: eye_icon = 'RESTRICT_VIEW_ON'
         else:
@@ -2720,12 +2760,12 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = row.column()
 
-        col.operator('node.y_bake_channels', text='Bake All Channels', icon='RENDER_STILL')
-        col.operator('node.y_rename_ypaint_tree', text='Rename', icon='GREASEPENCIL')
+        col.operator('node.y_bake_channels', text='Bake All Channels', icon_value=lib.get_icon('bake'))
+        col.operator('node.y_rename_ypaint_tree', text='Rename Tree', icon_value=lib.get_icon('rename'))
 
         col.separator()
 
-        col.label(text='Active:', icon='NODETREE')
+        col.label(text='Active Tree:', icon_value=lib.get_icon('nodetree'))
         for n in get_list_of_ypaint_nodes(mat):
             if n.name == node.name:
                 icon = 'RADIOBUT_ON'
@@ -2760,30 +2800,28 @@ class YNewLayerMenu(bpy.types.Menu):
         #col = self.layout.column(align=True)
         #col.context_pointer_set('group_node', context.group_node)
         #col.label(text='Image:')
-        col.operator("node.y_new_layer", text='New Image', icon='IMAGE_DATA').type = 'IMAGE'
+        col.operator("node.y_new_layer", text='New Image', icon_value=lib.get_icon('image')).type = 'IMAGE'
 
         #col.separator()
 
         col.operator("node.y_open_image_to_layer", text='Open Image')
-        if is_28():
-            #col.operator("node.y_open_image_to_layer", text='Open Image', icon='FILEBROWSER')
-            col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
-        else:
-            #col.operator("node.y_open_image_to_layer", text='Open Image', icon='IMASEL')
-            col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
+        col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
 
         col.separator()
 
-        col.operator("node.y_new_layer", icon='FILE_FOLDER', text='Layer Group').type = 'GROUP'
+        col.operator("node.y_new_layer", icon_value=lib.get_icon('group'), text='Layer Group').type = 'GROUP'
         col.separator()
 
         #col.label(text='Vertex Color:')
-        col.operator("node.y_new_layer", icon='GROUP_VCOL', text='New Vertex Color').type = 'VCOL'
+        #col.operator("node.y_new_layer", icon='GROUP_VCOL', text='New Vertex Color').type = 'VCOL'
+        col.operator("node.y_new_layer", icon_value=lib.get_icon('vertex_color'), text='New Vertex Color').type = 'VCOL'
         col.operator("node.y_open_available_data_to_layer", text='Open Available Vertex Color').type = 'VCOL'
         col.separator()
 
         #col.label(text='Solid Color:')
-        c = col.operator("node.y_new_layer", icon='COLOR', text='Solid Color')
+        icon_value = lib.custom_icons["color"].icon_id
+        c = col.operator("node.y_new_layer", icon_value=icon_value, text='Solid Color')
+        #c = col.operator("node.y_new_layer", icon='COLOR', text='Solid Color')
         c.type = 'COLOR'
         c.add_mask = False
 
@@ -2802,7 +2840,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.separator()
 
         #col.label(text='Background:')
-        c = col.operator("node.y_new_layer", icon='IMAGE_RGB_ALPHA', text='Background w/ Image Mask')
+        c = col.operator("node.y_new_layer", icon_value=lib.get_icon('background'), text='Background w/ Image Mask')
         c.type = 'BACKGROUND'
         c.add_mask = True
         c.mask_type = 'IMAGE'
@@ -2824,7 +2862,8 @@ class YNewLayerMenu(bpy.types.Menu):
 
         col = row.column()
         #col.label(text='Generated:')
-        col.operator("node.y_new_layer", icon='TEXTURE', text='Brick').type = 'BRICK'
+        #col.operator("node.y_new_layer", icon='TEXTURE', text='Brick').type = 'BRICK'
+        col.operator("node.y_new_layer", icon_value=lib.get_icon('texture'), text='Brick').type = 'BRICK'
         col.operator("node.y_new_layer", text='Checker').type = 'CHECKER'
         col.operator("node.y_new_layer", text='Gradient').type = 'GRADIENT'
         col.operator("node.y_new_layer", text='Magic').type = 'MAGIC'
@@ -2834,12 +2873,10 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_new_layer", text='Wave').type = 'WAVE'
 
         col.separator()
-        if is_28():
-            col.operator("node.y_new_layer", icon='LIGHT', text='Fake Lighting').type = 'HEMI'
-        else: col.operator("node.y_new_layer", icon='LAMP', text='Fake Lighting').type = 'HEMI'
+        col.operator("node.y_new_layer", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
 
         col = row.column()
-        c = col.operator("node.y_bake_to_layer", icon='RENDER_STILL', text='Ambient Occlusion')
+        c = col.operator("node.y_bake_to_layer", icon_value=lib.get_icon('bake'), text='Ambient Occlusion')
         c.type = 'AO'
         c.target_type = 'LAYER'
 
@@ -2925,13 +2962,13 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         #col.context_pointer_set('space_data', context.screen.areas[6].spaces[0])
         #col.operator('image.save_as', icon='FILE_TICK')
         if hasattr(context, 'image') and context.image:
-            col.label(text='Active Image: ' + context.image.name, icon='IMAGE_DATA')
+            col.label(text='Active Image: ' + context.image.name, icon_value=lib.get_icon('image'))
         else:
             col.label(text='No active image')
 
         #col.separator()
-        #col.operator('node.y_transfer_layer_uv', text='Transfer Active Layer UV', icon='GROUP_UVS')
-        #col.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon='GROUP_UVS')
+        #col.operator('node.y_transfer_layer_uv', text='Transfer Active Layer UV', icon_value=lib.get_icon('uv'))
+        #col.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon_value=lib.get_icon('uv'))
         
         #if hasattr(context, 'image') and context.image:
         col.separator()
@@ -2973,8 +3010,8 @@ class YUVSpecialMenu(bpy.types.Menu):
         return get_active_ypaint_node()
 
     def draw(self, context):
-        self.layout.operator('node.y_transfer_layer_uv', text='Transfer UV', icon='GROUP_UVS')
-        self.layout.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon='GROUP_UVS')
+        self.layout.operator('node.y_transfer_layer_uv', text='Transfer UV', icon_value=lib.get_icon('uv'))
+        self.layout.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon_value=lib.get_icon('uv'))
 
 class YModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_modifier_menu"
@@ -3115,44 +3152,46 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         col.context_pointer_set('layer', context.layer)
 
         col.label(text='Image Mask:')
-        col.operator('node.y_new_layer_mask', icon='IMAGE_DATA', text='New Image Mask').type = 'IMAGE'
-        if is_28():
-            col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon='FILEBROWSER')
-            col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='FILEBROWSER').type = 'IMAGE'
-        else:
-            col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon='IMASEL')
-            col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='IMASEL').type = 'IMAGE'
+        col.operator('node.y_new_layer_mask', icon_value=lib.get_icon('image'), text='New Image Mask').type = 'IMAGE'
+        #if is_28():
+        #    col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon='FILEBROWSER')
+        #    col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='FILEBROWSER').type = 'IMAGE'
+        #else:
+        col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon_value=lib.get_icon('open_image'))
+        col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', 
+                icon_value=lib.get_icon('open_image')).type = 'IMAGE'
         #col.label(text='Not implemented yet!', icon='ERROR')
         col.separator()
         #col.label(text='Open Mask:')
         #col.label(text='Open Other Mask', icon='MOD_MASK')
 
         col.label(text='Vertex Color Mask:')
-        col.operator('node.y_new_layer_mask', text='New Vertex Color Mask', icon='GROUP_VCOL').type = 'VCOL'
-        col.operator('node.y_open_available_data_as_mask', text='Open Available Vertex Color as Mask', icon='GROUP_VCOL').type = 'VCOL'
+        #col.operator('node.y_new_layer_mask', text='New Vertex Color Mask', icon='GROUP_VCOL').type = 'VCOL'
+        col.operator('node.y_new_layer_mask', text='New Vertex Color Mask', 
+                icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        col.operator('node.y_open_available_data_as_mask', text='Open Available Vertex Color as Mask', 
+                icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
 
         col = row.column(align=True)
         #col.separator()
         col.label(text='Generated Mask:')
-        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Brick').type = 'BRICK'
-        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Checker').type = 'CHECKER'
-        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Gradient').type = 'GRADIENT'
-        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Magic').type = 'MAGIC'
-        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Musgrave').type = 'MUSGRAVE'
-        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Noise').type = 'NOISE'
-        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Voronoi').type = 'VORONOI'
-        col.operator("node.y_new_layer_mask", icon='TEXTURE', text='Wave').type = 'WAVE'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Brick').type = 'BRICK'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Checker').type = 'CHECKER'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Gradient').type = 'GRADIENT'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Magic').type = 'MAGIC'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Musgrave').type = 'MUSGRAVE'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Noise').type = 'NOISE'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Voronoi').type = 'VORONOI'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Wave').type = 'WAVE'
 
         col.separator()
-        if is_28():
-            col.operator("node.y_new_layer_mask", icon='LIGHT', text='Fake Lighting').type = 'HEMI'
-        else: col.operator("node.y_new_layer_mask", icon='LAMP', text='Fake Lighting').type = 'HEMI'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
 
         col.separator()
-        col.operator("node.y_new_layer_mask", icon='OBJECT_DATA', text='Object Index').type = 'OBJECT_INDEX'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('object_index'), text='Object Index').type = 'OBJECT_INDEX'
 
         col = row.column()
-        c = col.operator("node.y_bake_to_layer", icon='RENDER_STILL', text='Ambient Occlusion')
+        c = col.operator("node.y_bake_to_layer", icon_value=lib.get_icon('bake'), text='Ambient Occlusion')
         c.type = 'AO'
         c.target_type = 'MASK'
 
@@ -3217,7 +3256,7 @@ class YLayerMaskMenu(bpy.types.Menu):
 
         col.separator()
 
-        op = col.operator('node.y_transfer_layer_uv', icon='GROUP_UVS', text='Transfer UV')
+        op = col.operator('node.y_transfer_layer_uv', icon_value=lib.get_icon('uv'), text='Transfer UV')
 
         col.separator()
 
@@ -3228,15 +3267,15 @@ class YLayerMaskMenu(bpy.types.Menu):
         col = row.column(align=True)
         col.label(text='Add Modifier')
 
-        col.operator('node.y_new_mask_modifier', text='Invert', icon='MODIFIER').type = 'INVERT'
-        col.operator('node.y_new_mask_modifier', text='Ramp', icon='MODIFIER').type = 'RAMP'
-        col.operator('node.y_new_mask_modifier', text='Curve', icon='MODIFIER').type = 'CURVE'
+        col.operator('node.y_new_mask_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
+        col.operator('node.y_new_mask_modifier', text='Ramp', icon_value=lib.get_icon('modifier')).type = 'RAMP'
+        col.operator('node.y_new_mask_modifier', text='Curve', icon_value=lib.get_icon('modifier')).type = 'CURVE'
 
         col = row.column(align=True)
         col.context_pointer_set('parent', mask)
         col.label(text='Advanced')
         if not mask.use_temp_bake:
-            col.operator('node.y_bake_temp_image', text='Bake Temp Image', icon='RENDER_STILL')
+            col.operator('node.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
         else:
             col.operator('node.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
 
@@ -3270,7 +3309,7 @@ class YAddModifierMenu(bpy.types.Menu):
         col.label(text='Add Modifier')
         ## List the items
         for mt in Modifier.modifier_type_items:
-            col.operator('node.y_new_ypaint_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
+            col.operator('node.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
         if m:
@@ -3282,10 +3321,10 @@ class YAddModifierMenu(bpy.types.Menu):
             col = row.column()
             col.label(text='Transition Effects')
             if root_ch.type == 'NORMAL':
-                col.operator('node.y_show_transition_bump', text='Transition Bump', icon='IMAGE_RGB_ALPHA')
+                col.operator('node.y_show_transition_bump', text='Transition Bump', icon_value=lib.get_icon('background'))
             else:
-                col.operator('node.y_show_transition_ramp', text='Transition Ramp', icon='IMAGE_RGB_ALPHA')
-                col.operator('node.y_show_transition_ao', text='Transition AO', icon='IMAGE_RGB_ALPHA')
+                col.operator('node.y_show_transition_ramp', text='Transition Ramp', icon_value=lib.get_icon('background'))
+                col.operator('node.y_show_transition_ao', text='Transition AO', icon_value=lib.get_icon('background'))
 
             #col.label(context.parent.path_from_id())
 
@@ -3314,31 +3353,31 @@ class YLayerSpecialMenu(bpy.types.Menu):
             col.label(text='Add Modifier')
             ## List the modifiers
             for mt in Modifier.modifier_type_items:
-                col.operator('node.y_new_ypaint_modifier', text=mt[1], icon='MODIFIER').type = mt[0]
+                col.operator('node.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
         col = row.column()
         col.label(text='Change Layer Type')
-        col.operator('node.y_replace_layer_type', text='Image', icon='IMAGE_DATA').type = 'IMAGE'
+        col.operator('node.y_replace_layer_type', text='Image', icon_value=lib.get_icon('image')).type = 'IMAGE'
 
-        col.operator('node.y_replace_layer_type', text='Vertex Color', icon='GROUP_VCOL').type = 'VCOL'
-        col.operator('node.y_replace_layer_type', text='Solid Color', icon='COLOR').type = 'COLOR'
-        col.operator('node.y_replace_layer_type', text='Background', icon='IMAGE_RGB_ALPHA').type = 'BACKGROUND'
-        col.operator('node.y_replace_layer_type', text='Group', icon='FILE_FOLDER').type = 'GROUP'
-
-        col.separator()
-        col.operator('node.y_replace_layer_type', text='Brick', icon='TEXTURE').type = 'BRICK'
-        col.operator('node.y_replace_layer_type', text='Checker', icon='TEXTURE').type = 'CHECKER'
-        col.operator('node.y_replace_layer_type', text='Gradient', icon='TEXTURE').type = 'GRADIENT'
-        col.operator('node.y_replace_layer_type', text='Magic', icon='TEXTURE').type = 'MAGIC'
-        col.operator('node.y_replace_layer_type', text='Musgrave', icon='TEXTURE').type = 'MUSGRAVE'
-        col.operator('node.y_replace_layer_type', text='Noise', icon='TEXTURE').type = 'NOISE'
-        col.operator('node.y_replace_layer_type', text='Voronoi', icon='TEXTURE').type = 'VORONOI'
-        col.operator('node.y_replace_layer_type', text='Wave', icon='TEXTURE').type = 'WAVE'
+        #col.operator('node.y_replace_layer_type', text='Vertex Color', icon='GROUP_VCOL').type = 'VCOL'
+        col.operator('node.y_replace_layer_type', text='Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        #col.operator('node.y_replace_layer_type', text='Solid Color', icon='COLOR').type = 'COLOR'
+        col.operator('node.y_replace_layer_type', text='Solid Color', icon_value=lib.get_icon('color')).type = 'COLOR'
+        col.operator('node.y_replace_layer_type', text='Background', icon_value=lib.get_icon('background')).type = 'BACKGROUND'
+        col.operator('node.y_replace_layer_type', text='Group', icon_value=lib.get_icon('group')).type = 'GROUP'
 
         col.separator()
-        if is_28():
-            col.operator("node.y_replace_layer_type", icon='LIGHT', text='Fake Lighting').type = 'HEMI'
-        else: col.operator("node.y_replace_layer_type", icon='LAMP', text='Fake Lighting').type = 'HEMI'
+        col.operator('node.y_replace_layer_type', text='Brick', icon_value=lib.get_icon('texture')).type = 'BRICK'
+        col.operator('node.y_replace_layer_type', text='Checker', icon_value=lib.get_icon('texture')).type = 'CHECKER'
+        col.operator('node.y_replace_layer_type', text='Gradient', icon_value=lib.get_icon('texture')).type = 'GRADIENT'
+        col.operator('node.y_replace_layer_type', text='Magic', icon_value=lib.get_icon('texture')).type = 'MAGIC'
+        col.operator('node.y_replace_layer_type', text='Musgrave', icon_value=lib.get_icon('texture')).type = 'MUSGRAVE'
+        col.operator('node.y_replace_layer_type', text='Noise', icon_value=lib.get_icon('texture')).type = 'NOISE'
+        col.operator('node.y_replace_layer_type', text='Voronoi', icon_value=lib.get_icon('texture')).type = 'VORONOI'
+        col.operator('node.y_replace_layer_type', text='Wave', icon_value=lib.get_icon('texture')).type = 'WAVE'
+
+        col.separator()
+        col.operator("node.y_replace_layer_type", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
 
         #if context.parent.type == 'HEMI':
         col = row.column()
@@ -3346,7 +3385,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
         if context.parent.use_temp_bake:
             col.operator('node.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
         else:
-            col.operator('node.y_bake_temp_image', text='Bake Temp Image', icon='RENDER_STILL')
+            col.operator('node.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
 
         #col = row.column()
         #col.label(text='Options:')
@@ -3574,7 +3613,7 @@ def add_new_ypaint_node_menu(self, context):
     l = self.layout
     l.operator_context = 'INVOKE_REGION_WIN'
     l.separator()
-    l.operator('node.y_add_new_ypaint_node', text=ADDON_TITLE, icon='NODETREE')
+    l.operator('node.y_add_new_ypaint_node', text=ADDON_TITLE, icon_value=lib.get_icon('nodetree'))
 
 def copy_ui_settings(source, dest):
     for attr in dir(source):
