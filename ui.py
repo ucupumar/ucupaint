@@ -2297,14 +2297,14 @@ def main_draw(self, context):
 
     height_root_ch = get_root_height_channel(yp)
 
-    if (area.type == 'VIEW_3D' and get_viewport_shade() == 'RENDERED' 
-        and is_28() and height_root_ch
-        and scene.render.engine == 'CYCLES' and not yp.enable_tangent_sign_hacks):
+    #if (area.type == 'VIEW_3D' and get_viewport_shade() == 'RENDERED' 
+    #    and is_28() and height_root_ch
+    #    and scene.render.engine == 'CYCLES' and not yp.enable_tangent_sign_hacks):
 
-        rrow = row.row(align=True)
-        rrow.alert = True
-        rrow.prop(yp, 'enable_tangent_sign_hacks', text='Fix Tangent', icon='ERROR', toggle=True)
-        rrow.alert = False
+    #    rrow = row.row(align=True)
+    #    rrow.alert = True
+    #    rrow.prop(yp, 'enable_tangent_sign_hacks', text='Fix Tangent', icon='ERROR', toggle=True)
+    #    rrow.alert = False
 
     scenario_1 = (yp.enable_tangent_sign_hacks and area.type == 'VIEW_3D' and 
             area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')

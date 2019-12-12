@@ -417,6 +417,25 @@ def clean_unused_libraries():
 #            if ng not in exist_groups:
 #                data_to.node_groups.append(ng)
 
+def flip_tangent_sign():
+    meshes = []
+
+    for obj in bpy.data.objects:
+        if obj.type == 'MESH' and obj.data not in meshes:
+            meshes.append(obj.data)
+            for vc in obj.data.vertex_colors:
+                if vc.name.startswith(TANGENT_SIGN_PREFIX):
+
+                    i = 0
+                    for poly in obj.data.polygons:
+                        for idx in poly.loop_indices:
+                            vert = obj.data.loops[idx]
+                            col = vc.data[i].color
+                            if is_28():
+                                vc.data[i].color = (1.0-col[0], 1.0-col[1], 1.0-col[2], 1.0)
+                            else: vc.data[i].color = (1.0-col[0], 1.0-col[1], 1.0-col[2])
+                            i += 1
+
 @persistent
 def update_node_tree_libs(name):
     T = time.time()
@@ -490,6 +509,10 @@ def update_node_tree_libs(name):
             for n in lib_tree.nodes:
                 if n.type == 'GROUP' and n.node_tree and n.node_tree.name not in update_names:
                     update_names.append(n.node_tree.name)
+
+            # Flip tangent if tangent process is updated to ver 1
+            if name == TANGENT_PROCESS and cur_ver == 0 and lib_ver == 1:
+                flip_tangent_sign()
 
             print('INFO: Updating Node group', name, 'to revision', str(lib_ver) + '!')
 

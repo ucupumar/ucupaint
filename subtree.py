@@ -846,6 +846,8 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                 for idx in poly.loop_indices:
                     vert = obj.data.loops[idx]
                     bs = max(vert.bitangent_sign, 0.0)
+                    # Invert bitangent sign so the default value is 0.0 rather than 1.0
+                    bs = 1.0 - bs
                     if is_28():
                         vcol.data[i].color = (bs, bs, bs, 1.0)
                     else: vcol.data[i].color = (bs, bs, bs)
@@ -904,6 +906,8 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                 for idx in poly.loop_indices:
                     vert = temp_ob.data.loops[idx]
                     bs = max(vert.bitangent_sign, 0.0)
+                    # Invert bitangent sign so the default value is 0.0 rather than 1.0
+                    bs = 1.0 - bs
                     if is_28():
                         temp_vcol.data[i].color = (bs, bs, bs, 1.0)
                     else: temp_vcol.data[i].color = (bs, bs, bs)
@@ -1016,13 +1020,14 @@ def update_enable_tangent_sign_hacks(self, context):
     for uv in yp.uvs:
         tangent_process = tree.nodes.get(uv.tangent_process)
         if tangent_process:
+            tsign = tangent_process.node_tree.nodes.get('_tangent_sign')
             if yp.enable_tangent_sign_hacks:
-                tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
-                tsign = tangent_process.node_tree.nodes.get('_tangent_sign')
+                #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
                 vcol = refresh_tangent_sign_vcol(obj, uv.name)
                 if vcol: tsign.attribute_name = vcol.name
             else:
-                tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 0.0
+                #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 0.0
+                tsign.attribute_name = ''
                 remove_tangent_sign_vcol(obj, uv.name)
 
 def check_actual_uv_nodes(yp, uv, obj):
@@ -1057,13 +1062,13 @@ def check_actual_uv_nodes(yp, uv, obj):
             node.uv_map = uv.name
 
             if yp.enable_tangent_sign_hacks:
-                tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
+                #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
                 node = tp_nodes.get('_tangent_sign')
 
                 vcol = refresh_tangent_sign_vcol(obj, uv.name)
                 if vcol: node.attribute_name = vcol.name
-            else:
-                tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 0.0
+            #else:
+            #    tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 0.0
     else:
         remove_node(tree, uv, 'tangent_process')
 

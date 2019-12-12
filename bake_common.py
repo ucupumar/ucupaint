@@ -445,36 +445,11 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     # Create setup nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
-    #lin2srgb = mat.node_tree.nodes.new('ShaderNodeGroup')
-    #lin2srgb.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
-    #srgb2lin = mat.node_tree.nodes.new('ShaderNodeGroup')
-    #srgb2lin.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
 
     if root_ch.type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-        #norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL)
         norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
-
-        #t = norm.node_tree.nodes.get('_tangent')
-        #t.uv_map = uv_map
-        #
-        #bt = norm.node_tree.nodes.get('_bitangent')
-        #bt.uv_map = uv_map
-
-        #if BL28_HACK:
-        ##if is_28():
-        #    bake_uv = yp.uvs.get(uv_map)
-        #    if bake_uv:
-        #        tangent_process = tree.nodes.get(bake_uv.tangent_process)
-        #        t_socket = t.outputs[0].links[0].to_socket
-        #        bt_socket = bt.outputs[0].links[0].to_socket
-        #        hack_bt = norm.node_tree.nodes.new('ShaderNodeGroup')
-        #        hack_bt.node_tree = tangent_process.node_tree
-        #        hack_bt.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
-        #        hack_bt.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
-        #        create_link(norm.node_tree, hack_bt.outputs['Tangent'], t_socket)
-        #        create_link(norm.node_tree, hack_bt.outputs['Bitangent'], bt_socket)
 
     # Set tex as active node
     mat.node_tree.nodes.active = tex

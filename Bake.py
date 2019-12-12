@@ -782,22 +782,28 @@ class YBakeChannels(bpy.types.Operator):
 
         book = remember_before_bake_(yp)
 
-        if BL28_HACK:
+        height_ch = get_root_height_channel(yp)
+
+        if BL28_HACK and height_ch:
         #if is_28():
 
-            if len(yp.uvs) > MAX_VERTEX_DATA - len(obj.data.vertex_colors):
-                self.report({'ERROR'}, "Maximum vertex colors reached! Need at least " + str(len(uvs)) + " vertex color(s)!")
-                return {'CANCELLED'}
+            if len(yp.uvs) > MAX_VERTEX_DATA - len(obj.data.vertex_colors) and is_28():
+                #self.report({'ERROR'}, "Maximum vertex colors reached! Need at least " + str(len(uvs)) + " vertex color(s)!")
+                #return {'CANCELLED'}
+                self.report({'WARNING'}, "Maximum vertex colors reached! Need at least " + str(len(uvs)) + " vertex color(s) to bake proper normal!")
 
             # Update tangent sign vertex color
             for uv in yp.uvs:
                 tangent_process = tree.nodes.get(uv.tangent_process)
                 if tangent_process:
-                    tangent_process.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
-                    tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
-                    tansign = tangent_process.node_tree.nodes.get('_tangent_sign')
-                    vcol = refresh_tangent_sign_vcol(obj, uv.name)
-                    if vcol: tansign.attribute_name = vcol.name
+                    if is_28():
+                        tangent_process.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
+                        #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
+                        tansign = tangent_process.node_tree.nodes.get('_tangent_sign')
+                        vcol = refresh_tangent_sign_vcol(obj, uv.name)
+                        if vcol: tansign.attribute_name = vcol.name
+                    else:
+                        tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 0.0
 
         #return {'FINISHED'}
 
@@ -942,7 +948,6 @@ class YBakeChannels(bpy.types.Operator):
         yp.halt_update = False
 
         # Check subdiv Setup
-        height_ch = get_root_height_channel(yp)
         if height_ch:
             check_subdiv_setup(height_ch)
 
@@ -951,9 +956,16 @@ class YBakeChannels(bpy.types.Operator):
 
         # Recover hack
         #if is_28():
-        if BL28_HACK:
+        if BL28_HACK and height_ch:
             # Refresh tangent sign hacks
             update_enable_tangent_sign_hacks(yp, context)
+
+            # Revert back cycles hack
+            if not is_28():
+                for uv in yp.uvs:
+                    tangent_process = tree.nodes.get(uv.tangent_process)
+                    if tangent_process:
+                        tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
 
         # Rearrange
         rearrange_yp_nodes(tree)
