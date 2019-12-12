@@ -3430,6 +3430,7 @@ def update_layer_ui(self, context):
     layer.expand_vector = self.expand_vector
     layer.expand_masks = self.expand_masks
     layer.expand_source = self.expand_source
+    layer.expand_channels = self.expand_channels
 
 def update_channel_ui(self, context):
     ypui = context.window_manager.ypui
