@@ -271,6 +271,11 @@ def is_greater_than_281():
         return True
     else: return False
 
+def get_viewport_shade():
+    if is_28():
+        return bpy.context.area.spaces[0].shading.type
+    else: return bpy.context.area.spaces[0].viewport_shade
+
 def get_active_material():
     scene = bpy.context.scene
     engine = scene.render.engine
@@ -1987,8 +1992,12 @@ def refresh_temp_uv(obj, entity):
 
     # New uv layers
     temp_uv_layer = uv_layers.new(name=TEMP_UV)
+    #temp_uv_layer = obj.data.uv_layers.new(name=TEMP_UV)
     uv_layers.active = temp_uv_layer
     temp_uv_layer.active_render = True
+
+    if not is_28():
+        temp_uv_layer = obj.data.uv_layers.get(TEMP_UV)
 
     # Create transformation matrix
     # Scale
