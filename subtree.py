@@ -411,7 +411,7 @@ def disable_layer_source_tree(layer, rearrange=True):
         if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Bring back layer modifier to original tree
-        if layer.type == 'IMAGE':
+        if layer.type in {'IMAGE', 'MUSGRAVE'}:
             for mod in layer.modifiers:
                 Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
         else:

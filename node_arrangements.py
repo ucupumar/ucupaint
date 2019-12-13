@@ -404,7 +404,7 @@ def rearrange_source_tree_nodes(layer):
     if check_set_node_loc(source_tree, layer.linear, loc):
         loc.x += 200
 
-    if layer.type in {'IMAGE', 'VCOL'}:
+    if layer.type in {'IMAGE', 'VCOL', 'MUSGRAVE'}:
         arrange_modifier_nodes(source_tree, layer, loc)
     else:
         if check_set_node_loc(source_tree, layer.mod_group, loc, True):
