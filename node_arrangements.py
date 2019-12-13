@@ -615,7 +615,7 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 40
 
     if layer.source_group == '' and check_set_node_loc(tree, layer.mapping, loc):
-        loc.y -= 290
+        loc.y -= 360
 
     if check_set_node_loc(tree, layer.uv_neighbor, loc):
         loc.y -= 260
@@ -851,7 +851,7 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.y -= 320
 
         if mask.group_node == '' and check_set_node_loc(tree, mask.mapping, loc):
-            loc.y -= 290
+            loc.y -= 360
 
         if check_set_node_loc(tree, mask.uv_map, loc):
             loc.y -= 130

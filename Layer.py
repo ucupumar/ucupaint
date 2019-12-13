@@ -1784,8 +1784,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         remove_node(source_tree, layer, 'source', remove_data=remove_data)
 
     # Disable modifier tree
-    if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'} and 
-            new_type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI'}):
+    if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'MUSGRAVE'} and 
+            new_type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'MUSGRAVE'}):
         Modifier.disable_modifiers_tree(layer)
 
     # Try to get available cache
