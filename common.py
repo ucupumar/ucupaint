@@ -937,7 +937,7 @@ def create_info_nodes(tree):
     infos.append(info)
 
     info = nodes.new('NodeFrame')
-    info.label = 'Get this addon on patreon.com/ucupumar'
+    info.label = 'Get more info on patreon.com/ucupumar'
     info.use_custom_color = True
     info.color = (1.0, 1.0, 1.0)
     info.width = 420.0
