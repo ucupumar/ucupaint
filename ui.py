@@ -2396,7 +2396,7 @@ def main_draw(self, context):
         #col.operator('node.y_uv_transform_test', icon_value=lib.get_icon('uv'))
 
     # Hide support this addon panel for now
-    return
+    #return
 
     icon = 'TRIA_DOWN' if ypui.show_support else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -2407,14 +2407,10 @@ def main_draw(self, context):
         box = layout.box()
         col = box.column()
         col.alert = True
-        col.operator('wm.url_open', text='Become A Patron!', icon='POSE_DATA').url = 'https://www.patreon.com/ucupumar'
+        if is_28():
+            col.operator('wm.url_open', text='Become A Patron!', icon='ARMATURE_DATA').url = 'https://www.patreon.com/ucupumar'
+        else: col.operator('wm.url_open', text='Become A Patron!', icon='POSE_DATA').url = 'https://www.patreon.com/ucupumar'
         col.alert = False
-        col.label(text='Patron List (June 2018):')
-        col = col.column(align=True)
-        col.operator('wm.url_open', text='masterxeon1001').url = 'https://masterxeon1001.com/'
-        col.operator('wm.url_open', text='Stephen Bates').url = 'https://twitter.com/pharion3d'
-        col.operator('wm.url_open', text='Chala').url = 'https://steamcommunity.com/id/BlenderNova/'
-
 
 class NODE_PT_YPaint(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
