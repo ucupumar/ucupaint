@@ -9,8 +9,8 @@ MAX_VERTEX_DATA = 8
 
 LAYERGROUP_PREFIX = '~yP Layer '
 MASKGROUP_PREFIX = '~yP Mask '
-ADDON_NAME = 'ypaint'
-ADDON_TITLE = 'yPaint'
+ADDON_NAME = 'ucupaint'
+ADDON_TITLE = 'Ucupaint'
 
 INFO_PREFIX = '__yp_info_'
 
