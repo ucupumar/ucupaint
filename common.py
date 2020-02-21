@@ -1137,7 +1137,7 @@ def simple_replace_new_node(tree, node_name, node_id_name, label='', group_name=
 
     return node
 
-def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False, hard_replace=False, dirty=False):
+def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', return_status=False, hard_replace=False, dirty=False, force_replace=False):
     ''' Check if node is available, replace if available '''
 
     # Try to get the node first
@@ -1169,9 +1169,9 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
 
         #print(prev_tree)
 
-        if not prev_tree or (prev_tree.name != group_name and not m):
+        if not prev_tree or force_replace or (prev_tree.name != group_name and not m):
 
-            if hard_replace:
+            if hard_replace or force_replace:
                 tree.nodes.remove(node)
                 node = new_node(tree, entity, prop, node_id_name, label)
                 dirty = True

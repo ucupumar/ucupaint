@@ -171,6 +171,7 @@ def draw_hemi_props(entity, source, layout):
     norm = source.node_tree.nodes.get('Normal')
 
     col.prop(norm.outputs[0], 'default_value', text='')
+    col.prop(entity, 'hemi_camera_ray_mask', text='Camera Ray Mask')
 
 def draw_vcol_props(entity, vcol, layout):
     layout.label(text='You can also edit vertex color on edit mode')

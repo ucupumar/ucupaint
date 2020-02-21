@@ -979,6 +979,28 @@ def update_mask_hemi_space(self, context):
     trans = source.node_tree.nodes.get('Vector Transform')
     if trans: trans.convert_from = self.hemi_space
 
+def update_mask_hemi_camera_ray_mask(self, context):
+    yp = self.id_data.yp
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+
+    tree = get_mask_tree(self)
+    source = get_mask_source(self)
+
+    # Check if source has the inputs, if not reload the node
+    if 'Camera Ray Mask' not in source.inputs:
+        source = replace_new_node(tree, self, 'source', 'ShaderNodeGroup', 'Mask Source', 
+                lib.HEMI, force_replace=True)
+        duplicate_lib_node_tree(source)
+        trans = source.node_tree.nodes.get('Vector Transform')
+        if trans: trans.convert_from = self.hemi_space
+
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
+
+    source.inputs['Camera Ray Mask'].default_value = 1.0 if self.hemi_camera_ray_mask else 0.0
+
 def update_mask_name(self, context):
 
     yp = self.id_data.yp
@@ -1095,6 +1117,11 @@ class YLayerMask(bpy.types.PropertyGroup):
             items = hemi_space_items,
             default = 'OBJECT',
             update=update_mask_hemi_space)
+
+    hemi_camera_ray_mask = BoolProperty(
+            name = 'Camera Ray Mask',
+            description = "Use Camera Ray value so the back of the mesh won't be affected by fake lighting",
+            default = False, update=update_mask_hemi_camera_ray_mask)
 
     uv_name = StringProperty(default='', update=update_mask_uv_name)
 

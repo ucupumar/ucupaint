@@ -2698,6 +2698,25 @@ def update_hemi_space(self, context):
     trans = source.node_tree.nodes.get('Vector Transform')
     if trans: trans.convert_from = self.hemi_space
 
+def update_hemi_camera_ray_mask(self, context):
+    yp = self.id_data.yp
+
+    tree = get_source_tree(self)
+    source = get_layer_source(self)
+
+    # Check if source has the inputs, if not reload the node
+    if 'Camera Ray Mask' not in source.inputs:
+        source = replace_new_node(tree, self, 'source', 'ShaderNodeGroup', 'Source', 
+                lib.HEMI, force_replace=True)
+        duplicate_lib_node_tree(source)
+        trans = source.node_tree.nodes.get('Vector Transform')
+        if trans: trans.convert_from = self.hemi_space
+
+        rearrange_layer_nodes(self)
+        reconnect_layer_nodes(self)
+
+    source.inputs['Camera Ray Mask'].default_value = 1.0 if self.hemi_camera_ray_mask else 0.0
+
 def update_channel_intensity_value(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -3150,6 +3169,11 @@ class YLayer(bpy.types.PropertyGroup):
     hemi_vector = FloatVectorProperty(
             name='Cache Hemi vector', size=3, precision=3,
             default=(0.0, 0.0, 1.0))
+
+    hemi_camera_ray_mask = BoolProperty(
+            name = 'Camera Ray Mask',
+            description = "Use Camera Ray value so the back of the mesh won't be affected by fake lighting",
+            default = False, update=update_hemi_camera_ray_mask)
 
     # To detect change of layer image
     image_name = StringProperty(default='')
