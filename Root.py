@@ -86,6 +86,19 @@ def check_all_channel_ios(yp, reconnect=True):
             input_index += 1
             output_index += 1
 
+            # Backface mode
+            if ch.backface_mode != 'BOTH':
+                end_backface = check_new_node(group_tree, ch, 'end_backface', 'ShaderNodeMath', 'Backface')
+                end_backface.use_clamp = True
+
+            if ch.backface_mode == 'FRONT_ONLY':
+                end_backface.operation = 'SUBTRACT'
+            elif ch.backface_mode == 'BACK_ONLY':
+                end_backface.operation = 'MULTIPLY'
+
+        if not ch.enable_alpha or ch.backface_mode == 'BOTH':
+                remove_node(group_tree, ch, 'end_backface')
+
         # Displacement IO
         if ch.type == 'NORMAL':
 
@@ -1191,6 +1204,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
+        remove_node(group_tree, channel, 'end_backface')
         remove_node(group_tree, channel, 'end_max_height')
         remove_node(group_tree, channel, 'start_normal_filter')
         remove_node(group_tree, channel, 'baked')
@@ -2272,6 +2286,11 @@ def update_channel_disable_global_baked(self, context):
     rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)
 
+def update_backface_mode(self, context):
+    yp = self.id_data.yp
+
+    check_all_channel_ios(yp)
+
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
 #    group_tree = group_node.node_tree
@@ -2358,6 +2377,17 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     # Alpha for transparent materials
     enable_alpha = BoolProperty(default=False, update=update_channel_alpha)
+
+    # Backface mode for alpha
+    backface_mode = EnumProperty(
+            name = 'Backface Mode',
+            description = 'Backface mode',
+            items = (
+                ('BOTH', 'Both', ''),
+                ('FRONT_ONLY', 'Front Only / Backface Culling', ''),
+                ('BACK_ONLY', 'Back Only', ''),
+                ),
+            default = 'BOTH', update=update_backface_mode)
 
     # Displacement for normal channel
     enable_parallax = BoolProperty(
@@ -2477,6 +2507,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     bump_process = StringProperty(default='')
     end_max_height = StringProperty(default='')
     end_max_height_tweak = StringProperty(default='')
+    end_backface = StringProperty(default='')
 
     # Baked nodes
     baked = StringProperty(default='')
@@ -2492,6 +2523,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     expand_base_vector = BoolProperty(default=True)
     expand_subdiv_settings = BoolProperty(default=False)
     expand_parallax_settings = BoolProperty(default=False)
+    expand_alpha_settings = BoolProperty(default=False)
 
     # Connection related
     ori_alpha_to = CollectionProperty(type=YNodeConnections)

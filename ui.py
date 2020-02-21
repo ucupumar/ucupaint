@@ -40,6 +40,7 @@ def update_yp_ui():
             ypui.channel_ui.expand_base_vector = channel.expand_base_vector
             ypui.channel_ui.expand_subdiv_settings = channel.expand_subdiv_settings
             ypui.channel_ui.expand_parallax_settings = channel.expand_parallax_settings
+            ypui.channel_ui.expand_alpha_settings = channel.expand_alpha_settings
             ypui.channel_ui.modifiers.clear()
 
             # Construct channel UI objects
@@ -602,7 +603,11 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
 
             #if channel.type == 'RGB':
             brow = bcol.row(align=True)
-            brow.label(text='', icon_value=lib.get_icon('input'))
+            #brow.label(text='', icon_value=lib.get_icon('input'))
+            if chui.expand_alpha_settings:
+                icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+            brow.prop(chui, 'expand_alpha_settings', text='', emboss=False, icon_value=icon_value)
             if channel.enable_alpha:
                 inp_alpha = node.inputs[channel.io_index+1]
                 brow.label(text='Base Alpha:')
@@ -611,6 +616,17 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 else: brow.label(text='', icon='LINKED')
             else: brow.label(text='Alpha:')
             brow.prop(channel, 'enable_alpha', text='')
+
+            if chui.expand_alpha_settings:
+                brow = bcol.row(align=True)
+                brow.label(text='', icon='BLANK1')
+                bbox = brow.box()
+                bbcol = bbox.column() #align=True)
+                bbcol.active = channel.enable_alpha
+
+                brow = bbcol.row(align=True)
+                brow.label(text='Backface Mode:')
+                brow.prop(channel, 'backface_mode', text='')
 
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
@@ -3455,6 +3471,8 @@ def update_channel_ui(self, context):
         ch.expand_subdiv_settings = self.expand_subdiv_settings
     if hasattr(ch, 'expand_parallax_settings'):
         ch.expand_parallax_settings = self.expand_parallax_settings
+    if hasattr(ch, 'expand_alpha_settings'):
+        ch.expand_alpha_settings = self.expand_alpha_settings
     if hasattr(ch, 'expand_intensity_settings'):
         ch.expand_intensity_settings = self.expand_intensity_settings
     if hasattr(ch, 'expand_transition_bump_settings'):
@@ -3513,6 +3531,7 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_transition_ao_settings = BoolProperty(default=True, update=update_channel_ui)
     expand_subdiv_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_parallax_settings = BoolProperty(default=False, update=update_channel_ui)
+    expand_alpha_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_input_settings = BoolProperty(default=True, update=update_channel_ui)
     modifiers = CollectionProperty(type=YModifierUI)
 

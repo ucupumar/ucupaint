@@ -1607,6 +1607,9 @@ def rearrange_yp_nodes(group_tree):
         if check_set_node_loc(group_tree, channel.end_max_height, loc):
             loc.y -= 110
 
+        if check_set_node_loc(group_tree, channel.end_backface, loc):
+            loc.y -= 180
+
     loc.x += 200
     loc.y = 0.0
 

@@ -982,6 +982,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         start_linear = nodes.get(ch.start_linear)
         end_linear = nodes.get(ch.end_linear)
+        end_backface = nodes.get(ch.end_backface)
         clamp = nodes.get(ch.clamp)
         end_max_height = nodes.get(ch.end_max_height)
         end_max_height_tweak = nodes.get(ch.end_max_height_tweak)
@@ -1212,6 +1213,10 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 if baked_disp: 
                     height = baked_disp.outputs[0]
                     create_link(tree, baked_uv_map, baked_disp.inputs[0])
+
+        if end_backface:
+            alpha = create_link(tree, alpha, end_backface.inputs[0])[0]
+            create_link(tree, geometry.outputs['Backfacing'], end_backface.inputs[1])
 
         create_link(tree, rgb, end.inputs[io_name])
         #if ch.type == 'RGB' and ch.enable_alpha:
