@@ -73,17 +73,30 @@ def transfer_uv(obj, mat, entity, uv_map):
     # Copy mapping
     mapp = mat.node_tree.nodes.new('ShaderNodeMapping')
 
-    mapp.translation[0] = mapping.translation[0]
-    mapp.translation[1] = mapping.translation[1]
-    mapp.translation[2] = mapping.translation[2]
+    if is_greater_than_281():
+        mapp.inputs[0].default_value[0] = mapping.inputs[0].default_value[0]
+        mapp.inputs[0].default_value[1] = mapping.inputs[0].default_value[1]
+        mapp.inputs[0].default_value[2] = mapping.inputs[0].default_value[2]
 
-    mapp.rotation[0] = mapping.rotation[0]
-    mapp.rotation[1] = mapping.rotation[1]
-    mapp.rotation[2] = mapping.rotation[2]
+        mapp.inputs[1].default_value[0] = mapping.inputs[1].default_value[0]
+        mapp.inputs[1].default_value[1] = mapping.inputs[1].default_value[1]
+        mapp.inputs[1].default_value[2] = mapping.inputs[1].default_value[2]
 
-    mapp.scale[0] = mapping.scale[0]
-    mapp.scale[1] = mapping.scale[1]
-    mapp.scale[2] = mapping.scale[2]
+        mapp.inputs[2].default_value[0] = mapping.inputs[2].default_value[0]
+        mapp.inputs[2].default_value[1] = mapping.inputs[2].default_value[1]
+        mapp.inputs[2].default_value[2] = mapping.inputs[2].default_value[2]
+    else:
+        mapp.translation[0] = mapping.translation[0]
+        mapp.translation[1] = mapping.translation[1]
+        mapp.translation[2] = mapping.translation[2]
+
+        mapp.rotation[0] = mapping.rotation[0]
+        mapp.rotation[1] = mapping.rotation[1]
+        mapp.rotation[2] = mapping.rotation[2]
+
+        mapp.scale[0] = mapping.scale[0]
+        mapp.scale[1] = mapping.scale[1]
+        mapp.scale[2] = mapping.scale[2]
 
     # Get material output
     output = get_active_mat_output_node(mat.node_tree)

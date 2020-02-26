@@ -20,6 +20,7 @@ def remember_before_bake(self, context, yp):
     self.ori_margin = scene.render.bake.margin
     self.ori_use_clear = scene.render.bake.use_clear
     self.ori_device = scene.cycles.device
+    self.ori_normal_space = scene.render.bake.normal_space
 
     # Remember uv
     #self.ori_active_uv = uv_layers.active
