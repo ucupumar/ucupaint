@@ -673,6 +673,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     mix = new_node(tree, c, 'mix', 'ShaderNodeMixRGB', 'Mask Blend')
                     mix.inputs[0].default_value = mask.intensity_value
                 mix.blend_type = mask.blend_type
+                # Use clamp to keep value between 0.0 to 1.0
+                if mask.blend_type not in {'MIX', 'MULTIPLY'}: mix.use_clamp = True
 
             if root_ch.type == 'NORMAL':
 
@@ -681,6 +683,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     if not mix_pure:
                         mix_pure = new_node(tree, c, 'mix_pure', 'ShaderNodeMixRGB', 'Mask Blend Pure')
                         mix_pure.blend_type = mask.blend_type
+                        # Use clamp to keep value between 0.0 to 1.0
+                        mix_pure.use_clamp = True
                         mix_pure.inputs[0].default_value = mask.intensity_value
 
                 else:
@@ -695,6 +699,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                         mix_remains = new_node(tree, c, 'mix_remains', 'ShaderNodeMixRGB', 'Mask Blend Remaining')
                         mix_remains.inputs[0].default_value = mask.intensity_value
                     mix_remains.blend_type = mask.blend_type
+                    # Use clamp to keep value between 0.0 to 1.0
+                    if mask.blend_type not in {'MIX', 'MULTIPLY'}: mix_remains.use_clamp = True
                 else:
                     remove_node(tree, c, 'mix_remains')
 
@@ -720,6 +726,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                         mix_normal = new_node(tree, c, 'mix_normal', 'ShaderNodeMixRGB', 'Mask Normal')
                         mix_normal.inputs[0].default_value = mask.intensity_value
                     mix_normal.blend_type = mask.blend_type
+                    # Use clamp to keep value between 0.0 to 1.0
+                    if mask.blend_type not in {'MIX', 'MULTIPLY'}: mix_normal.use_clamp = True
                 else:
                     remove_node(tree, c, 'mix_normal')
 
@@ -735,6 +743,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                         mix_remains.inputs[0].default_value = mask.intensity_value
 
                     mix_remains.blend_type = mask.blend_type
+                    # Use clamp to keep value between 0.0 to 1.0
+                    if mask.blend_type not in {'MIX', 'MULTIPLY'}: mix_remains.use_clamp = True
                 else:
                     remove_node(tree, c, 'mix_remains')
 
