@@ -155,6 +155,10 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
             o.select_set(False)
         for obj in objs:
             obj.select_set(True)
+
+        # Disable material override
+        book['material_override'] = bpy.context.view_layer.material_override
+        bpy.context.view_layer.material_override = None
     else:
         for o in scene.objects:
             o.select = False
@@ -256,6 +260,9 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
 
     if 'compute_device_type' in book:
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = book['compute_device_type']
+
+    if is_28() and 'material_override' in book:
+        bpy.context.view_layer.material_override = book['material_override']
 
     # Recover world settings
     if is_28() and scene.world:

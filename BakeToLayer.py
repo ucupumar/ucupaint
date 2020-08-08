@@ -693,6 +693,7 @@ class YBakeToLayer(bpy.types.Operator):
         # Set bake image
         tex.image = image
         mat.node_tree.nodes.active = tex
+        #return {'FINISHED'}
 
         # Bake!
         bpy.ops.object.bake()
