@@ -340,14 +340,14 @@ def draw_tex_props(source, layout):
             row = col.row()
             col = row.column(align=True)
             col.label(text='Coloring:')
-            if is_28():
+            if is_greater_than_280():
                 col.label(text='Distance:')
                 col.label(text='Feature:')
             col.separator()
             col.label(text='Scale:')
             col = row.column(align=True)
             col.prop(source, 'coloring', text='')
-            if is_28():
+            if is_greater_than_280():
                 col.prop(source, 'distance', text='')
                 col.prop(source, 'feature', text='')
             col.separator()
@@ -411,7 +411,7 @@ def draw_mask_modifier_stack(layer, mask, layout, ui): #, custom_icon_enable):
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('mask', mask)
         row.context_pointer_set('modifier', m)
-        if is_28():
+        if is_greater_than_280():
             row.menu("NODE_MT_y_mask_modifier_menu", text='', icon='PREFERENCES')
         else: row.menu("NODE_MT_y_mask_modifier_menu", text='', icon='SCRIPTWIN')
 
@@ -470,7 +470,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('parent', parent)
         row.context_pointer_set('modifier', m)
-        if is_28():
+        if is_greater_than_280():
             row.menu("NODE_MT_y_modifier_menu", text='', icon='PREFERENCES')
         else: row.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
         row.prop(m, 'enable', text='')
@@ -499,7 +499,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
         pcol = rcol.column()
         if yp.preview_mode: pcol.alert = True
         #if custom_icon_enable:
-        if not is_28():
+        if not is_greater_than_280():
             pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
         else: pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
 
@@ -509,7 +509,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
     rcol = row.column(align=True)
     #rcol.context_pointer_set('node', node)
 
-    if is_28():
+    if is_greater_than_280():
         rcol.operator_menu_enum("node.y_add_new_ypaint_channel", 'type', icon='ADD', text='')
         rcol.operator("node.y_remove_ypaint_channel", icon='REMOVE', text='')
     else: 
@@ -546,7 +546,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
         row.context_pointer_set('parent', channel)
         row.context_pointer_set('channel_ui', chui)
         #if custom_icon_enable:
-        if is_28():
+        if is_greater_than_280():
             row.menu("NODE_MT_y_new_modifier_menu", icon='PREFERENCES', text='')
         else: row.menu("NODE_MT_y_new_modifier_menu", icon='SCRIPTWIN', text='')
 
@@ -801,7 +801,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 brow = bcol.row(align=True)
                 brow.label(text='', icon_value=lib.get_icon('input'))
 
-                if is_28():
+                if is_greater_than_280():
                     split = brow.split(factor=0.375, align=True)
                 else: split = brow.split(percentage=0.375)
 
@@ -907,7 +907,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         row.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
 
     #if layer.type != 'GROUP':
-    if is_28():
+    if is_greater_than_280():
         row.menu("NODE_MT_y_layer_special_menu", icon='PREFERENCES', text='')
     else: row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
 
@@ -990,14 +990,14 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             #else:
             #    row.prop(lui, 'expand_vector', text='', emboss=True, icon_value=lib.get_icon('uv'))
 
-            if is_28():
+            if is_greater_than_280():
                 split = row.split(factor=0.275, align=True)
             else: split = row.split(percentage=0.275, align=True)
 
             split.label(text='Vector:')
             if is_a_mesh and layer.texcoord_type == 'UV':
 
-                if is_28():
+                if is_greater_than_280():
                     ssplit = split.split(factor=0.33, align=True)
                 else: ssplit = split.split(percentage=0.33, align=True)
 
@@ -1008,7 +1008,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 split.prop(layer, 'texcoord_type', text='')
 
             if layer.texcoord_type == 'UV':
-                if is_28():
+                if is_greater_than_280():
                     row.menu("NODE_MT_y_uv_special_menu", icon='PREFERENCES', text='')
                 else: row.menu("NODE_MT_y_uv_special_menu", icon='SCRIPTWIN', text='')
 
@@ -1155,7 +1155,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
         row.context_pointer_set('channel_ui', chui)
 
         #if custom_icon_enable:
-        if is_28():
+        if is_greater_than_280():
             row.menu("NODE_MT_y_new_modifier_menu", icon='PREFERENCES', text='')
         else:
             row.menu("NODE_MT_y_new_modifier_menu", icon='SCRIPTWIN', text='')
@@ -1211,7 +1211,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                     brow.prop(ch, 'transition_bump_distance', text='')
 
                 brow.context_pointer_set('parent', ch)
-                if is_28():
+                if is_greater_than_280():
                     brow.menu("NODE_MT_y_transition_bump_menu", text='', icon='PREFERENCES')
                 else: brow.menu("NODE_MT_y_transition_bump_menu", text='', icon='SCRIPTWIN')
 
@@ -1326,7 +1326,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 else: row.label(text='Group Normal Settings') #, icon_value=lib.get_icon('input'))
             else:
                 #    row.label(text='', icon_value=lib.get_icon('input'))
-                if is_28():
+                if is_greater_than_280():
                     split = row.split(factor=0.275)
                 else: split = row.split(percentage=0.275)
 
@@ -1399,7 +1399,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                     row.prop(ch, 'transition_ramp_intensity_value', text='')
 
                 row.context_pointer_set('parent', ch)
-                if is_28():
+                if is_greater_than_280():
                     row.menu("NODE_MT_y_transition_ramp_menu", text='', icon='PREFERENCES')
                 else: row.menu("NODE_MT_y_transition_ramp_menu", text='', icon='SCRIPTWIN')
 
@@ -1450,7 +1450,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
                 row.context_pointer_set('layer', layer)
                 row.context_pointer_set('parent', ch)
-                if is_28():
+                if is_greater_than_280():
                     row.menu("NODE_MT_y_transition_ao_menu", text='', icon='PREFERENCES')
                 else: row.menu("NODE_MT_y_transition_ao_menu", text='', icon='SCRIPTWIN')
 
@@ -1519,7 +1519,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 row.label(text='', icon_value=lib.get_icon('input'))
 
             #row.label(text='', icon_value=lib.get_icon('input'))
-            if is_28():
+            if is_greater_than_280():
                 split = row.split(factor=0.275)
             else: split = row.split(percentage=0.275)
 
@@ -1605,7 +1605,7 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
 
     #if custom_icon_enable:
     #row.menu('NODE_MT_y_add_layer_mask_menu', text='', icon_value = lib.custom_icons['add_mask'].icon_id)
-    if is_28():
+    if is_greater_than_280():
         row.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='ADD')
     else: row.menu('NODE_MT_y_add_layer_mask_menu', text='', icon='ZOOMIN')
     #else: 
@@ -1654,7 +1654,7 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
 
         row.context_pointer_set('mask', mask)
 
-        if is_28():
+        if is_greater_than_280():
             row.menu("NODE_MT_y_layer_mask_menu", text='', icon='PREFERENCES')
         else: row.menu("NODE_MT_y_layer_mask_menu", text='', icon='SCRIPTWIN')
 
@@ -1724,7 +1724,7 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
             #else:
             #    rrow.prop(maskui, 'expand_vector', text='', emboss=True, icon_value=lib.get_icon('uv'))
 
-            if is_28():
+            if is_greater_than_280():
                 splits = rrow.split(factor=0.3)
             else: splits = rrow.split(percentage=0.3)
 
@@ -1734,7 +1734,7 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 splits.prop(mask, 'texcoord_type', text='')
             else:
 
-                if is_28():
+                if is_greater_than_280():
                     rrrow = splits.split(factor=0.35, align=True)
                 else: rrrow = splits.split(percentage=0.35, align=True)
 
@@ -1743,7 +1743,7 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
                 rrow.context_pointer_set('mask', mask)
-                if is_28():
+                if is_greater_than_280():
                     rrow.menu("NODE_MT_y_uv_special_menu", icon='PREFERENCES', text='')
                 else: rrow.menu("NODE_MT_y_uv_special_menu", icon='SCRIPTWIN', text='')
 
@@ -1853,7 +1853,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 row.context_pointer_set('image', baked.image)
 
 
-                if is_28():
+                if is_greater_than_280():
                     row.menu("NODE_MT_y_baked_image_menu", text='', icon='PREFERENCES')
                 else: row.menu("NODE_MT_y_baked_image_menu", text='', icon='SCRIPTWIN')
 
@@ -2082,7 +2082,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
         pcol = rcol.column()
         if yp.layer_preview_mode: pcol.alert = True
         #if custom_icon_enable:
-        if not is_28():
+        if not is_greater_than_280():
             pcol.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
         else: pcol.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='HIDE_OFF')
 
@@ -2090,7 +2090,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             "layers", yp, "active_layer_index", rows=5, maxrows=5)  
 
     rcol = row.column(align=True)
-    if is_28():
+    if is_greater_than_280():
         rcol.menu("NODE_MT_y_new_layer_menu", text='', icon='ADD')
     else: rcol.menu("NODE_MT_y_new_layer_menu", text='', icon='ZOOMIN')
 
@@ -2098,12 +2098,12 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         if has_childrens(layer):
 
-            if is_28():
+            if is_greater_than_280():
                 rcol.operator("node.y_remove_layer_menu", icon='REMOVE', text='')
             else: rcol.operator("node.y_remove_layer_menu", icon='ZOOMOUT', text='')
 
         else: 
-            if is_28():
+            if is_greater_than_280():
                 c = rcol.operator("node.y_remove_layer", icon='REMOVE', text='')
             else: c = rcol.operator("node.y_remove_layer", icon='ZOOMOUT', text='')
 
@@ -2141,7 +2141,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
     else:
 
-        if is_28():
+        if is_greater_than_280():
             rcol.operator("node.y_remove_layer", icon='REMOVE', text='')
         else: rcol.operator("node.y_remove_layer", icon='ZOOMOUT', text='')
 
@@ -2313,7 +2313,7 @@ def main_draw(self, context):
     row.label(text=node.node_tree.name)
     #row.prop(node.node_tree, 'name', text='')
 
-    if is_28():
+    if is_greater_than_280():
         row.menu("NODE_MT_ypaint_special_menu", text='', icon='PREFERENCES')
     else: row.menu("NODE_MT_ypaint_special_menu", text='', icon='SCRIPTWIN')
 
@@ -2340,7 +2340,7 @@ def main_draw(self, context):
     height_root_ch = get_root_height_channel(yp)
 
     #if (area.type == 'VIEW_3D' and get_viewport_shade() == 'RENDERED' 
-    #    and is_28() and height_root_ch
+    #    and is_greater_than_280() and height_root_ch
     #    and scene.render.engine == 'CYCLES' and not yp.enable_tangent_sign_hacks):
 
     #    rrow = row.row(align=True)
@@ -2424,7 +2424,7 @@ def main_draw(self, context):
         box = layout.box()
         col = box.column()
         col.alert = True
-        if is_28():
+        if is_greater_than_280():
             col.operator('wm.url_open', text='Become A Patron!', icon='ARMATURE_DATA').url = 'https://www.patreon.com/ucupumar'
         else: col.operator('wm.url_open', text='Become A Patron!', icon='POSE_DATA').url = 'https://www.patreon.com/ucupumar'
         col.alert = False
@@ -2746,7 +2746,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
         # Layer visibility
         row = master.row()
         row.active = is_hidden
-        if not is_28():
+        if not is_greater_than_280():
             if layer.enable: eye_icon = 'RESTRICT_VIEW_OFF'
             else: eye_icon = 'RESTRICT_VIEW_ON'
         else:
@@ -2843,7 +2843,7 @@ class YNewLayerMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
-        if is_28():
+        if is_greater_than_280():
             c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
         else: c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
         c.type = 'COLOR'
@@ -2858,7 +2858,7 @@ class YNewLayerMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
-        if is_28():
+        if is_greater_than_280():
             c = col.operator("node.y_new_layer", text='Background w/ Vertex Color Mask')
         else: c = col.operator("node.y_new_layer", text='Background w/ Vertex Color Mask')
 
@@ -2997,7 +2997,7 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         if hasattr(context, 'image') and context.image.packed_file:
             col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
         else:
-            if is_28():
+            if is_greater_than_280():
                 col.operator('node.y_save_as_image', text='Save As Image')
                 col.operator('node.y_save_pack_all', text='Save/Pack All')
             else: 
@@ -3046,7 +3046,7 @@ class YModifierMenu(bpy.types.Menu):
         op.direction = 'DOWN'
 
         col.separator()
-        if is_28():
+        if is_greater_than_280():
             op = col.operator('node.y_remove_ypaint_modifier', icon='REMOVE', text='Remove Modifier')
         else: op = col.operator('node.y_remove_ypaint_modifier', icon='ZOOMOUT', text='Remove Modifier')
 
@@ -3075,7 +3075,7 @@ class YMaskModifierMenu(bpy.types.Menu):
 
         col.separator()
 
-        if is_28():
+        if is_greater_than_280():
             op = col.operator('node.y_remove_mask_modifier', icon='REMOVE', text='Remove Modifier')
         else: op = col.operator('node.y_remove_mask_modifier', icon='ZOOMOUT', text='Remove Modifier')
 
@@ -3094,7 +3094,7 @@ class YTransitionBumpMenu(bpy.types.Menu):
 
         #col.label(text=context.parent.path_from_id())
 
-        if is_28():
+        if is_greater_than_280():
             col.operator('node.y_hide_transition_effect', text='Remove Transition Bump', icon='REMOVE').type = 'BUMP'
         else: col.operator('node.y_hide_transition_effect', text='Remove Transition Bump', icon='ZOOMOUT').type = 'BUMP'
 
@@ -3115,7 +3115,7 @@ class YTransitionRampMenu(bpy.types.Menu):
 
         col.separator()
 
-        if is_28():
+        if is_greater_than_280():
             col.operator('node.y_hide_transition_effect', text='Remove Transition Ramp', icon='REMOVE').type = 'RAMP'
         else: col.operator('node.y_hide_transition_effect', text='Remove Transition Ramp', icon='ZOOMOUT').type = 'RAMP'
 
@@ -3142,7 +3142,7 @@ class YTransitionAOMenu(bpy.types.Menu):
         col.separator()
 
         col = layout.column()
-        if is_28():
+        if is_greater_than_280():
             col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='REMOVE').type = 'AO'
         else: col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='ZOOMOUT').type = 'AO'
 
@@ -3166,7 +3166,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         col.label(text='Image Mask:')
         col.operator('node.y_new_layer_mask', icon_value=lib.get_icon('image'), text='New Image Mask').type = 'IMAGE'
-        #if is_28():
+        #if is_greater_than_280():
         #    col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon='FILEBROWSER')
         #    col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='FILEBROWSER').type = 'IMAGE'
         #else:
@@ -3273,7 +3273,7 @@ class YLayerMaskMenu(bpy.types.Menu):
 
         col.separator()
 
-        if is_28():
+        if is_greater_than_280():
             col.operator('node.y_remove_layer_mask', text='Remove Mask', icon='REMOVE')
         else: col.operator('node.y_remove_layer_mask', text='Remove Mask', icon='ZOOMOUT')
 
@@ -3694,7 +3694,7 @@ def register():
     bpy.utils.register_class(NODE_UL_YPaint_channels)
     bpy.utils.register_class(NODE_UL_YPaint_layers)
 
-    if not is_28():
+    if not is_greater_than_280():
         bpy.utils.register_class(VIEW3D_PT_YPaint_tools)
         bpy.utils.register_class(NODE_PT_YPaint)
     else: 
@@ -3738,7 +3738,7 @@ def unregister():
     bpy.utils.unregister_class(NODE_UL_YPaint_channels)
     bpy.utils.unregister_class(NODE_UL_YPaint_layers)
 
-    if not is_28():
+    if not is_greater_than_280():
         bpy.utils.unregister_class(VIEW3D_PT_YPaint_tools)
         bpy.utils.unregister_class(NODE_PT_YPaint)
     else: 

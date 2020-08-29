@@ -63,13 +63,13 @@ def channel_items(self, context):
 
     for i, ch in enumerate(yp.channels):
         #if hasattr(lib, 'custom_icons'):
-        if not is_28():
+        if not is_greater_than_280():
             icon_name = lib.channel_custom_icon_dict[ch.type]
             items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
         else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], i))
 
     #if hasattr(lib, 'custom_icons'):
-    if not is_28():
+    if not is_greater_than_280():
         items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
     else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
 
@@ -112,7 +112,7 @@ def layer_input_items(self, context):
 def get_normal_map_type_items(self, context):
     items = []
 
-    if is_28():
+    if is_greater_than_280():
         items.append(('BUMP_MAP', 'Bump Map', ''))
         items.append(('NORMAL_MAP', 'Normal Map', ''))
     else: 
@@ -594,7 +594,7 @@ class YNewLayer(bpy.types.Operator):
             else: channel = None
         except: channel = None
 
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
         col = row.column(align=False)
@@ -2067,7 +2067,7 @@ class YReplaceLayerType(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
 
-        if is_28():
+        if is_greater_than_280():
             split = layout.split(factor=0.35, align=True)
         else: split = layout.split(percentage=0.35)
 
@@ -2111,7 +2111,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
 
     yp = tree.yp
 
-    if is_28():
+    if is_greater_than_280():
         ypup = bpy.context.preferences.addons[__package__].preferences
     else: ypup = bpy.context.user_preferences.addons[__package__].preferences
 

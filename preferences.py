@@ -43,7 +43,7 @@ class YPaintPreferences(AddonPreferences):
 @persistent
 def auto_save_images(scene):
 
-    if is_28():
+    if is_greater_than_280():
         ypup = bpy.context.preferences.addons[__package__].preferences
     else: ypup = bpy.context.user_preferences.addons[__package__].preferences
 

@@ -260,8 +260,14 @@ def get_current_version_str():
     bl_info = sys.modules[ADDON_NAME].bl_info
     return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
 
-def is_28():
-    if bpy.app.version_string.startswith('2.8'):
+#def is_28():
+#    if bpy.app.version_string.startswith('2.8'):
+#        return True
+#    else: return False
+
+def is_greater_than_280():
+    ver = bpy.app.version_string[:4]
+    if versiontuple(ver) >= versiontuple('2.80'):
         return True
     else: return False
 
@@ -272,7 +278,7 @@ def is_greater_than_281():
     else: return False
 
 def get_viewport_shade():
-    if is_28():
+    if is_greater_than_280():
         return bpy.context.area.spaces[0].shading.type
     else: return bpy.context.area.spaces[0].viewport_shade
 
@@ -282,7 +288,7 @@ def get_active_material():
     obj = None
     if hasattr(bpy.context, 'object'):
         obj = bpy.context.object
-    elif is_28():
+    elif is_greater_than_280():
         obj = bpy.context.view_layer.objects.active
 
     if not obj: return None
@@ -1367,7 +1373,7 @@ def set_obj_vertex_colors(obj, vcol_name, color):
     vcol = obj.data.vertex_colors.get(vcol_name)
     if not vcol: return
 
-    if is_28():
+    if is_greater_than_280():
         col = (color[0], color[1], color[2], 1.0)
     else: col = color
 
@@ -1996,7 +2002,7 @@ def refresh_temp_uv(obj, entity):
     uv_layers.active = temp_uv_layer
     temp_uv_layer.active_render = True
 
-    if not is_28():
+    if not is_greater_than_280():
         temp_uv_layer = obj.data.uv_layers.get(TEMP_UV)
 
     # Create transformation matrix
@@ -2039,7 +2045,7 @@ def refresh_temp_uv(obj, entity):
     arr.shape = (arr.shape[0]//2, 2)
 
     # Matrix transformation for each uv coordinates
-    if is_28():
+    if is_greater_than_280():
         for uv in arr:
             vec = Vector((uv[0], uv[1], 0.0)) #, 1.0))
             vec = m @ vec
@@ -2740,7 +2746,7 @@ def get_displace_modifier(obj, keyword=''):
 def get_uv_layers(obj):
     if obj.type != 'MESH': return None
 
-    if not is_28():
+    if not is_greater_than_280():
         uv_layers = obj.data.uv_textures
     else: uv_layers = obj.data.uv_layers
 
@@ -2835,7 +2841,7 @@ def get_layer_type_icon(layer_type):
     elif layer_type == 'COLOR':
         return 'COLOR'
     elif layer_type == 'HEMI':
-        if is_28(): return 'LIGHT'
+        if is_greater_than_280(): return 'LIGHT'
         return 'LAMP'
 
     return 'TEXTURE'
@@ -2845,7 +2851,7 @@ def save_hemi_props(layer, source):
     if norm: layer.hemi_vector = norm.outputs[0].default_value
 
 def get_scene_objects():
-    if is_28():
+    if is_greater_than_280():
         return bpy.context.view_layer.objects
     else: return bpy.context.scene.objects
 

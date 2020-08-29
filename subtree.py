@@ -785,10 +785,10 @@ def recover_tangent_sign_process(ori_obj, ori_mode, ori_selects):
     # Recover selected and active objects
     bpy.ops.object.select_all(action='DESELECT')
     for o in ori_selects:
-        if is_28(): o.select_set(True)
+        if is_greater_than_280(): o.select_set(True)
         else: o.select = True
 
-    if is_28(): bpy.context.view_layer.objects.active = ori_obj
+    if is_greater_than_280(): bpy.context.view_layer.objects.active = ori_obj
     else: bpy.context.scene.objects.active = ori_obj
 
     # Back to original mode
@@ -809,7 +809,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
     ori_selects = [o for o in bpy.context.selected_objects]
     bpy.ops.object.select_all(action='DESELECT')
 
-    if is_28(): 
+    if is_greater_than_280(): 
         obj.select_set(True)
         bpy.context.view_layer.objects.active = obj
     else: 
@@ -835,7 +835,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                 return None
 
             # Set default color to be white
-            if is_28():
+            if is_greater_than_280():
                 for d in vcol.data: 
                     d.color = (1.0, 1.0, 1.0, 1.0)
             else: 
@@ -858,7 +858,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                     bs = max(vert.bitangent_sign, 0.0)
                     # Invert bitangent sign so the default value is 0.0 rather than 1.0
                     bs = 1.0 - bs
-                    if is_28():
+                    if is_greater_than_280():
                         vcol.data[i].color = (bs, bs, bs, 1.0)
                     else: vcol.data[i].color = (bs, bs, bs)
                     i += 1
@@ -867,7 +867,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
         except:
 
             # Remember selection
-            if is_28():
+            if is_greater_than_280():
                 ori_select = [o for o in bpy.context.view_layer.objects if o.select_get()]
             else: ori_select = [o for o in bpy.context.scene.objects if o.select]
 
@@ -885,7 +885,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
             temp_ob.data = obj.data.copy()
             temp_ob.name = '___TEMP__'
 
-            if is_28():
+            if is_greater_than_280():
                 bpy.context.scene.collection.objects.link(temp_ob)
                 bpy.context.view_layer.objects.active = temp_ob
             else: 
@@ -918,13 +918,13 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
                     bs = max(vert.bitangent_sign, 0.0)
                     # Invert bitangent sign so the default value is 0.0 rather than 1.0
                     bs = 1.0 - bs
-                    if is_28():
+                    if is_greater_than_280():
                         temp_vcol.data[i].color = (bs, bs, bs, 1.0)
                     else: temp_vcol.data[i].color = (bs, bs, bs)
                     i += 1
 
             # Set active object back to the original mesh
-            if is_28():
+            if is_greater_than_280():
                 bpy.context.view_layer.objects.active = obj
             else: bpy.context.scene.objects.active = obj
 
@@ -971,7 +971,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
 
             # Set back original select
             for o in ori_select:
-                if is_28():
+                if is_greater_than_280():
                     o.select_set(True)
                 else: o.select = True
 

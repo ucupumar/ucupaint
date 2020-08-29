@@ -469,7 +469,7 @@ def flip_tangent_sign():
                         for idx in poly.loop_indices:
                             vert = obj.data.loops[idx]
                             col = vc.data[i].color
-                            if is_28():
+                            if is_greater_than_280():
                                 vc.data[i].color = (1.0-col[0], 1.0-col[1], 1.0-col[2], 1.0)
                             else: vc.data[i].color = (1.0-col[0], 1.0-col[1], 1.0-col[2])
                             i += 1

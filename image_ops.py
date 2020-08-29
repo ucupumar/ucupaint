@@ -101,7 +101,7 @@ def save_pack_all(yp, only_dirty = True):
         if only_dirty and not image.is_dirty: continue
         T = time.time()
         if image.packed_file or image.filepath == '':
-            if is_28():
+            if is_greater_than_280():
                 image.pack()
             else:
                 if image.is_float:
@@ -192,7 +192,7 @@ class YPackImage(bpy.types.Operator):
         T = time.time()
 
         # Save file to temporary place first if image is float
-        if is_28():
+        if is_greater_than_280():
             context.image.pack()
         else:
             if context.image.is_float:
@@ -399,7 +399,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         return hasattr(context, 'image') and context.image
 
     def draw(self, context):
-        if is_28(): 
+        if is_greater_than_280(): 
             split = self.layout.split(factor=0.5)
         else: split = self.layout.split(percentage=0.5)
 

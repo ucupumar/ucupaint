@@ -2,8 +2,12 @@ import bpy, bmesh
 from mathutils import *
 from bpy.props import *
 
-def is_28():
-    if bpy.app.version_string.startswith('2.8'):
+def versiontuple(v):
+    return tuple(map(int, (v.split("."))))
+
+def is_greater_than_280():
+    ver = bpy.app.version_string[:4]
+    if versiontuple(ver) >= versiontuple('2.80'):
         return True
     else: return False
 
@@ -26,11 +30,6 @@ def linear_to_srgb(inp):
             c[i] = linear_to_srgb_per_element(c[i])
 
         return c
-
-def is_28():
-    if bpy.app.version_string.startswith('2.8'):
-        return True
-    else: return False
 
 class YSetActiveVcol(bpy.types.Operator):
     bl_idname = "mesh.y_set_active_vcol"
@@ -78,7 +77,7 @@ class YVcolFill(bpy.types.Operator):
 
     def execute(self, context):
 
-        if is_28():
+        if is_greater_than_280():
             objs = context.objects_in_mode
         else: objs = [context.object]
 
@@ -122,7 +121,7 @@ class YVcolFill(bpy.types.Operator):
             else:
                 color = linear_to_srgb(context.scene.ve_edit.color)
 
-            if is_28():
+            if is_greater_than_280():
                 color = (color[0], color[1], color[2], 1.0)
 
             #if ve.fill_mode == 'FACE':
@@ -241,7 +240,7 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
 
 def register():
     bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
-    if not is_28():
+    if not is_greater_than_280():
     #if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
         bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.register_class(YVcolEditorProps)
@@ -254,7 +253,7 @@ def register():
 def unregister():
     bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
     #if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
-    if not is_28():
+    if not is_greater_than_280():
         bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.unregister_class(YVcolEditorProps)
 

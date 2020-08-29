@@ -273,7 +273,7 @@ class YBakeToLayer(bpy.types.Operator):
         channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         height_root_ch = get_root_height_channel(yp)
 
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
@@ -379,7 +379,7 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "Overwrite layer/mask cannot be empty!")
             return {'CANCELLED'}
 
-        if self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_28():
+        if self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'} and not is_greater_than_280():
             self.report({'ERROR'}, "Blender 2.80+ is needed to use this feature!")
             return {'CANCELLED'}
 
@@ -410,7 +410,7 @@ class YBakeToLayer(bpy.types.Operator):
         # Flip normals setup
         if self.flip_normals:
             #ori_mode[obj.name] = obj.mode
-            if is_28():
+            if is_greater_than_280():
                 bpy.ops.object.mode_set(mode = 'EDIT')
                 bpy.ops.mesh.reveal()
                 bpy.ops.mesh.select_all(action='SELECT')
@@ -458,7 +458,7 @@ class YBakeToLayer(bpy.types.Operator):
                 ori_subsurf_ids[obj.name] = []
                 ori_subsurf_multires[obj.name] = []
                 
-                if is_28(): context.view_layer.objects.active = obj
+                if is_greater_than_280(): context.view_layer.objects.active = obj
                 else: context.scene.object.active = obj
 
                 subsurfs = []
@@ -605,7 +605,7 @@ class YBakeToLayer(bpy.types.Operator):
             src.inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
 
             # Links
-            if is_28():
+            if is_greater_than_280():
                 src.inputs[1].default_value = self.ao_distance
 
                 mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])

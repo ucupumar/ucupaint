@@ -28,12 +28,12 @@ def remember_before_bake(self, context, yp):
     self.ori_active_render_uv = [u for u in uv_layers if u.active_render][0].name
 
     # Remember scene objects
-    if is_28():
+    if is_greater_than_280():
         self.ori_active_selected_objs = [o for o in context.view_layer.objects if o.select_get()]
     else: self.ori_active_selected_objs = [o for o in scene.objects if o.select]
 
     # Remember world settings
-    if is_28() and scene.world:
+    if is_greater_than_280() and scene.world:
         self.ori_distance = scene.world.light_settings.distance
 
     # Remember ypui
@@ -69,12 +69,12 @@ def remember_before_bake_(yp=None):
     book['ori_active_render_uv'] = [u for u in uv_layers if u.active_render][0].name
 
     # Remember scene objects
-    if is_28():
+    if is_greater_than_280():
         book['ori_active_selected_objs'] = [o for o in bpy.context.view_layer.objects if o.select_get()]
     else: book['ori_active_selected_objs'] = [o for o in scene.objects if o.select]
 
     # Remember world settings
-    if is_28() and scene.world:
+    if is_greater_than_280() and scene.world:
         book['ori_distance'] = scene.world.light_settings.distance
 
     # Remember ypui
@@ -103,7 +103,7 @@ def prepare_bake_settings(self, context, yp):
     scene.render.bake.use_clear = False
 
     # Disable other object selections and select only active object
-    if is_28():
+    if is_greater_than_280():
         #for o in scene.objects:
         for o in context.view_layer.objects:
             o.select_set(False)
@@ -149,7 +149,7 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
         scene.render.bake.normal_space = 'TANGENT'
 
     # Disable other object selections and select only active object
-    if is_28():
+    if is_greater_than_280():
         #for o in scene.objects:
         for o in bpy.context.view_layer.objects:
             o.select_set(False)
@@ -210,7 +210,7 @@ def recover_bake_settings(self, context, yp, recover_active_uv=False):
     scene.render.bake.normal_space = self.ori_normal_space
 
     # Recover world settings
-    if is_28() and scene.world:
+    if is_greater_than_280() and scene.world:
         scene.world.light_settings.distance = self.ori_distance
 
     # Recover uv
@@ -223,7 +223,7 @@ def recover_bake_settings(self, context, yp, recover_active_uv=False):
     #return
 
     # Disable other object selections
-    if is_28():
+    if is_greater_than_280():
         #for o in scene.objects:
         for o in context.view_layer.objects:
             if o in self.ori_active_selected_objs:
@@ -261,11 +261,11 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
     if 'compute_device_type' in book:
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = book['compute_device_type']
 
-    if is_28() and 'material_override' in book:
+    if is_greater_than_280() and 'material_override' in book:
         bpy.context.view_layer.material_override = book['material_override']
 
     # Recover world settings
-    if is_28() and scene.world:
+    if is_greater_than_280() and scene.world:
         scene.world.light_settings.distance = book['ori_distance']
 
     # Recover uv
@@ -278,7 +278,7 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
     #return
 
     # Disable other object selections
-    if is_28():
+    if is_greater_than_280():
         #for o in scene.objects:
         for o in bpy.context.view_layer.objects:
             if o in book['ori_active_selected_objs']:
@@ -321,7 +321,7 @@ def fxaa_image(image):
     image_copy.pixels = pixels
 
     # Set active collection to be root collection
-    if is_28():
+    if is_greater_than_280():
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
@@ -421,7 +421,7 @@ def fxaa_image(image):
     recover_bake_settings_(book)
 
     # Recover original active layer collection
-    if is_28():
+    if is_greater_than_280():
         bpy.context.view_layer.active_layer_collection = ori_layer_collection
 
     return image

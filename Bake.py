@@ -237,7 +237,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
 
     def draw(self, context):
 
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
@@ -343,7 +343,7 @@ class YTransferLayerUV(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
@@ -432,7 +432,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
         new_segment = None
 
     # Set active collection to be root collection
-    if is_28():
+    if is_greater_than_280():
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
         bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
 
@@ -567,7 +567,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     recover_bake_settings_(book)
 
     # Recover original active layer collection
-    if is_28():
+    if is_greater_than_280():
         bpy.context.view_layer.active_layer_collection = ori_layer_collection
 
     return scaled_img, new_segment
@@ -600,7 +600,7 @@ class YResizeImage(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
         col = row.column(align=True)
@@ -747,7 +747,7 @@ class YBakeChannels(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
         col = row.column(align=True)
@@ -798,9 +798,9 @@ class YBakeChannels(bpy.types.Operator):
         height_ch = get_root_height_channel(yp)
 
         if BL28_HACK and height_ch:
-        #if is_28():
+        #if is_greater_than_280():
 
-            if len(yp.uvs) > MAX_VERTEX_DATA - len(obj.data.vertex_colors) and is_28():
+            if len(yp.uvs) > MAX_VERTEX_DATA - len(obj.data.vertex_colors) and is_greater_than_280():
                 #self.report({'ERROR'}, "Maximum vertex colors reached! Need at least " + str(len(uvs)) + " vertex color(s)!")
                 #return {'CANCELLED'}
                 self.report({'WARNING'}, "Maximum vertex colors reached! Need at least " + str(len(uvs)) + " vertex color(s) to bake proper normal!")
@@ -809,7 +809,7 @@ class YBakeChannels(bpy.types.Operator):
             for uv in yp.uvs:
                 tangent_process = tree.nodes.get(uv.tangent_process)
                 if tangent_process:
-                    if is_28():
+                    if is_greater_than_280():
                         tangent_process.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
                         #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
                         tansign = tangent_process.node_tree.nodes.get('_tangent_sign')
@@ -968,13 +968,13 @@ class YBakeChannels(bpy.types.Operator):
         check_uv_nodes(yp)
 
         # Recover hack
-        #if is_28():
+        #if is_greater_than_280():
         if BL28_HACK and height_ch:
             # Refresh tangent sign hacks
             update_enable_tangent_sign_hacks(yp, context)
 
             # Revert back cycles hack
-            if not is_28():
+            if not is_greater_than_280():
                 for uv in yp.uvs:
                     tangent_process = tree.nodes.get(uv.tangent_process)
                     if tangent_process:
@@ -1231,7 +1231,7 @@ class YMergeLayer(bpy.types.Operator):
 
     def draw(self, context):
         #col = self.layout.column()
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.5)
         else: row = self.layout.split(percentage=0.5)
 
@@ -1630,7 +1630,7 @@ class YBakeTempImage(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
@@ -1812,7 +1812,7 @@ def check_subdiv_setup(height_ch):
     norm_outp = node.outputs[height_ch.name]
 
     # Recover normal for Blender 2.7
-    if not is_28():
+    if not is_greater_than_280():
 
         if not yp.use_baked or not height_ch.enable_subdiv_setup or (
                 height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive):
@@ -1850,7 +1850,7 @@ def check_subdiv_setup(height_ch):
         height_outp = node.outputs[height_ch.name + io_suffix['HEIGHT']]
         max_height_outp = node.outputs[height_ch.name + io_suffix['MAX_HEIGHT']]
 
-        if is_28():
+        if is_greater_than_280():
             #mat.cycles.displacement_method = 'BOTH'
             mat.cycles.displacement_method = 'DISPLACEMENT'
 

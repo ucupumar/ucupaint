@@ -120,7 +120,7 @@ def check_all_channel_ios(yp, reconnect=True):
             #if yp.use_baked and ch.enable_subdiv_setup and ch.subdiv_adaptive:
             #    name = ch.name + io_suffix['DISPLACEMENT']
 
-            #    if is_28():
+            #    if is_greater_than_280():
             #        create_output(group_tree, name, 'NodeSocketVector', valid_outputs, output_index)
             #    else: create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
@@ -359,7 +359,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         return context.object
 
     def invoke(self, context, event):
-        if not is_28():
+        if not is_greater_than_280():
             self.execute(context)
 
         obj = context.object
@@ -382,7 +382,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         self.layout.prop_search(self, "uv_map", self, "uv_map_coll", icon='GROUP_UVS')
 
     def execute(self, context):
-        if not is_28():
+        if not is_greater_than_280():
             self.report({'ERROR'}, "This feature only works on Blender 2.8+")
             return {'CANCELLED'}
 
@@ -460,7 +460,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         ## Get target bsdf
         #self.target_bsdf = None
-        #if mat and mat.node_tree: # and is_28():
+        #if mat and mat.node_tree: # and is_greater_than_280():
         #    output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
         #    if output:
 
@@ -480,7 +480,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
     def draw(self, context):
         #row = self.layout.row()
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.35)
         else: row = self.layout.split(percentage=0.35)
 
@@ -505,7 +505,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ccol.prop(self, 'roughness', toggle=True)
             ccol.prop(self, 'normal', toggle=True)
 
-        if is_28():
+        if is_greater_than_280():
             col.prop(self, 'mute_texture_paint_overlay')
 
     def execute(self, context):
@@ -537,7 +537,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
 
-        transp_node_needed = not(is_28() and self.type == 'PRINCIPLED')
+        transp_node_needed = not(is_greater_than_280() and self.type == 'PRINCIPLED')
 
         main_bsdf = None
         trans_bsdf = None
@@ -704,7 +704,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             node.location.x -= 180
 
         # Disable overlay on Blender 2.8
-        if is_28() and self.mute_texture_paint_overlay:
+        if is_greater_than_280() and self.mute_texture_paint_overlay:
             screen = context.screen
             for area in context.screen.areas:
                 if area.type == 'VIEW_3D':
@@ -793,7 +793,7 @@ class YNewYPaintNode(bpy.types.Operator):
         return result
 
 def new_channel_items(self, context):
-    #if is_28():
+    #if is_greater_than_280():
     #    items = [('VALUE', 'Value', '', lib.channel_icon_dict['VALUE'], 0),
     #             ('RGB', 'RGB', '', lib.channel_icon_dict['RGB'], 1),
     #             ('NORMAL', 'Normal', '', lib.channel_icon_dict['NORMAL'], 2)]
@@ -890,7 +890,7 @@ class YNewYPaintChannel(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
@@ -1325,7 +1325,7 @@ class YFixMissingUV(bpy.types.Operator):
 
     def draw(self, context):
 
-        if is_28():
+        if is_greater_than_280():
             row = self.layout.split(factor=0.5)
         else: row = self.layout.split(percentage=0.5)
 
@@ -1676,7 +1676,7 @@ def get_preview(mat, output=None, advanced=False):
                 lib.ADVANCED_EMISSION_VIEWER, return_status=True, hard_replace=True)
         if dirty:
             # Set blend method to alpha
-            if is_28():
+            if is_greater_than_280():
                 blend_method = mat.blend_method
                 mat.blend_method = 'HASHED'
             else:
@@ -1708,7 +1708,7 @@ def remove_preview(mat, advanced=False):
         simple_remove_node(mat.node_tree, preview)
         if advanced:
             # Recover blend method
-            if is_28():
+            if is_greater_than_280():
                 mat.blend_method = mat.yp.ori_blend_method
             else:
                 mat.game_settings.alpha_blend = mat.yp.ori_blend_method
@@ -1837,7 +1837,7 @@ def update_layer_index(self, context):
     #T = time.time()
     scene = context.scene
     if hasattr(bpy.context, 'object'): obj = bpy.context.object
-    elif is_28(): obj = bpy.context.view_layer.objects.active
+    elif is_greater_than_280(): obj = bpy.context.view_layer.objects.active
     if not obj: return
     group_tree = self.id_data
     nodes = group_tree.nodes
@@ -2162,7 +2162,7 @@ def update_channel_alpha(self, context):
 
         if not any(alpha_chs):
             # Set material to use opaque
-            if is_28():
+            if is_greater_than_280():
                 mat.blend_method = 'OPAQUE'
             else:
                 mat.game_settings.alpha_blend = 'OPAQUE'
@@ -2187,7 +2187,7 @@ def update_channel_alpha(self, context):
 
         if any(alpha_chs):
             # Set material to use alpha blend
-            if is_28():
+            if is_greater_than_280():
                 mat.blend_method = 'HASHED'
             else:
                 mat.game_settings.alpha_blend = 'ALPHA'
@@ -2742,7 +2742,7 @@ def register():
     #bpy.types.Mesh.yp = PointerProperty(type=YPaintMeshProps)
 
     # Handlers
-    if is_28():
+    if is_greater_than_280():
         bpy.app.handlers.depsgraph_update_post.append(ypaint_last_object_update)
     else:
         bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
@@ -2773,7 +2773,7 @@ def unregister():
     #bpy.utils.unregister_class(YPaintMeshProps)
 
     # Remove handlers
-    if is_28():
+    if is_greater_than_280():
         bpy.app.handlers.depsgraph_update_post.remove(ypaint_last_object_update)
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
