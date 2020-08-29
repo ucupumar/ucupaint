@@ -134,7 +134,7 @@
 # - Baking object with multi materials need temporary uv manipulation, without that all uv will be baked, which is not ideals (V)
 
 bl_info = {
-    "name": "ucuPaint",
+    "name": "Ucupaint",
     "author": "Yusuf Umar",
     "version": (0, 1, 0),
     "blender": (2, 80, 0),

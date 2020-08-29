@@ -213,7 +213,7 @@ class VIEW3D_PT_y_vcol_editor_tools(bpy.types.Panel):
     bl_label = "Vertex Color Editor"
     bl_context = "mesh_edit"
     bl_region_type = 'TOOLS'
-    bl_category = "yTexLayers"
+    bl_category = "Ucupaint"
 
     @classmethod
     def poll(cls, context):
