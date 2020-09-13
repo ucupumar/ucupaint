@@ -510,10 +510,30 @@ def copy_node_props(source, dest, extras = []):
 
 def update_image_editor_image(context, image):
     for area in context.screen.areas:
-        if area.type == 'IMAGE_EDITOR' and not area.spaces[0].use_image_pin and area.spaces[0].image != image:
+        if area.type == 'IMAGE_EDITOR' and not area.spaces[0].use_image_pin: #and area.spaces[0].image != image:
             area.spaces[0].image = image
             # Hack for Blender 2.8 which keep pinning image automatically
             area.spaces[0].use_image_pin = False
+            break
+
+def update_tool_canvas_image(context, image):
+    # HACK: Remember unpinned images to avoid all image editor images being updated
+    unpinned_spaces = []
+    unpinned_images = []
+    for area in context.screen.areas:
+        if area.type == 'IMAGE_EDITOR' and not area.spaces[0].use_image_pin: #and area.spaces[0].image != image:
+            unpinned_spaces.append(area.spaces[0])
+            unpinned_images.append(area.spaces[0].image)
+
+    # Update canvas image
+    context.scene.tool_settings.image_paint.canvas = image
+
+    # Restore original images except for the first index
+    for i, space in enumerate(unpinned_spaces):
+        if i > 0:
+            space.image = unpinned_images[i]
+            # Hack for Blender 2.8 which keep pinning image automatically
+            space.use_image_pin = False
 
 # Check if name already available on the list
 def get_unique_name(name, items, surname = ''):

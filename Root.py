@@ -1845,8 +1845,9 @@ def update_layer_index(self, context):
 
     if (len(self.layers) == 0 or
         self.active_layer_index >= len(self.layers) or self.active_layer_index < 0): 
-        update_image_editor_image(context, None)
-        scene.tool_settings.image_paint.canvas = None
+        #update_image_editor_image(context, None)
+        #scene.tool_settings.image_paint.canvas = None
+        update_tool_canvas_image(context, None)
         #print('INFO: Active layer is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         return
 
@@ -1859,17 +1860,19 @@ def update_layer_index(self, context):
 
     # Get active image
     image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
+    #print(image)
 
     # Update image editor
     #if src_of_img and src_of_img.segment_name != '' and ypui.disable_auto_temp_uv_update:
     if ypui.disable_auto_temp_uv_update and mapping and is_transformed(mapping):
-        update_image_editor_image(context, None)
-        scene.tool_settings.image_paint.canvas = None
+        #update_image_editor_image(context, None)
+        #scene.tool_settings.image_paint.canvas = None
+        update_tool_canvas_image(context, None)
         yp.need_temp_uv_refresh = True
     else: 
-        update_image_editor_image(context, image)
+        #update_image_editor_image(context, image)
         # Update layer paint
-        scene.tool_settings.image_paint.canvas = image
+        update_tool_canvas_image(context, image)
         yp.need_temp_uv_refresh = False
 
     # Update active vertex color
@@ -1906,6 +1909,8 @@ def update_layer_index(self, context):
     #    yp.halt_update = False
 
     #yp.need_temp_uv_refresh = False
+
+    #update_image_editor_image(context, image)
 
     #print('INFO: Active layer is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

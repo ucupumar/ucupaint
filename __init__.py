@@ -85,7 +85,17 @@
 # - Add clamp color option on root channel (V)
 # - FXAA option when baking (V)
 # - Object index mask should not generate neighbor uv
-# - Clean up bake codes
+# - Create image container node outside yp group to make layer images linked to mesh, especially on edit mode
+# - Mask blending should be added on create new mask dialog box
+# - Fake lighting type should be added on create fake lighting dialog box
+# - Add Mask Preview Mode
+# - Change link inside group to github insted of patreon
+# - Make rebake as an option on layer source
+# - Add operator to create new UV map on multiple objects using the same material
+# - Image atlas should be not at default, so maximum images warning is needed
+# - ..or, check the possibility of not updating temp uv except on paint mode (check paint mode event perhaps?)
+# - FXAA should not be a default because of the slowness
+# - Clean up bake codes (Erase double prepare bake codes)
 
 # TODO:
 # - Make every node name unique (using hash?)
@@ -105,7 +115,7 @@
 #   - Blur (can be only applied on select layer channel)
 #   - 'Ignore below' blend for bake channel result
 # - Armory support (X, proper bake system is better be the solution)
-# - FXAA image operator to remove jagged pixels from baking or bucket fill
+# - FXAA image operator to remove jagged pixels from baking or bucket fill (V)
 # - Blur image operator
 # - Add greater than and less than operation to object index mask
 #
@@ -123,8 +133,10 @@
 # - Float image still lose precision after packed (its very apparent on bump effect) (V, not a problem on Blender 2.8)
 # - Musgrave fine bump cannot read below 0.0 (??)
 # - Bake result is slightly darker when using emission shader (or any shader?? not thoroughly tested yet)
-# - Alpha fail to connect to original target socket when toggling channel use alpha
 # - UV overlay on image editor is not transformed if uv is transformed (V)
+# - Alpha fails to connect to original target socket when toggling channel use alpha
+# - No number suffix when creating new image mask
+# - Standard image layer fails to use image atlas
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas
@@ -138,7 +150,7 @@ bl_info = {
     "author": "Yusuf Umar",
     "version": (0, 1, 0),
     "blender": (2, 80, 0),
-    "location": "Node Editor > Properties > ucuPaint",
+    "location": "Node Editor > Properties > Ucupaint",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
     "warning" : "This is alpha version, incompability to future releases might happen",
     #"wiki_url": "http://patreon.com/ucupumar",
