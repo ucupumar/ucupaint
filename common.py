@@ -1933,6 +1933,18 @@ def is_active_uv_map_match_entity(obj, entity):
 
     return False
 
+def is_active_uv_map_match_active_entity(obj, layer):
+
+    active_mask = None
+    for mask in layer.masks:
+        if mask.active_edit == True:
+            active_mask = mask
+
+    if active_mask: entity = active_mask
+    else: entity = layer
+
+    return is_active_uv_map_match_entity(obj, entity)
+
 def is_transformed(mapping):
     if is_greater_than_281():
         if (mapping.inputs[1].default_value[0] != 0.0 or

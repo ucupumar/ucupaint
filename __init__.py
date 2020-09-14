@@ -86,7 +86,7 @@
 # - FXAA option when baking (V)
 # - Object index mask should not generate neighbor uv
 # - Create image container node outside yp group to make layer images linked to mesh, especially on edit mode
-# - Mask blending should be added on create new mask dialog box
+# - Mask blending should be added on create new mask dialog box (V)
 # - Fake lighting type should be added on create fake lighting dialog box
 # - Add Mask Preview Mode
 # - Change link inside group to github insted of patreon

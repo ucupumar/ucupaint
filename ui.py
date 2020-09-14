@@ -897,7 +897,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             row.operator('node.y_back_to_original_uv', icon='EDITMODE_HLT', text='Edit Original UV')
     else:
         #if ypui.disable_auto_temp_uv_update and yp.need_temp_uv_refresh:
-        if yp.need_temp_uv_refresh or is_active_uv_map_match_entity(obj, layer):
+        #if yp.need_temp_uv_refresh or is_active_uv_map_match_entity(obj, layer):
+        if yp.need_temp_uv_refresh or is_active_uv_map_match_active_entity(obj, layer):
             row = row.row(align=True)
             row.alert = True
             row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')

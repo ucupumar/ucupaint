@@ -11,7 +11,7 @@ from .subtree import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
-def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0):
+def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY'):
     yp = layer.id_data.yp
     yp.halt_update = True
 
@@ -76,6 +76,8 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     for i, root_ch in enumerate(yp.channels):
         ch = layer.channels[i]
         c = mask.channels.add()
+
+    mask.blend_type = blend_type
 
     # Check mask multiplies
     check_mask_mix_nodes(layer, tree)
@@ -165,6 +167,12 @@ class YNewLayerMask(bpy.types.Operator):
 
     width = IntProperty(name='Width', default = 1024, min=1, max=16384)
     height = IntProperty(name='Height', default = 1024, min=1, max=16384)
+    
+    blend_type = EnumProperty(
+        name = 'Blend',
+        description = 'Blend type',
+        items = blend_type_items,
+        default = 'MULTIPLY')
 
     color_option = EnumProperty(
             name = 'Color Option',
@@ -250,6 +258,10 @@ class YNewLayerMask(bpy.types.Operator):
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
 
+        # The default blend type for mask is multiply
+        if len(layer.masks) == 0:
+            self.blend_type = 'MULTIPLY'
+
         return context.window_manager.invoke_props_dialog(self)
 
     def check(self, context):
@@ -282,6 +294,8 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'OBJECT_INDEX':
             col.label(text='Object Index')
 
+        col.label(text='Blend:')
+
         col = row.column(align=False)
         col.prop(self, 'name', text='')
         if self.type == 'IMAGE':
@@ -309,6 +323,8 @@ class YNewLayerMask(bpy.types.Operator):
         
         if self.type == 'OBJECT_INDEX':
             col.prop(self, 'object_index', text='')
+
+        col.prop(self, 'blend_type', text='')
 
     def execute(self, context):
         if self.auto_cancel: return {'CANCELLED'}
@@ -395,7 +411,7 @@ class YNewLayerMask(bpy.types.Operator):
                         pass
 
         # Add new mask
-        mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index)
+        mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'}:
@@ -443,6 +459,12 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
     uv_map = StringProperty(default='')
     uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
+    blend_type = EnumProperty(
+        name = 'Blend',
+        description = 'Blend type',
+        items = blend_type_items,
+        default = 'MULTIPLY')
+
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
 
@@ -469,6 +491,10 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
 
+        # The default blend type for mask is multiply
+        if len(self.layer.masks) == 0:
+            self.blend_type = 'MULTIPLY'
+
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -482,6 +508,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
         col = row.column()
         col.label(text='Vector:')
+        col.label(text='Blend:')
 
         col = row.column()
         crow = col.row(align=True)
@@ -489,6 +516,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
             #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        col.prop(self, 'blend_type', text='')
 
         self.layout.prop(self, 'relative')
 
@@ -514,7 +543,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 image.colorspace_settings.name = 'Linear'
 
             # Add new mask
-            mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None)
+            mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, blend_type=self.blend_type)
 
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
@@ -555,6 +584,12 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     vcol_name = StringProperty(name="Vertex Color")
     vcol_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
+    blend_type = EnumProperty(
+        name = 'Blend',
+        description = 'Blend type',
+        items = blend_type_items,
+        default = 'MULTIPLY')
+
     @classmethod
     def poll(cls, context):
         return True
@@ -591,6 +626,10 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             for vcol in vcols:
                 self.vcol_coll.add().name = vcol.name
 
+        # The default blend type for mask is multiply
+        if len(self.layer.masks) == 0:
+            self.blend_type = 'MULTIPLY'
+
         return context.window_manager.invoke_props_dialog(self)
 
     def check(self, context):
@@ -609,6 +648,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         col = row.column()
         if self.type == 'IMAGE':
             col.label(text='Vector:')
+            col.label(text='Blend:')
 
         col = row.column()
 
@@ -618,6 +658,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        col.prop(self, 'blend_type', text='')
 
     def execute(self, context):
         if not hasattr(self, 'layer'): return {'CANCELLED'}
@@ -657,7 +699,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                         except: pass
 
         # Add new mask
-        mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol)
+        mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, blend_type=self.blend_type)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'}:
