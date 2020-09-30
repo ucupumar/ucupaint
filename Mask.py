@@ -11,7 +11,7 @@ from .subtree import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
-def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY'):
+def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD'):
     yp = layer.id_data.yp
     yp.halt_update = True
 
@@ -37,6 +37,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     if mask_type == 'HEMI':
         source.node_tree = get_node_tree_lib(lib.HEMI)
         duplicate_lib_node_tree(source)
+        mask.hemi_space = hemi_space
 
     if mask_type == 'OBJECT_INDEX':
         source.node_tree = get_node_tree_lib(lib.OBJECT_INDEX_EQUAL)
@@ -198,6 +199,13 @@ class YNewLayerMask(bpy.types.Operator):
             description='Use Image Atlas',
             default=True)
 
+    # For fake lighting
+    hemi_space = EnumProperty(
+            name = 'Fake Lighting Space',
+            description = 'Fake lighting space',
+            items = hemi_space_items,
+            default='WORLD')
+
     # For object index
     object_index = IntProperty(
             name = 'Object Index',
@@ -283,6 +291,9 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type in {'VCOL', 'IMAGE'}:
             col.label(text='Color:')
 
+        if self.type == 'HEMI':
+            col.label(text='Space:')
+
         if self.type == 'IMAGE':
             col.label(text='')
 
@@ -294,7 +305,8 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'OBJECT_INDEX':
             col.label(text='Object Index')
 
-        col.label(text='Blend:')
+        if len(self.layer.masks) > 0:
+            col.label(text='Blend:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -304,6 +316,9 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type in {'VCOL', 'IMAGE'}:
             col.prop(self, 'color_option', text='')
+
+        if self.type == 'HEMI':
+            col.prop(self, 'hemi_space', text='')
 
         if self.type == 'IMAGE':
             col.prop(self, 'hdr')
@@ -324,7 +339,8 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'OBJECT_INDEX':
             col.prop(self, 'object_index', text='')
 
-        col.prop(self, 'blend_type', text='')
+        if len(self.layer.masks) > 0:
+            col.prop(self, 'blend_type', text='')
 
     def execute(self, context):
         if self.auto_cancel: return {'CANCELLED'}
@@ -411,7 +427,7 @@ class YNewLayerMask(bpy.types.Operator):
                         pass
 
         # Add new mask
-        mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type)
+        mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, self.hemi_space)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'}:
@@ -508,7 +524,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
         col = row.column()
         col.label(text='Vector:')
-        col.label(text='Blend:')
+        if len(self.layer.masks) > 0:
+            col.label(text='Blend:')
 
         col = row.column()
         crow = col.row(align=True)
@@ -517,7 +534,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-        col.prop(self, 'blend_type', text='')
+        if len(self.layer.masks) > 0:
+            col.prop(self, 'blend_type', text='')
 
         self.layout.prop(self, 'relative')
 
@@ -648,7 +666,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         col = row.column()
         if self.type == 'IMAGE':
             col.label(text='Vector:')
-            col.label(text='Blend:')
+            if len(self.layer.masks) > 0:
+                col.label(text='Blend:')
 
         col = row.column()
 
@@ -659,7 +678,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                 #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-        col.prop(self, 'blend_type', text='')
+        if len(self.layer.masks) > 0:
+            col.prop(self, 'blend_type', text='')
 
     def execute(self, context):
         if not hasattr(self, 'layer'): return {'CANCELLED'}

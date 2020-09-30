@@ -133,7 +133,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         #add_rgb_to_intensity=False, rgb_to_intensity_color=(1,1,1),
         solid_color = (1,1,1),
         add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
-        mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False
+        mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
+        hemi_space = 'WORLD',
         ):
 
     yp = group_tree.yp
@@ -234,6 +235,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         duplicate_lib_node_tree(source)
 
         load_hemi_props(layer, source)
+        layer.hemi_space = hemi_space
 
     # Add texcoord node
     texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
@@ -493,6 +495,12 @@ class YNewLayer(bpy.types.Operator):
             description='Use Image Atlas for Mask',
             default=True)
 
+    hemi_space = EnumProperty(
+            name = 'Fake Lighting Space',
+            description = 'Fake lighting space',
+            items = hemi_space_items,
+            default='WORLD')
+
     uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -612,6 +620,9 @@ class YNewLayer(bpy.types.Operator):
         #if self.type == 'IMAGE':
         #    col.label(text='')
 
+        if self.type == 'HEMI':
+            col.label(text='Space:')
+
         #if self.add_rgb_to_intensity:
         #    col.label(text='RGB To Intensity Color:')
 
@@ -656,6 +667,9 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'COLOR':
             col.prop(self, 'solid_color', text='')
+
+        if self.type == 'HEMI':
+            col.prop(self, 'hemi_space', text='')
 
         #if self.type == 'IMAGE':
         #    col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
@@ -802,7 +816,7 @@ class YNewLayer(bpy.types.Operator):
                 #self.add_rgb_to_intensity, self.rgb_to_intensity_color, 
                 self.solid_color,
                 self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
-                self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask)
+                self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, self.hemi_space)
 
         if segment:
             #layer.segment_name = segment.name
@@ -2695,6 +2709,7 @@ def update_hemi_space(self, context):
     if self.type != 'HEMI': return
 
     source = get_layer_source(self)
+    #if source and source.node_tree:
     trans = source.node_tree.nodes.get('Vector Transform')
     if trans: trans.convert_from = self.hemi_space
 

@@ -96,6 +96,8 @@
 # - ..or, check the possibility of not updating temp uv except on paint mode (check paint mode event perhaps?)
 # - FXAA should not be a default because of the slowness
 # - Clean up bake codes (Erase double prepare bake codes)
+# - Fake lighting should take account previous normal output
+# - Normal map should not display bump height
 
 # TODO:
 # - Make every node name unique (using hash?)
@@ -118,6 +120,7 @@
 # - FXAA image operator to remove jagged pixels from baking or bucket fill (V)
 # - Blur image operator
 # - Add greater than and less than operation to object index mask
+# - Refresh Neighbor UV sometimes appear on layer Normal channel that uses second UV
 #
 # TODO OPT:
 # - Lazy node calling (can be useful to prevent missing error)
@@ -134,9 +137,12 @@
 # - Musgrave fine bump cannot read below 0.0 (??)
 # - Bake result is slightly darker when using emission shader (or any shader?? not thoroughly tested yet)
 # - UV overlay on image editor is not transformed if uv is transformed (V)
+# - Standard image layer fails to use image atlas
+# - Bake crashes on Blender 2.90.1
 # - Alpha fails to connect to original target socket when toggling channel use alpha
 # - No number suffix when creating new image mask
-# - Standard image layer fails to use image atlas
+# - No number suffix when duplicate layers
+# - Rename vcol that used in other layer caused missing data
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas
