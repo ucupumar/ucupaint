@@ -692,7 +692,7 @@ class YBakeChannels(bpy.types.Operator):
 
     fxaa = BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked images (doesn't work with float images)",
-            default=True)
+            default=False)
 
     aa_level = IntProperty(
         name='Anti Aliasing Level',

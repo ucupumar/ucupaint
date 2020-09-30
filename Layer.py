@@ -833,8 +833,8 @@ class YNewLayer(bpy.types.Operator):
                     mapping.inputs[3].default_value[0] = scale_x
                     mapping.inputs[3].default_value[1] = scale_y
 
-                    mapping.inputs[0].default_value[0] = offset_x
-                    mapping.inputs[0].default_value[1] = offset_y
+                    mapping.inputs[1].default_value[0] = offset_x
+                    mapping.inputs[1].default_value[1] = offset_y
                 else:
                     mapping.scale[0] = scale_x
                     mapping.scale[1] = scale_y

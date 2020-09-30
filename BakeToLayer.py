@@ -71,7 +71,7 @@ class YBakeToLayer(bpy.types.Operator):
 
     fxaa = BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked image (doesn't work with float images)",
-            default=True)
+            default=False)
 
     width = IntProperty(name='Width', default = 1024, min=1, max=4096)
     height = IntProperty(name='Height', default = 1024, min=1, max=4096)
@@ -885,7 +885,7 @@ class YImageBakeInfoProps(bpy.types.PropertyGroup):
 
     fxaa = BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked image (doesn't work with float images)",
-            default=True)
+            default=False)
 
     # AO Props
     ao_distance = FloatProperty(default=1.0)
