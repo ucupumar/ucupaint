@@ -664,6 +664,8 @@ def simple_remove_node(tree, node, remove_data=True):
     #if not node: return
     scene = bpy.context.scene
 
+    #print(node.name)
+
     if remove_data:
         if node.bl_idname == 'ShaderNodeTexImage':
             image = node.image
@@ -674,6 +676,12 @@ def simple_remove_node(tree, node, remove_data=True):
 
         elif node.bl_idname == 'ShaderNodeGroup':
             if node.node_tree and node.node_tree.users == 1:
+
+                # Recursive remove
+                for n in node.node_tree.nodes:
+                    if n.bl_idname in {'ShaderNodeTexImage', 'ShaderNodeGroup'}:
+                        simple_remove_node(node.node_tree, n, remove_data)
+
                 bpy.data.node_groups.remove(node.node_tree)
 
             #remove_tree_data_recursive(node)

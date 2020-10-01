@@ -1673,16 +1673,20 @@ def get_preview(mat, output=None, advanced=False):
     if advanced:
         preview, dirty = simple_replace_new_node(
                 tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
-                lib.ADVANCED_EMISSION_VIEWER, return_status=True, hard_replace=True)
+                lib.ADVANCED_EMISSION_VIEWER,
+                #lib.GRID_EMISSION_VIEWER, 
+                return_status=True, hard_replace=True)
         if dirty:
+            duplicate_lib_node_tree(preview)
+            #preview.node_tree = preview.node_tree.copy()
             # Set blend method to alpha
-            if is_greater_than_280():
-                blend_method = mat.blend_method
-                mat.blend_method = 'HASHED'
-            else:
-                blend_method = mat.game_settings.alpha_blend
-                mat.game_settings.alpha_blend = 'ALPHA'
-            mat.yp.ori_blend_method = blend_method
+            #if is_greater_than_280():
+            #    blend_method = mat.blend_method
+            #    mat.blend_method = 'HASHED'
+            #else:
+            #    blend_method = mat.game_settings.alpha_blend
+            #    mat.game_settings.alpha_blend = 'ALPHA'
+            #mat.yp.ori_blend_method = blend_method
     else:
         preview, dirty = simple_replace_new_node(
                 tree, EMISSION_VIEWER, 'ShaderNodeEmission', 'Emission Viewer', 
@@ -1706,13 +1710,13 @@ def remove_preview(mat, advanced=False):
 
     if preview: 
         simple_remove_node(mat.node_tree, preview)
-        if advanced:
-            # Recover blend method
-            if is_greater_than_280():
-                mat.blend_method = mat.yp.ori_blend_method
-            else:
-                mat.game_settings.alpha_blend = mat.yp.ori_blend_method
-            mat.yp.ori_blend_method = ''
+        #if advanced:
+        #    # Recover blend method
+        #    if is_greater_than_280():
+        #        mat.blend_method = mat.yp.ori_blend_method
+        #    else:
+        #        mat.game_settings.alpha_blend = mat.yp.ori_blend_method
+        #    mat.yp.ori_blend_method = ''
 
     bsdf = nodes.get(mat.yp.ori_bsdf)
     output = get_active_mat_output_node(mat.node_tree)
@@ -1744,6 +1748,7 @@ def update_layer_preview_mode(self, context):
         yp = group_node.node_tree.yp
         index = yp.active_channel_index
         channel = yp.channels[index]
+        layer = yp.layers[yp.active_layer_index]
     except: return
 
     if yp.preview_mode:
@@ -1765,6 +1770,15 @@ def update_layer_preview_mode(self, context):
         if channel.colorspace != 'LINEAR':
             preview.inputs[2].default_value = 2.2
         else: preview.inputs[2].default_value = 1.0
+
+        # Set channel layer blending
+        ch = layer.channels[yp.active_channel_index]
+        mix = preview.node_tree.nodes.get('Mix')
+        mix.blend_type = ch.blend_type
+
+        # Use different grid if channel is not enabled
+        preview.inputs['Missing Data'].default_value = 1.0 if (not ch.enable or not layer.enable) else 0.0
+
     else:
         remove_preview(mat)
         #reconnect_yp_nodes(tree)
@@ -2651,7 +2665,7 @@ class YPaint(bpy.types.PropertyGroup):
 
 class YPaintMaterialProps(bpy.types.PropertyGroup):
     ori_bsdf = StringProperty(default='')
-    ori_blend_method = StringProperty(default='')
+    #ori_blend_method = StringProperty(default='')
     active_ypaint_node = StringProperty(default='')
 
 class YPaintTimer(bpy.types.PropertyGroup):
