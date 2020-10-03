@@ -1695,12 +1695,14 @@ def get_preview(mat, output=None, advanced=False):
         preview.hide = True
         preview.location = (output.location.x, output.location.y + 30.0)
 
-    # Remember output and original bsdf
-    ori_bsdf = output.inputs[0].links[0].from_node
+    if output.inputs[0].links:
 
-    # Only remember original BSDF if its not the preview node itself
-    if ori_bsdf != preview:
-        mat.yp.ori_bsdf = ori_bsdf.name
+        # Remember output and original bsdf
+        ori_bsdf = output.inputs[0].links[0].from_node
+
+        # Only remember original BSDF if its not the preview node itself
+        if ori_bsdf != preview:
+            mat.yp.ori_bsdf = ori_bsdf.name
 
     return preview
 
@@ -1718,12 +1720,12 @@ def remove_preview(mat, advanced=False):
         #        mat.game_settings.alpha_blend = mat.yp.ori_blend_method
         #    mat.yp.ori_blend_method = ''
 
-    bsdf = nodes.get(mat.yp.ori_bsdf)
-    output = get_active_mat_output_node(mat.node_tree)
-    mat.yp.ori_bsdf = ''
+        bsdf = nodes.get(mat.yp.ori_bsdf)
+        output = get_active_mat_output_node(mat.node_tree)
+        mat.yp.ori_bsdf = ''
 
-    if bsdf and output:
-        mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+        if bsdf and output:
+            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
 #def update_merge_mask_mode(self, context):
 #    if not self.layer_preview_mode:
@@ -1740,6 +1742,33 @@ def remove_preview(mat, advanced=False):
 #
 #    layer_tree = get_tree(layer)
 
+#def update_mask_preview_mode(self, context):
+#    pass
+
+def layer_preview_mode_type_items(self, context):
+    #node = get_active_ypaint_node()
+    #yp = node.node_tree.yp
+
+    items = (
+            ('LAYER', 'Layer', '',  lib.custom_icons['texture'].icon_id, 0),
+            ('MASK', 'Mask', '', lib.custom_icons['mask'].icon_id, 1),
+            ('SPECIFIC_MASK', 'Specific Mask', '', lib.custom_icons['mask'].icon_id, 2)
+            )
+
+    #for i, ch in enumerate(yp.channels):
+    #    #if hasattr(lib, 'custom_icons'):
+    #    if not is_greater_than_280():
+    #        icon_name = lib.channel_custom_icon_dict[ch.type]
+    #        items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
+    #    else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], i))
+
+    ##if hasattr(lib, 'custom_icons'):
+    #if not is_greater_than_280():
+    #    items.append(('-1', 'All Channels', '', lib.custom_icons['channels'].icon_id, len(items)))
+    #else: items.append(('-1', 'All Channels', '', 'GROUP_VERTEX', len(items)))
+
+    return items
+
 def update_layer_preview_mode(self, context):
     try:
         mat = bpy.context.object.active_material
@@ -1753,31 +1782,39 @@ def update_layer_preview_mode(self, context):
 
     if yp.preview_mode:
         yp.preview_mode = False
-    
+
     check_all_channel_ios(yp)
 
     # Get preview node
     if self.layer_preview_mode:
         output = get_active_mat_output_node(mat.node_tree)
-        preview = get_preview(mat, output, True)
-        if not preview: return
+        if self.layer_preview_mode_type in {'ALPHA', 'SPECIFIC_MASK'}:
+            preview = get_preview(mat, output, False)
+            if not preview: return
 
-        tree.links.new(group_node.outputs[LAYER_VIEWER], preview.inputs[0])
-        tree.links.new(group_node.outputs[LAYER_ALPHA_VIEWER], preview.inputs[1])
-        tree.links.new(preview.outputs[0], output.inputs[0])
+            tree.links.new(group_node.outputs[LAYER_ALPHA_VIEWER], preview.inputs[0])
+            tree.links.new(preview.outputs[0], output.inputs[0])
 
-        # Set gamma
-        if channel.colorspace != 'LINEAR':
-            preview.inputs[2].default_value = 2.2
-        else: preview.inputs[2].default_value = 1.0
+        else:
+            preview = get_preview(mat, output, True)
+            if not preview: return
 
-        # Set channel layer blending
-        ch = layer.channels[yp.active_channel_index]
-        mix = preview.node_tree.nodes.get('Mix')
-        mix.blend_type = ch.blend_type
+            tree.links.new(group_node.outputs[LAYER_VIEWER], preview.inputs[0])
+            tree.links.new(group_node.outputs[LAYER_ALPHA_VIEWER], preview.inputs[1])
+            tree.links.new(preview.outputs[0], output.inputs[0])
 
-        # Use different grid if channel is not enabled
-        preview.inputs['Missing Data'].default_value = 1.0 if (not ch.enable or not layer.enable) else 0.0
+            # Set gamma
+            if channel.colorspace != 'LINEAR':
+                preview.inputs[2].default_value = 2.2
+            else: preview.inputs[2].default_value = 1.0
+
+            # Set channel layer blending
+            ch = layer.channels[yp.active_channel_index]
+            mix = preview.node_tree.nodes.get('Mix')
+            mix.blend_type = ch.blend_type
+
+            # Use different grid if channel is not enabled
+            preview.inputs['Missing Data'].default_value = 1.0 if (not ch.enable or not layer.enable) else 0.0
 
     else:
         remove_preview(mat)
@@ -2603,6 +2640,33 @@ class YPaint(bpy.types.PropertyGroup):
             description= 'Enable layer preview mode',
             default=False,
             update=update_layer_preview_mode)
+
+    # Mask Preview Mode
+    #mask_preview_mode = BoolProperty(
+    #        name= 'Enable Mask Preview Mode',
+    #        description= 'Enable mask preview mode',
+    #        default=False,
+    #        update=update_mask_preview_mode)
+
+    layer_preview_mode_type = EnumProperty(
+            name= 'Layer Preview Mode Type',
+            description = 'Layer preview mode type',
+            #items = (('LAYER', 'Layer', '', lib.get_icon('mask'), 0),
+            #         ('MASK', 'Mask', '', lib.get_icon('mask'), 1),
+            #         ('SPECIFIC_MASK', 'Specific Mask', '', lib.get_icon('mask'), 2),
+            #         ),
+            #items = (('LAYER', 'Layer', '', 'TEXTURE', 0),
+            #         ('MASK', 'Mask', '', 'MOD_MASK', 1),
+            #         ('SPECIFIC_MASK', 'Specific Mask', '', 'MOD_MASK', 2),
+            #         ),
+            items = (('LAYER', 'Layer', ''),
+                     ('ALPHA', 'Alpha', ''),
+                     ('SPECIFIC_MASK', 'Specific Mask', ''),
+                     ),
+            #items = layer_preview_mode_type_items,
+            default = 'LAYER',
+            update=update_layer_preview_mode
+            )
 
     # Mode exclusively for merging mask
     #merge_mask_mode = BoolProperty(default=False,

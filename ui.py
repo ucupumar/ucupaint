@@ -1652,6 +1652,12 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
         elif mask.type == 'VCOL':
             #row.prop(mask, 'active_edit', text='', toggle=True, icon='GROUP_VCOL')
             row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+        elif mask.type == 'HEMI':
+            row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('hemi'))
+        elif mask.type == 'OBJECT_INDEX':
+            row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('object_index'))
+        else:
+            row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
         row.context_pointer_set('mask', mask)
 
@@ -2080,12 +2086,15 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     row = col.row()
     rcol = row.column()
     if len(yp.layers) > 0:
-        pcol = rcol.column()
-        if yp.layer_preview_mode: pcol.alert = True
-        #if custom_icon_enable:
+        #prow = rcol.row(align=True)
+        prow = rcol.split(factor=0.667, align=True)
+        if yp.layer_preview_mode: prow.alert = True
         if not is_greater_than_280():
-            pcol.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
-        else: pcol.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='HIDE_OFF')
+            prow.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
+        else: prow.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='HIDE_OFF')
+        #prow.alert = yp.mask_preview_mode and yp.layer_preview_mode
+        #icon_value = lib.custom_icons["mask"].icon_id
+        prow.prop(yp, 'layer_preview_mode_type', text='') #, icon_only=True) #, expand=True)
 
     rcol.template_list("NODE_UL_YPaint_layers", "", yp,
             "layers", yp, "active_layer_index", rows=5, maxrows=5)  
@@ -2546,12 +2555,12 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
 
         # Try to get image masks
         editable_masks = []
-        active_image_mask = None
+        active_mask = None
         for m in layer.masks:
-            if m.type in {'IMAGE', 'VCOL'}:
-                editable_masks.append(m)
-                if m.active_edit:
-                    active_image_mask = m
+            #if m.type in {'IMAGE', 'VCOL'}:
+            editable_masks.append(m)
+            if m.active_edit:
+                active_mask = m
 
         if layer.parent_idx != -1:
             depth = get_layer_depth(layer)
@@ -2581,26 +2590,26 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 #row.prop(layer, 'name', text='', emboss=False, icon='TEXTURE')
                 row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
         else:
-            if active_image_mask:
+            if active_mask:
                 row.active = False
                 if image: 
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, 
+                    row.prop(active_mask, 'active_edit', text='', emboss=False, 
                             icon_value=image.preview.icon_id)
                 #elif vcol: 
                 elif layer.type == 'VCOL': 
-                    #row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
+                    #row.prop(active_mask, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
+                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 elif layer.type == 'COLOR': 
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='COLOR')
+                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon='COLOR')
                 elif layer.type == 'HEMI': 
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
+                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
                 elif layer.type == 'BACKGROUND': 
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('background'))
+                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('background'))
                 elif layer.type == 'GROUP': 
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('group'))
+                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('group'))
                 else: 
-                    #row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
-                    row.prop(active_image_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
+                    #row.prop(active_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
+                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
             else:
                 if image: 
                     row.label(text='', icon_value=image.preview.icon_id)
@@ -2639,6 +2648,12 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     active_vcol_mask = m
                     #row.label(text='', icon='GROUP_VCOL')
                     row.label(text='', icon_value=lib.get_icon('vertex_color'))
+                elif m.type == 'HEMI':
+                    row.label(text='', icon_value=lib.get_icon('hemi'))
+                elif m.type == 'OBJECT_INDEX':
+                    row.label(text='', icon_value=lib.get_icon('object_index'))
+                else:
+                    row.label(text='', icon_value=lib.get_icon('texture'))
             else:
                 if m.type == 'IMAGE':
                     src = mask_tree.nodes.get(m.source)
@@ -2646,6 +2661,12 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 elif m.type == 'VCOL':
                     #row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
+                elif m.type == 'HEMI':
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
+                elif m.type == 'OBJECT_INDEX':
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('object_index'))
+                else:
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
 
         # Debug parent
         #row.label(text=str(index) + ' (' + str(layer.parent_idx) + ')')
@@ -2660,6 +2681,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 else: row.prop(active_mask_image, 'name', text='', emboss=False)
             elif active_vcol_mask:
                 row.prop(active_vcol_mask, 'name', text='', emboss=False)
+            elif active_mask:
+                row.prop(active_mask, 'name', text='', emboss=False)
             else: 
                 if image and not image.yia.is_image_atlas: 
                     row.prop(image, 'name', text='', emboss=False)

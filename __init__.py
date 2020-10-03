@@ -87,9 +87,9 @@
 # - FXAA should not be a default because of the slowness (V)
 # - Fake lighting type should be added on create fake lighting dialog box (V)
 # - Mask blending should be added on create new mask dialog box (V)
+# - Add Mask Preview Mode (V)
 # - Object index mask should not generate neighbor uv
 # - Create image container node outside yp group to make layer images linked to mesh, especially on edit mode
-# - Add Mask Preview Mode
 # - Change link inside group to github insted of patreon
 # - Make rebake as an option on layer source
 # - Add operator to create new UV map on multiple objects using the same material
@@ -137,6 +137,7 @@
 # - Bake result is slightly darker when using emission shader (or any shader?? not thoroughly tested yet)
 # - UV overlay on image editor is not transformed if uv is transformed (V)
 # - Standard image layer fails to use image atlas (V)
+# - Layer preview mode does not change to missing color when enabling/disabling layer (V)
 # - Bake crashes on Blender 2.90.1
 # - Alpha fails to connect to original target socket when toggling channel use alpha
 # - No number suffix when creating new image mask

@@ -2420,11 +2420,16 @@ def update_channel_enable(self, context):
 
     if yp.halt_reconnect: return
 
-    rearrange_layer_nodes(layer)
-    reconnect_layer_nodes(layer)
+    if yp.layer_preview_mode:
+        # Refresh preview mode, rearrange and reconnect already done in this event
+        yp.layer_preview_mode = yp.layer_preview_mode
+    else:
 
-    rearrange_yp_nodes(self.id_data)
-    reconnect_yp_nodes(self.id_data)
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
+
+        rearrange_yp_nodes(self.id_data)
+        reconnect_yp_nodes(self.id_data)
 
     #print(ch.enable)
 
@@ -2786,9 +2791,13 @@ def update_layer_enable(self, context):
     if height_root_ch:
         update_displacement_height_ratio(height_root_ch)
 
-    #if yp.disable_quick_toggle:
-    rearrange_yp_nodes(layer.id_data)
-    reconnect_yp_nodes(layer.id_data)
+    if yp.layer_preview_mode:
+        # Refresh preview mode, rearrange and reconnect already done in this event
+        yp.layer_preview_mode = yp.layer_preview_mode
+    else:
+        #if yp.disable_quick_toggle:
+        rearrange_yp_nodes(layer.id_data)
+        reconnect_yp_nodes(layer.id_data)
 
     context.window_manager.yptimer.time = str(time.time())
 

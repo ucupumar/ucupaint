@@ -1043,7 +1043,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             node = nodes.get(layer.group_node)
 
-            if yp.layer_preview_mode:
+            if yp.layer_preview_mode: # and yp.layer_preview_mode_type == 'LAYER':
 
                 if ch == yp.channels[yp.active_channel_index] and layer == yp.layers[yp.active_layer_index]:
 
@@ -1517,6 +1517,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     else: start_alpha = one_value
     start_alpha_1 = one_value
 
+    alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
+
     if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         start_rgb_1 = source_group.outputs[2]
         start_alpha_1 = source_group.outputs[3]
@@ -1591,6 +1593,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             mask_val = mask_source.outputs[0]
             for mod in mask.modifiers:
                 mask_val = reconnect_mask_modifier_nodes(tree, mod, mask_val)
+
+        if yp.layer_preview_mode and yp.layer_preview_mode_type == 'SPECIFIC_MASK' and mask.active_edit == True:
+            if alpha_preview:
+                create_link(tree, mask_val, alpha_preview)
 
         # Mask source directions
         mask_source_n = nodes.get(mask.source_n)
@@ -1732,7 +1738,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             #    if mix_w and mask_source_w: create_link(tree, mask_source_w.outputs[0], mix_w.inputs[2])
 
     if merge_mask and yp.layer_preview_mode:
-        alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
         if alpha_preview:
             create_link(tree, root_mask_val, alpha_preview)
         return
@@ -1754,7 +1759,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     col_preview = end.inputs.get(LAYER_VIEWER)
                     if col_preview and zero_value:
                         create_link(tree, zero_value, col_preview)
-                    alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
                     if alpha_preview and zero_value:
                         create_link(tree, zero_value, alpha_preview)
                     #break_input_link(tree, col_preview)
@@ -2637,7 +2641,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if col_preview:
                     if root_ch.type == 'NORMAL': create_link(tree, normal_proc.outputs[0], col_preview)
                     else: create_link(tree, rgb, col_preview)
-                alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
-                if alpha_preview:
+                if alpha_preview and yp.layer_preview_mode_type != 'SPECIFIC_MASK':
                     create_link(tree, alpha, alpha_preview)
                 

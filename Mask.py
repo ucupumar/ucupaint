@@ -829,17 +829,17 @@ class YRemoveLayerMask(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def update_mask_active_image_edit(self, context):
+def update_mask_active_edit(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
     if self.halt_update: return
 
     # Only image mask can be edited
-    if self.active_edit and self.type not in {'IMAGE', 'VCOL'}:
-        self.halt_update = True
-        self.active_edit = False
-        self.halt_update = False
-        return
+    #if self.active_edit and self.type not in {'IMAGE', 'VCOL'}:
+    #    self.halt_update = True
+    #    self.active_edit = False
+    #    self.halt_update = False
+    #    return
 
     yp = self.id_data.yp
 
@@ -1151,10 +1151,10 @@ class YLayerMask(bpy.types.PropertyGroup):
             default=True, update=update_layer_mask_enable)
 
     active_edit = BoolProperty(
-            name='Active image for editing', 
-            description='Active image for editing', 
+            name='Active mask for editing or preview', 
+            description='Active mask for editing or preview', 
             default=False,
-            update=update_mask_active_image_edit)
+            update=update_mask_active_edit)
 
     #active_vcol_edit = BoolProperty(
     #        name='Active vertex color for editing', 
