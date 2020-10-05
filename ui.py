@@ -2814,9 +2814,9 @@ class YPaintSpecialMenu(bpy.types.Menu):
         col = row.column()
         col.label(text='Options:')
         col.prop(yp, 'enable_backface_always_up')
-        col.separator()
-        col.label(text='Performance Options:')
-        col.prop(ypui, 'disable_auto_temp_uv_update')
+        #col.separator()
+        #col.label(text='Performance Options:')
+        #col.prop(ypui, 'disable_auto_temp_uv_update')
         #col.prop(yp, 'disable_quick_toggle')
         col.separator()
         col.label(text='Hacks:')
@@ -3616,10 +3616,10 @@ class YPaintUI(bpy.types.PropertyGroup):
     layer_idx = IntProperty(default=0)
     layer_ui = PointerProperty(type=YLayerUI)
 
-    disable_auto_temp_uv_update = BoolProperty(
-            name = 'Disable Transformed UV Auto Update',
-            description = "UV won't be created automatically if layer with custom offset/rotation/scale is selected.\n(This can make selecting layer faster)",
-            default=False)
+    #disable_auto_temp_uv_update = BoolProperty(
+    #        name = 'Disable Transformed UV Auto Update',
+    #        description = "UV won't be created automatically if layer with custom offset/rotation/scale is selected.\n(This can make selecting layer faster)",
+    #        default=False)
 
     #mask_ui = PointerProperty(type=YMaskUI)
 

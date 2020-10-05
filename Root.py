@@ -1894,15 +1894,11 @@ def update_layer_index(self, context):
     nodes = group_tree.nodes
     ypui = context.window_manager.ypui
 
-    if (len(self.layers) == 0 or
-        self.active_layer_index >= len(self.layers) or self.active_layer_index < 0): 
-        #update_image_editor_image(context, None)
-        #scene.tool_settings.image_paint.canvas = None
-        update_tool_canvas_image(context, None)
-        #print('INFO: Active layer is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-        return
-
     yp = self
+
+    if (len(yp.layers) == 0 or yp.active_layer_index >= len(yp.layers) or yp.active_layer_index < 0): 
+        update_tool_canvas_image(context, None)
+        return
 
     if yp.layer_preview_mode: update_layer_preview_mode(yp, context)
 
@@ -1914,46 +1910,24 @@ def update_layer_index(self, context):
     #print(image)
 
     # Update image editor
-    #if src_of_img and src_of_img.segment_name != '' and ypui.disable_auto_temp_uv_update:
-    if ypui.disable_auto_temp_uv_update and mapping and is_transformed(mapping):
-        #update_image_editor_image(context, None)
-        #scene.tool_settings.image_paint.canvas = None
-        update_tool_canvas_image(context, None)
-        yp.need_temp_uv_refresh = True
-    else: 
-        #update_image_editor_image(context, image)
-        # Update layer paint
-        update_tool_canvas_image(context, image)
-        yp.need_temp_uv_refresh = False
+    #if ypui.disable_auto_temp_uv_update and mapping and is_transformed(mapping):
+    #    update_tool_canvas_image(context, None)
+    #    yp.need_temp_uv_refresh = True
+    #else: 
+    update_tool_canvas_image(context, image)
+    #yp.need_temp_uv_refresh = False
 
     # Update active vertex color
     if vcol and obj.data.vertex_colors.active != vcol:
         obj.data.vertex_colors.active = vcol
 
-    # Get height channel
-    #height_ch = get_root_height_channel(yp)
-
-    if obj.type == 'MESH':
-
+    #if obj.type == 'MESH':
         # Update tangent sign if height channel and tangent sign hack is enabled
         #if height_ch and yp.enable_tangent_sign_hacks:
         #    for uv in yp.uvs:
         #        refresh_tangent_sign_vcol(obj, uv.name)
 
-        # Update uv layer
-        if ypui.disable_auto_temp_uv_update or not refresh_temp_uv(obj, src_of_img):
-        #if not refresh_temp_uv(obj, src_of_img):
-
-            uv_layers = get_uv_layers(obj)
-
-            for i, uv in enumerate(uv_layers):
-                if uv.name == uv_name:
-                    if uv_layers.active_index != i:
-                        uv_layers.active_index = i
-                    #break
-
-                if uv.name == TEMP_UV:
-                    uv_layers.remove(uv)
+    refresh_temp_uv(obj, src_of_img)
 
     # Make sure halt update is kept off if error happens
     #if yp.halt_update: 
@@ -2706,7 +2680,7 @@ class YPaint(bpy.types.PropertyGroup):
     #        default='SLOW_TOGGLE')
 
     enable_tangent_sign_hacks = BoolProperty(
-            name = 'Enable Tangent Sign VCol Hacks for Blender 2.8 Cycles',
+            name = 'Enable Tangent Sign VCol Hacks for Blender 2.80+ Cycles',
             description = "Tangent sign vertex color needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
             default=False, update=update_enable_tangent_sign_hacks)
 
@@ -2737,6 +2711,7 @@ class YPaintTimer(bpy.types.PropertyGroup):
 
 class YPaintSceneProps(bpy.types.PropertyGroup):
     last_object = StringProperty(default='')
+    last_mode = StringProperty(default='')
 
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min = FloatProperty(default=0.0)
@@ -2780,7 +2755,10 @@ def ypaint_hacks_and_scene_updates(scene):
 def ypaint_last_object_update(scene):
     try: obj = bpy.context.object
     except: return
-    if obj and scene.yp.last_object != obj.name:
+    if not obj: return
+
+    if scene.yp.last_object != obj.name:
+        #print(obj.name)
         scene.yp.last_object = obj.name
         node = get_active_ypaint_node()
 
@@ -2792,6 +2770,16 @@ def ypaint_last_object_update(scene):
             if image:
                 update_image_editor_image(bpy.context, image)
                 scene.tool_settings.image_paint.canvas = image
+
+    if obj.type == 'MESH' and scene.yp.last_object == obj.name and scene.yp.last_mode != obj.mode:
+
+        if obj.mode == 'TEXTURE_PAINT' or scene.yp.last_mode == 'TEXTURE_PAINT':
+            node = get_active_ypaint_node()
+            if node and len(node.node_tree.yp.layers) > 0 :
+                image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, node.node_tree.yp)
+                refresh_temp_uv(obj, src_of_img)
+
+        scene.yp.last_mode = obj.mode
 
 def register():
     bpy.utils.register_class(YSelectMaterialPolygons)

@@ -1909,7 +1909,8 @@ def update_mapping(entity):
 
     if entity.type == 'IMAGE' and entity.texcoord_type == 'UV':
         if m1 or (m2 and entity.active_edit):
-            yp.need_temp_uv_refresh = True
+            if bpy.context.object and bpy.context.object.mode == 'TEXTURE_PAINT':
+                yp.need_temp_uv_refresh = True
 
 def is_active_uv_map_match_entity(obj, entity):
 
@@ -1932,7 +1933,7 @@ def is_active_uv_map_match_entity(obj, entity):
     uv_layers = get_uv_layers(obj)
     uv_layer = uv_layers.active
 
-    if is_transformed(mapping):
+    if is_transformed(mapping) and obj.mode == 'TEXTURE_PAINT':
         if uv_layer.name != TEMP_UV:
             return True
 
@@ -1987,6 +1988,26 @@ def refresh_temp_uv(obj, entity):
     if not entity or entity.type != 'IMAGE': # or not is_transformed(entity):
         return False
 
+    uv_layers = get_uv_layers(obj)
+    if not uv_layers: return False
+    layer_uv = uv_layers.get(entity.uv_name)
+    if not layer_uv: return False
+
+    # Delete previous temp uv
+    for uv in uv_layers:
+        if uv.name == TEMP_UV:
+            uv_layers.remove(uv)
+            break
+
+    # Set active uv
+    if uv_layers.active != layer_uv:
+        uv_layers.active = layer_uv
+        layer_uv.active_render = True
+
+    # Only set actual uv if not in texture paint mode
+    if obj.mode != 'TEXTURE_PAINT':
+        return False
+
     #yp = entity.id_data.yp
     #yp.need_temp_uv_refresh = False
 
@@ -2003,37 +2024,19 @@ def refresh_temp_uv(obj, entity):
     else: return False
 
     # Cannot do this on edit mode
-    ori_mode = obj.mode
-    if ori_mode == 'EDIT':
-        bpy.ops.object.mode_set(mode='OBJECT')
-
-    uv_layers = get_uv_layers(obj)
-
-    layer_uv = uv_layers.get(entity.uv_name)
-    if not layer_uv: 
-        if ori_mode == 'EDIT':
-            bpy.ops.object.mode_set(mode='EDIT')
-        return False
-
-    if uv_layers.active != layer_uv:
-        uv_layers.active = layer_uv
-        layer_uv.active_render = True
-
-    # Delete previous temp uv
-    for uv in uv_layers:
-        if uv.name == TEMP_UV:
-            uv_layers.remove(uv)
-            break
+    #ori_mode = obj.mode
+    #if ori_mode == 'EDIT':
+    #    bpy.ops.object.mode_set(mode='OBJECT')
 
     if not is_transformed(mapping):
-        if ori_mode == 'EDIT':
-            bpy.ops.object.mode_set(mode='EDIT')
+        #if ori_mode == 'EDIT':
+        #    bpy.ops.object.mode_set(mode='EDIT')
         return False
 
     img = source.image
     if not img: 
-        if ori_mode == 'EDIT':
-            bpy.ops.object.mode_set(mode='EDIT')
+        #if ori_mode == 'EDIT':
+        #    bpy.ops.object.mode_set(mode='EDIT')
         return False
 
     # New uv layers
@@ -2103,8 +2106,8 @@ def refresh_temp_uv(obj, entity):
     temp_uv_layer.data.foreach_set('uv', arr.ravel())
 
     # Back to edit mode if originally from there
-    if ori_mode == 'EDIT':
-        bpy.ops.object.mode_set(mode='EDIT')
+    #if ori_mode == 'EDIT':
+    #    bpy.ops.object.mode_set(mode='EDIT')
 
     return True
 
@@ -2808,6 +2811,20 @@ def get_default_uv_name(obj, yp=None):
         else: uv_name = uv_layers.active.name
 
     return uv_name
+
+def get_relevant_uv(obj, yp):
+    try: layer = yp.layers[yp.active_layer_index]
+    except: return None
+
+    uv_name = layer.uv_name
+
+    for mask in layer.masks:
+        if mask.active_edit:
+            if mask.type == 'IMAGE':
+                active_mask = mask
+                uv_name = mask.uv_name
+
+    return uv_name 
 
 def get_active_image_and_stuffs(obj, yp):
 

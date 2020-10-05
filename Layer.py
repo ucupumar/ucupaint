@@ -3259,7 +3259,7 @@ class YLayer(bpy.types.PropertyGroup):
     mapping = StringProperty(default='')
     texcoord = StringProperty(default='')
 
-    need_temp_uv_refresh = BoolProperty(default=False)
+    #need_temp_uv_refresh = BoolProperty(default=False)
 
     # Other Vectors
     tangent = StringProperty(default='')

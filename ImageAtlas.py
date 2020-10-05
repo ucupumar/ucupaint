@@ -445,7 +445,7 @@ class YBackToOriginalUV(bpy.types.Operator):
             for uv in yp.uvs:
                 refresh_tangent_sign_vcol(obj, uv.name)
 
-        yp.need_temp_uv_refresh = True
+        #yp.need_temp_uv_refresh = True
 
         return {'FINISHED'}
 
