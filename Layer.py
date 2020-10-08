@@ -36,6 +36,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     # Linear node
     #check_layer_image_linear_node(layer, source_tree)
 
+    # Check the need of bump process
+    check_layer_bump_process(layer, tree)
+
     #print(specific_ch.enable)
 
     # Update transition related nodes
@@ -134,7 +137,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         solid_color = (1,1,1),
         add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
-        hemi_space = 'WORLD',
+        hemi_space = 'WORLD', hemi_use_prev_normal = True
         ):
 
     yp = group_tree.yp
@@ -236,6 +239,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
         load_hemi_props(layer, source)
         layer.hemi_space = hemi_space
+        layer.hemi_use_prev_normal = hemi_use_prev_normal
 
     # Add texcoord node
     texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
@@ -501,6 +505,11 @@ class YNewLayer(bpy.types.Operator):
             items = hemi_space_items,
             default='WORLD')
 
+    hemi_use_prev_normal = BoolProperty(
+            name = 'Use previous Normal',
+            description = 'Take account previous Normal',
+            default = True)
+
     uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -622,6 +631,7 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.label(text='Space:')
+            col.label(text='')
 
         #if self.add_rgb_to_intensity:
         #    col.label(text='RGB To Intensity Color:')
@@ -670,6 +680,7 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
+            col.prop(self, 'hemi_use_prev_normal')
 
         #if self.type == 'IMAGE':
         #    col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
@@ -816,7 +827,8 @@ class YNewLayer(bpy.types.Operator):
                 #self.add_rgb_to_intensity, self.rgb_to_intensity_color, 
                 self.solid_color,
                 self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
-                self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, self.hemi_space)
+                self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
+                self.hemi_space, self.hemi_use_prev_normal)
 
         if segment:
             #layer.segment_name = segment.name
@@ -847,7 +859,6 @@ class YNewLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        #reconnect_yp_layer_nodes(node.node_tree)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1034,7 +1045,6 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         node.node_tree.yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        #reconnect_yp_layer_nodes(node.node_tree)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1247,7 +1257,6 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         node.node_tree.yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        #reconnect_yp_layer_nodes(node.node_tree)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1491,6 +1500,10 @@ class YMoveLayer(bpy.types.Operator):
         # Remap parents
         for lay in yp.layers:
             lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
+        # Height calculation can be changed after moving layer
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch: update_displacement_height_ratio(height_root_ch)
 
         # Refresh layer channel blend nodes
         reconnect_yp_nodes(node.node_tree)
@@ -2546,25 +2559,27 @@ def update_bump_distance(self, context):
 
     if self.normal_map_type == 'NORMAL_MAP' and self.enable_transition_bump: return
 
-    max_height = get_displacement_max_height(root_ch, layer)
+    #max_height = get_displacement_max_height(root_ch, layer)
 
-    height_proc = tree.nodes.get(self.height_proc)
-    if height_proc and layer.type != 'GROUP':
+    #height_proc = tree.nodes.get(self.height_proc)
+    #if height_proc and layer.type != 'GROUP':
 
-        if self.normal_map_type == 'BUMP_MAP':
-            height_proc.inputs['Value Max Height'].default_value = self.bump_distance
-            if 'Delta' in height_proc.inputs:
-                height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, self)
-        elif self.normal_map_type == 'NORMAL_MAP':
-            height_proc.inputs['Bump Height'].default_value = self.bump_distance
+    #    if self.normal_map_type == 'BUMP_MAP':
+    #        height_proc.inputs['Value Max Height'].default_value = self.bump_distance
+    #        if 'Delta' in height_proc.inputs:
+    #            height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, self)
+    #    elif self.normal_map_type == 'NORMAL_MAP':
+    #        height_proc.inputs['Bump Height'].default_value = self.bump_distance
 
-    normal_proc = tree.nodes.get(self.normal_proc)
-    if normal_proc:
+    #normal_proc = tree.nodes.get(self.normal_proc)
+    #if normal_proc:
 
-        if root_ch.enable_smooth_bump: 
-            normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+    #    if root_ch.enable_smooth_bump: 
+    #        normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
-        normal_proc.inputs['Max Height'].default_value = max_height
+    #    normal_proc.inputs['Max Height'].default_value = max_height
+
+    #update_layer_bump_distance(self, root_ch, layer, tree)
 
     #max_height = get_displacement_max_height(root_ch)
     #root_ch.displacement_height_ratio = max_height
@@ -2736,6 +2751,20 @@ def update_hemi_camera_ray_mask(self, context):
         reconnect_layer_nodes(self)
 
     source.inputs['Camera Ray Mask'].default_value = 1.0 if self.hemi_camera_ray_mask else 0.0
+
+def update_hemi_use_prev_normal(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    layer = self
+    tree = get_tree(layer)
+
+    check_layer_tree_ios(layer, tree)
+    check_layer_bump_process(layer, tree)
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
+
+    reconnect_yp_nodes(layer.id_data)
 
 def update_channel_intensity_value(self, context):
     yp = self.id_data.yp
@@ -3198,6 +3227,13 @@ class YLayer(bpy.types.PropertyGroup):
             name = 'Camera Ray Mask',
             description = "Use Camera Ray value so the back of the mesh won't be affected by fake lighting",
             default = False, update=update_hemi_camera_ray_mask)
+
+    hemi_use_prev_normal = BoolProperty(
+            name = 'Use previous Normal',
+            description = 'Take account previous Normal',
+            default = False, update=update_hemi_use_prev_normal)
+
+    bump_process = StringProperty(default='')
 
     # To detect change of layer image
     image_name = StringProperty(default='')

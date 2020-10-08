@@ -44,19 +44,24 @@ def check_layer_tree_ios(layer, tree=None):
     valid_outputs = []
 
     has_parent = layer.parent_idx != -1
+    need_prev_normal = check_need_prev_normal(layer)
     
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
         #if yp.disable_quick_toggle and not ch.enable: continue
-        if not ch.enable: continue
-
         root_ch = yp.channels[i]
+
+        if not (root_ch.type == 'NORMAL' and need_prev_normal) and not ch.enable:
+            continue
+
         dirty = create_input(tree, root_ch.name, channel_socket_input_bl_idnames[root_ch.type], 
                 valid_inputs, input_index, dirty)
-        dirty = create_output(tree, root_ch.name, channel_socket_output_bl_idnames[root_ch.type], 
-                valid_outputs, output_index, dirty)
         input_index += 1
-        output_index += 1
+
+        if root_ch.type != 'NORMAL' or not need_prev_normal or ch.enable:
+            dirty = create_output(tree, root_ch.name, channel_socket_output_bl_idnames[root_ch.type], 
+                    valid_outputs, output_index, dirty)
+            output_index += 1
 
         # Alpha IO
         #if (root_ch.type == 'RGB' and root_ch.enable_alpha) or has_parent:
@@ -64,56 +69,70 @@ def check_layer_tree_ios(layer, tree=None):
 
             name = root_ch.name + io_suffix['ALPHA']
             dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-            dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
             input_index += 1
-            output_index += 1
+
+            if root_ch.type != 'NORMAL' or not need_prev_normal or ch.enable:
+                dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
+                output_index += 1
 
         # Displacement IO
-        if root_ch.type == 'NORMAL': # and root_ch.enable_parallax:
+        if root_ch.type == 'NORMAL': #or (layer.type == 'HEMI' and layer.hemi_use_prev_normal): # and root_ch.enable_parallax:
 
             if not root_ch.enable_smooth_bump:
 
                 name = root_ch.name + io_suffix['HEIGHT']
                 dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-                dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
                 input_index += 1
-                output_index += 1
+
+                if not need_prev_normal or ch.enable:
+                    dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
+                    output_index += 1
 
                 if has_parent:
 
                     name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
                     dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-                    dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
                     input_index += 1
-                    output_index += 1
+
+                    if not need_prev_normal or ch.enable:
+                        dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
+                        output_index += 1
 
             else:
 
                 name = root_ch.name + io_suffix['HEIGHT_ONS']
                 dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                 input_index += 1
-                output_index += 1
+
+                if not need_prev_normal or ch.enable:
+                    dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
+                    output_index += 1
 
                 name = root_ch.name + io_suffix['HEIGHT_EW']
                 dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                 input_index += 1
-                output_index += 1
+
+                if not need_prev_normal or ch.enable:
+                    dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
+                    output_index += 1
 
                 if has_parent:
 
                     name = root_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['ALPHA']
                     dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                    dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                     input_index += 1
-                    output_index += 1
+
+                    if not need_prev_normal or ch.enable:
+                        dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
+                        output_index += 1
 
                     name = root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['ALPHA']
                     dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                    dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                     input_index += 1
-                    output_index += 1
+
+                    if not need_prev_normal or ch.enable:
+                        dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
+                        output_index += 1
 
                 #for d in neighbor_directions:
 
@@ -209,13 +228,17 @@ def check_layer_tree_ios(layer, tree=None):
     if height_root_ch and height_root_ch.main_uv != '' and height_root_ch.main_uv not in uv_names:
         uv_names.append(height_root_ch.main_uv)
 
+    # Add main UV if need previous normal
+    if need_prev_normal and height_root_ch.main_uv != '':
+        uv_names.append(height_root_ch.main_uv)
+
     # Check layer uv
-    if layer.texcoord_type == 'UV' and layer.uv_name not in uv_names:
+    if layer.texcoord_type == 'UV' and layer.uv_name not in uv_names and layer.uv_name != '':
         uv_names.append(layer.uv_name)
 
     # Check masks uvs
     for mask in layer.masks:
-        if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names:
+        if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names and mask.uv_name != '':
             uv_names.append(mask.uv_name)
 
     # Create inputs
@@ -225,7 +248,7 @@ def check_layer_tree_ios(layer, tree=None):
         input_index += 1
 
         #if height_ch and not (yp.disable_quick_toggle and not height_ch.enable):
-        if height_ch and height_ch.enable:
+        if (height_ch and height_ch.enable) or (need_prev_normal and uv_name == height_root_ch.main_uv):
 
             name = uv_name + io_suffix['TANGENT']
             dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
@@ -432,6 +455,28 @@ def disable_layer_source_tree(layer, rearrange=True):
 
         # Rearrange nodes
         rearrange_layer_nodes(layer)
+
+def check_layer_bump_process(layer, tree=None):
+
+    yp = layer.id_data.yp
+    if not tree: tree = get_tree(layer)
+
+    height_root_ch = get_root_height_channel(yp)
+
+    # Check if previous normal is needed
+    need_prev_normal = check_need_prev_normal(layer)
+
+    if need_prev_normal:
+        if height_root_ch.enable_smooth_bump:
+            lib_name = lib.FINE_BUMP_PROCESS
+        else: lib_name = lib.BUMP_PROCESS
+
+        bump_process = replace_new_node(tree, layer, 'bump_process', 'ShaderNodeGroup', 'Bump Process',
+                lib_name, hard_replace=True)
+
+        update_layer_bump_process_max_height(height_root_ch, layer, tree)
+    else:
+        remove_node(tree, layer, 'bump_process')
 
 def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 
@@ -1934,6 +1979,12 @@ def remove_layer_channel_nodes(layer, ch, tree=None):
     remove_node(tree, ch, 'blend')
     remove_node(tree, ch, 'extra_alpha')
 
+def update_preview_mix(ch, preview):
+    if preview.type != 'GROUP': return
+    # Set channel layer blending
+    mix = preview.node_tree.nodes.get('Mix')
+    if mix: mix.blend_type = ch.blend_type
+
 def check_blend_type_nodes(root_ch, layer, ch):
 
     #print("Checking blend type nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
@@ -2062,6 +2113,12 @@ def check_blend_type_nodes(root_ch, layer, ch):
         # Channel mute
         #intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
         intensity.inputs[1].default_value = ch.intensity_value
+
+    # Update preview mode node
+    if yp.layer_preview_mode:
+        mat = bpy.context.object.active_material
+        preview = mat.node_tree.nodes.get(EMISSION_VIEWER)
+        if preview: update_preview_mix(ch, preview)
 
     return need_reconnect
 

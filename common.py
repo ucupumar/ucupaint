@@ -2670,6 +2670,54 @@ def get_write_height_normal_channel(layer):
 
     return None
 
+def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
+
+    yp = layer.id_data.yp
+    if not tree: tree = get_tree(layer)
+
+    height_proc = tree.nodes.get(height_ch.height_proc)
+    if height_proc and layer.type != 'GROUP':
+
+        if height_ch.normal_map_type == 'BUMP_MAP':
+            height_proc.inputs['Value Max Height'].default_value = height_ch.bump_distance
+            if 'Delta' in height_proc.inputs:
+                height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, height_ch)
+        elif height_ch.normal_map_type == 'NORMAL_MAP':
+            height_proc.inputs['Bump Height'].default_value = height_ch.bump_distance
+
+    normal_proc = tree.nodes.get(height_ch.normal_proc)
+    if normal_proc:
+
+        max_height = get_displacement_max_height(height_root_ch, layer)
+
+        if height_root_ch.enable_smooth_bump: 
+            normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+
+        normal_proc.inputs['Max Height'].default_value = max_height
+
+def update_layer_bump_process_max_height(height_root_ch, layer, tree=None):
+
+    yp = layer.id_data.yp
+    if not tree: tree = get_tree(layer)
+
+    bump_process = tree.nodes.get(layer.bump_process)
+    if not bump_process: return
+
+    #height_root_ch = get_root_height_channel(yp)
+
+    prev_idx, prev_layer = get_lower_neighbor(layer)
+    if prev_layer: 
+        max_height = get_displacement_max_height(height_root_ch, prev_layer)
+    else: max_height = 0.0
+
+    bump_process.inputs['Max Height'].default_value = max_height
+
+    if height_root_ch.enable_smooth_bump:
+        if 'Bump Height Scale' in bump_process.inputs:
+            bump_process.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+    #else:
+    #    bump_process.inputs['Tweak'].default_value = 5.0
+
 def update_displacement_height_ratio(root_ch, max_height=None):
 
     group_tree = root_ch.id_data
@@ -2718,6 +2766,12 @@ def update_displacement_height_ratio(root_ch, max_height=None):
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)
         if parallax_prep:
             parallax_prep.inputs['depth_scale'].default_value = max_height
+
+    # Update layer bump process
+    for layer in reversed(yp.layers):
+        update_layer_bump_process_max_height(root_ch, layer)
+        height_ch = get_height_channel(layer)
+        update_layer_bump_distance(height_ch, root_ch, layer)
 
 def get_fine_bump_distance(distance):
     scale = 400
@@ -2928,6 +2982,25 @@ def get_yp_images(yp):
                     images.append(source.image)
 
     return images
+
+def check_need_prev_normal(layer):
+
+    yp = layer.id_data.yp
+    height_root_ch = get_root_height_channel(yp)
+
+    # Check if previous normal is needed
+    need_prev_normal = False
+    if layer.type == 'HEMI' and layer.hemi_use_prev_normal and height_root_ch:
+        need_prev_normal = True
+
+    # Also check mask
+    if not need_prev_normal:
+        for mask in layer.masks:
+            if mask.type == 'HEMI' and mask.hemi_use_prev_normal and height_root_ch:
+                need_prev_normal = True
+                break
+
+    return need_prev_normal
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

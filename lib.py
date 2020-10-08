@@ -475,6 +475,18 @@ def flip_tangent_sign():
                             else: vc.data[i].color = (1.0-col[0], 1.0-col[1], 1.0-col[2])
                             i += 1
 
+def get_lib_revision(tree):
+    rev = tree.nodes.get('revision')
+
+    # Check lib tree revision
+    if rev:
+        m = re.match(r'.*(\d)', rev.label)
+        try: revision = int(m.group(1))
+        except: revision = 0
+    else: revision = 0
+
+    return revision
+
 @persistent
 def update_node_tree_libs(name):
     T = time.time()
@@ -513,8 +525,6 @@ def update_node_tree_libs(name):
     for i, name in enumerate(tree_names):
 
         lib_tree = bpy.data.node_groups.get(name)
-        lib_ver = lib_tree.nodes.get('revision')
-
         cur_tree = bpy.data.node_groups.get(name+'__OLD')
 
         # If not found, check if node is duplicated
@@ -522,21 +532,9 @@ def update_node_tree_libs(name):
             #print(name)
             cur_tree = [n for n in bpy.data.node_groups if n.name.startswith(name) and n.name != name][0]
 
-        cur_ver = cur_tree.nodes.get('revision')
-
         # Check lib tree revision
-        if cur_ver:
-            m = re.match(r'.*(\d)', cur_ver.label)
-            try: cur_ver = int(m.group(1))
-            except: cur_ver = 0
-        else: cur_ver = 0
-
-        if lib_ver:
-            m = re.match(r'.*(\d)', lib_ver.label)
-            try: lib_ver = int(m.group(1))
-            except: lib_ver = 0
-        else: lib_ver = 0
-
+        cur_ver = get_lib_revision(cur_tree)
+        lib_ver = get_lib_revision(lib_tree)
         #print(name, cur_ver, lib_ver)
 
         if lib_ver > cur_ver:
@@ -600,6 +598,7 @@ def update_node_tree_libs(name):
                 for cur_tree in cur_trees:
 
                     used_nodes = []
+                    parent_trees = []
 
                     # Search for old tree usages
                     for mat in bpy.data.materials:
@@ -607,11 +606,13 @@ def update_node_tree_libs(name):
                         for node in mat.node_tree.nodes:
                             if node.type == 'GROUP' and node.node_tree == cur_tree:
                                 used_nodes.append(node)
+                                parent_trees.append(mat.node_tree)
 
                     for group in bpy.data.node_groups:
                         for node in group.nodes:
                             if node.type == 'GROUP' and node.node_tree == cur_tree:
                                 used_nodes.append(node)
+                                parent_trees.append(group)
 
                     #print(used_nodes)
 
@@ -626,8 +627,16 @@ def update_node_tree_libs(name):
                         new_tree = used_nodes[0].node_tree
                         lib_tree.name = name
 
-                        for node in used_nodes:
+                        cur_ver = get_lib_revision(ori_tree)
+                        lib_ver = get_lib_revision(lib_tree)
+
+                        for i, node in enumerate(used_nodes):
                             node.node_tree = new_tree
+
+                            # Hemi revision 1 has normal input
+                            if name == HEMI and cur_ver == 0 and lib_ver == 1:
+                                geom = parent_trees[i].nodes.get(GEOMETRY)
+                                if geom: parent_trees[i].links.new(geom.outputs['Normal'], node.inputs['Normal'])
 
                         # Copy some nodes inside
                         for n in new_tree.nodes:
@@ -635,6 +644,20 @@ def update_node_tree_libs(name):
                                 # Try to get the node on original tree
                                 ori_n = ori_tree.nodes.get(n.name)
                                 if ori_n: copy_node_props(ori_n, n)
+
+                        # Update hemi node
+                        if name == HEMI:
+                            # Copy hemi stuffs
+                            cur_norm = ori_tree.nodes.get('Normal')
+                            new_norm = new_tree.nodes.get('Normal')
+
+                            new_norm.outputs[0].default_value = cur_norm.outputs[0].default_value
+
+                            cur_vt = ori_tree.nodes.get('Vector Transform')
+                            new_vt = new_tree.nodes.get('Vector Transform')
+
+                            new_vt.convert_from = cur_vt.convert_from
+                            new_vt.convert_to = cur_vt.convert_to
 
                         # Delete original tree
                         bpy.data.node_groups.remove(ori_tree)

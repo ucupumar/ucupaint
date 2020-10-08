@@ -667,22 +667,24 @@ def update_transition_bump_distance(self, context):
     disp_ch = get_root_height_channel(yp)
     if disp_ch == root_ch:
 
-        max_height = get_displacement_max_height(root_ch, layer)
+        #update_layer_bump_distance(ch, root_ch, layer, tree)
 
-        height_proc = tree.nodes.get(self.height_proc)
-        if height_proc: #and 'Transition Max Height' in height_proc.inputs:
-            if self.normal_map_type == 'NORMAL_MAP':
-                height_proc.inputs['Bump Height'].default_value = get_transition_bump_max_distance(self)
-            else:
-                height_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(self)
-                height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, self)
+        #max_height = get_displacement_max_height(root_ch, layer)
 
-        normal_proc = tree.nodes.get(self.normal_proc)
-        if normal_proc:
-            normal_proc.inputs['Max Height'].default_value = max_height
+        #height_proc = tree.nodes.get(self.height_proc)
+        #if height_proc: #and 'Transition Max Height' in height_proc.inputs:
+        #    if self.normal_map_type == 'NORMAL_MAP':
+        #        height_proc.inputs['Bump Height'].default_value = get_transition_bump_max_distance(self)
+        #    else:
+        #        height_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(self)
+        #        height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, self)
 
-            if root_ch.enable_smooth_bump:
-                normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+        #normal_proc = tree.nodes.get(self.normal_proc)
+        #if normal_proc:
+        #    normal_proc.inputs['Max Height'].default_value = max_height
+
+        #    if root_ch.enable_smooth_bump:
+        #        normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
         #max_height = get_displacement_max_height(root_ch)
         #root_ch.displacement_height_ratio = max_height

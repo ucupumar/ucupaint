@@ -653,6 +653,9 @@ def rearrange_layer_nodes(layer, tree=None):
     if check_set_node_loc(tree, layer.texcoord, loc):
         loc.y -= 240
 
+    if check_set_node_loc(tree, layer.bump_process, loc):
+        loc.y -= 300
+
     loc = Vector((-600, 0))
 
     # Channel Caches

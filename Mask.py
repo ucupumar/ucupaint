@@ -11,7 +11,7 @@ from .subtree import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
-def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD'):
+def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False):
     yp = layer.id_data.yp
     yp.halt_update = True
 
@@ -38,6 +38,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         source.node_tree = get_node_tree_lib(lib.HEMI)
         duplicate_lib_node_tree(source)
         mask.hemi_space = hemi_space
+        mask.hemi_use_prev_normal = hemi_use_prev_normal
 
     if mask_type == 'OBJECT_INDEX':
         source.node_tree = get_node_tree_lib(lib.OBJECT_INDEX_EQUAL)
@@ -85,6 +86,9 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
 
     # Check mask source tree
     check_mask_source_tree(layer)
+
+    # Check the need of bump process
+    check_layer_bump_process(layer, tree)
 
     # Check layer io
     check_layer_tree_ios(layer, tree)
@@ -206,6 +210,11 @@ class YNewLayerMask(bpy.types.Operator):
             items = hemi_space_items,
             default='WORLD')
 
+    hemi_use_prev_normal = BoolProperty(
+            name = 'Use previous Normal',
+            description = 'Take account previous Normal',
+            default = True)
+
     # For object index
     object_index = IntProperty(
             name = 'Object Index',
@@ -293,6 +302,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.label(text='Space:')
+            col.label(text='')
 
         if self.type == 'IMAGE':
             col.label(text='')
@@ -319,6 +329,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
+            col.prop(self, 'hemi_use_prev_normal')
 
         if self.type == 'IMAGE':
             col.prop(self, 'hdr')
@@ -427,7 +438,8 @@ class YNewLayerMask(bpy.types.Operator):
                         pass
 
         # Add new mask
-        mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, self.hemi_space)
+        mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
+                self.hemi_space, self.hemi_use_prev_normal)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'}:
@@ -1041,6 +1053,22 @@ def update_mask_hemi_space(self, context):
     trans = source.node_tree.nodes.get('Vector Transform')
     if trans: trans.convert_from = self.hemi_space
 
+def update_mask_hemi_use_prev_normal(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    tree = get_tree(layer)
+
+    check_layer_tree_ios(layer, tree)
+    check_layer_bump_process(layer, tree)
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
+
+    reconnect_yp_nodes(layer.id_data)
+
 def update_mask_hemi_camera_ray_mask(self, context):
     yp = self.id_data.yp
 
@@ -1184,6 +1212,11 @@ class YLayerMask(bpy.types.PropertyGroup):
             name = 'Camera Ray Mask',
             description = "Use Camera Ray value so the back of the mesh won't be affected by fake lighting",
             default = False, update=update_mask_hemi_camera_ray_mask)
+
+    hemi_use_prev_normal = BoolProperty(
+            name = 'Use previous Normal',
+            description = 'Take account previous Normal',
+            default = False, update=update_mask_hemi_use_prev_normal)
 
     uv_name = StringProperty(default='', update=update_mask_uv_name)
 

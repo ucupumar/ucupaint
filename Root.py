@@ -1810,8 +1810,9 @@ def update_layer_preview_mode(self, context):
 
             # Set channel layer blending
             ch = layer.channels[yp.active_channel_index]
-            mix = preview.node_tree.nodes.get('Mix')
-            mix.blend_type = ch.blend_type
+            #mix = preview.node_tree.nodes.get('Mix')
+            #mix.blend_type = ch.blend_type
+            update_preview_mix(ch, preview)
 
             # Use different grid if channel is not enabled
             preview.inputs['Missing Data'].default_value = 1.0 if (not ch.enable or not layer.enable) else 0.0
