@@ -90,13 +90,13 @@
 # - Add Mask Preview Mode (V)
 # - Image atlas should be not at default, so maximum images warning is needed (X)
 # - ..or, check the possibility of not updating temp uv except on paint mode (check paint mode event perhaps?) (V)
+# - Fake lighting should take account previous normal output (V)
 # - Object index mask should not generate neighbor uv
 # - Create image container node outside yp group to make layer images linked to mesh, especially on edit mode
 # - Change link inside group to github insted of patreon
 # - Make rebake as an option on layer source
 # - Add operator to create new UV map on multiple objects using the same material
 # - Clean up bake codes (Erase double prepare bake codes)
-# - Fake lighting should take account previous normal output
 # - Normal map should not display bump height
 
 # TODO:
