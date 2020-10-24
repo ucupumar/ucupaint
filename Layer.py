@@ -177,6 +177,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     layer.type = layer_type
     layer.name = layer_name
     layer.uv_name = uv_name
+    check_uvmap_on_other_objects_with_same_mat(mat, uv_name)
 
     if segment:
         layer.segment_name = segment.name
@@ -2649,14 +2650,7 @@ def update_uv_name(self, context):
             uv_layers.active = uv_layers.get(layer.uv_name)
 
         # Check for other objects with same material
-        if mat.users > 1 and layer.uv_name != '':
-            for ob in get_scene_objects():
-                if ob.type != 'MESH': continue
-                if mat.name in ob.data.materials:
-                    uvls = get_uv_layers(ob)
-                    if layer.uv_name not in uvls:
-                        uvl = uvls.new(name=layer.uv_name)
-                        uvls.active = uvl
+        check_uvmap_on_other_objects_with_same_mat(mat, layer.uv_name)
 
     # Update global uv
     #yp_dirty = check_uv_nodes(yp)

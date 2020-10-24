@@ -41,6 +41,7 @@ def update_yp_ui():
             ypui.channel_ui.expand_subdiv_settings = channel.expand_subdiv_settings
             ypui.channel_ui.expand_parallax_settings = channel.expand_parallax_settings
             ypui.channel_ui.expand_alpha_settings = channel.expand_alpha_settings
+            ypui.channel_ui.expand_smooth_bump_settings = channel.expand_smooth_bump_settings
             ypui.channel_ui.modifiers.clear()
 
             # Construct channel UI objects
@@ -642,7 +643,13 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
 
             if channel.type == 'NORMAL':
                 brow = bcol.row(align=True)
-                brow.label(text='', icon_value=lib.get_icon('input'))
+                if channel.enable_smooth_bump:
+                    if chui.expand_smooth_bump_settings:
+                        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                    brow.prop(chui, 'expand_smooth_bump_settings', text='', emboss=False, icon_value=icon_value)
+                else:
+                    brow.label(text='', icon_value=lib.get_icon('input'))
                 brow.label(text='Smooth Bump:')
                 brow.prop(channel, 'enable_smooth_bump', text='')
 
@@ -650,6 +657,16 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 #brow.label(text='', icon_value=lib.get_icon('input'))
                 #brow.label(text='Displacement:')
                 #brow.prop(channel, 'enable_parallax', text='')
+                if chui.expand_smooth_bump_settings and channel.enable_smooth_bump:
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='BLANK1')
+                    bbox = brow.box()
+                    bbcol = bbox.column() #align=True)
+
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Main UV:')
+                    brow.label(text=channel.main_uv)
+                    #brow.prop(channel, 'main_uv', text='')
 
                 brow = bcol.row(align=True)
                 #brow.active = channel.enable_parallax and (
@@ -3499,6 +3516,8 @@ def update_channel_ui(self, context):
         ch.expand_parallax_settings = self.expand_parallax_settings
     if hasattr(ch, 'expand_alpha_settings'):
         ch.expand_alpha_settings = self.expand_alpha_settings
+    if hasattr(ch, 'expand_smooth_bump_settings'):
+        ch.expand_smooth_bump_settings = self.expand_smooth_bump_settings
     if hasattr(ch, 'expand_intensity_settings'):
         ch.expand_intensity_settings = self.expand_intensity_settings
     if hasattr(ch, 'expand_transition_bump_settings'):
@@ -3558,6 +3577,7 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_subdiv_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_parallax_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_alpha_settings = BoolProperty(default=False, update=update_channel_ui)
+    expand_smooth_bump_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_input_settings = BoolProperty(default=True, update=update_channel_ui)
     modifiers = CollectionProperty(type=YModifierUI)
 

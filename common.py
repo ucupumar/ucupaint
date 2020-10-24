@@ -1982,6 +1982,18 @@ def is_transformed(mapping):
             return True
         return False
 
+def check_uvmap_on_other_objects_with_same_mat(mat, uv_name, set_active=True):
+
+    if mat.users > 1 and uv_name != '':
+        for ob in get_scene_objects():
+            if ob.type != 'MESH': continue
+            if mat.name in ob.data.materials:
+                uvls = get_uv_layers(ob)
+                if uv_name not in uvls:
+                    uvl = uvls.new(name=uv_name)
+                    if set_active:
+                        uvls.active = uvl
+
 def refresh_temp_uv(obj, entity): 
 
     #if not entity or entity.segment_name == '' or entity.type != 'IMAGE':

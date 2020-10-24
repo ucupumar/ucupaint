@@ -241,11 +241,15 @@ def check_layer_tree_ios(layer, tree=None):
         if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names and mask.uv_name != '':
             uv_names.append(mask.uv_name)
 
+    #print(height_root_ch.main_uv)
+
     # Create inputs
     for uv_name in uv_names:
         name = uv_name + io_suffix['UV']
         dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
         input_index += 1
+
+        #print(uv_name)
 
         #if height_ch and not (yp.disable_quick_toggle and not height_ch.enable):
         if (height_ch and height_ch.enable) or (need_prev_normal and uv_name == height_root_ch.main_uv):
@@ -1626,6 +1630,20 @@ def check_uv_nodes(yp, generate_missings=False):
             #check_actual_uv_nodes(yp, uv, obj)
             uv_names.append(uv.name)
 
+    # Get height channel
+    height_ch = get_root_height_channel(yp)
+
+    if height_ch:
+
+        # Set height channel main uv if its still empty
+        if height_ch.main_uv == '':
+            uv_layers = get_uv_layers(obj)
+            if len(uv_layers) > 0:
+                height_ch.main_uv = uv_layers[0].name
+                check_uvmap_on_other_objects_with_same_mat(mat, height_ch.main_uv)
+
+        uv_names.append(height_ch.main_uv)
+
     # Collect uv names from layers
     for layer in yp.layers:
         if layer.texcoord_type == 'UV' and layer.uv_name != '':
@@ -1678,9 +1696,8 @@ def check_uv_nodes(yp, generate_missings=False):
     # Check parallax preparation nodes
     check_parallax_prep_nodes(yp, unused_uvs, unused_texcoords, baked=yp.use_baked)
 
-    # Get height channel
-    height_ch = get_root_height_channel(yp)
     if height_ch: 
+
         # Check standard parallax
         check_parallax_node(yp, height_ch, unused_uvs, unused_texcoords)
 

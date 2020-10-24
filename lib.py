@@ -325,8 +325,8 @@ def check_uv_difference_to_main_uv(entity):
     if height_ch:
 
         # Set height channel main uv if its still empty
-        if height_ch.main_uv == '' and len(yp.uvs) > 0:
-            height_ch.main_uv = yp.uvs[0].name
+        #if height_ch.main_uv == '' and len(yp.uvs) > 0:
+        #    height_ch.main_uv = yp.uvs[0].name
 
         # Check if entity uv is different to main uv
         if height_ch.main_uv != '' and entity.uv_name != height_ch.main_uv:

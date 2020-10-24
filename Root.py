@@ -172,7 +172,6 @@ def check_all_channel_ios(yp, reconnect=True):
     # Move layer IO
     for layer in yp.layers:
         Layer.check_all_layer_channel_io_and_nodes(layer)
-        #check_all_layer_channel_io_and_nodes(layer)
 
     if reconnect:
         # Rearrange layers
@@ -238,6 +237,13 @@ def create_yp_channel_nodes(group_tree, channel, channel_idx):
         start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
         start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
 
+        # Set main uv
+        #obj = bpy.context.object
+        #uv_layers = get_uv_layers(obj)
+        #if len(uv_layers) > 0:
+        #    channel.main_uv = uv_layers[0].name
+        #    check_uvmap_on_other_objects_with_same_mat(obj.active_material, channel.main_uv)
+
     # Link between layers
     for t in yp.layers:
 
@@ -257,7 +263,6 @@ def create_yp_channel_nodes(group_tree, channel, channel_idx):
 
         # Add new nodes
         Layer.check_all_layer_channel_io_and_nodes(t, layer_tree, specific_ch=c)
-        #check_all_layer_channel_io_and_nodes(t, layer_tree, specific_ch=c)
 
     # Check uv maps
     check_uv_nodes(yp)
@@ -1200,7 +1205,6 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
             # Update layer ios
             Layer.check_all_layer_channel_io_and_nodes(layer, ttree) #, has_parent=has_parent)
-            #check_all_layer_channel_io_and_nodes(layer, ttree) #, has_parent=has_parent)
 
         remove_node(group_tree, channel, 'start_linear')
         remove_node(group_tree, channel, 'end_linear')
@@ -1647,7 +1651,6 @@ def update_channel_name(self, context):
     for layer in yp.layers:
         tree = get_tree(layer)
         Layer.check_all_layer_channel_io_and_nodes(layer, tree)
-        #check_all_layer_channel_io_and_nodes(layer, tree)
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
@@ -2555,6 +2558,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     expand_subdiv_settings = BoolProperty(default=False)
     expand_parallax_settings = BoolProperty(default=False)
     expand_alpha_settings = BoolProperty(default=False)
+    expand_smooth_bump_settings = BoolProperty(default=False)
 
     # Connection related
     ori_alpha_to = CollectionProperty(type=YNodeConnections)
