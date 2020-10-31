@@ -590,6 +590,7 @@ class YBakeToLayer(bpy.types.Operator):
         normal_bake = None
         geometry = None
         vector_math = None
+        vector_math_1 = None
         if self.type == 'BEVEL_NORMAL':
             #bsdf = mat.node_tree.nodes.new('ShaderNodeBsdfDiffuse')
             normal_bake = mat.node_tree.nodes.new('ShaderNodeGroup')
@@ -601,8 +602,6 @@ class YBakeToLayer(bpy.types.Operator):
             if is_greater_than_281():
                 vector_math_1 = mat.node_tree.nodes.new('ShaderNodeVectorMath')
                 vector_math_1.operation = 'LENGTH'
-            else:
-                vector_math_1 = None
 
         # Get output node and remember original bsdf input
         output = get_active_mat_output_node(mat.node_tree)
