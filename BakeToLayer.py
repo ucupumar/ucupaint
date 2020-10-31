@@ -176,6 +176,7 @@ class YBakeToLayer(bpy.types.Operator):
             suffix = 'Bevel Normal'
             self.samples = 32
 
+            height_root_ch = get_root_height_channel(yp)
             if height_root_ch:
                 self.channel_idx = str(get_channel_index(height_root_ch))
 
