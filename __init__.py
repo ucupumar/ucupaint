@@ -91,6 +91,7 @@
 # - Image atlas should be not at default, so maximum images warning is needed (X)
 # - ..or, check the possibility of not updating temp uv except on paint mode (check paint mode event perhaps?) (V)
 # - Fake lighting should take account previous normal output (V)
+# - Need ability to edit height channel main uv
 # - Object index mask should not generate neighbor uv
 # - Create image container node outside yp group to make layer images linked to mesh, especially on edit mode
 # - Change link inside group to github insted of patreon

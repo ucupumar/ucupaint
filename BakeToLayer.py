@@ -143,10 +143,13 @@ class YBakeToLayer(bpy.types.Operator):
         self.normal_map_type = 'BUMP_MAP'
 
         # Default FXAA is on
-        self.fxaa = True
+        #self.fxaa = True
 
         # Default samples is 1
         self.samples = 1
+
+        # Set channel to first one, just in case
+        self.channel_idx = str(0)
 
         # Set name
         mat = get_active_material()
@@ -173,7 +176,6 @@ class YBakeToLayer(bpy.types.Operator):
             suffix = 'Bevel Normal'
             self.samples = 32
 
-            height_root_ch = get_root_height_channel(yp)
             if height_root_ch:
                 self.channel_idx = str(get_channel_index(height_root_ch))
 
@@ -595,6 +597,11 @@ class YBakeToLayer(bpy.types.Operator):
             geometry = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
             vector_math = mat.node_tree.nodes.new('ShaderNodeVectorMath')
             vector_math.operation = 'CROSS_PRODUCT'
+            if is_greater_than_281():
+                vector_math_1 = mat.node_tree.nodes.new('ShaderNodeVectorMath')
+                vector_math_1.operation = 'LENGTH'
+            else:
+                vector_math_1 = None
 
         # Get output node and remember original bsdf input
         output = get_active_mat_output_node(mat.node_tree)
@@ -669,7 +676,11 @@ class YBakeToLayer(bpy.types.Operator):
             mat.node_tree.links.new(geometry.outputs['Normal'], vector_math.inputs[0])
             mat.node_tree.links.new(src.outputs[0], vector_math.inputs[1])
             #mat.node_tree.links.new(src.outputs[0], bsdf.inputs['Normal'])
-            mat.node_tree.links.new(vector_math.outputs[1], bsdf.inputs[0])
+            if is_greater_than_281():
+                mat.node_tree.links.new(vector_math.outputs[0], vector_math_1.inputs[0])
+                mat.node_tree.links.new(vector_math_1.outputs[1], bsdf.inputs[0])
+            else:
+                mat.node_tree.links.new(vector_math.outputs[1], bsdf.inputs[0])
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
         # New target image
@@ -745,6 +756,7 @@ class YBakeToLayer(bpy.types.Operator):
         if normal_bake: simple_remove_node(mat.node_tree, normal_bake)
         if geometry: simple_remove_node(mat.node_tree, geometry)
         if vector_math: simple_remove_node(mat.node_tree, vector_math)
+        if vector_math_1: simple_remove_node(mat.node_tree, vector_math_1)
 
         # Recover original bsdf
         mat.node_tree.links.new(ori_bsdf, output.inputs[0])
