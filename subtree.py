@@ -1642,7 +1642,14 @@ def check_uv_nodes(yp, generate_missings=False):
                 height_ch.main_uv = uv_layers[0].name
                 check_uvmap_on_other_objects_with_same_mat(mat, height_ch.main_uv)
 
-        uv_names.append(height_ch.main_uv)
+        uv = yp.uvs.get(height_ch.main_uv)
+        if not uv: 
+            dirty = True
+            uv = yp.uvs.add()
+            uv.name = height_ch.main_uv
+
+        if uv.name not in uv_names: 
+            uv_names.append(height_ch.main_uv)
 
     # Collect uv names from layers
     for layer in yp.layers:

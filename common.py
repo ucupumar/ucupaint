@@ -2705,7 +2705,8 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
         max_height = get_displacement_max_height(height_root_ch, layer)
 
         if height_root_ch.enable_smooth_bump: 
-            normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+            inp = normal_proc.inputs.get('Bump Height Scale')
+            if inp: inp.default_value = get_fine_bump_distance(max_height)
 
         normal_proc.inputs['Max Height'].default_value = max_height
 
