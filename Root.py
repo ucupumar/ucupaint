@@ -1939,7 +1939,7 @@ def update_layer_index(self, context):
 
     #yp.need_temp_uv_refresh = False
 
-    #update_image_editor_image(context, image)
+    update_image_editor_image(context, image)
 
     #print('INFO: Active layer is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -2772,9 +2772,9 @@ def ypaint_last_object_update(scene):
             #node.node_tree.yp.active_layer_index = node.node_tree.yp.active_layer_index
             image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, node.node_tree.yp)
             #print(image)
-            if image:
-                update_image_editor_image(bpy.context, image)
-                scene.tool_settings.image_paint.canvas = image
+            #if image:
+            update_image_editor_image(bpy.context, image)
+            scene.tool_settings.image_paint.canvas = image
 
     if obj.type == 'MESH' and scene.yp.last_object == obj.name and scene.yp.last_mode != obj.mode:
 

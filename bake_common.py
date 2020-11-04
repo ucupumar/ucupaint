@@ -59,6 +59,7 @@ def remember_before_bake_(yp=None):
     book['ori_margin'] = scene.render.bake.margin
     book['ori_use_clear'] = scene.render.bake.use_clear
     book['ori_normal_space'] = scene.render.bake.normal_space
+    book['ori_simplify'] = scene.render.use_simplify
 
     #book['device'] = scene.cycles.device
     if is_greater_than_281() and scene.cycles.device == 'GPU' and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences:
@@ -139,6 +140,7 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
     scene.render.bake.margin = margin
     #scene.render.bake.use_clear = True
     scene.render.bake.use_clear = False
+    scene.render.use_simplify = False
 
     # Use CUDA bake if Optix is selected
     if is_greater_than_281() and bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] == 3:
@@ -257,6 +259,7 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
     scene.render.threads_mode = book['ori_threads_mode']
     scene.render.bake.margin = book['ori_margin']
     scene.render.bake.use_clear = book['ori_use_clear']
+    scene.render.use_simplify = book['ori_simplify']
 
     if 'compute_device_type' in book:
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = book['compute_device_type']
