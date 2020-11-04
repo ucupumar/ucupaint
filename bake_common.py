@@ -61,7 +61,7 @@ def remember_before_bake_(yp=None):
     book['ori_normal_space'] = scene.render.bake.normal_space
 
     #book['device'] = scene.cycles.device
-    if is_greater_than_281() and scene.cycles.device == 'GPU':
+    if is_greater_than_281() and scene.cycles.device == 'GPU' and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences:
         book['compute_device_type'] = bpy.context.preferences.addons['cycles'].preferences['compute_device_type']
 
     # Remember uv
