@@ -1078,18 +1078,20 @@ def update_mask_hemi_camera_ray_mask(self, context):
     tree = get_mask_tree(self)
     source = get_mask_source(self)
 
-    # Check if source has the inputs, if not reload the node
-    if 'Camera Ray Mask' not in source.inputs:
-        source = replace_new_node(tree, self, 'source', 'ShaderNodeGroup', 'Mask Source', 
-                lib.HEMI, force_replace=True)
-        duplicate_lib_node_tree(source)
-        trans = source.node_tree.nodes.get('Vector Transform')
-        if trans: trans.convert_from = self.hemi_space
+    if source:
 
-        rearrange_layer_nodes(layer)
-        reconnect_layer_nodes(layer)
+        # Check if source has the inputs, if not reload the node
+        if 'Camera Ray Mask' not in source.inputs:
+            source = replace_new_node(tree, self, 'source', 'ShaderNodeGroup', 'Mask Source', 
+                    lib.HEMI, force_replace=True)
+            duplicate_lib_node_tree(source)
+            trans = source.node_tree.nodes.get('Vector Transform')
+            if trans: trans.convert_from = self.hemi_space
 
-    source.inputs['Camera Ray Mask'].default_value = 1.0 if self.hemi_camera_ray_mask else 0.0
+            rearrange_layer_nodes(layer)
+            reconnect_layer_nodes(layer)
+
+        source.inputs['Camera Ray Mask'].default_value = 1.0 if self.hemi_camera_ray_mask else 0.0
 
 def update_mask_name(self, context):
 
