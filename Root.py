@@ -2198,6 +2198,7 @@ def update_channel_alpha(self, context):
             # Set material to use opaque
             if is_greater_than_280():
                 mat.blend_method = 'OPAQUE'
+                mat.shadow_method = 'OPAQUE'
             else:
                 mat.game_settings.alpha_blend = 'OPAQUE'
 
@@ -2223,6 +2224,7 @@ def update_channel_alpha(self, context):
             # Set material to use alpha blend
             if is_greater_than_280():
                 mat.blend_method = 'HASHED'
+                mat.shadow_method = 'HASHED'
             else:
                 mat.game_settings.alpha_blend = 'ALPHA'
 
