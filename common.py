@@ -764,7 +764,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
 
                         for o in obs:
                             vcol = o.data.vertex_colors.get(node.attribute_name)
-                            o.data.vertex_colors.remove(vcol)
+                            if vcol: o.data.vertex_colors.remove(vcol)
 
                     print('INFO: Searching on entire node groups to search for vcol takes', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
