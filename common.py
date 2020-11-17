@@ -1394,6 +1394,14 @@ def change_layer_name(yp, obj, src, layer, texes):
         layer.name = '___TEMP___'
         layer.name = get_unique_name(name, texes) 
 
+    # Update node group label
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', layer.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', layer.path_from_id())
+    if m1:
+        group_tree = yp.id_data
+        layer_group = group_tree.nodes.get(layer.group_node)
+        layer_group.label = layer.name
+
     yp.halt_update = False
 
 def set_obj_vertex_colors(obj, vcol_name, color):
