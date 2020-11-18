@@ -2788,6 +2788,29 @@ def ypaint_last_object_update(scene):
 
         scene.yp.last_mode = obj.mode
 
+@persistent
+def ypaint_force_update_on_anim(scene):
+    #print(scene.frame_current)
+
+    yp_keyframe_found = False
+    for act in bpy.data.actions:
+        if act.id_root == 'NODETREE' and len(act.fcurves) > 0 and act.fcurves[0].data_path.startswith('yp.'):
+            yp_keyframe_found = True
+            break
+
+    if yp_keyframe_found:
+        ngs = [ng for ng in bpy.data.node_groups if ng.yp.is_ypaint_node and ng.animation_data and ng.animation_data.action]
+        for ng in ngs:
+            fcs = ng.animation_data.action.fcurves
+            for fc in fcs:
+                if fc.data_path.startswith('yp.'):
+                    ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
+                    path = ng_string + fc.data_path
+                    #script = path + ' = ' + path
+                    script = path + ' = ' + str(fc.evaluate(scene.frame_current))
+                    #print(script)
+                    exec(script)
+
 def register():
     bpy.utils.register_class(YSelectMaterialPolygons)
     bpy.utils.register_class(YQuickYPaintNodeSetup)
@@ -2826,6 +2849,8 @@ def register():
         bpy.app.handlers.scene_update_pre.append(ypaint_last_object_update)
         bpy.app.handlers.scene_update_pre.append(ypaint_hacks_and_scene_updates)
 
+    bpy.app.handlers.frame_change_pre.append(ypaint_force_update_on_anim)
+
 def unregister():
     bpy.utils.unregister_class(YSelectMaterialPolygons)
     bpy.utils.unregister_class(YQuickYPaintNodeSetup)
@@ -2856,4 +2881,6 @@ def unregister():
     else:
         bpy.app.handlers.scene_update_pre.remove(ypaint_hacks_and_scene_updates)
         bpy.app.handlers.scene_update_pre.remove(ypaint_last_object_update)
+
+    bpy.app.handlers.frame_change_pre.remove(ypaint_force_update_on_anim)
 

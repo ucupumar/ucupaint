@@ -3599,7 +3599,7 @@ class YLayerUI(bpy.types.PropertyGroup):
     expand_vector = BoolProperty(default=False, update=update_layer_ui)
     expand_masks = BoolProperty(default=False, update=update_layer_ui)
     expand_source = BoolProperty(default=False, update=update_layer_ui)
-    expand_channels = BoolProperty(default=False, update=update_layer_ui)
+    expand_channels = BoolProperty(default=True, update=update_layer_ui)
 
     channels = CollectionProperty(type=YChannelUI)
     masks = CollectionProperty(type=YMaskUI)
