@@ -2800,7 +2800,8 @@ def update_displacement_height_ratio(root_ch, max_height=None):
     for layer in reversed(yp.layers):
         update_layer_bump_process_max_height(root_ch, layer)
         height_ch = get_height_channel(layer)
-        update_layer_bump_distance(height_ch, root_ch, layer)
+        if height_ch:
+            update_layer_bump_distance(height_ch, root_ch, layer)
 
 def get_fine_bump_distance(distance):
     scale = 400
