@@ -67,7 +67,9 @@ def remember_before_bake_(yp=None):
 
     # Remember uv
     book['ori_active_uv'] = uv_layers.active.name
-    book['ori_active_render_uv'] = [u for u in uv_layers if u.active_render][0].name
+    active_render_uvs = [u for u in uv_layers if u.active_render]
+    if active_render_uvs:
+        book['ori_active_render_uv'] = active_render_uvs[0].name
 
     # Remember scene objects
     if is_greater_than_280():
@@ -275,8 +277,9 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
     if recover_active_uv:
         uvl = uv_layers.get(book['ori_active_uv'])
         if uvl: uv_layers.active = uvl
-        uvl = uv_layers.get(book['ori_active_render_uv'])
-        if uvl: uvl.active_render = True
+        if 'ori_active_render_uv' in book:
+            uvl = uv_layers.get(book['ori_active_render_uv'])
+            if uvl: uvl.active_render = True
 
     #return
 
