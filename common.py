@@ -2016,8 +2016,6 @@ def refresh_temp_uv(obj, entity):
 
     uv_layers = get_uv_layers(obj)
     if not uv_layers: return False
-    layer_uv = uv_layers.get(entity.uv_name)
-    if not layer_uv: return False
 
     # Delete previous temp uv
     for uv in uv_layers:
@@ -2025,10 +2023,15 @@ def refresh_temp_uv(obj, entity):
             uv_layers.remove(uv)
             break
 
+    layer_uv = uv_layers.get(entity.uv_name)
+    if not layer_uv: return False
+
     # Set active uv
     if uv_layers.active != layer_uv:
         uv_layers.active = layer_uv
         layer_uv.active_render = True
+
+    #print(uv_layers.active)
 
     # Only set actual uv if not in texture paint mode
     if obj.mode != 'TEXTURE_PAINT':
