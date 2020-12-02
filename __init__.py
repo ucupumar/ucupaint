@@ -140,7 +140,7 @@
 # - Standard image layer fails to use image atlas (V)
 # - Layer preview mode does not change to missing color when enabling/disabling layer (V)
 # - Bake crashes on Blender 2.90.1 (V, Blender 2.91 fixes it)
-# - Wrong temp UV if layer selected again
+# - Wrong temp UV if layer selected again (V, maybe)
 # - Alpha fails to connect to original target socket when toggling channel use alpha
 # - No number suffix when creating new image mask
 # - No number suffix when duplicate layers
