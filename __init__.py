@@ -157,7 +157,7 @@
 bl_info = {
     "name": "Ucupaint",
     "author": "Yusuf Umar",
-    "version": (0, 1, 0),
+    "version": (0, 9, 0),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",

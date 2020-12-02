@@ -1,4 +1,4 @@
-import bpy
+import bpy, time
 from .common import *
 from .node_connections import *
 from . import lib, Layer
@@ -315,15 +315,17 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
         for mod in book['disabled_mods']:
             mod.show_render = True
 
-def fxaa_image(image):
+def fxaa_image(image, alpha_aware=True):
+    T = time.time()
+    print('FXAA: Doing FXAA pass on', image.name + '...')
     book = remember_before_bake_()
 
     width = image.size[0]
     height = image.size[1]
 
     # Copy image
-    image_copy = image.copy()
     pixels = list(image.pixels)
+    image_copy = image.copy()
     image_copy.pixels = pixels
 
     # Set active collection to be root collection
@@ -346,34 +348,38 @@ def fxaa_image(image):
     # Create nodes
     output = get_active_mat_output_node(mat.node_tree)
     emi = mat.node_tree.nodes.new('ShaderNodeEmission')
-    uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
-    uv_map.uv_map = 'UVMap'
-    source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    source_tex.image = image_copy
 
     target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     target_tex.image = image
     fxaa = mat.node_tree.nodes.new('ShaderNodeGroup')
     fxaa.node_tree = get_node_tree_lib(lib.FXAA)
-    straight_over = mat.node_tree.nodes.new('ShaderNodeGroup')
-    straight_over.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
-    straight_over.inputs[1].default_value = 0.0
 
     # Connect nodes
-    mat.node_tree.links.new(uv_map.outputs[0], source_tex.inputs[0])
-    mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
-    mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
-    mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
     mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
     mat.node_tree.nodes.active = target_tex
 
-    # Bake
-    bpy.ops.object.bake()
-
     # Straight over won't work if using fxaa nodes, need another bake pass
-    image_copy_1 = image.copy()
-    pixels_1 = list(image.pixels)
-    image_copy_1.pixels = pixels_1
+    if alpha_aware:
+        uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
+        uv_map.uv_map = 'UVMap'
+        source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        source_tex.image = image_copy
+
+        straight_over = mat.node_tree.nodes.new('ShaderNodeGroup')
+        straight_over.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
+        straight_over.inputs[1].default_value = 0.0
+
+        mat.node_tree.links.new(uv_map.outputs[0], source_tex.inputs[0])
+        mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
+        mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
+        mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
+
+        # Bake
+        print('FXAA: Baking straight over on', image.name + '...')
+        bpy.ops.object.bake()
+
+        pixels_1 = list(image.pixels)
+        image_copy.pixels = pixels_1
 
     # Fill fxaa nodes
     res_x = fxaa.node_tree.nodes.get('res_x')
@@ -385,39 +391,43 @@ def fxaa_image(image):
     res_x.outputs[0].default_value = width
     res_y.outputs[0].default_value = height
     fxaa_uv_map.uv_map = 'UVMap'
-    tex.image = image_copy_1
+    tex.image = image_copy
 
     # Connect nodes again
     mat.node_tree.links.new(fxaa.outputs[0], emi.inputs[0])
     mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
 
+    print('FXAA: Baking FXAA on', image.name + '...')
     bpy.ops.object.bake()
 
-    #return
-
     # Copy original alpha to baked image
-    target_pxs = list(image.pixels)
-    start_x = 0
-    start_y = 0
+    if alpha_aware:
+        print('FXAA: Copying original alpha to FXAA result of', image.name + '...')
+        target_pxs = list(image.pixels)
+        start_x = 0
+        start_y = 0
 
-    for y in range(height):
-        temp_offset_y = width * 4 * y
-        offset_y = width * 4 * (y + start_y)
-        for x in range(width):
-            temp_offset_x = 4 * x
-            offset_x = 4 * (x + start_x)
-            target_pxs[offset_y + offset_x + 3] = pixels[temp_offset_y + temp_offset_x + 3]
+        for y in range(height):
+            temp_offset_y = width * 4 * y
+            offset_y = width * 4 * (y + start_y)
+            for x in range(width):
+                temp_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                target_pxs[offset_y + offset_x + 3] = pixels[temp_offset_y + temp_offset_x + 3]
 
-    image.pixels = target_pxs
+        image.pixels = target_pxs
 
     # Remove temp datas
-    if straight_over.node_tree.users == 1:
-        bpy.data.node_groups.remove(straight_over.node_tree)
+    print('FXAA: Removing temporary data of FXAA pass')
+    if alpha_aware:
+        if straight_over.node_tree.users == 1:
+            bpy.data.node_groups.remove(straight_over.node_tree)
+
     if fxaa.node_tree.users == 1:
         bpy.data.node_groups.remove(tex_node.node_tree)
         bpy.data.node_groups.remove(fxaa.node_tree)
+
     bpy.data.images.remove(image_copy)
-    bpy.data.images.remove(image_copy_1)
     bpy.data.materials.remove(mat)
     plane = plane_obj.data
     bpy.ops.object.delete()
@@ -430,9 +440,13 @@ def fxaa_image(image):
     if is_greater_than_280():
         bpy.context.view_layer.active_layer_collection = ori_layer_collection
 
+    print('FXAA:', image.name, 'FXAA pass is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+
     return image
 
 def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, aa_level=1):
+
+    print('BAKE CHANNEL: Baking', root_ch.name + ' channel...')
 
     tree = node.node_tree
     yp = tree.yp
@@ -442,10 +456,12 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     if root_ch.type == 'NORMAL':
         for lay in yp.layers:
             if lay.type in {'HEMI'} and not lay.use_temp_bake:
+                print('BAKE CHANNEL: Fake lighting layer found! Baking temporary image of ' + lay.name + ' layer...')
                 temp_bake(bpy.context, lay, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
                 temp_baked.append(lay)
             for mask in lay.masks:
                 if mask.type in {'HEMI'} and not mask.use_temp_bake:
+                    print('BAKE CHANNEL: Fake lighting mask found! Baking temporary image of ' + mask.name + ' mask...')
                     temp_bake(bpy.context, mask, width, height, True, 1, bpy.context.scene.render.bake.margin, uv_map)
                     temp_baked.append(mask)
 
@@ -603,6 +619,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         #    return
 
         # Bake!
+        print('BAKE CHANNEL: Baking main image of ' + root_ch.name + ' channel...')
         bpy.ops.object.bake()
 
     # Bake displacement
@@ -641,6 +658,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
 
             # Bake
+            print('BAKE CHANNEL: Baking normal overlay image of ' + root_ch.name + ' channel...')
             bpy.ops.object.bake()
 
             #return
@@ -706,6 +724,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             #return
 
             # Bake
+            print('BAKE CHANNEL: Baking displacement image of ' + root_ch.name + ' channel...')
             bpy.ops.object.bake()
 
             if not target_layer:
@@ -736,6 +755,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         #return
 
         # Bake
+        print('BAKE CHANNEL: Baking alpha of ' + root_ch.name + ' channel...')
         bpy.ops.object.bake()
 
         # Copy alpha pixels to main image alpha channel
@@ -779,6 +799,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
     # Recover baked temp
     for ent in temp_baked:
+        print('BAKE CHANNEL: Removing temporary baked ' + ent.name + '...')
         disable_temp_bake(ent)
 
     # Set image to target layer
@@ -878,13 +899,13 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map):
     # Recover bake settings
     recover_bake_settings_(book, yp)
 
+    # Set uv
+    entity.uv_name = uv_map
+
     # Replace layer with temp image
     if m1: 
         Layer.replace_layer_type(entity, 'IMAGE', image.name, remove_data=True)
     else: Layer.replace_mask_type(entity, 'IMAGE', image.name, remove_data=True)
-
-    # Set uv
-    entity.uv_name = uv_map
 
     return image
 

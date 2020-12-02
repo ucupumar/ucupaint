@@ -1147,8 +1147,9 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             # Update image names
             self.image_coll.clear()
             imgs = bpy.data.images
+            baked_channel_images = get_all_baked_channel_images(node.node_tree)
             for img in imgs:
-                if not img.yia.is_image_atlas:
+                if not img.yia.is_image_atlas and img not in baked_channel_images:
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
@@ -1920,6 +1921,8 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
         src = get_mask_source(mask)
         save_hemi_props(mask, src)
 
+    #if new_type = 
+
     yp.halt_reconnect = True
 
     # Standard bump map is easier to convert
@@ -2081,8 +2084,9 @@ class YReplaceLayerType(bpy.types.Operator):
 
             # Update image names
             if self.type == 'IMAGE':
+                baked_channel_images = get_all_baked_channel_images(self.layer.id_data)
                 for img in bpy.data.images:
-                    if not img.yia.is_image_atlas:
+                    if not img.yia.is_image_atlas and img not in baked_channel_images:
                         self.item_coll.add().name = img.name
             else:
                 for vcol in obj.data.vertex_colors:
@@ -2632,6 +2636,9 @@ def update_uv_name(self, context):
     if not tree: return
 
     nodes = tree.nodes
+
+    if layer.type in {'HEMI', 'GROUP'} or layer.texcoord_type != 'UV':
+        return
 
     # Use first uv if temp uv is selected
     if layer.uv_name == TEMP_UV:

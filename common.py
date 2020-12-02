@@ -3035,6 +3035,30 @@ def check_need_prev_normal(layer):
 
     return need_prev_normal
 
+def get_all_baked_channel_images(tree):
+
+    if not tree.yp.is_ypaint_node: return
+    yp = tree.yp
+
+    images = []
+
+    for ch in yp.channels:
+
+        baked = tree.nodes.get(ch.baked)
+        if baked and baked.image:
+            images.append(baked.image)
+
+        if ch.type == 'NORMAL':
+            baked_disp = tree.nodes.get(ch.baked_disp)
+            if baked_disp and baked_disp.image:
+                images.append(baked_disp.image)
+
+            baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+            if baked_normal_overlay and baked_normal_overlay.image:
+                images.append(baked_normal_overlay.image)
+
+    return images
+
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1

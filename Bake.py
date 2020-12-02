@@ -884,6 +884,7 @@ class YBakeChannels(bpy.types.Operator):
             if not ch.no_layer_using:
                 #if ch.type != 'NORMAL': continue
                 use_hdr = not ch.use_clamp
+                print('Baking', ch.name + ' channel...')
                 bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr)
                 #return {'FINISHED'}
 
@@ -916,18 +917,18 @@ class YBakeChannels(bpy.types.Operator):
 
                 baked = tree.nodes.get(ch.baked)
                 if baked and baked.image:
-                    fxaa_image(baked.image)
+                    fxaa_image(baked.image, ch.enable_alpha)
                     #return {'FINISHED'}
 
                 if ch.type == 'NORMAL':
 
                     baked_disp = tree.nodes.get(ch.baked_disp)
                     if baked_disp and baked_disp.image:
-                        fxaa_image(baked_disp.image)
+                        fxaa_image(baked_disp.image, ch.enable_alpha)
 
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
-                        fxaa_image(baked_normal_overlay.image)
+                        fxaa_image(baked_normal_overlay.image, ch.enable_alpha)
 
         # Set baked uv
         yp.baked_uv_name = self.uv_map

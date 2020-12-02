@@ -713,7 +713,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # FXAA doesn't work with hdr image
         if not self.hdr and self.fxaa:
-            fxaa_image(image)
+            fxaa_image(image, False)
 
         overwrite_img = None
         if self.overwrite:

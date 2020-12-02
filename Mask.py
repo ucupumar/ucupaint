@@ -647,8 +647,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             # Update image names
             self.image_coll.clear()
             imgs = bpy.data.images
+            baked_channel_images = get_all_baked_channel_images(self.layer.id_data)
             for img in imgs:
-                if not img.yia.is_image_atlas:
+                if not img.yia.is_image_atlas and img not in baked_channel_images:
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
@@ -1009,6 +1010,9 @@ def update_mask_uv_name(self, context):
     active_layer = yp.layers[yp.active_layer_index]
     tree = get_tree(layer)
     mask = self
+
+    if mask.type in {'HEMI', 'OBJECT_INDEX'} or mask.texcoord_type != 'UV':
+        return
 
     # Cannot use temp uv as standard uv
     if mask.uv_name == TEMP_UV:
