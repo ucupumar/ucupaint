@@ -395,7 +395,11 @@ class YTransferLayerUV(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None):
+def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None, alpha_aware=True):
+
+    T = time.time()
+    image_name = image.name
+    print('RESIZE IMAGE: Doing resize image pass on', image_name + '...')
 
     book = remember_before_bake_()
 
@@ -507,49 +511,56 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     mat.node_tree.nodes.active = target_tex
 
     # Bake
+    print('RESIZE IMAGE: Baking resized image on', image_name + '...')
     bpy.ops.object.bake()
 
-    # Create alpha image as bake target
-    alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
-            width=width, height=height, alpha=True, float_buffer=image.is_float)
-    alpha_img.colorspace_settings.name = 'Linear'
+    if alpha_aware:
 
-    # Retransform back uv
-    if segment:
-        for i, d in enumerate(plane_obj.data.uv_layers.active.data):
-            if i == 0: # Top right
-                d.uv.x = 1.0
-                d.uv.y = 1.0
-            elif i == 1: # Top left
-                d.uv.x = 0.0
-                d.uv.y = 1.0
-            elif i == 2: # Bottom left
-                d.uv.x = 0.0
-                d.uv.y = 0.0
-            elif i == 3: # Bottom right
-                d.uv.x = 1.0
-                d.uv.y = 0.0
+        # Create alpha image as bake target
+        alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
+                width=width, height=height, alpha=True, float_buffer=image.is_float)
+        alpha_img.colorspace_settings.name = 'Linear'
 
-    # Setup texture
-    target_tex.image = alpha_img
-    mat.node_tree.links.new(source_tex.outputs[1], emi.inputs[0])
+        # Retransform back uv
+        if segment:
+            for i, d in enumerate(plane_obj.data.uv_layers.active.data):
+                if i == 0: # Top right
+                    d.uv.x = 1.0
+                    d.uv.y = 1.0
+                elif i == 1: # Top left
+                    d.uv.x = 0.0
+                    d.uv.y = 1.0
+                elif i == 2: # Bottom left
+                    d.uv.x = 0.0
+                    d.uv.y = 0.0
+                elif i == 3: # Bottom right
+                    d.uv.x = 1.0
+                    d.uv.y = 0.0
 
-    # Bake again!
-    bpy.ops.object.bake()
+        # Setup texture
+        target_tex.image = alpha_img
+        mat.node_tree.links.new(source_tex.outputs[1], emi.inputs[0])
 
-    # Copy alpha image to scaled image
-    target_pxs = list(scaled_img.pixels)
-    temp_pxs = list(alpha_img.pixels)
+        # Bake again!
+        print('RESIZE IMAGE: Baking resized alpha on', image_name + '...')
+        bpy.ops.object.bake()
 
-    for y in range(height):
-        temp_offset_y = width * 4 * y
-        offset_y = scaled_img.size[0] * 4 * (y + start_y)
-        for x in range(width):
-            temp_offset_x = 4 * x
-            offset_x = 4 * (x + start_x)
-            target_pxs[offset_y + offset_x + 3] = temp_pxs[temp_offset_y + temp_offset_x]
+        # Copy alpha image to scaled image
+        target_pxs = list(scaled_img.pixels)
+        temp_pxs = list(alpha_img.pixels)
 
-    scaled_img.pixels = target_pxs
+        for y in range(height):
+            temp_offset_y = width * 4 * y
+            offset_y = scaled_img.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                temp_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                target_pxs[offset_y + offset_x + 3] = temp_pxs[temp_offset_y + temp_offset_x]
+
+        scaled_img.pixels = target_pxs
+
+        # Remove alpha image
+        bpy.data.images.remove(alpha_img)
 
     # Replace original image to scaled image
     replace_image(image, scaled_img)
@@ -557,7 +568,6 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     # Remove temp datas
     if straight_over.node_tree.users == 1:
         bpy.data.node_groups.remove(straight_over.node_tree)
-    bpy.data.images.remove(alpha_img)
     bpy.data.materials.remove(mat)
     plane = plane_obj.data
     bpy.ops.object.delete()
@@ -569,6 +579,8 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     # Recover original active layer collection
     if is_greater_than_280():
         bpy.context.view_layer.active_layer_collection = ori_layer_collection
+
+    print('RESIZE IMAGE:', image_name, 'Resize image is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
     return scaled_img, new_segment
 
@@ -884,7 +896,6 @@ class YBakeChannels(bpy.types.Operator):
             if not ch.no_layer_using:
                 #if ch.type != 'NORMAL': continue
                 use_hdr = not ch.use_clamp
-                print('Baking', ch.name + ' channel...')
                 bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr)
                 #return {'FINISHED'}
 
@@ -895,19 +906,19 @@ class YBakeChannels(bpy.types.Operator):
                 baked = tree.nodes.get(ch.baked)
                 if baked and baked.image:
                     resize_image(baked.image, self.width, self.height, 
-                            baked.image.colorspace_settings.name)
+                            baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha)
 
                 if ch.type == 'NORMAL':
 
                     baked_disp = tree.nodes.get(ch.baked_disp)
                     if baked_disp and baked_disp.image:
                         resize_image(baked_disp.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name)
+                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha)
 
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
                         resize_image(baked_normal_overlay.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name)
+                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha)
 
         # FXAA
         if self.fxaa:
