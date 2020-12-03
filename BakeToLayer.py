@@ -129,6 +129,11 @@ class YBakeToLayer(bpy.types.Operator):
             description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
             default=False)
 
+    force_use_cpu = BoolProperty(
+            name='Force Use CPU',
+            description='Force use CPU for baking (usually faster than using GPU)',
+            default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -314,6 +319,7 @@ class YBakeToLayer(bpy.types.Operator):
         col.label(text='Margin:')
         col.label(text='')
         col.label(text='')
+        col.label(text='')
 
         if height_root_ch:
             col.label(text='')
@@ -361,9 +367,11 @@ class YBakeToLayer(bpy.types.Operator):
         if height_root_ch:
             col.prop(self, 'use_baked_disp')
 
+        col.prop(self, 'force_use_cpu')
         col.prop(self, 'force_bake_all_polygons')
 
     def execute(self, context):
+        T = time.time()
         mat = get_active_material()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
@@ -408,7 +416,7 @@ class YBakeToLayer(bpy.types.Operator):
         #else: 
         bake_type = 'EMIT'
         prepare_bake_settings_(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type=bake_type)
+                uv_map=self.uv_map, bake_type=bake_type, force_use_cpu=self.force_use_cpu)
 
         # Flip normals setup
         if self.flip_normals:
@@ -713,7 +721,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # FXAA doesn't work with hdr image
         if not self.hdr and self.fxaa:
-            fxaa_image(image, False)
+            fxaa_image(image, False, self.force_use_cpu)
 
         overwrite_img = None
         if self.overwrite:
@@ -850,6 +858,8 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Refresh mapping and stuff
         #yp.active_layer_index = yp.active_layer_index
+
+        print('BAKE TO LAYER: Baking', image.name, 'is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
