@@ -74,7 +74,10 @@ def remember_before_bake_(yp=None):
     # Remember scene objects
     if is_greater_than_280():
         book['ori_active_selected_objs'] = [o for o in bpy.context.view_layer.objects if o.select_get()]
-    else: book['ori_active_selected_objs'] = [o for o in scene.objects if o.select]
+        book['ori_hide_renders'] = [o for o in bpy.context.view_layer.objects if o.hide_render]
+    else: 
+        book['ori_active_selected_objs'] = [o for o in scene.objects if o.select]
+        book['ori_hide_renders'] = [o for o in scene.objects if o.hide_render]
 
     # Remember world settings
     if is_greater_than_280() and scene.world:
@@ -128,7 +131,7 @@ def remember_before_bake_(yp=None):
 #        self.parallax_ch.enable_parallax = False
 
 def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
-        disable_problematic_modifiers=False, force_use_cpu=False):
+        disable_problematic_modifiers=False, force_use_cpu=False, hide_other_objs=True):
 
     #scene = self.scene
     scene = bpy.context.scene
@@ -157,6 +160,12 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
 
     # Disable other object selections and select only active object
     if is_greater_than_280():
+
+        if hide_other_objs:
+            for o in bpy.context.view_layer.objects:
+                if o not in objs:
+                    o.hide_render = True
+
         #for o in scene.objects:
         for o in bpy.context.view_layer.objects:
             o.select_set(False)
@@ -167,6 +176,12 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
         book['material_override'] = bpy.context.view_layer.material_override
         bpy.context.view_layer.material_override = None
     else:
+
+        if hide_other_objs:
+            for o in scene.objects:
+                if o not in objs:
+                    o.hide_render = True
+
         for o in scene.objects:
             o.select = False
         for obj in objs:
@@ -294,12 +309,18 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
             if o in book['ori_active_selected_objs']:
                 o.select_set(True)
             else: o.select_set(False)
+            if o in book['ori_hide_renders']:
+                o.hide_render = True
+            else: o.hide_render = False
         bpy.context.view_layer.objects.active = obj
     else:
         for o in scene.objects:
             if o in book['ori_active_selected_objs']:
                 o.select = True
             else: o.select = False
+            if o in book['ori_hide_renders']:
+                o.hide_render = True
+            else: o.hide_render = False
         scene.objects.active = obj
 
     # Recover active object

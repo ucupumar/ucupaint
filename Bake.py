@@ -703,8 +703,8 @@ class YBakeChannels(bpy.types.Operator):
     #hdr = BoolProperty(name='32 bit Float', default=False)
 
     fxaa = BoolProperty(name='Use FXAA', 
-            description = "Use FXAA to baked images (doesn't work with float images)",
-            default=False)
+            description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
+            default=True)
 
     aa_level = IntProperty(
         name='Anti Aliasing Level',

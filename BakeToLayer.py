@@ -71,7 +71,7 @@ class YBakeToLayer(bpy.types.Operator):
 
     fxaa = BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked image (doesn't work with float images)",
-            default=False)
+            default=True)
 
     width = IntProperty(name='Width', default = 1024, min=1, max=4096)
     height = IntProperty(name='Height', default = 1024, min=1, max=4096)
@@ -415,8 +415,13 @@ class YBakeToLayer(bpy.types.Operator):
         #    bake_type = 'NORMAL'
         #else: 
         bake_type = 'EMIT'
+
+        # If use only local, hide other objects
+        hide_other_objs = self.type != 'AO' or self.only_local
+
         prepare_bake_settings_(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type=bake_type, force_use_cpu=self.force_use_cpu)
+                uv_map=self.uv_map, bake_type=bake_type, force_use_cpu=self.force_use_cpu,
+                hide_other_objs=hide_other_objs)
 
         # Flip normals setup
         if self.flip_normals:
@@ -435,14 +440,6 @@ class YBakeToLayer(bpy.types.Operator):
                     bpy.ops.mesh.select_all(action='SELECT')
                     bpy.ops.mesh.flip_normals()
                     bpy.ops.object.mode_set(mode = 'OBJECT')
-
-        # If use only local, hide other objects
-        if self.type == 'AO' and self.only_local:
-            ori_hide_renders = {}
-            for o in get_scene_objects():
-                if o.type == 'MESH' and o not in objs:
-                    ori_hide_renders[o.name] = o.hide_render
-                    o.hide_render = True
 
         # More setup
         ori_mods = {}
@@ -831,12 +828,6 @@ class YBakeToLayer(bpy.types.Operator):
             bpy.ops.mesh.flip_normals()
             bpy.ops.mesh.select_all(action='DESELECT')
             #bpy.ops.object.mode_set(mode = ori_mode)
-
-        # Recover hidden objects
-        if self.type == 'AO' and self.only_local:
-            for o in get_scene_objects():
-                if o.type == 'MESH' and o not in objs and o.hide_render != ori_hide_renders[o.name]:
-                    o.hide_render = ori_hide_renders[o.name]
 
         # Recover bake settings
         recover_bake_settings_(book, yp)

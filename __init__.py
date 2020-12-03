@@ -84,7 +84,7 @@
 # - Add support for baking vertex color to image (X, kinda not needed)
 # - Add clamp color option on root channel (V)
 # - FXAA option when baking (V)
-# - FXAA should not be a default because of the slowness (V)
+# - FXAA should not be a default because of the slowness (X, now, it's faster by hiding other objects)
 # - Fake lighting type should be added on create fake lighting dialog box (V)
 # - Mask blending should be added on create new mask dialog box (V)
 # - Add Mask Preview Mode (V)
