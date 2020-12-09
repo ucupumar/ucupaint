@@ -2708,13 +2708,15 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
     if height_proc and layer.type != 'GROUP':
 
         if height_ch.normal_map_type == 'BUMP_MAP':
-            height_proc.inputs['Value Max Height'].default_value = height_ch.bump_distance
+            inp = height_proc.inputs.get('Value Max Height')
+            if inp: inp.default_value = height_ch.bump_distance
             inp = height_proc.inputs.get('Transition Max Height')
             if inp: inp.default_value = get_transition_bump_max_distance(height_ch)
             inp = height_proc.inputs.get('Delta')
             if inp: inp.default_value = get_transition_disp_delta(layer, height_ch)
         elif height_ch.normal_map_type == 'NORMAL_MAP':
-            height_proc.inputs['Bump Height'].default_value = height_ch.bump_distance
+            inp = height_proc.inputs.get('Bump Height')
+            if inp: inp.default_value = height_ch.bump_distance
 
     normal_proc = tree.nodes.get(height_ch.normal_proc)
     if normal_proc:
