@@ -137,7 +137,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         solid_color = (1,1,1),
         add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
-        hemi_space = 'WORLD', hemi_use_prev_normal = True
+        hemi_space = 'WORLD', hemi_use_prev_normal = True, bump_distance = 0.05, write_height = True
         ):
 
     yp = group_tree.yp
@@ -320,6 +320,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
         if root_ch.type == 'NORMAL':
             ch.normal_map_type = normal_map_type
+            ch.bump_distance = bump_distance
+            ch.write_height = write_height
 
         #if add_rgb_to_intensity:
 

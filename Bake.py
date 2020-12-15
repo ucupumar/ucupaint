@@ -1759,6 +1759,25 @@ def check_subdiv_setup(height_ch):
 
     # Subsurf
     subsurf = get_subsurf_modifier(obj)
+    multires = get_multires_modifier(obj)
+
+    #if yp.use_baked and height_ch.enable_subdiv_setup and multires:
+
+    #    multires.render_levels = multires.total_levels
+    #    multires.levels = multires.total_levels
+    #    subsurf = multires
+
+    if multires:
+        if yp.use_baked and height_ch.enable_subdiv_setup:
+            multires.show_render = False
+            multires.show_viewport = False
+        else:
+            # Remove standard subsurf if multires is found
+            if subsurf: 
+                obj.modifiers.remove(subsurf)
+                subsurf = None
+            multires.show_render = True
+            multires.show_viewport = True
 
     if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
 

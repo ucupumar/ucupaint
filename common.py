@@ -2875,6 +2875,14 @@ def get_displace_modifier(obj, keyword=''):
 
     return None
 
+def get_multires_modifier(obj, keyword=''):
+    for mod in obj.modifiers:
+        if mod.type == 'MULTIRES':
+            if keyword != '' and keyword != mod.name: continue
+            return mod
+
+    return None
+
 def get_uv_layers(obj):
     if obj.type != 'MESH': return None
 

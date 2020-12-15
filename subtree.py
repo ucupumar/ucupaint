@@ -650,10 +650,10 @@ def check_create_spread_alpha(layer, tree, root_ch, ch):
     if not skip and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
         if root_ch.enable_smooth_bump:
             spread_alpha = replace_new_node(tree, ch, 'spread_alpha', 
-                    'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA_SMOOTH)
+                    'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA_SMOOTH, hard_replace=True)
         else:
             spread_alpha = replace_new_node(tree, ch, 'spread_alpha', 
-                    'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA)
+                    'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA, hard_replace=True)
     else:
         remove_node(tree, ch, 'spread_alpha')
 

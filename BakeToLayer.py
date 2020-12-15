@@ -16,6 +16,8 @@ bake_type_items = (
         ('PAINT_BASE', 'Paint Base', ''),
         ('BEVEL_NORMAL', 'Bevel Normal', ''),
         ('BEVEL_MASK', 'Bevel Grayscale', ''),
+        ('MULTIRES_NORMAL', 'Multires Normal', ''),
+        ('MULTIRES_DISPLACEMENT', 'Multires Displacement', ''),
         )
 
 TEMP_VCOL = '__temp__vcol__'
@@ -61,6 +63,8 @@ class YBakeToLayer(bpy.types.Operator):
     bevel_samples = IntProperty(default=4, min=2, max=16)
     bevel_radius = FloatProperty(default=0.05, min=0.0, max=1000.0)
 
+    multires_base = IntProperty(default=1, min=0, max=16)
+
     target_type = EnumProperty(
             name = 'Target Bake Type',
             description = 'Target Bake Type',
@@ -105,6 +109,12 @@ class YBakeToLayer(bpy.types.Operator):
             description='Use baked displacement map, this will also apply subdiv setup on object',
             default=False
             )
+
+    #use_multires = BoolProperty(
+    #        name='Use Multires',
+    #        description='Use top level multires modifier if available',
+    #        default=True
+    #        )
 
     flip_normals = BoolProperty(
             name='Flip Normals',
@@ -156,6 +166,15 @@ class YBakeToLayer(bpy.types.Operator):
         # Set channel to first one, just in case
         self.channel_idx = str(0)
 
+        # Get height channel
+        height_root_ch = get_root_height_channel(yp)
+
+        # Set default float image
+        if self.type in {'POINTINESS', 'MULTIRES_DISPLACEMENT'}:
+            self.hdr = True
+        else:
+            self.hdr = False
+
         # Set name
         mat = get_active_material()
         if self.type == 'AO':
@@ -181,7 +200,6 @@ class YBakeToLayer(bpy.types.Operator):
             suffix = 'Bevel Normal'
             self.samples = 32
 
-            height_root_ch = get_root_height_channel(yp)
             if height_root_ch:
                 self.channel_idx = str(get_channel_index(height_root_ch))
 
@@ -191,6 +209,24 @@ class YBakeToLayer(bpy.types.Operator):
             self.blend_type = 'MIX'
             suffix = 'Bevel Grayscale'
             self.samples = 32
+
+        elif self.type == 'MULTIRES_NORMAL':
+            self.blend_type = 'MIX'
+            suffix = 'Normal Multires'
+            self.normal_map_type = 'NORMAL_MAP'
+            self.normal_blend_type = 'OVERLAY'
+
+            if height_root_ch:
+                self.channel_idx = str(get_channel_index(height_root_ch))
+
+        elif self.type == 'MULTIRES_DISPLACEMENT':
+            self.blend_type = 'MIX'
+            suffix = 'Displacement Multires'
+            self.normal_map_type = 'BUMP_MAP'
+            self.normal_blend_type = 'OVERLAY'
+
+            if height_root_ch:
+                self.channel_idx = str(get_channel_index(height_root_ch))
 
         self.name = get_unique_name(mat.name + ' ' + suffix, bpy.data.images)
 
@@ -263,12 +299,6 @@ class YBakeToLayer(bpy.types.Operator):
         if len(self.uv_map_coll) > 0 and len(self.overwrite_coll) == 0:
             self.uv_map = self.uv_map_coll[0].name
 
-        # Set default float image
-        if self.type == 'POINTINESS':
-            self.hdr = True
-        else:
-            self.hdr = False
-
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
@@ -310,6 +340,8 @@ class YBakeToLayer(bpy.types.Operator):
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.label(text='Bevel Samples:')
             col.label(text='Bevel Radius:')
+        elif self.type.startswith('MULTIRES_'):
+            col.label(text='Base Level:')
 
         col.label(text='')
         col.label(text='Width:')
@@ -354,6 +386,8 @@ class YBakeToLayer(bpy.types.Operator):
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.prop(self, 'bevel_samples', text='')
             col.prop(self, 'bevel_radius', text='')
+        elif self.type.startswith('MULTIRES_'):
+            col.prop(self, 'multires_base', text='')
 
         col.prop(self, 'hdr')
         col.prop(self, 'width', text='')
@@ -361,14 +395,20 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
         col.prop(self, 'margin', text='')
+
+        col.separator()
         col.prop(self, 'fxaa')
+        col.prop(self, 'force_use_cpu')
+
+        col.separator()
         col.prop(self, 'flip_normals')
 
         if height_root_ch:
             col.prop(self, 'use_baked_disp')
 
-        col.prop(self, 'force_use_cpu')
         col.prop(self, 'force_bake_all_polygons')
+
+        col.separator()
 
     def execute(self, context):
         T = time.time()
@@ -394,15 +434,25 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "Blender 2.80+ is needed to use this feature!")
             return {'CANCELLED'}
 
+        if self.type in {'MULTIRES_NORMAL', 'MULTIRES_DISPLACEMENT'} and not is_greater_than_280():
+            self.report({'ERROR'}, "This feature is not implemented yet on Blender 2.79!")
+            return {'CANCELLED'}
+
         # Remember things
         book = remember_before_bake_(yp)
 
         # Get all objects using material
-        objs = [context.object]
-        meshes = [context.object.data]
+        if self.type.startswith('MULTIRES_') and not get_multires_modifier(context.object):
+            objs = []
+            meshes = []
+        else:
+            objs = [context.object]
+            meshes = [context.object.data]
+
         if mat.users > 1:
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
+                if self.type.startswith('MULTIRES_') and not get_multires_modifier(ob): continue
                 for i, m in enumerate(ob.data.materials):
                     if m == mat:
                         ob.active_material_index = i
@@ -410,18 +460,50 @@ class YBakeToLayer(bpy.types.Operator):
                             objs.append(ob)
                             meshes.append(ob.data)
 
+        if not objs:
+            self.report({'ERROR'}, "No valid objects found to bake!")
+            return {'CANCELLED'}
+
+        # Set multires level
+        ori_multires_levels = {}
+        if self.type.startswith('MULTIRES_'): #or self.type == 'AO':
+            for ob in objs:
+                mod = get_multires_modifier(ob)
+
+                #mod.render_levels = mod.total_levels
+                if self.type.startswith('MULTIRES_'):
+                    mod.render_levels = self.multires_base
+                    mod.levels = self.multires_base
+
+                ori_multires_levels[ob.name] = mod.render_levels
+
         # Prepare bake settings
         #if self.type == 'BEVEL_NORMAL':
         #    bake_type = 'NORMAL'
         #else: 
         bake_type = 'EMIT'
 
+        if self.type == 'MULTIRES_NORMAL':
+            bake_type = 'NORMALS'
+        elif self.type == 'MULTIRES_DISPLACEMENT':
+            bake_type = 'DISPLACEMENT'
+
         # If use only local, hide other objects
         hide_other_objs = self.type != 'AO' or self.only_local
 
+        # Fit tilesize to bake resolution if samples is equal 1
+        if self.samples <= 1:
+            tile_x = self.width
+            tile_y = self.height
+        else:
+            tile_x = 64
+            tile_y = 64
+
         prepare_bake_settings_(book, objs, yp, samples=self.samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type=bake_type, force_use_cpu=self.force_use_cpu,
-                hide_other_objs=hide_other_objs)
+                hide_other_objs=hide_other_objs, bake_from_multires=self.type.startswith('MULTIRES_'),
+                tile_x = tile_x, tile_y = tile_y
+                )
 
         # Flip normals setup
         if self.flip_normals:
@@ -687,16 +769,27 @@ class YBakeToLayer(bpy.types.Operator):
             else:
                 mat.node_tree.links.new(vector_math.outputs[1], bsdf.inputs[0])
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+        else:
+            src = None
+            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
         # New target image
         image = bpy.data.images.new(name=self.name,
                 width=self.width, height=self.height, alpha=True, float_buffer=self.hdr)
         if self.type == 'AO':
             image.generated_color = (1.0, 1.0, 1.0, 1.0) 
-        if self.type == 'BEVEL_NORMAL':
-            image.generated_color = (0.5, 0.5, 1.0, 1.0) 
-        else: 
-            image.generated_color = (0.73, 0.73, 0.73, 1.0)
+        elif self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL'}:
+            if self.hdr:
+                image.generated_color = (0.7354, 0.7354, 1.0, 1.0) 
+            else:
+                image.generated_color = (0.5, 0.5, 1.0, 1.0) 
+        else:
+        #elif self.type == 'MULTIRES_DISPLACEMENT':
+            if self.hdr:
+                image.generated_color = (0.7354, 0.7354, 0.7354, 1.0) 
+            else: image.generated_color = (0.5, 0.5, 0.5, 1.0) 
+        #else: 
+        #    image.generated_color = (0.7354, 0.7354, 0.7354, 1.0)
         image.colorspace_settings.name = 'Linear'
 
         # Set bake info to image
@@ -712,7 +805,10 @@ class YBakeToLayer(bpy.types.Operator):
         #return {'FINISHED'}
 
         # Bake!
-        bpy.ops.object.bake()
+        if self.type.startswith('MULTIRES_'):
+            bpy.ops.object.bake_image()
+        else:
+            bpy.ops.object.bake()
 
         #return {'FINISHED'}
 
@@ -739,11 +835,23 @@ class YBakeToLayer(bpy.types.Operator):
                             mask.active_edit = True
 
         elif self.target_type == 'LAYER':
+
+            # Set height to 0.0 for baked normal
+            #if self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL'}:
+            #    bump_distance = 0.0
+            #    #write_height = False
+            #else: 
+            #    bump_distance = 0.05
+            #    #write_height = True
+
             yp.halt_update = True
             layer = Layer.add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
-                    self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image)
+                    self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image, 
+                    #bump_distance=bump_distance, #write_height=write_height
+                    )
             yp.halt_update = False
             active_id = yp.active_layer_index
+
         else:
             mask = Mask.add_new_mask(active_layer, image.name, 'IMAGE', 'UV', self.uv_map, image)
             mask.active_edit = True
@@ -757,7 +865,7 @@ class YBakeToLayer(bpy.types.Operator):
         simple_remove_node(mat.node_tree, tex)
         #simple_remove_node(mat.node_tree, srgb2lin)
         simple_remove_node(mat.node_tree, bsdf)
-        simple_remove_node(mat.node_tree, src)
+        if src: simple_remove_node(mat.node_tree, src)
         if normal_bake: simple_remove_node(mat.node_tree, normal_bake)
         if geometry: simple_remove_node(mat.node_tree, geometry)
         if vector_math: simple_remove_node(mat.node_tree, vector_math)
@@ -899,6 +1007,21 @@ class YImageBakeInfoProps(bpy.types.PropertyGroup):
     fxaa = BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked image (doesn't work with float images)",
             default=False)
+
+    use_baked_disp = BoolProperty(
+            name='Use Baked Displacement Map',
+            description='Use baked displacement map, this will also apply subdiv setup on object',
+            default=False
+            )
+
+    force_use_cpu = BoolProperty(
+            name='Force Use CPU',
+            description='Force use CPU for baking (usually faster than using GPU)',
+            default=False)
+
+    multires_base = IntProperty(default=1, min=0, max=16)
+
+    hdr = BoolProperty(name='32 bit Float', default=True)
 
     # AO Props
     ao_distance = FloatProperty(default=1.0)

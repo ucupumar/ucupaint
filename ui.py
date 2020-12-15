@@ -2959,6 +2959,16 @@ class YNewLayerMenu(bpy.types.Menu):
         c.type = 'BEVEL_MASK'
         c.target_type = 'LAYER'
 
+        col.separator()
+
+        c = col.operator("node.y_bake_to_layer", text='Multires Normal')
+        c.type = 'MULTIRES_NORMAL'
+        c.target_type = 'LAYER'
+
+        c = col.operator("node.y_bake_to_layer", text='Multires Displacement')
+        c.type = 'MULTIRES_DISPLACEMENT'
+        c.target_type = 'LAYER'
+
 class YBakedImageMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_baked_image_menu"
     bl_label = "Baked Image Menu"

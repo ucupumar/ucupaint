@@ -2445,25 +2445,43 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 if ch.normal_blend_type in {'MIX', 'OVERLAY'}:
                     if has_parent:
-                        create_link(tree, prev_height, height_blend.inputs[0])
+                        # Overlay without write height will disconnect prev height
+                        if not ch.write_height and ch.normal_blend_type == 'OVERLAY':
+                            break_input_link(tree, height_blend.inputs[0])
+                        else: create_link(tree, prev_height, height_blend.inputs[0])
+
                         create_link(tree, prev_alpha, height_blend.inputs[1])
                         create_link(tree, height_proc.outputs['Height'], height_blend.inputs[2])
                         height_alpha = create_link(tree, height_alpha, height_blend.inputs[3])[1]
                     else:
+                        # Overlay without write height will disconnect prev height
+                        if not ch.write_height and ch.normal_blend_type == 'OVERLAY':
+                            break_input_link(tree, height_blend.inputs[1])
+                        else: create_link(tree, prev_height, height_blend.inputs[1])
+
                         create_link(tree, height_alpha, height_blend.inputs[0])
-                        create_link(tree, prev_height, height_blend.inputs[1])
                         create_link(tree, height_proc.outputs['Height'], height_blend.inputs[2])
                 else:
+                    # Overlay without write height will disconnect prev height
+                    if not ch.write_height and ch.normal_blend_type == 'OVERLAY':
+                        break_input_link(tree, height_blend.inputs['Prev Height'])
+                    else: create_link(tree, prev_height, height_blend.inputs['Prev Height'])
+
                     create_link(tree, height_alpha, height_blend.inputs['Alpha'])
-                    create_link(tree, prev_height, height_blend.inputs['Prev Height'])
                     create_link(tree, height_proc.outputs['Height'], height_blend.inputs['Height'])
 
                 create_link(tree, height_blend.outputs[0], normal_proc.inputs['Height'])
 
             else:
 
-                create_link(tree, prev_height_ons, height_blend.inputs['Prev Height ONS'])
-                create_link(tree, prev_height_ew, height_blend.inputs['Prev Height EW'])
+                # Overlay without write height will disconnect prev height
+                if not ch.write_height and ch.normal_blend_type == 'OVERLAY':
+                    break_input_link(tree, height_blend.inputs['Prev Height ONS'])
+                    break_input_link(tree, height_blend.inputs['Prev Height EW'])
+                else:
+                    create_link(tree, prev_height_ons, height_blend.inputs['Prev Height ONS'])
+                    create_link(tree, prev_height_ew, height_blend.inputs['Prev Height EW'])
+
                 create_link(tree, height_proc.outputs['Height ONS'], height_blend.inputs['Height ONS'])
                 create_link(tree, height_proc.outputs['Height EW'], height_blend.inputs['Height EW'])
                 create_link(tree, height_alpha, height_blend.inputs['Alpha'])
@@ -2500,7 +2518,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, tangent, normal_proc.inputs['Tangent'])
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
 
-            if root_ch.type == 'NORMAL' and ch.write_height:
+            #if root_ch.type == 'NORMAL' and ch.write_height:
+            if ch.write_height:
                 if 'Normal No Bump' in normal_proc.outputs:
                     rgb = normal_proc.outputs['Normal No Bump']
                 else: 

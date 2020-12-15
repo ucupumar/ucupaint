@@ -5,44 +5,6 @@ from . import lib, Layer
 
 BL28_HACK = True
 
-#def remember_before_bake(self, context, yp):
-#    scene = self.scene
-#    #scene = context.scene
-#    obj = self.obj
-#    uv_layers = get_uv_layers(obj)
-#    ypui = context.window_manager.ypui
-#
-#    # Remember render settings
-#    self.ori_engine = scene.render.engine
-#    self.ori_bake_type = scene.cycles.bake_type
-#    self.ori_samples = scene.cycles.samples
-#    self.ori_threads_mode = scene.render.threads_mode
-#    self.ori_margin = scene.render.bake.margin
-#    self.ori_use_clear = scene.render.bake.use_clear
-#    self.ori_device = scene.cycles.device
-#    self.ori_normal_space = scene.render.bake.normal_space
-#
-#    # Remember uv
-#    #self.ori_active_uv = uv_layers.active
-#    self.ori_active_uv = uv_layers.active.name
-#    self.ori_active_render_uv = [u for u in uv_layers if u.active_render][0].name
-#
-#    # Remember scene objects
-#    if is_greater_than_280():
-#        self.ori_active_selected_objs = [o for o in context.view_layer.objects if o.select_get()]
-#    else: self.ori_active_selected_objs = [o for o in scene.objects if o.select]
-#
-#    # Remember world settings
-#    if is_greater_than_280() and scene.world:
-#        self.ori_distance = scene.world.light_settings.distance
-#
-#    # Remember ypui
-#    #self.ori_disable_temp_uv = ypui.disable_auto_temp_uv_update
-#
-#    # Remember yp
-#    self.parallax_ch = get_root_parallax_channel(yp)
-#    #self.use_parallax = True if parallax_ch else False
-
 def remember_before_bake_(yp=None):
     book = {}
     book['scene'] = scene = bpy.context.scene
@@ -61,6 +23,14 @@ def remember_before_bake_(yp=None):
     book['ori_normal_space'] = scene.render.bake.normal_space
     book['ori_simplify'] = scene.render.use_simplify
     book['ori_device'] = scene.cycles.device
+    book['ori_tile_x'] = scene.render.tile_x
+    book['ori_tile_y'] = scene.render.tile_y
+
+    # Multires related
+    book['ori_use_bake_multires'] = scene.render.use_bake_multires
+    book['ori_use_bake_clear'] = scene.render.use_bake_clear
+    book['ori_render_bake_type'] = scene.render.bake_type
+    book['ori_bake_margin'] = scene.render.bake_margin
 
     if is_greater_than_281() and scene.cycles.device == 'GPU' and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences:
         book['compute_device_type'] = bpy.context.preferences.addons['cycles'].preferences['compute_device_type']
@@ -93,45 +63,8 @@ def remember_before_bake_(yp=None):
 
     return book
 
-#def prepare_bake_settings(self, context, yp):
-#    scene = self.scene
-#    #scene = context.scene
-#    obj = self.obj
-#    uv_layers = get_uv_layers(obj)
-#    ypui = context.window_manager.ypui
-#
-#    scene.render.engine = 'CYCLES'
-#    scene.cycles.bake_type = 'EMIT'
-#    scene.cycles.samples = self.samples
-#    scene.render.threads_mode = 'AUTO'
-#    scene.render.bake.margin = self.margin
-#    #scene.render.bake.use_clear = True
-#    scene.render.bake.use_clear = False
-#
-#    # Disable other object selections and select only active object
-#    if is_greater_than_280():
-#        #for o in scene.objects:
-#        for o in context.view_layer.objects:
-#            o.select_set(False)
-#        obj.select_set(True)
-#    else:
-#        for o in scene.objects:
-#            o.select = False
-#        obj.select = True
-#
-#    # Set active uv layers
-#    uv_layers.active = uv_layers.get(self.uv_map)
-#
-#    # Disable auto temp uv update
-#    #ypui.disable_auto_temp_uv_update = True
-#
-#    # Disable parallax channel
-#    #parallax_ch = get_root_parallax_channel(yp)
-#    if self.parallax_ch:
-#        self.parallax_ch.enable_parallax = False
-
 def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
-        disable_problematic_modifiers=False, force_use_cpu=False, hide_other_objs=True):
+        disable_problematic_modifiers=False, force_use_cpu=False, hide_other_objs=True, bake_from_multires=False, tile_x=64, tile_y=64):
 
     #scene = self.scene
     scene = bpy.context.scene
@@ -139,13 +72,23 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
     ypui = bpy.context.window_manager.ypui
 
     scene.render.engine = 'CYCLES'
-    scene.cycles.bake_type = bake_type
     scene.cycles.samples = samples
     scene.render.threads_mode = 'AUTO'
     scene.render.bake.margin = margin
     #scene.render.bake.use_clear = True
     scene.render.bake.use_clear = False
     scene.render.use_simplify = False
+    scene.render.tile_x = tile_x
+    scene.render.tile_y = tile_y
+
+    if bake_from_multires:
+        scene.render.use_bake_multires = True
+        scene.render.bake_type = bake_type
+        scene.render.bake_margin = margin
+        scene.render.use_bake_clear = False
+    else: 
+        scene.render.use_bake_multires = False
+        scene.cycles.bake_type = bake_type
 
     # Use CPU if being forced
     if force_use_cpu:
@@ -217,56 +160,6 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
     if book['parallax_ch']:
         book['parallax_ch'].enable_parallax = False
 
-#def recover_bake_settings(self, context, yp, recover_active_uv=False):
-#    scene = self.scene
-#    obj = self.obj
-#    uv_layers = get_uv_layers(obj)
-#    ypui = context.window_manager.ypui
-#
-#    scene.render.engine = self.ori_engine
-#    scene.cycles.bake_type = self.ori_bake_type
-#    scene.cycles.samples = self.ori_samples
-#    scene.render.threads_mode = self.ori_threads_mode
-#    scene.render.bake.margin = self.ori_margin
-#    scene.render.bake.use_clear = self.ori_use_clear
-#    scene.render.bake.normal_space = self.ori_normal_space
-#
-#    # Recover world settings
-#    if is_greater_than_280() and scene.world:
-#        scene.world.light_settings.distance = self.ori_distance
-#
-#    # Recover uv
-#    if recover_active_uv:
-#        uvl = uv_layers.get(self.ori_active_uv)
-#        if uvl: uv_layers.active = uvl
-#        uvl = uv_layers.get(self.ori_active_render_uv)
-#        if uvl: uvl.active_render = True
-#
-#    #return
-#
-#    # Disable other object selections
-#    if is_greater_than_280():
-#        #for o in scene.objects:
-#        for o in context.view_layer.objects:
-#            if o in self.ori_active_selected_objs:
-#                o.select_set(True)
-#            else: o.select_set(False)
-#    else:
-#        for o in scene.objects:
-#            if o in self.ori_active_selected_objs:
-#                o.select = True
-#            else: o.select = False
-#
-#    # Recover active object
-#    #scene.objects.active = self.ori_active_obj
-#
-#    # Recover ypui
-#    #ypui.disable_auto_temp_uv_update = self.ori_disable_temp_uv
-#
-#    # Recover parallax
-#    if self.parallax_ch:
-#        self.parallax_ch.enable_parallax = True
-
 def recover_bake_settings_(book, yp=None, recover_active_uv=False):
     scene = book['scene']
     obj = book['obj']
@@ -274,13 +167,21 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
     ypui = bpy.context.window_manager.ypui
 
     scene.render.engine = book['ori_engine']
-    scene.cycles.bake_type = book['ori_bake_type']
     scene.cycles.samples = book['ori_samples']
+    scene.cycles.bake_type = book['ori_bake_type']
     scene.render.threads_mode = book['ori_threads_mode']
     scene.render.bake.margin = book['ori_margin']
     scene.render.bake.use_clear = book['ori_use_clear']
     scene.render.use_simplify = book['ori_simplify']
     scene.cycles.device = book['ori_device']
+    scene.render.tile_x = book['ori_tile_x']
+    scene.render.tile_y = book['ori_tile_y']
+
+    # Multires related
+    scene.render.use_bake_multires = book['ori_use_bake_multires']
+    scene.render.use_bake_clear = book['ori_use_bake_clear']
+    scene.render.bake_type = book['ori_render_bake_type']
+    scene.render.bake_margin = book['ori_bake_margin']
 
     if 'compute_device_type' in book:
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = book['compute_device_type']
