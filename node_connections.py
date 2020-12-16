@@ -2212,7 +2212,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if mix_normal and normal_alpha: 
                     normal_alpha = create_link(tree, normal_alpha, mix_normal.inputs[1])[0]
 
-                if root_ch.enable_smooth_bump:
+                if root_ch.enable_smooth_bump and mix:
                     if j == chain and trans_bump_ch == ch and trans_bump_crease:
                         alpha_n = create_link(tree, one_value, mix.inputs['Color1 n'])['Color n']
                         alpha_s = create_link(tree, one_value, mix.inputs['Color1 s'])['Color s']
