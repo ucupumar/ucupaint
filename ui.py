@@ -786,9 +786,9 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                     brow.label(text='Adaptive (Cycles Only):')
                     brow.prop(channel, 'subdiv_adaptive', text='')
 
-                    brow = bbcol.row(align=True)
-                    brow.label(text='Type:')
-                    brow.prop(channel, 'subdiv_standard_type', expand=True)
+                    #brow = bbcol.row(align=True)
+                    #brow.label(text='Type:')
+                    #brow.prop(channel, 'subdiv_standard_type', expand=True)
 
                     #if not channel.enable_subdiv_setup or channel.subdiv_adaptive:
                     brow = bbcol.row(align=True)

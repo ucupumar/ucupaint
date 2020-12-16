@@ -3015,6 +3015,29 @@ def get_scene_objects():
         return bpy.context.view_layer.objects
     else: return bpy.context.scene.objects
 
+def is_mesh_flat_shaded(mesh):
+
+    for i, f in enumerate(mesh.polygons):
+        if not f.use_smooth:
+            return True
+
+        # Only check first 10 polygons to improve performance
+        if i > 10:
+            break
+
+    return False
+
+def get_all_objects_with_same_materials(mat):
+    objs = []
+    for obj in get_scene_objects():
+        if not obj.data or not hasattr(obj.data, 'materials'): continue
+        for m in obj.data.materials:
+            if m == mat: # and obj not in objs:
+                objs.append(obj)
+                break
+
+    return objs
+
 def get_yp_images(yp):
 
     images = []

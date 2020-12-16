@@ -2497,16 +2497,16 @@ class YPaintChannel(bpy.types.PropertyGroup):
             description = 'Enable subdivision setup. Only works if baked results is used.',
             default=False, update=Bake.update_enable_subdiv_setup)
 
-    subdiv_standard_type = EnumProperty(
-            name = 'Subdivision Standard Type',
-            description = 'Subdivision Standard Type',
-            items = (
-                ('CATMULL_CLARK', 'Catmull-Clark', ''),
-                ('SIMPLE', 'Simple', ''),
-                ),
-            default = 'CATMULL_CLARK',
-            update=Bake.update_subdiv_standard_type
-            )
+    #subdiv_standard_type = EnumProperty(
+    #        name = 'Subdivision Standard Type',
+    #        description = 'Subdivision Standard Type',
+    #        items = (
+    #            ('CATMULL_CLARK', 'Catmull-Clark', ''),
+    #            ('SIMPLE', 'Simple', ''),
+    #            ),
+    #        default = 'CATMULL_CLARK',
+    #        update=Bake.update_subdiv_standard_type
+    #        )
 
     subdiv_adaptive = BoolProperty(
             name = 'Use Adaptive Subdivision',

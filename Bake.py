@@ -1738,8 +1738,8 @@ def check_subdiv_setup(height_ch):
     yp = tree.yp
 
     if not height_ch: return
-    obj = bpy.context.object
-    mat = obj.active_material
+    #obj = bpy.context.object
+    mat = get_active_material()
     scene = bpy.context.scene
 
     # Get height image and max height
@@ -1756,90 +1756,6 @@ def check_subdiv_setup(height_ch):
         end_max_height.inputs[1].default_value = height_ch.subdiv_tweak
     else:
         remove_node(tree, height_ch, 'end_max_height_tweak')
-
-    # Subsurf
-    subsurf = get_subsurf_modifier(obj)
-    multires = get_multires_modifier(obj)
-
-    #if yp.use_baked and height_ch.enable_subdiv_setup and multires:
-
-    #    multires.render_levels = multires.total_levels
-    #    multires.levels = multires.total_levels
-    #    subsurf = multires
-
-    if multires:
-        if yp.use_baked and height_ch.enable_subdiv_setup:
-            multires.show_render = False
-            multires.show_viewport = False
-        else:
-            # Remove standard subsurf if multires is found
-            if subsurf: 
-                obj.modifiers.remove(subsurf)
-                subsurf = None
-            multires.show_render = True
-            multires.show_viewport = True
-
-    if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
-
-        if not subsurf:
-            subsurf = obj.modifiers.new('Subsurf', 'SUBSURF')
-
-        subsurf.render_levels = height_ch.subdiv_on_level
-        subsurf.levels = height_ch.subdiv_on_level
-
-    elif subsurf:
-        subsurf.render_levels = height_ch.subdiv_off_level
-        subsurf.levels = height_ch.subdiv_off_level
-
-    # Set subsurf to visible
-    if subsurf:
-        subsurf.show_render = True
-        subsurf.show_viewport = True
-
-    # Displace
-    if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
-
-        mod_len = len(obj.modifiers)
-
-        displace = get_displace_modifier(obj)
-        if not displace:
-            displace = obj.modifiers.new('yP_Displace', 'DISPLACE')
-
-            # Check modifier index
-            for i, m in enumerate(obj.modifiers):
-                if m == subsurf:
-                    subsurf_idx = i
-                elif m == displace:
-                    displace_idx = i
-
-            # Move up if displace is not directly below subsurf
-            #if displace_idx != subsurf_idx+1:
-            delta = displace_idx - subsurf_idx - 1
-            for i in range(delta):
-                bpy.ops.object.modifier_move_up(modifier=displace.name)
-
-        tex = displace.texture
-        if not tex:
-            tex = bpy.data.textures.new(img.name, 'IMAGE')
-            tex.image = img
-            displace.texture = tex
-            displace.texture_coords = 'UV'
-
-        displace.strength = height_ch.subdiv_tweak * max_height
-        displace.mid_level = height_ch.parallax_ref_plane
-        displace.uv_layer = yp.baked_uv_name
-
-        # Set displace to visible
-        displace.show_render = True
-        displace.show_viewport = True
-
-    else:
-
-        for mod in obj.modifiers:
-            if mod.type == 'DISPLACE' and mod.name == 'yP_Displace':
-                if mod.texture:
-                    bpy.data.textures.remove(mod.texture)
-                obj.modifiers.remove(mod)
 
     # Get active output material
     try: output_mat = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output][0]
@@ -1873,16 +1789,10 @@ def check_subdiv_setup(height_ch):
     # Adaptive subdiv
     if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
 
-        if not subsurf:
-            subsurf = obj.modifiers.new('Subsurf', 'SUBSURF')
-            subsurf.render_levels = height_ch.subdiv_off_level
-            subsurf.levels = height_ch.subdiv_off_level
-
         # Adaptive subdivision only works for experimental feature set for now
         scene.cycles.feature_set = 'EXPERIMENTAL'
         scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
         scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
-        obj.cycles.use_adaptive_subdivision = True
 
         # Check output connection
         height_outp = node.outputs[height_ch.name + io_suffix['HEIGHT']]
@@ -1968,7 +1878,6 @@ def check_subdiv_setup(height_ch):
             create_link(mat.node_tree, max_height_outp, disp.inputs[1])
 
     else:
-        obj.cycles.use_adaptive_subdivision = False
 
         # Back to supported feature set
         # NOTE: It's kinda forced, but whatever
@@ -1977,6 +1886,108 @@ def check_subdiv_setup(height_ch):
         # Remove displacement output material link
         # NOTE: It's very forced, but whatever
         break_input_link(mat.node_tree, output_mat.inputs['Displacement'])
+
+    # Iterate all objects with same materials
+    objs = get_all_objects_with_same_materials(mat)
+    for obj in objs:
+        # Subsurf
+        subsurf = get_subsurf_modifier(obj)
+        multires = get_multires_modifier(obj)
+
+        #if yp.use_baked and height_ch.enable_subdiv_setup and multires:
+
+        #    multires.render_levels = multires.total_levels
+        #    multires.levels = multires.total_levels
+        #    subsurf = multires
+
+        if multires:
+            if yp.use_baked and height_ch.enable_subdiv_setup:
+                multires.show_render = False
+                multires.show_viewport = False
+            else:
+                # Remove standard subsurf if multires is found
+                if subsurf: 
+                    obj.modifiers.remove(subsurf)
+                    subsurf = None
+                multires.show_render = True
+                multires.show_viewport = True
+
+        if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
+
+            if not subsurf:
+                
+                subsurf = obj.modifiers.new('Subsurf', 'SUBSURF')
+                if obj.type == 'MESH' and is_mesh_flat_shaded(obj.data):
+                    subsurf.subdivision_type = 'SIMPLE'
+
+            subsurf.render_levels = height_ch.subdiv_on_level
+            subsurf.levels = height_ch.subdiv_on_level
+
+        elif subsurf:
+            subsurf.render_levels = height_ch.subdiv_off_level
+            subsurf.levels = height_ch.subdiv_off_level
+
+        # Set subsurf to visible
+        if subsurf:
+            subsurf.show_render = True
+            subsurf.show_viewport = True
+
+        # Displace
+        if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
+
+            mod_len = len(obj.modifiers)
+
+            displace = get_displace_modifier(obj)
+            if not displace:
+                displace = obj.modifiers.new('yP_Displace', 'DISPLACE')
+
+                # Check modifier index
+                for i, m in enumerate(obj.modifiers):
+                    if m == subsurf:
+                        subsurf_idx = i
+                    elif m == displace:
+                        displace_idx = i
+
+                # Move up if displace is not directly below subsurf
+                #if displace_idx != subsurf_idx+1:
+                delta = displace_idx - subsurf_idx - 1
+                for i in range(delta):
+                    bpy.ops.object.modifier_move_up(modifier=displace.name)
+
+            tex = displace.texture
+            if not tex:
+                tex = bpy.data.textures.new(img.name, 'IMAGE')
+                tex.image = img
+                displace.texture = tex
+                displace.texture_coords = 'UV'
+
+            displace.strength = height_ch.subdiv_tweak * max_height
+            displace.mid_level = height_ch.parallax_ref_plane
+            displace.uv_layer = yp.baked_uv_name
+
+            # Set displace to visible
+            displace.show_render = True
+            displace.show_viewport = True
+
+        else:
+
+            for mod in obj.modifiers:
+                if mod.type == 'DISPLACE' and mod.name == 'yP_Displace':
+                    if mod.texture:
+                        bpy.data.textures.remove(mod.texture)
+                    obj.modifiers.remove(mod)
+
+        # Adaptive subdiv
+        if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
+            if not subsurf:
+                subsurf = obj.modifiers.new('Subsurf', 'SUBSURF')
+                subsurf.render_levels = height_ch.subdiv_off_level
+                subsurf.levels = height_ch.subdiv_off_level
+                if obj.type == 'MESH' and is_mesh_flat_shaded(obj.data):
+                    subsurf.subdivision_type = 'SIMPLE'
+            obj.cycles.use_adaptive_subdivision = True
+        else:
+            obj.cycles.use_adaptive_subdivision = False
 
 def update_enable_subdiv_setup(self, context):
     obj = context.object
@@ -2011,33 +2022,35 @@ def update_subdiv_tweak(self, context):
         end_max_height_tweak.inputs[1].default_value = height_ch.subdiv_tweak
 
 def update_subdiv_on_off_level(self, context):
-    obj = context.object
+    mat = get_active_material()
     tree = self.id_data
     yp = tree.yp
-
     height_ch = self
+    objs = get_all_objects_with_same_materials(mat)
 
-    subsurf = get_subsurf_modifier(obj)
-    if not subsurf: return
+    for obj in objs:
 
-    if self.enable_subdiv_setup and yp.use_baked and not self.subdiv_adaptive:
-        subsurf.render_levels = height_ch.subdiv_on_level
-        subsurf.levels = height_ch.subdiv_on_level
-    else:
-        subsurf.render_levels = height_ch.subdiv_off_level
-        subsurf.levels = height_ch.subdiv_off_level
+        subsurf = get_subsurf_modifier(obj)
+        if not subsurf: continue
 
-def update_subdiv_standard_type(self, context):
-    obj = context.object
-    tree = self.id_data
-    yp = tree.yp
+        if self.enable_subdiv_setup and yp.use_baked and not self.subdiv_adaptive:
+            subsurf.render_levels = height_ch.subdiv_on_level
+            subsurf.levels = height_ch.subdiv_on_level
+        else:
+            subsurf.render_levels = height_ch.subdiv_off_level
+            subsurf.levels = height_ch.subdiv_off_level
 
-    height_ch = self
-
-    subsurf = get_subsurf_modifier(obj)
-    if not subsurf: return
-
-    subsurf.subdivision_type = height_ch.subdiv_standard_type
+#def update_subdiv_standard_type(self, context):
+#    obj = context.object
+#    tree = self.id_data
+#    yp = tree.yp
+#
+#    height_ch = self
+#
+#    subsurf = get_subsurf_modifier(obj)
+#    if not subsurf: return
+#
+#    subsurf.subdivision_type = height_ch.subdiv_standard_type
 
 def update_subdiv_global_dicing(self, context):
     scene = context.scene
