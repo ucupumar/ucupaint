@@ -91,9 +91,11 @@
 # - Image atlas should be not at default, so maximum images warning is needed (X)
 # - ..or, check the possibility of not updating temp uv except on paint mode (check paint mode event perhaps?) (V)
 # - Fake lighting should take account previous normal output (V)
+# - Create image container node outside yp group to make layer images linked to mesh, especially on edit mode (X)
+# - Remove yp node and keep baked images (V)
 # - Need ability to edit height channel main uv
 # - Object index mask should not generate neighbor uv
-# - Create image container node outside yp group to make layer images linked to mesh, especially on edit mode
+#   (doesn't need since image editor automatically update even with pinned image on 'UV Editing' workspace
 # - Change link inside group to github insted of patreon
 # - Make rebake as an option on layer source
 # - Add operator to create new UV map on multiple objects using the same material

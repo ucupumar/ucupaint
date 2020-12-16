@@ -283,6 +283,8 @@ def load_custom_icons():
     custom_icons.load('collapsed_vcol', filepath + 'collapsed_vcol_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_vcol', filepath + 'uncollapsed_vcol_icon.png', 'IMAGE')
 
+    custom_icons.load('close', filepath + 'close_icon.png', 'IMAGE')
+
     custom_icons.load('vertex_color', filepath + 'vertex_color_icon.png', 'IMAGE')
 
     custom_icons.load('bake', filepath + 'bake_icon.png', 'IMAGE')

@@ -2825,6 +2825,10 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
+        col.operator('node.y_remove_yp_node', icon_value=lib.get_icon('close'))
+
+        col.separator()
+
         col.label(text='Active Tree:', icon_value=lib.get_icon('nodetree'))
         for n in get_list_of_ypaint_nodes(mat):
             if n.name == node.name:
