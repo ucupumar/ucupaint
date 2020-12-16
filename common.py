@@ -2529,7 +2529,7 @@ def get_layer_channel_max_height(layer, ch, ch_idx=None):
                     base_distance = h
 
     else: 
-        base_distance = abs(ch.bump_distance)
+        base_distance = abs(ch.normal_bump_distance) if ch.normal_map_type == 'NORMAL_MAP' else abs(ch.bump_distance)
 
     if ch.enable_transition_bump:
         if ch.normal_map_type == 'NORMAL_MAP' and layer.type != 'GROUP':
@@ -2604,7 +2604,8 @@ def get_transition_disp_delta(layer, ch):
         delta = get_transition_bump_max_distance(ch) - max_child_heights
 
     else:
-        delta = get_transition_bump_max_distance(ch) - abs(ch.bump_distance)
+        bump_distance = ch.normal_bump_distance if ch.normal_blend_type else ch.bump_distance
+        delta = get_transition_bump_max_distance(ch) - abs(bump_distance)
 
     return delta
 
@@ -2616,9 +2617,10 @@ def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_
         if ch_index > len(l.channels)-1: continue
         if top_layers_only and l.parent_idx != -1: continue
         c = l.channels[ch_index]
+        write_height = c.normal_write_height if c.normal_map_type == 'NORMAL_MAP' else c.write_height 
         ch_max_height = get_layer_channel_max_height(l, c)
         if (l.enable and c.enable and 
-                (c.write_height or (not c.write_height and l == layer)) and
+                (write_height or (not write_height and l == layer)) and
                 c.normal_blend_type in {'MIX', 'COMPARE'} and max_height < ch_max_height
                 ):
             max_height = ch_max_height
@@ -2629,9 +2631,10 @@ def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_
         if ch_index > len(l.channels)-1: continue
         if top_layers_only and l.parent_idx != -1: continue
         c = l.channels[ch_index]
+        write_height = c.normal_write_height if c.normal_map_type == 'NORMAL_MAP' else c.write_height 
         ch_max_height = get_layer_channel_max_height(l, c)
         if (l.enable and c.enable and 
-                (c.write_height or (not c.write_height and l == layer)) and
+                (write_height or (not write_height and l == layer)) and
                 c.normal_blend_type == 'OVERLAY'
                 ):
             max_height += ch_max_height
@@ -2683,7 +2686,8 @@ def get_write_height_normal_channels(layer):
     for i, root_ch in enumerate(yp.channels):
         if root_ch.type == 'NORMAL':
             ch = layer.channels[i]
-            if ch.write_height:
+            write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+            if write_height:
                 channels.append(ch)
 
     return channels
@@ -2694,7 +2698,8 @@ def get_write_height_normal_channel(layer):
     for i, root_ch in enumerate(yp.channels):
         if root_ch.type == 'NORMAL':
             ch = layer.channels[i]
-            if ch.write_height:
+            write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+            if write_height:
                 return ch
 
     return None
@@ -2716,7 +2721,8 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
             if inp: inp.default_value = get_transition_disp_delta(layer, height_ch)
         elif height_ch.normal_map_type == 'NORMAL_MAP':
             inp = height_proc.inputs.get('Bump Height')
-            if inp: inp.default_value = height_ch.bump_distance
+            #if inp: inp.default_value = height_ch.bump_distance
+            if inp: inp.default_value = height_ch.normal_bump_distance
 
     normal_proc = tree.nodes.get(height_ch.normal_proc)
     if normal_proc:

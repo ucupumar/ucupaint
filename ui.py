@@ -1352,7 +1352,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 split.label(text='Type:') #, icon_value=lib.get_icon('input'))
                 srow = split.row(align=True)
                 srow.prop(ch, 'normal_map_type', text='')
-                if not chui.expand_bump_settings: #and ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
+                if not chui.expand_bump_settings and ch.normal_map_type == 'BUMP_MAP':
                     srow.prop(ch, 'bump_distance', text='')
 
             #row.label(text='', icon='BLANK1')
@@ -1369,7 +1369,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
                 brow = cccol.row(align=True)
                 brow.label(text='Write Height:') #, icon_value=lib.get_icon('input'))
-                brow.prop(ch, 'write_height', text='')
+                if ch.normal_map_type == 'NORMAL_MAP':
+                    brow.prop(ch, 'normal_write_height', text='')
+                else: brow.prop(ch, 'write_height', text='')
 
                 #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
 
@@ -1378,12 +1380,15 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                     brow.active = not ch.enable_transition_bump or ch.normal_map_type != 'NORMAL_MAP'
                     if ch.normal_map_type == 'BUMP_MAP':
                         brow.label(text='Max Height:') #, icon_value=lib.get_icon('input'))
-                    else: brow.label(text='Bump Height:') #, icon_value=lib.get_icon('input'))
-                    brow.prop(ch, 'bump_distance', text='')
+                        brow.prop(ch, 'bump_distance', text='')
+                    else: 
+                        brow.label(text='Bump Height:') #, icon_value=lib.get_icon('input'))
+                        brow.prop(ch, 'normal_bump_distance', text='')
 
                     #if any(layer.masks):
                     brow = cccol.row(align=True)
-                    brow.active = not ch.enable_transition_bump and any(layer.masks) and not ch.write_height
+                    write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+                    brow.active = not ch.enable_transition_bump and any(layer.masks) and not write_height
                     brow.label(text='Affected Masks:') #, icon_value=lib.get_icon('input'))
                     brow.prop(ch, 'transition_bump_chain', text='')
 

@@ -687,6 +687,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
             ch = layer.channels[j]
             root_ch = yp.channels[j]
 
+            write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+
             if specific_ch and ch != specific_ch: continue
 
             #if yp.disable_quick_toggle and not ch.enable:
@@ -703,7 +705,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 continue
 
             if (root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and
-                (ch.write_height or (not ch.write_height and i < chain))
+                (write_height or (not write_height and i < chain))
                 ):
                 mix = tree.nodes.get(c.mix)
                 if mix and (mix.type != 'GROUP' or not mix.name.endswith(mask.blend_type)):
@@ -754,7 +756,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     remove_node(tree, c, 'mix_remains')
 
                 #if (root_ch.enable_smooth_bump and
-                #    (ch.write_height or (not ch.write_height and i < chain))
+                #    (write_height or (not write_height and i < chain))
                 #    ):
 
                 #    for d in neighbor_directions:
@@ -1781,6 +1783,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     if root_ch.type != 'NORMAL': return need_reconnect
 
     #print('ntab')
+    write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
 
     # Check mask source tree
     check_mask_source_tree(layer) #, ch)
@@ -1863,7 +1866,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     if ch.normal_map_type == 'NORMAL_MAP':
         if ch.enable_transition_bump:
             height_proc.inputs['Bump Height'].default_value = get_transition_bump_max_distance(ch)
-        else: height_proc.inputs['Bump Height'].default_value = ch.bump_distance
+        else: 
+            #height_proc.inputs['Bump Height'].default_value = ch.bump_distance
+            height_proc.inputs['Bump Height'].default_value = ch.normal_bump_distance
     else:
         if layer.type != 'GROUP':
             height_proc.inputs['Value Max Height'].default_value = ch.bump_distance
@@ -1878,7 +1883,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         height_proc.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
         height_proc.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
 
-        if not ch.write_height and not root_ch.enable_smooth_bump:
+        if not write_height and not root_ch.enable_smooth_bump:
             height_proc.inputs['Remaining Filter'].default_value = 1.0
         else: height_proc.inputs['Remaining Filter'].default_value = 0.0
 
@@ -1897,7 +1902,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                         tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
                         lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
 
-                if ch.write_height:
+                if write_height:
                     height_blend.inputs['Divide'].default_value = 1.0
                 else: height_blend.inputs['Divide'].default_value = 0.0
             else:
@@ -1923,7 +1928,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                         tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
                         lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
 
-                if ch.write_height:
+                if write_height:
                     height_blend.inputs['Divide'].default_value = 1.0
                 else: height_blend.inputs['Divide'].default_value = 0.0
             else:

@@ -1974,6 +1974,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         if root_ch.type == 'NORMAL':
 
+            write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+
             height_proc = nodes.get(ch.height_proc)
             normal_proc = nodes.get(ch.normal_proc)
 
@@ -2112,7 +2114,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if ch.normal_map_type == 'NORMAL_MAP':
                 create_link(tree, rgb, normal_proc.inputs['Normal Map'])
 
-            if ch.write_height:
+            if write_height:
                 chain_local = len(layer.masks)
             else: chain_local = min(len(layer.masks), ch.transition_bump_chain)
 
@@ -2182,7 +2184,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             for j, mask in enumerate(layer.masks):
                 #if j < chain: break
-                #if not ch.write_height and j >= chain_local:
+                #if not write_height and j >= chain_local:
                 #    break
                 if not mask.enable: continue
 
@@ -2313,7 +2315,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         create_link(tree, end_chain_e, height_proc.inputs['Transition e'])
                         create_link(tree, end_chain_w, height_proc.inputs['Transition w'])
 
-                    if not ch.write_height or len(layer.masks) == chain:
+                    if not write_height or len(layer.masks) == chain:
                         if 'Remaining Alpha n' in height_proc.inputs: 
                             create_link(tree, remains, height_proc.inputs['Remaining Alpha n'])
                             create_link(tree, remains, height_proc.inputs['Remaining Alpha s'])
@@ -2331,7 +2333,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         create_link(tree, intensity_multiplier.outputs[0], height_proc.inputs['Edge 1 Alpha'])
 
                     if 'Edge 1 Alpha' in normal_proc.inputs:
-                        if not ch.write_height and not root_ch.enable_smooth_bump:
+                        if not write_height and not root_ch.enable_smooth_bump:
                             create_link(tree, height_proc.outputs['Filtered Alpha'], normal_proc.inputs['Edge 1 Alpha'])
                         else: create_link(tree, intensity_multiplier.outputs[0], normal_proc.inputs['Edge 1 Alpha'])
 
@@ -2346,7 +2348,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 else:
 
-                    if not ch.write_height and not root_ch.enable_smooth_bump:
+                    if not write_height and not root_ch.enable_smooth_bump:
 
                         create_link(tree, end_chain, height_proc.inputs['Transition'])
 
@@ -2387,12 +2389,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else:
 
                 if 'Alpha' in height_proc.inputs:
-                    if not ch.write_height and not root_ch.enable_smooth_bump:
+                    if not write_height and not root_ch.enable_smooth_bump:
                         create_link(tree, end_chain, height_proc.inputs['Alpha'])
                     else: create_link(tree, alpha_before_intensity, height_proc.inputs['Alpha'])
 
                 if ch.normal_map_type == 'NORMAL_MAP':
-                    if not ch.write_height and not root_ch.enable_smooth_bump:
+                    if not write_height and not root_ch.enable_smooth_bump:
                         create_link(tree, end_chain, height_proc.inputs['Transition'])
                     else: create_link(tree, alpha_before_intensity, height_proc.inputs['Transition'])
 
@@ -2417,17 +2419,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, alpha_w, height_proc.inputs['Alpha w'])
             else:
                 if trans_bump_crease:
-                    if not ch.write_height and not root_ch.enable_smooth_bump:
+                    if not write_height and not root_ch.enable_smooth_bump:
                         alpha = height_proc.outputs['Filtered Alpha']
                     else: alpha = height_proc.outputs['Combined Alpha']
 
-                elif 'Normal Alpha' in height_proc.outputs and (ch.write_height or root_ch.enable_smooth_bump):
+                elif 'Normal Alpha' in height_proc.outputs and (write_height or root_ch.enable_smooth_bump):
                     alpha = height_proc.outputs['Normal Alpha']
 
                 alpha_ns = alpha_ew = alpha
 
             # Height Alpha
-            if 'Filtered Alpha' in height_proc.outputs and (not ch.write_height and not root_ch.enable_smooth_bump):
+            if 'Filtered Alpha' in height_proc.outputs and (not write_height and not root_ch.enable_smooth_bump):
                 height_alpha = alpha = height_proc.outputs['Filtered Alpha']
             elif 'Combined Alpha' in height_proc.outputs:
                 height_alpha = alpha = height_proc.outputs['Combined Alpha']
@@ -2446,7 +2448,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if ch.normal_blend_type in {'MIX', 'OVERLAY'}:
                     if has_parent:
                         # Overlay without write height will disconnect prev height
-                        if not ch.write_height and ch.normal_blend_type == 'OVERLAY':
+                        if not write_height and ch.normal_blend_type == 'OVERLAY':
                             break_input_link(tree, height_blend.inputs[0])
                         else: create_link(tree, prev_height, height_blend.inputs[0])
 
@@ -2455,7 +2457,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         height_alpha = create_link(tree, height_alpha, height_blend.inputs[3])[1]
                     else:
                         # Overlay without write height will disconnect prev height
-                        if not ch.write_height and ch.normal_blend_type == 'OVERLAY':
+                        if not write_height and ch.normal_blend_type == 'OVERLAY':
                             break_input_link(tree, height_blend.inputs[1])
                         else: create_link(tree, prev_height, height_blend.inputs[1])
 
@@ -2463,7 +2465,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         create_link(tree, height_proc.outputs['Height'], height_blend.inputs[2])
                 else:
                     # Overlay without write height will disconnect prev height
-                    if not ch.write_height and ch.normal_blend_type == 'OVERLAY':
+                    if not write_height and ch.normal_blend_type == 'OVERLAY':
                         break_input_link(tree, height_blend.inputs['Prev Height'])
                     else: create_link(tree, prev_height, height_blend.inputs['Prev Height'])
 
@@ -2475,7 +2477,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else:
 
                 # Overlay without write height will disconnect prev height
-                if not ch.write_height and ch.normal_blend_type == 'OVERLAY':
+                if not write_height and ch.normal_blend_type == 'OVERLAY':
                     break_input_link(tree, height_blend.inputs['Prev Height ONS'])
                     break_input_link(tree, height_blend.inputs['Prev Height EW'])
                 else:
@@ -2508,7 +2510,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, normal_alpha, normal_proc.inputs['Normal Alpha'])
 
             if layer.type == 'GROUP':
-                if ch.write_height: #and 'Normal Alpha' in normal_proc.outputs:
+                if write_height: #and 'Normal Alpha' in normal_proc.outputs:
                     alpha = normal_proc.outputs['Normal Alpha']
                 #elif 'Combined Alpha' in normal_proc.outputs:
                 else:
@@ -2519,7 +2521,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
 
             #if root_ch.type == 'NORMAL' and ch.write_height:
-            if ch.write_height:
+            if write_height:
                 if 'Normal No Bump' in normal_proc.outputs:
                     rgb = normal_proc.outputs['Normal No Bump']
                 else: 
@@ -2527,7 +2529,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else: 
                 rgb = normal_proc.outputs[0]
 
-            if not root_ch.enable_smooth_bump and not ch.write_height:
+            if not root_ch.enable_smooth_bump and not write_height:
                 normal_flip = nodes.get(ch.normal_flip)
                 if normal_flip:
 
@@ -2537,7 +2539,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                     rgb = create_link(tree, rgb, normal_flip.inputs[0])[0]
 
-            if not ch.write_height:
+            if not write_height:
                 if root_ch.enable_smooth_bump:
                     create_link(tree, prev_height_ons, next_height_ons)
                     create_link(tree, prev_height_ew, next_height_ew)
@@ -2555,14 +2557,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 if root_ch.enable_smooth_bump:
 
-                    if ch.write_height:
+                    if write_height:
                         create_link(tree, height_blend.outputs['Height Alpha ONS'], next_height_alpha_ons)
                         create_link(tree, height_blend.outputs['Height Alpha EW'], next_height_alpha_ew)
                     else:
                         create_link(tree, prev_height_alpha_ons, next_height_alpha_ons)
                         create_link(tree, prev_height_alpha_ew, next_height_alpha_ew)
                 else:
-                    if ch.write_height:
+                    if write_height:
                         create_link(tree, height_alpha, next_height_alpha)
                     else: create_link(tree, prev_height_alpha, next_height_alpha)
 

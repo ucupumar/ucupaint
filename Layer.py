@@ -137,7 +137,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         solid_color = (1,1,1),
         add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
-        hemi_space = 'WORLD', hemi_use_prev_normal = True, bump_distance = 0.05, write_height = True
+        hemi_space = 'WORLD', hemi_use_prev_normal = True, 
+        #bump_distance = 0.05, write_height = True,
         ):
 
     yp = group_tree.yp
@@ -320,8 +321,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
         if root_ch.type == 'NORMAL':
             ch.normal_map_type = normal_map_type
-            ch.bump_distance = bump_distance
-            ch.write_height = write_height
+            #ch.bump_distance = bump_distance
+            #ch.write_height = write_height
 
         #if add_rgb_to_intensity:
 
@@ -2946,10 +2947,22 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=0.05, min=-1.0, max=1.0, precision=3, # step=1,
             update=update_bump_distance)
 
+    normal_bump_distance = FloatProperty(
+            name='Bump Height Range for normal', 
+            description= 'Bump height range for normal channel.\n(White equals this value, black equals negative of this value)', 
+            default=0.00, min=-1.0, max=1.0, precision=3, # step=1,
+            update=update_bump_distance)
+
     write_height = BoolProperty(
             name = 'Write Height',
             description = 'Write height for this layer channel',
             default = True,
+            update=update_write_height)
+
+    normal_write_height = BoolProperty(
+            name = 'Write Normal Height',
+            description = 'Write height for this normal layer channel',
+            default = False,
             update=update_write_height)
 
     # For some occasion, modifiers are stored in a tree
