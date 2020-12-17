@@ -807,9 +807,13 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                         brow.prop(context.object.cycles, 'dicing_rate', text='')
                     else:
                     #if channel.enable_subdiv_setup and not channel.subdiv_adaptive:
+                        #brow = bbcol.row(align=True)
+                        #brow.label(text='Setup On Level:')
+                        #brow.prop(channel, 'subdiv_on_level', text='')
+
                         brow = bbcol.row(align=True)
-                        brow.label(text='Setup On Level:')
-                        brow.prop(channel, 'subdiv_on_level', text='')
+                        brow.label(text='Setup On Max Polys:')
+                        brow.prop(channel, 'subdiv_on_max_polys', text='')
 
                     brow = bbcol.row(align=True)
                     brow.label(text='Subdiv Tweak:')

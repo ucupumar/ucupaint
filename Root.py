@@ -2679,10 +2679,31 @@ class YPaintChannel(bpy.types.PropertyGroup):
             default=False, update=Bake.update_enable_subdiv_setup
             )
     
-    subdiv_on_level = IntProperty(default=3, min=0, max=10, update=Bake.update_subdiv_on_off_level)
-    subdiv_off_level = IntProperty(default=1, min=0, max=10, update=Bake.update_subdiv_on_off_level)
+    subdiv_on_max_polys = IntProperty(
+            name = 'Subdiv On Max Polygons',
+            description = 'Max Polygons (in thousand) when subdivision setup is on',
+            default=1000, min=0, max=5000, 
+            update=Bake.update_subdiv_on_off_level
+            )
 
-    subdiv_tweak = FloatProperty(default=1.0, min=0.0, max=1000.0, update=Bake.update_subdiv_tweak)
+    #subdiv_on_level = IntProperty(
+    #        name = 'Subdiv On Level',
+    #        description = 'Subdivision level when subdivision setup is on',
+    #        default=3, min=0, max=10, 
+    #        update=Bake.update_subdiv_on_off_level)
+
+    subdiv_off_level = IntProperty(
+            name = 'Subdiv Off Level',
+            description = 'Subdivision level when subdivision setup is off',
+            default=1, min=0, max=10, update=Bake.update_subdiv_on_off_level
+            )
+
+    subdiv_tweak = FloatProperty(
+            name = 'Subdiv Tweak',
+            description = 'Tweak displacement height',
+            default=1.0, min=0.0, max=1000.0, 
+            update=Bake.update_subdiv_tweak
+            )
 
     subdiv_global_dicing = FloatProperty(subtype='PIXEL', default=1.0, min=0.5, max=1000,
             update=Bake.update_subdiv_global_dicing)

@@ -1,4 +1,4 @@
-import bpy, re, time
+import bpy, re, time, math
 from bpy.props import *
 from mathutils import *
 from .common import *
@@ -1889,6 +1889,7 @@ def check_subdiv_setup(height_ch):
 
     # Iterate all objects with same materials
     objs = get_all_objects_with_same_materials(mat)
+    proportions = get_objs_size_proportions(objs)
     for obj in objs:
         # Subsurf
         subsurf = get_subsurf_modifier(obj)
@@ -1920,8 +1921,9 @@ def check_subdiv_setup(height_ch):
                 if obj.type == 'MESH' and is_mesh_flat_shaded(obj.data):
                     subsurf.subdivision_type = 'SIMPLE'
 
-            subsurf.render_levels = height_ch.subdiv_on_level
-            subsurf.levels = height_ch.subdiv_on_level
+            #subsurf.render_levels = height_ch.subdiv_on_level
+            #subsurf.levels = height_ch.subdiv_on_level
+            setup_subdiv_to_max_polys(obj, height_ch.subdiv_on_max_polys * 1000 * proportions[obj.name], subsurf)
 
         elif subsurf:
             subsurf.render_levels = height_ch.subdiv_off_level
@@ -1954,12 +1956,16 @@ def check_subdiv_setup(height_ch):
                 for i in range(delta):
                     bpy.ops.object.modifier_move_up(modifier=displace.name)
 
-            tex = displace.texture
-            if not tex:
+            #tex = displace.texture
+            tex = [t for t in bpy.data.textures if t.image == img]
+            if tex: 
+                tex = tex[0]
+            else:
                 tex = bpy.data.textures.new(img.name, 'IMAGE')
                 tex.image = img
-                displace.texture = tex
-                displace.texture_coords = 'UV'
+            
+            displace.texture = tex
+            displace.texture_coords = 'UV'
 
             displace.strength = height_ch.subdiv_tweak * max_height
             displace.mid_level = height_ch.parallax_ref_plane
@@ -2005,21 +2011,58 @@ def update_enable_subdiv_setup(self, context):
     reconnect_yp_nodes(tree)
 
 def update_subdiv_tweak(self, context):
-    obj = context.object
+    mat = get_active_material()
     tree = self.id_data
     yp = tree.yp
-
     height_ch = self
+    objs = get_all_objects_with_same_materials(mat)
 
-    displace = get_displace_modifier(obj)
-    if displace:
-        end_max_height = tree.nodes.get(height_ch.end_max_height)
-        if end_max_height:
-            displace.strength = height_ch.subdiv_tweak * end_max_height.outputs[0].default_value
-
+    end_max_height = tree.nodes.get(height_ch.end_max_height)
     end_max_height_tweak = tree.nodes.get(height_ch.end_max_height_tweak)
     if end_max_height_tweak:
         end_max_height_tweak.inputs[1].default_value = height_ch.subdiv_tweak
+
+    for obj in objs:
+        displace = get_displace_modifier(obj)
+        if displace and end_max_height:
+            displace.strength = height_ch.subdiv_tweak * end_max_height.outputs[0].default_value
+
+def setup_subdiv_to_max_polys(obj, max_polys, subsurf=None):
+    
+    if obj.type != 'MESH': return
+    if not subsurf: subsurf = get_subsurf_modifier(obj)
+    if not subsurf: return
+
+    # Check object polygons
+    num_poly = len(obj.data.polygons)
+
+    # Get levels
+    level = int(math.log(max_polys / num_poly, 4))
+
+    # Maximum subdivision is 10
+    if level > 10: level = 10
+
+    subsurf.render_levels = level
+    subsurf.levels = level
+
+def get_objs_size_proportions(objs):
+
+    sizes = []
+    
+    for obj in objs:
+        sorted_dim = sorted(obj.dimensions, reverse=True)
+        # Object size is only measured on its largest 2 dimensions because this should works on a plane too
+        size = sorted_dim[0] * sorted_dim[1]
+        sizes.append(size)
+
+    total_size = sum(sizes)
+
+    # Measure object size compared to total size
+    proportions = {}
+    for i, size in enumerate(sizes):
+        proportions[objs[i].name] = size/total_size
+
+    return proportions
 
 def update_subdiv_on_off_level(self, context):
     mat = get_active_material()
@@ -2028,14 +2071,17 @@ def update_subdiv_on_off_level(self, context):
     height_ch = self
     objs = get_all_objects_with_same_materials(mat)
 
+    proportions = get_objs_size_proportions(objs)
+
     for obj in objs:
 
         subsurf = get_subsurf_modifier(obj)
         if not subsurf: continue
 
         if self.enable_subdiv_setup and yp.use_baked and not self.subdiv_adaptive:
-            subsurf.render_levels = height_ch.subdiv_on_level
-            subsurf.levels = height_ch.subdiv_on_level
+            #subsurf.render_levels = height_ch.subdiv_on_level
+            #subsurf.levels = height_ch.subdiv_on_level
+            setup_subdiv_to_max_polys(obj, height_ch.subdiv_on_max_polys * 1000 * proportions[obj.name], subsurf)
         else:
             subsurf.render_levels = height_ch.subdiv_off_level
             subsurf.levels = height_ch.subdiv_off_level

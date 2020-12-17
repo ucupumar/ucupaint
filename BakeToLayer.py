@@ -668,6 +668,8 @@ class YBakeToLayer(bpy.types.Operator):
             ori_subdiv_adaptive = height_root_ch.subdiv_adaptive
             height_root_ch.subdiv_adaptive = False
             height_root_ch.enable_subdiv_setup = True
+            #height_root_ch.subdiv_adaptive = True
+            #height_root_ch.enable_subdiv_setup = True
 
         #return {'FINISHED'}
 
@@ -883,6 +885,8 @@ class YBakeToLayer(bpy.types.Operator):
         for obj in objs:
             # Recover modifiers
             for i, m in enumerate(obj.modifiers):
+                #print(obj.name, i)
+                if i >= len(ori_mods[obj.name]): break
                 if ori_mods[obj.name][i] != m.show_render:
                     m.show_render = ori_mods[obj.name][i]
 
