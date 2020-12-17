@@ -186,7 +186,7 @@ class YBakeToLayer(bpy.types.Operator):
             suffix = 'Pointiness'
             self.fxaa = False
         elif self.type == 'CAVITY':
-            self.blend_type = 'MIX'
+            self.blend_type = 'ADD'
             suffix = 'Cavity'
         elif self.type == 'DUST':
             self.blend_type = 'MIX'
@@ -335,8 +335,6 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type == 'AO':
             col.label(text='AO Distance:')
             col.label(text='')
-        elif self.type == 'CAVITY':
-            col.label(text='')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.label(text='Bevel Samples:')
             col.label(text='Bevel Radius:')
@@ -354,6 +352,9 @@ class YBakeToLayer(bpy.types.Operator):
         col.label(text='')
 
         if height_root_ch:
+            col.label(text='')
+
+        if self.type == 'CAVITY':
             col.label(text='')
 
         col.label(text='')
@@ -381,8 +382,6 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type == 'AO':
             col.prop(self, 'ao_distance', text='')
             col.prop(self, 'only_local')
-        elif self.type == 'CAVITY':
-            col.prop(self, 'subsurf_influence')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
             col.prop(self, 'bevel_samples', text='')
             col.prop(self, 'bevel_radius', text='')
@@ -401,11 +400,16 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'force_use_cpu')
 
         col.separator()
-        col.prop(self, 'flip_normals')
 
         if height_root_ch:
             col.prop(self, 'use_baked_disp')
 
+        if self.type == 'CAVITY':
+            r = col.row()
+            r.active = not self.use_baked_disp
+            r.prop(self, 'subsurf_influence')
+
+        col.prop(self, 'flip_normals')
         col.prop(self, 'force_bake_all_polygons')
 
         col.separator()
@@ -417,6 +421,7 @@ class YBakeToLayer(bpy.types.Operator):
         yp = node.node_tree.yp
         tree = node.node_tree
         ypui = context.window_manager.ypui
+        scene = context.scene
 
         active_layer = None
         if len(yp.layers) > 0:
@@ -437,9 +442,6 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type in {'MULTIRES_NORMAL', 'MULTIRES_DISPLACEMENT'} and not is_greater_than_280():
             self.report({'ERROR'}, "This feature is not implemented yet on Blender 2.79!")
             return {'CANCELLED'}
-
-        # Remember things
-        book = remember_before_bake_(yp)
 
         # Get all objects using material
         if self.type.startswith('MULTIRES_') and not get_multires_modifier(context.object):
@@ -464,29 +466,76 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "No valid objects found to bake!")
             return {'CANCELLED'}
 
-        # Set multires level
-        ori_multires_levels = {}
-        if self.type.startswith('MULTIRES_'): #or self.type == 'AO':
-            for ob in objs:
-                mod = get_multires_modifier(ob)
+        # Remember things
+        book = remember_before_bake_(yp)
 
-                #mod.render_levels = mod.total_levels
-                if self.type.startswith('MULTIRES_'):
-                    mod.render_levels = self.multires_base
-                    mod.levels = self.multires_base
+        # If use baked disp, need to bake normal and height map first
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and self.use_baked_disp and not self.type.startswith('MULTIRES_'):
 
-                ori_multires_levels[ob.name] = mod.render_levels
+            # Check if baked displacement already there
+            baked_disp = tree.nodes.get(height_root_ch.baked_disp)
+
+            if baked_disp and baked_disp.image:
+                disp_width = baked_disp.image.size[0]
+                disp_height = baked_disp.image.size[1]
+            else:
+                disp_width = 1024
+                disp_height = 1024
+
+            if yp.baked_uv_name != '':
+                disp_uv = yp.baked_uv_name
+            else: disp_uv = yp.uvs[0].name
+            
+            # Use 1 sample for baking height
+            prepare_bake_settings_(book, objs, yp, samples=1, margin=self.margin, 
+                    uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=self.force_use_cpu
+                    )
+
+            # Bake height channel
+            bake_channel(disp_uv, mat, node, height_root_ch, disp_width, disp_height)
+
+            # Recover bake settings
+            recover_bake_settings_(book, yp)
+
+            # Set baked name
+            if yp.baked_uv_name == '':
+                yp.baked_uv_name = disp_uv
+
+            # Set to use baked
+            yp.use_baked = True
+            ori_subdiv_setup = height_root_ch.enable_subdiv_setup
+            ori_subdiv_adaptive = height_root_ch.subdiv_adaptive
+            height_root_ch.subdiv_adaptive = False
+            height_root_ch.enable_subdiv_setup = True
+
+        # Cavity bake will create temporary objects
+        temp_objs = []
+        if self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp):
+            tt = time.time()
+            print('BAKE TO LAYER: Duplicating mesh(es) for Cavity bake...')
+            for obj in objs:
+                temp_obj = obj.copy()
+                link_object(scene, temp_obj)
+                temp_objs.append(temp_obj)
+                temp_obj.data = temp_obj.data.copy()
+
+            objs = temp_objs
+
+            print('BAKE TO LAYER: Duplicating mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+
+        #return {'FINISHED'}
 
         # Prepare bake settings
-        #if self.type == 'BEVEL_NORMAL':
-        #    bake_type = 'NORMAL'
-        #else: 
-        bake_type = 'EMIT'
 
         if self.type == 'MULTIRES_NORMAL':
             bake_type = 'NORMALS'
         elif self.type == 'MULTIRES_DISPLACEMENT':
             bake_type = 'DISPLACEMENT'
+        #elif self.type == 'BEVEL_NORMAL':
+        #    bake_type = 'NORMAL'
+        else: 
+            bake_type = 'EMIT'
 
         # If use only local, hide other objects
         hide_other_objs = self.type != 'AO' or self.only_local
@@ -504,6 +553,65 @@ class YBakeToLayer(bpy.types.Operator):
                 hide_other_objs=hide_other_objs, bake_from_multires=self.type.startswith('MULTIRES_'),
                 tile_x = tile_x, tile_y = tile_y
                 )
+
+        # Set multires level
+        ori_multires_levels = {}
+        if self.type.startswith('MULTIRES_'): #or self.type == 'AO':
+            for ob in objs:
+                mod = get_multires_modifier(ob)
+
+                #mod.render_levels = mod.total_levels
+                if self.type.startswith('MULTIRES_'):
+                    mod.render_levels = self.multires_base
+                    mod.levels = self.multires_base
+
+                ori_multires_levels[ob.name] = mod.render_levels
+
+        # Setup for cavity
+        if self.type == 'CAVITY':
+
+            tt = time.time()
+            print('BAKE TO LAYER: Applying subsurf/multires for Cavity bake...')
+
+            # Set vertex color for cavity
+            for obj in objs:
+
+                if is_greater_than_280(): context.view_layer.objects.active = obj
+                else: context.scene.object.active = obj
+
+                if self.subsurf_influence or self.use_baked_disp:
+                    need_to_be_applied_modifiers = []
+                    for m in obj.modifiers:
+                        if m.type in {'SUBSURF', 'MULTIRES'} and m.levels > 0 and m.show_viewport:
+
+                            # Set multires to the highest level
+                            if m.type == 'MULTIRES':
+                                m.levels = m.total_levels
+
+                            need_to_be_applied_modifiers.append(m)
+
+                        # Also apply displace
+                        if m.type == 'DISPLACE' and m.show_viewport:
+                            need_to_be_applied_modifiers.append(m)
+
+                    for m in need_to_be_applied_modifiers:
+                        bpy.ops.object.modifier_apply(modifier=m.name)
+
+                # Remove all vertex colors
+                #for vc in reversed(obj.data.vertex_colors):
+                #    obj.data.vertex_colors.remove(vc)
+
+                # Create new vertex color for dirt
+                try:
+                    vcol = obj.data.vertex_colors.new(name=TEMP_VCOL)
+                    set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0))
+                    obj.data.vertex_colors.active = vcol
+                except: pass
+
+                bpy.ops.paint.vertex_color_dirt(dirt_angle=math.pi/2)
+                bpy.ops.paint.vertex_color_dirt()
+
+            print('BAKE TO LAYER: Applying subsurf/multires is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
 
         # Flip normals setup
         if self.flip_normals:
@@ -527,10 +635,7 @@ class YBakeToLayer(bpy.types.Operator):
         ori_mods = {}
         ori_mat_ids = {}
         ori_loop_locs = {}
-        ori_subsurf_props = {}
-        ori_subsurf_ids = {}
-        ori_subsurf_multires = {}
-        ori_meshes = {}
+
         for obj in objs:
 
             # Disable few modifiers
@@ -540,48 +645,6 @@ class YBakeToLayer(bpy.types.Operator):
                     m.show_render = False
                 elif m.type == 'MIRROR':
                     m.show_render = False
-
-            # Set vertex color for cavity
-            if self.type == 'CAVITY':
-
-                ori_subsurf_props[obj.name] = []
-                ori_subsurf_ids[obj.name] = []
-                ori_subsurf_multires[obj.name] = []
-                
-                if is_greater_than_280(): context.view_layer.objects.active = obj
-                else: context.scene.object.active = obj
-
-                subsurfs = []
-                if self.subsurf_influence:
-                    for i, m in enumerate(obj.modifiers):
-                        # NOTE: Multires has more elaborate recovery, not supported right now
-                        #if m.type in {'SUBSURF', 'MULTIRES'} and m.levels > 0:
-                        if m.type in {'SUBSURF'} and m.levels > 0:
-                            subsurfs.append(m)
-
-                            # Get original modifier props
-                            dicts = {}
-                            for prop in dir(m):
-                                try: dicts[prop] = getattr(m, prop)
-                                except: pass
-                            ori_subsurf_props[obj.name].append(dicts)
-                            ori_subsurf_ids[obj.name].append(i)
-                            ori_subsurf_multires[obj.name].append(True if m.type == 'MULTIRES' else False)
-
-                if any(subsurfs):
-                    ori_meshes[obj.name] = obj.data
-                    obj.data = obj.data.copy()
-                    for m in subsurfs:
-                        bpy.ops.object.modifier_apply(modifier=m.name)
-
-                try:
-                    vcol = obj.data.vertex_colors.new(name=TEMP_VCOL)
-                    set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0))
-                    obj.data.vertex_colors.active = vcol
-                except: pass
-
-                bpy.ops.paint.vertex_color_dirt(dirt_angle=math.pi/2)
-                bpy.ops.paint.vertex_color_dirt()
 
             ori_mat_ids[obj.name] = []
             ori_loop_locs[obj.name] = []
@@ -607,69 +670,6 @@ class YBakeToLayer(bpy.types.Operator):
                     # Need to assign all polygon to active material if there are multiple materials
                     ori_mat_ids[obj.name].append(p.material_index)
                     p.material_index = active_mat_id
-
-        # If use baked disp, need to bake normal and height map first
-        height_root_ch = get_root_height_channel(yp)
-        if height_root_ch and self.use_baked_disp:
-
-            # Check if baked displacement already there
-            baked_disp = tree.nodes.get(height_root_ch.baked_disp)
-
-            if baked_disp and baked_disp.image:
-                disp_width = baked_disp.image.size[0]
-                disp_height = baked_disp.image.size[1]
-            else:
-                disp_width = 1024
-                disp_height = 1024
-
-            if yp.baked_uv_name != '':
-                disp_uv = yp.baked_uv_name
-            else: disp_uv = yp.uvs[0].name
-            
-            # Use 1 sample for baking height
-            context.scene.cycles.samples = 1
-
-            # Bake height channel
-            bake_channel(disp_uv, mat, node, height_root_ch, disp_width, disp_height)
-
-            # Set baked name
-            if yp.baked_uv_name == '':
-                yp.baked_uv_name = disp_uv
-
-            # Recover original bake samples
-            context.scene.cycles.samples = self.samples
-
-            # Get subsurf modifier
-            #subsurf = get_subsurf_modifier(obj)
-
-            #subsurf_found = True
-            #if not subsurf:
-            #    subsurf_found = False
-            #    subsurf = obj.modifiers.new('_temp_subsurf', 'SUBSURF')
-            #    subsurf.render_levels = height_ch.subdiv_on_level
-            #else:
-            #    ori_level = subsurf.render_levels
-
-            ## Get displace modifier
-            #displace = get_displace_modifier(obj)
-            #if not displace:
-            #    displace = obj.modifiers.new('_temp_displace', 'DISPLACE')
-
-            #end_max_height = tree.nodes.get(height_root_ch.end_max_height)
-            #max_height = end_max_height.outputs[0].default_value
-
-            #displace.strength = height_root_ch.subdiv_tweak * max_height
-            #displace.mid_level = height_root_ch.parallax_ref_plane
-            #displace.uv_layer = disp_uv
-
-            # Set to use baked
-            yp.use_baked = True
-            ori_subdiv_setup = height_root_ch.enable_subdiv_setup
-            ori_subdiv_adaptive = height_root_ch.subdiv_adaptive
-            height_root_ch.subdiv_adaptive = False
-            height_root_ch.enable_subdiv_setup = True
-            #height_root_ch.subdiv_adaptive = True
-            #height_root_ch.enable_subdiv_setup = True
 
         #return {'FINISHED'}
 
@@ -908,28 +908,6 @@ class YBakeToLayer(bpy.types.Operator):
                         for j, li in enumerate(p.loop_indices):
                             uvl.data[li].uv = ori_loop_locs[obj.name][i][j]
 
-            if obj.name in ori_meshes:
-                temp_mesh = obj.data
-                obj.data = ori_meshes[obj.name]
-                bpy.data.meshes.remove(temp_mesh)
-
-            if obj.name in ori_subsurf_props:
-                for i in range(len(ori_subsurf_props[obj.name])):
-
-                    # Recover subsurf modifier
-                    mod = obj.modifiers.new(ori_subsurf_props[obj.name][i]['name'], 
-                            'MULTIRES' if ori_subsurf_multires[obj.name][i] else 'SUBSURF')
-
-                    # Recover subsurf modifier index
-                    current_idx = [j for j, m in enumerate(obj.modifiers) if m == mod][0]
-                    for j in range(current_idx-ori_subsurf_ids[obj.name][i]):
-                        bpy.ops.object.modifier_move_up(modifier=mod.name)
-
-                    # Recover subsurf props
-                    for prop in dir(mod):
-                        try: setattr(mod, prop, ori_subsurf_props[obj.name][i][prop])
-                        except: pass
-
             # Delete cavity vcol
             vcol = obj.data.vertex_colors.get(TEMP_VCOL)
             if vcol: obj.data.vertex_colors.remove(vcol)
@@ -943,6 +921,13 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Recover bake settings
         recover_bake_settings_(book, yp)
+
+        # Remove temporary objects
+        if temp_objs:
+            for o in temp_objs:
+                m = o.data
+                bpy.data.objects.remove(o)
+                bpy.data.meshes.remove(m)
 
         #return {'FINISHED'}
 
