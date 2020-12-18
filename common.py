@@ -277,6 +277,11 @@ def is_greater_than_281():
         return True
     else: return False
 
+def set_active_object(obj):
+    if is_greater_than_280():
+        bpy.context.view_layer.objects.active = obj
+    else: bpy.context.scene.objects.active = obj
+
 def link_object(scene, obj):
     if is_greater_than_280():
         scene.collection.objects.link(obj)

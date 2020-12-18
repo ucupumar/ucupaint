@@ -2656,10 +2656,10 @@ class YPaintChannel(bpy.types.PropertyGroup):
     parallax_ref_plane = FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
             update=update_displacement_ref_plane)
 
-    # Real subdivision using height map
+    # Real displacement using height map
     enable_subdiv_setup = BoolProperty(
-            name = 'Enable Subdivision Setup',
-            description = 'Enable subdivision setup. Only works if baked results is used.',
+            name = 'Enable Displacement Setup',
+            description = 'Enable displacement setup. Only works if baked results is used.',
             default=False, update=Bake.update_enable_subdiv_setup)
 
     #subdiv_standard_type = EnumProperty(
@@ -2676,27 +2676,27 @@ class YPaintChannel(bpy.types.PropertyGroup):
     subdiv_adaptive = BoolProperty(
             name = 'Use Adaptive Subdivision',
             description = 'Use Adaptive Subdivision (only works on Cycles)',
-            default=False, update=Bake.update_enable_subdiv_setup
+            default=False, update=Bake.update_subdiv_setup
             )
     
     subdiv_on_max_polys = IntProperty(
             name = 'Subdiv On Max Polygons',
-            description = 'Max Polygons (in thousand) when subdivision setup is on',
+            description = 'Max Polygons (in thousand) when displacement setup is on',
             default=1000, min=0, max=5000, 
-            update=Bake.update_subdiv_on_off_level
+            update=Bake.update_subdiv_max_polys
             )
 
     #subdiv_on_level = IntProperty(
     #        name = 'Subdiv On Level',
-    #        description = 'Subdivision level when subdivision setup is on',
+    #        description = 'Subdivision level when displacement setup is on',
     #        default=3, min=0, max=10, 
     #        update=Bake.update_subdiv_on_off_level)
 
-    subdiv_off_level = IntProperty(
-            name = 'Subdiv Off Level',
-            description = 'Subdivision level when subdivision setup is off',
-            default=1, min=0, max=10, update=Bake.update_subdiv_on_off_level
-            )
+    #subdiv_off_level = IntProperty(
+    #        name = 'Subdiv Off Level',
+    #        description = 'Subdivision level when displacement setup is off',
+    #        default=1, min=0, max=10, update=Bake.update_subdiv_on_off_level
+    #        )
 
     subdiv_tweak = FloatProperty(
             name = 'Subdiv Tweak',
@@ -2707,6 +2707,12 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     subdiv_global_dicing = FloatProperty(subtype='PIXEL', default=1.0, min=0.5, max=1000,
             update=Bake.update_subdiv_global_dicing)
+
+    subdiv_subsurf_only = BoolProperty(
+            name = 'Use Subsurf Modifier Only',
+            description = 'Ignore Multires and use subsurf modifier exclusively (useful if you already baked the multires to layer)',
+            default=False, update=Bake.update_subdiv_setup
+            )
 
     # Main uv is used for normal calculation of normal channel
     main_uv = StringProperty(default='')
@@ -2906,6 +2912,12 @@ class YPaintSceneProps(bpy.types.PropertyGroup):
     last_object = StringProperty(default='')
     last_mode = StringProperty(default='')
 
+class YPaintObjectProps(bpy.types.PropertyGroup):
+    ori_subsurf_render_levels = IntProperty(default=1)
+    ori_subsurf_levels = IntProperty(default=1)
+    ori_multires_render_levels = IntProperty(default=1)
+    ori_multires_levels = IntProperty(default=1)
+
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min = FloatProperty(default=0.0)
 #    parallax_scale_span = FloatProperty(default=1.0)
@@ -3020,6 +3032,7 @@ def register():
     bpy.utils.register_class(YPaintMaterialProps)
     bpy.utils.register_class(YPaintTimer)
     bpy.utils.register_class(YPaintSceneProps)
+    bpy.utils.register_class(YPaintObjectProps)
     #bpy.utils.register_class(YPaintMeshProps)
 
     # YPaint Props
@@ -3027,6 +3040,7 @@ def register():
     bpy.types.Material.yp = PointerProperty(type=YPaintMaterialProps)
     bpy.types.WindowManager.yptimer = PointerProperty(type=YPaintTimer)
     bpy.types.Scene.yp = PointerProperty(type=YPaintSceneProps)
+    bpy.types.Object.yp = PointerProperty(type=YPaintObjectProps)
     #bpy.types.Mesh.yp = PointerProperty(type=YPaintMeshProps)
 
     # Handlers
@@ -3061,6 +3075,7 @@ def unregister():
     bpy.utils.unregister_class(YPaintMaterialProps)
     bpy.utils.unregister_class(YPaintTimer)
     bpy.utils.unregister_class(YPaintSceneProps)
+    bpy.utils.unregister_class(YPaintObjectProps)
     #bpy.utils.unregister_class(YPaintMeshProps)
 
     # Remove handlers

@@ -762,7 +762,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 #else:
                 #    brow.prop(chui, 'expand_subdiv_settings', text='', emboss=True, icon_value=lib.get_icon('input'))
 
-                brow.label(text='Subdiv Setup:')
+                brow.label(text='Displacement Setup:')
                 brow.active = yp.use_baked
                 brow.prop(channel, 'enable_subdiv_setup', text='')
 
@@ -791,20 +791,20 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                     #brow.prop(channel, 'subdiv_standard_type', expand=True)
 
                     #if not channel.enable_subdiv_setup or channel.subdiv_adaptive:
-                    brow = bbcol.row(align=True)
-                    if channel.subdiv_adaptive:
-                        brow.label(text='Viewport Level:')
-                    else: brow.label(text='Setup Off Level:')
-                    brow.prop(channel, 'subdiv_off_level', text='')
+                    #brow = bbcol.row(align=True)
+                    #if channel.subdiv_adaptive:
+                    #    brow.label(text='Viewport Level:')
+                    #else: brow.label(text='Setup Off Level:')
+                    #brow.prop(channel, 'subdiv_off_level', text='')
 
                     if channel.subdiv_adaptive:
                         brow = bbcol.row(align=True)
                         brow.label(text='Global Dicing:')
                         brow.prop(channel, 'subdiv_global_dicing', text='')
 
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Dicing Scale:')
-                        brow.prop(context.object.cycles, 'dicing_rate', text='')
+                        #brow = bbcol.row(align=True)
+                        #brow.label(text='Dicing Scale:')
+                        #brow.prop(context.object.cycles, 'dicing_rate', text='')
                     else:
                     #if channel.enable_subdiv_setup and not channel.subdiv_adaptive:
                         #brow = bbcol.row(align=True)
@@ -812,12 +812,16 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                         #brow.prop(channel, 'subdiv_on_level', text='')
 
                         brow = bbcol.row(align=True)
-                        brow.label(text='Setup On Max Polys:')
+                        brow.label(text='Max Polygons:')
                         brow.prop(channel, 'subdiv_on_max_polys', text='')
 
                     brow = bbcol.row(align=True)
-                    brow.label(text='Subdiv Tweak:')
+                    brow.label(text='Height Tweak:')
                     brow.prop(channel, 'subdiv_tweak', text='')
+
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Subsurf Only:')
+                    brow.prop(channel, 'subdiv_subsurf_only', text='')
 
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)

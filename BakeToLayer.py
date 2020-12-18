@@ -129,9 +129,9 @@ class YBakeToLayer(bpy.types.Operator):
             )
 
     subsurf_influence = BoolProperty(
-            name='Subsurf Influence',
-            description='Take account subsurf when baking cavity',
-            default=False
+            name='Subsurf / Multires Influence',
+            description='Take account subsurf or multires when baking cavity',
+            default=True
             )
 
     force_bake_all_polygons = BoolProperty(
@@ -351,10 +351,10 @@ class YBakeToLayer(bpy.types.Operator):
         col.label(text='')
         col.label(text='')
 
-        if height_root_ch:
+        if not self.type.startswith('MULTIRES_'):
             col.label(text='')
 
-        if self.type == 'CAVITY':
+        if height_root_ch and not self.type.startswith('MULTIRES_'):
             col.label(text='')
 
         col.label(text='')
@@ -401,13 +401,13 @@ class YBakeToLayer(bpy.types.Operator):
 
         col.separator()
 
-        if height_root_ch:
-            col.prop(self, 'use_baked_disp')
-
-        if self.type == 'CAVITY':
+        if not self.type.startswith('MULTIRES_'):
             r = col.row()
             r.active = not self.use_baked_disp
             r.prop(self, 'subsurf_influence')
+
+        if height_root_ch and not self.type.startswith('MULTIRES_'):
+            col.prop(self, 'use_baked_disp')
 
         col.prop(self, 'flip_normals')
         col.prop(self, 'force_bake_all_polygons')
@@ -509,7 +509,9 @@ class YBakeToLayer(bpy.types.Operator):
             height_root_ch.subdiv_adaptive = False
             height_root_ch.enable_subdiv_setup = True
 
-        # Cavity bake will create temporary objects
+        #return {'FINISHED'}
+
+        # Cavity bake sometimes will create temporary objects
         temp_objs = []
         if self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp):
             tt = time.time()
@@ -555,7 +557,7 @@ class YBakeToLayer(bpy.types.Operator):
                 )
 
         # Set multires level
-        ori_multires_levels = {}
+        #ori_multires_levels = {}
         if self.type.startswith('MULTIRES_'): #or self.type == 'AO':
             for ob in objs:
                 mod = get_multires_modifier(ob)
@@ -565,7 +567,7 @@ class YBakeToLayer(bpy.types.Operator):
                     mod.render_levels = self.multires_base
                     mod.levels = self.multires_base
 
-                ori_multires_levels[ob.name] = mod.render_levels
+                #ori_multires_levels[ob.name] = mod.render_levels
 
         # Setup for cavity
         if self.type == 'CAVITY':
@@ -597,9 +599,9 @@ class YBakeToLayer(bpy.types.Operator):
                     for m in need_to_be_applied_modifiers:
                         bpy.ops.object.modifier_apply(modifier=m.name)
 
-                # Remove all vertex colors
-                #for vc in reversed(obj.data.vertex_colors):
-                #    obj.data.vertex_colors.remove(vc)
+                    # Remove all vertex colors
+                    #for vc in reversed(obj.data.vertex_colors):
+                    #    obj.data.vertex_colors.remove(vc)
 
                 # Create new vertex color for dirt
                 try:
@@ -635,6 +637,7 @@ class YBakeToLayer(bpy.types.Operator):
         ori_mods = {}
         ori_mat_ids = {}
         ori_loop_locs = {}
+        ori_multires_levels = {}
 
         for obj in objs:
 
@@ -648,6 +651,13 @@ class YBakeToLayer(bpy.types.Operator):
 
             ori_mat_ids[obj.name] = []
             ori_loop_locs[obj.name] = []
+
+            if self.subsurf_influence and not self.use_baked_disp and not self.type.startswith('MULTIRES_'):
+                for m in obj.modifiers:
+                    if m.type == 'MULTIRES':
+                        ori_multires_levels[obj.name] = m.render_levels
+                        m.render_levels = m.total_levels
+                        break
 
             if len(obj.data.materials) > 1:
                 active_mat_id = [i for i, m in enumerate(obj.data.materials) if m == mat][0]
@@ -876,11 +886,7 @@ class YBakeToLayer(bpy.types.Operator):
         # Recover original bsdf
         mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
-        # Recover subdiv setup
-        if height_root_ch and self.use_baked_disp:
-            yp.use_baked = False
-            height_root_ch.subdiv_adaptive = ori_subdiv_adaptive
-            height_root_ch.enable_subdiv_setup = ori_subdiv_setup
+        #return {'FINISHED'}
 
         for obj in objs:
             # Recover modifiers
@@ -889,6 +895,12 @@ class YBakeToLayer(bpy.types.Operator):
                 if i >= len(ori_mods[obj.name]): break
                 if ori_mods[obj.name][i] != m.show_render:
                     m.show_render = ori_mods[obj.name][i]
+
+            # Recover multires levels
+            for m in obj.modifiers:
+                if m.type == 'MULTIRES' and obj.name in ori_multires_levels:
+                    m.render_levels = ori_multires_levels[obj.name]
+                    break
 
             # Recover material index
             if ori_mat_ids[obj.name]:
@@ -919,6 +931,13 @@ class YBakeToLayer(bpy.types.Operator):
             bpy.ops.mesh.select_all(action='DESELECT')
             #bpy.ops.object.mode_set(mode = ori_mode)
 
+        # Recover subdiv setup
+        #if height_root_ch and self.use_baked_disp:
+        if height_root_ch and self.use_baked_disp and not self.type.startswith('MULTIRES_'):
+            yp.use_baked = False
+            height_root_ch.subdiv_adaptive = ori_subdiv_adaptive
+            height_root_ch.enable_subdiv_setup = ori_subdiv_setup
+
         # Recover bake settings
         recover_bake_settings_(book, yp)
 
@@ -929,7 +948,7 @@ class YBakeToLayer(bpy.types.Operator):
                 bpy.data.objects.remove(o)
                 bpy.data.meshes.remove(m)
 
-        #return {'FINISHED'}
+        return {'FINISHED'}
 
         # Reconnect and rearrange nodes
         #reconnect_yp_layer_nodes(node.node_tree)
