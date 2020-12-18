@@ -507,7 +507,9 @@ class YBakeToLayer(bpy.types.Operator):
             ori_subdiv_setup = height_root_ch.enable_subdiv_setup
             ori_subdiv_adaptive = height_root_ch.subdiv_adaptive
             height_root_ch.subdiv_adaptive = False
-            height_root_ch.enable_subdiv_setup = True
+
+            if not height_root_ch.enable_subdiv_setup:
+                height_root_ch.enable_subdiv_setup = True
 
         #return {'FINISHED'}
 
@@ -936,7 +938,8 @@ class YBakeToLayer(bpy.types.Operator):
         if height_root_ch and self.use_baked_disp and not self.type.startswith('MULTIRES_'):
             yp.use_baked = False
             height_root_ch.subdiv_adaptive = ori_subdiv_adaptive
-            height_root_ch.enable_subdiv_setup = ori_subdiv_setup
+            if height_root_ch.enable_subdiv_setup != ori_subdiv_setup:
+                height_root_ch.enable_subdiv_setup = ori_subdiv_setup
 
         # Recover bake settings
         recover_bake_settings_(book, yp)
@@ -948,7 +951,7 @@ class YBakeToLayer(bpy.types.Operator):
                 bpy.data.objects.remove(o)
                 bpy.data.meshes.remove(m)
 
-        return {'FINISHED'}
+        #return {'FINISHED'}
 
         # Reconnect and rearrange nodes
         #reconnect_yp_layer_nodes(node.node_tree)

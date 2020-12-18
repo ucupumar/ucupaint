@@ -1719,6 +1719,8 @@ def update_use_baked(self, context):
     height_ch = get_root_height_channel(yp)
     if height_ch:
         check_subdiv_setup(height_ch)
+        if height_ch.enable_subdiv_setup and not yp.use_baked:
+            recover_subsurf_levels()
 
     # Check uv nodes
     check_uv_nodes(yp)
@@ -2016,6 +2018,40 @@ def update_subdiv_setup(self, context):
     rearrange_yp_nodes(tree)
     reconnect_yp_nodes(tree)
 
+def remember_subsurf_levels():
+    print('Remembering')
+    mat = get_active_material()
+    objs = get_all_objects_with_same_materials(mat)
+
+    for obj in objs:
+        subsurf = get_subsurf_modifier(obj)
+        if subsurf:
+            obj.yp.ori_subsurf_render_levels = subsurf.render_levels
+            obj.yp.ori_subsurf_levels = subsurf.levels
+
+        multires = get_multires_modifier(obj)
+        if multires:
+            obj.yp.ori_multires_render_levels = multires.render_levels
+            obj.yp.ori_multires_levels = multires.levels
+
+def recover_subsurf_levels():
+    print('Recovering')
+    mat = get_active_material()
+    objs = get_all_objects_with_same_materials(mat)
+
+    for obj in objs:
+        subsurf = get_subsurf_modifier(obj)
+        if subsurf:
+            subsurf.render_levels = obj.yp.ori_subsurf_render_levels
+            subsurf.levels = obj.yp.ori_subsurf_levels
+
+        multires = get_multires_modifier(obj)
+        if multires:
+            if obj.yp.ori_multires_render_levels <= multires.total_levels:
+                multires.render_levels = obj.yp.ori_multires_render_levels
+            if obj.yp.ori_multires_levels <= multires.total_levels:
+                multires.levels = obj.yp.ori_multires_levels
+
 def update_enable_subdiv_setup(self, context):
     tree = self.id_data
     yp = tree.yp
@@ -2023,33 +2059,13 @@ def update_enable_subdiv_setup(self, context):
     mat = get_active_material()
     objs = get_all_objects_with_same_materials(mat)
 
-    if height_ch.enable_subdiv_setup:
-        for obj in objs:
-            subsurf = get_subsurf_modifier(obj)
-            if subsurf:
-                obj.yp.ori_subsurf_render_levels = subsurf.render_levels
-                obj.yp.ori_subsurf_levels = subsurf.levels
-
-            multires = get_multires_modifier(obj)
-            if multires:
-                obj.yp.ori_multires_render_levels = multires.render_levels
-                obj.yp.ori_multires_levels = multires.levels
+    if height_ch.enable_subdiv_setup and yp.use_baked:
+        remember_subsurf_levels()
 
     update_subdiv_setup(self, context)
 
-    if not height_ch.enable_subdiv_setup:
-        for obj in objs:
-            subsurf = get_subsurf_modifier(obj)
-            if subsurf:
-                subsurf.render_levels = obj.yp.ori_subsurf_render_levels
-                subsurf.levels = obj.yp.ori_subsurf_levels
-
-            multires = get_multires_modifier(obj)
-            if multires:
-                if obj.yp.ori_multires_render_levels <= multires.total_levels:
-                    multires.render_levels = obj.yp.ori_multires_render_levels
-                if obj.yp.ori_multires_levels <= multires.total_levels:
-                    multires.levels = obj.yp.ori_multires_levels
+    if not height_ch.enable_subdiv_setup and yp.use_baked:
+        recover_subsurf_levels()
 
 def update_subdiv_tweak(self, context):
     mat = get_active_material()

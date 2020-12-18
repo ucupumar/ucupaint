@@ -820,6 +820,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                     brow.prop(channel, 'subdiv_tweak', text='')
 
                     brow = bbcol.row(align=True)
+                    brow.active = not channel.subdiv_adaptive
                     brow.label(text='Subsurf Only:')
                     brow.prop(channel, 'subdiv_subsurf_only', text='')
 
