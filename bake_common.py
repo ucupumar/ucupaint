@@ -5,6 +5,12 @@ from . import lib, Layer
 
 BL28_HACK = True
 
+problematic_modifiers = {
+        'MIRROR',
+        'SOLIDIFY',
+        'ARRAY',
+        }
+
 def remember_before_bake_(yp=None):
     book = {}
     book['scene'] = scene = bpy.context.scene
@@ -25,6 +31,14 @@ def remember_before_bake_(yp=None):
     book['ori_device'] = scene.cycles.device
     book['ori_tile_x'] = scene.render.tile_x
     book['ori_tile_y'] = scene.render.tile_y
+    book['ori_use_selected_to_active'] = scene.render.bake.use_selected_to_active
+    book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
+    book['ori_cage_extrusion'] = scene.render.bake.cage_extrusion
+    book['ori_use_cage'] = scene.render.bake.use_cage
+
+    if is_greater_than_280():
+        book['ori_material_override'] = bpy.context.view_layer.material_override
+    else: book['ori_material_override'] = scene.render.layers.active.material_override
 
     # Multires related
     book['ori_use_bake_multires'] = scene.render.use_bake_multires
@@ -64,7 +78,8 @@ def remember_before_bake_(yp=None):
     return book
 
 def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
-        disable_problematic_modifiers=False, force_use_cpu=False, hide_other_objs=True, bake_from_multires=False, tile_x=64, tile_y=64):
+        disable_problematic_modifiers=False, force_use_cpu=False, hide_other_objs=True, bake_from_multires=False, 
+        tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0):
 
     #scene = self.scene
     scene = bpy.context.scene
@@ -77,9 +92,17 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
     scene.render.bake.margin = margin
     #scene.render.bake.use_clear = True
     scene.render.bake.use_clear = False
+    scene.render.bake.use_selected_to_active = use_selected_to_active
+    scene.render.bake.max_ray_distance = max_ray_distance
+    scene.render.bake.cage_extrusion = cage_extrusion
+    scene.render.bake.use_cage = False
     scene.render.use_simplify = False
     scene.render.tile_x = tile_x
     scene.render.tile_y = tile_y
+
+    if is_greater_than_280():
+        bpy.context.view_layer.material_override = None
+    else: scene.render.layers.active.material_override = None
 
     if bake_from_multires:
         scene.render.use_bake_multires = True
@@ -134,7 +157,7 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
         book['disabled_mods'] = []
         for obj in objs:
             for mod in obj.modifiers:
-                if mod.show_render and mod.type in {'MIRROR', 'SOLIDIFY'}:
+                if mod.show_render and mod.type in problematic_modifiers: #{'MIRROR', 'SOLIDIFY'}:
                     mod.show_render = False
                     book['disabled_mods'].append(mod)
 
@@ -176,6 +199,14 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
     scene.cycles.device = book['ori_device']
     scene.render.tile_x = book['ori_tile_x']
     scene.render.tile_y = book['ori_tile_y']
+    scene.render.bake.use_selected_to_active = book['ori_use_selected_to_active']
+    scene.render.bake.max_ray_distance = book['ori_max_ray_distance']
+    scene.render.bake.cage_extrusion = book['ori_cage_extrusion']
+    scene.render.bake.use_cage = book['ori_use_cage']
+
+    if is_greater_than_280():
+        bpy.context.view_layer.material_override = book['ori_material_override']
+    else: scene.render.layers.active.material_override = book['ori_material_override']
 
     # Multires related
     scene.render.use_bake_multires = book['ori_use_bake_multires']
@@ -848,4 +879,270 @@ def disable_temp_bake(entity):
     # Set entity attribute
     entity.use_temp_bake = False
 
+def copy_and_join_objects(objs):
+
+    temp_objs = []
+    for obj in objs:
+        temp_obj = obj.copy()
+        link_object(bpy.context.scene, temp_obj)
+        temp_obj.data = temp_obj.data.copy()
+        temp_objs.append(temp_obj)
+
+    return join_objects(temp_objs)
+
+def join_objects(objs):
+
+    if len(objs) == 0: return None
+
+    objs = [o for o in objs if o.type == 'MESH']
+
+    # Deselect all objects
+    bpy.ops.object.mode_set(mode='OBJECT')
+    bpy.ops.object.select_all(action='DESELECT')
+
+    max_levels = -1
+    hi_obj = None
+    for obj in objs:
+
+        set_object_select(obj, True)
+
+        for mod in obj.modifiers:
+
+            # Disable all problematic modifiers
+            if mod.type in problematic_modifiers:
+                mod.show_render = False
+                mod.show_viewport = False
+
+            # Check who has highest multires if available
+            if mod.type == 'MULTIRES':
+                if mod.render_levels > max_levels:
+                    max_levels = mod.render_levels
+                    hi_obj = obj
+
+    # Check who has highest subsurf if multires modifier is not found
+    if not hi_obj:
+        for obj in objs:
+            if mod.type == 'SUBSURF':
+                if mod.levels > max_levels:
+                    max_levels = mod.levels
+                    hi_obj = obj
+
+    if not hi_obj: hi_obj = objs[0]
+
+    # Set active object
+    set_active_object(hi_obj)
+    bpy.ops.object.mode_set(mode='OBJECT')
+
+    bpy.ops.object.join()
+
+    return bpy.context.object
+
+def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None, alpha_aware=True, force_use_cpu=False):
+
+    T = time.time()
+    image_name = image.name
+    print('RESIZE IMAGE: Doing resize image pass on', image_name + '...')
+
+    book = remember_before_bake_()
+
+    if segment:
+        ori_width = segment.width
+        ori_height = segment.height
+    else:
+        ori_width = image.size[0]
+        ori_height = image.size[1]
+
+    if ori_width == width and ori_height == height:
+        return
+
+    if segment:
+        new_segment = ImageAtlas.get_set_image_atlas_segment(
+                    width, height, image.yia.color, image.is_float) #, ypup.image_atlas_size)
+        scaled_img = new_segment.id_data
+
+        ori_start_x = segment.width * segment.tile_x
+        ori_start_y = segment.height * segment.tile_y
+
+        start_x = width * new_segment.tile_x
+        start_y = height * new_segment.tile_y
+    else:
+        scaled_img = bpy.data.images.new(name='__TEMP__', 
+            width=width, height=height, alpha=True, float_buffer=image.is_float)
+        scaled_img.colorspace_settings.name = colorspace
+        if image.filepath != '' and not image.packed_file:
+            scaled_img.filepath = image.filepath
+
+        start_x = 0
+        start_y = 0
+
+        new_segment = None
+
+    # Set active collection to be root collection
+    if is_greater_than_280():
+        ori_layer_collection = bpy.context.view_layer.active_layer_collection
+        bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
+
+    # Create new plane
+    bpy.ops.object.mode_set(mode = 'OBJECT')
+    bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
+    plane_obj = bpy.context.view_layer.objects.active
+
+    prepare_bake_settings_(book, [plane_obj], samples=samples, margin=margin, force_use_cpu=force_use_cpu)
+
+    # If using image atlas, transform uv
+    if segment:
+        uv_layers = get_uv_layers(plane_obj)
+
+        # Transform current uv using previous segment
+        #uv_layer = uv_layers.active
+        for i, d in enumerate(plane_obj.data.uv_layers.active.data):
+            if i == 0: # Top right
+                d.uv.x = (ori_start_x + segment.width) / image.size[0]
+                d.uv.y = (ori_start_y + segment.height) / image.size[1]
+            elif i == 1: # Top left
+                d.uv.x = ori_start_x / image.size[0]
+                d.uv.y = (ori_start_y + segment.height) / image.size[1]
+            elif i == 2: # Bottom left
+                d.uv.x = ori_start_x / image.size[0]
+                d.uv.y = ori_start_y / image.size[1]
+            elif i == 3: # Bottom right
+                d.uv.x = (ori_start_x + segment.width) / image.size[0]
+                d.uv.y = ori_start_y / image.size[1]
+
+        # Create new uv and transform it using new segment
+        temp_uv_layer = uv_layers.new(name='__TEMP')
+        uv_layers.active = temp_uv_layer
+        for i, d in enumerate(plane_obj.data.uv_layers.active.data):
+            if i == 0: # Top right
+                d.uv.x = (start_x + width) / scaled_img.size[0]
+                d.uv.y = (start_y + height) / scaled_img.size[1]
+            elif i == 1: # Top left
+                d.uv.x = start_x / scaled_img.size[0]
+                d.uv.y = (start_y + height) / scaled_img.size[1]
+            elif i == 2: # Bottom left
+                d.uv.x = start_x / scaled_img.size[0]
+                d.uv.y = start_y / scaled_img.size[1]
+            elif i == 3: # Bottom right
+                d.uv.x = (start_x + width) / scaled_img.size[0]
+                d.uv.y = start_y / scaled_img.size[1]
+
+    #return{'FINISHED'}
+
+    mat = bpy.data.materials.new('__TEMP__')
+    mat.use_nodes = True
+    plane_obj.active_material = mat
+
+    output = get_active_mat_output_node(mat.node_tree)
+    emi = mat.node_tree.nodes.new('ShaderNodeEmission')
+    uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
+    uv_map.uv_map = 'UVMap'
+    target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    target_tex.image = scaled_img
+    source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    source_tex.image = image
+    straight_over = mat.node_tree.nodes.new('ShaderNodeGroup')
+    straight_over.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
+    straight_over.inputs[1].default_value = 0.0
+
+    # Connect nodes
+    mat.node_tree.links.new(uv_map.outputs[0], source_tex.inputs[0])
+    mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
+    mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
+    mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
+    mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
+    mat.node_tree.nodes.active = target_tex
+
+    # Bake
+    print('RESIZE IMAGE: Baking resized image on', image_name + '...')
+    bpy.ops.object.bake()
+
+    if alpha_aware:
+
+        # Create alpha image as bake target
+        alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
+                width=width, height=height, alpha=True, float_buffer=image.is_float)
+        alpha_img.colorspace_settings.name = 'Linear'
+
+        # Retransform back uv
+        if segment:
+            for i, d in enumerate(plane_obj.data.uv_layers.active.data):
+                if i == 0: # Top right
+                    d.uv.x = 1.0
+                    d.uv.y = 1.0
+                elif i == 1: # Top left
+                    d.uv.x = 0.0
+                    d.uv.y = 1.0
+                elif i == 2: # Bottom left
+                    d.uv.x = 0.0
+                    d.uv.y = 0.0
+                elif i == 3: # Bottom right
+                    d.uv.x = 1.0
+                    d.uv.y = 0.0
+
+        # Setup texture
+        target_tex.image = alpha_img
+        mat.node_tree.links.new(source_tex.outputs[1], emi.inputs[0])
+
+        # Bake again!
+        print('RESIZE IMAGE: Baking resized alpha on', image_name + '...')
+        bpy.ops.object.bake()
+
+        # Copy alpha image to scaled image
+        target_pxs = list(scaled_img.pixels)
+        temp_pxs = list(alpha_img.pixels)
+
+        for y in range(height):
+            temp_offset_y = width * 4 * y
+            offset_y = scaled_img.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                temp_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                target_pxs[offset_y + offset_x + 3] = temp_pxs[temp_offset_y + temp_offset_x]
+
+        scaled_img.pixels = target_pxs
+
+        # Remove alpha image
+        bpy.data.images.remove(alpha_img)
+
+    # Replace original image to scaled image
+    replace_image(image, scaled_img)
+
+    # Remove temp datas
+    if straight_over.node_tree.users == 1:
+        bpy.data.node_groups.remove(straight_over.node_tree)
+    bpy.data.materials.remove(mat)
+    plane = plane_obj.data
+    bpy.ops.object.delete()
+    bpy.data.meshes.remove(plane)
+
+    # Recover settings
+    recover_bake_settings_(book)
+
+    # Recover original active layer collection
+    if is_greater_than_280():
+        bpy.context.view_layer.active_layer_collection = ori_layer_collection
+
+    print('RESIZE IMAGE:', image_name, 'Resize image is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+
+    return scaled_img, new_segment
+
+TEMP_EMIT_WHITE = '__EMIT_WHITE__'
+
+def get_temp_emit_white_mat():
+    mat = bpy.data.materials.get(TEMP_EMIT_WHITE)
+
+    if not mat: 
+        mat = bpy.data.materials.new(TEMP_EMIT_WHITE)
+        mat.use_nodes = True
+
+        # Create nodes
+        output = get_active_mat_output_node(mat.node_tree)
+        emi = mat.node_tree.nodes.new('ShaderNodeEmission')
+        mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
+
+    return mat
+
+def remove_temp_emit_white_mat():
+    mat = bpy.data.materials.get(TEMP_EMIT_WHITE)
+    if mat: bpy.data.materials.remove(mat)
 

@@ -14,10 +14,15 @@ bake_type_items = (
         ('CAVITY', 'Cavity', ''),
         ('DUST', 'Dust', ''),
         ('PAINT_BASE', 'Paint Base', ''),
+
         ('BEVEL_NORMAL', 'Bevel Normal', ''),
         ('BEVEL_MASK', 'Bevel Grayscale', ''),
+
         ('MULTIRES_NORMAL', 'Multires Normal', ''),
         ('MULTIRES_DISPLACEMENT', 'Multires Displacement', ''),
+
+        ('OTHER_OBJECT_NORMAL', 'Other Objects Normal', ''),
+        ('OTHER_OBJECT_EMISSION', 'Other Objects Emission', ''),
         )
 
 TEMP_VCOL = '__temp__vcol__'
@@ -47,7 +52,7 @@ class YBakeToLayer(bpy.types.Operator):
 
     margin = IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
-            default=5, subtype='PIXEL')
+            default=5, min=0, subtype='PIXEL')
 
     type = EnumProperty(
             name = 'Bake Type',
@@ -56,6 +61,17 @@ class YBakeToLayer(bpy.types.Operator):
             default='AO'
             )
 
+    # Other objects props
+    cage_extrusion = FloatProperty(
+            name = 'Cage Extrusion',
+            description = 'Inflate the active object by the specified distance for baking. This helps matching to points nearer to the outside of the selected object meshes',
+            default=0.2, min=0.0, max=1.0)
+
+    max_ray_distance = FloatProperty(
+            name = 'Max Ray Distance',
+            description = 'The maximum ray distance for matching points between the active and selected objects. If zero, there is no limit',
+            default=0.2, min=0.0, max=1.0)
+    
     # AO Props
     ao_distance = FloatProperty(default=1.0)
 
@@ -76,6 +92,10 @@ class YBakeToLayer(bpy.types.Operator):
     fxaa = BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked image (doesn't work with float images)",
             default=True)
+
+    ssaa = BoolProperty(name='Use SSAA', 
+            description = "Use Supersample AA to baked image",
+            default=False)
 
     width = IntProperty(name='Width', default = 1024, min=1, max=4096)
     height = IntProperty(name='Height', default = 1024, min=1, max=4096)
@@ -144,6 +164,11 @@ class YBakeToLayer(bpy.types.Operator):
             description='Force use CPU for baking (usually faster than using GPU)',
             default=False)
 
+    #source_object = PointerProperty(
+    #        type=bpy.types.Object,
+    #        #poll=scene_mychosenobject_poll
+    #        )
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -197,36 +222,50 @@ class YBakeToLayer(bpy.types.Operator):
         elif self.type == 'BEVEL_NORMAL':
             self.blend_type = 'MIX'
             self.normal_blend_type = 'OVERLAY'
+            self.use_baked_disp = False
             suffix = 'Bevel Normal'
             self.samples = 32
 
             if height_root_ch:
                 self.channel_idx = str(get_channel_index(height_root_ch))
-
-            self.normal_map_type = 'NORMAL_MAP'
+                self.normal_map_type = 'NORMAL_MAP'
 
         elif self.type == 'BEVEL_MASK':
             self.blend_type = 'MIX'
+            self.use_baked_disp = False
             suffix = 'Bevel Grayscale'
             self.samples = 32
 
         elif self.type == 'MULTIRES_NORMAL':
             self.blend_type = 'MIX'
             suffix = 'Normal Multires'
-            self.normal_map_type = 'NORMAL_MAP'
-            self.normal_blend_type = 'OVERLAY'
 
             if height_root_ch:
                 self.channel_idx = str(get_channel_index(height_root_ch))
+                self.normal_map_type = 'NORMAL_MAP'
+                self.normal_blend_type = 'OVERLAY'
 
         elif self.type == 'MULTIRES_DISPLACEMENT':
             self.blend_type = 'MIX'
             suffix = 'Displacement Multires'
-            self.normal_map_type = 'BUMP_MAP'
-            self.normal_blend_type = 'OVERLAY'
 
             if height_root_ch:
                 self.channel_idx = str(get_channel_index(height_root_ch))
+                self.normal_map_type = 'BUMP_MAP'
+                self.normal_blend_type = 'OVERLAY'
+
+        elif self.type == 'OTHER_OBJECT_EMISSION':
+            suffix = 'OO Emission'
+            self.subsurf_influence = False
+
+        elif self.type == 'OTHER_OBJECT_NORMAL':
+            suffix = 'OO Normal'
+            self.subsurf_influence = False
+
+            if height_root_ch:
+                self.channel_idx = str(get_channel_index(height_root_ch))
+                self.normal_map_type = 'NORMAL_MAP'
+                self.normal_blend_type = 'OVERLAY'
 
         self.name = get_unique_name(mat.name + ' ' + suffix, bpy.data.images)
 
@@ -332,7 +371,10 @@ class YBakeToLayer(bpy.types.Operator):
                 if channel and channel.type == 'NORMAL':
                     col.label(text='Type:')
 
-        if self.type == 'AO':
+        if self.type.startswith('OTHER_OBJECT_'):
+            col.label(text='Cage Extrusion:')
+            col.label(text='Max Ray Distance:')
+        elif self.type == 'AO':
             col.label(text='AO Distance:')
             col.label(text='')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
@@ -340,6 +382,8 @@ class YBakeToLayer(bpy.types.Operator):
             col.label(text='Bevel Radius:')
         elif self.type.startswith('MULTIRES_'):
             col.label(text='Base Level:')
+        #elif self.type.startswith('OTHER_OBJECT_'):
+        #    col.label(text='Source Object:')
 
         col.label(text='')
         col.label(text='Width:')
@@ -379,7 +423,10 @@ class YBakeToLayer(bpy.types.Operator):
                     else: 
                         rrow.prop(self, 'blend_type', text='')
 
-        if self.type == 'AO':
+        if self.type.startswith('OTHER_OBJECT_'):
+            col.prop(self, 'cage_extrusion', text='')
+            col.prop(self, 'max_ray_distance', text='')
+        elif self.type == 'AO':
             col.prop(self, 'ao_distance', text='')
             col.prop(self, 'only_local')
         elif self.type in {'BEVEL_NORMAL', 'BEVEL_MASK'}:
@@ -387,6 +434,8 @@ class YBakeToLayer(bpy.types.Operator):
             col.prop(self, 'bevel_radius', text='')
         elif self.type.startswith('MULTIRES_'):
             col.prop(self, 'multires_base', text='')
+        #elif self.type.startswith('OTHER_OBJECT_'):
+        #    col.prop(self, 'source_object', text='')
 
         col.prop(self, 'hdr')
         col.prop(self, 'width', text='')
@@ -396,7 +445,10 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'margin', text='')
 
         col.separator()
-        col.prop(self, 'fxaa')
+        if self.type.startswith('OTHER_OBJECT_'):
+            col.prop(self, 'ssaa')
+        else: col.prop(self, 'fxaa')
+
         col.prop(self, 'force_use_cpu')
 
         col.separator()
@@ -466,8 +518,45 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "No valid objects found to bake!")
             return {'CANCELLED'}
 
+        # Get other objects for other object baking
+        other_objs = []
+        if self.type.startswith('OTHER_OBJECT_'):
+            other_objs = [o for o in context.selected_objects if o not in objs]
+            if not other_objs:
+                self.report({'ERROR'}, "Source objects must be selected and it must has different material!")
+                return {'CANCELLED'}
+
         # Remember things
         book = remember_before_bake_(yp)
+
+        # FXAA doesn't work with hdr image
+        # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
+        use_fxaa = not self.hdr and self.fxaa and not self.type.startswith('OTHER_OBJECT_')
+
+        # For now SSAA only works with other object baking
+        use_ssaa = self.ssaa and self.type.startswith('OTHER_OBJECT_')
+
+        # SSAA will multiply size by 2 then resize it back
+        if use_ssaa:
+            width = self.width * 2
+            height = self.height * 2
+        else:
+            width = self.width
+            height = self.height
+
+        # To hold temporary objects
+        temp_objs = []
+
+        # Join objects
+        if self.type.startswith('OTHER_OBJECT_'):
+            #print(other_objs)
+            if len(objs) > 1:
+                objs = [copy_and_join_objects(objs)]
+                temp_objs = [objs[0]]
+
+            objs.extend(other_objs)
+            #print(objs)
+            #return {'FINISHED'}
 
         # If use baked disp, need to bake normal and height map first
         height_root_ch = get_root_height_channel(yp)
@@ -514,7 +603,6 @@ class YBakeToLayer(bpy.types.Operator):
         #return {'FINISHED'}
 
         # Cavity bake sometimes will create temporary objects
-        temp_objs = []
         if self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp):
             tt = time.time()
             print('BAKE TO LAYER: Duplicating mesh(es) for Cavity bake...')
@@ -536,8 +624,8 @@ class YBakeToLayer(bpy.types.Operator):
             bake_type = 'NORMALS'
         elif self.type == 'MULTIRES_DISPLACEMENT':
             bake_type = 'DISPLACEMENT'
-        #elif self.type == 'BEVEL_NORMAL':
-        #    bake_type = 'NORMAL'
+        elif self.type == 'OTHER_OBJECT_NORMAL':
+            bake_type = 'NORMAL'
         else: 
             bake_type = 'EMIT'
 
@@ -546,8 +634,8 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Fit tilesize to bake resolution if samples is equal 1
         if self.samples <= 1:
-            tile_x = self.width
-            tile_y = self.height
+            tile_x = width
+            tile_y = height
         else:
             tile_x = 64
             tile_y = 64
@@ -555,7 +643,8 @@ class YBakeToLayer(bpy.types.Operator):
         prepare_bake_settings_(book, objs, yp, samples=self.samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type=bake_type, force_use_cpu=self.force_use_cpu,
                 hide_other_objs=hide_other_objs, bake_from_multires=self.type.startswith('MULTIRES_'),
-                tile_x = tile_x, tile_y = tile_y
+                tile_x = tile_x, tile_y = tile_y, use_selected_to_active=self.type.startswith('OTHER_OBJECT_'),
+                max_ray_distance=self.max_ray_distance, cage_extrusion=self.cage_extrusion
                 )
 
         # Set multires level
@@ -621,13 +710,20 @@ class YBakeToLayer(bpy.types.Operator):
         if self.flip_normals:
             #ori_mode[obj.name] = obj.mode
             if is_greater_than_280():
+                # Deselect other objects first
+                for o in other_objs:
+                    o.select_set(False)
                 bpy.ops.object.mode_set(mode = 'EDIT')
                 bpy.ops.mesh.reveal()
                 bpy.ops.mesh.select_all(action='SELECT')
                 bpy.ops.mesh.flip_normals()
                 bpy.ops.object.mode_set(mode = 'OBJECT')
+                # Reselect other objects
+                for o in other_objs:
+                    o.select_set(True)
             else:
                 for obj in objs:
+                    if obj in other_objs: continue
                     context.scene.objects.active = obj
                     bpy.ops.object.mode_set(mode = 'EDIT')
                     bpy.ops.mesh.reveal()
@@ -789,10 +885,10 @@ class YBakeToLayer(bpy.types.Operator):
 
         # New target image
         image = bpy.data.images.new(name=self.name,
-                width=self.width, height=self.height, alpha=True, float_buffer=self.hdr)
+                width=width, height=height, alpha=True, float_buffer=self.hdr)
         if self.type == 'AO':
             image.generated_color = (1.0, 1.0, 1.0, 1.0) 
-        elif self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL'}:
+        elif self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL'}:
             if self.hdr:
                 image.generated_color = (0.7354, 0.7354, 1.0, 1.0) 
             else:
@@ -804,6 +900,11 @@ class YBakeToLayer(bpy.types.Operator):
             else: image.generated_color = (0.5, 0.5, 0.5, 1.0) 
         #else: 
         #    image.generated_color = (0.7354, 0.7354, 0.7354, 1.0)
+
+        # Make image transparent if its baked from other objects
+        if self.type.startswith('OTHER_OBJECT_'):
+            image.generated_color[3] = 0.0
+
         image.colorspace_settings.name = 'Linear'
 
         # Set bake info to image
@@ -822,14 +923,63 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type.startswith('MULTIRES_'):
             bpy.ops.object.bake_image()
         else:
-            bpy.ops.object.bake()
+            if bake_type != 'EMIT':
+                bpy.ops.object.bake(type=bake_type)
+            else: bpy.ops.object.bake()
+
+        if use_fxaa: fxaa_image(image, False, self.force_use_cpu)
+
+        # Bake alpha if baking other objects normal
+        #if self.type.startswith('OTHER_OBJECT_'):
+        if self.type == 'OTHER_OBJECT_NORMAL':
+            temp_img = bpy.data.images.new(name='__TEMP_IMAGE__',
+                    width=width, height=height, alpha=True, float_buffer=self.hdr)
+            tex.image = temp_img
+
+            # Need to use clear so there's alpha on the baked image
+            scene.render.bake.use_clear = True
+
+            # Bake emit can will create alpha image
+            bpy.ops.object.bake(type='EMIT')
+
+            #return {'FINISHED'}
+
+            # Copy alpha to RGB channel, so it can be fxaa-ed
+            temp_pxs = list(temp_img.pixels)
+            for y in range(height):
+                offset_y = width * 4 * y
+                for x in range(width):
+                    offset_x = 4 * x
+                    for i in range(3):
+                        temp_pxs[offset_y + offset_x + i] = temp_pxs[offset_y + offset_x + 3]
+                    temp_pxs[offset_y + offset_x + 3] = 1.0
+            temp_img.pixels = temp_pxs
+
+            # Copy alpha to actual image
+            target_pxs = list(image.pixels)
+            temp_pxs = list(temp_img.pixels)
+
+            start_x = 0
+            start_y = 0
+            for y in range(height):
+                temp_offset_y = width * 4 * y
+                offset_y = width * 4 * (y + start_y)
+                for x in range(width):
+                    temp_offset_x = 4 * x
+                    offset_x = 4 * (x + start_x)
+                    target_pxs[offset_y + offset_x + 3] = temp_pxs[temp_offset_y + temp_offset_x]
+                    #target_pxs[offset_y + offset_x + 3] = temp_pxs[temp_offset_y + temp_offset_x + 3]
+
+            image.pixels = target_pxs
+
+            # Remove temp image
+            bpy.data.images.remove(temp_img)
+
+        # Back to original size if using SSA
+        if use_ssaa:
+            image, segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, alpha_aware=True, force_use_cpu=self.force_use_cpu)
 
         #return {'FINISHED'}
-
-        # FXAA doesn't work with hdr image
-        if not self.hdr and self.fxaa:
-            fxaa_image(image, False, self.force_use_cpu)
-
         overwrite_img = None
         if self.overwrite:
             overwrite_img = bpy.data.images.get(self.overwrite_name)
@@ -928,10 +1078,31 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Recover flip normals setup
         if self.flip_normals:
-            bpy.ops.object.mode_set(mode = 'EDIT')
-            bpy.ops.mesh.flip_normals()
-            bpy.ops.mesh.select_all(action='DESELECT')
+            #bpy.ops.object.mode_set(mode = 'EDIT')
+            #bpy.ops.mesh.flip_normals()
+            #bpy.ops.mesh.select_all(action='DESELECT')
             #bpy.ops.object.mode_set(mode = ori_mode)
+            if is_greater_than_280():
+                # Deselect other objects first
+                for o in other_objs:
+                    o.select_set(False)
+                bpy.ops.object.mode_set(mode = 'EDIT')
+                bpy.ops.mesh.reveal()
+                bpy.ops.mesh.select_all(action='SELECT')
+                bpy.ops.mesh.flip_normals()
+                bpy.ops.object.mode_set(mode = 'OBJECT')
+                # Reselect other objects
+                for o in other_objs:
+                    o.select_set(True)
+            else:
+                for obj in objs:
+                    if obj in other_objs: continue
+                    context.scene.objects.active = obj
+                    bpy.ops.object.mode_set(mode = 'EDIT')
+                    bpy.ops.mesh.reveal()
+                    bpy.ops.mesh.select_all(action='SELECT')
+                    bpy.ops.mesh.flip_normals()
+                    bpy.ops.object.mode_set(mode = 'OBJECT')
 
         # Recover subdiv setup
         #if height_root_ch and self.use_baked_disp:
@@ -990,7 +1161,7 @@ class YImageBakeInfoProps(bpy.types.PropertyGroup):
 
     margin = IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
-            default=5, subtype='PIXEL')
+            default=5, min=0, subtype='PIXEL')
 
     flip_normals = BoolProperty(
             name='Flip Normals',
@@ -1019,6 +1190,10 @@ class YImageBakeInfoProps(bpy.types.PropertyGroup):
             description = "Use FXAA to baked image (doesn't work with float images)",
             default=False)
 
+    ssaa = BoolProperty(name='Use SSAA', 
+            description = "Use Supersample AA to baked image",
+            default=False)
+
     use_baked_disp = BoolProperty(
             name='Use Baked Displacement Map',
             description='Use baked displacement map, this will also apply subdiv setup on object',
@@ -1030,6 +1205,16 @@ class YImageBakeInfoProps(bpy.types.PropertyGroup):
             description='Force use CPU for baking (usually faster than using GPU)',
             default=False)
 
+    cage_extrusion = FloatProperty(
+            name = 'Cage Extrusion',
+            description = 'Inflate the active object by the specified distance for baking. This helps matching to points nearer to the outside of the selected object meshes',
+            default=0.2, min=0.0, max=1.0)
+
+    max_ray_distance = FloatProperty(
+            name = 'Max Ray Distance',
+            description = 'The maximum ray distance for matching points between the active and selected objects. If zero, there is no limit',
+            default=0.2, min=0.0, max=1.0)
+    
     multires_base = IntProperty(default=1, min=0, max=16)
 
     hdr = BoolProperty(name='32 bit Float', default=True)

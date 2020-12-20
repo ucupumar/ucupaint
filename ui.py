@@ -2987,6 +2987,16 @@ class YNewLayerMenu(bpy.types.Menu):
         c.type = 'MULTIRES_DISPLACEMENT'
         c.target_type = 'LAYER'
 
+        col.separator()
+
+        c = col.operator("node.y_bake_to_layer", text='Other Objects Emission')
+        c.type = 'OTHER_OBJECT_EMISSION'
+        c.target_type = 'LAYER'
+
+        c = col.operator("node.y_bake_to_layer", text='Other Objects Normal')
+        c.type = 'OTHER_OBJECT_NORMAL'
+        c.target_type = 'LAYER'
+
 class YBakedImageMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_baked_image_menu"
     bl_label = "Baked Image Menu"

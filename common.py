@@ -287,6 +287,17 @@ def link_object(scene, obj):
         scene.collection.objects.link(obj)
     else: scene.objects.link(obj)
 
+def get_object_select(obj):
+    if is_greater_than_280():
+        try: return obj.select_get()
+        except: return False
+    else: return obj.select
+
+def set_object_select(obj, val):
+    if is_greater_than_280():
+        obj.select_set(val)
+    else: obj.select = val
+
 def get_viewport_shade():
     if is_greater_than_280():
         return bpy.context.area.spaces[0].shading.type
