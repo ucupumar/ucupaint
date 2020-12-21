@@ -2,6 +2,7 @@ import bpy, time
 from .common import *
 from mathutils import *
 from bpy.app.handlers import persistent
+from distutils.version import LooseVersion #, StrictVersion
 
 # Node tree names
 OVERLAY_NORMAL = '~yPL Overlay Normal'
@@ -490,6 +491,35 @@ def get_lib_revision(tree):
     return revision
 
 @persistent
+def update_routine(name):
+    T = time.time()
+
+    cur_version = get_current_version_str()
+
+    for ng in bpy.data.node_groups:
+        if ng.yp.is_ypaint_node:
+            #print(ng.name, 'ver:', ng.yp.version)
+
+            # Version 0.9.1 and above will fix wrong bake type stored on images bake type
+            if LooseVersion(ng.yp.version) < LooseVersion('0.9.1'):
+                #print(cur_version)
+                for layer in ng.yp.layers:
+                    if layer.type == 'IMAGE':
+                        source = get_layer_source(layer)
+
+                        if source.image and source.image.y_bake_info.is_baked:
+                            #print(source.image)
+                            for type_name, label in bake_type_suffixes.items():
+                                if label in source.image.name and source.image.y_bake_info.bake_type != type_name:
+                                    source.image.y_bake_info.bake_type = type_name
+                                    print('INFO: Bake type of', source.image.name, 'is fixed by setting it to', label + '!')
+
+                # Update version
+                ng.yp.version = cur_version
+
+    print('INFO: ' + ADDON_TITLE + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
+@persistent
 def update_node_tree_libs(name):
     T = time.time()
 
@@ -676,6 +706,7 @@ def register():
     load_custom_icons()
     #bpy.app.handlers.load_post.append(load_libraries)
     bpy.app.handlers.load_post.append(update_node_tree_libs)
+    bpy.app.handlers.load_post.append(update_routine)
 
 def unregister():
     global custom_icons
@@ -683,3 +714,4 @@ def unregister():
         bpy.utils.previews.remove(custom_icons)
     #bpy.app.handlers.load_post.remove(load_libraries)
     bpy.app.handlers.load_post.remove(update_node_tree_libs)
+    bpy.app.handlers.load_post.remove(update_routine)

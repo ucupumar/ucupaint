@@ -38,11 +38,16 @@ class YBakeToLayer(bpy.types.Operator):
     uv_map = StringProperty(default='')
     uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    overwrite = BoolProperty(
+    # For choosing overwrite entity from list
+    overwrite_choice = BoolProperty(
             name='Overwrite available layer',
             description='Overwrite available layer',
             default=False
             )
+
+    # For rebake button
+    overwrite_current = BoolProperty(default=False)
+
     overwrite_name = StringProperty(default='')
     overwrite_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
@@ -174,6 +179,12 @@ class YBakeToLayer(bpy.types.Operator):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
     def invoke(self, context, event):
+
+        if hasattr(context, 'entity'):
+            self.entity = context.entity
+        else: self.entity = None
+        #print(context.entity)
+
         obj = self.obj = context.object
         scene = self.scene = context.scene
         node = get_active_ypaint_node()
@@ -204,26 +215,20 @@ class YBakeToLayer(bpy.types.Operator):
         mat = get_active_material()
         if self.type == 'AO':
             self.blend_type = 'MULTIPLY'
-            suffix = 'AO'
             self.samples = 32
         elif self.type == 'POINTINESS':
             self.blend_type = 'ADD'
-            suffix = 'Pointiness'
             self.fxaa = False
         elif self.type == 'CAVITY':
             self.blend_type = 'ADD'
-            suffix = 'Cavity'
         elif self.type == 'DUST':
             self.blend_type = 'MIX'
-            suffix = 'Dust'
         elif self.type == 'PAINT_BASE':
             self.blend_type = 'MIX'
-            suffix = 'Paint Base'
         elif self.type == 'BEVEL_NORMAL':
             self.blend_type = 'MIX'
             self.normal_blend_type = 'OVERLAY'
             self.use_baked_disp = False
-            suffix = 'Bevel Normal'
             self.samples = 32
 
             if height_root_ch:
@@ -233,12 +238,10 @@ class YBakeToLayer(bpy.types.Operator):
         elif self.type == 'BEVEL_MASK':
             self.blend_type = 'MIX'
             self.use_baked_disp = False
-            suffix = 'Bevel Grayscale'
             self.samples = 32
 
         elif self.type == 'MULTIRES_NORMAL':
             self.blend_type = 'MIX'
-            suffix = 'Normal Multires'
 
             if height_root_ch:
                 self.channel_idx = str(get_channel_index(height_root_ch))
@@ -247,7 +250,6 @@ class YBakeToLayer(bpy.types.Operator):
 
         elif self.type == 'MULTIRES_DISPLACEMENT':
             self.blend_type = 'MIX'
-            suffix = 'Displacement Multires'
 
             if height_root_ch:
                 self.channel_idx = str(get_channel_index(height_root_ch))
@@ -255,11 +257,9 @@ class YBakeToLayer(bpy.types.Operator):
                 self.normal_blend_type = 'OVERLAY'
 
         elif self.type == 'OTHER_OBJECT_EMISSION':
-            suffix = 'OO Emission'
             self.subsurf_influence = False
 
         elif self.type == 'OTHER_OBJECT_NORMAL':
-            suffix = 'OO Normal'
             self.subsurf_influence = False
 
             if height_root_ch:
@@ -267,59 +267,76 @@ class YBakeToLayer(bpy.types.Operator):
                 self.normal_map_type = 'NORMAL_MAP'
                 self.normal_blend_type = 'OVERLAY'
 
+        suffix = bake_type_suffixes[self.type]
         self.name = get_unique_name(mat.name + ' ' + suffix, bpy.data.images)
 
-        # Clear overwrite_coll
-        self.overwrite_coll.clear()
+        self.overwrite_name = ''
+        overwrite_entity = None
 
-        # Get overwritable layers
-        if self.target_type == 'LAYER':
-            for layer in yp.layers:
-                if layer.type == 'IMAGE':
-                    source = get_layer_source(layer)
-                    if source.image and suffix in source.image.name:
-                        self.overwrite_coll.add().name = source.image.name
-
-        # Get overwritable masks
-        elif len(yp.layers) > 0:
-            active_layer = yp.layers[yp.active_layer_index]
-            for mask in active_layer.masks:
-                if mask.type == 'IMAGE':
-                    source = get_mask_source(mask)
-                    if source.image and suffix in source.image.name:
-                        self.overwrite_coll.add().name = source.image.name
-
-        if len(self.overwrite_coll) > 0:
-
-            self.overwrite = True
-            self.overwrite_name = self.overwrite_coll[0].name
-            if self.target_type == 'LAYER':
-                overwrite_entity = yp.layers.get(self.overwrite_coll[0].name)
-            else: 
-                active_layer = yp.layers[yp.active_layer_index]
-                overwrite_entity = active_layer.masks.get(self.overwrite_coll[0].name)
-
-            if overwrite_entity:
-                self.uv_map = overwrite_entity.uv_name
-                if self.target_type == 'LAYER':
-                    source = get_layer_source(overwrite_entity)
-                else: source = get_mask_source(overwrite_entity)
-                if overwrite_entity.type == 'IMAGE' and source.image:
-                    if not source.image.yia.is_image_atlas:
-                        self.width = source.image.size[0]
-                        self.height = source.image.size[1]
-                        self.hdr = source.image.is_float
-                    else:
-                        pass # TODO
-
-                # Fill settings using bake info stored on image
-                if source.image and source.image.y_bake_info.is_baked:
-                    for attr in dir(source.image.y_bake_info):
-                        if attr in dir(self):
-                            try: setattr(self, attr, getattr(source.image.y_bake_info, attr))
-                            except: pass
+        if self.overwrite_current:
+            #if self.target_type == 'LAYER':
+            #    overwrite_entity = self.layer
+            #elif self.target_type == 'MASK':
+            #    overwrite_entity = self.mask
+            overwrite_entity = self.entity
         else:
-            self.overwrite = False
+
+            # Clear overwrite_coll
+            self.overwrite_coll.clear()
+
+            # Get overwritable layers
+            if self.target_type == 'LAYER':
+                for layer in yp.layers:
+                    if layer.type == 'IMAGE':
+                        source = get_layer_source(layer)
+                        #if source.image and suffix in source.image.name:
+                        if source.image and source.image.y_bake_info.is_baked and source.image.y_bake_info.bake_type == self.type:
+                            self.overwrite_coll.add().name = source.image.name
+
+            # Get overwritable masks
+            elif len(yp.layers) > 0:
+                active_layer = yp.layers[yp.active_layer_index]
+                for mask in active_layer.masks:
+                    if mask.type == 'IMAGE':
+                        source = get_mask_source(mask)
+                        #if source.image and suffix in source.image.name:
+                        if source.image and source.image.y_bake_info.is_baked and source.image.y_bake_info.bake_type == self.type:
+                            self.overwrite_coll.add().name = source.image.name
+
+            if len(self.overwrite_coll) > 0:
+
+                self.overwrite_choice = True
+                #self.overwrite_name = self.overwrite_coll[0].name
+                if self.target_type == 'LAYER':
+                    overwrite_entity = yp.layers.get(self.overwrite_coll[0].name)
+                else: 
+                    active_layer = yp.layers[yp.active_layer_index]
+                    overwrite_entity = active_layer.masks.get(self.overwrite_coll[0].name)
+            else:
+                self.overwrite_choice = False
+
+        if overwrite_entity:
+            self.uv_map = overwrite_entity.uv_name
+            if self.target_type == 'LAYER':
+                source = get_layer_source(overwrite_entity)
+            else: source = get_mask_source(overwrite_entity)
+            if overwrite_entity.type == 'IMAGE' and source.image:
+                self.overwrite_name = source.image.name
+                if not source.image.yia.is_image_atlas:
+                    self.width = source.image.size[0]
+                    self.height = source.image.size[1]
+                    self.hdr = source.image.is_float
+                else:
+                    pass # TODO
+
+
+            # Fill settings using bake info stored on image
+            if source.image and source.image.y_bake_info.is_baked:
+                for attr in dir(source.image.y_bake_info):
+                    if attr == 'other_objects': continue
+                    if attr in dir(self):
+                        try: setattr(self, attr, getattr(source.image.y_bake_info, attr))
+                        except: pass
         
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
@@ -356,20 +373,24 @@ class YBakeToLayer(bpy.types.Operator):
 
         col = row.column(align=False)
 
-        if len(self.overwrite_coll) > 0:
-            col.label(text='Overwrite:')
-        if len(self.overwrite_coll) > 0 and self.overwrite:
-            if self.target_type == 'LAYER':
-                col.label(text='Overwrite Layer:')
+        if not self.overwrite_current:
+
+            if len(self.overwrite_coll) > 0:
+                col.label(text='Overwrite:')
+            if len(self.overwrite_coll) > 0 and self.overwrite_choice:
+                if self.target_type == 'LAYER':
+                    col.label(text='Overwrite Layer:')
+                else:
+                    col.label(text='Overwrite Mask:')
             else:
-                col.label(text='Overwrite Mask:')
+                col.label(text='Name:')
+
+                if self.target_type == 'LAYER':
+                    col.label(text='Channel:')
+                    if channel and channel.type == 'NORMAL':
+                        col.label(text='Type:')
         else:
             col.label(text='Name:')
-
-            if self.target_type == 'LAYER':
-                col.label(text='Channel:')
-                if channel and channel.type == 'NORMAL':
-                    col.label(text='Type:')
 
         if self.type.startswith('OTHER_OBJECT_'):
             col.label(text='Cage Extrusion:')
@@ -405,23 +426,26 @@ class YBakeToLayer(bpy.types.Operator):
 
         col = row.column(align=False)
 
-        if len(self.overwrite_coll) > 0:
-            col.prop(self, 'overwrite', text='')
+        if not self.overwrite_current:
+            if len(self.overwrite_coll) > 0:
+                col.prop(self, 'overwrite_choice', text='')
 
-        if len(self.overwrite_coll) > 0 and self.overwrite:
-            col.prop_search(self, "overwrite_name", self, "overwrite_coll", text='', icon='IMAGE_DATA')
+            if len(self.overwrite_coll) > 0 and self.overwrite_choice:
+                col.prop_search(self, "overwrite_name", self, "overwrite_coll", text='', icon='IMAGE_DATA')
+            else:
+                col.prop(self, 'name', text='')
+
+                if self.target_type == 'LAYER':
+                    rrow = col.row(align=True)
+                    rrow.prop(self, 'channel_idx', text='')
+                    if channel:
+                        if channel.type == 'NORMAL':
+                            rrow.prop(self, 'normal_blend_type', text='')
+                            col.prop(self, 'normal_map_type', text='')
+                        else: 
+                            rrow.prop(self, 'blend_type', text='')
         else:
-            col.prop(self, 'name', text='')
-
-            if self.target_type == 'LAYER':
-                rrow = col.row(align=True)
-                rrow.prop(self, 'channel_idx', text='')
-                if channel:
-                    if channel.type == 'NORMAL':
-                        rrow.prop(self, 'normal_blend_type', text='')
-                        col.prop(self, 'normal_map_type', text='')
-                    else: 
-                        rrow.prop(self, 'blend_type', text='')
+            col.label(text=self.overwrite_name)
 
         if self.type.startswith('OTHER_OBJECT_'):
             col.prop(self, 'cage_extrusion', text='')
@@ -483,7 +507,7 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "Mask need active layer!")
             return {'CANCELLED'}
 
-        if self.overwrite and self.overwrite_name == '':
+        if (self.overwrite_choice or self.overwrite_current) and self.overwrite_name == '':
             self.report({'ERROR'}, "Overwrite layer/mask cannot be empty!")
             return {'CANCELLED'}
 
@@ -518,10 +542,23 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "No valid objects found to bake!")
             return {'CANCELLED'}
 
+        overwrite_img = None
+        if self.overwrite_choice or self.overwrite_current:
+            overwrite_img = bpy.data.images.get(self.overwrite_name)
+
         # Get other objects for other object baking
         other_objs = []
         if self.type.startswith('OTHER_OBJECT_'):
             other_objs = [o for o in context.selected_objects if o not in objs]
+
+            # Try to get other_objects from bake info
+            if overwrite_img:
+                for oo in overwrite_img.y_bake_info.other_objects:
+                    if oo.object not in other_objs:
+                        other_objs.append(oo.object)
+
+            #print(other_objs)
+
             if not other_objs:
                 self.report({'ERROR'}, "Source objects must be selected and it must has different material!")
                 return {'CANCELLED'}
@@ -557,6 +594,8 @@ class YBakeToLayer(bpy.types.Operator):
             objs.extend(other_objs)
             #print(objs)
             #return {'FINISHED'}
+
+        #print(objs)
 
         # If use baked disp, need to bake normal and height map first
         height_root_ch = get_root_height_channel(yp)
@@ -637,8 +676,8 @@ class YBakeToLayer(bpy.types.Operator):
             tile_x = width
             tile_y = height
         else:
-            tile_x = 64
-            tile_y = 64
+            tile_x = 256
+            tile_y = 256
 
         prepare_bake_settings_(book, objs, yp, samples=self.samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type=bake_type, force_use_cpu=self.force_use_cpu,
@@ -907,13 +946,6 @@ class YBakeToLayer(bpy.types.Operator):
 
         image.colorspace_settings.name = 'Linear'
 
-        # Set bake info to image
-        image.y_bake_info.is_baked = True
-        for attr in dir(image.y_bake_info):
-            if attr in dir(self):
-                try: setattr(image.y_bake_info, attr, getattr(self, attr))
-                except: pass
-
         # Set bake image
         tex.image = image
         mat.node_tree.nodes.active = tex
@@ -980,9 +1012,6 @@ class YBakeToLayer(bpy.types.Operator):
             image, segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, alpha_aware=True, force_use_cpu=self.force_use_cpu)
 
         #return {'FINISHED'}
-        overwrite_img = None
-        if self.overwrite:
-            overwrite_img = bpy.data.images.get(self.overwrite_name)
 
         if overwrite_img:
             replaced_layer_ids = replace_image(overwrite_img, image, yp, self.uv_map)
@@ -1000,18 +1029,9 @@ class YBakeToLayer(bpy.types.Operator):
 
         elif self.target_type == 'LAYER':
 
-            # Set height to 0.0 for baked normal
-            #if self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL'}:
-            #    bump_distance = 0.0
-            #    #write_height = False
-            #else: 
-            #    bump_distance = 0.05
-            #    #write_height = True
-
             yp.halt_update = True
             layer = Layer.add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image, 
-                    #bump_distance=bump_distance, #write_height=write_height
                     )
             yp.halt_update = False
             active_id = yp.active_layer_index
@@ -1112,6 +1132,20 @@ class YBakeToLayer(bpy.types.Operator):
             if height_root_ch.enable_subdiv_setup != ori_subdiv_setup:
                 height_root_ch.enable_subdiv_setup = ori_subdiv_setup
 
+        # Set bake info to image
+        image.y_bake_info.is_baked = True
+        image.y_bake_info.bake_type = self.type
+        for attr in dir(image.y_bake_info):
+            if attr in dir(self):
+                try: setattr(image.y_bake_info, attr, getattr(self, attr))
+                except: pass
+
+        # Remember other objects to image info
+        if other_objs:
+            for o in other_objs:
+                oo = image.y_bake_info.other_objects.add()
+                oo.object = o
+
         # Recover bake settings
         recover_bake_settings_(book, yp)
 
@@ -1143,6 +1177,9 @@ class YBakeToLayer(bpy.types.Operator):
         print('BAKE TO LAYER: Baking', image.name, 'is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
+
+class YOtherObject(bpy.types.PropertyGroup):
+    object = PointerProperty(type=bpy.types.Object)
 
 class YImageBakeInfoProps(bpy.types.PropertyGroup):
 
@@ -1214,6 +1251,9 @@ class YImageBakeInfoProps(bpy.types.PropertyGroup):
             name = 'Max Ray Distance',
             description = 'The maximum ray distance for matching points between the active and selected objects. If zero, there is no limit',
             default=0.2, min=0.0, max=1.0)
+
+    # To store other objects info
+    other_objects = CollectionProperty(type=YOtherObject)
     
     multires_base = IntProperty(default=1, min=0, max=16)
 
@@ -1228,6 +1268,7 @@ class YImageBakeInfoProps(bpy.types.PropertyGroup):
 
 def register():
     bpy.utils.register_class(YBakeToLayer)
+    bpy.utils.register_class(YOtherObject)
     bpy.utils.register_class(YImageBakeInfoProps)
 
     # Props 
@@ -1235,4 +1276,5 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
+    bpy.utils.unregister_class(YOtherObject)
     bpy.utils.unregister_class(YImageBakeInfoProps)

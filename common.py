@@ -146,6 +146,40 @@ layer_type_labels = {
         'HEMI' : 'Fake Lighting',
         }
 
+bake_type_labels = {
+        'AO' : 'Ambient Occlusion',
+        'POINTINESS': 'Pointiness',
+        'CAVITY': 'Cavity',
+        'DUST': 'Dust',
+        'PAINT_BASE': 'Paint Base',
+
+        'BEVEL_NORMAL': 'Bevel Normal',
+        'BEVEL_MASK': 'Bevel Grayscale',
+
+        'MULTIRES_NORMAL': 'Multires Normal',
+        'MULTIRES_DISPLACEMENT': 'Multires Displacement',
+
+        'OTHER_OBJECT_NORMAL': 'Other Objects Normal',
+        'OTHER_OBJECT_EMISSION': 'Other Objects Emission',
+        }
+
+bake_type_suffixes = {
+        'AO' : 'AO',
+        'POINTINESS': 'Pointiness',
+        'CAVITY': 'Cavity',
+        'DUST': 'Dust',
+        'PAINT_BASE': 'Paint Base',
+
+        'BEVEL_NORMAL': 'Bevel Normal',
+        'BEVEL_MASK': 'Bevel Grayscale',
+
+        'MULTIRES_NORMAL': 'Normal Multires',
+        'MULTIRES_DISPLACEMENT': 'Displacement Multires',
+
+        'OTHER_OBJECT_NORMAL': 'OO Normal',
+        'OTHER_OBJECT_EMISSION': 'OO Emission',
+        }
+
 texcoord_lists = [
         'Generated',
         'Normal',

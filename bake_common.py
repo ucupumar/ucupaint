@@ -59,9 +59,11 @@ def remember_before_bake_(yp=None):
     if is_greater_than_280():
         book['ori_active_selected_objs'] = [o for o in bpy.context.view_layer.objects if o.select_get()]
         book['ori_hide_renders'] = [o for o in bpy.context.view_layer.objects if o.hide_render]
+        book['ori_hide_objs'] = [o for o in bpy.context.view_layer.objects if o.hide_get()]
     else: 
         book['ori_active_selected_objs'] = [o for o in scene.objects if o.select]
         book['ori_hide_renders'] = [o for o in scene.objects if o.hide_render]
+        book['ori_hide_objs'] = [o for o in scene.objects if o.hide]
 
     # Remember world settings
     if is_greater_than_280() and scene.world:
@@ -135,7 +137,9 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
         #for o in scene.objects:
         for o in bpy.context.view_layer.objects:
             o.select_set(False)
+
         for obj in objs:
+            obj.hide_set(False)
             obj.select_set(True)
 
         # Disable material override
@@ -150,7 +154,9 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
 
         for o in scene.objects:
             o.select = False
+
         for obj in objs:
+            obj.hide = False
             obj.select = True
 
     if disable_problematic_modifiers:
@@ -244,6 +250,9 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
             if o in book['ori_hide_renders']:
                 o.hide_render = True
             else: o.hide_render = False
+            if o in book['ori_hide_objs']:
+                o.hide_set(True)
+            else: o.hide_set(False)
         bpy.context.view_layer.objects.active = obj
     else:
         for o in scene.objects:
@@ -253,6 +262,9 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
             if o in book['ori_hide_renders']:
                 o.hide_render = True
             else: o.hide_render = False
+            if o in book['ori_hide_objs']:
+                o.hide = True
+            else: o.hide = False
         scene.objects.active = obj
 
     # Recover active object

@@ -100,11 +100,35 @@ def update_yp_ui():
 
         ypui.halt_prop_update = False
 
-def draw_image_props(source, layout, entity=None):
+def draw_image_props(context, source, layout, entity=None):
 
     image = source.image
 
     col = layout.column()
+
+    if image.y_bake_info.is_baked:
+        bi = image.y_bake_info
+        col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
+        col.label(text='Type: ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
+        #if bi.type.startswith('OTHER_OBJECT_'):
+        #col.label(text='Bake Type: ' + bi.type)
+        if len(image.y_bake_info.other_objects) > 0:
+            col.label(text='List of Objects:')
+            box = col.box()
+            bcol = box.column()
+            for oo in image.y_bake_info.other_objects:
+                bcol.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
+
+        col.context_pointer_set('entity', entity)
+        #c = col.operator("node.y_bake_to_layer", text='Rebake ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
+        c = col.operator("node.y_bake_to_layer", text='Rebake', icon_value=lib.get_icon('bake'))
+        c.type = bi.bake_type
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+        if m1: c.target_type = 'LAYER'
+        else: c.target_type = 'MASK'
+        c.overwrite_current = True
+        return
 
     if image.yia.is_image_atlas:
         col.label(text=image.name, icon_value=lib.get_icon('image'))
@@ -997,7 +1021,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 bbox.context_pointer_set('parent', layer)
                 bbox.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
             elif image:
-                draw_image_props(source, bbox, layer)
+                draw_image_props(context, source, bbox, layer)
             elif layer.type == 'COLOR':
                 draw_solid_color_props(layer, source, bbox)
             elif layer.type == 'VCOL':
@@ -1744,7 +1768,7 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 rbox.context_pointer_set('parent', mask)
                 rbox.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
             elif mask_image:
-                draw_image_props(mask_source, rbox, mask)
+                draw_image_props(context, mask_source, rbox, mask)
             elif mask.type == 'HEMI':
                 draw_hemi_props(mask, mask_source, rbox)
             elif mask.type == 'OBJECT_INDEX':
@@ -2952,50 +2976,61 @@ class YNewLayerMenu(bpy.types.Menu):
         c = col.operator("node.y_bake_to_layer", icon_value=lib.get_icon('bake'), text='Ambient Occlusion')
         c.type = 'AO'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Pointiness')
         c.type = 'POINTINESS'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Cavity')
         c.type = 'CAVITY'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Dust')
         c.type = 'DUST'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Paint Base')
         c.type = 'PAINT_BASE'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Bevel Normal')
         c.type = 'BEVEL_NORMAL'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Bevel Grayscale')
         c.type = 'BEVEL_MASK'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
         col.separator()
 
         c = col.operator("node.y_bake_to_layer", text='Multires Normal')
         c.type = 'MULTIRES_NORMAL'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Multires Displacement')
         c.type = 'MULTIRES_DISPLACEMENT'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
         col.separator()
 
         c = col.operator("node.y_bake_to_layer", text='Other Objects Emission')
         c.type = 'OTHER_OBJECT_EMISSION'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Other Objects Normal')
         c.type = 'OTHER_OBJECT_NORMAL'
         c.target_type = 'LAYER'
+        c.overwrite_current = False
 
 class YBakedImageMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_baked_image_menu"
@@ -3291,22 +3326,27 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         c = col.operator("node.y_bake_to_layer", text='Pointiness')
         c.type = 'POINTINESS'
         c.target_type = 'MASK'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Cavity')
         c.type = 'CAVITY'
         c.target_type = 'MASK'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Dust')
         c.type = 'DUST'
         c.target_type = 'MASK'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Paint Base')
         c.type = 'PAINT_BASE'
         c.target_type = 'MASK'
+        c.overwrite_current = False
 
         c = col.operator("node.y_bake_to_layer", text='Bevel Grayscale')
         c.type = 'BEVEL_MASK'
         c.target_type = 'MASK'
+        c.overwrite_current = False
 
 class YLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_mask_menu"
