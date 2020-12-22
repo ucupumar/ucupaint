@@ -553,14 +553,22 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Try to get other_objects from bake info
             if overwrite_img:
+                scene_objs = get_scene_objects()
                 for oo in overwrite_img.y_bake_info.other_objects:
-                    if oo.object not in other_objs:
-                        other_objs.append(oo.object)
+                    if oo.object:
+                        #o = scene_objs.get(oo.object.name)
+
+                        # Check if object is on current view layer
+                        layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, oo.object)
+                        if oo.object not in other_objs and any(layer_cols):
+                            other_objs.append(oo.object)
 
             #print(other_objs)
 
             if not other_objs:
-                self.report({'ERROR'}, "Source objects must be selected and it must has different material!")
+                if overwrite_img:
+                    self.report({'ERROR'}, "No source objects found! They're probably deleted or located in inactive collection/layer")
+                else: self.report({'ERROR'}, "Source objects must be selected and it must has different material!")
                 return {'CANCELLED'}
 
         # Remember things
@@ -683,7 +691,8 @@ class YBakeToLayer(bpy.types.Operator):
                 uv_map=self.uv_map, bake_type=bake_type, force_use_cpu=self.force_use_cpu,
                 hide_other_objs=hide_other_objs, bake_from_multires=self.type.startswith('MULTIRES_'),
                 tile_x = tile_x, tile_y = tile_y, use_selected_to_active=self.type.startswith('OTHER_OBJECT_'),
-                max_ray_distance=self.max_ray_distance, cage_extrusion=self.cage_extrusion
+                max_ray_distance=self.max_ray_distance, cage_extrusion=self.cage_extrusion,
+                source_objs=other_objs,
                 )
 
         # Set multires level

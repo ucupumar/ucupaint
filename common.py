@@ -332,10 +332,36 @@ def set_object_select(obj, val):
         obj.select_set(val)
     else: obj.select = val
 
+def get_scene_objects():
+    if is_greater_than_280():
+        return bpy.context.view_layer.objects
+    else: return bpy.context.scene.objects
+
 def get_viewport_shade():
     if is_greater_than_280():
         return bpy.context.area.spaces[0].shading.type
     else: return bpy.context.area.spaces[0].viewport_shade
+
+def get_all_layer_collections(arr, col):
+    if col not in arr:
+        arr.append(col)
+    for c in col.children:
+        arr = get_all_layer_collections(arr, c)
+    return arr
+
+def get_object_parent_layer_collections(arr, col, obj):
+    for c in col.children:
+        if any(get_object_parent_layer_collections(arr, c, obj)) and c not in arr:
+            arr.append(c)
+    
+    for o in col.collection.objects:
+        if o == obj and col not in arr:
+            arr.append(col)
+
+    if any(arr) and col not in arr:
+        arr.append(col)
+                
+    return arr
 
 def get_active_material():
     scene = bpy.context.scene

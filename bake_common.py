@@ -60,6 +60,14 @@ def remember_before_bake_(yp=None):
         book['ori_active_selected_objs'] = [o for o in bpy.context.view_layer.objects if o.select_get()]
         book['ori_hide_renders'] = [o for o in bpy.context.view_layer.objects if o.hide_render]
         book['ori_hide_objs'] = [o for o in bpy.context.view_layer.objects if o.hide_get()]
+
+        layer_cols = get_all_layer_collections([], bpy.context.view_layer.layer_collection)
+
+        book['ori_layer_col_hide_viewport'] = [lc for lc in layer_cols if lc.hide_viewport]
+        book['ori_layer_col_exclude'] = [lc for lc in layer_cols if lc.exclude]
+        book['ori_col_hide_viewport'] = [c for c in bpy.data.collections if c.hide_viewport]
+        book['ori_col_hide_render'] = [c for c in bpy.data.collections if c.hide_render]
+
     else: 
         book['ori_active_selected_objs'] = [o for o in scene.objects if o.select]
         book['ori_hide_renders'] = [o for o in scene.objects if o.hide_render]
@@ -81,7 +89,8 @@ def remember_before_bake_(yp=None):
 
 def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
         disable_problematic_modifiers=False, force_use_cpu=False, hide_other_objs=True, bake_from_multires=False, 
-        tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0):
+        tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
+        source_objs=[]):
 
     #scene = self.scene
     scene = bpy.context.scene
@@ -129,6 +138,20 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
     # Disable other object selections and select only active object
     if is_greater_than_280():
 
+        # Disable exclude only works on source objects
+        for o in source_objs:
+            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
+            for lc in layer_cols:
+                lc.exclude = False
+
+        # Show viewport and render of object layer collection
+        for o in objs:
+            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
+            for lc in layer_cols:
+                lc.hide_viewport = False
+                lc.collection.hide_viewport = False
+                lc.collection.hide_render = False
+
         if hide_other_objs:
             for o in bpy.context.view_layer.objects:
                 if o not in objs:
@@ -145,6 +168,7 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
         # Disable material override
         book['material_override'] = bpy.context.view_layer.material_override
         bpy.context.view_layer.material_override = None
+
     else:
 
         if hide_other_objs:
@@ -242,6 +266,27 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
 
     # Disable other object selections
     if is_greater_than_280():
+
+        # Recover collections
+        layer_cols = get_all_layer_collections([], bpy.context.view_layer.layer_collection)
+        for lc in layer_cols:
+            if lc in book['ori_layer_col_hide_viewport']:
+                lc.hide_viewport = True
+            else: lc.hide_viewport = False
+
+            if lc in book['ori_layer_col_exclude']:
+                lc.exclude = True
+            else: lc.exclude = False
+
+        for c in bpy.data.collections:
+            if c in book['ori_col_hide_viewport']:
+                c.hide_viewport = True
+            else: c.hide_viewport = False
+
+            if c in book['ori_col_hide_render']:
+                c.hide_render = True
+            else: c.hide_render = False
+
         #for o in scene.objects:
         for o in bpy.context.view_layer.objects:
             if o in book['ori_active_selected_objs']:
