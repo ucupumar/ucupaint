@@ -161,6 +161,8 @@ bake_type_labels = {
 
         'OTHER_OBJECT_NORMAL': 'Other Objects Normal',
         'OTHER_OBJECT_EMISSION': 'Other Objects Emission',
+
+        'SELECTED_VERTICES': 'Selected Vertices'
         }
 
 bake_type_suffixes = {
@@ -178,6 +180,8 @@ bake_type_suffixes = {
 
         'OTHER_OBJECT_NORMAL': 'OO Normal',
         'OTHER_OBJECT_EMISSION': 'OO Emission',
+
+        'SELECTED_VERTICES': 'Selected Vertices'
         }
 
 texcoord_lists = [

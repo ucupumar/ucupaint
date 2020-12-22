@@ -3036,6 +3036,13 @@ class YNewLayerMenu(bpy.types.Menu):
         c.target_type = 'LAYER'
         c.overwrite_current = False
 
+        col.separator()
+
+        c = col.operator("node.y_bake_to_layer", text='Selected Vertices')
+        c.type = 'SELECTED_VERTICES'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
 class YBakedImageMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_baked_image_menu"
     bl_label = "Baked Image Menu"
@@ -3351,6 +3358,16 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         c.type = 'BEVEL_MASK'
         c.target_type = 'MASK'
         c.overwrite_current = False
+
+        c = col.operator("node.y_bake_to_layer", text='Selected Vertices')
+        c.type = 'SELECTED_VERTICES'
+        c.target_type = 'MASK'
+        c.overwrite_current = False
+
+        #c = col.operator("node.y_bake_to_layer", text='Other Objects Emission')
+        #c.type = 'OTHER_OBJECT_EMISSION'
+        #c.target_type = 'MASK'
+        #c.overwrite_current = False
 
 class YLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_mask_menu"

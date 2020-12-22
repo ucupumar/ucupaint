@@ -23,6 +23,8 @@ bake_type_items = (
 
         ('OTHER_OBJECT_NORMAL', 'Other Objects Normal', ''),
         ('OTHER_OBJECT_EMISSION', 'Other Objects Emission', ''),
+
+        ('SELECTED_VERTICES', 'Selected Vertices/Edges/Faces', ''),
         )
 
 TEMP_VCOL = '__temp__vcol__'
@@ -292,6 +294,10 @@ class YBakeToLayer(bpy.types.Operator):
                 self.normal_map_type = 'NORMAL_MAP'
                 self.normal_blend_type = 'OVERLAY'
 
+        elif self.type == 'SELECTED_VERTICES':
+            self.subsurf_influence = False
+            self.use_baked_disp = False
+
         suffix = bake_type_suffixes[self.type]
         self.name = get_unique_name(mat.name + ' ' + suffix, bpy.data.images)
 
@@ -305,8 +311,8 @@ class YBakeToLayer(bpy.types.Operator):
             #    overwrite_entity = self.mask
             overwrite_entity = self.entity
 
-        # Other object bake will not display overwrite choice
-        elif not self.type.startswith('OTHER_OBJECT_'):
+        # Other object and selected vertices bake will not display overwrite choice
+        elif not self.type.startswith('OTHER_OBJECT_') and self.type not in {'SELECTED_VERTICES'}:
         #else:
 
             # Clear overwrite_coll
@@ -399,6 +405,9 @@ class YBakeToLayer(bpy.types.Operator):
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
 
+        show_subsurf_influence = not self.type.startswith('MULTIRES_') and self.type not in {'SELECTED_VERTICES'}
+        show_use_baked_disp = height_root_ch and not self.type.startswith('MULTIRES_') and self.type not in {'SELECTED_VERTICES'}
+
         col = row.column(align=False)
 
         if not self.overwrite_current:
@@ -444,10 +453,12 @@ class YBakeToLayer(bpy.types.Operator):
         col.label(text='')
         col.label(text='')
 
-        if not self.type.startswith('MULTIRES_'):
+        #if not self.type.startswith('MULTIRES_'):
+        if show_subsurf_influence:
             col.label(text='')
 
-        if height_root_ch and not self.type.startswith('MULTIRES_'):
+        #if height_root_ch and not self.type.startswith('MULTIRES_'):
+        if show_use_baked_disp:
             col.label(text='')
 
         col.label(text='')
@@ -505,12 +516,14 @@ class YBakeToLayer(bpy.types.Operator):
 
         col.separator()
 
-        if not self.type.startswith('MULTIRES_'):
+        #if not self.type.startswith('MULTIRES_') or self.type not in {'SELECTED_VERTICES'}:
+        if show_subsurf_influence:
             r = col.row()
             r.active = not self.use_baked_disp
             r.prop(self, 'subsurf_influence')
 
-        if height_root_ch and not self.type.startswith('MULTIRES_'):
+        #if height_root_ch and not self.type.startswith('MULTIRES_'):
+        if show_use_baked_disp:
             col.prop(self, 'use_baked_disp')
 
         col.prop(self, 'flip_normals')
@@ -526,10 +539,15 @@ class YBakeToLayer(bpy.types.Operator):
         tree = node.node_tree
         ypui = context.window_manager.ypui
         scene = context.scene
+        obj = context.object
 
         active_layer = None
         if len(yp.layers) > 0:
             active_layer = yp.layers[yp.active_layer_index]
+
+        if self.type == 'SELECTED_VERTICES' and obj.mode != 'EDIT':
+            self.report({'ERROR'}, "Should be on edit mode!")
+            return {'CANCELLED'}
 
         if self.target_type == 'MASK' and not active_layer:
             self.report({'ERROR'}, "Mask need active layer!")
@@ -693,6 +711,18 @@ class YBakeToLayer(bpy.types.Operator):
             objs = temp_objs
 
             print('BAKE TO LAYER: Duplicating mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+
+        if self.type == 'SELECTED_VERTICES':
+            #bpy.ops.object.mode_set(mode = 'EDIT')
+            for obj in objs:
+                try:
+                    vcol = obj.data.vertex_colors.new(name=TEMP_VCOL)
+                    set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0))
+                    obj.data.vertex_colors.active = vcol
+                except: pass
+            bpy.ops.mesh.y_vcol_fill(color_option ='WHITE')
+            #return {'FINISHED'}
+            bpy.ops.object.mode_set(mode = 'OBJECT')
 
         #return {'FINISHED'}
 
@@ -958,6 +988,15 @@ class YBakeToLayer(bpy.types.Operator):
             else:
                 mat.node_tree.links.new(vector_math.outputs[1], bsdf.inputs[0])
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+        elif self.type == 'SELECTED_VERTICES':
+            if is_greater_than_280():
+                src = mat.node_tree.nodes.new('ShaderNodeVertexColor')
+                src.layer_name = TEMP_VCOL
+            else:
+                src = mat.node_tree.nodes.new('ShaderNodeAttribute')
+                src.attribute_name = TEMP_VCOL
+            mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
+            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
         else:
             src = None
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
@@ -1132,7 +1171,7 @@ class YBakeToLayer(bpy.types.Operator):
                         for j, li in enumerate(p.loop_indices):
                             uvl.data[li].uv = ori_loop_locs[obj.name][i][j]
 
-            # Delete cavity vcol
+            # Delete temp vcol
             vcol = obj.data.vertex_colors.get(TEMP_VCOL)
             if vcol: obj.data.vertex_colors.remove(vcol)
 
