@@ -117,7 +117,11 @@ def draw_image_props(context, source, layout, entity=None):
             box = col.box()
             bcol = box.column()
             for oo in image.y_bake_info.other_objects:
-                bcol.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
+                brow = bcol.row()
+                brow.context_pointer_set('other_object', oo)
+                brow.context_pointer_set('bake_info', image.y_bake_info)
+                brow.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
+                brow.operator('node.y_remove_bake_info_other_object', text='', icon_value=lib.get_icon('close'))
 
         col.context_pointer_set('entity', entity)
         #c = col.operator("node.y_bake_to_layer", text='Rebake ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))

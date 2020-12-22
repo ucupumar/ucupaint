@@ -27,6 +27,31 @@ bake_type_items = (
 
 TEMP_VCOL = '__temp__vcol__'
 
+class YRemoveBakeInfoOtherObject(bpy.types.Operator):
+    bl_idname = "node.y_remove_bake_info_other_object"
+    bl_label = "Remove other object info"
+    bl_description = "Remove other object bake info, so it won't be automatically baked anymore if you choose to rebake."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    def execute(self, context):
+        if not hasattr(context, 'other_object') or not hasattr(context, 'bake_info'):
+            return {'CANCELLED'}
+
+        #if len(context.bake_info.other_objects) == 1:
+        #    self.report({'ERROR'}, "Cannot delete, need at least one object!")
+        #    return {'CANCELLED'}
+
+        for i, oo in enumerate(context.bake_info.other_objects):
+            if oo == context.other_object:
+                context.bake_info.other_objects.remove(i)
+                break
+
+        return {'FINISHED'}
+
 class YBakeToLayer(bpy.types.Operator):
     bl_idname = "node.y_bake_to_layer"
     bl_label = "Bake To Layer"
@@ -279,7 +304,10 @@ class YBakeToLayer(bpy.types.Operator):
             #elif self.target_type == 'MASK':
             #    overwrite_entity = self.mask
             overwrite_entity = self.entity
-        else:
+
+        # Other object bake will not display overwrite choice
+        elif not self.type.startswith('OTHER_OBJECT_'):
+        #else:
 
             # Clear overwrite_coll
             self.overwrite_coll.clear()
@@ -556,12 +584,15 @@ class YBakeToLayer(bpy.types.Operator):
                 scene_objs = get_scene_objects()
                 for oo in overwrite_img.y_bake_info.other_objects:
                     if oo.object:
-                        #o = scene_objs.get(oo.object.name)
-
-                        # Check if object is on current view layer
-                        layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, oo.object)
-                        if oo.object not in other_objs and any(layer_cols):
-                            other_objs.append(oo.object)
+                        if is_greater_than_280():
+                            # Check if object is on current view layer
+                            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, oo.object)
+                            if oo.object not in other_objs and any(layer_cols):
+                                other_objs.append(oo.object)
+                        else:
+                            o = scene_objs.get(oo.object.name)
+                            if o and o not in other_objs:
+                                other_objs.append(o)
 
             #print(other_objs)
 
@@ -1279,6 +1310,7 @@ def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YOtherObject)
     bpy.utils.register_class(YImageBakeInfoProps)
+    bpy.utils.register_class(YRemoveBakeInfoOtherObject)
 
     # Props 
     bpy.types.Image.y_bake_info = PointerProperty(type=YImageBakeInfoProps)
@@ -1287,3 +1319,4 @@ def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YOtherObject)
     bpy.utils.unregister_class(YImageBakeInfoProps)
+    bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
