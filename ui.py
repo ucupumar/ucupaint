@@ -100,6 +100,31 @@ def update_yp_ui():
 
         ypui.halt_prop_update = False
 
+def draw_bake_info(bake_info, layout, entity):
+
+    bi = bake_info
+
+    if len(bi.other_objects) > 0:
+        layout.label(text='List of Objects:')
+        box = layout.box()
+        bcol = box.column()
+        for oo in bi.other_objects:
+            brow = bcol.row()
+            brow.context_pointer_set('other_object', oo)
+            brow.context_pointer_set('bake_info', bi)
+            brow.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
+            brow.operator('node.y_remove_bake_info_other_object', text='', icon_value=lib.get_icon('close'))
+
+    layout.context_pointer_set('entity', entity)
+    #c = layout.operator("node.y_bake_to_layer", text='Rebake ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
+    c = layout.operator("node.y_bake_to_layer", text='Rebake', icon_value=lib.get_icon('bake'))
+    c.type = bi.bake_type
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    if m1: c.target_type = 'LAYER'
+    else: c.target_type = 'MASK'
+    c.overwrite_current = True
+
 def draw_image_props(context, source, layout, entity=None):
 
     image = source.image
@@ -110,33 +135,17 @@ def draw_image_props(context, source, layout, entity=None):
         bi = image.y_bake_info
         col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
         col.label(text='Type: ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
-        #if bi.type.startswith('OTHER_OBJECT_'):
-        #col.label(text='Bake Type: ' + bi.type)
-        if len(image.y_bake_info.other_objects) > 0:
-            col.label(text='List of Objects:')
-            box = col.box()
-            bcol = box.column()
-            for oo in image.y_bake_info.other_objects:
-                brow = bcol.row()
-                brow.context_pointer_set('other_object', oo)
-                brow.context_pointer_set('bake_info', image.y_bake_info)
-                brow.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
-                brow.operator('node.y_remove_bake_info_other_object', text='', icon_value=lib.get_icon('close'))
 
-        col.context_pointer_set('entity', entity)
-        #c = col.operator("node.y_bake_to_layer", text='Rebake ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
-        c = col.operator("node.y_bake_to_layer", text='Rebake', icon_value=lib.get_icon('bake'))
-        c.type = bi.bake_type
-        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-        if m1: c.target_type = 'LAYER'
-        else: c.target_type = 'MASK'
-        c.overwrite_current = True
+        draw_bake_info(bi, col, entity)
         return
 
     if image.yia.is_image_atlas:
-        col.label(text=image.name, icon_value=lib.get_icon('image'))
         segment = image.yia.segments.get(entity.segment_name)
+        if segment and segment.bake_info.is_baked:
+            bi = segment.bake_info
+            col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
+            col.label(text='Type: ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
+        else: col.label(text=image.name, icon_value=lib.get_icon('image'))
         if segment:
             row = col.row()
             row.label(text='Tile X: ' + str(segment.tile_x))
@@ -144,6 +153,9 @@ def draw_image_props(context, source, layout, entity=None):
             row = col.row()
             row.label(text='Width: ' + str(segment.width))
             row.label(text='Height: ' + str(segment.height))
+
+            if segment.bake_info.is_baked:
+                draw_bake_info(segment.bake_info, col, entity)
 
         return
 

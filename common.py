@@ -146,6 +146,25 @@ layer_type_labels = {
         'HEMI' : 'Fake Lighting',
         }
 
+bake_type_items = (
+        ('AO', 'Ambient Occlusion', ''),
+        ('POINTINESS', 'Pointiness', ''),
+        ('CAVITY', 'Cavity', ''),
+        ('DUST', 'Dust', ''),
+        ('PAINT_BASE', 'Paint Base', ''),
+
+        ('BEVEL_NORMAL', 'Bevel Normal', ''),
+        ('BEVEL_MASK', 'Bevel Grayscale', ''),
+
+        ('MULTIRES_NORMAL', 'Multires Normal', ''),
+        ('MULTIRES_DISPLACEMENT', 'Multires Displacement', ''),
+
+        ('OTHER_OBJECT_NORMAL', 'Other Objects Normal', ''),
+        ('OTHER_OBJECT_EMISSION', 'Other Objects Emission', ''),
+
+        ('SELECTED_VERTICES', 'Selected Vertices/Edges/Faces', ''),
+        )
+
 bake_type_labels = {
         'AO' : 'Ambient Occlusion',
         'POINTINESS': 'Pointiness',
@@ -2092,6 +2111,9 @@ def check_uvmap_on_other_objects_with_same_mat(mat, uv_name, set_active=True):
                     uvl = uvls.new(name=uv_name)
                     if set_active:
                         uvls.active = uvl
+
+def set_segment_mapping():
+    pass
 
 def refresh_temp_uv(obj, entity): 
 

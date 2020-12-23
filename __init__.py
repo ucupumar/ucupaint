@@ -182,6 +182,7 @@ if "bpy" in locals():
     imp.reload(preferences)
     imp.reload(vcol_editor)
     imp.reload(transition)
+    imp.reload(BakeInfo)
     imp.reload(ImageAtlas)
     imp.reload(MaskModifier)
     imp.reload(Mask)
@@ -194,7 +195,7 @@ if "bpy" in locals():
     #print("Reloaded multifiles")
 else:
     from . import image_ops, common, bake_common, mesh_ops, lib, ui, subtree, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Bake, BakeToLayer, Root
+    from . import vcol_editor, transition, BakeInfo, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Bake, BakeToLayer, Root
     #from . import transition, ImageAtlas, MaskModifier, Mask, Modifier, Blur, Layer, Bake, BakeToLayer, Root
     #print("Imported multifiles")
 
@@ -212,6 +213,7 @@ def register():
     ui.register()
     vcol_editor.register()
     transition.register()
+    BakeInfo.register()
     ImageAtlas.register()
     MaskModifier.register()
     Mask.register()
@@ -234,6 +236,7 @@ def unregister():
     ui.unregister()
     vcol_editor.unregister()
     transition.unregister()
+    BakeInfo.unregister()
     ImageAtlas.unregister()
     MaskModifier.unregister()
     Mask.unregister()

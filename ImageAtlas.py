@@ -2,6 +2,7 @@ import bpy, time, random, numpy
 from bpy.props import *
 from .common import *
 from .subtree import *
+from . import BakeInfo
 
 def is_tile_available(x, y, width, height, atlas):
 
@@ -66,6 +67,7 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False, name=''):
     img.yia.is_image_atlas = True
     img.yia.color = color
     #img.yia.float_buffer = hdr
+    img.colorspace_settings.name = 'Linear'
 
     return img
 
@@ -464,6 +466,8 @@ class YImageAtlasSegments(bpy.types.PropertyGroup):
 
     unused = BoolProperty(default=False)
 
+    bake_info = PointerProperty(type=BakeInfo.YBakeInfoProps)
+
 class YImageAtlas(bpy.types.PropertyGroup):
     name = StringProperty(
             name='Name',
@@ -488,6 +492,8 @@ def register():
     bpy.utils.register_class(YNewImageAtlasSegmentTest)
     bpy.utils.register_class(YRefreshTransformedLayerUV)
     bpy.utils.register_class(YBackToOriginalUV)
+    #bpy.utils.register_class(YImageSegmentOtherObject)
+    #bpy.utils.register_class(YImageSegmentBakeInfoProps)
     bpy.utils.register_class(YImageAtlasSegments)
     bpy.utils.register_class(YImageAtlas)
 
@@ -498,5 +504,7 @@ def unregister():
     bpy.utils.unregister_class(YNewImageAtlasSegmentTest)
     bpy.utils.unregister_class(YRefreshTransformedLayerUV)
     bpy.utils.unregister_class(YBackToOriginalUV)
+    #bpy.utils.unregister_class(YImageSegmentOtherObject)
+    #bpy.utils.unregister_class(YImageSegmentBakeInfoProps)
     bpy.utils.unregister_class(YImageAtlasSegments)
     bpy.utils.unregister_class(YImageAtlas)
