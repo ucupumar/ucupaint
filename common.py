@@ -2112,9 +2112,6 @@ def check_uvmap_on_other_objects_with_same_mat(mat, uv_name, set_active=True):
                     if set_active:
                         uvls.active = uvl
 
-def set_segment_mapping():
-    pass
-
 def refresh_temp_uv(obj, entity): 
 
     #if not entity or entity.segment_name == '' or entity.type != 'IMAGE':

@@ -835,29 +835,7 @@ class YNewLayer(bpy.types.Operator):
                 self.hemi_space, self.hemi_use_prev_normal)
 
         if segment:
-            #layer.segment_name = segment.name
-
-            scale_x = self.width/img.size[0]
-            scale_y = self.height/img.size[1]
-
-            offset_x = scale_x * segment.tile_x
-            offset_y = scale_y * segment.tile_y
-
-            mapping = get_layer_mapping(layer)
-            if mapping:
-                if is_greater_than_281():
-                    mapping.inputs[3].default_value[0] = scale_x
-                    mapping.inputs[3].default_value[1] = scale_y
-
-                    mapping.inputs[1].default_value[0] = offset_x
-                    mapping.inputs[1].default_value[1] = offset_y
-                else:
-                    mapping.scale[0] = scale_x
-                    mapping.scale[1] = scale_y
-
-                    mapping.translation[0] = offset_x
-                    mapping.translation[1] = offset_y
-
+            ImageAtlas.set_segment_mapping(layer, segment, img)
             refresh_temp_uv(obj, layer)
 
         yp.halt_update = False

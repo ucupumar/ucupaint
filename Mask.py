@@ -53,26 +53,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
 
         if segment:
-            scale_x = segment.width/image.size[0]
-            scale_y = segment.height/image.size[1]
-
-            offset_x = scale_x * segment.tile_x
-            offset_y = scale_y * segment.tile_y
-
-            if mapping:
-                if is_greater_than_281():
-                    mapping.inputs[3].default_value[0] = scale_x
-                    mapping.inputs[3].default_value[1] = scale_y
-
-                    mapping.inputs[1].default_value[0] = offset_x
-                    mapping.inputs[1].default_value[1] = offset_y
-                else:
-                    mapping.scale[0] = scale_x
-                    mapping.scale[1] = scale_y
-
-                    mapping.translation[0] = offset_x
-                    mapping.translation[1] = offset_y
-
+            ImageAtlas.set_segment_mapping(mask, segment, image)
             refresh_temp_uv(bpy.context.object, mask)
 
     for i, root_ch in enumerate(yp.channels):
