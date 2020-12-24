@@ -188,7 +188,7 @@ class YBakeToLayer(bpy.types.Operator):
     use_image_atlas = BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
-            default=False)
+            default=True)
 
     @classmethod
     def poll(cls, context):
@@ -539,10 +539,10 @@ class YBakeToLayer(bpy.types.Operator):
 
         col.separator()
 
-        if self.overwrite_name == '':
-            col.prop(self, 'use_image_atlas')
+        #if self.overwrite_name == '':
+        col.prop(self, 'use_image_atlas')
 
-            col.separator()
+        col.separator()
 
     def execute(self, context):
         T = time.time()
@@ -1112,13 +1112,18 @@ class YBakeToLayer(bpy.types.Operator):
 
         #return {'FINISHED'}
 
+        need_to_create_new_segment = False
+        new_segment_created = False
+
         if self.use_image_atlas:
 
             if segment:
                 ia_image = segment.id_data
                 need_to_create_new_segment = self.width != segment.width or self.height != segment.height or ia_image.is_float != self.hdr
+                if need_to_create_new_segment:
+                    segment.unused = True
 
-            if not segment:
+            if not segment or need_to_create_new_segment:
 
                 # Clearing unused image atlas segments
                 img_atlas = ImageAtlas.check_need_of_erasing_segments('TRANSPARENT', self.width, self.height, self.hdr)
@@ -1126,6 +1131,8 @@ class YBakeToLayer(bpy.types.Operator):
 
                 segment = ImageAtlas.get_set_image_atlas_segment(
                         self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
+
+                new_segment_created = True
 
             ia_image = segment.id_data
 
@@ -1154,6 +1161,13 @@ class YBakeToLayer(bpy.types.Operator):
             # Remove original baked image
             bpy.data.images.remove(temp_img)
 
+        # Mark segment as unused if the rebake not going to image atlas
+        segment_unused = False
+        if segment and not self.use_image_atlas:
+            segment.unused = True
+            segment = None
+            segment_unused = True
+
         if overwrite_img:
             active_id = yp.active_layer_index
 
@@ -1167,6 +1181,23 @@ class YBakeToLayer(bpy.types.Operator):
                 if layer_ids and yp.active_layer_index not in layer_ids:
                     active_id = layer_ids[0]
 
+                #if segment and need_to_create_new_segment:
+                if new_segment_created:
+                    for i in layer_ids:
+                        layer = yp.layers[i]
+                        layer.segment_name = segment.name
+                        ImageAtlas.set_segment_mapping(layer, segment, image)
+
+                # Clear mapping if segment is no longer used
+                #if segment and not self.use_image_atlas:
+                if segment_unused:
+                    for i in layer_ids:
+                        layer = yp.layers[i]
+                        clear_mapping(layer)
+
+                # Refresh uv
+                refresh_temp_uv(context.object, yp.layers[active_id])
+
             # Replace image and set active mask
             elif self.target_type == 'MASK':
                 replace_image(overwrite_img, image, yp, self.uv_map)
@@ -1175,6 +1206,21 @@ class YBakeToLayer(bpy.types.Operator):
                 else: masks = get_masks_with_specific_images(yp.layers[yp.active_layer_index], image)
 
                 if masks: masks[0].active_edit = True
+
+                #if segment and need_to_create_new_segment:
+                if new_segment_created:
+                    for mask in masks:
+                        mask.segment_name = segment.name
+                        ImageAtlas.set_segment_mapping(mask, segment, image)
+
+                # Clear mapping if segment is no longer used
+                #if segment and not self.use_image_atlas:
+                if segment_unused:
+                    for mask in masks:
+                        clear_mapping(mask)
+
+                # Refresh uv
+                if masks: refresh_temp_uv(context.object, masks[0])
 
         elif self.target_type == 'LAYER':
 
@@ -1190,6 +1236,9 @@ class YBakeToLayer(bpy.types.Operator):
             if segment:
                 ImageAtlas.set_segment_mapping(layer, segment, image)
 
+            # Refresh uv
+            refresh_temp_uv(context.object, layer)
+
         else:
             mask_name = image.name if not self.use_image_atlas else self.name
 
@@ -1203,6 +1252,9 @@ class YBakeToLayer(bpy.types.Operator):
 
             if segment:
                 ImageAtlas.set_segment_mapping(mask, segment, image)
+
+            # Refresh uv
+            refresh_temp_uv(context.object, mask)
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)

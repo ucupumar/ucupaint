@@ -2030,6 +2030,23 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
         uv_neighbor.inputs['ResX'].default_value = 1000.0
         uv_neighbor.inputs['ResY'].default_value = 1000.0
 
+def clear_mapping(entity):
+
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if m1: mapping = get_layer_mapping(entity)
+    else: mapping = get_mask_mapping(entity)
+
+    if is_greater_than_281():
+        mapping.inputs[1].default_value = (0.0, 0.0, 0.0)
+        mapping.inputs[2].default_value = (0.0, 0.0, 0.0)
+        mapping.inputs[3].default_value = (1.0, 1.0, 1.0)
+    else:
+        mapping.translation = (0.0, 0.0, 0.0)
+        mapping.rotation = (0.0, 0.0, 0.0)
+        mapping.scale = (1.0, 1.0, 1.0)
+
 def update_mapping(entity):
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
