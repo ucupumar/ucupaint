@@ -616,8 +616,11 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Try to get other_objects from bake info
             if overwrite_img:
+
+                bi = segment.bake_info if segment else overwrite_img.y_bake_info
+
                 scene_objs = get_scene_objects()
-                for oo in overwrite_img.y_bake_info.other_objects:
+                for oo in bi.other_objects:
                     if oo.object:
                         if is_greater_than_280():
                             # Check if object is on current view layer
@@ -1111,6 +1114,10 @@ class YBakeToLayer(bpy.types.Operator):
 
         if self.use_image_atlas:
 
+            if segment:
+                ia_image = segment.id_data
+                need_to_create_new_segment = self.width != segment.width or self.height != segment.height or ia_image.is_float != self.hdr
+
             if not segment:
 
                 # Clearing unused image atlas segments
@@ -1160,8 +1167,9 @@ class YBakeToLayer(bpy.types.Operator):
                 if layer_ids and yp.active_layer_index not in layer_ids:
                     active_id = layer_ids[0]
 
-            # Set active mask
+            # Replace image and set active mask
             elif self.target_type == 'MASK':
+                replace_image(overwrite_img, image, yp, self.uv_map)
                 if segment:
                     masks = get_masks_with_specific_segment(yp.layers[yp.active_layer_index], segment)
                 else: masks = get_masks_with_specific_images(yp.layers[yp.active_layer_index], image)
@@ -1296,11 +1304,18 @@ class YBakeToLayer(bpy.types.Operator):
 
         #print(bi.use_baked_disp)
 
-        # Remember other objects to image info
         if other_objs:
+
+            # Remember other objects to bake info
             for o in other_objs:
-                oo = bi.other_objects.add()
-                oo.object = o
+                if not any([oo for oo in bi.other_objects if oo.object == o]):
+                    oo = bi.other_objects.add()
+                    oo.object = o
+
+            # Remove unused other objects on bake info
+            for i, oo in reversed(list(enumerate(bi.other_objects))):
+                if oo.object not in other_objs:
+                    bi.other_objects.remove(i)
 
         # Recover bake settings
         recover_bake_settings_(book, yp)
