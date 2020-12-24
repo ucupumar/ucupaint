@@ -942,6 +942,58 @@ def get_all_image_users(image):
 
     return users
 
+def get_layer_ids_with_specific_image(yp, image):
+
+    ids = []
+
+    for i, layer in enumerate(yp.layers):
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source.image and source.image == image:
+                ids.append(i)
+
+    return ids
+
+def get_layer_ids_with_specific_segment(yp, segment):
+
+    ids = []
+
+    for i, layer in enumerate(yp.layers):
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source.image and source.image.yia.is_image_atlas:
+                for s in source.image.yia.segments:
+                    if s == segment:
+                        ids.append(i)
+                        break
+
+    return ids
+
+def get_masks_with_specific_images(layer, image):
+    masks = []
+
+    for m in layer.masks:
+        if m.type == 'IMAGE':
+            source = get_mask_source(m)
+            if source.image and source.image == image:
+                masks.append(m)
+
+    return masks
+
+def get_masks_with_specific_segment(layer, segment):
+    masks = []
+
+    for m in layer.masks:
+        if m.type == 'IMAGE':
+            source = get_mask_source(m)
+            if source.image and source.image.yia.is_image_atlas:
+                for s in source.image.yia.segments:
+                    if s == segment:
+                        masks.append(m)
+                        break
+
+    return masks
+
 def replace_image(old_image, new_image, yp=None, uv_name = ''):
 
     if old_image == new_image: return

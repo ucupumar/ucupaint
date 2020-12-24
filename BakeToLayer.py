@@ -607,7 +607,6 @@ class YBakeToLayer(bpy.types.Operator):
 
         segment = None
         if overwrite_img and overwrite_img.yia.is_image_atlas:
-            #segment = overwrite_img.yia.segments.get(self.entity.segment_name)
             segment = overwrite_img.yia.segments.get(self.overwrite_segment_name)
 
         # Get other objects for other object baking
@@ -634,7 +633,7 @@ class YBakeToLayer(bpy.types.Operator):
 
             if not other_objs:
                 if overwrite_img:
-                    self.report({'ERROR'}, "No source objects found! They're probably deleted or located in inactive collection/layer")
+                    self.report({'ERROR'}, "No source objects found! They're probably deleted!")
                 else: self.report({'ERROR'}, "Source objects must be selected and it must has different material!")
                 return {'CANCELLED'}
 
@@ -1149,18 +1148,25 @@ class YBakeToLayer(bpy.types.Operator):
             bpy.data.images.remove(temp_img)
 
         if overwrite_img:
-            replaced_layer_ids = replace_image(overwrite_img, image, yp, self.uv_map)
-            if replaced_layer_ids and yp.active_layer_index not in replaced_layer_ids:
-                active_id = replaced_layer_ids[0]
-            else: active_id = yp.active_layer_index
+            active_id = yp.active_layer_index
 
-            if self.target_type == 'MASK':
-                # Activate mask
-                for mask in yp.layers[yp.active_layer_index].masks:
-                    if mask.type == 'IMAGE':
-                        source = get_mask_source(mask)
-                        if source.image and source.image == image:
-                            mask.active_edit = True
+            # Replace image and set active layer/mask
+            if self.target_type == 'LAYER':
+                if overwrite_img != image:
+                    layer_ids = replace_image(overwrite_img, image, yp, self.uv_map)
+                elif segment: layer_ids = get_layer_ids_with_specific_segment(yp, segment)
+                else: layer_ids = get_layer_ids_with_specific_image(yp, image)
+
+                if layer_ids and yp.active_layer_index not in layer_ids:
+                    active_id = layer_ids[0]
+
+            # Set active mask
+            elif self.target_type == 'MASK':
+                if segment:
+                    masks = get_masks_with_specific_segment(yp.layers[yp.active_layer_index], segment)
+                else: masks = get_masks_with_specific_images(yp.layers[yp.active_layer_index], image)
+
+                if masks: masks[0].active_edit = True
 
         elif self.target_type == 'LAYER':
 
