@@ -355,6 +355,11 @@ def set_object_select(obj, val):
         obj.select_set(val)
     else: obj.select = val
 
+def set_object_hide(obj, val):
+    if is_greater_than_280():
+        obj.hide_set(val)
+    else: obj.hide = val
+
 def get_scene_objects():
     if is_greater_than_280():
         return bpy.context.view_layer.objects

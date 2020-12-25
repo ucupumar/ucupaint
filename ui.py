@@ -116,7 +116,9 @@ def draw_bake_info(bake_info, layout, entity):
             brow.operator('node.y_remove_bake_info_other_object', text='', icon_value=lib.get_icon('close'))
 
     layout.context_pointer_set('entity', entity)
-    #c = layout.operator("node.y_bake_to_layer", text='Rebake ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
+    layout.context_pointer_set('bake_info', bi)
+    if bi.bake_type == 'SELECTED_VERTICES':
+        c = layout.operator("node.y_try_to_select_baked_vertex", text='Try to Reselect Vertices', icon='GROUP_VERTEX')
     c = layout.operator("node.y_bake_to_layer", text='Rebake', icon_value=lib.get_icon('bake'))
     c.type = bi.bake_type
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())

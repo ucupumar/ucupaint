@@ -5,6 +5,13 @@ from bpy.props import *
 class YBakeInfoOtherObject(bpy.types.PropertyGroup):
     object = PointerProperty(type=bpy.types.Object)
 
+class YBakeInfoSelectedVertex(bpy.types.PropertyGroup):
+    index = IntProperty(default=0)
+
+class YBakeInfoSelectedObject(bpy.types.PropertyGroup):
+    object = PointerProperty(type=bpy.types.Object)
+    selected_vertex_indices = CollectionProperty(type=YBakeInfoSelectedVertex)
+
 class YBakeInfoProps(bpy.types.PropertyGroup):
 
     is_baked = BoolProperty(default=False)
@@ -95,13 +102,20 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             description='Use Image Atlas',
             default=False)
 
+    selected_face_mode = BoolProperty(default=False)
+    selected_objects = CollectionProperty(type=YBakeInfoSelectedObject)
+
 def register():
     bpy.utils.register_class(YBakeInfoOtherObject)
+    bpy.utils.register_class(YBakeInfoSelectedVertex)
+    bpy.utils.register_class(YBakeInfoSelectedObject)
     bpy.utils.register_class(YBakeInfoProps)
 
     bpy.types.Image.y_bake_info = PointerProperty(type=YBakeInfoProps)
 
 def unregister():
     bpy.utils.unregister_class(YBakeInfoOtherObject)
+    bpy.utils.unregister_class(YBakeInfoSelectedVertex)
+    bpy.utils.unregister_class(YBakeInfoSelectedObject)
     bpy.utils.unregister_class(YBakeInfoProps)
 

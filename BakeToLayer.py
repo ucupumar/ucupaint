@@ -1,4 +1,4 @@
-import bpy, re, time, math
+import bpy, re, time, math, bmesh
 from bpy.props import *
 from mathutils import *
 from .common import *
@@ -9,6 +9,92 @@ from .node_arrangements import *
 from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, BakeInfo
 
 TEMP_VCOL = '__temp__vcol__'
+
+class YTryToSelectBakedVertexSelect(bpy.types.Operator):
+    bl_idname = "node.y_try_to_select_baked_vertex"
+    bl_label = "Try to reselect baked selected vertex"
+    bl_description = "Try to reselect baked selected vertex. It might give you wrong results if mesh number of vertex changed."
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    def execute(self, context):
+        if not hasattr(context, 'bake_info'):
+            return {'CANCELLED'}
+
+        bi = context.bake_info
+
+        if len(bi.selected_objects) == 0:
+            return {'CANCELLED'}
+
+        if context.object.mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+        bpy.ops.object.select_all(action='DESELECT')
+
+        #mat = get_active_material()
+        #objs = get_all_objects_with_same_materials(mat)
+        objs = [bso.object for bso in bi.selected_objects]
+
+        # Disable viewport hide of object layer collection
+        #for o in objs:
+        #    layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
+        #    for lc in layer_cols:
+        #        #lc.exclude = False
+        #        lc.hide_viewport = False
+        #        lc.collection.hide_viewport = False
+        #        #lc.collection.hide_render = False
+
+        # Get actual selectable objects
+        actual_selectable_objs = []
+        for o in objs:
+            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
+            if not any([lc for lc in layer_cols if lc.exclude or lc.hide_viewport or lc.collection.hide_viewport]):
+                actual_selectable_objs.append(o)
+
+        if len(actual_selectable_objs) == 0:
+            return {'CANCELLED'}
+
+        for obj in actual_selectable_objs:
+            set_object_hide(obj, False)
+            set_object_select(obj, True)
+
+        set_active_object(actual_selectable_objs[0])
+        
+        bpy.ops.object.mode_set(mode='EDIT')
+        bpy.ops.mesh.reveal()
+        bpy.ops.mesh.select_all(action='DESELECT')
+
+        for bso in bi.selected_objects:
+            obj = bso.object
+            if obj not in actual_selectable_objs: continue
+
+            mesh = obj.data
+            bm = bmesh.from_edit_mesh(mesh)
+
+            bm.verts.ensure_lookup_table()
+            bm.edges.ensure_lookup_table()
+            bm.faces.ensure_lookup_table()
+
+            if bi.selected_face_mode:
+                context.tool_settings.mesh_select_mode[0] = False
+                context.tool_settings.mesh_select_mode[1] = False
+                context.tool_settings.mesh_select_mode[2] = True
+
+                for bsv in bso.selected_vertex_indices:
+                    try: bm.faces[bsv.index].select = True
+                    except: pass
+            else:
+                context.tool_settings.mesh_select_mode[0] = True
+                context.tool_settings.mesh_select_mode[1] = False
+                context.tool_settings.mesh_select_mode[2] = False
+
+                for bsv in bso.selected_vertex_indices:
+                    try: bm.verts[bsv.index].select = True
+                    except: pass
+
+        return {'FINISHED'}
 
 class YRemoveBakeInfoOtherObject(bpy.types.Operator):
     bl_idname = "node.y_remove_bake_info_other_object"
@@ -375,7 +461,7 @@ class YBakeToLayer(bpy.types.Operator):
             # Fill settings using bake info stored on image
             if bi:
                 for attr in dir(bi):
-                    if attr == 'other_objects': continue
+                    if attr in {'other_objects', 'selected_objects'}: continue
                     if attr in dir(self):
                         try: setattr(self, attr, getattr(bi, attr))
                         except: pass
@@ -732,8 +818,39 @@ class YBakeToLayer(bpy.types.Operator):
 
             print('BAKE TO LAYER: Duplicating mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
 
+        fill_mode = 'FACE'
+        obj_vertex_indices = {}
         if self.type == 'SELECTED_VERTICES':
-            #bpy.ops.object.mode_set(mode = 'EDIT')
+            if context.tool_settings.mesh_select_mode[0] or context.tool_settings.mesh_select_mode[1]:
+                fill_mode = 'VERTEX'
+
+            if is_greater_than_280():
+                edit_objs = [o for o in objs if o.mode == 'EDIT']
+            else: edit_objs = [context.object]
+
+            for obj in edit_objs:
+                mesh = obj.data
+                bm = bmesh.from_edit_mesh(mesh)
+
+                bm.verts.ensure_lookup_table()
+                #bm.edges.ensure_lookup_table()
+                bm.faces.ensure_lookup_table()
+
+                v_indices = []
+                if fill_mode == 'FACE':
+                    for face in bm.faces:
+                        if face.select:
+                            v_indices.append(face.index)
+                            #for loop in face.loops:
+                            #    v_indices.append(loop.index)
+
+                else:
+                    for vert in bm.verts:
+                        if vert.select:
+                            v_indices.append(vert.index)
+
+                obj_vertex_indices[obj.name] = v_indices
+
             for obj in objs:
                 try:
                     vcol = obj.data.vertex_colors.new(name=TEMP_VCOL)
@@ -1344,7 +1461,6 @@ class YBakeToLayer(bpy.types.Operator):
                 height_root_ch.enable_subdiv_setup = ori_subdiv_setup
 
         # Set bake info to image/segment
-        #print(segment)
         bi = segment.bake_info if segment else image.y_bake_info
 
         bi.is_baked = True
@@ -1353,8 +1469,6 @@ class YBakeToLayer(bpy.types.Operator):
             if attr in dir(self):
                 try: setattr(bi, attr, getattr(self, attr))
                 except: pass
-
-        #print(bi.use_baked_disp)
 
         if other_objs:
 
@@ -1368,6 +1482,25 @@ class YBakeToLayer(bpy.types.Operator):
             for i, oo in reversed(list(enumerate(bi.other_objects))):
                 if oo.object not in other_objs:
                     bi.other_objects.remove(i)
+
+        if self.type == 'SELECTED_VERTICES':
+            #fill_mode = 'FACE'
+            #obj_vertex_indices = {}
+            bi.selected_face_mode = True if fill_mode == 'FACE' else False
+
+            # Clear selected objects first
+            bi.selected_objects.clear()
+
+            # Collect object to bake info
+            for obj_name, v_indices in obj_vertex_indices.items():
+                obj = bpy.data.objects.get(obj_name)
+                bso = bi.selected_objects.add()
+                bso.object = obj
+
+                # Collect selected vertex data to bake info
+                for vi in v_indices:
+                    bvi = bso.selected_vertex_indices.add()
+                    bvi.index = vi
 
         # Recover bake settings
         recover_bake_settings_(book, yp)
@@ -1404,7 +1537,9 @@ class YBakeToLayer(bpy.types.Operator):
 def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YRemoveBakeInfoOtherObject)
+    bpy.utils.register_class(YTryToSelectBakedVertexSelect)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
+    bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
