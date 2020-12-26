@@ -378,17 +378,18 @@ def get_all_layer_collections(arr, col):
     return arr
 
 def get_object_parent_layer_collections(arr, col, obj):
-    for c in col.children:
-        if any(get_object_parent_layer_collections(arr, c, obj)) and c not in arr:
-            arr.append(c)
-    
     for o in col.collection.objects:
-        if o == obj and col not in arr:
-            arr.append(col)
+        if o == obj:
+            if col not in arr: arr.append(col)
 
-    if any(arr) and col not in arr:
-        arr.append(col)
-                
+    if not arr:
+        for c in col.children:
+            get_object_parent_layer_collections(arr, c, obj)
+            if arr: break
+
+    if arr:
+        if col not in arr: arr.append(col)
+
     return arr
 
 def get_active_material():

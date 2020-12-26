@@ -37,6 +37,8 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         #objs = get_all_objects_with_same_materials(mat)
         objs = [bso.object for bso in bi.selected_objects]
 
+        print(objs)
+
         # Disable viewport hide of object layer collection
         #for o in objs:
         #    layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
@@ -49,7 +51,11 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         # Get actual selectable objects
         actual_selectable_objs = []
         for o in objs:
-            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
+            layer_cols = get_object_parent_layer_collections_([], bpy.context.view_layer.layer_collection, o)
+
+            for lc in layer_cols:
+                print(lc.name)
+            
             if not any([lc for lc in layer_cols if lc.exclude or lc.hide_viewport or lc.collection.hide_viewport]):
                 actual_selectable_objs.append(o)
 
