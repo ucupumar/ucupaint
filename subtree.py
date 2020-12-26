@@ -946,6 +946,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
             # Triangulate ngon faces on temp object
             bpy.ops.object.select_all(action='DESELECT')
             bpy.ops.object.mode_set(mode='EDIT')
+            bpy.ops.mesh.reveal()
             bpy.ops.mesh.select_all(action='DESELECT')
             bpy.ops.mesh.select_mode(type="FACE")
             bpy.ops.mesh.select_face_by_sides(number=4, type='GREATER')
