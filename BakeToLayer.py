@@ -37,7 +37,7 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         #objs = get_all_objects_with_same_materials(mat)
         objs = [bso.object for bso in bi.selected_objects]
 
-        print(objs)
+        #print(objs)
 
         # Disable viewport hide of object layer collection
         #for o in objs:
@@ -53,8 +53,8 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         for o in objs:
             layer_cols = get_object_parent_layer_collections_([], bpy.context.view_layer.layer_collection, o)
 
-            for lc in layer_cols:
-                print(lc.name)
+            #for lc in layer_cols:
+            #    print(lc.name)
             
             if not any([lc for lc in layer_cols if lc.exclude or lc.hide_viewport or lc.collection.hide_viewport]):
                 actual_selectable_objs.append(o)
@@ -382,6 +382,7 @@ class YBakeToLayer(bpy.types.Operator):
         suffix = bake_type_suffixes[self.type]
         self.name = get_unique_name(mat.name + ' ' + suffix, bpy.data.images)
 
+        self.overwrite_choice = False
         self.overwrite_name = ''
         overwrite_entity = None
 
@@ -486,7 +487,7 @@ class YBakeToLayer(bpy.types.Operator):
             #if active_name == TEMP_UV:
             #    self.uv_map = yp.layers[yp.active_layer_index].uv_name
             #else: self.uv_map = uv_layers.active.name
-        if len(self.uv_map_coll) > 0 and len(self.overwrite_coll) == 0:
+        if len(self.uv_map_coll) > 0 and not overwrite_entity: #len(self.overwrite_coll) == 0:
             self.uv_map = self.uv_map_coll[0].name
 
         return context.window_manager.invoke_props_dialog(self, width=320)
@@ -857,12 +858,15 @@ class YBakeToLayer(bpy.types.Operator):
 
                 obj_vertex_indices[obj.name] = v_indices
 
+            bpy.ops.object.mode_set(mode = 'OBJECT')
             for obj in objs:
                 try:
                     vcol = obj.data.vertex_colors.new(name=TEMP_VCOL)
                     set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0))
                     obj.data.vertex_colors.active = vcol
+                    #print(obj.name, obj.data.vertex_colors.active)
                 except: pass
+            bpy.ops.object.mode_set(mode = 'EDIT')
             bpy.ops.mesh.y_vcol_fill(color_option ='WHITE')
             #return {'FINISHED'}
             bpy.ops.object.mode_set(mode = 'OBJECT')
@@ -892,9 +896,10 @@ class YBakeToLayer(bpy.types.Operator):
             tile_y = 256
 
         prepare_bake_settings_(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type=bake_type, force_use_cpu=self.force_use_cpu,
-                hide_other_objs=hide_other_objs, bake_from_multires=self.type.startswith('MULTIRES_'),
-                tile_x = tile_x, tile_y = tile_y, use_selected_to_active=self.type.startswith('OTHER_OBJECT_'),
+                uv_map=self.uv_map, bake_type=bake_type, #disable_problematic_modifiers=True, 
+                force_use_cpu=self.force_use_cpu, hide_other_objs=hide_other_objs, 
+                bake_from_multires=self.type.startswith('MULTIRES_'), tile_x = tile_x, tile_y = tile_y, 
+                use_selected_to_active=self.type.startswith('OTHER_OBJECT_'),
                 max_ray_distance=self.max_ray_distance, cage_extrusion=self.cage_extrusion,
                 source_objs=other_objs,
                 )
@@ -985,6 +990,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # More setup
         ori_mods = {}
+        ori_viewport_mods = {}
         ori_mat_ids = {}
         ori_loop_locs = {}
         ori_multires_levels = {}
@@ -993,11 +999,24 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Disable few modifiers
             ori_mods[obj.name] = [m.show_render for m in obj.modifiers]
-            for m in obj.modifiers:
-                if m.type == 'SOLIDIFY':
-                    m.show_render = False
-                elif m.type == 'MIRROR':
-                    m.show_render = False
+            ori_viewport_mods[obj.name] = [m.show_viewport for m in obj.modifiers]
+            if self.type.startswith('MULTIRES_'):
+                mul = get_multires_modifier(obj)
+                multires_index = 99
+                if mul:
+                    for i, m in enumerate(obj.modifiers):
+                        if m == mul: multires_index = i
+                        if i > multires_index: 
+                            m.show_render = False
+                            m.show_viewport = False
+            else:
+                for m in obj.modifiers:
+                    if m.type == 'SOLIDIFY':
+                        m.show_render = False
+                    elif m.type == 'MIRROR':
+                        m.show_render = False
+                    elif m.type == 'ARRAY':
+                        m.show_render = False
 
             ori_mat_ids[obj.name] = []
             ori_loop_locs[obj.name] = []
@@ -1318,6 +1337,14 @@ class YBakeToLayer(bpy.types.Operator):
                         layer = yp.layers[i]
                         clear_mapping(layer)
 
+                # Set uv map
+                #yp.halt_update = True
+                for i in layer_ids:
+                    layer = yp.layers[i]
+                    if layer.uv_name != self.uv_map:
+                        layer.uv_name = self.uv_map
+                #yp.halt_update = False
+
                 # Refresh uv
                 refresh_temp_uv(context.object, yp.layers[active_id])
 
@@ -1341,6 +1368,13 @@ class YBakeToLayer(bpy.types.Operator):
                 if segment_unused:
                     for mask in masks:
                         clear_mapping(mask)
+
+                # Set uv map
+                #yp.halt_update = True
+                for mask in masks:
+                    if mask.uv_name != self.uv_map:
+                        mask.uv_name = self.uv_map
+                #yp.halt_update = False
 
                 # Refresh uv
                 if masks: refresh_temp_uv(context.object, masks[0])
@@ -1401,6 +1435,9 @@ class YBakeToLayer(bpy.types.Operator):
                 if i >= len(ori_mods[obj.name]): break
                 if ori_mods[obj.name][i] != m.show_render:
                     m.show_render = ori_mods[obj.name][i]
+                if i >= len(ori_viewport_mods[obj.name]): break
+                if ori_viewport_mods[obj.name][i] != m.show_render:
+                    m.show_viewport = ori_viewport_mods[obj.name][i]
 
             # Recover multires levels
             for m in obj.modifiers:

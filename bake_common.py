@@ -185,11 +185,17 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
 
     if disable_problematic_modifiers:
         book['disabled_mods'] = []
+        book['disabled_viewport_mods'] = []
         for obj in objs:
             for mod in obj.modifiers:
+
                 if mod.show_render and mod.type in problematic_modifiers: #{'MIRROR', 'SOLIDIFY'}:
                     mod.show_render = False
                     book['disabled_mods'].append(mod)
+
+                if mod.show_viewport and mod.type in problematic_modifiers: #{'MIRROR', 'SOLIDIFY'}:
+                    mod.show_viewport = False
+                    book['disabled_viewport_mods'].append(mod)
 
     # Set active uv layers
     if uv_map != '':
@@ -328,6 +334,10 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
     if 'disabled_mods' in book:
         for mod in book['disabled_mods']:
             mod.show_render = True
+
+    if 'disabled_viewport_mods' in book:
+        for mod in book['disabled_viewport_mods']:
+            mod.show_viewport = True
 
 def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
     T = time.time()
