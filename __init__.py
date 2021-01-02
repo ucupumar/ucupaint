@@ -92,15 +92,20 @@
 # - ..or, check the possibility of not updating temp uv except on paint mode (check paint mode event perhaps?) (V)
 # - Fake lighting should take account previous normal output (V)
 # - Create image container node outside yp group to make layer images linked to mesh, especially on edit mode (X)
+#   (doesn't need since image editor automatically update even with pinned image on 'UV Editing' workspace
 # - Remove yp node and keep baked images (V)
+# - Make rebake as an option on layer source (V)
+# - Clean up bake codes (Erase double prepare bake codes) (V)
+# - Normal map should not display bump height (V)
 # - Need ability to edit height channel main uv
 # - Object index mask should not generate neighbor uv
-#   (doesn't need since image editor automatically update even with pinned image on 'UV Editing' workspace
 # - Change link inside group to github insted of patreon
-# - Make rebake as an option on layer source
 # - Add operator to create new UV map on multiple objects using the same material
-# - Clean up bake codes (Erase double prepare bake codes)
-# - Normal map should not display bump height
+# - Override value should be more accessible for layer value channel
+# - Add option to use own image/texture as layer channel
+# - Add option to add multiple images all at once as one layer
+# - Add option to bake generated textures to improve performance
+# - Optimize hidden layer, maybe create a trash nodes to collect unused layers (?, Need to investigate the effeciveness more)
 
 # TODO:
 # - Make every node name unique (using hash?)

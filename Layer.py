@@ -1575,7 +1575,7 @@ def remove_layer(yp, index):
         segment.unused = True
 
     # Remove the source first to remove image
-    source_tree = get_source_tree(layer, layer_tree)
+    source_tree = get_source_tree(layer) #, layer_tree)
     remove_node(source_tree, layer, 'source', obj=obj)
 
     # Remove Mask source
@@ -1592,7 +1592,11 @@ def remove_layer(yp, index):
 
     # Remove node group and layer tree
     bpy.data.node_groups.remove(layer_tree)
-    group_tree.nodes.remove(group_tree.nodes.get(layer.group_node))
+    if layer.trash_group_node != '':
+        trash = group_tree.nodes.get(yp.trash)
+        if trash: trash.node_tree.nodes.remove(trash.node_tree.nodes.get(layer.trash_group_node))
+    else:
+        group_tree.nodes.remove(group_tree.nodes.get(layer.group_node))
 
     # Remove node group from parallax tree
     parallax = group_tree.nodes.get(PARALLAX)
@@ -2791,12 +2795,50 @@ def update_channel_intensity_value(self, context):
         #transition.check_transition_bump_nodes(layer, tree, ch)
         update_displacement_height_ratio(root_ch)
 
+def group_trash_update(yp):
+    tree = yp.id_data
+
+    # Get trash node
+    trash = tree.nodes.get(yp.trash)
+    if not trash:
+        trash = new_node(tree, yp, 'trash', 'ShaderNodeGroup', 'Trash')
+        trash.node_tree = bpy.data.node_groups.new(tree.name + ' Trash', 'ShaderNodeTree')
+
+    ttree = trash.node_tree
+
+    for layer in yp.layers:
+
+        if layer.enable and layer.trash_group_node != '':
+            tnode = ttree.nodes.get(layer.trash_group_node)
+
+            # Move node back to tree if found
+            if tnode:
+                node = tree.nodes.new('ShaderNodeGroup')
+                node.node_tree = tnode.node_tree
+                layer.group_node = node.name
+
+                ttree.nodes.remove(tnode)
+                layer.trash_group_node = ''
+
+        if not layer.enable and layer.trash_group_node == '':
+            node = tree.nodes.get(layer.group_node)
+
+            # Move node to trash if found
+            if node:
+                tnode = ttree.nodes.new('ShaderNodeGroup')
+                tnode.node_tree = node.node_tree
+                layer.trash_group_node = tnode.name
+
+                tree.nodes.remove(node)
+
 def update_layer_enable(self, context):
     T = time.time()
     yp = self.id_data.yp
     if yp.halt_update: return
     layer = self
     tree = get_tree(layer)
+
+    #group_trash_update(yp)
 
     #for ch in layer.channels:
     #    update_channel_enable(ch, context)
@@ -3174,6 +3216,7 @@ class YLayer(bpy.types.PropertyGroup):
     channels = CollectionProperty(type=YLayerChannel)
 
     group_node = StringProperty(default='')
+    trash_group_node = StringProperty(default='')
     depth_group_node = StringProperty(default='')
 
     type = EnumProperty(

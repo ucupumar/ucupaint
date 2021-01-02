@@ -2900,6 +2900,9 @@ class YPaint(bpy.types.PropertyGroup):
 
     #random_prop = BoolProperty(default=False)
 
+    # Trash node for collecting disabled nodes
+    trash = StringProperty(default='')
+
 class YPaintMaterialProps(bpy.types.PropertyGroup):
     ori_bsdf = StringProperty(default='')
     #ori_blend_method = StringProperty(default='')

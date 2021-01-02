@@ -2005,16 +2005,19 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     else: enable_parallax = False
 
     # Check duplicated layers (indicated by more than one users)
-    if len(yp.layers) > 0 and (
-            (not enable_parallax and get_tree(yp.layers[-1]).users > 1) or
-            (enable_parallax and get_tree(yp.layers[-1]).users > 2)
+    if len(yp.layers) > 0:
+        last_layer = yp.layers[-1]
+        ltree = get_tree(last_layer)
+        if ltree and (
+            (not enable_parallax and ltree.users > 1) or
+            (enable_parallax and ltree.users > 2)
             ):
-        row = box.row(align=True)
-        row.alert = True
-        row.operator("node.y_fix_duplicated_layers", icon='ERROR')
-        row.alert = False
-        box.prop(ypui, 'make_image_single_user')
-        return
+            row = box.row(align=True)
+            row.alert = True
+            row.operator("node.y_fix_duplicated_layers", icon='ERROR')
+            row.alert = False
+            box.prop(ypui, 'make_image_single_user')
+            return
 
     # Check source for missing data
     missing_data = False

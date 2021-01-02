@@ -1100,15 +1100,21 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             #if yp.disable_quick_toggle and not layer.enable:
             if (
-                (merged_layer_ids and j not in merged_layer_ids) or 
+                #(merged_layer_ids and j not in merged_layer_ids and layer.enable)
+                (merged_layer_ids and j not in merged_layer_ids) or
                 not layer.enable
                 ):
-                for inp in node.inputs:
-                    break_input_link(tree, inp)
-                for outp in node.outputs:
-                    break_input_link(tree, outp)
+
+                if node:
+                    for inp in node.inputs:
+                        break_input_link(tree, inp)
+                    for outp in node.outputs:
+                        break_input_link(tree, outp)
 
                 continue
+
+            #if not layer.enable:
+            #    continue
 
             need_prev_normal = check_need_prev_normal(layer)
 

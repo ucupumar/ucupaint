@@ -1410,14 +1410,24 @@ def get_tree(entity):
     #if not m: return None
     #if not hasattr(entity.id_data, 'yp') or not hasattr(entity, 'group_node'): return None
 
-    try:
-        tree = entity.id_data
-        yp = tree.yp
+    #try:
+
+    # Search inside yp tree
+    tree = entity.id_data
+    yp = tree.yp
+    group_node = None
+
+    if entity.trash_group_node != '':
+        trash = tree.nodes.get(yp.trash)
+        if trash: group_node = trash.node_tree.nodes.get(entity.trash_group_node)
+    else:
         group_node = tree.nodes.get(entity.group_node)
-        #if not group_node or group_node.type != 'GROUP': return None
-        return group_node.node_tree
-    except: 
-        return None
+
+    if not group_node or group_node.type != 'GROUP': return None
+    return group_node.node_tree
+
+    #except: 
+    #    return None
 
 def get_mod_tree(entity):
 
@@ -2918,6 +2928,7 @@ def update_layer_bump_process_max_height(height_root_ch, layer, tree=None):
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
+    if not tree: return
 
     bump_process = tree.nodes.get(layer.bump_process)
     if not bump_process: return
