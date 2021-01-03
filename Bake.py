@@ -8,10 +8,11 @@ from .node_connections import *
 from .node_arrangements import *
 from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier
 
-def transfer_uv(obj, mat, entity, uv_map):
+def transfer_uv(objs, mat, entity, uv_map):
 
-    uv_layers = get_uv_layers(obj)
-    uv_layers.active = uv_layers.get(uv_map)
+    for obj in objs:
+        uv_layers = get_uv_layers(obj)
+        uv_layers.active = uv_layers.get(uv_map)
 
     # Check entity
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -74,10 +75,6 @@ def transfer_uv(obj, mat, entity, uv_map):
     mapp = mat.node_tree.nodes.new('ShaderNodeMapping')
 
     if is_greater_than_281():
-        mapp.inputs[0].default_value[0] = mapping.inputs[0].default_value[0]
-        mapp.inputs[0].default_value[1] = mapping.inputs[0].default_value[1]
-        mapp.inputs[0].default_value[2] = mapping.inputs[0].default_value[2]
-
         mapp.inputs[1].default_value[0] = mapping.inputs[1].default_value[0]
         mapp.inputs[1].default_value[1] = mapping.inputs[1].default_value[1]
         mapp.inputs[1].default_value[2] = mapping.inputs[1].default_value[2]
@@ -85,6 +82,10 @@ def transfer_uv(obj, mat, entity, uv_map):
         mapp.inputs[2].default_value[0] = mapping.inputs[2].default_value[0]
         mapp.inputs[2].default_value[1] = mapping.inputs[2].default_value[1]
         mapp.inputs[2].default_value[2] = mapping.inputs[2].default_value[2]
+
+        mapp.inputs[3].default_value[0] = mapping.inputs[3].default_value[0]
+        mapp.inputs[3].default_value[1] = mapping.inputs[3].default_value[1]
+        mapp.inputs[3].default_value[2] = mapping.inputs[3].default_value[2]
     else:
         mapp.translation[0] = mapping.translation[0]
         mapp.translation[1] = mapping.translation[1]
@@ -126,6 +127,7 @@ def transfer_uv(obj, mat, entity, uv_map):
     mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
 
     # Bake!
+    #return {'FINISHED'}
     bpy.ops.object.bake()
 
     # Copy results to original image
@@ -213,13 +215,24 @@ class YTransferSomeLayerUV(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
+    remove_from_uv = BoolProperty(name='Delete From UV',
+            description = "Remove 'From UV' from objects",
+            default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH' # and hasattr(context, 'layer')
 
     def invoke(self, context, event):
+
         obj = self.obj = context.object
         scene = self.scene = context.scene
+
+        if hasattr(context, 'mask'):
+            self.entity = context.mask
+
+        elif hasattr(context, 'layer'):
+            self.entity = context.layer
 
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
@@ -229,6 +242,8 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         for uv in uv_layers:
             if not uv.name.startswith(TEMP_UV):
                 self.uv_map_coll.add().name = uv.name
+
+        self.from_uv_map = self.entity.uv_name
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -246,12 +261,14 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         col.label(text='To UV:')
         col.label(text='Samples:')
         col.label(text='Margin:')
+        col.label(text='')
 
         col = row.column(align=False)
         col.prop_search(self, "from_uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
         col.prop(self, 'margin', text='')
+        col.prop(self, 'remove_from_uv')
 
     def execute(self, context):
 
@@ -268,24 +285,51 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         mat = get_active_material()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
+        objs = get_all_objects_with_same_materials(mat)
+
+        # Check if all uv are available on all objects
+        for obj in objs:
+            uv_layers = get_uv_layers(obj)
+            from_uv = uv_layers.get(self.from_uv_map)
+            to_uv = uv_layers.get(self.uv_map)
+            if not from_uv or not to_uv:
+                self.report({'ERROR'}, "Some uvs are not found in some objects!")
+                return {'CANCELLED'}
 
         # Prepare bake settings
-        remember_before_bake(self, context, yp)
-        prepare_bake_settings(self, context, yp)
+        book = remember_before_bake(yp)
+        prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
+                uv_map=self.uv_map, bake_type='EMIT' #, force_use_cpu=self.force_use_cpu
+                )
 
         for layer in yp.layers:
             #print(layer.name)
-            if layer.type == 'IMAGE' and layer.uv_name == self.from_uv_map:
-                transfer_uv(self.obj, mat, layer, self.uv_map)
+            if layer.uv_name == self.from_uv_map:
+                if layer.type == 'IMAGE':
+                    print('TRANSFER UV: Transferring layer ' + layer.name + '...')
+                    transfer_uv(objs, mat, layer, self.uv_map)
+                else:
+                    layer.uv_name = self.uv_map
 
             for mask in layer.masks:
-                if mask.type == 'IMAGE' and mask.uv_name == self.from_uv_map:
-                    transfer_uv(self.obj, mat, mask, self.uv_map)
+                if mask.uv_name == self.from_uv_map:
+                    if mask.type == 'IMAGE':
+                        print('TRANSFER UV: Transferring mask ' + mask.name + ' on layer ' + layer.name + '...')
+                        transfer_uv(objs, mat, mask, self.uv_map)
+                        #return {'FINISHED'}
+                    else:
+                        mask.uv_name = self.uv_map
 
         #return {'FINISHED'}
 
         # Recover bake settings
-        recover_bake_settings(self, context, yp)
+        recover_bake_settings(book, yp)
+
+        if self.remove_from_uv:
+            for obj in objs:
+                uv_layers = get_uv_layers(obj)
+                from_uv = uv_layers.get(self.from_uv_map)
+                uv_layers.remove(from_uv)
 
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
@@ -377,16 +421,19 @@ class YTransferLayerUV(bpy.types.Operator):
 
         mat = get_active_material()
         yp = self.entity.id_data.yp
+        objs = get_all_objects_with_same_materials(mat)
 
         # Prepare bake settings
-        remember_before_bake(self, context, yp)
-        prepare_bake_settings(self, context, yp)
+        book = remember_before_bake(yp)
+        prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
+                uv_map=self.uv_map, bake_type='EMIT' #, force_use_cpu=self.force_use_cpu
+                )
 
         # Transfer UV
-        transfer_uv(self.obj, mat, self.entity, self.uv_map)
+        transfer_uv(objs, mat, self.entity, self.uv_map)
 
         # Recover bake settings
-        recover_bake_settings(self, context, yp)
+        recover_bake_settings(book, yp)
 
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
@@ -623,7 +670,7 @@ class YBakeChannels(bpy.types.Operator):
         obj = context.object
         mat = obj.active_material
 
-        book = remember_before_bake_(yp)
+        book = remember_before_bake(yp)
 
         height_ch = get_root_height_channel(yp)
 
@@ -710,7 +757,7 @@ class YBakeChannels(bpy.types.Operator):
         height = self.height * self.aa_level
 
         # Prepare bake settings
-        prepare_bake_settings_(book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, force_use_cpu=self.force_use_cpu)
+        prepare_bake_settings(book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, force_use_cpu=self.force_use_cpu)
 
         # Bake channels
         for ch in yp.channels:
@@ -767,7 +814,7 @@ class YBakeChannels(bpy.types.Operator):
         yp.baked_uv_name = self.uv_map
 
         # Recover bake settings
-        recover_bake_settings_(book, yp)
+        recover_bake_settings(book, yp)
 
         for ob in objs:
             # Recover material index
@@ -1089,6 +1136,7 @@ class YMergeLayer(bpy.types.Operator):
         obj = context.object
         mat = obj.active_material
         scene = context.scene
+        objs = get_all_objects_with_same_materials(mat)
 
         if self.error_message != '':
             self.report({'ERROR'}, self.error_message)
@@ -1117,14 +1165,10 @@ class YMergeLayer(bpy.types.Operator):
         # Check layer
         if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
 
-            self.scene = context.scene
-            self.samples = 1
-            self.margin = 5
-            self.uv_map = layer.uv_name
-            self.obj = obj
-
-            remember_before_bake(self, context, yp)
-            prepare_bake_settings(self, context, yp)
+            book = remember_before_bake(yp)
+            prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
+                    uv_map=layer.uv_name, bake_type='EMIT' #, force_use_cpu=self.force_use_cpu
+                    )
 
             #yp.halt_update = True
 
@@ -1176,7 +1220,7 @@ class YMergeLayer(bpy.types.Operator):
             #return {'FINISHED'}
 
             # Recover bake settings
-            recover_bake_settings(self, context, yp)
+            recover_bake_settings(book, yp)
 
             if not self.apply_modifiers:
                 recover_layer_modifiers_and_transforms(layer, mod_oris)
@@ -1322,14 +1366,12 @@ class YMergeMask(bpy.types.Operator):
         reconnect_layer_nodes(layer, merge_mask=True)
 
         # Prepare to bake
-        self.scene = context.scene
-        self.samples = 1
-        self.margin = 5
-        self.uv_map = mask.uv_name
-        self.obj = obj
+        objs = get_all_objects_with_same_materials(mat)
 
-        remember_before_bake(self, context, yp)
-        prepare_bake_settings(self, context, yp)
+        book = remember_before_bake(yp)
+        prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
+                uv_map=mask.uv_name, bake_type='EMIT' #, force_use_cpu=self.force_use_cpu
+                )
 
         # Get material output
         output = get_active_mat_output_node(mat.node_tree)
@@ -1395,7 +1437,7 @@ class YMergeMask(bpy.types.Operator):
         mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
         # Recover bake settings
-        recover_bake_settings(self, context, yp)
+        recover_bake_settings(book, yp)
 
         # Revert back preview mode 
         yp.layer_preview_mode = ori_layer_preview_mode

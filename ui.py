@@ -2060,6 +2060,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         # Get missing uvs
         uv_missings = []
+        #entities = []
         #for uv in yp.uvs:
         #    uv_layer = uv_layers.get(uv.name)
         #    if not uv_layer:
@@ -2084,18 +2085,21 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
+                    #entities.append(layer.name)
 
             for mask in layer.masks:
                 if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
                     uv_layer = uv_layers.get(mask.uv_name)
                     if not uv_layer and mask.uv_name not in uv_missings:
                         uv_missings.append(mask.uv_name)
+                        #entities.append(mask.name)
 
         for uv_name in uv_missings:
             row = box.row(align=True)
             row.alert = True
             title = 'UV ' + uv_name + ' is missing or renamed!'
             row.operator("node.y_fix_missing_uv", text=title, icon='ERROR').source_uv_name = uv_name
+            #print(entities)
             row.alert = False
 
     # Check if tangent refresh is needed

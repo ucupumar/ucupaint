@@ -11,7 +11,7 @@ problematic_modifiers = {
         'ARRAY',
         }
 
-def remember_before_bake_(yp=None):
+def remember_before_bake(yp=None):
     book = {}
     book['scene'] = scene = bpy.context.scene
     book['obj'] = obj = bpy.context.object
@@ -87,7 +87,7 @@ def remember_before_bake_(yp=None):
 
     return book
 
-def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
+def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
         disable_problematic_modifiers=False, force_use_cpu=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         source_objs=[]):
@@ -219,7 +219,7 @@ def prepare_bake_settings_(book, objs, yp=None, samples=1, margin=5, uv_map='', 
     if book['parallax_ch']:
         book['parallax_ch'].enable_parallax = False
 
-def recover_bake_settings_(book, yp=None, recover_active_uv=False):
+def recover_bake_settings(book, yp=None, recover_active_uv=False):
     scene = book['scene']
     obj = book['obj']
     uv_layers = get_uv_layers(obj)
@@ -342,7 +342,7 @@ def recover_bake_settings_(book, yp=None, recover_active_uv=False):
 def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
     T = time.time()
     print('FXAA: Doing FXAA pass on', image.name + '...')
-    book = remember_before_bake_()
+    book = remember_before_bake()
 
     width = image.size[0]
     height = image.size[1]
@@ -362,7 +362,7 @@ def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
     bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
     plane_obj = bpy.context.view_layer.objects.active
 
-    prepare_bake_settings_(book, [plane_obj], samples=1, margin=0, force_use_cpu=force_use_cpu)
+    prepare_bake_settings(book, [plane_obj], samples=1, margin=0, force_use_cpu=force_use_cpu)
 
     # Create temporary material
     mat = bpy.data.materials.new('__TEMP__')
@@ -458,7 +458,7 @@ def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
     bpy.data.meshes.remove(plane)
 
     # Recover settings
-    recover_bake_settings_(book)
+    recover_bake_settings(book)
 
     # Recover original active layer collection
     if is_greater_than_280():
@@ -870,8 +870,8 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, forc
     #scene = context.scene
 
     # Prepare bake settings
-    book = remember_before_bake_(yp)
-    prepare_bake_settings_(book, [obj], yp, samples, margin, uv_map, force_use_cpu=force_use_cpu)
+    book = remember_before_bake(yp)
+    prepare_bake_settings(book, [obj], yp, samples, margin, uv_map, force_use_cpu=force_use_cpu)
 
     mat = get_active_material()
     name = entity.name + ' Temp'
@@ -921,7 +921,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, forc
     entity.use_temp_bake = True
 
     # Recover bake settings
-    recover_bake_settings_(book, yp)
+    recover_bake_settings(book, yp)
 
     # Set uv
     entity.uv_name = uv_map
@@ -1010,7 +1010,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     image_name = image.name
     print('RESIZE IMAGE: Doing resize image pass on', image_name + '...')
 
-    book = remember_before_bake_()
+    book = remember_before_bake()
 
     if segment:
         ori_width = segment.width
@@ -1054,7 +1054,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
     plane_obj = bpy.context.view_layer.objects.active
 
-    prepare_bake_settings_(book, [plane_obj], samples=samples, margin=margin, force_use_cpu=force_use_cpu)
+    prepare_bake_settings(book, [plane_obj], samples=samples, margin=margin, force_use_cpu=force_use_cpu)
 
     # If using image atlas, transform uv
     if segment:
@@ -1183,7 +1183,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     bpy.data.meshes.remove(plane)
 
     # Recover settings
-    recover_bake_settings_(book)
+    recover_bake_settings(book)
 
     # Recover original active layer collection
     if is_greater_than_280():

@@ -2622,7 +2622,7 @@ def update_uv_name(self, context):
 
     nodes = tree.nodes
 
-    if layer.type in {'HEMI', 'GROUP'} or layer.texcoord_type != 'UV':
+    if layer.type in {'HEMI', 'GROUP', 'COLOR'} or layer.texcoord_type != 'UV':
         return
 
     # Use first uv if temp uv is selected

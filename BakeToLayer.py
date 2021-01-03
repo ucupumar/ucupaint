@@ -51,7 +51,7 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         # Get actual selectable objects
         actual_selectable_objs = []
         for o in objs:
-            layer_cols = get_object_parent_layer_collections_([], bpy.context.view_layer.layer_collection, o)
+            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
 
             #for lc in layer_cols:
             #    print(lc.name)
@@ -734,7 +734,7 @@ class YBakeToLayer(bpy.types.Operator):
                 return {'CANCELLED'}
 
         # Remember things
-        book = remember_before_bake_(yp)
+        book = remember_before_bake(yp)
 
         # FXAA doesn't work with hdr image
         # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
@@ -786,7 +786,7 @@ class YBakeToLayer(bpy.types.Operator):
             else: disp_uv = yp.uvs[0].name
             
             # Use 1 sample for baking height
-            prepare_bake_settings_(book, objs, yp, samples=1, margin=self.margin, 
+            prepare_bake_settings(book, objs, yp, samples=1, margin=self.margin, 
                     uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=self.force_use_cpu
                     )
 
@@ -794,7 +794,7 @@ class YBakeToLayer(bpy.types.Operator):
             bake_channel(disp_uv, mat, node, height_root_ch, disp_width, disp_height)
 
             # Recover bake settings
-            recover_bake_settings_(book, yp)
+            recover_bake_settings(book, yp)
 
             # Set baked name
             if yp.baked_uv_name == '':
@@ -895,7 +895,7 @@ class YBakeToLayer(bpy.types.Operator):
             tile_x = 256
             tile_y = 256
 
-        prepare_bake_settings_(book, objs, yp, samples=self.samples, margin=self.margin, 
+        prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type=bake_type, #disable_problematic_modifiers=True, 
                 force_use_cpu=self.force_use_cpu, hide_other_objs=hide_other_objs, 
                 bake_from_multires=self.type.startswith('MULTIRES_'), tile_x = tile_x, tile_y = tile_y, 
@@ -1546,7 +1546,7 @@ class YBakeToLayer(bpy.types.Operator):
                     bvi.index = vi
 
         # Recover bake settings
-        recover_bake_settings_(book, yp)
+        recover_bake_settings(book, yp)
 
         # Remove temporary objects
         if temp_objs:
