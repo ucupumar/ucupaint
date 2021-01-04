@@ -2808,7 +2808,10 @@ def group_trash_update(yp):
 
     for layer in yp.layers:
 
-        if layer.enable and layer.trash_group_node != '':
+        is_hidden = not layer.enable or is_parent_hidden(layer)
+
+        #if layer.enable and layer.trash_group_node != '':
+        if not is_hidden and layer.trash_group_node != '':
             tnode = ttree.nodes.get(layer.trash_group_node)
 
             # Move node back to tree if found
@@ -2820,7 +2823,9 @@ def group_trash_update(yp):
                 ttree.nodes.remove(tnode)
                 layer.trash_group_node = ''
 
-        if not layer.enable and layer.trash_group_node == '':
+        #if not layer.enable and layer.trash_group_node == '':
+        if is_hidden and layer.trash_group_node == '':
+
             node = tree.nodes.get(layer.group_node)
 
             # Move node to trash if found

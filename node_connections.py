@@ -1079,6 +1079,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             node = nodes.get(layer.group_node)
 
+            #is_hidden = not layer.enable or is_parent_hidden(layer)
 
             if yp.layer_preview_mode: # and yp.layer_preview_mode_type == 'LAYER':
 
@@ -1100,7 +1101,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             #if yp.disable_quick_toggle and not layer.enable:
             if (
-                #(merged_layer_ids and j not in merged_layer_ids and layer.enable)
+                #(merged_layer_ids and j not in merged_layer_ids and not is_hidden)
                 (merged_layer_ids and j not in merged_layer_ids) or
                 not layer.enable
                 ):
@@ -1113,7 +1114,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                 continue
 
-            #if not layer.enable:
+            #if is_hidden:
             #    continue
 
             need_prev_normal = check_need_prev_normal(layer)
@@ -1292,6 +1293,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     # List of last members
     last_members = []
     for layer in yp.layers:
+        #is_hidden = not layer.enable or is_parent_hidden(layer)
+        #if is_hidden: continue
         if not layer.enable: continue
         if is_bottom_member(layer):
             last_members.append(layer)
