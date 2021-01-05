@@ -395,8 +395,8 @@ def rearrange_source_tree_nodes(layer):
     check_set_node_loc(source_tree, ZERO_VALUE, loc)
     loc.y += 390
 
-    if check_set_node_loc(source_tree, layer.mapping, loc):
-        loc.x += 380
+    #if check_set_node_loc(source_tree, layer.mapping, loc):
+    #    loc.x += 380
 
     if check_set_node_loc(source_tree, layer.source, loc):
         loc.x += 280
@@ -424,8 +424,8 @@ def rearrange_mask_tree_nodes(mask):
     if check_set_node_loc(tree, TREE_START, loc):
         loc.x += 180
 
-    if check_set_node_loc(tree, mask.mapping, loc):
-        loc.x += 380
+    #if check_set_node_loc(tree, mask.mapping, loc):
+    #    loc.x += 380
 
     if check_set_node_loc(tree, mask.source, loc):
         loc.x += 280
@@ -614,11 +614,12 @@ def rearrange_layer_nodes(layer, tree=None):
     if check_set_node_loc(tree, layer.source_w, loc, hide=True):
         loc.y -= 40
 
-    if layer.source_group == '' and check_set_node_loc(tree, layer.mapping, loc):
-        loc.y -= 360
-
     if check_set_node_loc(tree, layer.uv_neighbor, loc):
         loc.y -= 260
+
+    #if layer.source_group == '' and check_set_node_loc(tree, layer.mapping, loc):
+    if check_set_node_loc(tree, layer.mapping, loc):
+        loc.y -= 360
 
     if check_set_node_loc(tree, layer.uv_map, loc):
         loc.y -= 120
@@ -853,7 +854,8 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, mask.uv_neighbor, loc):
             loc.y -= 320
 
-        if mask.group_node == '' and check_set_node_loc(tree, mask.mapping, loc):
+        #if mask.group_node == '' and check_set_node_loc(tree, mask.mapping, loc):
+        if check_set_node_loc(tree, mask.mapping, loc):
             loc.y -= 360
 
         if check_set_node_loc(tree, mask.uv_map, loc):

@@ -350,7 +350,7 @@ def enable_layer_source_tree(layer, rearrange=False):
     if layer.type not in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
         # Get current source for reference
         source_ref = layer_tree.nodes.get(layer.source)
-        mapping_ref = layer_tree.nodes.get(layer.mapping)
+        #mapping_ref = layer_tree.nodes.get(layer.mapping)
 
         # Create source tree
         source_tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + layer.name + ' Source', 'ShaderNodeTree')
@@ -365,8 +365,8 @@ def enable_layer_source_tree(layer, rearrange=False):
         source = new_node(source_tree, layer, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
 
-        mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping')
-        if mapping_ref: copy_node_props(mapping_ref, mapping)
+        #mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping')
+        #if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Create source node group
         source_group = new_node(layer_tree, layer, 'source_group', 'ShaderNodeGroup', 'source_group')
@@ -383,7 +383,7 @@ def enable_layer_source_tree(layer, rearrange=False):
 
         # Remove previous source
         layer_tree.nodes.remove(source_ref)
-        if mapping_ref: layer_tree.nodes.remove(mapping_ref)
+        #if mapping_ref: layer_tree.nodes.remove(mapping_ref)
     
         # Bring modifiers to source tree
         if layer.type in {'IMAGE', 'MUSGRAVE'}:
@@ -428,14 +428,14 @@ def disable_layer_source_tree(layer, rearrange=True):
     if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
         source_group = layer_tree.nodes.get(layer.source_group)
         source_ref = source_group.node_tree.nodes.get(layer.source)
-        mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
+        #mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
         # Create new source
         source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
 
-        mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
-        if mapping_ref: copy_node_props(mapping_ref, mapping)
+        #mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
+        #if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Bring back layer modifier to original tree
         if layer.type in {'IMAGE', 'MUSGRAVE'}:
@@ -532,7 +532,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
     if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
-        mapping_ref = layer_tree.nodes.get(mask.mapping)
+        #mapping_ref = layer_tree.nodes.get(mask.mapping)
 
         # Create mask tree
         mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
@@ -552,8 +552,8 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         copy_node_props(source_ref, source)
         #source.image = source_ref.image
 
-        mapping = new_node(mask_tree, mask, 'mapping', 'ShaderNodeMapping')
-        if mapping_ref: copy_node_props(mapping_ref, mapping)
+        #mapping = new_node(mask_tree, mask, 'mapping', 'ShaderNodeMapping')
+        #if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         # Create source node group
         group_node = new_node(layer_tree, mask, 'group_node', 'ShaderNodeGroup', 'source_group')
@@ -573,7 +573,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
         # Remove previous nodes
         layer_tree.nodes.remove(source_ref)
-        if mapping_ref: layer_tree.nodes.remove(mapping_ref)
+        #if mapping_ref: layer_tree.nodes.remove(mapping_ref)
 
     if reconnect:
         # Reconnect outside nodes
@@ -594,15 +594,15 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         mask_tree = get_mask_tree(mask)
 
         source_ref = mask_tree.nodes.get(mask.source)
-        mapping_ref = mask_tree.nodes.get(mask.mapping)
+        #mapping_ref = mask_tree.nodes.get(mask.mapping)
         group_node = layer_tree.nodes.get(mask.group_node)
 
         # Create new nodes
         source = new_node(layer_tree, mask, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
 
-        mapping = new_node(layer_tree, mask, 'mapping', 'ShaderNodeMapping')
-        if mapping_ref: copy_node_props(mapping_ref, mapping)
+        #mapping = new_node(layer_tree, mask, 'mapping', 'ShaderNodeMapping')
+        #if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         for mod in mask.modifiers:
             MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)

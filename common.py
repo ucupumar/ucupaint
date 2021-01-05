@@ -1464,7 +1464,7 @@ def get_mod_tree(entity):
 
         return tree
 
-def get_mask_tree(mask):
+def get_mask_tree(mask, ignore_group=False):
 
     m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
     if not m : return None
@@ -1472,6 +1472,9 @@ def get_mask_tree(mask):
     yp = mask.id_data.yp
     layer = yp.layers[int(m.group(1))]
     layer_tree = get_tree(layer)
+
+    if ignore_group:
+        return layer_tree
 
     group_node = layer_tree.nodes.get(mask.group_node)
     if not group_node or group_node.type != 'GROUP': return layer_tree
@@ -1482,7 +1485,7 @@ def get_mask_source(mask):
     return tree.nodes.get(mask.source)
 
 def get_mask_mapping(mask):
-    tree = get_mask_tree(mask)
+    tree = get_mask_tree(mask, True)
     return tree.nodes.get(mask.mapping)
 
 def get_source_tree(layer, tree=None):
@@ -1505,7 +1508,8 @@ def get_layer_source(layer, tree=None):
     return None
 
 def get_layer_mapping(layer):
-    tree = get_source_tree(layer)
+    #tree = get_source_tree(layer)
+    tree = get_tree(layer)
     return tree.nodes.get(layer.mapping)
 
 def get_entity_mapping(entity):
@@ -2036,12 +2040,14 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
     if 'ResX' not in uv_neighbor.inputs: return
 
     if entity.type == 'IMAGE' and source.image:
-        if is_greater_than_281():
-            uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.inputs[3].default_value[0]
-            uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.inputs[3].default_value[1]
-        else:
-            uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.scale[0]
-            uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.scale[1]
+        #if is_greater_than_281():
+        #    uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.inputs[3].default_value[0]
+        #    uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.inputs[3].default_value[1]
+        #else:
+        #    uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.scale[0]
+        #    uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.scale[1]
+        uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * entity.scale[0]
+        uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * entity.scale[1]
     else:
         uv_neighbor.inputs['ResX'].default_value = 1000.0
         uv_neighbor.inputs['ResY'].default_value = 1000.0

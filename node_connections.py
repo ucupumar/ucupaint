@@ -1402,7 +1402,7 @@ def reconnect_source_internal_nodes(layer):
     tree = get_source_tree(layer)
 
     source = tree.nodes.get(layer.source)
-    mapping = tree.nodes.get(layer.mapping)
+    #mapping = tree.nodes.get(layer.mapping)
     linear = tree.nodes.get(layer.linear)
     start = tree.nodes.get(TREE_START)
     solid = tree.nodes.get(ONE_VALUE)
@@ -1410,11 +1410,11 @@ def reconnect_source_internal_nodes(layer):
 
     #if layer.type != 'VCOL':
     #    create_link(tree, start.outputs[0], source.inputs[0])
-    if mapping:
-        create_link(tree, start.outputs[0], mapping.inputs[0])
-        create_link(tree, mapping.outputs[0], source.inputs[0])
-    else:
-        create_link(tree, start.outputs[0], source.inputs[0])
+    #if mapping:
+    #    create_link(tree, start.outputs[0], mapping.inputs[0])
+    #    create_link(tree, mapping.outputs[0], source.inputs[0])
+    #else:
+    create_link(tree, start.outputs[0], source.inputs[0])
 
     rgb = source.outputs[0]
     if layer.type == 'MUSGRAVE':
@@ -1453,16 +1453,16 @@ def reconnect_mask_internal_nodes(mask):
     tree = get_mask_tree(mask)
 
     source = tree.nodes.get(mask.source)
-    mapping = tree.nodes.get(mask.mapping)
+    #mapping = tree.nodes.get(mask.mapping)
     start = tree.nodes.get(TREE_START)
     end = tree.nodes.get(TREE_END)
 
     if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
-        if mapping:
-            create_link(tree, start.outputs[0], mapping.inputs[0])
-            create_link(tree, mapping.outputs[0], source.inputs[0])
-        else:
-            create_link(tree, start.outputs[0], source.inputs[0])
+        #if mapping:
+        #    create_link(tree, start.outputs[0], mapping.inputs[0])
+        #    create_link(tree, mapping.outputs[0], source.inputs[0])
+        #else:
+        create_link(tree, start.outputs[0], source.inputs[0])
 
     val = source.outputs[0]
 
@@ -1556,11 +1556,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             vector = texcoord.outputs.get(layer.uv_name + io_suffix['UV'])
         else: vector = texcoord.outputs[io_names[layer.texcoord_type]]
 
-        if source_group or not mapping:
-            create_link(tree, vector, source.inputs[0])
-        elif mapping:
-            create_link(tree, vector, mapping.inputs[0])
-            create_link(tree, mapping.outputs[0], source.inputs[0])
+        if mapping:
+            vector = create_link(tree, vector, mapping.inputs[0])[0]
+            #create_link(tree, mapping.outputs[0], source.inputs[0])
+
+        #if source_group or not mapping:
+        create_link(tree, vector, source.inputs[0])
 
         if uv_neighbor: 
             create_link(tree, vector, uv_neighbor.inputs[0])
@@ -1670,15 +1671,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if mask.group_node != '':
             mask_source = nodes.get(mask.group_node)
             reconnect_mask_internal_nodes(mask)
-            mask_mapping = None
+            #mask_mapping = None
             mask_val = mask_source.outputs[0]
         else:
             mask_source = nodes.get(mask.source)
-            mask_mapping = nodes.get(mask.mapping)
+            #mask_mapping = nodes.get(mask.mapping)
 
             mask_val = mask_source.outputs[0]
             for mod in mask.modifiers:
                 mask_val = reconnect_mask_modifier_nodes(tree, mod, mask_val)
+
+        mask_mapping = nodes.get(mask.mapping)
 
         if yp.layer_preview_mode and yp.layer_preview_mode_type == 'SPECIFIC_MASK' and mask.active_edit == True:
             if alpha_preview:
@@ -1707,10 +1710,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 mask_vector = texcoord.outputs[io_names[mask.texcoord_type]]
 
             if mask_mapping:
-                create_link(tree, mask_vector, mask_mapping.inputs[0])
-                create_link(tree, mask_mapping.outputs[0], mask_source.inputs[0])
-            else:
-                create_link(tree, mask_vector, mask_source.inputs[0])
+                mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
+                #create_link(tree, mask_mapping.outputs[0], mask_source.inputs[0])
+            #else:
+            create_link(tree, mask_vector, mask_source.inputs[0])
 
         # Mask uv neighbor
         mask_uv_neighbor = nodes.get(mask.uv_neighbor)
