@@ -3,6 +3,8 @@ from .common import *
 from mathutils import *
 from bpy.app.handlers import persistent
 from distutils.version import LooseVersion #, StrictVersion
+from .node_arrangements import *
+from .node_connections import *
 
 # Node tree names
 OVERLAY_NORMAL = '~yPL Overlay Normal'
@@ -497,25 +499,70 @@ def update_routine(name):
     cur_version = get_current_version_str()
 
     for ng in bpy.data.node_groups:
-        if ng.yp.is_ypaint_node:
-            #print(ng.name, 'ver:', ng.yp.version)
+        if not ng.yp.is_ypaint_node: continue
 
-            # Version 0.9.1 and above will fix wrong bake type stored on images bake type
-            if LooseVersion(ng.yp.version) < LooseVersion('0.9.1'):
-                #print(cur_version)
-                for layer in ng.yp.layers:
-                    if layer.type == 'IMAGE':
-                        source = get_layer_source(layer)
+        #print(ng.name, 'ver:', ng.yp.version)
+        update_happened = False
 
-                        if source.image and source.image.y_bake_info.is_baked:
-                            #print(source.image)
-                            for type_name, label in bake_type_suffixes.items():
-                                if label in source.image.name and source.image.y_bake_info.bake_type != type_name:
-                                    source.image.y_bake_info.bake_type = type_name
-                                    print('INFO: Bake type of', source.image.name, 'is fixed by setting it to', label + '!')
+        # Version 0.9.1 and above will fix wrong bake type stored on images bake type
+        if LooseVersion(ng.yp.version) < LooseVersion('0.9.1'):
+            #print(cur_version)
+            for layer in ng.yp.layers:
+                if layer.type == 'IMAGE':
+                    source = get_layer_source(layer)
 
-                # Update version
-                ng.yp.version = cur_version
+                    if source.image and source.image.y_bake_info.is_baked:
+                        #print(source.image)
+                        for type_name, label in bake_type_suffixes.items():
+                            if label in source.image.name and source.image.y_bake_info.bake_type != type_name:
+                                source.image.y_bake_info.bake_type = type_name
+                                print('INFO: Bake type of', source.image.name, 'is fixed by setting it to', label + '!')
+                                update_happened = True
+
+        # Version 0.9.2 and above will move mapping outside source group
+        if LooseVersion(ng.yp.version) < LooseVersion('0.9.2'):
+
+            for layer in ng.yp.layers:
+                tree = get_tree(layer)
+
+                mapping_replaced = False
+
+                # Move layer mapping
+                if layer.source_group != '':
+                    group = tree.nodes.get(layer.source_group)
+                    if group:
+                        mapping_ref = group.node_tree.nodes.get(layer.mapping)
+                        if mapping_ref:
+                            mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping')
+                            copy_node_props(mapping_ref, mapping)
+                            group.node_tree.nodes.remove(mapping_ref)
+                            set_uv_neighbor_resolution(layer, mapping=mapping)
+                            mapping_replaced = True
+                            print('INFO: Mapping of', layer.name, 'is moved out!')
+
+                # Move mask mapping
+                for mask in layer.masks:
+                    if mask.group_node != '':
+                        group = tree.nodes.get(mask.group_node)
+                        if group:
+                            mapping_ref = group.node_tree.nodes.get(mask.mapping)
+                            if mapping_ref:
+                                mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping')
+                                copy_node_props(mapping_ref, mapping)
+                                group.node_tree.nodes.remove(mapping_ref)
+                                set_uv_neighbor_resolution(mask, mapping=mapping)
+                                mapping_replaced = True
+                                print('INFO: Mapping of', mask.name, 'is moved out!')
+
+                if mapping_replaced:
+                    reconnect_layer_nodes(layer)
+                    rearrange_layer_nodes(layer)
+                    update_happened = True
+
+        # Update version
+        if update_happened:
+            ng.yp.version = cur_version
+            print('INFO:', ng.name, 'is updated to version', cur_version)
 
     print('INFO: ' + ADDON_TITLE + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
