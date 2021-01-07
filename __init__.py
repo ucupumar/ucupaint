@@ -98,7 +98,7 @@
 # - Clean up bake codes (Erase double prepare bake codes) (V)
 # - Normal map should not display bump height (V)
 # - Need ability to edit height channel main uv
-# - Object index mask should not generate neighbor uv
+# - Object index mask should not generate neighbor uv (V)
 # - Change link inside group to github insted of patreon
 # - Add operator to create new UV map on multiple objects using the same material
 # - Override value should be more accessible for layer value channel

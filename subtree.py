@@ -394,11 +394,11 @@ def enable_layer_source_tree(layer, rearrange=False):
 
     # Create uv neighbor
     #if layer.type in {'VCOL', 'GROUP'}:
-    if layer.type in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+    if layer.type in {'VCOL', 'HEMI'}: #, 'OBJECT_INDEX'}:
         uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.NEIGHBOR_FAKE, hard_replace=True)
     #else: 
-    elif layer.type != 'GROUP': 
+    elif layer.type not in {'GROUP', 'OBJECT_INDEX'}: 
         uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
         set_uv_neighbor_resolution(layer, uv_neighbor)
@@ -500,11 +500,11 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
     # Get chain
     chain = get_bump_chain(layer)
 
-    if smooth_bump_ch and smooth_bump_ch.enable and (write_height_ch or mask_idx < chain):
+    if smooth_bump_ch and smooth_bump_ch.enable and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX'}:
 
         #print('ntob')
 
-        if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX'}: 
+        if mask.type in {'VCOL', 'HEMI'}: #, 'OBJECT_INDEX'}: 
             lib_name = lib.NEIGHBOR_FAKE
         else: lib_name = lib.get_neighbor_uv_tree_name(mask.texcoord_type, entity=mask)
 
