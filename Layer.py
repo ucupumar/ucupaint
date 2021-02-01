@@ -2040,6 +2040,28 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
     rearrange_yp_nodes(mask.id_data)
     reconnect_yp_nodes(mask.id_data)
 
+class YReplaceLayerChannelOverride(bpy.types.Operator):
+    bl_idname = "node.y_replace_layer_channel_override"
+    bl_label = "Replace Layer Channel Override"
+    bl_description = "Replace Layer Channel Override"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    type = EnumProperty(
+            name = 'Layer Type',
+            items = channel_override_type_items,
+            default = 'IMAGE')
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def execute(self, context):
+        #print(context.parent)
+        ch = context.parent
+        ch.override_type = self.type
+        return {'FINISHED'}
+
 class YReplaceLayerType(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_type"
     bl_label = "Replace Layer Type"
@@ -2400,6 +2422,33 @@ class YDuplicateLayer(bpy.types.Operator):
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
+
+def update_layer_channel_override_value(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    ch_index = int(m.group(2))
+    layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[ch_index]
+    ch = self
+
+    update_override_value(root_ch, layer, ch)
+
+def update_layer_channel_override(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    ch_index = int(m.group(2))
+    layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[ch_index]
+    ch = self
+
+    check_override_layer_channel_nodes(root_ch, layer, ch)
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
 def update_channel_enable(self, context):
     T = time.time()
@@ -2940,6 +2989,14 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Modifiers
     modifiers = CollectionProperty(type=Modifier.YPaintModifier)
 
+    # Override source
+    override = BoolProperty(default=False, update=update_layer_channel_override)
+    #override_tex = BoolProperty(default=False)
+    override_type = EnumProperty(items=channel_override_type_items, default='DEFAULT')
+    override_color = FloatVectorProperty(subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5), update=update_layer_channel_override_value)
+    override_value = FloatProperty(min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
+    source = StringProperty(default='')
+
     # Blur
     #enable_blur = BoolProperty(default=False, update=Blur.update_layer_channel_blur)
     #blur = PointerProperty(type=Blur.YLayerBlur)
@@ -2950,7 +3007,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     linear = StringProperty(default='')
     blend = StringProperty(default='')
     intensity = StringProperty(default='')
-    source = StringProperty(default='')
     extra_alpha = StringProperty(default='')
 
     # Height related
@@ -3376,6 +3432,7 @@ def register():
     bpy.utils.register_class(YRemoveLayer)
     bpy.utils.register_class(YRemoveLayerMenu)
     bpy.utils.register_class(YReplaceLayerType)
+    bpy.utils.register_class(YReplaceLayerChannelOverride)
     bpy.utils.register_class(YDuplicateLayer)
     bpy.utils.register_class(YLayerChannel)
     bpy.utils.register_class(YLayer)
@@ -3392,6 +3449,7 @@ def unregister():
     bpy.utils.unregister_class(YRemoveLayer)
     bpy.utils.unregister_class(YRemoveLayerMenu)
     bpy.utils.unregister_class(YReplaceLayerType)
+    bpy.utils.unregister_class(YReplaceLayerChannelOverride)
     bpy.utils.unregister_class(YDuplicateLayer)
     bpy.utils.unregister_class(YLayerChannel)
     bpy.utils.unregister_class(YLayer)

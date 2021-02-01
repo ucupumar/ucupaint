@@ -120,6 +120,27 @@ mask_type_items = (
         ('OBJECT_INDEX', 'Object Index', ''),
         )
 
+channel_override_type_items = (
+        ('DEFAULT', 'Default', ''),
+        ('IMAGE', 'Image', ''),
+        #('ENVIRONMENT', 'Environment', ''),
+        ('BRICK', 'Brick', ''),
+        ('CHECKER', 'Checker', ''),
+        ('GRADIENT', 'Gradient', ''),
+        ('MAGIC', 'Magic', ''),
+        ('MUSGRAVE', 'Musgrave', ''),
+        ('NOISE', 'Noise', ''),
+        #('POINT_DENSITY', 'Point Density', ''),
+        #('SKY', 'Sky', ''),
+        ('VORONOI', 'Voronoi', ''),
+        ('WAVE', 'Wave', ''),
+        ('VCOL', 'Vertex Color', ''),
+        #('BACKGROUND', 'Background', ''),
+        #('COLOR', 'Solid Color', ''),
+        #('GROUP', 'Group', ''),
+        ('HEMI', 'Fake Lighting', ''),
+        )
+
 hemi_space_items = (
         ('WORLD', 'World Space', ''),
         ('OBJECT', 'Object Space', ''),

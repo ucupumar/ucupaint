@@ -1881,6 +1881,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         height_alpha = None
         normal_alpha = None
 
+        # Channel Override
+        if ch.override:
+            ch_source = nodes.get(ch.source)
+            if ch_source:
+                rgb = ch_source.outputs[0]
+
         if layer.type == 'GROUP':
 
             if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:

@@ -596,9 +596,7 @@ def rearrange_layer_nodes(layer, tree=None):
             elif layer.type == 'NOISE':
                 loc.y -= 170
             elif layer.type == 'VORONOI':
-                loc.y -= 170
-            elif layer.type == 'VORONOI':
-                loc.y -= 260
+                loc.y -= 190
             else:
                 loc.y -= 260
 
@@ -613,6 +611,25 @@ def rearrange_layer_nodes(layer, tree=None):
 
     if check_set_node_loc(tree, layer.source_w, loc, hide=True):
         loc.y -= 40
+
+    for ch in layer.channels:
+        if check_set_node_loc(tree, ch.source, loc, hide=False):
+            if ch.override_type == 'BRICK':
+                loc.y -= 400
+            elif ch.override_type == 'CHECKER':
+                loc.y -= 170
+            elif ch.override_type == 'GRADIENT':
+                loc.y -= 140
+            elif ch.override_type == 'MAGIC':
+                loc.y -= 180
+            elif ch.override_type == 'MUSGRAVE':
+                loc.y -= 270
+            elif ch.override_type == 'NOISE':
+                loc.y -= 170
+            elif ch.override_type == 'VORONOI':
+                loc.y -= 190
+            else:
+                loc.y -= 260
 
     if check_set_node_loc(tree, layer.uv_neighbor, loc):
         loc.y -= 260

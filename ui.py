@@ -372,6 +372,8 @@ def draw_tex_props(source, layout):
             col.label(text='Distance:')
             col.separator()
             col.label(text='Scale:')
+            if source.feature == 'SMOOTH_F1':
+                col.label(text='Smoothness:')
             col.label(text='Randomness:')
             col = row.column(align=True)
             col.prop(source, 'voronoi_dimensions', text='')
@@ -379,6 +381,8 @@ def draw_tex_props(source, layout):
             col.prop(source, 'distance', text='')
             col.separator()
             col.prop(source.inputs[2], 'default_value', text='')
+            if source.feature == 'SMOOTH_F1':
+                col.prop(source.inputs[3], 'default_value', text='')
             col.prop(source.inputs[5], 'default_value', text='')
         else:
             row = col.row()
@@ -1184,15 +1188,15 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
         row = ccol.row(align=True)
 
-        #expandable = True
-        expandable = (
-                len(ch.modifiers) > 0 or 
-                layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'} or 
-                root_ch.type == 'NORMAL' or
-                ch.show_transition_ramp or
-                ch.show_transition_ao or
-                showed_bump_ch_found
-                )
+        expandable = True
+        #expandable = (
+        #        len(ch.modifiers) > 0 or 
+        #        layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'} or 
+        #        root_ch.type == 'NORMAL' or
+        #        ch.show_transition_ramp or
+        #        ch.show_transition_ao or
+        #        showed_bump_ch_found
+        #        )
 
         #if custom_icon_enable:
         icon_name = lib.channel_custom_icon_dict[root_ch.type]
@@ -1576,6 +1580,22 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
         draw_modifier_stack(context, ch, root_ch.type, modcol, 
                 ypui.layer_ui.channels[i], layer)
 
+        # Override settings
+        row = mcol.row(align=True)
+        row.label(text='', icon_value=lib.get_icon('input'))
+        row.label(text='Override:')
+        row.context_pointer_set('parent', ch)
+        if ch.override:
+            if root_ch.type == 'VALUE':
+                row.prop(ch, 'override_value', text='')
+            else: row.prop(ch, 'override_color', text='') #, icon='COLOR')
+        row.prop(ch, 'override', text='')
+
+        if is_greater_than_280():
+            row.menu("NODE_MT_y_replace_channel_override_menu", icon='PREFERENCES', text='')
+        else: row.menu("NODE_MT_y_replace_channel_override_menu", icon='SCRIPTWIN', text='')
+
+        # Layer input
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             row = mcol.row(align=True)
 
@@ -3467,6 +3487,85 @@ class YMaterialSpecialMenu(bpy.types.Menu):
         col = self.layout.column()
         col.operator('material.y_select_all_material_polygons', icon='FACESEL')
 
+class YReplaceChannelOverrideMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_replace_channel_override_menu"
+    bl_label = "Replace Channel Override Menu"
+    bl_description = 'Replace Channel Override'
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'parent') and get_active_ypaint_node()
+
+    def draw(self, context):
+        #row = self.layout.row()
+        #col = row.column()
+        col = self.layout.column()
+
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+        if m:
+            ch = context.parent
+            yp = ch.id_data.yp
+            root_ch = yp.channels[int(m.group(2))]
+        else:
+            return
+
+        col.label(text='Override Type:')
+
+        icon = 'RADIOBUT_ON' if ch.override_type == 'DEFAULT' else 'RADIOBUT_OFF'
+        if root_ch.type == 'VALUE':
+            col.operator('node.y_replace_layer_channel_override', text='Value', icon=icon).type = 'DEFAULT'
+        else: col.operator('node.y_replace_layer_channel_override', text='Color', icon=icon).type = 'DEFAULT'
+
+        col.separator()
+
+        icon = 'RADIOBUT_ON' if ch.override_type == 'IMAGE' else 'RADIOBUT_OFF'
+        col.label(text='Image', icon=icon)
+
+        row = col.row(align=True)
+        ccol = row.column(align=True)
+        ccol.label(text='', icon='BLANK1')
+
+        ccol = row.column(align=True)
+        ccol.operator('node.y_replace_layer_channel_override', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        ccol.operator('node.y_replace_layer_channel_override', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        
+        col.separator()
+
+        icon = 'RADIOBUT_ON' if ch.override_type == 'VCOL' else 'RADIOBUT_OFF'
+        col.label(text='Vertex Color', icon=icon)
+
+        row = col.row(align=True)
+        ccol = row.column(align=True)
+        ccol.label(text='', icon='BLANK1')
+
+        ccol = row.column(align=True)
+        ccol.operator('node.y_replace_layer_channel_override', text='New Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        ccol.operator('node.y_replace_layer_channel_override', text='Use Available Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+
+        col.separator()
+
+        for item in channel_override_type_items:
+            if item[0] == ch.override_type:
+                icon = 'RADIOBUT_ON'
+            else: icon = 'RADIOBUT_OFF'
+
+            if item[0] in {'DEFAULT', 'IMAGE', 'VCOL'}: continue
+
+            col.operator('node.y_replace_layer_channel_override', text=item[1], icon=icon).type = item[0]
+
+        #col = row.column()
+        #col.label(text='Override Using Image:')
+
+        ##col.operator('node.y_replace_layer_channel_override', text='New Image', icon_value=lib.get_icon('image')).type = 'IMAGE'
+        #col.operator('node.y_replace_layer_channel_override', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        #col.operator('node.y_replace_layer_channel_override', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+
+        #col = row.column()
+        #col.label(text='Override Using Vertex Color:')
+
+        #col.operator('node.y_replace_layer_channel_override', text='New Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        #col.operator('node.y_replace_layer_channel_override', text='Use Available Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+
 class YAddModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_modifier_menu"
     bl_label = "Add Modifier Menu"
@@ -3849,6 +3948,7 @@ def register():
     bpy.utils.register_class(YLayerMaskMenu)
     bpy.utils.register_class(YMaterialSpecialMenu)
     bpy.utils.register_class(YAddModifierMenu)
+    bpy.utils.register_class(YReplaceChannelOverrideMenu)
     bpy.utils.register_class(YLayerSpecialMenu)
     bpy.utils.register_class(YModifierUI)
     bpy.utils.register_class(YChannelUI)
@@ -3893,6 +3993,7 @@ def unregister():
     bpy.utils.unregister_class(YLayerMaskMenu)
     bpy.utils.unregister_class(YMaterialSpecialMenu)
     bpy.utils.unregister_class(YAddModifierMenu)
+    bpy.utils.unregister_class(YReplaceChannelOverrideMenu)
     bpy.utils.unregister_class(YLayerSpecialMenu)
     bpy.utils.unregister_class(YModifierUI)
     bpy.utils.unregister_class(YChannelUI)

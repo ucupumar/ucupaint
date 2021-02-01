@@ -2015,6 +2015,34 @@ def update_preview_mix(ch, preview):
     mix = preview.node_tree.nodes.get('Mix')
     if mix: mix.blend_type = ch.blend_type
 
+def update_override_value(root_ch, layer, ch, tree=None):
+
+    if not tree: tree = get_tree(layer)
+
+    source = tree.nodes.get(ch.source)
+    if root_ch.type == 'RGB':
+        col = ch.override_color
+        col = (col[0], col[1], col[2], 1.0)
+        source.outputs[0].default_value = col
+    elif root_ch.type == 'VALUE':
+        source.outputs[0].default_value = ch.override_value
+
+def check_override_layer_channel_nodes(root_ch, layer, ch):
+
+    yp = layer.id_data.yp
+    tree = get_tree(layer)
+
+    # Try to get channel source
+    if ch.override:
+        if root_ch.type == 'RGB':
+            source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', root_ch.name + ' Override')
+            #print(root_ch.name)
+        elif root_ch.type == 'VALUE':
+            source = replace_new_node(tree, ch, 'source', 'ShaderNodeValue', root_ch.name + ' Override')
+        update_override_value(root_ch, layer, ch, tree)
+    else:
+        remove_node(tree, ch, 'source')
+
 def check_blend_type_nodes(root_ch, layer, ch):
 
     #print("Checking blend type nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
