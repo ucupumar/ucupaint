@@ -2188,7 +2188,11 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     rcol = row.column()
     if len(yp.layers) > 0:
         #prow = rcol.row(align=True)
-        prow = rcol.split(factor=0.667, align=True)
+
+        if is_greater_than_280():
+            prow = rcol.split(factor=0.667, align=True)
+        else: prow = rcol.split(percentage=0.667, align=True)
+
         if yp.layer_preview_mode: prow.alert = True
         if not is_greater_than_280():
             prow.prop(yp, 'layer_preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
