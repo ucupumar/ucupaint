@@ -228,6 +228,7 @@ MOD_INVERT_VALUE = '~yPL Mod Invert Value'
 MOD_MULTIPLIER = '~yPL Mod Multiplier'
 MOD_MULTIPLIER_VALUE = '~yPL Mod Multiplier Value'
 MOD_INTENSITY_HARDNESS = '~yPL Mod Intensity Hardness'
+MOD_MATH = '~yPL Mod Math'
 
 channel_custom_icon_dict = {
         'RGB' : 'rgb_channel',

@@ -26,6 +26,7 @@ modifier_type_items = (
         ('HUE_SATURATION', 'Hue Saturation', '', 'MODIFIER', 6),
         ('BRIGHT_CONTRAST', 'Brightness Contrast', '', 'MODIFIER', 7),
         ('MULTIPLIER', 'Multiplier', '', 'MODIFIER', 8),
+        ('MATH', 'Math', '', 'MODIFIER',9)
         )
 
 can_be_expanded = {
@@ -37,6 +38,7 @@ can_be_expanded = {
         'HUE_SATURATION',
         'BRIGHT_CONTRAST',
         'MULTIPLIER',
+        'MATH'
         }
 
 def get_modifier_channel_type(mod, return_non_color=False):
@@ -364,6 +366,28 @@ def check_modifier_nodes(m, tree, ref_tree=None):
             #    frame.label = 'Multiplier'
             #    multiplier.parent = frame
 
+    elif m.type == 'MATH':
+
+        if not m.enable:
+            remove_node(tree, m, 'math')
+        else:
+            if ref_tree:
+                # Remove previous nodes
+                math_ref = ref_tree.nodes.get(m.math)
+                ref_tree.nodes.remove(math_ref)
+
+                math = new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math')
+                dirty = True
+            else:
+                math, dirty = check_new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math', True)
+
+            if dirty:
+                math.node_tree = get_node_tree_lib(lib.MOD_MATH)
+                math.inputs[2].default_value = m.math_r_val
+                math.inputs[3].default_value = m.math_g_val
+                math.inputs[4].default_value = m.math_b_val
+                math.inputs[5].default_value = m.math_a_val
+
 def add_new_modifier(parent, modifier_type):
 
     yp = parent.id_data.yp
@@ -445,6 +469,9 @@ def delete_modifier_nodes(tree, mod):
 
     elif mod.type == 'MULTIPLIER':
         remove_node(tree, mod, 'multiplier')
+
+    elif mod.type == 'MATH':
+        remove_node(tree, mod, 'math')
 
 class YNewYPaintModifier(bpy.types.Operator):
     bl_idname = "node.y_new_ypaint_modifier"
@@ -715,6 +742,17 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
             col.prop(modifier, 'multiplier_b_val', text='B')
             col.separator()
             col.prop(modifier, 'multiplier_a_val', text='Alpha')
+    
+    elif modifier.type == 'MATH':
+        col = layout.column(align=True)
+        row = col.row()
+        row.label(text='Clamp:')
+        row.prop(modifier, 'use_clamp', text='')
+        col.prop(modifier, 'math_r_val', text='R')
+        col.prop(modifier, 'math_g_val', text='G')
+        col.prop(modifier, 'math_b_val', text='B')
+        col.separator()
+        col.prop(modifier, 'math_a_val', text='A')
 
 def update_modifier_enable(self, context):
 
@@ -887,6 +925,9 @@ def update_use_clamp(self, context):
     if self.type == 'MULTIPLIER':
         multiplier = tree.nodes.get(self.multiplier)
         multiplier.inputs[2].default_value = 1.0 if self.use_clamp and self.enable else 0.0
+    elif self.type == 'MATH':
+        math = tree.nodes.get(self.math)
+        math.inputs[6].default_value = 1.0 if self.use_clamp and self.enable else 0.0
 
 def update_multiplier_val_input(self, context):
 
@@ -904,6 +945,19 @@ def update_multiplier_val_input(self, context):
             multiplier.inputs[4].default_value = self.multiplier_g_val if self.enable else 1.0
             multiplier.inputs[5].default_value = self.multiplier_b_val if self.enable else 1.0
             multiplier.inputs[6].default_value = self.multiplier_a_val if self.enable else 1.0
+
+def update_math_val_input(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
+    channel_type = get_modifier_channel_type(self)
+    tree = get_mod_tree(self)
+
+    if self.type == 'MATH':
+        math = tree.nodes.get(self.math)
+        math.inputs[2].default_value = self.math_r_val if self.enable else 0.0
+        math.inputs[3].default_value = self.math_g_val if self.enable else 0.0
+        math.inputs[4].default_value = self.math_b_val if self.enable else 0.0
+        math.inputs[5].default_value = self.math_a_val if self.enable else 0.0
 
 def update_brightcon_value(self, context):
 
@@ -1026,6 +1080,15 @@ class YPaintModifier(bpy.types.PropertyGroup):
     multiplier_g_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
     multiplier_b_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
     multiplier_a_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
+
+    # Math nodes
+    math = StringProperty(default='')
+
+    math_r_val = FloatProperty(default=0.0, update=update_math_val_input)
+    math_g_val = FloatProperty(default=0.0, update=update_math_val_input)
+    math_b_val = FloatProperty(default=0.0, update=update_math_val_input)
+    math_a_val = FloatProperty(default=0.0, update=update_math_val_input)
+
 
     # Individual modifier node frame
     frame = StringProperty(default='')

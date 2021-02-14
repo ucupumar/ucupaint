@@ -21,11 +21,13 @@ mod_y_offsets = {
         'HUE_SATURATION' : 265,
         'BRIGHT_CONTRAST' : 220,
         'MULTIPLIER' :  350,
+        'MATH' : 350
         }
 
 value_mod_y_offsets = {
         'INVERT' : 270,
         'MULTIPLIER' :  270,
+        'MATH' : 270
         }
 
 def get_mod_y_offsets(mod, is_value=False):
@@ -356,6 +358,9 @@ def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=Fa
             if check_set_node_loc(tree, m.multiplier, loc):
                 loc.x += 165.0
 
+        elif m.type == 'MATH':
+            if check_set_node_loc(tree, m.math, loc):
+                loc.x += 165.0
         #loc.y -= 35
         #check_set_node_loc(tree, m.end_rgb, loc)
         #loc.y -= 35
