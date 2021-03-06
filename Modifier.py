@@ -41,6 +41,20 @@ can_be_expanded = {
         'MATH'
         }
 
+math_method_items = (
+    ("ADD", "Add", ""),
+    ("SUBTRACT", "Subtract", ""),
+    ("MULTIPLY", "Multiply", ""),
+    ("DIVIDE", "Divide", ""),
+    ("MULTIPLY_ADD", "Multiply Add", ""),
+    ("POWER", "Power", ""),
+    ("LOGARITHM", "Logarithm", ""),
+    ("SQUARE_ROOM", "Square Room", ""),
+    ("INVERSE_SQUARE_ROOT", "Inverse Square Root", ""),
+    ("ABSOLUTE", "Absolute", ""),
+    ("EXPONENT", "Exponent", ""),
+)
+
 def get_modifier_channel_type(mod, return_non_color=False):
 
     yp = mod.id_data.yp
@@ -383,6 +397,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
 
             if dirty:
                 math.node_tree = get_node_tree_lib(lib.MOD_MATH)
+                duplicate_lib_node_tree(math)
                 math.inputs[2].default_value = m.math_r_val
                 math.inputs[3].default_value = m.math_g_val
                 math.inputs[4].default_value = m.math_b_val
@@ -483,6 +498,11 @@ class YNewYPaintModifier(bpy.types.Operator):
         name = 'Modifier Type',
         items = modifier_type_items,
         default = 'INVERT')
+
+    math_meth = EnumProperty(
+        name = 'Method',
+        items = math_method_items,
+        default = "ADD")
 
     @classmethod
     def poll(cls, context):
@@ -746,6 +766,8 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
     elif modifier.type == 'MATH':
         col = layout.column(align=True)
         row = col.row()
+        col.prop(modifier, 'math_meth')
+        row = col.row()
         row.label(text='Clamp:')
         row.prop(modifier, 'use_clamp', text='')
         col.prop(modifier, 'math_r_val', text='R')
@@ -929,6 +951,18 @@ def update_use_clamp(self, context):
         math = tree.nodes.get(self.math)
         math.inputs[6].default_value = 1.0 if self.use_clamp and self.enable else 0.0
 
+def update_math_method(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
+    tree = get_mod_tree(self)
+
+    if self.type == 'MATH':
+        math = tree.nodes.get(self.math)
+        math.node_tree.nodes.get('Math.R.003').operation = self.math_meth
+        math.node_tree.nodes.get('Math.R.009').operation = self.math_meth
+        math.node_tree.nodes.get('Math.R.018').operation = self.math_meth
+        math.node_tree.nodes.get('Math.R.024').operation = self.math_meth
+
 def update_multiplier_val_input(self, context):
 
     yp = self.id_data.yp
@@ -1089,6 +1123,11 @@ class YPaintModifier(bpy.types.PropertyGroup):
     math_b_val = FloatProperty(default=0.0, update=update_math_val_input)
     math_a_val = FloatProperty(default=0.0, update=update_math_val_input)
 
+    math_meth = EnumProperty(
+        name = 'Method',
+        items = math_method_items,
+        default = "ADD",
+        update = update_math_method)
 
     # Individual modifier node frame
     frame = StringProperty(default='')
