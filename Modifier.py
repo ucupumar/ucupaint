@@ -49,8 +49,8 @@ math_method_items = (
     ("MULTIPLY_ADD", "Multiply Add", ""),
     ("POWER", "Power", ""),
     ("LOGARITHM", "Logarithm", ""),
-    ("SQUARE_ROOM", "Square Room", ""),
-    ("INVERSE_SQUARE_ROOT", "Inverse Square Root", ""),
+    ("SQRT", "Square Root", ""),
+    ("INVERSE_SQRT", "Inverse Square Root", ""),
     ("ABSOLUTE", "Absolute", ""),
     ("EXPONENT", "Exponent", ""),
 )
@@ -498,11 +498,6 @@ class YNewYPaintModifier(bpy.types.Operator):
         name = 'Modifier Type',
         items = modifier_type_items,
         default = 'INVERT')
-
-    math_meth = EnumProperty(
-        name = 'Method',
-        items = math_method_items,
-        default = "ADD")
 
     @classmethod
     def poll(cls, context):
@@ -958,10 +953,10 @@ def update_math_method(self, context):
 
     if self.type == 'MATH':
         math = tree.nodes.get(self.math)
-        math.node_tree.nodes.get('Math.R.003').operation = self.math_meth
-        math.node_tree.nodes.get('Math.R.009').operation = self.math_meth
-        math.node_tree.nodes.get('Math.R.018').operation = self.math_meth
-        math.node_tree.nodes.get('Math.R.024').operation = self.math_meth
+        math.node_tree.nodes.get('Math.R').operation = self.math_meth
+        math.node_tree.nodes.get('Math.G').operation = self.math_meth
+        math.node_tree.nodes.get('Math.B').operation = self.math_meth
+        math.node_tree.nodes.get('Math.A').operation = self.math_meth
 
 def update_multiplier_val_input(self, context):
 
