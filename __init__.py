@@ -154,6 +154,7 @@
 # - Rename vcol that used in other layer caused missing data
 # - Refresh Neighbor UV sometimes appear on layer Normal channel that uses second UV
 # - Transfer UV does not work
+# - Bake will throw error if there's no unwrapped object using same material
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas
