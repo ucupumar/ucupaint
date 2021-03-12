@@ -46,13 +46,8 @@ math_method_items = (
     ("SUBTRACT", "Subtract", ""),
     ("MULTIPLY", "Multiply", ""),
     ("DIVIDE", "Divide", ""),
-    ("MULTIPLY_ADD", "Multiply Add", ""),
     ("POWER", "Power", ""),
     ("LOGARITHM", "Logarithm", ""),
-    ("SQRT", "Square Root", ""),
-    ("INVERSE_SQRT", "Inverse Square Root", ""),
-    ("ABSOLUTE", "Absolute", ""),
-    ("EXPONENT", "Exponent", ""),
 )
 
 def get_modifier_channel_type(mod, return_non_color=False):
@@ -769,6 +764,9 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         col.prop(modifier, 'math_g_val', text='G')
         col.prop(modifier, 'math_b_val', text='B')
         col.separator()
+        row = col.row()
+        row.label(text='Effect Alpha:')
+        row.prop(modifier, 'effect_alpha', text='')
         col.prop(modifier, 'math_a_val', text='A')
 
 def update_modifier_enable(self, context):
@@ -944,7 +942,25 @@ def update_use_clamp(self, context):
         multiplier.inputs[2].default_value = 1.0 if self.use_clamp and self.enable else 0.0
     elif self.type == 'MATH':
         math = tree.nodes.get(self.math)
-        math.inputs[6].default_value = 1.0 if self.use_clamp and self.enable else 0.0
+        math.node_tree.nodes.get('Math.R').use_clamp = self.use_clamp
+        math.node_tree.nodes.get('Math.G').use_clamp = self.use_clamp
+        math.node_tree.nodes.get('Math.B').use_clamp = self.use_clamp
+        math.node_tree.nodes.get('Math.A').use_clamp = self.use_clamp
+
+def update_effect_alpha(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update or not self.enable: return
+    tree = get_mod_tree(self)
+
+    if self.type == 'MATH':
+        math = tree.nodes.get(self.math).node_tree
+        group_input = math.nodes.get('Group Input')
+        group_output = math.nodes.get('Group Output')
+        new_alpha = math.nodes.get('Mix.A')
+        if self.effect_alpha:
+            create_link(math, new_alpha.outputs['Color'], group_output.inputs['Alpha'])
+        else:
+            create_link(math, group_input.outputs['Alpha'], group_output.inputs['Alpha'])
 
 def update_math_method(self, context):
     yp = self.id_data.yp
@@ -1123,6 +1139,8 @@ class YPaintModifier(bpy.types.PropertyGroup):
         items = math_method_items,
         default = "ADD",
         update = update_math_method)
+
+    effect_alpha = BoolProperty(name='Effect Alpha', default=False, update=update_effect_alpha) 
 
     # Individual modifier node frame
     frame = StringProperty(default='')
