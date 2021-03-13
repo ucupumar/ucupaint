@@ -765,9 +765,10 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         col.prop(modifier, 'math_b_val', text='B')
         col.separator()
         row = col.row()
-        row.label(text='Effect Alpha:')
-        row.prop(modifier, 'effect_alpha', text='')
-        col.prop(modifier, 'math_a_val', text='A')
+        row.label(text='Affect Alpha:')
+        row.prop(modifier, 'affect_alpha', text='')
+        if modifier.affect_alpha :
+            col.prop(modifier, 'math_a_val', text='A')
 
 def update_modifier_enable(self, context):
 
@@ -947,7 +948,7 @@ def update_use_clamp(self, context):
         math.node_tree.nodes.get('Math.B').use_clamp = self.use_clamp
         math.node_tree.nodes.get('Math.A').use_clamp = self.use_clamp
 
-def update_effect_alpha(self, context):
+def update_affect_alpha(self, context):
     yp = self.id_data.yp
     if yp.halt_update or not self.enable: return
     tree = get_mod_tree(self)
@@ -957,7 +958,7 @@ def update_effect_alpha(self, context):
         group_input = math.nodes.get('Group Input')
         group_output = math.nodes.get('Group Output')
         new_alpha = math.nodes.get('Mix.A')
-        if self.effect_alpha:
+        if self.affect_alpha:
             create_link(math, new_alpha.outputs['Color'], group_output.inputs['Alpha'])
         else:
             create_link(math, group_input.outputs['Alpha'], group_output.inputs['Alpha'])
@@ -1140,7 +1141,7 @@ class YPaintModifier(bpy.types.PropertyGroup):
         default = "ADD",
         update = update_math_method)
 
-    effect_alpha = BoolProperty(name='Effect Alpha', default=False, update=update_effect_alpha) 
+    affect_alpha = BoolProperty(name='Affect Alpha', default=False, update=update_affect_alpha) 
 
     # Individual modifier node frame
     frame = StringProperty(default='')
