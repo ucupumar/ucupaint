@@ -670,6 +670,10 @@ class YBakeChannels(bpy.types.Operator):
         obj = context.object
         mat = obj.active_material
 
+        if obj.hide_viewport or obj.hide_render:
+            self.report({'ERROR'}, "Please unhide render and viewport of active object!")
+            return {'CANCELLED'}
+
         book = remember_before_bake(yp)
 
         height_ch = get_root_height_channel(yp)
@@ -711,6 +715,8 @@ class YBakeChannels(bpy.types.Operator):
         if mat.users > 1:
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
+                if ob.hide_viewport or ob.hide_render: continue
+                if len(get_uv_layers(ob)) == 0: continue
                 for i, m in enumerate(ob.data.materials):
                     if m == mat:
                         ob.active_material_index = i
