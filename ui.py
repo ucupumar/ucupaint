@@ -76,6 +76,7 @@ def update_yp_ui():
                 c.expand_transition_ramp_settings = ch.expand_transition_ramp_settings
                 c.expand_transition_ao_settings = ch.expand_transition_ao_settings
                 c.expand_input_settings = ch.expand_input_settings
+                c.expand_source = ch.expand_source
                 c.expand_content = ch.expand_content
 
                 for mod in ch.modifiers:
@@ -1053,7 +1054,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             else: draw_tex_props(source, bbox)
 
         # Vector
-        if layer.type not in {'VCOL', 'COLOR', 'HEMI', 'OBJECT_INDEX'}:
+        #if layer.type not in {'VCOL', 'COLOR', 'HEMI', 'OBJECT_INDEX'}:
+        if is_layer_using_vector(layer):
             row = rcol.row(align=True)
 
             #if custom_icon_enable:
@@ -1582,10 +1584,26 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
         # Override settings
         row = mcol.row(align=True)
-        row.label(text='', icon_value=lib.get_icon('input'))
-        row.label(text='Override:')
+        #if custom_icon_enable:
+        if ch.override_type == 'DEFAULT':
+            row.label(text='', icon_value=lib.get_icon('input'))
+        else:
+            if chui.expand_source:
+                icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+            else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+            row.prop(chui, 'expand_source', text='', emboss=False, icon_value=icon_value)
+
+        label_str = 'Override'
+        if ch.override_type == 'IMAGE':
+            source = layer_tree.nodes.get(ch.source)
+            if source: label_str += ' (' + source.image.name + ')'
+        elif ch.override_type != 'DEFAULT':
+            label_str += ' (' + channel_override_labels[ch.override_type] + ')'
+        label_str += ':'
+        row.label(text=label_str)
+
         row.context_pointer_set('parent', ch)
-        if ch.override:
+        if ch.override and ch.override_type == 'DEFAULT':
             if root_ch.type == 'VALUE':
                 row.prop(ch, 'override_value', text='')
             else: row.prop(ch, 'override_color', text='') #, icon='COLOR')
@@ -1594,6 +1612,18 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
         if is_greater_than_280():
             row.menu("NODE_MT_y_replace_channel_override_menu", icon='PREFERENCES', text='')
         else: row.menu("NODE_MT_y_replace_channel_override_menu", icon='SCRIPTWIN', text='')
+
+        ch_source = None
+        if ch.override:
+            ch_source = layer_tree.nodes.get(ch.source)
+        elif ch.override_type not in {'DEFAULT', 'IMAGE', 'VCOL', 'HEMI'}:
+            ch_source = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_type.lower()))
+
+        if ch.expand_source and ch.override_type != 'DEFAULT'  and ch_source:
+            rrow = mcol.row(align=True)
+            rrow.label(text='', icon='BLANK1')
+            rbox = rrow.box()
+            draw_tex_props(ch_source, rbox)
 
         # Layer input
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
@@ -3509,7 +3539,9 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
         if m:
             ch = context.parent
             yp = ch.id_data.yp
+            layer = yp.layers[int(m.group(1))]
             root_ch = yp.channels[int(m.group(2))]
+            tree = get_tree(layer)
         else:
             return
 
@@ -3522,28 +3554,55 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         col.separator()
 
+        label = 'Image'
+        cache_image = tree.nodes.get(ch.cache_image)
+        source = tree.nodes.get(ch.source)
+        if cache_image:
+            label += ': ' + cache_image.image.name
+        elif (ch.override_type == 'IMAGE' and source):
+            label += ': ' + source.image.name
+
         icon = 'RADIOBUT_ON' if ch.override_type == 'IMAGE' else 'RADIOBUT_OFF'
-        col.label(text='Image', icon=icon)
+        if cache_image and ch.override_type != 'IMAGE':
+            col.operator('node.y_replace_layer_channel_override', text=label, icon=icon).type = 'IMAGE'
+        else:
+            col.label(text=label, icon=icon)
 
         row = col.row(align=True)
         ccol = row.column(align=True)
         ccol.label(text='', icon='BLANK1')
 
         ccol = row.column(align=True)
-        ccol.operator('node.y_replace_layer_channel_override', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        #ccol.operator('node.y_replace_layer_channel_override', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        ccol.operator('node.y_open_image_to_override_layer_channel', text='Open Image', icon_value=lib.get_icon('open_image'))
         ccol.operator('node.y_replace_layer_channel_override', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
         
         col.separator()
 
+        label = 'Vertex Color'
+        cache_vcol = tree.nodes.get(ch.cache_vcol)
+        source = tree.nodes.get(ch.source)
+        if cache_vcol:
+            label += ': ' + cache_vcol.attribute_name
+        elif (ch.override_type == 'VCOL' and source):
+            label += ': ' + source.attribute_name
+
         icon = 'RADIOBUT_ON' if ch.override_type == 'VCOL' else 'RADIOBUT_OFF'
-        col.label(text='Vertex Color', icon=icon)
+        if cache_vcol and ch.override_type != 'VCOL':
+            col.operator('node.y_replace_layer_channel_override', text=label, icon=icon).type = 'VCOL'
+        else:
+            col.label(text=label, icon=icon)
+
+        #icon = 'RADIOBUT_ON' if ch.override_type == 'VCOL' else 'RADIOBUT_OFF'
+        #col.label(text='Vertex Color', icon=icon)
 
         row = col.row(align=True)
         ccol = row.column(align=True)
         ccol.label(text='', icon='BLANK1')
 
         ccol = row.column(align=True)
-        ccol.operator('node.y_replace_layer_channel_override', text='New Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        #ccol.operator('node.y_replace_layer_channel_override', text='New Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        ccol.operator('node.y_new_vcol_to_override_channel', text='New Vertex Color', icon_value=lib.get_icon('vertex_color'))
         ccol.operator('node.y_replace_layer_channel_override', text='Use Available Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
 
         col.separator()
@@ -3751,6 +3810,8 @@ def update_channel_ui(self, context):
         ch.expand_transition_ao_settings = self.expand_transition_ao_settings
     if hasattr(ch, 'expand_input_settings'):
         ch.expand_input_settings = self.expand_input_settings
+    if hasattr(ch, 'expand_source'):
+        ch.expand_source = self.expand_source
 
 def update_mask_ui(self, context):
     ypui = context.window_manager.ypui
@@ -3802,6 +3863,7 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_alpha_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_smooth_bump_settings = BoolProperty(default=False, update=update_channel_ui)
     expand_input_settings = BoolProperty(default=True, update=update_channel_ui)
+    expand_source = BoolProperty(default=True, update=update_channel_ui)
     modifiers = CollectionProperty(type=YModifierUI)
 
 class YMaskChannelUI(bpy.types.PropertyGroup):

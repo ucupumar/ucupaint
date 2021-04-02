@@ -186,6 +186,21 @@ bake_type_items = (
         ('SELECTED_VERTICES', 'Selected Vertices/Edges/Faces', ''),
         )
 
+channel_override_labels = {
+        'DEFAULT' : 'Default',
+        'IMAGE' : 'Image',
+        'BRICK' : 'Brick',
+        'CHECKER' : 'Checker',
+        'GRADIENT' : 'Gradient',
+        'MAGIC' : 'Magic',
+        'MUSGRAVE' : 'Musgrave',
+        'NOISE' : 'Noise',
+        'VORONOI' : 'Voronoi',
+        'WAVE' : 'Wave',
+        'VCOL' : 'Vertex Color',
+        'HEMI' : 'Fake Lighting',
+        }
+
 bake_type_labels = {
         'AO' : 'Ambient Occlusion',
         'POINTINESS': 'Pointiness',
@@ -3314,6 +3329,16 @@ def get_all_baked_channel_images(tree):
                 images.append(baked_normal_overlay.image)
 
     return images
+
+def is_layer_using_vector(layer):
+    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+        return True
+
+    for ch in layer.channels:
+        if ch.override and ch.override_type != 'VCOL':
+            return True
+
+    return False
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

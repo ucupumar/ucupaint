@@ -1143,6 +1143,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             ch = layer.channels[channel_idx]
             ttree = get_tree(layer)
 
+            remove_node(ttree, ch, 'source')
             remove_node(ttree, ch, 'blend')
             remove_node(ttree, ch, 'intensity')
             remove_node(ttree, ch, 'extra_alpha')
@@ -1172,6 +1173,16 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'height_alpha_group_unpack')
 
             remove_node(ttree, ch, 'cache_ramp')
+            remove_node(ttree, ch, 'cache_falloff_curve')
+
+            remove_node(ttree, ch, 'cache_brick')
+            remove_node(ttree, ch, 'cache_checker')
+            remove_node(ttree, ch, 'cache_gradient')
+            remove_node(ttree, ch, 'cache_magic')
+            remove_node(ttree, ch, 'cache_musgrave')
+            remove_node(ttree, ch, 'cache_noise')
+            remove_node(ttree, ch, 'cache_voronoi')
+            remove_node(ttree, ch, 'cache_wave')
 
             # Remove modifiers
             #if ch.mod_tree:

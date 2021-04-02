@@ -685,6 +685,36 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, ch.cache_falloff_curve, loc, hide=False):
             loc.y -= 270
 
+        if check_set_node_loc(tree, ch.cache_image, loc, hide=False):
+            loc.y -= 270
+
+        if check_set_node_loc(tree, ch.cache_vcol, loc, hide=False):
+            loc.y -= 200
+
+        if check_set_node_loc(tree, ch.cache_brick, loc, hide=False):
+            loc.y -= 400
+
+        if check_set_node_loc(tree, ch.cache_checker, loc, hide=False):
+            loc.y -= 170
+
+        if check_set_node_loc(tree, ch.cache_gradient, loc, hide=False):
+            loc.y -= 140
+
+        if check_set_node_loc(tree, ch.cache_magic, loc, hide=False):
+            loc.y -= 180
+
+        if check_set_node_loc(tree, ch.cache_musgrave, loc, hide=False):
+            loc.y -= 270
+
+        if check_set_node_loc(tree, ch.cache_noise, loc, hide=False):
+            loc.y -= 170
+
+        if check_set_node_loc(tree, ch.cache_voronoi, loc, hide=False):
+            loc.y -= 170
+
+        if check_set_node_loc(tree, ch.cache_wave, loc, hide=False):
+            loc.y -= 260
+
     loc = Vector((-300, 0))
 
     # Layer Caches
