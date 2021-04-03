@@ -3575,7 +3575,7 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
         ccol = row.column(align=True)
         #ccol.operator('node.y_replace_layer_channel_override', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
         ccol.operator('node.y_open_image_to_override_layer_channel', text='Open Image', icon_value=lib.get_icon('open_image'))
-        ccol.operator('node.y_replace_layer_channel_override', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        ccol.operator('node.y_open_available_data_to_override_channel', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
         
         col.separator()
 
@@ -3603,7 +3603,7 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
         ccol = row.column(align=True)
         #ccol.operator('node.y_replace_layer_channel_override', text='New Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
         ccol.operator('node.y_new_vcol_to_override_channel', text='New Vertex Color', icon_value=lib.get_icon('vertex_color'))
-        ccol.operator('node.y_replace_layer_channel_override', text='Use Available Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        ccol.operator('node.y_open_available_data_to_override_channel', text='Use Available Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
 
         col.separator()
 

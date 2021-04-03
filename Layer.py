@@ -1205,12 +1205,134 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
     bl_label = "Open Available Data to Override Channel Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
+    type = EnumProperty(
+            name = 'Layer Type',
+            items = (('IMAGE', 'Image', ''),
+                ('VCOL', 'Vertex Color', '')),
+            default = 'IMAGE')
+
+    image_name = StringProperty(name="Image")
+    image_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    vcol_name = StringProperty(name="Vertex Color")
+    vcol_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
     @classmethod
     def poll(cls, context):
         #return hasattr(context, 'group_node') and context.group_node
         return get_active_ypaint_node()
 
+    def invoke(self, context, event):
+        self.ch = context.parent
+        obj = context.object
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        if self.type == 'IMAGE':
+            # Update image names
+            self.image_coll.clear()
+            imgs = bpy.data.images
+            baked_channel_images = get_all_baked_channel_images(node.node_tree)
+            for img in imgs:
+                if not img.yia.is_image_atlas and img not in baked_channel_images:
+                    self.image_coll.add().name = img.name
+        elif self.type == 'VCOL':
+            self.vcol_coll.clear()
+            vcols = obj.data.vertex_colors
+            for vcol in vcols:
+                self.vcol_coll.add().name = vcol.name
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        obj = context.object
+
+        if self.type == 'IMAGE':
+            self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
+        elif self.type == 'VCOL':
+            self.layout.prop_search(self, "vcol_name", self, "vcol_coll", icon='GROUP_VCOL')
+
     def execute(self, context):
+        T = time.time()
+        wm = context.window_manager
+
+        obj = context.object
+        mat = obj.active_material
+
+        ch = self.ch
+        yp = ch.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        if not m: return []
+        layer = yp.layers[int(m.group(1))]
+        root_ch = yp.channels[int(m.group(2))]
+        tree = get_tree(layer)
+
+        if self.type == 'IMAGE':
+            if self.image_name == '':
+                self.report({'ERROR'}, "Image name cannot be empty!")
+                return {'CANCELLED'}
+            image = bpy.data.images.get(self.image_name)
+
+            if not image:
+                self.report({'ERROR'}, "Image named " + self.image_name + " is not found!")
+                return {'CANCELLED'}
+
+            # Update image cache
+            if ch.override_type == 'IMAGE':
+                source_label = root_ch.name + ' Override : ' + ch.override_type
+                image_node, dirty = check_new_node(tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+            else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+
+            image_node.image = image
+
+        elif self.type == 'VCOL':
+
+            if self.vcol_name == '':
+                self.report({'ERROR'}, "Vertex Color name cannot be empty!")
+                return {'CANCELLED'}
+
+            vcol = obj.data.vertex_colors.get(self.vcol_name)
+            if not vcol:
+                self.report({'ERROR'}, "Vertex Color named " + self.vcol_name + " is not found!")
+                return {'CANCELLED'}
+
+            objs = [obj]
+            if mat.users > 1:
+                for o in get_scene_objects():
+                    if o.type != 'MESH': continue
+                    if mat.name in o.data.materials and o not in objs:
+                        objs.append(o)
+
+            for o in objs:
+
+                if self.vcol_name not in o.data.vertex_colors:
+                    try:
+                        vcol = o.data.vertex_colors.new(name=self.vcol_name)
+                        #if vcol_color == 'WHITE':
+                        #    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                        #elif vcol_color == 'BLACK':
+                        #    set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0))
+                        set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                        o.data.vertex_colors.active = vcol
+                    except: pass
+
+            # Update vcol cache
+            if ch.override_type == 'VCOL':
+                source_label = root_ch.name + ' Override : ' + ch.override_type
+                vcol_node, dirty = check_new_node(tree, ch, 'source', 'ShaderNodeAttribute', source_label, True)
+            else: vcol_node, dirty = check_new_node(tree, ch, 'cache_vcol', 'ShaderNodeAttribute', '', True)
+
+            vcol_node.attribute_name = self.vcol_name
+
+        ch.override_type = self.type
+
+        # Update UI
+        wm.ypui.need_update = True
+        print('INFO: Data is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
         return {'FINISHED'}
 
 class YOpenAvailableDataToLayer(bpy.types.Operator):
