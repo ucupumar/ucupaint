@@ -1594,13 +1594,22 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
             row.prop(chui, 'expand_source', text='', emboss=False, icon_value=icon_value)
 
         label_str = 'Override'
+        source = layer_tree.nodes.get(ch.source)
         if ch.override_type == 'IMAGE':
-            source = layer_tree.nodes.get(ch.source)
             if source: label_str += ' (' + source.image.name + ')'
+        elif ch.override_type == 'VCOL':
+            if source: label_str += ' (' + source.attribute_name + ')'
         elif ch.override_type != 'DEFAULT':
             label_str += ' (' + channel_override_labels[ch.override_type] + ')'
         label_str += ':'
         row.label(text=label_str)
+
+        if ch.override_type == 'IMAGE':
+            row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
+        elif ch.override_type == 'VCOL':
+            row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+        elif ch.override_type != 'DEFAULT':
+            row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
         row.context_pointer_set('parent', ch)
         if ch.override and ch.override_type == 'DEFAULT':
@@ -2094,6 +2103,17 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                     missing_data = True
                     break
 
+        for ch in layer.channels:
+            if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+                layer_tree = get_tree(layer)
+                src = layer_tree.nodes.get(ch.source)
+                if ((ch.override_type == 'IMAGE' and not src.image) or 
+                    (ch.override_type == 'VCOL' and obj.type == 'MESH' 
+                        and not obj.data.vertex_colors.get(src.attribute_name))
+                    ):
+                    missing_data = True
+                    break
+
         if missing_data:
             break
     
@@ -2175,6 +2195,8 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     mask_vcol = None
     mask = None
     mask_idx = 0
+    override_image = None
+    override_vcol = None
     #entity = None
 
     if len(yp.layers) > 0:
@@ -2182,6 +2204,16 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
         #layer = entity = yp.layers[yp.active_layer_index]
 
         if layer:
+            layer_tree = get_tree(layer)
+            # Check for active override channel
+            for i, c in enumerate(layer.channels):
+                if c.override and c.override_type != 'DEFAULT' and c.active_edit:
+                    source = layer_tree.nodes.get(c.source)
+                    if c.override_type == 'IMAGE':
+                        override_image = source.image
+                    elif c.override_type == 'VCOL':
+                        override_vcol = obj.data.vertex_colors.get(source.attribute_name)
+
             # Check for active mask
             for i, m in enumerate(layer.masks):
                 if m.active_edit:
@@ -2199,7 +2231,6 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
             # Use layer image if there is no mask image
             #if not mask:
-            layer_tree = get_tree(layer)
             source = get_layer_source(layer, layer_tree)
             if layer.type == 'IMAGE':
                 image = source.image
@@ -2209,6 +2240,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     # Set pointer for active layer and image
     if layer: box.context_pointer_set('layer', layer)
     if mask_image: box.context_pointer_set('image', mask_image)
+    elif override_image: box.context_pointer_set('image', override_image)
     elif image: box.context_pointer_set('image', image)
     #if entity: box.context_pointer_set('entity', entity)
 
@@ -2303,6 +2335,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         # Get active vcol
         if mask_vcol: active_vcol = mask_vcol
+        elif override_vcol: active_vcol = override_vcol
         elif vcol: active_vcol = vcol
         else: active_vcol = None
 
@@ -2688,6 +2721,14 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
         #    source = get_layer_source(layer, layer_tree)
         #    vcol = obj.data.vertex_colors.get(source.attribute_name)
 
+        overrides = []
+        active_override = None
+        for c in layer.channels:
+            if c.override and c.override_type != 'DEFAULT':
+                overrides.append(c)
+                if c.active_edit:
+                    active_override = c
+
         # Try to get image masks
         editable_masks = []
         active_mask = None
@@ -2696,6 +2737,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             editable_masks.append(m)
             if m.active_edit:
                 active_mask = m
+                active_override = m
 
         if layer.parent_idx != -1:
             depth = get_layer_depth(layer)
@@ -2703,7 +2745,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 row.label(text='', icon='BLANK1')
 
         # Image icon
-        if len(editable_masks) == 0:
+        if len(editable_masks) == 0 and len(overrides) == 0:
             row = master.row(align=True)
             row.active = is_hidden
             if image and image.yia.is_image_atlas: 
@@ -2725,26 +2767,26 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 #row.prop(layer, 'name', text='', emboss=False, icon='TEXTURE')
                 row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
         else:
-            if active_mask:
+            if active_override:
                 row.active = False
                 if image: 
-                    row.prop(active_mask, 'active_edit', text='', emboss=False, 
+                    row.prop(active_override, 'active_edit', text='', emboss=False, 
                             icon_value=image.preview.icon_id)
                 #elif vcol: 
                 elif layer.type == 'VCOL': 
-                    #row.prop(active_mask, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
-                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
+                    #row.prop(active_override, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
+                    row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 elif layer.type == 'COLOR': 
-                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon='COLOR')
+                    row.prop(active_override, 'active_edit', text='', emboss=False, icon='COLOR')
                 elif layer.type == 'HEMI': 
-                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
+                    row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
                 elif layer.type == 'BACKGROUND': 
-                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('background'))
+                    row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('background'))
                 elif layer.type == 'GROUP': 
-                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('group'))
+                    row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('group'))
                 else: 
-                    #row.prop(active_mask, 'active_edit', text='', emboss=False, icon='TEXTURE')
-                    row.prop(active_mask, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
+                    #row.prop(active_override, 'active_edit', text='', emboss=False, icon='TEXTURE')
+                    row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
             else:
                 if image: 
                     row.label(text='', icon_value=image.preview.icon_id)
@@ -2764,7 +2806,35 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     #row.label(text='', icon='TEXTURE')
                     row.label(text='', icon_value=lib.get_icon('texture'))
 
-        # Image mask icons
+        # Override icons
+        active_override_image = None
+        #active_override_vcol = None
+        override_ch = None
+        for c in overrides:
+            row = master.row(align=True)
+            row.active = c.active_edit
+            if c.active_edit:
+                src = layer_tree.nodes.get(c.source)
+                override_ch = c
+                if c.override_type == 'IMAGE':
+                    active_override_image = src.image
+                    row.label(text='', icon_value=src.image.preview.icon_id)
+                elif c.override_type == 'VCOL':
+                    #active_override_vcol = c
+                    #row.label(text='', icon='GROUP_VCOL')
+                    row.label(text='', icon_value=lib.get_icon('vertex_color'))
+                else:
+                    row.label(text='', icon_value=lib.get_icon('texture'))
+            else:
+                if c.override_type == 'IMAGE':
+                    src = layer_tree.nodes.get(c.source)
+                    row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                elif c.override_type == 'VCOL':
+                    row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
+                else:
+                    row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
+
+        # Mask icons
         active_mask_image = None
         active_vcol_mask = None
         mask = None
@@ -2807,10 +2877,21 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
         #row.label(text=str(index) + ' (' + str(layer.parent_idx) + ')')
 
         # Active image/layer label
-        if len(editable_masks) > 0:
+        if len(editable_masks) > 0 or len(overrides) > 0:
             row = master.row(align=True)
             row.active = is_hidden
-            if active_mask_image:
+            if override_ch:
+                if active_override_image:
+                    if active_override_image.yia.is_image_atlas:
+                        #row.label(text='Image Atlas Override')
+                        row.label(text=override_image.name)
+                    else: row.prop(active_override_image, 'name', text='', emboss=False)
+                elif override_ch.override_type == 'VCOL':
+                    #row.label(text='Vertex Color Override')
+                    row.prop(override_ch, 'override_vcol_name', text='', emboss=False)
+                else:
+                    row.label(text='Channel Override')
+            elif active_mask_image:
                 if active_mask_image.yia.is_image_atlas:
                     row.prop(mask, 'name', text='', emboss=False)
                 else: row.prop(active_mask_image, 'name', text='', emboss=False)
@@ -2827,6 +2908,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
 
         # Active image
         if active_mask_image: active_image = active_mask_image
+        elif active_override_image: active_image = active_override_image
         elif image: active_image = image
         else: active_image = None
 

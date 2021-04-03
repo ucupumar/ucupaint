@@ -447,6 +447,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         T = time.time()
 
         ch = self.ch
+        yp = ch.id_data.yp
         tree = self.tree
         obj = context.object
         mat = obj.active_material
@@ -479,6 +480,11 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
             vcol_node, dirty = check_new_node(tree, ch, 'cache_vcol', 'ShaderNodeAttribute', '', True)
 
         vcol_node.attribute_name = self.name
+
+        # Set vcol name attribute
+        yp.halt_update = True
+        ch.override_vcol_name = self.name
+        yp.halt_update = False
 
         ch.override_type = 'VCOL'
 
@@ -1325,6 +1331,11 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
             else: vcol_node, dirty = check_new_node(tree, ch, 'cache_vcol', 'ShaderNodeAttribute', '', True)
 
             vcol_node.attribute_name = self.vcol_name
+
+            # Set vcol name attribute
+            yp.halt_update = True
+            ch.override_vcol_name = self.name
+            yp.halt_update = False
 
         ch.override_type = self.type
 
@@ -2745,6 +2756,12 @@ def update_layer_channel_override(self, context):
 
     check_override_layer_channel_nodes(root_ch, layer, ch)
 
+    # Disable active edit if override is off
+    if not ch.override:
+        ch.halt_update = True
+        ch.active_edit = False
+        ch.halt_update = False
+
     check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
@@ -3219,6 +3236,21 @@ def update_layer_name(self, context):
     src = get_layer_source(self)
     change_layer_name(yp, context.object, src, self, yp.layers)
 
+def update_layer_channel_override_vcol_name(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    obj = context.object
+    mat = obj.active_material
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[int(m.group(2))]
+    tree = get_tree(layer)
+
+    source = tree.nodes.get(self.source)
+    change_vcol_name(yp, obj, source, self.override_vcol_name)
+
 def update_layer_channel_use_clamp(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -3231,6 +3263,35 @@ def update_layer_channel_use_clamp(self, context):
     if root_ch.type == 'NORMAL': return
 
     check_blend_type_nodes(root_ch, layer, self)
+
+def update_channel_active_edit(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer_idx = int(m.group(1))
+    layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[int(m.group(2))]
+    ch = self
+    tree = get_tree(layer)
+
+    # Disable other active edits
+    yp.halt_update = True
+    if self.active_edit and self.override and self.override_type != 'DEFAULT': 
+
+        for c in layer.channels:
+            if c == self: continue
+            c.active_edit = False
+        for m in layer.masks:
+            m.active_edit = False
+
+    else:
+        self.active_edit = False
+
+    yp.halt_update = False
+
+    # Refresh
+    yp.active_layer_index = layer_idx
 
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
@@ -3295,6 +3356,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     override_color = FloatVectorProperty(subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5), update=update_layer_channel_override_value)
     override_value = FloatProperty(min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
     source = StringProperty(default='')
+    override_vcol_name = StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
 
     # Blur
     #enable_blur = BoolProperty(default=False, update=Blur.update_layer_channel_blur)
@@ -3551,6 +3613,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
             update=transition.update_transition_ao_intensity)
 
     tao = StringProperty(default='')
+
+    active_edit = BoolProperty(
+            name='Active override channel for editing or preview', 
+            description='Active override channel for editing or preview', 
+            default=False,
+            update=update_channel_active_edit)
 
     # For UI
     expand_bump_settings = BoolProperty(default=False)

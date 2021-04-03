@@ -1566,6 +1566,15 @@ class YFixMissingData(bpy.types.Operator):
                     if mask.type == 'IMAGE' and not mask_src.image:
                         fix_missing_img(mask.name, mask_src, True)
 
+            for i, ch in enumerate(layer.channels):
+                root_ch = yp.channels[i]
+                if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+                    layer_tree = get_tree(layer)
+                    ch_src = layer_tree.nodes.get(ch.source)
+
+                    if ch.override_type == 'IMAGE' and not ch_src.image:
+                        fix_missing_img(layer.name + ' ' + root_ch.name + ' Override', ch_src, False)
+
         # Get relevant objects
         objs = [obj]
         if mat.users > 1:
@@ -1588,14 +1597,22 @@ class YFixMissingData(bpy.types.Operator):
                             and not obj.data.vertex_colors.get(mask_src.attribute_name)):
                         fix_missing_vcol(obj, mask.name, mask_src)
 
+                for ch in layer.channels:
+                    layer_tree = get_tree(layer)
+                    ch_src = layer_tree.nodes.get(ch.source)
+                    if (ch.override and ch.override_type == 'VCOL' and obj.type == 'MESH' 
+                            and not obj.data.vertex_colors.get(ch_src.attribute_name)):
+                        fix_missing_vcol(obj, ch_src.attribute_name, ch_src)
+
         # Fix missing uvs
         check_uv_nodes(yp, generate_missings=True)
 
         # If there's height channel, refresh uv maps to get tangent hacks
-        height_root_ch = get_root_height_channel(yp)
-        if height_root_ch:
-            for uv in yp.uvs:
-                refresh_tangent_sign_vcol(obj, uv.name)
+        if yp.enable_tangent_sign_hacks:
+            height_root_ch = get_root_height_channel(yp)
+            if height_root_ch:
+                for uv in yp.uvs:
+                    refresh_tangent_sign_vcol(obj, uv.name)
 
         return {'FINISHED'}
 
