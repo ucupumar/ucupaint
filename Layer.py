@@ -457,6 +457,10 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
             self.report({'ERROR'}, "Vertex color cannot be empty!")
             return {'CANCELLED'}
 
+        # Make sure override is on
+        if not ch.override:
+            ch.override = True
+
         objs = [obj]
         if mat.users > 1:
             for o in get_scene_objects():
@@ -1000,6 +1004,10 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
         root_ch = yp.channels[int(m.group(2))]
         tree = get_tree(layer)
 
+        # Make sure override is on
+        if not ch.override:
+            ch.override = True
+
         #print(images)
 
         # Update image cache
@@ -1012,6 +1020,8 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
             #print(image_node, dirty)
 
         image_node.image = images[0]
+        if images[0].colorspace_settings.name != 'Linear':
+            images[0].colorspace_settings.name = 'Linear'
 
         ch.override_type = 'IMAGE'
 
@@ -1275,6 +1285,10 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
         root_ch = yp.channels[int(m.group(2))]
         tree = get_tree(layer)
 
+        # Make sure override is on
+        if not ch.override:
+            ch.override = True
+
         if self.type == 'IMAGE':
             if self.image_name == '':
                 self.report({'ERROR'}, "Image name cannot be empty!")
@@ -1292,6 +1306,8 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
             else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
+            if image.colorspace_settings.name != 'Linear':
+                image.colorspace_settings.name = 'Linear'
 
         elif self.type == 'VCOL':
 
@@ -2949,26 +2965,6 @@ def update_bump_distance(self, context):
     #max_height = get_displacement_max_height(root_ch)
     #root_ch.displacement_height_ratio = max_height
     update_displacement_height_ratio(root_ch)
-
-def set_layer_channel_linear_node(tree, layer, root_ch, ch):
-
-    if (root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB' 
-            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} 
-            and ch.layer_input == 'RGB' and not ch.gamma_space):
-
-        if root_ch.type == 'VALUE':
-            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
-            linear.inputs[1].default_value = 1.0
-            linear.operation = 'POWER'
-        elif root_ch.type == 'RGB':
-            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
-
-        linear.inputs[1].default_value = 1.0 / GAMMA
-    else:
-        remove_node(tree, ch, 'linear')
-
-    rearrange_layer_nodes(layer)
-    reconnect_layer_nodes(layer)
 
 def update_layer_input(self, context):
     yp = self.id_data.yp

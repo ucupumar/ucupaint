@@ -1184,6 +1184,10 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'cache_voronoi')
             remove_node(ttree, ch, 'cache_wave')
 
+            remove_node(ttree, ch, 'cache_image')
+            remove_node(ttree, ch, 'cache_vcol')
+            remove_node(ttree, ch, 'cache_hemi')
+
             # Remove modifiers
             #if ch.mod_tree:
             if ch.mod_group != '':

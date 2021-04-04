@@ -2020,12 +2020,37 @@ def update_override_value(root_ch, layer, ch, tree=None):
     if not tree: tree = get_tree(layer)
 
     source = tree.nodes.get(ch.source)
-    if root_ch.type == 'RGB':
+    if root_ch.type in {'RGB', 'NORMAL'}:
         col = ch.override_color
         col = (col[0], col[1], col[2], 1.0)
         source.outputs[0].default_value = col
     elif root_ch.type == 'VALUE':
         source.outputs[0].default_value = ch.override_value
+
+def set_layer_channel_linear_node(tree, layer, root_ch, ch):
+
+    if (root_ch.type != 'NORMAL' 
+            and root_ch.colorspace == 'SRGB' 
+            and not ch.gamma_space
+            and (
+                (not ch.override and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} and ch.layer_input == 'RGB' ) or 
+                (ch.override and ch.override_type not in {'IMAGE'})
+                )
+            ):
+
+        if root_ch.type == 'VALUE':
+            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
+            linear.inputs[1].default_value = 1.0
+            linear.operation = 'POWER'
+        elif root_ch.type == 'RGB':
+            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
+
+        linear.inputs[1].default_value = 1.0 / GAMMA
+    else:
+        remove_node(tree, ch, 'linear')
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
 def check_override_layer_channel_nodes(root_ch, layer, ch):
 
@@ -2062,7 +2087,7 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
     if ch.override:
         source_label = root_ch.name + ' Override : ' + ch.override_type
         if ch.override_type == 'DEFAULT':
-            if root_ch.type == 'RGB':
+            if root_ch.type in {'RGB', 'NORMAL'}:
                 source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', source_label)
                 #print(root_ch.name)
             elif root_ch.type == 'VALUE':
@@ -2098,6 +2123,9 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
                     source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexWave', source_label)
     else:
         remove_node(tree, ch, 'source')
+
+    # Update linear stuff
+    set_layer_channel_linear_node(tree, layer, root_ch, ch)
 
 def check_blend_type_nodes(root_ch, layer, ch):
 

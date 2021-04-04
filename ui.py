@@ -218,7 +218,7 @@ def draw_hemi_props(entity, source, layout):
     col.prop(entity, 'hemi_use_prev_normal', text='Use Previous Normal')
     col.prop(entity, 'hemi_camera_ray_mask', text='Camera Ray Mask')
 
-def draw_vcol_props(entity, vcol, layout):
+def draw_vcol_props(layout, vcol=None, entity=None):
     layout.label(text='You can also edit vertex color on edit mode')
 
 def draw_tex_props(source, layout):
@@ -1048,7 +1048,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             elif layer.type == 'COLOR':
                 draw_solid_color_props(layer, source, bbox)
             elif layer.type == 'VCOL':
-                draw_vcol_props(layer, vcol, bbox)
+                draw_vcol_props(bbox, vcol, layer)
             elif layer.type == 'HEMI':
                 draw_hemi_props(layer, source, bbox)
             else: draw_tex_props(source, bbox)
@@ -1625,14 +1625,19 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
         ch_source = None
         if ch.override:
             ch_source = layer_tree.nodes.get(ch.source)
-        elif ch.override_type not in {'DEFAULT', 'IMAGE', 'VCOL', 'HEMI'}:
+        elif ch.override_type not in {'DEFAULT'}:
             ch_source = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_type.lower()))
 
         if ch.expand_source and ch.override_type != 'DEFAULT'  and ch_source:
             rrow = mcol.row(align=True)
             rrow.label(text='', icon='BLANK1')
             rbox = rrow.box()
-            draw_tex_props(ch_source, rbox)
+            if ch.override_type == 'IMAGE':
+                draw_image_props(context, ch_source, rbox)
+            elif ch.override_type == 'VCOL':
+                draw_vcol_props(rbox)
+            else:
+                draw_tex_props(ch_source, rbox)
 
         # Layer input
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
@@ -2341,6 +2346,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         if (
             (image and image.colorspace_settings.name != 'Linear') or 
+            (override_image and override_image.colorspace_settings.name != 'Linear') or 
             (mask_image and mask_image.colorspace_settings.name != 'Linear')
             ):
             col.alert = True
