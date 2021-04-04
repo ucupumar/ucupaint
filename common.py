@@ -138,7 +138,7 @@ channel_override_type_items = (
         #('BACKGROUND', 'Background', ''),
         #('COLOR', 'Solid Color', ''),
         #('GROUP', 'Group', ''),
-        ('HEMI', 'Fake Lighting', ''),
+        #('HEMI', 'Fake Lighting', ''),
         )
 
 hemi_space_items = (

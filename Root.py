@@ -154,7 +154,7 @@ def check_all_channel_ios(yp, reconnect=True):
         output_index += 1
 
         name = 'Layer Alpha Viewer'
-        create_output(group_tree, LAYER_ALPHA_VIEWER, 'NodeSocketFloat', valid_outputs, output_index)
+        create_output(group_tree, LAYER_ALPHA_VIEWER, 'NodeSocketColor', valid_outputs, output_index)
         output_index += 1
 
     # Check for invalid io
@@ -2862,7 +2862,7 @@ class YPaint(bpy.types.PropertyGroup):
             #         ),
             items = (('LAYER', 'Layer', ''),
                      ('ALPHA', 'Alpha', ''),
-                     ('SPECIFIC_MASK', 'Specific Mask', ''),
+                     ('SPECIFIC_MASK', 'Specific Mask / Override', ''),
                      ),
             #items = layer_preview_mode_type_items,
             default = 'LAYER',

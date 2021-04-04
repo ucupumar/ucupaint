@@ -282,7 +282,7 @@ def check_layer_tree_ios(layer, tree=None):
         dirty = create_output(tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index, dirty)
         output_index += 1
 
-        dirty = create_output(tree, LAYER_ALPHA_VIEWER, 'NodeSocketFloat', valid_outputs, output_index, dirty)
+        dirty = create_output(tree, LAYER_ALPHA_VIEWER, 'NodeSocketColor', valid_outputs, output_index, dirty)
         output_index += 1
 
     # Check for invalid io

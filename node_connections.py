@@ -1896,6 +1896,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if 'Vector' in ch_source.inputs:
                 create_link(tree, vector, ch_source.inputs['Vector'])
 
+            if yp.layer_preview_mode and yp.layer_preview_mode_type == 'SPECIFIC_MASK' and ch.active_edit == True:
+                if alpha_preview:
+                    create_link(tree, rgb, alpha_preview)
+
         if layer.type == 'GROUP':
 
             if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
