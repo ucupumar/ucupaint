@@ -2516,6 +2516,16 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
         elif layer.type == 'HEMI':
             duplicate_lib_node_tree(source)
 
+        # Duplicate override channel
+        for ch in layer.channels:
+            if ch.override and ch.override_type == 'IMAGE':
+                ch_source = ttree.nodes.get(ch.source)
+                img = ch_source.image
+                if img:
+                    img_users.append(ch)
+                    img_nodes.append(ch_source)
+                    imgs.append(img)
+
         # Duplicate masks
         for mask in layer.masks:
             if mask.group_node != '':
