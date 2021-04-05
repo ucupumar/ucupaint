@@ -1398,6 +1398,45 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
                 break
 
+def reconnect_channel_source_internal_nodes(ch, ch_source_tree):
+
+    tree = ch_source_tree
+
+    source = tree.nodes.get(ch.source)
+    start = tree.nodes.get(TREE_START)
+    solid = tree.nodes.get(ONE_VALUE)
+    end = tree.nodes.get(TREE_END)
+
+    create_link(tree, start.outputs[0], source.inputs[0])
+
+    rgb = source.outputs[0]
+    if ch.override_type == 'MUSGRAVE':
+        alpha = solid.outputs[0]
+    else: alpha = source.outputs[1]
+
+    #if linear:
+    #    rgb = create_link(tree, rgb, linear.inputs[0])[0]
+
+    if ch.override_type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+        rgb_1 = source.outputs[1]
+        alpha = solid.outputs[0]
+        alpha_1 = solid.outputs[0]
+
+        #mod_group = tree.nodes.get(ch.mod_group)
+        #if mod_group:
+        #    rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
+
+        #mod_group_1 = tree.nodes.get(ch.mod_group_1)
+        #if mod_group_1:
+        #    rgb_1 = create_link(tree, rgb_1, mod_group_1.inputs[0])[0]
+        #    alpha_1 = create_link(tree, alpha_1, mod_group_1.inputs[1])[1]
+
+        create_link(tree, rgb_1, end.inputs[2])
+        create_link(tree, alpha_1, end.inputs[3])
+
+    create_link(tree, rgb, end.inputs[0])
+    create_link(tree, alpha, end.inputs[1])
+
 def reconnect_source_internal_nodes(layer):
     tree = get_source_tree(layer)
 
@@ -1887,11 +1926,55 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         height_alpha = None
         normal_alpha = None
 
+        ch_uv_neighbor = nodes.get(ch.uv_neighbor)
+
         # Channel Override
         if ch.override:
-            ch_source = nodes.get(ch.source)
+
+            ch_source_group = nodes.get(ch.source_group)
+            if ch_source_group:
+                ch_source = ch_source_group
+                reconnect_channel_source_internal_nodes(ch, ch_source_group.node_tree)
+            else: ch_source = nodes.get(ch.source)
+
             if ch_source:
                 rgb = ch_source.outputs[0]
+
+            ch_uv_neighbor = nodes.get(ch.uv_neighbor)
+            if ch_uv_neighbor:
+
+                create_link(tree, vector, ch_uv_neighbor.inputs[0])
+
+                if ch.override_type in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+                    create_link(tree, rgb, ch_uv_neighbor.inputs[0])
+
+                if tangent and 'Tangent' in ch_uv_neighbor.inputs:
+                    create_link(tree, tangent, ch_uv_neighbor.inputs['Tangent'])
+                if bitangent and 'Bitangent' in ch_uv_neighbor.inputs:
+                    create_link(tree, bitangent, ch_uv_neighbor.inputs['Bitangent'])
+
+            # Source NSEW
+            source_n = nodes.get(ch.source_n)
+            source_s = nodes.get(ch.source_s)
+            source_e = nodes.get(ch.source_e)
+            source_w = nodes.get(ch.source_w)
+
+            if ch_uv_neighbor:
+                if source_n: create_link(tree, ch_uv_neighbor.outputs['n'], source_n.inputs[0])
+                if source_s: create_link(tree, ch_uv_neighbor.outputs['s'], source_s.inputs[0])
+                if source_e: create_link(tree, ch_uv_neighbor.outputs['e'], source_e.inputs[0])
+                if source_w: create_link(tree, ch_uv_neighbor.outputs['w'], source_w.inputs[0])
+
+            #ch_source_n = nodes.get(ch.source_n)
+            #ch_source_s = nodes.get(ch.source_s)
+            #ch_source_e = nodes.get(ch.source_e)
+            #ch_source_w = nodes.get(ch.source_w)
+
+            #if ch_source_n:
+            #    source_n = ch_source_n
+            #    source_n = ch_source_s
+            #    source_n = ch_source_e
+            #    source_n = ch_source_w
 
             if 'Vector' in ch_source.inputs:
                 create_link(tree, vector, ch_source.inputs['Vector'])
@@ -2083,6 +2166,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb_s = uv_neighbor.outputs['s']
                 rgb_e = uv_neighbor.outputs['e']
                 rgb_w = uv_neighbor.outputs['w']
+
+                alpha_n = start_alpha
+                alpha_s = start_alpha
+                alpha_e = start_alpha
+                alpha_w = start_alpha
+
+            elif ch.override and ch.override_type in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and ch_uv_neighbor:
+                rgb_n = ch_uv_neighbor.outputs['n']
+                rgb_s = ch_uv_neighbor.outputs['s']
+                rgb_e = ch_uv_neighbor.outputs['e']
+                rgb_w = ch_uv_neighbor.outputs['w']
 
                 alpha_n = start_alpha
                 alpha_s = start_alpha

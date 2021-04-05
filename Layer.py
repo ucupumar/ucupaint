@@ -1013,8 +1013,9 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
         # Update image cache
         if ch.override_type == 'IMAGE':
             #image_node = tree.nodes.get(ch.source)
+            source_tree = get_channel_source_tree(ch, layer)
             source_label = root_ch.name + ' Override : ' + ch.override_type
-            image_node, dirty = check_new_node(tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+            image_node, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
         else:
             image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
             #print(image_node, dirty)
@@ -1301,8 +1302,9 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
 
             # Update image cache
             if ch.override_type == 'IMAGE':
+                source_tree = get_channel_source_tree(ch, layer)
                 source_label = root_ch.name + ' Override : ' + ch.override_type
-                image_node, dirty = check_new_node(tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+                image_node, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
             else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
@@ -2535,7 +2537,8 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
         # Duplicate override channel
         for ch in layer.channels:
             if ch.override and ch.override_type == 'IMAGE':
-                ch_source = ttree.nodes.get(ch.source)
+                #ch_source = ttree.nodes.get(ch.source)
+                ch_source = get_channel_source(ch, layer)
                 img = ch_source.image
                 if img:
                     img_users.append(ch)
@@ -3361,8 +3364,18 @@ class YLayerChannel(bpy.types.PropertyGroup):
     override_type = EnumProperty(items=channel_override_type_items, default='DEFAULT', update=update_layer_channel_override)
     override_color = FloatVectorProperty(subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5), update=update_layer_channel_override_value)
     override_value = FloatProperty(min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
-    source = StringProperty(default='')
     override_vcol_name = StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
+
+    # Sources
+    source = StringProperty(default='')
+    source_n = StringProperty(default='')
+    source_s = StringProperty(default='')
+    source_e = StringProperty(default='')
+    source_w = StringProperty(default='')
+    source_group = StringProperty(default='')
+
+    # UV
+    uv_neighbor = StringProperty(default='')
 
     # Blur
     #enable_blur = BoolProperty(default=False, update=Blur.update_layer_channel_blur)

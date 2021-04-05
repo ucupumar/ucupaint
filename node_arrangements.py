@@ -380,6 +380,32 @@ def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=Fa
         return loc, offset_y
     return loc
 
+def rearrange_channel_source_tree_nodes(layer, ch):
+
+    source_tree = get_channel_source_tree(ch, layer)
+
+    loc = Vector((0, 0))
+
+    if check_set_node_loc(source_tree, TREE_START, loc):
+        loc.x += 180
+
+    loc.y -= 300
+    check_set_node_loc(source_tree, ONE_VALUE, loc)
+    loc.y -= 90
+    check_set_node_loc(source_tree, ZERO_VALUE, loc)
+    loc.y += 390
+
+    #if check_set_node_loc(source_tree, layer.mapping, loc):
+    #    loc.x += 380
+
+    if check_set_node_loc(source_tree, ch.source, loc):
+        loc.x += 280
+
+    #if check_set_node_loc(source_tree, ch.linear, loc):
+    #    loc.x += 200
+
+    check_set_node_loc(source_tree, TREE_END, loc)
+
 def rearrange_source_tree_nodes(layer):
 
     source_tree = get_source_tree(layer)
@@ -613,26 +639,42 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 40
 
     for ch in layer.channels:
-        if check_set_node_loc(tree, ch.source, loc, hide=False):
-            if ch.override_type == 'BRICK':
-                loc.y -= 400
-            elif ch.override_type == 'CHECKER':
-                loc.y -= 170
-            elif ch.override_type == 'GRADIENT':
-                loc.y -= 140
-            elif ch.override_type == 'MAGIC':
-                loc.y -= 180
-            elif ch.override_type == 'MUSGRAVE':
-                loc.y -= 270
-            elif ch.override_type == 'NOISE':
-                loc.y -= 170
-            elif ch.override_type == 'VORONOI':
-                loc.y -= 190
-            else:
-                loc.y -= 260
+        if ch.source_group != '' and check_set_node_loc(tree, ch.source_group, loc, hide=True):
+            rearrange_channel_source_tree_nodes(layer, ch)
+            loc.y -= 40
+        else:
+            if check_set_node_loc(tree, ch.source, loc, hide=False):
+                if ch.override_type == 'BRICK':
+                    loc.y -= 400
+                elif ch.override_type == 'CHECKER':
+                    loc.y -= 170
+                elif ch.override_type == 'GRADIENT':
+                    loc.y -= 140
+                elif ch.override_type == 'MAGIC':
+                    loc.y -= 180
+                elif ch.override_type == 'MUSGRAVE':
+                    loc.y -= 270
+                elif ch.override_type == 'NOISE':
+                    loc.y -= 170
+                elif ch.override_type == 'VORONOI':
+                    loc.y -= 190
+                else:
+                    loc.y -= 260
 
-    if check_set_node_loc(tree, layer.uv_neighbor, loc):
-        loc.y -= 260
+        if check_set_node_loc(tree, ch.source_n, loc, hide=True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, ch.source_s, loc, hide=True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, ch.source_e, loc, hide=True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, ch.source_w, loc, hide=True):
+            loc.y -= 40
+
+        if check_set_node_loc(tree, ch.uv_neighbor, loc):
+            loc.y -= 260
 
     #if layer.source_group == '' and check_set_node_loc(tree, layer.mapping, loc):
     if check_set_node_loc(tree, layer.mapping, loc):

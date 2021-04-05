@@ -1257,11 +1257,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
                     mapping = get_layer_mapping(layer)
                     if is_greater_than_281():
-                        correct_x = image.size[0] * mapping.inputs[3].default_value[0]
-                        correct_y = image.size[1] * mapping.inputs[3].default_value[1]
+                        correct_x = image.size[0] #* mapping.inputs[3].default_value[0]
+                        correct_y = image.size[1] #* mapping.inputs[3].default_value[1]
                     else:
-                        correct_x = image.size[0] * mapping.scale[0]
-                        correct_y = image.size[1] * mapping.scale[1]
+                        correct_x = image.size[0] #* mapping.scale[0]
+                        correct_y = image.size[1] #* mapping.scale[1]
 
                     if cur_x != correct_x or cur_y != correct_y:
                         brow = mcol.row(align=True)
@@ -1594,7 +1594,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
             row.prop(chui, 'expand_source', text='', emboss=False, icon_value=icon_value)
 
         label_str = 'Override'
-        source = layer_tree.nodes.get(ch.source)
+        #source = layer_tree.nodes.get(ch.source)
+        source = get_channel_source(ch, layer)
         if ch.override_type == 'IMAGE':
             if source: label_str += ' (' + source.image.name + ')'
         elif ch.override_type == 'VCOL':
@@ -1624,7 +1625,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
         ch_source = None
         if ch.override:
-            ch_source = layer_tree.nodes.get(ch.source)
+            #ch_source = layer_tree.nodes.get(ch.source)
+            ch_source = get_channel_source(ch, layer)
         elif ch.override_type not in {'DEFAULT'}:
             ch_source = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_type.lower()))
 
@@ -2101,7 +2103,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             if mask.type in {'IMAGE' , 'VCOL'}:
                 mask_src = get_mask_source(mask)
 
-                if ((mask.type == 'IMAGE' and not mask_src.image) or 
+                if ((mask.type == 'IMAGE' and mask_src and not mask_src.image) or 
                     (mask.type == 'VCOL' and obj.type == 'MESH' 
                         and not obj.data.vertex_colors.get(mask_src.attribute_name))
                     ):
@@ -2110,9 +2112,10 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         for ch in layer.channels:
             if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
-                layer_tree = get_tree(layer)
-                src = layer_tree.nodes.get(ch.source)
-                if ((ch.override_type == 'IMAGE' and not src.image) or 
+                #layer_tree = get_tree(layer)
+                #src = layer_tree.nodes.get(ch.source)
+                src = get_channel_source(ch, layer)
+                if src and ((ch.override_type == 'IMAGE' and not src.image) or 
                     (ch.override_type == 'VCOL' and obj.type == 'MESH' 
                         and not obj.data.vertex_colors.get(src.attribute_name))
                     ):
@@ -2213,7 +2216,8 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             # Check for active override channel
             for i, c in enumerate(layer.channels):
                 if c.override and c.override_type != 'DEFAULT' and c.active_edit:
-                    source = layer_tree.nodes.get(c.source)
+                    #source = layer_tree.nodes.get(c.source)
+                    source = get_channel_source(c, layer)
                     if c.override_type == 'IMAGE':
                         override_image = source.image
                     elif c.override_type == 'VCOL':
@@ -2834,7 +2838,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             else:
                 if c.override_type == 'IMAGE':
                     src = layer_tree.nodes.get(c.source)
-                    row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                    if src: row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                 elif c.override_type == 'VCOL':
                     row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 else:
@@ -3644,7 +3648,8 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         label = 'Image'
         cache_image = tree.nodes.get(ch.cache_image)
-        source = tree.nodes.get(ch.source)
+        #source = tree.nodes.get(ch.source)
+        source = get_channel_source(ch, layer)
         if cache_image:
             label += ': ' + cache_image.image.name
         elif (ch.override_type == 'IMAGE' and source):
@@ -3669,7 +3674,7 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         label = 'Vertex Color'
         cache_vcol = tree.nodes.get(ch.cache_vcol)
-        source = tree.nodes.get(ch.source)
+        #source = tree.nodes.get(ch.source)
         if cache_vcol:
             label += ': ' + cache_vcol.attribute_name
         elif (ch.override_type == 'VCOL' and source):

@@ -1524,6 +1524,35 @@ def get_mask_mapping(mask):
     tree = get_mask_tree(mask, True)
     return tree.nodes.get(mask.mapping)
 
+def get_channel_source_tree(ch, layer=None, tree=None):
+    if not layer:
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        if not m : return None
+        layer = yp.layers[int(m.group(1))]
+
+    if not tree: tree = get_tree(layer)
+    if not tree: return None
+
+    if ch.source_group != '':
+        source_group = tree.nodes.get(ch.source_group)
+        return source_group.node_tree
+
+    return tree
+
+def get_channel_source(ch, layer=None, tree=None):
+    #if not layer:
+    #    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+    #    if not m : return None
+    #    layer = yp.layers[int(m.group(1))]
+
+    #if not tree: tree = get_tree(layer)
+
+    source_tree = get_channel_source_tree(ch, layer, tree)
+    if source_tree: return source_tree.nodes.get(ch.source)
+    #if tree: return tree.nodes.get(ch.source)
+
+    return None
+
 def get_source_tree(layer, tree=None):
     if not tree: tree = get_tree(layer)
     if not tree: return None
@@ -2064,15 +2093,27 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
     yp = entity.id_data.yp
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m3 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity.path_from_id())
 
     if m1: 
         tree = get_tree(entity)
         if not mapping: mapping = get_layer_mapping(entity)
         if not source: source = get_layer_source(entity)
+        entity_type = entity.type
+        scale = entity.scale
     elif m2: 
         tree = get_tree(yp.layers[int(m2.group(1))])
         if not mapping: mapping = get_mask_mapping(entity)
         if not source: source = get_mask_source(entity)
+        entity_type = entity.type
+        scale = entity.scale
+    elif m3: 
+        layer = yp.layers[int(m3.group(1))]
+        tree = get_tree(layer)
+        if not mapping: mapping = get_layer_mapping(layer)
+        if not source: source = get_channel_source(entity, layer, tree)
+        entity_type = entity.override_type
+        scale = layer.scale
     else: return
 
     if not uv_neighbor: uv_neighbor = tree.nodes.get(entity.uv_neighbor)
@@ -2080,15 +2121,16 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
 
     if 'ResX' not in uv_neighbor.inputs: return
 
-    if entity.type == 'IMAGE' and source.image:
+    #if entity.type == 'IMAGE' and source.image:
+    if entity_type == 'IMAGE' and source.image:
         #if is_greater_than_281():
         #    uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.inputs[3].default_value[0]
         #    uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.inputs[3].default_value[1]
         #else:
         #    uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.scale[0]
         #    uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.scale[1]
-        uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * entity.scale[0]
-        uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * entity.scale[1]
+        uv_neighbor.inputs['ResX'].default_value = source.image.size[0] #* scale[0]
+        uv_neighbor.inputs['ResY'].default_value = source.image.size[1] #* scale[1]
     else:
         uv_neighbor.inputs['ResX'].default_value = 1000.0
         uv_neighbor.inputs['ResY'].default_value = 1000.0
@@ -2155,7 +2197,14 @@ def update_mapping(entity):
         mapping.rotation = entity.rotation
         mapping.scale = (scale_x, scale_y, scale_z)
 
-    set_uv_neighbor_resolution(entity, source=source, mapping=mapping)
+    # Setting UV neighbor resolution probably isn't important right now
+    #set_uv_neighbor_resolution(entity, source=source, mapping=mapping)
+
+    #if m1: 
+    #    for i, ch in enumerate(entity.channels):
+    #        root_ch = yp.channels[i]
+    #        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable and ch.override and ch.override_type == 'IMAGE':
+    #            set_uv_neighbor_resolution(ch, mapping=mapping)
 
     if entity.type == 'IMAGE' and entity.texcoord_type == 'UV':
         if m1 or (m2 and entity.active_edit):
