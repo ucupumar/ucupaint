@@ -955,13 +955,11 @@ def update_affect_alpha(self, context):
 
     if self.type == 'MATH':
         math = tree.nodes.get(self.math).node_tree
-        group_input = math.nodes.get('Group Input')
-        group_output = math.nodes.get('Group Output')
-        new_alpha = math.nodes.get('Mix.A')
+        alpha = math.nodes.get('Mix.A')
         if self.affect_alpha:
-            create_link(math, new_alpha.outputs['Color'], group_output.inputs['Alpha'])
+            alpha.mute = False
         else:
-            create_link(math, group_input.outputs['Alpha'], group_output.inputs['Alpha'])
+            alpha.mute = True
 
 def update_math_method(self, context):
     yp = self.id_data.yp
@@ -1130,10 +1128,10 @@ class YPaintModifier(bpy.types.PropertyGroup):
     # Math nodes
     math = StringProperty(default='')
 
-    math_r_val = FloatProperty(default=0.0, update=update_math_val_input)
-    math_g_val = FloatProperty(default=0.0, update=update_math_val_input)
-    math_b_val = FloatProperty(default=0.0, update=update_math_val_input)
-    math_a_val = FloatProperty(default=0.0, update=update_math_val_input)
+    math_r_val = FloatProperty(default=1.0, update=update_math_val_input)
+    math_g_val = FloatProperty(default=1.0, update=update_math_val_input)
+    math_b_val = FloatProperty(default=1.0, update=update_math_val_input)
+    math_a_val = FloatProperty(default=1.0, update=update_math_val_input)
 
     math_meth = EnumProperty(
         name = 'Method',
