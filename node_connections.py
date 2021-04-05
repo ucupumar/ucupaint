@@ -1939,6 +1939,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if ch_source:
                 rgb = ch_source.outputs[0]
+                alpha = ch_source.outputs[1]
 
             ch_uv_neighbor = nodes.get(ch.uv_neighbor)
             if ch_uv_neighbor:
@@ -1964,17 +1965,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if source_s: create_link(tree, ch_uv_neighbor.outputs['s'], source_s.inputs[0])
                 if source_e: create_link(tree, ch_uv_neighbor.outputs['e'], source_e.inputs[0])
                 if source_w: create_link(tree, ch_uv_neighbor.outputs['w'], source_w.inputs[0])
-
-            #ch_source_n = nodes.get(ch.source_n)
-            #ch_source_s = nodes.get(ch.source_s)
-            #ch_source_e = nodes.get(ch.source_e)
-            #ch_source_w = nodes.get(ch.source_w)
-
-            #if ch_source_n:
-            #    source_n = ch_source_n
-            #    source_n = ch_source_s
-            #    source_n = ch_source_e
-            #    source_n = ch_source_w
 
             if 'Vector' in ch_source.inputs:
                 create_link(tree, vector, ch_source.inputs['Vector'])
