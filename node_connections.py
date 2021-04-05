@@ -1559,8 +1559,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             create_link(tree, bump_process.outputs['Normal'], source.inputs['Normal'])
         else: create_link(tree, geometry.outputs['Normal'], source.inputs['Normal'])
 
+    # Find override channels
+    #using_vector = is_channel_override_using_vector(layer)
+
     # Texcoord
-    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+    vector = None
+    #if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'} or using_vector:
+    if is_layer_using_vector(layer):
         if layer.texcoord_type == 'UV':
             vector = texcoord.outputs.get(layer.uv_name + io_suffix['UV'])
         else: vector = texcoord.outputs[io_names[layer.texcoord_type]]
@@ -1569,6 +1574,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             vector = create_link(tree, vector, mapping.inputs[0])[0]
             #create_link(tree, mapping.outputs[0], source.inputs[0])
 
+    if vector and layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
         #if source_group or not mapping:
         create_link(tree, vector, source.inputs[0])
 
@@ -1895,6 +1901,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             ch_source = nodes.get(ch.source)
             if ch_source:
                 rgb = ch_source.outputs[0]
+
+            if 'Vector' in ch_source.inputs:
+                create_link(tree, vector, ch_source.inputs['Vector'])
+
+            if yp.layer_preview_mode and yp.layer_preview_mode_type == 'SPECIFIC_MASK' and ch.active_edit == True:
+                if alpha_preview:
+                    create_link(tree, rgb, alpha_preview)
 
         if layer.type == 'GROUP':
 

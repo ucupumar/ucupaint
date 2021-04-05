@@ -671,6 +671,10 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "This feature is not implemented yet on Blender 2.79!")
             return {'CANCELLED'}
 
+        if context.object.hide_viewport or context.object.hide_render:
+            self.report({'ERROR'}, "Please unhide render and viewport of active object!")
+            return {'CANCELLED'}
+
         # Get all objects using material
         if self.type.startswith('MULTIRES_') and not get_multires_modifier(context.object):
             objs = []
@@ -682,6 +686,8 @@ class YBakeToLayer(bpy.types.Operator):
         if mat.users > 1:
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
+                if ob.hide_viewport or ob.hide_render: continue
+                if len(get_uv_layers(ob)) == 0: continue
                 if self.type.startswith('MULTIRES_') and not get_multires_modifier(ob): continue
                 for i, m in enumerate(ob.data.materials):
                     if m == mat:

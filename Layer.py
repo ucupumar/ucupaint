@@ -27,8 +27,12 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     # Get source_tree
     source_tree = get_source_tree(layer, tree)
 
+    # Find override channels
+    #using_vector = is_layer_using_vector(layer)
+
     # Mapping node
-    if layer.type not in {'BACKGROUND', 'VCOL', 'GROUP', 'COLOR'}:
+    #if layer.type not in {'BACKGROUND', 'VCOL', 'GROUP', 'COLOR'} or using_vector:
+    if is_layer_using_vector(layer):
         mapping = source_tree.nodes.get(layer.mapping)
         if not mapping:
             mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
@@ -403,6 +407,96 @@ class YUseLinearColorSpace(bpy.types.Operator):
         #set_uv_neighbor_resolution(context.layer)
         #print(context.image.name)
         context.image.colorspace_settings.name = 'Linear'
+        return {'FINISHED'}
+
+class YNewVcolToOverrideChannel(bpy.types.Operator):
+    bl_idname = "node.y_new_vcol_to_override_channel"
+    bl_label = "New Vertex Color To Override Channel Layer"
+    bl_description = "New Vertex Color To Override Channel Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name = StringProperty(default='')
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        self.ch = context.parent
+
+        yp = self.ch.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.ch.path_from_id())
+        if not m: return []
+        layer = yp.layers[int(m.group(1))]
+        root_ch = yp.channels[int(m.group(2))]
+        self.tree = get_tree(layer)
+
+        self.name = layer.name + ' ' + root_ch.name +  ' Override'
+
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def draw(self, context):
+        if is_greater_than_280():
+            row = self.layout.split(factor=0.4)
+        else: row = self.layout.split(percentage=0.4)
+        row.label(text='Name:')
+        row.prop(self, 'name', text='')
+
+    def execute(self, context):
+
+        T = time.time()
+
+        ch = self.ch
+        yp = ch.id_data.yp
+        tree = self.tree
+        obj = context.object
+        mat = obj.active_material
+        wm = context.window_manager
+
+        if self.name == '' :
+            self.report({'ERROR'}, "Vertex color cannot be empty!")
+            return {'CANCELLED'}
+
+        # Make sure override is on
+        if not ch.override:
+            ch.override = True
+
+        objs = [obj]
+        if mat.users > 1:
+            for o in get_scene_objects():
+                if o.type != 'MESH': continue
+                if mat.name in o.data.materials and o not in objs:
+                    objs.append(o)
+
+        for o in objs:
+            if self.name not in o.data.vertex_colors:
+                try:
+                    vcol = o.data.vertex_colors.new(name=self.name)
+                    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                    o.data.vertex_colors.active = vcol
+                except: pass
+
+        # Update vcol cache
+        if ch.override_type == 'VCOL':
+            source_label = root_ch.name + ' Override : ' + ch.override_type
+            vcol_node, dirty = check_new_node(tree, ch, 'source', 'ShaderNodeAttribute', source_label, True)
+        else:
+            vcol_node, dirty = check_new_node(tree, ch, 'cache_vcol', 'ShaderNodeAttribute', '', True)
+
+        vcol_node.attribute_name = self.name
+
+        # Set vcol name attribute
+        yp.halt_update = True
+        ch.override_vcol_name = self.name
+        yp.halt_update = False
+
+        ch.override_type = 'VCOL'
+
+        # Update UI
+        wm.ypui.need_update = True
+        print('INFO: Vertex Color is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
         return {'FINISHED'}
 
 class YNewLayer(bpy.types.Operator):
@@ -854,6 +948,90 @@ class YNewLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
+    """Open Image to Layer"""
+    bl_idname = "node.y_open_image_to_override_layer_channel"
+    bl_label = "Open Image to Override Channel Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    # File related
+    files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
+    directory = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
+
+    # File browser filter
+    filter_folder = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    filter_image = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    display_type = EnumProperty(
+            items = (('FILE_DEFAULTDISPLAY', 'Default', ''),
+                     ('FILE_SHORTDISLPAY', 'Short List', ''),
+                     ('FILE_LONGDISPLAY', 'Long List', ''),
+                     ('FILE_IMGDISPLAY', 'Thumbnails', '')),
+            default = 'FILE_IMGDISPLAY',
+            options={'HIDDEN', 'SKIP_SAVE'})
+
+    relative = BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
+
+    def generate_paths(self):
+        return (fn.name for fn in self.files), self.directory
+
+    @classmethod
+    def poll(cls, context):
+        #return hasattr(context, 'group_node') and context.group_node
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        self.ch = context.parent
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def check(self, context):
+        return True
+
+    def execute(self, context):
+        ch = self.ch
+        T = time.time()
+
+        wm = context.window_manager
+        node = get_active_ypaint_node()
+
+        import_list, directory = self.generate_paths()
+        images = tuple(load_image(path, directory) for path in import_list)
+
+        yp = ch.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        if not m: return []
+        layer = yp.layers[int(m.group(1))]
+        root_ch = yp.channels[int(m.group(2))]
+        tree = get_tree(layer)
+
+        # Make sure override is on
+        if not ch.override:
+            ch.override = True
+
+        #print(images)
+
+        # Update image cache
+        if ch.override_type == 'IMAGE':
+            #image_node = tree.nodes.get(ch.source)
+            source_label = root_ch.name + ' Override : ' + ch.override_type
+            image_node, dirty = check_new_node(tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+        else:
+            image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+            #print(image_node, dirty)
+
+        image_node.image = images[0]
+        if images[0].colorspace_settings.name != 'Linear':
+            images[0].colorspace_settings.name = 'Linear'
+
+        ch.override_type = 'IMAGE'
+
+        # Update UI
+        wm.ypui.need_update = True
+        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return {'FINISHED'}
+
 class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     """Open Image to Layer"""
     bl_idname = "node.y_open_image_to_layer"
@@ -1033,6 +1211,153 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         # Update UI
         wm.ypui.need_update = True
         print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return {'FINISHED'}
+
+class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
+    """Open Available Data to Override Channel Layer"""
+    bl_idname = "node.y_open_available_data_to_override_channel"
+    bl_label = "Open Available Data to Override Channel Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    type = EnumProperty(
+            name = 'Layer Type',
+            items = (('IMAGE', 'Image', ''),
+                ('VCOL', 'Vertex Color', '')),
+            default = 'IMAGE')
+
+    image_name = StringProperty(name="Image")
+    image_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    vcol_name = StringProperty(name="Vertex Color")
+    vcol_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    @classmethod
+    def poll(cls, context):
+        #return hasattr(context, 'group_node') and context.group_node
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        self.ch = context.parent
+        obj = context.object
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        if self.type == 'IMAGE':
+            # Update image names
+            self.image_coll.clear()
+            imgs = bpy.data.images
+            baked_channel_images = get_all_baked_channel_images(node.node_tree)
+            for img in imgs:
+                if not img.yia.is_image_atlas and img not in baked_channel_images:
+                    self.image_coll.add().name = img.name
+        elif self.type == 'VCOL':
+            self.vcol_coll.clear()
+            vcols = obj.data.vertex_colors
+            for vcol in vcols:
+                self.vcol_coll.add().name = vcol.name
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        obj = context.object
+
+        if self.type == 'IMAGE':
+            self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
+        elif self.type == 'VCOL':
+            self.layout.prop_search(self, "vcol_name", self, "vcol_coll", icon='GROUP_VCOL')
+
+    def execute(self, context):
+        T = time.time()
+        wm = context.window_manager
+
+        obj = context.object
+        mat = obj.active_material
+
+        ch = self.ch
+        yp = ch.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        if not m: return []
+        layer = yp.layers[int(m.group(1))]
+        root_ch = yp.channels[int(m.group(2))]
+        tree = get_tree(layer)
+
+        # Make sure override is on
+        if not ch.override:
+            ch.override = True
+
+        if self.type == 'IMAGE':
+            if self.image_name == '':
+                self.report({'ERROR'}, "Image name cannot be empty!")
+                return {'CANCELLED'}
+            image = bpy.data.images.get(self.image_name)
+
+            if not image:
+                self.report({'ERROR'}, "Image named " + self.image_name + " is not found!")
+                return {'CANCELLED'}
+
+            # Update image cache
+            if ch.override_type == 'IMAGE':
+                source_label = root_ch.name + ' Override : ' + ch.override_type
+                image_node, dirty = check_new_node(tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+            else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+
+            image_node.image = image
+            if image.colorspace_settings.name != 'Linear':
+                image.colorspace_settings.name = 'Linear'
+
+        elif self.type == 'VCOL':
+
+            if self.vcol_name == '':
+                self.report({'ERROR'}, "Vertex Color name cannot be empty!")
+                return {'CANCELLED'}
+
+            vcol = obj.data.vertex_colors.get(self.vcol_name)
+            if not vcol:
+                self.report({'ERROR'}, "Vertex Color named " + self.vcol_name + " is not found!")
+                return {'CANCELLED'}
+
+            objs = [obj]
+            if mat.users > 1:
+                for o in get_scene_objects():
+                    if o.type != 'MESH': continue
+                    if mat.name in o.data.materials and o not in objs:
+                        objs.append(o)
+
+            for o in objs:
+
+                if self.vcol_name not in o.data.vertex_colors:
+                    try:
+                        vcol = o.data.vertex_colors.new(name=self.vcol_name)
+                        #if vcol_color == 'WHITE':
+                        #    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                        #elif vcol_color == 'BLACK':
+                        #    set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0))
+                        set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                        o.data.vertex_colors.active = vcol
+                    except: pass
+
+            # Update vcol cache
+            if ch.override_type == 'VCOL':
+                source_label = root_ch.name + ' Override : ' + ch.override_type
+                vcol_node, dirty = check_new_node(tree, ch, 'source', 'ShaderNodeAttribute', source_label, True)
+            else: vcol_node, dirty = check_new_node(tree, ch, 'cache_vcol', 'ShaderNodeAttribute', '', True)
+
+            vcol_node.attribute_name = self.vcol_name
+
+            # Set vcol name attribute
+            yp.halt_update = True
+            ch.override_vcol_name = self.name
+            yp.halt_update = False
+
+        ch.override_type = self.type
+
+        # Update UI
+        wm.ypui.need_update = True
+        print('INFO: Data is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
@@ -2207,6 +2532,16 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
         elif layer.type == 'HEMI':
             duplicate_lib_node_tree(source)
 
+        # Duplicate override channel
+        for ch in layer.channels:
+            if ch.override and ch.override_type == 'IMAGE':
+                ch_source = ttree.nodes.get(ch.source)
+                img = ch_source.image
+                if img:
+                    img_users.append(ch)
+                    img_nodes.append(ch_source)
+                    imgs.append(img)
+
         # Duplicate masks
         for mask in layer.masks:
             if mask.group_node != '':
@@ -2447,6 +2782,13 @@ def update_layer_channel_override(self, context):
 
     check_override_layer_channel_nodes(root_ch, layer, ch)
 
+    # Disable active edit if override is off
+    if not ch.override:
+        ch.halt_update = True
+        ch.active_edit = False
+        ch.halt_update = False
+
+    check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
 
@@ -2623,26 +2965,6 @@ def update_bump_distance(self, context):
     #max_height = get_displacement_max_height(root_ch)
     #root_ch.displacement_height_ratio = max_height
     update_displacement_height_ratio(root_ch)
-
-def set_layer_channel_linear_node(tree, layer, root_ch, ch):
-
-    if (root_ch.type != 'NORMAL' and root_ch.colorspace == 'SRGB' 
-            and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} 
-            and ch.layer_input == 'RGB' and not ch.gamma_space):
-
-        if root_ch.type == 'VALUE':
-            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
-            linear.inputs[1].default_value = 1.0
-            linear.operation = 'POWER'
-        elif root_ch.type == 'RGB':
-            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
-
-        linear.inputs[1].default_value = 1.0 / GAMMA
-    else:
-        remove_node(tree, ch, 'linear')
-
-    rearrange_layer_nodes(layer)
-    reconnect_layer_nodes(layer)
 
 def update_layer_input(self, context):
     yp = self.id_data.yp
@@ -2920,6 +3242,21 @@ def update_layer_name(self, context):
     src = get_layer_source(self)
     change_layer_name(yp, context.object, src, self, yp.layers)
 
+def update_layer_channel_override_vcol_name(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    obj = context.object
+    mat = obj.active_material
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[int(m.group(2))]
+    tree = get_tree(layer)
+
+    source = tree.nodes.get(self.source)
+    change_vcol_name(yp, obj, source, self.override_vcol_name)
+
 def update_layer_channel_use_clamp(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -2932,6 +3269,35 @@ def update_layer_channel_use_clamp(self, context):
     if root_ch.type == 'NORMAL': return
 
     check_blend_type_nodes(root_ch, layer, self)
+
+def update_channel_active_edit(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer_idx = int(m.group(1))
+    layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[int(m.group(2))]
+    ch = self
+    tree = get_tree(layer)
+
+    # Disable other active edits
+    yp.halt_update = True
+    if self.active_edit and self.override and self.override_type != 'DEFAULT': 
+
+        for c in layer.channels:
+            if c == self: continue
+            c.active_edit = False
+        for m in layer.masks:
+            m.active_edit = False
+
+    else:
+        self.active_edit = False
+
+    yp.halt_update = False
+
+    # Refresh
+    yp.active_layer_index = layer_idx
 
 class YLayerChannel(bpy.types.PropertyGroup):
     enable = BoolProperty(default=True, update=update_channel_enable)
@@ -2992,10 +3358,11 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # Override source
     override = BoolProperty(default=False, update=update_layer_channel_override)
     #override_tex = BoolProperty(default=False)
-    override_type = EnumProperty(items=channel_override_type_items, default='DEFAULT')
+    override_type = EnumProperty(items=channel_override_type_items, default='DEFAULT', update=update_layer_channel_override)
     override_color = FloatVectorProperty(subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5), update=update_layer_channel_override_value)
     override_value = FloatProperty(min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
     source = StringProperty(default='')
+    override_vcol_name = StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
 
     # Blur
     #enable_blur = BoolProperty(default=False, update=Blur.update_layer_channel_blur)
@@ -3199,6 +3566,20 @@ class YLayerChannel(bpy.types.PropertyGroup):
     cache_ramp = StringProperty(default='')
     cache_falloff_curve = StringProperty(default='')
 
+    # Override type cache
+    cache_brick = StringProperty(default='')
+    cache_checker = StringProperty(default='')
+    cache_gradient = StringProperty(default='')
+    cache_magic = StringProperty(default='')
+    cache_musgrave = StringProperty(default='')
+    cache_noise = StringProperty(default='')
+    cache_voronoi = StringProperty(default='')
+    cache_wave = StringProperty(default='')
+
+    cache_image = StringProperty(default='')
+    cache_vcol = StringProperty(default='')
+    cache_hemi = StringProperty(default='')
+
     # Transition AO related
     enable_transition_ao = BoolProperty(name='Enable Transition AO', 
             description='Enable alpha transition Ambient Occlusion (Need active transition bump)', default=False,
@@ -3239,6 +3620,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     tao = StringProperty(default='')
 
+    active_edit = BoolProperty(
+            name='Active override channel for editing or preview', 
+            description='Active override channel for editing or preview', 
+            default=False,
+            update=update_channel_active_edit)
+
     # For UI
     expand_bump_settings = BoolProperty(default=False)
     expand_intensity_settings = BoolProperty(default=False)
@@ -3247,6 +3634,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
     expand_transition_ramp_settings = BoolProperty(default=False)
     expand_transition_ao_settings = BoolProperty(default=False)
     expand_input_settings = BoolProperty(default=False)
+    expand_source = BoolProperty(default=False)
 
 def update_layer_color_chortcut(self, context):
     layer = self
@@ -3424,8 +3812,11 @@ def register():
     bpy.utils.register_class(YRefreshNeighborUV)
     bpy.utils.register_class(YUseLinearColorSpace)
     bpy.utils.register_class(YNewLayer)
+    bpy.utils.register_class(YNewVcolToOverrideChannel)
     bpy.utils.register_class(YOpenImageToLayer)
+    bpy.utils.register_class(YOpenImageToOverrideChannel)
     bpy.utils.register_class(YOpenAvailableDataToLayer)
+    bpy.utils.register_class(YOpenAvailableDataToOverrideChannel)
     bpy.utils.register_class(YMoveLayer)
     bpy.utils.register_class(YMoveInOutLayerGroup)
     bpy.utils.register_class(YMoveInOutLayerGroupMenu)
@@ -3441,8 +3832,11 @@ def unregister():
     bpy.utils.unregister_class(YRefreshNeighborUV)
     bpy.utils.unregister_class(YUseLinearColorSpace)
     bpy.utils.unregister_class(YNewLayer)
+    bpy.utils.unregister_class(YNewVcolToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToLayer)
+    bpy.utils.unregister_class(YOpenImageToOverrideChannel)
     bpy.utils.unregister_class(YOpenAvailableDataToLayer)
+    bpy.utils.unregister_class(YOpenAvailableDataToOverrideChannel)
     bpy.utils.unregister_class(YMoveLayer)
     bpy.utils.unregister_class(YMoveInOutLayerGroup)
     bpy.utils.unregister_class(YMoveInOutLayerGroupMenu)

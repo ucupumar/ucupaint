@@ -59,6 +59,7 @@ def remember_before_bake(yp=None):
     if is_greater_than_280():
         book['ori_active_selected_objs'] = [o for o in bpy.context.view_layer.objects if o.select_get()]
         book['ori_hide_renders'] = [o for o in bpy.context.view_layer.objects if o.hide_render]
+        book['ori_hide_viewports'] = [o for o in bpy.context.view_layer.objects if o.hide_viewport]
         book['ori_hide_objs'] = [o for o in bpy.context.view_layer.objects if o.hide_get()]
 
         layer_cols = get_all_layer_collections([], bpy.context.view_layer.layer_collection)
@@ -69,6 +70,7 @@ def remember_before_bake(yp=None):
         book['ori_col_hide_render'] = [c for c in bpy.data.collections if c.hide_render]
 
     else: 
+        book['ori_hide_selects'] = [o for o in scene.objects if o.hide_select]
         book['ori_active_selected_objs'] = [o for o in scene.objects if o.select]
         book['ori_hide_renders'] = [o for o in scene.objects if o.hide_render]
         book['ori_hide_objs'] = [o for o in scene.objects if o.hide]
@@ -146,6 +148,8 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
 
         # Show viewport and render of object layer collection
         for o in objs:
+            o.hide_render = False
+            o.hide_viewport = False
             layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
             for lc in layer_cols:
                 lc.hide_viewport = False
@@ -164,12 +168,17 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         for obj in objs:
             obj.hide_set(False)
             obj.select_set(True)
+            #print(obj.name, obj.hide_render, obj.select_get())
 
         # Disable material override
         book['material_override'] = bpy.context.view_layer.material_override
         bpy.context.view_layer.material_override = None
 
     else:
+
+        for obj in objs:
+            obj.hide_render = False
+            obj.hide = False
 
         if hide_other_objs:
             for o in scene.objects:
@@ -180,7 +189,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
             o.select = False
 
         for obj in objs:
-            obj.hide = False
+            obj.hide_select = False
             obj.select = True
 
     if disable_problematic_modifiers:
@@ -270,6 +279,12 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
 
     #return
 
+    # Recover active object and mode
+    if is_greater_than_280():
+        bpy.context.view_layer.objects.active = obj
+    else: scene.objects.active = obj
+    bpy.ops.object.mode_set(mode = book['mode'])
+
     # Disable other object selections
     if is_greater_than_280():
 
@@ -301,10 +316,12 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
             if o in book['ori_hide_renders']:
                 o.hide_render = True
             else: o.hide_render = False
+            if o in book['ori_hide_viewports']:
+                o.hide_viewport = True
+            else: o.hide_viewport = False
             if o in book['ori_hide_objs']:
                 o.hide_set(True)
             else: o.hide_set(False)
-        bpy.context.view_layer.objects.active = obj
     else:
         for o in scene.objects:
             if o in book['ori_active_selected_objs']:
@@ -316,15 +333,14 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
             if o in book['ori_hide_objs']:
                 o.hide = True
             else: o.hide = False
-        scene.objects.active = obj
+            if o in book['ori_hide_selects']:
+                o.hide_select = True
+            else: o.hide_select = False
 
     # Recover active object
 
     # Recover ypui
     #ypui.disable_auto_temp_uv_update = book['ori_disable_temp_uv']
-
-    # Recover mode
-    bpy.ops.object.mode_set(mode = book['mode'])
 
     # Recover parallax
     if book['parallax_ch']:

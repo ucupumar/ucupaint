@@ -282,7 +282,7 @@ def check_layer_tree_ios(layer, tree=None):
         dirty = create_output(tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index, dirty)
         output_index += 1
 
-        dirty = create_output(tree, LAYER_ALPHA_VIEWER, 'NodeSocketFloat', valid_outputs, output_index, dirty)
+        dirty = create_output(tree, LAYER_ALPHA_VIEWER, 'NodeSocketColor', valid_outputs, output_index, dirty)
         output_index += 1
 
     # Check for invalid io
@@ -2020,28 +2020,112 @@ def update_override_value(root_ch, layer, ch, tree=None):
     if not tree: tree = get_tree(layer)
 
     source = tree.nodes.get(ch.source)
-    if root_ch.type == 'RGB':
+    if root_ch.type in {'RGB', 'NORMAL'}:
         col = ch.override_color
         col = (col[0], col[1], col[2], 1.0)
         source.outputs[0].default_value = col
     elif root_ch.type == 'VALUE':
         source.outputs[0].default_value = ch.override_value
 
+def set_layer_channel_linear_node(tree, layer, root_ch, ch):
+
+    if (root_ch.type != 'NORMAL' 
+            and root_ch.colorspace == 'SRGB' 
+            and not ch.gamma_space
+            and (
+                (not ch.override and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} and ch.layer_input == 'RGB' ) or 
+                (ch.override and ch.override_type not in {'IMAGE'})
+                )
+            ):
+
+        if root_ch.type == 'VALUE':
+            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
+            linear.inputs[1].default_value = 1.0
+            linear.operation = 'POWER'
+        elif root_ch.type == 'RGB':
+            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
+
+        linear.inputs[1].default_value = 1.0 / GAMMA
+    else:
+        remove_node(tree, ch, 'linear')
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
+
 def check_override_layer_channel_nodes(root_ch, layer, ch):
 
     yp = layer.id_data.yp
     tree = get_tree(layer)
 
+    # Current source
+    source = tree.nodes.get(ch.source)
+
+    prev_type = ''
+
+    if source:
+        if source.bl_idname in {'ShaderNodeRGB', 'ShaderNodeValue'}:
+            prev_type = 'DEFAULT'
+        elif source.bl_idname == 'ShaderNodeAttribute':
+            prev_type = 'VCOL'
+        else: prev_type = source.bl_idname.replace('ShaderNodeTex', '').upper()
+
+        #print('Prev Type:', prev_type)
+        if prev_type != ch.override_type or not ch.override:
+
+            # Save source to cache if it's not image, vertex color, or background
+            #if prev_type not in {'DEFAULT', 'IMAGE', 'VCOL', 'HEMI'}:
+            if prev_type != 'DEFAULT':
+
+                setattr(ch, 'cache_' + prev_type.lower(), source.name)
+                # Remove uv input link
+                if any(source.inputs) and any(source.inputs[0].links):
+                    tree.links.remove(source.inputs[0].links[0])
+                source.label = ''
+                ch.source = ''
+
     # Try to get channel source
     if ch.override:
-        if root_ch.type == 'RGB':
-            source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', root_ch.name + ' Override')
-            #print(root_ch.name)
-        elif root_ch.type == 'VALUE':
-            source = replace_new_node(tree, ch, 'source', 'ShaderNodeValue', root_ch.name + ' Override')
-        update_override_value(root_ch, layer, ch, tree)
+        source_label = root_ch.name + ' Override : ' + ch.override_type
+        if ch.override_type == 'DEFAULT':
+            if root_ch.type in {'RGB', 'NORMAL'}:
+                source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', source_label)
+                #print(root_ch.name)
+            elif root_ch.type == 'VALUE':
+                source = replace_new_node(tree, ch, 'source', 'ShaderNodeValue', source_label)
+            update_override_value(root_ch, layer, ch, tree)
+        else:
+            cache = tree.nodes.get(getattr(ch, 'cache_' + ch.override_type.lower()))
+            if cache:
+                # Delete non cached source
+                if prev_type == 'DEFAULT':
+                    remove_node(tree, ch, 'source')
+                ch.source = cache.name
+                setattr(ch, 'cache_' + ch.override_type.lower(), '')
+                cache.label = source_label
+            else:
+                if ch.override_type == 'IMAGE':
+                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexImage', source_label)
+                elif ch.override_type == 'BRICK':
+                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexBrick', source_label)
+                elif ch.override_type == 'CHECKER':
+                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexChecker', source_label)
+                elif ch.override_type == 'GRADIENT':
+                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexGradient', source_label)
+                elif ch.override_type == 'MAGIC':
+                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexMagic', source_label)
+                elif ch.override_type == 'MUSGRAVE':
+                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexMusgrave', source_label)
+                elif ch.override_type == 'NOISE':
+                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexNoise', source_label)
+                elif ch.override_type == 'VORONOI':
+                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexVoronoi', source_label)
+                elif ch.override_type == 'WAVE':
+                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexWave', source_label)
     else:
         remove_node(tree, ch, 'source')
+
+    # Update linear stuff
+    set_layer_channel_linear_node(tree, layer, root_ch, ch)
 
 def check_blend_type_nodes(root_ch, layer, ch):
 

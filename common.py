@@ -138,7 +138,7 @@ channel_override_type_items = (
         #('BACKGROUND', 'Background', ''),
         #('COLOR', 'Solid Color', ''),
         #('GROUP', 'Group', ''),
-        ('HEMI', 'Fake Lighting', ''),
+        #('HEMI', 'Fake Lighting', ''),
         )
 
 hemi_space_items = (
@@ -185,6 +185,21 @@ bake_type_items = (
 
         ('SELECTED_VERTICES', 'Selected Vertices/Edges/Faces', ''),
         )
+
+channel_override_labels = {
+        'DEFAULT' : 'Default',
+        'IMAGE' : 'Image',
+        'BRICK' : 'Brick',
+        'CHECKER' : 'Checker',
+        'GRADIENT' : 'Gradient',
+        'MAGIC' : 'Magic',
+        'MUSGRAVE' : 'Musgrave',
+        'NOISE' : 'Noise',
+        'VORONOI' : 'Voronoi',
+        'WAVE' : 'Wave',
+        'VCOL' : 'Vertex Color',
+        'HEMI' : 'Fake Lighting',
+        }
 
 bake_type_labels = {
         'AO' : 'Ambient Occlusion',
@@ -1551,36 +1566,41 @@ def get_neighbor_uv_space_input(texcoord_type):
     if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
         return 2.0 # View Space
 
+def change_vcol_name(yp, obj, src, new_name, layer=None):
+
+    # Get vertex color from node
+    ori_name = src.attribute_name
+    vcol = obj.data.vertex_colors.get(src.attribute_name)
+
+    if layer:
+        # Temporarily change its name to temp name so it won't affect unique name
+        vcol.name = '___TEMP___'
+
+        # Get unique name
+        layer.name = get_unique_name(new_name, obj.data.vertex_colors) 
+        new_name = layer.name
+
+    # Set vertex color name and attribute node
+    vcol.name = new_name
+    src.attribute_name = new_name
+
+    mat = obj.active_material
+    if mat.users > 1:
+        for o in get_scene_objects():
+            if o.type != 'MESH' or o == obj: continue
+            if mat.name in o.data.materials and ori_name in o.data.vertex_colors:
+                other_v = o.data.vertex_colors.get(ori_name)
+                other_v.name = new_name
+
 def change_layer_name(yp, obj, src, layer, texes):
     if yp.halt_update: return
 
     yp.halt_update = True
 
-    mat = obj.active_material
-
     if layer.type == 'VCOL' and obj.type == 'MESH':
+
+        change_vcol_name(yp, obj, src, layer.name, layer)
         
-        # Get vertex color from node
-        ori_name = src.attribute_name
-        vcol = obj.data.vertex_colors.get(src.attribute_name)
-
-        # Temporarily change its name to temp name so it won't affect unique name
-        vcol.name = '___TEMP___'
-
-        # Get unique name
-        layer.name = get_unique_name(layer.name, obj.data.vertex_colors) 
-
-        # Set vertex color name and attribute node
-        vcol.name = layer.name
-        src.attribute_name = layer.name
-
-        if mat.users > 1:
-            for o in get_scene_objects():
-                if o.type != 'MESH' or o == obj: continue
-                if mat.name in o.data.materials and ori_name in o.data.vertex_colors:
-                    other_v = o.data.vertex_colors.get(ori_name)
-                    other_v.name = layer.name
-
     elif layer.type == 'IMAGE':
         src.image.name = '___TEMP___'
         layer.name = get_unique_name(layer.name, bpy.data.images) 
@@ -2226,8 +2246,34 @@ def check_uvmap_on_other_objects_with_same_mat(mat, uv_name, set_active=True):
 
 def refresh_temp_uv(obj, entity): 
 
-    #if not entity or entity.segment_name == '' or entity.type != 'IMAGE':
-    if not entity or entity.type != 'IMAGE': # or not is_transformed(entity):
+
+    if not entity:
+        return False
+
+    #print(entity.path_from_id())
+
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m3 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity.path_from_id())
+
+    if m1 or m2 or m3: 
+
+        # Get exact match
+        if m1: m = m1
+        elif m2: m = m2
+        elif m3: m = m3
+
+        # Get layer tree
+        yp = entity.id_data.yp
+        layer = yp.layers[int(m.group(1))]
+        layer_tree = get_tree(layer)
+
+    else: return False
+
+    if m3 and entity.override_type != 'IMAGE':
+        return False
+
+    if (m1 or m2) and entity.type != 'IMAGE':
         return False
 
     uv_layers = get_uv_layers(obj)
@@ -2239,8 +2285,11 @@ def refresh_temp_uv(obj, entity):
             uv_layers.remove(uv)
             break
 
-    layer_uv = uv_layers.get(entity.uv_name)
-    if not layer_uv: return False
+    if m3:
+        layer_uv = uv_layers.get(layer.uv_name)
+    else:
+        layer_uv = uv_layers.get(entity.uv_name)
+        if not layer_uv: return False
 
     # Set active uv
     if uv_layers.active != layer_uv:
@@ -2256,16 +2305,22 @@ def refresh_temp_uv(obj, entity):
     #yp = entity.id_data.yp
     #yp.need_temp_uv_refresh = False
 
-    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    #m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    #m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     # Get source
     if m1: 
         source = get_layer_source(entity)
         mapping = get_layer_mapping(entity)
+        #print('Layer!')
     elif m2: 
         source = get_mask_source(entity)
         mapping = get_mask_mapping(entity)
+        #print('Mask!')
+    elif m3: 
+        source = layer_tree.nodes.get(entity.source)
+        mapping = get_layer_mapping(layer)
+        #print('Channel!')
     else: return False
 
     # Cannot do this on edit mode
@@ -3173,6 +3228,19 @@ def get_active_image_and_stuffs(obj, yp):
                     if vcol: source.attribute_name = vcol.name
                 else: vcol = obj.data.vertex_colors.get(source.attribute_name)
 
+    for ch in layer.channels:
+        if ch.active_edit and ch.override and ch.override_type != 'DEFAULT':
+            source = tree.nodes.get(ch.source)
+
+            if ch.override_type == 'IMAGE':
+                uv_name = layer.uv_name
+                image = source.image
+                src_of_img = ch
+                mapping = get_layer_mapping(layer)
+
+            elif ch.override_type == 'VCOL' and obj.type == 'MESH':
+                vcol = obj.data.vertex_colors.get(source.attribute_name)
+
     if not image and layer.type == 'IMAGE':
         uv_name = layer.uv_name
         source = get_layer_source(layer, tree)
@@ -3314,6 +3382,16 @@ def get_all_baked_channel_images(tree):
                 images.append(baked_normal_overlay.image)
 
     return images
+
+def is_layer_using_vector(layer):
+    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+        return True
+
+    for ch in layer.channels:
+        if ch.override and ch.override_type != 'VCOL':
+            return True
+
+    return False
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

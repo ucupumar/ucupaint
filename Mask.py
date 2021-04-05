@@ -842,12 +842,19 @@ def update_mask_active_edit(self, context):
     layer = yp.layers[int(match.group(1))]
     mask_idx = int(match.group(2))
 
+    # Disable other active edits
     if self.active_edit: 
+        yp.halt_update = True
+        for c in layer.channels:
+            c.active_edit = False
+
         for m in layer.masks:
             if m == self: continue
-            m.halt_update = True
+            #m.halt_update = True
             m.active_edit = False
-            m.halt_update = False
+            #m.halt_update = False
+
+        yp.halt_update = False
 
     # Refresh
     yp.active_layer_index = layer_idx

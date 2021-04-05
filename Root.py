@@ -154,7 +154,7 @@ def check_all_channel_ios(yp, reconnect=True):
         output_index += 1
 
         name = 'Layer Alpha Viewer'
-        create_output(group_tree, LAYER_ALPHA_VIEWER, 'NodeSocketFloat', valid_outputs, output_index)
+        create_output(group_tree, LAYER_ALPHA_VIEWER, 'NodeSocketColor', valid_outputs, output_index)
         output_index += 1
 
     # Check for invalid io
@@ -1143,6 +1143,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             ch = layer.channels[channel_idx]
             ttree = get_tree(layer)
 
+            remove_node(ttree, ch, 'source')
             remove_node(ttree, ch, 'blend')
             remove_node(ttree, ch, 'intensity')
             remove_node(ttree, ch, 'extra_alpha')
@@ -1172,6 +1173,20 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'height_alpha_group_unpack')
 
             remove_node(ttree, ch, 'cache_ramp')
+            remove_node(ttree, ch, 'cache_falloff_curve')
+
+            remove_node(ttree, ch, 'cache_brick')
+            remove_node(ttree, ch, 'cache_checker')
+            remove_node(ttree, ch, 'cache_gradient')
+            remove_node(ttree, ch, 'cache_magic')
+            remove_node(ttree, ch, 'cache_musgrave')
+            remove_node(ttree, ch, 'cache_noise')
+            remove_node(ttree, ch, 'cache_voronoi')
+            remove_node(ttree, ch, 'cache_wave')
+
+            remove_node(ttree, ch, 'cache_image')
+            remove_node(ttree, ch, 'cache_vcol')
+            remove_node(ttree, ch, 'cache_hemi')
 
             # Remove modifiers
             #if ch.mod_tree:
@@ -1555,6 +1570,15 @@ class YFixMissingData(bpy.types.Operator):
                     if mask.type == 'IMAGE' and not mask_src.image:
                         fix_missing_img(mask.name, mask_src, True)
 
+            for i, ch in enumerate(layer.channels):
+                root_ch = yp.channels[i]
+                if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
+                    layer_tree = get_tree(layer)
+                    ch_src = layer_tree.nodes.get(ch.source)
+
+                    if ch.override_type == 'IMAGE' and not ch_src.image:
+                        fix_missing_img(layer.name + ' ' + root_ch.name + ' Override', ch_src, False)
+
         # Get relevant objects
         objs = [obj]
         if mat.users > 1:
@@ -1577,14 +1601,22 @@ class YFixMissingData(bpy.types.Operator):
                             and not obj.data.vertex_colors.get(mask_src.attribute_name)):
                         fix_missing_vcol(obj, mask.name, mask_src)
 
+                for ch in layer.channels:
+                    layer_tree = get_tree(layer)
+                    ch_src = layer_tree.nodes.get(ch.source)
+                    if (ch.override and ch.override_type == 'VCOL' and obj.type == 'MESH' 
+                            and not obj.data.vertex_colors.get(ch_src.attribute_name)):
+                        fix_missing_vcol(obj, ch_src.attribute_name, ch_src)
+
         # Fix missing uvs
         check_uv_nodes(yp, generate_missings=True)
 
         # If there's height channel, refresh uv maps to get tangent hacks
-        height_root_ch = get_root_height_channel(yp)
-        if height_root_ch:
-            for uv in yp.uvs:
-                refresh_tangent_sign_vcol(obj, uv.name)
+        if yp.enable_tangent_sign_hacks:
+            height_root_ch = get_root_height_channel(yp)
+            if height_root_ch:
+                for uv in yp.uvs:
+                    refresh_tangent_sign_vcol(obj, uv.name)
 
         return {'FINISHED'}
 
@@ -2834,7 +2866,7 @@ class YPaint(bpy.types.PropertyGroup):
             #         ),
             items = (('LAYER', 'Layer', ''),
                      ('ALPHA', 'Alpha', ''),
-                     ('SPECIFIC_MASK', 'Specific Mask', ''),
+                     ('SPECIFIC_MASK', 'Specific Mask / Override', ''),
                      ),
             #items = layer_preview_mode_type_items,
             default = 'LAYER',
