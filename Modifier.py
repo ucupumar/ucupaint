@@ -1136,7 +1136,7 @@ class YPaintModifier(bpy.types.PropertyGroup):
     math_meth = EnumProperty(
         name = 'Method',
         items = math_method_items,
-        default = "ADD",
+        default = "MULTIPLY",
         update = update_math_method)
 
     affect_alpha = BoolProperty(name='Affect Alpha', default=False, update=update_affect_alpha) 
