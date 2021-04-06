@@ -761,9 +761,9 @@ def update_transition_bump_fac(self, context):
             im = tree.nodes.get(ch.intensity_multiplier)
             if im: 
                 if ch.transition_bump_flip: #or layer.type=='BACKGROUND':
-                    im.inputs[1].default_value = 1.0 + (ch.transition_bump_second_edge_value - 1.0) * c.transition_bump_fac
+                    im.inputs[1].default_value = 1.0 + (ch.transition_bump_second_edge_value - 1.0) * ch.transition_bump_fac
                 else:
-                    im.inputs[1].default_value = 1.0 + (ch.transition_bump_value - 1.0) * c.transition_bump_fac
+                    im.inputs[1].default_value = 1.0 + (ch.transition_bump_value - 1.0) * ch.transition_bump_fac
 
 def update_transition_ao_intensity(self, context):
 
