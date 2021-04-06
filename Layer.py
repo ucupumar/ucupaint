@@ -1,4 +1,4 @@
-import bpy, time, re
+import bpy, time, re, os
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
@@ -1025,6 +1025,323 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
             images[0].colorspace_settings.name = 'Linear'
 
         ch.override_type = 'IMAGE'
+
+        # Update UI
+        wm.ypui.need_update = True
+        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return {'FINISHED'}
+
+class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
+    """Open Multiple Images to Single Layer"""
+    bl_idname = "node.y_open_multiple_images_to_single_layer"
+    bl_label = "Open Multiple Images to Single Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    # File related
+    files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
+    directory = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
+
+    # File browser filter
+    filter_folder = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    filter_image = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    display_type = EnumProperty(
+            items = (('FILE_DEFAULTDISPLAY', 'Default', ''),
+                     ('FILE_SHORTDISLPAY', 'Short List', ''),
+                     ('FILE_LONGDISPLAY', 'Long List', ''),
+                     ('FILE_IMGDISPLAY', 'Thumbnails', '')),
+            default = 'FILE_IMGDISPLAY',
+            options={'HIDDEN', 'SKIP_SAVE'})
+
+    relative = BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
+
+    texcoord_type = EnumProperty(
+            name = 'Texture Coordinate Type',
+            items = texcoord_type_items,
+            default = 'UV')
+
+    uv_map = StringProperty(default='')
+    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+
+    #channel_idx = EnumProperty(
+    #        name = 'Channel',
+    #        description = 'Channel of new layer, can be changed later',
+    #        items = channel_items)
+    #        #update=update_channel_idx_new_layer)
+
+    #blend_type = EnumProperty(
+    #    name = 'Blend',
+    #    items = blend_type_items,
+    #    default = 'MIX')
+
+    #normal_blend_type = EnumProperty(
+    #        name = 'Normal Blend Type',
+    #        items = normal_blend_items,
+    #        default = 'MIX')
+
+    #add_rgb_to_intensity = BoolProperty(
+    #        name = 'Add RGB To Intensity',
+    #        description = 'Add RGB To Intensity modifier to all channels of newly created layer',
+    #        default=False)
+
+    #normal_map_type = EnumProperty(
+    #        name = 'Normal Map Type',
+    #        description = 'Normal map type of this layer',
+    #        items = get_normal_map_type_items)
+    #        #default = 'NORMAL_MAP')
+
+    #rgb_to_intensity_color = FloatVectorProperty(
+    #        name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
+
+    def generate_paths(self):
+        return (fn.name for fn in self.files), self.directory
+
+    @classmethod
+    def poll(cls, context):
+        #return hasattr(context, 'group_node') and context.group_node
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        obj = context.object
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        #if channel and channel.type == 'RGB':
+        #    self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
+
+        if obj.type != 'MESH':
+            self.texcoord_type = 'Object'
+
+        # Use active uv layer name by default
+        if obj.type == 'MESH':
+            self.uv_map = get_default_uv_name(obj, yp)
+
+            # UV Map collections update
+            self.uv_map_coll.clear()
+            for uv in obj.data.uv_layers:
+                if not uv.name.startswith(TEMP_UV):
+                    self.uv_map_coll.add().name = uv.name
+
+        # Normal map is the default
+        #self.normal_map_type = 'NORMAL_MAP'
+
+        #return context.window_manager.invoke_props_dialog(self)
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def check(self, context):
+        return True
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        obj = context.object
+
+        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        
+        row = self.layout.row()
+
+        col = row.column()
+        col.label(text='Vector:')
+        #col.label(text='Channel:')
+        #if channel and channel.type == 'NORMAL':
+        #    col.label(text='Type:')
+
+        #if self.add_rgb_to_intensity:
+        #    col.label(text='')
+        #    col.label(text='RGB2I Color:')
+
+        col = row.column()
+        crow = col.row(align=True)
+        crow.prop(self, 'texcoord_type', text='')
+        if obj.type == 'MESH' and self.texcoord_type == 'UV':
+            #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+            crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        #col.label(text='')
+        #rrow = col.row(align=True)
+        #rrow.prop(self, 'channel_idx', text='')
+        #if channel:
+        #    if channel.type == 'NORMAL':
+        #        rrow.prop(self, 'normal_blend_type', text='')
+        #        col.prop(self, 'normal_map_type', text='')
+        #    else: 
+        #        rrow.prop(self, 'blend_type', text='')
+
+        #col.prop(self, 'add_rgb_to_intensity', text='RGB To Intensity')
+
+        #if self.add_rgb_to_intensity:
+        #    col.prop(self, 'rgb_to_intensity_color', text='')
+
+        self.layout.prop(self, 'relative')
+
+    def execute(self, context):
+        T = time.time()
+
+        wm = context.window_manager
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        import_list, directory = self.generate_paths()
+        images = tuple(load_image(path, directory) for path in import_list)
+
+        #print(images)
+
+        valid_channels = []
+        valid_images = []
+        valid_synonyms = []
+        #channel_ids = []
+
+        # Dict
+
+        # Check image names
+        #for image in images:
+
+        #    # Get filename without extension
+        #    name = os.path.splitext(os.path.basename(image.filepath))[0]
+        #    #print(name)
+
+        #    for i, ch in enumerate(yp.channels):
+
+        #        # Check image name suffix and match it with channel name
+        #        if name.lower().endswith(ch.name.lower()):
+        #            valid_images.append(image)
+        #            channel_ids.append(i)
+
+        #        # Check displacement
+        #        elif name.lower().endswith('displacement') and ch.type == 'NORMAL':
+        #            valid_images.append(image)
+        #            channel_ids.append(i)
+
+        synonym_libs = {
+                'color' : ['albedo', 'diffuse'], 
+                'ambient occlusion' : ['ao', 'ambient_occlusion'], 
+                'roughness' : ['glossiness'],
+                'normal' : ['displacement', 'height', 'bump'], # Prioritize displacement/bump before actual normal map
+                }
+
+        for ch in yp.channels:
+
+            # One channel will only use one image
+            if ch in valid_channels: continue
+
+            ch_name = ch.name.lower()
+
+            # Get synonyms
+            if ch_name in synonym_libs:
+                synonyms = synonym_libs[ch_name]
+            else: synonyms = []
+            synonyms.append(ch_name)
+
+            for syname in synonyms:
+
+                # Break if channel already used
+                if ch in valid_channels: break
+            
+                # Get channel name possible variation
+                initial = syname[0]
+
+                if len(ch.name) > 3:
+                    threes = syname[:3]
+                else: threes = ''
+
+                no_whitespace = syname.replace(' ', '')
+                
+                for image in images:
+
+                    # One image will only use one channel
+                    if image in valid_images: continue
+
+                    # Get filename without extension
+                    img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
+
+                    if (
+                            # Check color image with rather custom name
+                            #ch.name.lower() in {'color', 'diffuse'} and img_name.lower().endswith(('_col', '.col', '_dif', '.dif')) or
+
+                            # Check image name suffix and match it with channel name
+                            (img_name.endswith(syname)) or
+
+                            (img_name.endswith(no_whitespace)) or
+
+                            # Check image name suffix and match it with channel initial first threes
+                            (threes != '' and img_name.endswith(('_' + threes, '.' + threes))) or
+
+                            # Check image name suffix and match it with channel initial name
+                            # Avoid initial a because it's too common
+                            (initial != 'a' and img_name.endswith(('_' + initial, '.' + initial)))
+
+                            ):
+                        valid_images.append(image)
+                        valid_channels.append(ch)
+                        valid_synonyms.append(syname)
+                        break
+
+        for i, image in enumerate(valid_images):
+            #print(image.name, yp.channels[channel_ids[i]].name)
+            print(image.name, valid_channels[i].name)
+
+        
+        #if valid_channels and valid_channels[0]
+        layer = None
+        for i, image in enumerate(valid_images):
+            root_ch = valid_channels[i]
+            syname = valid_synonyms[i]
+
+            # Set image to linear
+            if image.colorspace_settings.name != 'Linear':
+                image.colorspace_settings.name = 'Linear'
+
+            m = re.match(r'^yp\.channels\[(\d+)\].*', root_ch.path_from_id())
+            ch_idx = int(m.group(1))
+
+            if root_ch.type == 'NORMAL' and syname == 'normal':
+                normal_map_type = 'NORMAL_MAP'
+            else: normal_map_type = 'BUMP_MAP'
+
+            # Use image directly to layer for the first index
+            if i == 0:
+                yp.halt_update = True
+                layer = add_new_layer(node.node_tree, image.name, 'IMAGE', int(ch_idx), 'MIX', 
+                        'MIX', normal_map_type, self.texcoord_type, self.uv_map,
+                        image, None, None, 
+                        )
+                yp.halt_update = False
+                tree = get_tree(layer)
+            else:
+                ch = layer.channels[ch_idx]
+                ch.enable = True
+                image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+                image_node.image = image
+                ch.override = True
+                ch.override_type = 'IMAGE'
+
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
+
+        #node.node_tree.yp.halt_update = True
+
+        #for image in images:
+        #    if self.relative:
+        #        try: image.filepath = bpy.path.relpath(image.filepath)
+        #        except: pass
+
+        #    if image.colorspace_settings.name != 'Linear':
+        #        image.colorspace_settings.name = 'Linear'
+
+        #    add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
+        #            self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map,
+        #            image, None, None, 
+        #            #self.add_rgb_to_intensity, self.rgb_to_intensity_color
+        #            )
+
+        #node.node_tree.yp.halt_update = False
+
+        ## Reconnect and rearrange nodes
+        #reconnect_yp_nodes(node.node_tree)
+        #rearrange_yp_nodes(node.node_tree)
 
         # Update UI
         wm.ypui.need_update = True
@@ -3827,6 +4144,7 @@ def register():
     bpy.utils.register_class(YNewLayer)
     bpy.utils.register_class(YNewVcolToOverrideChannel)
     bpy.utils.register_class(YOpenImageToLayer)
+    bpy.utils.register_class(YOpenMultipleImagesToSingleLayer)
     bpy.utils.register_class(YOpenImageToOverrideChannel)
     bpy.utils.register_class(YOpenAvailableDataToLayer)
     bpy.utils.register_class(YOpenAvailableDataToOverrideChannel)
@@ -3847,6 +4165,7 @@ def unregister():
     bpy.utils.unregister_class(YNewLayer)
     bpy.utils.unregister_class(YNewVcolToOverrideChannel)
     bpy.utils.unregister_class(YOpenImageToLayer)
+    bpy.utils.unregister_class(YOpenMultipleImagesToSingleLayer)
     bpy.utils.unregister_class(YOpenImageToOverrideChannel)
     bpy.utils.unregister_class(YOpenAvailableDataToLayer)
     bpy.utils.unregister_class(YOpenAvailableDataToOverrideChannel)

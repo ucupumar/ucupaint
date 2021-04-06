@@ -2824,9 +2824,10 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             row = master.row(align=True)
             row.active = c.active_edit
             if c.active_edit:
-                src = layer_tree.nodes.get(c.source)
+                #src = layer_tree.nodes.get(c.source)
+                src = get_channel_source(c, layer)
                 override_ch = c
-                if c.override_type == 'IMAGE':
+                if src and c.override_type == 'IMAGE':
                     active_override_image = src.image
                     row.label(text='', icon_value=src.image.preview.icon_id)
                 elif c.override_type == 'VCOL':
@@ -2837,7 +2838,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.label(text='', icon_value=lib.get_icon('texture'))
             else:
                 if c.override_type == 'IMAGE':
-                    src = layer_tree.nodes.get(c.source)
+                    #src = layer_tree.nodes.get(c.source)
+                    src = get_channel_source(c, layer)
                     if src: row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                 elif c.override_type == 'VCOL':
                     row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
@@ -3074,6 +3076,7 @@ class YNewLayerMenu(bpy.types.Menu):
 
         col.operator("node.y_open_image_to_layer", text='Open Image')
         col.operator("node.y_open_available_data_to_layer", text='Open Available Image').type = 'IMAGE'
+        col.operator("node.y_open_multiple_images_to_single_layer", text='Open Images to Single Layer')
 
         col.separator()
 

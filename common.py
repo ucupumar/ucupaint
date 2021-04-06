@@ -3279,7 +3279,8 @@ def get_active_image_and_stuffs(obj, yp):
 
     for ch in layer.channels:
         if ch.active_edit and ch.override and ch.override_type != 'DEFAULT':
-            source = tree.nodes.get(ch.source)
+            #source = tree.nodes.get(ch.source)
+            source = get_channel_source(ch, layer)
 
             if ch.override_type == 'IMAGE':
                 uv_name = layer.uv_name
