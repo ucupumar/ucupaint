@@ -2573,6 +2573,20 @@ def main_draw(self, context):
             elif layer.type not in {'COLOR', 'BACKGROUND', 'GROUP'}:
                 num_gen_texs += 1
 
+            for ch in layer.channels:
+                if ch.enable and ch.override:
+                    if ch.override_type == 'IMAGE':
+                        #src = get_layer_source(layer)
+                        src = get_channel_source(ch, layer)
+                        if src.image and src.image not in images:
+                            images.append(src.image)
+                    elif layer.override_type == 'VCOL':
+                        src = get_channel_source(ch, layer)
+                        if src.attribute_name != '' and src.attribute_name not in vcols:
+                            vcols.append(src.attribute_name)
+                    elif layer.override_type not in {'DEFAULT'}:
+                        num_gen_texs += 1
+
             if not layer.enable_masks: continue
 
             for mask in layer.masks:

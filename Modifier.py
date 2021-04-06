@@ -1053,7 +1053,7 @@ def enable_modifiers_tree(parent, rearrange = False):
         root_ch = yp.channels[int(match1.group(2))]
         ch = parent
         name = root_ch.name + ' ' + layer.name
-        if layer.type in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and (not ch.override or ch.override_type in {'DEFAULT'}):
+        if (layer.type in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not ch.override) or (ch.override and ch.override_type in {'DEFAULT'}):
             return
     elif match2:
         layer = parent
