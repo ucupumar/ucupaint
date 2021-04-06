@@ -250,6 +250,10 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     # Add texcoord node
     texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
 
+    # Add mapping node
+    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+        mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
+
     # Set layer coordinate type
     layer.texcoord_type = texcoord_type
 
@@ -1064,35 +1068,37 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
     uv_map = StringProperty(default='')
     uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
 
-    #channel_idx = EnumProperty(
-    #        name = 'Channel',
-    #        description = 'Channel of new layer, can be changed later',
-    #        items = channel_items)
-    #        #update=update_channel_idx_new_layer)
+    add_mask = BoolProperty(
+            name = 'Add Mask',
+            description = 'Add mask to new layer',
+            default = False)
 
-    #blend_type = EnumProperty(
-    #    name = 'Blend',
-    #    items = blend_type_items,
-    #    default = 'MIX')
+    mask_type = EnumProperty(
+            name = 'Mask Type',
+            description = 'Mask type',
+            items = (('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
+                ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1)),
+            default = 'IMAGE')
 
-    #normal_blend_type = EnumProperty(
-    #        name = 'Normal Blend Type',
-    #        items = normal_blend_items,
-    #        default = 'MIX')
+    mask_color = EnumProperty(
+            name = 'Mask Color',
+            description = 'Mask Color',
+            items = (
+                ('WHITE', 'White (Full Opacity)', ''),
+                ('BLACK', 'Black (Full Transparency)', ''),
+                ),
+            default='BLACK')
 
-    #add_rgb_to_intensity = BoolProperty(
-    #        name = 'Add RGB To Intensity',
-    #        description = 'Add RGB To Intensity modifier to all channels of newly created layer',
-    #        default=False)
+    mask_width = IntProperty(name='Mask Width', default = 1024, min=1, max=4096)
+    mask_height = IntProperty(name='Mask Height', default = 1024, min=1, max=4096)
 
-    #normal_map_type = EnumProperty(
-    #        name = 'Normal Map Type',
-    #        description = 'Normal map type of this layer',
-    #        items = get_normal_map_type_items)
-    #        #default = 'NORMAL_MAP')
+    mask_uv_name = StringProperty(default='')
+    mask_use_hdr = BoolProperty(name='32 bit Float', default=False)
 
-    #rgb_to_intensity_color = FloatVectorProperty(
-    #        name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
+    use_image_atlas_for_mask = BoolProperty(
+            name = 'Use Image Atlas for Mask',
+            description='Use Image Atlas for Mask',
+            default=True)
 
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
@@ -1116,7 +1122,9 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
 
         # Use active uv layer name by default
         if obj.type == 'MESH':
-            self.uv_map = get_default_uv_name(obj, yp)
+            uv_name = get_default_uv_name(obj, yp)
+            self.uv_map = uv_name
+            self.mask_uv_name = uv_name
 
             # UV Map collections update
             self.uv_map_coll.clear()
@@ -1145,13 +1153,17 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
 
         col = row.column()
         col.label(text='Vector:')
-        #col.label(text='Channel:')
-        #if channel and channel.type == 'NORMAL':
-        #    col.label(text='Type:')
 
-        #if self.add_rgb_to_intensity:
-        #    col.label(text='')
-        #    col.label(text='RGB2I Color:')
+        col.label(text='')
+        if self.add_mask:
+            col.label(text='Mask Type:')
+            col.label(text='Mask Color:')
+            if self.mask_type == 'IMAGE':
+                col.label(text='')
+                col.label(text='Mask Width:')
+                col.label(text='Mask Height:')
+                col.label(text='Mask UV Map:')
+                col.label(text='')
 
         col = row.column()
         crow = col.row(align=True)
@@ -1159,6 +1171,18 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
             #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
             crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        col.prop(self, 'add_mask', text='Add Mask')
+        if self.add_mask:
+            col.prop(self, 'mask_type', text='')
+            col.prop(self, 'mask_color', text='')
+            if self.mask_type == 'IMAGE':
+                col.prop(self, 'mask_use_hdr')
+                col.prop(self, 'mask_width', text='')
+                col.prop(self, 'mask_height', text='')
+                #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+                col.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
 
         #col.label(text='')
         #rrow = col.row(align=True)
@@ -1185,7 +1209,16 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
         yp = node.node_tree.yp
 
         import_list, directory = self.generate_paths()
-        images = tuple(load_image(path, directory) for path in import_list)
+        #images = tuple(load_image(path, directory) for path in import_list)
+        images = list(load_image(path, directory) for path in import_list)
+
+        # Check existing images
+        #exist_images = []
+        #for i, new_img in enumerate(images):
+        #    for old_img in bpy.data.images:
+        #        if old_img.filepath == new_img.filepath:
+        #            exist_images.append(old_img)
+        #            break
 
         #print(images)
 
@@ -1279,10 +1312,17 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                         valid_synonyms.append(syname)
                         break
 
-        for i, image in enumerate(valid_images):
-            #print(image.name, yp.channels[channel_ids[i]].name)
-            print(image.name, valid_channels[i].name)
+        #for i, image in enumerate(valid_images):
+        #    #print(image.name, yp.channels[channel_ids[i]].name)
+        #    print(image.name, valid_channels[i].name)
 
+        if not valid_images:
+            # Remove loaded images
+            for image in images:
+                #if image not in exist_images:
+                bpy.data.images.remove(image)
+            self.report({'ERROR'}, "Images should have channel name as suffix!")
+            return {'CANCELLED'}
         
         #if valid_channels and valid_channels[0]
         layer = None
@@ -1304,11 +1344,22 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
             # Use image directly to layer for the first index
             if i == 0:
                 yp.halt_update = True
-                layer = add_new_layer(node.node_tree, image.name, 'IMAGE', int(ch_idx), 'MIX', 
-                        'MIX', normal_map_type, self.texcoord_type, self.uv_map,
-                        image, None, None, 
+                #layer = add_new_layer(node.node_tree, image.name, 'IMAGE', int(ch_idx), 'MIX', 
+                #        'MIX', normal_map_type, self.texcoord_type, self.uv_map,
+                #        image, None, None, 
+                #        )
+
+                layer = add_new_layer(node.node_tree, image.name, 'IMAGE', 
+                        int(ch_idx), 'MIX', 'MIX', 
+                        normal_map_type, self.texcoord_type, self.uv_map, image, None, None,
+                        (1,1,1),
+                        self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
+                        self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
                         )
+
                 yp.halt_update = False
+                #reconnect_yp_nodes(node.node_tree)
+                #rearrange_yp_nodes(node.node_tree)
                 tree = get_tree(layer)
             else:
                 ch = layer.channels[ch_idx]
@@ -1318,30 +1369,14 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                 ch.override = True
                 ch.override_type = 'IMAGE'
 
+        ## Reconnect and rearrange nodes
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
-        #node.node_tree.yp.halt_update = True
-
-        #for image in images:
-        #    if self.relative:
-        #        try: image.filepath = bpy.path.relpath(image.filepath)
-        #        except: pass
-
-        #    if image.colorspace_settings.name != 'Linear':
-        #        image.colorspace_settings.name = 'Linear'
-
-        #    add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
-        #            self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map,
-        #            image, None, None, 
-        #            #self.add_rgb_to_intensity, self.rgb_to_intensity_color
-        #            )
-
-        #node.node_tree.yp.halt_update = False
-
-        ## Reconnect and rearrange nodes
-        #reconnect_yp_nodes(node.node_tree)
-        #rearrange_yp_nodes(node.node_tree)
+        # Remove unused images
+        for image in images:
+            if image not in valid_images: # and image not in exist_images:
+                bpy.data.images.remove(image)
 
         # Update UI
         wm.ypui.need_update = True
