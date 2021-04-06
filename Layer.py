@@ -461,6 +461,10 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
             self.report({'ERROR'}, "Vertex color cannot be empty!")
             return {'CANCELLED'}
 
+        # Make sure channel is on
+        if not ch.enable:
+            ch.enable = True
+
         # Make sure override is on
         if not ch.override:
             ch.override = True
@@ -1007,6 +1011,10 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
         layer = yp.layers[int(m.group(1))]
         root_ch = yp.channels[int(m.group(2))]
         tree = get_tree(layer)
+
+        # Make sure channel is on
+        if not ch.enable:
+            ch.enable = True
 
         # Make sure override is on
         if not ch.override:
@@ -1637,6 +1645,10 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
         layer = yp.layers[int(m.group(1))]
         root_ch = yp.channels[int(m.group(2))]
         tree = get_tree(layer)
+
+        # Make sure channel is on
+        if not ch.enable:
+            ch.enable = True
 
         # Make sure override is on
         if not ch.override:

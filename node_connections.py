@@ -1957,16 +1957,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, bitangent, ch_uv_neighbor.inputs['Bitangent'])
 
             # Source NSEW
-            source_n = nodes.get(ch.source_n)
-            source_s = nodes.get(ch.source_s)
-            source_e = nodes.get(ch.source_e)
-            source_w = nodes.get(ch.source_w)
+            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+                source_n = nodes.get(ch.source_n)
+                source_s = nodes.get(ch.source_s)
+                source_e = nodes.get(ch.source_e)
+                source_w = nodes.get(ch.source_w)
 
-            if ch_uv_neighbor:
-                if source_n: create_link(tree, ch_uv_neighbor.outputs['n'], source_n.inputs[0])
-                if source_s: create_link(tree, ch_uv_neighbor.outputs['s'], source_s.inputs[0])
-                if source_e: create_link(tree, ch_uv_neighbor.outputs['e'], source_e.inputs[0])
-                if source_w: create_link(tree, ch_uv_neighbor.outputs['w'], source_w.inputs[0])
+                if ch_uv_neighbor:
+                    if source_n: create_link(tree, ch_uv_neighbor.outputs['n'], source_n.inputs[0])
+                    if source_s: create_link(tree, ch_uv_neighbor.outputs['s'], source_s.inputs[0])
+                    if source_e: create_link(tree, ch_uv_neighbor.outputs['e'], source_e.inputs[0])
+                    if source_w: create_link(tree, ch_uv_neighbor.outputs['w'], source_w.inputs[0])
 
             if 'Vector' in ch_source.inputs:
                 create_link(tree, vector, ch_source.inputs['Vector'])
