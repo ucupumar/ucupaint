@@ -1696,7 +1696,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # Get normal/height channel
     height_ch = get_height_channel(layer)
     if height_ch and height_ch.normal_blend_type == 'COMPARE':
-        compare_alpha = nodes.get(height_ch.height_blend).outputs[1]
+        #compare_alpha = nodes.get(height_ch.height_blend).outputs[1]
+        compare_alpha = nodes.get(height_ch.height_blend).outputs.get('Normal Alpha')
     else: compare_alpha = None
 
     chain = -1
