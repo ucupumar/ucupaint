@@ -1165,12 +1165,10 @@ def enable_modifiers_tree(parent, rearrange = False):
     if match1:
         layer = yp.layers[int(match1.group(1))]
         root_ch = yp.channels[int(match1.group(2))]
+        ch = parent
         name = root_ch.name + ' ' + layer.name
-        #if layer.type == 'BACKGROUND':
-        if layer.type in {'BACKGROUND', 'COLOR'}:
+        if (layer.type in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not ch.override) or (ch.override and ch.override_type in {'DEFAULT'}):
             return
-        #if layer.type == 'GROUP' and root_ch.type == 'NORMAL':
-        #    return
     elif match2:
         layer = parent
         name = layer.name
@@ -1242,10 +1240,16 @@ def disable_modifiers_tree(parent, rearrange=False):
         root_ch = yp.channels[int(match1.group(2))]
 
         # Check if fine bump map is still used
-        if len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-                #parent.normal_map_type == 'FINE_BUMP_MAP'
-                #or (parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})
-            return
+        if parent.enable and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+            if layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not parent.override:
+                return
+            if parent.override and parent.override_type != 'DEFAULT':
+                return
+
+        #if (len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and parent.override) or (parent.override and parent.override_type != 'DEFAULT'):
+            #parent.normal_map_type == 'FINE_BUMP_MAP'
+            #or (parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})
+            #return
 
         # Check if channel use blur
         #if hasattr(parent, 'enable_blur') and parent.enable_blur:

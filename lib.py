@@ -288,6 +288,7 @@ def load_custom_icons():
     custom_icons.load('uncollapsed_vcol', filepath + 'uncollapsed_vcol_icon.png', 'IMAGE')
 
     custom_icons.load('close', filepath + 'close_icon.png', 'IMAGE')
+    custom_icons.load('clean', filepath + 'clean_icon.png', 'IMAGE')
 
     custom_icons.load('vertex_color', filepath + 'vertex_color_icon.png', 'IMAGE')
 
@@ -335,7 +336,7 @@ def check_uv_difference_to_main_uv(entity):
         #    height_ch.main_uv = yp.uvs[0].name
 
         # Check if entity uv is different to main uv
-        if height_ch.main_uv != '' and entity.uv_name != height_ch.main_uv:
+        if height_ch.main_uv != '' and hasattr(entity, 'uv_name') and entity.uv_name != height_ch.main_uv:
             return True
 
     return False

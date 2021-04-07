@@ -447,6 +447,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             #update=update_quick_setup_type)
 
     color = BoolProperty(name='Color', default=True)
+    ao = BoolProperty(name='Ambient Occlusion', default=False)
     metallic = BoolProperty(name='Metallic', default=True)
     roughness = BoolProperty(name='Roughness', default=True)
     normal = BoolProperty(name='Normal', default=True)
@@ -495,6 +496,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ccol = col.column(align=True)
             ccol.label(text='Channels:')
 
+            ccol.label(text='')
             if self.type == 'PRINCIPLED':
                 ccol.label(text='')
             ccol.label(text='')
@@ -505,6 +507,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         if self.type != 'EMISSION':
             ccol = col.column(align=True)
             ccol.prop(self, 'color', toggle=True)
+            ccol.prop(self, 'ao', toggle=True)
             if self.type == 'PRINCIPLED':
                 ccol.prop(self, 'metallic', toggle=True)
             ccol.prop(self, 'roughness', toggle=True)
@@ -548,6 +551,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         trans_bsdf = None
         mix_bsdf = None
         mat_out = None
+        ao_mul = None
 
         # Get active output
         output = [n for n in nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
@@ -590,6 +594,14 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 output.is_active_output = False
                 mat_out.location = output.location.copy()
                 mat_out.location.x += 180
+
+        if self.ao and not ao_mul and self.type != 'EMISSION':
+            ao_mul = nodes.new('ShaderNodeMixRGB')
+            ao_mul.inputs[0].default_value = 1.0
+            ao_mul.blend_type = 'MULTIPLY'
+
+            ao_mul.location = mat_out.location.copy()
+            mat_out.location.x += 180
 
         if transp_node_needed and not mix_bsdf:
             mix_bsdf = nodes.new('ShaderNodeMixShader')
@@ -640,6 +652,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         # Add new channels
         ch_color = None
+        ch_ao = None
         ch_metallic = None
         ch_roughness = None
         ch_normal = None
@@ -648,6 +661,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ch_color = create_new_yp_channel(group_tree, 'Color', 'RGB', non_color=False)
 
         if self.type != 'EMISSION':
+            if self.ao:
+                ch_ao = create_new_yp_channel(group_tree, 'Ambient Occlusion', 'RGB', non_color=True)
+
             if self.type == 'PRINCIPLED' and self.metallic:
                 ch_metallic = create_new_yp_channel(group_tree, 'Metallic', 'VALUE', non_color=True)
 
@@ -660,18 +676,32 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # Update io
         check_all_channel_ios(group_tree.yp)
 
+        # HACK: Remap channel pointers, because sometimes pointers are lost at this time
+        ch_color = group_tree.yp.channels.get('Color')
+        ch_ao = group_tree.yp.channels.get('Ambient Occlusion')
+        ch_metallic = group_tree.yp.channels.get('Metallic')
+        ch_roughness = group_tree.yp.channels.get('Roughness')
+        ch_normal = group_tree.yp.channels.get('Normal')
+
         if ch_color:
             inp = main_bsdf.inputs[0]
             set_input_default_value(node, ch_color, inp.default_value)
-            #links.new(node.outputs[ch_color.io_index], inp)
-            links.new(node.outputs[ch_color.name], inp)
+            if ch_ao and ao_mul:
+                links.new(node.outputs[ch_color.name], ao_mul.inputs[1])
+                links.new(node.outputs[ch_ao.name], ao_mul.inputs[2])
+                links.new(ao_mul.outputs[0], inp)
+            else:
+                links.new(node.outputs[ch_color.name], inp)
+
             # Enable, link, and disable alpha to remember which input was alpha connected to
             ch_color.enable_alpha = True
-            #links.new(node.outputs[ch_color.io_index+1], mix_bsdf.inputs[0])
             if transp_node_needed:
                 links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], mix_bsdf.inputs[0])
             else: links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], main_bsdf.inputs['Alpha'])
             ch_color.enable_alpha = False
+
+        if ch_ao:
+            set_input_default_value(node, ch_ao, (1,1,1))
 
         if ch_metallic:
             inp = main_bsdf.inputs['Metallic']
@@ -694,6 +724,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # Set new yp node location
         if output:
             node.location = main_bsdf.location.copy()
+            if ao_mul: 
+                ao_mul.location.y = node.location.y
+                node.location.x -= 180
             main_bsdf.location.x += 180
             if transp_node_needed:
                 trans_bsdf.location.x += 180
@@ -707,6 +740,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             mat_out.location.y += 300
             node.location = main_bsdf.location.copy()
             node.location.x -= 180
+            if ao_mul: 
+                ao_mul.location.y = node.location.y
+                node.location.x -= 180
 
         # Disable overlay on Blender 2.8
         if is_greater_than_280() and self.mute_texture_paint_overlay:
@@ -1573,8 +1609,7 @@ class YFixMissingData(bpy.types.Operator):
             for i, ch in enumerate(layer.channels):
                 root_ch = yp.channels[i]
                 if ch.override and ch.override_type in {'IMAGE', 'VCOL'}:
-                    layer_tree = get_tree(layer)
-                    ch_src = layer_tree.nodes.get(ch.source)
+                    ch_src = get_channel_source(ch, layer)
 
                     if ch.override_type == 'IMAGE' and not ch_src.image:
                         fix_missing_img(layer.name + ' ' + root_ch.name + ' Override', ch_src, False)
@@ -1602,8 +1637,7 @@ class YFixMissingData(bpy.types.Operator):
                         fix_missing_vcol(obj, mask.name, mask_src)
 
                 for ch in layer.channels:
-                    layer_tree = get_tree(layer)
-                    ch_src = layer_tree.nodes.get(ch.source)
+                    ch_src = get_channel_source(ch, layer)
                     if (ch.override and ch.override_type == 'VCOL' and obj.type == 'MESH' 
                             and not obj.data.vertex_colors.get(ch_src.attribute_name)):
                         fix_missing_vcol(obj, ch_src.attribute_name, ch_src)
@@ -1803,6 +1837,35 @@ class YRemoveYPaintNode(bpy.types.Operator):
         # Bye bye yp node
         #mat.node_tree.nodes.remove(group_node)
         simple_remove_node(mat.node_tree, group_node)
+
+        return {'FINISHED'}
+
+class YCleanYPCaches(bpy.types.Operator):
+    bl_idname = "node.y_clean_yp_caches"
+    bl_label = "Clean " + ADDON_TITLE + " Caches"
+    bl_description = "Clean " + ADDON_TITLE + " caches"""
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        for layer in yp.layers:
+            layer_tree = get_tree(layer)
+
+            for prop in dir(layer):
+                if prop.startswith('cache_'):
+                    remove_node(layer_tree, layer, prop)
+
+            for ch in layer.channels:
+                for prop in dir(ch):
+                    if prop.startswith('cache_'):
+                        remove_node(layer_tree, ch, prop)
 
         return {'FINISHED'}
 
@@ -3060,6 +3123,7 @@ def register():
     bpy.utils.register_class(YFixMissingData)
     bpy.utils.register_class(YRefreshTangentSignVcol)
     bpy.utils.register_class(YRemoveYPaintNode)
+    bpy.utils.register_class(YCleanYPCaches)
     bpy.utils.register_class(YNodeConnections)
     bpy.utils.register_class(YPaintChannel)
     bpy.utils.register_class(YPaintUV)
@@ -3103,6 +3167,7 @@ def unregister():
     bpy.utils.unregister_class(YFixMissingData)
     bpy.utils.unregister_class(YRefreshTangentSignVcol)
     bpy.utils.unregister_class(YRemoveYPaintNode)
+    bpy.utils.unregister_class(YCleanYPCaches)
     bpy.utils.unregister_class(YNodeConnections)
     bpy.utils.unregister_class(YPaintChannel)
     bpy.utils.unregister_class(YPaintUV)

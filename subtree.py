@@ -338,12 +338,82 @@ def refresh_source_tree_ios(source_tree, layer_type):
         if alp1: source_tree.outputs.remove(alp1)
         #if solid: source_tree.nodes.remove(solid)
 
+def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
+    #if not ch.override: return
+
+    if ch.source_group != '': return
+
+    layer_tree = get_tree(layer)
+
+    if ch.override_type not in {'VCOL', 'HEMI', 'DEFAULT'}:
+
+        # Get current source for reference
+        source_ref = layer_tree.nodes.get(ch.source)
+
+        if not source_ref: return
+
+        # Create source tree
+        source_tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + root_ch.name + ' Source', 'ShaderNodeTree')
+
+        create_essential_nodes(source_tree, True)
+
+        refresh_source_tree_ios(source_tree, ch.override_type)
+
+        # Copy source from reference
+        source = new_node(source_tree, ch, 'source', source_ref.bl_idname)
+        copy_node_props(source_ref, source)
+
+        # Create source node group
+        source_group = new_node(layer_tree, ch, 'source_group', 'ShaderNodeGroup', 'source_group')
+        source_n = new_node(layer_tree, ch, 'source_n', 'ShaderNodeGroup', 'source_n')
+        source_s = new_node(layer_tree, ch, 'source_s', 'ShaderNodeGroup', 'source_s')
+        source_e = new_node(layer_tree, ch, 'source_e', 'ShaderNodeGroup', 'source_e')
+        source_w = new_node(layer_tree, ch, 'source_w', 'ShaderNodeGroup', 'source_w')
+
+        source_group.node_tree = source_tree
+        source_n.node_tree = source_tree
+        source_s.node_tree = source_tree
+        source_e.node_tree = source_tree
+        source_w.node_tree = source_tree
+
+        layer_tree.nodes.remove(source_ref)
+
+        # Bring modifiers to source tree
+        #if ch.override_type in {'IMAGE', 'MUSGRAVE'}:
+        #    for mod in ch.modifiers:
+        #        Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
+        #else:
+        #    move_mod_group(ch, layer_tree, source_tree)
+
+    # Create uv neighbor
+    if ch.override_type in {'VCOL', 'HEMI'}: #, 'OBJECT_INDEX'}:
+        uv_neighbor = replace_new_node(layer_tree, ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+                lib.NEIGHBOR_FAKE, hard_replace=True)
+    #else: 
+    elif ch.override_type not in {'DEFAULT'}: 
+        uv_neighbor = replace_new_node(layer_tree, ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+                lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=ch), hard_replace=True)
+        set_uv_neighbor_resolution(ch, uv_neighbor)
+
+    if rearrange:
+        # Reconnect outside nodes
+        reconnect_layer_nodes(layer)
+
+        # Rearrange nodes
+        rearrange_layer_nodes(layer)
+
 def enable_layer_source_tree(layer, rearrange=False):
 
     # Check if source tree is already available
     #if layer.type in {'BACKGROUND', 'COLOR', 'GROUP'}: return
     if layer.type in {'BACKGROUND', 'COLOR'}: return
     if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and layer.source_group != '': return
+
+    # Check if there's override channel
+    #for i, ch in enumerate(layer.channels):
+    #    root_ch = yp.channels[i]
+    #    if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable and ch.override and ch.override_type != 'DEFAULT':
+    #        return
 
     layer_tree = get_tree(layer)
 
@@ -410,46 +480,99 @@ def enable_layer_source_tree(layer, rearrange=False):
         # Rearrange nodes
         rearrange_layer_nodes(layer)
 
-def disable_layer_source_tree(layer, rearrange=True):
-
+def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False):
     yp = layer.id_data.yp
 
     # Check if fine bump map is used on some of layer channels
-    smooth_bump_ch = None
-    for i, root_ch in enumerate(yp.channels):
-        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and layer.channels[i].enable:
-            smooth_bump_ch = root_ch
+    if not force:
+        smooth_bump_ch = None
+        for i, root_ch in enumerate(yp.channels):
+            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and layer.channels[i].enable:
+                smooth_bump_ch = root_ch
 
-    if (layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and layer.source_group == '') or smooth_bump_ch:
-        return
+        if (ch.override_type not in {'DEFAULT'} and ch.source_group == '') or smooth_bump_ch:
+            return
 
     layer_tree = get_tree(layer)
 
-    if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
-        source_group = layer_tree.nodes.get(layer.source_group)
-        source_ref = source_group.node_tree.nodes.get(layer.source)
+    #if ch.override_type not in {'DEFAULT'}:
+    source_group = layer_tree.nodes.get(ch.source_group)
+    if source_group:
+        source_ref = source_group.node_tree.nodes.get(ch.source)
         #mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
         # Create new source
-        source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
+        source = new_node(layer_tree, ch, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
 
         #mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
         #if mapping_ref: copy_node_props(mapping_ref, mapping)
 
-        # Bring back layer modifier to original tree
-        if layer.type in {'IMAGE', 'MUSGRAVE'}:
-            for mod in layer.modifiers:
-                Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
-        else:
-            move_mod_group(layer, source_group.node_tree, layer_tree)
+        # Bring back channel modifier to original tree
+        #if ch.override_type in {'IMAGE', 'MUSGRAVE'}:
+        #    for mod in ch.modifiers:
+        #        Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
+        #else:
+        #    move_mod_group(ch, source_group.node_tree, layer_tree)
 
-        # Remove previous source
-        remove_node(layer_tree, layer, 'source_group')
-        remove_node(layer_tree, layer, 'source_n')
-        remove_node(layer_tree, layer, 'source_s')
-        remove_node(layer_tree, layer, 'source_e')
-        remove_node(layer_tree, layer, 'source_w')
+    # Remove previous source
+    remove_node(layer_tree, ch, 'source_group')
+    remove_node(layer_tree, ch, 'source_n')
+    remove_node(layer_tree, ch, 'source_s')
+    remove_node(layer_tree, ch, 'source_e')
+    remove_node(layer_tree, ch, 'source_w')
+
+    remove_node(layer_tree, ch, 'uv_neighbor')
+
+    if rearrange:
+        # Reconnect outside nodes
+        reconnect_layer_nodes(layer)
+
+        # Rearrange nodes
+        rearrange_layer_nodes(layer)
+
+def disable_layer_source_tree(layer, rearrange=True, force=False):
+
+    yp = layer.id_data.yp
+
+    # Check if fine bump map is used on some of layer channels
+    if not force:
+        smooth_bump_ch = None
+        for i, root_ch in enumerate(yp.channels):
+            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and layer.channels[i].enable:
+                smooth_bump_ch = root_ch
+
+        if (layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and layer.source_group == '') or smooth_bump_ch:
+            return
+
+    layer_tree = get_tree(layer)
+
+    if force or layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+        source_group = layer_tree.nodes.get(layer.source_group)
+        if source_group:
+            source_ref = source_group.node_tree.nodes.get(layer.source)
+            #mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
+
+            # Create new source
+            source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
+            copy_node_props(source_ref, source)
+
+            #mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
+            #if mapping_ref: copy_node_props(mapping_ref, mapping)
+
+            # Bring back layer modifier to original tree
+            if layer.type in {'IMAGE', 'MUSGRAVE'}:
+                for mod in layer.modifiers:
+                    Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
+            else:
+                move_mod_group(layer, source_group.node_tree, layer_tree)
+
+            # Remove previous source
+            remove_node(layer_tree, layer, 'source_group')
+            remove_node(layer_tree, layer, 'source_n')
+            remove_node(layer_tree, layer, 'source_s')
+            remove_node(layer_tree, layer, 'source_e')
+            remove_node(layer_tree, layer, 'source_w')
 
     remove_node(layer_tree, layer, 'uv_neighbor')
 
@@ -1759,6 +1882,9 @@ def remove_layer_normal_channel_nodes(root_ch, layer, ch, tree=None):
         disable_layer_source_tree(layer, False)
         Modifier.disable_modifiers_tree(ch, False)
 
+        if ch.override and ch.override_type != 'DEFAULT':
+            disable_channel_source_tree(layer, root_ch, ch, False)
+
     remove_node(tree, ch, 'spread_alpha')
     #remove_node(tree, ch, 'spread_alpha_n')
     #remove_node(tree, ch, 'spread_alpha_s')
@@ -1804,13 +1930,26 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     # Check spread alpha if its needed
     check_create_spread_alpha(layer, tree, root_ch, ch)
 
-    # Remove neighbor related nodes
-    if root_ch.enable_smooth_bump:
-        enable_layer_source_tree(layer)
-        Modifier.enable_modifiers_tree(ch)
+    # Dealing with neighbor related nodes
+    if not ch.override:
+        if root_ch.enable_smooth_bump:
+            enable_layer_source_tree(layer)
+            Modifier.enable_modifiers_tree(ch)
+        else:
+            disable_layer_source_tree(layer, False)
+            Modifier.disable_modifiers_tree(ch, False)
+
+        disable_channel_source_tree(layer, root_ch, ch, False)
     else:
-        disable_layer_source_tree(layer, False)
-        Modifier.disable_modifiers_tree(ch, False)
+
+        if ch.override_type != 'DEFAULT' and root_ch.enable_smooth_bump:
+            enable_channel_source_tree(layer, root_ch, ch)
+            Modifier.enable_modifiers_tree(ch)
+        else:
+            disable_channel_source_tree(layer, root_ch, ch, False)
+            Modifier.disable_modifiers_tree(ch, False)
+
+        disable_layer_source_tree(layer, False, True)
 
     #mute = not layer.enable or not ch.enable
 
@@ -2017,9 +2156,10 @@ def update_preview_mix(ch, preview):
 
 def update_override_value(root_ch, layer, ch, tree=None):
 
-    if not tree: tree = get_tree(layer)
+    #if not tree: tree = get_tree(layer)
 
-    source = tree.nodes.get(ch.source)
+    #source = tree.nodes.get(ch.source)
+    source = get_channel_source(ch, layer)
     if root_ch.type in {'RGB', 'NORMAL'}:
         col = ch.override_color
         col = (col[0], col[1], col[2], 1.0)
@@ -2055,10 +2195,16 @@ def set_layer_channel_linear_node(tree, layer, root_ch, ch):
 def check_override_layer_channel_nodes(root_ch, layer, ch):
 
     yp = layer.id_data.yp
-    tree = get_tree(layer)
+    layer_tree = get_tree(layer)
+
+    # Disable source tree first to avoid error
+    if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable:
+        disable_channel_source_tree(layer, root_ch, ch, rearrange=False, force=True)
+        Modifier.disable_modifiers_tree(ch, False)
 
     # Current source
-    source = tree.nodes.get(ch.source)
+    source = layer_tree.nodes.get(ch.source)
+    #source = get_channel_source(ch, layer, layer_tree)
 
     prev_type = ''
 
@@ -2072,14 +2218,14 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
         #print('Prev Type:', prev_type)
         if prev_type != ch.override_type or not ch.override:
 
-            # Save source to cache if it's not image, vertex color, or background
-            #if prev_type not in {'DEFAULT', 'IMAGE', 'VCOL', 'HEMI'}:
+            # Save source to cache if it's not default
             if prev_type != 'DEFAULT':
 
                 setattr(ch, 'cache_' + prev_type.lower(), source.name)
                 # Remove uv input link
+                #if ch.source_group == '' and 
                 if any(source.inputs) and any(source.inputs[0].links):
-                    tree.links.remove(source.inputs[0].links[0])
+                    layer_tree.links.remove(source.inputs[0].links[0])
                 source.label = ''
                 ch.source = ''
 
@@ -2087,45 +2233,44 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
     if ch.override:
         source_label = root_ch.name + ' Override : ' + ch.override_type
         if ch.override_type == 'DEFAULT':
+
             if root_ch.type in {'RGB', 'NORMAL'}:
-                source = replace_new_node(tree, ch, 'source', 'ShaderNodeRGB', source_label)
+                source = replace_new_node(layer_tree, ch, 'source', 'ShaderNodeRGB', source_label)
                 #print(root_ch.name)
             elif root_ch.type == 'VALUE':
-                source = replace_new_node(tree, ch, 'source', 'ShaderNodeValue', source_label)
-            update_override_value(root_ch, layer, ch, tree)
+                source = replace_new_node(layer_tree, ch, 'source', 'ShaderNodeValue', source_label)
+            update_override_value(root_ch, layer, ch, layer_tree)
+
         else:
-            cache = tree.nodes.get(getattr(ch, 'cache_' + ch.override_type.lower()))
+
+            src_tree = get_channel_source_tree(ch, layer)
+
+            cache = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_type.lower()))
             if cache:
                 # Delete non cached source
                 if prev_type == 'DEFAULT':
-                    remove_node(tree, ch, 'source')
+                    remove_node(layer_tree, ch, 'source')
+
                 ch.source = cache.name
                 setattr(ch, 'cache_' + ch.override_type.lower(), '')
+
                 cache.label = source_label
             else:
-                if ch.override_type == 'IMAGE':
-                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexImage', source_label)
-                elif ch.override_type == 'BRICK':
-                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexBrick', source_label)
-                elif ch.override_type == 'CHECKER':
-                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexChecker', source_label)
-                elif ch.override_type == 'GRADIENT':
-                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexGradient', source_label)
-                elif ch.override_type == 'MAGIC':
-                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexMagic', source_label)
-                elif ch.override_type == 'MUSGRAVE':
-                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexMusgrave', source_label)
-                elif ch.override_type == 'NOISE':
-                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexNoise', source_label)
-                elif ch.override_type == 'VORONOI':
-                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexVoronoi', source_label)
-                elif ch.override_type == 'WAVE':
-                    source = replace_new_node(tree, ch, 'source', 'ShaderNodeTexWave', source_label)
+                if ch.override_type == 'VCOL':
+                    source = replace_new_node(src_tree, ch, 'source', 'ShaderNodeAttribute', source_label)
+                else:
+                    source = replace_new_node(src_tree, ch, 'source', 'ShaderNodeTex' + ch.override_type.capitalize(), source_label)
+
     else:
-        remove_node(tree, ch, 'source')
+        remove_node(layer_tree, ch, 'source')
 
     # Update linear stuff
-    set_layer_channel_linear_node(tree, layer, root_ch, ch)
+    set_layer_channel_linear_node(layer_tree, layer, root_ch, ch)
+
+    # Enable source tree back again
+    if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable and ch.override:
+        enable_channel_source_tree(layer, root_ch, ch)
+        Modifier.enable_modifiers_tree(ch)
 
 def check_blend_type_nodes(root_ch, layer, ch):
 

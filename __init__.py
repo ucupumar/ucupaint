@@ -106,6 +106,7 @@
 # - Add option to add multiple images all at once as one layer
 # - Add option to bake generated textures to improve performance
 # - Optimize hidden layer, maybe create a trash nodes to collect unused layers (?, Need to investigate the effeciveness more)
+# - Parallax height tweak
 
 # TODO:
 # - Make every node name unique (using hash?)

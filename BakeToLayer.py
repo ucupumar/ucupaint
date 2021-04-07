@@ -324,6 +324,13 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type == 'AO':
             self.blend_type = 'MULTIPLY'
             self.samples = 32
+
+            # Check Ambient occlusion channel if available
+            for i, c in enumerate(yp.channels):
+                if c.name in {'Ambient Occlusion', 'AO'}:
+                    self.channel_idx = str(i)
+                    break
+
         elif self.type == 'POINTINESS':
             self.blend_type = 'ADD'
             self.fxaa = False
