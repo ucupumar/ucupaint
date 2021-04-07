@@ -3126,7 +3126,7 @@ def update_displacement_height_ratio(root_ch, max_height=None):
     for uv in yp.uvs:
         parallax_prep = group_tree.nodes.get(uv.parallax_prep)
         if parallax_prep:
-            parallax_prep.inputs['depth_scale'].default_value = max_height
+            parallax_prep.inputs['depth_scale'].default_value = max_height * root_ch.parallax_height_tweak
 
     # Update layer bump process
     for layer in reversed(yp.layers):

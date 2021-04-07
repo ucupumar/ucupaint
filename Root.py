@@ -599,6 +599,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ao_mul = nodes.new('ShaderNodeMixRGB')
             ao_mul.inputs[0].default_value = 1.0
             ao_mul.blend_type = 'MULTIPLY'
+            ao_mul.label = 'AO Multiply'
 
             ao_mul.location = mat_out.location.copy()
             mat_out.location.x += 180
@@ -2374,6 +2375,15 @@ def update_parallax_rim_hack(self, context):
             parallax_prep.inputs['Rim Hack'].default_value = 1.0 if self.parallax_rim_hack else 0.0
             parallax_prep.inputs['Rim Hack Hardness'].default_value = self.parallax_rim_hack_hardness
 
+def update_parallax_height_tweak(self, context):
+    group_tree = self.id_data
+    yp = group_tree.yp
+
+    for uv in yp.uvs:
+        parallax_prep = group_tree.nodes.get(uv.parallax_prep)
+        if parallax_prep:
+            parallax_prep.inputs['depth_scale'].default_value = get_displacement_max_height(self) * self.parallax_height_tweak
+
 def update_parallax_num_of_layers(self, context):
 
     group_tree = self.id_data
@@ -2746,6 +2756,9 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     parallax_rim_hack_hardness = FloatProperty(default=1.0, min=1.0, max=100.0, 
             update=update_parallax_rim_hack)
+
+    parallax_height_tweak = FloatProperty(subtype='FACTOR', default=1.0, min=0.0, max=1.0,
+            update=update_parallax_height_tweak)
 
     # Currently unused
     parallax_ref_plane = FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,

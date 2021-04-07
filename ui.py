@@ -762,6 +762,10 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                     brow.prop(channel, 'parallax_rim_hack', text='')
 
                     brow = bbcol.row(align=True)
+                    brow.label(text='Height Tweak:')
+                    brow.prop(channel, 'parallax_height_tweak', text='')
+
+                    brow = bbcol.row(align=True)
                     brow.label(text='Main UV: ' + channel.main_uv)
 
                 #if channel.enable_parallax:

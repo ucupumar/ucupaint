@@ -1451,7 +1451,7 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[], baked=Fals
                 parallax_prep.node_tree = get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
 
             #parallax_prep.inputs['depth_scale'].default_value = height_ch.displacement_height_ratio
-            parallax_prep.inputs['depth_scale'].default_value = max_height
+            parallax_prep.inputs['depth_scale'].default_value = max_height * height_ch.parallax_height_tweak
             parallax_prep.inputs['ref_plane'].default_value = height_ch.parallax_ref_plane
             parallax_prep.inputs['Rim Hack'].default_value = 1.0 if height_ch.parallax_rim_hack else 0.0
             parallax_prep.inputs['Rim Hack Hardness'].default_value = height_ch.parallax_rim_hack_hardness
@@ -1474,7 +1474,7 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[], baked=Fals
                     parallax_prep.node_tree = lib.get_node_tree_lib(lib.PARALLAX_OCCLUSION_PREP)
                 parallax_prep.name = parallax_prep.label = tc + PARALLAX_PREP_SUFFIX
 
-            parallax_prep.inputs['depth_scale'].default_value = max_height
+            parallax_prep.inputs['depth_scale'].default_value = max_height * height_ch.parallax_height_tweak
             parallax_prep.inputs['ref_plane'].default_value = height_ch.parallax_ref_plane
             parallax_prep.inputs['Rim Hack'].default_value = 1.0 if height_ch.parallax_rim_hack else 0.0
             parallax_prep.inputs['Rim Hack Hardness'].default_value = height_ch.parallax_rim_hack_hardness
