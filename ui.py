@@ -3049,6 +3049,10 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
+        col.operator('node.y_clean_yp_caches', icon_value=lib.get_icon('clean'))
+
+        col.separator()
+
         col.label(text='Active Tree:', icon_value=lib.get_icon('nodetree'))
         for n in get_list_of_ypaint_nodes(mat):
             if n.name == node.name:

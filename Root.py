@@ -1601,8 +1601,6 @@ class YFixMissingData(bpy.types.Operator):
                         fix_missing_vcol(obj, mask.name, mask_src)
 
                 for ch in layer.channels:
-                    #layer_tree = get_tree(layer)
-                    #ch_src = layer_tree.nodes.get(ch.source)
                     ch_src = get_channel_source(ch, layer)
                     if (ch.override and ch.override_type == 'VCOL' and obj.type == 'MESH' 
                             and not obj.data.vertex_colors.get(ch_src.attribute_name)):
@@ -1803,6 +1801,35 @@ class YRemoveYPaintNode(bpy.types.Operator):
         # Bye bye yp node
         #mat.node_tree.nodes.remove(group_node)
         simple_remove_node(mat.node_tree, group_node)
+
+        return {'FINISHED'}
+
+class YCleanYPCaches(bpy.types.Operator):
+    bl_idname = "node.y_clean_yp_caches"
+    bl_label = "Clean " + ADDON_TITLE + " Caches"
+    bl_description = "Clean " + ADDON_TITLE + " caches"""
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        for layer in yp.layers:
+            layer_tree = get_tree(layer)
+
+            for prop in dir(layer):
+                if prop.startswith('cache_'):
+                    remove_node(layer_tree, layer, prop)
+
+            for ch in layer.channels:
+                for prop in dir(ch):
+                    if prop.startswith('cache_'):
+                        remove_node(layer_tree, ch, prop)
 
         return {'FINISHED'}
 
@@ -3060,6 +3087,7 @@ def register():
     bpy.utils.register_class(YFixMissingData)
     bpy.utils.register_class(YRefreshTangentSignVcol)
     bpy.utils.register_class(YRemoveYPaintNode)
+    bpy.utils.register_class(YCleanYPCaches)
     bpy.utils.register_class(YNodeConnections)
     bpy.utils.register_class(YPaintChannel)
     bpy.utils.register_class(YPaintUV)
@@ -3103,6 +3131,7 @@ def unregister():
     bpy.utils.unregister_class(YFixMissingData)
     bpy.utils.unregister_class(YRefreshTangentSignVcol)
     bpy.utils.unregister_class(YRemoveYPaintNode)
+    bpy.utils.unregister_class(YCleanYPCaches)
     bpy.utils.unregister_class(YNodeConnections)
     bpy.utils.unregister_class(YPaintChannel)
     bpy.utils.unregister_class(YPaintUV)
