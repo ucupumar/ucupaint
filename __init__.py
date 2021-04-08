@@ -97,14 +97,14 @@
 # - Make rebake as an option on layer source (V)
 # - Clean up bake codes (Erase double prepare bake codes) (V)
 # - Normal map should not display bump height (V)
-# - Need ability to edit height channel main uv
 # - Object index mask should not generate neighbor uv (V)
-# - Change link inside group to github insted of patreon
 # - Override value should be more accessible for layer value channel (V)
 # - Add option to use own image/texture as layer channel (V)
 # - Add option to add multiple images all at once as one layer (V)
 # - Parallax height tweak (V)
-# - Replace override color modifier with new override system
+# - Replace override color modifier with new override system (V)
+# - Change link inside group to github insted of patreon
+# - Need ability to edit height channel main uv
 # - Add operator to create new UV map on multiple objects using the same material
 # - Add option to bake generated textures to improve performance
 # - Optimize hidden layer, maybe create a trash nodes to collect unused layers (?, Need to investigate the effeciveness more)
