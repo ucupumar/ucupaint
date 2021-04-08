@@ -17,6 +17,7 @@ modifier_type_items = (
             'Input alpha will be used as RGB output, Output Alpha will use solid value of one.', 
             'MODIFIER', 2),
 
+        # Deprecated
         ('OVERRIDE_COLOR', 'Override Color',
             'Input RGB will be replaced with custom RGB', 
             'MODIFIER', 3),
@@ -31,7 +32,7 @@ modifier_type_items = (
 can_be_expanded = {
         'INVERT', 
         'RGB_TO_INTENSITY', 
-        'OVERRIDE_COLOR', 
+        'OVERRIDE_COLOR', # Deprecated
         'COLOR_RAMP',
         'RGB_CURVE',
         'HUE_SATURATION',
@@ -974,7 +975,7 @@ class YPaintModifier(bpy.types.PropertyGroup):
     # Intensity to RGB nodes
     i2rgb = StringProperty(default='')
 
-    # Override Color nodes
+    # Override Color nodes (Deprecated)
     oc = StringProperty(default='')
 
     oc_col = FloatVectorProperty(name='Override Color', size=4, subtype='COLOR', 

@@ -560,6 +560,39 @@ def update_routine(name):
                     rearrange_layer_nodes(layer)
                     update_happened = True
 
+        # Version 0.9.3 and above will replace override color modifier with newer override system
+        if LooseVersion(ng.yp.version) < LooseVersion('0.9.3'):
+
+            for layer in ng.yp.layers:
+                for i, ch in enumerate(layer.channels):
+                    root_ch = ng.yp.channels[i]
+                    mod_ids = []
+                    for j, mod in enumerate(ch.modifiers):
+                        if mod.type == 'OVERRIDE_COLOR':
+                            mod_ids.append(j)
+
+                    for j in reversed(mod_ids):
+                        mod = ch.modifiers[j]
+                        tree = get_mod_tree(ch)
+
+                        ch.override = True
+                        if root_ch.type == 'VALUE':
+                            ch.override_value = mod.oc_val
+                        else: 
+                            ch.override_color = (mod.oc_col[0], mod.oc_col[1], mod.oc_col[2])
+
+                        if ch.override_type != 'DEFAULT':
+                            ch.override_type = 'DEFAULT'
+
+                        # Delete the nodes and modifier
+                        remove_node(tree, mod, 'oc')
+                        ch.modifiers.remove(j)
+
+                    if mod_ids:
+                        reconnect_layer_nodes(layer)
+                        rearrange_layer_nodes(layer)
+                        update_happened = True
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version
