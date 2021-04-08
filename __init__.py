@@ -100,13 +100,14 @@
 # - Need ability to edit height channel main uv
 # - Object index mask should not generate neighbor uv (V)
 # - Change link inside group to github insted of patreon
+# - Override value should be more accessible for layer value channel (V)
+# - Add option to use own image/texture as layer channel (V)
+# - Add option to add multiple images all at once as one layer (V)
+# - Parallax height tweak (V)
+# - Replace override color modifier with new override system
 # - Add operator to create new UV map on multiple objects using the same material
-# - Override value should be more accessible for layer value channel
-# - Add option to use own image/texture as layer channel
-# - Add option to add multiple images all at once as one layer
 # - Add option to bake generated textures to improve performance
 # - Optimize hidden layer, maybe create a trash nodes to collect unused layers (?, Need to investigate the effeciveness more)
-# - Parallax height tweak
 
 # TODO:
 # - Make every node name unique (using hash?)
@@ -168,7 +169,7 @@
 bl_info = {
     "name": "Ucupaint",
     "author": "Yusuf Umar",
-    "version": (0, 9, 2),
+    "version": (0, 9, 3),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
