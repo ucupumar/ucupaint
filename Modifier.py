@@ -26,6 +26,7 @@ modifier_type_items = (
         ('RGB_CURVE', 'RGB Curve', '', 'MODIFIER', 5),
         ('HUE_SATURATION', 'Hue Saturation', '', 'MODIFIER', 6),
         ('BRIGHT_CONTRAST', 'Brightness Contrast', '', 'MODIFIER', 7),
+        # Deprecated
         ('MULTIPLIER', 'Multiplier', '', 'MODIFIER', 8),
         ('MATH', 'Math', '', 'MODIFIER',9)
         )
@@ -38,7 +39,7 @@ can_be_expanded = {
         'RGB_CURVE',
         'HUE_SATURATION',
         'BRIGHT_CONTRAST',
-        'MULTIPLIER',
+        'MULTIPLIER', # Deprecated
         'MATH'
         }
 
@@ -392,12 +393,19 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 math, dirty = check_new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math', True)
 
             if dirty:
-                math.node_tree = get_node_tree_lib(lib.MOD_MATH)
+                if channel_type == 'VALUE':
+                    math.node_tree = get_node_tree_lib(lib.MOD_MATH_VALUE)
+                else :
+                    math.node_tree = get_node_tree_lib(lib.MOD_MATH)
+
                 duplicate_lib_node_tree(math)
                 math.inputs[2].default_value = m.math_r_val
-                math.inputs[3].default_value = m.math_g_val
-                math.inputs[4].default_value = m.math_b_val
-                math.inputs[5].default_value = m.math_a_val
+                if channel_type == 'VALUE':
+                    math.inputs[3].default_value = m.math_a_val
+                else:
+                    math.inputs[3].default_value = m.math_g_val
+                    math.inputs[4].default_value = m.math_b_val
+                    math.inputs[5].default_value = m.math_a_val
 
 def add_new_modifier(parent, modifier_type):
 
@@ -761,9 +769,12 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         row = col.row()
         row.label(text='Clamp:')
         row.prop(modifier, 'use_clamp', text='')
-        col.prop(modifier, 'math_r_val', text='R')
-        col.prop(modifier, 'math_g_val', text='G')
-        col.prop(modifier, 'math_b_val', text='B')
+        if channel_type == 'VALUE':
+            col.prop(modifier, 'math_r_val', text='Value')
+        else :
+            col.prop(modifier, 'math_r_val', text='R')
+            col.prop(modifier, 'math_g_val', text='G')
+            col.prop(modifier, 'math_b_val', text='B')
         col.separator()
         row = col.row()
         row.label(text='Affect Alpha:')
@@ -938,6 +949,7 @@ def update_use_clamp(self, context):
     yp = self.id_data.yp
     if yp.halt_update or not self.enable: return
     tree = get_mod_tree(self)
+    channel_type = get_modifier_channel_type(self)
 
     if self.type == 'MULTIPLIER':
         multiplier = tree.nodes.get(self.multiplier)
@@ -945,9 +957,10 @@ def update_use_clamp(self, context):
     elif self.type == 'MATH':
         math = tree.nodes.get(self.math)
         math.node_tree.nodes.get('Math.R').use_clamp = self.use_clamp
-        math.node_tree.nodes.get('Math.G').use_clamp = self.use_clamp
-        math.node_tree.nodes.get('Math.B').use_clamp = self.use_clamp
         math.node_tree.nodes.get('Math.A').use_clamp = self.use_clamp
+        if channel_type != 'VALUE':
+            math.node_tree.nodes.get('Math.G').use_clamp = self.use_clamp
+            math.node_tree.nodes.get('Math.B').use_clamp = self.use_clamp
 
 def update_affect_alpha(self, context):
     yp = self.id_data.yp
@@ -1000,9 +1013,12 @@ def update_math_val_input(self, context):
     if self.type == 'MATH':
         math = tree.nodes.get(self.math)
         math.inputs[2].default_value = self.math_r_val if self.enable else 0.0
-        math.inputs[3].default_value = self.math_g_val if self.enable else 0.0
-        math.inputs[4].default_value = self.math_b_val if self.enable else 0.0
-        math.inputs[5].default_value = self.math_a_val if self.enable else 0.0
+        if channel_type == 'VALUE':
+            math.inputs[3].default_value = self.math_a_val if self.enable else 0.0
+        else:
+            math.inputs[3].default_value = self.math_g_val if self.enable else 0.0
+            math.inputs[4].default_value = self.math_b_val if self.enable else 0.0
+            math.inputs[5].default_value = self.math_a_val if self.enable else 0.0
 
 def update_brightcon_value(self, context):
 

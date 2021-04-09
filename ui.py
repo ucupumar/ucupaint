@@ -3766,6 +3766,7 @@ class YAddModifierMenu(bpy.types.Menu):
         for mt in Modifier.modifier_type_items:
             # Override color modifier is deprecated
             if mt[0] == 'OVERRIDE_COLOR': continue
+            if mt[0] == 'MULTIPLIER': continue
             col.operator('node.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
@@ -3812,6 +3813,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
             for mt in Modifier.modifier_type_items:
                 # Override color modifier is deprecated
                 if mt[0] == 'OVERRIDE_COLOR': continue
+                if mt[0] == 'MULTIPLIER': continue
                 col.operator('node.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
         col = row.column()
