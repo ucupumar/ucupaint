@@ -140,6 +140,15 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
         rgb = multiplier.outputs[0]
         alpha = multiplier.outputs[1]
 
+    elif mod.type == 'MATH':
+
+        math = tree.nodes.get(mod.math)
+        create_link(tree, start_rgb, math.inputs[0])
+        create_link(tree, start_alpha, math.inputs[1])
+
+        rgb = math.outputs[0]
+        alpha = math.outputs[1]
+
     return rgb, alpha
 
 def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group=None):

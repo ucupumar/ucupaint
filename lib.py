@@ -228,6 +228,9 @@ MOD_INVERT_VALUE = '~yPL Mod Invert Value'
 MOD_MULTIPLIER = '~yPL Mod Multiplier'
 MOD_MULTIPLIER_VALUE = '~yPL Mod Multiplier Value'
 MOD_INTENSITY_HARDNESS = '~yPL Mod Intensity Hardness'
+MOD_MATH = '~yPL Mod Math'
+MOD_MATH_VALUE = '~yPL Mod Math Value'
+
 
 channel_custom_icon_dict = {
         'RGB' : 'rgb_channel',
@@ -349,7 +352,7 @@ def get_neighbor_uv_tree(texcoord_type, entity):
         return get_node_tree_lib(NEIGHBOR_UV_TANGENT)
     if texcoord_type in {'Generated', 'Normal', 'Object'}:
         return get_node_tree_lib(NEIGHBOR_UV_OBJECT)
-    if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
+    if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return get_node_tree_lib(NEIGHBOR_UV_CAMERA)
 
 #def get_neighbor_uv_tree_name(texcoord_type, different_uv=False, entity=None):
@@ -360,7 +363,7 @@ def get_neighbor_uv_tree_name(texcoord_type, entity=None):
         return NEIGHBOR_UV_TANGENT
     if texcoord_type in {'Generated', 'Normal', 'Object'}:
         return NEIGHBOR_UV_OBJECT
-    if texcoord_type in {'Camera', 'Window', 'Reflection'}: 
+    if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return NEIGHBOR_UV_CAMERA
 
 def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
@@ -578,7 +581,7 @@ def update_routine(name):
                         ch.override = True
                         if root_ch.type == 'VALUE':
                             ch.override_value = mod.oc_val
-                        else: 
+                        else:
                             ch.override_color = (mod.oc_col[0], mod.oc_col[1], mod.oc_col[2])
 
                         if ch.override_type != 'DEFAULT':
@@ -592,6 +595,77 @@ def update_routine(name):
                         reconnect_layer_nodes(layer)
                         rearrange_layer_nodes(layer)
                         update_happened = True
+
+        # Version 0.9.4 and above will replace multipier modifier with math modifier
+        if LooseVersion(ng.yp.version) < LooseVersion('0.9.4'):
+
+            mods = []
+            parents = []
+            types = []
+
+            for channel in ng.yp.channels:
+                channel_tree = get_mod_tree(channel)
+                for mod in channel.modifiers:
+                    if mod.type == 'MULTIPLIER' :
+                        mods.append(mod)
+                        parents.append(channel)
+                        types.append(channel.type)
+
+            for layer in ng.yp.layers:
+                layer_tree = get_mod_tree(layer)
+                for mod in layer.modifiers:
+                    if mod.type == 'MULTIPLIER' :
+                        mods.append(mod)
+                        parents.append(layer)
+                        types.append('RGB')
+
+                for i, ch in enumerate(layer.channels):
+                    root_ch = ng.yp.channels[i]
+                    ch_tree = get_mod_tree(ch)
+                    for j, mod in enumerate(ch.modifiers):
+                        if mod.type == 'MULTIPLIER' :
+                            mods.append(mod)
+                            parents.append(ch)
+                            types.append(root_ch.type)
+
+            for i, mod in enumerate(mods):
+                parent = parents[i]
+                ch_type = types[i]
+
+                tree = get_mod_tree(parent)
+
+                mod.name = 'Math'
+                mod.type = 'MATH'
+                remove_node(tree, mod, 'multiplier')
+                math = new_node(tree, mod, 'math', 'ShaderNodeGroup', 'Math')
+
+                if ch_type == 'VALUE':
+                    math.node_tree = get_node_tree_lib(MOD_MATH_VALUE)
+                else:
+                    math.node_tree = get_node_tree_lib(MOD_MATH)
+                
+                duplicate_lib_node_tree(math)
+
+                mod.affect_alpha = True
+                math.node_tree.nodes.get('Mix.A').mute = False
+
+                mod.math_a_val = mod.multiplier_a_val
+                mod.math_r_val = mod.multiplier_r_val
+                math.node_tree.nodes.get('Math.R').use_clamp = mod.use_clamp
+                math.node_tree.nodes.get('Math.A').use_clamp = mod.use_clamp
+                if ch_type != 'VALUE':
+                    mod.math_g_val = mod.multiplier_g_val
+                    mod.math_b_val = mod.multiplier_b_val
+                    math.node_tree.nodes.get('Math.G').use_clamp = mod.use_clamp
+                    math.node_tree.nodes.get('Math.B').use_clamp = mod.use_clamp
+
+            if mods:
+                for layer in ng.yp.layers:
+                    reconnect_layer_nodes(layer)
+                    rearrange_layer_nodes(layer)
+                reconnect_yp_nodes(ng)
+                rearrange_yp_nodes(ng)
+                update_happened = True
 
         # Update version
         if update_happened:
