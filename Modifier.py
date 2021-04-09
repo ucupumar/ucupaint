@@ -1134,7 +1134,7 @@ class YPaintModifier(bpy.types.PropertyGroup):
     huesat_saturation_val = FloatProperty(default=1.0, min=0.0, max=2.0, description='Saturation', update=update_huesat_value)
     huesat_value_val = FloatProperty(default=1.0, min=0.0, max=2.0, description='Value', update=update_huesat_value)
 
-    # Multiplier nodes
+    # Multiplier nodes (Deprecated)
     multiplier = StringProperty(default='')
 
     multiplier_r_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
