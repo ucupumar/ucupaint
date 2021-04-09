@@ -168,7 +168,7 @@
 
 bl_info = {
     "name": "Ucupaint",
-    "author": "Yusuf Umar",
+    "author": "Yusuf Umar, Agni Rakai Sahakarya",
     "version": (0, 9, 4),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
