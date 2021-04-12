@@ -2007,9 +2007,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if ch_source:
                 rgb = ch_source.outputs[0]
-                if ch.override_type in {'IMAGE'}:
-                    alpha = ch_source.outputs[1]
-                else: alpha = one_value
+                # Override channel will not output alpha whatsoever
+                #if layer.type != 'IMAGE':
+                #    if ch.override_type in {'IMAGE'}:
+                #        alpha = ch_source.outputs[1]
+                #    else: alpha = one_value
 
             ch_uv_neighbor = nodes.get(ch.uv_neighbor)
             if ch_uv_neighbor:
