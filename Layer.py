@@ -1376,6 +1376,8 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                 image_node.image = image
                 ch.override = True
                 ch.override_type = 'IMAGE'
+                if root_ch.type == 'NORMAL':
+                    ch.normal_map_type = normal_map_type
 
         ## Reconnect and rearrange nodes
         reconnect_yp_nodes(node.node_tree)
