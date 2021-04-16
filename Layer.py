@@ -1257,8 +1257,8 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
         #            channel_ids.append(i)
 
         synonym_libs = {
-                'color' : ['albedo', 'diffuse'], 
-                'ambient occlusion' : ['ao', 'ambient_occlusion'], 
+                'color' : ['albedo', 'diffuse', 'base color'], 
+                'ambient occlusion' : ['ao'], 
                 'roughness' : ['glossiness'],
                 'normal' : ['displacement', 'height', 'bump'], # Prioritize displacement/bump before actual normal map
                 }
@@ -1289,6 +1289,7 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                 else: threes = ''
 
                 no_whitespace = syname.replace(' ', '')
+                underscore = syname.replace(' ', '_')
                 
                 for image in images:
 
@@ -1306,6 +1307,8 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                             (img_name.endswith(syname)) or
 
                             (img_name.endswith(no_whitespace)) or
+
+                            (img_name.endswith(underscore)) or
 
                             # Check image name suffix and match it with channel initial first threes
                             (threes != '' and img_name.endswith(('_' + threes, '.' + threes))) or
