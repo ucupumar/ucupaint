@@ -1931,25 +1931,30 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     check_create_spread_alpha(layer, tree, root_ch, ch)
 
     # Dealing with neighbor related nodes
-    if not ch.override:
-        if root_ch.enable_smooth_bump:
-            enable_layer_source_tree(layer)
-            Modifier.enable_modifiers_tree(ch)
-        else:
-            disable_layer_source_tree(layer, False)
-            Modifier.disable_modifiers_tree(ch, False)
-
-        disable_channel_source_tree(layer, root_ch, ch, False)
+    #if not ch.override or (ch.override and ch.override_type == 'DEFAULT'):
+    if root_ch.enable_smooth_bump:
+        enable_layer_source_tree(layer)
+        Modifier.enable_modifiers_tree(ch)
     else:
+        disable_layer_source_tree(layer, False)
+        Modifier.disable_modifiers_tree(ch, False)
 
-        if ch.override_type != 'DEFAULT' and root_ch.enable_smooth_bump:
+    #disable_channel_source_tree(layer, root_ch, ch, False)
+    #else:
+    #elif ch.override_type != 'DEFAULT':
+
+    if ch.override:
+        #if ch.override_type != 'DEFAULT' and root_ch.enable_smooth_bump:
+        if root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT':
             enable_channel_source_tree(layer, root_ch, ch)
             Modifier.enable_modifiers_tree(ch)
         else:
             disable_channel_source_tree(layer, root_ch, ch, False)
             Modifier.disable_modifiers_tree(ch, False)
 
-        disable_layer_source_tree(layer, False, True)
+        #disable_layer_source_tree(layer, False, True)
+    else:
+        disable_channel_source_tree(layer, root_ch, ch, False)
 
     #mute = not layer.enable or not ch.enable
 

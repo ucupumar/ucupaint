@@ -1941,6 +1941,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         ch_uv_neighbor = nodes.get(ch.uv_neighbor)
 
+        ch_source_n = None
+        ch_source_s = None
+        ch_source_e = None
+        ch_source_w = None
+
         if layer.type == 'GROUP':
 
             if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
@@ -2027,17 +2032,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, bitangent, ch_uv_neighbor.inputs['Bitangent'])
 
             # Source NSEW
-            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-                source_n = nodes.get(ch.source_n)
-                source_s = nodes.get(ch.source_s)
-                source_e = nodes.get(ch.source_e)
-                source_w = nodes.get(ch.source_w)
+            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT':
+                ch_source_n = nodes.get(ch.source_n)
+                ch_source_s = nodes.get(ch.source_s)
+                ch_source_e = nodes.get(ch.source_e)
+                ch_source_w = nodes.get(ch.source_w)
 
                 if ch_uv_neighbor:
-                    if source_n: create_link(tree, ch_uv_neighbor.outputs['n'], source_n.inputs[0])
-                    if source_s: create_link(tree, ch_uv_neighbor.outputs['s'], source_s.inputs[0])
-                    if source_e: create_link(tree, ch_uv_neighbor.outputs['e'], source_e.inputs[0])
-                    if source_w: create_link(tree, ch_uv_neighbor.outputs['w'], source_w.inputs[0])
+                    if ch_source_n: create_link(tree, ch_uv_neighbor.outputs['n'], ch_source_n.inputs[0])
+                    if ch_source_s: create_link(tree, ch_uv_neighbor.outputs['s'], ch_source_s.inputs[0])
+                    if ch_source_e: create_link(tree, ch_uv_neighbor.outputs['e'], ch_source_e.inputs[0])
+                    if ch_source_w: create_link(tree, ch_uv_neighbor.outputs['w'], ch_source_w.inputs[0])
 
             if 'Vector' in ch_source.inputs:
                 create_link(tree, vector, ch_source.inputs['Vector'])
@@ -2145,24 +2150,26 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             rgb_e = rgb
             rgb_w = rgb
 
-            if source_n and source_s and source_e and source_w:
-                if is_greater_than_281():
-                    if (
-                        (ch.layer_input == 'RGB' and layer.type in {'NOISE', 'VORONOI'}) or
-                        (ch.layer_input == 'ALPHA' and layer.type not in {'NOISE', 'VORONOI'})
-                        ):
-                        source_index = 2
-                    else:
-                        source_index = 0
+            if is_greater_than_281():
+                if (
+                    (ch.layer_input == 'RGB' and layer.type in {'NOISE', 'VORONOI'}) or
+                    (ch.layer_input == 'ALPHA' and layer.type not in {'NOISE', 'VORONOI'})
+                    ):
+                    source_index = 2
                 else:
-                    if ch.layer_input == 'ALPHA' and layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
-                        source_index = 2
-                    else: source_index = 0
+                    source_index = 0
+            else:
+                if ch.layer_input == 'ALPHA' and layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+                    source_index = 2
+                else: source_index = 0
 
-                rgb_n = source_n.outputs[source_index]
-                rgb_s = source_s.outputs[source_index]
-                rgb_e = source_e.outputs[source_index]
-                rgb_w = source_w.outputs[source_index]
+            if source_n and source_s and source_e and source_w:
+                # Use override value instead from actual layer if using default override type
+                if not ch.override or ch.override_type != 'DEFAULT':
+                    rgb_n = source_n.outputs[source_index]
+                    rgb_s = source_s.outputs[source_index]
+                    rgb_e = source_e.outputs[source_index]
+                    rgb_w = source_w.outputs[source_index]
 
                 alpha_n = source_n.outputs[source_index+1]
                 alpha_s = source_s.outputs[source_index+1]
@@ -2174,17 +2181,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb_s = uv_neighbor.outputs['s']
                 rgb_e = uv_neighbor.outputs['e']
                 rgb_w = uv_neighbor.outputs['w']
-
-                alpha_n = start_alpha
-                alpha_s = start_alpha
-                alpha_e = start_alpha
-                alpha_w = start_alpha
-
-            elif ch.override and ch.override_type in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and ch_uv_neighbor:
-                rgb_n = ch_uv_neighbor.outputs['n']
-                rgb_s = ch_uv_neighbor.outputs['s']
-                rgb_e = ch_uv_neighbor.outputs['e']
-                rgb_w = ch_uv_neighbor.outputs['w']
 
                 alpha_n = start_alpha
                 alpha_s = start_alpha
@@ -2226,6 +2222,24 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 alpha_s = uv_neighbor.outputs['s']
                 alpha_e = uv_neighbor.outputs['e']
                 alpha_w = uv_neighbor.outputs['w']
+
+            if ch.override:
+
+                if ch.override_type in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and ch_uv_neighbor:
+                    rgb_n = ch_uv_neighbor.outputs['n']
+                    rgb_s = ch_uv_neighbor.outputs['s']
+                    rgb_e = ch_uv_neighbor.outputs['e']
+                    rgb_w = ch_uv_neighbor.outputs['w']
+
+                elif ch_source_n and ch_source_s and ch_source_e and ch_source_w:
+                    #rgb_n = ch_source_n.outputs[source_index]
+                    #rgb_s = ch_source_s.outputs[source_index]
+                    #rgb_e = ch_source_e.outputs[source_index]
+                    #rgb_w = ch_source_w.outputs[source_index]
+                    rgb_n = ch_source_n.outputs[0]
+                    rgb_s = ch_source_s.outputs[0]
+                    rgb_e = ch_source_e.outputs[0]
+                    rgb_w = ch_source_w.outputs[0]
 
             if layer.type != 'BACKGROUND' and not (layer.type == 'GROUP' and root_ch.type == 'NORMAL'):
                 mod_n = nodes.get(ch.mod_n)
