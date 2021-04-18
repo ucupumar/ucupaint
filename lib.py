@@ -712,33 +712,31 @@ def update_node_tree_libs(name):
     for i, name in enumerate(tree_names):
 
         lib_tree = bpy.data.node_groups.get(name)
-        cur_tree = bpy.data.node_groups.get(name+'__OLD')
+        cur_trees = [n for n in bpy.data.node_groups if n.name.startswith(name) and n.name != name]
 
-        # If not found, check if node is duplicated
-        if not cur_tree:
-            #print(name)
-            cur_tree = [n for n in bpy.data.node_groups if n.name.startswith(name) and n.name != name][0]
+        #print(cur_trees)
 
-        # Check lib tree revision
-        cur_ver = get_lib_revision(cur_tree)
-        lib_ver = get_lib_revision(lib_tree)
-        #print(name, cur_ver, lib_ver)
+        for cur_tree in cur_trees:
+            # Check lib tree revision
+            cur_ver = get_lib_revision(cur_tree)
+            lib_ver = get_lib_revision(lib_tree)
+            #print(name, cur_tree.name, lib_tree.name, cur_ver, lib_ver)
 
-        if lib_ver > cur_ver:
+            if lib_ver > cur_ver:
 
-            if name not in update_names:
-                update_names.append(name)
+                if name not in update_names:
+                    update_names.append(name)
 
-            # Check for group inside group
-            for n in lib_tree.nodes:
-                if n.type == 'GROUP' and n.node_tree and n.node_tree.name not in update_names:
-                    update_names.append(n.node_tree.name)
+                # Check for group inside group
+                for n in lib_tree.nodes:
+                    if n.type == 'GROUP' and n.node_tree and n.node_tree.name not in update_names:
+                        update_names.append(n.node_tree.name)
 
-            # Flip tangent if tangent process is updated to ver 1
-            if name == TANGENT_PROCESS and cur_ver == 0 and lib_ver == 1:
-                flip_tangent_sign()
+                # Flip tangent if tangent process is updated to ver 1
+                if name == TANGENT_PROCESS and cur_ver == 0 and lib_ver == 1:
+                    flip_tangent_sign()
 
-            print('INFO: Updating Node group', name, 'to revision', str(lib_ver) + '!')
+                print('INFO: Updating Node group', name, 'to revision', str(lib_ver) + '!')
 
     #print(update_names)
 
