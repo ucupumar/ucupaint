@@ -3438,7 +3438,7 @@ def is_layer_using_vector(layer):
         return True
 
     for ch in layer.channels:
-        if ch.override and ch.override_type != 'VCOL':
+        if ch.override and ch.override_type not in {'VCOL', 'DEFAULT'}:
             return True
 
     return False
