@@ -1389,16 +1389,29 @@ class YFixMissingUV(bpy.types.Operator):
         row.prop_search(self, "target_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
     def execute(self, context):
-        obj = context.object
+        mat = get_active_material()
+        #obj = context.object
+        objs = get_all_objects_with_same_materials(mat)
         node = get_active_ypaint_node()
         group_tree = node.node_tree
         yp = group_tree.yp
 
-        uv_layers = get_uv_layers(obj)
-
-        if self.target_uv_name not in uv_layers:
-            self.report({'ERROR'}, "Target UV name is not found!")
+        if self.target_uv_name == '':
+            self.report({'ERROR'}, "Target UV name is cannot be empty!")
             return {'CANCELLED'}
+
+        for o in objs:
+            uv_layers = get_uv_layers(o)
+
+            #if self.uv_map != '':
+            # Get uv layer
+            uv_layers = get_uv_layers(o)
+            uvl = uv_layers.get(self.target_uv_name)
+
+            # Create one if it didn't exist
+            if not uvl:
+                uvl = uv_layers.new(name=self.target_uv_name)
+            uv_layers.active = uvl
 
         # Check baked images uv
         if yp.baked_uv_name == self.source_uv_name:
@@ -1410,11 +1423,6 @@ class YFixMissingUV(bpy.types.Operator):
             if baked_normal and baked_normal.uv_map == self.source_uv_name:
                 baked_normal.uv_map = self.target_uv_name
 
-        # Check height channel uv
-        height_ch = get_root_height_channel(yp)
-        if height_ch and height_ch.main_uv == self.source_uv_name:
-            height_ch.main_uv = self.target_uv_name
-
         # Check layer and masks uv
         for layer in yp.layers:
             if layer.uv_name == self.source_uv_name:
@@ -1423,6 +1431,12 @@ class YFixMissingUV(bpy.types.Operator):
             for mask in layer.masks:
                 if mask.uv_name == self.source_uv_name:
                     mask.uv_name = self.target_uv_name
+
+        # Check height channel uv
+        height_ch = get_root_height_channel(yp)
+        if height_ch and height_ch.main_uv == self.source_uv_name:
+            height_ch.main_uv = self.target_uv_name
+            height_ch.enable_smooth_bump = height_ch.enable_smooth_bump
 
         return {'FINISHED'}
 
