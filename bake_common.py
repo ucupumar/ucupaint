@@ -130,7 +130,8 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if force_use_cpu:
         scene.cycles.device = 'CPU'
     # Use CUDA bake if Optix is selected
-    elif is_greater_than_281() and bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] == 3:
+    elif (is_greater_than_281() and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences and
+            bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] == 3):
         #scene.cycles.device = 'CPU'
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = 1
 
