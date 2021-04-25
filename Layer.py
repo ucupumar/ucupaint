@@ -329,6 +329,10 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
         if root_ch.type == 'NORMAL':
             ch.normal_map_type = normal_map_type
+            
+            # Background layer has default bump distance of 0.0
+            if layer.type in {'BACKGROUND'}:
+                ch.bump_distance = 0.0
             #ch.bump_distance = bump_distance
             #ch.write_height = write_height
 
