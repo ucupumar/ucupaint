@@ -1267,7 +1267,7 @@ class YMergeLayer(bpy.types.Operator):
         #        and len(layer.masks) != 0 and len(neighbor_layer.masks) == len(layer.masks)):
         #    pass
         else:
-            self.report({'ERROR'}, "This kind of merge is not supported yet (or ever)!")
+            self.report({'ERROR'}, "This kind of merge is not supported yet!")
             return {'CANCELLED'}
 
         return {'FINISHED'}
