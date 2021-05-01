@@ -565,13 +565,15 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         # Create temporary scene
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
 
-        srgb = False
+        # Blender 2.80 has filmic as default color settings, change it to standard
         if is_greater_than_280():
             tmpscene.view_settings.view_transform = 'Standard'
-            if self.file_format in {'PNG'} or not image.is_float:
 
-                image.colorspace_settings.name = 'sRGB'
-                srgb = True
+        # Some image need to set to srgb when saving
+        srgb = False
+        if self.file_format in {'PNG'} or not image.is_float:
+            image.colorspace_settings.name = 'sRGB'
+            srgb = True
 
         # Set settings
         settings = tmpscene.render.image_settings
