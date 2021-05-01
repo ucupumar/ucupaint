@@ -107,11 +107,13 @@
 # - Add option to save all baked images to folder
 # - Add option to merge objects before baking to avoid overlap between uv islands
 # - Merge layers should work on any type of layers (just convert them to standard image)
-# - Support for opening UDIM images
-# - Support for baking to UDIM images (?)
 # - Change link inside group to github insted of patreon
-# - Need ability to edit height channel main uv
 # - Add operator to create new UV map on multiple objects using the same material
+# - Quick setup should use already used inputs to bsdf as inputs for yp node
+# - Need ability to edit height channel main uv
+# - Support for opening UDIM images (?)
+# - Support for baking to UDIM images (?)
+# - Blender 2.80+ should use vertex paint transparency
 # - Add option to bake generated textures to improve performance
 # - Optimize hidden layer, maybe create a trash nodes to collect unused layers (?, Need to investigate the effeciveness more)
 
@@ -164,6 +166,9 @@
 # - Transfer UV does not work
 # - Bake will throw error if there's no unwrapped object using same material (V)
 # - Bake will throw error if there's object using same material with render/view turned off (V)
+# - Changed color after unpack image
+# - Invert image can cause crash
+# - Image atlas should not be unpacked
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas

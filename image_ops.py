@@ -21,6 +21,7 @@ def pack_float_image(image):
         if hasattr(image, 'use_alpha') and image.use_alpha:
             settings.file_format = 'PNG'
             settings.color_depth = '16'
+            #settings.color_mode = 'RGBA'
             settings.compression = 15
             image_name = '_temp_image.png'
         else:
@@ -42,7 +43,7 @@ def pack_float_image(image):
     temp_filepath = os.path.join(tempfile.gettempdir(), image_name)
 
     # Save image
-    image.save_render(temp_filepath, tmpscene)
+    image.save_render(temp_filepath, scene=tmpscene)
     image.source = 'FILE'
     image.filepath = temp_filepath
     if image.file_format == 'PNG':
@@ -458,6 +459,9 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         # Pass context.image to self
         self.image = context.image
 
+        if self.image.yia.is_image_atlas:
+            return self.execute(context)
+
         # Set default color mode 
         if self.file_format in {'BMP', 'JPEG', 'CINEON', 'HDR'}:
             self.color_mode = 'RGB'
@@ -538,14 +542,36 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
     def execute(self, context):
         image = self.image
 
+        if image.yia.is_image_atlas:
+            self.report({'ERROR'}, 'Unpacking image atlas is not supported yet!')
+            return {'CANCELLED'}
+
+        # Need to pack first to save the image
+        if image.is_dirty:
+            if is_greater_than_280():
+                image.pack()
+            else:
+                if image.is_float:
+                    pack_float_image(image)
+                else: image.pack(as_png=True)
+
         # Unpack image if image is packed
         unpack = False
+        #if not is_greater_than_280() and 
         if self.unpack and image.packed_file:
             unpack = True
             self.unpack_image(context)
 
         # Create temporary scene
-        tmpscene = bpy.data.scenes.new('Temp Scene')
+        tmpscene = bpy.data.scenes.new('Temp Save As Scene')
+
+        srgb = False
+        if is_greater_than_280():
+            tmpscene.view_settings.view_transform = 'Standard'
+            if self.file_format in {'PNG'} or not image.is_float:
+
+                image.colorspace_settings.name = 'sRGB'
+                srgb = True
 
         # Set settings
         settings = tmpscene.render.image_settings
@@ -563,6 +589,8 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         settings.use_cineon_log = self.use_cineon_log
         settings.use_zbuffer = self.use_zbuffer
 
+        #print(self.file_format)
+
         # Save image
         image.save_render(self.filepath, scene=tmpscene)
 
@@ -579,6 +607,9 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         # Remove unpacked file
         if unpack:
             self.remove_unpacked_image(context)
+
+        if srgb:
+            image.colorspace_settings.name = 'Linear'
 
         # Delete temporary scene
         bpy.data.scenes.remove(tmpscene)
