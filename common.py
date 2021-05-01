@@ -370,6 +370,12 @@ def is_greater_than_281():
         return True
     else: return False
 
+def is_greater_than_282():
+    ver = bpy.app.version_string[:4]
+    if versiontuple(ver) >= versiontuple('2.82'):
+        return True
+    else: return False
+
 def set_active_object(obj):
     if is_greater_than_280():
         bpy.context.view_layer.objects.active = obj

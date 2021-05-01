@@ -153,6 +153,7 @@ class YInvertImage(bpy.types.Operator):
 
         # Invert image
         #context.image.reload()
+        # For some reason this no longer works since Blender 2.82
         bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
 
         return {'FINISHED'}
