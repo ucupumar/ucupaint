@@ -2868,6 +2868,12 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_disp = StringProperty(default='')
     baked_normal_overlay = StringProperty(default='')
 
+    # Outside baked nodes
+    baked_outside = StringProperty(default='')
+    baked_outside_disp = StringProperty(default='')
+    baked_outside_normal_overlay = StringProperty(default='')
+    baked_outside_normal = StringProperty(default='')
+
     # UI related
     expand_content = BoolProperty(default=False)
     expand_base_vector = BoolProperty(default=True)
@@ -2879,6 +2885,10 @@ class YPaintChannel(bpy.types.PropertyGroup):
     # Connection related
     ori_alpha_to = CollectionProperty(type=YNodeConnections)
     ori_alpha_from = PointerProperty(type=YNodeConnections)
+
+    ori_to = CollectionProperty(type=YNodeConnections)
+    ori_height_to = CollectionProperty(type=YNodeConnections)
+    ori_max_height_to = CollectionProperty(type=YNodeConnections)
 
     ori_normal_to = CollectionProperty(type=YNodeConnections)
 
@@ -2970,6 +2980,13 @@ class YPaint(bpy.types.PropertyGroup):
     # Toggle to use baked results or not
     use_baked = BoolProperty(default=False, update=Bake.update_use_baked)
     baked_uv_name = StringProperty(default='')
+
+    enable_baked_outside = BoolProperty(default=False, update=Bake.update_enable_baked_outside)
+    
+    # Outside nodes
+    baked_outside_uv = StringProperty(default='')
+    baked_outside_frame = StringProperty(default='')
+    baked_outside_x_shift = IntProperty(default=0)
 
     # Flip backface
     enable_backface_always_up = BoolProperty(

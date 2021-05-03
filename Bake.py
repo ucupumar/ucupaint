@@ -1572,6 +1572,211 @@ class YDisableTempImage(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def update_enable_baked_outside(self, context):
+    tree = self.id_data
+    yp = tree.yp
+    node = get_active_ypaint_node()
+    mat = get_active_material()
+
+    mtree = mat.node_tree
+
+    if yp.halt_update: return
+    if not yp.use_baked: return
+
+    chins = {}
+    chouts = {}
+    for ch in yp.channels:
+        # Set default value of linked nodes
+        chins[ch.name] = [node.inputs[ch.name]]
+        chouts[ch.name] = [node.outputs[ch.name]]
+        suffixes = ['Alpha', 'Height', 'Max Height']
+        for s in suffixes:
+            if ch.name + ' ' + s in node.inputs:
+                chins[ch.name].append(node.inputs[ch.name + ' ' + s])
+            if ch.name + ' ' + s in node.outputs:
+                chouts[ch.name].append(node.outputs[ch.name + ' ' + s])
+
+    #print(chouts)
+
+    if yp.enable_baked_outside:
+
+        # Shift nodes to the right
+        shift_nodes = []
+        for n in mtree.nodes:
+            if n.location.x > node.location.x:
+                shift_nodes.append(n)
+                #n.location.x += 600
+
+        frame = mtree.nodes.new('NodeFrame')
+        frame.label = ADDON_TITLE + ' External Shortcuts'
+        yp.baked_outside_frame = frame.name
+
+        loc_x = node.location.x + 180
+        loc_y = node.location.y
+
+        uv = mtree.nodes.new('ShaderNodeUVMap')
+        uv.uv_map = yp.baked_uv_name
+        uv.location.x = loc_x
+        uv.location.y = loc_y
+        uv.parent = frame
+        yp.baked_outside_uv = uv.name
+
+        loc_x += 180
+        max_x = loc_x
+
+        for ch in yp.channels:
+
+            for i, outp in enumerate(chouts[ch.name]):
+                if i == 0:
+                    for l in outp.links:
+                        con = ch.ori_to.add()
+                        con.node = l.to_node.name
+                        con.socket = l.to_socket.name
+                elif outp.name.endswith(' Alpha'):
+                    for l in outp.links:
+                        con = ch.ori_alpha_to.add()
+                        con.node = l.to_node.name
+                        con.socket = l.to_socket.name
+                elif outp.name.endswith(' Height'):
+                    for l in outp.links:
+                        con = ch.ori_height_to.add()
+                        con.node = l.to_node.name
+                        con.socket = l.to_socket.name
+                elif outp.name.endswith(' Max Height'):
+                    for l in outp.links:
+                        con = ch.ori_max_height_to.add()
+                        con.node = l.to_node.name
+                        con.socket = l.to_socket.name
+
+            for inp in chins[ch.name]:
+                for l in node.outputs[ch.name].links:
+                    if l.to_socket.bl_idname == inp.bl_idname:
+                        l.to_socket.default_value = inp.default_value
+                    elif isinstance(l.to_socket.default_value, float) and isinstance(inp.default_value, float):
+                        l.to_socket.default_value = inp.default_value
+                    elif isinstance(l.to_socket.default_value, float):
+                        avg = sum([inp.default_value[i] for i in range(3)])/3
+                        l.to_socket.default_value = avg
+                    elif isinstance(inp.default_value, float):
+                        for i in range(3):
+                            l.to_socket.default_value[i] = inp.default_value
+
+            baked = tree.nodes.get(ch.baked)
+            if baked and baked.image:
+                tex = mtree.nodes.new('ShaderNodeTexImage')
+                tex.image = baked.image
+                tex.location.x = loc_x
+                tex.location.y = loc_y
+                tex.parent = frame
+                ch.baked_outside = tex.name
+
+                mtree.links.new(uv.outputs[0], tex.inputs[0])
+
+                if ch.type == 'NORMAL':
+                    loc_x += 280
+                    norm = mtree.nodes.new('ShaderNodeNormalMap')
+                    norm.uv_map = yp.baked_uv_name
+                    norm.location.x = loc_x
+                    norm.location.y = loc_y
+                    norm.parent = frame
+                    ch.baked_outside_normal = norm.name
+                    max_x = loc_x
+                    loc_x -= 280
+
+                    mtree.links.new(tex.outputs[0], norm.inputs[1])
+
+                    baked_disp = tree.nodes.get(ch.baked_disp)
+                    if baked_disp and baked_disp.image:
+                        loc_y -= 300
+                        tex_disp = mtree.nodes.new('ShaderNodeTexImage')
+                        tex_disp.image = baked_disp.image
+                        tex_disp.location.x = loc_x
+                        tex_disp.location.y = loc_y
+                        tex_disp.parent = frame
+                        ch.baked_outside_disp = tex_disp.name
+                        mtree.links.new(uv.outputs[0], tex_disp.inputs[0])
+
+                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image:
+                        loc_y -= 300
+                        tex_normal_overlay = mtree.nodes.new('ShaderNodeTexImage')
+                        tex_normal_overlay.image = baked_normal_overlay.image
+                        tex_normal_overlay.location.x = loc_x
+                        tex_normal_overlay.location.y = loc_y
+                        tex_normal_overlay.parent = frame
+                        ch.baked_outside_normal_overlay = tex_normal_overlay.name
+                        mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
+
+                    for l in chouts[ch.name][0].links:
+                        mtree.links.new(norm.outputs[0], l.to_socket)
+
+                else:
+                    for l in chouts[ch.name][0].links:
+                        mtree.links.new(tex.outputs[0], l.to_socket)
+
+                loc_y -= 300
+            else:
+                pass
+
+        # Remove links
+        for outp in node.outputs:
+            for l in outp.links:
+                mtree.links.remove(l)
+
+        loc_x = max_x + 100
+        yp.baked_outside_x_shift = loc_x - node.location.x
+
+        for n in shift_nodes:
+            #print(n.name)
+            n.location.x += yp.baked_outside_x_shift
+            #n.location.x += loc_x
+
+    else:
+        baked_outside_frame = mtree.nodes.get(yp.baked_outside_frame)
+
+        for ch in yp.channels:
+
+            for i, outp in enumerate(chouts[ch.name]):
+                if i == 0:
+                    for con in ch.ori_to:
+                        try: mtree.links.new(outp, mtree.nodes[con.node].inputs[con.socket])
+                        except: pass
+                    ch.ori_to.clear()
+                elif outp.name.endswith(' Alpha'):
+                    for con in ch.ori_alpha_to:
+                        try: mtree.links.new(outp, mtree.nodes[con.node].inputs[con.socket])
+                        except: pass
+                    ch.ori_alpha_to.clear()
+                elif outp.name.endswith(' Height'):
+                    for con in ch.ori_height_to:
+                        try: mtree.links.new(outp, mtree.nodes[con.node].inputs[con.socket])
+                        except: pass
+                    ch.ori_height_to.clear()
+                elif outp.name.endswith(' Max Height'):
+                    for con in ch.ori_max_height_to:
+                        try: mtree.links.new(outp, mtree.nodes[con.node].inputs[con.socket])
+                        except: pass
+                    ch.ori_max_height_to.clear()
+
+            # Delete nodes inside frames
+            if baked_outside_frame:
+                
+                remove_node(mtree, ch, 'baked_outside', parent=baked_outside_frame)
+                remove_node(mtree, ch, 'baked_outside_disp', parent=baked_outside_frame)
+                remove_node(mtree, ch, 'baked_outside_normal_overlay', parent=baked_outside_frame)
+                remove_node(mtree, ch, 'baked_outside_normal', parent=baked_outside_frame)
+
+        if baked_outside_frame:
+            remove_node(mtree, yp, 'baked_outside_uv', parent=baked_outside_frame)
+            remove_node(mtree, yp, 'baked_outside_frame')
+
+        # Shift back nodes location
+        for n in mtree.nodes:
+            if n.location.x > node.location.x:
+                n.location.x -= yp.baked_outside_x_shift
+
+    #print("howowowo")
+
 def update_use_baked(self, context):
     tree = self.id_data
     yp = tree.yp

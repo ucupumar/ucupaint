@@ -846,7 +846,7 @@ def simple_remove_node(tree, node, remove_data=True):
 
     tree.nodes.remove(node)
 
-def remove_node(tree, entity, prop, remove_data=True, obj=None):
+def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
     if not hasattr(entity, prop): return
     #if prop not in entity: return
 
@@ -855,6 +855,11 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None):
     #node = tree.nodes.get(entity[prop])
 
     if node: 
+
+        if parent and node.parent != parent:
+            setattr(entity, prop, '')
+            return
+
         if remove_data:
             # Remove image data if the node is the only user
             if node.bl_idname == 'ShaderNodeTexImage':

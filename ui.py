@@ -2548,6 +2548,7 @@ def main_draw(self, context):
 
     if baked_found or yp.use_baked:
         row.prop(yp, 'use_baked', toggle=True, text='Use Baked')
+        row.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
 
     if ypui.show_layers :
         draw_layers_ui(context, layout, node) #, custom_icon_enable)
