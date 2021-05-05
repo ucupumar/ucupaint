@@ -2872,7 +2872,9 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_outside = StringProperty(default='')
     baked_outside_disp = StringProperty(default='')
     baked_outside_normal_overlay = StringProperty(default='')
-    baked_outside_normal = StringProperty(default='')
+
+    baked_outside_disp_process = StringProperty(default='')
+    baked_outside_normal_process = StringProperty(default='')
 
     # UI related
     expand_content = BoolProperty(default=False)

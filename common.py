@@ -3454,6 +3454,14 @@ def is_layer_using_vector(layer):
 
     return False
 
+def get_node(tree, name, parent=None):
+    node = tree.nodes.get(name)
+
+    if node and parent and node.parent != parent:
+        return None
+
+    return node
+
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1

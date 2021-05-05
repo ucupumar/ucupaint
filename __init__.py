@@ -166,9 +166,10 @@
 # - Transfer UV does not work
 # - Bake will throw error if there's no unwrapped object using same material (V)
 # - Bake will throw error if there's object using same material with render/view turned off (V)
-# - Changed color after unpack image
-# - Invert image can cause crash
-# - Image atlas should not be unpacked
+# - Changed color after unpack image (V)
+# - Invert image can cause crash (~, Cannot fix, actual blender bug)
+# - Image atlas should not be unpacked (~)
+# - Bake multires without multires will cause error
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas

@@ -718,7 +718,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 brow = bcol.row(align=True)
                 #brow.active = channel.enable_parallax and (
                 #        not yp.use_baked or not channel.enable_subdiv_setup or channel.subdiv_adaptive)
-                brow.active = not yp.use_baked or not channel.enable_subdiv_setup or channel.subdiv_adaptive
+                brow.active = not yp.use_baked or ((not channel.enable_subdiv_setup or channel.subdiv_adaptive) and not yp.enable_baked_outside)
 
                 #if custom_icon_enable:
                 if chui.expand_parallax_settings:
