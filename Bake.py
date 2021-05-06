@@ -1698,6 +1698,27 @@ def update_enable_baked_outside(self, context):
 
                     mtree.links.new(tex.outputs[0], norm.inputs[1])
 
+                    baked_normal_overlay = None
+                    if not is_overlay_normal_empty(yp):
+                        baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                        if baked_normal_overlay and baked_normal_overlay.image:
+                            loc_y -= 300
+                            tex_normal_overlay = check_new_node(mtree, ch, 'baked_outside_normal_overlay', 'ShaderNodeTexImage')
+                            tex_normal_overlay.image = baked_normal_overlay.image
+                            tex_normal_overlay.location.x = loc_x
+                            tex_normal_overlay.location.y = loc_y
+                            tex_normal_overlay.parent = frame
+                            mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
+
+                            if ch.enable_subdiv_setup and not ch.subdiv_adaptive:
+                                mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
+
+                    #if not ch.subdiv_adaptive:
+                    #if not ch.no_layer_using:
+                    if not ch.enable_subdiv_setup or baked_normal_overlay:
+                        for l in outp.links:
+                            mtree.links.new(norm.outputs[0], l.to_socket)
+
                     baked_disp = tree.nodes.get(ch.baked_disp)
                     if baked_disp and baked_disp.image:
                         loc_y -= 300
@@ -1732,27 +1753,6 @@ def update_enable_baked_outside(self, context):
                         output_mat = [n for n in mtree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
                         if output_mat and ch.enable_subdiv_setup and ch.subdiv_adaptive:
                             mtree.links.new(disp.outputs[0], output_mat[0].inputs['Displacement'])
-
-                    baked_normal_overlay = None
-                    if not is_overlay_normal_empty(yp):
-                        baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                        if baked_normal_overlay and baked_normal_overlay.image:
-                            loc_y -= 300
-                            tex_normal_overlay = check_new_node(mtree, ch, 'baked_outside_normal_overlay', 'ShaderNodeTexImage')
-                            tex_normal_overlay.image = baked_normal_overlay.image
-                            tex_normal_overlay.location.x = loc_x
-                            tex_normal_overlay.location.y = loc_y
-                            tex_normal_overlay.parent = frame
-                            mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
-
-                            if ch.enable_subdiv_setup and not ch.subdiv_adaptive:
-                                mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
-
-                    #if not ch.subdiv_adaptive:
-                    #if not ch.no_layer_using:
-                    if not ch.enable_subdiv_setup or baked_normal_overlay:
-                        for l in outp.links:
-                            mtree.links.new(norm.outputs[0], l.to_socket)
 
                 loc_y -= 300
 
@@ -1934,7 +1934,7 @@ def get_adaptive_displacement_node(mat, node, set_one=False):
     if set_one and not disp:
         if is_greater_than_280():
             #mat.cycles.displacement_method = 'BOTH'
-            mat.cycles.displacement_method = 'DISPLACEMENT'
+            #mat.cycles.displacement_method = 'DISPLACEMENT'
 
             disp = mat.node_tree.nodes.new('ShaderNodeDisplacement')
             disp.location.x = node.location.x #+ 200
@@ -1955,7 +1955,7 @@ def get_adaptive_displacement_node(mat, node, set_one=False):
 
             # Set displacement mode
             #mat.cycles.displacement_method = 'BOTH'
-            mat.cycles.displacement_method = 'TRUE'
+            #mat.cycles.displacement_method = 'TRUE'
 
             #disp = mat.node_tree.nodes.new('ShaderNodeMath')
             #disp.operation = 'MULTIPLY'
@@ -2026,14 +2026,20 @@ def check_subdiv_setup(height_ch):
             height_ch.ori_normal_to.clear()
 
     # Adaptive subdiv
-    if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive and not yp.enable_baked_outside:
+    if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive: #and not yp.enable_baked_outside:
 
         # Adaptive subdivision only works for experimental feature set for now
         scene.cycles.feature_set = 'EXPERIMENTAL'
         scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
         scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
 
-        set_adaptive_displacement_node(mat, node)
+        # Set displacement mode
+        if is_greater_than_280():
+            mat.cycles.displacement_method = 'DISPLACEMENT'
+        else: mat.cycles.displacement_method = 'TRUE'
+
+        if not yp.enable_baked_outside:
+            set_adaptive_displacement_node(mat, node)
 
     else:
         disp = get_adaptive_displacement_node(mat, node)
