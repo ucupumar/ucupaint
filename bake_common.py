@@ -669,53 +669,57 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         if not target_layer:
 
             ### Normal overlay only
-            baked_normal_overlay = tree.nodes.get(root_ch.baked_normal_overlay)
-            if not baked_normal_overlay:
-                baked_normal_overlay = new_node(tree, root_ch, 'baked_normal_overlay', 'ShaderNodeTexImage', 
-                        'Baked ' + root_ch.name + ' Overlay Only')
-                if hasattr(baked_normal_overlay, 'color_space'):
-                    baked_normal_overlay.color_space = 'NONE'
-
-            if baked_normal_overlay.image:
-                norm_img_name = baked_normal_overlay.image.name
-                filepath = baked_normal_overlay.image.filepath
-                baked_normal_overlay.image.name = '____NORM_TEMP'
+            if is_overlay_normal_empty(yp):
+                # Remove baked_normal_overlay
+                remove_node(tree, root_ch, 'baked_normal_overlay')
             else:
-                norm_img_name = tree.name + ' ' + root_ch.name + ' Overlay Only'
 
-            # Create target image
-            norm_img = bpy.data.images.new(name=norm_img_name, width=width, height=height) 
-            norm_img.generated_color = (0.5, 0.5, 1.0, 1.0)
-            norm_img.colorspace_settings.name = 'Linear'
+                baked_normal_overlay = tree.nodes.get(root_ch.baked_normal_overlay)
+                if not baked_normal_overlay:
+                    baked_normal_overlay = new_node(tree, root_ch, 'baked_normal_overlay', 'ShaderNodeTexImage', 
+                            'Baked ' + root_ch.name + ' Overlay Only')
+                    if hasattr(baked_normal_overlay, 'color_space'):
+                        baked_normal_overlay.color_space = 'NONE'
 
-            tex.image = norm_img
+                if baked_normal_overlay.image:
+                    norm_img_name = baked_normal_overlay.image.name
+                    filepath = baked_normal_overlay.image.filepath
+                    baked_normal_overlay.image.name = '____NORM_TEMP'
+                else:
+                    norm_img_name = tree.name + ' ' + root_ch.name + ' Overlay Only'
+                # Create target image
+                norm_img = bpy.data.images.new(name=norm_img_name, width=width, height=height) 
+                norm_img.generated_color = (0.5, 0.5, 1.0, 1.0)
+                norm_img.colorspace_settings.name = 'Linear'
 
-            # Bake setup (doing little bit doing hacky reconnection here)
-            end = tree.nodes.get(TREE_END)
-            ori_soc = end.inputs[root_ch.name].links[0].from_socket
-            end_linear = tree.nodes.get(root_ch.end_linear)
-            soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
-            create_link(tree, soc, end.inputs[root_ch.name])
-            #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
+                tex.image = norm_img
 
-            # Bake
-            print('BAKE CHANNEL: Baking normal overlay image of ' + root_ch.name + ' channel...')
-            bpy.ops.object.bake()
+                # Bake setup (doing little bit doing hacky reconnection here)
+                end = tree.nodes.get(TREE_END)
+                ori_soc = end.inputs[root_ch.name].links[0].from_socket
+                end_linear = tree.nodes.get(root_ch.end_linear)
+                soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
+                create_link(tree, soc, end.inputs[root_ch.name])
+                #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
 
-            #return
+                # Bake
+                print('BAKE CHANNEL: Baking normal overlay image of ' + root_ch.name + ' channel...')
+                bpy.ops.object.bake()
 
-            # Recover connection
-            create_link(tree, ori_soc, end.inputs[root_ch.name])
+                #return
 
-            # Set baked normal overlay image
-            if baked_normal_overlay.image:
-                temp = baked_normal_overlay.image
-                img_users = get_all_image_users(baked_normal_overlay.image)
-                for user in img_users:
-                    user.image = norm_img
-                bpy.data.images.remove(temp)
-            else:
-                baked_normal_overlay.image = norm_img
+                # Recover connection
+                create_link(tree, ori_soc, end.inputs[root_ch.name])
+
+                # Set baked normal overlay image
+                if baked_normal_overlay.image:
+                    temp = baked_normal_overlay.image
+                    img_users = get_all_image_users(baked_normal_overlay.image)
+                    for user in img_users:
+                        user.image = norm_img
+                    bpy.data.images.remove(temp)
+                else:
+                    baked_normal_overlay.image = norm_img
 
             ### Displacement
 

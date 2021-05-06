@@ -1666,7 +1666,7 @@ def update_enable_baked_outside(self, context):
                     con.socket = l.to_socket.name
 
             baked = tree.nodes.get(ch.baked)
-            if baked and baked.image:
+            if baked and baked.image and not ch.no_layer_using:
                 tex = check_new_node(mtree, ch, 'baked_outside', 'ShaderNodeTexImage')
                 tex.image = baked.image
                 tex.location.x = loc_x
@@ -1681,6 +1681,7 @@ def update_enable_baked_outside(self, context):
 
                 if ch.type != 'NORMAL':
 
+                    #if not ch.no_layer_using:
                     for l in outp.links:
                         mtree.links.new(tex.outputs[0], l.to_socket)
 
@@ -1732,22 +1733,26 @@ def update_enable_baked_outside(self, context):
                         if output_mat and ch.enable_subdiv_setup and ch.subdiv_adaptive:
                             mtree.links.new(disp.outputs[0], output_mat[0].inputs['Displacement'])
 
-                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image:
-                        loc_y -= 300
-                        tex_normal_overlay = check_new_node(mtree, ch, 'baked_outside_normal_overlay', 'ShaderNodeTexImage')
-                        tex_normal_overlay.image = baked_normal_overlay.image
-                        tex_normal_overlay.location.x = loc_x
-                        tex_normal_overlay.location.y = loc_y
-                        tex_normal_overlay.parent = frame
-                        mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
+                    baked_normal_overlay = None
+                    if not is_overlay_normal_empty(yp):
+                        baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                        if baked_normal_overlay and baked_normal_overlay.image:
+                            loc_y -= 300
+                            tex_normal_overlay = check_new_node(mtree, ch, 'baked_outside_normal_overlay', 'ShaderNodeTexImage')
+                            tex_normal_overlay.image = baked_normal_overlay.image
+                            tex_normal_overlay.location.x = loc_x
+                            tex_normal_overlay.location.y = loc_y
+                            tex_normal_overlay.parent = frame
+                            mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
 
-                        if ch.enable_subdiv_setup and not ch.subdiv_adaptive:
-                            mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
+                            if ch.enable_subdiv_setup and not ch.subdiv_adaptive:
+                                mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
 
                     #if not ch.subdiv_adaptive:
-                    for l in outp.links:
-                        mtree.links.new(norm.outputs[0], l.to_socket)
+                    #if not ch.no_layer_using:
+                    if not ch.enable_subdiv_setup or baked_normal_overlay:
+                        for l in outp.links:
+                            mtree.links.new(norm.outputs[0], l.to_socket)
 
                 loc_y -= 300
 
@@ -2063,6 +2068,17 @@ def check_subdiv_setup(height_ch):
         else:
             if baked_outside and norm:
                 create_link(mtree, baked_outside.outputs[0], norm.inputs[1])
+        
+        if norm and not baked_outside_normal_overlay and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
+            for l in norm.outputs[0].links:
+                mtree.links.remove(l)
+        elif norm:
+            for con in height_ch.ori_to:
+                n = mtree.nodes.get(con.node)
+                if n:
+                    s = n.inputs.get(con.socket)
+                    if s:
+                        create_link(mtree, norm.outputs[0], s)
 
     # Remember active object
     ori_active_obj = bpy.context.object

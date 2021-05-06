@@ -2010,12 +2010,12 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
                 #row.label(text='Baked Image (' + root_ch.name + '):')
                 row = col.row(align=True)
-                row.active = not root_ch.disable_global_baked
+                row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
                 row.label(text='', icon='BLANK1')
                 if baked.image.is_dirty:
                     label = baked.image.name + ' *'
                 else: label = baked.image.name
-                if root_ch.disable_global_baked:
+                if root_ch.disable_global_baked and not yp.enable_baked_outside:
                     label += ' (Disabled)'
                 row.label(text=label, icon_value=lib.get_icon('image'))
 
@@ -3248,22 +3248,27 @@ class YBakedImageMenu(bpy.types.Menu):
     def draw(self, context):
         col = self.layout.column()
 
-        #node = get_active_ypaint_node()
-        #yp = node.node_tree.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
         #try:
         #    root_ch = yp.channels[yp.active_channel_index]
-        col.prop(context.root_ch, 'disable_global_baked', text='Disable Baked Image(s)', icon='RESTRICT_RENDER_ON')
+        row = col.row()
+        row.active = not yp.enable_baked_outside
+        row.prop(context.root_ch, 'disable_global_baked', text='Disable Baked Image(s)', icon='RESTRICT_RENDER_ON')
         col.separator()
         #except Exception as e: 
         #    print(e)
 
-        #col.label('Ya dun sai')
         col.operator('node.y_pack_image', icon='PACKAGE')
         col.operator('node.y_save_image', icon='FILE_TICK')
 
         if context.image.packed_file:
             col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
         else: col.operator('node.y_save_as_image', text='Save As Image')
+
+        col.separator()
+
+        col.operator('node.y_save_all_baked_images', text='Save All Baked Images to..', icon='FILEBROWSER')
 
 class YLayerListSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_list_special_menu"

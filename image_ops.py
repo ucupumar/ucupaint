@@ -287,6 +287,79 @@ def update_save_as_file_format(self, context):
     if self.is_float and self.file_format in {'PNG', 'JPEG2000'}:
         self.color_depth = '16'
 
+class YSaveAllBakedImages(bpy.types.Operator):
+    """Save All Baked Images to directory"""
+    bl_idname = "node.y_save_all_baked_images"
+    bl_label = "Save All Baked Images"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    # Define this to tell 'fileselect_add' that we want a directoy
+    directory = bpy.props.StringProperty(
+        name="Outdir Path",
+        description="Where I will save my stuff"
+        # subtype='DIR_PATH' is not needed to specify the selection mode.
+        # But this will be anyway a directory path.
+        )
+
+    def invoke(self, context, event):
+        # Open browser, take reference to 'self' read the path to selected
+        # file, put path in predetermined self fields.
+        # See: https://docs.blender.org/api/current/bpy.types.WindowManager.html#bpy.types.WindowManager.fileselect_add
+        context.window_manager.fileselect_add(self)
+        # Tells Blender to hang on for the slow user input
+        return {'RUNNING_MODAL'}
+
+    def execute(self, context):
+
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        tmpscene = bpy.data.scenes.new('Temp Save As Scene')
+
+        # Blender 2.80 has filmic as default color settings, change it to standard
+        if is_greater_than_280():
+            tmpscene.view_settings.view_transform = 'Standard'
+
+
+        images = []
+
+        height_root_ch = get_root_height_channel(yp)
+
+        for ch in yp.channels:
+            if ch.no_layer_using: continue
+
+            baked = tree.nodes.get(ch.baked)
+            if baked and baked.image:
+                images.append(baked.image)
+
+            if ch == height_root_ch:
+
+                baked_disp = tree.nodes.get(ch.baked_disp)
+                if baked_disp and baked_disp.image:
+                    images.append(baked_disp.image)
+
+                if not is_overlay_normal_empty(yp):
+                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image:
+                        images.append(baked_normal_overlay.image)
+
+        for image in images:
+            if image.filepath == '':
+                filename = image.name + '.png'
+            else:
+                filename = bpy.path.basename(image.filepath)
+            path = os.path.join(self.directory, filename)
+            image.save_render(path, scene=tmpscene)
+            print(path)
+
+        # Delete temporary scene
+        bpy.data.scenes.remove(tmpscene)
+
+        #print("Selected dir: '" + self.directory + "'")
+
+        return {'FINISHED'}
+
 class YSaveAsImage(bpy.types.Operator, ExportHelper):
     """Save As Image"""
     bl_idname = "node.y_save_as_image"
@@ -646,6 +719,7 @@ def register():
     bpy.utils.register_class(YSaveImage)
     bpy.utils.register_class(YSaveAsImage)
     bpy.utils.register_class(YSavePackAll)
+    bpy.utils.register_class(YSaveAllBakedImages)
 
 def unregister():
     bpy.utils.unregister_class(YInvertImage)
@@ -654,3 +728,4 @@ def unregister():
     bpy.utils.unregister_class(YSaveImage)
     bpy.utils.unregister_class(YSaveAsImage)
     bpy.utils.unregister_class(YSavePackAll)
+    bpy.utils.unregister_class(YSaveAllBakedImages)

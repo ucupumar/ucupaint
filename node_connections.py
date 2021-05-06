@@ -1266,9 +1266,20 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     rgb = baked_normal_overlay.outputs[0]
                     create_link(tree, baked_uv_map, baked_normal_overlay.inputs[0])
 
+                # Sometimes there's no baked normal overlay, so empty up the rgb so it will use original normal
+                if not baked_normal_overlay and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
+                    rgb = None
+
                 baked_normal_prep = nodes.get(ch.baked_normal_prep)
                 if baked_normal_prep:
-                    rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
+                    if rgb:
+                        rgb = create_link(tree, rgb, baked_normal_prep.inputs[0])[0]
+                    else:
+                        rgb = baked_normal_prep.outputs[0]
+                        break_input_link(tree, baked_normal_prep.inputs[0])
+
+                    #HACK: Some earlier nodes have wrong default colot input
+                    baked_normal_prep.inputs[0].default_value = (0.5, 0.5, 1.0, 1.0)
 
                 baked_normal = nodes.get(ch.baked_normal)
                 if baked_normal:

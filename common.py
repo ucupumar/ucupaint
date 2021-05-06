@@ -3462,6 +3462,16 @@ def get_node(tree, name, parent=None):
 
     return node
 
+def is_overlay_normal_empty(yp):
+
+    for l in yp.layers:
+        c = get_height_channel(l)
+        if not l.enable or not c.enable: continue
+        if c.normal_map_type == 'NORMAL_MAP' or (c.normal_map_type == 'BUMP_MAP' and not c.write_height):
+            return False
+
+    return True
+
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1
