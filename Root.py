@@ -1716,138 +1716,141 @@ class YRemoveYPaintNode(bpy.types.Operator):
             self.report({'ERROR'}, "'Use Baked' need to be enabled!")
             return {'CANCELLED'}
 
-        loc_x = group_node.location.x
-        loc_y = group_node.location.y
+        if not yp.enable_baked_outside:
+            yp.enable_baked_outside = True
 
-        uvm = mat.node_tree.nodes.new('ShaderNodeUVMap')
-        uvm.uv_map = yp.baked_uv_name
+        #loc_x = group_node.location.x
+        #loc_y = group_node.location.y
 
-        loc_x -= 480
+        #uvm = mat.node_tree.nodes.new('ShaderNodeUVMap')
+        #uvm.uv_map = yp.baked_uv_name
 
-        uvm.location = (loc_x, loc_y)
-        #loc_y -= 150
-        loc_x += 200
+        #loc_x -= 480
 
-        for i, ch in enumerate(yp.channels):
-            outs = [o for o in group_node.outputs if o.name.startswith(ch.name)]
-            if not outs: continue
-            outp = outs[0]
-            to_sockets = [link.to_socket for link in outp.links]
+        #uvm.location = (loc_x, loc_y)
+        ##loc_y -= 150
+        #loc_x += 200
 
-            baked = tree.nodes.get(ch.baked)
-            if baked:
+        #for i, ch in enumerate(yp.channels):
+        #    outs = [o for o in group_node.outputs if o.name.startswith(ch.name)]
+        #    if not outs: continue
+        #    outp = outs[0]
+        #    to_sockets = [link.to_socket for link in outp.links]
 
-                norm = None
-                tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-                tex.image = baked.image
+        #    baked = tree.nodes.get(ch.baked)
+        #    if baked:
 
-                tex.location = (loc_x, loc_y)
+        #        norm = None
+        #        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        #        tex.image = baked.image
 
-                mat.node_tree.links.new(uvm.outputs[0], tex.inputs[0])
+        #        tex.location = (loc_x, loc_y)
 
-                if ch.type != 'NORMAL':
-                    for tos in to_sockets:
-                        mat.node_tree.links.new(tex.outputs[0], tos)
-                else:
-                    norm = mat.node_tree.nodes.new('ShaderNodeNormalMap')
-                    norm.uv_map = yp.baked_uv_name
+        #        mat.node_tree.links.new(uvm.outputs[0], tex.inputs[0])
 
-                    loc_x += 280
-                    norm.location = (loc_x, loc_y)
-                    loc_x -= 280
+        #        if ch.type != 'NORMAL':
+        #            for tos in to_sockets:
+        #                mat.node_tree.links.new(tex.outputs[0], tos)
+        #        else:
+        #            norm = mat.node_tree.nodes.new('ShaderNodeNormalMap')
+        #            norm.uv_map = yp.baked_uv_name
 
-                    mat.node_tree.links.new(tex.outputs[0], norm.inputs[1])
-                    for tos in to_sockets:
-                        mat.node_tree.links.new(norm.outputs[0], tos)
+        #            loc_x += 280
+        #            norm.location = (loc_x, loc_y)
+        #            loc_x -= 280
 
-                    if ch.enable_subdiv_setup and not ch.subdiv_adaptive:
-                        baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                        if baked_normal_overlay:
-                            tex.image = baked_normal_overlay.image
+        #            mat.node_tree.links.new(tex.outputs[0], norm.inputs[1])
+        #            for tos in to_sockets:
+        #                mat.node_tree.links.new(norm.outputs[0], tos)
 
-                        # Check if overlay normal is actually empty
-                        empty = True
-                        for l in yp.layers:
-                            c = l.channels[i]
-                            if not l.enable or not c.enable: continue
-                            if c.normal_map_type == 'NORMAL_MAP' or (c.normal_map_type == 'BUMP_MAP' and not c.write_height):
-                                empty = False
-                                break
+        #            if ch.enable_subdiv_setup and not ch.subdiv_adaptive:
+        #                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+        #                if baked_normal_overlay:
+        #                    tex.image = baked_normal_overlay.image
 
-                        # Remove normal overlay if the content is actually empty
-                        if empty:
-                            mat.node_tree.nodes.remove(norm)
-                            mat.node_tree.nodes.remove(tex)
-                            loc_y += 300
+        #                # Check if overlay normal is actually empty
+        #                empty = True
+        #                for l in yp.layers:
+        #                    c = l.channels[i]
+        #                    if not l.enable or not c.enable: continue
+        #                    if c.normal_map_type == 'NORMAL_MAP' or (c.normal_map_type == 'BUMP_MAP' and not c.write_height):
+        #                        empty = False
+        #                        break
 
-                loc_y -= 300
+        #                # Remove normal overlay if the content is actually empty
+        #                if empty:
+        #                    mat.node_tree.nodes.remove(norm)
+        #                    mat.node_tree.nodes.remove(tex)
+        #                    loc_y += 300
 
-                if ch.type == 'NORMAL' and ch.enable_subdiv_setup and ch.subdiv_adaptive:
+        #        loc_y -= 300
 
-                    baked_disp = tree.nodes.get(ch.baked_disp)
-                    if baked_disp:
-                        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-                        tex.image = baked_disp.image
-                        mat.node_tree.links.new(uvm.outputs[0], tex.inputs[0])
+        #        if ch.type == 'NORMAL' and ch.enable_subdiv_setup and ch.subdiv_adaptive:
 
-                        tex.location = (loc_x, loc_y)
+        #            baked_disp = tree.nodes.get(ch.baked_disp)
+        #            if baked_disp:
+        #                tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        #                tex.image = baked_disp.image
+        #                mat.node_tree.links.new(uvm.outputs[0], tex.inputs[0])
 
-                        outp = outs[1]
-                        to_sockets = [link.to_socket for link in outp.links]
-                        to_nodes = [link.to_node for link in outp.links]
+        #                tex.location = (loc_x, loc_y)
 
-                        for tos in to_sockets:
-                            mat.node_tree.links.new(tex.outputs[0], tos)
+        #                outp = outs[1]
+        #                to_sockets = [link.to_socket for link in outp.links]
+        #                to_nodes = [link.to_node for link in outp.links]
 
-                        # Trying to get displacement node
-                        disp = None
-                        if to_nodes and to_nodes[0].type == 'DISPLACEMENT':
-                            disp = to_nodes[0]
+        #                for tos in to_sockets:
+        #                    mat.node_tree.links.new(tex.outputs[0], tos)
 
-                        if not disp:
-                            disp = mat.node_tree.nodes.new('ShaderNodeDisplacement')
+        #                # Trying to get displacement node
+        #                disp = None
+        #                if to_nodes and to_nodes[0].type == 'DISPLACEMENT':
+        #                    disp = to_nodes[0]
 
-                        # Set max height
-                        end_max_height = tree.nodes.get(ch.end_max_height)
-                        end_max_height_tweak = tree.nodes.get(ch.end_max_height_tweak)
+        #                if not disp:
+        #                    disp = mat.node_tree.nodes.new('ShaderNodeDisplacement')
 
-                        if end_max_height:
-                            max_height = end_max_height.outputs[0].default_value
-                            if end_max_height_tweak:
-                                max_height *= end_max_height_tweak.inputs[1].default_value
-                            disp.inputs['Scale'].default_value = max_height
+        #                # Set max height
+        #                end_max_height = tree.nodes.get(ch.end_max_height)
+        #                end_max_height_tweak = tree.nodes.get(ch.end_max_height_tweak)
 
-                        loc_x += 280
-                        disp.location = (loc_x, loc_y)
-                        loc_x -= 280
+        #                if end_max_height:
+        #                    max_height = end_max_height.outputs[0].default_value
+        #                    if end_max_height_tweak:
+        #                        max_height *= end_max_height_tweak.inputs[1].default_value
+        #                    disp.inputs['Scale'].default_value = max_height
 
-                        if len(disp.inputs[0].links) == 0:
-                            mat.node_tree.links.new(tex.outputs[0], disp.inputs[0])
+        #                loc_x += 280
+        #                disp.location = (loc_x, loc_y)
+        #                loc_x -= 280
 
-                        loc_y -= 300
-                        
-                    #baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                    #if baked_normal_overlay:
-                    #    tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-                    #    tex.image = baked_normal_overlay.image
-                    #    mat.node_tree.links.new(uvm.outputs[0], tex.inputs[0])
+        #                if len(disp.inputs[0].links) == 0:
+        #                    mat.node_tree.links.new(tex.outputs[0], disp.inputs[0])
 
-                    #    tex.location = (loc_x, loc_y)
+        #                loc_y -= 300
+        #                
+        #            #baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+        #            #if baked_normal_overlay:
+        #            #    tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        #            #    tex.image = baked_normal_overlay.image
+        #            #    mat.node_tree.links.new(uvm.outputs[0], tex.inputs[0])
 
-                    #    outp = outs[2]
-                    #    to_sockets = [link.to_socket for link in outp.links]
+        #            #    tex.location = (loc_x, loc_y)
 
-                    #    loc_y -= 300
+        #            #    outp = outs[2]
+        #            #    to_sockets = [link.to_socket for link in outp.links]
 
-                    #    if norm and ch.enable_subdiv_setup and not ch.subdiv_adaptive:
-                    #        mat.node_tree.links.new(tex.outputs[0], norm.inputs[1])
+        #            #    loc_y -= 300
 
-            else:
-                for tos in to_sockets:
-                    for l in tos.links:
-                        mat.node_tree.links.remove(l)
-                    if ch.type != 'NORMAL':
-                        tos.default_value = group_node.inputs[i].default_value
+        #            #    if norm and ch.enable_subdiv_setup and not ch.subdiv_adaptive:
+        #            #        mat.node_tree.links.new(tex.outputs[0], norm.inputs[1])
+
+        #    else:
+        #        for tos in to_sockets:
+        #            for l in tos.links:
+        #                mat.node_tree.links.remove(l)
+        #            if ch.type != 'NORMAL':
+        #                tos.default_value = group_node.inputs[i].default_value
 
         # Bye bye yp node
         #mat.node_tree.nodes.remove(group_node)
