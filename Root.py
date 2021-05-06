@@ -2470,6 +2470,10 @@ def update_channel_alpha(self, context):
     inputs = group_tree.inputs
     outputs = group_tree.outputs
 
+    # Baked outside nodes
+    frame = get_node(mat.node_tree, yp.baked_outside_frame)
+    tex = get_node(mat.node_tree, self.baked_outside, parent=frame)
+
     # Check any alpha channels
     alpha_chs = []
     for ch in yp.channels:
@@ -2488,7 +2492,11 @@ def update_channel_alpha(self, context):
 
         node = get_active_ypaint_node()
         inp = node.inputs[self.io_index+1]
-        outp = node.outputs[self.io_index+1]
+
+        if yp.use_baked and yp.enable_baked_outside and tex:
+            outp = tex.outputs[1]
+        else:
+            outp = node.outputs[self.io_index+1]
 
         # Remember the connections
         if len(inp.links) > 0:
@@ -2498,6 +2506,11 @@ def update_channel_alpha(self, context):
             con = self.ori_alpha_to.add()
             con.node = link.to_node.name
             con.socket = link.to_socket.name
+
+        # Remove connection for baked outside
+        if yp.use_baked and yp.enable_baked_outside and tex:
+            for l in outp.links:
+                mat.node_tree.links.remove(link)
 
     # Update channel io
     check_all_channel_ios(yp)
@@ -2533,7 +2546,10 @@ def update_channel_alpha(self, context):
                 node_to = tree.nodes.get(con.node)
                 socket_to = node_to.inputs[con.socket]
                 if len(socket_to.links) < 1:
-                    tree.links.new(node.outputs[alpha_name], socket_to)
+                    if yp.use_baked and yp.enable_baked_outside and tex:
+                        mat.node_tree.links.new(tex.outputs[1], socket_to)
+                    else:
+                        tree.links.new(node.outputs[alpha_name], socket_to)
             except: pass
 
         # Reset memory

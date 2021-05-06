@@ -1592,6 +1592,7 @@ def update_enable_baked_outside(self, context):
     yp = tree.yp
     node = get_active_ypaint_node()
     mat = get_active_material()
+    scene = context.scene
 
     mtree = mat.node_tree
 
@@ -1611,21 +1612,25 @@ def update_enable_baked_outside(self, context):
                 shift_nodes.append(n)
                 #n.location.x += 600
 
-        frame = mtree.nodes.new('NodeFrame')
-        #frame.label = ADDON_TITLE + ' Baked Textures'
-        frame.label = node.name + 'Baked Textures'
-        frame.name = node.name + 'Baked Textures'
-        yp.baked_outside_frame = frame.name
+        # Baked outside nodes should be contained inside of frame
+        frame = mtree.nodes.get(yp.baked_outside_frame)
+        if not frame:
+            frame = mtree.nodes.new('NodeFrame')
+            #frame.label = ADDON_TITLE + ' Baked Textures'
+            frame.label = node.name + 'Baked Textures'
+            frame.name = node.name + 'Baked Textures'
+            yp.baked_outside_frame = frame.name
 
         loc_x = node.location.x + 180
         loc_y = node.location.y
 
-        uv = mtree.nodes.new('ShaderNodeUVMap')
+        uv = check_new_node(mtree, yp, 'baked_outside_uv', 'ShaderNodeUVMap')
+        #uv = mtree.nodes.new('ShaderNodeUVMap')
         uv.uv_map = yp.baked_uv_name
         uv.location.x = loc_x
         uv.location.y = loc_y
         uv.parent = frame
-        yp.baked_outside_uv = uv.name
+        #yp.baked_outside_uv = uv.name
 
         loc_x += 180
         max_x = loc_x
@@ -1662,27 +1667,31 @@ def update_enable_baked_outside(self, context):
 
             baked = tree.nodes.get(ch.baked)
             if baked and baked.image:
-                tex = mtree.nodes.new('ShaderNodeTexImage')
+                tex = check_new_node(mtree, ch, 'baked_outside', 'ShaderNodeTexImage')
                 tex.image = baked.image
                 tex.location.x = loc_x
                 tex.location.y = loc_y
                 tex.parent = frame
-                ch.baked_outside = tex.name
 
                 mtree.links.new(uv.outputs[0], tex.inputs[0])
 
+                if outp_alpha:
+                    for l in outp_alpha.links:
+                        mtree.links.new(tex.outputs[1], l.to_socket)
+
                 if ch.type != 'NORMAL':
+
                     for l in outp.links:
                         mtree.links.new(tex.outputs[0], l.to_socket)
+
                 else:
 
                     loc_x += 280
-                    norm = mtree.nodes.new('ShaderNodeNormalMap')
+                    norm = check_new_node(mtree, ch, 'baked_outside_normal_process', 'ShaderNodeNormalMap')
                     norm.uv_map = yp.baked_uv_name
                     norm.location.x = loc_x
                     norm.location.y = loc_y
                     norm.parent = frame
-                    ch.baked_outside_normal_process = norm.name
                     max_x = loc_x
                     loc_x -= 280
 
@@ -1691,21 +1700,23 @@ def update_enable_baked_outside(self, context):
                     baked_disp = tree.nodes.get(ch.baked_disp)
                     if baked_disp and baked_disp.image:
                         loc_y -= 300
-                        tex_disp = mtree.nodes.new('ShaderNodeTexImage')
+                        tex_disp = check_new_node(mtree, ch, 'baked_outside_disp', 'ShaderNodeTexImage')
                         tex_disp.image = baked_disp.image
                         tex_disp.location.x = loc_x
                         tex_disp.location.y = loc_y
                         tex_disp.parent = frame
-                        ch.baked_outside_disp = tex_disp.name
                         mtree.links.new(uv.outputs[0], tex_disp.inputs[0])
 
                         loc_x += 280
+                        disp = mtree.nodes.get(ch.baked_outside_disp_process)
                         if is_greater_than_280():
-                            disp = mtree.nodes.new('ShaderNodeDisplacement')
+                            if not disp:
+                                disp = mtree.nodes.new('ShaderNodeDisplacement')
                             disp.inputs['Scale'].default_value = get_displacement_max_height(ch) * ch.subdiv_tweak
                         else:
-                            disp = mat.node_tree.nodes.new('ShaderNodeGroup')
-                            disp.node_tree = get_node_tree_lib(lib.BL27_DISP)
+                            if not disp:
+                                disp = mat.node_tree.nodes.new('ShaderNodeGroup')
+                                disp.node_tree = get_node_tree_lib(lib.BL27_DISP)
                             disp.inputs[1].default_value = get_displacement_max_height(ch) * ch.subdiv_tweak
 
                         disp.location.x = loc_x
@@ -1724,12 +1735,11 @@ def update_enable_baked_outside(self, context):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
                         loc_y -= 300
-                        tex_normal_overlay = mtree.nodes.new('ShaderNodeTexImage')
+                        tex_normal_overlay = check_new_node(mtree, ch, 'baked_outside_normal_overlay', 'ShaderNodeTexImage')
                         tex_normal_overlay.image = baked_normal_overlay.image
                         tex_normal_overlay.location.x = loc_x
                         tex_normal_overlay.location.y = loc_y
                         tex_normal_overlay.parent = frame
-                        ch.baked_outside_normal_overlay = tex_normal_overlay.name
                         mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
 
                         if ch.enable_subdiv_setup and not ch.subdiv_adaptive:
@@ -1785,21 +1795,21 @@ def update_enable_baked_outside(self, context):
                 for con in ch.ori_alpha_to:
                     try: mtree.links.new(outp_alpha, mtree.nodes[con.node].inputs[con.socket])
                     except: pass
-            ch.ori_alpha_to.clear()
+                ch.ori_alpha_to.clear()
 
             outp_height = node.outputs.get(ch.name + io_suffix['HEIGHT'])
             if outp_height:
                 for con in ch.ori_height_to:
                     try: mtree.links.new(outp_height, mtree.nodes[con.node].inputs[con.socket])
                     except: pass
-            ch.ori_height_to.clear()
+                ch.ori_height_to.clear()
 
             outp_mheight = node.outputs.get(ch.name + io_suffix['MAX_HEIGHT'])
             if outp_mheight:
                 for con in ch.ori_max_height_to:
                     try: mtree.links.new(outp_mheight, mtree.nodes[con.node].inputs[con.socket])
                     except: pass
-            ch.ori_max_height_to.clear()
+                ch.ori_max_height_to.clear()
 
             # Delete nodes inside frames
             if baked_outside_frame:
@@ -1825,9 +1835,9 @@ def update_enable_baked_outside(self, context):
         if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
 
             # Adaptive subdivision only works for experimental feature set for now
-            #scene.cycles.feature_set = 'EXPERIMENTAL'
-            #scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
-            #scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
+            scene.cycles.feature_set = 'EXPERIMENTAL'
+            scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
+            scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
 
             set_adaptive_displacement_node(mat, node)
 
