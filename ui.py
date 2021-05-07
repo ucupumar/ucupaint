@@ -644,7 +644,10 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 #    elif channel.type == 'VALUE':
                 #        brow.prop(channel,'val_input', text='')
                 #else:
-                brow.prop(inp,'default_value', text='')
+                if not yp.use_baked or channel.no_layer_using:
+                    brow.prop(inp,'default_value', text='')
+                else:
+                    brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
             else:
                 brow.label(text='', icon='LINKED')
 
@@ -662,10 +665,14 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 inp_alpha = node.inputs[channel.io_index+1]
                 brow.label(text='Base Alpha:')
                 if len(node.inputs[channel.io_index+1].links)==0:
-                    brow.prop(inp_alpha, 'default_value', text='')
+                    if not yp.use_baked:
+                        brow.prop(inp_alpha, 'default_value', text='')
                 else: brow.label(text='', icon='LINKED')
             else: brow.label(text='Alpha:')
-            brow.prop(channel, 'enable_alpha', text='')
+            if not yp.use_baked:
+                brow.prop(channel, 'enable_alpha', text='')
+            else:
+                brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
 
             if chui.expand_alpha_settings:
                 brow = bcol.row(align=True)
@@ -675,6 +682,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 bbcol.active = channel.enable_alpha
 
                 brow = bbcol.row(align=True)
+                brow.active = not yp.use_baked
                 brow.label(text='Backface Mode:')
                 brow.prop(channel, 'backface_mode', text='')
 
@@ -698,7 +706,10 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 else:
                     brow.label(text='', icon_value=lib.get_icon('input'))
                 brow.label(text='Smooth Bump:')
-                brow.prop(channel, 'enable_smooth_bump', text='')
+                if not yp.use_baked:
+                    brow.prop(channel, 'enable_smooth_bump', text='')
+                else:
+                    brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
 
                 #brow = bcol.row(align=True)
                 #brow.label(text='', icon_value=lib.get_icon('input'))

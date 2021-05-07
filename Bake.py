@@ -2176,7 +2176,7 @@ def check_subdiv_setup(height_ch):
                     bpy.ops.object.modifier_move_up(modifier=subsurf.name)
 
             #tex = displace.texture
-            tex = [t for t in bpy.data.textures if t.image == img]
+            tex = [t for t in bpy.data.textures if hasattr(t, 'image') and t.image == img]
             if tex: 
                 tex = tex[0]
             else:
