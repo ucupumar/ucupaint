@@ -293,6 +293,10 @@ class YBakeToLayer(bpy.types.Operator):
         else: self.entity = None
         #print(context.entity)
 
+        # Blender 2.79 has cpu bake on default because is likely that GPU rendering will cause error
+        if not is_greater_than_280():
+            self.force_use_cpu = True
+
         obj = self.obj = context.object
         scene = self.scene = context.scene
         node = get_active_ypaint_node()

@@ -424,7 +424,8 @@ class YSaveAllBakedImages(bpy.types.Operator):
             image.save_render(path, scene=tmpscene)
 
             # Set the filepath to the image
-            image.filepath = bpy.path.relpath(path)
+            try: image.filepath = bpy.path.relpath(path)
+            except: image.filepath = path
 
             # Set back colorspace settings
             image.colorspace_settings.name = ori_colorspace

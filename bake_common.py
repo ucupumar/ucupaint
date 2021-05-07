@@ -32,7 +32,8 @@ def remember_before_bake(yp=None):
     book['ori_tile_x'] = scene.render.tile_x
     book['ori_tile_y'] = scene.render.tile_y
     book['ori_use_selected_to_active'] = scene.render.bake.use_selected_to_active
-    book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
+    if is_greater_than_280():
+        book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
     book['ori_cage_extrusion'] = scene.render.bake.cage_extrusion
     book['ori_use_cage'] = scene.render.bake.use_cage
 
@@ -106,7 +107,8 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     #scene.render.bake.use_clear = True
     scene.render.bake.use_clear = False
     scene.render.bake.use_selected_to_active = use_selected_to_active
-    scene.render.bake.max_ray_distance = max_ray_distance
+    if is_greater_than_280():
+        scene.render.bake.max_ray_distance = max_ray_distance
     scene.render.bake.cage_extrusion = cage_extrusion
     scene.render.bake.use_cage = False
     scene.render.use_simplify = False
@@ -246,7 +248,8 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
     scene.render.tile_x = book['ori_tile_x']
     scene.render.tile_y = book['ori_tile_y']
     scene.render.bake.use_selected_to_active = book['ori_use_selected_to_active']
-    scene.render.bake.max_ray_distance = book['ori_max_ray_distance']
+    if is_greater_than_280():
+        scene.render.bake.max_ray_distance = book['ori_max_ray_distance']
     scene.render.bake.cage_extrusion = book['ori_cage_extrusion']
     scene.render.bake.use_cage = book['ori_use_cage']
 
@@ -377,7 +380,9 @@ def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
     # Create new plane
     bpy.ops.object.mode_set(mode = 'OBJECT')
     bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
-    plane_obj = bpy.context.view_layer.objects.active
+    if is_greater_than_280():
+        plane_obj = bpy.context.view_layer.objects.active
+    else: plane_obj = bpy.context.scene.objects.active
 
     prepare_bake_settings(book, [plane_obj], samples=1, margin=0, force_use_cpu=force_use_cpu)
 
@@ -433,12 +438,17 @@ def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
     res_y.outputs[0].default_value = height
     fxaa_uv_map.uv_map = 'UVMap'
     tex.image = image_copy
+    if not is_greater_than_280() :
+        if image.colorspace_settings.name == 'sRGB':
+            tex.color_space = 'COLOR'
+        else: tex.color_space = 'NONE'
 
     # Connect nodes again
     mat.node_tree.links.new(fxaa.outputs[0], emi.inputs[0])
     mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
 
     print('FXAA: Baking FXAA on', image.name + '...')
+    #return
     bpy.ops.object.bake()
 
     # Copy original alpha to baked image
@@ -1075,7 +1085,9 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     # Create new plane
     bpy.ops.object.mode_set(mode = 'OBJECT')
     bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
-    plane_obj = bpy.context.view_layer.objects.active
+    if is_greater_than_280():
+        plane_obj = bpy.context.view_layer.objects.active
+    else: plane_obj = bpy.context.scene.objects.active
 
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=margin, force_use_cpu=force_use_cpu)
 
@@ -1130,6 +1142,12 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     target_tex.image = scaled_img
     source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     source_tex.image = image
+
+    if not is_greater_than_280() :
+        if image.colorspace_settings.name == 'sRGB':
+            source_tex.color_space = 'COLOR'
+        else: source_tex.color_space = 'NONE'
+
     straight_over = mat.node_tree.nodes.new('ShaderNodeGroup')
     straight_over.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
     straight_over.inputs[1].default_value = 0.0

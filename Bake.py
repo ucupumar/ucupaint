@@ -670,8 +670,12 @@ class YBakeChannels(bpy.types.Operator):
         obj = context.object
         mat = obj.active_material
 
-        if obj.hide_viewport or obj.hide_render:
+        if is_greater_than_280() and (obj.hide_viewport or obj.hide_render):
             self.report({'ERROR'}, "Please unhide render and viewport of active object!")
+            return {'CANCELLED'}
+
+        if not is_greater_than_280() and obj.hide_render:
+            self.report({'ERROR'}, "Please unhide render of active object!")
             return {'CANCELLED'}
 
         book = remember_before_bake(yp)
@@ -715,7 +719,8 @@ class YBakeChannels(bpy.types.Operator):
         if mat.users > 1:
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
-                if ob.hide_viewport or ob.hide_render: continue
+                if is_greater_than_280() and ob.hide_viewport: continue
+                if ob.hide_render: continue
                 if len(get_uv_layers(ob)) == 0: continue
                 for i, m in enumerate(ob.data.materials):
                     if m == mat:
@@ -1672,8 +1677,10 @@ def update_enable_baked_outside(self, context):
                 tex.location.x = loc_x
                 tex.location.y = loc_y
                 tex.parent = frame
-
                 mtree.links.new(uv.outputs[0], tex.inputs[0])
+
+                if not is_greater_than_280() and baked.image.colorspace_settings.name != 'sRGB':
+                    tex.color_space = 'NONE'
 
                 if outp_alpha:
                     for l in outp_alpha.links:
@@ -1710,6 +1717,9 @@ def update_enable_baked_outside(self, context):
                             tex_normal_overlay.parent = frame
                             mtree.links.new(uv.outputs[0], tex_normal_overlay.inputs[0])
 
+                            if not is_greater_than_280() and baked_normal_overlay.image.colorspace_settings.name != 'sRGB':
+                                tex_normal_overlay.color_space = 'NONE'
+
                             if ch.enable_subdiv_setup and not ch.subdiv_adaptive:
                                 mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
 
@@ -1728,6 +1738,9 @@ def update_enable_baked_outside(self, context):
                         tex_disp.location.y = loc_y
                         tex_disp.parent = frame
                         mtree.links.new(uv.outputs[0], tex_disp.inputs[0])
+
+                        if not is_greater_than_280() and baked_disp.image.colorspace_settings.name != 'sRGB':
+                            tex_disp.color_space = 'NONE'
 
                         loc_x += 280
                         disp = mtree.nodes.get(ch.baked_outside_disp_process)
