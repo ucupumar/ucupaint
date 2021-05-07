@@ -103,13 +103,14 @@
 # - Add option to add multiple images all at once as one layer (V)
 # - Parallax height tweak (V)
 # - Replace override color modifier with new override system (V)
-# - Add option to move baked images to outside of yp node so it can be recognized by exporters
-# - Add option to save all baked images to folder
+# - Add option to move baked images to outside of yp node so it can be recognized by exporters (V)
+# - Add option to save all baked images to folder (V)
 # - Add option to merge objects before baking to avoid overlap between uv islands
 # - Merge layers should work on any type of layers (just convert them to standard image)
 # - Change link inside group to github insted of patreon
 # - Add operator to create new UV map on multiple objects using the same material
-# - Quick setup should use already used inputs to bsdf as inputs for yp node
+# - Quick setup should use already used inputs to bsdf as inputs for yp node (V)
+# - Still bake channel with connected input even if there are no layers using it
 # - Need ability to edit height channel main uv
 # - Support for opening UDIM images (?)
 # - Support for baking to UDIM images (?)

@@ -686,6 +686,11 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         if ch_color:
             inp = main_bsdf.inputs[0]
+
+            # Check original link
+            for l in inp.links:
+                links.new(l.from_socket, node.inputs[ch_color.name])
+
             set_input_default_value(node, ch_color, inp.default_value)
             if ch_ao and ao_mul:
                 links.new(node.outputs[ch_color.name], ao_mul.inputs[1])
@@ -695,29 +700,55 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 links.new(node.outputs[ch_color.name], inp)
 
             # Enable, link, and disable alpha to remember which input was alpha connected to
+            disable_alpha = True
             ch_color.enable_alpha = True
             if transp_node_needed:
                 links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], mix_bsdf.inputs[0])
-            else: links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], main_bsdf.inputs['Alpha'])
-            ch_color.enable_alpha = False
+            else: 
+                inp_alpha = main_bsdf.inputs.get('Alpha')
+
+                # Check original link
+                for l in inp_alpha.links:
+                    disable_alpha = False
+                    links.new(l.from_socket, node.inputs[ch_color.name+io_suffix['ALPHA']])
+
+                links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], main_bsdf.inputs['Alpha'])
+
+            if disable_alpha:
+                ch_color.enable_alpha = False
 
         if ch_ao:
             set_input_default_value(node, ch_ao, (1,1,1))
 
         if ch_metallic:
             inp = main_bsdf.inputs['Metallic']
+
+            # Check original link
+            for l in inp.links:
+                links.new(l.from_socket, node.inputs[ch_metallic.name])
+
             set_input_default_value(node, ch_metallic, inp.default_value)
             #links.new(node.outputs[ch_metallic.io_index], inp)
             links.new(node.outputs[ch_metallic.name], inp)
 
         if ch_roughness:
             inp = main_bsdf.inputs['Roughness']
+
+            # Check original link
+            for l in inp.links:
+                links.new(l.from_socket, node.inputs[ch_roughness.name])
+
             set_input_default_value(node, ch_roughness, inp.default_value)
             #links.new(node.outputs[ch_roughness.io_index], inp)
             links.new(node.outputs[ch_roughness.name], inp)
 
         if ch_normal:
             inp = main_bsdf.inputs['Normal']
+
+            # Check original link
+            for l in inp.links:
+                links.new(l.from_socket, node.inputs[ch_normal.name])
+
             set_input_default_value(node, ch_normal)
             #links.new(node.outputs[ch_normal.io_index], inp)
             links.new(node.outputs[ch_normal.name], inp)
@@ -3002,7 +3033,10 @@ class YPaint(bpy.types.PropertyGroup):
     use_baked = BoolProperty(default=False, update=Bake.update_use_baked)
     baked_uv_name = StringProperty(default='')
 
-    enable_baked_outside = BoolProperty(default=False, update=Bake.update_enable_baked_outside)
+    enable_baked_outside = BoolProperty(
+            name= 'Enable Baked Outside',
+            description= 'Create baked texture nodes outside of main node\n(Can be useful for exporting material to other application)',
+            default=False, update=Bake.update_enable_baked_outside)
     
     # Outside nodes
     baked_outside_uv = StringProperty(default='')
