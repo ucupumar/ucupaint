@@ -87,18 +87,23 @@ def save_pack_all(yp, only_dirty = True):
         if baked and baked.image:
             images.append(baked.image)
 
-        baked_disp = tree.nodes.get(ch.baked_disp)
-        if baked_disp and baked_disp.image:
-            images.append(baked_disp.image)
+        if ch.type == 'NORMAL':
+            baked_disp = tree.nodes.get(ch.baked_disp)
+            if baked_disp and baked_disp.image:
+                images.append(baked_disp.image)
 
-        baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-        if baked_normal_overlay and baked_normal_overlay.image:
-            images.append(baked_normal_overlay.image)
+            if is_overlay_normal_empty(yp):
+                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                if baked_normal_overlay and baked_normal_overlay.image:
+                    images.append(baked_normal_overlay.image)
 
     packed_float_images = []
 
+    #print()
+
     # Save/pack images
     for image in images:
+        #print(image, image.filepath)
         if only_dirty and not image.is_dirty: continue
         T = time.time()
         if image.packed_file or image.filepath == '':
@@ -114,7 +119,9 @@ def save_pack_all(yp, only_dirty = True):
             print('INFO:', image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         else:
             try:
+                ori_colorspace = image.colorspace_settings.name
                 image.save()
+                image.colorspace_settings.name = ori_colorspace
                 print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
             except Exception as e:
                 print(e)
@@ -216,7 +223,9 @@ class YSaveImage(bpy.types.Operator):
         return hasattr(context, 'image') and context.image and context.image.filepath != '' and not context.image.packed_file
 
     def execute(self, context):
+        ori_colorspace = context.image.colorspace_settings.name
         context.image.save()
+        context.image.colorspace_settings.name = ori_colorspace
         return {'FINISHED'}
 
 format_extensions = {
@@ -287,6 +296,47 @@ def update_save_as_file_format(self, context):
     if self.is_float and self.file_format in {'PNG', 'JPEG2000'}:
         self.color_depth = '16'
 
+def unpack_image(image, filepath):
+
+    # Get blender default unpack directory
+    default_dir = os.path.join(os.path.abspath(bpy.path.abspath('//')), 'textures')
+
+    # Check if default directory is available or not, delete later if not found now
+    default_dir_found = os.path.isdir(default_dir)
+
+    # Blender always unpack at \\textures\file.ext
+    if image.filepath == '':
+        default_filepath = os.path.join(default_dir, image.name)
+    else: default_filepath = os.path.join(default_dir, bpy.path.basename(image.filepath))
+
+    # Check if file with default path is already available
+    temp_path = ''
+    if os.path.isfile(default_filepath) and default_filepath != filepath:
+        temp_path = os.path.join(default_dir, '__TEMP__')
+        os.rename(default_filepath, temp_path)
+
+    # Unpack the file
+    image.unpack()
+    unpacked_path = bpy.path.abspath(image.filepath)
+
+    return default_dir, default_dir_found, default_filepath, temp_path, unpacked_path
+
+def remove_unpacked_image_path(filepath, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path):
+
+    # Remove unpacked file
+    if filepath != unpacked_path:
+        os.remove(unpacked_path)
+
+    # Rename back temporary file
+    if temp_path != '':
+        if temp_path != filepath:
+            os.rename(temp_path, default_filepath)
+        else: os.remove(temp_path)
+
+    # Delete default directory if not found before
+    if not default_dir_found:
+        os.rmdir(default_dir)
+
 class YSaveAllBakedImages(bpy.types.Operator):
     """Save All Baked Images to directory"""
     bl_idname = "node.y_save_all_baked_images"
@@ -321,7 +371,6 @@ class YSaveAllBakedImages(bpy.types.Operator):
         if is_greater_than_280():
             tmpscene.view_settings.view_transform = 'Standard'
 
-
         images = []
 
         height_root_ch = get_root_height_channel(yp)
@@ -350,8 +399,41 @@ class YSaveAllBakedImages(bpy.types.Operator):
             else:
                 filename = bpy.path.basename(image.filepath)
             path = os.path.join(self.directory, filename)
+
+            # Need to pack first to save the image
+            if image.is_dirty:
+                if is_greater_than_280():
+                    image.pack()
+                else:
+                    if image.is_float:
+                        pack_float_image(image)
+                    else: image.pack(as_png=True)
+
+            # Some image need to set to srgb when saving
+            ori_colorspace = image.colorspace_settings.name
+            if not image.is_float:
+                image.colorspace_settings.name = 'sRGB'
+
+            # Check if image is packed
+            unpack = False
+            if image.packed_file:
+                unpack = True
+                default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
+
+            # Save image
             image.save_render(path, scene=tmpscene)
-            print(path)
+
+            # Set the filepath to the image
+            image.filepath = bpy.path.relpath(path)
+
+            # Set back colorspace settings
+            image.colorspace_settings.name = ori_colorspace
+
+            # Remove temporarily unpacked image
+            if unpack:
+                remove_unpacked_image_path(path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
+
+            #print(path)
 
         # Delete temporary scene
         bpy.data.scenes.remove(tmpscene)

@@ -691,6 +691,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 norm_img = bpy.data.images.new(name=norm_img_name, width=width, height=height) 
                 norm_img.generated_color = (0.5, 0.5, 1.0, 1.0)
                 norm_img.colorspace_settings.name = 'Linear'
+                norm_img.filepath = filepath
 
                 tex.image = norm_img
 
@@ -741,6 +742,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             disp_img = bpy.data.images.new(name=disp_img_name, width=width, height=height) 
             disp_img.generated_color = (0.5, 0.5, 0.5, 1.0)
             disp_img.colorspace_settings.name = 'Linear'
+            disp_img.filepath = filepath
         elif ch.normal_map_type == 'BUMP_MAP':
             disp_img = img
         else: disp_img = None
