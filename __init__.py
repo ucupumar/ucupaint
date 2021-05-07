@@ -105,18 +105,15 @@
 # - Replace override color modifier with new override system (V)
 # - Add option to move baked images to outside of yp node so it can be recognized by exporters (V)
 # - Add option to save all baked images to folder (V)
+# - Quick setup should use already used inputs to bsdf as inputs for yp node (V)
+# - Still baking channel with connected input even if there are no layers using it
+# - Blender 2.80+ should use vertex paint transparency
+# - Add operator to create new UV map on multiple objects using the same material
+# - Need ability to edit height channel main uv
+# - Normal channel should be able to override both normal and bump at the same time
 # - Add option to merge objects before baking to avoid overlap between uv islands
 # - Merge layers should work on any type of layers (just convert them to standard image)
 # - Change link inside group to github insted of patreon
-# - Add operator to create new UV map on multiple objects using the same material
-# - Quick setup should use already used inputs to bsdf as inputs for yp node (V)
-# - Still bake channel with connected input even if there are no layers using it
-# - Need ability to edit height channel main uv
-# - Support for opening UDIM images (?)
-# - Support for baking to UDIM images (?)
-# - Blender 2.80+ should use vertex paint transparency
-# - Add option to bake generated textures to improve performance
-# - Optimize hidden layer, maybe create a trash nodes to collect unused layers (?, Need to investigate the effeciveness more)
 
 # TODO:
 # - Make every node name unique (using hash?)
@@ -139,6 +136,10 @@
 # - FXAA image operator to remove jagged pixels from baking or bucket fill (V)
 # - Blur image operator
 # - Add greater than and less than operation to object index mask
+# - Add option to bake generated textures to improve performance
+# - Optimize hidden layer, maybe create a trash nodes to collect unused layers (?, Need to investigate the effeciveness more)
+# - Support for opening UDIM images (?)
+# - Support for baking to UDIM images (?)
 #
 # TODO OPT:
 # - Lazy node calling (can be useful to prevent missing error)
