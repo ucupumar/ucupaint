@@ -682,7 +682,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 bbcol.active = channel.enable_alpha
 
                 brow = bbcol.row(align=True)
-                brow.active = not yp.use_baked
+                brow.active = not (yp.use_baked and yp.enable_baked_outside)
                 brow.label(text='Backface Mode:')
                 brow.prop(channel, 'backface_mode', text='')
 
