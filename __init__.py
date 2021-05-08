@@ -106,7 +106,7 @@
 # - Add option to move baked images to outside of yp node so it can be recognized by exporters (V)
 # - Add option to save all baked images to folder (V)
 # - Quick setup should use already used inputs to bsdf as inputs for yp node (V)
-# - Still baking channel with connected input even if there are no layers using it
+# - Still baking channel with connected input even if there are no layers using it (V)
 # - Blender 2.80+ should use vertex paint transparency
 # - Add operator to create new UV map on multiple objects using the same material
 # - Need ability to edit height channel main uv

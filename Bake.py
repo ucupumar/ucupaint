@@ -772,7 +772,7 @@ class YBakeChannels(bpy.types.Operator):
 
         # Bake channels
         for ch in yp.channels:
-            ch.no_layer_using = not is_any_layer_using_channel(ch)
+            ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
                 #if ch.type != 'NORMAL': continue
                 use_hdr = not ch.use_clamp
@@ -1688,7 +1688,6 @@ def update_enable_baked_outside(self, context):
 
                 if ch.type != 'NORMAL':
 
-                    #if not ch.no_layer_using:
                     for l in outp.links:
                         mtree.links.new(tex.outputs[0], l.to_socket)
 
@@ -1723,8 +1722,6 @@ def update_enable_baked_outside(self, context):
                             if ch.enable_subdiv_setup and not ch.subdiv_adaptive:
                                 mtree.links.new(tex_normal_overlay.outputs[0], norm.inputs[1])
 
-                    #if not ch.subdiv_adaptive:
-                    #if not ch.no_layer_using:
                     if not ch.enable_subdiv_setup or baked_normal_overlay:
                         for l in outp.links:
                             mtree.links.new(norm.outputs[0], l.to_socket)
