@@ -51,15 +51,20 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
         # Get actual selectable objects
         actual_selectable_objs = []
         for o in objs:
-            layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
+            if is_greater_than_280():
+                layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
 
-            #for lc in layer_cols:
-            #    print(lc.name)
-            
-            if not any([lc for lc in layer_cols if lc.exclude or lc.hide_viewport or lc.collection.hide_viewport]):
-                actual_selectable_objs.append(o)
+                #for lc in layer_cols:
+                #    print(lc.name)
+                
+                if not any([lc for lc in layer_cols if lc.exclude or lc.hide_viewport or lc.collection.hide_viewport]):
+                    actual_selectable_objs.append(o)
+            else:
+                if not o.hide_select and in_active_279_layer(o):
+                    actual_selectable_objs.append(o)
 
         if len(actual_selectable_objs) == 0:
+            self.report({'ERROR'}, "Cannot select the object!")
             return {'CANCELLED'}
 
         for obj in actual_selectable_objs:
@@ -391,6 +396,16 @@ class YBakeToLayer(bpy.types.Operator):
             self.use_baked_disp = False
 
         suffix = bake_type_suffixes[self.type]
+
+        #if self.use_image_atlas:
+        #    if self.target_type == 'LAYER':
+        #        self.name = get_unique_name(mat.name + ' ' + suffix, yp.layers)
+        #    else: 
+        #        try:
+        #            active_layer = yp.layers[yp.active_layer_index]
+        #            self.name = get_unique_name(mat.name + ' ' + suffix, active_layer.masks)
+        #        except: pass
+        #else: 
         self.name = get_unique_name(mat.name + ' ' + suffix, bpy.data.images)
 
         self.overwrite_choice = False
@@ -679,10 +694,11 @@ class YBakeToLayer(bpy.types.Operator):
             return {'CANCELLED'}
 
         if self.type in {'MULTIRES_NORMAL', 'MULTIRES_DISPLACEMENT'} and not is_greater_than_280():
-            self.report({'ERROR'}, "This feature is not implemented yet on Blender 2.79!")
+            #self.report({'ERROR'}, "This feature is not implemented yet on Blender 2.79!")
+            self.report({'ERROR'}, "Blender 2.80+ is needed to use this feature!")
             return {'CANCELLED'}
 
-        if context.object.hide_viewport or context.object.hide_render:
+        if (hasattr(context.object, 'hide_viewport') and context.object.hide_viewport) or context.object.hide_render:
             self.report({'ERROR'}, "Please unhide render and viewport of active object!")
             return {'CANCELLED'}
 
@@ -697,7 +713,7 @@ class YBakeToLayer(bpy.types.Operator):
         if mat.users > 1:
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
-                if ob.hide_viewport or ob.hide_render: continue
+                if (hasattr(ob, 'hide_viewport') and ob.hide_viewport) or ob.hide_render: continue
                 if len(get_uv_layers(ob)) == 0: continue
                 if self.type.startswith('MULTIRES_') and not get_multires_modifier(ob): continue
                 for i, m in enumerate(ob.data.materials):
@@ -712,7 +728,7 @@ class YBakeToLayer(bpy.types.Operator):
             return {'CANCELLED'}
 
         overwrite_img = None
-        if self.overwrite_image_name != '':
+        if (self.overwrite_choice or self.overwrite_current) and self.overwrite_image_name != '':
             overwrite_img = bpy.data.images.get(self.overwrite_image_name)
 
         segment = None
@@ -944,7 +960,7 @@ class YBakeToLayer(bpy.types.Operator):
             for obj in objs:
 
                 if is_greater_than_280(): context.view_layer.objects.active = obj
-                else: context.scene.object.active = obj
+                else: context.scene.objects.active = obj
 
                 if self.subsurf_influence or self.use_baked_disp:
                     need_to_be_applied_modifiers = []
@@ -1400,6 +1416,9 @@ class YBakeToLayer(bpy.types.Operator):
 
             layer_name = image.name if not self.use_image_atlas else self.name
 
+            if self.use_image_atlas:
+                layer_name = get_unique_name(layer_name, yp.layers)
+
             yp.halt_update = True
             layer = Layer.add_new_layer(node.node_tree, layer_name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image, None, segment
@@ -1415,6 +1434,9 @@ class YBakeToLayer(bpy.types.Operator):
 
         else:
             mask_name = image.name if not self.use_image_atlas else self.name
+
+            if self.use_image_atlas:
+                mask_name = get_unique_name(mask_name, active_layer.masks)
 
             mask = Mask.add_new_mask(active_layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
             mask.active_edit = True

@@ -463,13 +463,13 @@ def get_list_of_ypaint_nodes(mat):
 
     return yp_nodes
 
-#def in_active_layer(obj):
-#    scene = bpy.context.scene
-#    space = bpy.context.space_data
-#    if space.type == 'VIEW_3D' and space.local_view:
-#        return any([layer for layer in obj.layers_local_view if layer])
-#    else:
-#        return any([layer for i, layer in enumerate(obj.layers) if layer and scene.layers[i]])
+def in_active_279_layer(obj):
+    scene = bpy.context.scene
+    space = bpy.context.space_data
+    if space.type == 'VIEW_3D' and space.local_view:
+        return any([layer for layer in obj.layers_local_view if layer])
+    else:
+        return any([layer for i, layer in enumerate(obj.layers) if layer and scene.layers[i]])
 
 def get_addon_filepath():
 
