@@ -171,7 +171,10 @@
 # - Changed color after unpack image (V)
 # - Invert image can cause crash (~, Cannot fix, actual blender bug)
 # - Image atlas should not be unpacked (~)
-# - Bake multires without multires will cause error
+# - Bake multires without multires or with disabled multires will cause error
+# - Bake to layer overwrite always on despite already turning it off
+# - Bake to layer overwrite always on despite already turning it off
+# - Overwrite option always showed up when baking other object
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas

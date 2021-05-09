@@ -335,16 +335,16 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 #        self.roughness = False
 #        self.normal = False
 
-#def get_closest_bsdf(node, valid_types=['BSDF_PRINCIPLED', 'BSDF_DIFFUSE']):
-#    for inp in node.inputs:
-#        for link in inp.links:
-#            if link.from_node.type in valid_types:
-#                return link.from_node
-#            else:
-#                n = get_closest_bsdf(link.from_node, valid_types)
-#                if n: return n
-#
-#    return None
+def get_closest_bsdf(node, valid_types=['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']):
+    for inp in node.inputs:
+        for link in inp.links:
+            if link.from_node.type in valid_types:
+                return link.from_node
+            else:
+                n = get_closest_bsdf(link.from_node, valid_types)
+                if n: return n
+
+    return None
 
 class YSelectMaterialPolygons(bpy.types.Operator):
     bl_idname = "material.y_select_all_material_polygons"
@@ -439,11 +439,11 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
     type = EnumProperty(
             name = 'Type',
-            items = (('PRINCIPLED', 'Principled', ''),
-                     ('DIFFUSE', 'Diffuse', ''),
+            items = (('BSDF_PRINCIPLED', 'Principled', ''),
+                     ('BSDF_DIFFUSE', 'Diffuse', ''),
                      ('EMISSION', 'Emission', ''),
                      ),
-            default = 'PRINCIPLED')
+            default = 'BSDF_PRINCIPLED')
             #update=update_quick_setup_type)
 
     color = BoolProperty(name='Color', default=True)
@@ -462,22 +462,18 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         return context.object
 
     def invoke(self, context, event):
-        #mat = get_active_material()
+        mat = get_active_material()
 
-        ## Get target bsdf
-        #self.target_bsdf = None
-        #if mat and mat.node_tree: # and is_greater_than_280():
-        #    output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
-        #    if output:
-
-        #        bsdf_node = get_closest_bsdf(output[0])
-        #        if bsdf_node:
-        #            if bsdf_node.type == 'BSDF_PRINCIPLED':
-        #                self.type = 'PRINCIPLED'
-        #            elif bsdf_node.type == 'BSDF_DIFFUSE':
-        #                self.type = 'DIFFUSE'
-        #            self.target_bsdf = bsdf_node
-        #            #print(bsdf_node)
+        # Get target bsdf
+        self.target_bsdf = None
+        if mat and mat.node_tree: # and is_greater_than_280():
+            output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+            if output:
+                bsdf_node = get_closest_bsdf(output[0])
+                if bsdf_node:
+                    self.type = bsdf_node.type
+                    self.target_bsdf = bsdf_node
+                    #print(bsdf_node)
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -497,7 +493,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ccol.label(text='Channels:')
 
             ccol.label(text='')
-            if self.type == 'PRINCIPLED':
+            if self.type == 'BSDF_PRINCIPLED':
                 ccol.label(text='')
             ccol.label(text='')
             ccol.label(text='')
@@ -508,7 +504,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ccol = col.column(align=True)
             ccol.prop(self, 'color', toggle=True)
             ccol.prop(self, 'ao', toggle=True)
-            if self.type == 'PRINCIPLED':
+            if self.type == 'BSDF_PRINCIPLED':
                 ccol.prop(self, 'metallic', toggle=True)
             ccol.prop(self, 'roughness', toggle=True)
             ccol.prop(self, 'normal', toggle=True)
@@ -545,111 +541,113 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
 
-        transp_node_needed = not(is_greater_than_280() and self.type == 'PRINCIPLED')
+        transp_node_needed = not is_greater_than_280() or self.type != 'BSDF_PRINCIPLED'
+        ao_needed = self.ao and self.type != 'EMISSION'
 
         main_bsdf = None
+        outsoc = None
         trans_bsdf = None
         mix_bsdf = None
-        mat_out = None
         ao_mul = None
+
+        # If target bsdf is used as main bsdf
+        if self.target_bsdf and self.target_bsdf.type == self.type:
+            main_bsdf = self.target_bsdf
+            for l in main_bsdf.outputs[0].links:
+                outsoc = l.to_socket
 
         # Get active output
         output = [n for n in nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
         if output: 
             output = output[0]
 
-            # Check output connection
-            output_in = [l.from_node for l in output.inputs[0].links]
-            if output_in: 
-                output_in = output_in[0]
-
-                if self.type == 'PRINCIPLED':
-                    bsdf_type = 'BSDF_PRINCIPLED'
-                elif self.type == 'DIFFUSE':
-                    bsdf_type = 'BSDF_DIFFUSE'
-                elif self.type == 'EMISSION':
-                    bsdf_type = 'EMISSION'
-
-                if not transp_node_needed:
-                    if output_in.type == 'BSDF_PRINCIPLED':
-                        main_bsdf = output_in
-                        mat_out = output
-
-                elif output_in.type == 'MIX_SHADER' and not any([l for l in output_in.inputs[0].links]):
-
-                    # Try to search for transparent and main bsdf
-                    if (any([l for l in output_in.inputs[1].links if l.from_node.type == 'BSDF_TRANSPARENT']) and
-                        any([l for l in output_in.inputs[2].links if l.from_node.type == bsdf_type])):
-
-                            mat_out = output
-                            mix_bsdf = output_in
-                            trans_bsdf = mix_bsdf.inputs[1].links[0].from_node
-                            main_bsdf = mix_bsdf.inputs[2].links[0].from_node
-
-        if not mat_out:
-            mat_out = nodes.new(type='ShaderNodeOutputMaterial')
-            mat_out.is_active_output = True
-
-            if output:
-                output.is_active_output = False
-                mat_out.location = output.location.copy()
-                mat_out.location.x += 180
-
-        if self.ao and not ao_mul and self.type != 'EMISSION':
-            ao_mul = nodes.new('ShaderNodeMixRGB')
-            ao_mul.inputs[0].default_value = 1.0
-            ao_mul.blend_type = 'MULTIPLY'
-            ao_mul.label = 'AO Multiply'
-
-            ao_mul.location = mat_out.location.copy()
-            mat_out.location.x += 180
-
-        if transp_node_needed and not mix_bsdf:
-            mix_bsdf = nodes.new('ShaderNodeMixShader')
-            mix_bsdf.inputs[0].default_value = 1.0
-            links.new(mix_bsdf.outputs[0], mat_out.inputs[0])
-
-            mix_bsdf.location = mat_out.location.copy()
-            mat_out.location.x += 180
-
-        if transp_node_needed and not trans_bsdf:
-            trans_bsdf = nodes.new('ShaderNodeBsdfTransparent')
-            links.new(trans_bsdf.outputs[0], mix_bsdf.inputs[1])
-
-            trans_bsdf.location = mix_bsdf.location.copy()
-            mix_bsdf.location.x += 180
-            mat_out.location.x += 180
-
-        if not main_bsdf:
-            if self.type == 'PRINCIPLED':
-                main_bsdf = nodes.new('ShaderNodeBsdfPrincipled')
-                main_bsdf.inputs[2].default_value = (1.0, 0.2, 0.1) # Use eevee default value
-                main_bsdf.inputs[3].default_value = (0.8, 0.8, 0.8, 1.0) # Use eevee default value
-            elif self.type == 'DIFFUSE':
-                main_bsdf = nodes.new('ShaderNodeBsdfDiffuse')
-            elif self.type == 'EMISSION':
-                main_bsdf = nodes.new('ShaderNodeEmission')
-
-            if transp_node_needed:
-                links.new(main_bsdf.outputs[0], mix_bsdf.inputs[2])
-            else: links.new(main_bsdf.outputs[0], mat_out.inputs[0])
-
-            # Rearrange position
-            if transp_node_needed:
-                main_bsdf.location = trans_bsdf.location.copy()
-                main_bsdf.location.y -= 90
-            else:
-                main_bsdf.location = mat_out.location.copy()
-                mat_out.location.x += 270
-
-        group_tree = create_new_group_tree(mat)
+        loc = Vector((0, 0))
 
         # Create new group node
+        group_tree = create_new_group_tree(mat)
         node = nodes.new(type='ShaderNodeGroup')
         node.node_tree = group_tree
         node.select = True
         nodes.active = node
         mat.yp.active_ypaint_node = node.name
+
+        # BSDF node
+        if not main_bsdf:
+            if self.type == 'BSDF_PRINCIPLED':
+                main_bsdf = nodes.new('ShaderNodeBsdfPrincipled')
+                main_bsdf.inputs[2].default_value = (1.0, 0.2, 0.1) # Use eevee default value
+                main_bsdf.inputs[3].default_value = (0.8, 0.8, 0.8, 1.0) # Use eevee default value
+            elif self.type == 'BSDF_DIFFUSE':
+                main_bsdf = nodes.new('ShaderNodeBsdfDiffuse')
+            elif self.type == 'EMISSION':
+                main_bsdf = nodes.new('ShaderNodeEmission')
+
+            if output: 
+                loc = output.location.copy()
+                loc.x += 200
+
+            node.location = loc.copy()
+            loc.x += 200
+        else:
+            loc = main_bsdf.location.copy()
+
+            # Move away already exists nodes
+            for n in mat.node_tree.nodes:
+                if transp_node_needed and n.location.x > loc.x:
+                    n.location.x += 200
+
+                if n.location.x < loc.x:
+                    if ao_needed: n.location.x -= 400
+                    else: n.location.x -= 200
+
+            if ao_needed: loc.x -= 200
+            loc.x -= 200
+
+            node.location = loc.copy()
+            loc.x += 200
+
+        if ao_needed:
+            ao_mul = nodes.new('ShaderNodeMixRGB')
+            ao_mul.inputs[0].default_value = 1.0
+            ao_mul.blend_type = 'MULTIPLY'
+            ao_mul.label = 'AO Multiply'
+
+            ao_mul.location = loc.copy()
+            loc.x += 200
+
+        main_bsdf.location = loc.copy()
+        loc.x += 200
+
+        if transp_node_needed: 
+
+            trans_bsdf = nodes.new('ShaderNodeBsdfTransparent')
+            mix_bsdf = nodes.new('ShaderNodeMixShader')
+            mix_bsdf.inputs[0].default_value = 1.0
+
+            links.new(trans_bsdf.outputs[0], mix_bsdf.inputs[1])
+            links.new(main_bsdf.outputs[0], mix_bsdf.inputs[2])
+
+            trans_bsdf.location = main_bsdf.location.copy()
+            trans_bsdf.location.y += 100
+
+            mix_bsdf.location = loc.copy()
+            loc.x += 200
+
+        if not outsoc:
+            mat_out = nodes.new(type='ShaderNodeOutputMaterial')
+            mat_out.is_active_output = True
+            outsoc = mat_out.inputs[0]
+
+            mat_out.location = loc.copy()
+            loc.x += 200
+            
+            if output: 
+                output.is_active_output = False
+
+        if transp_node_needed: 
+            links.new(mix_bsdf.outputs[0], outsoc)
+        else:
+            links.new(main_bsdf.outputs[0], outsoc)
 
         # Add new channels
         ch_color = None
@@ -665,7 +663,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             if self.ao:
                 ch_ao = create_new_yp_channel(group_tree, 'Ambient Occlusion', 'RGB', non_color=True)
 
-            if self.type == 'PRINCIPLED' and self.metallic:
+            if self.type == 'BSDF_PRINCIPLED' and self.metallic:
                 ch_metallic = create_new_yp_channel(group_tree, 'Metallic', 'VALUE', non_color=True)
 
             if self.roughness:
@@ -752,29 +750,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             set_input_default_value(node, ch_normal)
             #links.new(node.outputs[ch_normal.io_index], inp)
             links.new(node.outputs[ch_normal.name], inp)
-
-        # Set new yp node location
-        if output:
-            node.location = main_bsdf.location.copy()
-            if ao_mul: 
-                ao_mul.location.y = node.location.y
-                node.location.x -= 180
-            main_bsdf.location.x += 180
-            if transp_node_needed:
-                trans_bsdf.location.x += 180
-                mix_bsdf.location.x += 180
-            mat_out.location.x += 180
-        else:
-            main_bsdf.location.y += 300
-            if transp_node_needed:
-                trans_bsdf.location.y += 300
-                mix_bsdf.location.y += 300
-            mat_out.location.y += 300
-            node.location = main_bsdf.location.copy()
-            node.location.x -= 180
-            if ao_mul: 
-                ao_mul.location.y = node.location.y
-                node.location.x -= 180
 
         # Disable overlay on Blender 2.8
         if is_greater_than_280() and self.mute_texture_paint_overlay:
