@@ -3215,7 +3215,7 @@ def get_displace_modifier(obj, keyword=''):
 
 def get_multires_modifier(obj, keyword=''):
     for mod in obj.modifiers:
-        if mod.type == 'MULTIRES':
+        if mod.type == 'MULTIRES' and mod.total_levels > 0 and mod.show_viewport:
             if keyword != '' and keyword != mod.name: continue
             return mod
 
