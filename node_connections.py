@@ -1562,6 +1562,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     uv_map = nodes.get(layer.uv_map)
     uv_neighbor = nodes.get(layer.uv_neighbor)
+    uv_neighbor_1 = nodes.get(layer.uv_neighbor_1)
 
     if layer.type == 'GROUP':
         texcoord = source
@@ -1666,6 +1667,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # Alpha
     if layer.type == 'IMAGE' or source_group:
         start_alpha = source.outputs[1]
+    elif layer.type == 'VCOL' and 'Alpha' in source.outputs:
+        start_alpha = source.outputs['Alpha']
     else: start_alpha = one_value
     start_alpha_1 = one_value
 
@@ -1701,6 +1704,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if tangent and bitangent:
             create_link(tree, tangent, uv_neighbor.inputs['Tangent'])
             create_link(tree, bitangent, uv_neighbor.inputs['Bitangent'])
+
+        if layer.type == 'VCOL' and uv_neighbor_1:
+            create_link(tree, start_alpha, uv_neighbor_1.inputs[0])
+
+            if tangent and bitangent:
+                create_link(tree, tangent, uv_neighbor_1.inputs['Tangent'])
+                create_link(tree, bitangent, uv_neighbor_1.inputs['Bitangent'])
 
     # Get transition bump channel
     trans_bump_flip = False
@@ -1951,6 +1961,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         normal_alpha = None
 
         ch_uv_neighbor = nodes.get(ch.uv_neighbor)
+        #ch_uv_neighbor_1 = nodes.get(ch.uv_neighbor_1)
 
         ch_source_n = None
         ch_source_s = None
@@ -2041,6 +2052,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, tangent, ch_uv_neighbor.inputs['Tangent'])
                 if bitangent and 'Bitangent' in ch_uv_neighbor.inputs:
                     create_link(tree, bitangent, ch_uv_neighbor.inputs['Bitangent'])
+
+            if root_ch.type == 'NORMAL' and layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX'} and uv_neighbor and ch.override_type == 'DEFAULT':
+                create_link(tree, rgb, uv_neighbor.inputs[0])
 
             # Source NSEW
             if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT':
@@ -2193,10 +2207,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb_e = uv_neighbor.outputs['e']
                 rgb_w = uv_neighbor.outputs['w']
 
-                alpha_n = start_alpha
-                alpha_s = start_alpha
-                alpha_e = start_alpha
-                alpha_w = start_alpha
+                if layer.type == 'VCOL' and uv_neighbor_1:
+                    alpha_n = uv_neighbor_1.outputs['n']
+                    alpha_s = uv_neighbor_1.outputs['s']
+                    alpha_e = uv_neighbor_1.outputs['e']
+                    alpha_w = uv_neighbor_1.outputs['w']
+                else:
+                    alpha_n = start_alpha
+                    alpha_s = start_alpha
+                    alpha_e = start_alpha
+                    alpha_w = start_alpha
 
             elif layer.type == 'GROUP':
 

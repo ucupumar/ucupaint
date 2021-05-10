@@ -616,7 +616,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             loc.x += 200
 
         main_bsdf.location = loc.copy()
-        loc.x += 200
+        if main_bsdf.type == 'BSDF_PRINCIPLED' and is_greater_than_280():
+            loc.x += 270
+        else: loc.x += 200
 
         if transp_node_needed: 
 

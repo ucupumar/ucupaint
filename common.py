@@ -1673,8 +1673,9 @@ def set_obj_vertex_colors(obj, vcol_name, color):
     if not vcol: return
 
     if is_greater_than_280():
-        col = (color[0], color[1], color[2], 1.0)
-    else: col = color
+        col = color
+    else: 
+        col = (color[0], color[1], color[2])
 
     for poly in obj.data.polygons:
         for loop_index in poly.loop_indices:

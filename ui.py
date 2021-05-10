@@ -2393,6 +2393,8 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 #row.separator()
                 row.operator('mesh.y_vcol_fill', text='White').color_option = 'WHITE'
                 row.operator('mesh.y_vcol_fill', text='Black').color_option = 'BLACK'
+                #if is_greater_than_280():
+                #    row.operator("mesh.y_vcol_fill", text='Transparent').color_option = 'TRANSPARENT'
                 row.separator()
                 row.operator('mesh.y_vcol_fill', text='Color').color_option = 'CUSTOM'
 

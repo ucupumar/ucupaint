@@ -301,9 +301,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                     try:
                         mask_vcol = o.data.vertex_colors.new(name=mask_name)
                         if mask_color == 'WHITE':
-                            set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0))
+                            set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0, 1.0))
                         elif mask_color == 'BLACK':
-                            set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0))
+                            set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0, 1.0))
                         o.data.vertex_colors.active = mask_vcol
                     except: pass
 
@@ -484,7 +484,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
             if self.name not in o.data.vertex_colors:
                 try:
                     vcol = o.data.vertex_colors.new(name=self.name)
-                    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
                     o.data.vertex_colors.active = vcol
                 except: pass
 
@@ -922,7 +922,7 @@ class YNewLayer(bpy.types.Operator):
                 if self.name not in o.data.vertex_colors:
                     try:
                         vcol = o.data.vertex_colors.new(name=self.name)
-                        set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                        set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 0.0))
                         o.data.vertex_colors.active = vcol
                     except: pass
 
@@ -1708,10 +1708,10 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                     try:
                         vcol = o.data.vertex_colors.new(name=self.vcol_name)
                         #if vcol_color == 'WHITE':
-                        #    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                        #    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
                         #elif vcol_color == 'BLACK':
-                        #    set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0))
-                        set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                        #    set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
+                        set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 0.0))
                         o.data.vertex_colors.active = vcol
                     except: pass
 
@@ -1927,7 +1927,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                     if mat.name in o.data.materials and self.vcol_name not in o.data.vertex_colors:
                         try:
                             other_v = o.data.vertex_colors.new(name=self.vcol_name)
-                            set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0))
+                            set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0, 0.0))
                             o.data.vertex_colors.active = other_v
                         except: pass
 
@@ -3399,11 +3399,13 @@ def update_uv_name(self, context):
     # Update uv neighbor
     smooth_bump_ch = get_smooth_bump_channel(layer)
     if smooth_bump_ch and smooth_bump_ch.enable:
-        #uv_neighbor, layer_dirty = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
         uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
-                #return_status=True, hard_replace=True)
                 return_status=False, hard_replace=True)
+        if smooth_bump_ch.override and ch.override_type != 'DEFAULT':
+            uv_neighbor = replace_new_node(tree, smooth_bump_ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+                    lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
+                    return_status=False, hard_replace=True)
     #else:
     #    remove_node(tree, layer, 'uv_neighbor')
 
@@ -3442,6 +3444,9 @@ def update_texcoord_type(self, context):
     if smooth_bump_ch and smooth_bump_ch.enable:
         uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
+        if smooth_bump_ch.override and ch.override_type != 'DEFAULT':
+            uv_neighbor = replace_new_node(tree, smooth_bump_ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
+                    lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
     #else:
     #    remove_node(tree, layer, 'uv_neighbor')
 
@@ -3749,6 +3754,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     # UV
     uv_neighbor = StringProperty(default='')
+    #uv_neighbor_1 = StringProperty(default='')
 
     # Blur
     #enable_blur = BoolProperty(default=False, update=Blur.update_layer_channel_blur)
@@ -4165,6 +4171,7 @@ class YLayer(bpy.types.PropertyGroup):
 
     # UV
     uv_neighbor = StringProperty(default='')
+    uv_neighbor_1 = StringProperty(default='')
     uv_map = StringProperty(default='')
     mapping = StringProperty(default='')
     texcoord = StringProperty(default='')

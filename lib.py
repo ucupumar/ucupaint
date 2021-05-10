@@ -356,7 +356,7 @@ def get_neighbor_uv_tree(texcoord_type, entity):
         return get_node_tree_lib(NEIGHBOR_UV_CAMERA)
 
 #def get_neighbor_uv_tree_name(texcoord_type, different_uv=False, entity=None):
-def get_neighbor_uv_tree_name(texcoord_type, entity=None):
+def get_neighbor_uv_tree_name(texcoord_type, entity):
     if texcoord_type == 'UV':
         different_uv = check_uv_difference_to_main_uv(entity)
         if different_uv: return NEIGHBOR_UV_OTHER_UV

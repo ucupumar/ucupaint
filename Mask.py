@@ -410,9 +410,9 @@ class YNewLayerMask(bpy.types.Operator):
                     try:
                         vcol = o.data.vertex_colors.new(name=self.name)
                         if self.color_option == 'WHITE':
-                            set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0))
+                            set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
                         elif self.color_option == 'BLACK':
-                            set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0))
+                            set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
                         o.data.vertex_colors.active = vcol
                     except Exception as ex:
                         print(ex)
@@ -708,7 +708,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                     if mat.name in o.data.materials and self.vcol_name not in o.data.vertex_colors:
                         try:
                             other_v = o.data.vertex_colors.new(name=self.vcol_name)
-                            set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0))
+                            set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0, 1.0))
                             o.data.vertex_colors.active = other_v
                         except: pass
 

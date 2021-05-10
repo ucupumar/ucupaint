@@ -67,6 +67,7 @@ class YVcolFill(bpy.types.Operator):
             items = (
                 ('WHITE', 'White', ''),
                 ('BLACK', 'Black', ''),
+                #('TRANSPARENT', 'Transparent', ''),
                 ('CUSTOM', 'Custom', ''),
                 ),
             default='WHITE')
@@ -114,15 +115,26 @@ class YVcolFill(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT')
             vcol = obj.data.vertex_colors.active
 
+            color = Color((
+                        context.scene.ve_edit.color[0],
+                        context.scene.ve_edit.color[1],
+                        context.scene.ve_edit.color[2]
+                        ))
+            alpha = context.scene.ve_edit.color[3]
+
             if self.color_option == 'WHITE':
                 color = (1,1,1)
+                alpha = 1.0
             elif self.color_option == 'BLACK':
                 color = (0,0,0)
+                alpha = 1.0
+            #elif self.color_option == 'TRANSPARENT':
+            #    alpha = 0.0
             else:
-                color = linear_to_srgb(context.scene.ve_edit.color)
+                color = linear_to_srgb(color)
 
             if is_greater_than_280():
-                color = (color[0], color[1], color[2], 1.0)
+                color = (color[0], color[1], color[2], alpha)
 
             #if ve.fill_mode == 'FACE':
             if fill_mode == 'FACE':
@@ -177,6 +189,8 @@ def vcol_editor_draw(self, context):
     ccol = col.column(align=True)
     ccol.operator("mesh.y_vcol_fill", icon='BRUSH_DATA', text='Fill with White').color_option = 'WHITE'
     ccol.operator("mesh.y_vcol_fill", icon='BRUSH_DATA', text='Fill with Black').color_option = 'BLACK'
+    #if is_greater_than_280():
+    #    ccol.operator("mesh.y_vcol_fill", icon='BRUSH_DATA', text='Fill with Black').color_option = 'TRANSPARENT'
 
     col.separator()
     ccol = col.column(align=True)
@@ -223,7 +237,7 @@ class VIEW3D_PT_y_vcol_editor_tools(bpy.types.Panel):
         vcol_editor_draw(self, context)
 
 class YVcolEditorProps(bpy.types.PropertyGroup):
-    color = FloatVectorProperty(name='Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
+    color = FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0)
     #palette = PointerProperty(type=bpy.types.Palette)
 
     show_vcol_list = BoolProperty(name='Show Vertex Color List',

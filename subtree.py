@@ -392,7 +392,7 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
     #else: 
     elif ch.override_type not in {'DEFAULT'}: 
         uv_neighbor = replace_new_node(layer_tree, ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
-                lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=ch), hard_replace=True)
+                lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
         set_uv_neighbor_resolution(ch, uv_neighbor)
 
     if rearrange:
@@ -467,6 +467,9 @@ def enable_layer_source_tree(layer, rearrange=False):
     if layer.type in {'VCOL', 'HEMI'}: #, 'OBJECT_INDEX'}:
         uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.NEIGHBOR_FAKE, hard_replace=True)
+        if layer.type == 'VCOL':
+            uv_neighbor_1 = replace_new_node(layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
+                    lib.NEIGHBOR_FAKE, hard_replace=True)
     #else: 
     elif layer.type not in {'GROUP', 'OBJECT_INDEX'}: 
         uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
@@ -523,6 +526,7 @@ def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False)
     remove_node(layer_tree, ch, 'source_w')
 
     remove_node(layer_tree, ch, 'uv_neighbor')
+    #remove_node(layer_tree, ch, 'uv_neighbor_1')
 
     if rearrange:
         # Reconnect outside nodes
@@ -575,6 +579,7 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
             remove_node(layer_tree, layer, 'source_w')
 
     remove_node(layer_tree, layer, 'uv_neighbor')
+    remove_node(layer_tree, layer, 'uv_neighbor_1')
 
     if rearrange:
         # Reconnect outside nodes

@@ -646,6 +646,9 @@ def rearrange_layer_nodes(layer, tree=None):
     if check_set_node_loc(tree, layer.uv_neighbor, loc):
         loc.y -= 260
 
+    if check_set_node_loc(tree, layer.uv_neighbor_1, loc):
+        loc.y -= 260
+
     for ch in layer.channels:
         if ch.source_group != '' and check_set_node_loc(tree, ch.source_group, loc, hide=True):
             rearrange_channel_source_tree_nodes(layer, ch)
