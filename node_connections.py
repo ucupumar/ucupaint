@@ -2053,8 +2053,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if bitangent and 'Bitangent' in ch_uv_neighbor.inputs:
                     create_link(tree, bitangent, ch_uv_neighbor.inputs['Bitangent'])
 
-            if root_ch.type == 'NORMAL' and layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX'} and uv_neighbor and ch.override_type == 'DEFAULT':
-                create_link(tree, rgb, uv_neighbor.inputs[0])
+            #if root_ch.type == 'NORMAL' and layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX'} and uv_neighbor and ch.override_type == 'DEFAULT':
+            #    create_link(tree, rgb, uv_neighbor.inputs[0])
 
             # Source NSEW
             if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT':
@@ -2256,7 +2256,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if ch.override:
 
-                if ch.override_type in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and ch_uv_neighbor:
+                if ch.override_type == 'DEFAULT':
+                    rgb_n = rgb
+                    rgb_s = rgb
+                    rgb_e = rgb
+                    rgb_w = rgb
+
+                elif ch.override_type in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and ch_uv_neighbor:
                     rgb_n = ch_uv_neighbor.outputs['n']
                     rgb_s = ch_uv_neighbor.outputs['s']
                     rgb_e = ch_uv_neighbor.outputs['e']
