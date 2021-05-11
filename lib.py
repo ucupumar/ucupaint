@@ -667,10 +667,44 @@ def update_routine(name):
                 rearrange_yp_nodes(ng)
                 update_happened = True
 
+        # Version 0.9.5 and above have ability to use vertex color alpha on layer
+        if LooseVersion(ng.yp.version) < LooseVersion('0.9.5'):
+
+            for layer in ng.yp.layers:
+                # Update vcol layer to use alpha by reconnection
+                if layer.type == 'VCOL':
+
+                    # Smooth bump channel need another fake neighbor for alpha
+                    smooth_bump_ch = get_smooth_bump_channel(layer)
+                    if smooth_bump_ch and smooth_bump_ch.enable:
+                        layer_tree = get_tree(layer)
+                        uv_neighbor_1 = replace_new_node(layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
+                                NEIGHBOR_FAKE, hard_replace=True)
+
+                    reconnect_layer_nodes(layer)
+                    rearrange_layer_nodes(layer)
+                    update_happened = True
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version
             print('INFO:', ng.name, 'is updated to version', cur_version)
+
+    # Special update for opening Blender 2.79 file
+    if is_created_using_279() and is_greater_than_280():
+        show_message = False
+        for ng in bpy.data.node_groups:
+            if not ng.yp.is_ypaint_node: continue
+            show_message = True
+            
+            for layer in ng.yp.layers:
+                # Update vcol layer to use alpha by reconnection
+                if layer.type == 'VCOL':
+                    reconnect_layer_nodes(layer)
+                    rearrange_layer_nodes(layer)
+
+        if show_message:
+            print("INFO: You're opening Blender 2.79 file with " + ADDON_TITLE + " nodes, it's now possible to use vertex color with alpha! Enjoy!")
 
     print('INFO: ' + ADDON_TITLE + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

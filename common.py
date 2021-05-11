@@ -376,6 +376,12 @@ def is_greater_than_282():
         return True
     else: return False
 
+def is_created_using_279():
+    ver = '.'.join([str(i) for i in bpy.data.version])[:4]
+    if versiontuple(ver) == versiontuple('2.79'):
+        return True
+    else: return False
+
 def set_active_object(obj):
     if is_greater_than_280():
         bpy.context.view_layer.objects.active = obj
