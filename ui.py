@@ -1107,15 +1107,19 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 row = rcol.row(align=True)
                 row.label(text='', icon='BLANK1')
                 bbox = row.box()
-                crow = row.column()
-                bbox.prop(layer, 'translation', text='Offset')
-                bbox.prop(layer, 'rotation')
-                bbox.prop(layer, 'scale')
+                if image and image.yia.is_image_atlas:
+                    bbox.label(text="Transform vector with image atlas is not possible!")
+                else:
+                    crow = row.column()
+                    bbox.prop(layer, 'translation', text='Offset')
+                    bbox.prop(layer, 'rotation')
+                    bbox.prop(layer, 'scale')
 
-                if yp.need_temp_uv_refresh or is_active_uv_map_match_entity(obj, layer):
-                    rrow = bbox.row(align=True)
-                    rrow.alert = True
-                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+                    if yp.need_temp_uv_refresh: # or is_active_uv_map_match_entity(obj, layer):
+                    #if yp.need_temp_uv_refresh or is_active_uv_map_match_active_entity(obj, layer):
+                        rrow = bbox.row(align=True)
+                        rrow.alert = True
+                        rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
     layout.separator()
 
@@ -1277,6 +1281,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                     else:
                         correct_x = image.size[0] #* mapping.scale[0]
                         correct_y = image.size[1] #* mapping.scale[1]
+
+                    #print('X:', correct_x, cur_x)
+                    #print('Y:', correct_y, cur_y)
 
                     if cur_x != correct_x or cur_y != correct_y:
                         brow = mcol.row(align=True)
@@ -1913,15 +1920,19 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 rrow = rrcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
-                rbox.prop(mask, 'translation', text='Offset')
-                rbox.prop(mask, 'rotation')
-                rbox.prop(mask, 'scale')
+                if mask_image and mask_image.yia.is_image_atlas:
+                    rbox.label(text="Transform vector with image atlas is not possible!")
+                else:
+                    rbox.prop(mask, 'translation', text='Offset')
+                    rbox.prop(mask, 'rotation')
+                    rbox.prop(mask, 'scale')
 
-                if mask.type == 'IMAGE' and mask.active_edit and (
-                        yp.need_temp_uv_refresh or is_active_uv_map_match_entity(obj, mask)):
-                    rrow = rbox.row(align=True)
-                    rrow.alert = True
-                    rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+                    if mask.type == 'IMAGE' and mask.active_edit and (
+                            yp.need_temp_uv_refresh  #or is_active_uv_map_match_entity(obj, mask)
+                            ):
+                        rrow = rbox.row(align=True)
+                        rrow.alert = True
+                        rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
 
         draw_mask_modifier_stack(layer, mask, rrcol, maskui) #, custom_icon_enable)
 

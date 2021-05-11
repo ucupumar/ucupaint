@@ -3402,10 +3402,12 @@ def update_uv_name(self, context):
         uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
                 return_status=False, hard_replace=True)
-        if smooth_bump_ch.override and ch.override_type != 'DEFAULT':
+        set_uv_neighbor_resolution(layer, uv_neighbor)
+        if smooth_bump_ch.override and smooth_bump_ch.override_type != 'DEFAULT':
             uv_neighbor = replace_new_node(tree, smooth_bump_ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                     lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
                     return_status=False, hard_replace=True)
+            set_uv_neighbor_resolution(smooth_bump_ch, uv_neighbor)
     #else:
     #    remove_node(tree, layer, 'uv_neighbor')
 
@@ -3444,9 +3446,11 @@ def update_texcoord_type(self, context):
     if smooth_bump_ch and smooth_bump_ch.enable:
         uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
-        if smooth_bump_ch.override and ch.override_type != 'DEFAULT':
+        set_uv_neighbor_resolution(layer, uv_neighbor)
+        if smooth_bump_ch.override and smooth_bump_ch.override_type != 'DEFAULT':
             uv_neighbor = replace_new_node(tree, smooth_bump_ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                     lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
+            set_uv_neighbor_resolution(smooth_bump_ch, uv_neighbor)
     #else:
     #    remove_node(tree, layer, 'uv_neighbor')
 

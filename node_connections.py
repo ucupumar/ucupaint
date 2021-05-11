@@ -2053,6 +2053,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if bitangent and 'Bitangent' in ch_uv_neighbor.inputs:
                     create_link(tree, bitangent, ch_uv_neighbor.inputs['Bitangent'])
 
+                if layer_tangent:
+                    if 'Entity Tangent' in ch_uv_neighbor.inputs:
+                        create_link(tree, layer_tangent, ch_uv_neighbor.inputs['Entity Tangent'])
+                        create_link(tree, layer_bitangent, ch_uv_neighbor.inputs['Entity Bitangent'])
+
+                    if 'Mask Tangent' in ch_uv_neighbor.inputs:
+                        create_link(tree, layer_tangent, ch_uv_neighbor.inputs['Mask Tangent'])
+                        create_link(tree, layer_bitangent, ch_uv_neighbor.inputs['Mask Bitangent'])
+
             #if root_ch.type == 'NORMAL' and layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX'} and uv_neighbor and ch.override_type == 'DEFAULT':
             #    create_link(tree, rgb, uv_neighbor.inputs[0])
 
