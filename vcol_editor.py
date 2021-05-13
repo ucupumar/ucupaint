@@ -1,4 +1,4 @@
-import bpy, bmesh
+import bpy, bmesh, numpy
 from mathutils import *
 from bpy.props import *
 
@@ -54,6 +54,174 @@ class YSetActiveVcol(bpy.types.Operator):
 
         self.report({'ERROR'}, "There's no vertex color named " + self.vcol_name + '!')
         return {'CANCELLED'}
+
+class YSpreadVColFix(bpy.types.Operator):
+    bl_idname = "mesh.y_vcol_spread_fix"
+    bl_label = "Vertex Color Spread Fix"
+    bl_description = "Fix vertex color alpha transition (can be really slow depending on number of vertices)"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        #return context.object and context.object.type == 'MESH'
+        return context.object and context.object.type == 'MESH' and context.object.mode == 'EDIT'
+
+    def execute(self, context):
+
+        if not is_greater_than_280():
+            self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
+            return {'CANCELLED'}
+
+        obj = context.object
+        mesh = obj.data
+        bm = bmesh.from_edit_mesh(mesh)
+
+        bm.verts.ensure_lookup_table()
+        bm.edges.ensure_lookup_table()
+        bm.faces.ensure_lookup_table()
+
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+        obj = context.object
+        vcol = obj.data.vertex_colors.active
+        mesh = obj.data
+
+        # To get average of loop colors on each vertices
+        avg_vert_cols = numpy.zeros(len(mesh.vertices)*4, dtype=numpy.float32)
+        avg_vert_cols.shape = (avg_vert_cols.shape[0]//4, 4)
+        num_loops = numpy.zeros(len(mesh.vertices), dtype=numpy.int32)
+        
+        for i, l in enumerate(mesh.loops):
+            #for j in range(3):
+            #    avg_vert_cols[l.vertex_index][j] += vcol.data[i].color[j] * vcol.data[i].color[3]
+            avg_vert_cols[l.vertex_index] += vcol.data[i].color
+            num_loops[l.vertex_index] += 1
+
+        for i in range(len(mesh.vertices)):
+            avg_vert_cols[i] /= num_loops[i]
+
+        #mesh.calc_loop_triangles()
+
+        # Get vertex neighbors
+
+        # Create dictionary to store vertex neighbors
+        vert_neighbors = {}
+
+        for p in mesh.polygons:
+            for vi in p.vertices:
+                key = str(vi)
+                if key not in vert_neighbors:
+                    vert_neighbors[key] = []
+                for vii in p.vertices:
+                    if vi != vii and vii not in vert_neighbors[key]:
+                        vert_neighbors[key].append(vii)
+
+                #num_polys[vi] += 1
+        
+        #print(vert_neighbors['20'])
+        new_vert_cols = numpy.zeros(len(mesh.vertices)*3, dtype=numpy.float32)
+        new_vert_cols.shape = (new_vert_cols.shape[0]//3, 3)
+
+        for i, v in enumerate(mesh.vertices):
+            cur_col = avg_vert_cols[i]
+            cur_alpha = avg_vert_cols[i][3]
+
+            neighbors = vert_neighbors[str(i)]
+
+            # Get sum of neighbor alphas
+            sum_alpha = 0.0
+            for n in neighbors:
+                sum_alpha += avg_vert_cols[n][3]
+
+            if sum_alpha > 0.0:
+
+                # Get average of neighbor color based on it's alpha
+                neighbor_col = [0.0, 0.0, 0.0]
+                for n in neighbors:
+                    cc = avg_vert_cols[n]
+                    for j in range(3):
+                        neighbor_col[j] += cc[j] * cc[3]/sum_alpha
+
+                # Do some kind of alpha blending
+                for j in range(3):
+                    new_vert_cols[i][j] = cur_col[j] * cur_alpha + neighbor_col[j] * (1.0 - cur_alpha)
+
+            else:
+                for j in range(3):
+                    new_vert_cols[i][j] = avg_vert_cols[i][j]
+
+        # To contain final color
+        cols = numpy.zeros(len(vcol.data)*4, dtype=numpy.float32)
+        cols.shape = (cols.shape[0]//4, 4)
+
+        # Set new vertex color to loops
+        for i, l in enumerate(mesh.loops):
+            for j in range(3):
+                cols[i][j] = new_vert_cols[l.vertex_index][j]
+            cols[i][3] = vcol.data[i].color[3]
+
+        #num_polys = numpy.zeros(len(mesh.vertices), dtype=numpy.int32)
+
+        #for p in mesh.polygons:
+
+        #    for vi in p.vertices:
+        #        num_polys[vi] += 1
+
+        #    #for li in p.loop_indices:
+        #    #    pass
+
+        #for lt in mesh.loop_triangles:
+        #    for i, l in enumerate(lt.loops):
+
+        #        d = vcol.data[l]
+        #        c = d.color
+        #        current_alpha = c[3]
+
+        #        # Get sum of neighbor alphas
+        #        sum_alpha = 0.0
+        #        for j, ll in enumerate(lt.loops):
+        #            if j == i: continue
+        #            sum_alpha += vcol.data[ll].color[3]
+
+        #        if sum_alpha > 0.0:
+
+        #            # Get neighbor average color based on alpha
+        #            neighbor_col = [0.0, 0.0, 0.0]
+        #            for j, ll in enumerate(lt.loops):
+        #                if j == i: continue
+
+        #                # Get average loops on vertex
+        #                cc = avg_vert_cols[mesh.loops[ll].vertex_index]
+        #                #cc = vcol.data[ll].color
+
+        #                for k in range(3):
+        #                    neighbor_col[k] += cc[k] * cc[3]/sum_alpha
+
+        #            # Multiply it based on current alpha value
+        #            new_c = [0.0, 0.0, 0.0]
+        #            for j in range(3):
+        #                new_c[j] += c[j] * current_alpha
+
+        #            intensity = (1.0 - current_alpha)
+        #            for j in range(3):
+        #                new_c[j] += neighbor_col[j] * intensity
+
+        #            # Set new color
+        #            for j in range(3):
+        #                #d.color[j] = new_c[j]
+        #                cols[l][j] = new_c[j]
+
+        #        else:
+        #            for j in range(3):
+        #                cols[l][j] = c[j]
+
+        #        cols[l][3] = current_alpha
+
+        vcol.data.foreach_set('color', cols.ravel())
+
+        bpy.ops.object.mode_set(mode='EDIT')
+
+        return {'FINISHED'}
 
 class YVcolFill(bpy.types.Operator):
     bl_idname = "mesh.y_vcol_fill"
@@ -208,6 +376,9 @@ def vcol_editor_draw(self, context):
 
     #col.template_palette(ve, "palette", color=True)
 
+    col.separator()
+    col.operator("mesh.y_vcol_spread_fix", icon='GROUP_VCOL', text='Spread Fix')
+
 class VIEW3D_PT_y_vcol_editor_ui(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_label = "Vertex Color Editor"
@@ -262,6 +433,7 @@ def register():
     bpy.types.Scene.ve_edit = PointerProperty(type=YVcolEditorProps)
 
     bpy.utils.register_class(YVcolFill)
+    bpy.utils.register_class(YSpreadVColFix)
     bpy.utils.register_class(YSetActiveVcol)
 
 def unregister():
@@ -272,4 +444,5 @@ def unregister():
     bpy.utils.unregister_class(YVcolEditorProps)
 
     bpy.utils.unregister_class(YVcolFill)
+    bpy.utils.unregister_class(YSpreadVColFix)
     bpy.utils.unregister_class(YSetActiveVcol)
