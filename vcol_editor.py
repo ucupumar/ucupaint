@@ -61,10 +61,21 @@ class YSpreadVColFix(bpy.types.Operator):
     bl_description = "Fix vertex color alpha transition (can be really slow depending on number of vertices)"
     bl_options = {'REGISTER', 'UNDO'}
 
+    iteration = IntProperty(name='Spread Iteration', default = 3, min=1, max=10)
+
     @classmethod
     def poll(cls, context):
         #return context.object and context.object.type == 'MESH'
-        return context.object and context.object.type == 'MESH' and context.object.mode == 'EDIT'
+        return context.object and context.object.type == 'MESH' #and context.object.mode == 'EDIT'
+
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=200)
+
+    def draw(self, context):
+        #row = self.layout.row()
+        row = self.layout.split(factor=0.35, align=True)
+        row.label(text='Iteration:')
+        row.prop(self, 'iteration', text='')
 
     def execute(self, context):
 
@@ -73,16 +84,11 @@ class YSpreadVColFix(bpy.types.Operator):
             return {'CANCELLED'}
 
         obj = context.object
-        mesh = obj.data
-        bm = bmesh.from_edit_mesh(mesh)
 
-        bm.verts.ensure_lookup_table()
-        bm.edges.ensure_lookup_table()
-        bm.faces.ensure_lookup_table()
+        ori_mode = obj.mode
+        if ori_mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
 
-        bpy.ops.object.mode_set(mode='OBJECT')
-
-        obj = context.object
         vcol = obj.data.vertex_colors.active
         mesh = obj.data
 
@@ -92,8 +98,6 @@ class YSpreadVColFix(bpy.types.Operator):
         num_loops = numpy.zeros(len(mesh.vertices), dtype=numpy.int32)
         
         for i, l in enumerate(mesh.loops):
-            #for j in range(3):
-            #    avg_vert_cols[l.vertex_index][j] += vcol.data[i].color[j] * vcol.data[i].color[3]
             avg_vert_cols[l.vertex_index] += vcol.data[i].color
             num_loops[l.vertex_index] += 1
 
@@ -116,39 +120,43 @@ class YSpreadVColFix(bpy.types.Operator):
                     if vi != vii and vii not in vert_neighbors[key]:
                         vert_neighbors[key].append(vii)
 
-                #num_polys[vi] += 1
-        
-        #print(vert_neighbors['20'])
-        new_vert_cols = numpy.zeros(len(mesh.vertices)*3, dtype=numpy.float32)
-        new_vert_cols.shape = (new_vert_cols.shape[0]//3, 3)
+        # Create numpy to store new vertex color
+        new_vert_cols = numpy.zeros(len(mesh.vertices)*4, dtype=numpy.float32)
+        new_vert_cols.shape = (new_vert_cols.shape[0]//4, 4)
 
-        for i, v in enumerate(mesh.vertices):
-            cur_col = avg_vert_cols[i]
-            cur_alpha = avg_vert_cols[i][3]
+        for x in range(self.iteration):
+            for i, v in enumerate(mesh.vertices):
+                cur_col = avg_vert_cols[i]
+                cur_alpha = avg_vert_cols[i][3]
 
-            neighbors = vert_neighbors[str(i)]
+                neighbors = vert_neighbors[str(i)]
 
-            # Get sum of neighbor alphas
-            sum_alpha = 0.0
-            for n in neighbors:
-                sum_alpha += avg_vert_cols[n][3]
-
-            if sum_alpha > 0.0:
-
-                # Get average of neighbor color based on it's alpha
-                neighbor_col = [0.0, 0.0, 0.0]
+                # Get sum of neighbor alphas
+                sum_alpha = 0.0
                 for n in neighbors:
-                    cc = avg_vert_cols[n]
+                    sum_alpha += avg_vert_cols[n][3]
+
+                if sum_alpha > 0.0:
+
+                    # Get average of neighbor color based on it's alpha
+                    neighbor_col = [0.0, 0.0, 0.0]
+                    for n in neighbors:
+                        cc = avg_vert_cols[n]
+                        for j in range(3):
+                            neighbor_col[j] += cc[j] * cc[3]/sum_alpha
+
+                    # Do some kind of alpha blending
                     for j in range(3):
-                        neighbor_col[j] += cc[j] * cc[3]/sum_alpha
+                        new_vert_cols[i][j] = cur_col[j] * cur_alpha + neighbor_col[j] * (1.0 - cur_alpha)
 
-                # Do some kind of alpha blending
-                for j in range(3):
-                    new_vert_cols[i][j] = cur_col[j] * cur_alpha + neighbor_col[j] * (1.0 - cur_alpha)
+                else:
+                    for j in range(3):
+                        new_vert_cols[i][j] = avg_vert_cols[i][j]
 
-            else:
-                for j in range(3):
-                    new_vert_cols[i][j] = avg_vert_cols[i][j]
+                new_vert_cols[i][3] = cur_alpha
+
+            # Set it back
+            avg_vert_cols = new_vert_cols.copy()
 
         # To contain final color
         cols = numpy.zeros(len(vcol.data)*4, dtype=numpy.float32)
@@ -160,66 +168,10 @@ class YSpreadVColFix(bpy.types.Operator):
                 cols[i][j] = new_vert_cols[l.vertex_index][j]
             cols[i][3] = vcol.data[i].color[3]
 
-        #num_polys = numpy.zeros(len(mesh.vertices), dtype=numpy.int32)
-
-        #for p in mesh.polygons:
-
-        #    for vi in p.vertices:
-        #        num_polys[vi] += 1
-
-        #    #for li in p.loop_indices:
-        #    #    pass
-
-        #for lt in mesh.loop_triangles:
-        #    for i, l in enumerate(lt.loops):
-
-        #        d = vcol.data[l]
-        #        c = d.color
-        #        current_alpha = c[3]
-
-        #        # Get sum of neighbor alphas
-        #        sum_alpha = 0.0
-        #        for j, ll in enumerate(lt.loops):
-        #            if j == i: continue
-        #            sum_alpha += vcol.data[ll].color[3]
-
-        #        if sum_alpha > 0.0:
-
-        #            # Get neighbor average color based on alpha
-        #            neighbor_col = [0.0, 0.0, 0.0]
-        #            for j, ll in enumerate(lt.loops):
-        #                if j == i: continue
-
-        #                # Get average loops on vertex
-        #                cc = avg_vert_cols[mesh.loops[ll].vertex_index]
-        #                #cc = vcol.data[ll].color
-
-        #                for k in range(3):
-        #                    neighbor_col[k] += cc[k] * cc[3]/sum_alpha
-
-        #            # Multiply it based on current alpha value
-        #            new_c = [0.0, 0.0, 0.0]
-        #            for j in range(3):
-        #                new_c[j] += c[j] * current_alpha
-
-        #            intensity = (1.0 - current_alpha)
-        #            for j in range(3):
-        #                new_c[j] += neighbor_col[j] * intensity
-
-        #            # Set new color
-        #            for j in range(3):
-        #                #d.color[j] = new_c[j]
-        #                cols[l][j] = new_c[j]
-
-        #        else:
-        #            for j in range(3):
-        #                cols[l][j] = c[j]
-
-        #        cols[l][3] = current_alpha
-
         vcol.data.foreach_set('color', cols.ravel())
 
-        bpy.ops.object.mode_set(mode='EDIT')
+        if obj.mode != ori_mode:
+            bpy.ops.object.mode_set(mode=ori_mode)
 
         return {'FINISHED'}
 

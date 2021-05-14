@@ -2411,6 +2411,11 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
                 row.prop(ve, "color", text="", icon='COLOR')
 
+            elif obj.mode == 'VERTEX_PAINT' and layer.type == 'VCOL':
+                bbox = col.box()
+                row = bbox.row(align=True)
+                row.operator('mesh.y_vcol_spread_fix', icon='GROUP_VCOL', text='Spread Fix')
+
         # Source
         draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh) #, custom_icon_enable)
 
