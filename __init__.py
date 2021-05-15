@@ -175,8 +175,8 @@
 # - Bake to layer overwrite always on despite already turning it off (V)
 # - Overwrite option always showed up when baking other object (~, probably already fixed, cannot reproduce again)
 # - Normal override channel possibly have issue with different uv than main uv (V)
+# - Move channel modifier will cause error (V)
 # - Blender 2.80 until 2.91 cannot use vertex color alpha
-# - Move channel modifier will cause error
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas

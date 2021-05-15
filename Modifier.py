@@ -604,11 +604,14 @@ class YMoveYPaintModifier(bpy.types.Operator):
 
         # Reconnect modifier nodes
         #reconnect_between_modifier_nodes(parent)
-        reconnect_layer_nodes(layer)
 
         # Rearrange nodes
-        if layer: rearrange_layer_nodes(layer)
-        else: rearrange_yp_nodes(group_tree)
+        if layer: 
+            reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
+        else: 
+            reconnect_yp_nodes(group_tree)
+            rearrange_yp_nodes(group_tree)
 
         # Update UI
         context.window_manager.ypui.need_update = True
