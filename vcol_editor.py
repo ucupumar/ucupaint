@@ -55,6 +55,104 @@ class YSetActiveVcol(bpy.types.Operator):
         self.report({'ERROR'}, "There's no vertex color named " + self.vcol_name + '!')
         return {'CANCELLED'}
 
+class YVcolToggleEraser(bpy.types.Operator):
+    bl_idname = "mesh.y_vcol_toggle_eraser"
+    bl_label = "Toggle Vertex Color Eraser"
+    bl_description = "Toggle vertex color eraser"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH' and context.object.mode == 'VERTEX_PAINT'
+
+    def execute(self, context):
+        ve = context.scene.ve_edit
+
+        brush = context.tool_settings.vertex_paint.brush
+        draw_brush = bpy.data.brushes.get('Draw')
+
+        if brush.blend == 'ERASE_ALPHA':
+            new_brush = bpy.data.brushes.get(ve.ori_brush)
+            if new_brush: 
+                new_brush.blend = ve.ori_blending_mode
+            else:
+                new_brush = draw_brush
+                new_brush.blend = 'MIX'
+
+            ve.ori_brush = ''
+            ve.ori_blending_mode = ''
+        else:
+            ve.ori_brush = brush.name
+            ve.ori_blending_mode = brush.blend
+
+            new_brush = bpy.data.brushes.get('Draw')
+            if new_brush: new_brush.blend = 'ERASE_ALPHA'
+
+        if new_brush:
+            context.tool_settings.vertex_paint.brush = new_brush
+
+        return {'FINISHED'}
+
+class YSetVColBase(bpy.types.Operator):
+    bl_idname = "mesh.y_vcol_set_base"
+    bl_label = "Set Vertex Color Base"
+    bl_description = "Set vertex color base color on alpha with value of zero"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH' and context.object.mode == 'VERTEX_PAINT'
+
+    def execute(self, context):
+        col = context.tool_settings.vertex_paint.brush.color
+
+        obj = context.object
+        ori_mode = obj.mode
+        if ori_mode != 'OBJECT':
+            bpy.ops.object.mode_set(mode='OBJECT')
+
+        mesh = obj.data
+        #mesh.calc_loop_triangles()
+        vcol = obj.data.vertex_colors.active
+
+        cols = numpy.zeros(len(mesh.loops)*4, dtype=numpy.float32)
+        cols.shape = (cols.shape[0]//4, 4)
+
+        for i, p in enumerate(mesh.polygons):
+            zero_alpha = True
+            for j in p.loop_indices:
+                if vcol.data[j].color[3] > 0.0:
+                    zero_alpha = False
+
+            if zero_alpha:
+                for j in p.loop_indices:
+                    for k in range(3):
+                        cols[j][k] = col[k]
+                    cols[j][3] = vcol.data[j].color[3]
+            else:
+                for j in p.loop_indices:
+                    for k in range(3):
+                        cols[j][k] = vcol.data[j].color[k]
+                    cols[j][3] = vcol.data[j].color[3]
+
+
+        # Set new vertex color to loops
+        #for i, l in enumerate(mesh.loops):
+        #    if vcol.data[i].color[3] == 0.0:
+        #        for j in range(3):
+        #            cols[i][j] = col[j]
+        #    else:
+        #        for j in range(3):
+        #            cols[i][j] = vcol.data[i].color[j]
+        #    cols[i][3] = vcol.data[i].color[3]
+
+        vcol.data.foreach_set('color', cols.ravel())
+
+        if obj.mode != ori_mode:
+            bpy.ops.object.mode_set(mode=ori_mode)
+
+        return {'FINISHED'}
+
 class YSpreadVColFix(bpy.types.Operator):
     bl_idname = "mesh.y_vcol_spread_fix"
     bl_label = "Vertex Color Spread Fix"
@@ -366,14 +464,8 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
     show_vcol_list = BoolProperty(name='Show Vertex Color List',
             description='Show vertex color list', default=False)
 
-    #fill_mode = EnumProperty(
-    #        name = 'Fill Mode',
-    #        description='Vertex color fill mode',
-    #        items = (
-    #            ('FACE', 'Face', ''),
-    #            ('VERTEX', 'Vertex', ''),
-    #            ),
-    #        default='FACE')
+    ori_blending_mode = StringProperty(default='')
+    ori_brush = StringProperty(default='')
 
 def register():
     bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
@@ -385,7 +477,9 @@ def register():
     bpy.types.Scene.ve_edit = PointerProperty(type=YVcolEditorProps)
 
     bpy.utils.register_class(YVcolFill)
+    bpy.utils.register_class(YVcolToggleEraser)
     bpy.utils.register_class(YSpreadVColFix)
+    bpy.utils.register_class(YSetVColBase)
     bpy.utils.register_class(YSetActiveVcol)
 
 def unregister():
@@ -396,5 +490,7 @@ def unregister():
     bpy.utils.unregister_class(YVcolEditorProps)
 
     bpy.utils.unregister_class(YVcolFill)
+    bpy.utils.unregister_class(YVcolToggleEraser)
     bpy.utils.unregister_class(YSpreadVColFix)
+    bpy.utils.unregister_class(YSetVColBase)
     bpy.utils.unregister_class(YSetActiveVcol)
