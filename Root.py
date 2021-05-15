@@ -1515,6 +1515,7 @@ class YFixDuplicatedLayers(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
+        if not group_node: return False
         yp = group_node.node_tree.yp
         if len(yp.layers) == 0: return False
         layer_tree = get_tree(yp.layers[-1])
@@ -1586,7 +1587,7 @@ class YFixDuplicatedLayers(bpy.types.Operator):
 
 def fix_missing_vcol(obj, name, src):
     vcol = obj.data.vertex_colors.new(name=name)
-    src.attribute_name = name
+    set_source_vcol_name(src, name)
 
 def fix_missing_img(name, src, is_mask=False):
     img = bpy.data.images.new(name=name, 
@@ -1650,20 +1651,21 @@ class YFixMissingData(bpy.types.Operator):
             for layer in yp.layers:
                 src = get_layer_source(layer)
                 if (layer.type == 'VCOL' and obj.type == 'MESH' 
-                        and not obj.data.vertex_colors.get(src.attribute_name)):
+                        and not get_vcol_from_source(obj, src)):
                     fix_missing_vcol(obj, layer.name, src)
 
                 for mask in layer.masks:
                     mask_src = get_mask_source(mask)
                     if (mask.type == 'VCOL' and obj.type == 'MESH' 
-                            and not obj.data.vertex_colors.get(mask_src.attribute_name)):
+                            and not get_vcol_from_source(obj, mask_src)):
                         fix_missing_vcol(obj, mask.name, mask_src)
 
-                for ch in layer.channels:
+                for i, ch in enumerate(layer.channels):
+                    root_ch = yp.channels[i]
                     ch_src = get_channel_source(ch, layer)
                     if (ch.override and ch.override_type == 'VCOL' and obj.type == 'MESH' 
-                            and not obj.data.vertex_colors.get(ch_src.attribute_name)):
-                        fix_missing_vcol(obj, ch_src.attribute_name, ch_src)
+                            and not get_vcol_from_source(obj, ch_src)):
+                        fix_missing_vcol(obj, layer.name + ' ' + root_ch.name, ch_src)
 
         # Fix missing uvs
         check_uv_nodes(yp, generate_missings=True)

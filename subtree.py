@@ -2221,7 +2221,7 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
     if source:
         if source.bl_idname in {'ShaderNodeRGB', 'ShaderNodeValue'}:
             prev_type = 'DEFAULT'
-        elif source.bl_idname == 'ShaderNodeAttribute':
+        elif source.bl_idname == get_vcol_bl_idname():
             prev_type = 'VCOL'
         else: prev_type = source.bl_idname.replace('ShaderNodeTex', '').upper()
 
@@ -2267,7 +2267,7 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
                 cache.label = source_label
             else:
                 if ch.override_type == 'VCOL':
-                    source = replace_new_node(src_tree, ch, 'source', 'ShaderNodeAttribute', source_label)
+                    source = replace_new_node(src_tree, ch, 'source', get_vcol_bl_idname(), source_label)
                 else:
                     source = replace_new_node(src_tree, ch, 'source', 'ShaderNodeTex' + ch.override_type.capitalize(), source_label)
 

@@ -176,7 +176,7 @@
 # - Overwrite option always showed up when baking other object (~, probably already fixed, cannot reproduce again)
 # - Normal override channel possibly have issue with different uv than main uv (V)
 # - Move channel modifier will cause error (V)
-# - Blender 2.80 until 2.91 cannot use vertex color alpha
+# - Blender 2.80 until 2.91 cannot use vertex color alpha (V)
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas
@@ -188,7 +188,7 @@
 bl_info = {
     "name": "Ucupaint",
     "author": "Yusuf Umar, Agni Rakai Sahakarya",
-    "version": (0, 9, 5),
+    "version": (0, 9, 6),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",

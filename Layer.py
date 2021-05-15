@@ -222,7 +222,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     create_essential_nodes(tree, True, False, True)
 
     # Add source
-    source = new_node(tree, layer, 'source', layer_node_bl_idnames[layer_type], 'Source')
+    if layer_type == 'VCOL':
+        source = new_node(tree, layer, 'source', get_vcol_bl_idname(), 'Source')
+    else: source = new_node(tree, layer, 'source', layer_node_bl_idnames[layer_type], 'Source')
 
     if layer_type == 'IMAGE':
         # Always set non color to image node because of linear pipeline
@@ -233,7 +235,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         source.image = image
 
     elif layer_type == 'VCOL':
-        source.attribute_name = vcol.name
+        set_source_vcol_name(source, vcol.name)
 
     elif layer_type == 'COLOR':
         col = (solid_color[0], solid_color[1], solid_color[2], 1.0)
@@ -491,11 +493,10 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         # Update vcol cache
         if ch.override_type == 'VCOL':
             source_label = root_ch.name + ' Override : ' + ch.override_type
-            vcol_node, dirty = check_new_node(tree, ch, 'source', 'ShaderNodeAttribute', source_label, True)
-        else:
-            vcol_node, dirty = check_new_node(tree, ch, 'cache_vcol', 'ShaderNodeAttribute', '', True)
+            vcol_node, dirty = check_new_node(tree, ch, 'source', get_vcol_bl_idname(), source_label, True)
+        else: vcol_node, dirty = check_new_node(tree, ch, 'cache_vcol', get_vcol_bl_idname(), '', True)
 
-        vcol_node.attribute_name = self.name
+        set_source_vcol_name(vcol_node, self.name)
 
         # Set vcol name attribute
         yp.halt_update = True
@@ -503,6 +504,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         yp.halt_update = False
 
         ch.override_type = 'VCOL'
+        ch.active_edit = True
 
         # Update UI
         wm.ypui.need_update = True
@@ -1718,10 +1720,10 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
             # Update vcol cache
             if ch.override_type == 'VCOL':
                 source_label = root_ch.name + ' Override : ' + ch.override_type
-                vcol_node, dirty = check_new_node(tree, ch, 'source', 'ShaderNodeAttribute', source_label, True)
-            else: vcol_node, dirty = check_new_node(tree, ch, 'cache_vcol', 'ShaderNodeAttribute', '', True)
+                vcol_node, dirty = check_new_node(tree, ch, 'source', get_vcol_bl_idname(), source_label, True)
+            else: vcol_node, dirty = check_new_node(tree, ch, 'cache_vcol', get_vcol_bl_idname(), '', True)
 
-            vcol_node.attribute_name = self.vcol_name
+            set_source_vcol_name(vcol_node, self.vcol_name)
 
             # Set vcol name attribute
             yp.halt_update = True
@@ -2522,7 +2524,7 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
             if image.colorspace_settings.name != 'Linear':
                 image.colorspace_settings.name = 'Linear'
         elif new_type == 'VCOL':
-            source.attribute_name = item_name
+            set_source_vcol_name(source, item_name)
         elif new_type == 'HEMI':
             source.node_tree = get_node_tree_lib(lib.HEMI)
             duplicate_lib_node_tree(source)
@@ -2667,7 +2669,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
         if image.colorspace_settings.name != 'Linear':
             image.colorspace_settings.name = 'Linear'
     elif new_type == 'VCOL':
-        source.attribute_name = item_name
+        set_source_vcol_name(source, item_name)
     elif new_type == 'HEMI':
         source.node_tree = get_node_tree_lib(lib.HEMI)
         duplicate_lib_node_tree(source)

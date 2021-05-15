@@ -307,7 +307,7 @@ layer_node_bl_idnames = {
         'SKY' : 'ShaderNodeTexSky',
         'VORONOI' : 'ShaderNodeTexVoronoi',
         'WAVE' : 'ShaderNodeTexWave',
-        'VCOL' : 'ShaderNodeAttribute',
+        'VCOL' : 'ShaderNodeVertexColor',
         'BACKGROUND' : 'NodeGroupInput',
         'COLOR' : 'ShaderNodeRGB',
         'GROUP' : 'NodeGroupInput',
@@ -928,9 +928,9 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
                     bpy.data.node_groups.remove(node.node_tree)
 
             elif (obj and obj.type == 'MESH' #and obj.active_material and obj.active_material.users == 1
-                    and hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == 'ShaderNodeAttribute'):
+                    and hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == get_vcol_bl_idname()):
                 mat = obj.active_material
-                vcol = obj.data.vertex_colors.get(node.attribute_name)
+                vcol = obj.data.vertex_colors.get(get_source_vcol_name(node))
 
                 if vcol:
 
@@ -945,7 +945,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
                             # Search for vcol layer
                             if t.type == 'VCOL':
                                 src = get_layer_source(t)
-                                if src != node and src.attribute_name == vcol.name:
+                                if src != node and get_source_vcol_name(src) == vcol.name:
                                     other_users_found = True
                                     break
 
@@ -953,7 +953,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
                             for m in t.masks:
                                 if m.type == 'VCOL':
                                     src = get_mask_source(m)
-                                    if src != node and src.attribute_name == vcol.name:
+                                    if src != node and get_source_vcol_name(src) == vcol.name:
                                         other_users_found = True
                                         break
 
@@ -973,7 +973,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
                         else: obs = [obj]
 
                         for o in obs:
-                            vcol = o.data.vertex_colors.get(node.attribute_name)
+                            vcol = o.data.vertex_colors.get(get_source_vcol_name(node))
                             if vcol: o.data.vertex_colors.remove(vcol)
 
                     print('INFO: Searching on entire node groups to search for vcol takes', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -1662,8 +1662,8 @@ def get_neighbor_uv_space_input(texcoord_type):
 def change_vcol_name(yp, obj, src, new_name, layer=None):
 
     # Get vertex color from node
-    ori_name = src.attribute_name
-    vcol = obj.data.vertex_colors.get(src.attribute_name)
+    ori_name = get_source_vcol_name(src)
+    vcol = obj.data.vertex_colors.get(get_source_vcol_name(src))
 
     if layer:
         # Temporarily change its name to temp name so it won't affect unique name
@@ -1675,7 +1675,7 @@ def change_vcol_name(yp, obj, src, new_name, layer=None):
 
     # Set vertex color name and attribute node
     vcol.name = new_name
-    src.attribute_name = new_name
+    set_source_vcol_name(src, new_name)
 
     mat = obj.active_material
     if mat.users > 1:
@@ -3337,10 +3337,10 @@ def get_active_image_and_stuffs(obj, yp):
                 mapping = get_mask_mapping(mask)
             elif mask.type == 'VCOL' and obj.type == 'MESH':
                 # If source is empty, still try to get vertex color
-                if source.attribute_name == '':
+                if get_source_vcol_name(source) == '':
                     vcol = obj.data.vertex_colors.get(mask.name)
-                    if vcol: source.attribute_name = vcol.name
-                else: vcol = obj.data.vertex_colors.get(source.attribute_name)
+                    if vcol: set_source_vcol_name(source, vcol.name)
+                else: vcol = obj.data.vertex_colors.get(get_source_vcol_name(source))
 
     for ch in layer.channels:
         if ch.active_edit and ch.override and ch.override_type != 'DEFAULT':
@@ -3354,7 +3354,7 @@ def get_active_image_and_stuffs(obj, yp):
                 mapping = get_layer_mapping(layer)
 
             elif ch.override_type == 'VCOL' and obj.type == 'MESH':
-                vcol = obj.data.vertex_colors.get(source.attribute_name)
+                vcol = obj.data.vertex_colors.get(get_source_vcol_name(source))
 
     if not image and layer.type == 'IMAGE':
         uv_name = layer.uv_name
@@ -3365,7 +3365,7 @@ def get_active_image_and_stuffs(obj, yp):
 
     if not vcol and layer.type == 'VCOL' and obj.type == 'MESH':
         source = get_layer_source(layer, tree)
-        vcol = obj.data.vertex_colors.get(source.attribute_name)
+        vcol = obj.data.vertex_colors.get(get_source_vcol_name(source))
 
     return image, uv_name, src_of_img, mapping, vcol
 
@@ -3537,6 +3537,29 @@ def is_overlay_normal_empty(yp):
             return False
 
     return True
+
+def get_vcol_bl_idname():
+    if is_greater_than_280():
+        return 'ShaderNodeVertexColor'
+    return 'ShaderNodeAttribute'
+
+def set_source_vcol_name(src, name):
+    if is_greater_than_280():
+        src.layer_name = name
+    else: src.attribute_name = name
+
+def get_source_vcol_name(src):
+    if is_greater_than_280():
+        return src.layer_name
+    return src.attribute_name
+
+def get_vcol_from_source(obj, src):
+    name = get_source_vcol_name(src)
+    return obj.data.vertex_colors.get(name)
+
+def get_layer_vcol(obj, layer):
+    src = get_layer_source(layer)
+    return get_vcol_from_source(obj, src)
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

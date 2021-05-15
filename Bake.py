@@ -1305,11 +1305,8 @@ class YMergeLayer(bpy.types.Operator):
                 if ori_mode != 'OBJECT':
                     bpy.ops.object.mode_set(mode='OBJECT')
 
-                src = get_layer_source(upper_layer)
-                bsrc = get_layer_source(lower_layer)
-
-                upper_vcol = obj.data.vertex_colors.get(src.attribute_name)
-                lower_vcol = obj.data.vertex_colors.get(bsrc.attribute_name)
+                upper_vcol = get_layer_vcol(obj, upper_layer)
+                lower_vcol = get_layer_vcol(obj, lower_layer)
 
                 if upper_vcol and lower_vcol:
 
@@ -1320,8 +1317,7 @@ class YMergeLayer(bpy.types.Operator):
                         cols[i] = blend_color_mix_byte(lower_vcol.data[i].color, upper_vcol.data[i].color, 
                                 lower_ch.intensity_value, upper_ch.intensity_value)
                     
-                    lsrc = get_layer_source(layer)
-                    vcol = obj.data.vertex_colors.get(lsrc.attribute_name)
+                    vcol = get_layer_vcol(obj, layer)
                     vcol.data.foreach_set('color', cols.ravel())
 
                     bpy.ops.object.mode_set(mode='VERTEX_PAINT')

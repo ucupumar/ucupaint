@@ -1621,7 +1621,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
         if ch.override_type == 'IMAGE':
             if source: label_str += ' (' + source.image.name + ')'
         elif ch.override_type == 'VCOL':
-            if source: label_str += ' (' + source.attribute_name + ')'
+            if source: label_str += ' (' + get_source_vcol_name(source) + ')'
         elif ch.override_type != 'DEFAULT':
             label_str += ' (' + channel_override_labels[ch.override_type] + ')'
         label_str += ':'
@@ -2118,8 +2118,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             src = get_layer_source(layer)
 
             if ((layer.type == 'IMAGE' and not src.image) or 
-                (layer.type == 'VCOL' and obj.type == 'MESH' 
-                    and not obj.data.vertex_colors.get(src.attribute_name))
+                (layer.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
                 ):
                 missing_data = True
                 break
@@ -2130,8 +2129,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 mask_src = get_mask_source(mask)
 
                 if ((mask.type == 'IMAGE' and mask_src and not mask_src.image) or 
-                    (mask.type == 'VCOL' and obj.type == 'MESH' 
-                        and not obj.data.vertex_colors.get(mask_src.attribute_name))
+                    (mask.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, mask_src))
                     ):
                     missing_data = True
                     break
@@ -2142,8 +2140,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 #src = layer_tree.nodes.get(ch.source)
                 src = get_channel_source(ch, layer)
                 if src and ((ch.override_type == 'IMAGE' and not src.image) or 
-                    (ch.override_type == 'VCOL' and obj.type == 'MESH' 
-                        and not obj.data.vertex_colors.get(src.attribute_name))
+                    (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
                     ):
                     missing_data = True
                     break
@@ -2247,7 +2244,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                     if c.override_type == 'IMAGE':
                         override_image = source.image
                     elif c.override_type == 'VCOL':
-                        override_vcol = obj.data.vertex_colors.get(source.attribute_name)
+                        override_vcol = get_vcol_from_source(obj, source)
 
             # Check for active mask
             for i, m in enumerate(layer.masks):
@@ -2262,7 +2259,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                         #image = source.image
                         mask_image = source.image
                     elif m.type == 'VCOL' and is_a_mesh:
-                        mask_vcol = obj.data.vertex_colors.get(source.attribute_name)
+                        mask_vcol = get_vcol_from_source(obj, source)
 
             # Use layer image if there is no mask image
             #if not mask:
@@ -2270,7 +2267,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             if layer.type == 'IMAGE':
                 image = source.image
             elif layer.type == 'VCOL' and is_a_mesh:
-                vcol = obj.data.vertex_colors.get(source.attribute_name)
+                vcol = get_vcol_from_source(obj, source)
 
     # Set pointer for active layer and image
     if layer: box.context_pointer_set('layer', layer)
@@ -2609,8 +2606,9 @@ def main_draw(self, context):
                     images.append(src.image)
             elif layer.type == 'VCOL':
                 src = get_layer_source(layer)
-                if src.attribute_name != '' and src.attribute_name not in vcols:
-                    vcols.append(src.attribute_name)
+                vcol_name = get_source_vcol_name(src)
+                if vcol_name != '' and vcol_name not in vcols:
+                    vcols.append(vcol_name)
             elif layer.type not in {'COLOR', 'BACKGROUND', 'GROUP'}:
                 num_gen_texs += 1
 
@@ -2623,8 +2621,9 @@ def main_draw(self, context):
                             images.append(src.image)
                     elif ch.override_type == 'VCOL':
                         src = get_channel_source(ch, layer)
-                        if src.attribute_name != '' and src.attribute_name not in vcols:
-                            vcols.append(src.attribute_name)
+                        vcol_name = get_source_vcol_name(src)
+                        if vcol_name != '' and vcol_name not in vcols:
+                            vcols.append(vcol_name)
                     elif ch.override_type not in {'DEFAULT'}:
                         num_gen_texs += 1
 
@@ -2638,8 +2637,9 @@ def main_draw(self, context):
                         images.append(src.image)
                 elif mask.type == 'VCOL':
                     src = get_mask_source(mask)
-                    if src.attribute_name != '' and src.attribute_name not in vcols:
-                        vcols.append(src.attribute_name)
+                    vcol_name = get_source_vcol_name(src)
+                    if vcol_name != '' and vcol_name not in vcols:
+                        vcols.append(vcol_name)
                 else:
                     num_gen_texs += 1
 
@@ -2784,7 +2784,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
         #vcol = None
         #if layer.type == 'VCOL':
         #    source = get_layer_source(layer, layer_tree)
-        #    vcol = obj.data.vertex_colors.get(source.attribute_name)
+        #    vcol = get_vcol_from_source(obj, source)
 
         overrides = []
         active_override = None
@@ -2916,9 +2916,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     active_mask_image = src.image
                     row.label(text='', icon_value=src.image.preview.icon_id)
                 elif m.type == 'VCOL':
-                    #active_vcol_mask = obj.data.vertex_colors.get(src.attribute_name)
                     active_vcol_mask = m
-                    #row.label(text='', icon='GROUP_VCOL')
                     row.label(text='', icon_value=lib.get_icon('vertex_color'))
                 elif m.type == 'HEMI':
                     row.label(text='', icon_value=lib.get_icon('hemi'))
@@ -3747,9 +3745,9 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
         cache_vcol = tree.nodes.get(ch.cache_vcol)
         #source = tree.nodes.get(ch.source)
         if cache_vcol:
-            label += ': ' + cache_vcol.attribute_name
+            label += ': ' + get_source_vcol_name(cache_vcol)
         elif (ch.override_type == 'VCOL' and source):
-            label += ': ' + source.attribute_name
+            label += ': ' + get_source_vcol_name(source)
 
         icon = 'RADIOBUT_ON' if ch.override_type == 'VCOL' else 'RADIOBUT_OFF'
         if cache_vcol and ch.override_type != 'VCOL':

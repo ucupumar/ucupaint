@@ -685,26 +685,73 @@ def update_routine(name):
                     rearrange_layer_nodes(layer)
                     update_happened = True
 
+        # Version 0.9.6 and above will use native vertex color node for Blender 2.80+
+        if (LooseVersion(ng.yp.version) < LooseVersion('0.9.6') or is_created_using_279()) and is_greater_than_280():
+
+            for layer in ng.yp.layers:
+                layer_tree = get_tree(layer)
+
+                # Update vcol layer to use alpha by reconnection
+                if layer.type == 'VCOL':
+
+                    source = get_layer_source(layer)
+                    name = source.attribute_name
+                    label = source.label
+                    source = replace_new_node(layer_tree, layer, 'source', 'ShaderNodeVertexColor', label)
+                    source.layer_name = name
+
+                for ch in layer.channels:
+
+                    if ch.override_type == 'VCOL':
+                        source = get_channel_source(ch, layer, layer_tree)
+                        if source:
+                            name = source.attribute_name
+                            label = source.label
+                            source = replace_new_node(layer_tree, ch, 'source', 'ShaderNodeVertexColor', label)
+                            source.layer_name = name
+                            update_happened = True
+
+                    cache_vcol = layer_tree.nodes.get(ch.cache_vcol)
+                    if cache_vcol:
+                        name = cache_vcol.attribute_name
+                        label = cache_vcol.label
+                        cache_vcol = replace_new_node(layer_tree, ch, 'cache_vcol', 'ShaderNodeVertexColor', label)
+                        cache_vcol.layer_name = name
+                        update_happened = True
+
+                for mask in layer.masks:
+                    if mask.type == 'VCOL':
+                        source = get_mask_source(mask)
+                        name = source.attribute_name
+                        label = source.label
+                        source = replace_new_node(layer_tree, mask, 'source', 'ShaderNodeVertexColor', label)
+                        source.layer_name = name
+                        update_happened = True
+
+                if update_happened:
+                    reconnect_layer_nodes(layer)
+                    rearrange_layer_nodes(layer)
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version
             print('INFO:', ng.name, 'is updated to version', cur_version)
 
     # Special update for opening Blender 2.79 file
-    if is_created_using_279() and is_greater_than_280():
-        show_message = False
-        for ng in bpy.data.node_groups:
-            if not ng.yp.is_ypaint_node: continue
-            show_message = True
-            
-            for layer in ng.yp.layers:
-                # Update vcol layer to use alpha by reconnection
-                if layer.type == 'VCOL':
-                    reconnect_layer_nodes(layer)
-                    rearrange_layer_nodes(layer)
+    #if is_created_using_279() and is_greater_than_280():
+    #    show_message = False
+    #    for ng in bpy.data.node_groups:
+    #        if not ng.yp.is_ypaint_node: continue
+    #        show_message = True
+    #        
+    #        for layer in ng.yp.layers:
+    #            # Update vcol layer to use alpha by reconnection
+    #            if layer.type == 'VCOL':
+    #                reconnect_layer_nodes(layer)
+    #                rearrange_layer_nodes(layer)
 
-        if show_message:
-            print("INFO: You're opening Blender 2.79 file with " + ADDON_TITLE + " nodes, it's now possible to use vertex color with alpha! Enjoy!")
+    #    if show_message:
+    #        print("INFO: You're opening Blender 2.79 file with " + ADDON_TITLE + " nodes, it's now possible to use vertex color with alpha! Enjoy!")
 
     print('INFO: ' + ADDON_TITLE + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
