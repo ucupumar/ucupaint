@@ -538,6 +538,53 @@ def linear_to_srgb(inp):
 
         return c
 
+def divide_round_i(a, b):
+    return (2 * a + b) / (2 * b)
+
+def blend_color_mix_byte(src1, src2, intensity1=1.0, intensity2=1.0):
+    dst = [0.0, 0.0, 0.0, 0.0]
+
+    c1 = list(src1)
+    c2 = list(src2)
+
+    c1[3] *= intensity1
+    c2[3] *= intensity2
+
+    if c2[3] != 0.0:
+
+        # Multiply first by 255
+        for i in range(4):
+            c1[i] *= 255
+            c2[i] *= 255
+
+        # Straight over operation
+        t = c2[3]
+        mt = 255 - t
+        tmp = [0.0, 0.0, 0.0, 0.0]
+        
+        tmp[0] = (mt * c1[3] * c1[0]) + (t * 255 * c2[0])
+        tmp[1] = (mt * c1[3] * c1[1]) + (t * 255 * c2[1])
+        tmp[2] = (mt * c1[3] * c1[2]) + (t * 255 * c2[2])
+        tmp[3] = (mt * c1[3]) + (t * 255)
+        
+        dst[0] = divide_round_i(tmp[0], tmp[3])
+        dst[1] = divide_round_i(tmp[1], tmp[3])
+        dst[2] = divide_round_i(tmp[2], tmp[3])
+        dst[3] = divide_round_i(tmp[3], 255)
+
+        # Divide it back
+        for i in range(4):
+            dst[i] /= 255
+
+    else :
+        # No op
+        dst[0] = c1[0]
+        dst[1] = c1[1]
+        dst[2] = c1[2]
+        dst[3] = c1[3]
+
+    return dst
+
 def copy_id_props(source, dest, extras = []):
     props = dir(source)
     #print()

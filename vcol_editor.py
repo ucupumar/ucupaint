@@ -135,17 +135,6 @@ class YSetVColBase(bpy.types.Operator):
                         cols[j][k] = vcol.data[j].color[k]
                     cols[j][3] = vcol.data[j].color[3]
 
-
-        # Set new vertex color to loops
-        #for i, l in enumerate(mesh.loops):
-        #    if vcol.data[i].color[3] == 0.0:
-        #        for j in range(3):
-        #            cols[i][j] = col[j]
-        #    else:
-        #        for j in range(3):
-        #            cols[i][j] = vcol.data[i].color[j]
-        #    cols[i][3] = vcol.data[i].color[3]
-
         vcol.data.foreach_set('color', cols.ravel())
 
         if obj.mode != ori_mode:

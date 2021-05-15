@@ -1,4 +1,4 @@
-import bpy, re, time, math
+import bpy, re, time, math, numpy
 from bpy.props import *
 from mathutils import *
 from .common import *
@@ -1176,6 +1176,18 @@ class YMergeLayer(bpy.types.Operator):
         # Get parent dict
         parent_dict = get_parent_dict(yp)
 
+        merge_success = False
+
+        # Get max height
+        if height_root_ch and main_ch.type == 'NORMAL':
+            end_max_height = tree.nodes.get(height_root_ch.end_max_height)
+            ori_max_height = 0.0
+            max_height = 0.0
+            if end_max_height:
+                ori_max_height = end_max_height.outputs[0].default_value
+                max_height = get_max_height_from_list_of_layers([layer, neighbor_layer], int(self.channel_idx))
+                end_max_height.outputs[0].default_value = max_height
+
         # Check layer
         if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
 
@@ -1197,13 +1209,6 @@ class YMergeLayer(bpy.types.Operator):
             #    #    l.enable = True
             #    if l not in {layer, neighbor_layer}:
             #        l.enable = False
-
-            # Get max height
-            if height_root_ch and main_ch.type == 'NORMAL':
-                end_max_height = tree.nodes.get(height_root_ch.end_max_height)
-                ori_max_height = end_max_height.outputs[0].default_value
-                max_height = get_max_height_from_list_of_layers([layer, neighbor_layer], int(self.channel_idx))
-                end_max_height.outputs[0].default_value = max_height
 
             # Disable modfiers and transformations if apply modifiers is not enabled
             if not self.apply_modifiers:
@@ -1245,37 +1250,116 @@ class YMergeLayer(bpy.types.Operator):
             #    if yp.layers[i].enable != le:
             #        yp.layers[i].enable = le
 
-            # Recover max height
-            if height_root_ch and main_ch.type == 'NORMAL':
-                end_max_height.outputs[0].default_value = ori_max_height
-
             # Recover original props
             main_ch.enable_alpha = ori_enable_alpha
             if main_ch.type != 'NORMAL':
                 ch.blend_type = ori_blend_type
             else: ch.normal_blend_type = ori_blend_type
 
-            if merge_success:
-                # Remove neighbor layer
-                Layer.remove_layer(yp, neighbor_idx)
-
-                if height_ch and main_ch.type == 'NORMAL' and height_ch.normal_map_type == 'BUMP_MAP':
-                    height_ch.bump_distance = max_height
-
-                rearrange_yp_nodes(tree)
-                reconnect_yp_nodes(tree)
-
-                # Refresh index routine
-                yp.active_layer_index = min(layer_idx, neighbor_idx)
-            else:
-                self.report({'ERROR'}, "Merge failed for some reason!")
-                return {'CANCELLED'}
-            
         #elif (layer.type == 'COLOR' and neighbor_layer.type == 'COLOR' 
         #        and len(layer.masks) != 0 and len(neighbor_layer.masks) == len(layer.masks)):
         #    pass
+        elif layer.type == 'VCOL' and neighbor_layer.type == 'VCOL':
+
+            modifier_found = False
+            if any(layer.modifiers) or any(neighbor_layer.modifiers):
+                modifier_found = True
+
+            for c in layer.channels:
+                if c.enable and any(c.modifiers):
+                    modifier_found = True
+
+            for c in neighbor_layer.channels:
+                if c.enable and any(c.modifiers):
+                    modifier_found = True
+
+            if any(layer.masks) or any(neighbor_layer.masks):
+                modifier_found = True
+
+            if modifier_found:
+                self.report({'ERROR'}, "Vertex color merge does not works with modifers and masks yet!")
+                return {'CANCELLED'}
+
+            if ch.blend_type != 'MIX' or neighbor_ch.blend_type != 'MIX':
+                self.report({'ERROR'}, "Vertex color merge only works with Mix blend type for now!")
+                return {'CANCELLED'}
+
+            if neighbor_idx > layer_idx:
+                upper_layer = layer
+                upper_ch = ch
+                lower_layer = neighbor_layer
+                lower_ch = neighbor_ch
+            else:
+                upper_layer = neighbor_layer
+                upper_ch = neighbor_ch
+                lower_layer = layer
+                lower_ch = ch
+
+            ori_obj = context.object
+
+            for obj in objs:
+
+                set_active_object(obj)
+                ori_mode = obj.mode
+
+                if ori_mode != 'OBJECT':
+                    bpy.ops.object.mode_set(mode='OBJECT')
+
+                src = get_layer_source(upper_layer)
+                bsrc = get_layer_source(lower_layer)
+
+                upper_vcol = obj.data.vertex_colors.get(src.attribute_name)
+                lower_vcol = obj.data.vertex_colors.get(bsrc.attribute_name)
+
+                if upper_vcol and lower_vcol:
+
+                    cols = numpy.zeros(len(obj.data.loops)*4, dtype=numpy.float32)
+                    cols.shape = (cols.shape[0]//4, 4)
+
+                    for i, l in enumerate(obj.data.loops):
+                        cols[i] = blend_color_mix_byte(lower_vcol.data[i].color, upper_vcol.data[i].color, 
+                                lower_ch.intensity_value, upper_ch.intensity_value)
+                    
+                    lsrc = get_layer_source(layer)
+                    vcol = obj.data.vertex_colors.get(lsrc.attribute_name)
+                    vcol.data.foreach_set('color', cols.ravel())
+
+                    bpy.ops.object.mode_set(mode='VERTEX_PAINT')
+                    bpy.ops.object.mode_set(mode='OBJECT')
+                    if ori_mode != 'OBJECT':
+                        bpy.ops.object.mode_set(mode=ori_mode)
+
+            set_active_object(ori_obj)
+
+            # Set all channel intensity value to 1.0
+            for c in layer.channels:
+                c.intensity_value = 1.0
+
+            #neighbor_layer.enable = False
+            merge_success = True
+
         else:
             self.report({'ERROR'}, "This kind of merge is not supported yet!")
+            return {'CANCELLED'}
+
+        # Recover max height
+        if height_root_ch and main_ch.type == 'NORMAL':
+            if end_max_height: end_max_height.outputs[0].default_value = ori_max_height
+
+        if merge_success:
+            # Remove neighbor layer
+            Layer.remove_layer(yp, neighbor_idx)
+
+            if height_ch and main_ch.type == 'NORMAL' and height_ch.normal_map_type == 'BUMP_MAP':
+                height_ch.bump_distance = max_height
+
+            rearrange_yp_nodes(tree)
+            reconnect_yp_nodes(tree)
+
+            # Refresh index routine
+            yp.active_layer_index = min(layer_idx, neighbor_idx)
+        else:
+            self.report({'ERROR'}, "Merge failed for some reason!")
             return {'CANCELLED'}
 
         return {'FINISHED'}
