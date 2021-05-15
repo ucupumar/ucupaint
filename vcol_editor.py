@@ -55,21 +55,26 @@ class YSetActiveVcol(bpy.types.Operator):
         self.report({'ERROR'}, "There's no vertex color named " + self.vcol_name + '!')
         return {'CANCELLED'}
 
-class YVcolToggleEraser(bpy.types.Operator):
-    bl_idname = "mesh.y_vcol_toggle_eraser"
-    bl_label = "Toggle Vertex Color Eraser"
-    bl_description = "Toggle vertex color eraser"
+class YToggleEraser(bpy.types.Operator):
+    bl_idname = "mesh.y_toggle_eraser"
+    bl_label = "Toggle Eraser Brush"
+    bl_description = "Toggle eraser brush"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH' and context.object.mode == 'VERTEX_PAINT'
+        return context.object and context.object.type == 'MESH' and context.object.mode in {'VERTEX_PAINT', 'TEXTURE_PAINT'}
 
     def execute(self, context):
         ve = context.scene.ve_edit
+        mode = context.object.mode
 
-        brush = context.tool_settings.vertex_paint.brush
-        draw_brush = bpy.data.brushes.get('Draw')
+        if mode == 'TEXTURE_PAINT':
+            brush = context.tool_settings.image_paint.brush
+            draw_brush = bpy.data.brushes.get('TexDraw')
+        else: 
+            brush = context.tool_settings.vertex_paint.brush
+            draw_brush = bpy.data.brushes.get('Draw')
 
         if brush.blend == 'ERASE_ALPHA':
             new_brush = bpy.data.brushes.get(ve.ori_brush)
@@ -85,11 +90,13 @@ class YVcolToggleEraser(bpy.types.Operator):
             ve.ori_brush = brush.name
             ve.ori_blending_mode = brush.blend
 
-            new_brush = bpy.data.brushes.get('Draw')
+            new_brush = draw_brush
             if new_brush: new_brush.blend = 'ERASE_ALPHA'
 
         if new_brush:
-            context.tool_settings.vertex_paint.brush = new_brush
+            if mode == 'TEXTURE_PAINT':
+                context.tool_settings.image_paint.brush = new_brush
+            else: context.tool_settings.vertex_paint.brush = new_brush
 
         return {'FINISHED'}
 
@@ -466,7 +473,7 @@ def register():
     bpy.types.Scene.ve_edit = PointerProperty(type=YVcolEditorProps)
 
     bpy.utils.register_class(YVcolFill)
-    bpy.utils.register_class(YVcolToggleEraser)
+    bpy.utils.register_class(YToggleEraser)
     bpy.utils.register_class(YSpreadVColFix)
     bpy.utils.register_class(YSetVColBase)
     bpy.utils.register_class(YSetActiveVcol)
@@ -479,7 +486,7 @@ def unregister():
     bpy.utils.unregister_class(YVcolEditorProps)
 
     bpy.utils.unregister_class(YVcolFill)
-    bpy.utils.unregister_class(YVcolToggleEraser)
+    bpy.utils.unregister_class(YToggleEraser)
     bpy.utils.unregister_class(YSpreadVColFix)
     bpy.utils.unregister_class(YSetVColBase)
     bpy.utils.unregister_class(YSetActiveVcol)

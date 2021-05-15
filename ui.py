@@ -2411,12 +2411,17 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
                 row.prop(ve, "color", text="", icon='COLOR')
 
-            elif obj.mode == 'VERTEX_PAINT' and layer.type == 'VCOL':
+            elif obj.mode == 'VERTEX_PAINT' and layer.type == 'VCOL' and is_greater_than_280() and not mask_vcol and not override_vcol:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.operator('mesh.y_vcol_spread_fix', text='Spread Fix')
                 row.operator('mesh.y_vcol_set_base', text='Set Base')
-                row.operator('mesh.y_vcol_toggle_eraser', text='Toggle Eraser')
+                row.operator('mesh.y_toggle_eraser', text='Toggle Eraser')
+
+        if obj.type == 'MESH' and obj.mode == 'TEXTURE_PAINT' and layer.type == 'IMAGE' and not mask_image and not override_image:
+            bbox = col.box()
+            row = bbox.row(align=True)
+            row.operator('mesh.y_toggle_eraser', text='Toggle Eraser')
 
         # Source
         draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh) #, custom_icon_enable)
