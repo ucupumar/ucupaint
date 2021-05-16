@@ -66,6 +66,11 @@ class YToggleEraser(bpy.types.Operator):
         return context.object and context.object.type == 'MESH' and context.object.mode in {'VERTEX_PAINT', 'TEXTURE_PAINT'}
 
     def execute(self, context):
+
+        if not is_greater_than_280():
+            self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
+            return {'CANCELLED'}
+
         ve = context.scene.ve_edit
         mode = context.object.mode
 
@@ -111,6 +116,11 @@ class YSetVColBase(bpy.types.Operator):
         return context.object and context.object.type == 'MESH' and context.object.mode == 'VERTEX_PAINT'
 
     def execute(self, context):
+
+        if not is_greater_than_280():
+            self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
+            return {'CANCELLED'}
+
         col = context.tool_settings.vertex_paint.brush.color
 
         obj = context.object

@@ -2408,7 +2408,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
                 row.prop(ve, "color", text="", icon='COLOR')
 
-            elif obj.mode == 'VERTEX_PAINT' and layer.type == 'VCOL' and is_greater_than_280() and not mask_vcol and not override_vcol:
+            elif obj.mode == 'VERTEX_PAINT' and layer.type == 'VCOL' and is_greater_than_281() and not mask_vcol and not override_vcol:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.operator('mesh.y_vcol_spread_fix', text='Spread Fix')
