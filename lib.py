@@ -685,8 +685,8 @@ def update_routine(name):
                     rearrange_layer_nodes(layer)
                     update_happened = True
 
-        # Version 0.9.6 and above will use native vertex color node for Blender 2.80+
-        if (LooseVersion(ng.yp.version) < LooseVersion('0.9.6') or is_created_using_279()) and is_greater_than_280():
+        # Version 0.9.6 and above will use native vertex color node for Blender 2.81+
+        if (LooseVersion(ng.yp.version) < LooseVersion('0.9.6') or is_created_using_279() or is_created_using_280()) and is_greater_than_281():
 
             for layer in ng.yp.layers:
                 layer_tree = get_tree(layer)

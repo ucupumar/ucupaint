@@ -924,7 +924,11 @@ class YNewLayer(bpy.types.Operator):
                 if self.name not in o.data.vertex_colors:
                     try:
                         vcol = o.data.vertex_colors.new(name=self.name)
-                        set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
+
+                        if is_greater_than_281():
+                            set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
+                        else: set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+
                         o.data.vertex_colors.active = vcol
                     except: pass
 
@@ -1713,7 +1717,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                         #    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
                         #elif vcol_color == 'BLACK':
                         #    set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
-                        set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
+                        set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
                         o.data.vertex_colors.active = vcol
                     except: pass
 
@@ -1929,7 +1933,9 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                     if mat.name in o.data.materials and self.vcol_name not in o.data.vertex_colors:
                         try:
                             other_v = o.data.vertex_colors.new(name=self.vcol_name)
-                            set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 0.0))
+                            if is_greater_than_281():
+                                set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 0.0))
+                            else: set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
                             o.data.vertex_colors.active = other_v
                         except: pass
 

@@ -382,6 +382,12 @@ def is_created_using_279():
         return True
     else: return False
 
+def is_created_using_280():
+    ver = '.'.join([str(i) for i in bpy.data.version])[:4]
+    if versiontuple(ver) == versiontuple('2.79'):
+        return True
+    else: return False
+
 def set_active_object(obj):
     if is_greater_than_280():
         bpy.context.view_layer.objects.active = obj
@@ -3539,17 +3545,17 @@ def is_overlay_normal_empty(yp):
     return True
 
 def get_vcol_bl_idname():
-    if is_greater_than_280():
+    if is_greater_than_281():
         return 'ShaderNodeVertexColor'
     return 'ShaderNodeAttribute'
 
 def set_source_vcol_name(src, name):
-    if is_greater_than_280():
+    if is_greater_than_281():
         src.layer_name = name
     else: src.attribute_name = name
 
 def get_source_vcol_name(src):
-    if is_greater_than_280():
+    if is_greater_than_281():
         return src.layer_name
     return src.attribute_name
 
