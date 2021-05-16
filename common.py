@@ -376,9 +376,21 @@ def is_greater_than_282():
         return True
     else: return False
 
+def is_greater_than_292():
+    ver = bpy.app.version_string[:4]
+    if versiontuple(ver) >= versiontuple('2.92'):
+        return True
+    else: return False
+
 def is_created_using_279():
     ver = '.'.join([str(i) for i in bpy.data.version])[:4]
     if versiontuple(ver) == versiontuple('2.79'):
+        return True
+    else: return False
+
+def is_created_before_292():
+    ver = '.'.join([str(i) for i in bpy.data.version])[:4]
+    if versiontuple(ver) < versiontuple('2.92'):
         return True
     else: return False
 
@@ -3544,19 +3556,21 @@ def is_overlay_normal_empty(yp):
 
     return True
 
+# ShaderNodeVertexColor can't use bump map, so ShaderNodeAttribute will be used for now
 def get_vcol_bl_idname():
-    if is_greater_than_281():
-        return 'ShaderNodeVertexColor'
+    #if is_greater_than_281():
+    #    return 'ShaderNodeVertexColor'
     return 'ShaderNodeAttribute'
 
 def set_source_vcol_name(src, name):
-    if is_greater_than_281():
-        src.layer_name = name
-    else: src.attribute_name = name
+    #if is_greater_than_281():
+    #    src.layer_name = name
+    #else: 
+    src.attribute_name = name
 
 def get_source_vcol_name(src):
-    if is_greater_than_281():
-        return src.layer_name
+    #if is_greater_than_281():
+    #    return src.layer_name
     return src.attribute_name
 
 def get_vcol_from_source(obj, src):
