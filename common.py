@@ -307,7 +307,7 @@ layer_node_bl_idnames = {
         'SKY' : 'ShaderNodeTexSky',
         'VORONOI' : 'ShaderNodeTexVoronoi',
         'WAVE' : 'ShaderNodeTexWave',
-        'VCOL' : 'ShaderNodeVertexColor',
+        'VCOL' : 'ShaderNodeAttribute',
         'BACKGROUND' : 'NodeGroupInput',
         'COLOR' : 'ShaderNodeRGB',
         'GROUP' : 'NodeGroupInput',
