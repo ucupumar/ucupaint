@@ -374,20 +374,17 @@ def is_greater_than_292():
     return False
 
 def is_created_using_279():
-    ver = '.'.join([str(i) for i in bpy.data.version])[:4]
-    if versiontuple(ver) == versiontuple('2.79'):
-        return True
-    return False
-
-def is_created_before_292():
-    ver = '.'.join([str(i) for i in bpy.data.version])[:4]
-    if versiontuple(ver) < versiontuple('2.92'):
+    if bpy.data.version[:2] == (2, 79):
         return True
     return False
 
 def is_created_using_280():
-    ver = '.'.join([str(i) for i in bpy.data.version])[:4]
-    if versiontuple(ver) == versiontuple('2.79'):
+    if bpy.data.version[:2] == (2, 80):
+        return True
+    return False
+
+def is_created_before_292():
+    if bpy.data.version < (2, 92, 0):
         return True
     return False
 
