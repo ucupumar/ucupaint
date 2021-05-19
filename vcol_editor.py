@@ -2,19 +2,8 @@ import bpy, bmesh, numpy
 from mathutils import *
 from bpy.props import *
 
-def get_app_version_string():
-    ver = bpy.app.version_string[:4]
-    # Blender 3.0+ has only 3 important digits
-    if ver.endswith('.'):
-        return ver[:3]
-    return ver
-
-def versiontuple(v):
-    return tuple(map(int, (v.split("."))))
-
 def is_greater_than_280():
-    ver = get_app_version_string()
-    if versiontuple(ver) >= versiontuple('2.80'):
+    if bpy.app.version >= (2, 80, 0):
         return True
     else: return False
 
