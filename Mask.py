@@ -26,7 +26,9 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     if segment:
         mask.segment_name = segment.name
 
-    source = new_node(tree, mask, 'source', layer_node_bl_idnames[mask_type], 'Mask Source')
+    if layer_type == 'VCOL':
+        source = new_node(tree, mask, 'source', get_vcol_bl_idname(), 'Mask Source')
+    else: source = new_node(tree, mask, 'source', layer_node_bl_idnames[mask_type], 'Mask Source')
     if image:
         source.image = image
         if hasattr(source, 'color_space'):
