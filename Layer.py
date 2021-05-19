@@ -425,7 +425,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
     bl_description = "New Vertex Color To Override Channel Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name = StringProperty(default='')
+    name : StringProperty(default='')
 
     @classmethod
     def poll(cls, context):
@@ -519,66 +519,66 @@ class YNewLayer(bpy.types.Operator):
     bl_description = "New Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name = StringProperty(default='')
+    name : StringProperty(default='')
 
-    type = EnumProperty(
+    type : EnumProperty(
             name = 'Layer Type',
             items = layer_type_items,
             default = 'IMAGE')
 
     # For image layer
-    width = IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height = IntProperty(name='Height', default = 1024, min=1, max=4096)
-    #color = FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(0.0,0.0,0.0,0.0), min=0.0, max=1.0)
-    #alpha = BoolProperty(name='Alpha', default=True)
-    hdr = BoolProperty(name='32 bit Float', default=False)
+    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
+    #color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(0.0,0.0,0.0,0.0), min=0.0, max=1.0)
+    #alpha : BoolProperty(name='Alpha', default=True)
+    hdr : BoolProperty(name='32 bit Float', default=False)
 
-    texcoord_type = EnumProperty(
+    texcoord_type : EnumProperty(
             name = 'Texture Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
-    channel_idx = EnumProperty(
+    channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
             items = channel_items)
             #update=update_channel_idx_new_layer)
 
-    blend_type = EnumProperty(
+    blend_type : EnumProperty(
         name = 'Blend',
         description = 'Blend type',
         items = blend_type_items,
         default = 'MIX')
 
-    normal_blend_type = EnumProperty(
+    normal_blend_type : EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX')
 
-    #add_rgb_to_intensity = BoolProperty(
+    #add_rgb_to_intensity : BoolProperty(
     #        name = 'Add RGB To Intensity',
     #        description = 'Add RGB To Intensity modifier to all channels of newly created layer',
     #        default=False)
 
-    #rgb_to_intensity_color = FloatVectorProperty(
+    #rgb_to_intensity_color : FloatVectorProperty(
     #        name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
-    solid_color = FloatVectorProperty(
+    solid_color : FloatVectorProperty(
             name='Solid Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
-    add_mask = BoolProperty(
+    add_mask : BoolProperty(
             name = 'Add Mask',
             description = 'Add mask to new layer',
             default = False)
 
-    mask_type = EnumProperty(
+    mask_type : EnumProperty(
             name = 'Mask Type',
             description = 'Mask type',
             items = (('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
                 ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1)),
             default = 'IMAGE')
 
-    mask_color = EnumProperty(
+    mask_color : EnumProperty(
             name = 'Mask Color',
             description = 'Mask Color',
             items = (
@@ -587,42 +587,42 @@ class YNewLayer(bpy.types.Operator):
                 ),
             default='BLACK')
 
-    mask_width = IntProperty(name='Mask Width', default = 1024, min=1, max=4096)
-    mask_height = IntProperty(name='Mask Height', default = 1024, min=1, max=4096)
+    mask_width : IntProperty(name='Mask Width', default = 1024, min=1, max=4096)
+    mask_height : IntProperty(name='Mask Height', default = 1024, min=1, max=4096)
 
-    mask_uv_name = StringProperty(default='')
-    mask_use_hdr = BoolProperty(name='32 bit Float', default=False)
+    mask_uv_name : StringProperty(default='')
+    mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
 
-    uv_map = StringProperty(default='')
+    uv_map : StringProperty(default='')
 
-    normal_map_type = EnumProperty(
+    normal_map_type : EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this layer',
             items = get_normal_map_type_items)
             #default = 'BUMP_MAP')
 
-    use_image_atlas = BoolProperty(
+    use_image_atlas : BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
             default=True)
 
-    use_image_atlas_for_mask = BoolProperty(
+    use_image_atlas_for_mask : BoolProperty(
             name = 'Use Image Atlas for Mask',
             description='Use Image Atlas for Mask',
             default=True)
 
-    hemi_space = EnumProperty(
+    hemi_space : EnumProperty(
             name = 'Fake Lighting Space',
             description = 'Fake lighting space',
             items = hemi_space_items,
             default='WORLD')
 
-    hemi_use_prev_normal = BoolProperty(
+    hemi_use_prev_normal : BoolProperty(
             name = 'Use previous Normal',
             description = 'Take account previous Normal',
             default = True)
 
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -973,13 +973,13 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
     bl_options = {'REGISTER', 'UNDO'}
 
     # File related
-    files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
-    directory = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
+    files : CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
+    directory : StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
 
     # File browser filter
-    filter_folder = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_image = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    display_type = EnumProperty(
+    filter_folder : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    filter_image : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    display_type : EnumProperty(
             items = (('FILE_DEFAULTDISPLAY', 'Default', ''),
                      ('FILE_SHORTDISLPAY', 'Short List', ''),
                      ('FILE_LONGDISPLAY', 'Long List', ''),
@@ -987,7 +987,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
             default = 'FILE_IMGDISPLAY',
             options={'HIDDEN', 'SKIP_SAVE'})
 
-    relative = BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
+    relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
@@ -1062,13 +1062,13 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
     bl_options = {'REGISTER', 'UNDO'}
 
     # File related
-    files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
-    directory = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
+    files : CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
+    directory : StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
 
     # File browser filter
-    filter_folder = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_image = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    display_type = EnumProperty(
+    filter_folder : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    filter_image : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    display_type : EnumProperty(
             items = (('FILE_DEFAULTDISPLAY', 'Default', ''),
                      ('FILE_SHORTDISLPAY', 'Short List', ''),
                      ('FILE_LONGDISPLAY', 'Long List', ''),
@@ -1076,29 +1076,29 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
             default = 'FILE_IMGDISPLAY',
             options={'HIDDEN', 'SKIP_SAVE'})
 
-    relative = BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
+    relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
-    texcoord_type = EnumProperty(
+    texcoord_type : EnumProperty(
             name = 'Texture Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
-    uv_map = StringProperty(default='')
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map : StringProperty(default='')
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    add_mask = BoolProperty(
+    add_mask : BoolProperty(
             name = 'Add Mask',
             description = 'Add mask to new layer',
             default = False)
 
-    mask_type = EnumProperty(
+    mask_type : EnumProperty(
             name = 'Mask Type',
             description = 'Mask type',
             items = (('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
                 ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1)),
             default = 'IMAGE')
 
-    mask_color = EnumProperty(
+    mask_color : EnumProperty(
             name = 'Mask Color',
             description = 'Mask Color',
             items = (
@@ -1107,13 +1107,13 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                 ),
             default='BLACK')
 
-    mask_width = IntProperty(name='Mask Width', default = 1024, min=1, max=4096)
-    mask_height = IntProperty(name='Mask Height', default = 1024, min=1, max=4096)
+    mask_width : IntProperty(name='Mask Width', default = 1024, min=1, max=4096)
+    mask_height : IntProperty(name='Mask Height', default = 1024, min=1, max=4096)
 
-    mask_uv_name = StringProperty(default='')
-    mask_use_hdr = BoolProperty(name='32 bit Float', default=False)
+    mask_uv_name : StringProperty(default='')
+    mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
 
-    use_image_atlas_for_mask = BoolProperty(
+    use_image_atlas_for_mask : BoolProperty(
             name = 'Use Image Atlas for Mask',
             description='Use Image Atlas for Mask',
             default=True)
@@ -1415,13 +1415,13 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     bl_options = {'REGISTER', 'UNDO'}
 
     # File related
-    files = CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
-    directory = StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
+    files : CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
+    directory : StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
 
     # File browser filter
-    filter_folder = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    filter_image = BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
-    display_type = EnumProperty(
+    filter_folder : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    filter_image : BoolProperty(default=True, options={'HIDDEN', 'SKIP_SAVE'})
+    display_type : EnumProperty(
             items = (('FILE_DEFAULTDISPLAY', 'Default', ''),
                      ('FILE_SHORTDISLPAY', 'Short List', ''),
                      ('FILE_LONGDISPLAY', 'Long List', ''),
@@ -1429,46 +1429,46 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
             default = 'FILE_IMGDISPLAY',
             options={'HIDDEN', 'SKIP_SAVE'})
 
-    relative = BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
+    relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
-    texcoord_type = EnumProperty(
+    texcoord_type : EnumProperty(
             name = 'Texture Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
-    uv_map = StringProperty(default='')
+    uv_map : StringProperty(default='')
 
-    channel_idx = EnumProperty(
+    channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
             items = channel_items)
             #update=update_channel_idx_new_layer)
 
-    blend_type = EnumProperty(
+    blend_type : EnumProperty(
         name = 'Blend',
         items = blend_type_items,
         default = 'MIX')
 
-    normal_blend_type = EnumProperty(
+    normal_blend_type : EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX')
 
-    #add_rgb_to_intensity = BoolProperty(
+    #add_rgb_to_intensity : BoolProperty(
     #        name = 'Add RGB To Intensity',
     #        description = 'Add RGB To Intensity modifier to all channels of newly created layer',
     #        default=False)
 
-    normal_map_type = EnumProperty(
+    normal_map_type : EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this layer',
             items = get_normal_map_type_items)
             #default = 'NORMAL_MAP')
 
-    #rgb_to_intensity_color = FloatVectorProperty(
+    #rgb_to_intensity_color : FloatVectorProperty(
     #        name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
@@ -1597,17 +1597,17 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
     bl_label = "Open Available Data to Override Channel Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type = EnumProperty(
+    type : EnumProperty(
             name = 'Layer Type',
             items = (('IMAGE', 'Image', ''),
                 ('VCOL', 'Vertex Color', '')),
             default = 'IMAGE')
 
-    image_name = StringProperty(name="Image")
-    image_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    image_name : StringProperty(name="Image")
+    image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    vcol_name = StringProperty(name="Vertex Color")
-    vcol_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    vcol_name : StringProperty(name="Vertex Color")
+    vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -1749,56 +1749,56 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
     bl_label = "Open Available Data to Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type = EnumProperty(
+    type : EnumProperty(
             name = 'Layer Type',
             items = (('IMAGE', 'Image', ''),
                 ('VCOL', 'Vertex Color', '')),
             default = 'IMAGE')
 
-    texcoord_type = EnumProperty(
+    texcoord_type : EnumProperty(
             name = 'Texture Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
-    uv_map = StringProperty(default='')
+    uv_map : StringProperty(default='')
 
-    channel_idx = EnumProperty(
+    channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
             items = channel_items)
             #update=update_channel_idx_new_layer)
 
-    blend_type = EnumProperty(
+    blend_type : EnumProperty(
         name = 'Blend',
         items = blend_type_items,
         default = 'MIX')
 
-    normal_blend_type = EnumProperty(
+    normal_blend_type : EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX')
 
-    #add_rgb_to_intensity = BoolProperty(
+    #add_rgb_to_intensity : BoolProperty(
     #        name = 'Add RGB To Intensity',
     #        description = 'Add RGB To Intensity modifier to all channels of newly created layer',
     #        default=False)
 
-    #rgb_to_intensity_color = FloatVectorProperty(
+    #rgb_to_intensity_color : FloatVectorProperty(
     #        name='RGB To Intensity Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
-    normal_map_type = EnumProperty(
+    normal_map_type : EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this layer',
             items = get_normal_map_type_items)
             #default = 'BUMP_MAP')
 
-    image_name = StringProperty(name="Image")
-    image_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    image_name : StringProperty(name="Image")
+    image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    vcol_name = StringProperty(name="Vertex Color")
-    vcol_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    vcol_name : StringProperty(name="Vertex Color")
+    vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -1964,7 +1964,7 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
     bl_description = "Move in or out layer group"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction = EnumProperty(
+    direction : EnumProperty(
             name = 'Direction',
             items = (('UP', 'Up', ''),
                      ('DOWN', 'Down', '')),
@@ -2064,7 +2064,7 @@ class YMoveLayer(bpy.types.Operator):
     bl_description = "Move layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction = EnumProperty(
+    direction : EnumProperty(
             name = 'Direction',
             items = (('UP', 'Up', ''),
                      ('DOWN', 'Down', '')),
@@ -2242,13 +2242,13 @@ class YMoveInOutLayerGroupMenu(bpy.types.Operator):
     bl_description = "Move inside or outside layer group"
     #bl_options = {'REGISTER', 'UNDO'}
 
-    direction = EnumProperty(
+    direction : EnumProperty(
             name = 'Direction',
             items = (('UP', 'Up', ''),
                      ('DOWN', 'Down', '')),
             default = 'UP')
 
-    move_out = BoolProperty(default=False)
+    move_out : BoolProperty(default=False)
 
     @classmethod
     def poll(cls, context):
@@ -2346,7 +2346,7 @@ class YRemoveLayer(bpy.types.Operator):
     bl_description = "Remove Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    remove_childs = BoolProperty(name='Remove Childs', description='Remove layer childrens', default=False)
+    remove_childs : BoolProperty(name='Remove Childs', description='Remove layer childrens', default=False)
 
     @classmethod
     def poll(cls, context):
@@ -2754,7 +2754,7 @@ class YReplaceLayerChannelOverride(bpy.types.Operator):
     bl_description = "Replace Layer Channel Override"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type = EnumProperty(
+    type : EnumProperty(
             name = 'Layer Type',
             items = channel_override_type_items,
             default = 'IMAGE')
@@ -2776,13 +2776,13 @@ class YReplaceLayerType(bpy.types.Operator):
     bl_description = "Replace Layer Type"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type = EnumProperty(
+    type : EnumProperty(
             name = 'Layer Type',
             items = layer_type_items,
             default = 'IMAGE')
 
-    item_name = StringProperty(name="Item")
-    item_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    item_name : StringProperty(name="Item")
+    item_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -3060,7 +3060,7 @@ class YDuplicateLayer(bpy.types.Operator):
     bl_description = "Duplicate Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    make_image_blank = BoolProperty(default=False)
+    make_image_blank : BoolProperty(default=False)
 
     @classmethod
     def poll(cls, context):
@@ -3693,9 +3693,9 @@ def update_channel_active_edit(self, context):
     yp.active_layer_index = layer_idx
 
 class YLayerChannel(bpy.types.PropertyGroup):
-    enable = BoolProperty(default=True, update=update_channel_enable)
+    enable : BoolProperty(default=True, update=update_channel_enable)
 
-    layer_input = EnumProperty(
+    layer_input : EnumProperty(
             name = 'Layer Input',
             #items = (('RGB', 'Color', ''),
             #         ('ALPHA', 'Alpha / Factor', '')),
@@ -3703,154 +3703,154 @@ class YLayerChannel(bpy.types.PropertyGroup):
             items = layer_input_items,
             update = update_layer_input)
 
-    gamma_space = BoolProperty(
+    gamma_space : BoolProperty(
             name='Gamma Space',
             description='Make sure layer input is in linear space',
             default = False,
             update = update_layer_input)
 
-    use_clamp = BoolProperty(
+    use_clamp : BoolProperty(
             name = 'Use Clamp',
             description = 'Clamp result to 0..1 range',
             default = False,
             update=update_layer_channel_use_clamp)
 
-    normal_map_type = EnumProperty(
+    normal_map_type : EnumProperty(
             name = 'Normal Map Type',
             items = get_normal_map_type_items,
             #default = 'BUMP_MAP',
             update = update_normal_map_type)
 
-    blend_type = EnumProperty(
+    blend_type : EnumProperty(
             name = 'Blend',
             items = blend_type_items,
             default = 'MIX',
             update = update_blend_type)
 
-    normal_blend_type = EnumProperty(
+    normal_blend_type : EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX',
             update = update_blend_type)
 
-    height_blend_type = EnumProperty(
+    height_blend_type : EnumProperty(
             name = 'Height Blend Type',
             items = normal_blend_items,
             default = 'MIX',
             update = update_blend_type)
 
-    intensity_value = FloatProperty(
+    intensity_value : FloatProperty(
             name = 'Channel Intensity Factor', 
             description = 'Channel Intensity Factor',
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
             update = update_channel_intensity_value)
 
     # Modifiers
-    modifiers = CollectionProperty(type=Modifier.YPaintModifier)
+    modifiers : CollectionProperty(type=Modifier.YPaintModifier)
 
     # Override source
-    override = BoolProperty(default=False, update=update_layer_channel_override)
-    #override_tex = BoolProperty(default=False)
-    override_type = EnumProperty(items=channel_override_type_items, default='DEFAULT', update=update_layer_channel_override)
-    override_color = FloatVectorProperty(subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5), update=update_layer_channel_override_value)
-    override_value = FloatProperty(min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
-    override_vcol_name = StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
+    override : BoolProperty(default=False, update=update_layer_channel_override)
+    #override_tex : BoolProperty(default=False)
+    override_type : EnumProperty(items=channel_override_type_items, default='DEFAULT', update=update_layer_channel_override)
+    override_color : FloatVectorProperty(subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5), update=update_layer_channel_override_value)
+    override_value : FloatProperty(min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
+    override_vcol_name : StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
 
     # Sources
-    source = StringProperty(default='')
-    source_n = StringProperty(default='')
-    source_s = StringProperty(default='')
-    source_e = StringProperty(default='')
-    source_w = StringProperty(default='')
-    source_group = StringProperty(default='')
+    source : StringProperty(default='')
+    source_n : StringProperty(default='')
+    source_s : StringProperty(default='')
+    source_e : StringProperty(default='')
+    source_w : StringProperty(default='')
+    source_group : StringProperty(default='')
 
     # UV
-    uv_neighbor = StringProperty(default='')
-    #uv_neighbor_1 = StringProperty(default='')
+    uv_neighbor : StringProperty(default='')
+    #uv_neighbor_1 : StringProperty(default='')
 
     # Blur
-    #enable_blur = BoolProperty(default=False, update=Blur.update_layer_channel_blur)
-    #blur = PointerProperty(type=Blur.YLayerBlur)
+    #enable_blur : BoolProperty(default=False, update=Blur.update_layer_channel_blur)
+    #blur : PointerProperty(type=Blur.YLayerBlur)
 
-    invert_backface_normal = BoolProperty(default=False, update=update_flip_backface_normal)
+    invert_backface_normal : BoolProperty(default=False, update=update_flip_backface_normal)
 
     # Node names
-    linear = StringProperty(default='')
-    blend = StringProperty(default='')
-    intensity = StringProperty(default='')
-    extra_alpha = StringProperty(default='')
+    linear : StringProperty(default='')
+    blend : StringProperty(default='')
+    intensity : StringProperty(default='')
+    extra_alpha : StringProperty(default='')
 
     # Height related
-    height_proc = StringProperty(default='')
-    height_blend = StringProperty(default='')
+    height_proc : StringProperty(default='')
+    height_blend : StringProperty(default='')
 
     # For pack/unpack height io
-    height_group_unpack = StringProperty(default='')
-    height_alpha_group_unpack = StringProperty(default='')
+    height_group_unpack : StringProperty(default='')
+    height_alpha_group_unpack : StringProperty(default='')
 
     # Normal related
-    normal_proc = StringProperty(default='')
-    #normal_blend = StringProperty(default='')
-    normal_flip = StringProperty(default='')
+    normal_proc : StringProperty(default='')
+    #normal_blend : StringProperty(default='')
+    normal_flip : StringProperty(default='')
 
-    bump_distance = FloatProperty(
+    bump_distance : FloatProperty(
             name='Bump Height Range', 
             description= 'Bump height range.\n(White equals this value, black equals negative of this value)', 
             default=0.05, min=-1.0, max=1.0, precision=3, # step=1,
             update=update_bump_distance)
 
-    normal_bump_distance = FloatProperty(
+    normal_bump_distance : FloatProperty(
             name='Bump Height Range for normal', 
             description= 'Bump height range for normal channel.\n(White equals this value, black equals negative of this value)', 
             default=0.00, min=-1.0, max=1.0, precision=3, # step=1,
             update=update_bump_distance)
 
-    write_height = BoolProperty(
+    write_height : BoolProperty(
             name = 'Write Height',
             description = 'Write height for this layer channel',
             default = True,
             update=update_write_height)
 
-    normal_write_height = BoolProperty(
+    normal_write_height : BoolProperty(
             name = 'Write Normal Height',
             description = 'Write height for this normal layer channel',
             default = False,
             update=update_write_height)
 
     # For some occasion, modifiers are stored in a tree
-    mod_group = StringProperty(default='')
-    mod_n = StringProperty(default='')
-    mod_s = StringProperty(default='')
-    mod_e = StringProperty(default='')
-    mod_w = StringProperty(default='')
+    mod_group : StringProperty(default='')
+    mod_n : StringProperty(default='')
+    mod_s : StringProperty(default='')
+    mod_e : StringProperty(default='')
+    mod_w : StringProperty(default='')
 
     # Spread alpha hack nodes
-    spread_alpha = StringProperty(default='')
+    spread_alpha : StringProperty(default='')
 
     # Intensity Stuff
-    intensity_multiplier = StringProperty(default='')
+    intensity_multiplier : StringProperty(default='')
 
     # Transition bump related
-    enable_transition_bump = BoolProperty(name='Enable Transition Bump', description='Enable transition bump',
+    enable_transition_bump : BoolProperty(name='Enable Transition Bump', description='Enable transition bump',
             default=False, update=transition.update_enable_transition_bump)
 
-    show_transition_bump = BoolProperty(name='Toggle Transition Bump',
+    show_transition_bump : BoolProperty(name='Toggle Transition Bump',
             description = "Toggle transition Bump (This will affect other channels)", 
             default=False) #, update=transition.update_show_transition_bump)
 
-    transition_bump_value = FloatProperty(
+    transition_bump_value : FloatProperty(
         name = 'Transition Bump Value',
         description = 'Transition bump value',
         default=3.0, min=1.0, max=100.0, 
         update=transition.update_transition_bump_value)
 
-    transition_bump_second_edge_value = FloatProperty(
+    transition_bump_second_edge_value : FloatProperty(
             name = 'Second Edge Intensity', 
             description = 'Second Edge intensity value',
             default=1.2, min=1.0, max=100.0, 
             update=transition.update_transition_bump_value)
 
-    transition_bump_distance = FloatProperty(
+    transition_bump_distance : FloatProperty(
             #name='Transition Bump Distance', 
             #description= 'Distance of mask bump', 
             name='Transition Bump Height Range', 
@@ -3858,59 +3858,59 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=0.05, min=0.0, max=1.0, precision=3, # step=1,
             update=transition.update_transition_bump_distance)
 
-    transition_bump_chain = IntProperty(
+    transition_bump_chain : IntProperty(
             name = 'Transition bump chain',
             description = 'Number of mask affected by transition bump',
             default=10, min=0, max=10,
             update=transition.update_transition_bump_chain)
 
-    transition_bump_flip = BoolProperty(
+    transition_bump_flip : BoolProperty(
             name = 'Transition Bump Flip',
             description = 'Transition bump flip',
             default=False,
             update=transition.update_enable_transition_bump)
 
-    transition_bump_curved_offset = FloatProperty(
+    transition_bump_curved_offset : FloatProperty(
             name = 'Transition Bump Curved Offst',
             description = 'Transition bump curved offset',
             default=0.02, min=0.0, max=0.1,
             update=transition.update_transition_bump_curved_offset)
 
-    transition_bump_crease = BoolProperty(
+    transition_bump_crease : BoolProperty(
             name = 'Transition Bump Crease',
             description = 'Transition bump crease (only works if flip is inactive)',
             default=False,
             update=transition.update_enable_transition_bump)
 
-    transition_bump_crease_factor = FloatProperty(
+    transition_bump_crease_factor : FloatProperty(
             name = 'Transition Bump Crease Factor',
             description = 'Transition bump crease factor',
             default=0.33, min=0.0, max=1.0, subtype='FACTOR',
             update=transition.update_transition_bump_crease_factor)
 
-    transition_bump_crease_power = FloatProperty(
+    transition_bump_crease_power : FloatProperty(
             name = 'Transition Bump Crease Power',
             description = 'Transition Bump Crease Power',
             default=5.0, min=1.0, max=100.0,
             update=transition.update_transition_bump_crease_power)
 
-    transition_bump_fac = FloatProperty(
+    transition_bump_fac : FloatProperty(
             name='Transition Bump Factor',
             description = 'Transition bump factor',
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
             update=transition.update_transition_bump_fac)
 
-    transition_bump_second_fac = FloatProperty(
+    transition_bump_second_fac : FloatProperty(
             name='Transition Bump Second Factor',
             description = 'Transition bump second factor',
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
             update=transition.update_transition_bump_fac)
 
-    transition_bump_falloff = BoolProperty(
+    transition_bump_falloff : BoolProperty(
             name = 'Transition Bump Falloff',
             default = False, update=transition.update_enable_transition_bump)
 
-    transition_bump_falloff_type = EnumProperty(
+    transition_bump_falloff_type : EnumProperty(
             name = 'Transition Bump Falloff Type',
             items = (
                 ('EMULATED_CURVE', 'Emulated Curve', ''),
@@ -3919,126 +3919,126 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default = 'EMULATED_CURVE',
             update=transition.update_enable_transition_bump)
 
-    transition_bump_falloff_emulated_curve_fac = FloatProperty(
+    transition_bump_falloff_emulated_curve_fac : FloatProperty(
             name='Transition Bump Falloff Emulated Curve Factor',
             description = 'Transition bump curve emulated curve factor',
             default=1.0, min=-1.0, max=1.0, subtype='FACTOR',
             update=transition.update_transition_bump_falloff_emulated_curve_fac)
 
-    tb_bump = StringProperty(default='')
-    tb_bump_flip = StringProperty(default='')
-    tb_inverse = StringProperty(default='')
-    tb_intensity_multiplier = StringProperty(default='')
+    tb_bump : StringProperty(default='')
+    tb_bump_flip : StringProperty(default='')
+    tb_inverse : StringProperty(default='')
+    tb_intensity_multiplier : StringProperty(default='')
 
-    tb_falloff = StringProperty(default='')
-    #tb_falloff_n = StringProperty(default='')
-    #tb_falloff_s = StringProperty(default='')
-    #tb_falloff_e = StringProperty(default='')
-    #tb_falloff_w = StringProperty(default='')
+    tb_falloff : StringProperty(default='')
+    #tb_falloff_n : StringProperty(default='')
+    #tb_falloff_s : StringProperty(default='')
+    #tb_falloff_e : StringProperty(default='')
+    #tb_falloff_w : StringProperty(default='')
 
     # Transition ramp related
-    enable_transition_ramp = BoolProperty(name='Enable Transition Ramp', description='Enable alpha transition ramp', 
+    enable_transition_ramp : BoolProperty(name='Enable Transition Ramp', description='Enable alpha transition ramp', 
             default=False, update=transition.update_enable_transition_ramp)
 
-    show_transition_ramp = BoolProperty(name='Toggle Transition Ramp',
+    show_transition_ramp : BoolProperty(name='Toggle Transition Ramp',
             description = "Toggle transition Ramp (Works best if there's transition bump enabled on other channel)", 
             default=False) #, update=transition.update_show_transition_ramp)
 
-    transition_ramp_intensity_value = FloatProperty(
+    transition_ramp_intensity_value : FloatProperty(
             name = 'Channel Intensity Factor', 
             description = 'Channel Intensity Factor',
             default=1.0, min=0.0, max=1.0, subtype='FACTOR',
             update=transition.update_transition_ramp_intensity_value)
 
-    transition_ramp_blend_type = EnumProperty(
+    transition_ramp_blend_type : EnumProperty(
         name = 'Transition Ramp Blend Type',
         items = blend_type_items,
         default = 'MIX', 
         update=transition.update_enable_transition_ramp)
 
-    transition_ramp_intensity_unlink = BoolProperty(
+    transition_ramp_intensity_unlink : BoolProperty(
             name='Unlink Transition Ramp with Channel Intensity', 
             description='Unlink Transition Ramp with Channel Intensity', 
             default=False,
             update=transition.update_enable_transition_ramp)
 
     # Transition ramp nodes
-    tr_ramp = StringProperty(default='')
-    tr_ramp_blend = StringProperty(default='')
+    tr_ramp : StringProperty(default='')
+    tr_ramp_blend : StringProperty(default='')
 
     # To save ramp and falloff
-    cache_ramp = StringProperty(default='')
-    cache_falloff_curve = StringProperty(default='')
+    cache_ramp : StringProperty(default='')
+    cache_falloff_curve : StringProperty(default='')
 
     # Override type cache
-    cache_brick = StringProperty(default='')
-    cache_checker = StringProperty(default='')
-    cache_gradient = StringProperty(default='')
-    cache_magic = StringProperty(default='')
-    cache_musgrave = StringProperty(default='')
-    cache_noise = StringProperty(default='')
-    cache_voronoi = StringProperty(default='')
-    cache_wave = StringProperty(default='')
+    cache_brick : StringProperty(default='')
+    cache_checker : StringProperty(default='')
+    cache_gradient : StringProperty(default='')
+    cache_magic : StringProperty(default='')
+    cache_musgrave : StringProperty(default='')
+    cache_noise : StringProperty(default='')
+    cache_voronoi : StringProperty(default='')
+    cache_wave : StringProperty(default='')
 
-    cache_image = StringProperty(default='')
-    cache_vcol = StringProperty(default='')
-    cache_hemi = StringProperty(default='')
+    cache_image : StringProperty(default='')
+    cache_vcol : StringProperty(default='')
+    cache_hemi : StringProperty(default='')
 
     # Transition AO related
-    enable_transition_ao = BoolProperty(name='Enable Transition AO', 
+    enable_transition_ao : BoolProperty(name='Enable Transition AO', 
             description='Enable alpha transition Ambient Occlusion (Need active transition bump)', default=False,
             update=transition.update_enable_transition_ao)
 
-    show_transition_ao = BoolProperty(name='Toggle Transition AO',
+    show_transition_ao : BoolProperty(name='Toggle Transition AO',
             description = "Toggle transition AO (Only works if there's transition bump enabled on other channel)", 
             default=False) #, update=transition.update_show_transition_ao)
 
-    transition_ao_power = FloatProperty(name='Transition AO Power',
+    transition_ao_power : FloatProperty(name='Transition AO Power',
             #description='Transition AO edge power (higher value means less AO)', min=1.0, max=100.0, default=4.0,
             description='Transition AO power', min=1.0, max=100.0, default=4.0,
             update=transition.update_transition_ao_edge)
 
-    transition_ao_intensity = FloatProperty(name='Transition AO Intensity',
+    transition_ao_intensity : FloatProperty(name='Transition AO Intensity',
             description='Transition AO intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.5,
             update=transition.update_transition_ao_intensity)
 
-    transition_ao_color = FloatVectorProperty(name='Transition AO Color', description='Transition AO Color', 
+    transition_ao_color : FloatVectorProperty(name='Transition AO Color', description='Transition AO Color', 
             subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.0, 0.0, 0.0),
             update=transition.update_transition_ao_color)
 
-    transition_ao_inside_intensity = FloatProperty(name='Transition AO Inside Intensity', 
+    transition_ao_inside_intensity : FloatProperty(name='Transition AO Inside Intensity', 
             description='Transition AO Inside Intensity', subtype='FACTOR', min=0.0, max=1.0, default=0.0,
             update=transition.update_transition_ao_exclude_inside)
 
-    transition_ao_blend_type = EnumProperty(
+    transition_ao_blend_type : EnumProperty(
         name = 'Transition AO Blend Type',
         items = blend_type_items,
         default = 'MIX', 
         update=transition.update_enable_transition_ao)
 
-    transition_ao_intensity_unlink = BoolProperty(
+    transition_ao_intensity_unlink : BoolProperty(
             name='Unlink Transition AO with Channel Intensity', 
             description='Unlink Transition AO with Channel Intensity', 
             default=False,
             update=transition.update_transition_ao_intensity)
 
-    tao = StringProperty(default='')
+    tao : StringProperty(default='')
 
-    active_edit = BoolProperty(
+    active_edit : BoolProperty(
             name='Active override channel for editing or preview', 
             description='Active override channel for editing or preview', 
             default=False,
             update=update_channel_active_edit)
 
     # For UI
-    expand_bump_settings = BoolProperty(default=False)
-    expand_intensity_settings = BoolProperty(default=False)
-    expand_content = BoolProperty(default=False)
-    expand_transition_bump_settings = BoolProperty(default=False)
-    expand_transition_ramp_settings = BoolProperty(default=False)
-    expand_transition_ao_settings = BoolProperty(default=False)
-    expand_input_settings = BoolProperty(default=False)
-    expand_source = BoolProperty(default=False)
+    expand_bump_settings : BoolProperty(default=False)
+    expand_intensity_settings : BoolProperty(default=False)
+    expand_content : BoolProperty(default=False)
+    expand_transition_bump_settings : BoolProperty(default=False)
+    expand_transition_ramp_settings : BoolProperty(default=False)
+    expand_transition_ao_settings : BoolProperty(default=False)
+    expand_input_settings : BoolProperty(default=False)
+    expand_source : BoolProperty(default=False)
 
 def update_layer_color_chortcut(self, context):
     layer = self
@@ -4061,157 +4061,157 @@ def update_layer_transform(self, context):
     update_mapping(self)
 
 class YLayer(bpy.types.PropertyGroup):
-    name = StringProperty(default='', update=update_layer_name)
-    enable = BoolProperty(
+    name : StringProperty(default='', update=update_layer_name)
+    enable : BoolProperty(
             name = 'Enable Layer', description = 'Enable layer',
             default=True, update=update_layer_enable)
 
-    channels = CollectionProperty(type=YLayerChannel)
+    channels : CollectionProperty(type=YLayerChannel)
 
-    group_node = StringProperty(default='')
-    trash_group_node = StringProperty(default='')
-    depth_group_node = StringProperty(default='')
+    group_node : StringProperty(default='')
+    trash_group_node : StringProperty(default='')
+    depth_group_node : StringProperty(default='')
 
-    type = EnumProperty(
+    type : EnumProperty(
             name = 'Layer Type',
             items = layer_type_items,
             default = 'IMAGE')
 
-    color_shortcut = BoolProperty(
+    color_shortcut : BoolProperty(
             name = 'Color Shortcut on the list',
             description = 'Display color shortcut on the list',
             default=True,
             update=update_layer_color_chortcut)
 
-    texcoord_type = EnumProperty(
+    texcoord_type : EnumProperty(
         name = 'Layer Coordinate Type',
         items = texcoord_type_items,
         default = 'UV',
         update=update_texcoord_type)
 
     # For temporary bake
-    use_temp_bake = BoolProperty(
+    use_temp_bake : BoolProperty(
             name = 'Use Temporary Bake',
             description = 'Use temporary bake, it can be useful for prevent glitch on cycles',
             default = False,
             #update=update_layer_temp_bake
             )
 
-    original_type = EnumProperty(
+    original_type : EnumProperty(
             name = 'Original Layer Type',
             items = layer_type_items,
             default = 'IMAGE')
 
     # Fake lighting related
 
-    hemi_space = EnumProperty(
+    hemi_space : EnumProperty(
             name = 'Fake Lighting Space',
             description = 'Fake lighting space',
             items = hemi_space_items,
             default = 'OBJECT',
             update=update_hemi_space)
 
-    hemi_vector = FloatVectorProperty(
+    hemi_vector : FloatVectorProperty(
             name='Cache Hemi vector', size=3, precision=3,
             default=(0.0, 0.0, 1.0))
 
-    hemi_camera_ray_mask = BoolProperty(
+    hemi_camera_ray_mask : BoolProperty(
             name = 'Camera Ray Mask',
             description = "Use Camera Ray value so the back of the mesh won't be affected by fake lighting",
             default = False, update=update_hemi_camera_ray_mask)
 
-    hemi_use_prev_normal = BoolProperty(
+    hemi_use_prev_normal : BoolProperty(
             name = 'Use previous Normal',
             description = 'Take account previous Normal',
             default = False, update=update_hemi_use_prev_normal)
 
-    bump_process = StringProperty(default='')
+    bump_process : StringProperty(default='')
 
     # To detect change of layer image
-    image_name = StringProperty(default='')
+    image_name : StringProperty(default='')
 
     # To get segment if using image atlas
-    segment_name = StringProperty(default='')
+    segment_name : StringProperty(default='')
 
-    uv_name = StringProperty(default='', update=update_uv_name)
+    uv_name : StringProperty(default='', update=update_uv_name)
 
     # Parent index
-    parent_idx = IntProperty(default=-1)
+    parent_idx : IntProperty(default=-1)
 
     # Transform
-    translation = FloatVectorProperty(
+    translation : FloatVectorProperty(
             name='Translation', size=3, precision=3, 
             default=(0.0, 0.0, 0.0),
             update=update_layer_transform
             ) #, step=1)
 
-    rotation = FloatVectorProperty(
+    rotation : FloatVectorProperty(
             name='Rotation', subtype='AXISANGLE', size=3, precision=3, unit='ROTATION', 
             default=(0.0, 0.0, 0.0),
             update=update_layer_transform
             ) #, step=3)
 
-    scale = FloatVectorProperty(
+    scale : FloatVectorProperty(
             name='Scale', size=3, precision=3, 
             default=(1.0, 1.0, 1.0),
             update=update_layer_transform,
             ) #, step=3)
 
     # Sources
-    source = StringProperty(default='')
-    source_n = StringProperty(default='')
-    source_s = StringProperty(default='')
-    source_e = StringProperty(default='')
-    source_w = StringProperty(default='')
-    source_group = StringProperty(default='')
+    source : StringProperty(default='')
+    source_n : StringProperty(default='')
+    source_s : StringProperty(default='')
+    source_e : StringProperty(default='')
+    source_w : StringProperty(default='')
+    source_group : StringProperty(default='')
 
-    source_temp = StringProperty(default='')
+    source_temp : StringProperty(default='')
 
     # Linear node
-    linear = StringProperty(default='')
+    linear : StringProperty(default='')
 
     # Layer type cache
-    cache_brick = StringProperty(default='')
-    cache_checker = StringProperty(default='')
-    cache_gradient = StringProperty(default='')
-    cache_magic = StringProperty(default='')
-    cache_musgrave = StringProperty(default='')
-    cache_noise = StringProperty(default='')
-    cache_voronoi = StringProperty(default='')
-    cache_wave = StringProperty(default='')
-    cache_color = StringProperty(default='')
+    cache_brick : StringProperty(default='')
+    cache_checker : StringProperty(default='')
+    cache_gradient : StringProperty(default='')
+    cache_magic : StringProperty(default='')
+    cache_musgrave : StringProperty(default='')
+    cache_noise : StringProperty(default='')
+    cache_voronoi : StringProperty(default='')
+    cache_wave : StringProperty(default='')
+    cache_color : StringProperty(default='')
 
     # UV
-    uv_neighbor = StringProperty(default='')
-    uv_neighbor_1 = StringProperty(default='')
-    uv_map = StringProperty(default='')
-    mapping = StringProperty(default='')
-    texcoord = StringProperty(default='')
+    uv_neighbor : StringProperty(default='')
+    uv_neighbor_1 : StringProperty(default='')
+    uv_map : StringProperty(default='')
+    mapping : StringProperty(default='')
+    texcoord : StringProperty(default='')
 
-    #need_temp_uv_refresh = BoolProperty(default=False)
+    #need_temp_uv_refresh : BoolProperty(default=False)
 
     # Other Vectors
-    tangent = StringProperty(default='')
-    bitangent = StringProperty(default='')
-    tangent_flip = StringProperty(default='')
-    bitangent_flip =StringProperty(default='')
+    tangent : StringProperty(default='')
+    bitangent : StringProperty(default='')
+    tangent_flip : StringProperty(default='')
+    bitangent_flip : StringProperty(default='')
 
     # Modifiers
-    modifiers = CollectionProperty(type=Modifier.YPaintModifier)
-    mod_group = StringProperty(default='')
-    mod_group_1 = StringProperty(default='')
+    modifiers : CollectionProperty(type=Modifier.YPaintModifier)
+    mod_group : StringProperty(default='')
+    mod_group_1 : StringProperty(default='')
 
     # Mask
-    enable_masks = BoolProperty(name='Enable Layer Masks', description='Enable layer masks',
+    enable_masks : BoolProperty(name='Enable Layer Masks', description='Enable layer masks',
             default=True, update=Mask.update_enable_layer_masks)
-    masks = CollectionProperty(type=Mask.YLayerMask)
+    masks : CollectionProperty(type=Mask.YLayerMask)
 
     # UI related
-    expand_content = BoolProperty(default=False)
-    expand_vector = BoolProperty(default=False)
-    expand_masks = BoolProperty(default=False)
-    expand_channels = BoolProperty(default=True)
-    expand_source = BoolProperty(default=False)
+    expand_content : BoolProperty(default=False)
+    expand_vector : BoolProperty(default=False)
+    expand_masks : BoolProperty(default=False)
+    expand_channels : BoolProperty(default=True)
+    expand_source : BoolProperty(default=False)
 
 def register():
     bpy.utils.register_class(YRefreshNeighborUV)

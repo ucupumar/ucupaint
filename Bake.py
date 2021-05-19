@@ -203,19 +203,19 @@ class YTransferSomeLayerUV(bpy.types.Operator):
     bl_description = "Transfer some layers/masks UV by baking it to other uv (this will take quite some time to finish)."
     bl_options = {'REGISTER', 'UNDO'}
 
-    from_uv_map = StringProperty(default='')
-    uv_map = StringProperty(default='')
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    from_uv_map : StringProperty(default='')
+    uv_map : StringProperty(default='')
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    samples = IntProperty(name='Bake Samples', 
+    samples : IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
 
-    margin = IntProperty(name='Bake Margin',
+    margin : IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
-    remove_from_uv = BoolProperty(name='Delete From UV',
+    remove_from_uv : BoolProperty(name='Delete From UV',
             description = "Remove 'From UV' from objects",
             default=False)
 
@@ -344,14 +344,14 @@ class YTransferLayerUV(bpy.types.Operator):
     bl_description = "Transfer Layer UV by baking it to other uv (this will take quite some time to finish)."
     bl_options = {'REGISTER', 'UNDO'}
 
-    uv_map = StringProperty(default='')
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map : StringProperty(default='')
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    samples = IntProperty(name='Bake Samples', 
+    samples : IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
 
-    margin = IntProperty(name='Bake Margin',
+    margin : IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
@@ -448,13 +448,13 @@ class YResizeImage(bpy.types.Operator):
     bl_description = "Resize image of layer or mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    layer_name = StringProperty(default='')
-    image_name = StringProperty(default='')
+    layer_name : StringProperty(default='')
+    image_name : StringProperty(default='')
 
-    width = IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height = IntProperty(name='Height', default = 1024, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
 
-    samples = IntProperty(name='Bake Samples', 
+    samples : IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated image', 
             default=1, min=1)
 
@@ -544,37 +544,37 @@ class YBakeChannels(bpy.types.Operator):
     bl_label = "Bake channels to Image"
     bl_options = {'REGISTER', 'UNDO'}
 
-    width = IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height = IntProperty(name='Height', default = 1024, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
 
-    uv_map = StringProperty(default='')
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map : StringProperty(default='')
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    samples = IntProperty(name='Bake Samples', 
+    samples : IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
 
-    margin = IntProperty(name='Bake Margin',
+    margin : IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
-    #hdr = BoolProperty(name='32 bit Float', default=False)
+    #hdr : BoolProperty(name='32 bit Float', default=False)
 
-    fxaa = BoolProperty(name='Use FXAA', 
+    fxaa : BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
             default=True)
 
-    aa_level = IntProperty(
+    aa_level : IntProperty(
         name='Anti Aliasing Level',
         description='Super Sample Anti Aliasing Level (1=off)',
         default=1, min=1, max=2)
 
-    force_bake_all_polygons = BoolProperty(
+    force_bake_all_polygons : BoolProperty(
             name='Force Bake all Polygons',
             description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
             default=False)
 
-    force_use_cpu = BoolProperty(
+    force_use_cpu : BoolProperty(
             name='Force Use CPU',
             description='Force use CPU for baking (usually faster than using GPU)',
             default=True)
@@ -1025,29 +1025,29 @@ class YMergeLayer(bpy.types.Operator):
     bl_description = "Merge Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction = EnumProperty(
+    direction : EnumProperty(
             name = 'Direction',
             items = (('UP', 'Up', ''),
                      ('DOWN', 'Down', '')),
             default = 'UP')
 
-    channel_idx = EnumProperty(
+    channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel for merge reference',
             items = merge_channel_items)
             #update=update_channel_idx_new_layer)
 
-    apply_modifiers = BoolProperty(
+    apply_modifiers : BoolProperty(
             name = 'Apply Layer Modifiers',
             description = 'Apply layer modifiers',
             default = False)
 
-    apply_neighbor_modifiers = BoolProperty(
+    apply_neighbor_modifiers : BoolProperty(
             name = 'Apply Neighbor Modifiers',
             description = 'Apply neighbor modifiers',
             default = True)
 
-    #height_aware = BoolProperty(
+    #height_aware : BoolProperty(
     #        name = 'Height Aware',
     #        description = 'Height will take account for merge',
     #        default = True)
@@ -1366,7 +1366,7 @@ class YMergeMask(bpy.types.Operator):
     bl_description = "Merge Mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction = EnumProperty(
+    direction : EnumProperty(
             name = 'Direction',
             items = (('UP', 'Up', ''),
                      ('DOWN', 'Down', '')),
@@ -1548,21 +1548,21 @@ class YBakeTempImage(bpy.types.Operator):
     bl_description = "Bake temporary image of layer, can be useful to prefent glitch on cycles"
     bl_options = {'REGISTER', 'UNDO'}
 
-    uv_map = StringProperty(default='')
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map : StringProperty(default='')
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    samples = IntProperty(name='Bake Samples', 
+    samples : IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
 
-    margin = IntProperty(name='Bake Margin',
+    margin : IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
-    width = IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height = IntProperty(name='Height', default = 1024, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
 
-    hdr = BoolProperty(name='32 bit Float', default=True)
+    hdr : BoolProperty(name='32 bit Float', default=True)
 
     @classmethod
     def poll(cls, context):

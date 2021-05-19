@@ -4014,114 +4014,114 @@ def update_mask_channel_ui(self, context):
     mask_ch.expand_content = self.expand_content
 
 class YModifierUI(bpy.types.PropertyGroup):
-    #name = StringProperty(default='')
-    expand_content = BoolProperty(default=True, update=update_modifier_ui)
+    #name : StringProperty(default='')
+    expand_content : BoolProperty(default=True, update=update_modifier_ui)
 
 class YChannelUI(bpy.types.PropertyGroup):
-    #name = StringProperty(default='')
-    expand_content = BoolProperty(default=False, update=update_channel_ui)
-    expand_bump_settings = BoolProperty(default=False, update=update_channel_ui)
-    expand_intensity_settings = BoolProperty(default=False, update=update_channel_ui)
-    expand_base_vector = BoolProperty(default=True, update=update_channel_ui)
-    expand_transition_bump_settings = BoolProperty(default=True, update=update_channel_ui)
-    expand_transition_ramp_settings = BoolProperty(default=True, update=update_channel_ui)
-    expand_transition_ao_settings = BoolProperty(default=True, update=update_channel_ui)
-    expand_subdiv_settings = BoolProperty(default=False, update=update_channel_ui)
-    expand_parallax_settings = BoolProperty(default=False, update=update_channel_ui)
-    expand_alpha_settings = BoolProperty(default=False, update=update_channel_ui)
-    expand_smooth_bump_settings = BoolProperty(default=False, update=update_channel_ui)
-    expand_input_settings = BoolProperty(default=True, update=update_channel_ui)
-    expand_source = BoolProperty(default=True, update=update_channel_ui)
-    modifiers = CollectionProperty(type=YModifierUI)
+    #name : StringProperty(default='')
+    expand_content : BoolProperty(default=False, update=update_channel_ui)
+    expand_bump_settings : BoolProperty(default=False, update=update_channel_ui)
+    expand_intensity_settings : BoolProperty(default=False, update=update_channel_ui)
+    expand_base_vector : BoolProperty(default=True, update=update_channel_ui)
+    expand_transition_bump_settings : BoolProperty(default=True, update=update_channel_ui)
+    expand_transition_ramp_settings : BoolProperty(default=True, update=update_channel_ui)
+    expand_transition_ao_settings : BoolProperty(default=True, update=update_channel_ui)
+    expand_subdiv_settings : BoolProperty(default=False, update=update_channel_ui)
+    expand_parallax_settings : BoolProperty(default=False, update=update_channel_ui)
+    expand_alpha_settings : BoolProperty(default=False, update=update_channel_ui)
+    expand_smooth_bump_settings : BoolProperty(default=False, update=update_channel_ui)
+    expand_input_settings : BoolProperty(default=True, update=update_channel_ui)
+    expand_source : BoolProperty(default=True, update=update_channel_ui)
+    modifiers : CollectionProperty(type=YModifierUI)
 
 class YMaskChannelUI(bpy.types.PropertyGroup):
-    expand_content = BoolProperty(default=False, update=update_mask_channel_ui)
+    expand_content : BoolProperty(default=False, update=update_mask_channel_ui)
 
 class YMaskUI(bpy.types.PropertyGroup):
-    #name = StringProperty(default='')
-    expand_content = BoolProperty(default=True, update=update_mask_ui)
-    expand_channels = BoolProperty(default=True, update=update_mask_ui)
-    expand_source = BoolProperty(default=True, update=update_mask_ui)
-    expand_vector = BoolProperty(default=True, update=update_mask_ui)
-    channels = CollectionProperty(type=YMaskChannelUI)
-    modifiers = CollectionProperty(type=YModifierUI)
+    #name : StringProperty(default='')
+    expand_content : BoolProperty(default=True, update=update_mask_ui)
+    expand_channels : BoolProperty(default=True, update=update_mask_ui)
+    expand_source : BoolProperty(default=True, update=update_mask_ui)
+    expand_vector : BoolProperty(default=True, update=update_mask_ui)
+    channels : CollectionProperty(type=YMaskChannelUI)
+    modifiers : CollectionProperty(type=YModifierUI)
 
 class YLayerUI(bpy.types.PropertyGroup):
-    #name = StringProperty(default='')
-    expand_content = BoolProperty(default=False, update=update_layer_ui)
-    expand_vector = BoolProperty(default=False, update=update_layer_ui)
-    expand_masks = BoolProperty(default=False, update=update_layer_ui)
-    expand_source = BoolProperty(default=False, update=update_layer_ui)
-    expand_channels = BoolProperty(default=True, update=update_layer_ui)
+    #name : StringProperty(default='')
+    expand_content : BoolProperty(default=False, update=update_layer_ui)
+    expand_vector : BoolProperty(default=False, update=update_layer_ui)
+    expand_masks : BoolProperty(default=False, update=update_layer_ui)
+    expand_source : BoolProperty(default=False, update=update_layer_ui)
+    expand_channels : BoolProperty(default=True, update=update_layer_ui)
 
-    channels = CollectionProperty(type=YChannelUI)
-    masks = CollectionProperty(type=YMaskUI)
-    modifiers = CollectionProperty(type=YModifierUI)
+    channels : CollectionProperty(type=YChannelUI)
+    masks : CollectionProperty(type=YMaskUI)
+    modifiers : CollectionProperty(type=YModifierUI)
 
 #def update_mat_active_yp_node(self, context):
 #    print('Update:', self.active_ypaint_node)
 
 class YMaterialUI(bpy.types.PropertyGroup):
-    name = StringProperty(default='')
-    active_ypaint_node = StringProperty(default='') #, update=update_mat_active_yp_node)
+    name : StringProperty(default='')
+    active_ypaint_node : StringProperty(default='') #, update=update_mat_active_yp_node)
 
 class YPaintUI(bpy.types.PropertyGroup):
-    show_object = BoolProperty(default=False)
-    show_materials = BoolProperty(default=False)
-    show_channels = BoolProperty(default=True)
-    show_layers = BoolProperty(default=True)
-    show_stats = BoolProperty(default=False)
-    show_support = BoolProperty(default=False)
+    show_object : BoolProperty(default=False)
+    show_materials : BoolProperty(default=False)
+    show_channels : BoolProperty(default=True)
+    show_layers : BoolProperty(default=True)
+    show_stats : BoolProperty(default=False)
+    show_support : BoolProperty(default=False)
 
-    expand_channels = BoolProperty(
+    expand_channels : BoolProperty(
             name='Expand all channels',
             description='Expand all channels',
             default=False)
 
-    expand_mask_channels = BoolProperty(
+    expand_mask_channels : BoolProperty(
             name='Expand all mask channels',
             description='Expand all mask channels',
             default=False)
 
     # To store active node and tree
-    tree_name = StringProperty(default='')
+    tree_name : StringProperty(default='')
     
     # Layer related UI
-    layer_idx = IntProperty(default=0)
-    layer_ui = PointerProperty(type=YLayerUI)
+    layer_idx : IntProperty(default=0)
+    layer_ui : PointerProperty(type=YLayerUI)
 
-    #disable_auto_temp_uv_update = BoolProperty(
+    #disable_auto_temp_uv_update : BoolProperty(
     #        name = 'Disable Transformed UV Auto Update',
     #        description = "UV won't be created automatically if layer with custom offset/rotation/scale is selected.\n(This can make selecting layer faster)",
     #        default=False)
 
-    #mask_ui = PointerProperty(type=YMaskUI)
+    #mask_ui : PointerProperty(type=YMaskUI)
 
     # Group channel related UI
-    channel_idx = IntProperty(default=0)
-    channel_ui = PointerProperty(type=YChannelUI)
-    modifiers = CollectionProperty(type=YModifierUI)
+    channel_idx : IntProperty(default=0)
+    channel_ui : PointerProperty(type=YChannelUI)
+    modifiers : CollectionProperty(type=YModifierUI)
 
     # Update related
-    need_update = BoolProperty(default=False)
-    halt_prop_update = BoolProperty(default=False)
+    need_update : BoolProperty(default=False)
+    halt_prop_update : BoolProperty(default=False)
 
     # Duplicated layer related
-    make_image_single_user = BoolProperty(
+    make_image_single_user : BoolProperty(
             name = 'Make Images Single User',
             description = 'Make duplicated image layers single user',
             default=True)
 
     # HACK: For some reason active float image will glitch after auto save
     # This prop will notify if float image is active after saving
-    refresh_image_hack = BoolProperty(default=False)
+    refresh_image_hack : BoolProperty(default=False)
 
-    materials = CollectionProperty(type=YMaterialUI)
-    #active_obj = StringProperty(default='')
-    active_mat = StringProperty(default='')
-    active_ypaint_node = StringProperty(default='')
+    materials : CollectionProperty(type=YMaterialUI)
+    #active_obj : StringProperty(default='')
+    active_mat : StringProperty(default='')
+    active_ypaint_node : StringProperty(default='')
 
-    #random_prop = BoolProperty(default=False)
+    #random_prop : BoolProperty(default=False)
 
 def add_new_ypaint_node_menu(self, context):
     if context.space_data.tree_type != 'ShaderNodeTree' or context.scene.render.engine not in {'CYCLES', 'BLENDER_EEVEE'}: return

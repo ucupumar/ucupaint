@@ -138,36 +138,36 @@ class YBakeToLayer(bpy.types.Operator):
     bl_description = "Bake something as layer/mask"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name = StringProperty(default='')
+    name : StringProperty(default='')
 
-    uv_map = StringProperty(default='')
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map : StringProperty(default='')
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     # For choosing overwrite entity from list
-    overwrite_choice = BoolProperty(
+    overwrite_choice : BoolProperty(
             name='Overwrite available layer',
             description='Overwrite available layer',
             default=False
             )
 
     # For rebake button
-    overwrite_current = BoolProperty(default=False)
+    overwrite_current : BoolProperty(default=False)
 
-    overwrite_name = StringProperty(default='')
-    overwrite_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    overwrite_name : StringProperty(default='')
+    overwrite_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    overwrite_image_name = StringProperty(default='')
-    overwrite_segment_name = StringProperty(default='')
+    overwrite_image_name : StringProperty(default='')
+    overwrite_segment_name : StringProperty(default='')
 
-    samples = IntProperty(name='Bake Samples', 
+    samples : IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
             default=1, min=1)
 
-    margin = IntProperty(name='Bake Margin',
+    margin : IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, min=0, subtype='PIXEL')
 
-    type = EnumProperty(
+    type : EnumProperty(
             name = 'Bake Type',
             description = 'Bake Type',
             items = bake_type_items,
@@ -175,26 +175,26 @@ class YBakeToLayer(bpy.types.Operator):
             )
 
     # Other objects props
-    cage_extrusion = FloatProperty(
+    cage_extrusion : FloatProperty(
             name = 'Cage Extrusion',
             description = 'Inflate the active object by the specified distance for baking. This helps matching to points nearer to the outside of the selected object meshes',
             default=0.2, min=0.0, max=1.0)
 
-    max_ray_distance = FloatProperty(
+    max_ray_distance : FloatProperty(
             name = 'Max Ray Distance',
             description = 'The maximum ray distance for matching points between the active and selected objects. If zero, there is no limit',
             default=0.2, min=0.0, max=1.0)
     
     # AO Props
-    ao_distance = FloatProperty(default=1.0)
+    ao_distance : FloatProperty(default=1.0)
 
     # Bevel Props
-    bevel_samples = IntProperty(default=4, min=2, max=16)
-    bevel_radius = FloatProperty(default=0.05, min=0.0, max=1000.0)
+    bevel_samples : IntProperty(default=4, min=2, max=16)
+    bevel_radius : FloatProperty(default=0.05, min=0.0, max=1000.0)
 
-    multires_base = IntProperty(default=1, min=0, max=16)
+    multires_base : IntProperty(default=1, min=0, max=16)
 
-    target_type = EnumProperty(
+    target_type : EnumProperty(
             name = 'Target Bake Type',
             description = 'Target Bake Type',
             items = (('LAYER', 'Layer', ''),
@@ -202,87 +202,87 @@ class YBakeToLayer(bpy.types.Operator):
             default='LAYER'
             )
 
-    fxaa = BoolProperty(name='Use FXAA', 
+    fxaa : BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked image (doesn't work with float images)",
             default=True)
 
-    ssaa = BoolProperty(name='Use SSAA', 
+    ssaa : BoolProperty(name='Use SSAA', 
             description = "Use Supersample AA to baked image",
             default=False)
 
-    width = IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height = IntProperty(name='Height', default = 1024, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
 
-    channel_idx = EnumProperty(
+    channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
             items = Layer.channel_items)
             #update=Layer.update_channel_idx_new_layer)
 
-    blend_type = EnumProperty(
+    blend_type : EnumProperty(
         name = 'Blend',
         items = blend_type_items,
         default = 'MIX')
 
-    normal_blend_type = EnumProperty(
+    normal_blend_type : EnumProperty(
             name = 'Normal Blend Type',
             items = normal_blend_items,
             default = 'MIX')
 
-    normal_map_type = EnumProperty(
+    normal_map_type : EnumProperty(
             name = 'Normal Map Type',
             description = 'Normal map type of this layer',
             items = Layer.get_normal_map_type_items)
             #default = 'NORMAL_MAP')
 
-    hdr = BoolProperty(name='32 bit Float', default=True)
+    hdr : BoolProperty(name='32 bit Float', default=True)
 
-    use_baked_disp = BoolProperty(
+    use_baked_disp : BoolProperty(
             name='Use Baked Displacement Map',
             description='Use baked displacement map, this will also apply subdiv setup on object',
             default=False
             )
 
-    #use_multires = BoolProperty(
+    #use_multires : BoolProperty(
     #        name='Use Multires',
     #        description='Use top level multires modifier if available',
     #        default=True
     #        )
 
-    flip_normals = BoolProperty(
+    flip_normals : BoolProperty(
             name='Flip Normals',
             description='Flip normal of mesh',
             default=False
             )
 
-    only_local = BoolProperty(
+    only_local : BoolProperty(
             name='Only Local',
             description='Only bake local ambient occlusion',
             default=False
             )
 
-    subsurf_influence = BoolProperty(
+    subsurf_influence : BoolProperty(
             name='Subsurf / Multires Influence',
             description='Take account subsurf or multires when baking cavity',
             default=True
             )
 
-    force_bake_all_polygons = BoolProperty(
+    force_bake_all_polygons : BoolProperty(
             name='Force Bake all Polygons',
             description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
             default=False)
 
-    force_use_cpu = BoolProperty(
+    force_use_cpu : BoolProperty(
             name='Force Use CPU',
             description='Force use CPU for baking (usually faster than using GPU)',
             default=False)
 
-    #source_object = PointerProperty(
+    #source_object : PointerProperty(
     #        type=bpy.types.Object,
     #        #poll=scene_mychosenobject_poll
     #        )
 
-    use_image_atlas = BoolProperty(
+    use_image_atlas : BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
             default=True)

@@ -37,7 +37,7 @@ class YSetActiveVcol(bpy.types.Operator):
     bl_description = "Set active vertex color"
     bl_options = {'REGISTER', 'UNDO'}
 
-    vcol_name = StringProperty(default='')
+    vcol_name : StringProperty(default='')
 
     @classmethod
     def poll(cls, context):
@@ -165,7 +165,7 @@ class YSpreadVColFix(bpy.types.Operator):
     bl_description = "Fix vertex color alpha transition (can be really slow depending on number of vertices)"
     bl_options = {'REGISTER', 'UNDO'}
 
-    iteration = IntProperty(name='Spread Iteration', default = 3, min=1, max=10)
+    iteration : IntProperty(name='Spread Iteration', default = 3, min=1, max=10)
 
     @classmethod
     def poll(cls, context):
@@ -285,7 +285,7 @@ class YVcolFill(bpy.types.Operator):
     bl_description = "Fill selected polygon with vertex color"
     bl_options = {'REGISTER', 'UNDO'}
 
-    color_option = EnumProperty(
+    color_option : EnumProperty(
             name = 'Color Option',
             description = 'Color Option',
             items = (
@@ -464,14 +464,14 @@ class VIEW3D_PT_y_vcol_editor_tools(bpy.types.Panel):
         vcol_editor_draw(self, context)
 
 class YVcolEditorProps(bpy.types.PropertyGroup):
-    color = FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0)
-    #palette = PointerProperty(type=bpy.types.Palette)
+    color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0)
+    #palette : PointerProperty(type=bpy.types.Palette)
 
-    show_vcol_list = BoolProperty(name='Show Vertex Color List',
+    show_vcol_list : BoolProperty(name='Show Vertex Color List',
             description='Show vertex color list', default=False)
 
-    ori_blending_mode = StringProperty(default='')
-    ori_brush = StringProperty(default='')
+    ori_blending_mode : StringProperty(default='')
+    ori_brush : StringProperty(default='')
 
 def register():
     bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)

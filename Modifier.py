@@ -498,7 +498,7 @@ class YNewYPaintModifier(bpy.types.Operator):
     bl_description = "New " + ADDON_TITLE + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type = EnumProperty(
+    type : EnumProperty(
         name = 'Modifier Type',
         items = modifier_type_items,
         default = 'INVERT')
@@ -557,7 +557,7 @@ class YMoveYPaintModifier(bpy.types.Operator):
     bl_description = "Move " + ADDON_TITLE + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction = EnumProperty(
+    direction : EnumProperty(
             name = 'Direction',
             items = (('UP', 'Up', ''),
                      ('DOWN', 'Down', '')),
@@ -1074,106 +1074,106 @@ def update_oc_col(self, context):
         if oc: oc.inputs['Override Color'].default_value = col
 
 class YPaintModifier(bpy.types.PropertyGroup):
-    enable = BoolProperty(default=True, update=update_modifier_enable)
-    name = StringProperty(default='')
+    enable : BoolProperty(default=True, update=update_modifier_enable)
+    name : StringProperty(default='')
 
-    type = EnumProperty(
+    type : EnumProperty(
         name = 'Modifier Type',
         items = modifier_type_items,
         default = 'INVERT')
 
     # RGB to Intensity nodes
-    rgb2i = StringProperty(default='')
+    rgb2i : StringProperty(default='')
 
-    rgb2i_col = FloatVectorProperty(name='RGB to Intensity Color', size=4, subtype='COLOR', 
+    rgb2i_col : FloatVectorProperty(name='RGB to Intensity Color', size=4, subtype='COLOR', 
             default=(1.0,0.0,1.0,1.0), min=0.0, max=1.0,
             update=update_rgb2i_col)
 
     # Intensity to RGB nodes
-    i2rgb = StringProperty(default='')
+    i2rgb : StringProperty(default='')
 
     # Override Color nodes (Deprecated)
-    oc = StringProperty(default='')
+    oc : StringProperty(default='')
 
-    oc_col = FloatVectorProperty(name='Override Color', size=4, subtype='COLOR', 
+    oc_col : FloatVectorProperty(name='Override Color', size=4, subtype='COLOR', 
             default=(1.0,1.0,1.0,1.0), min=0.0, max=1.0,
             update=update_oc_col)
 
-    oc_val = FloatProperty(name='Override Value', subtype='FACTOR', 
+    oc_val : FloatProperty(name='Override Value', subtype='FACTOR', 
             default=1.0, min=0.0, max=1.0,
             update=update_oc_col)
 
     # Invert nodes
-    invert = StringProperty(default='')
+    invert : StringProperty(default='')
 
     # Invert toggles
-    invert_r_enable = BoolProperty(default=True, update=update_invert_channel)
-    invert_g_enable = BoolProperty(default=True, update=update_invert_channel)
-    invert_b_enable = BoolProperty(default=True, update=update_invert_channel)
-    invert_a_enable = BoolProperty(default=False, update=update_invert_channel)
+    invert_r_enable : BoolProperty(default=True, update=update_invert_channel)
+    invert_g_enable : BoolProperty(default=True, update=update_invert_channel)
+    invert_b_enable : BoolProperty(default=True, update=update_invert_channel)
+    invert_a_enable : BoolProperty(default=False, update=update_invert_channel)
 
     # Color Ramp nodes
-    color_ramp = StringProperty(default='')
-    color_ramp_linear = StringProperty(default='')
-    color_ramp_alpha_multiply = StringProperty(default='')
-    color_ramp_mix_rgb = StringProperty(default='')
-    color_ramp_mix_alpha = StringProperty(default='')
+    color_ramp : StringProperty(default='')
+    color_ramp_linear : StringProperty(default='')
+    color_ramp_alpha_multiply : StringProperty(default='')
+    color_ramp_mix_rgb : StringProperty(default='')
+    color_ramp_mix_alpha : StringProperty(default='')
 
     # RGB Curve nodes
-    rgb_curve = StringProperty(default='')
+    rgb_curve : StringProperty(default='')
 
     # Brightness Contrast nodes
-    brightcon = StringProperty(default='')
+    brightcon : StringProperty(default='')
 
-    brightness_value = FloatProperty(name='Brightness', description='Brightness', 
+    brightness_value : FloatProperty(name='Brightness', description='Brightness', 
             default=0.0, min=-100.0, max=100.0, update=update_brightcon_value)
-    contrast_value = FloatProperty(name='Contrast', description='Contrast', 
+    contrast_value : FloatProperty(name='Contrast', description='Contrast', 
             default=0.0, min=-100.0, max=100.0, update=update_brightcon_value)
 
     # Hue Saturation nodes
-    huesat = StringProperty(default='')
+    huesat : StringProperty(default='')
 
-    huesat_hue_val = FloatProperty(default=0.5, min=0.0, max=1.0, description='Hue', update=update_huesat_value)
-    huesat_saturation_val = FloatProperty(default=1.0, min=0.0, max=2.0, description='Saturation', update=update_huesat_value)
-    huesat_value_val = FloatProperty(default=1.0, min=0.0, max=2.0, description='Value', update=update_huesat_value)
+    huesat_hue_val : FloatProperty(default=0.5, min=0.0, max=1.0, description='Hue', update=update_huesat_value)
+    huesat_saturation_val : FloatProperty(default=1.0, min=0.0, max=2.0, description='Saturation', update=update_huesat_value)
+    huesat_value_val : FloatProperty(default=1.0, min=0.0, max=2.0, description='Value', update=update_huesat_value)
 
     # Multiplier nodes (Deprecated)
-    multiplier = StringProperty(default='')
+    multiplier : StringProperty(default='')
 
-    multiplier_r_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
-    multiplier_g_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
-    multiplier_b_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
-    multiplier_a_val = FloatProperty(default=1.0, update=update_multiplier_val_input)
+    multiplier_r_val : FloatProperty(default=1.0, update=update_multiplier_val_input)
+    multiplier_g_val : FloatProperty(default=1.0, update=update_multiplier_val_input)
+    multiplier_b_val : FloatProperty(default=1.0, update=update_multiplier_val_input)
+    multiplier_a_val : FloatProperty(default=1.0, update=update_multiplier_val_input)
 
     # Math nodes
-    math = StringProperty(default='')
+    math : StringProperty(default='')
 
-    math_r_val = FloatProperty(default=1.0, update=update_math_val_input)
-    math_g_val = FloatProperty(default=1.0, update=update_math_val_input)
-    math_b_val = FloatProperty(default=1.0, update=update_math_val_input)
-    math_a_val = FloatProperty(default=1.0, update=update_math_val_input)
+    math_r_val : FloatProperty(default=1.0, update=update_math_val_input)
+    math_g_val : FloatProperty(default=1.0, update=update_math_val_input)
+    math_b_val : FloatProperty(default=1.0, update=update_math_val_input)
+    math_a_val : FloatProperty(default=1.0, update=update_math_val_input)
 
-    math_meth = EnumProperty(
+    math_meth : EnumProperty(
         name = 'Method',
         items = math_method_items,
         default = "MULTIPLY",
         update = update_math_method)
 
-    affect_alpha = BoolProperty(name='Affect Alpha', default=False, update=update_affect_alpha) 
+    affect_alpha : BoolProperty(name='Affect Alpha', default=False, update=update_affect_alpha) 
 
     # Individual modifier node frame
-    frame = StringProperty(default='')
+    frame : StringProperty(default='')
 
     # Clamp prop is available in some modifiers
-    use_clamp = BoolProperty(name='Use Clamp', default=False, update=update_use_clamp)
+    use_clamp : BoolProperty(name='Use Clamp', default=False, update=update_use_clamp)
 
-    shortcut = BoolProperty(
+    shortcut : BoolProperty(
             name = 'Property Shortcut',
             description = 'Property shortcut on layer list (currently only available on RGB to Intensity)',
             default=False,
             update=update_modifier_shortcut)
 
-    expand_content = BoolProperty(default=True)
+    expand_content : BoolProperty(default=True)
 
 def enable_modifiers_tree(parent, rearrange = False):
     

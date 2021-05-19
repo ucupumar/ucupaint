@@ -20,9 +20,9 @@ def update_layer_channel_blur(self, context):
 
 class YLayerBlur(bpy.types.PropertyGroup):
 
-    #use_noise = BoolProperty(default=False)
+    #use_noise : BoolProperty(default=False)
 
-    num_samples = EnumProperty(
+    num_samples : EnumProperty(
             name='Samples',
             description='Blur Samples',
             items = (('8', '8', ''),
@@ -31,10 +31,10 @@ class YLayerBlur(bpy.types.PropertyGroup):
             default='16'
             )
 
-    #samples = CollectionProperty(type=YLayerBlurSample)
+    #samples : CollectionProperty(type=YLayerBlurSample)
 
-    tree = PointerProperty(type=bpy.types.ShaderNodeTree)
-    node = StringProperty(default='')
+    tree : PointerProperty(type=bpy.types.ShaderNodeTree)
+    node : StringProperty(default='')
 
 def register():
     bpy.utils.register_class(YLayerBlur)

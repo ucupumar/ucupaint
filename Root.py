@@ -352,12 +352,12 @@ class YSelectMaterialPolygons(bpy.types.Operator):
     bl_description = "Select all polygons using this material"
     bl_options = {'REGISTER', 'UNDO'}
 
-    uv_map = StringProperty(
+    uv_map : StringProperty(
             name='Active UV Map', 
             description="It will create one if other objects does not have it.\nIf empty, it will use whatever current active uv map for each objects", 
             default='')
 
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -437,7 +437,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     bl_description = "Quick " + ADDON_TITLE + " Node Setup"
     bl_options = {'REGISTER', 'UNDO'}
 
-    type = EnumProperty(
+    type : EnumProperty(
             name = 'Type',
             items = (('BSDF_PRINCIPLED', 'Principled', ''),
                      ('BSDF_DIFFUSE', 'Diffuse', ''),
@@ -446,13 +446,13 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             default = 'BSDF_PRINCIPLED')
             #update=update_quick_setup_type)
 
-    color = BoolProperty(name='Color', default=True)
-    ao = BoolProperty(name='Ambient Occlusion', default=False)
-    metallic = BoolProperty(name='Metallic', default=True)
-    roughness = BoolProperty(name='Roughness', default=True)
-    normal = BoolProperty(name='Normal', default=True)
+    color : BoolProperty(name='Color', default=True)
+    ao : BoolProperty(name='Ambient Occlusion', default=False)
+    metallic : BoolProperty(name='Metallic', default=True)
+    roughness : BoolProperty(name='Roughness', default=True)
+    normal : BoolProperty(name='Normal', default=True)
 
-    mute_texture_paint_overlay = BoolProperty(
+    mute_texture_paint_overlay : BoolProperty(
             name = 'Mute Texture Paint Overlay',
             description = 'Set Texture Paint Overlay on 3D View screen to 0. It can helps texture painting better.',
             default = True)
@@ -855,9 +855,9 @@ def new_channel_items(self, context):
     return items
 
 class YPaintNodeInputCollItem(bpy.types.PropertyGroup):
-    name = StringProperty(default='')
-    node_name = StringProperty(default='')
-    input_name = StringProperty(default='')
+    name : StringProperty(default='')
+    node_name : StringProperty(default='')
+    input_name : StringProperty(default='')
 
 def update_connect_to(self, context):
     yp = get_active_ypaint_node().node_tree.yp
@@ -871,19 +871,19 @@ class YNewYPaintChannel(bpy.types.Operator):
     bl_description = "Add new " + ADDON_TITLE + " channel"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name = StringProperty(
+    name : StringProperty(
             name='Channel Name', 
             description = 'Name of the channel',
             default='Albedo')
 
-    type = EnumProperty(
+    type : EnumProperty(
             name = 'Channel Type',
             items = new_channel_items)
 
-    connect_to = StringProperty(name='Connect To', default='', update=update_connect_to)
-    input_coll = CollectionProperty(type=YPaintNodeInputCollItem)
+    connect_to : StringProperty(name='Connect To', default='', update=update_connect_to)
+    input_coll : CollectionProperty(type=YPaintNodeInputCollItem)
 
-    colorspace = EnumProperty(
+    colorspace : EnumProperty(
             name = 'Color Space',
             description = "Non color won't converted to linear first before blending",
             items = colorspace_items,
@@ -1072,7 +1072,7 @@ class YMoveYPaintChannel(bpy.types.Operator):
     bl_description = "Move " + ADDON_TITLE + " channel"
     bl_options = {'REGISTER', 'UNDO'}
 
-    direction = EnumProperty(
+    direction : EnumProperty(
             name = 'Direction',
             items = (('UP', 'Up', ''),
                      ('DOWN', 'Down', '')),
@@ -1362,10 +1362,10 @@ class YFixMissingUV(bpy.types.Operator):
     bl_description = "Fix missing UV"
     bl_options = {'REGISTER', 'UNDO'}
 
-    source_uv_name = StringProperty(name='Missing UV Name', description='Missing UV Name', default='')
-    target_uv_name = StringProperty(name='Target UV Name', description='Target UV Name', default='')
+    source_uv_name : StringProperty(name='Missing UV Name', description='Missing UV Name', default='')
+    target_uv_name : StringProperty(name='Target UV Name', description='Target UV Name', default='')
 
-    uv_map_coll = CollectionProperty(type=bpy.types.PropertyGroup)
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
     def poll(cls, context):
@@ -1454,7 +1454,7 @@ class YRenameYPaintTree(bpy.types.Operator):
     bl_description = "Rename " + ADDON_TITLE + " Group Name"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name = StringProperty(name='New Name', description='New Name', default='')
+    name : StringProperty(name='New Name', description='New Name', default='')
 
     @classmethod
     def poll(cls, context):
@@ -1482,7 +1482,7 @@ class YChangeActiveYPaintNode(bpy.types.Operator):
     bl_description = "Change Active " + ADDON_TITLE + " Node"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name = StringProperty(name='Node Name', description=ADDON_TITLE + ' Node Name', default='')
+    name : StringProperty(name='Node Name', description=ADDON_TITLE + ' Node Name', default='')
 
     @classmethod
     def poll(cls, context):
@@ -2692,43 +2692,43 @@ def update_backface_mode(self, context):
 #            link.to_socket.default_value = self.val_input
 
 class YNodeConnections(bpy.types.PropertyGroup):
-    node = StringProperty(default='')
-    socket = StringProperty(default='')
+    node : StringProperty(default='')
+    socket : StringProperty(default='')
 
 class YPaintChannel(bpy.types.PropertyGroup):
-    name = StringProperty(
+    name : StringProperty(
             name='Channel Name', 
             description = 'Name of the channel',
             default='Albedo',
             update=update_channel_name)
 
-    type = EnumProperty(
+    type : EnumProperty(
             name = 'Channel Type',
             items = (('VALUE', 'Value', ''),
                      ('RGB', 'RGB', ''),
                      ('NORMAL', 'Normal', '')),
             default = 'RGB')
 
-    enable_smooth_bump = BoolProperty(
+    enable_smooth_bump : BoolProperty(
             name = 'Enable Smooth Bump',
             description = 'Enable smooth bump map.\nLooks better but bump height scaling will be different than standard bump map.\nSmooth bump map -> Texture space.\nStandard bump map -> World space',
             default=True,
             update=update_enable_smooth_bump)
 
-    use_clamp = BoolProperty(
+    use_clamp : BoolProperty(
             name = 'Use Clamp',
             description = 'Clamp result to 0..1 range',
             default = True,
             update=update_channel_use_clamp)
 
     # Input output index
-    io_index = IntProperty(default=-1)
+    io_index : IntProperty(default=-1)
 
     # Alpha for transparent materials
-    enable_alpha = BoolProperty(default=False, update=update_channel_alpha)
+    enable_alpha : BoolProperty(default=False, update=update_channel_alpha)
 
     # Backface mode for alpha
-    backface_mode = EnumProperty(
+    backface_mode : EnumProperty(
             name = 'Backface Mode',
             description = 'Backface mode',
             items = (
@@ -2739,14 +2739,14 @@ class YPaintChannel(bpy.types.PropertyGroup):
             default = 'BOTH', update=update_backface_mode)
 
     # Displacement for normal channel
-    enable_parallax = BoolProperty(
+    enable_parallax : BoolProperty(
             name = 'Enable Parallax Mapping',
             description = 'Enable Parallax Mapping.\nIt will use texture space scaling, so it may looks different when using it as real displacement map',
             default=False, update=update_channel_parallax)
 
-    #parallax_num_of_layers = IntProperty(default=8, min=4, max=128,
+    #parallax_num_of_layers : IntProperty(default=8, min=4, max=128,
     #        update=update_parallax_num_of_layers)
-    parallax_num_of_layers = EnumProperty(
+    parallax_num_of_layers : EnumProperty(
             name = 'Parallax Mapping Number of Layers',
             description = 'Parallax Mapping Number of Layers',
             items = (('4', '4', ''),
@@ -2761,7 +2761,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
             default='8',
             update=update_parallax_num_of_layers)
 
-    baked_parallax_num_of_layers = EnumProperty(
+    baked_parallax_num_of_layers : EnumProperty(
             name = 'Baked Parallax Mapping Number of Layers',
             description = 'Baked Parallax Mapping Number of Layers',
             items = (('4', '4', ''),
@@ -2778,42 +2778,42 @@ class YPaintChannel(bpy.types.PropertyGroup):
             default='32',
             update=update_parallax_num_of_layers)
 
-    disable_global_baked = BoolProperty(
+    disable_global_baked : BoolProperty(
             name = 'Disable Global Baked', 
             description = 'Disable baked image for this channel if global baked is on',
             default=False, update=update_channel_disable_global_baked)
 
-    #use_baked = BoolProperty(
+    #use_baked : BoolProperty(
     #        name = 'Use Baked Image', 
     #        description = 'Use baked image for this channel',
     #        default=False)
 
-    #parallax_num_of_binary_samples = IntProperty(default=5, min=4, max=64,
+    #parallax_num_of_binary_samples : IntProperty(default=5, min=4, max=64,
     #        update=update_parallax_samples)
 
     # To mark if channel needed to be baked or not
-    no_layer_using = BoolProperty(default=True)
+    no_layer_using : BoolProperty(default=True)
 
-    parallax_rim_hack = BoolProperty(default=False, 
+    parallax_rim_hack : BoolProperty(default=False, 
             update=update_parallax_rim_hack)
 
-    parallax_rim_hack_hardness = FloatProperty(default=1.0, min=1.0, max=100.0, 
+    parallax_rim_hack_hardness : FloatProperty(default=1.0, min=1.0, max=100.0, 
             update=update_parallax_rim_hack)
 
-    parallax_height_tweak = FloatProperty(subtype='FACTOR', default=1.0, min=0.0, max=1.0,
+    parallax_height_tweak : FloatProperty(subtype='FACTOR', default=1.0, min=0.0, max=1.0,
             update=update_parallax_height_tweak)
 
     # Currently unused
-    parallax_ref_plane = FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
+    parallax_ref_plane : FloatProperty(subtype='FACTOR', default=0.5, min=0.0, max=1.0,
             update=update_displacement_ref_plane)
 
     # Real displacement using height map
-    enable_subdiv_setup = BoolProperty(
+    enable_subdiv_setup : BoolProperty(
             name = 'Enable Displacement Setup',
             description = 'Enable displacement setup. Only works if baked results is used.',
             default=False, update=Bake.update_enable_subdiv_setup)
 
-    #subdiv_standard_type = EnumProperty(
+    #subdiv_standard_type : EnumProperty(
     #        name = 'Subdivision Standard Type',
     #        description = 'Subdivision Standard Type',
     #        items = (
@@ -2824,167 +2824,167 @@ class YPaintChannel(bpy.types.PropertyGroup):
     #        update=Bake.update_subdiv_standard_type
     #        )
 
-    subdiv_adaptive = BoolProperty(
+    subdiv_adaptive : BoolProperty(
             name = 'Use Adaptive Subdivision',
             description = 'Use Adaptive Subdivision (only works on Cycles)',
             default=False, update=Bake.update_subdiv_setup
             )
     
-    subdiv_on_max_polys = IntProperty(
+    subdiv_on_max_polys : IntProperty(
             name = 'Subdiv On Max Polygons',
             description = 'Max Polygons (in thousand) when displacement setup is on',
             default=1000, min=0, max=5000, 
             update=Bake.update_subdiv_max_polys
             )
 
-    #subdiv_on_level = IntProperty(
+    #subdiv_on_level : IntProperty(
     #        name = 'Subdiv On Level',
     #        description = 'Subdivision level when displacement setup is on',
     #        default=3, min=0, max=10, 
     #        update=Bake.update_subdiv_on_off_level)
 
-    #subdiv_off_level = IntProperty(
+    #subdiv_off_level : IntProperty(
     #        name = 'Subdiv Off Level',
     #        description = 'Subdivision level when displacement setup is off',
     #        default=1, min=0, max=10, update=Bake.update_subdiv_on_off_level
     #        )
 
-    subdiv_tweak = FloatProperty(
+    subdiv_tweak : FloatProperty(
             name = 'Subdiv Tweak',
             description = 'Tweak displacement height',
             default=1.0, min=0.0, max=1000.0, 
             update=Bake.update_subdiv_tweak
             )
 
-    subdiv_global_dicing = FloatProperty(subtype='PIXEL', default=1.0, min=0.5, max=1000,
+    subdiv_global_dicing : FloatProperty(subtype='PIXEL', default=1.0, min=0.5, max=1000,
             update=Bake.update_subdiv_global_dicing)
 
-    subdiv_subsurf_only = BoolProperty(
+    subdiv_subsurf_only : BoolProperty(
             name = 'Use Subsurf Modifier Only',
             description = 'Ignore Multires and use subsurf modifier exclusively (useful if you already baked the multires to layer)',
             default=False, update=Bake.update_subdiv_setup
             )
 
     # Main uv is used for normal calculation of normal channel
-    main_uv = StringProperty(default='')
+    main_uv : StringProperty(default='')
 
-    colorspace = EnumProperty(
+    colorspace : EnumProperty(
             name = 'Color Space',
             description = "Non color won't converted to linear first before blending",
             items = colorspace_items,
             default='LINEAR',
             update=update_channel_colorspace)
 
-    modifiers = CollectionProperty(type=Modifier.YPaintModifier)
-    active_modifier_index = IntProperty(default=0)
+    modifiers : CollectionProperty(type=Modifier.YPaintModifier)
+    active_modifier_index : IntProperty(default=0)
 
     # Node names
-    start_linear = StringProperty(default='')
-    end_linear = StringProperty(default='')
-    clamp = StringProperty(default='')
-    start_normal_filter = StringProperty(default='')
-    bump_process = StringProperty(default='')
-    end_max_height = StringProperty(default='')
-    end_max_height_tweak = StringProperty(default='')
-    end_backface = StringProperty(default='')
+    start_linear : StringProperty(default='')
+    end_linear : StringProperty(default='')
+    clamp : StringProperty(default='')
+    start_normal_filter : StringProperty(default='')
+    bump_process : StringProperty(default='')
+    end_max_height : StringProperty(default='')
+    end_max_height_tweak : StringProperty(default='')
+    end_backface : StringProperty(default='')
 
     # Baked nodes
-    baked = StringProperty(default='')
-    baked_normal = StringProperty(default='')
-    baked_normal_flip = StringProperty(default='')
-    baked_normal_prep = StringProperty(default='')
+    baked : StringProperty(default='')
+    baked_normal : StringProperty(default='')
+    baked_normal_flip : StringProperty(default='')
+    baked_normal_prep : StringProperty(default='')
 
-    baked_disp = StringProperty(default='')
-    baked_normal_overlay = StringProperty(default='')
+    baked_disp : StringProperty(default='')
+    baked_normal_overlay : StringProperty(default='')
 
     # Outside baked nodes
-    baked_outside = StringProperty(default='')
-    baked_outside_disp = StringProperty(default='')
-    baked_outside_normal_overlay = StringProperty(default='')
+    baked_outside : StringProperty(default='')
+    baked_outside_disp : StringProperty(default='')
+    baked_outside_normal_overlay : StringProperty(default='')
 
-    baked_outside_disp_process = StringProperty(default='')
-    baked_outside_normal_process = StringProperty(default='')
+    baked_outside_disp_process : StringProperty(default='')
+    baked_outside_normal_process : StringProperty(default='')
 
     # UI related
-    expand_content = BoolProperty(default=False)
-    expand_base_vector = BoolProperty(default=True)
-    expand_subdiv_settings = BoolProperty(default=False)
-    expand_parallax_settings = BoolProperty(default=False)
-    expand_alpha_settings = BoolProperty(default=False)
-    expand_smooth_bump_settings = BoolProperty(default=False)
+    expand_content : BoolProperty(default=False)
+    expand_base_vector : BoolProperty(default=True)
+    expand_subdiv_settings : BoolProperty(default=False)
+    expand_parallax_settings : BoolProperty(default=False)
+    expand_alpha_settings : BoolProperty(default=False)
+    expand_smooth_bump_settings : BoolProperty(default=False)
 
     # Connection related
-    ori_alpha_to = CollectionProperty(type=YNodeConnections)
-    ori_alpha_from = PointerProperty(type=YNodeConnections)
+    ori_alpha_to : CollectionProperty(type=YNodeConnections)
+    ori_alpha_from : PointerProperty(type=YNodeConnections)
 
-    ori_to = CollectionProperty(type=YNodeConnections)
-    ori_height_to = CollectionProperty(type=YNodeConnections)
-    ori_max_height_to = CollectionProperty(type=YNodeConnections)
+    ori_to : CollectionProperty(type=YNodeConnections)
+    ori_height_to : CollectionProperty(type=YNodeConnections)
+    ori_max_height_to : CollectionProperty(type=YNodeConnections)
 
-    ori_normal_to = CollectionProperty(type=YNodeConnections)
+    ori_normal_to : CollectionProperty(type=YNodeConnections)
 
 class YPaintUV(bpy.types.PropertyGroup):
-    name = StringProperty(default='')
+    name : StringProperty(default='')
 
     # Nodes
-    uv_map = StringProperty(default='')
-    tangent = StringProperty(default='')
-    tangent_flip = StringProperty(default='')
-    bitangent = StringProperty(default='')
-    bitangent_flip = StringProperty(default='')
-    tangent_process = StringProperty(default='')
+    uv_map : StringProperty(default='')
+    tangent : StringProperty(default='')
+    tangent_flip : StringProperty(default='')
+    bitangent : StringProperty(default='')
+    bitangent_flip : StringProperty(default='')
+    tangent_process : StringProperty(default='')
 
-    parallax_prep = StringProperty(default='')
-    parallax_current_uv_mix = StringProperty(default='')
-    parallax_current_uv = StringProperty(default='')
-    parallax_delta_uv = StringProperty(default='')
-    parallax_mix = StringProperty(default='')
+    parallax_prep : StringProperty(default='')
+    parallax_current_uv_mix : StringProperty(default='')
+    parallax_current_uv : StringProperty(default='')
+    parallax_delta_uv : StringProperty(default='')
+    parallax_mix : StringProperty(default='')
 
-    baked_parallax_current_uv_mix = StringProperty(default='')
-    baked_parallax_current_uv = StringProperty(default='')
-    baked_parallax_delta_uv = StringProperty(default='')
-    baked_parallax_mix = StringProperty(default='')
+    baked_parallax_current_uv_mix : StringProperty(default='')
+    baked_parallax_current_uv : StringProperty(default='')
+    baked_parallax_delta_uv : StringProperty(default='')
+    baked_parallax_mix : StringProperty(default='')
 
     # For baking
-    temp_tangent = StringProperty(default='')
-    temp_bitangent = StringProperty(default='')
+    temp_tangent : StringProperty(default='')
+    temp_bitangent : StringProperty(default='')
 
 class YPaint(bpy.types.PropertyGroup):
 
-    is_ypaint_node = BoolProperty(default=False)
-    is_ypaint_layer_node = BoolProperty(default=False)
-    version = StringProperty(default='')
+    is_ypaint_node : BoolProperty(default=False)
+    is_ypaint_layer_node : BoolProperty(default=False)
+    version : StringProperty(default='')
 
     # Channels
-    channels = CollectionProperty(type=YPaintChannel)
-    active_channel_index = IntProperty(default=0, update=update_active_yp_channel)
+    channels : CollectionProperty(type=YPaintChannel)
+    active_channel_index : IntProperty(default=0, update=update_active_yp_channel)
 
     # Layers
-    layers = CollectionProperty(type=Layer.YLayer)
-    active_layer_index = IntProperty(default=0, update=update_layer_index)
+    layers : CollectionProperty(type=Layer.YLayer)
+    active_layer_index : IntProperty(default=0, update=update_layer_index)
 
     # UVs
-    uvs = CollectionProperty(type=YPaintUV)
+    uvs : CollectionProperty(type=YPaintUV)
 
     # Temp channels to remember last channel selected when adding new layer
     #temp_channels = CollectionProperty(type=YChannelUI)
-    preview_mode = BoolProperty(default=False, update=update_preview_mode)
+    preview_mode : BoolProperty(default=False, update=update_preview_mode)
 
     # Layer Preview Mode
-    layer_preview_mode = BoolProperty(
+    layer_preview_mode : BoolProperty(
             name= 'Enable Layer Preview Mode',
             description= 'Enable layer preview mode',
             default=False,
             update=update_layer_preview_mode)
 
     # Mask Preview Mode
-    #mask_preview_mode = BoolProperty(
+    #mask_preview_mode : BoolProperty(
     #        name= 'Enable Mask Preview Mode',
     #        description= 'Enable mask preview mode',
     #        default=False,
     #        update=update_mask_preview_mode)
 
-    layer_preview_mode_type = EnumProperty(
+    layer_preview_mode_type : EnumProperty(
             name= 'Layer Preview Mode Type',
             description = 'Layer preview mode type',
             #items = (('LAYER', 'Layer', '', lib.get_icon('mask'), 0),
@@ -3009,41 +3009,41 @@ class YPaint(bpy.types.PropertyGroup):
     #        update=update_merge_mask_mode)
 
     # Toggle to use baked results or not
-    use_baked = BoolProperty(default=False, update=Bake.update_use_baked)
-    baked_uv_name = StringProperty(default='')
+    use_baked : BoolProperty(default=False, update=Bake.update_use_baked)
+    baked_uv_name : StringProperty(default='')
 
-    enable_baked_outside = BoolProperty(
+    enable_baked_outside : BoolProperty(
             name= 'Enable Baked Outside',
             description= 'Create baked texture nodes outside of main node\n(Can be useful for exporting material to other application)',
             default=False, update=Bake.update_enable_baked_outside)
     
     # Outside nodes
-    baked_outside_uv = StringProperty(default='')
-    baked_outside_frame = StringProperty(default='')
-    baked_outside_x_shift = IntProperty(default=0)
+    baked_outside_uv : StringProperty(default='')
+    baked_outside_frame : StringProperty(default='')
+    baked_outside_x_shift : IntProperty(default=0)
 
     # Flip backface
-    enable_backface_always_up = BoolProperty(
+    enable_backface_always_up : BoolProperty(
             name= 'Make backface normal always up',
             description= 'Make sure normal will face toward camera even at backface',
             default=True, update=update_flip_backface)
 
     # Layer alpha Viewer Mode
-    #enable_layer_alpha_viewer = BoolProperty(
+    #enable_layer_alpha_viewer : BoolProperty(
     #        name= 'Enable Layer Alpha Viewer Mode',
     #        description= 'Enable layer alpha viewer mode',
     #        default=False)
 
     # Path folder for auto save bake
-    #bake_folder = StringProperty(default='')
+    #bake_folder : StringProperty(default='')
 
     # Disable quick toggle for better shader performance
-    #disable_quick_toggle = BoolProperty(
+    #disable_quick_toggle : BoolProperty(
     #        name = 'Disable Quick Toggle',
     #        description = 'Disable quick toggle to improve shader performance',
     #        default=False, update=update_disable_quick_toggle)
 
-    #performance_mode = EnumProperty(
+    #performance_mode : EnumProperty(
     #        name = 'Performance Mode',
     #        description = 'Performance mode to make this addon useful for various cases',
     #        items = (('QUICK_TOGGLE', 'Quick toggle, but can be painfully slow if using more than 4 layers', ''),
@@ -3051,54 +3051,54 @@ class YPaint(bpy.types.PropertyGroup):
     #                 ),
     #        default='SLOW_TOGGLE')
 
-    enable_tangent_sign_hacks = BoolProperty(
+    enable_tangent_sign_hacks : BoolProperty(
             name = 'Enable Tangent Sign VCol Hacks for Blender 2.80+ Cycles',
             description = "Tangent sign vertex color needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
             default=False, update=update_enable_tangent_sign_hacks)
 
     # HACK: Refresh tree to remove glitchy normal
-    refresh_tree = BoolProperty(default=False)
+    refresh_tree : BoolProperty(default=False)
 
     # Useful to suspend update when adding new stuff
-    halt_update = BoolProperty(default=False)
+    halt_update : BoolProperty(default=False)
 
     # Useful to suspend node rearrangements and reconnections when adding new stuff
-    halt_reconnect = BoolProperty(default=False)
+    halt_reconnect : BoolProperty(default=False)
 
     # Remind user to refresh UV after edit image layer mapping
-    need_temp_uv_refresh = BoolProperty(default=False)
+    need_temp_uv_refresh : BoolProperty(default=False)
 
     # Index pointer to the UI
-    #ui_index = IntProperty(default=0)
+    #ui_index : IntProperty(default=0)
 
-    #random_prop = BoolProperty(default=False)
+    #random_prop : BoolProperty(default=False)
 
     # Trash node for collecting disabled nodes
-    trash = StringProperty(default='')
+    trash : StringProperty(default='')
 
 class YPaintMaterialProps(bpy.types.PropertyGroup):
-    ori_bsdf = StringProperty(default='')
-    #ori_blend_method = StringProperty(default='')
-    active_ypaint_node = StringProperty(default='')
+    ori_bsdf : StringProperty(default='')
+    #ori_blend_method : StringProperty(default='')
+    active_ypaint_node : StringProperty(default='')
 
 class YPaintTimer(bpy.types.PropertyGroup):
-    time = StringProperty(default='')
+    time : StringProperty(default='')
 
 class YPaintSceneProps(bpy.types.PropertyGroup):
-    last_object = StringProperty(default='')
-    last_mode = StringProperty(default='')
+    last_object : StringProperty(default='')
+    last_mode : StringProperty(default='')
 
 class YPaintObjectProps(bpy.types.PropertyGroup):
-    ori_subsurf_render_levels = IntProperty(default=1)
-    ori_subsurf_levels = IntProperty(default=1)
-    ori_multires_render_levels = IntProperty(default=1)
-    ori_multires_levels = IntProperty(default=1)
+    ori_subsurf_render_levels : IntProperty(default=1)
+    ori_subsurf_levels : IntProperty(default=1)
+    ori_multires_render_levels : IntProperty(default=1)
+    ori_multires_levels : IntProperty(default=1)
 
 #class YPaintMeshProps(bpy.types.PropertyGroup):
-#    parallax_scale_min = FloatProperty(default=0.0)
-#    parallax_scale_span = FloatProperty(default=1.0)
-#    parallax_curvature_min = FloatProperty(default=0.0)
-#    parallax_curvature_span = FloatProperty(default=1.0)
+#    parallax_scale_min : FloatProperty(default=0.0)
+#    parallax_scale_span : FloatProperty(default=1.0)
+#    parallax_curvature_min : FloatProperty(default=0.0)
+#    parallax_curvature_span : FloatProperty(default=1.0)
 
 @persistent
 def ypaint_hacks_and_scene_updates(scene):
