@@ -346,6 +346,13 @@ PARALLAX_CURRENT_MIX_PREFIX = 'Parallax Current Mix '
 
 GAMMA = 2.2
 
+def get_app_version_string():
+    ver = bpy.app.version_string[:4]
+    # Blender 3.0+ has only 3 important digits
+    if ver.endswith('.'):
+        return ver[:3]
+    return ver
+
 def versiontuple(v):
     return tuple(map(int, (v.split("."))))
 
@@ -353,31 +360,26 @@ def get_current_version_str():
     bl_info = sys.modules[ADDON_NAME].bl_info
     return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
 
-#def is_28():
-#    if bpy.app.version_string.startswith('2.8'):
-#        return True
-#    else: return False
-
 def is_greater_than_280():
-    ver = bpy.app.version_string[:4]
+    ver = get_app_version_string()
     if versiontuple(ver) >= versiontuple('2.80'):
         return True
     else: return False
 
 def is_greater_than_281():
-    ver = bpy.app.version_string[:4]
+    ver = get_app_version_string()
     if versiontuple(ver) >= versiontuple('2.81'):
         return True
     else: return False
 
 def is_greater_than_282():
-    ver = bpy.app.version_string[:4]
+    ver = get_app_version_string()
     if versiontuple(ver) >= versiontuple('2.82'):
         return True
     else: return False
 
 def is_greater_than_292():
-    ver = bpy.app.version_string[:4]
+    ver = get_app_version_string()
     if versiontuple(ver) >= versiontuple('2.92'):
         return True
     else: return False
