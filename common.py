@@ -346,13 +346,6 @@ PARALLAX_CURRENT_MIX_PREFIX = 'Parallax Current Mix '
 
 GAMMA = 2.2
 
-def get_app_version_string():
-    ver = bpy.app.version_string[:4]
-    # Blender 3.0+ has only 3 important digits
-    if ver.endswith('.'):
-        return ver[:3]
-    return ver
-
 def versiontuple(v):
     return tuple(map(int, (v.split("."))))
 
@@ -361,46 +354,42 @@ def get_current_version_str():
     return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
 
 def is_greater_than_280():
-    ver = get_app_version_string()
-    if versiontuple(ver) >= versiontuple('2.80'):
+    if bpy.app.version >= (2, 80, 0):
         return True
-    else: return False
+    return False
 
 def is_greater_than_281():
-    ver = get_app_version_string()
-    if versiontuple(ver) >= versiontuple('2.81'):
+    if bpy.app.version >= (2, 81, 0):
         return True
-    else: return False
+    return False
 
 def is_greater_than_282():
-    ver = get_app_version_string()
-    if versiontuple(ver) >= versiontuple('2.82'):
+    if bpy.app.version >= (2, 82, 0):
         return True
-    else: return False
+    return False
 
 def is_greater_than_292():
-    ver = get_app_version_string()
-    if versiontuple(ver) >= versiontuple('2.92'):
+    if bpy.app.version >= (2, 92, 0):
         return True
-    else: return False
+    return False
 
 def is_created_using_279():
     ver = '.'.join([str(i) for i in bpy.data.version])[:4]
     if versiontuple(ver) == versiontuple('2.79'):
         return True
-    else: return False
+    return False
 
 def is_created_before_292():
     ver = '.'.join([str(i) for i in bpy.data.version])[:4]
     if versiontuple(ver) < versiontuple('2.92'):
         return True
-    else: return False
+    return False
 
 def is_created_using_280():
     ver = '.'.join([str(i) for i in bpy.data.version])[:4]
     if versiontuple(ver) == versiontuple('2.79'):
         return True
-    else: return False
+    return False
 
 def set_active_object(obj):
     if is_greater_than_280():
