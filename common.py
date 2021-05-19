@@ -502,7 +502,7 @@ def get_addon_filepath():
     # Search for addon dirs
     roots = bpy.utils.script_paths()
 
-    possible_dir_names = [ADDON_NAME, ADDON_NAME + '-master']
+    possible_dir_names = [ADDON_NAME, ADDON_NAME + '-master', ADDON_NAME + '-blender_279']
 
     for root in roots:
         if os.path.basename(root) != 'scripts': continue
