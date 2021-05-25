@@ -1769,7 +1769,7 @@ def check_uv_nodes(yp, generate_missings=False):
         # Set height channel main uv if its still empty
         if height_ch.main_uv == '':
             uv_layers = get_uv_layers(obj)
-            if len(uv_layers) > 0:
+            if uv_layers and len(uv_layers) > 0:
                 height_ch.main_uv = uv_layers[0].name
                 check_uvmap_on_other_objects_with_same_mat(mat, height_ch.main_uv)
 

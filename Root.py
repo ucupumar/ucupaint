@@ -462,6 +462,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         return context.object
 
     def invoke(self, context, event):
+        obj = context.object
         mat = get_active_material()
 
         # Get target bsdf
@@ -474,6 +475,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                     self.type = bsdf_node.type
                     self.target_bsdf = bsdf_node
                     #print(bsdf_node)
+
+        # Normal channel does not works to non mesh object
+        if obj.type != 'MESH':
+            self.normal = False
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -1407,8 +1412,10 @@ class YFixMissingUV(bpy.types.Operator):
         if self.target_uv_name == '':
             self.report({'ERROR'}, "Target UV name is cannot be empty!")
             return {'CANCELLED'}
-
+        
         for o in objs:
+            if o.type != 'MESH': continue
+
             uv_layers = get_uv_layers(o)
 
             #if self.uv_map != '':
