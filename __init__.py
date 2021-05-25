@@ -180,6 +180,7 @@
 # - Duplicate solid color with mask can cause error (V)
 # - Using ucupaint on non-mesh object can cause error (V)
 # - Resize image with image atlas does not work (V)
+# - Baking object with no vertex will cause error (V)
 #
 # KNOWN ISSUES:
 # - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas

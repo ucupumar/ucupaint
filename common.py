@@ -3445,9 +3445,15 @@ def is_mesh_flat_shaded(mesh):
 
     return False
 
-def get_all_objects_with_same_materials(mat):
+def get_all_objects_with_same_materials(mat, mesh_only=False):
     objs = []
     for obj in get_scene_objects():
+        if mesh_only:
+            if obj.type != 'MESH': continue
+            #if is_greater_than_280() and obj.hide_viewport: continue
+            #if obj.hide_render: continue
+            #if len(get_uv_layers(obj)) == 0: continue
+            if len(obj.data.polygons) == 0: continue
         if not obj.data or not hasattr(obj.data, 'materials'): continue
         for m in obj.data.materials:
             if m == mat: # and obj not in objs:
