@@ -1927,7 +1927,7 @@ def update_enable_baked_outside(self, context):
 
         # Set back adaptive displacement node
         height_ch = get_root_height_channel(yp)
-        if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
+        if yp.use_baked and height_ch and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
 
             # Adaptive subdivision only works for experimental feature set for now
             scene.cycles.feature_set = 'EXPERIMENTAL'
