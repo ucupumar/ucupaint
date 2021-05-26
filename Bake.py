@@ -717,11 +717,15 @@ class YBakeChannels(bpy.types.Operator):
         objs = [obj]
         meshes = [obj.data]
         if mat.users > 1:
+            # Emptying the lists again in case active object is problematic
+            objs = []
+            meshes = []
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
                 if is_greater_than_280() and ob.hide_viewport: continue
                 if ob.hide_render: continue
                 if len(get_uv_layers(ob)) == 0: continue
+                if len(ob.data.polygons) == 0: continue
                 for i, m in enumerate(ob.data.materials):
                     if m == mat:
                         ob.active_material_index = i
@@ -1150,7 +1154,7 @@ class YMergeLayer(bpy.types.Operator):
         obj = context.object
         mat = obj.active_material
         scene = context.scene
-        objs = get_all_objects_with_same_materials(mat)
+        objs = get_all_objects_with_same_materials(mat, True)
 
         if self.error_message != '':
             self.report({'ERROR'}, self.error_message)
@@ -1460,7 +1464,7 @@ class YMergeMask(bpy.types.Operator):
         reconnect_layer_nodes(layer, merge_mask=True)
 
         # Prepare to bake
-        objs = get_all_objects_with_same_materials(mat)
+        objs = get_all_objects_with_same_materials(mat, True)
 
         book = remember_before_bake(yp)
         prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
@@ -2180,7 +2184,7 @@ def check_subdiv_setup(height_ch):
     ori_active_obj = bpy.context.object
 
     # Iterate all objects with same materials
-    objs = get_all_objects_with_same_materials(mat)
+    objs = get_all_objects_with_same_materials(mat, True)
     proportions = get_objs_size_proportions(objs)
     for obj in objs:
 
@@ -2315,7 +2319,7 @@ def update_subdiv_setup(self, context):
 def remember_subsurf_levels():
     #print('Remembering')
     mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
+    objs = get_all_objects_with_same_materials(mat, True)
 
     for obj in objs:
         subsurf = get_subsurf_modifier(obj)
@@ -2331,7 +2335,7 @@ def remember_subsurf_levels():
 def recover_subsurf_levels():
     #print('Recovering')
     mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
+    objs = get_all_objects_with_same_materials(mat, True)
 
     for obj in objs:
         subsurf = get_subsurf_modifier(obj)
@@ -2356,7 +2360,7 @@ def update_enable_subdiv_setup(self, context):
     yp = tree.yp
     height_ch = self
     mat = get_active_material()
-    objs = get_all_objects_with_same_materials(mat)
+    objs = get_all_objects_with_same_materials(mat, True)
 
     if height_ch.enable_subdiv_setup and yp.use_baked:
         remember_subsurf_levels()
@@ -2371,7 +2375,7 @@ def update_subdiv_tweak(self, context):
     tree = self.id_data
     yp = tree.yp
     height_ch = self
-    objs = get_all_objects_with_same_materials(mat)
+    objs = get_all_objects_with_same_materials(mat, True)
 
     end_max_height = tree.nodes.get(height_ch.end_max_height)
     end_max_height_tweak = tree.nodes.get(height_ch.end_max_height_tweak)
@@ -2436,7 +2440,7 @@ def update_subdiv_max_polys(self, context):
     tree = self.id_data
     yp = tree.yp
     height_ch = self
-    objs = get_all_objects_with_same_materials(mat)
+    objs = get_all_objects_with_same_materials(mat, True)
 
     if not yp.use_baked or not height_ch.enable_subdiv_setup or self.subdiv_adaptive: return
 

@@ -1,7 +1,7 @@
 import bpy, time
 from .common import *
 from .node_connections import *
-from . import lib, Layer
+from . import lib, Layer, ImageAtlas
 
 BL28_HACK = True
 

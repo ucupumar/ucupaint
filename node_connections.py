@@ -1621,7 +1621,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             vector = texcoord.outputs.get(layer.uv_name + io_suffix['UV'])
         else: vector = texcoord.outputs[io_names[layer.texcoord_type]]
 
-        if mapping:
+        if vector and mapping:
             vector = create_link(tree, vector, mapping.inputs[0])[0]
             #create_link(tree, mapping.outputs[0], source.inputs[0])
 

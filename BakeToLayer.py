@@ -711,11 +711,15 @@ class YBakeToLayer(bpy.types.Operator):
             meshes = [context.object.data]
 
         if mat.users > 1:
+            # Emptying the lists again in case active object is problematic
+            objs = []
+            meshes = []
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
                 if (hasattr(ob, 'hide_viewport') and ob.hide_viewport) or ob.hide_render: continue
                 if len(get_uv_layers(ob)) == 0: continue
                 if self.type.startswith('MULTIRES_') and not get_multires_modifier(ob): continue
+                if len(ob.data.polygons) == 0: continue
                 for i, m in enumerate(ob.data.materials):
                     if m == mat:
                         ob.active_material_index = i
