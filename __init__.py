@@ -108,6 +108,7 @@
 # - Quick setup should use already used inputs to bsdf as inputs for yp node (V)
 # - Still baking channel with connected input even if there are no layers using it (V)
 # - Blender 2.80+ should use vertex paint transparency (V)
+# - Use new blender own resize image operator
 # - Normal channel should be able to override both normal and bump at the same time
 # - Image editor should be able to show srgb color
 # - Some texture should be able to use transparency
@@ -115,6 +116,7 @@
 # - Add operator to create new UV map on multiple objects using the same material
 # - Add option to merge objects before baking to avoid overlap between uv islands
 # - Merge layers should work on any type of layers (just convert them to standard image)
+# - Combine objects before bake all channel to improve speed and fix margin issue
 # - Change link inside group to github insted of patreon
 
 # TODO:
