@@ -411,7 +411,7 @@ class YBakeToLayer(bpy.types.Operator):
         self.overwrite_choice = False
         self.overwrite_name = ''
         overwrite_entity = None
-
+        
         if self.overwrite_current:
             overwrite_entity = self.entity
 
@@ -495,9 +495,12 @@ class YBakeToLayer(bpy.types.Operator):
             if bi:
                 for attr in dir(bi):
                     if attr in {'other_objects', 'selected_objects'}: continue
-                    if attr in dir(self):
-                        try: setattr(self, attr, getattr(bi, attr))
-                        except: pass
+                    if attr.startswith('__'): continue
+                    if attr.startswith('bl_'): continue
+                    if attr in {'rna_type'}: continue
+                    #if attr in dir(self):
+                    try: setattr(self, attr, getattr(bi, attr))
+                    except: pass
         
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
@@ -1552,9 +1555,12 @@ class YBakeToLayer(bpy.types.Operator):
         bi.is_baked = True
         bi.bake_type = self.type
         for attr in dir(bi):
-            if attr in dir(self):
-                try: setattr(bi, attr, getattr(self, attr))
-                except: pass
+            #if attr in dir(self):
+            if attr.startswith('__'): continue
+            if attr.startswith('bl_'): continue
+            if attr in {'rna_type'}: continue
+            try: setattr(bi, attr, getattr(self, attr))
+            except: pass
 
         if other_objs:
 

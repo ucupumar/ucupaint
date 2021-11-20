@@ -88,7 +88,7 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     
     multires_base : IntProperty(default=1, min=0, max=16)
 
-    hdr : BoolProperty(name='32 bit Float', default=True)
+    hdr : BoolProperty(name='32 bit Float', default=False)
 
     # AO Props
     ao_distance : FloatProperty(default=1.0)
