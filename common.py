@@ -1745,6 +1745,8 @@ def set_obj_vertex_colors(obj, vcol_name, color):
     else: 
         col = (color[0], color[1], color[2])
 
+    print(col)
+
     for poly in obj.data.polygons:
         for loop_index in poly.loop_indices:
             vcol.data[loop_index].color = col

@@ -902,7 +902,7 @@ class YBakeToLayer(bpy.types.Operator):
             for obj in objs:
                 try:
                     vcol = obj.data.vertex_colors.new(name=TEMP_VCOL)
-                    set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0))
+                    set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 1.0))
                     obj.data.vertex_colors.active = vcol
                     #print(obj.name, obj.data.vertex_colors.active)
                 except: pass
@@ -994,7 +994,7 @@ class YBakeToLayer(bpy.types.Operator):
                 # Create new vertex color for dirt
                 try:
                     vcol = obj.data.vertex_colors.new(name=TEMP_VCOL)
-                    set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0))
+                    set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0, 1.0))
                     obj.data.vertex_colors.active = vcol
                 except: pass
 
