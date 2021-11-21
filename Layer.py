@@ -2277,10 +2277,13 @@ def remove_layer(yp, index):
     layer_tree = get_tree(layer)
 
     # Dealing with image atlas segments
-    if layer.type == 'IMAGE' and layer.segment_name != '':
+    if layer.type == 'IMAGE': # and layer.segment_name != '':
         src = get_layer_source(layer)
-        segment = src.image.yia.segments.get(layer.segment_name)
-        segment.unused = True
+        if src.image.yia.is_image_atlas and layer.segment_name != '':
+            segment = src.image.yia.segments.get(layer.segment_name)
+            entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
+            if len(entities) == 1:
+                segment.unused = True
 
     # Remove the source first to remove image
     source_tree = get_source_tree(layer) #, layer_tree)
@@ -2290,10 +2293,13 @@ def remove_layer(yp, index):
     for mask in layer.masks:
 
         # Dealing with image atlas segments
-        if mask.type == 'IMAGE' and mask.segment_name != '':
+        if mask.type == 'IMAGE': # and mask.segment_name != '':
             src = get_mask_source(mask)
-            segment = src.image.yia.segments.get(mask.segment_name)
-            segment.unused = True
+            if src.image.yia.is_image_atlas and mask.segment_name != '':
+                segment = src.image.yia.segments.get(mask.segment_name)
+                entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
+                if len(entities) == 1:
+                    segment.unused = True
 
         mask_tree = get_mask_tree(mask)
         remove_node(mask_tree, mask, 'source', obj=obj)

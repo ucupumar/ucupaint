@@ -1343,81 +1343,39 @@ class YBakeToLayer(bpy.types.Operator):
             # Remove original baked image
             bpy.data.images.remove(temp_img)
 
-        # Mark segment as unused if the rebake not going to image atlas
-        segment_unused = False
-        if segment and not self.use_image_atlas:
-            segment.unused = True
-            segment = None
-            segment_unused = True
-
         if overwrite_img:
             active_id = yp.active_layer_index
 
-            # Replace image and set active layer/mask
-            if self.target_type == 'LAYER':
-                if overwrite_img != image:
-                    layer_ids = replace_image(overwrite_img, image, yp, self.uv_map)
-                elif segment: layer_ids = get_layer_ids_with_specific_segment(yp, segment)
-                else: layer_ids = get_layer_ids_with_specific_image(yp, image)
+            if overwrite_img != image:
+                if segment and not self.use_image_atlas:
+                    entities = ImageAtlas.replace_segment_with_image(yp, segment, image)
+                    segment = None
+                else: entities = replace_image(overwrite_img, image, yp, self.uv_map)
+            elif segment: entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
+            else: entities = get_entities_with_specific_image(yp, image)
 
-                if layer_ids and yp.active_layer_index not in layer_ids:
-                    active_id = layer_ids[0]
-
-                #if segment and need_to_create_new_segment:
+            for entity in entities:
                 if new_segment_created:
-                    for i in layer_ids:
-                        layer = yp.layers[i]
-                        layer.segment_name = segment.name
-                        ImageAtlas.set_segment_mapping(layer, segment, image)
+                    entity.segment_name = segment.name
+                    ImageAtlas.set_segment_mapping(entity, segment, image)
 
-                # Clear mapping if segment is no longer used
-                #if segment and not self.use_image_atlas:
-                if segment_unused:
-                    for i in layer_ids:
-                        layer = yp.layers[i]
-                        clear_mapping(layer)
+                if entity.uv_name != self.uv_map:
+                    entity.uv_name = self.uv_map
 
-                # Set uv map
-                #yp.halt_update = True
-                for i in layer_ids:
-                    layer = yp.layers[i]
-                    if layer.uv_name != self.uv_map:
-                        layer.uv_name = self.uv_map
-                #yp.halt_update = False
-
+            if self.target_type == 'LAYER':
+                layer_ids = [i for i, l in enumerate(yp.layers) if l in entities]
+                if entities and yp.active_layer_index not in layer_ids:
+                    active_id = layer_ids[0]
                 # Refresh uv
                 refresh_temp_uv(context.object, yp.layers[active_id])
 
-            # Replace image and set active mask
             elif self.target_type == 'MASK':
-                replace_image(overwrite_img, image, yp, self.uv_map)
-                if segment:
-                    masks = get_masks_with_specific_segment(yp.layers[yp.active_layer_index], segment)
-                else: masks = get_masks_with_specific_images(yp.layers[yp.active_layer_index], image)
-
-                if masks: masks[0].active_edit = True
-
-                #if segment and need_to_create_new_segment:
-                if new_segment_created:
-                    for mask in masks:
-                        mask.segment_name = segment.name
-                        ImageAtlas.set_segment_mapping(mask, segment, image)
-
-                # Clear mapping if segment is no longer used
-                #if segment and not self.use_image_atlas:
-                if segment_unused:
-                    for mask in masks:
-                        clear_mapping(mask)
-
-                # Set uv map
-                #yp.halt_update = True
-                for mask in masks:
-                    if mask.uv_name != self.uv_map:
-                        mask.uv_name = self.uv_map
-                #yp.halt_update = False
-
-                # Refresh uv
-                if masks: refresh_temp_uv(context.object, masks[0])
+                masks = []
+                for l in yp.layers:
+                    masks.extend([m for m in l.masks if m in entities])
+                if masks: 
+                    masks[0].active_edit = True
+                    refresh_temp_uv(context.object, masks[0])
 
         elif self.target_type == 'LAYER':
 

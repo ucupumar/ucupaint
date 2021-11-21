@@ -217,6 +217,43 @@ def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_fro
 
     return segment
 
+def get_entities_with_specific_segment(yp, segment):
+
+    entities = []
+
+    layer_ids = get_layer_ids_with_specific_segment(yp, segment)
+    for li in layer_ids:
+        layer = yp.layers[li]
+        entities.append(layer)
+
+    for layer in yp.layers:
+        masks = get_masks_with_specific_segment(layer, segment)
+        entities.extend(masks)
+
+    return entities
+
+def replace_segment_with_image(yp, segment, image, uv_name=''):
+
+    entities = get_entities_with_specific_segment(yp, segment)
+
+    for entity in entities:
+        # Replace image
+        source = get_entity_source(entity)
+        source.image = image
+        entity.segment_name = ''
+
+        # Clear mapping and set new uv map
+        clear_mapping(entity)
+        if uv_name != '' and entity.uv_name != uv_name:
+            entity.uv_name = uv_name
+
+    # Make segment unused
+    segment.unused = True
+
+    #print(segment.name, entities)
+
+    return entities
+
 #class YUVTransformTest(bpy.types.Operator):
 #    bl_idname = "node.y_uv_transform_test"
 #    bl_label = "UV Transform Test"

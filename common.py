@@ -1066,6 +1066,21 @@ def get_layer_ids_with_specific_image(yp, image):
 
     return ids
 
+def get_entities_with_specific_image(yp, image):
+
+    entities = []
+
+    layer_ids = get_layer_ids_with_specific_image(yp, image)
+    for li in layer_ids:
+        layer = yp.layers[li]
+        entities.append(layer)
+
+    for layer in yp.layers:
+        masks = get_masks_with_specific_image(layer, image)
+        entities.extend(masks)
+
+    return entities
+
 def get_layer_ids_with_specific_segment(yp, segment):
 
     ids = []
@@ -1073,15 +1088,13 @@ def get_layer_ids_with_specific_segment(yp, segment):
     for i, layer in enumerate(yp.layers):
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
-            if source.image and source.image.yia.is_image_atlas:
-                for s in source.image.yia.segments:
-                    if s == segment:
-                        ids.append(i)
-                        break
+            if (source.image and source.image.yia.is_image_atlas and 
+                any([s for s in source.image.yia.segments if s == segment]) and segment.name == layer.segment_name):
+                    ids.append(i)
 
     return ids
 
-def get_masks_with_specific_images(layer, image):
+def get_masks_with_specific_image(layer, image):
     masks = []
 
     for m in layer.masks:
@@ -1098,11 +1111,9 @@ def get_masks_with_specific_segment(layer, segment):
     for m in layer.masks:
         if m.type == 'IMAGE':
             source = get_mask_source(m)
-            if source.image and source.image.yia.is_image_atlas:
-                for s in source.image.yia.segments:
-                    if s == segment:
-                        masks.append(m)
-                        break
+            if (source.image and source.image.yia.is_image_atlas and
+                any([s for s in source.image.yia.segments if s == segment]) and segment.name == m.segment_name):
+                    masks.append(m)
 
     return masks
 
@@ -1111,13 +1122,17 @@ def replace_image(old_image, new_image, yp=None, uv_name = ''):
     if old_image == new_image: return
 
     # Rename
-    old_name = old_image.name
-    old_image.name = '_____temp'
-    new_image.name = old_name
+    if not new_image.yia.is_image_atlas:
+        old_name = old_image.name
+        old_image.name = '_____temp'
+        new_image.name = old_name
 
-    # Set filepath
-    if new_image.filepath == '' and old_image.filepath != '' and not old_image.packed_file:
-        new_image.filepath = old_image.filepath
+        # Set filepath
+        if new_image.filepath == '' and old_image.filepath != '' and not old_image.packed_file:
+            new_image.filepath = old_image.filepath
+
+    # Check entities using old image
+    entities = get_entities_with_specific_image(yp, old_image)
 
     # Replace all users
     users = get_all_image_users(old_image)
@@ -1125,34 +1140,18 @@ def replace_image(old_image, new_image, yp=None, uv_name = ''):
         #print(user)
         user.image = new_image
 
-    replaceds = users
-
     # Replace uv_map of layers and masks
     if yp and uv_name != '':
-
-        replaceds = []
 
         # Disable temp uv update
         #ypui = bpy.context.window_manager.ypui
         #ori_disable_temp_uv = ypui.disable_auto_temp_uv_update
 
-        for i, layer in enumerate(yp.layers):
-            if layer.type == 'IMAGE':
-                source = get_layer_source(layer)
-                if source.image and source.image == new_image:
-                    if layer.uv_name != uv_name:
-                        layer.uv_name = uv_name
-                    if i not in replaceds:
-                        replaceds.append(i)
-
-            for mask in layer.masks:
-                if mask.type == 'IMAGE':
-                    source = get_mask_source(mask)
-                    if source.image and source.image == new_image:
-                        if mask.uv_name != uv_name:
-                            mask.uv_name = uv_name
-                        if i not in replaceds:
-                            replaceds.append(i)
+        for entity in entities:
+            if entity.type == 'IMAGE':
+                source = get_entity_source(entity)
+                if entity.uv_name != uv_name:
+                    entity.uv_name = uv_name
 
         # Recover temp uv update
         #ypui.disable_auto_temp_uv_update = ori_disable_temp_uv
@@ -1160,7 +1159,7 @@ def replace_image(old_image, new_image, yp=None, uv_name = ''):
     # Remove old image
     bpy.data.images.remove(old_image)
 
-    return replaceds
+    return entities
 
 def mute_node(tree, entity, prop):
     if not hasattr(entity, prop): return
@@ -1646,6 +1645,16 @@ def get_layer_mapping(layer):
     #tree = get_source_tree(layer)
     tree = get_tree(layer)
     return tree.nodes.get(layer.mapping)
+
+def get_entity_source(entity):
+
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if m1: return get_layer_source(entity)
+    elif m2: return get_mask_source(entity)
+
+    return None
 
 def get_entity_mapping(entity):
 
