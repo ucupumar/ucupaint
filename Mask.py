@@ -1,4 +1,4 @@
-import bpy, re, time
+import bpy, re, time, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
@@ -11,7 +11,7 @@ from .subtree import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
-def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False):
+def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1)):
     yp = layer.id_data.yp
     yp.halt_update = True
 
@@ -47,7 +47,13 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         mask.object_index = object_index
         source.inputs[0].default_value = object_index
 
-    if mask_type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+    if mask_type == 'COLOR_ID':
+        source.node_tree = get_node_tree_lib(lib.COLORID_EQUAL)
+        mask.color_id = color_id
+        col = (color_id[0], color_id[1], color_id[2], 1.0)
+        source.inputs[0].default_value = col
+
+    if mask_type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
         #uv_map = new_node(tree, mask, 'uv_map', 'ShaderNodeUVMap', 'Mask UV Map')
         #uv_map.uv_map = uv_name
         mask.uv_name = uv_name
@@ -171,6 +177,13 @@ class YNewLayerMask(bpy.types.Operator):
                 ),
             default='WHITE')
 
+    color_id : FloatVectorProperty(
+            name='Color ID', size=3,
+            subtype='COLOR',
+            default=(1.0, 0.0, 1.0),
+            min=0.0, max=1.0,
+            )
+
     hdr : BoolProperty(name='32 bit Float', default=False)
 
     texcoord_type : EnumProperty(
@@ -246,6 +259,14 @@ class YNewLayerMask(bpy.types.Operator):
             self.name = get_unique_name(name, items)
         #name = 'Mask ' + name #+ ' ' + surname
 
+        if self.type == 'COLOR_ID':
+            # Check if color id already being used
+            while True:
+                if not is_colorid_already_being_used(yp, self.color_id): break
+                #self.color_id = (random.random(), random.random(), random.random())
+                # Use color id tolerance value as lowest value to avoid pure black color
+                self.color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
+
         if obj.type != 'MESH':
             self.texcoord_type = 'Generated'
         elif len(obj.data.uv_layers) > 0:
@@ -283,6 +304,9 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type in {'VCOL', 'IMAGE'}:
             col.label(text='Color:')
 
+        if self.type == 'COLOR_ID':
+            col.label(text='Color ID:')
+
         if self.type == 'HEMI':
             col.label(text='Space:')
             col.label(text='')
@@ -290,7 +314,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.label(text='')
 
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
             col.label(text='Vector:')
             if self.type == 'IMAGE':
                 col.label(text='')
@@ -310,6 +334,9 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type in {'VCOL', 'IMAGE'}:
             col.prop(self, 'color_option', text='')
 
+        if self.type == 'COLOR_ID':
+            col.prop(self, 'color_id', text='')
+
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
             col.prop(self, 'hemi_use_prev_normal')
@@ -317,7 +344,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.prop(self, 'hdr')
 
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -398,7 +425,7 @@ class YNewLayerMask(bpy.types.Operator):
                 img.colorspace_settings.name = 'Linear'
 
         # New vertex color
-        elif self.type == 'VCOL':
+        elif self.type in {'VCOL', 'COLOR_ID'}:
 
             objs = [obj]
             if mat.users > 1:
@@ -407,25 +434,30 @@ class YNewLayerMask(bpy.types.Operator):
                     if mat.name in o.data.materials and o not in objs:
                         objs.append(o)
 
-            for o in objs:
-                if self.name not in o.data.vertex_colors:
-                    try:
-                        vcol = o.data.vertex_colors.new(name=self.name)
-                        if self.color_option == 'WHITE':
-                            set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
-                        elif self.color_option == 'BLACK':
-                            set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
-                        o.data.vertex_colors.active = vcol
-                    except Exception as ex:
-                        print(ex)
-                        pass
+            if self.type == 'VCOL':
+
+                for o in objs:
+                    if self.name not in o.data.vertex_colors:
+                        try:
+                            vcol = o.data.vertex_colors.new(name=self.name)
+                            if self.color_option == 'WHITE':
+                                set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                            elif self.color_option == 'BLACK':
+                                set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
+                            o.data.vertex_colors.active = vcol
+                        except Exception as ex:
+                            print(ex)
+                            pass
+
+            elif self.type == 'COLOR_ID':
+                check_colorid_vcol(objs)
 
         # Add new mask
         mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
-                self.hemi_space, self.hemi_use_prev_normal)
+                self.hemi_space, self.hemi_use_prev_normal, self.color_id)
 
         # Enable edit mask
-        if self.type in {'IMAGE', 'VCOL'}:
+        if self.type in {'IMAGE', 'VCOL', 'COLOR_ID'}:
             mask.active_edit = True
 
         rearrange_layer_nodes(layer)
@@ -1001,7 +1033,7 @@ def update_mask_uv_name(self, context):
     tree = get_tree(layer)
     mask = self
 
-    if mask.type in {'HEMI', 'OBJECT_INDEX'} or mask.texcoord_type != 'UV':
+    if mask.type in {'HEMI', 'OBJECT_INDEX', 'COLOR_ID'} or mask.texcoord_type != 'UV':
         return
 
     # Cannot use temp uv as standard uv
@@ -1137,6 +1169,13 @@ def update_mask_transform(self, context):
     if yp.halt_update: return
     update_mapping(self)
 
+def update_mask_color_id(self, context):
+    yp = self.id_data.yp
+    mask = self
+    source = get_mask_source(mask)
+    col = (mask.color_id[0], mask.color_id[1], mask.color_id[2], 1.0)
+    source.inputs[0].default_value = col
+
 class YLayerMaskChannel(bpy.types.PropertyGroup):
     enable : BoolProperty(default=True, update=update_layer_mask_channel_enable)
 
@@ -1246,6 +1285,14 @@ class YLayerMask(bpy.types.PropertyGroup):
             default=(1.0, 1.0, 1.0),
             update=update_mask_transform,
             ) #, step=3)
+
+    color_id : FloatVectorProperty(
+            name='Color ID', size=3,
+            subtype='COLOR',
+            default=(1.0, 0.0, 1.0),
+            min=0.0, max=1.0,
+            update=update_mask_color_id,
+            )
 
     segment_name : StringProperty(default='')
 

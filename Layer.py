@@ -1,4 +1,4 @@
-import bpy, time, re, os
+import bpy, time, re, os, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
@@ -141,7 +141,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         solid_color = (1,1,1),
         add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
-        hemi_space = 'WORLD', hemi_use_prev_normal = True, 
+        hemi_space = 'WORLD', hemi_use_prev_normal = True, color_id = (1,0,1),
         #bump_distance = 0.05, write_height = True,
         ):
 
@@ -249,11 +249,17 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         layer.hemi_space = hemi_space
         layer.hemi_use_prev_normal = hemi_use_prev_normal
 
+    elif layer_type == 'COLORID':
+        source.node_tree = get_node_tree_lib(lib.COLORID_EQUAL)
+        layer.color_id = color_id
+        col = (color_id[0], color_id[1], color_id[2], 1.0)
+        source.inputs[0].default_value = col
+
     # Add texcoord node
     texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
 
     # Add mapping node
-    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLORID'}:
         mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
 
     # Set layer coordinate type
@@ -566,6 +572,9 @@ class YNewLayer(bpy.types.Operator):
     solid_color : FloatVectorProperty(
             name='Solid Color', size=3, subtype='COLOR', default=(1.0,1.0,1.0), min=0.0, max=1.0)
 
+    color_id : FloatVectorProperty(
+            name='Color ID', size=3, subtype='COLOR', default=(1.0, 0.0, 1.0), min=0.0, max=1.0)
+
     add_mask : BoolProperty(
             name = 'Add Mask',
             description = 'Add mask to new layer',
@@ -671,6 +680,14 @@ class YNewLayer(bpy.types.Operator):
             self.blend_type = 'ADD'
         else: self.blend_type = 'MIX'
 
+        if self.type == 'COLORID':
+            # Check if color id already being used
+            while True:
+                if not is_colorid_already_being_used(yp, self.color_id): break
+                #self.color_id = (random.random(), random.random(), random.random())
+                # Use color id tolerance value as lowest value to avoid pure black color
+                self.color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
+
         # Layer name
         self.name = get_unique_name(name, items)
 
@@ -738,6 +755,9 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.label(text='Color:')
 
+        if self.type == 'COLORID':
+            col.label(text='Color ID:')
+
         #if self.type == 'IMAGE':
         #    col.label(text='')
 
@@ -755,7 +775,7 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='Width:')
             col.label(text='Height:')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'COLORID'}:
             col.label(text='Vector:')
 
         if self.type == 'IMAGE':
@@ -790,6 +810,9 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.prop(self, 'solid_color', text='')
 
+        if self.type == 'COLORID':
+            col.prop(self, 'color_id', text='')
+
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
             col.prop(self, 'hemi_use_prev_normal')
@@ -808,7 +831,7 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
 
-        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
+        if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI', 'COLORID'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -911,7 +934,7 @@ class YNewLayer(bpy.types.Operator):
             update_image_editor_image(context, img)
 
         vcol = None
-        if self.type == 'VCOL':
+        if self.type in {'VCOL', 'COLORID'}:
 
             objs = [obj]
             if mat.users > 1:
@@ -920,17 +943,22 @@ class YNewLayer(bpy.types.Operator):
                     if mat.name in o.data.materials and o not in objs:
                         objs.append(o)
 
-            for o in objs:
-                if self.name not in o.data.vertex_colors:
-                    try:
-                        vcol = o.data.vertex_colors.new(name=self.name)
+            if self.type == 'VCOL':
 
-                        if is_greater_than_292():
-                            set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
-                        else: set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                for o in objs:
+                    if self.name not in o.data.vertex_colors:
+                        try:
+                            vcol = o.data.vertex_colors.new(name=self.name)
 
-                        o.data.vertex_colors.active = vcol
-                    except: pass
+                            if is_greater_than_292():
+                                set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
+                            else: set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+
+                            o.data.vertex_colors.active = vcol
+                        except: pass
+
+            elif self.type == 'COLORID':
+                check_colorid_vcol(objs)
 
         yp.halt_update = True
 
@@ -944,7 +972,7 @@ class YNewLayer(bpy.types.Operator):
                 self.solid_color,
                 self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
                 self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
-                self.hemi_space, self.hemi_use_prev_normal)
+                self.hemi_space, self.hemi_use_prev_normal, self.color_id)
 
         if segment:
             ImageAtlas.set_segment_mapping(layer, segment, img)
@@ -2512,8 +2540,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         remove_node(source_tree, layer, 'source', remove_data=remove_data)
 
     # Disable modifier tree
-    if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'MUSGRAVE'} and 
-            new_type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'MUSGRAVE'}):
+    if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'MUSGRAVE', 'COLORID'} and 
+            new_type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'MUSGRAVE', 'COLORID'}):
         Modifier.disable_modifiers_tree(layer)
 
     # Try to get available cache
@@ -3383,7 +3411,7 @@ def update_uv_name(self, context):
 
     nodes = tree.nodes
 
-    if layer.type in {'HEMI', 'GROUP', 'COLOR'} or layer.texcoord_type != 'UV':
+    if layer.type in {'HEMI', 'GROUP', 'COLOR', 'COLORID'} or layer.texcoord_type != 'UV':
         return
 
     # Use first uv if temp uv is selected
@@ -4066,6 +4094,13 @@ def update_layer_transform(self, context):
     if yp.halt_update: return
     update_mapping(self)
 
+def update_layer_color_id(self, context):
+    yp = self.id_data.yp
+    layer = self
+    source = get_layer_source(layer)
+    col = (layer.color_id[0], layer.color_id[1], layer.color_id[2], 1.0)
+    source.inputs[0].default_value = col
+
 class YLayer(bpy.types.PropertyGroup):
     name : StringProperty(default='', update=update_layer_name)
     enable : BoolProperty(
@@ -4162,6 +4197,14 @@ class YLayer(bpy.types.PropertyGroup):
             default=(1.0, 1.0, 1.0),
             update=update_layer_transform,
             ) #, step=3)
+
+    color_id : FloatVectorProperty(
+            name='Color ID', size=3,
+            subtype='COLOR',
+            default=(1.0, 0.0, 1.0),
+            min=0.0, max=1.0,
+            update=update_layer_color_id,
+            )
 
     # Sources
     source : StringProperty(default='')

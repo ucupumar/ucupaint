@@ -1658,7 +1658,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # RGB
     start_rgb = source.outputs[0]
     start_rgb_1 = None
-    if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+    if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'COLORID'}:
         start_rgb_1 = source.outputs[1]
 
     if not source_group and linear:
@@ -1691,7 +1691,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             start_rgb, start_alpha = reconnect_all_modifier_nodes(
                     tree, layer, start_rgb, start_alpha, mod_group)
 
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'COLORID'}:
             mod_group_1 = nodes.get(layer.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
                     tree, layer, source.outputs[1], one_value, mod_group_1)
@@ -1777,7 +1777,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Mask texcoord
         #mask_uv_map = nodes.get(mask.uv_map)
-        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
             if mask.texcoord_type == 'UV':
                 #mask_vector = mask_uv_map.outputs[0]
                 #mask_vector = mask_uv_map.outputs[0]
@@ -1795,7 +1795,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         mask_uv_neighbor = nodes.get(mask.uv_neighbor)
         if mask_uv_neighbor:
 
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
                 #create_link(tree, mask_source.outputs[0], mask_uv_neighbor.inputs[0])
                 create_link(tree, mask_val, mask_uv_neighbor.inputs[0])
             else:
@@ -1868,7 +1868,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if mask_mix:
                 if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
                     create_link(tree, mask_val, mask_mix.inputs['Color2'])
-                    if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+                    if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
                         if mask_uv_neighbor:
                             create_link(tree, mask_uv_neighbor.outputs['n'], mask_mix.inputs['Color2 n'])
                             create_link(tree, mask_uv_neighbor.outputs['s'], mask_mix.inputs['Color2 s'])

@@ -419,6 +419,16 @@ def draw_tex_props(source, layout):
         for i in range (1,5):
             col.prop(source.inputs[i], 'default_value', text='')
 
+def draw_colorid_props(layer, source, layout):
+    col = layout.column()
+    row = col.row()
+    row.label(text='Color ID:')
+    #row.prop(source.inputs[0], 'default_value', text='')
+    row.prop(layer, 'color_id', text='')
+    #row = col.row()
+    #row.label(text='Shortcut on list:')
+    #row.prop(layer, 'color_shortcut', text='')
+
 def draw_solid_color_props(layer, source, layout):
     col = layout.column()
     #col.label(text='Ewsom')
@@ -952,6 +962,15 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         #else:
         #    row.prop(lui, 'expand_content', text='', emboss=True, icon='COLOR')
         row.label(text=layer.name)
+    elif layer.type == 'COLORID':
+        #if custom_icon_enable:
+        if lui.expand_content:
+            icon_value = lib.custom_icons["uncollapsed_color"].icon_id
+        else: icon_value = lib.custom_icons["collapsed_color"].icon_id
+        row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        #else:
+        #    row.prop(lui, 'expand_content', text='', emboss=True, icon='COLOR')
+        row.label(text=layer.name)
     elif layer.type == 'GROUP':
         row.label(text='', icon_value=lib.get_icon('group'))
         row.label(text=layer.name)
@@ -1026,6 +1045,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             suffix = 'image'
         elif layer.type == 'COLOR':
             suffix = 'color'
+        elif layer.type == 'COLORID':
+            suffix = 'color'
         elif layer.type == 'HEMI':
             suffix = 'hemi'
         else: suffix = 'texture'
@@ -1062,6 +1083,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 draw_image_props(context, source, bbox, layer)
             elif layer.type == 'COLOR':
                 draw_solid_color_props(layer, source, bbox)
+            elif layer.type == 'COLORID':
+                draw_colorid_props(layer, source, bbox)
             elif layer.type == 'VCOL':
                 draw_vcol_props(bbox, vcol, layer)
             elif layer.type == 'HEMI':
@@ -1664,7 +1687,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 draw_tex_props(ch_source, rbox)
 
         # Layer input
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE', 'COLORID'}: #, 'OBJECT_INDEX'
             row = mcol.row(align=True)
 
             input_settings_available = (ch.layer_input != 'ALPHA' 
@@ -1818,6 +1841,8 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
             row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('hemi'))
         elif mask.type == 'OBJECT_INDEX':
             row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('object_index'))
+        elif mask.type == 'COLOR_ID':
+            row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('color'))
         else:
             row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
@@ -1852,6 +1877,8 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 suffix = 'hemi' 
             elif mask.type == 'OBJECT_INDEX':
                 suffix = 'object_index' 
+            elif mask.type == 'COLOR_ID':
+                suffix = 'color' 
             else:
                 suffix = 'texture' 
             if maskui.expand_source:
@@ -1879,10 +1906,12 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 draw_hemi_props(mask, mask_source, rbox)
             elif mask.type == 'OBJECT_INDEX':
                 draw_object_index_props(mask, rbox)
+            elif mask.type == 'COLOR_ID':
+                draw_colorid_props(mask, mask_source, rbox)
             else: draw_tex_props(mask_source, rbox)
 
         # Vector row
-        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
             rrow = rrcol.row(align=True)
 
             #if custom_icon_enable:
@@ -2182,14 +2211,14 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
                     #entities.append(layer.name)
 
             for mask in layer.masks:
-                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
                     uv_layer = uv_layers.get(mask.uv_name)
                     if not uv_layer and mask.uv_name not in uv_missings:
                         uv_missings.append(mask.uv_name)
@@ -2228,6 +2257,8 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     mask_idx = 0
     override_image = None
     override_vcol = None
+    colorid_vcol = None
+    colorid_col = None
     #entity = None
 
     if len(yp.layers) > 0:
@@ -2260,6 +2291,9 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                         mask_image = source.image
                     elif m.type == 'VCOL' and is_a_mesh:
                         mask_vcol = get_vcol_from_source(obj, source)
+                    elif m.type == 'COLOR_ID' and is_a_mesh:
+                        colorid_vcol = obj.data.vertex_colors.get(COLORID_VCOL_NAME)
+                        colorid_col = mask.color_id
 
             # Use layer image if there is no mask image
             #if not mask:
@@ -2268,6 +2302,9 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 image = source.image
             elif layer.type == 'VCOL' and is_a_mesh:
                 vcol = get_vcol_from_source(obj, source)
+            elif layer.type == 'COLORID' and is_a_mesh:
+                colorid_vcol = obj.data.vertex_colors.get(COLORID_VCOL_NAME)
+                colorid_col = layer.color_id
 
     # Set pointer for active layer and image
     if layer: box.context_pointer_set('layer', layer)
@@ -2380,6 +2417,25 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             col.operator('node.y_use_linear_color_space', text='Please Use Linear Color Space', icon='ERROR')
             col.alert = False
 
+        if obj.type == 'MESH' and colorid_vcol:
+
+            if colorid_vcol != obj.data.vertex_colors.active:
+                col.alert = True
+                col.operator('mesh.y_set_active_vcol', text='Fix Active Vcol Mismatch!', icon='ERROR').vcol_name = colorid_vcol.name
+                col.alert = False
+
+            elif obj.mode == 'EDIT':
+
+                bbox = col.box()
+                ccol = bbox.column()
+                row = ccol.row(align=True)
+                row.label(text='', icon_value=lib.get_icon('color'))
+                row.label(text='Fill Color ID:')
+                row = ccol.row(align=True)
+                color = (colorid_col[0], colorid_col[1], colorid_col[2], 1.0)
+                row.operator('mesh.y_vcol_fill_face_custom', text='Fill').color = color
+                row.operator('mesh.y_vcol_fill_face_custom', text='Erase').color = (0.0, 0.0, 0.0, 1.0)
+
         if obj.type == 'MESH' and active_vcol: # and layer.enable:
 
             if active_vcol != obj.data.vertex_colors.active:
@@ -2387,7 +2443,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 col.operator('mesh.y_set_active_vcol', text='Fix Active Vcol Mismatch!', icon='ERROR').vcol_name = active_vcol.name
                 col.alert = False
 
-            if obj.mode == 'EDIT':
+            elif obj.mode == 'EDIT':
                 ve = context.scene.ve_edit
 
                 bbox = col.box()
@@ -2826,6 +2882,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 #row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
                 icon_value = lib.custom_icons["color"].icon_id
                 row.prop(layer, 'name', text='', emboss=False, icon_value=icon_value)
+            elif layer.type == 'COLORID': 
+                icon_value = lib.custom_icons["color"].icon_id
+                row.prop(layer, 'name', text='', emboss=False, icon_value=icon_value)
             elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
             else: 
@@ -2922,6 +2981,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.label(text='', icon_value=lib.get_icon('hemi'))
                 elif m.type == 'OBJECT_INDEX':
                     row.label(text='', icon_value=lib.get_icon('object_index'))
+                elif m.type == 'COLOR_ID':
+                    row.label(text='', icon_value=lib.get_icon('color'))
                 else:
                     row.label(text='', icon_value=lib.get_icon('texture'))
             else:
@@ -2935,6 +2996,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
                 elif m.type == 'OBJECT_INDEX':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('object_index'))
+                elif m.type == 'COLOR_ID':
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('color'))
                 else:
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
 
@@ -3158,12 +3221,21 @@ class YNewLayerMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
-        if is_greater_than_280():
-            c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
-        else: c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
+        #if is_greater_than_280():
+        #    c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
+        #else: c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
+        c = col.operator("node.y_new_layer", text='Solid Color w/ Vertex Color Mask')
         c.type = 'COLOR'
         c.add_mask = True
         c.mask_type = 'VCOL'
+
+        col.separator()
+
+        icon_value = lib.custom_icons["color"].icon_id
+        c = col.operator("node.y_new_layer", icon_value=icon_value, text='Color ID')
+        #c = col.operator("node.y_new_layer", icon='COLOR', text='Solid Color')
+        c.type = 'COLORID'
+        c.add_mask = False
 
         col.separator()
 
@@ -3173,9 +3245,10 @@ class YNewLayerMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'IMAGE'
 
-        if is_greater_than_280():
-            c = col.operator("node.y_new_layer", text='Background w/ Vertex Color Mask')
-        else: c = col.operator("node.y_new_layer", text='Background w/ Vertex Color Mask')
+        #if is_greater_than_280():
+        #    c = col.operator("node.y_new_layer", text='Background w/ Vertex Color Mask')
+        #else: c = col.operator("node.y_new_layer", text='Background w/ Vertex Color Mask')
+        c = col.operator("node.y_new_layer", text='Background w/ Vertex Color Mask')
 
         c.type = 'BACKGROUND'
         c.add_mask = True
@@ -3564,6 +3637,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         col.separator()
         col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('object_index'), text='Object Index').type = 'OBJECT_INDEX'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('color'), text='Color ID ').type = 'COLOR_ID'
 
         col = row.column()
         c = col.operator("node.y_bake_to_layer", icon_value=lib.get_icon('bake'), text='Ambient Occlusion')

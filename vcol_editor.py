@@ -275,6 +275,59 @@ class YSpreadVColFix(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YVcolFillFaceCustom(bpy.types.Operator):
+    bl_idname = "mesh.y_vcol_fill_face_custom"
+    bl_label = "Vertex Color Fill Face with Custom Color"
+    bl_description = "Fill selected polygon with vertex color with custom color"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    color : FloatVectorProperty(
+            name='Color ID', size=4,
+            subtype='COLOR',
+            default=(1.0, 0.0, 1.0, 1.0),
+            min=0.0, max=1.0,
+            )
+
+    @classmethod
+    def poll(cls, context):
+        return context.object and context.object.type == 'MESH' and context.object.mode == 'EDIT'
+
+    def execute(self, context):
+        if is_greater_than_280():
+            objs = context.objects_in_mode
+        else: objs = [context.object]
+
+        for obj in objs:
+
+            mesh = obj.data
+            bm = bmesh.from_edit_mesh(mesh)
+
+            bm.verts.ensure_lookup_table()
+            bm.edges.ensure_lookup_table()
+            bm.faces.ensure_lookup_table()
+
+            loop_indices = []
+            for face in bm.faces:
+                if face.select:
+                    for loop in face.loops:
+                        loop_indices.append(loop.index)
+
+            bpy.ops.object.mode_set(mode='OBJECT')
+            vcol = obj.data.vertex_colors.active
+
+            color = Color((self.color[0], self.color[1], self.color[2]))
+            color = linear_to_srgb(color)
+
+            if is_greater_than_280():
+                color = (color[0], color[1], color[2], self.color[3])
+
+            for loop_index in loop_indices:
+                vcol.data[loop_index].color = color
+
+            bpy.ops.object.mode_set(mode='EDIT')
+
+        return {'FINISHED'}
+
 class YVcolFill(bpy.types.Operator):
     bl_idname = "mesh.y_vcol_fill"
     bl_label = "Vertex Color Fill"
@@ -479,6 +532,7 @@ def register():
     bpy.types.Scene.ve_edit = PointerProperty(type=YVcolEditorProps)
 
     bpy.utils.register_class(YVcolFill)
+    bpy.utils.register_class(YVcolFillFaceCustom)
     bpy.utils.register_class(YToggleEraser)
     bpy.utils.register_class(YSpreadVColFix)
     bpy.utils.register_class(YSetVColBase)
@@ -492,6 +546,7 @@ def unregister():
     bpy.utils.unregister_class(YVcolEditorProps)
 
     bpy.utils.unregister_class(YVcolFill)
+    bpy.utils.unregister_class(YVcolFillFaceCustom)
     bpy.utils.unregister_class(YToggleEraser)
     bpy.utils.unregister_class(YSpreadVColFix)
     bpy.utils.unregister_class(YSetVColBase)
