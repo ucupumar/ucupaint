@@ -1654,6 +1654,7 @@ class YFixMissingData(bpy.types.Operator):
                     objs.append(ob)
 
         # Fix missing vcols
+        need_color_id_vcol = False
         for obj in objs:
             for layer in yp.layers:
                 src = get_layer_source(layer)
@@ -1667,12 +1668,18 @@ class YFixMissingData(bpy.types.Operator):
                             and not get_vcol_from_source(obj, mask_src)):
                         fix_missing_vcol(obj, mask.name, mask_src)
 
+                    if mask.type == 'COLOR_ID':
+                        need_color_id_vcol = True
+
                 for i, ch in enumerate(layer.channels):
                     root_ch = yp.channels[i]
                     ch_src = get_channel_source(ch, layer)
                     if (ch.override and ch.override_type == 'VCOL' and obj.type == 'MESH' 
                             and not get_vcol_from_source(obj, ch_src)):
                         fix_missing_vcol(obj, layer.name + ' ' + root_ch.name, ch_src)
+
+        # Fix missing color id missing vcol
+        if need_color_id_vcol: check_colorid_vcol(objs)
 
         # Fix missing uvs
         check_uv_nodes(yp, generate_missings=True)

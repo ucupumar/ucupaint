@@ -628,7 +628,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
     # Get chain
     chain = get_bump_chain(layer)
 
-    if smooth_bump_ch and smooth_bump_ch.enable and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX'}:
+    if smooth_bump_ch and smooth_bump_ch.enable and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX', 'COLOR_ID'}:
 
         #print('ntob')
 
@@ -648,7 +648,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 def enable_mask_source_tree(layer, mask, reconnect = False):
 
     # Check if source tree is already available
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and mask.group_node != '': return
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'} and mask.group_node != '': return
 
     layer_tree = get_tree(layer)
 
@@ -657,7 +657,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
     #return
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
         #mapping_ref = layer_tree.nodes.get(mask.mapping)
@@ -713,11 +713,11 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 def disable_mask_source_tree(layer, mask, reconnect=False):
 
     # Check if source tree is already gone
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and mask.group_node == '': return
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'} and mask.group_node == '': return
 
     layer_tree = get_tree(layer)
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
 
         mask_tree = get_mask_tree(mask)
 

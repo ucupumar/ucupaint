@@ -48,7 +48,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         source.inputs[0].default_value = object_index
 
     if mask_type == 'COLOR_ID':
-        source.node_tree = get_node_tree_lib(lib.COLORID_EQUAL)
+        source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL)
         mask.color_id = color_id
         col = (color_id[0], color_id[1], color_id[2], 1.0)
         source.inputs[0].default_value = col
@@ -827,7 +827,10 @@ class YRemoveLayerMask(bpy.types.Operator):
         layer = context.layer
         tree = get_tree(layer)
         obj = context.object
+        mat = obj.active_material
         yp = layer.id_data.yp
+
+        mask_type = mask.type
 
         remove_mask(layer, mask, obj)
 
@@ -849,6 +852,15 @@ class YRemoveLayerMask(bpy.types.Operator):
             #else:
             #    update_image_editor_image(context, None)
             yp.active_layer_index = yp.active_layer_index
+
+        if mask_type == 'COLOR_ID':
+
+            # Check if color id vcol need to be removed or not
+            objs = get_all_objects_with_same_materials(mat)
+            if not is_colorid_vcol_still_being_used(objs):
+                for o in objs:
+                    vcol = o.data.vertex_colors.get(COLOR_ID_VCOL_NAME)
+                    if vcol: o.data.vertex_colors.remove(vcol)
 
         # Refresh viewport and image editor
         for area in bpy.context.screen.areas:

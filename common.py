@@ -44,7 +44,7 @@ EMISSION_VIEWER = 'Emission Viewer'
 ITERATE_GROUP = '~yP Iterate Parallax Group'
 PARALLAX_DIVIDER = 4
 
-COLORID_VCOL_NAME = '__yp_colorid'
+COLOR_ID_VCOL_NAME = '__yp_color_id'
 
 BUMP_MULTIPLY_TWEAK = 5
 
@@ -104,7 +104,6 @@ layer_type_items = (
         ('COLOR', 'Solid Color', ''),
         ('GROUP', 'Group', ''),
         ('HEMI', 'Fake Lighting', ''),
-        ('COLORID', 'Color ID', '')
         )
 
 mask_type_items = (
@@ -171,7 +170,6 @@ layer_type_labels = {
         'COLOR' : 'Solid Color',
         'GROUP' : 'Layer Group',
         'HEMI' : 'Fake Lighting',
-        'COLORID' : 'Color ID',
         }
 
 bake_type_items = (
@@ -320,7 +318,6 @@ layer_node_bl_idnames = {
         'GROUP' : 'NodeGroupInput',
         'HEMI' : 'ShaderNodeGroup',
         'OBJECT_INDEX' : 'ShaderNodeGroup',
-        'COLORID' : 'ShaderNodeGroup',
         'COLOR_ID' : 'ShaderNodeGroup',
         }
 
@@ -3541,7 +3538,7 @@ def get_all_baked_channel_images(tree):
     return images
 
 def is_layer_using_vector(layer):
-    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLORID'}:
+    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
         return True
 
     for ch in layer.channels:
@@ -3595,20 +3592,31 @@ def get_layer_vcol(obj, layer):
 
 def check_colorid_vcol(objs):
     for o in objs:
-        if COLORID_VCOL_NAME not in o.data.vertex_colors:
+        if COLOR_ID_VCOL_NAME not in o.data.vertex_colors:
             try:
-                vcol = o.data.vertex_colors.new(name=COLORID_VCOL_NAME)
+                vcol = o.data.vertex_colors.new(name=COLOR_ID_VCOL_NAME)
                 set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
                 #o.data.vertex_colors.active = vcol
             except: pass
 
 def is_colorid_already_being_used(yp, color_id):
     for l in yp.layers:
-        if abs(l.color_id[0]-color_id[0]) < COLORID_TOLERANCE and abs(l.color_id[1]-color_id[1]) < COLORID_TOLERANCE and abs(l.color_id[2]-color_id[2]) < COLORID_TOLERANCE:
-            return True
         for m in l.masks:
             if abs(m.color_id[0]-color_id[0]) < COLORID_TOLERANCE and abs(m.color_id[1]-color_id[1]) < COLORID_TOLERANCE and abs(m.color_id[2]-color_id[2]) < COLORID_TOLERANCE:
                 return True
+    return False
+
+def is_colorid_vcol_still_being_used(objs):
+
+    for o in objs:
+        for m in o.data.materials:
+            for n in m.node_tree.nodes:
+                if n.type == 'GROUP' and n.node_tree and n.node_tree.yp.is_ypaint_node:
+                    for l in n.node_tree.yp.layers:
+                        for ma in l.masks:
+                            if ma.type == 'COLOR_ID':
+                                return True
+
     return False
 
 #def get_io_index(layer, root_ch, alpha=False):

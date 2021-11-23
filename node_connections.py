@@ -1658,7 +1658,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # RGB
     start_rgb = source.outputs[0]
     start_rgb_1 = None
-    if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'COLORID'}:
+    if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         start_rgb_1 = source.outputs[1]
 
     if not source_group and linear:
@@ -1691,7 +1691,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             start_rgb, start_alpha = reconnect_all_modifier_nodes(
                     tree, layer, start_rgb, start_alpha, mod_group)
 
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE', 'COLORID'}:
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             mod_group_1 = nodes.get(layer.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
                     tree, layer, source.outputs[1], one_value, mod_group_1)
