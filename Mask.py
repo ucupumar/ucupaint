@@ -146,6 +146,22 @@ def remove_mask(layer, mask, obj):
             layer.masks.remove(i)
             break
 
+def get_new_mask_name(obj, layer, mask_type):
+    surname = '(' + layer.name + ')'
+    if mask_type == 'IMAGE':
+        #name = 'Image'
+        name = 'Mask'
+        items = bpy.data.images
+        return get_unique_name(name, items, surname)
+    elif mask_type == 'VCOL' and obj.type == 'MESH':
+        name = 'Mask VCol'
+        items = obj.data.vertex_colors
+        return get_unique_name(name, items, surname)
+    else:
+        name = 'Mask ' + [i[1] for i in mask_type_items if i[0] == mask_type][0]
+        items = layer.masks
+        return get_unique_name(name, items, surname)
+
 class YNewLayerMask(bpy.types.Operator):
     bl_idname = "node.y_new_layer_mask"
     bl_label = "New Layer Mask"
@@ -242,22 +258,23 @@ class YNewLayerMask(bpy.types.Operator):
         layer = context.layer
         yp = layer.id_data.yp
 
-        surname = '(' + layer.name + ')'
-        if self.type == 'IMAGE':
-            #name = 'Image'
-            name = 'Mask'
-            items = bpy.data.images
-            self.name = get_unique_name(name, items, surname)
-        elif self.type == 'VCOL' and obj.type == 'MESH':
-            name = 'Mask VCol'
-            items = obj.data.vertex_colors
-            self.name = get_unique_name(name, items, surname)
-        else:
-            #name += ' ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
-            name = 'Mask ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
-            items = layer.masks
-            self.name = get_unique_name(name, items)
-        #name = 'Mask ' + name #+ ' ' + surname
+        #surname = '(' + layer.name + ')'
+        #if self.type == 'IMAGE':
+        #    #name = 'Image'
+        #    name = 'Mask'
+        #    items = bpy.data.images
+        #    self.name = get_unique_name(name, items, surname)
+        #elif self.type == 'VCOL' and obj.type == 'MESH':
+        #    name = 'Mask VCol'
+        #    items = obj.data.vertex_colors
+        #    self.name = get_unique_name(name, items, surname)
+        #else:
+        #    #name += ' ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
+        #    name = 'Mask ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
+        #    items = layer.masks
+        #    self.name = get_unique_name(name, items, surname)
+        ##name = 'Mask ' + name #+ ' ' + surname
+        self.name = get_new_mask_name(obj, layer, self.type)
 
         if self.type == 'COLOR_ID':
             # Check if color id already being used

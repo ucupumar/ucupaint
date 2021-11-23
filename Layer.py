@@ -142,6 +142,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space = 'WORLD', hemi_use_prev_normal = True,
+        mask_color_id=(1,0,1),
         #bump_distance = 0.05, write_height = True,
         ):
 
@@ -265,7 +266,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     if add_mask:
 
-        mask_name = 'Mask ' + layer.name
+        #mask_name = 'Mask ' + layer.name
+        mask_name = Mask.get_new_mask_name(obj, layer, mask_type)
         mask_image = None
         mask_vcol = None
         mask_segment = None
@@ -290,7 +292,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 mask_image.colorspace_settings.name = 'Linear'
 
         # New vertex color
-        elif mask_type == 'VCOL':
+        elif mask_type in {'VCOL', 'COLOR_ID'}:
             objs = [obj]
             if mat.users > 1:
                 for o in get_scene_objects():
@@ -298,16 +300,20 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                     if mat.name in o.data.materials and o not in objs:
                         objs.append(o)
 
-            for o in objs:
-                if mask_name not in o.data.vertex_colors:
-                    try:
-                        mask_vcol = o.data.vertex_colors.new(name=mask_name)
-                        if mask_color == 'WHITE':
-                            set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0, 1.0))
-                        elif mask_color == 'BLACK':
-                            set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0, 1.0))
-                        o.data.vertex_colors.active = mask_vcol
-                    except: pass
+            if mask_type == 'VCOL':
+
+                for o in objs:
+                    if mask_name not in o.data.vertex_colors:
+                        try:
+                            mask_vcol = o.data.vertex_colors.new(name=mask_name)
+                            if mask_color == 'WHITE':
+                                set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0, 1.0))
+                            elif mask_color == 'BLACK':
+                                set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0, 1.0))
+                            o.data.vertex_colors.active = mask_vcol
+                        except: pass
+            elif mask_type == 'COLOR_ID':
+                check_colorid_vcol(objs)
 
         mask = Mask.add_new_mask(layer, mask_name, mask_type, 'UV', #texcoord_type, 
                 mask_uv_name, mask_image, mask_vcol, mask_segment)
@@ -574,8 +580,11 @@ class YNewLayer(bpy.types.Operator):
     mask_type : EnumProperty(
             name = 'Mask Type',
             description = 'Mask type',
-            items = (('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
-                ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1)),
+            items = (
+                ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
+                ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1),
+                ('COLOR_ID', 'Color ID', '', 'COLOR', 2)
+                ),
             default = 'IMAGE')
 
     mask_color : EnumProperty(
@@ -623,6 +632,13 @@ class YNewLayer(bpy.types.Operator):
             default = True)
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    mask_color_id : FloatVectorProperty(
+            name='Color ID', size=3,
+            subtype='COLOR',
+            default=(1.0, 0.0, 1.0),
+            min=0.0, max=1.0,
+            )
 
     @classmethod
     def poll(cls, context):
@@ -677,6 +693,12 @@ class YNewLayer(bpy.types.Operator):
         # Layer name must also unique
         if self.type == 'IMAGE':
             self.name = get_unique_name(self.name, yp.layers)
+
+        # Check if color id already being used
+        while True:
+            if not is_colorid_already_being_used(yp, self.mask_color_id): break
+            # Use color id tolerance value as lowest value to avoid pure black color
+            self.mask_color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
 
         if obj.type != 'MESH':
             #self.texcoord_type = 'Object'
@@ -766,13 +788,16 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='')
             if self.add_mask:
                 col.label(text='Mask Type:')
-                col.label(text='Mask Color:')
-                if self.mask_type == 'IMAGE':
-                    col.label(text='')
-                    col.label(text='Mask Width:')
-                    col.label(text='Mask Height:')
-                    col.label(text='Mask UV Map:')
-                    col.label(text='')
+                if self.mask_type == 'COLOR_ID':
+                    col.label(text='Mask Color ID:')
+                else:
+                    col.label(text='Mask Color:')
+                    if self.mask_type == 'IMAGE':
+                        col.label(text='')
+                        col.label(text='Mask Width:')
+                        col.label(text='Mask Height:')
+                        col.label(text='Mask UV Map:')
+                        col.label(text='')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -822,14 +847,17 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'add_mask', text='Add Mask')
             if self.add_mask:
                 col.prop(self, 'mask_type', text='')
-                col.prop(self, 'mask_color', text='')
-                if self.mask_type == 'IMAGE':
-                    col.prop(self, 'mask_use_hdr')
-                    col.prop(self, 'mask_width', text='')
-                    col.prop(self, 'mask_height', text='')
-                    #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-                    col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
-                    col.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+                if self.mask_type == 'COLOR_ID':
+                    col.prop(self, 'mask_color_id', text='')
+                else:
+                    col.prop(self, 'mask_color', text='')
+                    if self.mask_type == 'IMAGE':
+                        col.prop(self, 'mask_use_hdr')
+                        col.prop(self, 'mask_width', text='')
+                        col.prop(self, 'mask_height', text='')
+                        #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                        col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+                        col.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
 
         if self.get_to_be_cleared_image_atlas(context):
             col = self.layout.column(align=True)
@@ -944,7 +972,7 @@ class YNewLayer(bpy.types.Operator):
                 self.solid_color,
                 self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
                 self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
-                self.hemi_space, self.hemi_use_prev_normal)
+                self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id)
 
         if segment:
             ImageAtlas.set_segment_mapping(layer, segment, img)

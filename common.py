@@ -3362,6 +3362,8 @@ def get_active_image_and_stuffs(obj, yp):
                     vcol = obj.data.vertex_colors.get(mask.name)
                     if vcol: set_source_vcol_name(source, vcol.name)
                 else: vcol = obj.data.vertex_colors.get(get_source_vcol_name(source))
+            elif mask.type == 'COLOR_ID' and obj.type == 'MESH':
+                vcol = obj.data.vertex_colors.get(COLOR_ID_VCOL_NAME)
 
     for ch in layer.channels:
         if ch.active_edit and ch.override and ch.override_type != 'DEFAULT':

@@ -3215,6 +3215,11 @@ class YNewLayerMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'VCOL'
 
+        c = col.operator("node.y_new_layer", text='Solid Color w/ Color ID Mask')
+        c.type = 'COLOR'
+        c.add_mask = True
+        c.mask_type = 'COLOR_ID'
+
         col.separator()
 
         #col.label(text='Background:')
