@@ -1759,10 +1759,12 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
 
             # Set vcol name attribute
             yp.halt_update = True
-            ch.override_vcol_name = self.name
+            ch.override_vcol_name = self.vcol_name
             yp.halt_update = False
 
         ch.override_type = self.type
+
+        ch.active_edit = self.type in {'IMAGE', 'VCOL'}
 
         # Update UI
         wm.ypui.need_update = True

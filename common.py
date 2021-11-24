@@ -1580,6 +1580,8 @@ def get_mask_mapping(mask):
     return tree.nodes.get(mask.mapping)
 
 def get_channel_source_tree(ch, layer=None, tree=None):
+    yp = ch.id_data.yp
+
     if not layer:
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
         if not m : return None
@@ -1678,13 +1680,43 @@ def change_vcol_name(yp, obj, src, new_name, layer=None):
     vcol.name = new_name
     set_source_vcol_name(src, new_name)
 
-    mat = obj.active_material
-    if mat.users > 1:
-        for o in get_scene_objects():
-            if o.type != 'MESH' or o == obj: continue
-            if mat.name in o.data.materials and ori_name in o.data.vertex_colors:
-                other_v = o.data.vertex_colors.get(ori_name)
-                other_v.name = new_name
+    # Replace vertex color name on other objects too
+    objs = get_all_objects_with_same_materials(obj.active_material, True)
+    for o in objs:
+        if o != obj:
+            other_v = o.data.vertex_colors.get(ori_name)
+            if other_v: other_v.name = new_name
+
+    # Also replace vertex color name on another entity
+    for l in yp.layers:
+
+        if l.type == 'VCOL':
+            lsrc = get_layer_source(l)
+            vname = get_source_vcol_name(lsrc)
+            if ori_name == vname:
+                ori_halt_update = yp.halt_update
+                yp.halt_update = True
+                l.name = new_name
+                yp.halt_update = ori_halt_update
+                set_source_vcol_name(lsrc, new_name)
+
+        for m in l.masks:
+            if m.type == 'VCOL':
+                msrc = get_mask_source(m)
+                vname = get_source_vcol_name(msrc)
+                if ori_name == vname:
+                    ori_halt_update = yp.halt_update
+                    yp.halt_update = True
+                    m.name = new_name
+                    yp.halt_update = ori_halt_update
+                    set_source_vcol_name(msrc, new_name)
+
+        for c in l.channels:
+            if c.override and c.override_type == 'VCOL':
+                csrc = get_channel_source(c)
+                vname = get_source_vcol_name(csrc)
+                if ori_name == vname:
+                    set_source_vcol_name(csrc, new_name)
 
 def change_layer_name(yp, obj, src, layer, texes):
     if yp.halt_update: return
