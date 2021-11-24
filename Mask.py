@@ -1012,7 +1012,7 @@ def update_layer_mask_enable(self, context):
     #for ch in self.channels:
     #    update_layer_mask_channel_enable(ch, context)
 
-    self.active_edit = self.enable and self.type == 'IMAGE'
+    self.active_edit = self.enable and self.type in {'IMAGE', 'VCOL', 'COLOR_ID'}
 
 def update_enable_layer_masks(self, context):
     yp = self.id_data.yp
