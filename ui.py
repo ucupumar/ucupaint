@@ -196,6 +196,8 @@ def draw_image_props(context, source, layout, entity=None):
                 ' ' + image_format + ' ' + str(image_bit) + '-bit')
 
         col.template_colorspace_settings(image, "colorspace_settings")
+        col.prop(source, 'extension')
+        col.prop(source, 'projection')
         #col.prop(image, 'use_view_as_render')
         col.prop(image, 'alpha_mode')
         if hasattr(image, 'use_alpha'):
