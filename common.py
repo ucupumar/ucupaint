@@ -911,6 +911,17 @@ def simple_remove_node(tree, node, remove_data=True):
 
     tree.nodes.remove(node)
 
+def is_vcol_being_used(tree, vcol_name, exception_node=None):
+    for node in tree.nodes:
+        if node.type == 'VERTEX_COLOR' and node.layer_name == vcol_name and node != exception_node:
+            return True
+        elif node.type == 'ATTRIBUTE' and node.attribute_name == vcol_name and node != exception_node:
+            return True
+        elif node.type == 'GROUP' and is_vcol_being_used(node.node_tree, vcol_name, exception_node):
+            return True
+
+    return False
+
 def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
     if not hasattr(entity, prop): return
     #if prop not in entity: return
@@ -942,53 +953,22 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
             elif (obj and obj.type == 'MESH' #and obj.active_material and obj.active_material.users == 1
                     and hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == get_vcol_bl_idname()):
                 mat = obj.active_material
-                vcol = obj.data.vertex_colors.get(get_source_vcol_name(node))
+                vcol_name = get_source_vcol_name(node)
+                vcol = obj.data.vertex_colors.get(vcol_name)
 
                 if vcol:
 
-                    T = time.time()
-
-                    # Check if other layer use this vertex color
-                    # NOTE: Searching on all node groups can be deveiving, need recursion only on mesh materials
-                    other_users_found = False
-                    for ng in bpy.data.node_groups:
-                        for t in ng.yp.layers:
-
-                            # Search for vcol layer
-                            if t.type == 'VCOL':
-                                src = get_layer_source(t)
-                                if src != node and get_source_vcol_name(src) == vcol.name:
-                                    other_users_found = True
-                                    break
-
-                            # Search for mask layer
-                            for m in t.masks:
-                                if m.type == 'VCOL':
-                                    src = get_mask_source(m)
-                                    if src != node and get_source_vcol_name(src) == vcol.name:
-                                        other_users_found = True
-                                        break
-
-
-                    #other_user_found = False
-                    #for t in yp.layers:
-                    #    if t.type == 'VCOL':
-                    if not other_users_found:
-
-                        if mat.users > 1:
-                            obs = []
-                            for o in get_scene_objects():
-                                if o.type != 'MESH': continue
-                                if mat.name in o.data.materials and vcol.name in o.data.vertex_colors:
-                                    obs.append(o)
-                                
-                        else: obs = [obj]
-
-                        for o in obs:
-                            vcol = o.data.vertex_colors.get(get_source_vcol_name(node))
-                            if vcol: o.data.vertex_colors.remove(vcol)
-
-                    print('INFO: Searching on entire node groups to search for vcol takes', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+                    # Check if vcol is being used somewhere else
+                    obs = get_all_objects_with_same_materials(mat, True)
+                    for o in obs:
+                        other_users_found = False
+                        for m in o.data.materials:
+                            if m.node_tree and is_vcol_being_used(m.node_tree, vcol_name, node):
+                                other_users_found = True
+                                break
+                        if not other_users_found:
+                            vc = o.data.vertex_colors.get(vcol_name)
+                            if vc: o.data.vertex_colors.remove(vc)
 
         # Remove the node itself
         #print('Node ' + prop + ' from ' + str(entity) + ' removed!')
