@@ -319,6 +319,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 mask_uv_name, mask_image, mask_vcol, mask_segment)
         mask.active_edit = True
 
+        if mask_type == 'COLOR_ID':
+            mask.color_id = mask_color_id
+
     # Fill channel layer props
     shortcut_created = False
     for i, ch in enumerate(layer.channels):
@@ -602,6 +605,13 @@ class YNewLayer(bpy.types.Operator):
     mask_uv_name : StringProperty(default='')
     mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
 
+    mask_color_id : FloatVectorProperty(
+            name='Color ID', size=3,
+            subtype='COLOR',
+            default=(1.0, 0.0, 1.0),
+            min=0.0, max=1.0,
+            )
+
     uv_map : StringProperty(default='')
 
     normal_map_type : EnumProperty(
@@ -632,13 +642,6 @@ class YNewLayer(bpy.types.Operator):
             default = True)
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
-
-    mask_color_id : FloatVectorProperty(
-            name='Color ID', size=3,
-            subtype='COLOR',
-            default=(1.0, 0.0, 1.0),
-            min=0.0, max=1.0,
-            )
 
     @classmethod
     def poll(cls, context):

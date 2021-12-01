@@ -2457,9 +2457,10 @@ def check_layer_image_linear_node(layer, source_tree=None):
         if image.colorspace_settings.name == 'sRGB':
             linear = source_tree.nodes.get(layer.linear)
             if not linear:
-                #linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
-                linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGroup', 'Linear')
-                linear.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
+                linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
+                linear.inputs[1].default_value = 1.0 / GAMMA
+                #linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGroup', 'Linear')
+                #linear.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
 
             return
 
