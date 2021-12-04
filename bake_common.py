@@ -29,8 +29,9 @@ def remember_before_bake(yp=None):
     book['ori_normal_space'] = scene.render.bake.normal_space
     book['ori_simplify'] = scene.render.use_simplify
     book['ori_device'] = scene.cycles.device
-    book['ori_tile_x'] = scene.render.tile_x
-    book['ori_tile_y'] = scene.render.tile_y
+    if hasattr(scene.render, 'tile_x'):
+        book['ori_tile_x'] = scene.render.tile_x
+        book['ori_tile_y'] = scene.render.tile_y
     book['ori_use_selected_to_active'] = scene.render.bake.use_selected_to_active
     if is_greater_than_280():
         book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
@@ -47,7 +48,7 @@ def remember_before_bake(yp=None):
     book['ori_render_bake_type'] = scene.render.bake_type
     book['ori_bake_margin'] = scene.render.bake_margin
 
-    if is_greater_than_281() and scene.cycles.device == 'GPU' and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences:
+    if is_greater_than_281() and not is_greater_than_300() and scene.cycles.device == 'GPU' and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences:
         book['compute_device_type'] = bpy.context.preferences.addons['cycles'].preferences['compute_device_type']
 
     # Remember uv
@@ -112,8 +113,9 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     scene.render.bake.cage_extrusion = cage_extrusion
     scene.render.bake.use_cage = False
     scene.render.use_simplify = False
-    scene.render.tile_x = tile_x
-    scene.render.tile_y = tile_y
+    if hasattr(scene.render, 'tile_x'):
+        scene.render.tile_x = tile_x
+        scene.render.tile_y = tile_y
 
     if is_greater_than_280():
         bpy.context.view_layer.material_override = None
@@ -132,7 +134,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if force_use_cpu:
         scene.cycles.device = 'CPU'
     # Use CUDA bake if Optix is selected
-    elif (is_greater_than_281() and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences and
+    elif (is_greater_than_281() and not is_greater_than_300() and 'compute_device_type' in bpy.context.preferences.addons['cycles'].preferences and
             bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] == 3):
         #scene.cycles.device = 'CPU'
         bpy.context.preferences.addons['cycles'].preferences['compute_device_type'] = 1
@@ -245,8 +247,9 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
     scene.render.bake.use_clear = book['ori_use_clear']
     scene.render.use_simplify = book['ori_simplify']
     scene.cycles.device = book['ori_device']
-    scene.render.tile_x = book['ori_tile_x']
-    scene.render.tile_y = book['ori_tile_y']
+    if hasattr(scene.render, 'tile_x'):
+        scene.render.tile_x = book['ori_tile_x']
+        scene.render.tile_y = book['ori_tile_y']
     scene.render.bake.use_selected_to_active = book['ori_use_selected_to_active']
     if is_greater_than_280():
         scene.render.bake.max_ray_distance = book['ori_max_ray_distance']

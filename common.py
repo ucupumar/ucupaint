@@ -379,6 +379,11 @@ def is_greater_than_292():
         return True
     return False
 
+def is_greater_than_300():
+    if bpy.app.version >= (3, 00, 0):
+        return True
+    return False
+
 def is_created_using_279():
     if bpy.data.version[:2] == (2, 79):
         return True
