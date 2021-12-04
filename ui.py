@@ -2861,8 +2861,11 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             row = master.row(align=True)
             row.active = is_hidden
             if image and image.yia.is_image_atlas: 
-                row.prop(layer, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
-            elif image: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+                if image.preview: row.prop(layer, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+                else: row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
+            elif image: 
+                if image.preview: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+                else: row.prop(image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
             #elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
             elif layer.type == 'VCOL': 
                 #row.prop(layer, 'name', text='', emboss=False, icon='GROUP_VCOL')
@@ -2882,8 +2885,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             if active_override:
                 row.active = False
                 if image: 
-                    row.prop(active_override, 'active_edit', text='', emboss=False, 
-                            icon_value=image.preview.icon_id)
+                    if image.preview: row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=image.preview.icon_id)
+                    else: row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                 #elif vcol: 
                 elif layer.type == 'VCOL': 
                     #row.prop(active_override, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
@@ -2901,7 +2904,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
             else:
                 if image: 
-                    row.label(text='', icon_value=image.preview.icon_id)
+                    if image.preview: row.label(text='', icon_value=image.preview.icon_id)
+                    else: row.label(text='', icon_value=lib.get_icon('image'))
                 #elif vcol: 
                 elif layer.type == 'VCOL': 
                     #row.label(text='', icon='GROUP_VCOL')
@@ -2931,7 +2935,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 override_ch = c
                 if src and c.override_type == 'IMAGE':
                     active_override_image = src.image
-                    row.label(text='', icon_value=src.image.preview.icon_id)
+                    if src.image.preview: row.label(text='', icon_value=src.image.preview.icon_id)
+                    else: row.label(text='', icon_value=lib.get_icon('image'))
                 elif c.override_type == 'VCOL':
                     #active_override_vcol = c
                     #row.label(text='', icon='GROUP_VCOL')
@@ -2942,7 +2947,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 if c.override_type == 'IMAGE':
                     #src = layer_tree.nodes.get(c.source)
                     src = get_channel_source(c, layer)
-                    if src: row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                    if src: 
+                        if src.image.preview: row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                        else: row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                 elif c.override_type == 'VCOL':
                     row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 else:
@@ -2961,7 +2968,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 src = mask_tree.nodes.get(m.source)
                 if m.type == 'IMAGE':
                     active_mask_image = src.image
-                    row.label(text='', icon_value=src.image.preview.icon_id)
+                    if src.image.preview: row.label(text='', icon_value=src.image.preview.icon_id)
+                    else: row.label(text='', icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     active_vcol_mask = m
                     row.label(text='', icon_value=lib.get_icon('vertex_color'))
@@ -2976,7 +2984,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             else:
                 if m.type == 'IMAGE':
                     src = mask_tree.nodes.get(m.source)
-                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                    if src.image.preview: row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                    else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     #row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
@@ -3453,11 +3462,16 @@ class YModifierMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'modifier') and hasattr(context, 'parent') and get_active_ypaint_node()
+        #return hasattr(context, 'modifier') and hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
 
     def draw(self, context):
         layout = self.layout
         col = layout.column()
+
+        if not hasattr(context, 'parent') or not hasattr(context, 'modifier'):
+            col.label(text='ERROR: Context has no parent or modifier!', icon='ERROR')
+            return
 
         op = col.operator('node.y_move_ypaint_modifier', icon='TRIA_UP', text='Move Modifier Up')
         op.direction = 'UP'
@@ -3481,11 +3495,16 @@ class YMaskModifierMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'modifier') and hasattr(context, 'mask') and hasattr(context, 'layer')
+        #return hasattr(context, 'modifier') and hasattr(context, 'mask') and hasattr(context, 'layer')
+        return get_active_ypaint_node()
 
     def draw(self, context):
         layout = self.layout
         col = layout.column()
+
+        if not hasattr(context, 'mask') or not hasattr(context, 'modifier') or not hasattr(context, 'layer'):
+            col.label(text='ERROR: Context has no mask, modifier, or layer!', icon='ERROR')
+            return
 
         op = col.operator('node.y_move_mask_modifier', icon='TRIA_UP', text='Move Modifier Up')
         op.direction = 'UP'
@@ -3506,13 +3525,17 @@ class YTransitionBumpMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_ypaint_node()
+        #return hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
 
     def draw(self, context):
         layout = self.layout
         col = layout.column()
 
         #col.label(text=context.parent.path_from_id())
+        if not hasattr(context, 'parent'):
+            col.label(text='ERROR: Context has no parent!', icon='ERROR')
+            return
 
         if is_greater_than_280():
             col.operator('node.y_hide_transition_effect', text='Remove Transition Bump', icon='REMOVE').type = 'BUMP'
@@ -3525,11 +3548,16 @@ class YTransitionRampMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_ypaint_node()
+        #return hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
 
     def draw(self, context):
         layout = self.layout
         col = layout.column()
+
+        if not hasattr(context, 'parent'):
+            col.label(text='ERROR: Context has no parent!', icon='ERROR')
+            return
 
         col.prop(context.parent, 'transition_ramp_intensity_unlink', text='Unlink Ramp with Channel Intensity')
 
@@ -3547,7 +3575,8 @@ class YTransitionAOMenu(bpy.types.Menu):
     @classmethod
     def poll(cls, context):
         #return hasattr(context, 'parent') and get_active_ypaint_node()
-        return hasattr(context, 'parent') and hasattr(context, 'layer')
+        #return hasattr(context, 'parent') and hasattr(context, 'layer')
+        return get_active_ypaint_node()
 
     def draw(self, context):
         layout = self.layout
@@ -3556,6 +3585,11 @@ class YTransitionAOMenu(bpy.types.Menu):
         trans_bump_flip = (trans_bump and trans_bump.transition_bump_flip) or context.layer.type == 'BACKGROUND'
 
         col = layout.column()
+
+        if not hasattr(context, 'parent') or not hasattr(context, 'layer'):
+            col.label(text='ERROR: Context has no parent or layer!', icon='ERROR')
+            return
+
         col.active = not trans_bump_flip
         col.prop(context.parent, 'transition_ao_intensity_unlink', text='Unlink AO with Channel Intensity')
 
@@ -3573,15 +3607,21 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'layer')
+        #return hasattr(context, 'layer')
         #node =  get_active_ypaint_node()
         #return node and len(node.node_tree.yp.layers) > 0
+        return get_active_ypaint_node()
 
     def draw(self, context):
         #print(context.layer)
         layout = self.layout
         row = layout.row()
         col = row.column(align=True)
+
+        if not hasattr(context, 'layer'):
+            col.label(text='ERROR: Context has no layer!', icon='ERROR')
+            return
+
         col.context_pointer_set('layer', context.layer)
 
         col.label(text='Image Mask:')
@@ -3674,7 +3714,8 @@ class YLayerMaskMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'mask') and hasattr(context, 'layer')
+        #return hasattr(context, 'mask') and hasattr(context, 'layer')
+        return get_active_ypaint_node()
 
     def draw(self, context):
         #print(context.mask)
@@ -3685,6 +3726,10 @@ class YLayerMaskMenu(bpy.types.Menu):
 
         row = layout.row()
         col = row.column(align=True)
+
+        if not hasattr(context, 'layer') or not hasattr(context, 'mask'):
+            col.label(text='ERROR: Context has no layer or mask!', icon='ERROR')
+            return
 
         if mask.type == 'IMAGE':
             mask_tree = get_mask_tree(mask)
@@ -3751,12 +3796,17 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_ypaint_node()
+        #return hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
 
     def draw(self, context):
         #row = self.layout.row()
         #col = row.column()
         col = self.layout.column()
+
+        if not hasattr(context, 'parent'):
+            col.label(text='ERROR: Context has no parent!', icon='ERROR')
+            return
 
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
         if m:
@@ -3860,12 +3910,17 @@ class YAddModifierMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_ypaint_node()
+        #return hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
 
     def draw(self, context):
         row = self.layout.row()
 
         col = row.column()
+
+        if not hasattr(context, 'parent'):
+            col.label(text='ERROR: Context has no parent!', icon='ERROR')
+            return
 
         col.label(text='Add Modifier')
         ## List the items
@@ -3904,13 +3959,19 @@ class YLayerSpecialMenu(bpy.types.Menu):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'parent') and get_active_ypaint_node()
+        #return hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
 
     def draw(self, context):
         yp = context.parent.id_data.yp
         ypui = context.window_manager.ypui
 
         row = self.layout.row()
+
+        if not hasattr(context, 'parent'):
+            col = row.column()
+            col.label(text='ERROR: Context has no parent!', icon='ERROR')
+            return
 
         if context.parent.type != 'GROUP':
             col = row.column()
