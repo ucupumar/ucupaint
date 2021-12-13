@@ -1423,6 +1423,7 @@ def reconnect_channel_source_internal_nodes(ch, ch_source_tree):
     tree = ch_source_tree
 
     source = tree.nodes.get(ch.source)
+    linear = tree.nodes.get(ch.linear)
     start = tree.nodes.get(TREE_START)
     solid = tree.nodes.get(ONE_VALUE)
     end = tree.nodes.get(TREE_END)
@@ -1434,8 +1435,8 @@ def reconnect_channel_source_internal_nodes(ch, ch_source_tree):
         alpha = solid.outputs[0]
     else: alpha = source.outputs[1]
 
-    #if linear:
-    #    rgb = create_link(tree, rgb, linear.inputs[0])[0]
+    if linear:
+        rgb = create_link(tree, rgb, linear.inputs[0])[0]
 
     if ch.override_type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         rgb_1 = source.outputs[1]
@@ -1513,6 +1514,7 @@ def reconnect_mask_internal_nodes(mask):
 
     source = tree.nodes.get(mask.source)
     #mapping = tree.nodes.get(mask.mapping)
+    linear = tree.nodes.get(mask.linear)
     start = tree.nodes.get(TREE_START)
     end = tree.nodes.get(TREE_END)
 
@@ -1524,6 +1526,9 @@ def reconnect_mask_internal_nodes(mask):
         create_link(tree, start.outputs[0], source.inputs[0])
 
     val = source.outputs[0]
+
+    if linear:
+        val = create_link(tree, val, linear.inputs[0])[0]
 
     for mod in mask.modifiers:
         val = reconnect_mask_modifier_nodes(tree, mod, val)
@@ -1751,9 +1756,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             mask_val = mask_source.outputs[0]
         else:
             mask_source = nodes.get(mask.source)
+            mask_linear = nodes.get(mask.linear)
             #mask_mapping = nodes.get(mask.mapping)
 
             mask_val = mask_source.outputs[0]
+
+            if mask_linear:
+                mask_val = create_link(tree, mask_val, mask_linear.inputs[0])[0]
+
             for mod in mask.modifiers:
                 mask_val = reconnect_mask_modifier_nodes(tree, mod, mask_val)
 
@@ -2092,10 +2102,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         extra_alpha = nodes.get(ch.extra_alpha)
         blend = nodes.get(ch.blend)
 
-        ch_linear = nodes.get(ch.linear)
-        if ch_linear:
-            create_link(tree, rgb, ch_linear.inputs[0])
-            rgb = ch_linear.outputs[0]
+        if ch.source_group == '':
+            ch_linear = nodes.get(ch.linear)
+            if ch_linear:
+                create_link(tree, rgb, ch_linear.inputs[0])
+                rgb = ch_linear.outputs[0]
 
         mod_group = nodes.get(ch.mod_group)
 

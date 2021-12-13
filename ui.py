@@ -2389,9 +2389,12 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
     if layer:
         layer_tree = get_tree(layer)
+        source_tree = get_source_tree(layer)
 
         col = box.column()
         col.active = layer.enable and not is_parent_hidden(layer)
+
+        linear = source_tree.nodes.get(layer.linear)
 
         # Get active vcol
         if mask_vcol: active_vcol = mask_vcol
@@ -2399,13 +2402,15 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
         elif vcol: active_vcol = vcol
         else: active_vcol = None
 
+        # Check if any images aren't using proper linear pipelines
         if (
-            (image and image.colorspace_settings.name != 'Linear') or 
-            (override_image and override_image.colorspace_settings.name != 'Linear') or 
-            (mask_image and mask_image.colorspace_settings.name != 'Linear')
+            #(image and image.colorspace_settings.name != 'Linear') or 
+            #(override_image and override_image.colorspace_settings.name != 'Linear') or 
+            #(mask_image and mask_image.colorspace_settings.name != 'Linear')
+            any_linear_images_problem(yp)
             ):
             col.alert = True
-            col.operator('node.y_use_linear_color_space', text='Please Use Linear Color Space', icon='ERROR')
+            col.operator('node.y_use_linear_color_space', text='Refresh Linear Color Space', icon='ERROR')
             col.alert = False
 
         if obj.type == 'MESH' and colorid_vcol:

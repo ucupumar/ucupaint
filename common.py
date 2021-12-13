@@ -3638,6 +3638,49 @@ def is_colorid_vcol_still_being_used(objs):
 
     return False
 
+def any_linear_images_problem(yp):
+    for layer in yp.layers:
+
+        for ch in layer.channels:
+            if ch.override_type == 'IMAGE':
+                source_tree = get_channel_source_tree(ch)
+                linear = source_tree.nodes.get(ch.linear)
+                source = source_tree.nodes.get(ch.source)
+                if not source: continue
+                image = source.image
+                if (
+                    (image and image.colorspace_settings.name == 'sRGB' and not linear) or
+                    (image and image.colorspace_settings.name != 'sRGB' and linear)
+                    ):
+                    return True
+
+        for mask in layer.masks:
+            if mask.type == 'IMAGE':
+                source_tree = get_mask_tree(mask)
+                linear = source_tree.nodes.get(mask.linear)
+                source = source_tree.nodes.get(mask.source)
+                if not source: continue
+                image = source.image
+                if (
+                    (image and image.colorspace_settings.name == 'sRGB' and not linear) or
+                    (image and image.colorspace_settings.name != 'sRGB' and linear)
+                    ):
+                    return True
+
+        if layer.type == 'IMAGE':
+            source_tree = get_source_tree(layer)
+            linear = source_tree.nodes.get(layer.linear)
+            source = source_tree.nodes.get(layer.source)
+            if not source: continue
+            image = source.image
+            if (
+                (image and image.colorspace_settings.name == 'sRGB' and not linear) or
+                (image and image.colorspace_settings.name != 'sRGB' and linear)
+                ):
+                return True
+
+    return False
+
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1

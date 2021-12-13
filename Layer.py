@@ -38,7 +38,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
             mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
 
     # Linear node
-    #check_layer_image_linear_node(layer, source_tree)
+    check_layer_image_linear_node(layer, source_tree)
 
     # Check the need of bump process
     check_layer_bump_process(layer, tree)
@@ -360,7 +360,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         #        shortcut_created = True
 
         # Set linear node of layer channel
-        set_layer_channel_linear_node(tree, layer, root_ch, ch)
+        #set_layer_channel_linear_node(tree, layer, root_ch, ch)
+        check_layer_channel_linear_node(ch, layer, root_ch, tree)
 
     # Check uv maps
     check_uv_nodes(yp)
@@ -420,12 +421,32 @@ class YUseLinearColorSpace(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'layer') and hasattr(context, 'channel') and hasattr(context, 'image') and context.image
+        return hasattr(context, 'layer') #and hasattr(context, 'channel') and hasattr(context, 'image') and context.image
 
     def execute(self, context):
         #set_uv_neighbor_resolution(context.layer)
         #print(context.image.name)
-        context.image.colorspace_settings.name = 'Linear'
+        #context.image.colorspace_settings.name = 'Linear'
+        yp = context.layer.id_data.yp
+        for layer in yp.layers:
+            image_found = False
+            if layer.type == 'IMAGE':
+                check_layer_image_linear_node(layer)
+                image_found = True
+            for ch in layer.channels:
+                if ch.override_type == 'IMAGE':
+                    #set_layer_channel_linear_node(ch)
+                    check_layer_channel_linear_node(ch)
+                    image_found = True
+            for mask in layer.masks:
+                if mask.type == 'IMAGE':
+                    check_mask_image_linear_node(mask)
+                    image_found = True
+
+            if image_found:
+                rearrange_layer_nodes(context.layer)
+                reconnect_layer_nodes(context.layer)
+
         return {'FINISHED'}
 
 class YNewVcolToOverrideChannel(bpy.types.Operator):
@@ -2595,8 +2616,9 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
 
     # Update linear stuff
     for i, ch in enumerate(layer.channels):
-        root_ch = yp.channels[i]
-        set_layer_channel_linear_node(tree, layer, root_ch, ch)
+        #root_ch = yp.channels[i]
+        #set_layer_channel_linear_node(tree, layer, root_ch, ch)
+        check_layer_channel_linear_node(ch, layer)
 
     # Back to use fine bump if conversion happen
     for ch in fine_bump_channels:
@@ -3393,13 +3415,14 @@ def update_layer_input(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
 
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    layer = yp.layers[int(m.group(1))]
-    root_ch = yp.channels[int(m.group(2))]
-    tree = get_tree(layer)
-    ch = self
+    #m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    #layer = yp.layers[int(m.group(1))]
+    #root_ch = yp.channels[int(m.group(2))]
+    #tree = get_tree(layer)
+    #ch = self
 
-    set_layer_channel_linear_node(tree, layer, root_ch, ch)
+    #set_layer_channel_linear_node(tree, layer, root_ch, ch)
+    check_layer_channel_linear_node(self, reconnect=True)
 
 def update_uv_name(self, context):
     obj = context.object

@@ -2274,9 +2274,10 @@ def update_channel_colorspace(self, context):
 
     for layer in yp.layers:
         ch = layer.channels[channel_index]
-        tree = get_tree(layer)
+        #tree = get_tree(layer)
 
-        Layer.set_layer_channel_linear_node(tree, layer, self, ch)
+        #Layer.set_layer_channel_linear_node(tree, layer, self, ch)
+        Layer.check_layer_channel_linear_node(ch, layer, self, reconnect=True)
 
         # Check for linear node
         #linear = tree.nodes.get(ch.linear)

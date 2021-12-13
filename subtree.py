@@ -349,6 +349,7 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
 
         # Get current source for reference
         source_ref = layer_tree.nodes.get(ch.source)
+        linear_ref = layer_tree.nodes.get(ch.linear)
 
         if not source_ref: return
 
@@ -362,6 +363,11 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
         # Copy source from reference
         source = new_node(source_tree, ch, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
+        # Copy linear node from reference
+        if linear_ref:
+            linear = new_node(source_tree, ch, 'linear', linear_ref.bl_idname)
+            copy_node_props(linear_ref, linear)
 
         # Create source node group
         source_group = new_node(layer_tree, ch, 'source_group', 'ShaderNodeGroup', 'source_group')
@@ -377,6 +383,7 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
         source_w.node_tree = source_tree
 
         layer_tree.nodes.remove(source_ref)
+        if linear_ref: layer_tree.nodes.remove(linear_ref)
 
         # Bring modifiers to source tree
         #if ch.override_type in {'IMAGE', 'MUSGRAVE'}:
@@ -420,6 +427,7 @@ def enable_layer_source_tree(layer, rearrange=False):
     if layer.type not in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
         # Get current source for reference
         source_ref = layer_tree.nodes.get(layer.source)
+        linear_ref = layer_tree.nodes.get(layer.linear)
         #mapping_ref = layer_tree.nodes.get(layer.mapping)
 
         # Create source tree
@@ -434,6 +442,10 @@ def enable_layer_source_tree(layer, rearrange=False):
         # Copy source from reference
         source = new_node(source_tree, layer, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
+        if linear_ref:
+            linear = new_node(source_tree, layer, 'linear', linear_ref.bl_idname)
+            copy_node_props(linear_ref, linear)
 
         #mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping')
         #if mapping_ref: copy_node_props(mapping_ref, mapping)
@@ -453,6 +465,7 @@ def enable_layer_source_tree(layer, rearrange=False):
 
         # Remove previous source
         layer_tree.nodes.remove(source_ref)
+        if linear_ref: layer_tree.nodes.remove(linear_ref)
         #if mapping_ref: layer_tree.nodes.remove(mapping_ref)
     
         # Bring modifiers to source tree
@@ -493,7 +506,7 @@ def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False)
             if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and layer.channels[i].enable:
                 smooth_bump_ch = root_ch
 
-        if (ch.override_type not in {'DEFAULT'} and ch.source_group == '') or smooth_bump_ch:
+        if (ch.override_type not in {'DEFAULT'} and ch.source_group == '') or (not ch.override and smooth_bump_ch):
             return
 
     layer_tree = get_tree(layer)
@@ -502,11 +515,17 @@ def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False)
     source_group = layer_tree.nodes.get(ch.source_group)
     if source_group:
         source_ref = source_group.node_tree.nodes.get(ch.source)
+        linear_ref = source_group.node_tree.nodes.get(ch.linear)
         #mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
         # Create new source
         source = new_node(layer_tree, ch, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
+        # Create new linear
+        if linear_ref:
+            linear = new_node(layer_tree, ch, 'linear', linear_ref.bl_idname)
+            copy_node_props(linear_ref, linear)
 
         #mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
         #if mapping_ref: copy_node_props(mapping_ref, mapping)
@@ -555,11 +574,16 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
         source_group = layer_tree.nodes.get(layer.source_group)
         if source_group:
             source_ref = source_group.node_tree.nodes.get(layer.source)
+            linear_ref = source_group.node_tree.nodes.get(layer.linear)
             #mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
             # Create new source
             source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
             copy_node_props(source_ref, source)
+
+            if linear_ref:
+                linear = new_node(layer_tree, layer, 'linear', linear_ref.bl_idname)
+                copy_node_props(linear_ref, linear)
 
             #mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
             #if mapping_ref: copy_node_props(mapping_ref, mapping)
@@ -660,6 +684,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
     if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
+        linear_ref = layer_tree.nodes.get(mask.linear)
         #mapping_ref = layer_tree.nodes.get(mask.mapping)
 
         # Create mask tree
@@ -672,13 +697,16 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
         create_essential_nodes(mask_tree)
 
-
         # Copy nodes from reference
         source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)
         #source = new_node(mask_tree, mask, 'source', 'ShaderNodeTexImage')
         #print(source, source_ref)
         copy_node_props(source_ref, source)
         #source.image = source_ref.image
+
+        if linear_ref:
+            linear = new_node(mask_tree, mask, 'linear', linear_ref.bl_idname)
+            copy_node_props(linear_ref, linear)
 
         #mapping = new_node(mask_tree, mask, 'mapping', 'ShaderNodeMapping')
         #if mapping_ref: copy_node_props(mapping_ref, mapping)
@@ -701,6 +729,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
         # Remove previous nodes
         layer_tree.nodes.remove(source_ref)
+        if linear_ref: layer_tree.nodes.remove(linear_ref)
         #if mapping_ref: layer_tree.nodes.remove(mapping_ref)
 
     if reconnect:
@@ -722,12 +751,17 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         mask_tree = get_mask_tree(mask)
 
         source_ref = mask_tree.nodes.get(mask.source)
+        linear_ref = mask_tree.nodes.get(mask.linear)
         #mapping_ref = mask_tree.nodes.get(mask.mapping)
         group_node = layer_tree.nodes.get(mask.group_node)
 
         # Create new nodes
         source = new_node(layer_tree, mask, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
+        if linear_ref:
+            linear = new_node(layer_tree, mask, 'linear', linear_ref.bl_idname)
+            copy_node_props(linear_ref, linear)
 
         #mapping = new_node(layer_tree, mask, 'mapping', 'ShaderNodeMapping')
         #if mapping_ref: copy_node_props(mapping_ref, mapping)
@@ -1950,7 +1984,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
     if ch.override:
         #if ch.override_type != 'DEFAULT' and root_ch.enable_smooth_bump:
-        if root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT':
+        if root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT' and ch.normal_map_type == 'BUMP_MAP':
             enable_channel_source_tree(layer, root_ch, ch)
             Modifier.enable_modifiers_tree(ch)
         else:
@@ -1959,6 +1993,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         #disable_layer_source_tree(layer, False, True)
     else:
+        print('d')
         disable_channel_source_tree(layer, root_ch, ch, False)
 
     #mute = not layer.enable or not ch.enable
@@ -2177,31 +2212,6 @@ def update_override_value(root_ch, layer, ch, tree=None):
     elif root_ch.type == 'VALUE':
         source.outputs[0].default_value = ch.override_value
 
-def set_layer_channel_linear_node(tree, layer, root_ch, ch):
-
-    if (root_ch.type != 'NORMAL' 
-            and root_ch.colorspace == 'SRGB' 
-            and not ch.gamma_space
-            and (
-                (not ch.override and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} and ch.layer_input == 'RGB' ) or 
-                (ch.override and ch.override_type not in {'IMAGE'})
-                )
-            ):
-
-        if root_ch.type == 'VALUE':
-            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
-            linear.inputs[1].default_value = 1.0
-            linear.operation = 'POWER'
-        elif root_ch.type == 'RGB':
-            linear = replace_new_node(tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
-
-        linear.inputs[1].default_value = 1.0 / GAMMA
-    else:
-        remove_node(tree, ch, 'linear')
-
-    rearrange_layer_nodes(layer)
-    reconnect_layer_nodes(layer)
-
 def check_override_layer_channel_nodes(root_ch, layer, ch):
 
     yp = layer.id_data.yp
@@ -2275,7 +2285,8 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
         remove_node(layer_tree, ch, 'source')
 
     # Update linear stuff
-    set_layer_channel_linear_node(layer_tree, layer, root_ch, ch)
+    #set_layer_channel_linear_node(layer_tree, layer, root_ch, ch)
+    check_layer_channel_linear_node(ch, layer, root_ch, layer_tree, reconnect=True)
 
     # Enable source tree back again
     if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable and ch.override:
@@ -2444,6 +2455,52 @@ def check_extra_alpha(layer, need_reconnect=False):
 
     return need_reconnect
     
+#def set_layer_channel_linear_node(tree, layer, root_ch, ch, source_tree=None):
+def check_layer_channel_linear_node(ch, layer=None, root_ch=None, source_tree=None, reconnect=False):
+
+    yp = ch.id_data.yp
+
+    if not layer or not root_ch:
+        match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        layer = yp.layers[int(match.group(1))]
+        root_ch = yp.channels[int(match.group(2))]
+
+    if not source_tree: source_tree = get_channel_source_tree(ch, layer)
+
+    image = None
+    if ch.override and ch.override_type == 'IMAGE':
+        source = source_tree.nodes.get(ch.source)
+        image = source.image
+
+    if (
+        (ch.override and image and image.colorspace_settings.name == 'sRGB') or
+        (
+            root_ch.type != 'NORMAL' 
+            and root_ch.colorspace == 'SRGB' 
+            and not ch.gamma_space
+            and (
+                (not ch.override and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'} and ch.layer_input == 'RGB' ) or 
+                (ch.override and ch.override_type not in {'IMAGE'})
+                )
+        )
+        ):
+
+        if root_ch.type == 'VALUE':
+            linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
+            linear.inputs[1].default_value = 1.0
+            linear.operation = 'POWER'
+        #elif root_ch.type == 'RGB':
+        else:
+            linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
+
+        linear.inputs[1].default_value = 1.0 / GAMMA
+    else:
+        remove_node(source_tree, ch, 'linear')
+
+    if reconnect:
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
+
 def check_layer_image_linear_node(layer, source_tree=None):
 
     if not source_tree: source_tree = get_source_tree(layer)

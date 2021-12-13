@@ -406,8 +406,8 @@ def rearrange_channel_source_tree_nodes(layer, ch):
     if check_set_node_loc(source_tree, ch.source, loc):
         loc.x += 280
 
-    #if check_set_node_loc(source_tree, ch.linear, loc):
-    #    loc.x += 200
+    if check_set_node_loc(source_tree, ch.linear, loc):
+        loc.x += 200
 
     check_set_node_loc(source_tree, TREE_END, loc)
 
@@ -837,8 +837,9 @@ def rearrange_layer_nodes(layer, tree=None):
         #if check_set_node_loc(tree, ch.source, loc):
         #    loc.x += 200
 
-        if check_set_node_loc(tree, ch.linear, loc):
-            loc.x += 200
+        if ch.source_group == '':
+            if check_set_node_loc(tree, ch.linear, loc):
+                loc.x += 200
 
         # Modifier loop
         if ch.mod_group != '':
