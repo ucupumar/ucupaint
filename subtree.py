@@ -1993,7 +1993,6 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         #disable_layer_source_tree(layer, False, True)
     else:
-        print('d')
         disable_channel_source_tree(layer, root_ch, ch, False)
 
     #mute = not layer.enable or not ch.enable
@@ -2537,9 +2536,10 @@ def check_mask_image_linear_node(mask, mask_tree=None):
         if image.colorspace_settings.name == 'sRGB':
             linear = mask_tree.nodes.get(mask.linear)
             if not linear:
-                #linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGamma', 'Linear')
-                linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGroup', 'Linear')
-                linear.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
+                linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGamma', 'Linear')
+                linear.inputs[1].default_value = 1.0 / GAMMA
+                #linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGroup', 'Linear')
+                #linear.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
 
             return
 

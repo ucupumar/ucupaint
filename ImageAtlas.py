@@ -67,7 +67,8 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False, name=''):
     img.yia.is_image_atlas = True
     img.yia.color = color
     #img.yia.float_buffer = hdr
-    img.colorspace_settings.name = 'Linear'
+    #if hdr:
+    #img.colorspace_settings.name = 'Linear'
 
     return img
 
