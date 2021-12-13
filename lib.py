@@ -1,5 +1,6 @@
 import bpy, time
 from .common import *
+from .subtree import *
 from mathutils import *
 from bpy.app.handlers import persistent
 from distutils.version import LooseVersion #, StrictVersion
@@ -733,6 +734,52 @@ def update_routine(name):
         #        if update_happened:
         #            reconnect_layer_nodes(layer)
         #            rearrange_layer_nodes(layer)
+
+        # Version 0.9.8 and above will use sRGB images by default
+        if LooseVersion(ng.yp.version) < LooseVersion('0.9.8'):
+
+            for layer in ng.yp.layers:
+                if not layer.enable: continue
+
+                image_found = False
+                if layer.type == 'IMAGE':
+
+                    source = get_layer_source(layer)
+                    if source and source.image and not source.image.is_float: 
+                        if source.image.colorspace_settings.name != 'sRGB':
+                            source.image.colorspace_settings.name = 'sRGB'
+                            print('INFO:', source.image.name, 'image is now using sRGB!')
+                        check_layer_image_linear_node(layer)
+                    image_found = True
+
+                for ch in layer.channels:
+                    if not ch.enable or not ch.override: continue
+
+                    if ch.override_type == 'IMAGE':
+
+                        source = get_channel_source(ch)
+                        if source and source.image and not source.image.is_float:
+                            if source.image.colorspace_settings.name != 'sRGB':
+                                source.image.colorspace_settings.name = 'sRGB'
+                                print('INFO:', source.image.name, 'image is now using sRGB!')
+                            check_layer_channel_linear_node(ch)
+                        image_found = True
+
+                for mask in layer.masks:
+                    if not mask.enable: continue
+
+                    if mask.type == 'IMAGE':
+                        source = get_mask_source(mask)
+                        if source and source.image and not source.image.is_float:
+                            if source.image.colorspace_settings.name != 'sRGB':
+                                source.image.colorspace_settings.name = 'sRGB'
+                                print('INFO:', source.image.name, 'image is now using sRGB!')
+                            check_mask_image_linear_node(mask)
+                        image_found = True
+
+                if image_found:
+                    rearrange_layer_nodes(layer)
+                    reconnect_layer_nodes(layer)
 
         # Update version
         if update_happened:

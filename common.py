@@ -1123,7 +1123,9 @@ def replace_image(old_image, new_image, yp=None, uv_name = ''):
             new_image.filepath = old_image.filepath
 
     # Check entities using old image
-    entities = get_entities_with_specific_image(yp, old_image)
+    entities = []
+    if yp:
+        entities = get_entities_with_specific_image(yp, old_image)
 
     # Replace all users
     users = get_all_image_users(old_image)

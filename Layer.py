@@ -448,8 +448,8 @@ class YUseLinearColorSpace(bpy.types.Operator):
                     image_found = True
 
             if image_found:
-                rearrange_layer_nodes(context.layer)
-                reconnect_layer_nodes(context.layer)
+                rearrange_layer_nodes(layer)
+                reconnect_layer_nodes(layer)
 
         return {'FINISHED'}
 

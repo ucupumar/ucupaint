@@ -58,7 +58,8 @@ def transfer_uv(objs, mat, entity, uv_map):
     # Create temp image as bake target
     temp_image = bpy.data.images.new(name='__TEMP',
             width=width, height=height, alpha=True, float_buffer=image.is_float)
-    temp_image.colorspace_settings.name = 'Linear'
+    #temp_image.colorspace_settings.name = 'Linear'
+    temp_image.colorspace_settings.name = image.colorspace_settings.name
     temp_image.generated_color = col
 
     # Create bake nodes
@@ -526,7 +527,8 @@ class YResizeImage(bpy.types.Operator):
             self.report({'ERROR'}, "This image already had the same size!")
             return {'CANCELLED'}
 
-        scaled_img, new_segment = resize_image(image, self.width, self.height, 'Linear', self.samples, 0, segment)
+        #scaled_img, new_segment = resize_image(image, self.width, self.height, 'Linear', self.samples, 0, segment)
+        scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment)
 
         if new_segment:
             entity.segment_name = new_segment.name

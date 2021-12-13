@@ -1225,7 +1225,7 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type.startswith('OTHER_OBJECT_'):
             image.generated_color[3] = 0.0
 
-        image.colorspace_settings.name = 'Linear'
+        #image.colorspace_settings.name = 'Linear'
 
         # Set bake image
         tex.image = image
