@@ -149,6 +149,14 @@ BL27_DISP = '~yPL Blender 2.7 Displacement'
 
 SMOOTH_PREFIX = '~yPL Smooth '
 
+# Legacy nodes for Blender 2.79
+FLIP_BACKFACE_NORMAL_LEGACY = '~yPL Flip Backface Normal Legacy'
+FLIP_BACKFACE_BUMP_LEGACY = '~yPL Flip Backface Bump Legacy'
+FLIP_BACKFACE_TANGENT_LEGACY = '~yPL Flip Backface Tangent Legacy'
+NORMAL_MAP_PREP_LEGACY = '~yPL Normal Map Preparation Legacy'
+TANGENT_PROCESS_LEGACY = '~yPL Tangent Process Legacy'
+ENGINE_FILTER_LEGACY = '~yPL Engine Filter Legacy'
+
 # END OF NEW ORDER
 
 #HEIGHT_PROCESS_BUMP_MIX = '~yPL Height Process Bump Mix'

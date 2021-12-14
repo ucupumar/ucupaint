@@ -590,7 +590,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             if not baked_normal_prep:
                 baked_normal_prep = new_node(tree, root_ch, 'baked_normal_prep', 'ShaderNodeGroup', 
                         'Baked Normal Preparation')
-                baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
+                if is_greater_than_280:
+                    baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP)
+                else: baked_normal_prep.node_tree = get_node_tree_lib(lib.NORMAL_MAP_PREP_LEGACY)
 
         # Check if image is available
         if baked.image:

@@ -1271,7 +1271,9 @@ def check_actual_uv_nodes(yp, uv, obj):
         if not tangent_process:
             # Create tangent process which output both tangent and bitangent
             tangent_process = new_node(tree, uv, 'tangent_process', 'ShaderNodeGroup', uv.name + ' Tangent Process')
-            tangent_process.node_tree = get_node_tree_lib(lib.TANGENT_PROCESS)
+            if is_greater_than_280():
+                tangent_process.node_tree = get_node_tree_lib(lib.TANGENT_PROCESS)
+            else: tangent_process.node_tree = get_node_tree_lib(lib.TANGENT_PROCESS_LEGACY)
             duplicate_lib_node_tree(tangent_process)
 
             tangent_process.inputs['Backface Always Up'].default_value = 1.0 if yp.enable_backface_always_up else 0.0
@@ -1630,7 +1632,9 @@ def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked
         if not baked_parallax_filter:
             baked_parallax_filter = tree.nodes.new('ShaderNodeGroup')
             baked_parallax_filter.name = BAKED_PARALLAX_FILTER
-            baked_parallax_filter.node_tree = get_node_tree_lib(lib.ENGINE_FILTER)
+            if is_greater_than_280():
+                baked_parallax_filter.node_tree = get_node_tree_lib(lib.ENGINE_FILTER)
+            else: baked_parallax_filter.node_tree = get_node_tree_lib(lib.ENGINE_FILTER_LEGACY)
             baked_parallax_filter.label = 'Baked Parallax Filter'
     elif baked_parallax_filter:
         simple_remove_node(tree, baked_parallax_filter, True)
@@ -2178,8 +2182,12 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     if ch.normal_map_type == 'NORMAL_MAP' or root_ch.enable_smooth_bump:
         remove_node(tree, ch, 'normal_flip')
     else:
+
+        if is_greater_than_280(): lib_name = lib.FLIP_BACKFACE_BUMP
+        else: lib_name = lib.FLIP_BACKFACE_BUMP_LEGACY
+
         normal_flip = replace_new_node(tree, ch, 'normal_flip', 'ShaderNodeGroup', 
-                'Normal Backface Flip', lib.FLIP_BACKFACE_BUMP)
+                'Normal Backface Flip', lib_name)
 
         set_bump_backface_flip(normal_flip, yp.enable_backface_always_up)
 
