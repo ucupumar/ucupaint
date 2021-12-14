@@ -1464,6 +1464,12 @@ class YMergeMask(bpy.types.Operator):
             mix.blend_type = m.blend_type
             mix.inputs[0].default_value = m.intensity_value
 
+            # Replace linear to more accurate ones
+            linear = tree.nodes.get(m.linear)
+            if linear:
+                linear = replace_new_node(tree, m, 'linear', 'ShaderNodeGroup', 'Linear')
+                linear.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
+
         # Reconnect nodes
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer, merge_mask=True)
@@ -1491,6 +1497,8 @@ class YMergeMask(bpy.types.Operator):
         # Connect
         mat.node_tree.links.new(node.outputs[LAYER_ALPHA_VIEWER], emit.inputs[0])
         mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+
+        #return {'FINISHED'}
 
         # Bake
         bpy.ops.object.bake()
@@ -1524,6 +1532,12 @@ class YMergeMask(bpy.types.Operator):
         for m in [mask, neighbor_mask]:
             remove_node(tree, m, 'mix')
 
+            # Replace linear to less accurate ones
+            linear = tree.nodes.get(m.linear)
+            if linear:
+                linear = replace_new_node(tree, m, 'linear', 'ShaderNodeGamma', 'Linear')
+                linear.inputs[1].default_value = 1.0 / GAMMA
+
         # Remove modifiers
         for i, mod in reversed(list(enumerate(mask.modifiers))):
             MaskModifier.delete_modifier_nodes(tree, mod)
@@ -1544,6 +1558,10 @@ class YMergeMask(bpy.types.Operator):
 
         # Revert back preview mode 
         yp.layer_preview_mode = ori_layer_preview_mode
+
+        # Point to neighbor mask for merge up
+        if index > neighbor_idx:
+            mask = layer.masks[neighbor_idx]
 
         # Set current mask as active
         mask.active_edit = True
