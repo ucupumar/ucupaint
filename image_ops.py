@@ -104,6 +104,7 @@ def save_pack_all(yp, only_dirty = True):
     # Save/pack images
     for image in images:
         #print(image, image.filepath)
+        if not image: continue
         if only_dirty and not image.is_dirty: continue
         T = time.time()
         if image.packed_file or image.filepath == '':
