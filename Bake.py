@@ -161,6 +161,9 @@ def transfer_uv(objs, mat, entity, uv_map):
         #mat.node_tree.links.new(srgb2lin.outputs[0], emit.inputs[0])
         mat.node_tree.links.new(src.outputs[1], emit.inputs[0])
 
+        # Temp image should use linear to properly bake alpha
+        temp_image.colorspace_settings.name = 'Linear'
+
         # Bake again!
         bpy.ops.object.bake()
 
