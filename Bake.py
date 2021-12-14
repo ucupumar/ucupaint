@@ -530,13 +530,38 @@ class YResizeImage(bpy.types.Operator):
             self.report({'ERROR'}, "This image already had the same size!")
             return {'CANCELLED'}
 
-        #scaled_img, new_segment = resize_image(image, self.width, self.height, 'Linear', self.samples, 0, segment)
-        scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment)
+        override_context = None
+        space = None
+        ori_space_image = None
 
-        if new_segment:
-            entity.segment_name = new_segment.name
-            segment.unused = True
-            update_mapping(entity)
+        if not image.yia.is_image_atlas and is_greater_than_281():
+
+            # Search for context
+            for area in context.screen.areas:
+                if area.type == 'IMAGE_EDITOR':
+                    space = area.spaces[0]
+                    ori_space_image = space.image
+                    space.image = image
+
+                    override_context = context.copy()
+
+                    override_context['area'] = area
+                    override_context['space_data'] = space
+                    break
+
+        if override_context:
+            # Resize image
+            bpy.ops.image.resize(override_context, size=(self.width, self.height))
+            space.image = ori_space_image
+
+        else:
+            #scaled_img, new_segment = resize_image(image, self.width, self.height, 'Linear', self.samples, 0, segment)
+            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment)
+
+            if new_segment:
+                entity.segment_name = new_segment.name
+                segment.unused = True
+                update_mapping(entity)
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index

@@ -108,9 +108,9 @@
 # - Quick setup should use already used inputs to bsdf as inputs for yp node (V)
 # - Still baking channel with connected input even if there are no layers using it (V)
 # - Blender 2.80+ should use vertex paint transparency (V)
-# - Use new blender own resize image operator
+# - Use new blender own resize image operator (V)
 # - Normal channel should be able to override both normal and bump at the same time
-# - Image editor should be able to show srgb color
+# - Image editor should be able to show srgb color (V)
 # - Some texture should be able to use transparency
 # - Need ability to edit height channel main uv
 # - Add operator to create new UV map on multiple objects using the same material

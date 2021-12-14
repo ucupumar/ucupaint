@@ -3439,9 +3439,9 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         col.operator("node.y_reload_image", icon='FILE_REFRESH')
 
         # Invert image is causing crash since Blender 2.82
-        if not is_greater_than_282():
-            col.separator()
-            col.operator("node.y_invert_image", icon='IMAGE_ALPHA')
+        #if not is_greater_than_282():
+        col.separator()
+        col.operator("node.y_invert_image", icon='IMAGE_ALPHA')
 
         #if hasattr(context, 'entity') and context.entity:
         #    col = row.column()
