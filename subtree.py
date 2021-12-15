@@ -2553,3 +2553,24 @@ def check_mask_image_linear_node(mask, mask_tree=None):
 
     # Delete linear
     remove_node(mask_tree, mask, 'linear')
+
+def check_yp_linear_nodes(yp, specific_layer=None, reconnect=True):
+    for layer in yp.layers:
+        if specific_layer and layer != specific_layer: continue
+        image_found = False
+        if layer.type == 'IMAGE':
+            check_layer_image_linear_node(layer)
+            image_found = True
+        for ch in layer.channels:
+            if ch.override_type == 'IMAGE':
+                #set_layer_channel_linear_node(ch)
+                check_layer_channel_linear_node(ch)
+                image_found = True
+        for mask in layer.masks:
+            if mask.type == 'IMAGE':
+                check_mask_image_linear_node(mask)
+                image_found = True
+
+        if image_found and reconnect:
+            rearrange_layer_nodes(layer)
+            reconnect_layer_nodes(layer)

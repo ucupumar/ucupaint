@@ -432,24 +432,7 @@ class YUseLinearColorSpace(bpy.types.Operator):
         #print(context.image.name)
         #context.image.colorspace_settings.name = 'Linear'
         yp = context.layer.id_data.yp
-        for layer in yp.layers:
-            image_found = False
-            if layer.type == 'IMAGE':
-                check_layer_image_linear_node(layer)
-                image_found = True
-            for ch in layer.channels:
-                if ch.override_type == 'IMAGE':
-                    #set_layer_channel_linear_node(ch)
-                    check_layer_channel_linear_node(ch)
-                    image_found = True
-            for mask in layer.masks:
-                if mask.type == 'IMAGE':
-                    check_mask_image_linear_node(mask)
-                    image_found = True
-
-            if image_found:
-                rearrange_layer_nodes(layer)
-                reconnect_layer_nodes(layer)
+        check_yp_linear_nodes(yp)
 
         return {'FINISHED'}
 

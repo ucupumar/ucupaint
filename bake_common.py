@@ -38,6 +38,9 @@ def remember_before_bake(yp=None):
     book['ori_cage_extrusion'] = scene.render.bake.cage_extrusion
     book['ori_use_cage'] = scene.render.bake.use_cage
 
+    if hasattr(scene.cycles, 'use_denoising'):
+        book['ori_use_denoising'] = scene.cycles.use_denoising
+
     if is_greater_than_280():
         book['ori_material_override'] = bpy.context.view_layer.material_override
     else: book['ori_material_override'] = scene.render.layers.active.material_override
@@ -116,6 +119,9 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if hasattr(scene.render, 'tile_x'):
         scene.render.tile_x = tile_x
         scene.render.tile_y = tile_y
+
+    if hasattr(scene.cycles, 'use_denoising'):
+        scene.cycles.use_denoising = False
 
     if is_greater_than_280():
         bpy.context.view_layer.material_override = None
@@ -250,6 +256,8 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
     if hasattr(scene.render, 'tile_x'):
         scene.render.tile_x = book['ori_tile_x']
         scene.render.tile_y = book['ori_tile_y']
+    if hasattr(scene.cycles, 'use_denoising'):
+        scene.cycles.use_denoising = book['ori_use_denoising']
     scene.render.bake.use_selected_to_active = book['ori_use_selected_to_active']
     if is_greater_than_280():
         scene.render.bake.max_ray_distance = book['ori_max_ray_distance']

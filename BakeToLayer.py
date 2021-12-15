@@ -1225,7 +1225,8 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type.startswith('OTHER_OBJECT_'):
             image.generated_color[3] = 0.0
 
-        #image.colorspace_settings.name = 'Linear'
+        if self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL'}:
+            image.colorspace_settings.name = 'Linear'
 
         # Set bake image
         tex.image = image
@@ -1369,6 +1370,9 @@ class YBakeToLayer(bpy.types.Operator):
                 # Refresh uv
                 refresh_temp_uv(context.object, yp.layers[active_id])
 
+                # Refresh Neighbor UV resolution
+                set_uv_neighbor_resolution(yp.layers[active_id])
+
             elif self.target_type == 'MASK':
                 masks = []
                 for l in yp.layers:
@@ -1376,6 +1380,9 @@ class YBakeToLayer(bpy.types.Operator):
                 if masks: 
                     masks[0].active_edit = True
                     refresh_temp_uv(context.object, masks[0])
+
+                    # Refresh Neighbor UV resolution
+                    set_uv_neighbor_resolution(masks[0])
 
         elif self.target_type == 'LAYER':
 
@@ -1397,6 +1404,9 @@ class YBakeToLayer(bpy.types.Operator):
             # Refresh uv
             refresh_temp_uv(context.object, layer)
 
+            # Refresh Neighbor UV resolution
+            set_uv_neighbor_resolution(layer)
+
         else:
             mask_name = image.name if not self.use_image_atlas else self.name
 
@@ -1416,6 +1426,9 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Refresh uv
             refresh_temp_uv(context.object, mask)
+
+            # Refresh Neighbor UV resolution
+            set_uv_neighbor_resolution(mask)
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)
@@ -1563,6 +1576,9 @@ class YBakeToLayer(bpy.types.Operator):
                 bpy.data.meshes.remove(m)
 
         #return {'FINISHED'}
+
+        # Check linear nodes becuse sometimes bake results can be linear or srgb
+        check_yp_linear_nodes(yp, reconnect=True)
 
         # Reconnect and rearrange nodes
         #reconnect_yp_layer_nodes(node.node_tree)
