@@ -810,6 +810,122 @@ def update_routine(name):
         if show_message:
             print("INFO: Now " + ADDON_TITLE + " capable to use vertex paint alpha since Blender 2.92, Enjoy!")
 
+    # Special update for opening Blender 2.79 file
+    filepath = get_addon_filepath() + "lib.blend"
+    if is_created_using_279() and is_greater_than_280() and bpy.data.filepath != filepath:
+
+        legacy_groups = []
+        newer_groups = []
+        newer_group_names = []
+
+        for ng in bpy.data.node_groups:
+
+            m = re.match(r'^(~yPL .+)(?: Legacy)(?:_Copy)?(?:\.\d{3}?)?$', ng.name)
+            if m and ng.name not in legacy_groups:
+                legacy_groups.append(ng)
+                newer_group_names.append(m.group(1))
+                #print(ng.name, m.group(1))
+
+        # Load node groups
+        with bpy.data.libraries.load(filepath) as (data_from, data_to):
+            for ng in data_from.node_groups:
+                if ng in newer_group_names:
+                    tree = bpy.data.node_groups.get(ng)
+                    #if tree:
+                    #    tree.name += '__OLD'
+                    #tree_names.append(ng)
+                    data_to.node_groups.append(ng)
+                    #print(ng)
+
+        # Fill newer groups
+        for name in newer_group_names:
+            newer_groups.append(bpy.data.node_groups.get(name))
+
+        # List of already copied groups
+        copied_groups = []
+
+        # Update from legacy to newer groups
+        for i, legacy_ng in enumerate(legacy_groups):
+            newer_ng = newer_groups[i]
+            #print(legacy_ng.name, newer_ng.name)
+
+            if '_Copy' not in legacy_ng.name:
+
+                # Search for legacy tree usages
+                for mat in bpy.data.materials:
+                    if not mat.node_tree: continue
+                    for node in mat.node_tree.nodes:
+                        if node.type == 'GROUP' and node.node_tree == legacy_ng:
+                            node.node_tree = newer_ng
+
+                for group in bpy.data.node_groups:
+                    for node in group.nodes:
+                        if node.type == 'GROUP' and node.node_tree == legacy_ng:
+                            node.node_tree = newer_ng
+
+                print('INFO:', legacy_ng.name, 'is replaced to', newer_ng.name + '!')
+
+                # Remove old tree
+                bpy.data.node_groups.remove(legacy_ng)
+
+                # Create info frames
+                create_info_nodes(newer_ng)
+
+            else:
+
+                used_nodes = []
+                parent_trees = []
+
+                # Search for old tree usages
+                for mat in bpy.data.materials:
+                    if not mat.node_tree: continue
+                    for node in mat.node_tree.nodes:
+                        if node.type == 'GROUP' and node.node_tree == legacy_ng:
+                            used_nodes.append(node)
+                            parent_trees.append(mat.node_tree)
+
+                for group in bpy.data.node_groups:
+                    for node in group.nodes:
+                        if node.type == 'GROUP' and node.node_tree == legacy_ng:
+                            used_nodes.append(node)
+                            parent_trees.append(group)
+
+                #print(legacy_ng.name, used_nodes)
+
+                if used_nodes:
+
+                    # Remember original tree
+                    ori_tree = used_nodes[0].node_tree
+
+                    # Duplicate lib tree
+                    if '_Copy' not in newer_ng.name:
+                        newer_ng.name += '_Copy'
+                    used_nodes[0].node_tree = newer_ng.copy()
+                    new_tree = used_nodes[0].node_tree
+                    #newer_ng.name = name
+
+                    print('INFO:', ori_tree.name, 'is replaced to', new_tree.name + '!')
+
+                    if newer_ng not in copied_groups:
+                        copied_groups.append(newer_ng)
+
+                    # Copy some nodes inside
+                    for n in new_tree.nodes:
+                        if n.name.startswith('_'):
+                            # Try to get the node on original tree
+                            ori_n = ori_tree.nodes.get(n.name)
+                            if ori_n: copy_node_props(ori_n, n)
+
+                    # Delete original tree
+                    bpy.data.node_groups.remove(ori_tree)
+
+                    # Create info frames
+                    create_info_nodes(new_tree)
+
+        # Remove already copied groups
+        for ng in copied_groups:
+            bpy.data.node_groups.remove(ng)
+
     print('INFO: ' + ADDON_TITLE + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 @persistent
@@ -822,6 +938,7 @@ def update_node_tree_libs(name):
 
     tree_names = []
     exist_groups = []
+
     for ng in bpy.data.node_groups:
         m = re.match(r'^(~yPL .+?)(?:_Copy?)?(?:\.\d{3}?)?$', ng.name)
         if m and m.group(1) not in exist_groups:
