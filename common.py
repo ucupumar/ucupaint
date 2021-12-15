@@ -3640,6 +3640,13 @@ def is_colorid_vcol_still_being_used(objs):
 
     return False
 
+def is_image_source_srgb(image, source):
+    if not is_greater_than_280():
+        return source.color_space == 'COLOR'
+
+    return image.colorspace_settings.name == 'sRGB'
+    
+
 def any_linear_images_problem(yp):
     for layer in yp.layers:
 
@@ -3649,10 +3656,12 @@ def any_linear_images_problem(yp):
                 linear = source_tree.nodes.get(ch.linear)
                 source = source_tree.nodes.get(ch.source)
                 if not source: continue
+
                 image = source.image
+                if not image: continue
                 if (
-                    (image and image.colorspace_settings.name == 'sRGB' and not linear) or
-                    (image and image.colorspace_settings.name != 'sRGB' and linear)
+                    (is_image_source_srgb(image, source) and not linear) or
+                    (not is_image_source_srgb(image, source) and linear)
                     ):
                     return True
 
@@ -3663,9 +3672,10 @@ def any_linear_images_problem(yp):
                 source = source_tree.nodes.get(mask.source)
                 if not source: continue
                 image = source.image
+                if not image: continue
                 if (
-                    (image and image.colorspace_settings.name == 'sRGB' and not linear) or
-                    (image and image.colorspace_settings.name != 'sRGB' and linear)
+                    (is_image_source_srgb(image, source) and not linear) or
+                    (not is_image_source_srgb(image, source) and linear)
                     ):
                     return True
 
@@ -3675,9 +3685,10 @@ def any_linear_images_problem(yp):
             source = source_tree.nodes.get(layer.source)
             if not source: continue
             image = source.image
+            if not image: continue
             if (
-                (image and image.colorspace_settings.name == 'sRGB' and not linear) or
-                (image and image.colorspace_settings.name != 'sRGB' and linear)
+                (is_image_source_srgb(image, source) and not linear) or
+                (not is_image_source_srgb(image, source) and linear)
                 ):
                 return True
 

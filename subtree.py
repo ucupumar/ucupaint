@@ -2461,7 +2461,7 @@ def check_extra_alpha(layer, need_reconnect=False):
             need_reconnect = True
 
     return need_reconnect
-    
+
 #def set_layer_channel_linear_node(tree, layer, root_ch, ch, source_tree=None):
 def check_layer_channel_linear_node(ch, layer=None, root_ch=None, source_tree=None, reconnect=False):
 
@@ -2480,7 +2480,8 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, source_tree=No
         image = source.image
 
     if (
-        (ch.override and image and image.colorspace_settings.name == 'sRGB') or
+        #(ch.override and image and image.colorspace_settings.name == 'sRGB') or
+        (ch.override and image and is_image_source_srgb(image, source)) or
         (
             root_ch.type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
@@ -2517,8 +2518,11 @@ def check_layer_image_linear_node(layer, source_tree=None):
         source = source_tree.nodes.get(layer.source)
         image = source.image
 
+        if not image: return
+
         # Create linear if image type is srgb
-        if image.colorspace_settings.name == 'sRGB':
+        #if image.colorspace_settings.name == 'sRGB':
+        if is_image_source_srgb(image, source):
             linear = source_tree.nodes.get(layer.linear)
             if not linear:
                 linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
@@ -2540,8 +2544,11 @@ def check_mask_image_linear_node(mask, mask_tree=None):
         source = mask_tree.nodes.get(mask.source)
         image = source.image
 
+        if not image: return
+
         # Create linear if image type is srgb
-        if image.colorspace_settings.name == 'sRGB':
+        #if image.colorspace_settings.name == 'sRGB':
+        if is_image_source_srgb(image, source):
             linear = mask_tree.nodes.get(mask.linear)
             if not linear:
                 linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGamma', 'Linear')
