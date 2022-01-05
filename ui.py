@@ -1444,7 +1444,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 split.label(text='Type:') #, icon_value=lib.get_icon('input'))
                 srow = split.row(align=True)
                 srow.prop(ch, 'normal_map_type', text='')
-                if not chui.expand_bump_settings and ch.normal_map_type == 'BUMP_MAP':
+                if not chui.expand_bump_settings and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                     srow.prop(ch, 'bump_distance', text='')
 
             #row.label(text='', icon='BLANK1')
