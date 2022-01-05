@@ -3872,12 +3872,16 @@ def update_channel_active_edit(self, context):
 
     # Disable other active edits
     yp.halt_update = True
-    if self.active_edit and self.override and self.override_type != 'DEFAULT': 
+    if (
+        (self.active_edit and self.override and self.override_type != 'DEFAULT') or
+        (self.active_edit_1 and self.override_1 and self.override_1_type != 'DEFAULT')
+        ):
 
         for c in layer.channels:
             if c == self: continue
             c.active_edit = False
             c.active_edit_1 = False
+            c.prev_active_edit_idx = 0
         for m in layer.masks:
             m.active_edit = False
 
