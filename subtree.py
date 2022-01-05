@@ -849,7 +849,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
             ch = layer.channels[j]
             root_ch = yp.channels[j]
 
-            write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+            write_height = get_write_height(ch)
 
             if specific_ch and ch != specific_ch: continue
 
@@ -1953,7 +1953,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     if root_ch.type != 'NORMAL': return need_reconnect
 
     #print('ntab')
-    write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+    write_height = get_write_height(ch)
 
     # Check mask source tree
     check_mask_source_tree(layer) #, ch)
@@ -1988,7 +1988,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
     if ch.override:
         #if ch.override_type != 'DEFAULT' and root_ch.enable_smooth_bump:
-        if root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT' and ch.normal_map_type == 'BUMP_MAP':
+        if root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
             enable_channel_source_tree(layer, root_ch, ch)
             Modifier.enable_modifiers_tree(ch)
         else:
@@ -2157,7 +2157,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION
             else:
                 lib_name = lib.NORMAL_MAP_PROCESS
-    else:
+    elif ch.normal_map_type == 'BUMP_MAP':
         if root_ch.enable_smooth_bump:
             lib_name = lib.NORMAL_PROCESS_SMOOTH
         else:
@@ -2165,21 +2165,25 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         if layer.type == 'GROUP':
             lib_name += ' Group'
+    elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
+        lib_name = lib.NORMAL_MAP
 
     normal_proc, need_reconnect = replace_new_node(
             tree, ch, 'normal_proc', 'ShaderNodeGroup', 'Normal Process', 
             lib_name, return_status = True, hard_replace=True, dirty=need_reconnect)
 
-    normal_proc.inputs['Max Height'].default_value = max_height
+    if 'Max Height' in normal_proc.inputs:
+        normal_proc.inputs['Max Height'].default_value = max_height
     if root_ch.enable_smooth_bump:
-        normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+        if 'Bump Height Scale' in normal_proc.inputs:
+            normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
     if 'Intensity' in normal_proc.inputs:
         #normal_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
         normal_proc.inputs['Intensity'].default_value = ch.intensity_value
 
     # Normal flip
-    if ch.normal_map_type == 'NORMAL_MAP' or root_ch.enable_smooth_bump:
+    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or root_ch.enable_smooth_bump:
         remove_node(tree, ch, 'normal_flip')
     else:
 
@@ -2206,6 +2210,15 @@ def update_preview_mix(ch, preview):
     mix = preview.node_tree.nodes.get('Mix')
     if mix: mix.blend_type = ch.blend_type
 
+def update_override_1_value(root_ch, layer, ch, tree=None):
+
+    if not tree: tree = get_tree(layer)
+    source = tree.nodes.get(ch.source_1)
+
+    col = ch.override_1_color
+    col = (col[0], col[1], col[2], 1.0)
+    source.outputs[0].default_value = col
+
 def update_override_value(root_ch, layer, ch, tree=None):
 
     #if not tree: tree = get_tree(layer)
@@ -2218,6 +2231,60 @@ def update_override_value(root_ch, layer, ch, tree=None):
         source.outputs[0].default_value = col
     elif root_ch.type == 'VALUE':
         source.outputs[0].default_value = ch.override_value
+
+def check_override_1_layer_channel_nodes(root_ch, layer, ch):
+
+    yp = layer.id_data.yp
+    layer_tree = get_tree(layer)
+
+    # Current source
+    source = layer_tree.nodes.get(ch.source_1)
+
+    prev_type = ''
+
+    # Source 1 will only use default value or image for now
+    if source:
+        if source.bl_idname == 'ShaderNodeRGB':
+            prev_type = 'DEFAULT'
+        else: prev_type = 'IMAGE'
+
+        if prev_type != ch.override_1_type or not ch.override_1:
+
+            # Save source to cache if it's not default
+            if prev_type != 'DEFAULT':
+
+                ch.cache_1_image = source.name
+                # Remove uv input link
+                if any(source.inputs) and any(source.inputs[0].links):
+                    layer_tree.links.remove(source.inputs[0].links[0])
+                source.label = ''
+                ch.source_1 = ''
+
+    # Try to get channel source
+    if ch.override_1:
+        source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
+        if ch.override_1_type == 'DEFAULT':
+            source = replace_new_node(layer_tree, ch, 'source_1', 'ShaderNodeRGB', source_label)
+            update_override_1_value(root_ch, layer, ch, layer_tree)
+        else:
+            cache = layer_tree.nodes.get(ch.cache_1_image)
+            if cache:
+                # Delete non cached source
+                if prev_type == 'DEFAULT':
+                    remove_node(layer_tree, ch, 'source_1')
+
+                ch.source_1 = cache.name
+                ch.cache_1_image = ''
+
+                cache.label = source_label
+            else:
+                source = replace_new_node(layer_tree, ch, 'source_1', 'ShaderNodeTexImage', source_label)
+
+    else:
+        remove_node(layer_tree, ch, 'source_1')
+
+    # Update linear stuff
+    check_layer_channel_linear_node(ch, layer, root_ch, reconnect=True)
 
 def check_override_layer_channel_nodes(root_ch, layer, ch):
 
@@ -2292,8 +2359,7 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
         remove_node(layer_tree, ch, 'source')
 
     # Update linear stuff
-    #set_layer_channel_linear_node(layer_tree, layer, root_ch, ch)
-    check_layer_channel_linear_node(ch, layer, root_ch, layer_tree, reconnect=True)
+    check_layer_channel_linear_node(ch, layer, root_ch, reconnect=True)
 
     # Enable source tree back again
     if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable and ch.override:
@@ -2463,7 +2529,7 @@ def check_extra_alpha(layer, need_reconnect=False):
     return need_reconnect
 
 #def set_layer_channel_linear_node(tree, layer, root_ch, ch, source_tree=None):
-def check_layer_channel_linear_node(ch, layer=None, root_ch=None, source_tree=None, reconnect=False):
+def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=False):
 
     yp = ch.id_data.yp
 
@@ -2472,12 +2538,12 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, source_tree=No
         layer = yp.layers[int(match.group(1))]
         root_ch = yp.channels[int(match.group(2))]
 
-    if not source_tree: source_tree = get_channel_source_tree(ch, layer)
+    source_tree = get_channel_source_tree(ch, layer)
 
     image = None
     if ch.override and ch.override_type == 'IMAGE':
         source = source_tree.nodes.get(ch.source)
-        image = source.image
+        if source: image = source.image
 
     if (
         #(ch.override and image and image.colorspace_settings.name == 'sRGB') or
@@ -2504,6 +2570,18 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, source_tree=No
         linear.inputs[1].default_value = 1.0 / GAMMA
     else:
         remove_node(source_tree, ch, 'linear')
+
+    image_1 = None
+    layer_tree = get_tree(layer)
+    if ch.override_1 and ch.override_1_type == 'IMAGE':
+        source_1 = layer_tree.nodes.get(ch.source_1)
+        if source_1: image_1 = source_1.image
+
+    if ch.override_1 and image_1 and is_image_source_srgb(image_1, source_1):
+        linear_1 = replace_new_node(layer_tree, ch, 'linear_1', 'ShaderNodeGamma', 'Linear 1')
+        linear_1.inputs[1].default_value = 1.0 / GAMMA
+    else:
+        remove_node(layer_tree, ch, 'linear_1')
 
     if reconnect:
         rearrange_layer_nodes(layer)

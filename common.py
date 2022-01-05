@@ -146,6 +146,12 @@ channel_override_type_items = (
         #('HEMI', 'Fake Lighting', ''),
         )
 
+# Override 1 will only use default value or image for now
+channel_override_1_type_items = (
+        ('DEFAULT', 'Default', ''),
+        ('IMAGE', 'Image', ''),
+        )
+
 hemi_space_items = (
         ('WORLD', 'World Space', ''),
         ('OBJECT', 'Object Space', ''),
@@ -1617,6 +1623,21 @@ def get_channel_source(ch, layer=None, tree=None):
 
     return None
 
+def get_channel_source_1(ch, layer=None, tree=None):
+    if not layer:
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        if not m : return None
+        layer = yp.layers[int(m.group(1))]
+
+    if not tree: tree = get_tree(layer)
+    if tree: return tree.nodes.get(ch.source_1)
+
+    #source_tree = get_channel_source_tree(ch, layer, tree)
+    #if source_tree: return source_tree.nodes.get(ch.source)
+    #if tree: return tree.nodes.get(ch.source)
+
+    return None
+
 def get_source_tree(layer, tree=None):
     if not tree: tree = get_tree(layer)
     if not tree: return None
@@ -3042,7 +3063,7 @@ def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_
         if ch_index > len(l.channels)-1: continue
         if top_layers_only and l.parent_idx != -1: continue
         c = l.channels[ch_index]
-        write_height = c.normal_write_height if c.normal_map_type == 'NORMAL_MAP' else c.write_height 
+        write_height = get_write_height(c)
         ch_max_height = get_layer_channel_max_height(l, c)
         if (l.enable and c.enable and 
                 (write_height or (not write_height and l == layer)) and
@@ -3056,7 +3077,7 @@ def get_max_height_from_list_of_layers(layers, ch_index, layer=None, top_layers_
         if ch_index > len(l.channels)-1: continue
         if top_layers_only and l.parent_idx != -1: continue
         c = l.channels[ch_index]
-        write_height = c.normal_write_height if c.normal_map_type == 'NORMAL_MAP' else c.write_height 
+        write_height = get_write_height(c)
         ch_max_height = get_layer_channel_max_height(l, c)
         if (l.enable and c.enable and 
                 (write_height or (not write_height and l == layer)) and
@@ -3111,7 +3132,7 @@ def get_write_height_normal_channels(layer):
     for i, root_ch in enumerate(yp.channels):
         if root_ch.type == 'NORMAL':
             ch = layer.channels[i]
-            write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+            write_height = get_write_height(ch)
             if write_height:
                 channels.append(ch)
 
@@ -3123,7 +3144,7 @@ def get_write_height_normal_channel(layer):
     for i, root_ch in enumerate(yp.channels):
         if root_ch.type == 'NORMAL':
             ch = layer.channels[i]
-            write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+            write_height = get_write_height(ch)
             if write_height:
                 return ch
 
@@ -3137,7 +3158,7 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
     height_proc = tree.nodes.get(height_ch.height_proc)
     if height_proc and layer.type != 'GROUP':
 
-        if height_ch.normal_map_type == 'BUMP_MAP':
+        if height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
             inp = height_proc.inputs.get('Value Max Height')
             if inp: inp.default_value = height_ch.bump_distance
             inp = height_proc.inputs.get('Transition Max Height')
@@ -3158,7 +3179,8 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
             inp = normal_proc.inputs.get('Bump Height Scale')
             if inp: inp.default_value = get_fine_bump_distance(max_height)
 
-        normal_proc.inputs['Max Height'].default_value = max_height
+        if 'Max Height' in normal_proc.inputs:
+            normal_proc.inputs['Max Height'].default_value = max_height
 
 def update_layer_bump_process_max_height(height_root_ch, layer, tree=None):
 
@@ -3397,6 +3419,15 @@ def get_active_image_and_stuffs(obj, yp):
 
             elif ch.override_type == 'VCOL' and obj.type == 'MESH':
                 vcol = obj.data.vertex_colors.get(get_source_vcol_name(source))
+
+        if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT':
+            source = tree.nodes.get(ch.source_1)
+
+            if ch.override_type == 'IMAGE':
+                uv_name = layer.uv_name
+                image = source.image
+                src_of_img = ch
+                mapping = get_layer_mapping(layer)
 
     if not image and layer.type == 'IMAGE':
         uv_name = layer.uv_name
@@ -3649,6 +3680,7 @@ def is_image_source_srgb(image, source):
 
 def any_linear_images_problem(yp):
     for layer in yp.layers:
+        layer_tree = get_tree(layer)
 
         for ch in layer.channels:
             if ch.override_type == 'IMAGE':
@@ -3662,6 +3694,20 @@ def any_linear_images_problem(yp):
                 if (
                     (is_image_source_srgb(image, source) and not linear) or
                     (not is_image_source_srgb(image, source) and linear)
+                    ):
+                    return True
+
+        for ch in layer.channels:
+            if ch.override_1_type == 'IMAGE':
+                linear_1 = layer_tree.nodes.get(ch.linear_1)
+                source_1 = layer_tree.nodes.get(ch.source_1)
+                if not source_1: continue
+
+                image = source_1.image
+                if not image: continue
+                if (
+                    (is_image_source_srgb(image, source_1) and not linear_1) or
+                    (not is_image_source_srgb(image, source_1) and linear_1)
                     ):
                     return True
 
@@ -3693,6 +3739,15 @@ def any_linear_images_problem(yp):
                 return True
 
     return False
+
+def get_write_height(ch):
+    if ch.normal_map_type == 'NORMAL_MAP':
+        return ch.normal_write_height
+    if ch.normal_map_type == 'BUMP_MAP':
+        return ch.write_height
+
+    # BUMP_NORMAL_MAP currently always write height
+    return True 
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

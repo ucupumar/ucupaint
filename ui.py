@@ -77,6 +77,7 @@ def update_yp_ui():
                 c.expand_transition_ao_settings = ch.expand_transition_ao_settings
                 c.expand_input_settings = ch.expand_input_settings
                 c.expand_source = ch.expand_source
+                c.expand_source_1 = ch.expand_source_1
                 c.expand_content = ch.expand_content
 
                 for mod in ch.modifiers:
@@ -1458,18 +1459,19 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 #bbox.active = not is_valid_to_remove_bump_nodes(layer, ch)
                 cccol = bbox.column(align=True)
 
-                brow = cccol.row(align=True)
-                brow.label(text='Write Height:') #, icon_value=lib.get_icon('input'))
-                if ch.normal_map_type == 'NORMAL_MAP':
-                    brow.prop(ch, 'normal_write_height', text='')
-                else: brow.prop(ch, 'write_height', text='')
+                if ch.normal_map_type != 'BUMP_NORMAL_MAP':
+                    brow = cccol.row(align=True)
+                    brow.label(text='Write Height:') #, icon_value=lib.get_icon('input'))
+                    if ch.normal_map_type == 'NORMAL_MAP':
+                        brow.prop(ch, 'normal_write_height', text='')
+                    else: brow.prop(ch, 'write_height', text='')
 
                 #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
 
                 if layer.type != 'GROUP':
                     brow = cccol.row(align=True)
                     brow.active = not ch.enable_transition_bump or ch.normal_map_type != 'NORMAL_MAP'
-                    if ch.normal_map_type == 'BUMP_MAP':
+                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                         brow.label(text='Max Height:') #, icon_value=lib.get_icon('input'))
                         brow.prop(ch, 'bump_distance', text='')
                     else: 
@@ -1478,7 +1480,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
                     #if any(layer.masks):
                     brow = cccol.row(align=True)
-                    write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+                    #write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+                    write_height = get_write_height(ch)
                     brow.active = not ch.enable_transition_bump and any(layer.masks) and not write_height
                     brow.label(text='Affected Masks:') #, icon_value=lib.get_icon('input'))
                     brow.prop(ch, 'transition_bump_chain', text='')
@@ -1628,6 +1631,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
             row.prop(chui, 'expand_source', text='', emboss=False, icon_value=icon_value)
 
         label_str = 'Override'
+        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+            label_str += ' Bump'
         #source = layer_tree.nodes.get(ch.source)
         source = get_channel_source(ch, layer)
         if ch.override_type == 'IMAGE':
@@ -1674,6 +1679,59 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 draw_vcol_props(rbox)
             else:
                 draw_tex_props(ch_source, rbox)
+
+        # Extra override needed when bump and normal are used at the same time
+        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+
+            row = mcol.row(align=True)
+            #if custom_icon_enable:
+            if ch.override_1_type == 'DEFAULT':
+                row.label(text='', icon_value=lib.get_icon('input'))
+            else:
+                if chui.expand_source_1:
+                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                row.prop(chui, 'expand_source_1', text='', emboss=False, icon_value=icon_value)
+
+            label_str = 'Override Normal'
+            source_1 = layer_tree.nodes.get(ch.source_1)
+            if ch.override_1_type == 'IMAGE':
+                if source_1: label_str += ' (' + source_1.image.name + ')'
+            elif ch.override_1_type == 'VCOL':
+                if source_1: label_str += ' (' + get_source_vcol_name(source_1) + ')'
+            elif ch.override_1_type != 'DEFAULT':
+                label_str += ' (' + channel_override_labels[ch.override_1_type] + ')'
+            label_str += ':'
+            row.label(text=label_str)
+
+            row.context_pointer_set('parent', ch)
+            if ch.override_1 and ch.override_1_type == 'DEFAULT':
+                #if root_ch.type == 'VALUE':
+                #    row.prop(ch, 'override_value', text='')
+                #else: 
+                row.prop(ch, 'override_1_color', text='') #, icon='COLOR')
+
+            if ch.override_1_type == 'IMAGE':
+                row.prop(ch, 'active_edit_1', text='', toggle=True, icon_value=lib.get_icon('image'))
+
+            row.prop(ch, 'override_1', text='')
+
+            if is_greater_than_280():
+                row.menu("NODE_MT_y_replace_channel_override_1_menu", icon='PREFERENCES', text='')
+            else: row.menu("NODE_MT_y_replace_channel_override_1_menu", icon='SCRIPTWIN', text='')
+
+            ch_source_1 = None
+            if ch.override_1:
+                ch_source_1 = layer_tree.nodes.get(ch.source_1)
+            elif ch.override_1_type not in {'DEFAULT'}:
+                #ch_source_1 = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_1_type.lower()))
+                ch_source_1 = layer_tree.nodes.get(getattr(ch, 'cache_image'))
+
+            if ch.expand_source_1 and ch.override_1_type == 'IMAGE' and ch_source_1:
+                rrow = mcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                rbox = rrow.box()
+                draw_image_props(context, ch_source_1, rbox)
 
         # Layer input
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'}: #, 'OBJECT_INDEX'
@@ -2840,11 +2898,14 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
 
         overrides = []
         active_override = None
+        override_idx = 0
         for c in layer.channels:
-            if c.override and c.override_type != 'DEFAULT':
+            if (c.override and c.override_type != 'DEFAULT') or (c.override_1 and c.override_1_type != 'DEFAULT'):
                 overrides.append(c)
-                if c.active_edit:
+                if c.active_edit or c.active_edit_1:
                     active_override = c
+                if c.active_edit_1:
+                    override_idx = 1
 
         # Try to get image masks
         editable_masks = []
@@ -2888,25 +2949,28 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
         else:
             if active_override:
+                ae_prop = 'active_edit'
+                if override_idx == 1:
+                    ae_prop = 'active_edit_1'
                 row.active = False
                 if image: 
-                    if image.preview: row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=image.preview.icon_id)
-                    else: row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
+                    if image.preview: row.prop(active_override, ae_prop, text='', emboss=False, icon_value=image.preview.icon_id)
+                    else: row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('image'))
                 #elif vcol: 
                 elif layer.type == 'VCOL': 
-                    #row.prop(active_override, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
-                    row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
+                    #row.prop(active_override, ae_prop, text='', emboss=False, icon='GROUP_VCOL')
+                    row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 elif layer.type == 'COLOR': 
-                    row.prop(active_override, 'active_edit', text='', emboss=False, icon='COLOR')
+                    row.prop(active_override, ae_prop, text='', emboss=False, icon='COLOR')
                 elif layer.type == 'HEMI': 
-                    row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
+                    row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('hemi'))
                 elif layer.type == 'BACKGROUND': 
-                    row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('background'))
+                    row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('background'))
                 elif layer.type == 'GROUP': 
-                    row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('group'))
+                    row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('group'))
                 else: 
-                    #row.prop(active_override, 'active_edit', text='', emboss=False, icon='TEXTURE')
-                    row.prop(active_override, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
+                    #row.prop(active_override, ae_prop, text='', emboss=False, icon='TEXTURE')
+                    row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('texture'))
             else:
                 if image: 
                     if image.preview: row.label(text='', icon_value=image.preview.icon_id)
@@ -2959,6 +3023,22 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 else:
                     row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
+
+            row = master.row(align=True)
+            row.active = c.active_edit_1
+            if c.active_edit_1:
+                src = get_channel_source_1(c, layer)
+                override_ch = c
+                if src and c.override_1_type == 'IMAGE':
+                    active_override_image = src.image
+                    if src.image.preview: row.label(text='', icon_value=src.image.preview.icon_id)
+                    else: row.label(text='', icon_value=lib.get_icon('image'))
+            else:
+                if c.override_1_type == 'IMAGE':
+                    src = get_channel_source_1(c, layer)
+                    if src: 
+                        if src.image.preview: row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                        else: row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=lib.get_icon('image'))
 
         # Mask icons
         active_mask_image = None
@@ -3908,6 +3988,69 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
         #col.operator('node.y_replace_layer_channel_override', text='New Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
         #col.operator('node.y_replace_layer_channel_override', text='Use Available Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
 
+class YReplaceChannelOverride1Menu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_replace_channel_override_1_menu"
+    bl_label = "Replace Channel Override Menu"
+    bl_description = 'Replace Channel Override'
+
+    @classmethod
+    def poll(cls, context):
+        #return hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        #row = self.layout.row()
+        #col = row.column()
+        col = self.layout.column()
+
+        if not hasattr(context, 'parent'):
+            col.label(text='ERROR: Context has no parent!', icon='ERROR')
+            return
+
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+        if m:
+            ch = context.parent
+            yp = ch.id_data.yp
+            layer = yp.layers[int(m.group(1))]
+            root_ch = yp.channels[int(m.group(2))]
+            tree = get_tree(layer)
+        else:
+            return
+
+        col.label(text='Override Type:')
+
+        icon = 'RADIOBUT_ON' if ch.override_1_type == 'DEFAULT' else 'RADIOBUT_OFF'
+        #if root_ch.type == 'VALUE':
+        #    col.operator('node.y_replace_layer_channel_override_1', text='Value', icon=icon).type = 'DEFAULT'
+        #else: 
+        col.operator('node.y_replace_layer_channel_override_1', text='Color', icon=icon).type = 'DEFAULT'
+
+        col.separator()
+
+        label = 'Image'
+        cache_1_image = tree.nodes.get(ch.cache_1_image)
+        #source = tree.nodes.get(ch.source)
+        source = get_channel_source_1(ch, layer)
+        if cache_1_image:
+            label += ': ' + cache_1_image.image.name
+        elif (ch.override_1_type == 'IMAGE' and source):
+            label += ': ' + source.image.name
+
+        icon = 'RADIOBUT_ON' if ch.override_1_type == 'IMAGE' else 'RADIOBUT_OFF'
+        if cache_1_image and ch.override_1_type != 'IMAGE':
+            col.operator('node.y_replace_layer_channel_override_1', text=label, icon=icon).type = 'IMAGE'
+        else:
+            col.label(text=label, icon=icon)
+
+        row = col.row(align=True)
+        ccol = row.column(align=True)
+        ccol.label(text='', icon='BLANK1')
+
+        ccol = row.column(align=True)
+        #ccol.operator('node.y_replace_layer_channel_override_1', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        ccol.operator('node.y_open_image_to_override_1_layer_channel', text='Open Image', icon_value=lib.get_icon('open_image'))
+        ccol.operator('node.y_open_available_data_to_override_channel', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        
 class YAddModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_modifier_menu"
     bl_label = "Add Modifier Menu"
@@ -4108,6 +4251,8 @@ def update_channel_ui(self, context):
         ch.expand_input_settings = self.expand_input_settings
     if hasattr(ch, 'expand_source'):
         ch.expand_source = self.expand_source
+    if hasattr(ch, 'expand_source_1'):
+        ch.expand_source_1 = self.expand_source_1
 
 def update_mask_ui(self, context):
     ypui = context.window_manager.ypui
@@ -4160,6 +4305,7 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_smooth_bump_settings : BoolProperty(default=False, update=update_channel_ui)
     expand_input_settings : BoolProperty(default=True, update=update_channel_ui)
     expand_source : BoolProperty(default=True, update=update_channel_ui)
+    expand_source_1 : BoolProperty(default=True, update=update_channel_ui)
     modifiers : CollectionProperty(type=YModifierUI)
 
 class YMaskChannelUI(bpy.types.PropertyGroup):
@@ -4311,6 +4457,7 @@ def register():
     bpy.utils.register_class(YMaterialSpecialMenu)
     bpy.utils.register_class(YAddModifierMenu)
     bpy.utils.register_class(YReplaceChannelOverrideMenu)
+    bpy.utils.register_class(YReplaceChannelOverride1Menu)
     bpy.utils.register_class(YLayerSpecialMenu)
     bpy.utils.register_class(YModifierUI)
     bpy.utils.register_class(YChannelUI)
@@ -4356,6 +4503,7 @@ def unregister():
     bpy.utils.unregister_class(YMaterialSpecialMenu)
     bpy.utils.unregister_class(YAddModifierMenu)
     bpy.utils.unregister_class(YReplaceChannelOverrideMenu)
+    bpy.utils.unregister_class(YReplaceChannelOverride1Menu)
     bpy.utils.unregister_class(YLayerSpecialMenu)
     bpy.utils.unregister_class(YModifierUI)
     bpy.utils.unregister_class(YChannelUI)

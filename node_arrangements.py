@@ -684,6 +684,12 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, ch.source_w, loc, hide=True):
             loc.y -= 40
 
+        if check_set_node_loc(tree, ch.source_1, loc, hide=False):
+            if ch.override_1_type == 'DEFAULT':
+                loc.y -= 190
+            else:
+                loc.y -= 260
+
         if check_set_node_loc(tree, ch.uv_neighbor, loc):
             loc.y -= 260
 
@@ -768,6 +774,9 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, ch.cache_wave, loc, hide=False):
             loc.y -= 260
 
+        if check_set_node_loc(tree, ch.cache_1_image, loc, hide=False):
+            loc.y -= 270
+
     loc = Vector((-300, 0))
 
     # Layer Caches
@@ -839,7 +848,16 @@ def rearrange_layer_nodes(layer, tree=None):
 
         if ch.source_group == '':
             if check_set_node_loc(tree, ch.linear, loc):
+                linear_1 = nodes.get(ch.linear_1)
+                if linear_1:
+                    loc.y -= 160
+                    check_set_node_loc(tree, ch.linear_1, loc)
                 loc.x += 200
+            elif check_set_node_loc(tree, ch.linear_1, loc):
+                loc.x += 200
+
+        elif check_set_node_loc(tree, ch.linear_1, loc):
+            loc.x += 200
 
         # Modifier loop
         if ch.mod_group != '':

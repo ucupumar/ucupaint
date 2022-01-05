@@ -2033,6 +2033,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb = start_rgb_1
                 alpha = start_alpha_1
 
+        rgb_before_override = rgb
+
         # Channel Override
         if ch.override:
 
@@ -2095,6 +2097,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if alpha_preview:
                     create_link(tree, rgb, alpha_preview)
 
+        override_normal = rgb_before_override
+        ch_source_1 = nodes.get(ch.source_1)
+        ch_linear_1 = nodes.get(ch.linear_1)
+        if ch_source_1 and root_ch.type == 'NORMAL' and ch.override_1 and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+            override_normal = ch_source_1.outputs[0]
+            if ch_linear_1: override_normal = create_link(tree, override_normal, ch_linear_1.inputs[0])[0]
+
         if ch_idx != -1 and i != ch_idx: continue
 
         intensity = nodes.get(ch.intensity)
@@ -2153,7 +2162,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         if root_ch.type == 'NORMAL':
 
-            write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+            write_height = get_write_height(ch)
 
             height_proc = nodes.get(ch.height_proc)
             normal_proc = nodes.get(ch.normal_proc)
@@ -2324,6 +2333,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if ch.normal_map_type == 'NORMAL_MAP':
                 create_link(tree, rgb, normal_proc.inputs['Normal Map'])
+            elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
+                if override_normal:
+                    create_link(tree, override_normal, normal_proc.inputs['Normal Map'])
+                else: create_link(tree, rgb, normal_proc.inputs['Normal Map'])
 
             if write_height:
                 chain_local = len(layer.masks)
@@ -2683,7 +2696,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, height_alpha, height_blend.inputs['Alpha'])
                     create_link(tree, height_proc.outputs['Height'], height_blend.inputs['Height'])
 
-                create_link(tree, height_blend.outputs[0], normal_proc.inputs['Height'])
+                if 'Height' in normal_proc.inputs:
+                    create_link(tree, height_blend.outputs[0], normal_proc.inputs['Height'])
 
             else:
 
@@ -2709,8 +2723,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if alpha_ns: create_link(tree, alpha_ns, height_blend.inputs['Alpha NS'])
                 if alpha_ew: create_link(tree, alpha_ew, height_blend.inputs['Alpha EW'])
 
-                create_link(tree, height_blend.outputs['Height ONS'], normal_proc.inputs['Height ONS'])
-                create_link(tree, height_blend.outputs['Height EW'], normal_proc.inputs['Height EW'])
+                if 'Height ONS' in normal_proc.inputs:
+                    create_link(tree, height_blend.outputs['Height ONS'], normal_proc.inputs['Height ONS'])
+                if 'Height EW' in normal_proc.inputs:
+                    create_link(tree, height_blend.outputs['Height EW'], normal_proc.inputs['Height EW'])
 
             if 'Normal Alpha' in height_blend.outputs:
                 alpha = height_blend.outputs['Normal Alpha']
@@ -2733,7 +2749,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             #if root_ch.type == 'NORMAL' and ch.write_height:
             if write_height:
-                if 'Normal No Bump' in normal_proc.outputs:
+                if ch.normal_map_type == 'BUMP_NORMAL_MAP':
+                    rgb = normal_proc.outputs['Normal']
+                elif 'Normal No Bump' in normal_proc.outputs:
                     rgb = normal_proc.outputs['Normal No Bump']
                 else: 
                     rgb = geometry.outputs['Normal']
