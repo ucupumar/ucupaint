@@ -1619,69 +1619,74 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
         draw_modifier_stack(context, ch, root_ch.type, modcol, 
                 ypui.layer_ui.channels[i], layer)
 
-        # Override settings
-        row = mcol.row(align=True)
-        #if custom_icon_enable:
-        if ch.override_type == 'DEFAULT':
-            row.label(text='', icon_value=lib.get_icon('input'))
-        else:
-            if chui.expand_source:
-                icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-            row.prop(chui, 'expand_source', text='', emboss=False, icon_value=icon_value)
-
-        label_str = 'Override'
-        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
-            label_str += ' Bump'
-        #source = layer_tree.nodes.get(ch.source)
+        # Get sources
         source = get_channel_source(ch, layer)
-        if ch.override_type == 'IMAGE':
-            if source: label_str += ' (' + source.image.name + ')'
-        elif ch.override_type == 'VCOL':
-            if source: label_str += ' (' + get_source_vcol_name(source) + ')'
-        elif ch.override_type != 'DEFAULT':
-            label_str += ' (' + channel_override_labels[ch.override_type] + ')'
-        label_str += ':'
-        row.label(text=label_str)
+        source_1 = layer_tree.nodes.get(ch.source_1)
+        cache_1 = layer_tree.nodes.get(ch.cache_1_image)
 
-        if ch.override_type == 'IMAGE':
-            row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
-        elif ch.override_type == 'VCOL':
-            row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
-        elif ch.override_type != 'DEFAULT':
-            row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
+        # Override settings
+        if root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP' or (not source_1 and not cache_1):
 
-        row.context_pointer_set('parent', ch)
-        if ch.override and ch.override_type == 'DEFAULT':
-            if root_ch.type == 'VALUE':
-                row.prop(ch, 'override_value', text='')
-            else: row.prop(ch, 'override_color', text='') #, icon='COLOR')
-        row.prop(ch, 'override', text='')
-
-        if is_greater_than_280():
-            row.menu("NODE_MT_y_replace_channel_override_menu", icon='PREFERENCES', text='')
-        else: row.menu("NODE_MT_y_replace_channel_override_menu", icon='SCRIPTWIN', text='')
-
-        ch_source = None
-        if ch.override:
-            #ch_source = layer_tree.nodes.get(ch.source)
-            ch_source = get_channel_source(ch, layer)
-        elif ch.override_type not in {'DEFAULT'}:
-            ch_source = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_type.lower()))
-
-        if ch.expand_source and ch.override_type != 'DEFAULT'  and ch_source:
-            rrow = mcol.row(align=True)
-            rrow.label(text='', icon='BLANK1')
-            rbox = rrow.box()
-            if ch.override_type == 'IMAGE':
-                draw_image_props(context, ch_source, rbox)
-            elif ch.override_type == 'VCOL':
-                draw_vcol_props(rbox)
+            row = mcol.row(align=True)
+            #if custom_icon_enable:
+            if ch.override_type == 'DEFAULT':
+                row.label(text='', icon_value=lib.get_icon('input'))
             else:
-                draw_tex_props(ch_source, rbox)
+                if chui.expand_source:
+                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                row.prop(chui, 'expand_source', text='', emboss=False, icon_value=icon_value)
 
-        # Extra override needed when bump and normal are used at the same time
-        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+            label_str = 'Override'
+            if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+                label_str += ' Bump'
+            if ch.override_type == 'IMAGE':
+                if source: label_str += ' (' + source.image.name + ')'
+            elif ch.override_type == 'VCOL':
+                if source: label_str += ' (' + get_source_vcol_name(source) + ')'
+            elif ch.override_type != 'DEFAULT':
+                label_str += ' (' + channel_override_labels[ch.override_type] + ')'
+            label_str += ':'
+            row.label(text=label_str)
+
+            if ch.override_type == 'IMAGE':
+                row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
+            elif ch.override_type == 'VCOL':
+                row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+            elif ch.override_type != 'DEFAULT':
+                row.prop(ch, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
+
+            row.context_pointer_set('parent', ch)
+            if ch.override and ch.override_type == 'DEFAULT':
+                if root_ch.type == 'VALUE':
+                    row.prop(ch, 'override_value', text='')
+                else: row.prop(ch, 'override_color', text='') #, icon='COLOR')
+            row.prop(ch, 'override', text='')
+
+            if is_greater_than_280():
+                row.menu("NODE_MT_y_replace_channel_override_menu", icon='PREFERENCES', text='')
+            else: row.menu("NODE_MT_y_replace_channel_override_menu", icon='SCRIPTWIN', text='')
+
+            ch_source = None
+            if ch.override:
+                #ch_source = layer_tree.nodes.get(ch.source)
+                ch_source = get_channel_source(ch, layer)
+            elif ch.override_type not in {'DEFAULT'}:
+                ch_source = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_type.lower()))
+
+            if ch.expand_source and ch.override_type != 'DEFAULT'  and ch_source:
+                rrow = mcol.row(align=True)
+                rrow.label(text='', icon='BLANK1')
+                rbox = rrow.box()
+                if ch.override_type == 'IMAGE':
+                    draw_image_props(context, ch_source, rbox)
+                elif ch.override_type == 'VCOL':
+                    draw_vcol_props(rbox)
+                else:
+                    draw_tex_props(ch_source, rbox)
+
+        # Override 1
+        if root_ch.type == 'NORMAL' and (ch.normal_map_type == 'BUMP_NORMAL_MAP' or (ch.normal_map_type == 'NORMAL_MAP' and (source_1 or cache_1))):
 
             row = mcol.row(align=True)
             #if custom_icon_enable:
@@ -1694,7 +1699,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 row.prop(chui, 'expand_source_1', text='', emboss=False, icon_value=icon_value)
 
             label_str = 'Override Normal'
-            source_1 = layer_tree.nodes.get(ch.source_1)
             if ch.override_1_type == 'IMAGE':
                 if source_1: label_str += ' (' + source_1.image.name + ')'
             elif ch.override_1_type == 'VCOL':
@@ -1725,7 +1729,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 ch_source_1 = layer_tree.nodes.get(ch.source_1)
             elif ch.override_1_type not in {'DEFAULT'}:
                 #ch_source_1 = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_1_type.lower()))
-                ch_source_1 = layer_tree.nodes.get(getattr(ch, 'cache_image'))
+                ch_source_1 = layer_tree.nodes.get(getattr(ch, 'cache_1_image'))
 
             if ch.expand_source_1 and ch.override_1_type == 'IMAGE' and ch_source_1:
                 rrow = mcol.row(align=True)
@@ -4049,7 +4053,7 @@ class YReplaceChannelOverride1Menu(bpy.types.Menu):
         ccol = row.column(align=True)
         #ccol.operator('node.y_replace_layer_channel_override_1', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
         ccol.operator('node.y_open_image_to_override_1_layer_channel', text='Open Image', icon_value=lib.get_icon('open_image'))
-        ccol.operator('node.y_open_available_data_to_override_channel', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
+        ccol.operator('node.y_open_available_data_to_override_1_channel', text='Open Available Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
         
 class YAddModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_modifier_menu"

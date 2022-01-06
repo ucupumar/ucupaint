@@ -2097,10 +2097,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if alpha_preview:
                     create_link(tree, rgb, alpha_preview)
 
+        # Override Normal
         override_normal = rgb_before_override
         ch_source_1 = nodes.get(ch.source_1)
         ch_linear_1 = nodes.get(ch.linear_1)
-        if ch_source_1 and root_ch.type == 'NORMAL' and ch.override_1 and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+
+        if ch_source_1 and root_ch.type == 'NORMAL' and ch.override_1: #and ch.normal_map_type == 'BUMP_NORMAL_MAP':
             override_normal = ch_source_1.outputs[0]
             if ch_linear_1: override_normal = create_link(tree, override_normal, ch_linear_1.inputs[0])[0]
 
@@ -2116,6 +2118,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if ch_linear:
                 create_link(tree, rgb, ch_linear.inputs[0])
                 rgb = ch_linear.outputs[0]
+
+        # Check if normal is overriden
+        if override_normal != rgb_before_override and ch.normal_map_type == 'NORMAL_MAP':
+            rgb = override_normal
 
         mod_group = nodes.get(ch.mod_group)
 

@@ -1721,6 +1721,96 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
         return {'FINISHED'}
 
+class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
+    """Open Available Data to Override 1 Channel Layer"""
+    bl_idname = "node.y_open_available_data_to_override_1_channel"
+    bl_label = "Open Available Data to Override 1 Channel Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    image_name : StringProperty(name="Image")
+    image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    @classmethod
+    def poll(cls, context):
+        #return hasattr(context, 'group_node') and context.group_node
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        self.ch = context.parent
+        obj = context.object
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        # Update image names
+        self.image_coll.clear()
+        imgs = bpy.data.images
+        baked_channel_images = get_all_baked_channel_images(node.node_tree)
+        for img in imgs:
+            if not img.yia.is_image_atlas and img not in baked_channel_images:
+                self.image_coll.add().name = img.name
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        obj = context.object
+
+        self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
+
+    def execute(self, context):
+        T = time.time()
+        wm = context.window_manager
+
+        obj = context.object
+        mat = obj.active_material
+
+        ch = self.ch
+        yp = ch.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        if not m: return []
+        layer = yp.layers[int(m.group(1))]
+        root_ch = yp.channels[int(m.group(2))]
+        tree = get_tree(layer)
+
+        # Make sure channel is on
+        if not ch.enable:
+            ch.enable = True
+
+        # Make sure override is on
+        if not ch.override_1:
+            ch.override_1 = True
+
+        if self.image_name == '':
+            self.report({'ERROR'}, "Image name cannot be empty!")
+            return {'CANCELLED'}
+        image = bpy.data.images.get(self.image_name)
+
+        if not image:
+            self.report({'ERROR'}, "Image named " + self.image_name + " is not found!")
+            return {'CANCELLED'}
+
+        # Update image cache
+        if ch.override_1_type == 'IMAGE':
+            #source_tree = get_channel_source_tree(ch, layer)
+            source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
+            image_node, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
+        else: image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
+
+        image_node.image = image
+        #if image.colorspace_settings.name != 'Linear':
+        #    image.colorspace_settings.name = 'Linear'
+
+        ch.override_1_type = 'IMAGE'
+        ch.active_edit_1 = True
+
+        # Update UI
+        wm.ypui.need_update = True
+        print('INFO: Data is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        return {'FINISHED'}
+
 class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
     """Open Available Data to Override Channel Layer"""
     bl_idname = "node.y_open_available_data_to_override_channel"
@@ -4462,6 +4552,7 @@ def register():
     bpy.utils.register_class(YOpenImageToOverride1Channel)
     bpy.utils.register_class(YOpenAvailableDataToLayer)
     bpy.utils.register_class(YOpenAvailableDataToOverrideChannel)
+    bpy.utils.register_class(YOpenAvailableDataToOverride1Channel)
     bpy.utils.register_class(YMoveLayer)
     bpy.utils.register_class(YMoveInOutLayerGroup)
     bpy.utils.register_class(YMoveInOutLayerGroupMenu)
@@ -4485,6 +4576,7 @@ def unregister():
     bpy.utils.unregister_class(YOpenImageToOverride1Channel)
     bpy.utils.unregister_class(YOpenAvailableDataToLayer)
     bpy.utils.unregister_class(YOpenAvailableDataToOverrideChannel)
+    bpy.utils.unregister_class(YOpenAvailableDataToOverride1Channel)
     bpy.utils.unregister_class(YMoveLayer)
     bpy.utils.unregister_class(YMoveInOutLayerGroup)
     bpy.utils.unregister_class(YMoveInOutLayerGroupMenu)
