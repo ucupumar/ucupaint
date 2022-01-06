@@ -2035,8 +2035,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         rgb_before_override = rgb
 
-        # Channel Override
-        if ch.override:
+        # Channel Override 
+        if ch.override and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
 
             ch_source_group = nodes.get(ch.source_group)
             if ch_source_group:
@@ -2098,13 +2098,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, rgb, alpha_preview)
 
         # Override Normal
-        override_normal = rgb_before_override
+        #override_normal = rgb_before_override
+        override_normal = None
         ch_source_1 = nodes.get(ch.source_1)
         ch_linear_1 = nodes.get(ch.linear_1)
 
-        if ch_source_1 and root_ch.type == 'NORMAL' and ch.override_1: #and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+        if ch_source_1: #and root_ch.type == 'NORMAL' and ch.override_1: #and ch.normal_map_type == 'BUMP_NORMAL_MAP':
             override_normal = ch_source_1.outputs[0]
             if ch_linear_1: override_normal = create_link(tree, override_normal, ch_linear_1.inputs[0])[0]
+
+            if 'Vector' in ch_source_1.inputs:
+                create_link(tree, vector, ch_source_1.inputs['Vector'])
 
         if ch_idx != -1 and i != ch_idx: continue
 
@@ -2113,14 +2117,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         extra_alpha = nodes.get(ch.extra_alpha)
         blend = nodes.get(ch.blend)
 
-        if ch.source_group == '':
+        if ch.source_group == '' and (root_ch.type != 'NORMAL' or  ch.normal_map_type != 'NORMAL_MAP'):
             ch_linear = nodes.get(ch.linear)
             if ch_linear:
                 create_link(tree, rgb, ch_linear.inputs[0])
                 rgb = ch_linear.outputs[0]
 
         # Check if normal is overriden
-        if override_normal != rgb_before_override and ch.normal_map_type == 'NORMAL_MAP':
+        #if override_normal != rgb_before_override and ch.normal_map_type == 'NORMAL_MAP':
+        if override_normal and ch.normal_map_type == 'NORMAL_MAP':
             rgb = override_normal
 
         mod_group = nodes.get(ch.mod_group)

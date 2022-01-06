@@ -910,6 +910,7 @@ def update_mask_active_edit(self, context):
         yp.halt_update = True
         for c in layer.channels:
             c.active_edit = False
+            c.active_edit_1 = False
 
         for m in layer.masks:
             if m == self: continue

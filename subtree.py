@@ -2146,7 +2146,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     #        remove_node(tree, ch, 'normal_flip_' + d)
 
     # Normal Process
-    if ch.normal_map_type == 'NORMAL_MAP':
+    if ch.normal_map_type == 'NORMAL_MAP' or (ch.normal_map_type == 'BUMP_NORMAL_MAP' and not ch.write_height):
         if root_ch.enable_smooth_bump:
             if ch.enable_transition_bump:
                 lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_TRANSITION

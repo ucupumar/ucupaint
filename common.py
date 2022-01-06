@@ -3743,11 +3743,11 @@ def any_linear_images_problem(yp):
 def get_write_height(ch):
     if ch.normal_map_type == 'NORMAL_MAP':
         return ch.normal_write_height
-    if ch.normal_map_type == 'BUMP_MAP':
-        return ch.write_height
+    #if ch.normal_map_type == 'BUMP_MAP':
+    return ch.write_height
 
     # BUMP_NORMAL_MAP currently always write height
-    return True 
+    #return True 
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

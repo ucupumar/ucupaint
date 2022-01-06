@@ -789,6 +789,34 @@ def update_routine(name):
                     rearrange_layer_nodes(layer)
                     reconnect_layer_nodes(layer)
 
+        # Version 0.9.9 have separate normal and bump override
+        if LooseVersion(ng.yp.version) < LooseVersion('0.9.9'):
+            for layer in ng.yp.layers:
+                for i, ch in enumerate(layer.channels):
+                    root_ch = ng.yp.channels[i]
+                    if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP' and ch.override:
+
+                        # Disable override first
+                        ch.override = False
+
+                        # Rename pointers
+                        ch.cache_1_image = ch.cache_image
+
+                        # Remove previous pointers
+                        ch.cache_image = ''
+
+                        # Copy props
+                        ch.override_1_type = ch.override_type
+                        ch.override_type = 'DEFAULT'
+
+                        # Enable override
+                        ch.override_1 = True
+
+                        # Copy active edit
+                        ch.active_edit_1 = ch.active_edit
+
+                        print('INFO:', layer.name, root_ch.name, 'now has separate override properties!')
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version
