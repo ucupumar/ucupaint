@@ -1,7 +1,7 @@
 import bpy, re, time
 from bpy.props import *
 from bpy.app.handlers import persistent
-from . import lib, Modifier, MaskModifier, Root
+from . import lib, Modifier, MaskModifier, NormalMapModifier, Root
 from .common import *
 #from .subtree import *
 
@@ -82,6 +82,10 @@ def update_yp_ui():
 
                 for mod in ch.modifiers:
                     m = c.modifiers.add()
+                    m.expand_content = mod.expand_content
+
+                for mod in ch.modifiers_1:
+                    m = c.modifiers_1.add()
                     m.expand_content = mod.expand_content
 
             # Construct layer masks UI objects
@@ -486,14 +490,20 @@ def draw_mask_modifier_stack(layer, mask, layout, ui): #, custom_icon_enable):
             box.active = m.enable
             MaskModifier.draw_modifier_properties(tree, m, box)
 
-#def draw_modifier_stack(context, parent, channel_type, layout, ui, custom_icon_enable, layer=None, extra_blank=False):
-def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False):
+def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False, use_modifier_1=False):
 
     ypui = context.window_manager.ypui
 
-    for i, m in enumerate(parent.modifiers):
+    modifiers = parent.modifiers
+    if use_modifier_1:
+        modifiers = parent.modifiers_1
 
-        try: modui = ui.modifiers[i]
+    for i, m in enumerate(modifiers):
+
+        try: 
+            if use_modifier_1:
+                modui = ui.modifiers_1[i]
+            else: modui = ui.modifiers[i]
         except: 
             ypui.need_update = True
             return
@@ -532,9 +542,14 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('parent', parent)
         row.context_pointer_set('modifier', m)
-        if is_greater_than_280():
-            row.menu("NODE_MT_y_modifier_menu", text='', icon='PREFERENCES')
-        else: row.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
+        if use_modifier_1:
+            if is_greater_than_280():
+                row.menu("NODE_MT_y_modifier1_menu", text='', icon='PREFERENCES')
+            else: row.menu("NODE_MT_y_modifier1_menu", text='', icon='SCRIPTWIN')
+        else:
+            if is_greater_than_280():
+                row.menu("NODE_MT_y_modifier_menu", text='', icon='PREFERENCES')
+            else: row.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
         row.prop(m, 'enable', text='')
 
         if modui.expand_content and can_be_expanded:
@@ -543,7 +558,10 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
             row.label(text='', icon='BLANK1')
             box = row.box()
             box.active = m.enable
-            Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, box, False)
+            if use_modifier_1:
+                NormalMapModifier.draw_modifier_properties(m, box)
+            else: Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, box, False)
+
             #row.label(text='', icon='BLANK1')
 
 def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
@@ -1025,8 +1043,6 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     modcol = rcol.column()
     modcol.active = layer.type not in {'BACKGROUND', 'GROUP'}
-    #draw_modifier_stack(context, layer, 'RGB', modcol, 
-    #        lui, custom_icon_enable, layer)
     draw_modifier_stack(context, layer, 'RGB', modcol, 
             lui, layer)
 
@@ -1612,13 +1628,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
             extra_separator = True
 
-        modcol = mcol.column()
-        modcol.active = layer.type != 'BACKGROUND'
-        #draw_modifier_stack(context, ch, root_ch.type, modcol, 
-        #        ypui.layer_ui.channels[i], custom_icon_enable, layer)
-        draw_modifier_stack(context, ch, root_ch.type, modcol, 
-                ypui.layer_ui.channels[i], layer)
-
         # Get sources
         source = get_channel_source(ch, layer)
         source_1 = layer_tree.nodes.get(ch.source_1)
@@ -1626,6 +1635,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
         # Override settings
         if root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP': # or (not source_1 and not cache_1):
+
+            modcol = mcol.column()
+            modcol.active = layer.type != 'BACKGROUND'
+            draw_modifier_stack(context, ch, root_ch.type, modcol, 
+                    ypui.layer_ui.channels[i], layer)
 
             row = mcol.row(align=True)
             #if custom_icon_enable:
@@ -1687,6 +1701,11 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
         # Override 1
         if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}: # and (source_1 or cache_1))):
+
+            modcol = mcol.column()
+            modcol.active = layer.type != 'BACKGROUND'
+            draw_modifier_stack(context, ch, root_ch.type, modcol, 
+                    ypui.layer_ui.channels[i], layer, use_modifier_1=True)
 
             row = mcol.row(align=True)
             #if custom_icon_enable:
@@ -3579,6 +3598,35 @@ class YModifierMenu(bpy.types.Menu):
         #    col.separator()
         #    col.prop(context.modifier, 'shortcut', text='Shortcut on layer list')
 
+class YModifier1Menu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_modifier1_menu"
+    bl_label = "Modifier Menu"
+    bl_description = "Modifier Menu"
+
+    @classmethod
+    def poll(cls, context):
+        #return hasattr(context, 'modifier') and hasattr(context, 'parent') and get_active_ypaint_node()
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+        layout = self.layout
+        col = layout.column()
+
+        if not hasattr(context, 'parent') or not hasattr(context, 'modifier'):
+            col.label(text='ERROR: Context has no parent or modifier!', icon='ERROR')
+            return
+
+        op = col.operator('node.y_move_normalmap_modifier', icon='TRIA_UP', text='Move Modifier Up')
+        op.direction = 'UP'
+
+        op = col.operator('node.y_move_normalmap_modifier', icon='TRIA_DOWN', text='Move Modifier Down')
+        op.direction = 'DOWN'
+
+        col.separator()
+        if is_greater_than_280():
+            op = col.operator('node.y_remove_normalmap_modifier', icon='REMOVE', text='Remove Modifier')
+        else: op = col.operator('node.y_remove_normalmap_modifier', icon='ZOOMOUT', text='Remove Modifier')
+
 class YMaskModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_mask_modifier_menu"
     bl_label = "Mask Modifier Menu"
@@ -4076,13 +4124,35 @@ class YAddModifierMenu(bpy.types.Menu):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
             return
 
-        col.label(text='Add Modifier')
-        ## List the items
-        for mt in Modifier.modifier_type_items:
-            # Override color modifier is deprecated
-            if mt[0] == 'OVERRIDE_COLOR': continue
-            if mt[0] == 'MULTIPLIER': continue
-            col.operator('node.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
+        is_normal_layer_channel = False
+        is_bump_normal_layer_channel = False
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+        if m:
+            if context.parent.normal_map_type == 'NORMAL_MAP':
+                is_normal_layer_channel = True
+            if context.parent.normal_map_type == 'BUMP_NORMAL_MAP':
+                is_bump_normal_layer_channel = True
+
+        if is_bump_normal_layer_channel:
+            col.label(text='Add Modifier (Bump)')
+        else:
+            col.label(text='Add Modifier')
+
+        if not is_normal_layer_channel:
+            ## List the items
+            for mt in Modifier.modifier_type_items:
+                # Override color modifier is deprecated
+                if mt[0] == 'OVERRIDE_COLOR': continue
+                if mt[0] == 'MULTIPLIER': continue
+                col.operator('node.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
+
+        if is_bump_normal_layer_channel:
+            col = row.column()
+            col.label(text='Add Modifier (Normal)')
+
+        if is_normal_layer_channel or is_bump_normal_layer_channel:
+            col.operator('node.y_new_normalmap_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
+            col.operator('node.y_new_normalmap_modifier', text='Math', icon_value=lib.get_icon('modifier')).type = 'MATH'
 
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
         if m:
@@ -4183,17 +4253,20 @@ def update_modifier_ui(self, context):
     yp = group_node.node_tree.yp
 
     match1 = re.match(r'ypui\.layer_ui\.channels\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
-    match2 = re.match(r'ypui\.channel_ui\.modifiers\[(\d+)\]', self.path_from_id())
-    match3 = re.match(r'ypui\.layer_ui\.modifiers\[(\d+)\]', self.path_from_id())
-    match4 = re.match(r'ypui\.layer_ui\.masks\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
+    match2 = re.match(r'ypui\.layer_ui\.channels\[(\d+)\]\.modifiers_1\[(\d+)\]', self.path_from_id())
+    match3 = re.match(r'ypui\.channel_ui\.modifiers\[(\d+)\]', self.path_from_id())
+    match4 = re.match(r'ypui\.layer_ui\.modifiers\[(\d+)\]', self.path_from_id())
+    match5 = re.match(r'ypui\.layer_ui\.masks\[(\d+)\]\.modifiers\[(\d+)\]', self.path_from_id())
     if match1:
         mod = yp.layers[yp.active_layer_index].channels[int(match1.group(1))].modifiers[int(match1.group(2))]
     elif match2:
-        mod = yp.channels[yp.active_channel_index].modifiers[int(match2.group(1))]
+        mod = yp.layers[yp.active_layer_index].channels[int(match2.group(1))].modifiers_1[int(match2.group(2))]
     elif match3:
-        mod = yp.layers[yp.active_layer_index].modifiers[int(match3.group(1))]
+        mod = yp.channels[yp.active_channel_index].modifiers[int(match3.group(1))]
     elif match4:
-        mod = yp.layers[yp.active_layer_index].masks[int(match4.group(1))].modifiers[int(match4.group(2))]
+        mod = yp.layers[yp.active_layer_index].modifiers[int(match4.group(1))]
+    elif match5:
+        mod = yp.layers[yp.active_layer_index].masks[int(match5.group(1))].modifiers[int(match5.group(2))]
     #else: return #yolo
 
     mod.expand_content = self.expand_content
@@ -4313,6 +4386,7 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_source : BoolProperty(default=True, update=update_channel_ui)
     expand_source_1 : BoolProperty(default=True, update=update_channel_ui)
     modifiers : CollectionProperty(type=YModifierUI)
+    modifiers_1 : CollectionProperty(type=YModifierUI)
 
 class YMaskChannelUI(bpy.types.PropertyGroup):
     expand_content : BoolProperty(default=False, update=update_mask_channel_ui)
@@ -4454,6 +4528,7 @@ def register():
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YUVSpecialMenu)
     bpy.utils.register_class(YModifierMenu)
+    bpy.utils.register_class(YModifier1Menu)
     bpy.utils.register_class(YMaskModifierMenu)
     bpy.utils.register_class(YTransitionBumpMenu)
     bpy.utils.register_class(YTransitionRampMenu)
@@ -4500,6 +4575,7 @@ def unregister():
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YUVSpecialMenu)
     bpy.utils.unregister_class(YModifierMenu)
+    bpy.utils.unregister_class(YModifier1Menu)
     bpy.utils.unregister_class(YMaskModifierMenu)
     bpy.utils.unregister_class(YTransitionBumpMenu)
     bpy.utils.unregister_class(YTransitionRampMenu)

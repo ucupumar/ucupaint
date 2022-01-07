@@ -400,12 +400,25 @@ def check_modifier_nodes(m, tree, ref_tree=None):
 
                 duplicate_lib_node_tree(math)
                 math.inputs[2].default_value = m.math_r_val
+
+                math.node_tree.nodes.get('Math.R').operation = m.math_meth
+                math.node_tree.nodes.get('Math.A').operation = m.math_meth
+
+                math.node_tree.nodes.get('Math.R').use_clamp = m.use_clamp
+                math.node_tree.nodes.get('Math.A').use_clamp = m.use_clamp
+
                 if channel_type == 'VALUE':
                     math.inputs[3].default_value = m.math_a_val
                 else:
                     math.inputs[3].default_value = m.math_g_val
                     math.inputs[4].default_value = m.math_b_val
                     math.inputs[5].default_value = m.math_a_val
+
+                    math.node_tree.nodes.get('Math.G').operation = m.math_meth
+                    math.node_tree.nodes.get('Math.B').operation = m.math_meth
+
+                    math.node_tree.nodes.get('Math.G').use_clamp = m.use_clamp
+                    math.node_tree.nodes.get('Math.B').use_clamp = m.use_clamp
 
 def add_new_modifier(parent, modifier_type):
 

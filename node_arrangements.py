@@ -276,7 +276,7 @@ def arrange_mask_modifier_nodes(tree, mask, loc):
 
     return loc
 
-def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=False):
+def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=False, use_modifier_1=False):
 
     ori_y = loc.y
     offset_y = 0
@@ -292,9 +292,12 @@ def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=Fa
     #if check_set_node_loc(tree, parent.start_alpha, loc):
     #    loc.x += 100
     #    loc.y = ori_y
+    modifiers = parent.modifiers
+    if use_modifier_1:
+        modifiers = parent.modifiers_1
 
     # Modifier loops
-    for m in reversed(parent.modifiers):
+    for m in reversed(modifiers):
 
         #loc.y -= 35
         #check_set_node_loc(tree, m.start_rgb, loc)
@@ -848,16 +851,7 @@ def rearrange_layer_nodes(layer, tree=None):
 
         if ch.source_group == '':
             if check_set_node_loc(tree, ch.linear, loc):
-                linear_1 = nodes.get(ch.linear_1)
-                if linear_1:
-                    loc.y -= 160
-                    check_set_node_loc(tree, ch.linear_1, loc)
                 loc.x += 200
-            elif check_set_node_loc(tree, ch.linear_1, loc):
-                loc.x += 200
-
-        elif check_set_node_loc(tree, ch.linear_1, loc):
-            loc.x += 200
 
         # Modifier loop
         if ch.mod_group != '':
@@ -884,6 +878,29 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, ch.mod_w, loc, hide=True):
             loc.y = bookmark_y
             loc.x += 160
+
+        bookmark_x1 = loc.x
+
+        linear_1 = nodes.get(ch.linear_1)
+        if linear_1:
+            loc.x = start_x
+            loc.y -= offset_y
+            offset_y = 0
+            check_set_node_loc(tree, ch.linear_1, loc)
+            loc.x += 200
+
+        if len(ch.modifiers_1) > 0:
+            if not linear_1: 
+                loc.x = start_x
+                loc.y -= offset_y
+
+            loc, mod_offset_y = arrange_modifier_nodes(tree, ch, loc, 
+                    is_value = root_ch.type == 'VALUE', return_y_offset = True, use_modifier_1=True)
+
+            offset_y = mod_offset_y
+
+        if loc.x < bookmark_x1:
+            loc.x = bookmark_x1
 
         #if bump_ch or chain == 0:
         #    rearrange_normal_process_nodes(tree, ch, loc)
