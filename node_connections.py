@@ -2103,7 +2103,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Override Normal
         normal = rgb_before_override
-        #normal = None
         ch_source_1 = nodes.get(ch.source_1)
         ch_linear_1 = nodes.get(ch.linear_1)
 
@@ -2128,7 +2127,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 rgb = ch_linear.outputs[0]
 
         # Check if normal is overriden
-        if normal and root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
+        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
             rgb = normal
 
         mod_group = nodes.get(ch.mod_group)
@@ -2147,7 +2146,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         else:
             rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
 
-            if normal and root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+            if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
                 normal, alpha_normal = reconnect_all_modifier_nodes(tree, ch, normal, alpha_after_mod, use_modifier_1=True)
 
         rgb_after_mod = rgb
@@ -2353,8 +2352,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if ch.normal_map_type == 'NORMAL_MAP':
                 create_link(tree, rgb, normal_proc.inputs['Normal Map'])
             elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                if normal: create_link(tree, normal, normal_proc.inputs['Normal Map'])
-                else: create_link(tree, rgb, normal_proc.inputs['Normal Map'])
+                create_link(tree, normal, normal_proc.inputs['Normal Map'])
+                #else: create_link(tree, rgb, normal_proc.inputs['Normal Map'])
 
             if write_height:
                 chain_local = len(layer.masks)
