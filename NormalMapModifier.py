@@ -10,15 +10,6 @@ normalmap_modifier_type_items = (
         ('MATH', 'Math', '', 'MODIFIER', 1),
         )
 
-math_method_items = (
-    ("ADD", "Add", ""),
-    ("SUBTRACT", "Subtract", ""),
-    ("MULTIPLY", "Multiply", ""),
-    ("DIVIDE", "Divide", ""),
-    ("POWER", "Power", ""),
-    ("LOGARITHM", "Logarithm", ""),
-)
-
 def check_normalmap_modifier_nodes(m, tree):
 
     # Create the nodes

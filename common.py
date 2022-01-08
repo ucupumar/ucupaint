@@ -350,6 +350,15 @@ io_names = {
         'Reflection' : 'Texcoord Reflection',
         }
 
+math_method_items = (
+    ("ADD", "Add", ""),
+    ("SUBTRACT", "Subtract", ""),
+    ("MULTIPLY", "Multiply", ""),
+    ("DIVIDE", "Divide", ""),
+    ("POWER", "Power", ""),
+    ("LOGARITHM", "Logarithm", ""),
+)
+
 TEXCOORD_IO_PREFIX = 'Texcoord '
 PARALLAX_MIX_PREFIX = 'Parallax Mix '
 PARALLAX_DELTA_PREFIX = 'Parallax Delta '

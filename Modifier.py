@@ -43,15 +43,6 @@ can_be_expanded = {
         'MATH'
         }
 
-math_method_items = (
-    ("ADD", "Add", ""),
-    ("SUBTRACT", "Subtract", ""),
-    ("MULTIPLY", "Multiply", ""),
-    ("DIVIDE", "Divide", ""),
-    ("POWER", "Power", ""),
-    ("LOGARITHM", "Logarithm", ""),
-)
-
 def get_modifier_channel_type(mod, return_non_color=False):
 
     yp = mod.id_data.yp

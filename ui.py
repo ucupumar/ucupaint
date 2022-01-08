@@ -498,6 +498,14 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
     if use_modifier_1:
         modifiers = parent.modifiers_1
 
+    # Check if parent is layer channel
+    match = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', parent.path_from_id())
+    if match:
+        yp = parent.id_data.yp
+        layer = yp.layers[int(match.group(1))]
+        root_ch = yp.channels[int(match.group(2))]
+        ch = layer.channels[int(match.group(2))]
+
     for i, m in enumerate(modifiers):
 
         try: 
@@ -524,13 +532,46 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
         else:
             row.label(text='', icon_value=lib.get_icon('modifier'))
         
-        row.label(text=m.name)
+        label = m.name
+
+        # If parent is layer channel
+        if match:
+            if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+                if use_modifier_1:
+                    label += ' (Normal)'
+                else: label += ' (Bump)'
+
+        #if m.type == 'MATH' and not modui.expand_content:
+        #    method_name = [mt[1] for mt in math_method_items if mt[0] == m.math_meth][0]
+        #    label += ' (' + method_name + ')'
+
+        row.label(text=label)
 
         if not modui.expand_content:
 
             if m.type == 'RGB_TO_INTENSITY':
                 row.prop(m, 'rgb2i_col', text='', icon='COLOR')
                 row.separator()
+
+            #if m.type == 'INVERT':
+            #    if channel_type == 'VALUE':
+            #        row.prop(m, 'invert_r_enable', text='Value', toggle=True)
+            #        row.prop(m, 'invert_a_enable', text='Alpha', toggle=True)
+            #    else:
+            #        row.prop(m, 'invert_r_enable', text='R', toggle=True)
+            #        row.prop(m, 'invert_g_enable', text='G', toggle=True)
+            #        row.prop(m, 'invert_b_enable', text='B', toggle=True)
+            #        row.prop(m, 'invert_a_enable', text='A', toggle=True)
+            #    row.separator()
+
+            #if m.type == 'MATH':
+            #    row.prop(m, 'math_r_val', text='')
+            #    if channel_type != 'VALUE':
+            #        row.prop(m, 'math_g_val', text='')
+            #        row.prop(m, 'math_b_val', text='')
+            #    if m.affect_alpha :
+            #        row.prop(m, 'math_a_val', text='')
+            #    row.separator()
 
             if m.type == 'OVERRIDE_COLOR': # and not m.oc_use_normal_base:
                 if channel_type == 'VALUE':
@@ -4124,17 +4165,25 @@ class YAddModifierMenu(bpy.types.Menu):
             col.label(text='ERROR: Context has no parent!', icon='ERROR')
             return
 
+        is_bump_layer_channel = False
         is_normal_layer_channel = False
         is_bump_normal_layer_channel = False
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
         if m:
-            if context.parent.normal_map_type == 'NORMAL_MAP':
-                is_normal_layer_channel = True
-            if context.parent.normal_map_type == 'BUMP_NORMAL_MAP':
-                is_bump_normal_layer_channel = True
+            yp = context.parent.id_data.yp
+            root_ch = yp.channels[int(m.group(2))]
+            if root_ch.type == 'NORMAL':
+                if context.parent.normal_map_type == 'BUMP_MAP':
+                    is_bump_layer_channel = True
+                elif context.parent.normal_map_type == 'NORMAL_MAP':
+                    is_normal_layer_channel = True
+                elif context.parent.normal_map_type == 'BUMP_NORMAL_MAP':
+                    is_bump_normal_layer_channel = True
 
-        if is_bump_normal_layer_channel:
+        if is_bump_normal_layer_channel or is_bump_layer_channel:
             col.label(text='Add Modifier (Bump)')
+        elif is_normal_layer_channel:
+            col.label(text='Add Modifier (Normal)')
         else:
             col.label(text='Add Modifier')
 
@@ -4147,19 +4196,15 @@ class YAddModifierMenu(bpy.types.Menu):
                 col.operator('node.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
         if is_bump_normal_layer_channel:
-            col = row.column()
+            #col = row.column()
+            col.separator()
             col.label(text='Add Modifier (Normal)')
 
         if is_normal_layer_channel or is_bump_normal_layer_channel:
             col.operator('node.y_new_normalmap_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
             col.operator('node.y_new_normalmap_modifier', text='Math', icon_value=lib.get_icon('modifier')).type = 'MATH'
 
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
         if m:
-
-            ch = context.parent
-            yp = ch.id_data.yp
-            root_ch = yp.channels[int(m.group(2))]
 
             col = row.column()
             col.label(text='Transition Effects')
