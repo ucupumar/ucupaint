@@ -1411,15 +1411,20 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
             ch_name = ch.name.lower()
 
             # Get synonyms
+            synonyms = []
             if ch_name in synonym_libs:
                 synonyms = synonym_libs[ch_name]
-            else: synonyms = []
             synonyms.append(ch_name)
 
+            # Normal channel can use two override images, this flag will check it
+            secondary_imgae_found = False
+            main_image_found = False
+                
             for syname in synonyms:
 
                 # Break if channel already used
-                if ch in valid_channels: break
+                #if ch in valid_channels: break
+                if main_image_found: break
             
                 # Get channel name possible variation
                 initial = syname[0]
@@ -1430,7 +1435,7 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
 
                 no_whitespace = syname.replace(' ', '')
                 underscore = syname.replace(' ', '_')
-                
+
                 for image in images:
 
                     # One image will only use one channel
@@ -1440,9 +1445,6 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                     img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
 
                     if (
-                            # Check color image with rather custom name
-                            #ch.name.lower() in {'color', 'diffuse'} and img_name.lower().endswith(('_col', '.col', '_dif', '.dif')) or
-
                             # Check image name suffix and match it with channel name
                             (img_name.endswith(syname)) or
 
@@ -1461,11 +1463,16 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                         valid_images.append(image)
                         valid_channels.append(ch)
                         valid_synonyms.append(syname)
-                        break
 
-        #for i, image in enumerate(valid_images):
-        #    #print(image.name, yp.channels[channel_ids[i]].name)
-        #    print(image.name, valid_channels[i].name)
+                        if ch.type != 'NORMAL' or secondary_imgae_found:
+                            main_image_found = True
+                            break
+
+                        secondary_imgae_found = True
+
+        for i, image in enumerate(valid_images):
+            #print(image.name, yp.channels[channel_ids[i]].name)
+            print(image.name, valid_channels[i].name, valid_synonyms[i])
 
         if not valid_images:
             # Remove loaded images
@@ -1474,7 +1481,15 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                 bpy.data.images.remove(image)
             self.report({'ERROR'}, "Images should have channel name as suffix!")
             return {'CANCELLED'}
+
+        # Check if found more than 1 images for normal channel
         
+        if len([ch for ch in valid_channels if ch.type == 'NORMAL']) >= 2:
+            normal_map_type = 'BUMP_NORMAL_MAP'
+        elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] == 'normal']):
+            normal_map_type = 'NORMAL_MAP'
+        else: normal_map_type = 'BUMP_MAP'
+
         #if valid_channels and valid_channels[0]
         layer = None
         for i, image in enumerate(valid_images):
@@ -1487,10 +1502,6 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
 
             m = re.match(r'^yp\.channels\[(\d+)\].*', root_ch.path_from_id())
             ch_idx = int(m.group(1))
-
-            if root_ch.type == 'NORMAL' and syname == 'normal':
-                normal_map_type = 'NORMAL_MAP'
-            else: normal_map_type = 'BUMP_MAP'
 
             # Use image directly to layer for the first index
             if i == 0:
@@ -1515,12 +1526,16 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
             else:
                 ch = layer.channels[ch_idx]
                 ch.enable = True
-                image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
-                image_node.image = image
-                ch.override = True
-                ch.override_type = 'IMAGE'
-                if root_ch.type == 'NORMAL':
-                    ch.normal_map_type = normal_map_type
+                if root_ch.type == 'NORMAL' and syname == 'normal':
+                    image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
+                    image_node.image = image
+                    ch.override_1 = True
+                    ch.override_1_type = 'IMAGE'
+                else:
+                    image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+                    image_node.image = image
+                    ch.override = True
+                    ch.override_type = 'IMAGE'
 
         ## Reconnect and rearrange nodes
         reconnect_yp_nodes(node.node_tree)

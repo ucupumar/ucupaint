@@ -2147,7 +2147,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
 
             if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                normal, alpha_normal = reconnect_all_modifier_nodes(tree, ch, normal, alpha_after_mod, use_modifier_1=True)
+                normal, alpha_normal = reconnect_all_modifier_nodes(tree, ch, normal, alpha_before_mod, use_modifier_1=True)
 
         rgb_after_mod = rgb
         alpha_after_mod = alpha
