@@ -3616,6 +3616,20 @@ def update_write_height(self, context):
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer, ch_index)
 
+def update_normal_strength(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    ch_index = int(m.group(2))
+    root_ch = yp.channels[ch_index]
+    ch = self
+    tree = get_tree(layer)
+
+    normal_proc = tree.nodes.get(ch.normal_proc)
+    if 'Strength' in normal_proc.inputs:
+        normal_proc.inputs['Strength'].default_value = ch.normal_strength
+
 def update_bump_distance(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
@@ -4181,6 +4195,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
             description = 'Write height for this normal layer channel',
             default = False,
             update=update_write_height)
+
+    normal_strength : FloatProperty(
+        name = 'Normal Strength',
+        description = 'Normal strength',
+        default=1.0, min=0.0, max=10.0, 
+        update=update_normal_strength)
     
     image_flip_y : BoolProperty(
             name = 'Image Flip Y',

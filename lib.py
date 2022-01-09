@@ -958,6 +958,16 @@ def update_routine(name):
 
     print('INFO: ' + ADDON_TITLE + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
+
+def get_inside_group_update_names(tree, update_names):
+
+    for n in tree.nodes:
+        if n.type == 'GROUP' and n.node_tree and n.node_tree.name not in update_names:
+            update_names.append(n.node_tree.name)
+            update_names = get_inside_group_update_names(n.node_tree, update_names)
+
+    return update_names
+
 @persistent
 def update_node_tree_libs(name):
     T = time.time()
@@ -1013,9 +1023,7 @@ def update_node_tree_libs(name):
                     update_names.append(name)
 
                 # Check for group inside group
-                for n in lib_tree.nodes:
-                    if n.type == 'GROUP' and n.node_tree and n.node_tree.name not in update_names:
-                        update_names.append(n.node_tree.name)
+                update_names = get_inside_group_update_names(lib_tree, update_names)
 
                 # Flip tangent if tangent process is updated to ver 1
                 if name == TANGENT_PROCESS and cur_ver == 0 and lib_ver == 1:

@@ -2193,6 +2193,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         #normal_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
         normal_proc.inputs['Intensity'].default_value = ch.intensity_value
 
+    if 'Strength' in normal_proc.inputs:
+        normal_proc.inputs['Strength'].default_value = ch.normal_strength
+
     # Normal flip
     if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or root_ch.enable_smooth_bump:
         remove_node(tree, ch, 'normal_flip')
