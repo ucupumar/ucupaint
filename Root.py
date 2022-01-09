@@ -1202,6 +1202,9 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
             remove_node(ttree, ch, 'source')
             remove_node(ttree, ch, 'linear')
+            remove_node(ttree, ch, 'source_1')
+            remove_node(ttree, ch, 'linear_1')
+            remove_node(ttree, ch, 'flip_y')
 
             remove_node(ttree, ch, 'normal_process')
             remove_node(ttree, ch, 'normal_flip')
@@ -1235,6 +1238,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             remove_node(ttree, ch, 'cache_wave')
 
             remove_node(ttree, ch, 'cache_image')
+            remove_node(ttree, ch, 'cache_1_image')
             remove_node(ttree, ch, 'cache_vcol')
             remove_node(ttree, ch, 'cache_hemi')
 

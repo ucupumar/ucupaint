@@ -1468,6 +1468,7 @@ def reconnect_source_internal_nodes(layer):
     source = tree.nodes.get(layer.source)
     #mapping = tree.nodes.get(layer.mapping)
     linear = tree.nodes.get(layer.linear)
+    flip_y = tree.nodes.get(layer.flip_y)
     start = tree.nodes.get(TREE_START)
     solid = tree.nodes.get(ONE_VALUE)
     end = tree.nodes.get(TREE_END)
@@ -1487,6 +1488,9 @@ def reconnect_source_internal_nodes(layer):
 
     if linear:
         rgb = create_link(tree, rgb, linear.inputs[0])[0]
+
+    if flip_y:
+        rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
 
     if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         rgb_1 = source.outputs[1]
@@ -1581,6 +1585,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     geometry = nodes.get(GEOMETRY)
     mapping = nodes.get(layer.mapping)
     linear = nodes.get(layer.linear)
+    flip_y = nodes.get(layer.flip_y)
 
     # Get tangent and bitangent
     layer_tangent = texcoord.outputs.get(layer.uv_name + io_suffix['TANGENT'])
@@ -1670,8 +1675,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         start_rgb_1 = source.outputs[1]
 
-    if not source_group and linear:
-        start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
+    if not source_group:
+        if linear: start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
+        if flip_y: start_rgb = create_link(tree, start_rgb, flip_y.inputs[0])[0]
 
     # Alpha
     if layer.type == 'IMAGE' or source_group:
@@ -2105,10 +2111,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         normal = rgb_before_override
         ch_source_1 = nodes.get(ch.source_1)
         ch_linear_1 = nodes.get(ch.linear_1)
+        ch_flip_y = nodes.get(ch.flip_y) # Flip Y will only applied to normal override
 
         if ch_source_1: #and root_ch.type == 'NORMAL' and ch.override_1: #and ch.normal_map_type == 'BUMP_NORMAL_MAP':
             normal = ch_source_1.outputs[0]
             if ch_linear_1: normal = create_link(tree, normal, ch_linear_1.inputs[0])[0]
+            if ch_flip_y: normal = create_link(tree, normal, ch_flip_y.inputs[0])[0]
 
             if 'Vector' in ch_source_1.inputs:
                 create_link(tree, vector, ch_source_1.inputs['Vector'])

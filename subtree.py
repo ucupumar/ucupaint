@@ -428,6 +428,7 @@ def enable_layer_source_tree(layer, rearrange=False):
         # Get current source for reference
         source_ref = layer_tree.nodes.get(layer.source)
         linear_ref = layer_tree.nodes.get(layer.linear)
+        flip_y_ref = layer_tree.nodes.get(layer.flip_y)
         #mapping_ref = layer_tree.nodes.get(layer.mapping)
 
         # Create source tree
@@ -446,6 +447,10 @@ def enable_layer_source_tree(layer, rearrange=False):
         if linear_ref:
             linear = new_node(source_tree, layer, 'linear', linear_ref.bl_idname)
             copy_node_props(linear_ref, linear)
+
+        if flip_y_ref:
+            flip_y = new_node(source_tree, layer, 'flip_y', flip_y_ref.bl_idname)
+            copy_node_props(flip_y_ref, flip_y)
 
         #mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping')
         #if mapping_ref: copy_node_props(mapping_ref, mapping)
@@ -466,6 +471,7 @@ def enable_layer_source_tree(layer, rearrange=False):
         # Remove previous source
         layer_tree.nodes.remove(source_ref)
         if linear_ref: layer_tree.nodes.remove(linear_ref)
+        if flip_y_ref: layer_tree.nodes.remove(flip_y_ref)
         #if mapping_ref: layer_tree.nodes.remove(mapping_ref)
     
         # Bring modifiers to source tree
@@ -575,6 +581,7 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
         if source_group:
             source_ref = source_group.node_tree.nodes.get(layer.source)
             linear_ref = source_group.node_tree.nodes.get(layer.linear)
+            flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
             #mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
             # Create new source
@@ -584,6 +591,10 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
             if linear_ref:
                 linear = new_node(layer_tree, layer, 'linear', linear_ref.bl_idname)
                 copy_node_props(linear_ref, linear)
+
+            if flip_y_ref:
+                flip_y = new_node(layer_tree, layer, 'flip_y', flip_y_ref.bl_idname)
+                copy_node_props(flip_y_ref, flip_y)
 
             #mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
             #if mapping_ref: copy_node_props(mapping_ref, mapping)

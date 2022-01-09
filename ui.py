@@ -133,7 +133,7 @@ def draw_bake_info(bake_info, layout, entity):
     else: c.target_type = 'MASK'
     c.overwrite_current = True
 
-def draw_image_props(context, source, layout, entity=None):
+def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
 
     image = source.image
 
@@ -208,6 +208,14 @@ def draw_image_props(context, source, layout, entity=None):
         if hasattr(image, 'use_alpha'):
             col.prop(image, 'use_alpha')
         #col.prop(image, 'use_fields')
+
+        split = col.split(factor=0.25)
+
+        if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
+            row = split.row()
+            row.label(text='Flip Y:')
+            row = split.row()
+            row.prop(entity, 'image_flip_y', text='')
 
 def draw_object_index_props(entity, layout):
     col = layout.column()
@@ -1129,7 +1137,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 bbox.context_pointer_set('parent', layer)
                 bbox.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
             elif image:
-                draw_image_props(context, source, bbox, layer)
+                draw_image_props(context, source, bbox, layer, show_flip_y=True)
             elif layer.type == 'COLOR':
                 draw_solid_color_props(layer, source, bbox)
             elif layer.type == 'VCOL':
@@ -1795,7 +1803,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 rrow = mcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
-                draw_image_props(context, ch_source_1, rbox)
+                draw_image_props(context, ch_source_1, rbox, entity=ch, show_flip_y=True)
 
         # Layer input
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'}: #, 'OBJECT_INDEX'
@@ -2787,19 +2795,26 @@ def main_draw(self, context):
                 num_gen_texs += 1
 
             for ch in layer.channels:
-                if ch.enable and ch.override:
-                    if ch.override_type == 'IMAGE':
-                        #src = get_layer_source(layer)
-                        src = get_channel_source(ch, layer)
-                        if src.image and src.image not in images:
-                            images.append(src.image)
-                    elif ch.override_type == 'VCOL':
-                        src = get_channel_source(ch, layer)
-                        vcol_name = get_source_vcol_name(src)
-                        if vcol_name != '' and vcol_name not in vcols:
-                            vcols.append(vcol_name)
-                    elif ch.override_type not in {'DEFAULT'}:
-                        num_gen_texs += 1
+                if ch.enable:
+                    if ch.override:
+                        if ch.override_type == 'IMAGE':
+                            #src = get_layer_source(layer)
+                            src = get_channel_source(ch, layer)
+                            if src.image and src.image not in images:
+                                images.append(src.image)
+                        elif ch.override_type == 'VCOL':
+                            src = get_channel_source(ch, layer)
+                            vcol_name = get_source_vcol_name(src)
+                            if vcol_name != '' and vcol_name not in vcols:
+                                vcols.append(vcol_name)
+                        elif ch.override_type not in {'DEFAULT'}:
+                            num_gen_texs += 1
+                    if ch.override_1:
+                        if ch.override_1_type == 'IMAGE':
+                            ltree = get_tree(layer)
+                            src = ltree.nodes.get(ch.source_1)
+                            if src.image and src.image not in images:
+                                images.append(src.image)
 
             if not layer.enable_masks: continue
 

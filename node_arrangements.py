@@ -438,6 +438,9 @@ def rearrange_source_tree_nodes(layer):
     if check_set_node_loc(source_tree, layer.linear, loc):
         loc.x += 200
 
+    if check_set_node_loc(source_tree, layer.flip_y, loc):
+        loc.x += 200
+
     if layer.type in {'IMAGE', 'VCOL', 'MUSGRAVE'}:
         arrange_modifier_nodes(source_tree, layer, loc)
     else:
@@ -613,6 +616,9 @@ def rearrange_layer_nodes(layer, tree=None):
         loc.y -= 40
 
     else:
+        if check_set_node_loc(tree, layer.flip_y, loc, hide=False):
+            loc.y -= 140
+
         if check_set_node_loc(tree, layer.linear, loc, hide=False):
             loc.y -= 140
 
@@ -887,6 +893,15 @@ def rearrange_layer_nodes(layer, tree=None):
             loc.y -= offset_y
             offset_y = 0
             check_set_node_loc(tree, ch.linear_1, loc)
+            loc.x += 200
+
+        flip_y = nodes.get(ch.flip_y)
+        if flip_y:
+            if not linear_1:
+                loc.x = start_x
+                loc.y -= offset_y
+                offset_y = 0
+            check_set_node_loc(tree, ch.flip_y, loc)
             loc.x += 200
 
         if len(ch.modifiers_1) > 0:

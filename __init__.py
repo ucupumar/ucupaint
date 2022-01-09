@@ -111,7 +111,7 @@
 # - Use new blender own resize image operator (V)
 # - Normal channel should be able to override both normal and bump at the same time (V)
 # - Image editor should be able to show srgb color (V)
-# - Add quick Flip Y toggle to normal image override
+# - Add quick Flip Y toggle to normal image override (Y)
 # - Add normal map strenght slider
 # - Some texture should be able to use transparency
 # - Need ability to edit height channel main uv

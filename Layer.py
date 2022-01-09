@@ -37,6 +37,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
         if not mapping:
             mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
 
+    # Flip Y
+    #update_image_flip_y(self, context)
+
     # Linear node
     check_layer_image_linear_node(layer, source_tree)
 
@@ -3964,6 +3967,34 @@ def update_layer_channel_use_clamp(self, context):
 
     check_blend_type_nodes(root_ch, layer, self)
 
+def update_image_flip_y(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    m1 = re.match(r'yp\.layers\[(\d+)\]$', self.path_from_id())
+    m2 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', self.path_from_id())
+
+    if m1:
+        #layer = yp.layers[int(m1.group(1))]
+        layer = self
+        tree = get_source_tree(self)
+
+    elif m2:
+        layer = yp.layers[int(m2.group(1))]
+        #ch = layer.channels[int(m2.group(2))]
+        tree = get_tree(layer)
+    else:
+        return
+
+    if self.image_flip_y:
+        flip_y = check_new_node(tree, self, 'flip_y', 'ShaderNodeGroup', 'Flip Y')
+        flip_y.node_tree = lib.get_node_tree_lib(lib.FLIP_Y)
+    else:
+        remove_node(tree, self, 'flip_y')
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
+
 def update_channel_active_edit(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -4111,6 +4142,9 @@ class YLayerChannel(bpy.types.PropertyGroup):
     intensity : StringProperty(default='')
     extra_alpha : StringProperty(default='')
 
+    # Flip y node
+    flip_y : StringProperty(default='')
+
     # Height related
     height_proc : StringProperty(default='')
     height_blend : StringProperty(default='')
@@ -4147,6 +4181,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
             description = 'Write height for this normal layer channel',
             default = False,
             update=update_write_height)
+    
+    image_flip_y : BoolProperty(
+            name = 'Image Flip Y',
+            description = "Image Flip Y (Use this if you're using normal map created for DirectX application) ",
+            default = False,
+            update=update_image_flip_y)
 
     # For some occasion, modifiers are stored in a tree
     mod_group : StringProperty(default='')
@@ -4446,6 +4486,12 @@ class YLayer(bpy.types.PropertyGroup):
             items = layer_type_items,
             default = 'IMAGE')
 
+    image_flip_y : BoolProperty(
+            name = 'Image Flip Y',
+            description = "Image Flip Y (Use this if you're using normal map created for DirectX application) ",
+            default = False,
+            update=update_image_flip_y)
+
     # Fake lighting related
 
     hemi_space : EnumProperty(
@@ -4513,6 +4559,9 @@ class YLayer(bpy.types.PropertyGroup):
 
     # Linear node
     linear : StringProperty(default='')
+
+    # Flip y node
+    flip_y : StringProperty(default='')
 
     # Layer type cache
     cache_brick : StringProperty(default='')

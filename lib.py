@@ -230,6 +230,8 @@ BAKE_NORMAL_ACTIVE_UV = '~yPL Bake Normal with Active UV'
 SRGB_2_LINEAR = '~yPL SRGB to Linear'
 LINEAR_2_SRGB = '~yPL Linear to SRGB'
 
+FLIP_Y = '~yPL Flip Y'
+
 # Modifier tree names
 MOD_RGB2INT = '~yPL Mod RGB To Intensity'
 MOD_INT2RGB = '~yPL Mod Intensity To RGB'
