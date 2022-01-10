@@ -137,14 +137,16 @@
 # - Armory support (X, proper bake system is better be the solution)
 # - FXAA image operator to remove jagged pixels from baking or bucket fill (V)
 # - Blur image operator
-# - Add greater than and less than operation to object index mask
-# - Add option to bake generated textures to improve performance
+# - Add greater than and less than operation to object index mask (?)
+# - Add option to bake generated textures to improve performance (X, too much hassle to implement)
 # - Optimize hidden layer, maybe create a trash nodes to collect unused layers (?, Need to investigate the effeciveness more)
 # - Support for opening UDIM images (?)
 # - Support for baking to UDIM images (?)
 # - Some texture should be able to use transparency
 # - Combine objects before bake all channel to improve speed and fix margin issue
 # - Merge layers should work on any type of layers (just convert them to standard image)
+# - Add options to change neighbor uv value when using smooth bump
+# - Add override normal on group node
 #
 # TODO OPT:
 # - Lazy node calling (can be useful to prevent missing error)
