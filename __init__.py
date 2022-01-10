@@ -112,13 +112,9 @@
 # - Normal channel should be able to override both normal and bump at the same time (V)
 # - Image editor should be able to show srgb color (V)
 # - Add quick Flip Y toggle to normal image override (Y)
-# - Add normal map strenght slider
-# - Some texture should be able to use transparency
+# - Add normal map strength slider (V)
 # - Need ability to edit height channel main uv
 # - Add operator to create new UV map on multiple objects using the same material
-# - Add option to merge objects before baking to avoid overlap between uv islands
-# - Merge layers should work on any type of layers (just convert them to standard image)
-# - Combine objects before bake all channel to improve speed and fix margin issue
 # - Change link inside group to github insted of patreon
 
 # TODO:
@@ -146,6 +142,9 @@
 # - Optimize hidden layer, maybe create a trash nodes to collect unused layers (?, Need to investigate the effeciveness more)
 # - Support for opening UDIM images (?)
 # - Support for baking to UDIM images (?)
+# - Some texture should be able to use transparency
+# - Combine objects before bake all channel to improve speed and fix margin issue
+# - Merge layers should work on any type of layers (just convert them to standard image)
 #
 # TODO OPT:
 # - Lazy node calling (can be useful to prevent missing error)

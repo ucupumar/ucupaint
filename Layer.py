@@ -3015,6 +3015,7 @@ class YReplaceLayerChannelOverride(bpy.types.Operator):
         #print(context.parent)
         ch = context.parent
         ch.override_type = self.type
+        ch.override = True
         return {'FINISHED'}
 
 class YReplaceLayerChannelOverride1(bpy.types.Operator):
@@ -3037,6 +3038,7 @@ class YReplaceLayerChannelOverride1(bpy.types.Operator):
         #print(context.parent)
         ch = context.parent
         ch.override_1_type = self.type
+        ch.override_1 = True
         return {'FINISHED'}
 
 class YReplaceLayerType(bpy.types.Operator):
