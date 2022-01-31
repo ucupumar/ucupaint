@@ -48,6 +48,7 @@ def auto_save_images(scene):
     else: ypup = bpy.context.user_preferences.addons[__package__].preferences
 
     for tree in bpy.data.node_groups:
+        if not hasattr(tree, 'yp'): continue
         if tree.yp.is_ypaint_node:
             if ypup.auto_save == 'ONLY_DIRTY':
                 image_ops.save_pack_all(tree.yp, only_dirty=True)

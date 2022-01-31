@@ -516,6 +516,7 @@ def update_routine(name):
     cur_version = get_current_version_str()
 
     for ng in bpy.data.node_groups:
+        if not hasattr(ng, 'yp'): continue
         if not ng.yp.is_ypaint_node: continue
 
         #print(ng.name, 'ver:', ng.yp.version)
@@ -828,6 +829,7 @@ def update_routine(name):
     if is_created_before_292() and is_greater_than_292():
         show_message = False
         for ng in bpy.data.node_groups:
+            if not hasattr(ng, 'yp'): continue
             if not ng.yp.is_ypaint_node: continue
             show_message = True
             

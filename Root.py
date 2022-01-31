@@ -3192,7 +3192,7 @@ def ypaint_force_update_on_anim(scene):
             break
 
     if yp_keyframe_found:
-        ngs = [ng for ng in bpy.data.node_groups if ng.yp.is_ypaint_node and ng.animation_data and ng.animation_data.action]
+        ngs = [ng for ng in bpy.data.node_groups if hasattr(ng, 'yp') and ng.yp.is_ypaint_node and ng.animation_data and ng.animation_data.action]
         for ng in ngs:
             fcs = ng.animation_data.action.fcurves
             for fc in fcs:
