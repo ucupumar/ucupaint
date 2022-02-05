@@ -3176,8 +3176,10 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
             if inp: inp.default_value = get_transition_disp_delta(layer, height_ch)
         elif height_ch.normal_map_type == 'NORMAL_MAP':
             inp = height_proc.inputs.get('Bump Height')
-            #if inp: inp.default_value = height_ch.bump_distance
-            if inp: inp.default_value = height_ch.normal_bump_distance
+            if inp:
+                if height_ch.enable_transition_bump:
+                    inp.default_value = get_transition_bump_max_distance(height_ch)
+                else: inp.default_value = height_ch.normal_bump_distance
 
     normal_proc = tree.nodes.get(height_ch.normal_proc)
     if normal_proc:
