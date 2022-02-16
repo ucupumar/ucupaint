@@ -2265,7 +2265,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             ):
             row = box.row(align=True)
             row.alert = True
-            row.operator("node.y_fix_duplicated_layers", icon='ERROR')
+            row.operator("node.y_fix_duplicated_yp_nodes", text='Fix Duplicated Layers', icon='ERROR')
             row.alert = False
             box.prop(ypui, 'make_image_single_user')
             return
@@ -3326,6 +3326,10 @@ class YPaintSpecialMenu(bpy.types.Menu):
         col.separator()
 
         col.operator('node.y_clean_yp_caches', icon_value=lib.get_icon('clean'))
+
+        col.separator()
+
+        col.operator('node.y_duplicate_yp_nodes', text='Duplicate Material and ' + ADDON_TITLE + ' nodes', icon='COPY_ID').duplicate_material = True
 
         col.separator()
 

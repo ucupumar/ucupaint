@@ -1517,10 +1517,10 @@ class YChangeActiveYPaintNode(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YFixDuplicatedLayers(bpy.types.Operator):
-    bl_idname = "node.y_fix_duplicated_layers"
-    bl_label = "Fix Duplicated Layers"
-    bl_description = "Fix duplicated layers caused by duplicated " + ADDON_TITLE + " Node"
+class YFixDuplicatedYPNodes(bpy.types.Operator):
+    bl_idname = "node.y_fix_duplicated_yp_nodes"
+    bl_label = "Fix Duplicated " + ADDON_TITLE + " Nodes"
+    bl_description = "Fix duplicated " + ADDON_TITLE + " nodes by making it single user"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -1533,9 +1533,78 @@ class YFixDuplicatedLayers(bpy.types.Operator):
         return layer_tree.users > 1
 
     def execute(self, context):
+        bpy.ops.node.y_duplicate_yp_nodes(duplicate_material=False, only_active=False)
+        return {'FINISHED'}
+
+class YDuplicateYPNodes(bpy.types.Operator):
+    bl_idname = "node.y_duplicate_yp_nodes"
+    bl_label = "Duplicate " + ADDON_TITLE + " Nodes"
+    bl_description = "Duplicate " + ADDON_TITLE + " nodes to make it single user"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    duplicate_material : BoolProperty(
+            name = 'Also Duplicate Material',
+            description = 'Also Duplicate this node parent materials',
+            default=False)
+
+    only_active : BoolProperty(
+            name = 'Only Duplicate on active object',
+            description = 'Only duplicate on active object, rather than all accessible objects using the same material',
+            default=True)
+
+    @classmethod
+    def poll(cls, context):
+        mat = get_active_material()
+        group_node = get_active_ypaint_node()
+        if not group_node: return False
+
+        yp = group_node.node_tree.yp
+        #if len(yp.layers) == 0: return False
+
+        layer_tree = get_tree(yp.layers[-1])
+
+        return layer_tree.users > 1 or mat.users > 1
+
+    def invoke(self, context, event):
+        #node = get_active_ypaint_node()
+        #tree = node.node_tree
+
+        #self.name = tree.name
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        self.layout.prop(self, 'only_active', text='Only Active Object')
+
+    def execute(self, context):
 
         #self.report({'ERROR'}, "This feature is not supported yet! You should delete this node!")
         #return {'CANCELLED'}
+
+        mat = get_active_material()
+        if self.only_active:
+            objs = [context.object]
+        else: objs = get_all_objects_with_same_materials(mat)
+
+        if self.duplicate_material:
+
+            # Duplicate the material
+            dup_mat = mat.copy()
+            for obj in objs:
+                for i, m in enumerate(obj.data.materials):
+                    if m == mat:
+                        obj.data.materials[i] = dup_mat
+
+            # Get to be duplicated trees
+            tree_dict = {}
+            for node in dup_mat.node_tree.nodes:
+                if node.type == 'GROUP' and node.node_tree and node.node_tree.yp.is_ypaint_node and node.node_tree.name not in tree_dict:
+                    tree_dict[node.node_tree.name] = node
+                    #node.node_tree = node.node_tree.copy()
+
+            # Duplicate the trees
+            for tree_name, node in tree_dict.items():
+                tree = bpy.data.node_groups.get(tree_name)
+                node.node_tree = tree.copy()
 
         ypui = context.window_manager.ypui
         group_node = get_active_ypaint_node()
@@ -3216,7 +3285,8 @@ def register():
     bpy.utils.register_class(YFixMissingUV)
     bpy.utils.register_class(YRenameYPaintTree)
     bpy.utils.register_class(YChangeActiveYPaintNode)
-    bpy.utils.register_class(YFixDuplicatedLayers)
+    bpy.utils.register_class(YDuplicateYPNodes)
+    bpy.utils.register_class(YFixDuplicatedYPNodes)
     bpy.utils.register_class(YFixMissingData)
     bpy.utils.register_class(YRefreshTangentSignVcol)
     bpy.utils.register_class(YRemoveYPaintNode)
@@ -3260,7 +3330,8 @@ def unregister():
     bpy.utils.unregister_class(YFixMissingUV)
     bpy.utils.unregister_class(YRenameYPaintTree)
     bpy.utils.unregister_class(YChangeActiveYPaintNode)
-    bpy.utils.unregister_class(YFixDuplicatedLayers)
+    bpy.utils.unregister_class(YDuplicateYPNodes)
+    bpy.utils.unregister_class(YFixDuplicatedYPNodes)
     bpy.utils.unregister_class(YFixMissingData)
     bpy.utils.unregister_class(YRefreshTangentSignVcol)
     bpy.utils.unregister_class(YRemoveYPaintNode)

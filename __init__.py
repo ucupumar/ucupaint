@@ -54,7 +54,7 @@
 #   - Bake layer group (X, mostly useless)
 #   - Blender 2.8 normal bug workaround (V)
 #   - Folder for auto save bake results (~, replaced by standard/pack menu)
-#   - Dealing with multiple yp tree users (~, just implemented better fix duplicate layers operator)
+#   - Dealing with multiple yp tree users (~, just implemented better fix duplicate layers operator) (V)
 #   - Pointiness (V)
 #   - AO (V)
 #   - Overwrite AO or Pointiness (V)
