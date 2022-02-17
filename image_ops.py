@@ -62,6 +62,81 @@ def pack_float_image(image):
     image.filepath = original_path
     os.remove(temp_filepath)
 
+def clean_object_references(image):
+    removed_references = []
+    if image.yia.is_image_atlas:
+        for segment in image.yia.segments:
+            if segment.bake_info.is_baked:
+
+                # Check if selected objects data are still accessible on any view layers
+                indices = []
+                for i, o in enumerate(segment.bake_info.selected_objects):
+                    if o.object:
+                        if is_greater_than_280():
+                            if not any([s for s in bpy.data.scenes if o.object.name in s.collection.all_objects]):
+                                removed_references.append(o.object.name)
+                                indices.append(i)
+                        else:
+                            if not any([s for s in bpy.data.scenes if o.object.name in s.objects]):
+                                removed_references.append(o.object.name)
+                                indices.append(i)
+
+                for i in reversed(indices):
+                    segment.bake_info.selected_objects.remove(i)
+
+                # Check if other objects data are still accessible on any view layers
+                indices = []
+                for i, o in enumerate(segment.bake_info.other_objects):
+                    if o.object:
+                        if is_greater_than_280():
+                            if not any([s for s in bpy.data.scenes if o.object.name in s.collection.all_objects]):
+                                removed_references.append(o.object.name)
+                                indices.append(i)
+                        else:
+                            if not any([s for s in bpy.data.scenes if o.object.name in s.objects]):
+                                removed_references.append(o.object.name)
+                                indices.append(i)
+
+                for i in reversed(indices):
+                    segment.bake_info.other_objects.remove(i)
+
+    elif image.y_bake_info.is_baked:
+
+        if image.y_bake_info.is_baked:
+
+            # Check if selected objects data are still accessible on any view layers
+            indices = []
+            for i, o in enumerate(image.y_bake_info.selected_objects):
+                if o.object:
+                    if is_greater_than_280():
+                        if not any([s for s in bpy.data.scenes if o.object.name in s.collection.all_objects]):
+                            removed_references.append(o.object.name)
+                            indices.append(i)
+                    else:
+                        if not any([s for s in bpy.data.scenes if o.object.name in s.objects]):
+                            removed_references.append(o.object.name)
+                            indices.append(i)
+            for i in reversed(indices):
+                image.y_bake_info.selected_objects.remove(i)
+
+            # Check if other objects data are still accessible on any view layers
+            indices = []
+            for i, o in enumerate(image.y_bake_info.other_objects):
+                if o.object:
+                    if is_greater_than_280():
+                        if not any([s for s in bpy.data.scenes if o.object.name in s.collection.all_objects]):
+                            removed_references.append(o.object.name)
+                            indices.append(i)
+                    else:
+                        if not any([s for s in bpy.data.scenes if o.object.name in s.objects]):
+                            removed_references.append(o.object.name)
+                            indices.append(i)
+            for i in reversed(indices):
+                image.y_bake_info.other_objects.remove(i)
+
+    for r in removed_references:
+        print('Reference for', r, "is removed because it's no longer found!")
+
 def save_pack_all(yp, only_dirty = True):
 
     tree = yp.id_data
@@ -72,30 +147,35 @@ def save_pack_all(yp, only_dirty = True):
         # Layer image
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
-            images.append(source.image)
+            if source.image not in images:
+                images.append(source.image)
 
         # Mask image
         for mask in layer.masks:
             if mask.type == 'IMAGE':
                 mask_tree = get_mask_tree(mask)
                 source = mask_tree.nodes.get(mask.source)
-                images.append(source.image)
+                if source.image not in images:
+                    images.append(source.image)
 
     # Baked images
     for ch in yp.channels:
         baked = tree.nodes.get(ch.baked)
         if baked and baked.image:
-            images.append(baked.image)
+            if baked.image not in images:
+                images.append(baked.image)
 
         if ch.type == 'NORMAL':
             baked_disp = tree.nodes.get(ch.baked_disp)
             if baked_disp and baked_disp.image:
-                images.append(baked_disp.image)
+                if baked_disp.image not in images:
+                    images.append(baked_disp.image)
 
             if is_overlay_normal_empty(yp):
                 baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                 if baked_normal_overlay and baked_normal_overlay.image:
-                    images.append(baked_normal_overlay.image)
+                    if baked_normal_overlay.image not in images:
+                        images.append(baked_normal_overlay.image)
 
     packed_float_images = []
 
@@ -103,7 +183,7 @@ def save_pack_all(yp, only_dirty = True):
 
     # Save/pack images
     for image in images:
-        #print(image, image.filepath)
+        clean_object_references(image)
         if not image: continue
         if only_dirty and not image.is_dirty: continue
         T = time.time()

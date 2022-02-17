@@ -57,7 +57,7 @@ class YTryToSelectBakedVertexSelect(bpy.types.Operator):
                 #for lc in layer_cols:
                 #    print(lc.name)
                 
-                if not any([lc for lc in layer_cols if lc.exclude or lc.hide_viewport or lc.collection.hide_viewport]):
+                if layer_cols and not any([lc for lc in layer_cols if lc.exclude or lc.hide_viewport or lc.collection.hide_viewport]):
                     actual_selectable_objs.append(o)
             else:
                 if not o.hide_select and in_active_279_layer(o):
