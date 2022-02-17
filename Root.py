@@ -1559,26 +1559,19 @@ class YDuplicateYPNodes(bpy.types.Operator):
         if not group_node: return False
 
         yp = group_node.node_tree.yp
-        #if len(yp.layers) == 0: return False
+        if len(yp.layers) > 0:
+            layer_tree = get_tree(yp.layers[-1])
+        else: layer_tree = None
 
-        layer_tree = get_tree(yp.layers[-1])
-
-        return layer_tree.users > 1 or mat.users > 1
+        return (layer_tree and layer_tree.users > 1) or mat.users > 1
 
     def invoke(self, context, event):
-        #node = get_active_ypaint_node()
-        #tree = node.node_tree
-
-        #self.name = tree.name
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
         self.layout.prop(self, 'only_active', text='Only Active Object')
 
     def execute(self, context):
-
-        #self.report({'ERROR'}, "This feature is not supported yet! You should delete this node!")
-        #return {'CANCELLED'}
 
         mat = get_active_material()
         if self.only_active:
@@ -1797,6 +1790,23 @@ class YRemoveYPaintNode(bpy.types.Operator):
     def poll(cls, context):
         return get_active_ypaint_node()
 
+    def is_baked(self, yp=None):
+        if not yp:
+            group_node = get_active_ypaint_node()
+            tree = group_node.node_tree
+            yp = tree.yp
+
+        return any([c.baked for c in yp.channels if c.baked != ''])
+
+    def invoke(self, context, event):
+        if self.is_baked():
+            return self.execute(context)
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        self.layout.label(text= "This " + ADDON_TITLE + " node setup isn't baked yet!")
+        self.layout.label(text= "Are you sure want to delete?")
+
     def execute(self, context):
         mat = get_active_material()
         group_node = get_active_ypaint_node()
@@ -1804,16 +1814,20 @@ class YRemoveYPaintNode(bpy.types.Operator):
         yp = tree.yp
 
         # Check if channels is already baked
-        bakeds = [c.baked for c in yp.channels if c.baked != '']
-        if not bakeds:
-            self.report({'ERROR'}, "No channels have been baked yet!")
-            return {'CANCELLED'}
+        #bakeds = [c.baked for c in yp.channels if c.baked != '']
+        #if not bakeds:
+        #if not is_baked(yp):
+        #    self.report({'ERROR'}, "No channels have been baked yet!")
+        #    return {'CANCELLED'}
 
-        if not yp.use_baked:
-            self.report({'ERROR'}, "'Use Baked' need to be enabled!")
-            return {'CANCELLED'}
+        #if not yp.use_baked:
+        #    self.report({'ERROR'}, "'Use Baked' need to be enabled!")
+        #    return {'CANCELLED'}
 
-        if not yp.enable_baked_outside:
+        if self.is_baked(yp) and not yp.use_baked:
+            yp.use_baked = True
+
+        if self.is_baked(yp) and not yp.enable_baked_outside:
             yp.enable_baked_outside = True
 
         #loc_x = group_node.location.x
