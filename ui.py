@@ -803,8 +803,9 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
 
                     brow = bbcol.row(align=True)
                     brow.label(text='Main UV:')
-                    brow.label(text=channel.main_uv)
+                    #brow.label(text=channel.main_uv)
                     #brow.prop(channel, 'main_uv', text='')
+                    brow.prop_search(channel, "main_uv", context.object.data, "uv_layers", text='', icon='GROUP_UVS')
 
                 brow = bcol.row(align=True)
                 #brow.active = channel.enable_parallax and (

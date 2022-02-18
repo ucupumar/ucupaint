@@ -113,7 +113,7 @@
 # - Image editor should be able to show srgb color (V)
 # - Add quick Flip Y toggle to normal image override (Y)
 # - Add normal map strength slider (V)
-# - Need ability to edit height channel main uv
+# - Need ability to edit height channel main uv (V)
 # - Add operator to create new UV map on multiple objects using the same material
 # - Change link inside group to github insted of patreon
 

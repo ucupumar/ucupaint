@@ -2742,6 +2742,18 @@ def update_backface_mode(self, context):
 
     check_all_channel_ios(yp)
 
+def update_channel_main_uv(self, context):
+    yp = self.id_data.yp
+
+    if self.main_uv in {TEMP_UV, ''}:
+        if len(yp.uvs) > 0:
+            for uv in yp.uvs:
+                self.main_uv = uv.name
+                break
+
+    if self.type == 'NORMAL':
+        self.enable_smooth_bump = self.enable_smooth_bump
+
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
 #    group_tree = group_node.node_tree
@@ -2968,7 +2980,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
             )
 
     # Main uv is used for normal calculation of normal channel
-    main_uv : StringProperty(default='')
+    main_uv : StringProperty(default='', update=update_channel_main_uv)
 
     colorspace : EnumProperty(
             name = 'Color Space',
