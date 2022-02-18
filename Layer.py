@@ -3700,8 +3700,8 @@ def update_uv_name(self, context):
     if layer.type in {'HEMI', 'GROUP', 'COLOR'} or layer.texcoord_type != 'UV':
         return
 
-    # Use first uv if temp uv is selected
-    if layer.uv_name == TEMP_UV:
+    # Use first uv if temp uv or empty is selected
+    if layer.uv_name in {TEMP_UV, ''}:
         if len(yp.uvs) > 0:
             for uv in yp.uvs:
                 layer.uv_name = uv.name

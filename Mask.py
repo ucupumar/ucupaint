@@ -1067,8 +1067,11 @@ def update_mask_uv_name(self, context):
         return
 
     # Cannot use temp uv as standard uv
-    if mask.uv_name == TEMP_UV:
-        mask.uv_name = layer.uv_name
+    if mask.uv_name in {TEMP_UV, ''}:
+        if len(yp.uvs) > 0:
+            for uv in yp.uvs:
+                mask.uv_name = uv.name
+                break
     
     # Update uv layer
     if mask.active_edit and obj.type == 'MESH' and layer == active_layer:
