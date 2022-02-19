@@ -34,11 +34,17 @@ class YPaintPreferences(AddonPreferences):
             description = 'Try to use different image atlas per ' + ADDON_TITLE + ' tree',
             default = True)
 
+    developer_mode : BoolProperty(
+            name = 'Developer Mode',
+            description = 'Developer mode will shows several menu intented for developer only',
+            default = False)
+
     def draw(self, context):
         self.layout.prop(self, 'auto_save')
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
         self.layout.prop(self, 'unique_image_atlas_per_yp')
+        self.layout.prop(self, 'developer_mode')
 
 @persistent
 def auto_save_images(scene):

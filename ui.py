@@ -2859,19 +2859,19 @@ def main_draw(self, context):
     # Hide support this addon panel for now
     #return
 
-    icon = 'TRIA_DOWN' if ypui.show_support else 'TRIA_RIGHT'
-    row = layout.row(align=True)
-    row.prop(ypui, 'show_support', emboss=False, text='', icon=icon)
-    row.label(text='Support This Addon!')
+    #icon = 'TRIA_DOWN' if ypui.show_support else 'TRIA_RIGHT'
+    #row = layout.row(align=True)
+    #row.prop(ypui, 'show_support', emboss=False, text='', icon=icon)
+    #row.label(text='Support This Addon!')
 
-    if ypui.show_support:
-        box = layout.box()
-        col = box.column()
-        col.alert = True
-        if is_greater_than_280():
-            col.operator('wm.url_open', text='Become A Patron!', icon='ARMATURE_DATA').url = 'https://www.patreon.com/ucupumar'
-        else: col.operator('wm.url_open', text='Become A Patron!', icon='POSE_DATA').url = 'https://www.patreon.com/ucupumar'
-        col.alert = False
+    #if ypui.show_support:
+    #    box = layout.box()
+    #    col = box.column()
+    #    col.alert = True
+    #    if is_greater_than_280():
+    #        col.operator('wm.url_open', text='Become A Patron!', icon='ARMATURE_DATA').url = 'https://www.patreon.com/ucupumar'
+    #    else: col.operator('wm.url_open', text='Become A Patron!', icon='POSE_DATA').url = 'https://www.patreon.com/ucupumar'
+    #    col.alert = False
 
 class NODE_PT_YPaint(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
@@ -3979,13 +3979,18 @@ class YLayerMaskMenu(bpy.types.Menu):
         col.operator('node.y_new_mask_modifier', text='Ramp', icon_value=lib.get_icon('modifier')).type = 'RAMP'
         col.operator('node.y_new_mask_modifier', text='Curve', icon_value=lib.get_icon('modifier')).type = 'CURVE'
 
-        col = row.column(align=True)
-        col.context_pointer_set('parent', mask)
-        col.label(text='Advanced')
-        if not mask.use_temp_bake:
-            col.operator('node.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
-        else:
-            col.operator('node.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
+        if is_greater_than_280():
+            ypup = bpy.context.preferences.addons[__package__].preferences
+        else: ypup = bpy.context.user_preferences.addons[__package__].preferences
+
+        if ypup.developer_mode:
+            col = row.column(align=True)
+            col.context_pointer_set('parent', mask)
+            col.label(text='Advanced')
+            if not mask.use_temp_bake:
+                col.operator('node.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
+            else:
+                col.operator('node.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
 
 class YMaterialSpecialMenu(bpy.types.Menu):
     bl_idname = "MATERIAL_MT_y_special_menu"
@@ -4307,13 +4312,18 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col.separator()
         col.operator("node.y_replace_layer_type", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
 
-        #if context.parent.type == 'HEMI':
-        col = row.column()
-        col.label(text='Advanced')
-        if context.parent.use_temp_bake:
-            col.operator('node.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
-        else:
-            col.operator('node.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
+        if is_greater_than_280():
+            ypup = bpy.context.preferences.addons[__package__].preferences
+        else: ypup = bpy.context.user_preferences.addons[__package__].preferences
+
+        if ypup.developer_mode:
+            #if context.parent.type == 'HEMI':
+            col = row.column()
+            col.label(text='Advanced')
+            if context.parent.use_temp_bake:
+                col.operator('node.y_disable_temp_image', text='Disable Baked Temp Image', icon='FILE_REFRESH')
+            else:
+                col.operator('node.y_bake_temp_image', text='Bake Temp Image', icon_value=lib.get_icon('bake'))
 
         #col = row.column()
         #col.label(text='Options:')

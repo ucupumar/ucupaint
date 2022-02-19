@@ -204,7 +204,7 @@ bl_info = {
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
-    "warning" : "This is alpha version, incompability to future releases might happen",
+    #"warning" : "This is alpha version, incompability to future releases might happen",
     #"wiki_url": "http://patreon.com/ucupumar",
     "category": "Node",
 }
