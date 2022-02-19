@@ -352,6 +352,16 @@ class YSelectMaterialPolygons(bpy.types.Operator):
     bl_description = "Select all polygons using this material"
     bl_options = {'REGISTER', 'UNDO'}
 
+    new_uv : BoolProperty(
+            name = 'Create New UV',
+            description = 'Create new UV rather than use available one',
+            default = False)
+
+    new_uv_name : StringProperty(
+            name='New UV Name', 
+            description="Name of the new uv", 
+            default='UVMap')
+
     uv_map : StringProperty(
             name='Active UV Map', 
             description="It will create one if other objects does not have it.\nIf empty, it will use whatever current active uv map for each objects", 
@@ -369,6 +379,10 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
         obj = context.object
 
+        # Always set new uv to false to avoid unwanted new uv
+        self.new_uv = False
+        self.new_uv_name = get_unique_name('UVMap', get_uv_layers(obj))
+
         node = get_active_ypaint_node()
         if node: yp = node.node_tree.yp
         else: yp = None
@@ -383,12 +397,23 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
         return context.window_manager.invoke_props_dialog(self, width=400)
 
+    def check(self, context):
+        return True
+
     def draw(self, context):
-        self.layout.prop_search(self, "uv_map", self, "uv_map_coll", icon='GROUP_UVS')
+        self.layout.prop(self, "new_uv")
+        if self.new_uv:
+            self.layout.prop(self, "new_uv_name")
+        else:
+            self.layout.prop_search(self, "uv_map", self, "uv_map_coll", icon='GROUP_UVS')
 
     def execute(self, context):
         if not is_greater_than_280():
             self.report({'ERROR'}, "This feature only works on Blender 2.8+")
+            return {'CANCELLED'}
+
+        if (self.new_uv and self.new_uv_name == '') or (not self.new_uv and self.uv_map == ''):
+            self.report({'ERROR'}, "UV name cannot be empty!")
             return {'CANCELLED'}
 
         obj = context.object
@@ -408,17 +433,19 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='OBJECT')
 
+        uv_name = self.uv_map if not self.new_uv else get_unique_name(self.new_uv_name, get_uv_layers(obj))
+
         for o in objs:
 
-            if self.uv_map != '':
-                # Get uv layer
-                uv_layers = get_uv_layers(o)
-                uvl = uv_layers.get(self.uv_map)
+            #if uv_name != '':
+            # Get uv layer
+            uv_layers = get_uv_layers(o)
+            uvl = uv_layers.get(uv_name)
 
-                # Create one if it didn't exist
-                if not uvl:
-                    uvl = uv_layers.new(name=self.uv_map)
-                uv_layers.active = uvl
+            # Create one if it didn't exist
+            if not uvl:
+                uvl = uv_layers.new(name=uv_name)
+            uv_layers.active = uvl
 
             active_mat_id = [i for i, m in enumerate(o.data.materials) if m == mat][0]
             # Select polygons
