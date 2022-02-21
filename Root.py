@@ -27,6 +27,8 @@ colorspace_items = (
     ('SRGB', 'Color Data', '')
 )
 
+AO_MULTIPLY = ADDON_TITLE + ' AO Multiply'
+
 def check_channel_clamp(tree, root_ch):
     
     if root_ch.type == 'RGB':
@@ -642,7 +644,11 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ao_mul = nodes.new('ShaderNodeMixRGB')
             ao_mul.inputs[0].default_value = 1.0
             ao_mul.blend_type = 'MULTIPLY'
-            ao_mul.label = 'AO Multiply'
+            ao_mul.label = AO_MULTIPLY
+            ao_mul.name = AO_MULTIPLY
+            ao_mul.inputs[0].default_value = 1.0
+            ao_mul.inputs[1].default_value = (1.0, 1.0, 1.0, 1.0)
+            ao_mul.inputs[2].default_value = (1.0, 1.0, 1.0, 1.0)
 
             ao_mul.location = loc.copy()
             loc.x += 200
@@ -1194,6 +1200,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         T = time.time()
 
         wm = context.window_manager
+        mat = get_active_material()
         group_node = get_active_ypaint_node()
         group_tree = group_node.node_tree
         yp = group_tree.yp
@@ -1210,6 +1217,20 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
         # Collapse the UI
         #setattr(ypui, 'show_channel_modifiers_' + str(channel_idx), False)
+
+        # Delete special multiply node for Ambient Occlusion channel
+        if channel.name == 'Ambient Occlusion':
+            ao_node = mat.node_tree.nodes.get(AO_MULTIPLY)
+            if ao_node: 
+                #ao_node.mute = True
+                socket_ins = [l.from_socket for l in ao_node.inputs[1].links]
+                socket_outs = [l.to_socket for l in ao_node.outputs[0].links]
+
+                for si in socket_ins:
+                    for so in socket_outs:
+                        mat.node_tree.links.new(si, so)
+
+                mat.node_tree.nodes.remove(ao_node)
 
         # Disable smooth bump if active
         if channel.type == 'NORMAL' and channel.enable_smooth_bump:
@@ -1851,8 +1872,22 @@ class YRemoveYPaintNode(bpy.types.Operator):
         #    self.report({'ERROR'}, "'Use Baked' need to be enabled!")
         #    return {'CANCELLED'}
 
-        if self.is_baked(yp) and not yp.use_baked:
-            yp.use_baked = True
+        if self.is_baked(yp):
+            if not yp.use_baked:
+                yp.use_baked = True
+        else:
+            # Search for AO node
+            if 'Ambient Occlusion' in yp.channels:
+                ao_node = mat.node_tree.nodes.get(AO_MULTIPLY)
+                if ao_node: 
+                    socket_ins = [l.from_socket for l in ao_node.inputs[1].links]
+                    socket_outs = [l.to_socket for l in ao_node.outputs[0].links]
+
+                    for si in socket_ins:
+                        for so in socket_outs:
+                            mat.node_tree.links.new(si, so)
+
+                    mat.node_tree.nodes.remove(ao_node)
 
         if self.is_baked(yp) and not yp.enable_baked_outside:
             yp.enable_baked_outside = True
