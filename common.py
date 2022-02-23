@@ -1117,7 +1117,7 @@ def get_masks_with_specific_segment(layer, segment):
     for m in layer.masks:
         if m.type == 'IMAGE':
             source = get_mask_source(m)
-            if (source.image and source.image.yia.is_image_atlas and
+            if (source and source.image and source.image.yia.is_image_atlas and
                 any([s for s in source.image.yia.segments if s == segment]) and segment.name == m.segment_name):
                     masks.append(m)
 
