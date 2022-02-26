@@ -619,6 +619,10 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
     yp = group_tree.yp
     ypui = context.window_manager.ypui
 
+    if is_greater_than_280():
+        ypup = bpy.context.preferences.addons[__package__].preferences
+    else: ypup = bpy.context.user_preferences.addons[__package__].preferences
+
     box = layout.box()
     col = box.column()
     row = col.row()
@@ -734,37 +738,38 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
             if len(channel.modifiers) > 0:
                 brow.label(text='', icon='BLANK1')
 
-            #if channel.type == 'RGB':
-            brow = bcol.row(align=True)
-            #brow.label(text='', icon_value=lib.get_icon('input'))
-            if chui.expand_alpha_settings:
-                icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-            brow.prop(chui, 'expand_alpha_settings', text='', emboss=False, icon_value=icon_value)
-            if channel.enable_alpha:
-                inp_alpha = node.inputs[channel.io_index+1]
-                brow.label(text='Base Alpha:')
-                if len(node.inputs[channel.io_index+1].links)==0:
-                    if not yp.use_baked:
-                        brow.prop(inp_alpha, 'default_value', text='')
-                else: brow.label(text='', icon='LINKED')
-            else: brow.label(text='Alpha:')
-            if not yp.use_baked:
-                brow.prop(channel, 'enable_alpha', text='')
-            else:
-                brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
-
-            if chui.expand_alpha_settings:
+            # Alpha settings will only visible on color channel without developer mode
+            if channel.type == 'RGB' or ypup.developer_mode or channel.enable_alpha:
                 brow = bcol.row(align=True)
-                brow.label(text='', icon='BLANK1')
-                bbox = brow.box()
-                bbcol = bbox.column() #align=True)
-                bbcol.active = channel.enable_alpha
+                #brow.label(text='', icon_value=lib.get_icon('input'))
+                if chui.expand_alpha_settings:
+                    icon_value = lib.custom_icons["uncollapsed_input"].icon_id
+                else: icon_value = lib.custom_icons["collapsed_input"].icon_id
+                brow.prop(chui, 'expand_alpha_settings', text='', emboss=False, icon_value=icon_value)
+                if channel.enable_alpha:
+                    inp_alpha = node.inputs[channel.io_index+1]
+                    brow.label(text='Base Alpha:')
+                    if len(node.inputs[channel.io_index+1].links)==0:
+                        if not yp.use_baked:
+                            brow.prop(inp_alpha, 'default_value', text='')
+                    else: brow.label(text='', icon='LINKED')
+                else: brow.label(text='Alpha:')
+                if not yp.use_baked:
+                    brow.prop(channel, 'enable_alpha', text='')
+                else:
+                    brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
 
-                brow = bbcol.row(align=True)
-                brow.active = not (yp.use_baked and yp.enable_baked_outside)
-                brow.label(text='Backface Mode:')
-                brow.prop(channel, 'backface_mode', text='')
+                if chui.expand_alpha_settings:
+                    brow = bcol.row(align=True)
+                    brow.label(text='', icon='BLANK1')
+                    bbox = brow.box()
+                    bbcol = bbox.column() #align=True)
+                    bbcol.active = channel.enable_alpha
+
+                    brow = bbcol.row(align=True)
+                    brow.active = not (yp.use_baked and yp.enable_baked_outside)
+                    brow.label(text='Backface Mode:')
+                    brow.prop(channel, 'backface_mode', text='')
 
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
