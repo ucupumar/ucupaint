@@ -503,7 +503,6 @@ class VIEW3D_PT_y_vcol_editor_tools(bpy.types.Panel):
     bl_label = "Vertex Color Editor"
     bl_context = "mesh_edit"
     bl_region_type = 'TOOLS'
-    bl_category = "Ucupaint"
 
     @classmethod
     def poll(cls, context):
@@ -525,7 +524,6 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
 def register():
     bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
     if not is_greater_than_280():
-    #if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
         bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.register_class(YVcolEditorProps)
 
@@ -540,7 +538,6 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
-    #if hasattr(bpy.utils, 'previews'): # Blender 2.7 only
     if not is_greater_than_280():
         bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.unregister_class(YVcolEditorProps)

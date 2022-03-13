@@ -840,7 +840,7 @@ def update_routine(name):
                     rearrange_layer_nodes(layer)
 
         if show_message:
-            print("INFO: Now " + ADDON_TITLE + " capable to use vertex paint alpha since Blender 2.92, Enjoy!")
+            print("INFO: Now " + get_addon_title() + " capable to use vertex paint alpha since Blender 2.92, Enjoy!")
 
     # Special update for opening Blender 2.79 file
     filepath = get_addon_filepath() + "lib.blend"
@@ -958,7 +958,7 @@ def update_routine(name):
         for ng in copied_groups:
             bpy.data.node_groups.remove(ng)
 
-    print('INFO: ' + ADDON_TITLE + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: ' + get_addon_title() + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 
 def get_inside_group_update_names(tree, update_names):
@@ -1148,7 +1148,7 @@ def update_node_tree_libs(name):
             # Remove lib tree
             bpy.data.node_groups.remove(lib_tree)
 
-    print('INFO: ' + ADDON_TITLE + ' Node group libraries are checked at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: ' + get_addon_title() + ' Node group libraries are checked at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def register():
     load_custom_icons()

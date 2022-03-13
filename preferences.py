@@ -30,8 +30,8 @@ class YPaintPreferences(AddonPreferences):
             default = 2048)
 
     unique_image_atlas_per_yp : BoolProperty(
-            name = 'Use unique Image Atlas per ' + ADDON_TITLE + ' tree',
-            description = 'Try to use different image atlas per ' + ADDON_TITLE + ' tree',
+            name = 'Use unique Image Atlas per ' + get_addon_title() + ' tree',
+            description = 'Try to use different image atlas per ' + get_addon_title() + ' tree',
             default = True)
 
     developer_mode : BoolProperty(

@@ -498,8 +498,8 @@ def delete_modifier_nodes(tree, mod):
 
 class YNewYPaintModifier(bpy.types.Operator):
     bl_idname = "node.y_new_ypaint_modifier"
-    bl_label = "New " + ADDON_TITLE + " Modifier"
-    bl_description = "New " + ADDON_TITLE + " Modifier"
+    bl_label = "New " + get_addon_title() + " Modifier"
+    bl_description = "New " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
@@ -557,8 +557,8 @@ class YNewYPaintModifier(bpy.types.Operator):
 
 class YMoveYPaintModifier(bpy.types.Operator):
     bl_idname = "node.y_move_ypaint_modifier"
-    bl_label = "Move " + ADDON_TITLE + " Modifier"
-    bl_description = "Move " + ADDON_TITLE + " Modifier"
+    bl_label = "Move " + get_addon_title() + " Modifier"
+    bl_description = "Move " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
     direction : EnumProperty(
@@ -624,8 +624,8 @@ class YMoveYPaintModifier(bpy.types.Operator):
 
 class YRemoveYPaintModifier(bpy.types.Operator):
     bl_idname = "node.y_remove_ypaint_modifier"
-    bl_label = "Remove " + ADDON_TITLE + " Modifier"
-    bl_description = "Remove " + ADDON_TITLE + " Modifier"
+    bl_label = "Remove " + get_addon_title() + " Modifier"
+    bl_description = "Remove " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod

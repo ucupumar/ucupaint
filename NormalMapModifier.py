@@ -105,8 +105,8 @@ class YNewNormalmapModifier(bpy.types.Operator):
 
 class YMoveNormalMapModifier(bpy.types.Operator):
     bl_idname = "node.y_move_normalmap_modifier"
-    bl_label = "Move " + ADDON_TITLE + " Modifier"
-    bl_description = "Move " + ADDON_TITLE + " Modifier"
+    bl_label = "Move " + get_addon_title() + " Modifier"
+    bl_description = "Move " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
     direction : EnumProperty(
@@ -166,8 +166,8 @@ class YMoveNormalMapModifier(bpy.types.Operator):
 
 class YRemoveNormalMapModifier(bpy.types.Operator):
     bl_idname = "node.y_remove_normalmap_modifier"
-    bl_label = "Remove " + ADDON_TITLE + " Modifier"
-    bl_description = "Remove " + ADDON_TITLE + " Modifier"
+    bl_label = "Remove " + get_addon_title() + " Modifier"
+    bl_description = "Remove " + get_addon_title() + " Modifier"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod

@@ -7,8 +7,8 @@ from .node_arrangements import *
 from .node_connections import *
 from . import lib, Modifier, Layer, Mask, transition, Bake, ImageAtlas
 
-YP_GROUP_SUFFIX = ' ' + ADDON_TITLE
-YP_GROUP_PREFIX = ADDON_TITLE + ' '
+YP_GROUP_SUFFIX = ' ' + get_addon_title()
+YP_GROUP_PREFIX = get_addon_title() + ' '
 
 channel_socket_types = {
     'RGB' : 'RGBA',
@@ -27,7 +27,7 @@ colorspace_items = (
     ('SRGB', 'Color Data', '')
 )
 
-AO_MULTIPLY = ADDON_TITLE + ' AO Multiply'
+AO_MULTIPLY = 'yP AO Multiply'
 
 def check_channel_clamp(tree, root_ch):
     
@@ -462,8 +462,8 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
 class YQuickYPaintNodeSetup(bpy.types.Operator):
     bl_idname = "node.y_quick_ypaint_node_setup"
-    bl_label = "Quick " + ADDON_TITLE + " Node Setup"
-    bl_description = "Quick " + ADDON_TITLE + " Node Setup"
+    bl_label = "Quick " + get_addon_title() + " Node Setup"
+    bl_description = "Quick " + get_addon_title() + " Node Setup"
     bl_options = {'REGISTER', 'UNDO'}
 
     type : EnumProperty(
@@ -644,7 +644,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             ao_mul = nodes.new('ShaderNodeMixRGB')
             ao_mul.inputs[0].default_value = 1.0
             ao_mul.blend_type = 'MULTIPLY'
-            ao_mul.label = AO_MULTIPLY
+            ao_mul.label = get_addon_title() + ' AO Multiply'
             ao_mul.name = AO_MULTIPLY
             ao_mul.inputs[0].default_value = 1.0
             ao_mul.inputs[1].default_value = (1.0, 1.0, 1.0, 1.0)
@@ -805,8 +805,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
 class YNewYPaintNode(bpy.types.Operator):
     bl_idname = "node.y_add_new_ypaint_node"
-    bl_label = "Add new " + ADDON_TITLE + " Node"
-    bl_description = "Add new " + ADDON_TITLE + " node"
+    bl_label = "Add new " + get_addon_title() + " Node"
+    bl_description = "Add new " + get_addon_title() + " node"
     bl_options = {'REGISTER', 'UNDO'}
 
     @staticmethod
@@ -905,8 +905,8 @@ def update_connect_to(self, context):
 
 class YNewYPaintChannel(bpy.types.Operator):
     bl_idname = "node.y_add_new_ypaint_channel"
-    bl_label = "Add new " + ADDON_TITLE + " Channel"
-    bl_description = "Add new " + ADDON_TITLE + " channel"
+    bl_label = "Add new " + get_addon_title() + " Channel"
+    bl_description = "Add new " + get_addon_title() + " channel"
     bl_options = {'REGISTER', 'UNDO'}
 
     name : StringProperty(
@@ -1106,8 +1106,8 @@ class YNewYPaintChannel(bpy.types.Operator):
 
 class YMoveYPaintChannel(bpy.types.Operator):
     bl_idname = "node.y_move_ypaint_channel"
-    bl_label = "Move " + ADDON_TITLE + " Channel"
-    bl_description = "Move " + ADDON_TITLE + " channel"
+    bl_label = "Move " + get_addon_title() + " Channel"
+    bl_description = "Move " + get_addon_title() + " channel"
     bl_options = {'REGISTER', 'UNDO'}
 
     direction : EnumProperty(
@@ -1187,8 +1187,8 @@ class YMoveYPaintChannel(bpy.types.Operator):
 
 class YRemoveYPaintChannel(bpy.types.Operator):
     bl_idname = "node.y_remove_ypaint_channel"
-    bl_label = "Remove " + ADDON_TITLE + " Channel"
-    bl_description = "Remove " + ADDON_TITLE + " channel"
+    bl_label = "Remove " + get_addon_title() + " Channel"
+    bl_description = "Remove " + get_addon_title() + " channel"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -1509,8 +1509,8 @@ class YFixMissingUV(bpy.types.Operator):
 
 class YRenameYPaintTree(bpy.types.Operator):
     bl_idname = "node.y_rename_ypaint_tree"
-    bl_label = "Rename " + ADDON_TITLE + " Group Name"
-    bl_description = "Rename " + ADDON_TITLE + " Group Name"
+    bl_label = "Rename " + get_addon_title() + " Group Name"
+    bl_description = "Rename " + get_addon_title() + " Group Name"
     bl_options = {'REGISTER', 'UNDO'}
 
     name : StringProperty(name='New Name', description='New Name', default='')
@@ -1537,11 +1537,11 @@ class YRenameYPaintTree(bpy.types.Operator):
 
 class YChangeActiveYPaintNode(bpy.types.Operator):
     bl_idname = "node.y_change_active_ypaint_node"
-    bl_label = "Change Active " + ADDON_TITLE + " Node"
-    bl_description = "Change Active " + ADDON_TITLE + " Node"
+    bl_label = "Change Active " + get_addon_title() + " Node"
+    bl_description = "Change Active " + get_addon_title() + " Node"
     bl_options = {'REGISTER', 'UNDO'}
 
-    name : StringProperty(name='Node Name', description=ADDON_TITLE + ' Node Name', default='')
+    name : StringProperty(name='Node Name', description=get_addon_title() + ' Node Name', default='')
 
     @classmethod
     def poll(cls, context):
@@ -1567,8 +1567,8 @@ class YChangeActiveYPaintNode(bpy.types.Operator):
 
 class YFixDuplicatedYPNodes(bpy.types.Operator):
     bl_idname = "node.y_fix_duplicated_yp_nodes"
-    bl_label = "Fix Duplicated " + ADDON_TITLE + " Nodes"
-    bl_description = "Fix duplicated " + ADDON_TITLE + " nodes by making it single user"
+    bl_label = "Fix Duplicated " + get_addon_title() + " Nodes"
+    bl_description = "Fix duplicated " + get_addon_title() + " nodes by making it single user"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -1586,8 +1586,8 @@ class YFixDuplicatedYPNodes(bpy.types.Operator):
 
 class YDuplicateYPNodes(bpy.types.Operator):
     bl_idname = "node.y_duplicate_yp_nodes"
-    bl_label = "Duplicate " + ADDON_TITLE + " Nodes"
-    bl_description = "Duplicate " + ADDON_TITLE + " nodes to make it single user"
+    bl_label = "Duplicate " + get_addon_title() + " Nodes"
+    bl_description = "Duplicate " + get_addon_title() + " nodes to make it single user"
     bl_options = {'REGISTER', 'UNDO'}
 
     duplicate_material : BoolProperty(
@@ -1830,8 +1830,8 @@ class YRefreshTangentSignVcol(bpy.types.Operator):
 
 class YRemoveYPaintNode(bpy.types.Operator):
     bl_idname = "node.y_remove_yp_node"
-    bl_label = "Remove " + ADDON_TITLE + " Node"
-    bl_description = "Remove " + ADDON_TITLE + " node, but keep all baked channel image(s)"""
+    bl_label = "Remove " + get_addon_title() + " Node"
+    bl_description = "Remove " + get_addon_title() + " node, but keep all baked channel image(s)"""
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
@@ -1852,7 +1852,7 @@ class YRemoveYPaintNode(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
-        self.layout.label(text= "This " + ADDON_TITLE + " node setup isn't baked yet!")
+        self.layout.label(text= "This " + get_addon_title() + " node setup isn't baked yet!")
         self.layout.label(text= "Are you sure want to delete?")
 
     def execute(self, context):
@@ -2033,8 +2033,8 @@ class YRemoveYPaintNode(bpy.types.Operator):
 
 class YCleanYPCaches(bpy.types.Operator):
     bl_idname = "node.y_clean_yp_caches"
-    bl_label = "Clean " + ADDON_TITLE + " Caches"
-    bl_description = "Clean " + ADDON_TITLE + " caches"""
+    bl_label = "Clean " + get_addon_title() + " Caches"
+    bl_description = "Clean " + get_addon_title() + " caches"""
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod

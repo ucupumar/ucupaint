@@ -1753,7 +1753,7 @@ def update_enable_baked_outside(self, context):
         frame = mtree.nodes.get(yp.baked_outside_frame)
         if not frame:
             frame = mtree.nodes.new('NodeFrame')
-            #frame.label = ADDON_TITLE + ' Baked Textures'
+            #frame.label = get_addon_title() + ' Baked Textures'
             frame.label = node.name + 'Baked Textures'
             frame.name = node.name + 'Baked Textures'
             yp.baked_outside_frame = frame.name
@@ -1900,7 +1900,7 @@ def update_enable_baked_outside(self, context):
 
             else:
 
-                # Copy ucupaint default value to connected nodes
+                # Copy yp default value to connected nodes
                 inp = node.inputs.get(ch.name)
                 for l in outp.links:
                     copy_default_value(inp, l.to_socket)

@@ -2721,7 +2721,7 @@ def main_draw(self, context):
         #    split.separator()
 
     if not node:
-        layout.label(text="No active " + ADDON_TITLE + " node!", icon='ERROR')
+        layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
         layout.operator("node.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
 
         return
@@ -2880,9 +2880,9 @@ def main_draw(self, context):
 
 class NODE_PT_YPaint(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
-    bl_label = ADDON_TITLE + " " + get_current_version_str()
+    bl_label = get_addon_title() + " " + get_current_version_str()
     bl_region_type = 'TOOLS'
-    #bl_category = ADDON_TITLE
+    #bl_category = get_addon_title()
 
     @classmethod
     def poll(cls, context):
@@ -2894,9 +2894,9 @@ class NODE_PT_YPaint(bpy.types.Panel):
 
 class NODE_PT_YPaintUI(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
-    bl_label = ADDON_TITLE + " " + get_current_version_str()
+    bl_label = get_addon_title() + " " + get_current_version_str()
     bl_region_type = 'UI'
-    bl_category = ADDON_TITLE
+    bl_category = get_addon_title()
 
     @classmethod
     def poll(cls, context):
@@ -2908,9 +2908,9 @@ class NODE_PT_YPaintUI(bpy.types.Panel):
 
 class VIEW3D_PT_YPaint_tools(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
-    bl_label = ADDON_TITLE + " " + get_current_version_str()
+    bl_label = get_addon_title() + " " + get_current_version_str()
     bl_region_type = 'TOOLS'
-    bl_category = ADDON_TITLE
+    bl_category = get_addon_title()
 
     @classmethod
     def poll(cls, context):
@@ -2920,11 +2920,11 @@ class VIEW3D_PT_YPaint_tools(bpy.types.Panel):
         main_draw(self, context)
 
 class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
-    bl_label = ADDON_TITLE + " " + get_current_version_str()
+    bl_label = get_addon_title() + " " + get_current_version_str()
     bl_space_type = 'VIEW_3D'
     #bl_context = "object"
     bl_region_type = 'UI'
-    bl_category = ADDON_TITLE
+    bl_category = get_addon_title()
     #bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod
@@ -3305,8 +3305,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
 
 class YPaintSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_ypaint_special_menu"
-    bl_label = ADDON_TITLE + " Special Menu"
-    bl_description = ADDON_TITLE + " Special Menu"
+    bl_label = get_addon_title() + " Special Menu"
+    bl_description = get_addon_title() + " Special Menu"
 
     @classmethod
     def poll(cls, context):
@@ -3335,7 +3335,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        col.operator('node.y_duplicate_yp_nodes', text='Duplicate Material and ' + ADDON_TITLE + ' nodes', icon='COPY_ID').duplicate_material = True
+        col.operator('node.y_duplicate_yp_nodes', text='Duplicate Material and ' + get_addon_title() + ' nodes', icon='COPY_ID').duplicate_material = True
 
         col.separator()
 
@@ -4573,7 +4573,7 @@ def add_new_ypaint_node_menu(self, context):
     l = self.layout
     l.operator_context = 'INVOKE_REGION_WIN'
     l.separator()
-    l.operator('node.y_add_new_ypaint_node', text=ADDON_TITLE, icon_value=lib.get_icon('nodetree'))
+    l.operator('node.y_add_new_ypaint_node', text=get_addon_title(), icon_value=lib.get_icon('nodetree'))
 
 def copy_ui_settings(source, dest):
     for attr in dir(source):

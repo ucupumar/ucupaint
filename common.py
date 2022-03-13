@@ -9,8 +9,6 @@ MAX_VERTEX_DATA = 8
 
 LAYERGROUP_PREFIX = '~yP Layer '
 MASKGROUP_PREFIX = '~yP Mask '
-ADDON_NAME = 'ucupaint'
-ADDON_TITLE = 'Ucupaint'
 
 INFO_PREFIX = '__yp_info_'
 
@@ -370,8 +368,15 @@ GAMMA = 2.2
 def versiontuple(v):
     return tuple(map(int, (v.split("."))))
 
+def get_addon_name():
+    return os.path.basename(os.path.dirname(bpy.path.abspath(__file__)))
+
+def get_addon_title():
+    bl_info = sys.modules[get_addon_name()].bl_info
+    return bl_info['name']
+
 def get_current_version_str():
-    bl_info = sys.modules[ADDON_NAME].bl_info
+    bl_info = sys.modules[get_addon_name()].bl_info
     return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
 
 def is_greater_than_280():
@@ -510,25 +515,7 @@ def in_active_279_layer(obj):
         return any([layer for i, layer in enumerate(obj.layers) if layer and scene.layers[i]])
 
 def get_addon_filepath():
-
-    sep = os.sep
-
-    # Search for addon dirs
-    roots = bpy.utils.script_paths()
-
-    possible_dir_names = [ADDON_NAME, ADDON_NAME + '-master', ADDON_NAME + '-blender_279']
-
-    for root in roots:
-        if os.path.basename(root) != 'scripts': continue
-        filepath = root + sep + 'addons'
-
-        dirs = next(os.walk(filepath))[1]
-        folders = [x for x in dirs if x in possible_dir_names]
-
-        if folders:
-            return filepath + sep + folders[0] + sep
-
-    return 'ERROR: No path found for ' + ADDON_NAME + '!'
+    return os.path.dirname(bpy.path.abspath(__file__)) + os.sep
 
 def srgb_to_linear_per_element(e):
     if e <= 0.03928:
@@ -1237,13 +1224,13 @@ def create_info_nodes(tree):
     info = nodes.new('NodeFrame')
 
     if tree_type == 'LAYER':
-        info.label = 'Part of ' + ADDON_TITLE + ' addon version ' + yp.version
-        info.width = 360.0
+        info.label = 'Part of ' + get_addon_title() + ' addon version ' + yp.version
+        info.width = 390.0
     elif tree_type == 'ROOT':
-        info.label = 'Created using ' + ADDON_TITLE + ' addon version ' + yp.version
-        info.width = 420.0
+        info.label = 'Created using ' + get_addon_title() + ' addon version ' + yp.version
+        info.width = 460.0
     else:
-        info.label = 'Part of ' + ADDON_TITLE + ' addon'
+        info.label = 'Part of ' + get_addon_title() + ' addon'
         info.width = 250.0
 
     info.use_custom_color = True
@@ -1252,10 +1239,10 @@ def create_info_nodes(tree):
     infos.append(info)
 
     info = nodes.new('NodeFrame')
-    info.label = 'Get more info on patreon.com/ucupumar'
+    info.label = 'Get the addon from github.com/ucupumar/ucupaint/releases'
     info.use_custom_color = True
     info.color = (1.0, 1.0, 1.0)
-    info.width = 420.0
+    info.width = 620.0
     info.height = 30.0
     infos.append(info)
 
@@ -1268,7 +1255,7 @@ def create_info_nodes(tree):
     infos.append(info)
 
     info = nodes.new('NodeFrame')
-    info.label = 'Please use this panel: Node Editor > Properties > ' + ADDON_TITLE
+    info.label = 'Please use this panel: Node Editor > Properties > ' + get_addon_title()
     #info.label = 'Please use this panel: Node Editor > Tools > Misc'
     info.use_custom_color = True
     info.color = (1.0, 0.5, 0.5)

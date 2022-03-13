@@ -505,9 +505,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
         for image in images:
             if image.filepath == '':
                 image_name = image.name
-                # Remove addon name from the file names
-                if image_name.startswith(ADDON_TITLE + ' '):
-                    image_name = image_name.replace(ADDON_TITLE + ' ', '')
+                # Remove addon title from the file names
+                if image_name.startswith(get_addon_title() + ' '):
+                    image_name = image_name.replace(get_addon_title() + ' ', '')
                 filename = image_name + '.png'
             else:
                 filename = bpy.path.basename(image.filepath)

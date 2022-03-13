@@ -185,7 +185,7 @@
 # - Move channel modifier will cause error (V)
 # - Blender 2.80 until 2.91 cannot use vertex color alpha (V)
 # - Duplicate solid color with mask can cause error (V)
-# - Using ucupaint on non-mesh object can cause error (V)
+# - Using yp on non-mesh object can cause error (V)
 # - Resize image with image atlas does not work (V)
 # - Baking object with no vertex will cause error (V)
 # - Baked channel images sometimes dissapeared after save all
@@ -202,7 +202,7 @@ bl_info = {
     "author": "Yusuf Umar, Agni Rakai Sahakarya",
     "version": (0, 9, 9),
     "blender": (2, 80, 0),
-    "location": "Node Editor > Properties > Ucupaint",
+    "location": "Node Editor > Properties > PAINTERy",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
     #"warning" : "This is alpha version, incompability to future releases might happen",
     #"wiki_url": "http://patreon.com/ucupumar",
