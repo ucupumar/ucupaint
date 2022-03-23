@@ -2576,6 +2576,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 row.label(text='Fill Color ID:')
                 row = ccol.row(align=True)
                 color = (colorid_col[0], colorid_col[1], colorid_col[2], 1.0)
+                row.context_pointer_set('mask', mask)
                 row.operator('mesh.y_vcol_fill_face_custom', text='Fill').color = color
                 row.operator('mesh.y_vcol_fill_face_custom', text='Erase').color = (0.0, 0.0, 0.0, 1.0)
 

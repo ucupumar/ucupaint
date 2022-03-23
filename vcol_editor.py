@@ -7,11 +7,31 @@ def is_greater_than_280():
         return True
     else: return False
 
+def srgb_to_linear_per_element(e):
+    if e <= 0.03928:
+        return e/12.92
+    else: 
+        return pow((e + 0.055) / 1.055, 2.4)
+
 def linear_to_srgb_per_element(e):
     if e > 0.0031308:
         return 1.055 * (pow(e, (1.0 / 2.4))) - 0.055
     else: 
         return 12.92 * e
+
+def srgb_to_linear(inp):
+
+    if type(inp) == float:
+        return srgb_to_linear_per_element(inp)
+
+    elif type(inp) == Color:
+
+        c = inp.copy()
+
+        for i in range(3):
+            c[i] = srgb_to_linear_per_element(c[i])
+
+        return c
 
 def linear_to_srgb(inp):
 
@@ -321,8 +341,20 @@ class YVcolFillFaceCustom(bpy.types.Operator):
             if is_greater_than_280():
                 color = (color[0], color[1], color[2], self.color[3])
 
-            for loop_index in loop_indices:
+            for i, loop_index in enumerate(loop_indices):
                 vcol.data[loop_index].color = color
+
+                # HACK: Sometimes color assigned are different so read the assigned color and write it back to mask color id
+                if i == 0 and any([color[i] for i in range(3) if color[i] != vcol.data[loop_index].color[i]]) and hasattr(context, 'mask'):
+                    #print(color[0], vcol.data[loop_index].color[0])
+                    written_col = vcol.data[loop_index].color
+                    color = (written_col[0], written_col[1], written_col[2])
+
+                    # Set color back to mask color id
+                    context.mask.color_id = srgb_to_linear(Color(color))
+
+                    if is_greater_than_280():
+                        color = (written_col[0], written_col[1], written_col[2], written_col[3])
 
             bpy.ops.object.mode_set(mode='EDIT')
 
