@@ -674,15 +674,21 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             loc.x += 200
 
         if not outsoc:
-            mat_out = nodes.new(type='ShaderNodeOutputMaterial')
-            mat_out.is_active_output = True
-            outsoc = mat_out.inputs[0]
+            # Blender 3.1 has bug which prevent material output changes
+            if output and bpy.data.version >= (3, 1, 0) and bpy.data.version < (3, 2, 0):
+                outsoc = output.inputs[0]
+                output.location = loc.copy()
+                loc.x += 200
+            else:
+                mat_out = nodes.new(type='ShaderNodeOutputMaterial')
+                mat_out.is_active_output = True
+                outsoc = mat_out.inputs[0]
 
-            mat_out.location = loc.copy()
-            loc.x += 200
-            
-            if output: 
-                output.is_active_output = False
+                mat_out.location = loc.copy()
+                loc.x += 200
+                
+                if output: 
+                    output.is_active_output = False
 
         if transp_node_needed: 
             links.new(mix_bsdf.outputs[0], outsoc)
