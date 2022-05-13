@@ -116,7 +116,7 @@ TODO (Immediate):
 - Need ability to edit height channel main uv (V)
 - Add operator to create new UV map on multiple objects using the same material (V)
 - Change link inside group to github insted of patreon (V)
-- Add force use CPU on transfer UV / resize image
+- Always force use CPU on transfer UV / resize image (V)
 - Add more options like 'add mask' and 'rebake' option on layer special menu
 
 TODO:

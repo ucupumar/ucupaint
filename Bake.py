@@ -303,7 +303,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         # Prepare bake settings
         book = remember_before_bake(yp)
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT' #, force_use_cpu=self.force_use_cpu
+                uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=True
                 )
 
         for layer in yp.layers:
@@ -430,7 +430,7 @@ class YTransferLayerUV(bpy.types.Operator):
         # Prepare bake settings
         book = remember_before_bake(yp)
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT' #, force_use_cpu=self.force_use_cpu
+                uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=True
                 )
 
         # Transfer UV
@@ -556,7 +556,7 @@ class YResizeImage(bpy.types.Operator):
 
         else:
             #scaled_img, new_segment = resize_image(image, self.width, self.height, 'Linear', self.samples, 0, segment)
-            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, yp=yp)
+            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, force_use_cpu=True, yp=yp)
 
             if new_segment:
                 entity.segment_name = new_segment.name
