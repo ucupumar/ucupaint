@@ -556,10 +556,12 @@ class YResizeImage(bpy.types.Operator):
 
         else:
             #scaled_img, new_segment = resize_image(image, self.width, self.height, 'Linear', self.samples, 0, segment)
-            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment)
+            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, yp=yp)
 
             if new_segment:
                 entity.segment_name = new_segment.name
+                source = get_entity_source(entity)
+                source.image = scaled_img
                 segment.unused = True
                 update_mapping(entity)
 

@@ -116,6 +116,8 @@ TODO (Immediate):
 - Need ability to edit height channel main uv (V)
 - Add operator to create new UV map on multiple objects using the same material (V)
 - Change link inside group to github insted of patreon (V)
+- Add force use CPU on transfer UV / resize image
+- Add more options like 'add mask' and 'rebake' option on layer special menu
 
 TODO:
 - Make every node name unique (using hash?)
@@ -189,6 +191,7 @@ BUGS:
 - Resize image with image atlas does not work (V)
 - Baking object with no vertex will cause error (V)
 - Baked channel images sometimes dissapeared after save all
+- Rezise image atlas to maximum size (4k at default) can erase other image atlas user (V)
 
 KNOWN ISSUES:
 - Cycles has limit of 32 images per material, NOT per node_tree (V) Can be get around by using image atlas

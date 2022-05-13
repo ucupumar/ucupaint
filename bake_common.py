@@ -1050,7 +1050,7 @@ def join_objects(objs):
 
     return bpy.context.object
 
-def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None, alpha_aware=True, force_use_cpu=False):
+def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None, alpha_aware=True, force_use_cpu=False, yp=None):
 
     T = time.time()
     image_name = image.name
@@ -1070,7 +1070,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
 
     if segment:
         new_segment = ImageAtlas.get_set_image_atlas_segment(
-                    width, height, image.yia.color, image.is_float) #, ypup.image_atlas_size)
+                    width, height, image.yia.color, image.is_float, yp=yp) #, ypup.image_atlas_size)
         scaled_img = new_segment.id_data
 
         ori_start_x = segment.width * segment.tile_x
@@ -1226,7 +1226,8 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
         bpy.data.images.remove(alpha_img)
 
     # Replace original image to scaled image
-    replace_image(image, scaled_img)
+    if not new_segment:
+        replace_image(image, scaled_img)
 
     # Remove temp datas
     if straight_over.node_tree.users == 1:
