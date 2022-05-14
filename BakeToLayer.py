@@ -210,8 +210,8 @@ class YBakeToLayer(bpy.types.Operator):
             description = "Use Supersample AA to baked image",
             default=False)
 
-    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1234, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1234, min=1, max=4096)
 
     channel_idx : EnumProperty(
             name = 'Channel',
@@ -306,6 +306,11 @@ class YBakeToLayer(bpy.types.Operator):
         scene = self.scene = context.scene
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
+        ypup = get_user_preferences()
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
 
         # Default normal map type is bump
         self.normal_map_type = 'BUMP_MAP'
@@ -522,6 +527,15 @@ class YBakeToLayer(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
+        ypup = get_user_preferences()
+
+        # New image cannot use more pixels than the image atlas
+        if self.use_image_atlas:
+            if self.hdr: max_size = ypup.hdr_image_atlas_size
+            else: max_size = ypup.image_atlas_size
+            if self.width > max_size: self.width = max_size
+            if self.height > max_size: self.height = max_size
+
         return True
 
     def draw(self, context):
@@ -675,6 +689,7 @@ class YBakeToLayer(bpy.types.Operator):
         ypui = context.window_manager.ypui
         scene = context.scene
         obj = context.object
+        ypup = get_user_preferences()
 
         active_layer = None
         if len(yp.layers) > 0:
@@ -818,8 +833,8 @@ class YBakeToLayer(bpy.types.Operator):
                 disp_width = baked_disp.image.size[0]
                 disp_height = baked_disp.image.size[1]
             else:
-                disp_width = 1024
-                disp_height = 1024
+                disp_width = ypup.default_new_image_size
+                disp_height = ypup.default_new_image_size
 
             if yp.baked_uv_name != '':
                 disp_uv = yp.baked_uv_name

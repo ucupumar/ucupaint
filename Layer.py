@@ -156,7 +156,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         ):
 
     yp = group_tree.yp
-    #ypup = bpy.context.user_preferences.addons[__package__].preferences
+    #ypup = get_user_preferences()
     obj = bpy.context.object
     mat = obj.active_material
 
@@ -549,8 +549,8 @@ class YNewLayer(bpy.types.Operator):
             default = 'IMAGE')
 
     # For image layer
-    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1234, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1234, min=1, max=4096)
     #color : FloatVectorProperty(name='Color', size=4, subtype='COLOR', default=(0.0,0.0,0.0,0.0), min=0.0, max=1.0)
     #alpha : BoolProperty(name='Alpha', default=True)
     hdr : BoolProperty(name='32 bit Float', default=False)
@@ -612,8 +612,8 @@ class YNewLayer(bpy.types.Operator):
                 ),
             default='BLACK')
 
-    mask_width : IntProperty(name='Mask Width', default = 1024, min=1, max=4096)
-    mask_height : IntProperty(name='Mask Height', default = 1024, min=1, max=4096)
+    mask_width : IntProperty(name='Mask Width', default = 1234, min=1, max=4096)
+    mask_height : IntProperty(name='Mask Height', default = 1234, min=1, max=4096)
 
     mask_uv_name : StringProperty(default='')
     mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
@@ -663,6 +663,7 @@ class YNewLayer(bpy.types.Operator):
 
     def invoke(self, context, event):
 
+        ypup = get_user_preferences()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         obj = context.object
@@ -680,6 +681,12 @@ class YNewLayer(bpy.types.Operator):
         else:
             name = [i[1] for i in layer_type_items if i[0] == self.type][0]
             items = yp.layers
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
+        if self.mask_width == 1234 and self.mask_height == 1234:
+            self.mask_width = self.mask_height = ypup.default_new_image_size
 
         # Make sure add rgb to intensity is inactive
         #if self.type != 'IMAGE':
@@ -734,6 +741,21 @@ class YNewLayer(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
+        ypup = get_user_preferences()
+
+        # New image cannot use more pixels than the image atlas
+        if self.use_image_atlas:
+            if self.hdr: max_size = ypup.hdr_image_atlas_size
+            else: max_size = ypup.image_atlas_size
+            if self.width > max_size: self.width = max_size
+            if self.height > max_size: self.height = max_size
+
+        if self.use_image_atlas_for_mask:
+            if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
+            else: mask_max_size = ypup.image_atlas_size
+            if self.mask_width > mask_max_size: self.mask_width = mask_max_size
+            if self.mask_height > mask_max_size: self.mask_height = mask_max_size
+
         return True
 
     def get_to_be_cleared_image_atlas(self, context):
@@ -884,7 +906,7 @@ class YNewLayer(bpy.types.Operator):
 
         T = time.time()
 
-        #ypup = bpy.context.user_preferences.addons[__package__].preferences
+        #ypup = get_user_preferences()
         wm = context.window_manager
         area = context.area
         obj = context.object
@@ -1240,8 +1262,8 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                 ),
             default='BLACK')
 
-    mask_width : IntProperty(name='Mask Width', default = 1024, min=1, max=4096)
-    mask_height : IntProperty(name='Mask Height', default = 1024, min=1, max=4096)
+    mask_width : IntProperty(name='Mask Width', default = 1234, min=1, max=4096)
+    mask_height : IntProperty(name='Mask Height', default = 1234, min=1, max=4096)
 
     mask_uv_name : StringProperty(default='')
     mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
@@ -1263,10 +1285,15 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
         obj = context.object
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
+        ypup = get_user_preferences()
 
         #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         #if channel and channel.type == 'RGB':
         #    self.rgb_to_intensity_color = (1.0, 0.0, 1.0)
+
+        # Use user preference default image size if input uses default image size
+        if self.mask_width == 1234 and self.mask_height == 1234:
+            self.mask_width = self.mask_height = ypup.default_new_image_size
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
@@ -1291,6 +1318,15 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
         return {'RUNNING_MODAL'}
 
     def check(self, context):
+        ypup = get_user_preferences()
+
+        # New image cannot use more pixels than the image atlas
+        if self.use_image_atlas_for_mask:
+            if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
+            else: mask_max_size = ypup.image_atlas_size
+            if self.mask_width > mask_max_size: self.mask_width = mask_max_size
+            if self.mask_height > mask_max_size: self.mask_height = mask_max_size
+
         return True
 
     def draw(self, context):
@@ -3128,10 +3164,7 @@ class YReplaceLayerType(bpy.types.Operator):
 def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_single_user=True, make_image_blank=False):
 
     yp = tree.yp
-
-    if is_greater_than_280():
-        ypup = bpy.context.preferences.addons[__package__].preferences
-    else: ypup = bpy.context.user_preferences.addons[__package__].preferences
+    ypup = get_user_preferences()
 
     img_users = []
     img_nodes = []

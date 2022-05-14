@@ -19,15 +19,23 @@ class YPaintPreferences(AddonPreferences):
                      ),
             default = 'ONLY_DIRTY')
 
+    default_new_image_size : IntProperty(
+            name = 'Default New Image Size',
+            description = 'Default new image size',
+            default = 1024,
+            min=64, max=4096)
+
     image_atlas_size : IntProperty(
             name = 'Image Atlas Size',
             description = 'Image Atlas Size',
-            default = 4096)
+            default = 4096,
+            min=2048, max=8192)
 
     hdr_image_atlas_size : IntProperty(
             name = 'HDR Image Atlas Size',
             description = 'HDR Image Atlas Size',
-            default = 2048)
+            default = 2048,
+            min=1024, max=4096)
 
     unique_image_atlas_per_yp : BoolProperty(
             name = 'Use unique Image Atlas per ' + get_addon_title() + ' tree',
@@ -41,6 +49,7 @@ class YPaintPreferences(AddonPreferences):
 
     def draw(self, context):
         self.layout.prop(self, 'auto_save')
+        self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
         self.layout.prop(self, 'unique_image_atlas_per_yp')

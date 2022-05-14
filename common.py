@@ -455,6 +455,11 @@ def get_viewport_shade():
         return bpy.context.area.spaces[0].shading.type
     else: return bpy.context.area.spaces[0].viewport_shade
 
+def get_user_preferences():
+    if is_greater_than_280():
+        return bpy.context.preferences.addons[__package__].preferences
+    return bpy.context.user_preferences.addons[__package__].preferences
+
 def get_all_layer_collections(arr, col):
     if col not in arr:
         arr.append(col)

@@ -175,8 +175,8 @@ class YNewLayerMask(bpy.types.Operator):
             items = mask_type_items,
             default = 'IMAGE')
 
-    width : IntProperty(name='Width', default = 1024, min=1, max=16384)
-    height : IntProperty(name='Height', default = 1024, min=1, max=16384)
+    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
     
     blend_type : EnumProperty(
         name = 'Blend',
@@ -257,6 +257,7 @@ class YNewLayerMask(bpy.types.Operator):
         self.layer = context.layer
         layer = context.layer
         yp = layer.id_data.yp
+        ypup = get_user_preferences()
 
         #surname = '(' + layer.name + ')'
         #if self.type == 'IMAGE':
@@ -275,6 +276,10 @@ class YNewLayerMask(bpy.types.Operator):
         #    self.name = get_unique_name(name, items, surname)
         ##name = 'Mask ' + name #+ ' ' + surname
         self.name = get_new_mask_name(obj, layer, self.type)
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
 
         if self.type == 'COLOR_ID':
             # Check if color id already being used
@@ -303,6 +308,15 @@ class YNewLayerMask(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self)
 
     def check(self, context):
+        ypup = get_user_preferences()
+
+        # New image cannot use more pixels than the image atlas
+        if self.use_image_atlas:
+            if self.hdr: max_size = ypup.hdr_image_atlas_size
+            else: max_size = ypup.image_atlas_size
+            if self.width > max_size: self.width = max_size
+            if self.height > max_size: self.height = max_size
+
         return True
 
     def draw(self, context):
@@ -388,7 +402,7 @@ class YNewLayerMask(bpy.types.Operator):
         ypui = context.window_manager.ypui
         layer = self.layer
         yp = layer.id_data.yp
-        #ypup = bpy.context.user_preferences.addons[__package__].preferences
+        #ypup = get_user_preferences()
 
         # Check if object is not a mesh
         if self.type == 'VCOL' and obj.type != 'MESH':

@@ -455,8 +455,8 @@ class YResizeImage(bpy.types.Operator):
     layer_name : StringProperty(default='')
     image_name : StringProperty(default='')
 
-    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1234, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1234, min=1, max=4096)
 
     samples : IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated image', 
@@ -468,9 +468,16 @@ class YResizeImage(bpy.types.Operator):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
     def invoke(self, context, event):
+        ypup = get_user_preferences()
+
         #if hasattr(context, 'image') and hasattr(context, 'layer'):
         #    self.image = context.image
         #    self.layer = context.layer
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
@@ -576,8 +583,8 @@ class YBakeChannels(bpy.types.Operator):
     bl_label = "Bake channels to Image"
     bl_options = {'REGISTER', 'UNDO'}
 
-    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1234, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1234, min=1, max=4096)
 
     uv_map : StringProperty(default='')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
@@ -620,9 +627,14 @@ class YBakeChannels(bpy.types.Operator):
         yp = node.node_tree.yp
         obj = self.obj = context.object
         scene = self.scene = context.scene
+        ypup = get_user_preferences()
 
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(uv_layers) > 0:
@@ -1613,8 +1625,8 @@ class YBakeTempImage(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
-    width : IntProperty(name='Width', default = 1024, min=1, max=4096)
-    height : IntProperty(name='Height', default = 1024, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1234, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1234, min=1, max=4096)
 
     hdr : BoolProperty(name='32 bit Float', default=True)
 
@@ -1624,6 +1636,7 @@ class YBakeTempImage(bpy.types.Operator):
 
     def invoke(self, context, event):
         obj = context.object
+        ypup = get_user_preferences()
 
         self.auto_cancel = False
         if not hasattr(context, 'parent'):
@@ -1647,6 +1660,10 @@ class YBakeTempImage(bpy.types.Operator):
 
         if len(self.uv_map_coll) > 0:
             self.uv_map = self.uv_map_coll[0].name
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
