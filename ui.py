@@ -3582,7 +3582,7 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        col.prop(yp, 'layer_preview_mode', text='Layer Only Viewer')
+        #col.prop(yp, 'layer_preview_mode', text='Layer Only Viewer')
 
         col = row.column()
 
