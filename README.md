@@ -1,5 +1,5 @@
 # Ucupaint
-Ucupaint is Blender addon to manage textures as layers for Eevee and Cycles renderer.
+Ucupaint is Blender addon to manage texture layers for Eevee and Cycles renderer.
 
 * [Download](https://github.com/ucupumar/ucupaint/releases)
 * [Documentation](https://ucupaint-docs.netlify.app/)
