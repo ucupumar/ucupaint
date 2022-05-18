@@ -7,11 +7,6 @@ def is_greater_than_280():
         return True
     else: return False
 
-def is_greater_than_292():
-    if bpy.app.version >= (2, 92, 0):
-        return True
-    else: return False
-
 def srgb_to_linear_per_element(e):
     if e <= 0.03928:
         return e/12.92
@@ -94,7 +89,7 @@ class YToggleEraser(bpy.types.Operator):
         if mode == 'TEXTURE_PAINT':
             brush = context.tool_settings.image_paint.brush
             draw_brush = bpy.data.brushes.get('TexDraw')
-        elif mode == 'VERTEX_PAINT' and is_greater_than_292(): 
+        elif mode == 'VERTEX_PAINT' and is_greater_than_280(): 
             brush = context.tool_settings.vertex_paint.brush
             draw_brush = bpy.data.brushes.get('Draw')
         else:
