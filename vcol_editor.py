@@ -7,6 +7,11 @@ def is_greater_than_280():
         return True
     else: return False
 
+def is_greater_than_292():
+    if bpy.app.version >= (2, 92, 0):
+        return True
+    else: return False
+
 def srgb_to_linear_per_element(e):
     if e <= 0.03928:
         return e/12.92
@@ -83,19 +88,18 @@ class YToggleEraser(bpy.types.Operator):
 
     def execute(self, context):
 
-        if not is_greater_than_280():
-            self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
-            return {'CANCELLED'}
-
         ve = context.scene.ve_edit
         mode = context.object.mode
 
         if mode == 'TEXTURE_PAINT':
             brush = context.tool_settings.image_paint.brush
             draw_brush = bpy.data.brushes.get('TexDraw')
-        else: 
+        elif mode == 'VERTEX_PAINT' and is_greater_than_292(): 
             brush = context.tool_settings.vertex_paint.brush
             draw_brush = bpy.data.brushes.get('Draw')
+        else:
+            self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
+            return {'CANCELLED'}
 
         if brush.blend == 'ERASE_ALPHA':
             new_brush = bpy.data.brushes.get(ve.ori_brush)
