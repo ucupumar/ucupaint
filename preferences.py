@@ -47,12 +47,18 @@ class YPaintPreferences(AddonPreferences):
             description = 'Developer mode will shows several menu intented for developer only',
             default = False)
 
+    use_image_preview : BoolProperty(
+            name = 'Use Image Preview/Thumbnail',
+            description = 'Use image preview or thumbnail on the layers list',
+            default = False)
+
     def draw(self, context):
         self.layout.prop(self, 'auto_save')
         self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
         self.layout.prop(self, 'unique_image_atlas_per_yp')
+        self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'developer_mode')
 
 @persistent

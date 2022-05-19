@@ -618,10 +618,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
     nodes = group_tree.nodes
     yp = group_tree.yp
     ypui = context.window_manager.ypui
-
-    if is_greater_than_280():
-        ypup = bpy.context.preferences.addons[__package__].preferences
-    else: ypup = bpy.context.user_preferences.addons[__package__].preferences
+    ypup = get_user_preferences()
 
     box = layout.box()
     col = box.column()
@@ -2975,6 +2972,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
         layer = item
         layer_tree = get_tree(layer)
         obj = context.object
+        ypup = get_user_preferences()
 
         is_hidden = not is_parent_hidden(layer)
 
@@ -3024,10 +3022,10 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             row = master.row(align=True)
             row.active = is_hidden
             if image and image.yia.is_image_atlas: 
-                if image.preview: row.prop(layer, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+                if image.preview and ypup.use_image_preview: row.prop(layer, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
                 else: row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
             elif image: 
-                if image.preview: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
+                if image.preview and ypup.use_image_preview: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
                 else: row.prop(image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
             #elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
             elif layer.type == 'VCOL': 
@@ -3051,7 +3049,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     ae_prop = 'active_edit_1'
                 row.active = False
                 if image: 
-                    if image.preview: row.prop(active_override, ae_prop, text='', emboss=False, icon_value=image.preview.icon_id)
+                    if image.preview and ypup.use_image_preview: row.prop(active_override, ae_prop, text='', emboss=False, icon_value=image.preview.icon_id)
                     else: row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('image'))
                 #elif vcol: 
                 elif layer.type == 'VCOL': 
@@ -3070,7 +3068,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('texture'))
             else:
                 if image: 
-                    if image.preview: row.label(text='', icon_value=image.preview.icon_id)
+                    if image.preview and ypup.use_image_preview: row.label(text='', icon_value=image.preview.icon_id)
                     else: row.label(text='', icon_value=lib.get_icon('image'))
                 #elif vcol: 
                 elif layer.type == 'VCOL': 
@@ -3102,7 +3100,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     override_ch = c
                     if src and c.override_type == 'IMAGE':
                         active_override_image = src.image
-                        if src.image.preview: row.label(text='', icon_value=src.image.preview.icon_id)
+                        if src.image.preview and ypup.use_image_preview: row.label(text='', icon_value=src.image.preview.icon_id)
                         else: row.label(text='', icon_value=lib.get_icon('image'))
                     elif c.override_type == 'VCOL':
                         #active_override_vcol = c
@@ -3115,7 +3113,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                         #src = layer_tree.nodes.get(c.source)
                         src = get_channel_source(c, layer)
                         if src: 
-                            if src.image.preview: row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                            if src.image.preview and ypup.use_image_preview: row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                             else: row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                     elif c.override_type == 'VCOL':
                         row.prop(c, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
@@ -3130,13 +3128,13 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     override_ch = c
                     if src and c.override_1_type == 'IMAGE':
                         active_override_image = src.image
-                        if src.image.preview: row.label(text='', icon_value=src.image.preview.icon_id)
+                        if src.image.preview and ypup.use_image_preview: row.label(text='', icon_value=src.image.preview.icon_id)
                         else: row.label(text='', icon_value=lib.get_icon('image'))
                 else:
                     if c.override_1_type == 'IMAGE':
                         src = get_channel_source_1(c, layer)
                         if src: 
-                            if src.image.preview: row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                            if src.image.preview and ypup.use_image_preview: row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=src.image.preview.icon_id)
                             else: row.prop(c, 'active_edit_1', text='', emboss=False, icon_value=lib.get_icon('image'))
 
         # Mask icons
@@ -3152,7 +3150,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 src = mask_tree.nodes.get(m.source)
                 if m.type == 'IMAGE':
                     active_mask_image = src.image
-                    if src.image.preview: row.label(text='', icon_value=src.image.preview.icon_id)
+                    if src.image.preview and ypup.use_image_preview: row.label(text='', icon_value=src.image.preview.icon_id)
                     else: row.label(text='', icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     active_vcol_mask = m
@@ -3168,7 +3166,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             else:
                 if m.type == 'IMAGE':
                     src = mask_tree.nodes.get(m.source)
-                    if src.image.preview: row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
+                    if src.image.preview and ypup.use_image_preview: row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
                     else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     #row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
@@ -3985,9 +3983,7 @@ class YLayerMaskMenu(bpy.types.Menu):
         col.operator('node.y_new_mask_modifier', text='Ramp', icon_value=lib.get_icon('modifier')).type = 'RAMP'
         col.operator('node.y_new_mask_modifier', text='Curve', icon_value=lib.get_icon('modifier')).type = 'CURVE'
 
-        if is_greater_than_280():
-            ypup = bpy.context.preferences.addons[__package__].preferences
-        else: ypup = bpy.context.user_preferences.addons[__package__].preferences
+        ypup = get_user_preferences()
 
         if ypup.developer_mode:
             col = row.column(align=True)
@@ -4276,6 +4272,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
     def draw(self, context):
         yp = context.parent.id_data.yp
         ypui = context.window_manager.ypui
+        ypup = get_user_preferences()
 
         row = self.layout.row()
 
@@ -4317,10 +4314,6 @@ class YLayerSpecialMenu(bpy.types.Menu):
 
         col.separator()
         col.operator("node.y_replace_layer_type", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
-
-        if is_greater_than_280():
-            ypup = bpy.context.preferences.addons[__package__].preferences
-        else: ypup = bpy.context.user_preferences.addons[__package__].preferences
 
         if ypup.developer_mode:
             #if context.parent.type == 'HEMI':
