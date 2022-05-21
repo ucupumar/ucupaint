@@ -1590,6 +1590,9 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
         print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
+        # Make sure to expand channels so it can be obvious which channels are active
+        wm.ypui.expand_channels = True
+
         return {'FINISHED'}
 
 class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
@@ -3546,6 +3549,11 @@ def update_channel_enable(self, context):
 
         rearrange_yp_nodes(self.id_data)
         reconnect_yp_nodes(self.id_data)
+
+    # Disable active edit on overrides
+    if not ch.enable:
+        ch.active_edit = False
+        ch.active_edit_1 = False
 
     #print(ch.enable)
 
