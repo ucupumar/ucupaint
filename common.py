@@ -1625,6 +1625,7 @@ def get_channel_source(ch, layer=None, tree=None):
     return None
 
 def get_channel_source_1(ch, layer=None, tree=None):
+    yp = ch.id_data.yp
     if not layer:
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
         if not m : return None
@@ -3426,9 +3427,10 @@ def get_active_image_and_stuffs(obj, yp):
         if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT':
             source = tree.nodes.get(ch.source_1)
 
-            if ch.override_type == 'IMAGE':
+            if ch.override_1_type == 'IMAGE':
                 uv_name = layer.uv_name
-                image = source.image
+                source_1 = get_channel_source_1(ch)
+                image = source_1.image
                 src_of_img = ch
                 mapping = get_layer_mapping(layer)
 

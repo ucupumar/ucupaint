@@ -1079,7 +1079,26 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
         node = get_active_ypaint_node()
 
         import_list, directory = self.generate_paths()
-        images = tuple(load_image(path, directory) for path in import_list)
+        loaded_images = tuple(load_image(path, directory) for path in import_list)
+
+        images = []
+        for i, new_img in enumerate(loaded_images):
+
+            # Check for existing images
+            old_image_found = False
+            for old_img in bpy.data.images:
+                if old_img.filepath == new_img.filepath:
+                    images.append(old_img)
+                    old_image_found = True
+                    break
+
+            if not old_image_found:
+                images.append(new_img)
+
+        # Remove already existing images
+        for img in loaded_images:
+            if img not in images:
+                bpy.data.images.remove(img)
 
         yp = ch.id_data.yp
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
@@ -1092,27 +1111,69 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
         if not ch.enable:
             ch.enable = True
 
-        # Make sure override is on
-        if not ch.override:
-            ch.override = True
+        image = None
+        image_1 = None
 
-        #print(images)
+        if root_ch.type == 'NORMAL':
+            for img in images:
+                img_name = os.path.splitext(os.path.basename(img.filepath))[0].lower()
+                # Image 1 will represents normal
+                if 'normal' in img_name or 'norm' in img_name or img_name.endswith(('_nor', '.nor', '_n', '.n')):
+                    image_1 = img
+                elif not image:
+                    image = img
 
-        # Update image cache
-        if ch.override_type == 'IMAGE':
-            #image_node = tree.nodes.get(ch.source)
-            source_tree = get_channel_source_tree(ch, layer)
-            source_label = root_ch.name + ' Override : ' + ch.override_type
-            image_node, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+                if image and image_1:
+                    break
         else:
-            image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
-            #print(image_node, dirty)
+            image = images[0]
 
-        image_node.image = images[0]
-        #if images[0].colorspace_settings.name != 'Linear':
-        #    images[0].colorspace_settings.name = 'Linear'
+        if image:
+            # Make sure override is on
+            if not ch.override:
+                ch.override = True
 
-        ch.override_type = 'IMAGE'
+            # Update image cache
+            if ch.override_type == 'IMAGE':
+                source_tree = get_channel_source_tree(ch, layer)
+                source_label = root_ch.name + ' Override : ' + ch.override_type
+                image_node, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+            else:
+                image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+
+            image_node.image = image
+            ch.override_type = 'IMAGE'
+            ch.active_edit = True
+
+        if image_1:
+
+            if not ch.override_1:
+                ch.override_1 = True
+
+            # Update image 1 cache
+            if ch.override_1_type == 'IMAGE':
+                source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
+                image_node_1, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
+            else:
+                image_node_1, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
+
+            image_node_1.image = image_1
+            ch.override_1_type = 'IMAGE'
+            ch.active_edit_1 = True
+
+        if root_ch.type == 'NORMAL':
+
+            if image and image_1:
+                if ch.normal_map_type != 'BUMP_NORMAL_MAP':
+                    ch.normal_map_type = 'BUMP_NORMAL_MAP'
+
+            elif image_1:
+                if ch.normal_map_type == 'BUMP_MAP':
+                    ch.normal_map_type = 'NORMAL_MAP'
+
+            elif image:
+                if ch.normal_map_type == 'NORMAL_MAP':
+                    ch.normal_map_type = 'BUMP_MAP'
 
         # Update UI
         wm.ypui.need_update = True
@@ -1168,7 +1229,26 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
         node = get_active_ypaint_node()
 
         import_list, directory = self.generate_paths()
-        images = tuple(load_image(path, directory) for path in import_list)
+        loaded_images = tuple(load_image(path, directory) for path in import_list)
+
+        images = []
+        for i, new_img in enumerate(loaded_images):
+
+            # Check for existing images
+            old_image_found = False
+            for old_img in bpy.data.images:
+                if old_img.filepath == new_img.filepath:
+                    images.append(old_img)
+                    old_image_found = True
+                    break
+
+            if not old_image_found:
+                images.append(new_img)
+
+        # Remove already existing images
+        for img in loaded_images:
+            if img not in images:
+                bpy.data.images.remove(img)
 
         yp = ch.id_data.yp
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
@@ -1181,27 +1261,68 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
         if not ch.enable:
             ch.enable = True
 
-        # Make sure override is on
-        if not ch.override_1:
-            ch.override_1 = True
+        image = None
+        image_1 = None
+
+        for img in images:
+            img_name = os.path.splitext(os.path.basename(img.filepath))[0].lower()
+            # Image 1 will represents bump
+            if 'displacement' in img_name or 'bump' in img_name or img_name.endswith(('_disp', '.disp')):
+                image_1 = img
+            elif not image:
+                image = img
+
+            if image and image_1:
+                break
 
         #print(images)
 
-        # Update image cache
-        if ch.override_1_type == 'IMAGE':
-            #image_node = tree.nodes.get(ch.source)
-            #source_tree = get_channel_source_tree(ch, layer)
-            source_label = root_ch.name + ' Override : ' + ch.override_1_type
-            image_node, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
-        else:
-            image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
-            #print(image_node, dirty)
+        if image:
+            # Make sure override is on
+            if not ch.override_1:
+                ch.override_1 = True
 
-        image_node.image = images[0]
-        #if images[0].colorspace_settings.name != 'Linear':
-        #    images[0].colorspace_settings.name = 'Linear'
+            # Update image cache
+            if ch.override_1_type == 'IMAGE':
+                source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
+                image_node, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
+            else:
+                image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
+                #print(image_node, dirty)
 
-        ch.override_1_type = 'IMAGE'
+            image_node.image = image
+            ch.override_1_type = 'IMAGE'
+            ch.active_edit_1 = True
+
+        if image_1:
+
+            # Make sure override is on
+            if not ch.override:
+                ch.override = True
+
+            # Update image 1 cache
+            if ch.override_type == 'IMAGE':
+                source_tree = get_channel_source_tree(ch, layer)
+                source_label = root_ch.name + ' Override : ' + ch.override_type
+                image_node_1, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+            else:
+                image_node_1, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+
+            image_node_1.image = image_1
+            ch.override_type = 'IMAGE'
+            ch.active_edit = True
+
+        if image and image_1:
+            if ch.normal_map_type != 'BUMP_NORMAL_MAP':
+                ch.normal_map_type = 'BUMP_NORMAL_MAP'
+
+        elif image_1:
+            if ch.normal_map_type == 'NORMAL_MAP':
+                ch.normal_map_type = 'BUMP_MAP'
+
+        elif image:
+            if ch.normal_map_type == 'BUMP_MAP':
+                ch.normal_map_type = 'NORMAL_MAP'
 
         # Update UI
         wm.ypui.need_update = True
@@ -1841,10 +1962,6 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
         if not ch.enable:
             ch.enable = True
 
-        # Make sure override is on
-        if not ch.override_1:
-            ch.override_1 = True
-
         if self.image_name == '':
             self.report({'ERROR'}, "Image name cannot be empty!")
             return {'CANCELLED'}
@@ -1854,19 +1971,47 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
             self.report({'ERROR'}, "Image named " + self.image_name + " is not found!")
             return {'CANCELLED'}
 
+        should_be_bump = False
+
+        #img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
+        img_name = image.name.lower()
+        if 'displacement' in img_name or 'bump' in img_name or img_name.endswith(('_disp', '.disp')):
+            should_be_bump = True
+
         # Update image cache
-        if ch.override_1_type == 'IMAGE':
-            #source_tree = get_channel_source_tree(ch, layer)
-            source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
-            image_node, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
-        else: image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
+        if should_be_bump:
+            # Make sure override is on
+            if not ch.override:
+                ch.override = True
+
+            if ch.override_type == 'IMAGE':
+                source_tree = get_channel_source_tree(ch, layer)
+                source_label = root_ch.name + ' Override : ' + ch.override_type
+                image_node, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+            else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+        else:
+
+            # Make sure override is on
+            if not ch.override_1:
+                ch.override_1 = True
+
+            if ch.override_1_type == 'IMAGE':
+                #source_tree = get_channel_source_tree(ch, layer)
+                source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
+                image_node, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
+            else: image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
 
         image_node.image = image
         #if image.colorspace_settings.name != 'Linear':
         #    image.colorspace_settings.name = 'Linear'
 
-        ch.override_1_type = 'IMAGE'
-        ch.active_edit_1 = True
+        if should_be_bump:
+            ch.override_type = 'IMAGE'
+            if ch.normal_map_type != 'BUMP_NORMAL_MAP': ch.normal_map_type = 'BUMP_MAP'
+            ch.active_edit = True
+        else:
+            ch.override_1_type = 'IMAGE'
+            ch.active_edit_1 = True
 
         # Update UI
         wm.ypui.need_update = True
@@ -1949,9 +2094,8 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
         if not ch.enable:
             ch.enable = True
 
-        # Make sure override is on
-        if not ch.override:
-            ch.override = True
+        # To check if normal image is selected
+        should_be_normal = False
 
         if self.type == 'IMAGE':
             if self.image_name == '':
@@ -1963,12 +2107,30 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                 self.report({'ERROR'}, "Image named " + self.image_name + " is not found!")
                 return {'CANCELLED'}
 
+            if root_ch.type == 'NORMAL':
+                #img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
+                img_name = image.name.lower()
+                if 'normal' in img_name or 'norm' in img_name or img_name.endswith(('_nor', '.nor', '_n', '.n')):
+                    should_be_normal = True
+
+            # Make sure override is on
+            if should_be_normal:
+                ch.override_1 = True
+            else: ch.override = True
+
             # Update image cache
-            if ch.override_type == 'IMAGE':
-                source_tree = get_channel_source_tree(ch, layer)
-                source_label = root_ch.name + ' Override : ' + ch.override_type
-                image_node, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
-            else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+            if should_be_normal:
+                if ch.override_1_type == 'IMAGE':
+                    source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
+                    image_node, dirty = check_new_node(tree, ch, 'source_1', 'ShaderNodeTexImage', source_label, True)
+                else:
+                    image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
+            else:
+                if ch.override_type == 'IMAGE':
+                    source_tree = get_channel_source_tree(ch, layer)
+                    source_label = root_ch.name + ' Override : ' + ch.override_type
+                    image_node, dirty = check_new_node(source_tree, ch, 'source', 'ShaderNodeTexImage', source_label, True)
+                else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
             #if image.colorspace_settings.name != 'Linear':
@@ -1984,6 +2146,10 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
             if not vcol:
                 self.report({'ERROR'}, "Vertex Color named " + self.vcol_name + " is not found!")
                 return {'CANCELLED'}
+
+            # Make sure override is on
+            if not ch.override:
+                ch.override = True
 
             objs = [obj]
             if mat.users > 1:
@@ -2018,9 +2184,13 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
             ch.override_vcol_name = self.vcol_name
             yp.halt_update = False
 
-        ch.override_type = self.type
-
-        ch.active_edit = self.type in {'IMAGE', 'VCOL'}
+        if should_be_normal:
+            ch.override_1_type = self.type
+            if ch.normal_map_type != 'BUMP_NORMAL_MAP': ch.normal_map_type = 'NORMAL_MAP'
+            ch.active_edit_1 = self.type in {'IMAGE', 'VCOL'}
+        else:
+            ch.override_type = self.type
+            ch.active_edit = self.type in {'IMAGE', 'VCOL'}
 
         # Update UI
         wm.ypui.need_update = True
