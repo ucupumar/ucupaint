@@ -1484,12 +1484,19 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                     img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
 
                     if (
-                            # Check image name suffix and match it with channel name
-                            (img_name.endswith(syname)) or
+                            ## Check image name suffix and match it with channel name
+                            #(img_name.endswith(syname)) or
 
-                            (img_name.endswith(no_whitespace)) or
+                            #(img_name.endswith(no_whitespace)) or
 
-                            (img_name.endswith(underscore)) or
+                            #(img_name.endswith(underscore)) or
+
+                            # Check if synonym is in image name
+                            (syname in img_name) or
+
+                            (no_whitespace in img_name) or
+
+                            (underscore in img_name) or
 
                             # Check image name suffix and match it with channel initial first threes
                             (threes != '' and img_name.endswith(('_' + threes, '.' + threes))) or
