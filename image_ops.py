@@ -840,10 +840,9 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             tmpscene.view_settings.view_transform = 'Standard'
 
         # Some image need to set to srgb when saving
-        srgb = False
-        if self.file_format in {'PNG'} or not image.is_float:
+        ori_colorspace = image.colorspace_settings.name
+        if not image.is_float:
             image.colorspace_settings.name = 'sRGB'
-            srgb = True
 
         # Set settings
         settings = tmpscene.render.image_settings
@@ -880,8 +879,8 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         if unpack:
             self.remove_unpacked_image(context)
 
-        if srgb:
-            image.colorspace_settings.name = 'Linear'
+        # Set back colorspace settings
+        image.colorspace_settings.name = ori_colorspace
 
         # Delete temporary scene
         bpy.data.scenes.remove(tmpscene)
