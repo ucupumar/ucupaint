@@ -47,6 +47,11 @@ class YPaintPreferences(AddonPreferences):
             description = 'Developer mode will shows several menu intented for developer only',
             default = False)
 
+    show_experimental : BoolProperty(
+            name = 'Show Experimental Features',
+            description = 'Show unfinished experimental features',
+            default = False)
+
     use_image_preview : BoolProperty(
             name = 'Use Image Preview/Thumbnail',
             description = 'Use image preview or thumbnail on the layers list',
@@ -59,6 +64,7 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'hdr_image_atlas_size')
         self.layout.prop(self, 'unique_image_atlas_per_yp')
         self.layout.prop(self, 'use_image_preview')
+        self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
 
 @persistent

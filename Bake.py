@@ -577,6 +577,122 @@ class YResizeImage(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YBakeChannelToVcol(bpy.types.Operator):
+    """Bake Channel to Vertex Color"""
+    bl_idname = "node.y_bake_channel_to_vcol"
+    bl_label = "Bake channel to vertex color"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    vcol_name : StringProperty(
+            name='Target Vertex Color Name', 
+            description="Target vertex color name, it will create one if it doesn't exists",
+            default='')
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    def invoke(self, context, event):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        channel = yp.channels[yp.active_channel_index]
+
+        self.vcol_name = channel.name
+
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def check(self, context):
+        return True
+
+    def draw(self, context):
+        if is_greater_than_280():
+            row = self.layout.split(factor=0.4)
+        else: row = self.layout.split(percentage=0.4)
+        col = row.column(align=True)
+
+        col.label(text='Target Vertex Color:')
+
+        col = row.column(align=True)
+
+        col.prop(self, 'vcol_name', text='')
+
+    def execute(self, context):
+        obj = context.object
+        mat = get_active_material()
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+        channel = yp.channels[yp.active_channel_index]
+
+        if not is_greater_than_292():
+            self.report({'ERROR'}, "You need at least Blender 2.92 to use this feature!")
+            return {'CANCELLED'}
+
+        book = remember_before_bake(yp)
+
+        # Get all objects using material
+        objs = [obj]
+        meshes = [obj.data]
+        if mat.users > 1:
+            # Emptying the lists again in case active object is problematic
+            objs = []
+            meshes = []
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if is_greater_than_280() and ob.hide_viewport: continue
+                if ob.hide_render: continue
+                if len(get_uv_layers(ob)) == 0: continue
+                if len(ob.data.polygons) == 0: continue
+                for i, m in enumerate(ob.data.materials):
+                    if m == mat:
+                        ob.active_material_index = i
+                        if ob not in objs and ob.data not in meshes:
+                            objs.append(ob)
+                            meshes.append(ob.data)
+
+        # Check vertex color
+        for ob in objs:
+            vcol = ob.data.vertex_colors.get(self.vcol_name)
+            if not vcol:
+                try: vcol = ob.data.vertex_colors.new(name=self.vcol_name)
+                except Exception as e: print(e)
+            ob.data.vertex_colors.active = vcol
+
+        # Multi materials setup
+        ori_mat_ids = {}
+        for ob in objs:
+
+            # Need to assign all polygon to active material if there are multiple materials
+            ori_mat_ids[ob.name] = []
+
+            if len(ob.data.materials) > 1:
+
+                active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat][0]
+                for p in ob.data.polygons:
+
+                    # Set active mat
+                    ori_mat_ids[ob.name].append(p.material_index)
+                    p.material_index = active_mat_id
+
+        # Prepare bake settings
+        prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, force_use_cpu=True, bake_target='VERTEX_COLORS')
+
+        # Bake channel
+        bake_to_vcol(mat, node, channel)
+        #return {'FINISHED'}
+
+        # Recover bake settings
+        recover_bake_settings(book, yp)
+
+        for ob in objs:
+            # Recover material index
+            if ori_mat_ids[ob.name]:
+                for i, p in enumerate(ob.data.polygons):
+                    if ori_mat_ids[ob.name][i] != p.material_index:
+                        p.material_index = ori_mat_ids[ob.name][i]
+
+        return {'FINISHED'}
+
 class YBakeChannels(bpy.types.Operator):
     """Bake Channels to Image(s)"""
     bl_idname = "node.y_bake_channels"
@@ -2549,6 +2665,7 @@ def register():
     bpy.utils.register_class(YTransferLayerUV)
     bpy.utils.register_class(YResizeImage)
     bpy.utils.register_class(YBakeChannels)
+    bpy.utils.register_class(YBakeChannelToVcol)
     bpy.utils.register_class(YMergeLayer)
     bpy.utils.register_class(YMergeMask)
     bpy.utils.register_class(YBakeTempImage)
@@ -2559,6 +2676,7 @@ def unregister():
     bpy.utils.unregister_class(YTransferLayerUV)
     bpy.utils.unregister_class(YResizeImage)
     bpy.utils.unregister_class(YBakeChannels)
+    bpy.utils.unregister_class(YBakeChannelToVcol)
     bpy.utils.unregister_class(YMergeLayer)
     bpy.utils.unregister_class(YMergeMask)
     bpy.utils.unregister_class(YBakeTempImage)

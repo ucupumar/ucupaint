@@ -4266,6 +4266,16 @@ class YAddModifierMenu(bpy.types.Menu):
                 col.label(text='Extra Props')
                 col.prop(context.parent, 'use_clamp')
 
+        ypup = get_user_preferences()
+
+        if ypup.show_experimental:
+
+            m1 = re.match(r'^yp\.channels\[(\d+)\]$', context.parent.path_from_id())
+            if m1:
+                col = row.column()
+                col.label(text='Experimental')
+                col.operator('node.y_bake_channel_to_vcol', text='Bake Channel to Vertex Color', icon_value=lib.get_icon('vertex_color'))
+
 class YLayerSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_special_menu"
     bl_label = "Layer Special Menu"

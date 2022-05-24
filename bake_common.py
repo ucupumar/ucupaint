@@ -41,6 +41,9 @@ def remember_before_bake(yp=None):
     if hasattr(scene.cycles, 'use_denoising'):
         book['ori_use_denoising'] = scene.cycles.use_denoising
 
+    if hasattr(scene.render.bake, 'target'):
+        book['ori_bake_target'] = scene.render.bake.target
+
     if is_greater_than_280():
         book['ori_material_override'] = bpy.context.view_layer.material_override
     else: book['ori_material_override'] = scene.render.layers.active.material_override
@@ -97,6 +100,7 @@ def remember_before_bake(yp=None):
 def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
         disable_problematic_modifiers=False, force_use_cpu=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
+        bake_target = 'IMAGE_TEXTURES',
         source_objs=[]):
 
     #scene = self.scene
@@ -122,6 +126,9 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
 
     if hasattr(scene.cycles, 'use_denoising'):
         scene.cycles.use_denoising = False
+
+    if hasattr(scene.render.bake, 'target'):
+        scene.render.bake.target = bake_target
 
     if is_greater_than_280():
         bpy.context.view_layer.material_override = None
@@ -258,6 +265,8 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
         scene.render.tile_y = book['ori_tile_y']
     if hasattr(scene.cycles, 'use_denoising'):
         scene.cycles.use_denoising = book['ori_use_denoising']
+    if hasattr(scene.render.bake, 'target'):
+        scene.render.bake.target = book['ori_bake_target']
     scene.render.bake.use_selected_to_active = book['ori_use_selected_to_active']
     if is_greater_than_280():
         scene.render.bake.max_ray_distance = book['ori_max_ray_distance']
@@ -505,6 +514,41 @@ def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
     print('FXAA:', image.name, 'FXAA pass is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
     return image
+
+def bake_to_vcol(mat, node, root_ch):
+
+    # Create setup nodes
+    emit = mat.node_tree.nodes.new('ShaderNodeEmission')
+
+    if root_ch.type == 'NORMAL':
+
+        norm = mat.node_tree.nodes.new('ShaderNodeGroup')
+        norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
+
+    # Get output node and remember original bsdf input
+    output = get_active_mat_output_node(mat.node_tree)
+    ori_bsdf = output.inputs[0].links[0].from_socket
+
+    # Connect emit to output material
+    mat.node_tree.links.new(emit.outputs[0], output.inputs[0])
+
+    # Links to bake
+    rgb = node.outputs[root_ch.name]
+    if root_ch.type == 'NORMAL':
+        rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
+
+    mat.node_tree.links.new(rgb, emit.inputs[0])
+
+    # Bake!
+    bpy.ops.object.bake()
+
+    # Remove temp nodes
+    simple_remove_node(mat.node_tree, emit)
+    if root_ch.type == 'NORMAL':
+        simple_remove_node(mat.node_tree, norm)
+
+    # Recover original bsdf
+    mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
 def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, aa_level=1):
 
