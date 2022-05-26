@@ -666,8 +666,8 @@ class YBakeChannelToVcol(bpy.types.Operator):
             vcol = ob.data.vertex_colors.get(self.vcol_name)
 
             # Set index to first so new vcol will copy their value
-            if len(obj.data.vertex_colors) > 0:
-                first_vcol = obj.data.vertex_colors[0]
+            if len(ob.data.vertex_colors) > 0:
+                first_vcol = ob.data.vertex_colors[0]
                 ob.data.vertex_colors.active = first_vcol
 
             if not vcol:
@@ -676,7 +676,7 @@ class YBakeChannelToVcol(bpy.types.Operator):
 
             # NOTE: This implementation is unfinished since this only works if target vertex color is newly created
             if self.force_first_index:
-                first_vcol = obj.data.vertex_colors[0]
+                first_vcol = ob.data.vertex_colors[0]
                 if first_vcol != vcol:
                     # Rename vcol
                     vcol.name = '___TEMP____'
