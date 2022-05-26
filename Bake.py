@@ -588,6 +588,11 @@ class YBakeChannelToVcol(bpy.types.Operator):
             description="Target vertex color name, it will create one if it doesn't exists",
             default='')
 
+    force_first_index : BoolProperty(
+            name='Force First Index', 
+            description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
+            default=True)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -597,7 +602,7 @@ class YBakeChannelToVcol(bpy.types.Operator):
         yp = node.node_tree.yp
         channel = yp.channels[yp.active_channel_index]
 
-        self.vcol_name = channel.name
+        self.vcol_name = 'Baked ' + channel.name
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -611,10 +616,12 @@ class YBakeChannelToVcol(bpy.types.Operator):
         col = row.column(align=True)
 
         col.label(text='Target Vertex Color:')
+        col.label(text='Force First Index:')
 
         col = row.column(align=True)
 
         col.prop(self, 'vcol_name', text='')
+        col.prop(self, 'force_first_index', text='')
 
     def execute(self, context):
         obj = context.object
@@ -627,6 +634,10 @@ class YBakeChannelToVcol(bpy.types.Operator):
         if not is_greater_than_292():
             self.report({'ERROR'}, "You need at least Blender 2.92 to use this feature!")
             return {'CANCELLED'}
+
+        #if not obj.mode != 'OBJECT':
+        #    self.report({'ERROR'}, "This operator only works on object mode!")
+        #    return {'CANCELLED'}
 
         book = remember_before_bake(yp)
 
@@ -653,9 +664,27 @@ class YBakeChannelToVcol(bpy.types.Operator):
         # Check vertex color
         for ob in objs:
             vcol = ob.data.vertex_colors.get(self.vcol_name)
+
+            # Set index to first so new vcol will copy their value
+            if len(obj.data.vertex_colors) > 0:
+                first_vcol = obj.data.vertex_colors[0]
+                ob.data.vertex_colors.active = first_vcol
+
             if not vcol:
                 try: vcol = ob.data.vertex_colors.new(name=self.vcol_name)
                 except Exception as e: print(e)
+
+            # NOTE: This implementation is unfinished since this only works if target vertex color is newly created
+            if self.force_first_index:
+                first_vcol = obj.data.vertex_colors[0]
+                if first_vcol != vcol:
+                    # Rename vcol
+                    vcol.name = '___TEMP____'
+                    first_vcol_name = first_vcol.name
+                    first_vcol.name = self.vcol_name
+                    vcol.name = first_vcol_name
+                    vcol = first_vcol
+
             ob.data.vertex_colors.active = vcol
 
         # Multi materials setup
@@ -690,6 +719,10 @@ class YBakeChannelToVcol(bpy.types.Operator):
                 for i, p in enumerate(ob.data.polygons):
                     if ori_mat_ids[ob.name][i] != p.material_index:
                         p.material_index = ori_mat_ids[ob.name][i]
+
+        # Remap vertex color indices
+        #for ob in objs:
+        #    pass
 
         return {'FINISHED'}
 
