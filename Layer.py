@@ -2735,7 +2735,7 @@ def remove_layer(yp, index):
     # Dealing with image atlas segments
     if layer.type == 'IMAGE': # and layer.segment_name != '':
         src = get_layer_source(layer)
-        if src.image.yia.is_image_atlas and layer.segment_name != '':
+        if src and src.image.yia.is_image_atlas and layer.segment_name != '':
             segment = src.image.yia.segments.get(layer.segment_name)
             entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
             if len(entities) == 1:
@@ -2761,12 +2761,13 @@ def remove_layer(yp, index):
         remove_node(mask_tree, mask, 'source', obj=obj)
 
     # Remove node group and layer tree
-    bpy.data.node_groups.remove(layer_tree)
+    if layer_tree: bpy.data.node_groups.remove(layer_tree)
     if layer.trash_group_node != '':
         trash = group_tree.nodes.get(yp.trash)
         if trash: trash.node_tree.nodes.remove(trash.node_tree.nodes.get(layer.trash_group_node))
     else:
-        group_tree.nodes.remove(group_tree.nodes.get(layer.group_node))
+        layer_node = group_tree.nodes.get(layer.group_node)
+        if layer_node: group_tree.nodes.remove(layer_node)
 
     # Remove node group from parallax tree
     parallax = group_tree.nodes.get(PARALLAX)

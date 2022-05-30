@@ -936,6 +936,7 @@ def is_vcol_being_used(tree, vcol_name, exception_node=None):
 
 def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
     if not hasattr(entity, prop): return
+    if not tree: return
     #if prop not in entity: return
 
     scene = bpy.context.scene

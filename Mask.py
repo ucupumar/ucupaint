@@ -1219,9 +1219,12 @@ def update_mask_transform(self, context):
 def update_mask_color_id(self, context):
     yp = self.id_data.yp
     mask = self
+
+    if mask.type != 'COLOR_ID': return
+
     source = get_mask_source(mask)
     col = (mask.color_id[0], mask.color_id[1], mask.color_id[2], 1.0)
-    source.inputs[0].default_value = col
+    if source: source.inputs[0].default_value = col
 
 class YLayerMaskChannel(bpy.types.PropertyGroup):
     enable : BoolProperty(default=True, update=update_layer_mask_channel_enable)

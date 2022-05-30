@@ -1741,6 +1741,32 @@ class YFixMissingData(bpy.types.Operator):
         obj = context.object
         mat = obj.active_material
 
+        # Fix missing sources
+        for i, layer in reversed(list(enumerate(yp.layers))):
+            src = get_layer_source(layer)
+
+            # Delete layer if source is not found
+            if not src:
+                Layer.remove_layer(yp, i)
+                continue
+
+            # Delete mask if mask source is not found
+            for j, mask in reversed(list(enumerate(layer.masks))):
+                mask_src = get_mask_source(mask)
+                if not mask_src:
+                    Mask.remove_mask(layer, mask, obj)
+
+            # Disable override if channel source is not found
+            for ch in layer.channels:
+                ch_src = get_channel_source(ch, layer)
+                if not ch_src:
+                    if ch.override: ch.override = False
+                    if ch.override_1: ch.override_1 = False
+
+        if yp.active_layer_index > len(yp.layers):
+            yp.active_layer_index = len(yp.layers)-1
+
+        # Fix missing images
         for layer in yp.layers:
             
             if layer.type in {'IMAGE' , 'VCOL'}:
@@ -1748,7 +1774,6 @@ class YFixMissingData(bpy.types.Operator):
 
                 if layer.type == 'IMAGE' and not src.image:
                     fix_missing_img(layer.name, src, False)
-
 
             for mask in layer.masks:
                 if mask.type in {'IMAGE' , 'VCOL'}:

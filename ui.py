@@ -2281,7 +2281,8 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
         if layer.type in {'IMAGE' , 'VCOL'}:
             src = get_layer_source(layer)
 
-            if ((layer.type == 'IMAGE' and not src.image) or 
+            if ( not src or
+                (layer.type == 'IMAGE' and not src.image) or 
                 (layer.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
                 ):
                 missing_data = True
@@ -2292,7 +2293,8 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             if mask.type in {'IMAGE' , 'VCOL'}:
                 mask_src = get_mask_source(mask)
 
-                if ((mask.type == 'IMAGE' and mask_src and not mask_src.image) or 
+                if ( not mask_src or
+                    (mask.type == 'IMAGE' and mask_src and not mask_src.image) or 
                     (mask.type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, mask_src))
                     ):
                     missing_data = True
@@ -2308,7 +2310,9 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 #layer_tree = get_tree(layer)
                 #src = layer_tree.nodes.get(ch.source)
                 src = get_channel_source(ch, layer)
-                if src and ((ch.override_type == 'IMAGE' and not src.image) or 
+                if (
+                    not src or
+                    (ch.override_type == 'IMAGE' and not src.image) or 
                     (ch.override_type == 'VCOL' and obj.type == 'MESH' and not get_vcol_from_source(obj, src))
                     ):
                     missing_data = True
