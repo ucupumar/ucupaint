@@ -7,6 +7,11 @@ def is_greater_than_280():
         return True
     else: return False
 
+def is_greater_than_320():
+    if bpy.app.version >= (3, 2, 0):
+        return True
+    else: return False
+
 def srgb_to_linear_per_element(e):
     if e <= 0.03928:
         return e/12.92
@@ -47,6 +52,30 @@ def linear_to_srgb(inp):
 
         return c
 
+def get_vertex_colors(obj):
+    if not obj or obj.type != 'MESH': return None
+
+    if not is_greater_than_320():
+        return obj.data.vertex_colors
+
+    return obj.data.color_attributes
+    #return obj.data.attributes
+
+def get_active_vertex_color(obj):
+    if not obj or obj.type != 'MESH': return None
+
+    if not is_greater_than_320():
+        return obj.data.vertex_colors.active
+
+    return obj.data.attributes.active_color
+
+def set_active_vertex_color(obj, vcol):
+    try:
+        if is_greater_than_320():
+            obj.attributes.active_color = vcol
+        else: obj.vertex_colors.active = vcol
+    except Exception as e: print(e)
+
 class YSetActiveVcol(bpy.types.Operator):
     bl_idname = "mesh.y_set_active_vcol"
     bl_label = "Set Active Vertex Color"
@@ -61,11 +90,11 @@ class YSetActiveVcol(bpy.types.Operator):
 
     def execute(self, context):
         obj = context.object
-        mesh = obj.data
-        vcol = mesh.vertex_colors.get(self.vcol_name)
+        vcols = get_vertex_colors(obj)
+        vcol = vcols.get(self.vcol_name)
 
         if vcol:
-            mesh.vertex_colors.active = vcol
+            set_active_vertex_color(obj, vcol)
             return {'FINISHED'}
 
         self.report({'ERROR'}, "There's no vertex color named " + self.vcol_name + '!')
@@ -145,7 +174,12 @@ class YSetVColBase(bpy.types.Operator):
 
         mesh = obj.data
         #mesh.calc_loop_triangles()
-        vcol = obj.data.vertex_colors.active
+        vcol = get_active_vertex_color(obj)
+
+        if is_greater_than_320() and vcol.domain != 'CORNER':
+            self.report({'ERROR'}, "Non corner domain for this operator is not implemented yet!")
+            bpy.ops.object.mode_set(mode=ori_mode)
+            return {'CANCELLED'}
 
         cols = numpy.zeros(len(mesh.loops)*4, dtype=numpy.float32)
         cols.shape = (cols.shape[0]//4, 4)
@@ -208,8 +242,13 @@ class YSpreadVColFix(bpy.types.Operator):
         if ori_mode != 'OBJECT':
             bpy.ops.object.mode_set(mode='OBJECT')
 
-        vcol = obj.data.vertex_colors.active
+        vcol = get_active_vertex_color(obj)
         mesh = obj.data
+
+        if is_greater_than_320() and vcol.domain != 'CORNER':
+            self.report({'ERROR'}, "Non corner domain for this operator is not implemented yet!")
+            bpy.ops.object.mode_set(mode=ori_mode)
+            return {'CANCELLED'}
 
         # To get average of loop colors on each vertices
         avg_vert_cols = numpy.zeros(len(mesh.vertices)*4, dtype=numpy.float32)
@@ -309,7 +348,15 @@ class YVcolFillFaceCustom(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH' and context.object.mode == 'EDIT'
+        obj = context.object
+        if not obj or obj.type != 'MESH': return False
+
+        if is_greater_than_320():
+            vcol = obj.data.attributes.active
+            if not vcol or vcol.domain != 'CORNER':
+                return False
+
+        return obj.mode == 'EDIT'
 
     def execute(self, context):
         if is_greater_than_280():
@@ -332,7 +379,7 @@ class YVcolFillFaceCustom(bpy.types.Operator):
                         loop_indices.append(loop.index)
 
             bpy.ops.object.mode_set(mode='OBJECT')
-            vcol = obj.data.vertex_colors.active
+            vcol = get_active_vertex_color(obj)
 
             color = Color((self.color[0], self.color[1], self.color[2]))
             color = linear_to_srgb(color)
@@ -378,7 +425,15 @@ class YVcolFill(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH' and context.object.mode == 'EDIT'
+        obj = context.object
+        if not obj or obj.type != 'MESH': return False
+
+        if is_greater_than_320():
+            vcol = obj.data.attributes.active
+            if not vcol or vcol.domain not in {'CORNER', 'POINT'}:
+                return False
+
+        return obj.mode == 'EDIT'
 
     def execute(self, context):
 
@@ -400,30 +455,25 @@ class YVcolFill(bpy.types.Operator):
             bm.edges.ensure_lookup_table()
             bm.faces.ensure_lookup_table()
 
-            #if ve.fill_mode == 'FACE':
-            if fill_mode == 'FACE':
-                #face_indices = []
-                loop_indices = []
-                for face in bm.faces:
-                    if face.select:
-                        #face_indices.append(face.index)
-                        for loop in face.loops:
-                            loop_indices.append(loop.index)
+            #if fill_mode == 'FACE':
+            #face_indices = []
+            loop_indices = []
+            for face in bm.faces:
+                if face.select:
+                    #face_indices.append(face.index)
+                    for loop in face.loops:
+                        loop_indices.append(loop.index)
 
-            else:
-                vert_indices = []
-                for vert in bm.verts:
-                    if vert.select:
-                        vert_indices.append(vert.index)
+            #else:
+            vert_indices = []
+            for vert in bm.verts:
+                if vert.select:
+                    vert_indices.append(vert.index)
 
             bpy.ops.object.mode_set(mode='OBJECT')
-            vcol = obj.data.vertex_colors.active
+            vcol = get_active_vertex_color(obj)
 
-            color = Color((
-                        context.scene.ve_edit.color[0],
-                        context.scene.ve_edit.color[1],
-                        context.scene.ve_edit.color[2]
-                        ))
+            color = Color((ve.color[0], ve.color[1], ve.color[2]))
             alpha = context.scene.ve_edit.color[3]
 
             if self.color_option == 'WHITE':
@@ -440,16 +490,20 @@ class YVcolFill(bpy.types.Operator):
             if is_greater_than_280():
                 color = (color[0], color[1], color[2], alpha)
 
-            #if ve.fill_mode == 'FACE':
-            if fill_mode == 'FACE':
-                for loop_index in loop_indices:
-                    vcol.data[loop_index].color = color
+            if is_greater_than_320() and vcol.domain == 'POINT':
+                for vert_index in vert_indices:
+                    vcol.data[vert_index].color = color
             else:
-                for poly in mesh.polygons:
-                    for loop_index in poly.loop_indices:
-                        loop_vert_index = mesh.loops[loop_index].vertex_index
-                        if loop_vert_index in vert_indices:
-                            vcol.data[loop_index].color = color
+                #if ve.fill_mode == 'FACE':
+                if fill_mode == 'FACE':
+                    for loop_index in loop_indices:
+                        vcol.data[loop_index].color = color
+                else:
+                    for poly in mesh.polygons:
+                        for loop_index in poly.loop_indices:
+                            loop_vert_index = mesh.loops[loop_index].vertex_index
+                            if loop_vert_index in vert_indices:
+                                vcol.data[loop_index].color = color
 
             bpy.ops.object.mode_set(mode='EDIT')
 
@@ -466,8 +520,9 @@ def vcol_editor_draw(self, context):
     ve = context.scene.ve_edit
 
     col = self.layout.column() #align=True)
+    vcols = get_vertex_colors(obj)
 
-    if len(mesh.vertex_colors) == 0:
+    if len(vcols) == 0:
         col.label(text='No vertex color found!', icon='GROUP_VCOL')
         return
 
@@ -475,18 +530,27 @@ def vcol_editor_draw(self, context):
 
     if not ve.show_vcol_list:
         row.prop(ve, 'show_vcol_list', text='', emboss=False, icon='TRIA_RIGHT')
-        row.label(text='Active: ' + mesh.vertex_colors.active.name)
+        row.label(text='Active: ' + vcols.active.name)
     else:
         row.prop(ve, 'show_vcol_list', text='', emboss=False, icon='TRIA_DOWN')
         row.label(text='Vertex Colors')
 
         row = col.row()
         rcol = row.column()
-        rcol.template_list("MESH_UL_uvmaps_vcols", "vcols", mesh, 
-                "vertex_colors", mesh.vertex_colors, "active_index", rows=1)
-        rcol = row.column(align=True)
-        rcol.operator("mesh.vertex_color_add", icon='ZOOMIN', text="")
-        rcol.operator("mesh.vertex_color_remove", icon='ZOOMOUT', text="")
+        if is_greater_than_320():
+            rcol.template_list("MESH_UL_color_attributes", "vcols", mesh, 
+                    "color_attributes", vcols, "active_color_index", rows=2)
+            #rcol.template_list("MESH_UL_attributes", "vcols", mesh, 
+            #        "attributes", vcols, "active_index", rows=2)
+            rcol = row.column(align=True)
+            rcol.operator("geometry.color_attribute_add", icon='ADD', text="")
+            rcol.operator("geometry.color_attribute_remove", icon='REMOVE', text="")
+        else:
+            rcol.template_list("MESH_UL_uvmaps_vcols", "vcols", mesh, 
+                    "vertex_colors", vcols, "active_index", rows=3)
+            rcol = row.column(align=True)
+            rcol.operator("mesh.vertex_color_add", icon='ZOOMIN', text="")
+            rcol.operator("mesh.vertex_color_remove", icon='ZOOMOUT', text="")
 
     col.separator()
 
