@@ -1713,7 +1713,23 @@ class YDuplicateYPNodes(bpy.types.Operator):
         return {'FINISHED'}
 
 def fix_missing_vcol(obj, name, src):
-    vcol = new_vertex_color(obj, name)
+
+    ref_vcol = None
+
+    if is_greater_than_320():
+        # Try to get reference vcol
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat)
+
+        for o in objs:
+            ovcols = get_vertex_colors(o)
+            if name in ovcols:
+                ref_vcol = ovcols.get(name)
+                break
+
+    if ref_vcol: vcol = new_vertex_color(obj, name, ref_vcol.data_type, ref_vcol.domain)
+    else: vcol = new_vertex_color(obj, name)
+
     set_source_vcol_name(src, name)
 
 def fix_missing_img(name, src, is_mask=False):
@@ -1800,6 +1816,8 @@ class YFixMissingData(bpy.types.Operator):
 
         # Fix missing vcols
         need_color_id_vcol = False
+        ref_vcol = None
+
         for obj in objs:
             for layer in yp.layers:
                 src = get_layer_source(layer)

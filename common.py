@@ -355,7 +355,17 @@ math_method_items = (
     ("DIVIDE", "Divide", ""),
     ("POWER", "Power", ""),
     ("LOGARITHM", "Logarithm", ""),
-)
+    )
+
+vcol_domain_items = (
+    ('POINT', 'Vertex', ''),
+    ('CORNER', 'Face Corner', ''),
+    )
+
+vcol_data_type_items = (
+    ('FLOAT_COLOR', 'Color', ''),
+    ('BYTE_COLOR', 'Byte Color', ''),
+    )
 
 TEXCOORD_IO_PREFIX = 'Texcoord '
 PARALLAX_MIX_PREFIX = 'Parallax Mix '
@@ -939,15 +949,15 @@ def is_vcol_being_used(tree, vcol_name, exception_node=None):
 
     return False
 
-def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
+def remove_node(tree, entity, prop, remove_data=True, parent=None):
     if not hasattr(entity, prop): return
     if not tree: return
     #if prop not in entity: return
 
+
     scene = bpy.context.scene
     node = tree.nodes.get(getattr(entity, prop))
     #node = tree.nodes.get(entity[prop])
-    vcols = get_vertex_colors(obj)
 
     if node: 
 
@@ -958,6 +968,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
         if remove_data:
             # Remove image data if the node is the only user
             if node.bl_idname == 'ShaderNodeTexImage':
+
                 image = node.image
                 if image:
                     if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
@@ -965,29 +976,37 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
                         bpy.data.images.remove(image)
 
             elif node.bl_idname == 'ShaderNodeGroup':
+
                 if node.node_tree and node.node_tree.users == 1:
                     remove_tree_inside_tree(node.node_tree)
                     bpy.data.node_groups.remove(node.node_tree)
 
-            elif (obj and obj.type == 'MESH' #and obj.active_material and obj.active_material.users == 1
-                    and hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == get_vcol_bl_idname()):
-                mat = obj.active_material
-                vcol_name = get_source_vcol_name(node)
-                vcol = vcols.get(vcol_name)
+            elif hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == get_vcol_bl_idname():
+                
+                mat = get_active_material()
+                objs = get_all_objects_with_same_materials(mat)
 
-                if vcol:
+                for obj in objs:
+                    if obj.type != 'MESH': continue
 
-                    # Check if vcol is being used somewhere else
-                    obs = get_all_objects_with_same_materials(mat, True)
-                    for o in obs:
-                        other_users_found = False
-                        for m in o.data.materials:
-                            if m.node_tree and is_vcol_being_used(m.node_tree, vcol_name, node):
-                                other_users_found = True
-                                break
-                        if not other_users_found:
-                            vc = vcols.get(vcol_name)
-                            if vc: vcols.remove(vc)
+                    mat = obj.active_material
+                    vcol_name = get_source_vcol_name(node)
+                    vcols = get_vertex_colors(obj)
+                    vcol = vcols.get(vcol_name)
+
+                    if vcol:
+
+                        # Check if vcol is being used somewhere else
+                        obs = get_all_objects_with_same_materials(mat, True)
+                        for o in obs:
+                            other_users_found = False
+                            for m in o.data.materials:
+                                if m.node_tree and is_vcol_being_used(m.node_tree, vcol_name, node):
+                                    other_users_found = True
+                                    break
+                            if not other_users_found:
+                                vc = vcols.get(vcol_name)
+                                if vc: vcols.remove(vc)
 
         # Remove the node itself
         #print('Node ' + prop + ' from ' + str(entity) + ' removed!')

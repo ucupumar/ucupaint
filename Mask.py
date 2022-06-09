@@ -127,7 +127,7 @@ def remove_mask(layer, mask, obj):
 
     disable_mask_source_tree(layer, mask)
 
-    remove_node(tree, mask, 'source', obj=obj)
+    remove_node(tree, mask, 'source')
     remove_node(tree, mask, 'mapping')
     remove_node(tree, mask, 'linear')
     remove_node(tree, mask, 'uv_map')
@@ -234,6 +234,18 @@ class YNewLayerMask(bpy.types.Operator):
             default = 0,
             min=0)
 
+    vcol_data_type : EnumProperty(
+            name = 'Vertex Color Data Type',
+            description = 'Vertex color data type',
+            items = vcol_data_type_items,
+            default='BYTE_COLOR')
+
+    vcol_domain : EnumProperty(
+            name = 'Vertex Color Domain',
+            description = 'Vertex color domain',
+            items = vcol_domain_items,
+            default='CORNER')
+
     @classmethod
     def poll(cls, context):
         return True
@@ -338,6 +350,10 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'COLOR_ID':
             col.label(text='Color ID:')
 
+        if is_greater_than_320() and self.type == 'VCOL':
+            col.label(text='Domain:')
+            col.label(text='Data Type:')
+
         if self.type == 'HEMI':
             col.label(text='Space:')
             col.label(text='')
@@ -371,6 +387,12 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
             col.prop(self, 'hemi_use_prev_normal')
+
+        if is_greater_than_320() and self.type == 'VCOL':
+            crow = col.row(align=True)
+            crow.prop(self, 'vcol_domain', expand=True)
+            crow = col.row(align=True)
+            crow.prop(self, 'vcol_data_type', expand=True)
 
         if self.type == 'IMAGE':
             col.prop(self, 'hdr')
@@ -471,7 +493,7 @@ class YNewLayerMask(bpy.types.Operator):
                     ovcols = get_vertex_colors(o)
                     if self.name not in ovcols:
                         try:
-                            vcol = new_vertex_color(o, self.name)
+                            vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
                             if self.color_option == 'WHITE':
                                 set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
                             elif self.color_option == 'BLACK':
@@ -774,7 +796,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                     if o.type != 'MESH' or o == obj: continue
                     if mat.name in o.data.materials and self.vcol_name not in ovcols:
                         try:
-                            other_v = new_vertex_color(o, self.vcol_name)
+                            if is_greater_than_320():
+                                other_v = new_vertex_color(o, self.vcol_name, vcol.data_type, vcol.domain)
+                            else: other_v = new_vertex_color(o, self.vcol_name)
                             set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0, 1.0))
                             set_active_vertex_color(o, other_v)
                         except: pass

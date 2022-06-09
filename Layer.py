@@ -151,7 +151,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space = 'WORLD', hemi_use_prev_normal = True,
-        mask_color_id=(1,0,1),
+        mask_color_id=(1,0,1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER'
         #bump_distance = 0.05, write_height = True,
         ):
 
@@ -314,7 +314,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 for o in objs:
                     if mask_name not in get_vertex_colors(o):
                         try:
-                            mask_vcol = new_vertex_color(o, mask_name)
+                            mask_vcol = new_vertex_color(o, mask_name, mask_vcol_data_type, mask_vcol_domain)
                             if mask_color == 'WHITE':
                                 set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0, 1.0))
                             elif mask_color == 'BLACK':
@@ -449,6 +449,18 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
     name : StringProperty(default='')
 
+    data_type : EnumProperty(
+            name = 'Vertex Color Data Type',
+            description = 'Vertex color data type',
+            items = vcol_data_type_items,
+            default='BYTE_COLOR')
+
+    domain : EnumProperty(
+            name = 'Vertex Color Domain',
+            description = 'Vertex color domain',
+            items = vcol_domain_items,
+            default='CORNER')
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
@@ -471,8 +483,22 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
-        row.label(text='Name:')
-        row.prop(self, 'name', text='')
+
+        col = row.column()
+        col.label(text='Name:')
+
+        if is_greater_than_320():
+            col.label(text='Domain:')
+            col.label(text='Data Type:')
+
+        col = row.column()
+        col.prop(self, 'name', text='')
+
+        if is_greater_than_320():
+            crow = col.row(align=True)
+            crow.prop(self, 'domain', expand=True)
+            crow = col.row(align=True)
+            crow.prop(self, 'data_type', expand=True)
 
     def execute(self, context):
 
@@ -507,7 +533,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         for o in objs:
             if self.name not in get_vertex_colors(o):
                 try:
-                    vcol = new_vertex_color(o, self.name)
+                    vcol = new_vertex_color(o, self.name, self.data_type, self.domain)
                     set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
                     set_active_vertex_color(o, vcol)
                 except: pass
@@ -654,6 +680,30 @@ class YNewLayer(bpy.types.Operator):
             description = 'Take account previous Normal',
             default = True)
 
+    vcol_data_type : EnumProperty(
+            name = 'Vertex Color Data Type',
+            description = 'Vertex color data type',
+            items = vcol_data_type_items,
+            default='BYTE_COLOR')
+
+    vcol_domain : EnumProperty(
+            name = 'Vertex Color Domain',
+            description = 'Vertex color domain',
+            items = vcol_domain_items,
+            default='CORNER')
+
+    mask_vcol_data_type : EnumProperty(
+            name = 'Mask Vertex Color Data Type',
+            description = 'Mask Vertex color data type',
+            items = vcol_data_type_items,
+            default='BYTE_COLOR')
+
+    mask_vcol_domain : EnumProperty(
+            name = 'Mask Vertex Color Domain',
+            description = 'Mask Vertex color domain',
+            items = vcol_domain_items,
+            default='CORNER')
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -798,6 +848,10 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.label(text='Color:')
 
+        if is_greater_than_320() and self.type == 'VCOL':
+            col.label(text='Domain:')
+            col.label(text='Data Type:')
+
         #if self.type == 'IMAGE':
         #    col.label(text='')
 
@@ -836,6 +890,9 @@ class YNewLayer(bpy.types.Operator):
                         col.label(text='Mask Height:')
                         col.label(text='Mask UV Map:')
                         col.label(text='')
+                if is_greater_than_320() and self.mask_type == 'VCOL':
+                    col.label(text='Mask Domain:')
+                    col.label(text='Mask Data Type:')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -852,6 +909,12 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type == 'COLOR':
             col.prop(self, 'solid_color', text='')
+
+        if is_greater_than_320() and self.type == 'VCOL':
+            crow = col.row(align=True)
+            crow.prop(self, 'vcol_domain', expand=True)
+            crow = col.row(align=True)
+            crow.prop(self, 'vcol_data_type', expand=True)
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
@@ -896,6 +959,11 @@ class YNewLayer(bpy.types.Operator):
                         #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                         col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
                         col.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+                if is_greater_than_320() and self.mask_type == 'VCOL':
+                    crow = col.row(align=True)
+                    crow.prop(self, 'mask_vcol_domain', expand=True)
+                    crow = col.row(align=True)
+                    crow.prop(self, 'mask_vcol_data_type', expand=True)
 
         if self.get_to_be_cleared_image_atlas(context):
             col = self.layout.column(align=True)
@@ -990,14 +1058,14 @@ class YNewLayer(bpy.types.Operator):
             for o in objs:
                 if self.name not in get_vertex_colors(o):
                     try:
-                        vcol = new_vertex_color(o, self.name)
+                        vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
 
                         if is_greater_than_292():
                             set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
                         else: set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
 
                         set_active_vertex_color(o, vcol)
-                    except: pass
+                    except Exception as e: print(e)
 
         yp.halt_update = True
 
@@ -1011,7 +1079,8 @@ class YNewLayer(bpy.types.Operator):
                 self.solid_color,
                 self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
                 self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
-                self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id)
+                self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id,
+                self.mask_vcol_data_type, self.mask_vcol_domain)
 
         if segment:
             ImageAtlas.set_segment_mapping(layer, segment, img)
@@ -2163,14 +2232,16 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
 
                 if self.vcol_name not in get_vertex_colors(o):
                     try:
-                        vcol = new_vertex_color(o, self.vcol_name)
+                        if is_greater_than_320():
+                            other_v = new_vertex_color(o, self.vcol_name, vcol.data_type, vcol.domain)
+                        else: other_v = new_vertex_color(o, self.vcol_name)
                         #if vcol_color == 'WHITE':
-                        #    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                        #    set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0, 1.0))
                         #elif vcol_color == 'BLACK':
-                        #    set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
-                        set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
-                        set_active_vertex_color(o, vcol)
-                    except: pass
+                        #    set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
+                        set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
+                        set_active_vertex_color(o, other_v)
+                    except Exception as e: pass
 
             # Update vcol cache
             if ch.override_type == 'VCOL':
@@ -2389,7 +2460,9 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                     if o.type != 'MESH' or o == obj: continue
                     if mat.name in o.data.materials and self.vcol_name not in get_vertex_colors(o):
                         try:
-                            other_v = new_vertex_color(o, self.vcol_name)
+                            if is_greater_than_320():
+                                other_v = new_vertex_color(o, self.vcol_name, vcol.data_type, vcol.domain)
+                            else: other_v = new_vertex_color(o, self.vcol_name)
                             if is_greater_than_292():
                                 set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 0.0))
                             else: set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
@@ -2744,7 +2817,7 @@ def remove_layer(yp, index):
 
     # Remove the source first to remove image
     source_tree = get_source_tree(layer) #, layer_tree)
-    remove_node(source_tree, layer, 'source', obj=obj)
+    remove_node(source_tree, layer, 'source')
 
     # Remove Mask source
     for mask in layer.masks:
@@ -2759,7 +2832,7 @@ def remove_layer(yp, index):
                     segment.unused = True
 
         mask_tree = get_mask_tree(mask)
-        remove_node(mask_tree, mask, 'source', obj=obj)
+        remove_node(mask_tree, mask, 'source')
 
     # Remove node group and layer tree
     if layer_tree: bpy.data.node_groups.remove(layer_tree)
@@ -3695,6 +3768,9 @@ def update_layer_channel_override(self, context):
     check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+
+    # Reselect layer so vcol or image will be updated
+    yp.active_layer_index = yp.active_layer_index
 
 def update_channel_enable(self, context):
     T = time.time()
