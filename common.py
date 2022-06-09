@@ -1824,9 +1824,12 @@ def set_obj_vertex_colors(obj, vcol_name, color):
 
     ones = numpy.ones(len(vcol.data))
 
-    vcol.data.foreach_set( "color",
-        numpy.array((col[0] * ones, col[1] * ones, col[2] * ones, col[3] * ones)).T.ravel(),
-        )
+    if is_greater_than_280():
+        vcol.data.foreach_set( "color",
+            numpy.array((col[0] * ones, col[1] * ones, col[2] * ones, col[3] * ones)).T.ravel())
+    else:
+        vcol.data.foreach_set( "color",
+            numpy.array((col[0] * ones, col[1] * ones, col[2] * ones)).T.ravel())
 
     if ori_mode:
         bpy.ops.object.mode_set(mode=ori_mode)
