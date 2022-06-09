@@ -484,7 +484,7 @@ def flip_tangent_sign():
     for obj in bpy.data.objects:
         if obj.type == 'MESH' and obj.data not in meshes:
             meshes.append(obj.data)
-            for vc in obj.data.vertex_colors:
+            for vc in get_vertex_colors(obj):
                 if vc.name.startswith(TANGENT_SIGN_PREFIX):
 
                     i = 0

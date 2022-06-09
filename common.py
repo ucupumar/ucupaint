@@ -404,6 +404,11 @@ def is_greater_than_300():
         return True
     return False
 
+def is_greater_than_320():
+    if bpy.app.version >= (3, 2, 0):
+        return True
+    return False
+
 def is_created_using_279():
     if bpy.data.version[:2] == (2, 79):
         return True
@@ -942,6 +947,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
     scene = bpy.context.scene
     node = tree.nodes.get(getattr(entity, prop))
     #node = tree.nodes.get(entity[prop])
+    vcols = get_vertex_colors(obj)
 
     if node: 
 
@@ -967,7 +973,7 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
                     and hasattr(entity, 'type') and entity.type == 'VCOL' and node.bl_idname == get_vcol_bl_idname()):
                 mat = obj.active_material
                 vcol_name = get_source_vcol_name(node)
-                vcol = obj.data.vertex_colors.get(vcol_name)
+                vcol = vcols.get(vcol_name)
 
                 if vcol:
 
@@ -980,8 +986,8 @@ def remove_node(tree, entity, prop, remove_data=True, obj=None, parent=None):
                                 other_users_found = True
                                 break
                         if not other_users_found:
-                            vc = o.data.vertex_colors.get(vcol_name)
-                            if vc: o.data.vertex_colors.remove(vc)
+                            vc = vcols.get(vcol_name)
+                            if vc: vcols.remove(vc)
 
         # Remove the node itself
         #print('Node ' + prop + ' from ' + str(entity) + ' removed!')
@@ -1697,14 +1703,15 @@ def change_vcol_name(yp, obj, src, new_name, layer=None):
 
     # Get vertex color from node
     ori_name = get_source_vcol_name(src)
-    vcol = obj.data.vertex_colors.get(get_source_vcol_name(src))
+    vcols = get_vertex_colors(obj)
+    vcol = vcols.get(get_source_vcol_name(src))
 
     if layer:
         # Temporarily change its name to temp name so it won't affect unique name
         vcol.name = '___TEMP___'
 
         # Get unique name
-        layer.name = get_unique_name(new_name, obj.data.vertex_colors) 
+        layer.name = get_unique_name(new_name, vcols) 
         new_name = layer.name
 
     # Set vertex color name and attribute node
@@ -1715,7 +1722,8 @@ def change_vcol_name(yp, obj, src, new_name, layer=None):
     objs = get_all_objects_with_same_materials(obj.active_material, True)
     for o in objs:
         if o != obj:
-            other_v = o.data.vertex_colors.get(ori_name)
+            ovcols = get_vertex_colors(o)
+            other_v = vcols.get(ori_name)
             if other_v: other_v.name = new_name
 
     # Also replace vertex color name on another entity
@@ -1786,7 +1794,8 @@ def set_obj_vertex_colors(obj, vcol_name, color):
         ori_mode = obj.mode
         bpy.ops.object.mode_set(mode='OBJECT')
 
-    vcol = obj.data.vertex_colors.get(vcol_name)
+    vcols = get_vertex_colors(obj)
+    vcol = vcols.get(vcol_name)
     if not vcol: return
 
     if is_greater_than_280():
@@ -3351,6 +3360,37 @@ def get_uv_layers(obj):
 
     return uv_layers
 
+def get_vertex_colors(obj):
+    if not obj or obj.type != 'MESH': return []
+
+    if not is_greater_than_320():
+        return obj.data.vertex_colors
+
+    return obj.data.color_attributes
+
+def get_active_vertex_color(obj):
+    if not obj or obj.type != 'MESH': return None
+
+    if not is_greater_than_320():
+        return obj.data.vertex_colors.active
+
+    return obj.data.color_attributes.active_color
+
+def set_active_vertex_color(obj, vcol):
+    try:
+        if is_greater_than_320():
+            obj.data.color_attributes.active_color = vcol
+        else: obj.data.vertex_colors.active = vcol
+    except Exception as e: print(e)
+
+def new_vertex_color(obj, name, data_type='BYTE_COLOR', domain='CORNER'):
+    if not obj or obj.type != 'MESH': return None
+
+    if not is_greater_than_320():
+        return obj.data.vertex_colors.new(name=name)
+
+    return obj.data.color_attributes.new(name, data_type, domain)
+
 def get_default_uv_name(obj, yp=None):
     uv_layers = get_uv_layers(obj)
     uv_name = ''
@@ -3390,6 +3430,8 @@ def get_active_image_and_stuffs(obj, yp):
     src_of_img = None
     mapping = None
 
+    vcols = get_vertex_colors(obj)
+
     layer = yp.layers[yp.active_layer_index]
     tree = get_tree(layer)
 
@@ -3405,11 +3447,11 @@ def get_active_image_and_stuffs(obj, yp):
             elif mask.type == 'VCOL' and obj.type == 'MESH':
                 # If source is empty, still try to get vertex color
                 if get_source_vcol_name(source) == '':
-                    vcol = obj.data.vertex_colors.get(mask.name)
+                    vcol = vcols.get(mask.name)
                     if vcol: set_source_vcol_name(source, vcol.name)
-                else: vcol = obj.data.vertex_colors.get(get_source_vcol_name(source))
+                else: vcol = vcols.get(get_source_vcol_name(source))
             elif mask.type == 'COLOR_ID' and obj.type == 'MESH':
-                vcol = obj.data.vertex_colors.get(COLOR_ID_VCOL_NAME)
+                vcol = vcols.get(COLOR_ID_VCOL_NAME)
 
     for ch in layer.channels:
         if ch.active_edit and ch.override and ch.override_type != 'DEFAULT':
@@ -3423,7 +3465,7 @@ def get_active_image_and_stuffs(obj, yp):
                 mapping = get_layer_mapping(layer)
 
             elif ch.override_type == 'VCOL' and obj.type == 'MESH':
-                vcol = obj.data.vertex_colors.get(get_source_vcol_name(source))
+                vcol = vcols.get(get_source_vcol_name(source))
 
         if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT':
             source = tree.nodes.get(ch.source_1)
@@ -3444,7 +3486,7 @@ def get_active_image_and_stuffs(obj, yp):
 
     if not vcol and layer.type == 'VCOL' and obj.type == 'MESH':
         source = get_layer_source(layer, tree)
-        vcol = obj.data.vertex_colors.get(get_source_vcol_name(source))
+        vcol = vcols.get(get_source_vcol_name(source))
 
     return image, uv_name, src_of_img, mapping, vcol
 
@@ -3649,7 +3691,8 @@ def get_source_vcol_name(src):
 
 def get_vcol_from_source(obj, src):
     name = get_source_vcol_name(src)
-    return obj.data.vertex_colors.get(name)
+    vcols = get_vertex_colors(obj)
+    return vcols.get(name)
 
 def get_layer_vcol(obj, layer):
     src = get_layer_source(layer)
@@ -3657,12 +3700,13 @@ def get_layer_vcol(obj, layer):
 
 def check_colorid_vcol(objs):
     for o in objs:
-        if COLOR_ID_VCOL_NAME not in o.data.vertex_colors:
+        vcols = get_vertex_colors(o)
+        if COLOR_ID_VCOL_NAME not in vcols:
             try:
-                vcol = o.data.vertex_colors.new(name=COLOR_ID_VCOL_NAME)
+                vcol = new_vertex_color(o, COLOR_ID_VCOL_NAME)
                 set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
-                #o.data.vertex_colors.active = vcol
-            except: pass
+                #set_active_vertex_color(o, vcol)
+            except Exception as e: print(e)
 
 def is_colorid_already_being_used(yp, color_id):
     for l in yp.layers:

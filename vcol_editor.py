@@ -53,13 +53,12 @@ def linear_to_srgb(inp):
         return c
 
 def get_vertex_colors(obj):
-    if not obj or obj.type != 'MESH': return None
+    if not obj or obj.type != 'MESH': return []
 
     if not is_greater_than_320():
         return obj.data.vertex_colors
 
     return obj.data.color_attributes
-    #return obj.data.attributes
 
 def get_active_vertex_color(obj):
     if not obj or obj.type != 'MESH': return None
@@ -67,13 +66,13 @@ def get_active_vertex_color(obj):
     if not is_greater_than_320():
         return obj.data.vertex_colors.active
 
-    return obj.data.attributes.active_color
+    return obj.data.color_attributes.active_color
 
 def set_active_vertex_color(obj, vcol):
     try:
         if is_greater_than_320():
-            obj.attributes.active_color = vcol
-        else: obj.vertex_colors.active = vcol
+            obj.data.color_attributes.active_color = vcol
+        else: obj.data.vertex_colors.active = vcol
     except Exception as e: print(e)
 
 class YSetActiveVcol(bpy.types.Operator):
@@ -352,7 +351,7 @@ class YVcolFillFaceCustom(bpy.types.Operator):
         if not obj or obj.type != 'MESH': return False
 
         if is_greater_than_320():
-            vcol = obj.data.attributes.active
+            vcol = obj.data.color_attributes.active_color
             if not vcol or vcol.domain != 'CORNER':
                 return False
 
@@ -429,7 +428,7 @@ class YVcolFill(bpy.types.Operator):
         if not obj or obj.type != 'MESH': return False
 
         if is_greater_than_320():
-            vcol = obj.data.attributes.active
+            vcol = obj.data.color_attributes.active_color
             if not vcol or vcol.domain not in {'CORNER', 'POINT'}:
                 return False
 
@@ -540,8 +539,6 @@ def vcol_editor_draw(self, context):
         if is_greater_than_320():
             rcol.template_list("MESH_UL_color_attributes", "vcols", mesh, 
                     "color_attributes", vcols, "active_color_index", rows=2)
-            #rcol.template_list("MESH_UL_attributes", "vcols", mesh, 
-            #        "attributes", vcols, "active_index", rows=2)
             rcol = row.column(align=True)
             rcol.operator("geometry.color_attribute_add", icon='ADD', text="")
             rcol.operator("geometry.color_attribute_remove", icon='REMOVE', text="")

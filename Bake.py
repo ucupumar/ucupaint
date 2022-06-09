@@ -663,20 +663,22 @@ class YBakeChannelToVcol(bpy.types.Operator):
 
         # Check vertex color
         for ob in objs:
-            vcol = ob.data.vertex_colors.get(self.vcol_name)
+            vcols = get_vertex_colors(ob)
+            vcol = vcols.get(self.vcol_name)
 
             # Set index to first so new vcol will copy their value
-            if len(ob.data.vertex_colors) > 0:
-                first_vcol = ob.data.vertex_colors[0]
-                ob.data.vertex_colors.active = first_vcol
+            if len(vcols) > 0:
+                first_vcol = vcols[0]
+                set_active_vertex_color(ob, first_vcol)
 
             if not vcol:
-                try: vcol = ob.data.vertex_colors.new(name=self.vcol_name)
+                try: 
+                    vcol = new_vertex_color(ob, self.vcol_name)
                 except Exception as e: print(e)
 
             # NOTE: This implementation is unfinished since this only works if target vertex color is newly created
             if self.force_first_index:
-                first_vcol = ob.data.vertex_colors[0]
+                first_vcol = vcols[0]
                 if first_vcol != vcol:
                     # Rename vcol
                     vcol.name = '___TEMP____'
@@ -685,7 +687,7 @@ class YBakeChannelToVcol(bpy.types.Operator):
                     vcol.name = first_vcol_name
                     vcol = first_vcol
 
-            ob.data.vertex_colors.active = vcol
+            set_active_vertex_color(ob, vcol)
 
         # Multi materials setup
         ori_mat_ids = {}
@@ -879,9 +881,7 @@ class YBakeChannels(bpy.types.Operator):
         if BL28_HACK and height_ch:
         #if is_greater_than_280():
 
-            if len(yp.uvs) > MAX_VERTEX_DATA - len(obj.data.vertex_colors) and is_greater_than_280():
-                #self.report({'ERROR'}, "Maximum vertex colors reached! Need at least " + str(len(uvs)) + " vertex color(s)!")
-                #return {'CANCELLED'}
+            if len(yp.uvs) > MAX_VERTEX_DATA - len(get_vertex_colors(obj)) and is_greater_than_280() and not is_greater_than_320():
                 self.report({'WARNING'}, "Maximum vertex colors reached! Need at least " + str(len(yp.uvs)) + " vertex color(s) to bake proper normal!")
             else:
                 tangent_sign_calculation = True

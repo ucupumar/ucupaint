@@ -2145,6 +2145,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     yp = group_tree.yp
     ypui = context.window_manager.ypui
     obj = context.object
+    vcols = get_vertex_colors(obj)
     is_a_mesh = True if obj and obj.type == 'MESH' else False
 
     uv_layers = get_uv_layers(obj)
@@ -2301,7 +2302,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                     break
 
             if mask.type == 'COLOR_ID':
-                if not obj.data.vertex_colors.get(COLOR_ID_VCOL_NAME):
+                if not vcols.get(COLOR_ID_VCOL_NAME):
                     missing_data = True
                     break
 
@@ -2380,7 +2381,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     need_tangent_refresh = False
     if height_root_ch and yp.enable_tangent_sign_hacks:
         for uv in yp.uvs:
-            if TANGENT_SIGN_PREFIX + uv.name not in obj.data.vertex_colors:
+            if TANGENT_SIGN_PREFIX + uv.name not in vcols:
                 need_tangent_refresh = True
                 break
 
@@ -2436,7 +2437,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                     elif m.type == 'VCOL' and is_a_mesh:
                         mask_vcol = get_vcol_from_source(obj, source)
                     elif m.type == 'COLOR_ID' and is_a_mesh:
-                        colorid_vcol = obj.data.vertex_colors.get(COLOR_ID_VCOL_NAME)
+                        colorid_vcol = vcols.get(COLOR_ID_VCOL_NAME)
                         colorid_col = mask.color_id
 
             # Use layer image if there is no mask image
@@ -2565,7 +2566,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         if obj.type == 'MESH' and colorid_vcol:
 
-            if colorid_vcol != obj.data.vertex_colors.active:
+            if colorid_vcol != get_active_vertex_color(obj):
                 col.alert = True
                 col.operator('mesh.y_set_active_vcol', text='Fix Active Vcol Mismatch!', icon='ERROR').vcol_name = colorid_vcol.name
                 col.alert = False
@@ -2585,7 +2586,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         if obj.type == 'MESH' and active_vcol: # and layer.enable:
 
-            if active_vcol != obj.data.vertex_colors.active:
+            if active_vcol != get_active_vertex_color(obj):
                 col.alert = True
                 col.operator('mesh.y_set_active_vcol', text='Fix Active Vcol Mismatch!', icon='ERROR').vcol_name = active_vcol.name
                 col.alert = False
@@ -2598,7 +2599,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 row = ccol.row(align=True)
                 #row.label(text='', icon='GROUP_VCOL')
                 row.label(text='', icon_value=lib.get_icon('vertex_color'))
-                row.label(text='Fill ' + obj.data.vertex_colors.active.name + ':')
+                row.label(text='Fill ' + get_active_vertex_color(obj).name + ':')
                 row = ccol.row(align=True)
                 #row.prop(ve, 'fill_mode', text='') #, expand=True)
                 #row.separator()

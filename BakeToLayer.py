@@ -916,10 +916,9 @@ class YBakeToLayer(bpy.types.Operator):
             bpy.ops.object.mode_set(mode = 'OBJECT')
             for obj in objs:
                 try:
-                    vcol = obj.data.vertex_colors.new(name=TEMP_VCOL)
+                    vcol = new_vertex_color(obj, TEMP_VCOL)
                     set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 1.0))
-                    obj.data.vertex_colors.active = vcol
-                    #print(obj.name, obj.data.vertex_colors.active)
+                    set_active_vertex_color(obj, vcol)
                 except: pass
             bpy.ops.object.mode_set(mode = 'EDIT')
             bpy.ops.mesh.y_vcol_fill(color_option ='WHITE')
@@ -1002,15 +1001,11 @@ class YBakeToLayer(bpy.types.Operator):
                     for m in need_to_be_applied_modifiers:
                         bpy.ops.object.modifier_apply(modifier=m.name)
 
-                    # Remove all vertex colors
-                    #for vc in reversed(obj.data.vertex_colors):
-                    #    obj.data.vertex_colors.remove(vc)
-
                 # Create new vertex color for dirt
                 try:
-                    vcol = obj.data.vertex_colors.new(name=TEMP_VCOL)
+                    vcol = new_vertex_color(obj, TEMP_VCOL)
                     set_obj_vertex_colors(obj, vcol.name, (1.0, 1.0, 1.0, 1.0))
-                    obj.data.vertex_colors.active = vcol
+                    set_active_vertex_color(obj, vcol)
                 except: pass
 
                 bpy.ops.paint.vertex_color_dirt(dirt_angle=math.pi/2)
@@ -1496,8 +1491,9 @@ class YBakeToLayer(bpy.types.Operator):
                             uvl.data[li].uv = ori_loop_locs[obj.name][i][j]
 
             # Delete temp vcol
-            vcol = obj.data.vertex_colors.get(TEMP_VCOL)
-            if vcol: obj.data.vertex_colors.remove(vcol)
+            vcols = get_vertex_colors(obj)
+            vcol = vcols.get(TEMP_VCOL)
+            if vcol: vcols.remove(vcol)
 
         # Recover flip normals setup
         if self.flip_normals:

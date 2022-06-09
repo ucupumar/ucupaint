@@ -1001,8 +1001,9 @@ def remove_tangent_sign_vcol(obj, uv_name):
                 objs.append(ob)
 
     for ob in objs:
-        vcol = ob.data.vertex_colors.get(TANGENT_SIGN_PREFIX + uv_name)
-        if vcol: vcol = ob.data.vertex_colors.remove(vcol)
+        vcols = get_vertex_colors(ob)
+        vcol = vcols.get(TANGENT_SIGN_PREFIX + uv_name)
+        if vcol: vcol = vcols.remove(vcol)
 
 def recover_tangent_sign_process(ori_obj, ori_mode, ori_selects):
 
@@ -1051,9 +1052,11 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
         uv_layers.active = uv_layer
 
         # Get vertex color
-        vcol = obj.data.vertex_colors.get(TANGENT_SIGN_PREFIX + uv_name)
+        vcols = get_vertex_colors(obj)
+        vcol = vcols.get(TANGENT_SIGN_PREFIX + uv_name)
         if not vcol:
-            try: vcol = obj.data.vertex_colors.new(name=TANGENT_SIGN_PREFIX + uv_name)
+            try: 
+                vcol = new_vertex_color(obj, TANGENT_SIGN_PREFIX + uv_name)
             except: 
                 recover_tangent_sign_process(ori_obj, ori_mode, ori_selects)
                 return None
@@ -1072,7 +1075,7 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
             obj.data.calc_tangents()
 
             # Get vcol again after calculate tangent to prevent error
-            vcol = obj.data.vertex_colors.get(TANGENT_SIGN_PREFIX + uv_name)
+            vcol = vcols.get(TANGENT_SIGN_PREFIX + uv_name)
 
             # Set tangent sign to vertex color
             i = 0
@@ -1135,7 +1138,8 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
             temp_ob.data.calc_tangents()
 
             # Set tangent sign to vertex color
-            temp_vcol = temp_ob.data.vertex_colors.get(TANGENT_SIGN_PREFIX + uv_name)
+            tvcols = get_vertex_colors(temp_ob)
+            temp_vcol = tvcols.get(TANGENT_SIGN_PREFIX + uv_name)
             i = 0
             for poly in temp_ob.data.polygons:
                 for idx in poly.loop_indices:
@@ -1217,7 +1221,8 @@ def actual_refresh_tangent_sign_vcol(obj, uv_name):
         recover_tangent_sign_process(ori_obj, ori_mode, ori_selects)
 
         # Get vcol again to make sure the data is consistent
-        vcol = obj.data.vertex_colors.get(TANGENT_SIGN_PREFIX + uv_name)
+        vcols = get_vertex_colors(obj)
+        vcol = vcols.get(TANGENT_SIGN_PREFIX + uv_name)
 
         return vcol
 

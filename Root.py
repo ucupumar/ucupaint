@@ -1713,7 +1713,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
         return {'FINISHED'}
 
 def fix_missing_vcol(obj, name, src):
-    vcol = obj.data.vertex_colors.new(name=name)
+    vcol = new_vertex_color(obj, name)
     set_source_vcol_name(src, name)
 
 def fix_missing_img(name, src, is_mask=False):
@@ -2404,8 +2404,8 @@ def update_layer_index(self, context):
     #yp.need_temp_uv_refresh = False
 
     # Update active vertex color
-    if vcol and obj.data.vertex_colors.active != vcol:
-        obj.data.vertex_colors.active = vcol
+    if vcol and get_active_vertex_color(obj) != vcol:
+        set_active_vertex_color(obj, vcol)
 
     #if obj.type == 'MESH':
         # Update tangent sign if height channel and tangent sign hack is enabled

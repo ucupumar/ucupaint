@@ -312,15 +312,15 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
             if mask_type == 'VCOL':
 
                 for o in objs:
-                    if mask_name not in o.data.vertex_colors:
+                    if mask_name not in get_vertex_colors(o):
                         try:
-                            mask_vcol = o.data.vertex_colors.new(name=mask_name)
+                            mask_vcol = new_vertex_color(o, mask_name)
                             if mask_color == 'WHITE':
                                 set_obj_vertex_colors(o, mask_vcol.name, (1.0, 1.0, 1.0, 1.0))
                             elif mask_color == 'BLACK':
                                 set_obj_vertex_colors(o, mask_vcol.name, (0.0, 0.0, 0.0, 1.0))
-                            o.data.vertex_colors.active = mask_vcol
-                        except: pass
+                            set_active_vertex_color(o, mask_vcol)
+                        except Exception as e: print (e)
             elif mask_type == 'COLOR_ID':
                 check_colorid_vcol(objs)
 
@@ -505,11 +505,11 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
                     objs.append(o)
 
         for o in objs:
-            if self.name not in o.data.vertex_colors:
+            if self.name not in get_vertex_colors(o):
                 try:
-                    vcol = o.data.vertex_colors.new(name=self.name)
+                    vcol = new_vertex_color(o, self.name)
                     set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
-                    o.data.vertex_colors.active = vcol
+                    set_active_vertex_color(o, vcol)
                 except: pass
 
         # Update vcol cache
@@ -677,7 +677,7 @@ class YNewLayer(bpy.types.Operator):
             items = bpy.data.images
         elif self.type == 'VCOL' and obj.type == 'MESH':
             name = obj.active_material.name + DEFAULT_NEW_VCOL_SUFFIX
-            items = obj.data.vertex_colors
+            items = get_vertex_colors(obj)
         else:
             name = [i[1] for i in layer_type_items if i[0] == self.type][0]
             items = yp.layers
@@ -914,6 +914,7 @@ class YNewLayer(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         ypui = context.window_manager.ypui
+        vcols = get_vertex_colors(obj)
 
         # Check if object is not a mesh
         if (self.type == 'VCOL' or (self.add_mask and self.mask_type == 'VCOL')) and obj.type != 'MESH':
@@ -921,10 +922,10 @@ class YNewLayer(bpy.types.Operator):
             return {'CANCELLED'}
 
         if (    ((self.type == 'VCOL' or (self.add_mask and self.mask_type == 'VCOL')) 
-                and len(obj.data.vertex_colors) >= 8) 
+                and len(vcols) >= 8) 
             or
                 ((self.type == 'VCOL' and (self.add_mask and self.mask_type == 'VCOL')) 
-                and len(obj.data.vertex_colors) >= 7)
+                and len(vcols) >= 7)
             ):
             self.report({'ERROR'}, "Mesh can only use 8 vertex colors!")
             return {'CANCELLED'}
@@ -933,7 +934,7 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             same_name = [i for i in bpy.data.images if i.name == self.name]
         elif self.type == 'VCOL':
-            same_name = [i for i in obj.data.vertex_colors if i.name == self.name]
+            same_name = [i for i in vcols if i.name == self.name]
         else: same_name = [lay for lay in yp.layers if lay.name == self.name]
         if same_name:
             if self.type == 'IMAGE':
@@ -987,15 +988,15 @@ class YNewLayer(bpy.types.Operator):
                         objs.append(o)
 
             for o in objs:
-                if self.name not in o.data.vertex_colors:
+                if self.name not in get_vertex_colors(o):
                     try:
-                        vcol = o.data.vertex_colors.new(name=self.name)
+                        vcol = new_vertex_color(o, self.name)
 
                         if is_greater_than_292():
                             set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 0.0))
                         else: set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
 
-                        o.data.vertex_colors.active = vcol
+                        set_active_vertex_color(o, vcol)
                     except: pass
 
         yp.halt_update = True
@@ -2059,8 +2060,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
-            vcols = obj.data.vertex_colors
-            for vcol in vcols:
+            for vcol in get_vertex_colors(obj):
                 self.vcol_coll.add().name = vcol.name
 
         return context.window_manager.invoke_props_dialog(self)
@@ -2142,7 +2142,8 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                 self.report({'ERROR'}, "Vertex Color name cannot be empty!")
                 return {'CANCELLED'}
 
-            vcol = obj.data.vertex_colors.get(self.vcol_name)
+            vcols = get_vertex_colors(obj)
+            vcol = vcols.get(self.vcol_name)
             if not vcol:
                 self.report({'ERROR'}, "Vertex Color named " + self.vcol_name + " is not found!")
                 return {'CANCELLED'}
@@ -2160,15 +2161,15 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
 
             for o in objs:
 
-                if self.vcol_name not in o.data.vertex_colors:
+                if self.vcol_name not in get_vertex_colors(o):
                     try:
-                        vcol = o.data.vertex_colors.new(name=self.vcol_name)
+                        vcol = new_vertex_color(o, self.vcol_name)
                         #if vcol_color == 'WHITE':
                         #    set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
                         #elif vcol_color == 'BLACK':
                         #    set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
                         set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
-                        o.data.vertex_colors.active = vcol
+                        set_active_vertex_color(o, vcol)
                     except: pass
 
             # Update vcol cache
@@ -2296,8 +2297,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
-            vcols = obj.data.vertex_colors
-            for vcol in vcols:
+            for vcol in get_vertex_colors(obj):
                 self.vcol_coll.add().name = vcol.name
 
         return context.window_manager.invoke_props_dialog(self)
@@ -2380,19 +2380,20 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             #if image.colorspace_settings.name != 'Linear':
             #    image.colorspace_settings.name = 'Linear'
         elif self.type == 'VCOL':
-            vcol = obj.data.vertex_colors.get(self.vcol_name)
+            vcols = get_vertex_colors(obj)
+            vcol = vcols.get(self.vcol_name)
             name = vcol.name
 
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH' or o == obj: continue
-                    if mat.name in o.data.materials and self.vcol_name not in o.data.vertex_colors:
+                    if mat.name in o.data.materials and self.vcol_name not in get_vertex_colors(o):
                         try:
-                            other_v = o.data.vertex_colors.new(name=self.vcol_name)
+                            other_v = new_vertex_color(o, self.vcol_name)
                             if is_greater_than_292():
                                 set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 0.0))
                             else: set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
-                            o.data.vertex_colors.active = other_v
+                            set_active_vertex_color(o, other_v)
                         except: pass
 
         add_new_layer(node.node_tree, name, self.type, int(self.channel_idx), self.blend_type, 
@@ -3292,7 +3293,7 @@ class YReplaceLayerType(bpy.types.Operator):
                     if not img.yia.is_image_atlas and img not in baked_channel_images:
                         self.item_coll.add().name = img.name
             else:
-                for vcol in obj.data.vertex_colors:
+                for vcol in get_vertex_colors(obj):
                     self.item_coll.add().name = vcol.name
 
             return context.window_manager.invoke_props_dialog(self)#, width=400)
