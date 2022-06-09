@@ -217,8 +217,7 @@ class YSpreadVColFix(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        #return context.object and context.object.type == 'MESH'
-        return context.object and context.object.type == 'MESH' #and context.object.mode == 'EDIT'
+        return context.object and context.object.type == 'MESH' and any(get_vertex_colors(context.object))
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self, width=200)
@@ -348,7 +347,7 @@ class YVcolFillFaceCustom(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         obj = context.object
-        if not obj or obj.type != 'MESH': return False
+        if not obj or obj.type != 'MESH' or not any(get_vertex_colors(obj)): return False
 
         if is_greater_than_320():
             vcol = obj.data.color_attributes.active_color
@@ -425,7 +424,7 @@ class YVcolFill(bpy.types.Operator):
     @classmethod
     def poll(cls, context):
         obj = context.object
-        if not obj or obj.type != 'MESH': return False
+        if not obj or obj.type != 'MESH' or not any(get_vertex_colors(obj)): return False
 
         if is_greater_than_320():
             vcol = obj.data.color_attributes.active_color
@@ -520,16 +519,18 @@ def vcol_editor_draw(self, context):
 
     col = self.layout.column() #align=True)
     vcols = get_vertex_colors(obj)
+    vcol = get_active_vertex_color(obj)
 
-    if len(vcols) == 0:
-        col.label(text='No vertex color found!', icon='GROUP_VCOL')
-        return
+    #if len(vcols) == 0:
+    #    col.label(text='No vertex color found!', icon='GROUP_VCOL')
+    #    return
 
     row = col.row(align=True)
 
     if not ve.show_vcol_list:
         row.prop(ve, 'show_vcol_list', text='', emboss=False, icon='TRIA_RIGHT')
-        row.label(text='Active: ' + vcols.active.name)
+        if vcol: row.label(text='Active: ' + vcol.name)
+        else: row.label(text='Active: -')
     else:
         row.prop(ve, 'show_vcol_list', text='', emboss=False, icon='TRIA_DOWN')
         row.label(text='Vertex Colors')
@@ -543,11 +544,18 @@ def vcol_editor_draw(self, context):
             rcol.operator("geometry.color_attribute_add", icon='ADD', text="")
             rcol.operator("geometry.color_attribute_remove", icon='REMOVE', text="")
         else:
-            rcol.template_list("MESH_UL_uvmaps_vcols", "vcols", mesh, 
-                    "vertex_colors", vcols, "active_index", rows=3)
-            rcol = row.column(align=True)
-            rcol.operator("mesh.vertex_color_add", icon='ZOOMIN', text="")
-            rcol.operator("mesh.vertex_color_remove", icon='ZOOMOUT', text="")
+            if is_greater_than_280():
+                rcol.template_list("MESH_UL_vcols", "vcols", mesh, 
+                        "vertex_colors", vcols, "active_index", rows=3)
+                rcol = row.column(align=True)
+                rcol.operator("mesh.vertex_color_add", icon='ADD', text="")
+                rcol.operator("mesh.vertex_color_remove", icon='REMOVE', text="")
+            else:
+                rcol.template_list("MESH_UL_uvmaps_vcols", "vcols", mesh, 
+                        "vertex_colors", vcols, "active_index", rows=3)
+                rcol = row.column(align=True)
+                rcol.operator("mesh.vertex_color_add", icon='ZOOMIN', text="")
+                rcol.operator("mesh.vertex_color_remove", icon='ZOOMOUT', text="")
 
     col.separator()
 
@@ -608,7 +616,7 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
     #palette : PointerProperty(type=bpy.types.Palette)
 
     show_vcol_list : BoolProperty(name='Show Vertex Color List',
-            description='Show vertex color list', default=False)
+            description='Show vertex color list', default=True)
 
     ori_blending_mode : StringProperty(default='')
     ori_brush : StringProperty(default='')
