@@ -1822,9 +1822,11 @@ def set_obj_vertex_colors(obj, vcol_name, color):
     else: 
         col = (color[0], color[1], color[2])
 
-    for poly in obj.data.polygons:
-        for loop_index in poly.loop_indices:
-            vcol.data[loop_index].color = col
+    ones = numpy.ones(len(vcol.data))
+
+    vcol.data.foreach_set( "color",
+        numpy.array((col[0] * ones, col[1] * ones, col[2] * ones, col[3] * ones)).T.ravel(),
+        )
 
     if ori_mode:
         bpy.ops.object.mode_set(mode=ori_mode)
