@@ -588,10 +588,10 @@ class YBakeChannelToVcol(bpy.types.Operator):
             description="Target vertex color name, it will create one if it doesn't exists",
             default='')
 
-    force_first_index : BoolProperty(
-            name='Force First Index', 
-            description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
-            default=True)
+    #force_first_index : BoolProperty(
+    #        name='Force First Index', 
+    #        description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
+    #        default=True)
 
     @classmethod
     def poll(cls, context):
@@ -616,12 +616,12 @@ class YBakeChannelToVcol(bpy.types.Operator):
         col = row.column(align=True)
 
         col.label(text='Target Vertex Color:')
-        col.label(text='Force First Index:')
+        #col.label(text='Force First Index:')
 
         col = row.column(align=True)
 
         col.prop(self, 'vcol_name', text='')
-        col.prop(self, 'force_first_index', text='')
+        #col.prop(self, 'force_first_index', text='')
 
     def execute(self, context):
         obj = context.object
@@ -677,15 +677,15 @@ class YBakeChannelToVcol(bpy.types.Operator):
                 except Exception as e: print(e)
 
             # NOTE: This implementation is unfinished since this only works if target vertex color is newly created
-            if self.force_first_index:
-                first_vcol = vcols[0]
-                if first_vcol != vcol:
-                    # Rename vcol
-                    vcol.name = '___TEMP____'
-                    first_vcol_name = first_vcol.name
-                    first_vcol.name = self.vcol_name
-                    vcol.name = first_vcol_name
-                    vcol = first_vcol
+            #if self.force_first_index:
+            #    first_vcol = vcols[0]
+            #    if first_vcol != vcol:
+            #        # Rename vcol
+            #        vcol.name = '___TEMP____'
+            #        first_vcol_name = first_vcol.name
+            #        first_vcol.name = self.vcol_name
+            #        vcol.name = first_vcol_name
+            #        vcol = first_vcol
 
             set_active_vertex_color(ob, vcol)
 
