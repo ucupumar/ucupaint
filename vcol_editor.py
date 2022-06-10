@@ -107,7 +107,7 @@ class YToggleEraser(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH' and context.object.mode in {'VERTEX_PAINT', 'TEXTURE_PAINT'}
+        return context.object and context.object.type == 'MESH' and context.object.mode in {'VERTEX_PAINT', 'TEXTURE_PAINT', 'SCULPT'}
 
     def execute(self, context):
 
@@ -120,6 +120,9 @@ class YToggleEraser(bpy.types.Operator):
         elif mode == 'VERTEX_PAINT' and is_greater_than_280(): 
             brush = context.tool_settings.vertex_paint.brush
             draw_brush = bpy.data.brushes.get('Draw')
+        elif mode == 'SCULPT' and is_greater_than_320(): 
+            brush = context.tool_settings.sculpt.brush
+            draw_brush = bpy.data.brushes.get('Paint')
         else:
             self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
             return {'CANCELLED'}
@@ -144,7 +147,10 @@ class YToggleEraser(bpy.types.Operator):
         if new_brush:
             if mode == 'TEXTURE_PAINT':
                 context.tool_settings.image_paint.brush = new_brush
-            else: context.tool_settings.vertex_paint.brush = new_brush
+            elif mode == 'VERTEX_PAINT': 
+                context.tool_settings.vertex_paint.brush = new_brush
+            elif mode == 'SCULPT': 
+                context.tool_settings.sculpt.brush = new_brush
 
         return {'FINISHED'}
 

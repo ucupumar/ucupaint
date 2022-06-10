@@ -2619,6 +2619,14 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 row.operator('mesh.y_vcol_set_base', text='Set Base')
                 row.operator('mesh.y_toggle_eraser', text='Toggle Eraser')
 
+            elif obj.mode == 'SCULPT' and layer.type == 'VCOL' and is_greater_than_320() and not mask_vcol and not override_vcol:
+
+                bbox = col.box()
+                row = bbox.row(align=True)
+                #row.operator('mesh.y_vcol_spread_fix', text='Spread Fix')
+                #row.operator('mesh.y_vcol_set_base', text='Set Base')
+                row.operator('mesh.y_toggle_eraser', text='Toggle Eraser')
+
         if obj.type == 'MESH' and obj.mode == 'TEXTURE_PAINT' and layer.type == 'IMAGE' and not mask_image and not override_image:
             bbox = col.box()
             row = bbox.row(align=True)
