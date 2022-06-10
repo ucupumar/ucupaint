@@ -516,8 +516,12 @@ class YNewYPaintModifier(bpy.types.Operator):
         group_tree = node.node_tree
         yp = group_tree.yp
 
-        m = re.match(r'^yp\.layers\[(\d+)\]', context.parent.path_from_id())
-        if m: layer = yp.layers[int(m.group(1))]
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', context.parent.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', context.parent.path_from_id())
+        m3 = re.match(r'^yp\.channels\[(\d+)\]$', context.parent.path_from_id())
+
+        if m1: layer = yp.layers[int(m1.group(1))]
+        elif m2: layer = yp.layers[int(m2.group(1))]
         else: layer = None
 
         mod = add_new_modifier(context.parent, self.type)
@@ -533,11 +537,12 @@ class YNewYPaintModifier(bpy.types.Operator):
                     c.bump_base_value = 0.0
 
         # Expand channel content to see added modifier
-        if hasattr(context, 'channel_ui'):
-            context.channel_ui.expand_content = True
-
-        if hasattr(context, 'layer_ui'):
+        if m1:
             context.layer_ui.expand_content = True
+        elif m2:
+            context.layer_ui.channels[int(m2.group(2))].expand_content = True
+        elif m3:
+            context.channel_ui.expand_content = True
 
         # Rearrange nodes
         if layer:

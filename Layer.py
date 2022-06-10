@@ -46,6 +46,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     # Check the need of bump process
     check_layer_bump_process(layer, tree)
 
+    # Check the need of divider alpha
+    check_layer_divider_alpha(layer, tree)
+
     #print(specific_ch.enable)
 
     # Update transition related nodes
@@ -151,7 +154,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         add_mask=False, mask_type='IMAGE', mask_color='BLACK', mask_use_hdr=False, 
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space = 'WORLD', hemi_use_prev_normal = True,
-        mask_color_id=(1,0,1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER'
+        mask_color_id=(1,0,1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
+        use_divider_alpha = False
         #bump_distance = 0.05, write_height = True,
         ):
 
@@ -268,6 +272,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
     # Set layer coordinate type
     layer.texcoord_type = texcoord_type
+
+    # Set layer spread fix
+    layer.divide_rgb_by_alpha = use_divider_alpha
 
     # Add channels to current layer
     for root_ch in yp.channels:
@@ -704,6 +711,11 @@ class YNewLayer(bpy.types.Operator):
             items = vcol_domain_items,
             default='CORNER')
 
+    use_divider_alpha : BoolProperty(
+            name = 'Spread Fix',
+            description='Use spread fix (very recommended for vertex color layer)',
+            default=False)
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -745,6 +757,9 @@ class YNewLayer(bpy.types.Operator):
         # Make sure add mask is inactive
         if self.type not in {'COLOR', 'BACKGROUND'}: #, 'GROUP'}:
             self.add_mask = False
+
+        # Set spread fix by default on vertex color layer
+        self.use_divider_alpha = True if self.type == 'VCOL' else False
 
         # Use white color mask as default for group
         if self.type == 'GROUP':
@@ -848,9 +863,11 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.label(text='Color:')
 
-        if is_greater_than_320() and self.type == 'VCOL':
-            col.label(text='Domain:')
-            col.label(text='Data Type:')
+        if self.type == 'VCOL':
+            if is_greater_than_320():
+                col.label(text='Domain:')
+                col.label(text='Data Type:')
+            col.label(text='')
 
         #if self.type == 'IMAGE':
         #    col.label(text='')
@@ -910,11 +927,13 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.prop(self, 'solid_color', text='')
 
-        if is_greater_than_320() and self.type == 'VCOL':
-            crow = col.row(align=True)
-            crow.prop(self, 'vcol_domain', expand=True)
-            crow = col.row(align=True)
-            crow.prop(self, 'vcol_data_type', expand=True)
+        if self.type == 'VCOL':
+            if is_greater_than_320():
+                crow = col.row(align=True)
+                crow.prop(self, 'vcol_domain', expand=True)
+                crow = col.row(align=True)
+                crow.prop(self, 'vcol_data_type', expand=True)
+            col.prop(self, 'use_divider_alpha')
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
@@ -1080,7 +1099,7 @@ class YNewLayer(bpy.types.Operator):
                 self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
                 self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
                 self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id,
-                self.mask_vcol_data_type, self.mask_vcol_domain)
+                self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha)
 
         if segment:
             ImageAtlas.set_segment_mapping(layer, segment, img)
@@ -4279,6 +4298,25 @@ def update_layer_channel_use_clamp(self, context):
 
     check_blend_type_nodes(root_ch, layer, self)
 
+def check_layer_divider_alpha(layer, tree=None):
+    if not tree: tree = get_source_tree(layer)
+
+    if layer.divide_rgb_by_alpha:
+        divider_alpha = check_new_node(tree, layer, 'divider_alpha', 'ShaderNodeMixRGB', 'Spread Fix')
+        divider_alpha.blend_type = 'DIVIDE'
+        divider_alpha.inputs[0].default_value = 1.0
+    else:
+        remove_node(tree, layer, 'divider_alpha')
+
+def update_divide_rgb_by_alpha(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    check_layer_divider_alpha(self)
+
+    rearrange_layer_nodes(self)
+    reconnect_layer_nodes(self)
+
 def update_image_flip_y(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -4810,6 +4848,12 @@ class YLayer(bpy.types.PropertyGroup):
             default = False,
             update=update_image_flip_y)
 
+    divide_rgb_by_alpha : BoolProperty(
+            name = 'Spread Fix',
+            description = "Spread fix will divide RGB value by its alpha, this can be useful for some source, like vertex color",
+            default = False,
+            update=update_divide_rgb_by_alpha)
+
     # Fake lighting related
 
     hemi_space : EnumProperty(
@@ -4878,8 +4922,9 @@ class YLayer(bpy.types.PropertyGroup):
     # Linear node
     linear : StringProperty(default='')
 
-    # Flip y node
+    # Fix nodes
     flip_y : StringProperty(default='')
+    divider_alpha : StringProperty(default='')
 
     # Layer type cache
     cache_brick : StringProperty(default='')

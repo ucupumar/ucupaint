@@ -429,6 +429,7 @@ def enable_layer_source_tree(layer, rearrange=False):
         source_ref = layer_tree.nodes.get(layer.source)
         linear_ref = layer_tree.nodes.get(layer.linear)
         flip_y_ref = layer_tree.nodes.get(layer.flip_y)
+        divider_alpha_ref = layer_tree.nodes.get(layer.divider_alpha)
         #mapping_ref = layer_tree.nodes.get(layer.mapping)
 
         # Create source tree
@@ -452,6 +453,10 @@ def enable_layer_source_tree(layer, rearrange=False):
             flip_y = new_node(source_tree, layer, 'flip_y', flip_y_ref.bl_idname)
             copy_node_props(flip_y_ref, flip_y)
 
+        if divider_alpha_ref:
+            divider_alpha = new_node(source_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
+            copy_node_props(divider_alpha_ref, divider_alpha)
+
         #mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping')
         #if mapping_ref: copy_node_props(mapping_ref, mapping)
 
@@ -472,6 +477,7 @@ def enable_layer_source_tree(layer, rearrange=False):
         layer_tree.nodes.remove(source_ref)
         if linear_ref: layer_tree.nodes.remove(linear_ref)
         if flip_y_ref: layer_tree.nodes.remove(flip_y_ref)
+        if divider_alpha_ref: layer_tree.nodes.remove(divider_alpha_ref)
         #if mapping_ref: layer_tree.nodes.remove(mapping_ref)
     
         # Bring modifiers to source tree
@@ -582,6 +588,7 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
             source_ref = source_group.node_tree.nodes.get(layer.source)
             linear_ref = source_group.node_tree.nodes.get(layer.linear)
             flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
+            divider_alpha_ref = source_group.node_tree.nodes.get(layer.divider_alpha)
             #mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
             # Create new source
@@ -595,6 +602,10 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
             if flip_y_ref:
                 flip_y = new_node(layer_tree, layer, 'flip_y', flip_y_ref.bl_idname)
                 copy_node_props(flip_y_ref, flip_y)
+
+            if divider_alpha_ref:
+                divider_alpha = new_node(layer_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
+                copy_node_props(divider_alpha_ref, divider_alpha)
 
             #mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
             #if mapping_ref: copy_node_props(mapping_ref, mapping)

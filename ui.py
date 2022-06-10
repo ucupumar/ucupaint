@@ -234,7 +234,10 @@ def draw_hemi_props(entity, source, layout):
     col.prop(entity, 'hemi_camera_ray_mask', text='Camera Ray Mask')
 
 def draw_vcol_props(layout, vcol=None, entity=None):
-    layout.label(text='You can also edit vertex color on edit mode')
+    if hasattr(entity, 'divide_rgb_by_alpha'):
+        layout.prop(entity, 'divide_rgb_by_alpha')
+    else:
+        layout.label(text='You can also edit vertex color on edit mode')
 
 def draw_tex_props(source, layout):
 
@@ -990,72 +993,52 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     row = layout.row(align=True)
     if image:
-        #if custom_icon_enable:
         if lui.expand_content:
             icon_value = lib.custom_icons["uncollapsed_image"].icon_id
         else: icon_value = lib.custom_icons["collapsed_image"].icon_id
         row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        #else:
-        #    row.prop(lui, 'expand_content', text='', emboss=True, icon_value=lib.get_icon('image'))
         if image.yia.is_image_atlas:
             row.label(text=layer.name)
         else: row.label(text=image.name)
     elif vcol:
-        if len(layer.modifiers) > 0:
-            #if custom_icon_enable:
-            if lui.expand_content:
-                icon_value = lib.custom_icons["uncollapsed_vcol"].icon_id
-            else: icon_value = lib.custom_icons["collapsed_vcol"].icon_id
-            row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-            #else:
-            #    row.prop(lui, 'expand_content', text='', emboss=True, icon='GROUP_VCOL')
-        else:
-            #row.label(text='', icon='GROUP_VCOL')
-            row.label(text='', icon_value=lib.get_icon('vertex_color'))
+        #if len(layer.modifiers) > 0:
+        if lui.expand_content:
+            icon_value = lib.custom_icons["uncollapsed_vcol"].icon_id
+        else: icon_value = lib.custom_icons["collapsed_vcol"].icon_id
+        row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        #else:
+        #    row.label(text='', icon_value=lib.get_icon('vertex_color'))
         row.label(text=vcol.name)
     elif layer.type == 'BACKGROUND':
         if len(layer.modifiers) > 0:
-            #if custom_icon_enable:
             if lui.expand_content:
                 icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
             else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
             row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-            #else:
-            #    row.prop(lui, 'expand_content', text='', emboss=True, icon_value=lib.get_icon('texture'))
         else:
-            #row.label(text='', icon='TEXTURE')
             row.label(text='', icon_value=lib.get_icon('texture'))
         row.label(text=layer.name)
     elif layer.type == 'COLOR':
-        #if custom_icon_enable:
         if lui.expand_content:
             icon_value = lib.custom_icons["uncollapsed_color"].icon_id
         else: icon_value = lib.custom_icons["collapsed_color"].icon_id
         row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        #else:
-        #    row.prop(lui, 'expand_content', text='', emboss=True, icon='COLOR')
         row.label(text=layer.name)
     elif layer.type == 'GROUP':
         row.label(text='', icon_value=lib.get_icon('group'))
         row.label(text=layer.name)
     elif layer.type == 'HEMI':
-        #if custom_icon_enable:
         if lui.expand_content:
             icon_value = lib.custom_icons["uncollapsed_hemi"].icon_id
         else: icon_value = lib.custom_icons["collapsed_hemi"].icon_id
         row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        #else:
-        #    row.prop(lui, 'expand_content', text='', emboss=True, icon_value=lib.get_icon('hemi'))
         row.label(text=layer.name)
     else:
         title = source.bl_idname.replace('ShaderNodeTex', '')
-        #if custom_icon_enable:
         if lui.expand_content:
             icon_value = lib.custom_icons["uncollapsed_texture"].icon_id
         else: icon_value = lib.custom_icons["collapsed_texture"].icon_id
         row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        #else:
-        #    row.prop(lui, 'expand_content', text='', emboss=True, icon='TEXTURE')
         row.label(text=title)
 
     row.context_pointer_set('parent', layer)
@@ -1085,8 +1068,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     else: row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
 
     if layer.type == 'GROUP': return
-    if layer.type in {'VCOL', 'BACKGROUND'} and len(layer.modifiers) == 0: return
-    #if layer.type in {'BACKGROUND'} and len(layer.modifiers) == 0: return
+    #if layer.type in {'VCOL', 'BACKGROUND'} and len(layer.modifiers) == 0: return
+    if layer.type in {'BACKGROUND'} and len(layer.modifiers) == 0: return
     if not lui.expand_content: return
 
     rrow = layout.row(align=True)
@@ -1098,8 +1081,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     draw_modifier_stack(context, layer, 'RGB', modcol, 
             lui, layer)
 
-    if layer.type not in {'VCOL', 'BACKGROUND'}:
-    #if layer.type not in {'BACKGROUND'}:
+    #if layer.type not in {'VCOL', 'BACKGROUND'}:
+    if layer.type not in {'BACKGROUND'}:
         row = rcol.row(align=True)
 
         #if custom_icon_enable:
@@ -1109,6 +1092,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             suffix = 'color'
         elif layer.type == 'HEMI':
             suffix = 'hemi'
+        elif layer.type == 'VCOL':
+            suffix = 'vcol'
         else: suffix = 'texture'
 
         if lui.expand_source:
@@ -2615,8 +2600,8 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             elif obj.mode == 'VERTEX_PAINT' and layer.type == 'VCOL' and is_greater_than_292() and not mask_vcol and not override_vcol:
                 bbox = col.box()
                 row = bbox.row(align=True)
-                row.operator('mesh.y_vcol_spread_fix', text='Spread Fix')
-                row.operator('mesh.y_vcol_set_base', text='Set Base')
+                #row.operator('mesh.y_vcol_spread_fix', text='Spread Fix')
+                #row.operator('mesh.y_vcol_set_base', text='Set Base')
                 row.operator('mesh.y_toggle_eraser', text='Toggle Eraser')
 
             elif obj.mode == 'SCULPT' and layer.type == 'VCOL' and is_greater_than_320() and not mask_vcol and not override_vcol:

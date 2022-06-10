@@ -1468,6 +1468,7 @@ def reconnect_source_internal_nodes(layer):
     source = tree.nodes.get(layer.source)
     #mapping = tree.nodes.get(layer.mapping)
     linear = tree.nodes.get(layer.linear)
+    divider_alpha = tree.nodes.get(layer.divider_alpha)
     flip_y = tree.nodes.get(layer.flip_y)
     start = tree.nodes.get(TREE_START)
     solid = tree.nodes.get(ONE_VALUE)
@@ -1488,6 +1489,10 @@ def reconnect_source_internal_nodes(layer):
 
     if linear:
         rgb = create_link(tree, rgb, linear.inputs[0])[0]
+
+    if divider_alpha: 
+        rgb = create_link(tree, rgb, divider_alpha.inputs[1])[0]
+        create_link(tree, alpha, divider_alpha.inputs[2])
 
     if flip_y:
         rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
@@ -1585,6 +1590,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     geometry = nodes.get(GEOMETRY)
     mapping = nodes.get(layer.mapping)
     linear = nodes.get(layer.linear)
+    divider_alpha = nodes.get(layer.divider_alpha)
     flip_y = nodes.get(layer.flip_y)
 
     # Get tangent and bitangent
@@ -1675,10 +1681,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         start_rgb_1 = source.outputs[1]
 
-    if not source_group:
-        if linear: start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
-        if flip_y: start_rgb = create_link(tree, start_rgb, flip_y.inputs[0])[0]
-
     # Alpha
     if layer.type == 'IMAGE' or source_group:
         start_alpha = source.outputs[1]
@@ -1688,6 +1690,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     start_alpha_1 = one_value
 
     alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
+
+    # RGB continued
+    if not source_group:
+        if linear: start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
+        if divider_alpha: 
+            start_rgb = create_link(tree, start_rgb, divider_alpha.inputs[1])[0]
+            create_link(tree, start_alpha, divider_alpha.inputs[2])
+        if flip_y: start_rgb = create_link(tree, start_rgb, flip_y.inputs[0])[0]
 
     if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         start_rgb_1 = source_group.outputs[2]

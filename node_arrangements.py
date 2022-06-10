@@ -438,6 +438,9 @@ def rearrange_source_tree_nodes(layer):
     if check_set_node_loc(source_tree, layer.linear, loc):
         loc.x += 200
 
+    if check_set_node_loc(source_tree, layer.divider_alpha, loc):
+        loc.x += 200
+
     if check_set_node_loc(source_tree, layer.flip_y, loc):
         loc.x += 200
 
@@ -618,6 +621,9 @@ def rearrange_layer_nodes(layer, tree=None):
     else:
         if check_set_node_loc(tree, layer.flip_y, loc, hide=False):
             loc.y -= 140
+
+        if check_set_node_loc(tree, layer.divider_alpha, loc, hide=False):
+            loc.y -= 180
 
         if check_set_node_loc(tree, layer.linear, loc, hide=False):
             loc.y -= 140
