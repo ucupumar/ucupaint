@@ -3399,6 +3399,10 @@ def set_active_vertex_color(obj, vcol):
     try:
         if is_greater_than_320():
             obj.data.color_attributes.active_color = vcol
+            # HACK: Baking to vertex color still use active legacy vertex colors data
+            if hasattr(obj.data, 'vertex_colors'):
+                v = obj.data.vertex_colors.get(vcol.name)
+                obj.data.vertex_colors.active = v
         else: obj.data.vertex_colors.active = vcol
     except Exception as e: print(e)
 
