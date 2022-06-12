@@ -386,7 +386,8 @@ class YVcolFillFaceCustom(bpy.types.Operator):
             vcol = get_active_vertex_color(obj)
 
             color = Color((self.color[0], self.color[1], self.color[2]))
-            color = linear_to_srgb(color)
+            if not is_greater_than_320():
+                color = linear_to_srgb(color)
 
             if is_greater_than_280():
                 color = (color[0], color[1], color[2], self.color[3])
@@ -401,7 +402,9 @@ class YVcolFillFaceCustom(bpy.types.Operator):
                     color = (written_col[0], written_col[1], written_col[2])
 
                     # Set color back to mask color id
-                    context.mask.color_id = srgb_to_linear(Color(color))
+                    context.mask.color_id = Color(color)
+                    if not is_greater_than_320():
+                        context.mask.color_id = srgb_to_linear(context.mask.color_id)
 
                     if is_greater_than_280():
                         color = (written_col[0], written_col[1], written_col[2], written_col[3])
