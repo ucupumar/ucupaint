@@ -587,6 +587,16 @@ class YBakeChannelToVcol(bpy.types.Operator):
             name='Target Vertex Color Name', 
             description="Target vertex color name, it will create one if it doesn't exists",
             default='')
+    
+    add_emission : BoolProperty(
+            name='Add Emission', 
+            description='Add the result with Emission Channel', 
+            default=False)
+
+    emission_multiplier : FloatProperty(
+            name='Emission Multiplier',
+            description='Emission multiplier so the emission can be more visible on the result',
+            default=1.0, min=0.0)
 
     #force_first_index : BoolProperty(
     #        name='Force First Index', 
@@ -604,6 +614,13 @@ class YBakeChannelToVcol(bpy.types.Operator):
 
         self.vcol_name = 'Baked ' + channel.name
 
+        # Add emission will only availabel if it's on Color channel
+        self.show_emission_option = False
+        if channel.name == 'Color':
+            for ch in yp.channels:
+                if ch.name == 'Emission':
+                    self.show_emission_option = True
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
@@ -616,11 +633,17 @@ class YBakeChannelToVcol(bpy.types.Operator):
         col = row.column(align=True)
 
         col.label(text='Target Vertex Color:')
+        if self.show_emission_option:
+            col.label(text='Add Emission:')
+            col.label(text='Emission Multiplier:')
         #col.label(text='Force First Index:')
 
         col = row.column(align=True)
 
         col.prop(self, 'vcol_name', text='')
+        if self.show_emission_option:
+            col.prop(self, 'add_emission', text='')
+            col.prop(self, 'emission_multiplier', text='')
         #col.prop(self, 'force_first_index', text='')
 
     def execute(self, context):
@@ -708,8 +731,13 @@ class YBakeChannelToVcol(bpy.types.Operator):
         # Prepare bake settings
         prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, force_use_cpu=True, bake_target='VERTEX_COLORS')
 
+        # Get extra channel
+        extra_channel = None
+        if self.show_emission_option and self.add_emission:
+            extra_channel = yp.channels.get('Emission')
+
         # Bake channel
-        bake_to_vcol(mat, node, channel)
+        bake_to_vcol(mat, node, channel, extra_channel, self.emission_multiplier)
         #return {'FINISHED'}
 
         # Recover bake settings

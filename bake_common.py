@@ -515,7 +515,7 @@ def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
 
     return image
 
-def bake_to_vcol(mat, node, root_ch):
+def bake_to_vcol(mat, node, root_ch, extra_channel=None, extra_multiplier=1.0):
 
     # Create setup nodes
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
@@ -537,6 +537,22 @@ def bake_to_vcol(mat, node, root_ch):
     if root_ch.type == 'NORMAL':
         rgb = create_link(mat.node_tree, rgb, norm.inputs[0])[0]
 
+    if extra_channel:
+        mul = mat.node_tree.nodes.new('ShaderNodeMixRGB')
+        mul.inputs[0].default_value = 1.0
+        mul.inputs[2].default_value = (extra_multiplier, extra_multiplier, extra_multiplier, 1.0)
+        mul.blend_type = 'MULTIPLY'
+
+        extra_rgb = node.outputs[extra_channel.name]
+        extra_rgb = create_link(mat.node_tree, extra_rgb, mul.inputs[1])[0]
+
+        add = mat.node_tree.nodes.new('ShaderNodeMixRGB')
+        add.inputs[0].default_value = 1.0
+        add.blend_type = 'ADD'
+
+        rgb = create_link(mat.node_tree, rgb, add.inputs[1])[0]
+        create_link(mat.node_tree, extra_rgb, add.inputs[2])
+
     mat.node_tree.links.new(rgb, emit.inputs[0])
 
     # Bake!
@@ -546,6 +562,10 @@ def bake_to_vcol(mat, node, root_ch):
     simple_remove_node(mat.node_tree, emit)
     if root_ch.type == 'NORMAL':
         simple_remove_node(mat.node_tree, norm)
+
+    if extra_channel:
+        simple_remove_node(mat.node_tree, mul)
+        simple_remove_node(mat.node_tree, add)
 
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
