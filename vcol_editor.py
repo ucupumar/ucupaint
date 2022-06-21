@@ -491,7 +491,7 @@ class YVcolFill(bpy.types.Operator):
                 alpha = 1.0
             #elif self.color_option == 'TRANSPARENT':
             #    alpha = 0.0
-            else:
+            elif not is_greater_than_320():
                 color = linear_to_srgb(color)
 
             if is_greater_than_280():
