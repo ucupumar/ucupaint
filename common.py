@@ -1742,7 +1742,7 @@ def change_vcol_name(yp, obj, src, new_name, layer=None):
     for o in objs:
         if o != obj:
             ovcols = get_vertex_colors(o)
-            other_v = vcols.get(ori_name)
+            other_v = ovcols.get(ori_name)
             if other_v: other_v.name = new_name
 
     # Also replace vertex color name on another entity
