@@ -1112,7 +1112,7 @@ def get_layer_ids_with_specific_segment(yp, segment):
     for i, layer in enumerate(yp.layers):
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
-            if (source.image and source.image.yia.is_image_atlas and 
+            if (source and source.image and source.image.yia.is_image_atlas and 
                 any([s for s in source.image.yia.segments if s == segment]) and segment.name == layer.segment_name):
                     ids.append(i)
 
