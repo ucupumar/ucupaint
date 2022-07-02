@@ -1509,7 +1509,7 @@ class YFixMissingUV(bpy.types.Operator):
         height_ch = get_root_height_channel(yp)
         if height_ch and height_ch.main_uv == self.source_uv_name:
             height_ch.main_uv = self.target_uv_name
-            height_ch.enable_smooth_bump = height_ch.enable_smooth_bump
+            #height_ch.enable_smooth_bump = height_ch.enable_smooth_bump
 
         return {'FINISHED'}
 

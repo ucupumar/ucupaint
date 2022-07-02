@@ -335,6 +335,12 @@ class YTransferSomeLayerUV(bpy.types.Operator):
                 from_uv = uv_layers.get(self.from_uv_map)
                 uv_layers.remove(from_uv)
 
+        # Check height channel uv
+        height_ch = get_root_height_channel(yp)
+        if height_ch and height_ch.main_uv == self.from_uv_map:
+            height_ch.main_uv = self.uv_map
+            #height_ch.enable_smooth_bump = height_ch.enable_smooth_bump
+
         # Refresh mapping and stuff
         yp.active_layer_index = yp.active_layer_index
 
