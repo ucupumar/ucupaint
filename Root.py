@@ -3309,6 +3309,10 @@ class YPaintMaterialProps(bpy.types.PropertyGroup):
 class YPaintTimer(bpy.types.PropertyGroup):
     time : StringProperty(default='')
 
+class YPaintWMProps(bpy.types.PropertyGroup):
+    clipboard_tree : StringProperty(default='')
+    clipboard_layer : StringProperty(default='')
+
 class YPaintSceneProps(bpy.types.PropertyGroup):
     last_object : StringProperty(default='')
     last_mode : StringProperty(default='')
@@ -3434,6 +3438,7 @@ def register():
     bpy.utils.register_class(YPaint)
     bpy.utils.register_class(YPaintMaterialProps)
     bpy.utils.register_class(YPaintTimer)
+    bpy.utils.register_class(YPaintWMProps)
     bpy.utils.register_class(YPaintSceneProps)
     bpy.utils.register_class(YPaintObjectProps)
     #bpy.utils.register_class(YPaintMeshProps)
@@ -3442,6 +3447,7 @@ def register():
     bpy.types.ShaderNodeTree.yp = PointerProperty(type=YPaint)
     bpy.types.Material.yp = PointerProperty(type=YPaintMaterialProps)
     bpy.types.WindowManager.yptimer = PointerProperty(type=YPaintTimer)
+    bpy.types.WindowManager.ypprops = PointerProperty(type=YPaintWMProps)
     bpy.types.Scene.yp = PointerProperty(type=YPaintSceneProps)
     bpy.types.Object.yp = PointerProperty(type=YPaintObjectProps)
     #bpy.types.Mesh.yp = PointerProperty(type=YPaintMeshProps)
@@ -3479,6 +3485,7 @@ def unregister():
     bpy.utils.unregister_class(YPaint)
     bpy.utils.unregister_class(YPaintMaterialProps)
     bpy.utils.unregister_class(YPaintTimer)
+    bpy.utils.unregister_class(YPaintWMProps)
     bpy.utils.unregister_class(YPaintSceneProps)
     bpy.utils.unregister_class(YPaintObjectProps)
     #bpy.utils.unregister_class(YPaintMeshProps)

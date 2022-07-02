@@ -3720,6 +3720,49 @@ class YDuplicateLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YCopyLayer(bpy.types.Operator):
+    bl_idname = "node.y_copy_layer"
+    bl_label = "Copy Layer"
+    bl_description = "Copy Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        wmp = context.window_manager.ypprops
+
+        layer = yp.layers[yp.active_layer_index]
+
+        wmp.clipboard_tree = node.node_tree.name
+        wmp.clipboard_layer = layer.name
+
+        return {'FINISHED'}
+
+class YPasteLayer(bpy.types.Operator):
+    bl_idname = "node.y_paste_layer"
+    bl_label = "Paste Layer"
+    bl_description = "Paste Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+    
+    @classmethod
+    def poll(cls, context):
+        group_node = get_active_ypaint_node()
+        return context.object and group_node
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        wmp = context.window_manager.ypprops
+
+        print(wmp.clipboard_tree, wmp.clipboard_layer)
+
+        return {'FINISHED'}
+
 def update_layer_channel_override_value(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -4990,6 +5033,8 @@ def register():
     bpy.utils.register_class(YReplaceLayerChannelOverride)
     bpy.utils.register_class(YReplaceLayerChannelOverride1)
     bpy.utils.register_class(YDuplicateLayer)
+    bpy.utils.register_class(YCopyLayer)
+    bpy.utils.register_class(YPasteLayer)
     bpy.utils.register_class(YLayerChannel)
     bpy.utils.register_class(YLayer)
 
@@ -5014,5 +5059,7 @@ def unregister():
     bpy.utils.unregister_class(YReplaceLayerChannelOverride)
     bpy.utils.unregister_class(YReplaceLayerChannelOverride1)
     bpy.utils.unregister_class(YDuplicateLayer)
+    bpy.utils.unregister_class(YCopyLayer)
+    bpy.utils.unregister_class(YPasteLayer)
     bpy.utils.unregister_class(YLayerChannel)
     bpy.utils.unregister_class(YLayer)

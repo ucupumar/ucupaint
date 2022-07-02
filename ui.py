@@ -3576,6 +3576,7 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
+        ypup = get_user_preferences()
 
         row = self.layout.row()
         col = row.column()
@@ -3584,6 +3585,12 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         col.operator('node.y_merge_layer', text='Merge Layer Down', icon='TRIA_DOWN').direction = 'DOWN'
 
         col.separator()
+
+        if ypup.show_experimental:
+            col.operator('node.y_copy_layer', text='Copy Layer', icon='COPYDOWN')
+            col.operator('node.y_paste_layer', text='Paste Layer', icon='PASTEDOWN')
+
+            col.separator()
 
         #col.prop(yp, 'layer_preview_mode', text='Layer Only Viewer')
 
