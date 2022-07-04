@@ -3664,9 +3664,10 @@ class YDuplicateLayer(bpy.types.Operator):
         childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
 
         # Collect relevant ids to duplicate
-        relevant_layers = [layer]
+        relevant_layer_names = [layer.name]
         relevant_ids = [layer_idx]
-        relevant_layers.extend(childs)
+        for child in childs:
+            relevant_layer_names.append(child.name)
         relevant_ids.extend(child_ids)
 
         # Halt update to prevent needless reconnection
@@ -3676,12 +3677,15 @@ class YDuplicateLayer(bpy.types.Operator):
         created_ids = []
 
         # Duplicate all relevant layers
-        for i, l in enumerate(relevant_layers):
+        for i, lname in enumerate(relevant_layer_names):
             idx = relevant_ids[i]
+
+            l = yp.layers.get(lname)
 
             # Create new layer
             new_layer = yp.layers.add()
-            new_layer.name = get_unique_name(l.name, yp.layers)
+            new_layer.name = get_unique_name(lname, yp.layers)
+
             copy_id_props(l, new_layer, ['name'])
 
             # Duplicate groups
