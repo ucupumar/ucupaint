@@ -296,10 +296,9 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'COLOR_ID':
             # Check if color id already being used
             while True:
-                if not is_colorid_already_being_used(yp, self.color_id): break
-                #self.color_id = (random.random(), random.random(), random.random())
                 # Use color id tolerance value as lowest value to avoid pure black color
                 self.color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
+                if not is_colorid_already_being_used(yp, self.color_id): break
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Generated'

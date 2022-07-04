@@ -784,9 +784,9 @@ class YNewLayer(bpy.types.Operator):
 
         # Check if color id already being used
         while True:
-            if not is_colorid_already_being_used(yp, self.mask_color_id): break
             # Use color id tolerance value as lowest value to avoid pure black color
             self.mask_color_id = (random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0), random.uniform(COLORID_TOLERANCE, 1.0))
+            if not is_colorid_already_being_used(yp, self.mask_color_id): break
 
         if obj.type != 'MESH':
             #self.texcoord_type = 'Object'
@@ -3678,7 +3678,7 @@ class YDuplicateLayer(bpy.types.Operator):
 
         # Duplicate all relevant layers
         for i, lname in enumerate(relevant_layer_names):
-            idx = relevant_ids[i]
+            #idx = relevant_ids[i]
 
             l = yp.layers.get(lname)
 
@@ -3759,11 +3759,89 @@ class YPasteLayer(bpy.types.Operator):
         return context.object and group_node
 
     def execute(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        wmp = context.window_manager.ypprops
+        T = time.time()
 
-        print(wmp.clipboard_tree, wmp.clipboard_layer)
+        wm = context.window_manager
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+        wmp = wm.ypprops
+
+        #print(wmp.clipboard_tree, wmp.clipboard_layer)
+
+        tree_source = bpy.data.node_groups.get(wmp.clipboard_tree)
+        if not tree_source:
+            self.report({'ERROR'}, "Cannot paste as clipboard source isn't found!")
+            return {'CANCELLED'}
+
+        yp_source = tree_source.yp
+        layer_source = yp_source.layers.get(wmp.clipboard_layer)
+
+        if not tree_source:
+            self.report({'ERROR'}, "Cannot paste as clipboard source isn't found!")
+            return {'CANCELLED'}
+
+        # Check if the source yp has matching channel order
+        matching = True
+        normal_ch = None
+        normal_ch_source = None
+
+        if len(yp.channels) != len(yp_source.channels):
+            matching = False
+        else:
+            for i, ch in enumerate(yp.channels):
+                ch_source = yp_source.channels[i]
+                if ch.name != ch_source.name or ch.type != ch_source.type:
+                    matching = False
+                    break
+                if ch.type == 'NORMAL':
+                    normal_ch = ch
+                    normal_ch_source = ch_source
+
+        if not matching:
+            self.report({'ERROR'}, "Copied tree has different channel names or orders!")
+            return {'CANCELLED'}
+        
+        # Make sure smooth bump has same settings
+        if normal_ch:
+            ori_enable_smooth_bump = normal_ch.enable_smooth_bump
+            if normal_ch.enable_smooth_bump != normal_ch_source.enable_smooth_bump:
+                normal_ch.enable_smooth_bump = normal_ch_source.enable_smooth_bump
+
+        # Halt update to prevent needless reconnection
+        yp.halt_update = True
+
+        #new_layer = add_new_layer(tree, layer_source.name, layer_source.type, 
+        #        channel_idx=0, blend_type='MIX', normal_blend_type='MIX', 
+        #        normal_map_type='BUMP_MAP', texcoord_type='UV', uv_name=layer_source.uv_name)
+
+        # Create new layer
+        new_layer = yp.layers.add()
+        new_layer.name = get_unique_name(layer_source.name, yp.layers)
+
+        copy_id_props(layer_source, new_layer, ['name'])
+
+        # Duplicate groups
+        new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', new_layer.name)
+        new_group_node.node_tree = get_tree(layer_source)
+
+        # Duplicate images and some nodes inside
+        duplicate_layer_nodes_and_images(tree, new_layer, True, False) #self.make_image_blank)
+
+        # Revert back halt update
+        yp.halt_update = False
+
+        # Rearrange and reconnect
+        rearrange_yp_nodes(tree)
+        reconnect_yp_nodes(tree)
+
+        # Recover smooth bump
+        if normal_ch:
+            if ori_enable_smooth_bump != normal_ch.enable_smooth_bump:
+                normal_ch.enable_smooth_bump = ori_enable_smooth_bump
+
+        print('INFO: Layer', new_layer.name, 'is pasted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
 

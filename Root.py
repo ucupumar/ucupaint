@@ -1732,6 +1732,9 @@ def fix_missing_vcol(obj, name, src):
 
     set_source_vcol_name(src, name)
 
+    # Default recovered missing vcol is black
+    set_obj_vertex_colors(obj, vcol.name, (0.0, 0.0, 0.0, 0.0))
+
 def fix_missing_img(name, src, is_mask=False):
     img = bpy.data.images.new(name=name, 
             width=1024, height=1024, alpha= not is_mask, float_buffer=False)
