@@ -1607,13 +1607,18 @@ def get_mask_tree(mask, ignore_group=False):
     if ignore_group:
         return layer_tree
 
-    group_node = layer_tree.nodes.get(mask.group_node)
+    if layer_tree:
+        group_node = layer_tree.nodes.get(mask.group_node)
+    else: return None
+
     if not group_node or group_node.type != 'GROUP': return layer_tree
     return group_node.node_tree
 
 def get_mask_source(mask):
     tree = get_mask_tree(mask)
-    return tree.nodes.get(mask.source)
+    if tree:
+        return tree.nodes.get(mask.source)
+    return None
 
 def get_mask_mapping(mask):
     tree = get_mask_tree(mask, True)

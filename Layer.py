@@ -3708,6 +3708,7 @@ class YDuplicateLayer(bpy.types.Operator):
         for lay in yp.layers:
             if lay.name in parent_dict:
                 lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+            #print(lay.name, yp.layers[lay.parent_idx].name)
 
         # Revert back halt update
         yp.halt_update = False
@@ -3785,6 +3786,7 @@ class YPasteLayer(bpy.types.Operator):
         matching = True
         normal_ch = None
         normal_ch_source = None
+        ori_ch_enable_alphas = []
 
         if len(yp.channels) != len(yp_source.channels):
             matching = False
@@ -3797,6 +3799,7 @@ class YPasteLayer(bpy.types.Operator):
                 if ch.type == 'NORMAL':
                     normal_ch = ch
                     normal_ch_source = ch_source
+                ori_ch_enable_alphas.append(ch.enable_alpha)
 
         if not matching:
             self.report({'ERROR'}, "Copied tree has different channel names or orders!")
@@ -3808,25 +3811,66 @@ class YPasteLayer(bpy.types.Operator):
             if normal_ch.enable_smooth_bump != normal_ch_source.enable_smooth_bump:
                 normal_ch.enable_smooth_bump = normal_ch_source.enable_smooth_bump
 
+        # Make sure channel alpha has same settings
+        for i, ch in enumerate(yp.channels):
+            if ch.enable_alpha != yp_source.channels[i].enable_alpha:
+                ch.enable_alpha = yp_source.channels[i].enable_alpha
+
+        # Number of layers before paste
+        num_of_layers_before_paste = len(yp.layers)
+
+        # Check index of copied layer to know the offest
+        first_copied_index = get_layer_index_by_name(yp_source, layer_source.name)
+
+        # Get all childrens
+        childs, child_ids = get_list_of_all_childs_and_child_ids(layer_source)
+
+        # Collect relevant names
+        relevant_layer_names = [layer_source.name]
+        for child in childs:
+            relevant_layer_names.append(child.name)
+
+        # Current index
+        layer_idx = yp.active_layer_index
+
+        # List of newly created datas
+        created_layer_names = []
+        created_ids = []
+
         # Halt update to prevent needless reconnection
         yp.halt_update = True
 
-        #new_layer = add_new_layer(tree, layer_source.name, layer_source.type, 
-        #        channel_idx=0, blend_type='MIX', normal_blend_type='MIX', 
-        #        normal_map_type='BUMP_MAP', texcoord_type='UV', uv_name=layer_source.uv_name)
+        for lname in relevant_layer_names:
 
-        # Create new layer
-        new_layer = yp.layers.add()
-        new_layer.name = get_unique_name(layer_source.name, yp.layers)
+            ls = yp_source.layers.get(lname)
 
-        copy_id_props(layer_source, new_layer, ['name'])
+            # Create new layer
+            new_layer = yp.layers.add()
+            new_layer.name = get_unique_name(ls.name, yp.layers)
 
-        # Duplicate groups
-        new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', new_layer.name)
-        new_group_node.node_tree = get_tree(layer_source)
+            copy_id_props(ls, new_layer, ['name'])
 
-        # Duplicate images and some nodes inside
-        duplicate_layer_nodes_and_images(tree, new_layer, True, False) #self.make_image_blank)
+            # Duplicate groups
+            new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', new_layer.name)
+            new_group_node.node_tree = get_tree(ls)
+
+            # Duplicate images and some nodes inside
+            duplicate_layer_nodes_and_images(tree, new_layer, True, False) #self.make_image_blank)
+
+            created_layer_names.append(new_layer.name)
+            created_ids.append(len(yp.layers)-1)
+
+        # Move pasted layer to current index
+        for i, lname in enumerate(created_layer_names):
+            nl = yp.layers.get(lname)
+            idx = get_layer_index_by_name(yp, lname)
+            yp.layers.move(idx, layer_idx+i)
+
+        # Remap parent index
+        for lname in created_layer_names:
+            nl = yp.layers.get(lname)
+            if nl.parent_idx != -1:
+                nl.parent_idx += layer_idx - first_copied_index
 
         # Revert back halt update
         yp.halt_update = False
@@ -3840,7 +3884,15 @@ class YPasteLayer(bpy.types.Operator):
             if ori_enable_smooth_bump != normal_ch.enable_smooth_bump:
                 normal_ch.enable_smooth_bump = ori_enable_smooth_bump
 
-        print('INFO: Layer', new_layer.name, 'is pasted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        # Recover alpha settings
+        for i, ch in enumerate(yp.channels):
+            if ch.enable_alpha != ori_ch_enable_alphas[i]:
+                ch.enable_alpha = ori_ch_enable_alphas[i]
+
+        # Refresh active layer
+        yp.active_layer_index = yp.active_layer_index
+
+        print('INFO: Layer(s) are pasted at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         wm.yptimer.time = str(time.time())
 
         return {'FINISHED'}
