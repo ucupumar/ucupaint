@@ -3439,12 +3439,12 @@ class YNewLayerMenu(bpy.types.Menu):
         c.add_mask = True
         c.mask_type = 'VCOL'
 
-        col.separator()
+        #col.separator()
 
-        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='New Duplicated Layer')
-        c.make_image_blank = False
-        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='New Blank Layer with copied setup')
-        c.make_image_blank = True
+        #c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='New Duplicated Layer')
+        #c.make_image_blank = False
+        #c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='New Blank Layer with copied setup')
+        #c.make_image_blank = True
 
         col = row.column()
         #col.label(text='Generated:')
@@ -3588,12 +3588,18 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        if ypup.show_experimental:
-            col.operator('node.y_copy_layer', text='Copy Layer', icon='COPYDOWN').all_layers = False
-            col.operator('node.y_copy_layer', text='Copy All Layers', icon='COPYDOWN').all_layers = True
-            col.operator('node.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN')
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Layer')
+        c.make_image_blank = False
+        c = col.operator("node.y_duplicate_layer", icon='COPY_ID', text='Duplicate Blank Layer')
+        c.make_image_blank = True
 
-            col.separator()
+        col.separator()
+
+        col.operator('node.y_copy_layer', text='Copy Layer', icon='COPYDOWN').all_layers = False
+        col.operator('node.y_copy_layer', text='Copy All Layers', icon='COPYDOWN').all_layers = True
+        col.operator('node.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN')
+
+        col.separator()
 
         #col.prop(yp, 'layer_preview_mode', text='Layer Only Viewer')
 
