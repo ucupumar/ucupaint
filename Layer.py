@@ -3731,6 +3731,11 @@ class YCopyLayer(bpy.types.Operator):
     bl_description = "Copy Layer"
     bl_options = {'REGISTER', 'UNDO'}
 
+    all_layers : BoolProperty(
+            name='Copy All Layers',
+            description='Copy all layers instead of only the active one',
+            default = False)
+
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
@@ -3744,7 +3749,7 @@ class YCopyLayer(bpy.types.Operator):
         layer = yp.layers[yp.active_layer_index]
 
         wmp.clipboard_tree = node.node_tree.name
-        wmp.clipboard_layer = layer.name
+        wmp.clipboard_layer = layer.name if not self.all_layers else ''
 
         return {'FINISHED'}
 
@@ -3776,7 +3781,6 @@ class YPasteLayer(bpy.types.Operator):
             return {'CANCELLED'}
 
         yp_source = tree_source.yp
-        layer_source = yp_source.layers.get(wmp.clipboard_layer)
 
         if not tree_source:
             self.report({'ERROR'}, "Cannot paste as clipboard source isn't found!")
@@ -3784,10 +3788,6 @@ class YPasteLayer(bpy.types.Operator):
 
         # Check if the source yp has matching channel order
         matching = True
-        normal_ch = None
-        normal_ch_source = None
-        ori_ch_enable_alphas = []
-
         if len(yp.channels) != len(yp_source.channels):
             matching = False
         else:
@@ -3796,28 +3796,43 @@ class YPasteLayer(bpy.types.Operator):
                 if ch.name != ch_source.name or ch.type != ch_source.type:
                     matching = False
                     break
-                if ch.type == 'NORMAL':
-                    normal_ch = ch
-                    normal_ch_source = ch_source
-                ori_ch_enable_alphas.append(ch.enable_alpha)
 
         if not matching:
             self.report({'ERROR'}, "Copied tree has different channel names or orders!")
             return {'CANCELLED'}
         
-        # Number of layers before paste
-        num_of_layers_before_paste = len(yp.layers)
+        if wmp.clipboard_layer == '':
 
-        # Check index of copied layer to know the offest
-        first_copied_index = get_layer_index_by_name(yp_source, layer_source.name)
+            if len(yp_source.layers) == 0:
+                self.report({'ERROR'}, "Copied tree has no layers!")
+                return {'CANCELLED'}
 
-        # Get all childrens
-        childs, child_ids = get_list_of_all_childs_and_child_ids(layer_source)
+            # Get datas
+            first_copied_index = 0
+            relevant_layer_names = [l.name for l in yp_source.layers]
 
-        # Collect relevant names
-        relevant_layer_names = [layer_source.name]
-        for child in childs:
-            relevant_layer_names.append(child.name)
+        else:
+
+            # Source layer
+            layer_source = yp_source.layers.get(wmp.clipboard_layer)
+
+            if not layer_source:
+                self.report({'ERROR'}, "Cannot find copied layer! Maybe it was deleted or renamed.")
+                return {'CANCELLED'}
+
+            # Check index of copied layer to know the offest
+            first_copied_index = get_layer_index_by_name(yp_source, layer_source.name)
+
+            # Get all childrens
+            childs, child_ids = get_list_of_all_childs_and_child_ids(layer_source)
+
+            # Collect relevant names
+            relevant_layer_names = [layer_source.name]
+            for child in childs:
+                relevant_layer_names.append(child.name)
+
+        # Get parent dict
+        parent_dict = get_parent_dict(yp)
 
         # Current index
         cur_idx = yp.active_layer_index
@@ -3827,9 +3842,8 @@ class YPasteLayer(bpy.types.Operator):
         else:
             cur_parent_idx = -1
 
-        # List of newly created datas
-        created_layer_names = []
-        created_ids = []
+        # List of newly pasted datas
+        pasted_layer_names = []
 
         # Halt update to prevent needless reconnection
         yp.halt_update = True
@@ -3851,16 +3865,15 @@ class YPasteLayer(bpy.types.Operator):
             # Duplicate images and some nodes inside
             duplicate_layer_nodes_and_images(tree, new_layer, True, False) #self.make_image_blank)
 
-            created_layer_names.append(new_layer.name)
-            created_ids.append(len(yp.layers)-1)
+            pasted_layer_names.append(new_layer.name)
 
         # Move pasted layer to current index
-        for i, lname in enumerate(created_layer_names):
+        for i, lname in enumerate(pasted_layer_names):
             nl = yp.layers.get(lname)
             idx = get_layer_index_by_name(yp, lname)
             yp.layers.move(idx, cur_idx+i)
 
-        for i, lname in enumerate(created_layer_names):
+        for i, lname in enumerate(pasted_layer_names):
             nl = yp.layers.get(lname)
 
             # Remap parent index
@@ -3870,12 +3883,19 @@ class YPasteLayer(bpy.types.Operator):
             else:
                 if nl.parent_idx != -1:
                     nl.parent_idx += cur_idx - first_copied_index
+                else:
+                    nl.parent_idx = cur_parent_idx
 
             # Refresh io and nodes
             check_all_layer_channel_io_and_nodes(nl)
 
             rearrange_layer_nodes(nl)
             reconnect_layer_nodes(nl)
+
+        # Remap parents for non pasted layers
+        for lay in yp.layers:
+            if lay.name in pasted_layer_names: continue
+            lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
 
         # Check uv maps
         check_uv_nodes(yp)

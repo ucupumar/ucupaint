@@ -3577,6 +3577,8 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         ypup = get_user_preferences()
+        wm = context.window_manager
+        wmp = wm.ypprops
 
         row = self.layout.row()
         col = row.column()
@@ -3587,8 +3589,9 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         col.separator()
 
         if ypup.show_experimental:
-            col.operator('node.y_copy_layer', text='Copy Layer', icon='COPYDOWN')
-            col.operator('node.y_paste_layer', text='Paste Layer', icon='PASTEDOWN')
+            col.operator('node.y_copy_layer', text='Copy Layer', icon='COPYDOWN').all_layers = False
+            col.operator('node.y_copy_layer', text='Copy All Layers', icon='COPYDOWN').all_layers = True
+            col.operator('node.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN')
 
             col.separator()
 
