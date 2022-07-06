@@ -3805,17 +3805,6 @@ class YPasteLayer(bpy.types.Operator):
             self.report({'ERROR'}, "Copied tree has different channel names or orders!")
             return {'CANCELLED'}
         
-        # Make sure smooth bump has same settings
-        if normal_ch:
-            ori_enable_smooth_bump = normal_ch.enable_smooth_bump
-            if normal_ch.enable_smooth_bump != normal_ch_source.enable_smooth_bump:
-                normal_ch.enable_smooth_bump = normal_ch_source.enable_smooth_bump
-
-        # Make sure channel alpha has same settings
-        for i, ch in enumerate(yp.channels):
-            if ch.enable_alpha != yp_source.channels[i].enable_alpha:
-                ch.enable_alpha = yp_source.channels[i].enable_alpha
-
         # Number of layers before paste
         num_of_layers_before_paste = len(yp.layers)
 
@@ -3831,7 +3820,12 @@ class YPasteLayer(bpy.types.Operator):
             relevant_layer_names.append(child.name)
 
         # Current index
-        layer_idx = yp.active_layer_index
+        cur_idx = yp.active_layer_index
+        if len(yp.layers) > 0:
+            cur_layer = yp.layers[cur_idx]
+            cur_parent_idx = cur_layer.parent_idx
+        else:
+            cur_parent_idx = -1
 
         # List of newly created datas
         created_layer_names = []
@@ -3864,13 +3858,27 @@ class YPasteLayer(bpy.types.Operator):
         for i, lname in enumerate(created_layer_names):
             nl = yp.layers.get(lname)
             idx = get_layer_index_by_name(yp, lname)
-            yp.layers.move(idx, layer_idx+i)
+            yp.layers.move(idx, cur_idx+i)
 
-        # Remap parent index
-        for lname in created_layer_names:
+        for i, lname in enumerate(created_layer_names):
             nl = yp.layers.get(lname)
-            if nl.parent_idx != -1:
-                nl.parent_idx += layer_idx - first_copied_index
+
+            # Remap parent index
+            if i == 0:
+                # Set upmost pasted layer to current parent index
+                nl.parent_idx = cur_parent_idx
+            else:
+                if nl.parent_idx != -1:
+                    nl.parent_idx += cur_idx - first_copied_index
+
+            # Refresh io and nodes
+            check_all_layer_channel_io_and_nodes(nl)
+
+            rearrange_layer_nodes(nl)
+            reconnect_layer_nodes(nl)
+
+        # Check uv maps
+        check_uv_nodes(yp)
 
         # Revert back halt update
         yp.halt_update = False
@@ -3878,16 +3886,6 @@ class YPasteLayer(bpy.types.Operator):
         # Rearrange and reconnect
         rearrange_yp_nodes(tree)
         reconnect_yp_nodes(tree)
-
-        # Recover smooth bump
-        if normal_ch:
-            if ori_enable_smooth_bump != normal_ch.enable_smooth_bump:
-                normal_ch.enable_smooth_bump = ori_enable_smooth_bump
-
-        # Recover alpha settings
-        for i, ch in enumerate(yp.channels):
-            if ch.enable_alpha != ori_ch_enable_alphas[i]:
-                ch.enable_alpha = ori_ch_enable_alphas[i]
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
