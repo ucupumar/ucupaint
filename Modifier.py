@@ -1280,9 +1280,6 @@ def disable_modifiers_tree(parent, rearrange=False):
             #or (parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})
             #return
 
-        # Check if channel use blur
-        #if hasattr(parent, 'enable_blur') and parent.enable_blur:
-        #    return
     elif match2:
         layer = parent
         if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'MUSGRAVE'}:

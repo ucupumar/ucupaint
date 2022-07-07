@@ -2,7 +2,7 @@ import bpy, time, re, os, random
 from bpy.props import *
 from bpy_extras.io_utils import ImportHelper
 from bpy_extras.image_utils import load_image  
-from . import Modifier, lib, Blur, Mask, transition, ImageAtlas, NormalMapModifier
+from . import Modifier, lib, Mask, transition, ImageAtlas, NormalMapModifier
 from .common import *
 #from .bake_common import *
 from .node_arrangements import *
@@ -4673,10 +4673,6 @@ class YLayerChannel(bpy.types.PropertyGroup):
     # UV
     uv_neighbor : StringProperty(default='')
     #uv_neighbor_1 : StringProperty(default='')
-
-    # Blur
-    #enable_blur : BoolProperty(default=False, update=Blur.update_layer_channel_blur)
-    #blur : PointerProperty(type=Blur.YLayerBlur)
 
     invert_backface_normal : BoolProperty(default=False, update=update_flip_backface_normal)
 

@@ -1846,14 +1846,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
             extra_separator = True
 
-        if hasattr(ch, 'enable_blur'):
-            row = mcol.row(align=True)
-            row.label(text='', icon_value=lib.get_icon('input'))
-            row.label(text='Blur')
-            row.prop(ch, 'enable_blur', text='')
-
-            extra_separator = True
-
         if ypui.expand_channels:
             mrow.label(text='', icon='BLANK1')
 
