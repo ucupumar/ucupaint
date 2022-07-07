@@ -154,189 +154,6 @@ class YToggleEraser(bpy.types.Operator):
 
         return {'FINISHED'}
 
-#class YSetVColBase(bpy.types.Operator):
-#    bl_idname = "mesh.y_vcol_set_base"
-#    bl_label = "Set Vertex Color Base"
-#    bl_description = "Set vertex color base color on alpha with value of zero"
-#    bl_options = {'REGISTER', 'UNDO'}
-#
-#    @classmethod
-#    def poll(cls, context):
-#        return context.object and context.object.type == 'MESH' and context.object.mode == 'VERTEX_PAINT'
-#
-#    def execute(self, context):
-#
-#        if not is_greater_than_280():
-#            self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
-#            return {'CANCELLED'}
-#
-#        col = context.tool_settings.vertex_paint.brush.color
-#
-#        obj = context.object
-#        ori_mode = obj.mode
-#        if ori_mode != 'OBJECT':
-#            bpy.ops.object.mode_set(mode='OBJECT')
-#
-#        mesh = obj.data
-#        #mesh.calc_loop_triangles()
-#        vcol = get_active_vertex_color(obj)
-#
-#        if is_greater_than_320() and vcol.domain != 'CORNER':
-#            self.report({'ERROR'}, "Non corner domain for this operator is not implemented yet!")
-#            bpy.ops.object.mode_set(mode=ori_mode)
-#            return {'CANCELLED'}
-#
-#        cols = numpy.zeros(len(mesh.loops)*4, dtype=numpy.float32)
-#        cols.shape = (cols.shape[0]//4, 4)
-#
-#        for i, p in enumerate(mesh.polygons):
-#            zero_alpha = True
-#            for j in p.loop_indices:
-#                if vcol.data[j].color[3] > 0.0:
-#                    zero_alpha = False
-#
-#            if zero_alpha:
-#                for j in p.loop_indices:
-#                    for k in range(3):
-#                        cols[j][k] = col[k]
-#                    cols[j][3] = vcol.data[j].color[3]
-#            else:
-#                for j in p.loop_indices:
-#                    for k in range(3):
-#                        cols[j][k] = vcol.data[j].color[k]
-#                    cols[j][3] = vcol.data[j].color[3]
-#
-#        vcol.data.foreach_set('color', cols.ravel())
-#
-#        if obj.mode != ori_mode:
-#            bpy.ops.object.mode_set(mode=ori_mode)
-#
-#        return {'FINISHED'}
-
-#class YSpreadVColFix(bpy.types.Operator):
-#    bl_idname = "mesh.y_vcol_spread_fix"
-#    bl_label = "Vertex Color Spread Fix"
-#    bl_description = "Fix vertex color alpha transition (can be really slow depending on number of vertices)"
-#    bl_options = {'REGISTER', 'UNDO'}
-#
-#    iteration : IntProperty(name='Spread Iteration', default = 3, min=1, max=10)
-#
-#    @classmethod
-#    def poll(cls, context):
-#        return context.object and context.object.type == 'MESH' and any(get_vertex_colors(context.object))
-#
-#    def invoke(self, context, event):
-#        return context.window_manager.invoke_props_dialog(self, width=200)
-#
-#    def draw(self, context):
-#        #row = self.layout.row()
-#        row = self.layout.split(factor=0.35, align=True)
-#        row.label(text='Iteration:')
-#        row.prop(self, 'iteration', text='')
-#
-#    def execute(self, context):
-#
-#        if not is_greater_than_280():
-#            self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
-#            return {'CANCELLED'}
-#
-#        obj = context.object
-#
-#        ori_mode = obj.mode
-#        if ori_mode != 'OBJECT':
-#            bpy.ops.object.mode_set(mode='OBJECT')
-#
-#        vcol = get_active_vertex_color(obj)
-#        mesh = obj.data
-#
-#        if is_greater_than_320() and vcol.domain != 'CORNER':
-#            self.report({'ERROR'}, "Non corner domain for this operator is not implemented yet!")
-#            bpy.ops.object.mode_set(mode=ori_mode)
-#            return {'CANCELLED'}
-#
-#        # To get average of loop colors on each vertices
-#        avg_vert_cols = numpy.zeros(len(mesh.vertices)*4, dtype=numpy.float32)
-#        avg_vert_cols.shape = (avg_vert_cols.shape[0]//4, 4)
-#        num_loops = numpy.zeros(len(mesh.vertices), dtype=numpy.int32)
-#        
-#        for i, l in enumerate(mesh.loops):
-#            avg_vert_cols[l.vertex_index] += vcol.data[i].color
-#            num_loops[l.vertex_index] += 1
-#
-#        for i in range(len(mesh.vertices)):
-#            avg_vert_cols[i] /= num_loops[i]
-#
-#        #mesh.calc_loop_triangles()
-#
-#        # Get vertex neighbors
-#
-#        # Create dictionary to store vertex neighbors
-#        vert_neighbors = {}
-#
-#        for p in mesh.polygons:
-#            for vi in p.vertices:
-#                key = str(vi)
-#                if key not in vert_neighbors:
-#                    vert_neighbors[key] = []
-#                for vii in p.vertices:
-#                    if vi != vii and vii not in vert_neighbors[key]:
-#                        vert_neighbors[key].append(vii)
-#
-#        # Create numpy to store new vertex color
-#        new_vert_cols = numpy.zeros(len(mesh.vertices)*4, dtype=numpy.float32)
-#        new_vert_cols.shape = (new_vert_cols.shape[0]//4, 4)
-#
-#        for x in range(self.iteration):
-#            for i, v in enumerate(mesh.vertices):
-#                cur_col = avg_vert_cols[i]
-#                cur_alpha = avg_vert_cols[i][3]
-#
-#                neighbors = vert_neighbors[str(i)]
-#
-#                # Get sum of neighbor alphas
-#                sum_alpha = 0.0
-#                for n in neighbors:
-#                    sum_alpha += avg_vert_cols[n][3]
-#
-#                if sum_alpha > 0.0:
-#
-#                    # Get average of neighbor color based on it's alpha
-#                    neighbor_col = [0.0, 0.0, 0.0]
-#                    for n in neighbors:
-#                        cc = avg_vert_cols[n]
-#                        for j in range(3):
-#                            neighbor_col[j] += cc[j] * cc[3]/sum_alpha
-#
-#                    # Do some kind of alpha blending
-#                    for j in range(3):
-#                        new_vert_cols[i][j] = cur_col[j] * cur_alpha + neighbor_col[j] * (1.0 - cur_alpha)
-#
-#                else:
-#                    for j in range(3):
-#                        new_vert_cols[i][j] = avg_vert_cols[i][j]
-#
-#                new_vert_cols[i][3] = cur_alpha
-#
-#            # Set it back
-#            avg_vert_cols = new_vert_cols.copy()
-#
-#        # To contain final color
-#        cols = numpy.zeros(len(vcol.data)*4, dtype=numpy.float32)
-#        cols.shape = (cols.shape[0]//4, 4)
-#
-#        # Set new vertex color to loops
-#        for i, l in enumerate(mesh.loops):
-#            for j in range(3):
-#                cols[i][j] = new_vert_cols[l.vertex_index][j]
-#            cols[i][3] = vcol.data[i].color[3]
-#
-#        vcol.data.foreach_set('color', cols.ravel())
-#
-#        if obj.mode != ori_mode:
-#            bpy.ops.object.mode_set(mode=ori_mode)
-#
-#        return {'FINISHED'}
-
 class YVcolFillFaceCustom(bpy.types.Operator):
     bl_idname = "mesh.y_vcol_fill_face_custom"
     bl_label = "Vertex Color Fill Face with Custom Color"
@@ -590,9 +407,6 @@ def vcol_editor_draw(self, context):
 
     #col.template_palette(ve, "palette", color=True)
 
-    col.separator()
-    col.operator("mesh.y_vcol_spread_fix", icon='GROUP_VCOL', text='Spread Fix')
-
 class VIEW3D_PT_y_vcol_editor_ui(bpy.types.Panel):
     bl_space_type = 'VIEW_3D'
     bl_label = "Vertex Color Editor"
@@ -641,8 +455,6 @@ def register():
     bpy.utils.register_class(YVcolFill)
     bpy.utils.register_class(YVcolFillFaceCustom)
     bpy.utils.register_class(YToggleEraser)
-    #bpy.utils.register_class(YSpreadVColFix)
-    #bpy.utils.register_class(YSetVColBase)
     bpy.utils.register_class(YSetActiveVcol)
 
 def unregister():
@@ -654,6 +466,4 @@ def unregister():
     bpy.utils.unregister_class(YVcolFill)
     bpy.utils.unregister_class(YVcolFillFaceCustom)
     bpy.utils.unregister_class(YToggleEraser)
-    #bpy.utils.unregister_class(YSpreadVColFix)
-    #bpy.utils.unregister_class(YSetVColBase)
     bpy.utils.unregister_class(YSetActiveVcol)

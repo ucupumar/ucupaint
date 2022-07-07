@@ -14,7 +14,6 @@ if "bpy" in locals():
     imp.reload(image_ops)
     imp.reload(common)
     imp.reload(bake_common)
-    imp.reload(mesh_ops)
     imp.reload(lib)
     imp.reload(ui)
     imp.reload(subtree)
@@ -29,20 +28,18 @@ if "bpy" in locals():
     imp.reload(Mask)
     imp.reload(Modifier)
     imp.reload(NormalMapModifier)
-    imp.reload(Blur)
     imp.reload(Layer)
     imp.reload(Bake)
     imp.reload(BakeToLayer)
     imp.reload(Root)
 else:
-    from . import image_ops, common, bake_common, mesh_ops, lib, ui, subtree, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, BakeInfo, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Blur, Layer, Bake, BakeToLayer, Root
+    from . import image_ops, common, bake_common, lib, ui, subtree, node_arrangements, node_connections, preferences
+    from . import vcol_editor, transition, BakeInfo, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root
 
 import bpy 
 
 def register():
     image_ops.register()
-    mesh_ops.register()
     preferences.register()
     lib.register()
     ui.register()
@@ -54,7 +51,6 @@ def register():
     Mask.register()
     Modifier.register()
     NormalMapModifier.register()
-    Blur.register()
     Layer.register()
     Bake.register()
     BakeToLayer.register()
@@ -64,7 +60,6 @@ def register():
 
 def unregister():
     image_ops.unregister()
-    mesh_ops.unregister()
     preferences.unregister()
     lib.unregister()
     ui.unregister()
@@ -76,7 +71,6 @@ def unregister():
     Mask.unregister()
     Modifier.unregister()
     NormalMapModifier.unregister()
-    Blur.unregister()
     Layer.unregister()
     Bake.unregister()
     BakeToLayer.unregister()
