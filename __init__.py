@@ -5,7 +5,7 @@ bl_info = {
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
-    "wiki_url": "http://github.com/ucupumar/ucupaint-wiki",
+    "wiki_url": "https://ucupumar.github.io/ucupaint-wiki/",
     "category": "Node",
 }
 
