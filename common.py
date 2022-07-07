@@ -1270,7 +1270,7 @@ def create_info_nodes(tree):
     infos.append(info)
 
     info = nodes.new('NodeFrame')
-    info.label = 'Get the addon from github.com/ucupumar/ucupaint/releases'
+    info.label = 'Get the addon from github.com/ucupumar/ucupaint'
     info.use_custom_color = True
     info.color = (1.0, 1.0, 1.0)
     info.width = 620.0
