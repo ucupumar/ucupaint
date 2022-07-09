@@ -2123,7 +2123,7 @@ def update_enable_baked_outside(self, context):
                 mtree.links.remove(l)
 
         loc_x = max_x + 100
-        yp.baked_outside_x_shift = loc_x - node.location.x
+        yp.baked_outside_x_shift = int(loc_x - node.location.x)
 
         for n in shift_nodes:
             n.location.x += yp.baked_outside_x_shift
