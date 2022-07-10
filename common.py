@@ -534,6 +534,20 @@ def in_active_279_layer(obj):
     else:
         return any([layer for i, layer in enumerate(obj.layers) if layer and scene.layers[i]])
 
+def in_renderable_layer_collection(obj):
+    if is_greater_than_280():
+        layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, obj)
+        if any([lc for lc in layer_cols if lc.collection.hide_render]): return False
+        return True
+    else:
+        return in_active_279_layer()
+
+def is_layer_collection_hidden(obj):
+    layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, obj)
+    if any([lc for lc in layer_cols if lc.collection.hide_viewport]): return True
+    if any([lc for lc in layer_cols if lc.hide_viewport]): return True
+    return False
+
 def get_addon_filepath():
     return os.path.dirname(bpy.path.abspath(__file__)) + os.sep
 

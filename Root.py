@@ -424,6 +424,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
         objs = []
         for o in get_scene_objects():
             if o.type != 'MESH': continue
+            if is_layer_collection_hidden(o): continue
             if mat.name in o.data.materials:
                 o.select_set(True)
                 objs.append(o)

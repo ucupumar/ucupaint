@@ -681,6 +681,7 @@ class YBakeChannelToVcol(bpy.types.Operator):
                 if ob.type != 'MESH': continue
                 if is_greater_than_280() and ob.hide_viewport: continue
                 if ob.hide_render: continue
+                if not in_renderable_layer_collection(ob): continue
                 if len(get_uv_layers(ob)) == 0: continue
                 if len(ob.data.polygons) == 0: continue
                 for i, m in enumerate(ob.data.materials):
@@ -951,6 +952,7 @@ class YBakeChannels(bpy.types.Operator):
                 if ob.type != 'MESH': continue
                 if is_greater_than_280() and ob.hide_viewport: continue
                 if ob.hide_render: continue
+                if not in_renderable_layer_collection(ob): continue
                 if len(get_uv_layers(ob)) == 0: continue
                 if len(ob.data.polygons) == 0: continue
                 for i, m in enumerate(ob.data.materials):

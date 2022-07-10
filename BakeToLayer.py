@@ -285,7 +285,7 @@ class YBakeToLayer(bpy.types.Operator):
     use_image_atlas : BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
-            default=True)
+            default=False)
 
     @classmethod
     def poll(cls, context):
@@ -738,6 +738,11 @@ class YBakeToLayer(bpy.types.Operator):
                 if len(get_uv_layers(ob)) == 0: continue
                 if self.type.startswith('MULTIRES_') and not get_multires_modifier(ob): continue
                 if len(ob.data.polygons) == 0: continue
+
+                # Do not bake objects with hide_render on
+                if ob.hide_render: continue
+                if not in_renderable_layer_collection(ob): continue
+
                 for i, m in enumerate(ob.data.materials):
                     if m == mat:
                         ob.active_material_index = i
@@ -760,7 +765,7 @@ class YBakeToLayer(bpy.types.Operator):
         # Get other objects for other object baking
         other_objs = []
         if self.type.startswith('OTHER_OBJECT_'):
-            other_objs = [o for o in context.selected_objects if o not in objs]
+            other_objs = [o for o in context.selected_objects if o not in objs and mat not in o.data.materials]
 
             # Try to get other_objects from bake info
             if overwrite_img:
