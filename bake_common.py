@@ -211,9 +211,12 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
             obj.hide_select = False
             obj.select = True
 
-        # Unhide layer objects
-        for i in range(20):
-            scene.layers[i] = True
+            # Unhide layer objects
+            if not in_active_279_layer(obj):
+                for i in range(20):
+                    if obj.layers[i] and not scene.layers[i]:
+                        scene.layers[i] = True
+                        break
 
     if disable_problematic_modifiers:
         book['disabled_mods'] = []
