@@ -2673,8 +2673,12 @@ def main_draw(self, context):
         row = box.row()
         row.template_list("MATERIAL_UL_matslots", "", obj, "material_slots", obj, "active_material_index", rows=rows)
         col = row.column(align=True)
-        col.operator("object.material_slot_add", icon='ADD', text="")
-        col.operator("object.material_slot_remove", icon='REMOVE', text="")
+        if is_greater_than_280():
+            col.operator("object.material_slot_add", icon='ADD', text="")
+            col.operator("object.material_slot_remove", icon='REMOVE', text="")
+        else:
+            col.operator("object.material_slot_add", icon='ZOOMIN', text="")
+            col.operator("object.material_slot_remove", icon='ZOOMOUT', text="")
 
         col.menu("MATERIAL_MT_y_special_menu", icon='DOWNARROW_HLT', text="")
 
