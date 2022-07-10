@@ -540,7 +540,7 @@ def in_renderable_layer_collection(obj):
         if any([lc for lc in layer_cols if lc.collection.hide_render]): return False
         return True
     else:
-        return in_active_279_layer()
+        return in_active_279_layer(obj)
 
 def is_layer_collection_hidden(obj):
     layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, obj)
