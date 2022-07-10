@@ -934,7 +934,9 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Prepare bake settings
 
-        if self.type == 'MULTIRES_NORMAL':
+        if self.type == 'AO':
+            bake_type = 'AO'
+        elif self.type == 'MULTIRES_NORMAL':
             bake_type = 'NORMALS'
         elif self.type == 'MULTIRES_DISPLACEMENT':
             bake_type = 'DISPLACEMENT'
