@@ -82,6 +82,7 @@ def remember_before_bake(yp=None):
         book['ori_active_selected_objs'] = [o for o in scene.objects if o.select]
         book['ori_hide_renders'] = [o for o in scene.objects if o.hide_render]
         book['ori_hide_objs'] = [o for o in scene.objects if o.hide]
+        book['ori_scene_layers'] = [i for i in range(20) if scene.layers[i]]
 
     # Remember world settings
     if is_greater_than_280() and scene.world:
@@ -209,6 +210,10 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         for obj in objs:
             obj.hide_select = False
             obj.select = True
+
+        # Unhide layer objects
+        for i in range(20):
+            scene.layers[i] = True
 
     if disable_problematic_modifiers:
         book['disabled_mods'] = []
@@ -360,6 +365,8 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
             if o in book['ori_hide_selects']:
                 o.hide_select = True
             else: o.hide_select = False
+        for i in range(20):
+            scene.layers[i] = i in book['ori_scene_layers']
 
     # Recover active object
 
