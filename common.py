@@ -780,6 +780,19 @@ def update_image_editor_image(context, image):
                 area.spaces[0].use_image_pin = False
                 break
 
+def get_first_image_editor_image(context):
+    image = None
+    for area in context.screen.areas:
+        if area.type == 'IMAGE_EDITOR':
+            if context.screen.name == 'UV Editing':
+                image = area.spaces[0].image
+                break
+            elif not area.spaces[0].use_image_pin:
+                image = area.spaces[0].image
+                break
+
+    return image
+
 def update_tool_canvas_image(context, image):
     # HACK: Remember unpinned images to avoid all image editor images being updated
     unpinned_spaces = []

@@ -2378,8 +2378,20 @@ def update_active_yp_channel(self, context):
     if yp.use_baked:
         baked = tree.nodes.get(ch.baked)
         if baked and baked.image:
-            update_image_editor_image(context, baked.image)
-            context.scene.tool_settings.image_paint.canvas = baked.image
+            baked_image = baked.image
+            if ch.type == 'NORMAL':
+
+                baked_disp = tree.nodes.get(ch.baked_disp)
+                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+
+                cur_image = get_first_image_editor_image(context)
+                if cur_image == baked.image and baked_disp.image:
+                    baked_image = baked_disp.image
+                elif cur_image == baked_disp.image and baked_normal_overlay.image:
+                    baked_image = baked_normal_overlay.image
+
+            update_image_editor_image(context, baked_image)
+            context.scene.tool_settings.image_paint.canvas = baked_image
         else:
             update_image_editor_image(context, None)
             context.scene.tool_settings.image_paint.canvas = None
