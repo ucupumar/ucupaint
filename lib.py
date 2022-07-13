@@ -299,8 +299,8 @@ def load_custom_icons():
     custom_icons.load('collapsed_mask', filepath + 'collapsed_mask_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_mask', filepath + 'uncollapsed_mask_icon.png', 'IMAGE')
 
-    custom_icons.load('collapsed_vcol', filepath + 'collapsed_vcol_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_vcol', filepath + 'uncollapsed_vcol_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_vcol', filepath + 'collapsed_vertex_color_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_vcol', filepath + 'uncollapsed_vertex_color_icon.png', 'IMAGE')
 
     custom_icons.load('close', filepath + 'close_icon.png', 'IMAGE')
     custom_icons.load('clean', filepath + 'clean_icon.png', 'IMAGE')
@@ -330,12 +330,12 @@ def load_custom_icons():
     custom_icons.load('collapsed_channels', filepath + 'collapsed_channels_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_channels', filepath + 'uncollapsed_channels_icon.png', 'IMAGE')
 
-    custom_icons.load('collapsed_rgb_channel', filepath + 'collapsed_rgb_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_rgb_channel', filepath + 'uncollapsed_rgb_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_value_channel', filepath + 'collapsed_value_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_value_channel', filepath + 'uncollapsed_value_icon.png', 'IMAGE')
-    custom_icons.load('collapsed_vector_channel', filepath + 'collapsed_vector_icon.png', 'IMAGE')
-    custom_icons.load('uncollapsed_vector_channel', filepath + 'uncollapsed_vector_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_rgb_channel', filepath + 'collapsed_rgb_channel_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_rgb_channel', filepath + 'uncollapsed_rgb_channel_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_value_channel', filepath + 'collapsed_value_channel_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_value_channel', filepath + 'uncollapsed_value_channel_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_vector_channel', filepath + 'collapsed_vector_channel_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_vector_channel', filepath + 'uncollapsed_vector_channel_icon.png', 'IMAGE')
 
 
 def get_icon(custom_icon_name):
