@@ -2082,11 +2082,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         if ch.enable_transition_bump:
             height_proc.inputs['Bump Height'].default_value = get_transition_bump_max_distance(ch)
         else: 
-            #height_proc.inputs['Bump Height'].default_value = ch.bump_distance
             height_proc.inputs['Bump Height'].default_value = ch.normal_bump_distance
     else:
         if layer.type != 'GROUP':
-            height_proc.inputs['Value Max Height'].default_value = ch.bump_distance
+            height_proc.inputs['Value Max Height'].default_value = get_layer_channel_bump_distance(layer, ch)
         if ch.enable_transition_bump:
             height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, ch)
             height_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)

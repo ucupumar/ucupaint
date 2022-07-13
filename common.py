@@ -3018,6 +3018,17 @@ def get_layer_channel_index(layer, ch):
         if c == ch:
             return i
 
+def is_bump_distance_relevant(layer, ch):
+    if layer.type in {'COLOR', 'BACKGROUND'} and ch.enable_transition_bump:
+        return False
+    return True
+
+def get_layer_channel_bump_distance(layer, ch):
+    # Some layer will have bump distance of 0.0, ignoring the prop value
+    if not is_bump_distance_relevant(layer, ch):
+        return 0.0
+    return ch.bump_distance
+
 def get_layer_channel_max_height(layer, ch, ch_idx=None):
 
     if layer.type == 'GROUP':
@@ -3038,7 +3049,7 @@ def get_layer_channel_max_height(layer, ch, ch_idx=None):
                     base_distance = h
 
     else: 
-        base_distance = abs(ch.normal_bump_distance) if ch.normal_map_type == 'NORMAL_MAP' else abs(ch.bump_distance)
+        base_distance = abs(ch.normal_bump_distance) if ch.normal_map_type == 'NORMAL_MAP' else abs(get_layer_channel_bump_distance(layer, ch))
 
     if ch.enable_transition_bump:
         if ch.normal_map_type == 'NORMAL_MAP' and layer.type != 'GROUP':
@@ -3046,15 +3057,12 @@ def get_layer_channel_max_height(layer, ch, ch_idx=None):
             max_height = abs(get_transition_bump_max_distance_with_crease(ch))
         else:
             if ch.transition_bump_flip:
-                #max_height = ch.transition_bump_distance + abs(ch.bump_distance)*2
                 max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + base_distance*2
 
             else: 
-                #max_height = max(ch.transition_bump_distance, abs(ch.bump_distance))
                 max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + base_distance
 
     else: 
-        #max_height = abs(ch.bump_distance)
         max_height = base_distance
 
     # Multiply by intensity value
@@ -3113,7 +3121,7 @@ def get_transition_disp_delta(layer, ch):
         delta = get_transition_bump_max_distance(ch) - max_child_heights
 
     else:
-        bump_distance = ch.normal_bump_distance if ch.normal_blend_type else ch.bump_distance
+        bump_distance = ch.normal_bump_distance if ch.normal_blend_type else get_layer_channel_bump_distance(layer, ch)
         delta = get_transition_bump_max_distance(ch) - abs(bump_distance)
 
     return delta
@@ -3223,7 +3231,7 @@ def update_layer_bump_distance(height_ch, height_root_ch, layer, tree=None):
 
         if height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
             inp = height_proc.inputs.get('Value Max Height')
-            if inp: inp.default_value = height_ch.bump_distance
+            if inp: inp.default_value = get_layer_channel_bump_distance(layer, height_ch)
             inp = height_proc.inputs.get('Transition Max Height')
             if inp: inp.default_value = get_transition_bump_max_distance(height_ch)
             inp = height_proc.inputs.get('Delta')

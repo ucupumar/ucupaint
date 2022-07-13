@@ -1499,7 +1499,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 srow.prop(ch, 'normal_map_type', text='')
                 if not chui.expand_bump_settings:
                     if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                        srow.prop(ch, 'bump_distance', text='')
+                        # Solid color with transition bump always have bump distance value of 0
+                        ssrow = srow.row(align=True)
+                        ssrow.active = is_bump_distance_relevant(layer, ch)
+                        ssrow.prop(ch, 'bump_distance', text='')
                     else:
                         srow.prop(ch, 'normal_strength', text='')
 
@@ -1529,7 +1532,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                     #brow.active = not ch.enable_transition_bump or ch.normal_map_type != 'NORMAL_MAP'
                     if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                         brow = cccol.row(align=True)
+                        brow.active = layer.type != 'COLOR' or not ch.enable_transition_bump
                         brow.label(text='Max Height:') #, icon_value=lib.get_icon('input'))
+                        brow.active == is_bump_distance_relevant(layer, ch)
                         brow.prop(ch, 'bump_distance', text='')
 
                     if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}: 

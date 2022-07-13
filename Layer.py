@@ -156,7 +156,6 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         hemi_space = 'WORLD', hemi_use_prev_normal = True,
         mask_color_id=(1,0,1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
         use_divider_alpha = False
-        #bump_distance = 0.05, write_height = True,
         ):
 
     yp = group_tree.yp
@@ -360,8 +359,6 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
             # Background layer has default bump distance of 0.0
             if layer.type in {'BACKGROUND'}:
                 ch.bump_distance = 0.0
-            #ch.bump_distance = bump_distance
-            #ch.write_height = write_height
 
         #if add_rgb_to_intensity:
 
@@ -4153,30 +4150,6 @@ def update_bump_distance(self, context):
 
     if self.normal_map_type == 'NORMAL_MAP' and self.enable_transition_bump: return
 
-    #max_height = get_displacement_max_height(root_ch, layer)
-
-    #height_proc = tree.nodes.get(self.height_proc)
-    #if height_proc and layer.type != 'GROUP':
-
-    #    if self.normal_map_type == 'BUMP_MAP':
-    #        height_proc.inputs['Value Max Height'].default_value = self.bump_distance
-    #        if 'Delta' in height_proc.inputs:
-    #            height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, self)
-    #    elif self.normal_map_type == 'NORMAL_MAP':
-    #        height_proc.inputs['Bump Height'].default_value = self.bump_distance
-
-    #normal_proc = tree.nodes.get(self.normal_proc)
-    #if normal_proc:
-
-    #    if root_ch.enable_smooth_bump: 
-    #        normal_proc.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
-
-    #    normal_proc.inputs['Max Height'].default_value = max_height
-
-    #update_layer_bump_distance(self, root_ch, layer, tree)
-
-    #max_height = get_displacement_max_height(root_ch)
-    #root_ch.displacement_height_ratio = max_height
     update_displacement_height_ratio(root_ch)
 
 def update_layer_input(self, context):
