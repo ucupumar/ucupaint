@@ -57,6 +57,11 @@ class YPaintPreferences(AddonPreferences):
             description = 'Use image preview or thumbnail on the layers list',
             default = False)
 
+    parallax_without_baked : BoolProperty(
+            name = 'Parallax Without Use Baked',
+            description = 'Make it possible to use parallax without using baked textures (currently VERY SLOW)',
+            default = False)
+
     def draw(self, context):
         self.layout.prop(self, 'auto_save')
         self.layout.prop(self, 'default_new_image_size')
@@ -66,6 +71,7 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
+        self.layout.prop(self, 'parallax_without_baked')
 
 @persistent
 def auto_save_images(scene):

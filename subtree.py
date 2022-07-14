@@ -76,7 +76,7 @@ def check_layer_tree_ios(layer, tree=None):
                 output_index += 1
 
         # Displacement IO
-        if root_ch.type == 'NORMAL': #or (layer.type == 'HEMI' and layer.hemi_use_prev_normal): # and root_ch.enable_parallax:
+        if root_ch.type == 'NORMAL':
 
             if not root_ch.enable_smooth_bump:
 
@@ -1509,7 +1509,7 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[], baked=Fals
     # Create parallax preparations for uvs
     for uv in yp.uvs:
         if uv in unused_uvs: continue
-        if not height_ch.enable_parallax:
+        if not is_parallax_enabled(height_ch):
             remove_node(tree, uv, 'parallax_prep')
         else:
             parallax_prep = tree.nodes.get(uv.parallax_prep)
@@ -1530,7 +1530,7 @@ def check_parallax_prep_nodes(yp, unused_uvs=[], unused_texcoords=[], baked=Fals
 
         parallax_prep = tree.nodes.get(tc + PARALLAX_PREP_SUFFIX)
 
-        if tc not in unused_texcoords and height_ch.enable_parallax:
+        if tc not in unused_texcoords and is_parallax_enabled(height_ch):
 
             if not parallax_prep:
                 parallax_prep = tree.nodes.new('ShaderNodeGroup')
@@ -1602,10 +1602,6 @@ def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked
 
     tree = yp.id_data
 
-    # Standard height channel is same as parallax channel (for now?)
-    #height_ch = get_root_height_channel(yp)
-    #if not height_ch: return
-
     if baked: num_of_layers = int(height_ch.baked_parallax_num_of_layers)
     else: num_of_layers = int(height_ch.parallax_num_of_layers)
 
@@ -1614,7 +1610,7 @@ def check_parallax_node(yp, height_ch, unused_uvs=[], unused_texcoords=[], baked
     parallax = tree.nodes.get(node_name)
     baked_parallax_filter = tree.nodes.get(BAKED_PARALLAX_FILTER)
 
-    if (not height_ch.enable_parallax or 
+    if (not is_parallax_enabled(height_ch) or 
             (baked and not yp.use_baked) or (not baked and yp.use_baked) or
             (yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive)
             ):

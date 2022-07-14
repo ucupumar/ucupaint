@@ -190,19 +190,6 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
 
     return rgb, alpha
 
-#def get_channel_inputs_length(yp, layer=None):
-#    length = 0
-#    for ch in yp.channels:
-#        length += 1
-#
-#        if (ch.type == 'RGB' and ch.enable_alpha) or (layer and layer.parent_idx != -1):
-#            length += 1
-#
-#        if ch.type == 'NORMAL' and ch.enable_parallax:
-#            length += 1
-#
-#    return length
-
 def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
 
     #print(layer)
@@ -1302,7 +1289,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         #if ch.type == 'RGB' and ch.enable_alpha:
         if ch.enable_alpha:
             create_link(tree, alpha, end.inputs[io_alpha_name])
-        if ch.type == 'NORMAL': #and ch.enable_parallax:
+        if ch.type == 'NORMAL':
             create_link(tree, height, end.inputs[io_height_name])
             if ch.name + io_suffix['MAX_HEIGHT'] in end.inputs and end_max_height:
                 if end_max_height_tweak:

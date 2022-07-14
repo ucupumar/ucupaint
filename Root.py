@@ -303,16 +303,6 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     # Get last index
     last_index = len(yp.channels)-1
 
-    # Get IO index
-    #io_index = last_index
-    #for ch in yp.channels:
-    #    if ch.type == 'RGB' and ch.enable_alpha:
-    #        io_index += 1
-    #    if ch.type == 'NORMAL' and ch.enable_parallax:
-    #        io_index += 1
-
-    #channel.io_index = io_index
-
     # Link new channel
     create_yp_channel_nodes(group_tree, channel, last_index)
 
@@ -328,14 +318,6 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     yp.halt_reconnect = False
 
     return channel
-
-#def update_quick_setup_type(self, context):
-#    if self.type == 'PRINCIPLED':
-#        self.roughness = True
-#        self.normal = True
-#    elif self.type == 'DIFFUSE':
-#        self.roughness = False
-#        self.normal = False
 
 def get_closest_bsdf(node, valid_types=['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']):
     for inp in node.inputs:
@@ -1343,33 +1325,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         for mod in channel.modifiers:
             Modifier.delete_modifier_nodes(group_tree, mod)
 
-        # Remove channel from tree
-        #inputs.remove(inputs[channel.io_index])
-        #outputs.remove(outputs[channel.io_index])
-
-        #shift = 1
-
-        #if channel.type == 'RGB' and channel.enable_alpha:
-        #    inputs.remove(inputs[channel.io_index])
-        #    outputs.remove(outputs[channel.io_index])
-
-        #    shift = 2
-
-        #if channel.type == 'NORMAL' and channel.enable_parallax:
-        #    inputs.remove(inputs[channel.io_index])
-        #    outputs.remove(outputs[channel.io_index])
-
-        #    shift = 2
-
-        ## Shift IO index
-        #for ch in yp.channels:
-        #    if ch.io_index > channel.io_index:
-        #        ch.io_index -= shift
-
         # Remove channel
         yp.channels.remove(channel_idx)
-        #ypup.channels.remove(channel_idx)
-        #yp.temp_channels.remove(channel_idx)
 
         # Check consistency of mask multiply nodes
         for t in yp.layers:
@@ -2133,7 +2090,7 @@ def update_channel_name(self, context):
         group_tree.outputs[self.io_index+shift].name = self.name + io_suffix['ALPHA']
         shift += 1
 
-    if self.type == 'NORMAL': # and self.enable_parallax:
+    if self.type == 'NORMAL':
         group_tree.inputs[self.io_index+shift].name = self.name + io_suffix['HEIGHT']
         group_tree.outputs[self.io_index+shift].name = self.name + io_suffix['HEIGHT']
 
@@ -2557,17 +2514,6 @@ def update_channel_parallax(self, context):
 
     # Update channel io
     check_all_channel_ios(yp)
-
-    #if self.enable_parallax:
-
-    #    # Get alpha index
-    #    #index = self.io_index+1
-    #    io_name = self.name + io_suffix['HEIGHT']
-
-    #    # Set node default_value
-    #    node = get_active_ypaint_node()
-    #    #node.inputs[io_name].default_value = 0.5
-    #    node.inputs[io_name].default_value = 0.0
 
 #def update_displacement_height_ratio(self, context):
 #

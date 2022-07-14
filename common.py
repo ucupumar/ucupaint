@@ -2684,16 +2684,29 @@ def set_bitangent_backface_flip(node, flip_backface):
     else:
         node.mute = True
 
+def is_parallax_enabled(root_ch):
+    if not root_ch: return False
+
+    yp = root_ch.id_data.yp
+    ypup = get_user_preferences()
+
+    parallax_enabled = root_ch.enable_parallax if root_ch.type == 'NORMAL' else False
+
+    if not ypup.parallax_without_baked and not yp.use_baked:
+        parallax_enabled = False
+
+    return parallax_enabled
+
 def get_root_parallax_channel(yp):
     for ch in yp.channels:
-        if ch.type == 'NORMAL' and ch.enable_parallax:
+        if ch.type == 'NORMAL' and is_parallax_enabled(ch):
             return ch
 
     return None
 
 def get_root_height_channel(yp):
     for ch in yp.channels:
-        if ch.type == 'NORMAL': # and ch.enable_parallax:
+        if ch.type == 'NORMAL':
             return ch
 
     return None
@@ -2939,65 +2952,6 @@ def set_relief_mapping_nodes(yp, node, img=None):
 
     binary_loop = tree.nodes.get('_binary_search')
     create_delete_iterate_nodes(binary_loop.node_tree, ch.parallax_num_of_binary_samples)
-
-#def set_baked_parallax_node(yp, node, img=None):
-#    ch = get_root_parallax_channel(yp)
-#
-#    # Set node parameters
-#    #node.inputs['layer_depth'].default_value = 1.0 / ch.parallax_num_of_layers
-#    #node.inputs['depth_scale'].default_value = ch.displacement_height_ratio
-#    #node.inputs['depth_scale'].default_value = get_displacement_max_height(ch)
-#    #node.inputs['ref_plane'].default_value = ch.parallax_ref_plane
-#
-#    #delta_uv = tree.nodes.get(uv.parallax_delta_uv)
-#
-#    #if not delta_uv:
-#    #    delta_uv = new_node(tree, uv, 'parallax_delta_uv', 'ShaderNodeMixRGB', uv.name + DELTA_UV)
-#    #    delta_uv.inputs[0].default_value = 1.0
-#    #    delta_uv.blend_type = 'MULTIPLY'
-#
-#    #current_uv = tree.nodes.get(uv.parallax_current_uv)
-#
-#    #if not current_uv:
-#    #    current_uv = new_node(tree, uv, 'parallax_current_uv', 'ShaderNodeVectorMath', uv.name + CURRENT_UV)
-#    #    current_uv.operation = 'SUBTRACT'
-#
-#    tree = node.node_tree
-#
-#    if img:
-#        depth_source = tree.nodes.get('_depth_source')
-#        depth_from_tex = depth_source.node_tree.nodes.get('_depth_from_tex')
-#        depth_from_tex.image = img
-#
-#    parallax_loop = tree.nodes.get('_parallax_loop')
-#    create_delete_iterate_nodes(loop_tree, ch.parallax_num_of_layers)
-#
-#    #counter = 0
-#    #while True:
-#    #    it = loop_tree.nodes.get('_iterate_' + str(counter))
-#
-#    #    it_found = False
-#    #    if it: it_found = True
-#
-#    #    if not it and counter < ch.parallax_num_of_layers:
-#    #        it = loop_tree.nodes.new('ShaderNodeGroup')
-#    #        it.name = '_iterate_' + str(counter)
-#    #        it.node_tree = iter_tree
-#
-#    #    if it and counter >= ch.parallax_num_of_layers:
-#    #        loop_tree.nodes.remove(it)
-#
-#    #    if not it_found and counter >= ch.parallax_num_of_layers:
-#    #        break
-#
-#    #    counter += 1
-#
-#    #for n in parallax_loop.node_tree.nodes:
-#    #    if n.type == 'GROUP':
-#    #        iter_tree= n.node_tree
-#    #        counter += 1
-#
-#    #if counter != 
 
 def get_channel_index(root_ch):
     yp = root_ch.id_data.yp

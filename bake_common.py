@@ -250,7 +250,6 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     except: pass
 
     # Disable parallax channel
-    #parallax_ch = get_root_parallax_channel(yp)
     if book['parallax_ch']:
         book['parallax_ch'].enable_parallax = False
 
@@ -761,7 +760,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         bpy.ops.object.bake()
 
     # Bake displacement
-    if root_ch.type == 'NORMAL': # and root_ch.enable_parallax:
+    if root_ch.type == 'NORMAL':
 
         if not target_layer:
 
