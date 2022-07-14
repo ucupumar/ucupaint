@@ -844,7 +844,9 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                         brow.prop(channel, 'parallax_num_of_layers', text='')
 
                     brow = bbcol.row(align=True)
-                    brow.label(text='Steps (Baked):')
+                    if ypup.parallax_without_baked:
+                        brow.label(text='Steps (Baked):')
+                    else: brow.label(text='Steps:')
                     brow.prop(channel, 'baked_parallax_num_of_layers', text='')
 
                     brow = bbcol.row(align=True)
