@@ -2170,26 +2170,34 @@ def get_preview(mat, output=None, advanced=False):
 
     return preview
 
+def set_srgb_view_transform():
+    scene = bpy.context.scene
+
+    # Set view transform to srgb
+    if scene.yp.ori_view_transform == '':
+        scene.yp.ori_view_transform = scene.view_settings.view_transform
+        if is_greater_than_280():
+            scene.view_settings.view_transform = 'Standard'
+        else: scene.view_settings.view_transform = 'sRGB'
+
 def remove_preview(mat, advanced=False):
     nodes = mat.node_tree.nodes
     preview = nodes.get(EMISSION_VIEWER)
+    scene = bpy.context.scene
 
     if preview: 
         simple_remove_node(mat.node_tree, preview)
-        #if advanced:
-        #    # Recover blend method
-        #    if is_greater_than_280():
-        #        mat.blend_method = mat.yp.ori_blend_method
-        #    else:
-        #        mat.game_settings.alpha_blend = mat.yp.ori_blend_method
-        #    mat.yp.ori_blend_method = ''
-
         bsdf = nodes.get(mat.yp.ori_bsdf)
         output = get_active_mat_output_node(mat.node_tree)
         mat.yp.ori_bsdf = ''
 
         if bsdf and output:
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+        # Recover view transform
+        if scene.yp.ori_view_transform != '':
+            scene.view_settings.view_transform = scene.yp.ori_view_transform
+            scene.yp.ori_view_transform = ''
 
 #def update_merge_mask_mode(self, context):
 #    if not self.layer_preview_mode:
@@ -2244,13 +2252,17 @@ def update_layer_preview_mode(self, context):
         layer = yp.layers[yp.active_layer_index]
     except: return
 
-    if yp.preview_mode:
+    if yp.preview_mode and yp.layer_preview_mode:
         yp.preview_mode = False
 
     check_all_channel_ios(yp)
 
     # Get preview node
     if self.layer_preview_mode:
+
+        # Set view transform to srgb so color picker won't pick wrong color
+        set_srgb_view_transform()
+
         output = get_active_mat_output_node(mat.node_tree)
         if self.layer_preview_mode_type in {'ALPHA', 'SPECIFIC_MASK'}:
             preview = get_preview(mat, output, False)
@@ -2283,7 +2295,6 @@ def update_layer_preview_mode(self, context):
 
     else:
         remove_preview(mat)
-        #reconnect_yp_nodes(tree)
 
 def update_preview_mode(self, context):
     try:
@@ -2295,10 +2306,13 @@ def update_preview_mode(self, context):
         channel = yp.channels[index]
     except: return
 
-    if yp.layer_preview_mode:
+    if yp.layer_preview_mode and yp.preview_mode:
         yp.layer_preview_mode = False
 
     if self.preview_mode:
+        # Set view transform to srgb so color picker won't pick wrong color
+        set_srgb_view_transform()
+
         output = get_active_mat_output_node(mat.node_tree)
         preview = get_preview(mat, output)
         if not preview: return
@@ -3279,6 +3293,7 @@ class YPaintWMProps(bpy.types.PropertyGroup):
 class YPaintSceneProps(bpy.types.PropertyGroup):
     last_object : StringProperty(default='')
     last_mode : StringProperty(default='')
+    ori_view_transform : StringProperty(default='')
 
 class YPaintObjectProps(bpy.types.PropertyGroup):
     ori_subsurf_render_levels : IntProperty(default=1)
