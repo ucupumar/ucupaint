@@ -2178,7 +2178,7 @@ def set_srgb_view_transform():
         scene.yp.ori_view_transform = scene.view_settings.view_transform
         if is_greater_than_280():
             scene.view_settings.view_transform = 'Standard'
-        else: scene.view_settings.view_transform = 'sRGB'
+        else: scene.view_settings.view_transform = 'Default'
 
 def remove_preview(mat, advanced=False):
     nodes = mat.node_tree.nodes
