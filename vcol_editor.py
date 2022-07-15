@@ -128,18 +128,45 @@ class YToggleEraser(bpy.types.Operator):
             return {'CANCELLED'}
 
         if brush.blend == 'ERASE_ALPHA':
-            new_brush = bpy.data.brushes.get(ve.ori_brush)
+
+            if mode == 'VERTEX_PAINT':
+                new_brush = bpy.data.brushes.get(ve.ori_brush)
+            elif mode == 'TEXTURE_PAINT':
+                new_brush = bpy.data.brushes.get(ve.ori_texpaint_brush)
+            elif mode == 'SCULPT':
+                new_brush = bpy.data.brushes.get(ve.ori_sculpt_brush)
+
             if new_brush: 
-                new_brush.blend = ve.ori_blending_mode
+                if mode == 'VERTEX_PAINT':
+                    new_brush.blend = ve.ori_blending_mode
+                elif mode == 'TEXTURE_PAINT':
+                    new_brush.blend = ve.ori_texpaint_blending_mode
+                elif mode == 'SCULPT':
+                    new_brush.blend = ve.ori_sculpt_blending_mode
             else:
                 new_brush = draw_brush
                 new_brush.blend = 'MIX'
 
-            ve.ori_brush = ''
-            ve.ori_blending_mode = ''
+            if mode == 'VERTEX_PAINT':
+                ve.ori_brush = ''
+                ve.ori_blending_mode = ''
+            elif mode == 'TEXTURE_PAINT':
+                ve.ori_texpaint_brush = ''
+                ve.ori_texpaint_blending_mode = ''
+            elif mode == 'SCULPT':
+                ve.ori_sculpt_brush = ''
+                ve.ori_sculpt_blending_mode = ''
+
         else:
-            ve.ori_brush = brush.name
-            ve.ori_blending_mode = brush.blend
+            if mode == 'VERTEX_PAINT':
+                ve.ori_brush = brush.name
+                ve.ori_blending_mode = brush.blend
+            elif mode == 'TEXTURE_PAINT':
+                ve.ori_texpaint_brush = brush.name
+                ve.ori_texpaint_blending_mode = brush.blend
+            if mode == 'SCULPT':
+                ve.ori_sculpt_brush = brush.name
+                ve.ori_sculpt_blending_mode = brush.blend
 
             new_brush = draw_brush
             if new_brush: new_brush.blend = 'ERASE_ALPHA'
@@ -443,6 +470,12 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
 
     ori_blending_mode : StringProperty(default='')
     ori_brush : StringProperty(default='')
+
+    ori_texpaint_blending_mode : StringProperty(default='')
+    ori_texpaint_brush : StringProperty(default='')
+
+    ori_sculpt_blending_mode : StringProperty(default='')
+    ori_sculpt_brush : StringProperty(default='')
 
 def register():
     bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)

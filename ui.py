@@ -2545,6 +2545,34 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             row = bbox.row(align=True)
             row.operator('mesh.y_toggle_eraser', text='Toggle Eraser')
 
+        ve = context.scene.ve_edit
+        if obj.mode == 'TEXTURE_PAINT':
+            brush = context.tool_settings.image_paint.brush
+            if (mask_image or override_image) and brush.blend == 'ERASE_ALPHA':
+                bbox = col.box()
+                row = bbox.row(align=True)
+                row.alert = True
+                row.operator('mesh.y_toggle_eraser', text='Disable Eraser')
+                row.alert = False
+
+        elif obj.mode == 'VERTEX_PAINT' and is_greater_than_280(): 
+            brush = context.tool_settings.vertex_paint.brush
+            if mask_vcol and brush.blend == 'ERASE_ALPHA':
+                bbox = col.box()
+                row = bbox.row(align=True)
+                row.alert = True
+                row.operator('mesh.y_toggle_eraser', text='Disable Eraser')
+                row.alert = False
+
+        elif obj.mode == 'SCULPT' and is_greater_than_320(): 
+            brush = context.tool_settings.sculpt.brush
+            if mask_vcol and brush.blend == 'ERASE_ALPHA':
+                bbox = col.box()
+                row = bbox.row(align=True)
+                row.alert = True
+                row.operator('mesh.y_toggle_eraser', text='Disable Eraser')
+                row.alert = False
+
         # Source
         draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh) #, custom_icon_enable)
 
