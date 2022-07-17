@@ -1199,6 +1199,11 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         inputs = group_tree.inputs
         outputs = group_tree.outputs
 
+        # Disable layer preview mode to avoid error
+        ori_layer_preview_mode = yp.layer_preview_mode
+        if yp.layer_preview_mode:
+            yp.layer_preview_mode = False
+
         # Get active channel
         channel_idx = yp.active_channel_index
         channel = yp.channels[channel_idx]
@@ -1343,6 +1348,9 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         if (yp.active_channel_index == len(yp.channels) and
             yp.active_channel_index > 0
             ): yp.active_channel_index -= 1
+
+        if ori_layer_preview_mode:
+            yp.layer_preview_mode = True
 
         # Repoint channel index
         #repoint_channel_index(yp)
