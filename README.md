@@ -18,7 +18,7 @@ Please read the [wiki](https://ucupumar.github.io/ucupaint-wiki/) to see the doc
 To contribute to wiki, you can go to the [wiki repo](https://github.com/ucupumar/ucupaint-wiki).
 
 ### Discord Server
-You can join [Ucupaint Discord](https://discord.gg/vSwDdFdd) to ask or discuss things related to Ucupaint  
+You can join [Ucupaint Discord](https://discord.gg/BdNfGGzQHh) to ask or discuss things related to Ucupaint  
 
 
 ![00-yang_guifei](https://user-images.githubusercontent.com/5253453/169109136-7349e7cd-0416-47f1-afda-ba3633d7bd20.jpg)
