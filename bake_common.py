@@ -436,7 +436,7 @@ def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
     # Straight over won't work if using fxaa nodes, need another bake pass
     if alpha_aware:
         uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
-        uv_map.uv_map = 'UVMap'
+        #uv_map.uv_map = 'UVMap' # Will use active UV instead since every language has different default UV name
         source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
         source_tex.image = image_copy
 
@@ -465,7 +465,7 @@ def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
 
     res_x.outputs[0].default_value = width
     res_y.outputs[0].default_value = height
-    fxaa_uv_map.uv_map = 'UVMap'
+    #fxaa_uv_map.uv_map = 'UVMap' # Will use active UV instead since every language has different default UV name
     tex.image = image_copy
     if not is_greater_than_280() :
         if image.colorspace_settings.name == 'sRGB':
@@ -1223,7 +1223,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
     output = get_active_mat_output_node(mat.node_tree)
     emi = mat.node_tree.nodes.new('ShaderNodeEmission')
     uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
-    uv_map.uv_map = 'UVMap'
+    #uv_map.uv_map = 'UVMap' # Will use active UV instead since every language has different default UV name
     target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     target_tex.image = scaled_img
     source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
