@@ -1899,7 +1899,16 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             if self.mask and self.disable_current:
                 self.mask.enable = False
 
+            # Create new mask
             mask = Mask.add_new_mask(self.layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
+
+            # Set mask properties
+            mask.intensity_value = self.mask.intensity_value
+            mask.blend_type = self.mask.blend_type
+            for i, c in enumerate(self.mask.channels):
+                mask.channels[i].enable = c.enable
+
+            # Set newly created mask active
             mask.active_edit = True
 
             rearrange_layer_nodes(self.layer)
