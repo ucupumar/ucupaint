@@ -1837,6 +1837,10 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         ori_layer_preview_mode = yp.layer_preview_mode
         ori_layer_preview_mode_type = yp.layer_preview_mode_type
 
+        if self.mask: 
+            self.mask.enable = True
+        else: self.layer.enable = True
+
         yp.layer_preview_mode_type = 'SPECIFIC_MASK' if self.mask else 'LAYER'
         yp.layer_preview_mode = True
 
