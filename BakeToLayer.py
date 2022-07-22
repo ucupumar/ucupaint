@@ -734,7 +734,7 @@ class YBakeToLayer(bpy.types.Operator):
             meshes = []
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
-                if (hasattr(ob, 'hide_viewport') and ob.hide_viewport) or ob.hide_render: continue
+                if hasattr(ob, 'hide_viewport') and ob.hide_viewport: continue
                 if len(get_uv_layers(ob)) == 0: continue
                 if self.type.startswith('MULTIRES_') and not get_multires_modifier(ob): continue
                 if len(ob.data.polygons) == 0: continue
@@ -1068,11 +1068,7 @@ class YBakeToLayer(bpy.types.Operator):
                             m.show_viewport = False
             else:
                 for m in obj.modifiers:
-                    if m.type == 'SOLIDIFY':
-                        m.show_render = False
-                    elif m.type == 'MIRROR':
-                        m.show_render = False
-                    elif m.type == 'ARRAY':
+                    if m.type in {'SOLIDIFY', 'MIRROR', 'ARRAY'}:
                         m.show_render = False
 
             ori_mat_ids[obj.name] = []
@@ -1618,12 +1614,345 @@ class YBakeToLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YDuplicateLayerToImage(bpy.types.Operator):
+    bl_idname = "node.y_duplicate_layer_to_image"
+    bl_label = "Duplicate Layer/Mask To Image"
+    bl_description = "Duplicate Layer/Mask to an image"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    name : StringProperty(default='')
+
+    uv_map : StringProperty(default='')
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    hdr : BoolProperty(name='32 bit Float', default=False)
+
+    width : IntProperty(name='Width', default = 1234, min=1, max=4096)
+    height : IntProperty(name='Height', default = 1234, min=1, max=4096)
+
+    margin : IntProperty(name='Bake Margin',
+            description = 'Bake margin in pixels',
+            default=5, min=0, subtype='PIXEL')
+
+    force_use_cpu : BoolProperty(
+            name='Force Use CPU',
+            description='Force use CPU for baking (usually faster than using GPU)',
+            default=False)
+
+    fxaa : BoolProperty(name='Use FXAA', 
+            description = "Use FXAA to baked image (doesn't work with float images)",
+            default=True)
+
+    use_image_atlas : BoolProperty(
+            name = 'Use Image Atlas',
+            description='Use Image Atlas',
+            default=True)
+
+    disable_current : BoolProperty(
+            name = 'Disable current layer/mask',
+            description='Disable current layer/mask',
+            default=True)
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    def invoke(self, context, event):
+
+        obj = context.object
+        ypup = get_user_preferences()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        self.entity = context.entity
+        self.layer = None
+        self.mask = None
+
+        if not hasattr(context, 'entity'):
+            return self.execute(context)
+
+        # Check entity
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', self.entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', self.entity.path_from_id())
+
+        if m1: 
+            self.layer = yp.layers[int(m1.group(1))]
+            self.mask = None
+        elif m2: 
+            self.layer = yp.layers[int(m2.group(1))]
+            self.mask = self.layer.masks[int(m2.group(2))]
+        else: 
+            return self.execute(context)
+
+        if self.mask:
+            self.name = self.mask.name + ' Image'
+            self.name = get_unique_name(self.name, self.layer.masks)
+        else:
+            self.name = self.layer.name + ' Image'
+            self.name = get_unique_name(self.name, yp.layers)
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
+
+        # Use active uv layer name by default
+        uv_layers = get_uv_layers(obj)
+
+        # UV Map collections update
+        self.uv_map_coll.clear()
+        for uv in uv_layers:
+            if not uv.name.startswith(TEMP_UV):
+                self.uv_map_coll.add().name = uv.name
+
+        if len(self.uv_map_coll) > 0:
+            self.uv_map = self.uv_map_coll[0].name
+
+        return context.window_manager.invoke_props_dialog(self, width=320)
+
+    def check(self, context):
+        ypup = get_user_preferences()
+
+        # New image cannot use more pixels than the image atlas
+        if self.use_image_atlas:
+            if self.hdr: max_size = ypup.hdr_image_atlas_size
+            else: max_size = ypup.image_atlas_size
+            if self.width > max_size: self.width = max_size
+            if self.height > max_size: self.height = max_size
+
+        return True
+
+    def draw(self, context):
+
+        if is_greater_than_280():
+            row = self.layout.split(factor=0.4)
+        else: row = self.layout.split(percentage=0.4)
+
+        col = row.column(align=False)
+
+        col.label(text='Name:')
+        col.label(text='')
+        col.label(text='Width:')
+        col.label(text='Height:')
+        col.label(text='UV Map:')
+        col.label(text='Margin:')
+
+        col = row.column(align=False)
+
+        col.prop(self, 'name', text='')
+        col.prop(self, 'hdr')
+        col.prop(self, 'width', text='')
+        col.prop(self, 'height', text='')
+        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        col.prop(self, 'margin', text='')
+
+        col.prop(self, 'force_use_cpu')
+        col.prop(self, 'fxaa')
+        col.prop(self, 'use_image_atlas')
+        if self.mask:
+            col.prop(self, 'disable_current', text='Disable Current Mask')
+        else: col.prop(self, 'disable_current', text='Disable Current Layer')
+
+    def execute(self, context):
+
+        if not self.layer:
+            self.report({'ERROR'}, "Invalid context!")
+            return {'CANCELLED'}
+
+        if self.layer and not self.mask:
+            self.report({'ERROR'}, "This feature is not implemented yet!")
+            return {'CANCELLED'}
+
+        T = time.time()
+        mat = get_active_material()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        tree = node.node_tree
+
+        objs = [context.object]
+        meshes = [context.object.data]
+
+        if mat.users > 1:
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if hasattr(ob, 'hide_viewport') and ob.hide_viewport: continue
+                if len(get_uv_layers(ob)) == 0: continue
+                if len(ob.data.polygons) == 0: continue
+
+                # Do not bake objects with hide_render on
+                if ob.hide_render: continue
+                if not in_renderable_layer_collection(ob): continue
+
+                for i, m in enumerate(ob.data.materials):
+                    if m == mat:
+                        ob.active_material_index = i
+                        if ob not in objs and ob.data not in meshes:
+                            objs.append(ob)
+                            meshes.append(ob.data)
+
+        if not objs:
+            self.report({'ERROR'}, "No valid objects found to bake!")
+            return {'CANCELLED'}
+
+        # Remember things
+        book = remember_before_bake(yp)
+
+        # FXAA doesn't work with hdr image
+        # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
+        use_fxaa = not self.hdr and self.fxaa
+
+        prepare_bake_settings(book, objs, yp, samples=1, margin=self.margin, 
+                uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=self.force_use_cpu
+                )
+
+        # Preview setup
+        ori_channel_index = yp.active_channel_index
+        ori_preview_mode = yp.preview_mode
+        ori_layer_preview_mode = yp.layer_preview_mode
+        ori_layer_preview_mode_type = yp.layer_preview_mode_type
+
+        yp.layer_preview_mode_type = 'SPECIFIC_MASK' if self.mask else 'LAYER'
+        yp.layer_preview_mode = True
+
+        # Set active channel so preview will output right value
+        for i, ch in enumerate(self.layer.channels):
+            if self.mask:
+                if ch.enable and self.mask.channels[i].enable:
+                    yp.active_channel_index = i
+                    break
+            else:
+                if ch.enable:
+                    yp.active_channel_index = i
+                    break
+
+        # Modifier setups
+        ori_mods = {}
+        ori_viewport_mods = {}
+
+        for obj in objs:
+
+            # Disable few modifiers
+            ori_mods[obj.name] = [m.show_render for m in obj.modifiers]
+            ori_viewport_mods[obj.name] = [m.show_viewport for m in obj.modifiers]
+
+            for m in obj.modifiers:
+                if m.type in {'SOLIDIFY', 'MIRROR', 'ARRAY'}:
+                    m.show_render = False
+
+        #return {'FINISHED'}
+
+        # Create bake nodes
+        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+
+        # Create image
+        image = bpy.data.images.new(name=self.name,
+                width=self.width, height=self.height, alpha=True, float_buffer=self.hdr)
+
+        # Set bake image
+        tex.image = image
+        mat.node_tree.nodes.active = tex
+
+        # Bake!
+        #bpy.ops.object.bake_image()
+        bpy.ops.object.bake()
+
+        if use_fxaa: fxaa_image(image, False, self.force_use_cpu)
+
+        if self.mask:
+            mask_name = image.name if not self.use_image_atlas else self.name
+
+            segment = None
+            if self.use_image_atlas:
+                mask_name = get_unique_name(mask_name, self.layer.masks)
+
+                # Clearing unused image atlas segments
+                img_atlas = ImageAtlas.check_need_of_erasing_segments('BLACK', self.width, self.height, self.hdr)
+                if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
+
+                segment = ImageAtlas.get_set_image_atlas_segment(
+                        self.width, self.height, 'BLACK', self.hdr, yp=yp) #, ypup.image_atlas_size)
+
+                ia_image = segment.id_data
+
+                # Set baked image to segment
+                target_pxs = list(ia_image.pixels)
+                source_pxs = list(image.pixels)
+
+                start_x = self.width * segment.tile_x
+                start_y = self.height * segment.tile_y
+                for y in range(self.height):
+                    source_offset_y = self.width * 4 * y
+                    offset_y = ia_image.size[0] * 4 * (y + start_y)
+                    for x in range(self.width):
+                        source_offset_x = 4 * x
+                        offset_x = 4 * (x + start_x)
+                        for i in range(4):
+                            target_pxs[offset_y + offset_x + i] = source_pxs[source_offset_y + source_offset_x + i]
+
+                ia_image.pixels = target_pxs
+                temp_img = image
+                image = ia_image
+
+                # Remove original baked image
+                bpy.data.images.remove(temp_img)
+
+            # Disable source mask
+            if self.mask and self.disable_current:
+                self.mask.enable = False
+
+            mask = Mask.add_new_mask(self.layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
+            mask.active_edit = True
+
+            rearrange_layer_nodes(self.layer)
+            reconnect_layer_nodes(self.layer)
+
+            #active_id = yp.active_layer_index
+
+            if segment:
+                ImageAtlas.set_segment_mapping(mask, segment, image)
+
+            # Refresh uv
+            refresh_temp_uv(context.object, mask)
+
+            # Refresh Neighbor UV resolution
+            set_uv_neighbor_resolution(mask)
+
+        # Remove temp bake nodes
+        simple_remove_node(mat.node_tree, tex)
+
+        # Recover modifiers
+        for obj in objs:
+            # Recover modifiers
+            for i, m in enumerate(obj.modifiers):
+                #print(obj.name, i)
+                if i >= len(ori_mods[obj.name]): break
+                if ori_mods[obj.name][i] != m.show_render:
+                    m.show_render = ori_mods[obj.name][i]
+                if i >= len(ori_viewport_mods[obj.name]): break
+                if ori_viewport_mods[obj.name][i] != m.show_render:
+                    m.show_viewport = ori_viewport_mods[obj.name][i]
+
+        # Recover bake settings
+        recover_bake_settings(book, yp)
+
+        # Recover preview
+        yp.active_channel_index = ori_channel_index
+        if yp.preview_mode != ori_preview_mode:
+            yp.preview_mode = ori_preview_mode
+        if yp.layer_preview_mode != ori_layer_preview_mode:
+            yp.layer_preview_mode = ori_layer_preview_mode
+        if yp.layer_preview_mode_type != ori_layer_preview_mode_type:
+            yp.layer_preview_mode_type = ori_layer_preview_mode_type
+
+        return {"FINISHED"}
+
 def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YRemoveBakeInfoOtherObject)
     bpy.utils.register_class(YTryToSelectBakedVertexSelect)
+    bpy.utils.register_class(YDuplicateLayerToImage)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
     bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
+    bpy.utils.unregister_class(YDuplicateLayerToImage)

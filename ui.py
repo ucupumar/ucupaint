@@ -3949,9 +3949,14 @@ class YLayerMaskMenu(bpy.types.Menu):
 
         col.separator()
 
-        op = col.operator('node.y_transfer_layer_uv', icon_value=lib.get_icon('uv'), text='Transfer UV')
+        col.context_pointer_set('entity', mask)
+        col.operator('node.y_duplicate_layer_to_image', icon='COPY_ID', text='Duplicate as Image')
 
         col.separator()
+
+        #op = col.operator('node.y_transfer_layer_uv', icon_value=lib.get_icon('uv'), text='Transfer UV')
+
+        #col.separator()
 
         if is_greater_than_280():
             col.operator('node.y_remove_layer_mask', text='Remove Mask', icon='REMOVE')
