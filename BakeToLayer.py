@@ -1648,6 +1648,15 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             description='Use Image Atlas',
             default=True)
 
+    blur : BoolProperty(name='Use Blur', 
+            description = "Use blur to baked image",
+            default=False)
+
+    blur_factor : FloatProperty(name='Blur Factor',
+            description = "Blur factor to baked image",
+            default=1.0, min=0.0, max=100.0
+            )
+
     disable_current : BoolProperty(
             name = 'Disable current layer/mask',
             description='Disable current layer/mask',
@@ -1739,6 +1748,11 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         col.label(text='Height:')
         col.label(text='UV Map:')
         col.label(text='Margin:')
+        col.label(text='')
+        col.label(text='')
+        col.label(text='')
+        col.label(text='')
+        #col.label(text='Blur:')
 
         col = row.column(align=False)
 
@@ -1755,6 +1769,11 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         if self.mask:
             col.prop(self, 'disable_current', text='Disable Current Mask')
         else: col.prop(self, 'disable_current', text='Disable Current Layer')
+
+        rrow = col.row(align=True)
+        rrow.prop(self, 'blur')
+        if self.blur:
+            rrow.prop(self, 'blur_factor', text='')
 
     def execute(self, context):
 
@@ -1806,10 +1825,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
 
         samples = 1
         if self.mask and self.mask.enable_blur_vector:
-            if is_greater_than_300():
-                samples = 4096
-            else:
-                samples = 128
+            samples = 4096 if is_greater_than_300() else 128
 
         prepare_bake_settings(book, objs, yp, samples=samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=self.force_use_cpu
@@ -1867,6 +1883,9 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         bpy.ops.object.bake()
 
         if use_fxaa: fxaa_image(image, False, self.force_use_cpu)
+        if self.blur: 
+            samples = 4096 if is_greater_than_300() else 128
+            blur_image(image, False, self.force_use_cpu, factor=self.blur_factor, samples=samples)
 
         if self.mask:
             mask_name = image.name if not self.use_image_atlas else self.name

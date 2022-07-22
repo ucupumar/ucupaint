@@ -388,6 +388,130 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
         for mod in book['disabled_viewport_mods']:
             mod.show_viewport = True
 
+def blur_image(image, alpha_aware=True, force_use_cpu=False, factor=1.0, samples=512):
+    T = time.time()
+    print('FXAA: Doing FXAA pass on', image.name + '...')
+    book = remember_before_bake()
+
+    width = image.size[0]
+    height = image.size[1]
+
+    # Copy image
+    pixels = list(image.pixels)
+    image_copy = image.copy()
+    image_copy.pixels = pixels
+
+    # Set active collection to be root collection
+    if is_greater_than_280():
+        ori_layer_collection = bpy.context.view_layer.active_layer_collection
+        bpy.context.view_layer.active_layer_collection = bpy.context.view_layer.layer_collection
+
+    # Create new plane
+    bpy.ops.object.mode_set(mode = 'OBJECT')
+    bpy.ops.mesh.primitive_plane_add(calc_uvs=True)
+    if is_greater_than_280():
+        plane_obj = bpy.context.view_layer.objects.active
+    else: plane_obj = bpy.context.scene.objects.active
+
+    prepare_bake_settings(book, [plane_obj], samples=samples, margin=0, force_use_cpu=force_use_cpu)
+
+    # Create temporary material
+    mat = bpy.data.materials.new('__TEMP__')
+    mat.use_nodes = True
+    plane_obj.active_material = mat
+
+    # Create nodes
+    output = get_active_mat_output_node(mat.node_tree)
+    emi = mat.node_tree.nodes.new('ShaderNodeEmission')
+
+    uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
+    #uv_map.uv_map = 'UVMap' # Will use active UV instead since every language has different default UV name
+
+    blur = mat.node_tree.nodes.new('ShaderNodeGroup')
+    blur.node_tree = get_node_tree_lib(lib.BLUR_VECTOR)
+    blur.inputs[0].default_value = factor / 100.0
+
+    source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    source_tex.image = image_copy
+    target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+    target_tex.image = image
+
+    # Connect nodes
+
+    mat.node_tree.links.new(uv_map.outputs[0], blur.inputs[1])
+    mat.node_tree.links.new(blur.outputs[0], source_tex.inputs[0])
+
+    mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
+    mat.node_tree.nodes.active = target_tex
+
+    # Straight over won't work if using blur nodes, need another bake pass
+    if alpha_aware:
+        straight_over = mat.node_tree.nodes.new('ShaderNodeGroup')
+        straight_over.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
+        straight_over.inputs[1].default_value = 0.0
+
+        mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
+        mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
+        mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
+
+        # Bake
+        print('BLUR: Baking straight over on', image.name + '...')
+        bpy.ops.object.bake()
+
+        pixels_1 = list(image.pixels)
+        image_copy.pixels = pixels_1
+
+    # Connect nodes again
+    mat.node_tree.links.new(source_tex.outputs[0], emi.inputs[0])
+    mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
+
+    print('BLUR: Baking blur on', image.name + '...')
+    #return
+    bpy.ops.object.bake()
+
+    # Copy original alpha to baked image
+    if alpha_aware:
+        print('BLUR: Copying original alpha to blur result of', image.name + '...')
+        target_pxs = list(image.pixels)
+        start_x = 0
+        start_y = 0
+
+        for y in range(height):
+            temp_offset_y = width * 4 * y
+            offset_y = width * 4 * (y + start_y)
+            for x in range(width):
+                temp_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                target_pxs[offset_y + offset_x + 3] = pixels[temp_offset_y + temp_offset_x + 3]
+
+        image.pixels = target_pxs
+
+    # Remove temp datas
+    print('BLUR: Removing temporary data of blur pass')
+    if alpha_aware:
+        if straight_over.node_tree.users == 1:
+            bpy.data.node_groups.remove(straight_over.node_tree)
+
+    if blur.node_tree.users == 1:
+        bpy.data.node_groups.remove(blur.node_tree)
+
+    bpy.data.images.remove(image_copy)
+    bpy.data.materials.remove(mat)
+    plane = plane_obj.data
+    bpy.ops.object.delete()
+    bpy.data.meshes.remove(plane)
+
+    # Recover settings
+    recover_bake_settings(book)
+
+    # Recover original active layer collection
+    if is_greater_than_280():
+        bpy.context.view_layer.active_layer_collection = ori_layer_collection
+
+    print('BLUR:', image.name, 'blur pass is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+
+    return image
+
 def fxaa_image(image, alpha_aware=True, force_use_cpu=False):
     T = time.time()
     print('FXAA: Doing FXAA pass on', image.name + '...')
