@@ -1575,6 +1575,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     #texcoord = nodes.get(TEXCOORD)
     geometry = nodes.get(GEOMETRY)
+    blur_vector = nodes.get(layer.blur_vector)
     mapping = nodes.get(layer.mapping)
     linear = nodes.get(layer.linear)
     divider_alpha = nodes.get(layer.divider_alpha)
@@ -1627,6 +1628,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if layer.texcoord_type == 'UV':
             vector = texcoord.outputs.get(layer.uv_name + io_suffix['UV'])
         else: vector = texcoord.outputs[io_names[layer.texcoord_type]]
+
+        if vector and blur_vector:
+            vector = create_link(tree, vector, blur_vector.inputs[1])[0]
 
         if vector and mapping:
             vector = create_link(tree, vector, mapping.inputs[0])[0]
@@ -1774,6 +1778,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             for mod in mask.modifiers:
                 mask_val = reconnect_mask_modifier_nodes(tree, mod, mask_val)
 
+        mask_blur_vector = nodes.get(mask.blur_vector)
         mask_mapping = nodes.get(mask.mapping)
 
         if yp.layer_preview_mode and yp.layer_preview_mode_type == 'SPECIFIC_MASK' and mask.active_edit == True:
@@ -1801,6 +1806,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 mask_vector = texcoord.outputs.get(mask.uv_name + io_suffix['UV'])
             else: 
                 mask_vector = texcoord.outputs[io_names[mask.texcoord_type]]
+
+            if mask_blur_vector:
+                mask_vector = create_link(tree, mask_vector, mask_blur_vector.inputs[1])[0]
 
             if mask_mapping:
                 mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]

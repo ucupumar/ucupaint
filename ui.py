@@ -1110,7 +1110,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 row.label(text='', icon='BLANK1')
                 bbox = row.box()
                 if image and image.yia.is_image_atlas:
-                    bbox.label(text="Transform vector with image atlas is not possible!")
+                    #bbox.label(text="Transform vector with image atlas is not possible!")
+                    pass
                 else:
                     crow = row.column()
                     bbox.prop(layer, 'translation', text='Offset')
@@ -1122,6 +1123,16 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                         rrow = bbox.row(align=True)
                         rrow.alert = True
                         rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+
+                # Blur row
+                rrow = bbox.row(align=True)
+                if is_greater_than_280():
+                    splits = rrow.split(factor=0.3)
+                else: splits = rrow.split(percentage=0.3)
+                splits.label(text='Blur:')
+                if layer.enable_blur_vector:
+                    splits.prop(layer, 'blur_vector_factor', text='')
+                rrow.prop(layer, 'enable_blur_vector', text='')
 
     layout.separator()
 
@@ -2003,7 +2014,8 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
                 if mask_image and mask_image.yia.is_image_atlas:
-                    rbox.label(text="Transform vector with image atlas is not possible!")
+                    #rbox.label(text="Transform vector with image atlas is not possible!")
+                    pass
                 else:
                     rbox.prop(mask, 'translation', text='Offset')
                     rbox.prop(mask, 'rotation')
@@ -2015,6 +2027,16 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                         rrow = rbox.row(align=True)
                         rrow.alert = True
                         rrow.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+            
+                # Blur row
+                rrow = rbox.row(align=True)
+                if is_greater_than_280():
+                    splits = rrow.split(factor=0.3)
+                else: splits = rrow.split(percentage=0.3)
+                splits.label(text='Blur:')
+                if mask.enable_blur_vector:
+                    splits.prop(mask, 'blur_vector_factor', text='')
+                rrow.prop(mask, 'enable_blur_vector', text='')
 
         draw_mask_modifier_stack(layer, mask, rrcol, maskui) #, custom_icon_enable)
 
@@ -3968,6 +3990,10 @@ class YLayerMaskMenu(bpy.types.Menu):
         col.operator('node.y_new_mask_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
         col.operator('node.y_new_mask_modifier', text='Ramp', icon_value=lib.get_icon('modifier')).type = 'RAMP'
         col.operator('node.y_new_mask_modifier', text='Curve', icon_value=lib.get_icon('modifier')).type = 'CURVE'
+
+        #if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
+        #    col.separator()
+        #    col.prop(mask, 'enable_blur_vector', text='Blur Vector')
 
         ypup = get_user_preferences()
 

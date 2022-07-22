@@ -128,6 +128,7 @@ def remove_mask(layer, mask, obj):
     disable_mask_source_tree(layer, mask)
 
     remove_node(tree, mask, 'source')
+    remove_node(tree, mask, 'blur_vector')
     remove_node(tree, mask, 'mapping')
     remove_node(tree, mask, 'linear')
     remove_node(tree, mask, 'uv_map')
@@ -984,6 +985,39 @@ def update_mask_channel_intensity_value(self, context):
         mix = tree.nodes.get(getattr(self, 'mix_' + d))
         if mix: mix.inputs[0].default_value = 0.0 if mute else mask.intensity_value
 
+def update_mask_blur_vector(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    mask = self
+    tree = get_tree(layer)
+
+    if mask.enable_blur_vector:
+        blur_vector = new_node(tree, mask, 'blur_vector', 'ShaderNodeGroup', 'Mask Blur Vector')
+        blur_vector.node_tree = get_node_tree_lib(lib.BLUR_VECTOR)
+        blur_vector.inputs[0].default_value = mask.blur_vector_factor / 100.0
+    else:
+        remove_node(tree, mask, 'blur_vector')
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
+
+def update_mask_blur_vector_factor(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    mask = self
+    tree = get_tree(layer)
+
+    blur_vector = tree.nodes.get(mask.blur_vector)
+
+    if blur_vector:
+        blur_vector.inputs[0].default_value = mask.blur_vector_factor / 100.0
+
 def update_mask_intensity_value(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -1362,6 +1396,17 @@ class YLayerMask(bpy.types.PropertyGroup):
             update=update_mask_transform,
             ) #, step=3)
 
+    enable_blur_vector : BoolProperty(
+            name = 'Enable Blur Vector',
+            description = "Enable blur vector",
+            default = False, update=update_mask_blur_vector)
+
+    blur_vector_factor : FloatProperty(
+            name = 'Blur Vector Factor', 
+            description = 'Mask Intensity Factor',
+            default=1.0, min=0.0, max=100.0,
+            update=update_mask_blur_vector_factor)
+
     color_id : FloatVectorProperty(
             name='Color ID', size=3,
             subtype='COLOR',
@@ -1412,6 +1457,7 @@ class YLayerMask(bpy.types.PropertyGroup):
     uv_map : StringProperty(default='')
     uv_neighbor : StringProperty(default='')
     mapping : StringProperty(default='')
+    blur_vector : StringProperty(default='')
 
     linear : StringProperty(default='')
 

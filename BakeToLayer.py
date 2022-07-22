@@ -1685,10 +1685,14 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             return self.execute(context)
 
         if self.mask:
-            self.name = self.mask.name + ' Image'
+            self.name = self.mask.name
+            if not self.name.endswith(' Image'):
+                self.name += ' Image'
             self.name = get_unique_name(self.name, self.layer.masks)
         else:
-            self.name = self.layer.name + ' Image'
+            self.name = self.layer.name
+            if not self.name.endswith(' Image'):
+                self.name += ' Image'
             self.name = get_unique_name(self.name, yp.layers)
 
         # Use user preference default image size if input uses default image size
@@ -1800,7 +1804,14 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
         use_fxaa = not self.hdr and self.fxaa
 
-        prepare_bake_settings(book, objs, yp, samples=1, margin=self.margin, 
+        samples = 1
+        if self.mask and self.mask.enable_blur_vector:
+            if is_greater_than_300():
+                samples = 4096
+            else:
+                samples = 128
+
+        prepare_bake_settings(book, objs, yp, samples=samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=self.force_use_cpu
                 )
 

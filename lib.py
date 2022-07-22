@@ -95,6 +95,8 @@ CAVITY = '~yPL Cavity'
 DUST = '~yPL Dust'
 PAINT_BASE = '~yPL Paint Base'
 
+BLUR_VECTOR = '~yPL Blur Vector'
+
 # NEW ORDER
 
 HEIGHT_PROCESS = '~yPL Height Process'

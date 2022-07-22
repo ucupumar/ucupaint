@@ -4964,6 +4964,35 @@ def update_layer_transform(self, context):
     if yp.halt_update: return
     update_mapping(self)
 
+def update_layer_blur_vector(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    layer = self
+    tree = get_tree(layer)
+
+    if layer.enable_blur_vector:
+        blur_vector = new_node(tree, layer, 'blur_vector', 'ShaderNodeGroup', 'Blur Vector')
+        blur_vector.node_tree = get_node_tree_lib(lib.BLUR_VECTOR)
+        blur_vector.inputs[0].default_value = layer.blur_vector_factor / 100.0
+    else:
+        remove_node(tree, layer, 'blur_vector')
+
+    rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
+
+def update_layer_blur_vector_factor(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    layer = self
+    tree = get_tree(layer)
+
+    blur_vector = tree.nodes.get(layer.blur_vector)
+
+    if blur_vector:
+        blur_vector.inputs[0].default_value = layer.blur_vector_factor / 100.0
+
 class YLayer(bpy.types.PropertyGroup):
     name : StringProperty(default='', update=update_layer_name)
     enable : BoolProperty(
@@ -5073,6 +5102,17 @@ class YLayer(bpy.types.PropertyGroup):
             update=update_layer_transform,
             ) #, step=3)
 
+    enable_blur_vector : BoolProperty(
+            name = 'Enable Blur Vector',
+            description = "Enable blur vector",
+            default = False, update=update_layer_blur_vector)
+
+    blur_vector_factor : FloatProperty(
+            name = 'Blur Vector Factor', 
+            description = 'Mask Intensity Factor',
+            default=1.0, min=0.0, max=100.0,
+            update=update_layer_blur_vector_factor)
+
     # Sources
     source : StringProperty(default='')
     source_n : StringProperty(default='')
@@ -5107,6 +5147,7 @@ class YLayer(bpy.types.PropertyGroup):
     uv_map : StringProperty(default='')
     mapping : StringProperty(default='')
     texcoord : StringProperty(default='')
+    blur_vector : StringProperty(default='')
 
     #need_temp_uv_refresh : BoolProperty(default=False)
 
