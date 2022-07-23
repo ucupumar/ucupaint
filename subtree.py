@@ -1251,12 +1251,11 @@ def refresh_tangent_sign_vcol(obj, uv_name):
     # Flag for already processed mesh
     meshes_done = [obj.data]
 
-    if mat.users > 1:
-        for ob in get_scene_objects():
-            if ob.type != 'MESH' or ob == obj: continue
-            if mat.name in ob.data.materials and ob.data not in meshes_done:
-                other_v = actual_refresh_tangent_sign_vcol(ob, uv_name)
-                meshes_done.append(ob.data)
+    obs = get_all_objects_with_same_materials(mat)
+    for ob in obs:
+        if ob != obj and ob.data not in meshes_done:
+            other_v = actual_refresh_tangent_sign_vcol(ob, uv_name)
+            meshes_done.append(ob.data)
 
     return vcol
 
