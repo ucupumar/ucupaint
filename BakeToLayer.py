@@ -1687,9 +1687,11 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         if m1: 
             self.layer = yp.layers[int(m1.group(1))]
             self.mask = None
+            self.index = int(m1.group(1))
         elif m2: 
             self.layer = yp.layers[int(m2.group(1))]
             self.mask = self.layer.masks[int(m2.group(2))]
+            self.index = int(m2.group(2))
         else: 
             return self.execute(context)
 
@@ -1945,10 +1947,11 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             # Set newly created mask active
             mask.active_edit = True
 
-            rearrange_layer_nodes(self.layer)
-            reconnect_layer_nodes(self.layer)
-
-            #active_id = yp.active_layer_index
+            # Reorder index
+            self.layer.masks.move(len(self.layer.masks)-1, self.index+1)
+            layer_tree = get_tree(self.layer)
+            check_mask_mix_nodes(self.layer, layer_tree)
+            check_mask_source_tree(self.layer) #, bump_ch)
 
             if segment:
                 ImageAtlas.set_segment_mapping(mask, segment, image)
@@ -1958,6 +1961,9 @@ class YDuplicateLayerToImage(bpy.types.Operator):
 
             # Refresh Neighbor UV resolution
             set_uv_neighbor_resolution(mask)
+
+            rearrange_layer_nodes(self.layer)
+            reconnect_layer_nodes(self.layer)
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)
