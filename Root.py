@@ -443,6 +443,116 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YRenameUVMaterial(bpy.types.Operator):
+    bl_idname = "material.y_rename_uv_using_the_same_material"
+    bl_label = "Rename UV that using same Material"
+    bl_description = "Rename UV on objects that used the same material"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    uv_map : StringProperty(
+            name='Target UV Map', 
+            description="Target UV Map that will be renamed", 
+            default='')
+
+    uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
+    new_uv_name : StringProperty(
+            name='New UV Name', 
+            description="New name of for the UV", 
+            default='UVMap')
+
+    @classmethod
+    def poll(cls, context):
+        return context.object
+
+    def invoke(self, context, event):
+        obj = context.object
+
+        # Always set new uv to false to avoid unwanted new uv
+        self.new_uv_name = get_unique_name(self.new_uv_name, get_uv_layers(obj))
+
+        node = get_active_ypaint_node()
+        if node: yp = node.node_tree.yp
+        else: yp = None
+
+        # UV Map collections update
+        self.uv_map = get_default_uv_name(obj, yp)
+
+        self.uv_map_coll.clear()
+        for uv in get_uv_layers(obj):
+            if not uv.name.startswith(TEMP_UV):
+                self.uv_map_coll.add().name = uv.name
+
+        return context.window_manager.invoke_props_dialog(self, width=400)
+
+    def check(self, context):
+        return True
+
+    def draw(self, context):
+        self.layout.prop_search(self, "uv_map", self, "uv_map_coll", icon='GROUP_UVS')
+        self.layout.prop(self, "new_uv_name")
+
+    def execute(self, context):
+        if self.new_uv_name == '' or self.uv_map == '':
+            self.report({'ERROR'}, "Name cannot be empty!")
+            return {'CANCELLED'}
+
+        obj = context.object
+        mat = get_active_material()
+
+        # Check all uv names available on all objects
+        uvls = []
+        for obj in bpy.data.objects:
+            if obj.type == 'MESH' and any([m for m in obj.data.materials if mat == m]):
+                for uvl in get_uv_layers(obj):
+                    if uvl not in uvls:
+                        uvls.append(uvl)
+
+        new_uv_name = get_unique_name(self.new_uv_name, uvls)
+
+        for obj in bpy.data.objects:
+            if obj.type == 'MESH' and any([m for m in obj.data.materials if mat == m]):
+                uv_layers = get_uv_layers(obj)
+                new_uvl = uv_layers.get(new_uv_name)
+                if not new_uvl:
+                    uvl = uv_layers.get(self.uv_map)
+                    if not uvl:
+                        uvl = uv_layers.new(name=new_uv_name)
+                    else:
+                        uvl.name = new_uv_name
+
+        # Dealing with yp
+        node = get_active_ypaint_node()
+        if node: yp = node.node_tree.yp
+        else: yp = None
+
+        if yp:
+            # Check baked images uv
+            if yp.baked_uv_name == self.uv_map:
+                yp.baked_uv_name = new_uv_name
+
+            # Check baked normal channel
+            for ch in yp.channels:
+                baked_normal = node.node_tree.nodes.get(ch.baked_normal)
+                if baked_normal and baked_normal.uv_map == self.uv_map:
+                    baked_normal.uv_map = new_uv_name
+
+            # Check layer and masks uv
+            for layer in yp.layers:
+                if layer.uv_name == self.uv_map:
+                    layer.uv_name = new_uv_name
+
+                for mask in layer.masks:
+                    if mask.uv_name == self.uv_map:
+                        mask.uv_name = new_uv_name
+
+            # Check height channel uv
+            height_ch = get_root_height_channel(yp)
+            if height_ch and height_ch.main_uv == self.uv_map:
+                height_ch.main_uv = new_uv_name
+
+        return {'FINISHED'}
+
 class YQuickYPaintNodeSetup(bpy.types.Operator):
     bl_idname = "node.y_quick_ypaint_node_setup"
     bl_label = "Quick " + get_addon_title() + " Node Setup"
@@ -3402,6 +3512,7 @@ def ypaint_force_update_on_anim(scene):
 
 def register():
     bpy.utils.register_class(YSelectMaterialPolygons)
+    bpy.utils.register_class(YRenameUVMaterial)
     bpy.utils.register_class(YQuickYPaintNodeSetup)
     bpy.utils.register_class(YNewYPaintNode)
     bpy.utils.register_class(YPaintNodeInputCollItem)
@@ -3449,6 +3560,7 @@ def register():
 
 def unregister():
     bpy.utils.unregister_class(YSelectMaterialPolygons)
+    bpy.utils.unregister_class(YRenameUVMaterial)
     bpy.utils.unregister_class(YQuickYPaintNodeSetup)
     bpy.utils.unregister_class(YNewYPaintNode)
     bpy.utils.unregister_class(YPaintNodeInputCollItem)

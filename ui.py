@@ -4018,6 +4018,7 @@ class YMaterialSpecialMenu(bpy.types.Menu):
     def draw(self, context):
         col = self.layout.column()
         col.operator('material.y_select_all_material_polygons', icon='FACESEL')
+        col.operator('material.y_rename_uv_using_the_same_material', icon='GROUP_UVS')
 
 class YReplaceChannelOverrideMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_replace_channel_override_menu"
