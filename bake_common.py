@@ -84,6 +84,10 @@ def remember_before_bake(yp=None):
         book['ori_hide_objs'] = [o for o in scene.objects if o.hide]
         book['ori_scene_layers'] = [i for i in range(20) if scene.layers[i]]
 
+    # Remember image editor images
+    book['editor_images'] = [a.spaces[0].image for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']
+    book['editor_pins'] = [a.spaces[0].use_image_pin for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']
+
     # Remember world settings
     if is_greater_than_280() and scene.world:
         book['ori_distance'] = scene.world.light_settings.distance
@@ -369,6 +373,11 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
             else: o.hide_select = False
         for i in range(20):
             scene.layers[i] = i in book['ori_scene_layers']
+
+    # Recover image editors
+    for i, area in enumerate([a for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']):
+        area.spaces[0].image = book['editor_images'][i]
+        area.spaces[0].use_image_pin = book['editor_pins'][i]
 
     # Recover active object
 
