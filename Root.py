@@ -3482,10 +3482,10 @@ def ypaint_last_object_update(scene):
                 scene.yp.edit_image_editor_area_index = area_index
 
             # Trigger updating active index to update image
-            if yp: 
-                if yp.use_baked:
-                    yp.active_channel_index = yp.active_channel_index
-                else: yp.active_layer_index = yp.active_layer_index
+            #if yp: 
+            #    if yp.use_baked:
+            #        yp.active_channel_index = yp.active_channel_index
+            #    else: yp.active_layer_index = yp.active_layer_index
 
         # Out of edit mode
         if obj.mode != 'EDIT' and scene.yp.last_mode == 'EDIT':
@@ -3495,10 +3495,10 @@ def ypaint_last_object_update(scene):
             scene.yp.edit_image_editor_area_index = -1
 
             # Trigger updating active index to update image
-            if yp: 
-                if yp.use_baked:
-                    yp.active_channel_index = yp.active_channel_index
-                else: yp.active_layer_index = yp.active_layer_index
+            #if yp: 
+            #    if yp.use_baked:
+            #        yp.active_channel_index = yp.active_channel_index
+            #    else: yp.active_layer_index = yp.active_layer_index
 
         scene.yp.last_mode = obj.mode
 
