@@ -501,14 +501,16 @@ class YRenameUVMaterial(bpy.types.Operator):
         mat = get_active_material()
 
         # Check all uv names available on all objects
-        uvls = []
-        for obj in bpy.data.objects:
-            if obj.type == 'MESH' and any([m for m in obj.data.materials if mat == m]):
-                for uvl in get_uv_layers(obj):
-                    if uvl not in uvls:
-                        uvls.append(uvl)
+        #uvls = []
+        #for obj in bpy.data.objects:
+        #    if obj.type == 'MESH' and any([m for m in obj.data.materials if mat == m]):
+        #        for uvl in get_uv_layers(obj):
+        #            if uvl not in uvls:
+        #                uvls.append(uvl)
 
-        new_uv_name = get_unique_name(self.new_uv_name, uvls)
+        #new_uv_name = get_unique_name(self.new_uv_name, uvls)
+
+        new_uv_name = self.new_uv_name
 
         for obj in bpy.data.objects:
             if obj.type == 'MESH' and any([m for m in obj.data.materials if mat == m]):
