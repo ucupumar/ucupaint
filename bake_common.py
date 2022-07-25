@@ -376,7 +376,10 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
 
     # Recover image editors
     for i, area in enumerate([a for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']):
-        area.spaces[0].image = book['editor_images'][i]
+        # Some image can be deleted after baking process so use try except
+        try: area.spaces[0].image = book['editor_images'][i]
+        except: area.spaces[0].image = None
+
         area.spaces[0].use_image_pin = book['editor_pins'][i]
 
     # Recover active object
