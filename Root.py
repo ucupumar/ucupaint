@@ -2527,6 +2527,10 @@ def update_layer_index(self, context):
 
     update_image_editor_image(context, image)
 
+    #for area in context.screen.areas:
+    #    if area.type == 'IMAGE_EDITOR':
+    #        print(area.spaces[0].image)
+
 def update_channel_colorspace(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
@@ -3390,6 +3394,7 @@ class YPaintSceneProps(bpy.types.PropertyGroup):
     last_object : StringProperty(default='')
     last_mode : StringProperty(default='')
     ori_view_transform : StringProperty(default='')
+    edit_image_editor_area_index : IntProperty(default=-1)
 
 class YPaintObjectProps(bpy.types.PropertyGroup):
     ori_subsurf_render_levels : IntProperty(default=1)
@@ -3459,11 +3464,39 @@ def ypaint_last_object_update(scene):
 
     if obj.type == 'MESH' and scene.yp.last_object == obj.name and scene.yp.last_mode != obj.mode:
 
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp if node else None
+
         if obj.mode == 'TEXTURE_PAINT' or scene.yp.last_mode == 'TEXTURE_PAINT':
-            node = get_active_ypaint_node()
-            if node and len(node.node_tree.yp.layers) > 0 :
-                image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, node.node_tree.yp)
+            if yp and len(yp.layers) > 0 :
+                image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
                 refresh_temp_uv(obj, src_of_img)
+
+        # Into edit mode
+        if obj.mode == 'EDIT' and scene.yp.last_mode != 'EDIT':
+            # Remember the space
+            space, area_index = get_first_unpinned_image_editor_space(bpy.context, return_index=True)
+            if space and area_index != -1:
+                scene.yp.edit_image_editor_area_index = area_index
+
+            # Trigger updating active index to update image
+            if yp: 
+                if yp.use_baked:
+                    yp.active_channel_index = yp.active_channel_index
+                else: yp.active_layer_index = yp.active_layer_index
+
+        # Out of edit mode
+        if obj.mode != 'EDIT' and scene.yp.last_mode == 'EDIT':
+            space = get_edit_image_editor_space(bpy.context)
+            if space:
+                space.use_image_pin = False
+            scene.yp.edit_image_editor_area_index = -1
+
+            # Trigger updating active index to update image
+            if yp: 
+                if yp.use_baked:
+                    yp.active_channel_index = yp.active_channel_index
+                else: yp.active_layer_index = yp.active_layer_index
 
         scene.yp.last_mode = obj.mode
 

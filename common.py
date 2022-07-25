@@ -767,31 +767,50 @@ def copy_node_props(source, dest, extras = []):
         dest.outputs[i].default_value = outp.default_value 
 
 def update_image_editor_image(context, image):
-    for area in context.screen.areas:
+    obj = context.object
+    scene = context.scene
+
+    if obj.mode == 'EDIT':
+        space = get_edit_image_editor_space(context)
+        if space:
+            space.use_image_pin = True
+            space.image = image
+    else:
+        space = get_first_unpinned_image_editor_space(context)
+        if space: 
+            space.image = image
+            # Hack for Blender 2.8 which keep pinning image automatically
+            space.use_image_pin = False
+
+def get_edit_image_editor_space(context):
+    scene = context.scene
+    area_index = scene.yp.edit_image_editor_area_index
+    if area_index >= 0 and area_index < len(context.screen.areas):
+        area = context.screen.areas[area_index]
         if area.type == 'IMAGE_EDITOR':
-            # UV Editing screen has special pin, so it will always show correct image
-            if context.screen.name == 'UV Editing':
-                area.spaces[0].use_image_pin = True
-                area.spaces[0].image = image
+            return area.spaces[0]
+
+    return None
+
+def get_first_unpinned_image_editor_space(context, return_index=False):
+    space = None
+    index = -1
+    for i, area in enumerate(context.screen.areas):
+        if area.type == 'IMAGE_EDITOR':
+            if not area.spaces[0].use_image_pin:
+                space = area.spaces[0]
+                index = i
                 break
-            elif not area.spaces[0].use_image_pin: #and area.spaces[0].image != image:
-                area.spaces[0].image = image
-                # Hack for Blender 2.8 which keep pinning image automatically
-                area.spaces[0].use_image_pin = False
-                break
+
+    if return_index:
+        return space, index
+
+    return space
 
 def get_first_image_editor_image(context):
-    image = None
-    for area in context.screen.areas:
-        if area.type == 'IMAGE_EDITOR':
-            if context.screen.name == 'UV Editing':
-                image = area.spaces[0].image
-                break
-            elif not area.spaces[0].use_image_pin:
-                image = area.spaces[0].image
-                break
-
-    return image
+    space = get_first_unpinned_image_editor_space(context)
+    if space: return space.image
+    return None
 
 def update_tool_canvas_image(context, image):
     # HACK: Remember unpinned images to avoid all image editor images being updated
