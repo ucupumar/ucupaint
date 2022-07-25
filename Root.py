@@ -2459,8 +2459,7 @@ def update_active_yp_channel(self, context):
     tree = self.id_data
     yp = tree.yp
     ch = yp.channels[yp.active_channel_index]
-    
-    #if yp.preview_mode: yp.preview_mode = True
+
     if yp.preview_mode: update_preview_mode(yp, context)
     if yp.layer_preview_mode: update_layer_preview_mode(yp, context)
 
@@ -2517,37 +2516,16 @@ def update_layer_index(self, context):
 
     # Get active image
     image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
-    #print(image)
 
-    # Update image editor
-    #if ypui.disable_auto_temp_uv_update and mapping and is_transformed(mapping):
-    #    update_tool_canvas_image(context, None)
-    #    yp.need_temp_uv_refresh = True
-    #else: 
     update_tool_canvas_image(context, image)
-    #yp.need_temp_uv_refresh = False
 
     # Update active vertex color
     if vcol and get_active_vertex_color(obj) != vcol:
         set_active_vertex_color(obj, vcol)
 
-    #if obj.type == 'MESH':
-        # Update tangent sign if height channel and tangent sign hack is enabled
-        #if height_ch and yp.enable_tangent_sign_hacks:
-        #    for uv in yp.uvs:
-        #        refresh_tangent_sign_vcol(obj, uv.name)
-
     refresh_temp_uv(obj, src_of_img)
 
-    # Make sure halt update is kept off if error happens
-    #if yp.halt_update: 
-    #    yp.halt_update = False
-
-    #yp.need_temp_uv_refresh = False
-
     update_image_editor_image(context, image)
-
-    #print('INFO: Active layer is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def update_channel_colorspace(self, context):
     group_tree = self.id_data
@@ -3469,13 +3447,15 @@ def ypaint_last_object_update(scene):
         node = get_active_ypaint_node()
 
         # Refresh layer index to update editor image
-        if node and len(node.node_tree.yp.layers) > 0 :
-            #node.node_tree.yp.active_layer_index = node.node_tree.yp.active_layer_index
-            image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, node.node_tree.yp)
-            #print(image)
-            #if image:
-            update_image_editor_image(bpy.context, image)
-            scene.tool_settings.image_paint.canvas = image
+        if node:
+            yp = node.node_tree.yp
+            if yp.use_baked and len(yp.channels) > 0:
+                update_active_yp_channel(yp, bpy.context)
+
+            elif len(yp.layers) > 0 :
+                image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
+                update_image_editor_image(bpy.context, image)
+                scene.tool_settings.image_paint.canvas = image
 
     if obj.type == 'MESH' and scene.yp.last_object == obj.name and scene.yp.last_mode != obj.mode:
 
