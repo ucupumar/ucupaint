@@ -1952,6 +1952,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             layer_tree = get_tree(self.layer)
             check_mask_mix_nodes(self.layer, layer_tree)
             check_mask_source_tree(self.layer) #, bump_ch)
+            mask = self.layer.masks[self.index+1]
 
             if segment:
                 ImageAtlas.set_segment_mapping(mask, segment, image)
