@@ -465,53 +465,44 @@ class YBackToOriginalUV(bpy.types.Operator):
     def execute(self, context):
 
         obj = context.object
+        mat = get_active_material()
+        objs = get_all_objects_with_same_materials(mat, selected_only=True)
         layer = context.layer
         yp = layer.id_data.yp
         ypui = context.window_manager.ypui
 
-        active = None
-        image = None
+        # Get active image
+        image, uv_name, active, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
-        for mask in layer.masks:
-            if mask.type == 'IMAGE' and mask.active_edit:
-                source = get_mask_source(mask)
-                image = source.image
-                active = mask
-                #return {'FINISHED'}
-        
-        if not active and layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            image = source.image
-            active = layer
+        if not active: 
+            try:
+                active = yp.layers[yp.active_layer_index]
+            except Exception as e:
+                print(e)
+                return {'CANCELLED'}
 
-        if not active: return {'CANCELLED'}
+        for ob in objs:
+            uv_layers = get_uv_layers(ob)
 
-        if hasattr(obj.data, 'uv_textures'): # Blender 2.7 only
-            uv_layers = obj.data.uv_textures
-        else: uv_layers = obj.data.uv_layers
+            for uv in uv_layers:
+                if uv.name == active.uv_name:
 
-        #for i, uv in enumerate(uv_layers):
-        for uv in uv_layers:
-            if uv.name == active.uv_name:
+                    if uv_layers.active != uv_layers.get(active.uv_name):
+                        uv_layers.active = uv_layers.get(active.uv_name)
 
-                #if uv_layers.active_index != i:
-                #    uv_layers.active_index = i
-                if uv_layers.active != active:
-                    uv_layers.active = uv_layers.get(active.uv_name)
+                if uv.name == TEMP_UV:
+                    uv_layers.remove(uv)
 
-            if uv.name == TEMP_UV:
-                uv_layers.remove(uv)
+            # Update tangent sign if height channel and tangent sign hack is enabled
+            height_ch = get_root_height_channel(yp)
+            if height_ch and yp.enable_tangent_sign_hacks:
+                for uv in yp.uvs:
+                    refresh_tangent_sign_vcol(ob, uv.name)
 
         # Hide active image
         if image:
             update_image_editor_image(context, None)
             context.scene.tool_settings.image_paint.canvas = None
-
-        # Update tangent sign if height channel and tangent sign hack is enabled
-        height_ch = get_root_height_channel(yp)
-        if height_ch and yp.enable_tangent_sign_hacks:
-            for uv in yp.uvs:
-                refresh_tangent_sign_vcol(obj, uv.name)
 
         #yp.need_temp_uv_refresh = True
 

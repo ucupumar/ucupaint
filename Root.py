@@ -2525,13 +2525,13 @@ def update_layer_index(self, context):
     if vcol and get_active_vertex_color(obj) != vcol:
         set_active_vertex_color(obj, vcol)
 
-    refresh_temp_uv(obj, src_of_img)
+    mat = get_active_material()
+    objs = get_all_objects_with_same_materials(mat, selected_only=True)
+    for ob in objs:
+        refresh_temp_uv(ob, src_of_img)
+    #refresh_temp_uv(obj, src_of_img)
 
     update_image_editor_image(context, image)
-
-    #for area in context.screen.areas:
-    #    if area.type == 'IMAGE_EDITOR':
-    #        print(area.spaces[0].image)
 
 def update_channel_colorspace(self, context):
     group_tree = self.id_data
