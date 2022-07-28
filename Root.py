@@ -351,6 +351,11 @@ class YSelectMaterialPolygons(bpy.types.Operator):
             description="It will create one if other objects does not have it.\nIf empty, it will use whatever current active uv map for each objects", 
             default='')
 
+    set_canvas_to_empty : BoolProperty(
+            name='Set Image Editor to empty',
+            description="Set image editor & canvas image to empty, so it's easier to see",
+            default=True)
+
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     @classmethod
@@ -390,6 +395,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
             self.layout.prop(self, "new_uv_name")
         else:
             self.layout.prop_search(self, "uv_map", self, "uv_map_coll", icon='GROUP_UVS')
+        self.layout.prop(self, "set_canvas_to_empty")
 
     def execute(self, context):
         if not is_greater_than_280():
@@ -440,6 +446,10 @@ class YSelectMaterialPolygons(bpy.types.Operator):
                 else: p.select = False
 
         bpy.ops.object.mode_set(mode='EDIT')
+
+        if self.set_canvas_to_empty:
+            update_image_editor_image(context, None)
+            context.scene.tool_settings.image_paint.canvas = None
 
         return {'FINISHED'}
 
