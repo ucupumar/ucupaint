@@ -33,7 +33,7 @@ def remember_before_bake(yp=None):
         book['ori_tile_x'] = scene.render.tile_x
         book['ori_tile_y'] = scene.render.tile_y
     book['ori_use_selected_to_active'] = scene.render.bake.use_selected_to_active
-    if is_greater_than_280():
+    if hasattr(scene.render.bake, 'max_ray_distance'):
         book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
     book['ori_cage_extrusion'] = scene.render.bake.cage_extrusion
     book['ori_use_cage'] = scene.render.bake.use_cage
@@ -120,7 +120,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     #scene.render.bake.use_clear = True
     scene.render.bake.use_clear = False
     scene.render.bake.use_selected_to_active = use_selected_to_active
-    if is_greater_than_280():
+    if hasattr(scene.render.bake, 'max_ray_distance'):
         scene.render.bake.max_ray_distance = max_ray_distance
     scene.render.bake.cage_extrusion = cage_extrusion
     scene.render.bake.use_cage = False
@@ -279,7 +279,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
     if hasattr(scene.render.bake, 'target'):
         scene.render.bake.target = book['ori_bake_target']
     scene.render.bake.use_selected_to_active = book['ori_use_selected_to_active']
-    if is_greater_than_280():
+    if hasattr(scene.render.bake, 'max_ray_distance'):
         scene.render.bake.max_ray_distance = book['ori_max_ray_distance']
     scene.render.bake.cage_extrusion = book['ori_cage_extrusion']
     scene.render.bake.use_cage = book['ori_use_cage']

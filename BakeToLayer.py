@@ -575,7 +575,8 @@ class YBakeToLayer(bpy.types.Operator):
 
         if self.type.startswith('OTHER_OBJECT_'):
             col.label(text='Cage Extrusion:')
-            col.label(text='Max Ray Distance:')
+            if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
+                col.label(text='Max Ray Distance:')
         elif self.type == 'AO':
             col.label(text='AO Distance:')
             col.label(text='')
@@ -632,7 +633,8 @@ class YBakeToLayer(bpy.types.Operator):
 
         if self.type.startswith('OTHER_OBJECT_'):
             col.prop(self, 'cage_extrusion', text='')
-            col.prop(self, 'max_ray_distance', text='')
+            if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
+                col.prop(self, 'max_ray_distance', text='')
         elif self.type == 'AO':
             col.prop(self, 'ao_distance', text='')
             col.prop(self, 'only_local')
