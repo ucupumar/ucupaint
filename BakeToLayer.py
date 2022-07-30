@@ -767,7 +767,7 @@ class YBakeToLayer(bpy.types.Operator):
         # Get other objects for other object baking
         other_objs = []
         if self.type.startswith('OTHER_OBJECT_'):
-            other_objs = [o for o in context.selected_objects if o not in objs and mat not in o.data.materials]
+            other_objs = [o for o in context.selected_objects if o not in objs and mat.name not in o.data.materials]
 
             # Try to get other_objects from bake info
             if overwrite_img:
