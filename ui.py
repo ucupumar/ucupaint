@@ -2241,7 +2241,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                     break
 
             if mask.type == 'COLOR_ID':
-                if not vcols.get(COLOR_ID_VCOL_NAME):
+                if obj.type == 'MESH' and COLOR_ID_VCOL_NAME not in vcols:
                     missing_data = True
                     break
 
