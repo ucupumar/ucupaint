@@ -3006,7 +3006,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
 
         # Image icon
         #if len(all_masks) == 0 and len(all_overrides) == 0:
-        if len(selectable_masks) == 0 or len(selectable_overrides) == 0:
+        if len(selectable_masks) == 0 and len(selectable_overrides) == 0:
             row = master.row(align=True)
             row.active = is_hidden
             if image and image.yia.is_image_atlas: 
