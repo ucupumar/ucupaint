@@ -3022,9 +3022,9 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             elif layer.type == 'HEMI': 
                 row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('hemi'))
             elif layer.type == 'COLOR': 
-                #row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
-                icon_value = lib.custom_icons["color"].icon_id
-                row.prop(layer, 'name', text='', emboss=False, icon_value=icon_value)
+                row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
+                #icon_value = lib.custom_icons["color"].icon_id
+                #row.prop(layer, 'name', text='', emboss=False, icon_value=icon_value)
             elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
             else: 
