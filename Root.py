@@ -3480,12 +3480,14 @@ def ypaint_last_object_update(scene):
         yp = node.node_tree.yp if node else None
 
         if obj.mode == 'TEXTURE_PAINT' or scene.yp.last_mode == 'TEXTURE_PAINT':
+            scene.yp.last_mode = obj.mode
             if yp and len(yp.layers) > 0 :
                 image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
                 refresh_temp_uv(obj, src_of_img)
 
         # Into edit mode
         if obj.mode == 'EDIT' and scene.yp.last_mode != 'EDIT':
+            scene.yp.last_mode = obj.mode
             # Remember the space
             space, area_index = get_first_unpinned_image_editor_space(bpy.context, return_index=True)
             if space and area_index != -1:
@@ -3499,6 +3501,7 @@ def ypaint_last_object_update(scene):
 
         # Out of edit mode
         if obj.mode != 'EDIT' and scene.yp.last_mode == 'EDIT':
+            scene.yp.last_mode = obj.mode
             space = get_edit_image_editor_space(bpy.context)
             if space:
                 space.use_image_pin = False
@@ -3510,7 +3513,8 @@ def ypaint_last_object_update(scene):
             #        yp.active_channel_index = yp.active_channel_index
             #    else: yp.active_layer_index = yp.active_layer_index
 
-        scene.yp.last_mode = obj.mode
+        if scene.yp.last_mode != obj.mode:
+            scene.yp.last_mode = obj.mode
 
 @persistent
 def ypaint_force_update_on_anim(scene):
