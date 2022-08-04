@@ -2506,9 +2506,9 @@ def remove_temp_uv(obj):
     
     if uv_layers:
         for uv in uv_layers:
-            if uv.name == TEMP_UV:
+            if uv.name == TEMP_UV or uv.name.startswith(TEMP_UV):
                 uv_layers.remove(uv)
-                break
+                #break
 
 def refresh_temp_uv(obj, entity): 
 
