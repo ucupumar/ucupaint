@@ -322,7 +322,8 @@ class YBakeToLayer(bpy.types.Operator):
         self.samples = 1
 
         # Set channel to first one, just in case
-        self.channel_idx = str(0)
+        if len(yp.channels) > 0:
+            self.channel_idx = str(0)
 
         # Get height channel
         height_root_ch = get_root_height_channel(yp)
