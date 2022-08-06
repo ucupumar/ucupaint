@@ -787,6 +787,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         if self.image.is_float:
             self.is_float = True
+            self.file_format = 'OPEN_EXR'
             if self.file_format in {'PNG', 'JPEG2000'}:
                 self.color_depth = '16'
         else:
@@ -840,6 +841,10 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         # Unpack the file
         image.unpack()
         self.unpacked_path = bpy.path.abspath(image.filepath)
+
+        # HACK: Unpacked path sometimes has inconsistent backslash
+        folder, file = os.path.split(self.unpacked_path)
+        self.unpacked_path = os.path.join(folder, file)
 
     def remove_unpacked_image(self, context):
 
