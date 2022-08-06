@@ -1,4 +1,4 @@
-import bpy, time
+import bpy, time, os
 from .common import *
 from .node_connections import *
 from . import lib, Layer, ImageAtlas
@@ -715,6 +715,18 @@ def bake_to_vcol(mat, node, root_ch, extra_channel=None, extra_multiplier=1.0):
     # Recover original bsdf
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
+def get_valid_filepath(img, use_hdr):
+    if img.filepath != '':
+        prefix, ext = os.path.splitext(img.filepath)
+        if use_hdr and not img.is_float:
+            #if ext == '.png':
+            return prefix + '.exr'
+        elif not use_hdr and img.is_float:
+            #if ext == '.exr':
+            return prefix + '.png'
+
+    return img.filepath
+
 def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, aa_level=1):
 
     print('BAKE CHANNEL: Baking', root_ch.name + ' channel...')
@@ -784,7 +796,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         filepath = ''
     else:
         img_name = img.name
-        filepath = img.filepath
+        #filepath = img.filepath
+        filepath = get_valid_filepath(img, use_hdr)
 
     if not target_layer:
         # Set nodes
@@ -814,7 +827,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         # Check if image is available
         if baked.image:
             img_name = baked.image.name
-            filepath = baked.image.filepath
+            if root_ch.type == 'NORMAL':
+                filepath = baked.image.filepath
+            else: filepath = get_valid_filepath(baked.image, use_hdr)
             baked.image.name = '____TEMP'
             #if baked.image.users == 1:
             #    bpy.data.images.remove(baked.image)
@@ -863,11 +878,12 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         # Use hdr if not baking normal
         if root_ch.type != 'NORMAL' and use_hdr:
             img.use_generated_float = True
-            img.colorspace_settings.name = 'Linear'
+            #img.colorspace_settings.name = 'Linear'
 
         # Set colorspace to linear
-        if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL':
+        if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL' or (root_ch.type != 'NORMAL' and use_hdr):
             img.colorspace_settings.name = 'Linear'
+        else: img.colorspace_settings.name = 'sRGB'
 
     # Bake main image
     if (
@@ -916,6 +932,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 if baked_normal_overlay.image:
                     norm_img_name = baked_normal_overlay.image.name
                     filepath = baked_normal_overlay.image.filepath
+                    #filepath = get_valid_filepath(baked_normal_overlay.image, use_hdr)
                     baked_normal_overlay.image.name = '____NORM_TEMP'
                 else:
                     norm_img_name = tree.name + ' ' + root_ch.name + ' Overlay Only'
@@ -967,6 +984,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             if baked_disp.image:
                 disp_img_name = baked_disp.image.name
                 filepath = baked_disp.image.filepath
+                #filepath = get_valid_filepath(baked_disp.image, use_hdr)
                 baked_disp.image.name = '____DISP_TEMP'
             else:
                 disp_img_name = tree.name + ' ' + root_ch.name + ' Displacement'

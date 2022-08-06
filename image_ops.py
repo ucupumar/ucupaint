@@ -6,6 +6,32 @@ from bpy_extras.io_utils import ExportHelper
 from .common import *
 import time
 
+def save_float_image(image):
+    original_path = image.filepath
+
+    # Create temporary scene
+    tmpscene = bpy.data.scenes.new('Temp Scene')
+
+    # Set settings
+    settings = tmpscene.render.image_settings
+
+    # Check current extensions
+    for form, ext in format_extensions.items():
+        if image.filepath.endswith(ext):
+            settings.file_format = form
+            break
+    
+    if settings.file_format in {'OPEN_EXR', 'OPEN_EXR_MULTILAYER'}:
+        settings.exr_codec = 'ZIP'
+
+    #ori_colorspace = image.colorspace_settings.name
+    full_path = bpy.path.abspath(image.filepath)
+    image.save_render(full_path, scene=tmpscene)
+    image.source = 'FILE'
+
+    # Delete temporary scene
+    bpy.data.scenes.remove(tmpscene)
+
 def pack_float_image(image):
     original_path = image.filepath
 
@@ -196,13 +222,16 @@ def save_pack_all(yp, only_dirty = True):
 
             print('INFO:', image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         else:
-            try:
-                ori_colorspace = image.colorspace_settings.name
-                image.save()
-                image.colorspace_settings.name = ori_colorspace
-                print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-            except Exception as e:
-                print(e)
+            if image.is_float:
+                save_float_image(image)
+            else:
+                try:
+                    ori_colorspace = image.colorspace_settings.name
+                    image.save()
+                    image.colorspace_settings.name = ori_colorspace
+                    print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+                except Exception as e:
+                    print(e)
 
     # HACK: For some reason active float image will glitch after auto save
     # This is only happen if active object is on texture paint mode
@@ -333,7 +362,10 @@ class YSaveImage(bpy.types.Operator):
 
     def execute(self, context):
         ori_colorspace = context.image.colorspace_settings.name
-        context.image.save()
+        if context.image.is_float:
+            save_float_image(context.image)
+        else:
+            context.image.save()
         context.image.colorspace_settings.name = ori_colorspace
         return {'FINISHED'}
 
@@ -475,6 +507,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
         yp = tree.yp
 
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
+        settings = tmpscene.render.image_settings
 
         # Blender 2.80 has filmic as default color settings, change it to standard
         if is_greater_than_280():
@@ -503,14 +536,27 @@ class YSaveAllBakedImages(bpy.types.Operator):
                         images.append(baked_normal_overlay.image)
 
         for image in images:
+
+            settings.file_format = 'PNG'
+            if image.is_float:
+                settings.file_format = 'OPEN_EXR'
+                settings.exr_codec = 'ZIP'
+
             if image.filepath == '':
                 image_name = image.name
                 # Remove addon title from the file names
                 if image_name.startswith(get_addon_title() + ' '):
                     image_name = image_name.replace(get_addon_title() + ' ', '')
-                filename = image_name + '.png'
+                filename = image_name + format_extensions[settings.file_format]
             else:
                 filename = bpy.path.basename(image.filepath)
+
+                # Check current extensions
+                for form, ext in format_extensions.items():
+                    if filename.endswith(ext):
+                        settings.file_format = form
+                        break
+
             path = os.path.join(self.directory, filename)
 
             # Need to pack first to save the image
@@ -526,6 +572,8 @@ class YSaveAllBakedImages(bpy.types.Operator):
             ori_colorspace = image.colorspace_settings.name
             if not image.is_float:
                 image.colorspace_settings.name = 'sRGB'
+            
+            #settings.file_format = file_format
 
             # Check if image is packed
             unpack = False

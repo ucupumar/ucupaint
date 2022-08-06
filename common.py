@@ -3049,7 +3049,7 @@ def get_layer_channel_max_height(layer, ch, ch_idx=None):
                 max_height = abs(get_transition_bump_max_distance_with_crease(ch)) + base_distance
 
     else: 
-        max_height = base_distance
+        max_height = base_distance if base_distance != None else 0.0
 
     # Multiply by intensity value
     max_height *= ch.intensity_value
