@@ -195,7 +195,7 @@ def save_pack_all(yp, only_dirty = True):
             if baked_disp and baked_disp.image and baked_disp.image not in images:
                 images.append(baked_disp.image)
 
-            if is_overlay_normal_empty(yp):
+            if not is_overlay_normal_empty(yp):
                 baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                 if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
                     images.append(baked_normal_overlay.image)
