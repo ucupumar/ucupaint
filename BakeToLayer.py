@@ -797,7 +797,7 @@ class YBakeToLayer(bpy.types.Operator):
                 return {'CANCELLED'}
 
         # Remember things
-        book = remember_before_bake(yp)
+        book = remember_before_bake(yp, mat=mat)
 
         # FXAA doesn't work with hdr image
         # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
@@ -1583,7 +1583,7 @@ class YBakeToLayer(bpy.types.Operator):
                     bvi.index = vi
 
         # Recover bake settings
-        recover_bake_settings(book, yp)
+        recover_bake_settings(book, yp, mat=mat)
 
         # Remove temporary objects
         if temp_objs:

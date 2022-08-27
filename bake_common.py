@@ -11,7 +11,7 @@ problematic_modifiers = {
         'ARRAY',
         }
 
-def remember_before_bake(yp=None):
+def remember_before_bake(yp=None, mat=None):
     book = {}
     book['scene'] = scene = bpy.context.scene
     book['obj'] = obj = bpy.context.object
@@ -99,6 +99,10 @@ def remember_before_bake(yp=None):
     if yp:
         book['parallax_ch'] = get_root_parallax_channel(yp)
     else: book['parallax_ch'] = None
+
+    # Remember material props
+    if mat:
+        book['ori_bsdf'] = mat.yp.ori_bsdf
 
     return book
 
@@ -257,7 +261,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if book['parallax_ch']:
         book['parallax_ch'].enable_parallax = False
 
-def recover_bake_settings(book, yp=None, recover_active_uv=False):
+def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene = book['scene']
     obj = book['obj']
     uv_layers = get_uv_layers(obj)
@@ -399,6 +403,11 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False):
     if 'disabled_viewport_mods' in book:
         for mod in book['disabled_viewport_mods']:
             mod.show_viewport = True
+
+    if mat:
+        # Recover stored material original bsdf for preview
+        if 'ori_bsdf' in book:
+            mat.yp.ori_bsdf = book['ori_bsdf']
 
 def blur_image(image, alpha_aware=True, force_use_cpu=False, factor=1.0, samples=512):
     T = time.time()
