@@ -272,10 +272,13 @@ class YBakeToLayer(bpy.types.Operator):
             description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
             default=False)
 
-    force_use_cpu : BoolProperty(
-            name='Force Use CPU',
-            description='Force use CPU for baking (usually faster than using GPU)',
-            default=False)
+    bake_device : EnumProperty(
+            name='Bake Device',
+            description='Device to use for baking',
+            items = (('GPU', 'GPU Compute', ''),
+                     ('CPU', 'CPU', '')),
+            default='GPU'
+            )
 
     #source_object : PointerProperty(
     #        type=bpy.types.Object,
@@ -297,10 +300,6 @@ class YBakeToLayer(bpy.types.Operator):
             self.entity = context.entity
         else: self.entity = None
         #print(context.entity)
-
-        # Blender 2.79 has cpu bake on default because is likely that GPU rendering will cause error
-        if not is_greater_than_280():
-            self.force_use_cpu = True
 
         obj = self.obj = context.object
         scene = self.scene = context.scene
@@ -555,6 +554,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         col = row.column(align=False)
 
+
         if not self.overwrite_current:
 
             if len(self.overwrite_coll) > 0:
@@ -595,8 +595,11 @@ class YBakeToLayer(bpy.types.Operator):
         col.label(text='UV Map:')
         col.label(text='Samples:')
         col.label(text='Margin:')
+        col.separator()
+        col.label(text='Bake Device:')
+        col.separator()
         col.label(text='')
-        col.label(text='')
+        #col.label(text='')
         col.label(text='')
 
         #if not self.type.startswith('MULTIRES_'):
@@ -655,11 +658,12 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'margin', text='')
 
         col.separator()
+        col.prop(self, 'bake_device', text='')
+
+        col.separator()
         if self.type.startswith('OTHER_OBJECT_'):
             col.prop(self, 'ssaa')
         else: col.prop(self, 'fxaa')
-
-        col.prop(self, 'force_use_cpu')
 
         col.separator()
 
@@ -850,7 +854,7 @@ class YBakeToLayer(bpy.types.Operator):
             
             # Use 1 sample for baking height
             prepare_bake_settings(book, objs, yp, samples=1, margin=self.margin, 
-                    uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=self.force_use_cpu
+                    uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device
                     )
 
             # Bake height channel
@@ -961,7 +965,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type=bake_type, #disable_problematic_modifiers=True, 
-                force_use_cpu=self.force_use_cpu, hide_other_objs=hide_other_objs, 
+                bake_device=self.bake_device, hide_other_objs=hide_other_objs, 
                 bake_from_multires=self.type.startswith('MULTIRES_'), tile_x = tile_x, tile_y = tile_y, 
                 use_selected_to_active=self.type.startswith('OTHER_OBJECT_'),
                 max_ray_distance=self.max_ray_distance, cage_extrusion=self.cage_extrusion,
@@ -1257,7 +1261,7 @@ class YBakeToLayer(bpy.types.Operator):
                 bpy.ops.object.bake(type=bake_type)
             else: bpy.ops.object.bake()
 
-        if use_fxaa: fxaa_image(image, False, self.force_use_cpu)
+        if use_fxaa: fxaa_image(image, False, bake_device=self.bake_device)
 
         # Bake alpha if baking other objects normal
         #if self.type.startswith('OTHER_OBJECT_'):
@@ -1307,7 +1311,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Back to original size if using SSA
         if use_ssaa:
-            image, temp_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, alpha_aware=True, force_use_cpu=self.force_use_cpu)
+            image, temp_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, alpha_aware=True, bake_device=self.bake_device)
 
         #return {'FINISHED'}
 
@@ -1637,10 +1641,13 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, min=0, subtype='PIXEL')
 
-    force_use_cpu : BoolProperty(
-            name='Force Use CPU',
-            description='Force use CPU for baking (usually faster than using GPU)',
-            default=False)
+    bake_device : EnumProperty(
+            name='Bake Device',
+            description='Device to use for baking',
+            items = (('GPU', 'GPU Compute', ''),
+                     ('CPU', 'CPU', '')),
+            default='GPU'
+            )
 
     fxaa : BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked image (doesn't work with float images)",
@@ -1753,7 +1760,9 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         col.label(text='Height:')
         col.label(text='UV Map:')
         col.label(text='Margin:')
-        col.label(text='')
+        col.separator()
+        col.label(text='Bake Device:')
+        col.separator()
         col.label(text='')
         col.label(text='')
         col.label(text='')
@@ -1768,7 +1777,9 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'margin', text='')
 
-        col.prop(self, 'force_use_cpu')
+        col.separator()
+        col.prop(self, 'bake_device', text='')
+        col.separator()
         col.prop(self, 'fxaa')
         col.prop(self, 'use_image_atlas')
         if self.mask:
@@ -1871,7 +1882,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
                     m.show_render = False
 
         prepare_bake_settings(book, objs, yp, samples=samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=self.force_use_cpu
+                uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device
                 )
 
         #return {'FINISHED'}
@@ -1890,10 +1901,10 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         # Bake!
         bpy.ops.object.bake()
 
-        if use_fxaa: fxaa_image(image, False, self.force_use_cpu)
+        if use_fxaa: fxaa_image(image, False, bake_device=self.bake_device)
         if self.blur: 
             samples = 4096 if is_greater_than_300() else 128
-            blur_image(image, False, self.force_use_cpu, factor=self.blur_factor, samples=samples)
+            blur_image(image, False, bake_device=self.bake_device, factor=self.blur_factor, samples=samples)
 
         if self.mask:
             mask_name = image.name if not self.use_image_atlas else self.name

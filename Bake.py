@@ -303,7 +303,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         # Prepare bake settings
         book = remember_before_bake(yp)
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=True
+                uv_map=self.uv_map, bake_type='EMIT', bake_device='CPU'
                 )
 
         for layer in yp.layers:
@@ -436,7 +436,7 @@ class YTransferLayerUV(bpy.types.Operator):
         # Prepare bake settings
         book = remember_before_bake(yp)
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', force_use_cpu=True
+                uv_map=self.uv_map, bake_type='EMIT', bake_device='CPU'
                 )
 
         # Transfer UV
@@ -569,7 +569,7 @@ class YResizeImage(bpy.types.Operator):
 
         else:
             #scaled_img, new_segment = resize_image(image, self.width, self.height, 'Linear', self.samples, 0, segment)
-            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, force_use_cpu=True, yp=yp)
+            scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, bake_device='CPU', yp=yp)
 
             if new_segment:
                 entity.segment_name = new_segment.name
@@ -736,7 +736,7 @@ class YBakeChannelToVcol(bpy.types.Operator):
                     p.material_index = active_mat_id
 
         # Prepare bake settings
-        prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, force_use_cpu=True, bake_target='VERTEX_COLORS')
+        prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device='CPU', bake_target='VERTEX_COLORS')
 
         # Get extra channel
         extra_channel = None
@@ -799,10 +799,13 @@ class YBakeChannels(bpy.types.Operator):
             description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
             default=False)
 
-    force_use_cpu : BoolProperty(
-            name='Force Use CPU',
-            description='Force use CPU for baking (usually faster than using GPU)',
-            default=True)
+    bake_device : EnumProperty(
+            name='Bake Device',
+            description='Device to use for baking',
+            items = (('GPU', 'GPU Compute', ''),
+                     ('CPU', 'CPU', '')),
+            default='GPU'
+            )
 
     @classmethod
     def poll(cls, context):
@@ -865,9 +868,10 @@ class YBakeChannels(bpy.types.Operator):
         col.label(text='Margin:')
         col.label(text='AA Level:')
         col.separator()
+        col.label(text='Bake Device:')
+        col.separator()
         col.label(text='UV Map:')
         col.separator()
-        col.label(text='')
         col.label(text='')
         col.label(text='')
 
@@ -883,10 +887,11 @@ class YBakeChannels(bpy.types.Operator):
         col.prop(self, 'aa_level', text='')
         col.separator()
 
+        col.prop(self, 'bake_device', text='')
+        col.separator()
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.separator()
         col.prop(self, 'fxaa', text='Use FXAA')
-        col.prop(self, 'force_use_cpu')
         col.prop(self, 'force_bake_all_polygons')
 
     def execute(self, context):
@@ -1001,7 +1006,7 @@ class YBakeChannels(bpy.types.Operator):
         height = self.height * self.aa_level
 
         # Prepare bake settings
-        prepare_bake_settings(book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, force_use_cpu=self.force_use_cpu)
+        prepare_bake_settings(book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, bake_device=self.bake_device)
 
         # Bake channels
         for ch in yp.channels:
@@ -1019,19 +1024,19 @@ class YBakeChannels(bpy.types.Operator):
                 baked = tree.nodes.get(ch.baked)
                 if baked and baked.image:
                     resize_image(baked.image, self.width, self.height, 
-                            baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, force_use_cpu=self.force_use_cpu)
+                            baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
 
                 if ch.type == 'NORMAL':
 
                     baked_disp = tree.nodes.get(ch.baked_disp)
                     if baked_disp and baked_disp.image:
                         resize_image(baked_disp.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, force_use_cpu=self.force_use_cpu)
+                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
 
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
                         resize_image(baked_normal_overlay.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, force_use_cpu=self.force_use_cpu)
+                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
 
         # FXAA
         if self.fxaa:
@@ -1041,18 +1046,18 @@ class YBakeChannels(bpy.types.Operator):
 
                 baked = tree.nodes.get(ch.baked)
                 if baked and baked.image:
-                    fxaa_image(baked.image, ch.enable_alpha, self.force_use_cpu)
+                    fxaa_image(baked.image, ch.enable_alpha, bake_device=self.bake_device)
                     #return {'FINISHED'}
 
                 if ch.type == 'NORMAL':
 
                     baked_disp = tree.nodes.get(ch.baked_disp)
                     if baked_disp and baked_disp.image:
-                        fxaa_image(baked_disp.image, ch.enable_alpha, self.force_use_cpu)
+                        fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=self.bake_device)
 
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
-                        fxaa_image(baked_normal_overlay.image, ch.enable_alpha, self.force_use_cpu)
+                        fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
 
         # Set baked uv
         yp.baked_uv_name = self.uv_map
@@ -1426,7 +1431,7 @@ class YMergeLayer(bpy.types.Operator):
 
             book = remember_before_bake(yp)
             prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
-                    uv_map=layer.uv_name, bake_type='EMIT' #, force_use_cpu=self.force_use_cpu
+                    uv_map=layer.uv_name, bake_type='EMIT' 
                     )
 
             #yp.halt_update = True
@@ -1703,7 +1708,7 @@ class YMergeMask(bpy.types.Operator):
 
         book = remember_before_bake(yp)
         prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
-                uv_map=mask.uv_name, bake_type='EMIT' #, force_use_cpu=self.force_use_cpu
+                uv_map=mask.uv_name, bake_type='EMIT'
                 )
 
         # Get material output
