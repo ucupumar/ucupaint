@@ -107,7 +107,7 @@ def remember_before_bake(yp=None, mat=None):
     return book
 
 def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
-        disable_problematic_modifiers=False, force_use_cpu=False, hide_other_objs=True, bake_from_multires=False, 
+        disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         bake_target = 'IMAGE_TEXTURES',
         source_objs=[], bake_device='GPU'):
@@ -151,10 +151,6 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     else: 
         scene.render.use_bake_multires = False
         scene.cycles.bake_type = bake_type
-
-    # Use CPU if being forced
-    #if force_use_cpu:
-    #    scene.cycles.device = 'CPU'
 
     # Old blender will always use CPU
     if not is_greater_than_280():
@@ -415,7 +411,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         if 'ori_bsdf' in book:
             mat.yp.ori_bsdf = book['ori_bsdf']
 
-def blur_image(image, alpha_aware=True, force_use_cpu=False, factor=1.0, samples=512, bake_device='GPU'):
+def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GPU'):
     T = time.time()
     print('FXAA: Doing FXAA pass on', image.name + '...')
     book = remember_before_bake()
@@ -539,7 +535,7 @@ def blur_image(image, alpha_aware=True, force_use_cpu=False, factor=1.0, samples
 
     return image
 
-def fxaa_image(image, alpha_aware=True, force_use_cpu=False, bake_device='GPU'):
+def fxaa_image(image, alpha_aware=True, bake_device='GPU'):
     T = time.time()
     print('FXAA: Doing FXAA pass on', image.name + '...')
     book = remember_before_bake()
@@ -1146,7 +1142,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         return True
 
-def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, force_use_cpu=False, bake_device='GPU'):
+def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake_device='GPU'):
 
     m1 = re.match(r'yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
@@ -1292,7 +1288,7 @@ def join_objects(objs):
 
     return bpy.context.object
 
-def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None, alpha_aware=True, force_use_cpu=False, yp=None, bake_device='GPU'):
+def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='GPU'):
 
     T = time.time()
     image_name = image.name
