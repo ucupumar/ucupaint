@@ -868,8 +868,9 @@ class YBakeChannels(bpy.types.Operator):
         col.label(text='Margin:')
         col.label(text='AA Level:')
         col.separator()
-        col.label(text='Bake Device:')
-        col.separator()
+        if is_greater_than_280():
+            col.label(text='Bake Device:')
+            col.separator()
         col.label(text='UV Map:')
         col.separator()
         col.label(text='')
@@ -887,8 +888,9 @@ class YBakeChannels(bpy.types.Operator):
         col.prop(self, 'aa_level', text='')
         col.separator()
 
-        col.prop(self, 'bake_device', text='')
-        col.separator()
+        if is_greater_than_280():
+            col.prop(self, 'bake_device', text='')
+            col.separator()
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.separator()
         col.prop(self, 'fxaa', text='Use FXAA')

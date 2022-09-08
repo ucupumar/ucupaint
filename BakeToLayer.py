@@ -611,8 +611,9 @@ class YBakeToLayer(bpy.types.Operator):
             col.label(text='Straight UV Map:')
         col.label(text='Samples:')
         col.label(text='Margin:')
-        col.separator()
-        col.label(text='Bake Device:')
+        if is_greater_than_280():
+            col.separator()
+            col.label(text='Bake Device:')
         col.separator()
         col.label(text='')
         #col.label(text='')
@@ -675,8 +676,9 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'samples', text='')
         col.prop(self, 'margin', text='')
 
-        col.separator()
-        col.prop(self, 'bake_device', text='')
+        if is_greater_than_280():
+            col.separator()
+            col.prop(self, 'bake_device', text='')
 
         col.separator()
         if self.type.startswith('OTHER_OBJECT_'):
@@ -1812,8 +1814,9 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         col.label(text='Height:')
         col.label(text='UV Map:')
         col.label(text='Margin:')
-        col.separator()
-        col.label(text='Bake Device:')
+        if is_greater_than_280():
+            col.separator()
+            col.label(text='Bake Device:')
         col.separator()
         col.label(text='')
         col.label(text='')
@@ -1829,8 +1832,9 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'margin', text='')
 
-        col.separator()
-        col.prop(self, 'bake_device', text='')
+        if is_greater_than_280():
+            col.separator()
+            col.prop(self, 'bake_device', text='')
         col.separator()
         col.prop(self, 'fxaa')
         col.prop(self, 'use_image_atlas')
