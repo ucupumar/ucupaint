@@ -2210,24 +2210,34 @@ def update_channel_name(self, context):
     if yp.halt_reconnect or yp.halt_update:
         return
 
-    group_tree.inputs[self.io_index].name = self.name
-    group_tree.outputs[self.io_index].name = self.name
+    input_index = self.io_index
+    output_index = self.io_index
+
+    # Check if there's normal channel above current channel because it has extra output
+    for ch in yp.channels:
+        if ch.type == 'NORMAL' and ch != self:
+            output_index += 1
+        if ch == self:
+            break
+
+    group_tree.inputs[input_index].name = self.name
+    group_tree.outputs[output_index].name = self.name
 
     shift = 1
     #if self.type == 'RGB' and self.enable_alpha:
     if self.enable_alpha:
-        group_tree.inputs[self.io_index+shift].name = self.name + io_suffix['ALPHA']
-        group_tree.outputs[self.io_index+shift].name = self.name + io_suffix['ALPHA']
+        group_tree.inputs[input_index+shift].name = self.name + io_suffix['ALPHA']
+        group_tree.outputs[output_index+shift].name = self.name + io_suffix['ALPHA']
         shift += 1
 
     if self.type == 'NORMAL':
-        group_tree.inputs[self.io_index+shift].name = self.name + io_suffix['HEIGHT']
-        group_tree.outputs[self.io_index+shift].name = self.name + io_suffix['HEIGHT']
+        group_tree.inputs[input_index+shift].name = self.name + io_suffix['HEIGHT']
+        group_tree.outputs[output_index+shift].name = self.name + io_suffix['HEIGHT']
 
         shift += 1
 
-        #group_tree.inputs[self.io_index+shift].name = self.name + io_suffix['MAX_HEIGHT']
-        group_tree.outputs[self.io_index+shift].name = self.name + io_suffix['MAX_HEIGHT']
+        group_tree.outputs[output_index+shift].name = self.name + io_suffix['MAX_HEIGHT']
+
 
     #check_all_channel_ios(yp)
 
@@ -2450,7 +2460,8 @@ def update_preview_mode(self, context):
         from_socket = [link.from_socket for link in preview.inputs[0].links]
         if not from_socket or (from_socket and not from_socket[0].name.startswith(channel.name)):
             # Connect first output
-            tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
+            #tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
+            tree.links.new(group_node.outputs[channel.name], preview.inputs[0])
         else:
             from_socket = from_socket[0]
             outs = [o for o in group_node.outputs if o.name.startswith(channel.name)]
