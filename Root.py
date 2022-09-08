@@ -2313,12 +2313,29 @@ def get_preview(mat, output=None, advanced=False):
 def set_srgb_view_transform():
     scene = bpy.context.scene
 
+    ypup = get_user_preferences()
+
     # Set view transform to srgb
-    if scene.yp.ori_view_transform == '':
+    if scene.yp.ori_view_transform == '' and ypup.make_preview_mode_srgb:
         scene.yp.ori_view_transform = scene.view_settings.view_transform
         if is_greater_than_280():
             scene.view_settings.view_transform = 'Standard'
         else: scene.view_settings.view_transform = 'Default'
+
+        scene.yp.ori_display_device = scene.display_settings.display_device
+        scene.display_settings.display_device = 'sRGB'
+
+        scene.yp.ori_look = scene.view_settings.look
+        scene.view_settings.look = 'None'
+
+        scene.yp.ori_exposure = scene.view_settings.exposure
+        scene.view_settings.exposure = 0.0
+
+        scene.yp.ori_gamma = scene.view_settings.gamma
+        scene.view_settings.gamma = 1.0
+
+        scene.yp.ori_use_curve_mapping = scene.view_settings.use_curve_mapping
+        scene.view_settings.use_curve_mapping = False
 
 def remove_preview(mat, advanced=False):
     nodes = mat.node_tree.nodes
@@ -2338,6 +2355,12 @@ def remove_preview(mat, advanced=False):
         if scene.yp.ori_view_transform != '':
             scene.view_settings.view_transform = scene.yp.ori_view_transform
             scene.yp.ori_view_transform = ''
+
+            scene.display_settings.display_device = scene.yp.ori_display_device
+            scene.view_settings.look = scene.yp.ori_look
+            scene.view_settings.exposure = scene.yp.ori_exposure
+            scene.view_settings.gamma = scene.yp.ori_gamma
+            scene.view_settings.use_curve_mapping = scene.yp.ori_use_curve_mapping
 
 #def update_merge_mask_mode(self, context):
 #    if not self.layer_preview_mode:
@@ -3416,7 +3439,14 @@ class YPaintWMProps(bpy.types.PropertyGroup):
 class YPaintSceneProps(bpy.types.PropertyGroup):
     last_object : StringProperty(default='')
     last_mode : StringProperty(default='')
+
+    ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')
+    ori_exposure : FloatProperty(default=0.0)
+    ori_gamma : FloatProperty(default=1.0)
+    ori_look : StringProperty(default='')
+    ori_use_curve_mapping : BoolProperty(default=False)
+
     edit_image_editor_area_index : IntProperty(default=-1)
 
 class YPaintObjectProps(bpy.types.PropertyGroup):

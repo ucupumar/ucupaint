@@ -57,6 +57,11 @@ class YPaintPreferences(AddonPreferences):
             description = 'Use image preview or thumbnail on the layers list',
             default = False)
 
+    make_preview_mode_srgb : BoolProperty(
+            name = 'Make Preview Mode use sRGB',
+            description = 'Make sure preview mode use sRGB color',
+            default = True)
+
     parallax_without_baked : BoolProperty(
             name = 'Parallax Without Use Baked',
             description = 'Make it possible to use parallax without using baked textures (currently VERY SLOW)',
@@ -68,6 +73,7 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
         self.layout.prop(self, 'unique_image_atlas_per_yp')
+        self.layout.prop(self, 'make_preview_mode_srgb')
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
