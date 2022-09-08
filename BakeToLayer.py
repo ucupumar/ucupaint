@@ -143,6 +143,8 @@ class YBakeToLayer(bpy.types.Operator):
     uv_map : StringProperty(default='')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
+    uv_map_1 : StringProperty(default='')
+
     # For choosing overwrite entity from list
     overwrite_choice : BoolProperty(
             name='Overwrite available layer',
@@ -400,6 +402,15 @@ class YBakeToLayer(bpy.types.Operator):
             self.subsurf_influence = False
             self.use_baked_disp = False
 
+        elif self.type == 'FLOW':
+            self.blend_type = 'MIX'
+
+            # Check flow channel if available
+            for i, c in enumerate(yp.channels):
+                if 'flow' in c.name.lower():
+                    self.channel_idx = str(i)
+                    break
+
         suffix = bake_type_suffixes[self.type]
 
         #if self.use_image_atlas:
@@ -524,6 +535,9 @@ class YBakeToLayer(bpy.types.Operator):
         if len(self.uv_map_coll) > 0 and not overwrite_entity: #len(self.overwrite_coll) == 0:
             self.uv_map = self.uv_map_coll[0].name
 
+        if len(self.uv_map_coll) > 1:
+            self.uv_map_1 = self.uv_map_coll[1].name
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
@@ -593,6 +607,8 @@ class YBakeToLayer(bpy.types.Operator):
         col.label(text='Width:')
         col.label(text='Height:')
         col.label(text='UV Map:')
+        if self.type == 'FLOW':
+            col.label(text='Straight UV Map:')
         col.label(text='Samples:')
         col.label(text='Margin:')
         col.separator()
@@ -654,6 +670,8 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'width', text='')
         col.prop(self, 'height', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        if self.type == 'FLOW':
+            col.prop_search(self, "uv_map_1", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
         col.prop(self, 'margin', text='')
 
@@ -725,6 +743,10 @@ class YBakeToLayer(bpy.types.Operator):
 
         if (hasattr(context.object, 'hide_viewport') and context.object.hide_viewport) or context.object.hide_render:
             self.report({'ERROR'}, "Please unhide render and viewport of active object!")
+            return {'CANCELLED'}
+
+        if self.type == 'FLOW' and (self.uv_map == '' or self.uv_map_1 == '' or self.uv_map == self.uv_map_1):
+            self.report({'ERROR'}, "UVMap and Straight UVMap are cannot be the same or empty!")
             return {'CANCELLED'}
 
         # Get all objects using material
@@ -994,8 +1016,7 @@ class YBakeToLayer(bpy.types.Operator):
             # Set vertex color for cavity
             for obj in objs:
 
-                if is_greater_than_280(): context.view_layer.objects.active = obj
-                else: context.scene.objects.active = obj
+                set_active_object(obj)
 
                 if self.subsurf_influence or self.use_baked_disp:
                     need_to_be_applied_modifiers = []
@@ -1026,6 +1047,17 @@ class YBakeToLayer(bpy.types.Operator):
                 bpy.ops.paint.vertex_color_dirt()
 
             print('BAKE TO LAYER: Applying subsurf/multires is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+
+        # Setup for flow
+        if self.type == 'FLOW':
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+            for obj in objs:
+                uv_layers = get_uv_layers(obj)
+                main_uv = uv_layers.get(self.uv_map)
+                straight_uv = uv_layers.get(self.uv_map_1)
+
+                if main_uv and straight_uv:
+                    flow_vcol = get_flow_vcol(obj, main_uv, straight_uv)
 
         # Flip normals setup
         if self.flip_normals:
@@ -1210,6 +1242,7 @@ class YBakeToLayer(bpy.types.Operator):
             else:
                 mat.node_tree.links.new(vector_math.outputs[1], bsdf.inputs[0])
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
         elif self.type == 'SELECTED_VERTICES':
             if is_greater_than_280():
                 src = mat.node_tree.nodes.new('ShaderNodeVertexColor')
@@ -1219,6 +1252,15 @@ class YBakeToLayer(bpy.types.Operator):
                 src.attribute_name = TEMP_VCOL
             mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
+        elif self.type == 'FLOW':
+            # Set vcol
+            src = mat.node_tree.nodes.new('ShaderNodeAttribute')
+            src.attribute_name = FLOW_VCOL
+
+            mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
+            mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
+
         else:
             src = None
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
@@ -1233,6 +1275,8 @@ class YBakeToLayer(bpy.types.Operator):
                 image.generated_color = (0.7354, 0.7354, 1.0, 1.0) 
             else:
                 image.generated_color = (0.5, 0.5, 1.0, 1.0) 
+        elif self.type == 'FLOW':
+            image.generated_color = (0.5, 0.5, 0.0, 1.0) 
         else:
         #elif self.type == 'MULTIRES_DISPLACEMENT':
             if self.hdr:
@@ -1585,6 +1629,14 @@ class YBakeToLayer(bpy.types.Operator):
                 for vi in v_indices:
                     bvi = bso.selected_vertex_indices.add()
                     bvi.index = vi
+
+        # Remove flow vcols
+        if self.type == 'FLOW':
+            for obj in objs:
+                vcols = get_vertex_colors(obj)
+                flow_vcol = vcols.get(FLOW_VCOL)
+                if flow_vcol:
+                    vcols.remove(flow_vcol)
 
         # Recover bake settings
         recover_bake_settings(book, yp, mat=mat)

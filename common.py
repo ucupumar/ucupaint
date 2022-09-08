@@ -42,6 +42,8 @@ EMISSION_VIEWER = 'Emission Viewer'
 ITERATE_GROUP = '~yP Iterate Parallax Group'
 PARALLAX_DIVIDER = 4
 
+FLOW_VCOL = '__flow_'
+
 COLOR_ID_VCOL_NAME = '__yp_color_id'
 
 BUMP_MULTIPLY_TWEAK = 5
@@ -193,6 +195,8 @@ bake_type_items = (
         ('OTHER_OBJECT_EMISSION', 'Other Objects Emission', ''),
 
         ('SELECTED_VERTICES', 'Selected Vertices/Edges/Faces', ''),
+
+        ('FLOW', 'Flow Map based on straight UVMap', ''),
         )
 
 channel_override_labels = {
@@ -226,7 +230,9 @@ bake_type_labels = {
         'OTHER_OBJECT_NORMAL': 'Other Objects Normal',
         'OTHER_OBJECT_EMISSION': 'Other Objects Emission',
 
-        'SELECTED_VERTICES': 'Selected Vertices'
+        'SELECTED_VERTICES': 'Selected Vertices',
+
+        'FLOW': 'Flow'
         }
 
 bake_type_suffixes = {
@@ -245,7 +251,9 @@ bake_type_suffixes = {
         'OTHER_OBJECT_NORMAL': 'OO Normal',
         'OTHER_OBJECT_EMISSION': 'OO Emission',
 
-        'SELECTED_VERTICES': 'Selected Vertices'
+        'SELECTED_VERTICES': 'Selected Vertices',
+
+        'FLOW': 'Flow'
         }
 
 texcoord_lists = [
@@ -3861,6 +3869,73 @@ def get_write_height(ch):
 
     # BUMP_NORMAL_MAP currently always write height
     #return True 
+
+def get_flow_vcol(obj, uv0, uv1):
+
+    vcols = get_vertex_colors(obj)
+    vcol = vcols.get(FLOW_VCOL)
+    if not vcol:
+        vcol = new_vertex_color(obj, FLOW_VCOL, data_type='BYTE_COLOR', domain='CORNER')
+
+    # Orientation of straight uv
+    main_vec = Vector((0, -1))
+
+    # To store each variation of corners for each vertices
+    corner_vecs = []
+    corner_locs = []
+    
+    for i in range(len(obj.data.vertices)):
+        corner_locs.append([])
+        corner_vecs.append([])
+        
+    # Store unique corners based on uv0 locations
+    for i in range(len(obj.data.vertices)):
+        
+        locs0 = [uv0.data[li].uv for li, l in enumerate(obj.data.loops) if l.vertex_index == i]
+        
+        for loc in locs0:
+            if loc not in corner_locs[i]:
+                corner_locs[i].append(loc)
+                corner_vecs[i].append(Vector((0, 0)))
+    
+    # Add uv edge vector to each unique corner
+    for poly in obj.data.polygons:
+        for ek in poly.edge_keys:
+            # Get loop index
+            li0 = [li for li in poly.loop_indices if obj.data.loops[li].vertex_index == ek[0]][0]
+            li1 = [li for li in poly.loop_indices if obj.data.loops[li].vertex_index == ek[1]][0]
+            vec1 = uv1.data[li0].uv - uv1.data[li1].uv
+            vec1.normalize()
+            dot = main_vec.dot(vec1)
+            
+            vec0 = uv0.data[li0].uv - uv0.data[li1].uv
+            
+            # Add vector to stored corner data
+            for i, cl in enumerate(corner_locs[ek[0]]):
+                if cl == uv0.data[li0].uv:
+                    corner_vecs[ek[0]][i] += vec0 * dot
+            for i, cl in enumerate(corner_locs[ek[1]]):
+                if cl == uv0.data[li1].uv:
+                    corner_vecs[ek[1]][i] += vec0 * dot
+        
+    # Normalize the vector and store it to vertex color
+    for i, cl in enumerate(corner_locs):
+        
+        for j, cll in enumerate(cl):
+            cv = corner_vecs[i][j]
+            cv.normalize()
+            cv /= 2.0
+            cv += Vector((0.5, 0.5))
+        
+            lis = [li for li, l in enumerate(obj.data.loops) if uv0.data[li].uv == cll]
+            
+            for li in lis:
+                if is_greater_than_280():
+                    vcol.data[li].color = (cv.x, cv.y, 0.0, 1.0)
+                else:
+                    vcol.data[li].color = (cv.x, cv.y, 0.0)
+
+    return vcol
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

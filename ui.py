@@ -3356,6 +3356,9 @@ class YNewLayerMenu(bpy.types.Menu):
         return get_active_ypaint_node()
 
     def draw(self, context):
+
+        ypup = get_user_preferences()
+
         row = self.layout.row()
         col = row.column()
         #col = self.layout.column(align=True)
@@ -3510,6 +3513,14 @@ class YNewLayerMenu(bpy.types.Menu):
         c.type = 'SELECTED_VERTICES'
         c.target_type = 'LAYER'
         c.overwrite_current = False
+
+        if ypup.show_experimental:
+            col.separator()
+
+            c = col.operator("node.y_bake_to_layer", text='Flow')
+            c.type = 'FLOW'
+            c.target_type = 'LAYER'
+            c.overwrite_current = False
 
 class YBakedImageMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_baked_image_menu"
