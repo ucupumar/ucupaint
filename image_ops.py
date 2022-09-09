@@ -203,6 +203,12 @@ def save_pack_all(yp, only_dirty = True):
     packed_float_images = []
 
     #print()
+    # Temporary scene for blender 3.30 hack
+    tmpscene = None
+    if is_greater_than_330():
+        tmpscene = bpy.data.scenes.new('Temp Save Scene')
+        tmpscene.view_settings.view_transform = 'Standard'
+        tmpscene.render.image_settings.file_format = 'PNG'
 
     # Save/pack images
     for image in images:
@@ -228,18 +234,17 @@ def save_pack_all(yp, only_dirty = True):
                 # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
                 if is_greater_than_330() and image.colorspace_settings.name == 'Linear':
 
-                    # BLENDER BUG: Blender 3.3 has random bug that prevent this technique
+                    # INFO: First technique which uses save render, currently doesn't work for some reason
                     if False:
 
-                        tmpscene = bpy.data.scenes.new('Temp Save Scene')
-                        tmpscene.view_settings.view_transform = 'Standard'
-                        tmpscene.render.image_settings.file_format = 'PNG'
-
+                        # Get image path
                         path = bpy.path.abspath(image.filepath)
 
+                        # Pack image first
                         image.pack()
                         image.colorspace_settings.name = 'sRGB'
-
+                        
+                        # Then unpack
                         default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
 
                         # Save image
@@ -255,10 +260,7 @@ def save_pack_all(yp, only_dirty = True):
                         # Bring back linear
                         image.colorspace_settings.name = 'Linear'
 
-                        # Delete temporary scene
-                        bpy.data.scenes.remove(tmpscene)
-
-                    # INFO: This technique is darn slow, but at least it's producing right result
+                    # INFO: Second technique is darn slow, but at least it's producing right result
                     else:
 
                         temp_pxs = list(image.pixels)
@@ -289,6 +291,9 @@ def save_pack_all(yp, only_dirty = True):
                     except Exception as e:
                         print(e)
 
+    # Delete temporary scene
+    if tmpscene:
+        bpy.data.scenes.remove(tmpscene)
 
     # HACK: For some reason active float image will glitch after auto save
     # This is only happen if active object is on texture paint mode
