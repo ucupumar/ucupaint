@@ -225,13 +225,70 @@ def save_pack_all(yp, only_dirty = True):
             if image.is_float:
                 save_float_image(image)
             else:
-                try:
-                    ori_colorspace = image.colorspace_settings.name
-                    image.save()
-                    image.colorspace_settings.name = ori_colorspace
+                # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
+                if is_greater_than_330() and image.colorspace_settings.name == 'Linear':
+
+                    # BLENDER BUG: Blender 3.3 has random bug that prevent this technique
+                    if False:
+
+                        tmpscene = bpy.data.scenes.new('Temp Save Scene')
+                        tmpscene.view_settings.view_transform = 'Standard'
+                        tmpscene.render.image_settings.file_format = 'PNG'
+
+                        path = bpy.path.abspath(image.filepath)
+
+                        image.pack()
+                        image.colorspace_settings.name = 'sRGB'
+
+                        default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
+
+                        # Save image
+                        image.save_render(path, scene=tmpscene)
+
+                        # Set the filepath to the image
+                        try: image.filepath = bpy.path.relpath(path)
+                        except: image.filepath = path
+
+                        # Remove unpacked images on Blender 3.3 
+                        remove_unpacked_image_path(path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
+
+                        # Bring back linear
+                        image.colorspace_settings.name = 'Linear'
+
+                        # Delete temporary scene
+                        bpy.data.scenes.remove(tmpscene)
+
+                    # INFO: This technique is darn slow, but at least it's producing right result
+                    else:
+
+                        temp_pxs = list(image.pixels)
+
+                        width = image.size[0]
+                        height = image.size[1]
+
+                        for y in range(height):
+                            offset_y = width * 4 * y
+                            for x in range(width):
+                                offset_x = 4 * x
+                                for i in range(3):
+                                    temp_pxs[offset_y + offset_x + i] = srgb_to_linear_per_element(temp_pxs[offset_y + offset_x + i])
+
+                        image.pixels = temp_pxs
+                        image.save()
+                        image.colorspace_settings.name = 'Linear'
+
                     print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-                except Exception as e:
-                    print(e)
+
+                else:
+                    try:
+                        ori_colorspace = image.colorspace_settings.name
+                        image.save()
+                        image.colorspace_settings.name = ori_colorspace
+
+                        print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+                    except Exception as e:
+                        print(e)
+
 
     # HACK: For some reason active float image will glitch after auto save
     # This is only happen if active object is on texture paint mode
@@ -492,6 +549,10 @@ def unpack_image(image, filepath):
     # Unpack the file
     image.unpack()
     unpacked_path = bpy.path.abspath(image.filepath)
+
+    # HACK: Unpacked path sometimes has inconsistent backslash
+    folder, file = os.path.split(unpacked_path)
+    unpacked_path = os.path.join(folder, file)
 
     return default_dir, default_dir_found, default_filepath, temp_path, unpacked_path
 
