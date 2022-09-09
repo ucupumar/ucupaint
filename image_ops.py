@@ -332,7 +332,7 @@ class YPackImage(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'image') and context.image
+        return hasattr(context, 'image') and context.image and not context.image.packed_file
 
     def execute(self, context):
 
@@ -345,6 +345,39 @@ class YPackImage(bpy.types.Operator):
             if context.image.is_float:
                 pack_float_image(context.image)
             else: context.image.pack(as_png=True)
+
+        context.image.filepath = ''
+
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        if yp.use_baked and yp.active_channel_index < len(yp.channels):
+            ch = yp.channels[yp.active_channel_index]
+            if ch.type == 'NORMAL':
+
+                baked_disp = tree.nodes.get(ch.baked_disp)
+                if baked_disp and baked_disp.image and not baked_disp.image.packed_file:
+                    if is_greater_than_280():
+                        baked_disp.image.pack()
+                    else:
+                        if baked_disp.image.is_float:
+                            pack_float_image(baked_disp.image)
+                        else: baked_disp.image.pack(as_png=True)
+
+                    baked_disp.image.filepath = ''
+
+                if not is_overlay_normal_empty(yp):
+                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image and not baked_normal_overlay.image.packed_file:
+                        if is_greater_than_280():
+                            baked_normal_overlay.image.pack()
+                        else:
+                            if baked_normal_overlay.image.is_float:
+                                pack_float_image(baked_normal_overlay.image)
+                            else: baked_normal_overlay.image.pack(as_png=True)
+
+                    baked_normal_overlay.image.filepath = ''
 
         print('INFO:', context.image.name, 'image is packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -715,7 +748,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'image') and context.image
+        return hasattr(context, 'image') and context.image and get_active_ypaint_node()
 
     def draw(self, context):
         if is_greater_than_280(): 
@@ -768,7 +801,14 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         # Set filepath
         if context.image.filepath == '':
+            yp = get_active_ypaint_node().node_tree.yp
+
             name = context.image.name
+
+            # Remove addon title from the file names
+            if yp.use_baked and name.startswith(get_addon_title() + ' '):
+                name = name.replace(get_addon_title() + ' ', '')
+
             if not name.endswith(file_ext): name += file_ext
             self.filepath = name
         else:
