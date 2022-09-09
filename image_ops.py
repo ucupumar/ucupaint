@@ -234,8 +234,8 @@ def save_pack_all(yp, only_dirty = True):
                 # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
                 if is_greater_than_330() and image.colorspace_settings.name == 'Linear':
 
-                    # INFO: First technique which uses save render, currently doesn't work for some reason
-                    if False:
+                    # INFO: First technique which uses save render
+                    if True:
 
                         # Get image path
                         path = bpy.path.abspath(image.filepath)
@@ -243,6 +243,9 @@ def save_pack_all(yp, only_dirty = True):
                         # Pack image first
                         image.pack()
                         image.colorspace_settings.name = 'sRGB'
+
+                        # Remove old files to avoid caching (?)
+                        os.remove(path)
                         
                         # Then unpack
                         default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
@@ -254,11 +257,11 @@ def save_pack_all(yp, only_dirty = True):
                         try: image.filepath = bpy.path.relpath(path)
                         except: image.filepath = path
 
-                        # Remove unpacked images on Blender 3.3 
-                        remove_unpacked_image_path(path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
-
                         # Bring back linear
                         image.colorspace_settings.name = 'Linear'
+
+                        # Remove unpacked images on Blender 3.3 
+                        remove_unpacked_image_path(path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
 
                     # INFO: Second technique is darn slow, but at least it's producing right result
                     else:
