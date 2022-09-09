@@ -804,7 +804,7 @@ class YBakeChannels(bpy.types.Operator):
             description='Device to use for baking',
             items = (('GPU', 'GPU Compute', ''),
                      ('CPU', 'CPU', '')),
-            default='GPU'
+            default='CPU'
             )
 
     @classmethod

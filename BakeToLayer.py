@@ -279,7 +279,7 @@ class YBakeToLayer(bpy.types.Operator):
             description='Device to use for baking',
             items = (('GPU', 'GPU Compute', ''),
                      ('CPU', 'CPU', '')),
-            default='GPU'
+            default='CPU'
             )
 
     #source_object : PointerProperty(
@@ -1700,7 +1700,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             description='Device to use for baking',
             items = (('GPU', 'GPU Compute', ''),
                      ('CPU', 'CPU', '')),
-            default='GPU'
+            default='CPU'
             )
 
     fxaa : BoolProperty(name='Use FXAA', 

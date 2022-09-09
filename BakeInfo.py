@@ -68,10 +68,13 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             default=False
             )
 
-    force_use_cpu : BoolProperty(
-            name='Force Use CPU',
-            description='Force use CPU for baking (usually faster than using GPU)',
-            default=False)
+    bake_device : EnumProperty(
+            name='Bake Device',
+            description='Device to use for baking',
+            items = (('GPU', 'GPU Compute', ''),
+                     ('CPU', 'CPU', '')),
+            default='CPU'
+            )
 
     cage_extrusion : FloatProperty(
             name = 'Cage Extrusion',
