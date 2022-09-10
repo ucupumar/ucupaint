@@ -234,53 +234,32 @@ def save_pack_all(yp, only_dirty = True):
                 # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
                 if is_greater_than_330() and image.colorspace_settings.name == 'Linear':
 
-                    # INFO: First technique which uses save render
-                    if True:
+                    # Get image path
+                    path = bpy.path.abspath(image.filepath)
 
-                        # Get image path
-                        path = bpy.path.abspath(image.filepath)
+                    # Pack image first
+                    image.pack()
+                    image.colorspace_settings.name = 'sRGB'
 
-                        # Pack image first
-                        image.pack()
-                        image.colorspace_settings.name = 'sRGB'
+                    # Remove old files to avoid caching (?)
+                    try: os.remove(path)
+                    except Exception as e: print(e)
+                    
+                    # Then unpack
+                    default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
 
-                        # Remove old files to avoid caching (?)
-                        os.remove(path)
-                        
-                        # Then unpack
-                        default_dir, default_dir_found, default_filepath, temp_path, unpacked_path = unpack_image(image, path)
+                    # Save image
+                    image.save_render(path, scene=tmpscene)
 
-                        # Save image
-                        image.save_render(path, scene=tmpscene)
+                    # Set the filepath to the image
+                    try: image.filepath = bpy.path.relpath(path)
+                    except: image.filepath = path
 
-                        # Set the filepath to the image
-                        try: image.filepath = bpy.path.relpath(path)
-                        except: image.filepath = path
+                    # Bring back linear
+                    image.colorspace_settings.name = 'Linear'
 
-                        # Bring back linear
-                        image.colorspace_settings.name = 'Linear'
-
-                        # Remove unpacked images on Blender 3.3 
-                        remove_unpacked_image_path(path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
-
-                    # INFO: Second technique is darn slow, but at least it's producing right result
-                    else:
-
-                        temp_pxs = list(image.pixels)
-
-                        width = image.size[0]
-                        height = image.size[1]
-
-                        for y in range(height):
-                            offset_y = width * 4 * y
-                            for x in range(width):
-                                offset_x = 4 * x
-                                for i in range(3):
-                                    temp_pxs[offset_y + offset_x + i] = srgb_to_linear_per_element(temp_pxs[offset_y + offset_x + i])
-
-                        image.pixels = temp_pxs
-                        image.save()
-                        image.colorspace_settings.name = 'Linear'
+                    # Remove unpacked images on Blender 3.3 
+                    remove_unpacked_image_path(path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
 
                     print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
