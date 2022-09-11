@@ -65,6 +65,7 @@ def remember_before_bake(yp=None, mat=None):
 
     # Remember scene objects
     if is_greater_than_280():
+        book['ori_hide_selects'] = [o for o in bpy.context.view_layer.objects if o.hide_select]
         book['ori_active_selected_objs'] = [o for o in bpy.context.view_layer.objects if o.select_get()]
         book['ori_hide_renders'] = [o for o in bpy.context.view_layer.objects if o.hide_render]
         book['ori_hide_viewports'] = [o for o in bpy.context.view_layer.objects if o.hide_viewport]
@@ -177,8 +178,9 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
 
         # Show viewport and render of object layer collection
         for o in objs:
-            o.hide_render = False
+            o.hide_select = False
             o.hide_viewport = False
+            o.hide_render = False
             layer_cols = get_object_parent_layer_collections([], bpy.context.view_layer.layer_collection, o)
             for lc in layer_cols:
                 lc.hide_viewport = False
@@ -206,8 +208,8 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     else:
 
         for obj in objs:
+            obj.hide_select = False
             obj.hide_render = False
-            obj.hide = False
 
         if hide_other_objs:
             for o in scene.objects:
@@ -218,7 +220,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
             o.select = False
 
         for obj in objs:
-            obj.hide_select = False
+            obj.hide = False
             obj.select = True
 
             # Unhide layer objects
@@ -363,6 +365,9 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
             if o in book['ori_hide_objs']:
                 o.hide_set(True)
             else: o.hide_set(False)
+            if o in book['ori_hide_selects']:
+                o.hide_select = True
+            else: o.hide_select = False
     else:
         for o in scene.objects:
             if o in book['ori_active_selected_objs']:
