@@ -587,8 +587,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
     normal : BoolProperty(name='Normal', default=True)
 
     mute_texture_paint_overlay : BoolProperty(
-            name = 'Mute Texture Paint Overlay',
-            description = 'Set Texture Paint Overlay on 3D View screen to 0. It can helps texture painting better.',
+            name = 'Mute Stencil Mask Opacity',
+            description = 'Set Stencil Mask Opacity found in the 3D Viewport\'s Overlays menu to 0.',
             default = True)
 
     @classmethod
