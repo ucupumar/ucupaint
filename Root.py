@@ -600,14 +600,14 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         mat = get_active_material()
 
         # Get target bsdf
-        self.target_bsdf = None
+        self.target_bsdf_name = ''
         if mat and mat.node_tree: # and is_greater_than_280():
             output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
             if output:
                 bsdf_node = get_closest_bsdf(output[0])
                 if bsdf_node:
                     self.type = bsdf_node.type
-                    self.target_bsdf = bsdf_node
+                    self.target_bsdf_name = bsdf_node.name
                     #print(bsdf_node)
 
         # Normal channel does not works to non mesh object
@@ -690,8 +690,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         ao_mul = None
 
         # If target bsdf is used as main bsdf
-        if self.target_bsdf and self.target_bsdf.type == self.type:
-            main_bsdf = self.target_bsdf
+        target_bsdf = nodes.get(self.target_bsdf_name)
+        if target_bsdf and target_bsdf.type == self.type:
+            main_bsdf = target_bsdf
             for l in main_bsdf.outputs[0].links:
                 outsoc = l.to_socket
 
