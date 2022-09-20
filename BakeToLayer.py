@@ -1107,7 +1107,7 @@ class YBakeToLayer(bpy.types.Operator):
                         if i > multires_index: 
                             m.show_render = False
                             m.show_viewport = False
-            else:
+            elif obj not in other_objs:
                 for m in obj.modifiers:
                     if m.type in {'SOLIDIFY', 'MIRROR', 'ARRAY'}:
                         m.show_render = False
