@@ -76,8 +76,6 @@ def channel_items(self, context):
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
 
-    print(node)
-
     items = []
 
     for i, ch in enumerate(yp.channels):
