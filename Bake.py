@@ -204,7 +204,7 @@ def transfer_uv(objs, mat, entity, uv_map):
 class YTransferSomeLayerUV(bpy.types.Operator):
     bl_idname = "node.y_transfer_some_layer_uv"
     bl_label = "Transfer Some Layer UV"
-    bl_description = "Transfer some layers/masks UV by baking it to other uv (this will take quite some time to finish)."
+    bl_description = "Transfer some layers/masks UV by baking it to other uv (this will take quite some time to finish)"
     bl_options = {'REGISTER', 'UNDO'}
 
     from_uv_map : StringProperty(default='')
@@ -351,7 +351,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
 class YTransferLayerUV(bpy.types.Operator):
     bl_idname = "node.y_transfer_layer_uv"
     bl_label = "Transfer Layer UV"
-    bl_description = "Transfer Layer UV by baking it to other uv (this will take quite some time to finish)."
+    bl_description = "Transfer Layer UV by baking it to other uv (this will take quite some time to finish)"
     bl_options = {'REGISTER', 'UNDO'}
 
     uv_map : StringProperty(default='')

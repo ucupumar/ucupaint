@@ -439,6 +439,7 @@ class VIEW3D_PT_y_vcol_editor_ui(bpy.types.Panel):
     bl_label = "Vertex Color Editor"
     bl_context = "mesh_edit"
     bl_region_type = 'UI'
+    bl_category = 'VCol Edit'
     #bl_options = {'DEFAULT_CLOSED'} 
 
     @classmethod

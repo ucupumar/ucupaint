@@ -1659,8 +1659,6 @@ def rearrange_yp_nodes(group_tree):
     yp = group_tree.yp
     nodes = group_tree.nodes
 
-    dist_y = 185
-    dist_x = 200
     loc = Vector((0, 0))
 
     # Rearrange depth layer nodes
