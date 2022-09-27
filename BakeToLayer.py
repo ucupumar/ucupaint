@@ -1109,7 +1109,7 @@ class YBakeToLayer(bpy.types.Operator):
                             m.show_viewport = False
             elif obj not in other_objs:
                 for m in obj.modifiers:
-                    if m.type in {'SOLIDIFY', 'MIRROR', 'ARRAY'}:
+                    if m.type in problematic_modifiers:
                         m.show_render = False
 
             ori_mat_ids[obj.name] = []
@@ -1938,7 +1938,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             ori_viewport_mods[obj.name] = [m.show_viewport for m in obj.modifiers]
 
             for m in obj.modifiers:
-                if m.type in {'SOLIDIFY', 'MIRROR', 'ARRAY'}:
+                if m.type in problematic_modifiers:
                     m.show_render = False
 
         prepare_bake_settings(book, objs, yp, samples=samples, margin=self.margin, 
