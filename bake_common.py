@@ -38,6 +38,9 @@ def remember_before_bake(yp=None, mat=None):
     book['ori_cage_extrusion'] = scene.render.bake.cage_extrusion
     book['ori_use_cage'] = scene.render.bake.use_cage
 
+    if hasattr(scene.render.bake, 'margin_type'):
+        book['ori_margin_type'] = scene.render.bake.margin_type
+
     if hasattr(scene.cycles, 'use_denoising'):
         book['ori_use_denoising'] = scene.cycles.use_denoising
 
@@ -140,6 +143,9 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if hasattr(scene.render.bake, 'target'):
         scene.render.bake.target = bake_target
 
+    if hasattr(scene.render.bake, 'margin_type'):
+        scene.render.bake.margin_type = 'ADJACENT_FACES'
+
     if is_greater_than_280():
         bpy.context.view_layer.material_override = None
     else: scene.render.layers.active.material_override = None
@@ -230,19 +236,21 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
                         scene.layers[i] = True
                         break
 
+    book['obj_mods_lib'] = {}
     if disable_problematic_modifiers:
-        book['disabled_mods'] = []
-        book['disabled_viewport_mods'] = []
         for obj in objs:
+            book['obj_mods_lib'][obj.name] = {}
+            book['obj_mods_lib'][obj.name]['disabled_mods'] = []
+            book['obj_mods_lib'][obj.name]['disabled_viewport_mods'] = []
             for mod in obj.modifiers:
 
                 if mod.show_render and mod.type in problematic_modifiers: #{'MIRROR', 'SOLIDIFY'}:
                     mod.show_render = False
-                    book['disabled_mods'].append(mod)
+                    book['obj_mods_lib'][obj.name]['disabled_mods'].append(mod.name)
 
                 if mod.show_viewport and mod.type in problematic_modifiers: #{'MIRROR', 'SOLIDIFY'}:
                     mod.show_viewport = False
-                    book['disabled_viewport_mods'].append(mod)
+                    book['obj_mods_lib'][obj.name]['disabled_viewport_mods'].append(mod.name)
 
     # Set active uv layers
     if uv_map != '':
@@ -286,6 +294,8 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         scene.cycles.use_denoising = book['ori_use_denoising']
     if hasattr(scene.render.bake, 'target'):
         scene.render.bake.target = book['ori_bake_target']
+    if hasattr(scene.render.bake, 'margin_type'):
+        scene.render.bake.margin_type = book['ori_margin_type']
     scene.render.bake.use_selected_to_active = book['ori_use_selected_to_active']
     if hasattr(scene.render.bake, 'max_ray_distance'):
         scene.render.bake.max_ray_distance = book['ori_max_ray_distance']
@@ -403,13 +413,16 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         book['parallax_ch'].enable_parallax = True
 
     # Recover modifiers
-    if 'disabled_mods' in book:
-        for mod in book['disabled_mods']:
-            mod.show_render = True
+    for obj_name, lib in book['obj_mods_lib'].items():
+        o = bpy.context.view_layer.objects.get(obj_name)
+        if o:
+            for mod_name in lib['disabled_mods']:
+                mod = o.modifiers.get(mod_name)
+                if mod: mod.show_render = True
 
-    if 'disabled_viewport_mods' in book:
-        for mod in book['disabled_viewport_mods']:
-            mod.show_viewport = True
+            for mod_name in lib['disabled_viewport_mods']:
+                mod = o.modifiers.get(mod_name)
+                if mod: mod.show_viewport = True
 
     if mat:
         # Recover stored material original bsdf for preview
