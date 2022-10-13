@@ -63,7 +63,7 @@ def get_modifier_channel_type(mod, return_non_color=False):
         channel_type = root_ch.type
     elif match3:
 
-        # Modifier always use linear colorspace and rgb channel type
+        # Layer modifier always uses linear colorspace and rgb channel type
         non_color = True
         channel_type = 'RGB'
 

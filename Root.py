@@ -2599,15 +2599,23 @@ def update_channel_colorspace(self, context):
         if c == self:
             channel_index = i
             for mod in c.modifiers:
+
                 if mod.type == 'RGB_TO_INTENSITY':
                     rgb2i = nodes.get(mod.rgb2i)
                     if self.colorspace == 'LINEAR':
                         rgb2i.inputs['Gamma'].default_value = 1.0
                     else: rgb2i.inputs['Gamma'].default_value = 1.0/GAMMA
 
+                if mod.type == 'COLOR_RAMP':
+                    color_ramp_linear = nodes.get(mod.color_ramp_linear)
+                    if color_ramp_linear:
+                        if self.colorspace == 'SRGB':
+                            color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
+                        else: color_ramp_linear.inputs[1].default_value = 1.0
+
     for layer in yp.layers:
         ch = layer.channels[channel_index]
-        #tree = get_tree(layer)
+        tree = get_tree(layer)
 
         #Layer.set_layer_channel_linear_node(tree, layer, self, ch)
         Layer.check_layer_channel_linear_node(ch, layer, self, reconnect=True)
@@ -2657,9 +2665,10 @@ def update_channel_colorspace(self, context):
 
             if mod.type == 'COLOR_RAMP':
                 color_ramp_linear = tree.nodes.get(mod.color_ramp_linear)
-                if self.colorspace == 'SRGB':
-                    color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
-                else: color_ramp_linear.inputs[1].default_value = 1.0
+                if color_ramp_linear:
+                    if self.colorspace == 'SRGB':
+                        color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
+                    else: color_ramp_linear.inputs[1].default_value = 1.0
 
 def update_enable_smooth_bump(self, context):
     yp = self.id_data.yp
