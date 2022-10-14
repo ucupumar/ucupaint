@@ -95,6 +95,7 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
     elif mod.type == 'COLOR_RAMP':
 
         color_ramp_alpha_multiply = tree.nodes.get(mod.color_ramp_alpha_multiply)
+        color_ramp_linear_start = tree.nodes.get(mod.color_ramp_linear_start)
         color_ramp = tree.nodes.get(mod.color_ramp)
         color_ramp_linear = tree.nodes.get(mod.color_ramp_linear)
         color_ramp_mix_alpha = tree.nodes.get(mod.color_ramp_mix_alpha)
@@ -102,7 +103,11 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
 
         create_link(tree, start_rgb, color_ramp_alpha_multiply.inputs[1])
         create_link(tree, start_alpha, color_ramp_alpha_multiply.inputs[2])
-        create_link(tree, color_ramp_alpha_multiply.outputs[0], color_ramp.inputs[0])
+        if color_ramp_linear_start:
+            create_link(tree, color_ramp_alpha_multiply.outputs[0], color_ramp_linear_start.inputs[0])
+            create_link(tree, color_ramp_linear_start.outputs[0], color_ramp.inputs[0])
+        else:
+            create_link(tree, color_ramp_alpha_multiply.outputs[0], color_ramp.inputs[0])
         create_link(tree, start_rgb, color_ramp_mix_rgb.inputs[1])
         create_link(tree, color_ramp.outputs[0], color_ramp_linear.inputs[0])
         create_link(tree, color_ramp_linear.outputs[0], color_ramp_mix_rgb.inputs[2])

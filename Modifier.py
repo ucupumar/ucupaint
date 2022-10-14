@@ -1,6 +1,7 @@
 import bpy, re
 from bpy.props import *
 from .common import *
+from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
 from . import lib
@@ -63,8 +64,9 @@ def get_modifier_channel_type(mod, return_non_color=False):
         channel_type = root_ch.type
     elif match3:
 
-        # Layer modifier always uses linear colorspace and rgb channel type
-        non_color = True
+        # Image layer modifiers always use srgb colorspace
+        layer = yp.layers[int(match3.group(1))]
+        non_color = layer.type != 'IMAGE'
         channel_type = 'RGB'
 
     if return_non_color:
@@ -207,6 +209,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                     copy_node_props(color_ramp_ref, color_ramp)
                     ref_tree.nodes.remove(color_ramp_ref)
 
+            remove_node(tree, m, 'color_ramp_linear_start')
             remove_node(tree, m, 'color_ramp_linear')
             remove_node(tree, m, 'color_ramp_alpha_multiply')
             remove_node(tree, m, 'color_ramp_mix_rgb')
@@ -214,6 +217,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
         else:
             if ref_tree:
                 color_ramp_alpha_multiply_ref = ref_tree.nodes.get(m.color_ramp_alpha_multiply)
+                color_ramp_linear_start_ref = ref_tree.nodes.get(m.color_ramp_linear_start)
                 color_ramp_ref = ref_tree.nodes.get(m.color_ramp)
                 color_ramp_linear_ref = ref_tree.nodes.get(m.color_ramp_linear)
                 color_ramp_mix_alpha_ref = ref_tree.nodes.get(m.color_ramp_mix_alpha)
@@ -222,8 +226,9 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 # Create new nodes if reference is used
                 color_ramp_alpha_multiply = new_node(tree, m, 'color_ramp_alpha_multiply', 'ShaderNodeMixRGB', 
                         'ColorRamp Alpha Multiply')
+                color_ramp_linear_start = new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
                 color_ramp = new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp')
-                color_ramp_linear = new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp')
+                color_ramp_linear = new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
                 color_ramp_mix_alpha = new_node(tree, m, 'color_ramp_mix_alpha', 'ShaderNodeMixRGB', 'ColorRamp Mix Alpha')
                 color_ramp_mix_rgb = new_node(tree, m, 'color_ramp_mix_rgb', 'ShaderNodeMixRGB', 'ColorRamp Mix RGB')
                 dirty = True
@@ -232,19 +237,22 @@ def check_modifier_nodes(m, tree, ref_tree=None):
 
                 color_ramp_alpha_multiply, dirty = check_new_node(tree, m, 'color_ramp_alpha_multiply', 'ShaderNodeMixRGB', 
                         'ColorRamp Alpha Multiply', True)
+                color_ramp_linear_start = check_new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
                 color_ramp, ramp_dirty = check_new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp', True)
-                color_ramp_linear = check_new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp')
+                color_ramp_linear = check_new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
                 color_ramp_mix_alpha = check_new_node(tree, m, 'color_ramp_mix_alpha', 'ShaderNodeMixRGB', 'ColorRamp Mix Alpha')
                 color_ramp_mix_rgb = check_new_node(tree, m, 'color_ramp_mix_rgb', 'ShaderNodeMixRGB', 'ColorRamp Mix RGB')
 
             if ref_tree:
                 copy_node_props(color_ramp_alpha_multiply_ref, color_ramp_alpha_multiply)
+                if color_ramp_linear_start_ref: copy_node_props(color_ramp_linear_start_ref, color_ramp_linear_start)
                 copy_node_props(color_ramp_ref, color_ramp)
                 copy_node_props(color_ramp_linear_ref, color_ramp_linear)
                 copy_node_props(color_ramp_mix_alpha_ref, color_ramp_mix_alpha)
                 copy_node_props(color_ramp_mix_rgb_ref, color_ramp_mix_rgb)
 
                 ref_tree.nodes.remove(color_ramp_alpha_multiply_ref)
+                if color_ramp_linear_start_ref: ref_tree.nodes.remove(color_ramp_linear_start_ref)
                 ref_tree.nodes.remove(color_ramp_ref)
                 ref_tree.nodes.remove(color_ramp_linear_ref)
                 ref_tree.nodes.remove(color_ramp_mix_alpha_ref)
@@ -256,9 +264,13 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
                 color_ramp_mix_alpha.inputs[0].default_value = 1.0
                 color_ramp_mix_rgb.inputs[0].default_value = 1.0
-                if non_color:
-                    color_ramp_linear.inputs[1].default_value = 1.0
-                else: color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
+
+            if non_color:
+                color_ramp_linear_start.inputs[1].default_value = 1.0
+                color_ramp_linear.inputs[1].default_value = 1.0
+            else: 
+                color_ramp_linear_start.inputs[1].default_value = GAMMA
+                color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
 
             if ramp_dirty:
                 # Set default color if ramp just created
@@ -475,6 +487,7 @@ def delete_modifier_nodes(tree, mod):
         remove_node(tree, mod, 'invert')
 
     elif mod.type == 'COLOR_RAMP':
+        remove_node(tree, mod, 'color_ramp_linear_start')
         remove_node(tree, mod, 'color_ramp')
         remove_node(tree, mod, 'color_ramp_linear')
         remove_node(tree, mod, 'color_ramp_alpha_multiply')
@@ -1123,6 +1136,7 @@ class YPaintModifier(bpy.types.PropertyGroup):
 
     # Color Ramp nodes
     color_ramp : StringProperty(default='')
+    color_ramp_linear_start : StringProperty(default='')
     color_ramp_linear : StringProperty(default='')
     color_ramp_alpha_multiply : StringProperty(default='')
     color_ramp_mix_rgb : StringProperty(default='')

@@ -334,6 +334,9 @@ def arrange_modifier_nodes(tree, parent, loc, is_value=False, return_y_offset=Fa
             if check_set_node_loc(tree, m.color_ramp_alpha_multiply, loc):
                 loc.x += 165.0
 
+            if check_set_node_loc(tree, m.color_ramp_linear_start, loc):
+                loc.x += 165.0
+
             if check_set_node_loc(tree, m.color_ramp, loc):
                 loc.x += 265.0
 

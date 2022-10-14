@@ -3134,6 +3134,11 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     # Check uv maps
     check_uv_nodes(yp)
 
+    # Refresh colorspace
+    for root_ch in yp.channels:
+        if root_ch.type == 'RGB':
+            root_ch.colorspace = root_ch.colorspace
+
     # Check childrens which need rearrange
     #for i in child_ids:
         #lay = yp.layers[i]
