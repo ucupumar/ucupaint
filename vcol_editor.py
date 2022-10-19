@@ -100,7 +100,7 @@ class YSetActiveVcol(bpy.types.Operator):
         return {'CANCELLED'}
 
 class YToggleEraser(bpy.types.Operator):
-    bl_idname = "mesh.y_toggle_eraser"
+    bl_idname = "paint.y_toggle_eraser"
     bl_label = "Toggle Eraser Brush"
     bl_description = "Toggle eraser brush"
     bl_options = {'REGISTER', 'UNDO'}

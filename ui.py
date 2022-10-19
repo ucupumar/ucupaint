@@ -2554,18 +2554,18 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             elif obj.mode == 'VERTEX_PAINT' and layer.type == 'VCOL' and is_greater_than_292() and not mask_vcol and not override_vcol:
                 bbox = col.box()
                 row = bbox.row(align=True)
-                row.operator('mesh.y_toggle_eraser', text='Toggle Eraser')
+                row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
 
             elif obj.mode == 'SCULPT' and layer.type == 'VCOL' and is_greater_than_320() and not mask_vcol and not override_vcol:
 
                 bbox = col.box()
                 row = bbox.row(align=True)
-                row.operator('mesh.y_toggle_eraser', text='Toggle Eraser')
+                row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
 
         if obj.type == 'MESH' and obj.mode == 'TEXTURE_PAINT' and layer.type == 'IMAGE' and not mask_image and not override_image:
             bbox = col.box()
             row = bbox.row(align=True)
-            row.operator('mesh.y_toggle_eraser', text='Toggle Eraser')
+            row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
 
         ve = context.scene.ve_edit
         if obj.mode == 'TEXTURE_PAINT':
@@ -2574,7 +2574,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
-                row.operator('mesh.y_toggle_eraser', text='Disable Eraser')
+                row.operator('paint.y_toggle_eraser', text='Disable Eraser')
                 row.alert = False
 
         elif obj.mode == 'VERTEX_PAINT' and is_greater_than_280(): 
@@ -2583,7 +2583,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
-                row.operator('mesh.y_toggle_eraser', text='Disable Eraser')
+                row.operator('paint.y_toggle_eraser', text='Disable Eraser')
                 row.alert = False
 
         elif obj.mode == 'SCULPT' and is_greater_than_320(): 
@@ -2592,7 +2592,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
-                row.operator('mesh.y_toggle_eraser', text='Disable Eraser')
+                row.operator('paint.y_toggle_eraser', text='Disable Eraser')
                 row.alert = False
 
         # Source
