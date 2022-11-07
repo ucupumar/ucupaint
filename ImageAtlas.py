@@ -60,8 +60,10 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False, name=''):
 
     if color == 'BLACK':
         img.generated_color = (0,0,0,1)
+        img.colorspace_settings.name = 'Linear'
     elif color == 'WHITE':
         img.generated_color = (1,1,1,1)
+        img.colorspace_settings.name = 'Linear'
     else: img.generated_color = (0,0,0,0)
 
     img.yia.is_image_atlas = True
