@@ -1035,8 +1035,13 @@ class YBakeToLayer(bpy.types.Operator):
                         if m.type == 'DISPLACE' and m.show_viewport:
                             need_to_be_applied_modifiers.append(m)
 
-                    for m in need_to_be_applied_modifiers:
-                        bpy.ops.object.modifier_apply(modifier=m.name)
+                    # Apply shape keys and modifiers
+                    if any(need_to_be_applied_modifiers):
+                        if obj.data.shape_keys:
+                            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+
+                        for m in need_to_be_applied_modifiers:
+                            bpy.ops.object.modifier_apply(modifier=m.name)
 
                 # Create new vertex color for dirt
                 try:
