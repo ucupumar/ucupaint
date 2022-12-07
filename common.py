@@ -292,6 +292,7 @@ possible_object_types = {
         'MESH',
         'META',
         'CURVE',
+        'CURVES',
         'SURFACE',
         'FONT'
         }
@@ -3410,7 +3411,7 @@ def get_multires_modifier(obj, keyword=''):
     return None
 
 def get_uv_layers(obj):
-    if obj.type != 'MESH': return None
+    if obj.type != 'MESH': return []
 
     if not is_greater_than_280():
         uv_layers = obj.data.uv_textures
