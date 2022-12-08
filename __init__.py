@@ -17,6 +17,8 @@ if "bpy" in locals():
     imp.reload(lib)
     imp.reload(ui)
     imp.reload(subtree)
+    imp.reload(transition_common)
+    imp.reload(input_outputs)
     imp.reload(node_arrangements)
     imp.reload(node_connections)
     imp.reload(preferences)
@@ -32,9 +34,10 @@ if "bpy" in locals():
     imp.reload(Bake)
     imp.reload(BakeToLayer)
     imp.reload(Root)
+    imp.reload(load_blend_updates)
 else:
-    from . import image_ops, common, bake_common, lib, ui, subtree, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, BakeInfo, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root
+    from . import image_ops, common, bake_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
+    from . import vcol_editor, transition, BakeInfo, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates
 
 import bpy 
 
@@ -55,6 +58,7 @@ def register():
     Bake.register()
     BakeToLayer.register()
     Root.register()
+    load_blend_updates.register()
 
     print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is registered!')
 
@@ -75,6 +79,7 @@ def unregister():
     Bake.unregister()
     BakeToLayer.unregister()
     Root.unregister()
+    load_blend_updates.unregister()
 
     print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is unregistered!')
 

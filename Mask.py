@@ -7,6 +7,7 @@ from .common import *
 from .node_connections import *
 from .node_arrangements import *
 from .subtree import *
+from .input_outputs import *
 
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
