@@ -64,7 +64,7 @@ def add_modifier_nodes(mod, tree, ref_tree=None):
             ramp_mix_ref = ref_tree.nodes.get(mod.ramp_mix)
 
         ramp = new_node(tree, mod, 'ramp', 'ShaderNodeValToRGB', 'Ramp')
-        ramp_mix = new_node(tree, mod, 'ramp_mix', 'ShaderNodeMixRGB', 'Ramp Mix')
+        ramp_mix = new_mix_node(tree, mod, 'ramp_mix', 'Ramp Mix', 'FLOAT')
 
         if ref_tree:
             copy_node_props(ramp_ref, ramp)

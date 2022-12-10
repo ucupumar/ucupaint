@@ -33,32 +33,6 @@ def create_output(tree, name, socket_type, valid_outputs, index, dirty=False, de
 
     return dirty
 
-def check_channel_clamp(tree, root_ch):
-    
-    if root_ch.type == 'RGB':
-        if root_ch.use_clamp:
-            clamp = tree.nodes.get(root_ch.clamp)
-            if not clamp:
-                clamp = new_node(tree, root_ch, 'clamp', 'ShaderNodeMixRGB')
-                clamp.inputs[0].default_value = 0.0
-                clamp.use_clamp = True
-        else:
-            remove_node(tree, root_ch, 'clamp')
-
-    elif root_ch.type == 'VALUE':
-        end_linear = tree.nodes.get(root_ch.end_linear)
-        if end_linear: end_linear.use_clamp = root_ch.use_clamp
-
-def check_layer_divider_alpha(layer, tree=None):
-    if not tree: tree = get_source_tree(layer)
-
-    if layer.divide_rgb_by_alpha:
-        divider_alpha = check_new_node(tree, layer, 'divider_alpha', 'ShaderNodeMixRGB', 'Spread Fix')
-        divider_alpha.blend_type = 'DIVIDE'
-        divider_alpha.inputs[0].default_value = 1.0
-    else:
-        remove_node(tree, layer, 'divider_alpha')
-
 def check_all_channel_ios(yp, reconnect=True):
     group_tree = yp.id_data
 

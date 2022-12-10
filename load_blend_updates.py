@@ -489,13 +489,13 @@ def update_routine(name):
             bpy.data.node_groups.remove(ng)
 
     # Special update for Blender 3.40 file opening older blender files
-    if is_created_before_340() and is_greater_than_340():
-        print('INFO:', 'Loading blend file created using Blender older than version 3.4')
-        for ng in bpy.data.node_groups:
-            if not hasattr(ng, 'yp'): continue
-            if not ng.yp.is_ypaint_node: continue
+    #if is_created_before_340() and is_greater_than_340():
+    #    print('INFO:', 'Loading blend file created using Blender older than version 3.4')
+    #    for ng in bpy.data.node_groups:
+    #        if not hasattr(ng, 'yp'): continue
+    #        if not ng.yp.is_ypaint_node: continue
 
-            check_all_channel_ios(ng.yp)
+    #        check_all_channel_ios(ng.yp)
 
     print('INFO: ' + get_addon_title() + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

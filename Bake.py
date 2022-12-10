@@ -1691,7 +1691,7 @@ class YMergeMask(bpy.types.Operator):
 
         # Create mask mix nodes
         for m in [mask, neighbor_mask]:
-            mix = new_node(tree, m, 'mix', 'ShaderNodeMixRGB', 'Mix')
+            mix = new_mix_node(tree, m, 'mix', 'Mix')
             mix.blend_type = m.blend_type
             mix.inputs[0].default_value = m.intensity_value
 

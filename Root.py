@@ -592,14 +592,17 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             loc.x += 200
 
         if ao_needed:
-            ao_mul = nodes.new('ShaderNodeMixRGB')
+            ao_mul = simple_new_mix_node(mat.node_tree)
+            ao_mixcol0, ao_mixcol1, ao_mixout = get_mix_color_indices(ao_mul)
+
             ao_mul.inputs[0].default_value = 1.0
             ao_mul.blend_type = 'MULTIPLY'
             ao_mul.label = get_addon_title() + ' AO Multiply'
             ao_mul.name = AO_MULTIPLY
+
             ao_mul.inputs[0].default_value = 1.0
-            ao_mul.inputs[1].default_value = (1.0, 1.0, 1.0, 1.0)
-            ao_mul.inputs[2].default_value = (1.0, 1.0, 1.0, 1.0)
+            ao_mul.inputs[ao_mixcol0].default_value = (1.0, 1.0, 1.0, 1.0)
+            ao_mul.inputs[ao_mixcol1].default_value = (1.0, 1.0, 1.0, 1.0)
 
             ao_mul.location = loc.copy()
             loc.x += 200
@@ -688,9 +691,9 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
             set_input_default_value(node, ch_color, inp.default_value)
             if ch_ao and ao_mul:
-                links.new(node.outputs[ch_color.name], ao_mul.inputs[1])
-                links.new(node.outputs[ch_ao.name], ao_mul.inputs[2])
-                links.new(ao_mul.outputs[0], inp)
+                links.new(node.outputs[ch_color.name], ao_mul.inputs[ao_mixcol0])
+                links.new(node.outputs[ch_ao.name], ao_mul.inputs[ao_mixcol1])
+                links.new(ao_mul.outputs[ao_mixout], inp)
             else:
                 links.new(node.outputs[ch_color.name], inp)
 
@@ -1183,10 +1186,11 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         # Delete special multiply node for Ambient Occlusion channel
         if channel.name == 'Ambient Occlusion':
             ao_node = mat.node_tree.nodes.get(AO_MULTIPLY)
+            ao_mixcol0, ao_mixcol1, ao_mixout = get_mix_color_indices(ao_node)
             if ao_node: 
                 #ao_node.mute = True
-                socket_ins = [l.from_socket for l in ao_node.inputs[1].links]
-                socket_outs = [l.to_socket for l in ao_node.outputs[0].links]
+                socket_ins = [l.from_socket for l in ao_node.inputs[ao_mixcol0].links]
+                socket_outs = [l.to_socket for l in ao_node.outputs[ao_mixout].links]
 
                 for si in socket_ins:
                     for so in socket_outs:
@@ -1194,9 +1198,12 @@ class YRemoveYPaintChannel(bpy.types.Operator):
 
                 mat.node_tree.nodes.remove(ao_node)
 
-        # Disable smooth bump if active
-        if channel.type == 'NORMAL' and channel.enable_smooth_bump:
-            channel.enable_smooth_bump = False
+        # Disable smooth bump and parallax if any of those are active
+        if channel.type == 'NORMAL':
+            if channel.enable_parallax:
+                channel.enable_parallax = False
+            if channel.enable_smooth_bump:
+                channel.enable_smooth_bump = False
 
         # Remove channel nodes from layers
         for layer in yp.layers:
@@ -1865,9 +1872,10 @@ class YRemoveYPaintNode(bpy.types.Operator):
             # Search for AO node
             if 'Ambient Occlusion' in yp.channels:
                 ao_node = mat.node_tree.nodes.get(AO_MULTIPLY)
+                ao_mixcol0, ao_mixcol1, ao_mixout = get_mix_color_indices(ao_node)
                 if ao_node: 
-                    socket_ins = [l.from_socket for l in ao_node.inputs[1].links]
-                    socket_outs = [l.to_socket for l in ao_node.outputs[0].links]
+                    socket_ins = [l.from_socket for l in ao_node.inputs[ao_mixcol0].links]
+                    socket_outs = [l.to_socket for l in ao_node.outputs[ao_mixout].links]
 
                     for si in socket_ins:
                         for so in socket_outs:

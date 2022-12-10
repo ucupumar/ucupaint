@@ -4069,7 +4069,7 @@ def update_write_height(self, context):
     update_displacement_height_ratio(root_ch)
 
     rearrange_layer_nodes(layer)
-    reconnect_layer_nodes(layer, ch_index)
+    reconnect_layer_nodes(layer) #, ch_index)
 
 def update_normal_strength(self, context):
     yp = self.id_data.yp

@@ -429,30 +429,34 @@ def get_smooth_mix_node(blend_type):
         start.location = loc
 
         mixes = {}
-        mix = tree.nodes.new('ShaderNodeMixRGB')
+        #mix = tree.nodes.new('ShaderNodeMixRGB')
+        mix = simple_new_mix_node(tree)
+        mixcol0, mixcol1, mixout = get_mix_color_indices(mix)
         mix.name = '_mix'
         mix.blend_type = blend_type
 
         loc.x += 200
         mix.location = loc
 
-        tree.links.new(start.outputs['Fac'], mix.inputs['Fac'])
-        tree.links.new(start.outputs['Color1'], mix.inputs['Color1'])
-        tree.links.new(start.outputs['Color2'], mix.inputs['Color2'])
-        tree.links.new(mix.outputs[0], end.inputs['Color'])
+        tree.links.new(start.outputs['Fac'], mix.inputs[0])
+        tree.links.new(start.outputs['Color1'], mix.inputs[mixcol0])
+        tree.links.new(start.outputs['Color2'], mix.inputs[mixcol1])
+        tree.links.new(mix.outputs[mixout], end.inputs['Color'])
 
         for d in neighbor_directions:
-            mix = tree.nodes.new('ShaderNodeMixRGB')
+            #mix = tree.nodes.new('ShaderNodeMixRGB')
+            mix = simple_new_mix_node(tree)
+            mixcol0, mixcol1, mixout = get_mix_color_indices(mix)
             mix.name = '_mix_' + d
             mix.blend_type = blend_type
 
             loc.y -= 200
             mix.location = loc
 
-            tree.links.new(start.outputs['Fac'], mix.inputs['Fac'])
-            tree.links.new(start.outputs['Color1 ' + d], mix.inputs['Color1'])
-            tree.links.new(start.outputs['Color2 ' + d], mix.inputs['Color2'])
-            tree.links.new(mix.outputs[0], end.inputs['Color ' + d])
+            tree.links.new(start.outputs['Fac'], mix.inputs[0])
+            tree.links.new(start.outputs['Color1 ' + d], mix.inputs[mixcol0])
+            tree.links.new(start.outputs['Color2 ' + d], mix.inputs[mixcol1])
+            tree.links.new(mix.outputs[mixout], end.inputs['Color ' + d])
 
         loc.x += 200
         end.location.x = loc.x

@@ -224,24 +224,22 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 color_ramp_mix_rgb_ref = ref_tree.nodes.get(m.color_ramp_mix_rgb)
 
                 # Create new nodes if reference is used
-                color_ramp_alpha_multiply = new_node(tree, m, 'color_ramp_alpha_multiply', 'ShaderNodeMixRGB', 
-                        'ColorRamp Alpha Multiply')
+                color_ramp_alpha_multiply = new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply')
                 color_ramp_linear_start = new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
                 color_ramp = new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp')
                 color_ramp_linear = new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
-                color_ramp_mix_alpha = new_node(tree, m, 'color_ramp_mix_alpha', 'ShaderNodeMixRGB', 'ColorRamp Mix Alpha')
-                color_ramp_mix_rgb = new_node(tree, m, 'color_ramp_mix_rgb', 'ShaderNodeMixRGB', 'ColorRamp Mix RGB')
+                color_ramp_mix_alpha = new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
+                color_ramp_mix_rgb = new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
                 dirty = True
                 ramp_dirty = False
             else:
 
-                color_ramp_alpha_multiply, dirty = check_new_node(tree, m, 'color_ramp_alpha_multiply', 'ShaderNodeMixRGB', 
-                        'ColorRamp Alpha Multiply', True)
+                color_ramp_alpha_multiply, dirty = check_new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply', True)
                 color_ramp_linear_start = check_new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
                 color_ramp, ramp_dirty = check_new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp', True)
                 color_ramp_linear = check_new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
-                color_ramp_mix_alpha = check_new_node(tree, m, 'color_ramp_mix_alpha', 'ShaderNodeMixRGB', 'ColorRamp Mix Alpha')
-                color_ramp_mix_rgb = check_new_node(tree, m, 'color_ramp_mix_rgb', 'ShaderNodeMixRGB', 'ColorRamp Mix RGB')
+                color_ramp_mix_alpha = check_new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
+                color_ramp_mix_rgb = check_new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
 
             if ref_tree:
                 copy_node_props(color_ramp_alpha_multiply_ref, color_ramp_alpha_multiply)
