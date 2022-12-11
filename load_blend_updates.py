@@ -40,11 +40,50 @@ def get_lib_revision(tree):
 
     return revision
 
+def convert_mix_nodes(tree):
+    for n in tree.nodes:
+        if n.bl_idname == 'ShaderNodeMixRGB':
+            nn = simple_new_mix_node(tree)
+            name = n.name
+
+            inp = n.inputs[0]
+            for l in inp.links:
+                create_link(tree, l.from_socket, nn.inputs[0])
+            nn.inputs[0].default_value = inp.default_value
+
+            inp = n.inputs[1]
+            for l in inp.links:
+                create_link(tree, l.from_socket, nn.inputs[6])
+            nn.inputs[6].default_value = inp.default_value
+
+            inp = n.inputs[2]
+            for l in inp.links:
+                create_link(tree, l.from_socket, nn.inputs[7])
+            nn.inputs[7].default_value = inp.default_value
+
+            outp = n.outputs[0]
+            for l in outp.links:
+                create_link(tree, nn.outputs[2], l.to_socket)
+
+            nn.location = n.location
+            nn.label = n.label
+            nn.blend_type = n.blend_type
+            nn.clamp_result = n.use_clamp
+
+            simple_remove_node(tree, n)
+            nn.name = name
+
+        elif n.type == 'GROUP' and n.node_tree:
+            convert_mix_nodes(n.node_tree)
+
 @persistent
 def update_routine(name):
     T = time.time()
 
     cur_version = get_current_version_str()
+
+    # Flag to check mix nodes
+    need_to_check_mix_nodes = False
 
     for ng in bpy.data.node_groups:
         if not hasattr(ng, 'yp'): continue
@@ -230,53 +269,6 @@ def update_routine(name):
                     rearrange_layer_nodes(layer)
                     update_happened = True
 
-        # Version 0.9.6 and above will use native vertex color node for Blender 2.81+
-        #if (LooseVersion(ng.yp.version) < LooseVersion('0.9.6') or is_created_using_279() or is_created_using_280()) and is_greater_than_281():
-
-        #    for layer in ng.yp.layers:
-        #        layer_tree = get_tree(layer)
-
-        #        # Update vcol layer to use alpha by reconnection
-        #        if layer.type == 'VCOL':
-
-        #            source = get_layer_source(layer)
-        #            name = source.attribute_name
-        #            label = source.label
-        #            source = replace_new_node(layer_tree, layer, 'source', 'ShaderNodeVertexColor', label)
-        #            source.layer_name = name
-
-        #        for ch in layer.channels:
-
-        #            if ch.override_type == 'VCOL':
-        #                source = get_channel_source(ch, layer, layer_tree)
-        #                if source:
-        #                    name = source.attribute_name
-        #                    label = source.label
-        #                    source = replace_new_node(layer_tree, ch, 'source', 'ShaderNodeVertexColor', label)
-        #                    source.layer_name = name
-        #                    update_happened = True
-
-        #            cache_vcol = layer_tree.nodes.get(ch.cache_vcol)
-        #            if cache_vcol:
-        #                name = cache_vcol.attribute_name
-        #                label = cache_vcol.label
-        #                cache_vcol = replace_new_node(layer_tree, ch, 'cache_vcol', 'ShaderNodeVertexColor', label)
-        #                cache_vcol.layer_name = name
-        #                update_happened = True
-
-        #        for mask in layer.masks:
-        #            if mask.type == 'VCOL':
-        #                source = get_mask_source(mask)
-        #                name = source.attribute_name
-        #                label = source.label
-        #                source = replace_new_node(layer_tree, mask, 'source', 'ShaderNodeVertexColor', label)
-        #                source.layer_name = name
-        #                update_happened = True
-
-        #        if update_happened:
-        #            reconnect_layer_nodes(layer)
-        #            rearrange_layer_nodes(layer)
-
         # Version 0.9.8 and above will use sRGB images by default
         if LooseVersion(ng.yp.version) < LooseVersion('0.9.8'):
 
@@ -322,6 +314,7 @@ def update_routine(name):
                 if image_found:
                     rearrange_layer_nodes(layer)
                     reconnect_layer_nodes(layer)
+                    update_happened = True
 
         # Version 0.9.9 have separate normal and bump override
         if LooseVersion(ng.yp.version) < LooseVersion('0.9.9'):
@@ -349,12 +342,25 @@ def update_routine(name):
                         # Copy active edit
                         ch.active_edit_1 = ch.active_edit
 
+                        update_happened = True
+
                         print('INFO:', layer.name, root_ch.name, 'now has separate override properties!')
+
+        # Blender 3.4 and version 1.0.9 will make sure all mix node using the newest type
+        if LooseVersion(ng.yp.version) < LooseVersion('1.0.9') and is_greater_than_340():
+            need_to_check_mix_nodes = True
+            update_happened = True
 
         # Update version
         if update_happened:
             ng.yp.version = cur_version
             print('INFO:', ng.name, 'is updated to version', cur_version)
+
+    # Actually check and convert old mix nodes
+    if need_to_check_mix_nodes:
+        print('INFO:', 'Convert old mix rgb nodes to newer ones...')
+        for mat in bpy.data.materials:
+            if mat.node_tree: convert_mix_nodes(mat.node_tree)
 
     # Special update for opening Blender below 2.92 file
     if is_created_before_292() and is_greater_than_292():
