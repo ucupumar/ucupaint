@@ -358,7 +358,7 @@ def update_routine(name):
 
     # Actually check and convert old mix nodes
     if need_to_check_mix_nodes:
-        print('INFO:', 'Convert old mix rgb nodes to newer ones...')
+        print('INFO:', 'Converting old mix rgb nodes to newer ones...')
         for mat in bpy.data.materials:
             if mat.node_tree: convert_mix_nodes(mat.node_tree)
 
@@ -494,15 +494,6 @@ def update_routine(name):
         # Remove already copied groups
         for ng in copied_groups:
             bpy.data.node_groups.remove(ng)
-
-    # Special update for Blender 3.40 file opening older blender files
-    #if is_created_before_340() and is_greater_than_340():
-    #    print('INFO:', 'Loading blend file created using Blender older than version 3.4')
-    #    for ng in bpy.data.node_groups:
-    #        if not hasattr(ng, 'yp'): continue
-    #        if not ng.yp.is_ypaint_node: continue
-
-    #        check_all_channel_ios(ng.yp)
 
     print('INFO: ' + get_addon_title() + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
