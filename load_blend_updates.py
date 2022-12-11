@@ -1,6 +1,7 @@
 import bpy, time
 from .common import *
 from .subtree import *
+from .lib import *
 from mathutils import *
 from bpy.app.handlers import persistent
 from distutils.version import LooseVersion #, StrictVersion
