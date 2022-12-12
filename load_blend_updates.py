@@ -69,6 +69,7 @@ def convert_mix_nodes(tree):
             nn.label = n.label
             nn.blend_type = n.blend_type
             nn.clamp_result = n.use_clamp
+            nn.parent = n.parent
 
             simple_remove_node(tree, n)
             nn.name = name
