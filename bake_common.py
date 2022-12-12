@@ -414,7 +414,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
 
     # Recover modifiers
     for obj_name, lib in book['obj_mods_lib'].items():
-        o = bpy.context.view_layer.objects.get(obj_name)
+        o = get_scene_objects().get(obj_name)
         if o:
             for mod_name in lib['disabled_mods']:
                 mod = o.modifiers.get(mod_name)
