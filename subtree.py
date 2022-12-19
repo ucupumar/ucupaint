@@ -631,7 +631,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     mix.inputs[0].default_value = mask.intensity_value
             else:
                 mix = tree.nodes.get(c.mix)
-                if mix and mix.type != 'MIX_RGB':
+                if mix and mix.type not in {'MIX_RGB', 'MIX'}:
                     remove_node(tree, c, 'mix')
                     mix = None
                 if not mix:
@@ -2222,7 +2222,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
             blend, need_reconnect = replace_new_mix_node(tree, ch, 'blend', 
                     'Blend', return_status = True, hard_replace=True, dirty=need_reconnect)
 
-    if root_ch.type != 'NORMAL' and blend.type == 'MIX_RGB' and blend.blend_type != blend_type:
+    if root_ch.type != 'NORMAL' and blend.type in {'MIX_RGB', 'MIX'} and blend.blend_type != blend_type:
         blend.blend_type = blend_type
 
     if root_ch.type != 'NORMAL':
