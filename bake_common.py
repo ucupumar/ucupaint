@@ -361,8 +361,8 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
                 c.hide_render = True
             else: c.hide_render = False
 
-        #for o in scene.objects:
-        for o in bpy.context.view_layer.objects:
+        objs = [o for o in bpy.context.view_layer.objects]
+        for o in objs:
             if o in book['ori_active_selected_objs']:
                 o.select_set(True)
             else: o.select_set(False)
