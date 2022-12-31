@@ -719,7 +719,7 @@ def bake_to_vcol(mat, node, root_ch, extra_channel=None, extra_multiplier=1.0):
         mul.blend_type = 'MULTIPLY'
 
         extra_rgb = node.outputs[extra_channel.name]
-        extra_rgb = create_link(mat.node_tree, extra_rgb, mul.inputs[mmixcol0])[0]
+        extra_rgb = create_link(mat.node_tree, extra_rgb, mul.inputs[mmixcol0])[mmixout]
 
         add = simple_new_mix_node(mat.node_tree)
         amixcol0, amixcol1, amixout = get_mix_color_indices(add)
