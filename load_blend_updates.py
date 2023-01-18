@@ -352,6 +352,13 @@ def update_routine(name):
             need_to_check_mix_nodes = True
             update_happened = True
 
+        # Version 1.0.11 will make sure divider alpha node is connected correctly
+        if LooseVersion(ng.yp.version) < LooseVersion('1.0.11'):
+            for layer in ng.yp.layers:
+                if layer.type == 'VCOL':
+                    # Refresh divider alpha by setting the prop
+                    layer.divide_rgb_by_alpha = layer.divide_rgb_by_alpha
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version
