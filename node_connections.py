@@ -1709,8 +1709,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if not source_group:
         if linear: start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
         if divider_alpha: 
-            start_rgb = create_link(tree, start_rgb, divider_alpha.inputs[1])[0]
-            create_link(tree, start_alpha, divider_alpha.inputs[2])
+            mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
+            start_rgb = create_link(tree, start_rgb, divider_alpha.inputs[mixcol0])[mixout]
+            create_link(tree, start_alpha, divider_alpha.inputs[mixcol1])
         if flip_y: start_rgb = create_link(tree, start_rgb, flip_y.inputs[0])[0]
 
     if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
