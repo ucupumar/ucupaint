@@ -3623,16 +3623,18 @@ class YDuplicateLayer(bpy.types.Operator):
         for i, lname in enumerate(relevant_layer_names):
             #idx = relevant_ids[i]
 
-            l = yp.layers.get(lname)
-
             # Create new layer
             new_layer = yp.layers.add()
             new_layer.name = get_unique_name(lname, yp.layers)
 
+            # Get original layer
+            l = yp.layers.get(lname)
+            group_node = tree.nodes.get(l.group_node)
+
+            # Copy layer props
             copy_id_props(l, new_layer, ['name'])
 
             # Duplicate groups
-            group_node = tree.nodes.get(l.group_node)
             new_group_node = new_node(tree, new_layer, 'group_node', 'ShaderNodeGroup', group_node.label)
             new_group_node.node_tree = group_node.node_tree
 
