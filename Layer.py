@@ -3641,6 +3641,15 @@ class YDuplicateLayer(bpy.types.Operator):
             # Duplicate images and some nodes inside
             duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank)
 
+            # Rename masks
+            for mask in new_layer.masks:
+                if mask.type in {'VCOL'}: continue
+                m = re.match(r'^Mask\s.*\((.+)\)$', mask.name)
+                if m:
+                    old_layer_name = m.group(1)
+                    if old_layer_name == lname:
+                        mask.name = mask.name.replace(old_layer_name, new_layer.name)
+
             #yp.layers.move(len(yp.layers)-1, idx)
             created_ids.append(len(yp.layers)-1)
 
