@@ -153,8 +153,9 @@ def get_new_mask_name(obj, layer, mask_type):
     if mask_type == 'IMAGE':
         #name = 'Image'
         name = 'Mask'
-        items = bpy.data.images
-        return get_unique_name(name, items, surname)
+        name = get_unique_name(name, layer.masks, surname)
+        name = get_unique_name(name, bpy.data.images)
+        return name
     elif mask_type == 'VCOL' and obj.type == 'MESH':
         name = 'Mask VCol'
         items = get_vertex_colors(obj)
