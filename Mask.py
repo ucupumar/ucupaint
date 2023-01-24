@@ -785,7 +785,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             image = bpy.data.images.get(self.image_name)
             name = image.name
-            if image.colorspace_settings.name != 'Linear':
+            if image.colorspace_settings.name != 'Linear' and not image.is_dirty:
                 image.colorspace_settings.name = 'Linear'
         elif self.type == 'VCOL':
             vcols = get_vertex_colors(obj)
@@ -817,6 +817,10 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         rearrange_yp_nodes(layer.id_data)
         reconnect_yp_nodes(layer.id_data)
+
+        # Make sure all layers which used the opened image is using correct linear color
+        if self.type == 'IMAGE':
+            check_yp_linear_nodes(yp)
 
         ypui.layer_ui.expand_masks = True
         ypui.need_update = True
