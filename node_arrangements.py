@@ -249,6 +249,8 @@ def rearrange_layer_frame_nodes(layer, tree=None):
             check_set_node_parent(tree, c.mix, frame)
             check_set_node_parent(tree, c.mix_pure, frame)
             check_set_node_parent(tree, c.mix_remains, frame)
+            check_set_node_parent(tree, c.mix_limit, frame)
+            check_set_node_parent(tree, c.mix_limit_normal, frame)
             #check_set_node_parent(tree, c.mix_n, frame)
             #check_set_node_parent(tree, c.mix_s, frame)
             #check_set_node_parent(tree, c.mix_e, frame)
@@ -1088,6 +1090,9 @@ def rearrange_layer_nodes(layer, tree=None):
             if check_set_node_loc(tree, c.mix_normal, loc, True):
                 loc.y -= 40
 
+            if check_set_node_loc(tree, c.mix_limit_normal, loc, True):
+                loc.y -= 40
+
             #if check_set_node_loc(tree, c.mix_n, loc, True):
             #    loc.y -= 40
 
@@ -1101,9 +1106,13 @@ def rearrange_layer_nodes(layer, tree=None):
             #    loc.y -= 40
 
             if check_set_node_loc(tree, c.mix, loc):
-                loc.y -= 200.0
+                loc.y -= 240.0
+
+            if check_set_node_loc(tree, c.mix_limit, loc, True):
+                loc.y -= 40
 
             loc.x += 230
+
             bookmark_y1 = loc.y
             loc.y = bookmark_y
 

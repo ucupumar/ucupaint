@@ -2022,6 +2022,7 @@ def is_top_member(layer):
     yp = layer.id_data.yp
 
     for i, t in enumerate(yp.layers):
+        if not t.enable: continue
         if t == layer:
             if layer.parent_idx == i-1:
                 return True
@@ -2039,6 +2040,7 @@ def is_bottom_member(layer):
     layer_idx = -1
     last_member_idx = -1
     for i, t in enumerate(yp.layers):
+        if not t.enable: continue
         if t == layer:
             layer_idx = i
         if t.parent_idx == layer.parent_idx:

@@ -613,6 +613,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
             if not ch.enable or not layer.enable_masks or not mask.enable or not c.enable:
                 remove_node(tree, c, 'mix')
                 remove_node(tree, c, 'mix_remains')
+                remove_node(tree, c, 'mix_limit')
+                remove_node(tree, c, 'mix_limit_normal')
                 if root_ch.type == 'NORMAL':
                     remove_node(tree, c, 'mix_pure')
                     remove_node(tree, c, 'mix_normal')
@@ -700,6 +702,23 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                         set_mix_clamp(mix_remains, True)
                 else:
                     remove_node(tree, c, 'mix_remains')
+
+            if layer.type == 'GROUP' and mask.blend_type in {'ADD', 'DIVIDE'}:
+                mix_limit = tree.nodes.get(c.mix_limit)
+                if not mix_limit:
+                    mix_limit = new_node(tree, c, 'mix_limit', 'ShaderNodeMath', root_ch.name + ' Mask Limit')
+                mix_limit.operation = 'MINIMUM'
+                mix_limit.use_clamp = True
+
+                if root_ch.type == 'NORMAL':
+                    mix_limit_normal = tree.nodes.get(c.mix_limit_normal)
+                    if not mix_limit_normal:
+                        mix_limit_normal = new_node(tree, c, 'mix_limit_normal', 'ShaderNodeMath', root_ch.name + ' Mask Limit Normal')
+                    mix_limit_normal.operation = 'MINIMUM'
+                    mix_limit_normal.use_clamp = True
+            else:
+                remove_node(tree, c, 'mix_limit')
+                remove_node(tree, c, 'mix_limit_normal')
 
 def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
 

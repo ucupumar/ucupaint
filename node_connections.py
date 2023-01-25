@@ -1213,9 +1213,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             if not merged_layer_ids and layer.parent_idx != -1: continue
 
             # Group node with no children need normal input connected
-            if layer.type == 'GROUP' and not has_childrens(layer):
-                if ch.type == 'NORMAL':
-                    create_link(tree, geometry.outputs['Normal'], node.inputs[ch.name + io_suffix['GROUP']])
+            #if layer.type == 'GROUP' and not has_childrens(layer):
+            #    if ch.type == 'NORMAL':
+            #        create_link(tree, geometry.outputs['Normal'], node.inputs[ch.name + io_suffix['GROUP']])
 
             if ch.type == 'NORMAL' and need_prev_normal and not layer_ch.enable:
                 create_link(tree, rgb, node.inputs[io_name])
@@ -1982,6 +1982,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         height_alpha = None
         normal_alpha = None
+        group_alpha = None
 
         ch_uv_neighbor = nodes.get(ch.uv_neighbor)
         #ch_uv_neighbor_1 = nodes.get(ch.uv_neighbor_1)
@@ -2026,6 +2027,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 normal_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
             else:
                 alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
+
+            group_alpha = alpha
 
         elif layer.type == 'BACKGROUND':
             rgb = source.outputs[root_ch.name + io_suffix['BACKGROUND']]
@@ -2175,6 +2178,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             mmixcol0, mmixcol1, mmixout = get_mix_color_indices(mask_mix)
             if mask_mix:
                 alpha = create_link(tree, alpha, mask_mix.inputs[mmixcol0])[mmixout]
+
+            mix_limit = nodes.get(mask.channels[i].mix_limit)
+            if mix_limit and group_alpha:
+                alpha = create_link(tree, alpha, mix_limit.inputs[0])[0]
+                create_link(tree, group_alpha, mix_limit.inputs[1])
 
             if j == chain-1 and intensity_multiplier:
                 transition_input = alpha
@@ -2408,6 +2416,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 mix_pure = nodes.get(c.mix_pure)
                 mix_remains = nodes.get(c.mix_remains)
                 mix_normal = nodes.get(c.mix_normal)
+                mix_limit_normal = nodes.get(c.mix_limit_normal)
 
                 mmixcol0, mmixcol1, mmixout = get_mix_color_indices(mask_mix)
                 mp_mixcol0, mp_mixcol1, mp_mixout = get_mix_color_indices(mix_pure)
@@ -2424,8 +2433,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if j >= chain:
                     if mix_remains: remains = create_link(tree, remains, mix_remains.inputs[mr_mixcol0])[mr_mixout]
 
-                if mix_normal and normal_alpha: 
-                    normal_alpha = create_link(tree, normal_alpha, mix_normal.inputs[mn_mixcol0])[mn_mixout]
+                if normal_alpha:
+                    if mix_normal:
+                        normal_alpha = create_link(tree, normal_alpha, mix_normal.inputs[mn_mixcol0])[mn_mixout]
+                    if mix_limit_normal and group_alpha:
+                        normal_alpha = create_link(tree, normal_alpha, mix_limit_normal.inputs[0])[0]
+                        create_link(tree, group_alpha, mix_limit_normal.inputs[1])
 
                 if root_ch.enable_smooth_bump and mask_mix:
                     if j == chain and trans_bump_ch == ch and trans_bump_crease:
