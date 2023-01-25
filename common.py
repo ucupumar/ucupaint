@@ -2260,6 +2260,24 @@ def has_childrens(layer):
 
     return False
 
+def has_channel_childrens(layer, root_ch):
+
+    yp = layer.id_data.yp
+
+    if layer.type != 'GROUP':
+        return False
+
+    ch_idx = get_channel_index(root_ch)
+    childs = get_list_of_direct_childrens(layer)
+
+    for child in childs:
+        if not child.enable: continue
+        for i, ch in enumerate(child.channels):
+            if i == ch_idx and ch.enable:
+                return True
+
+    return False
+
 def get_last_child_idx(layer): #, very_last=False):
 
     yp = layer.id_data.yp

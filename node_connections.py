@@ -1209,13 +1209,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     if inp_height:
                         break_input_link(tree, inp_height)
 
+            # Group node with no children need normal input connected
+            if layer.type == 'GROUP' and not has_channel_childrens(layer, ch):
+                if ch.type == 'NORMAL':
+                    create_link(tree, geometry.outputs['Normal'], node.inputs[ch.name + io_suffix['GROUP']])
+
             # Merge process doesn't care with parents
             if not merged_layer_ids and layer.parent_idx != -1: continue
-
-            # Group node with no children need normal input connected
-            #if layer.type == 'GROUP' and not has_childrens(layer):
-            #    if ch.type == 'NORMAL':
-            #        create_link(tree, geometry.outputs['Normal'], node.inputs[ch.name + io_suffix['GROUP']])
 
             if ch.type == 'NORMAL' and need_prev_normal and not layer_ch.enable:
                 create_link(tree, rgb, node.inputs[io_name])
