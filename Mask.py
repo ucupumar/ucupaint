@@ -1242,6 +1242,24 @@ def update_mask_name(self, context):
     layer = yp.layers[int(match.group(1))]
     src = get_mask_source(self)
 
+    # Also update layer name if mask name is renamed in certain pattern
+    m = re.match(r'^Mask\s.*\((.+)\)$', self.name)
+    if m:
+        old_layer_name = layer.name
+        new_layer_name = m.group(1)
+
+        yp.halt_update = True
+        layer.name = new_layer_name
+
+        # Also update other mask names
+        for mask in layer.masks:
+            if mask == self: continue
+            mm = re.match(r'^Mask\s.*\((.+)\)$', mask.name)
+            if mm:
+                mask.name = mask.name.replace(mm.group(1), new_layer_name)
+
+        yp.halt_update = False
+
     if self.type == 'IMAGE' and self.segment_name != '': return
     change_layer_name(yp, context.object, src, self, layer.masks)
 
