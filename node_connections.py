@@ -247,8 +247,8 @@ def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
         io_name = root_ch.name
         if io_name in node.inputs:
             # Should always fill normal input
-            if root_ch.type == 'NORMAL':
-                geometry = tree.nodes.get(GEOMETRY)
+            geometry = tree.nodes.get(GEOMETRY)
+            if root_ch.type == 'NORMAL' and geometry:
                 create_link(tree, geometry.outputs['Normal'], node.inputs[io_name])
             else:
                 break_input_link(tree, node.inputs[io_name])
@@ -282,8 +282,8 @@ def remove_unused_group_node_connections(tree, layer, node): #, height_only=Fals
         io_name = root_ch.name + io_suffix['GROUP']
         if io_name in node.inputs:
             # Should always fill normal input
-            #if root_ch.type == 'NORMAL':
-            #    geometry = tree.nodes.get(GEOMETRY)
+            #geometry = tree.nodes.get(GEOMETRY)
+            #if root_ch.type == 'NORMAL' and geometry:
             #    create_link(tree, geometry.outputs['Normal'], node.inputs[io_name])
             #else:
             break_input_link(tree, node.inputs[io_name])
