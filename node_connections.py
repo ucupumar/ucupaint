@@ -2172,6 +2172,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             rgb_e = rgb
             rgb_w = rgb
 
+            group_alpha_n = None
+            group_alpha_s = None
+            group_alpha_e = None
+            group_alpha_w = None
+
             if is_greater_than_281():
                 if (
                     (ch.layer_input == 'RGB' and layer.type in {'NOISE', 'VORONOI'}) or
@@ -2227,6 +2232,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     alpha_s = height_alpha_group_unpack.outputs[2]
                     alpha_e = height_alpha_group_unpack.outputs[3]
                     alpha_w = height_alpha_group_unpack.outputs[4]
+
+                    group_alpha_n = alpha_n
+                    group_alpha_s = alpha_s
+                    group_alpha_e = alpha_e
+                    group_alpha_w = alpha_w
 
             elif ch.enable_transition_bump and uv_neighbor:
                 create_link(tree, alpha_after_mod, uv_neighbor.inputs[0])
@@ -2379,6 +2389,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         alpha_s = create_link(tree, alpha_s, mask_mix.inputs['Color1 s'])['Color s']
                         alpha_e = create_link(tree, alpha_e, mask_mix.inputs['Color1 e'])['Color e']
                         alpha_w = create_link(tree, alpha_w, mask_mix.inputs['Color1 w'])['Color w']
+
+                        if group_alpha and 'Limit' in mask_mix.inputs:
+                            create_link(tree, group_alpha, mask_mix.inputs['Limit'])
+
+                        if group_alpha_n and 'Limit n' in mask_mix.inputs:
+                            create_link(tree, group_alpha_n, mask_mix.inputs['Limit n'])
+                            create_link(tree, group_alpha_s, mask_mix.inputs['Limit s'])
+                            create_link(tree, group_alpha_e, mask_mix.inputs['Limit e'])
+                            create_link(tree, group_alpha_w, mask_mix.inputs['Limit w'])
 
                 if j == chain-1 or (j == chain_local-1 and not trans_bump_ch):
                     

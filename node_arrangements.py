@@ -1106,7 +1106,13 @@ def rearrange_layer_nodes(layer, tree=None):
             #    loc.y -= 40
 
             if check_set_node_loc(tree, c.mix, loc):
-                loc.y -= 240.0
+                if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+                    if layer.type == 'GROUP' and mask.blend_type in limited_mask_blend_types:
+                        loc.y -= 540.0
+                    else:
+                        loc.y -= 430.0
+                else:
+                    loc.y -= 240.0
 
             if check_set_node_loc(tree, c.mix_limit, loc, True):
                 loc.y -= 40

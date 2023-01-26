@@ -396,10 +396,18 @@ def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
 
     return im
 
-def get_smooth_mix_node(blend_type):
-    tree = bpy.data.node_groups.get(SMOOTH_PREFIX + blend_type)
+def get_smooth_mix_node(blend_type, layer_type=''):
+
+    is_group_limited = layer_type == 'GROUP' and blend_type in limited_mask_blend_types
+
+    tree_name = SMOOTH_PREFIX + blend_type
+    if is_group_limited:
+        tree_name += ' Group'
+
+    tree = bpy.data.node_groups.get(tree_name)
+
     if not tree:
-        tree = bpy.data.node_groups.new(SMOOTH_PREFIX + blend_type, 'ShaderNodeTree')
+        tree = bpy.data.node_groups.new(tree_name, 'ShaderNodeTree')
 
         # IO
         inp = tree.inputs.new('NodeSocketFloatFactor', 'Fac')
@@ -418,6 +426,14 @@ def get_smooth_mix_node(blend_type):
         for d in neighbor_directions:
             tree.outputs.new('NodeSocketColor', 'Color ' + d)
 
+        # Group alpha limit inputs
+        if is_group_limited:
+            inp = tree.inputs.new('NodeSocketFloat', 'Limit')
+            inp.default_value = 1.0
+            for d in neighbor_directions:
+                inp = tree.inputs.new('NodeSocketFloat', 'Limit ' + d)
+                inp.default_value = 1.0
+
         # Nodes
         create_essential_nodes(tree)
 
@@ -428,37 +444,72 @@ def get_smooth_mix_node(blend_type):
 
         start.location = loc
 
-        mixes = {}
-        #mix = tree.nodes.new('ShaderNodeMixRGB')
+        loc.x += 200
+        bookmark_x = loc.x
+
         mix = simple_new_mix_node(tree)
         mixcol0, mixcol1, mixout = get_mix_color_indices(mix)
         mix.name = '_mix'
         mix.blend_type = blend_type
 
-        loc.x += 200
         mix.location = loc
 
         tree.links.new(start.outputs['Fac'], mix.inputs[0])
         tree.links.new(start.outputs['Color1'], mix.inputs[mixcol0])
         tree.links.new(start.outputs['Color2'], mix.inputs[mixcol1])
-        tree.links.new(mix.outputs[mixout], end.inputs['Color'])
+        if not is_group_limited:
+            tree.links.new(mix.outputs[mixout], end.inputs['Color'])
+        else:
+            loc.x += 200
+
+            limit = tree.nodes.new('ShaderNodeMath')
+            limit.name = '_limit'
+            limit.operation = 'MINIMUM'
+            limit.use_clamp = True
+
+            limit.location = loc
+
+            tree.links.new(mix.outputs[mixout], limit.inputs[0])
+            tree.links.new(start.outputs['Limit'], limit.inputs[1])
+            tree.links.new(limit.outputs[0], end.inputs['Color'])
+
+        loc.y -= 200
 
         for d in neighbor_directions:
-            #mix = tree.nodes.new('ShaderNodeMixRGB')
+
+            loc.x = bookmark_x
+
             mix = simple_new_mix_node(tree)
             mixcol0, mixcol1, mixout = get_mix_color_indices(mix)
             mix.name = '_mix_' + d
             mix.blend_type = blend_type
 
-            loc.y -= 200
             mix.location = loc
 
             tree.links.new(start.outputs['Fac'], mix.inputs[0])
             tree.links.new(start.outputs['Color1 ' + d], mix.inputs[mixcol0])
             tree.links.new(start.outputs['Color2 ' + d], mix.inputs[mixcol1])
-            tree.links.new(mix.outputs[mixout], end.inputs['Color ' + d])
+
+            if not is_group_limited:
+                tree.links.new(mix.outputs[mixout], end.inputs['Color ' + d])
+            else:
+                loc.x += 200
+
+                limit = tree.nodes.new('ShaderNodeMath')
+                limit.name = '_limit_' + d
+                limit.operation = 'MINIMUM'
+                limit.use_clamp = True
+
+                limit.location = loc
+
+                tree.links.new(mix.outputs[mixout], limit.inputs[0])
+                tree.links.new(start.outputs['Limit ' + d], limit.inputs[1])
+                tree.links.new(limit.outputs[0], end.inputs['Color ' + d])
+
+            loc.y -= 200
 
         loc.x += 200
+
         end.location.x = loc.x
 
     return tree

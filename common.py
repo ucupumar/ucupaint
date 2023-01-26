@@ -376,6 +376,17 @@ vcol_data_type_items = (
     ('BYTE_COLOR', 'Byte Color', ''),
     )
 
+limited_mask_blend_types = {
+    'ADD',
+    'DIVIDE',
+    'SCREEN',
+    'MIX',
+    'DIFFERENCE',
+    'LIGHTEN',
+    'VALUE',
+    'LINEAR_LIGHT',
+    }
+
 TEXCOORD_IO_PREFIX = 'Texcoord '
 PARALLAX_MIX_PREFIX = 'Parallax Mix '
 PARALLAX_DELTA_PREFIX = 'Parallax Delta '

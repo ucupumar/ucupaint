@@ -629,7 +629,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     mix = None
                 if not mix:
                     mix = new_node(tree, c, 'mix', 'ShaderNodeGroup', 'Mask Blend')
-                    mix.node_tree = lib.get_smooth_mix_node(mask.blend_type)
+                    mix.node_tree = lib.get_smooth_mix_node(mask.blend_type, layer.type)
                     mix.inputs[0].default_value = mask.intensity_value
             else:
                 mix = tree.nodes.get(c.mix)
@@ -703,12 +703,16 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 else:
                     remove_node(tree, c, 'mix_remains')
 
-            if layer.type == 'GROUP' and mask.blend_type in {'ADD', 'DIVIDE'}:
-                mix_limit = tree.nodes.get(c.mix_limit)
-                if not mix_limit:
-                    mix_limit = new_node(tree, c, 'mix_limit', 'ShaderNodeMath', root_ch.name + ' Mask Limit')
-                mix_limit.operation = 'MINIMUM'
-                mix_limit.use_clamp = True
+            if layer.type == 'GROUP' and mask.blend_type in limited_mask_blend_types:
+
+                if root_ch.type != 'NORMAL' or not root_ch.enable_smooth_bump:
+                    mix_limit = tree.nodes.get(c.mix_limit)
+                    if not mix_limit:
+                        mix_limit = new_node(tree, c, 'mix_limit', 'ShaderNodeMath', root_ch.name + ' Mask Limit')
+                    mix_limit.operation = 'MINIMUM'
+                    mix_limit.use_clamp = True
+                else:
+                    remove_node(tree, c, 'mix_limit')
 
                 if root_ch.type == 'NORMAL':
                     mix_limit_normal = tree.nodes.get(c.mix_limit_normal)
