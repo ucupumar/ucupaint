@@ -203,13 +203,14 @@ def reconnect_all_modifier_nodes(tree, parent, start_rgb, start_alpha, mod_group
 
 def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
 
-    #print(layer)
-
     yp = layer.id_data.yp
-    #node = tree.nodes.get(layer.group_node)
+
+    if layer.parent_idx == -1: 
+        return
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
+        if has_previous_layer_channels(layer, root_ch): continue
 
         if root_ch.type == 'NORMAL':
 
@@ -241,27 +242,22 @@ def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
                 if io_name in node.inputs:
                     break_input_link(tree, node.inputs[io_name])
 
-                #for d in neighbor_directions:
-                #    io_name = root_ch.name + io_suffix['HEIGHT'] + ' ' + d
-                #    if io_name in node.inputs:
-                #        break_input_link(tree, node.inputs[io_name])
-
-                #    io_name = root_ch.name + io_suffix['ALPHA'] + ' ' + d
-                #    if io_name in node.inputs:
-                #        break_input_link(tree, node.inputs[io_name])
-
         #if height_only: continue
 
-        if root_ch.type != 'NORMAL':
-            io_name = root_ch.name
-            if io_name in node.inputs:
+        io_name = root_ch.name
+        if io_name in node.inputs:
+            # Should always fill normal input
+            if root_ch.type == 'NORMAL':
+                geometry = tree.nodes.get(GEOMETRY)
+                create_link(tree, geometry.outputs['Normal'], node.inputs[io_name])
+            else:
                 break_input_link(tree, node.inputs[io_name])
-
+            
         io_name = root_ch.name + io_suffix['ALPHA']
         if io_name in node.inputs:
             break_input_link(tree, node.inputs[io_name])
 
-def remove_all_children_inputs(tree, layer, node): #, height_only=False):
+def remove_unused_group_node_connections(tree, layer, node): #, height_only=False):
 
     yp = layer.id_data.yp
     #node = tree.nodes.get(layer.group_node)
@@ -271,6 +267,7 @@ def remove_all_children_inputs(tree, layer, node): #, height_only=False):
 
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
+        if has_channel_childrens(layer, root_ch): continue
 
         io_name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['GROUP']
         if io_name in node.inputs:
@@ -282,10 +279,14 @@ def remove_all_children_inputs(tree, layer, node): #, height_only=False):
 
         #if height_only: continue
 
-        if root_ch.type != 'NORMAL':
-            io_name = root_ch.name + io_suffix['GROUP']
-            if io_name in node.inputs:
-                break_input_link(tree, node.inputs[io_name])
+        io_name = root_ch.name + io_suffix['GROUP']
+        if io_name in node.inputs:
+            # Should always fill normal input
+            #if root_ch.type == 'NORMAL':
+            #    geometry = tree.nodes.get(GEOMETRY)
+            #    create_link(tree, geometry.outputs['Normal'], node.inputs[io_name])
+            #else:
+            break_input_link(tree, node.inputs[io_name])
 
         io_name = root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP']
         if io_name in node.inputs:
@@ -308,15 +309,6 @@ def remove_all_children_inputs(tree, layer, node): #, height_only=False):
             io_name = root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['ALPHA'] + io_suffix['GROUP']
             if io_name in node.inputs:
                 break_input_link(tree, node.inputs[io_name])
-
-            #for d in neighbor_directions:
-            #    io_name = root_ch.name + io_suffix['HEIGHT'] + ' ' + d + io_suffix['GROUP']
-            #    if io_name in node.inputs:
-            #        break_input_link(tree, node.inputs[io_name])
-
-            #    io_name = root_ch.name + io_suffix['ALPHA'] + ' ' + d + io_suffix['GROUP']
-            #    if io_name in node.inputs:
-            #        break_input_link(tree, node.inputs[io_name])
 
 def reconnect_relief_mapping_nodes(yp, node):
     parallax_ch = get_root_parallax_channel(yp)
@@ -838,17 +830,14 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
     last_members = []
     for layer in yp.layers:
         if not layer.enable: continue
-        if is_bottom_member(layer): # and layer.enable:
+        if is_bottom_member(layer, True):
             last_members.append(layer)
 
-            # Remove input links from bottom member
-            node = tree.nodes.get(layer.depth_group_node)
-            remove_all_prev_inputs(tree, layer, node) #, height_only=True)
-
-        # Remove input links from group with no childrens
-        if layer.type == 'GROUP' and not has_childrens(layer):
-            node = tree.nodes.get(layer.depth_group_node)
-            remove_all_children_inputs(tree, layer, node) #, height_only=True)
+        # Remove unused input links
+        node = tree.nodes.get(layer.depth_group_node)
+        if layer.type == 'GROUP':
+            remove_unused_group_node_connections(tree, layer, node) #, height_only=True)
+        remove_all_prev_inputs(tree, layer, node) #, height_only=True)
 
     # Group stuff
     for layer in last_members:
@@ -858,7 +847,6 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
         cur_layer = layer
         cur_node = node
 
-        #actual_last = True
         io_alpha = cur_node.outputs.get(io_alpha_name)
         io_height = cur_node.outputs.get(io_height_name)
         io_height_alpha = cur_node.outputs.get(io_height_alpha_name)
@@ -1209,11 +1197,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     if inp_height:
                         break_input_link(tree, inp_height)
 
-            # Group node with no children need normal input connected
-            if layer.type == 'GROUP' and not has_channel_childrens(layer, ch):
-                if ch.type == 'NORMAL':
-                    create_link(tree, geometry.outputs['Normal'], node.inputs[ch.name + io_suffix['GROUP']])
-
             # Merge process doesn't care with parents
             if not merged_layer_ids and layer.parent_idx != -1: continue
 
@@ -1326,20 +1309,15 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     # List of last members
     last_members = []
     for layer in yp.layers:
-        #is_hidden = not layer.enable or is_parent_hidden(layer)
-        #if is_hidden: continue
         if not layer.enable: continue
-        if is_bottom_member(layer):
+        if is_bottom_member(layer, True):
             last_members.append(layer)
 
-            # Remove input links from bottom member
-            node = tree.nodes.get(layer.group_node)
-            remove_all_prev_inputs(tree, layer, node)
-
-        # Remove input links from group with no childrens
-        if layer.type == 'GROUP' and not has_childrens(layer):
-            node = tree.nodes.get(layer.group_node)
-            remove_all_children_inputs(tree, layer, node)
+        # Remove unused input links
+        node = tree.nodes.get(layer.group_node)
+        if layer.type == 'GROUP':
+            remove_unused_group_node_connections(tree, layer, node)
+        remove_all_prev_inputs(tree, layer, node)
 
     # Group stuff
     for layer in last_members:
@@ -1348,8 +1326,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         cur_layer = layer
         cur_node = node
-
-        actual_last = True
 
         # Dictionary of Outputs
         outs = {}
@@ -1361,60 +1337,14 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             upper_idx, upper_layer = get_upper_neighbor(cur_layer)
             upper_node = nodes.get(upper_layer.group_node)
 
-            # Should always fill normal input
-            if actual_last:
-                for i, ch in enumerate(layer.channels):
-                    root_ch = yp.channels[i]
-                    if root_ch.type == 'NORMAL':
-
-                        if root_ch.name in node.inputs:
-                            create_link(tree, geometry.outputs['Normal'], node.inputs[root_ch.name])
-                        
-                        io_name = root_ch.name + io_suffix['GROUP']
-                        if layer.type == 'GROUP' and not has_childrens(layer) and io_name in node.inputs:
-                            create_link(tree, geometry.outputs['Normal'], node.inputs[io_name])
-
-                actual_last = False
-
-            # Height should still connected to previous layer
-            #if actual_last and layer.type != 'GROUP':
-            #    idx = get_layer_index(layer)
-
-            #    for i, ch in enumerate(layer.channels):
-            #        root_ch = yp.channels[i]
-            #        if root_ch.type == 'NORMAL':
-
-            #            if idx != len(yp.layers)-1:
-            #                # Connect to previous layer height
-            #                lower_node = nodes.get(yp.layers[idx+1].group_node)
-            #                create_link(tree, lower_node.outputs[root_ch.name + io_suffix['HEIGHT']],
-            #                        upper_node.inputs[root_ch.name + io_suffix['HEIGHT']])
-
-            #                # Neighbor heights are also need connection
-            #                if root_ch.enable_smooth_bump:
-            #                    for d in neighbor_directions:
-            #                        create_link(tree, 
-            #                                lower_node.outputs[root_ch.name + io_suffix['HEIGHT'] + ' ' + d],
-            #                                upper_node.inputs[root_ch.name + io_suffix['HEIGHT']])
-            #            else:
-            #                # Connect to start height
-            #                create_link(tree, start.outputs[root_ch.name + io_suffix['HEIGHT']],
-            #                        upper_node.inputs[root_ch.name + io_suffix['HEIGHT']])
-            #            break
-            #    actual_last = False
-
             # Connect
             if upper_layer.parent_idx == cur_layer.parent_idx:
-                #if not yp.disable_quick_toggle or upper_layer.enable:
                 if upper_layer.enable:
-                    #for i, outp in enumerate(cur_node.outputs):
-                    #    create_link(tree, outp, upper_node.inputs[i])
                     for inp in upper_node.inputs:
                         if inp.name in outs:
                             o = create_link(tree, outs[inp.name], inp)
                             if inp.name in o:
                                 outs[inp.name] = o[inp.name]
-                            #outs[inp.name] = create_link(tree, outs[inp.name], inp)[inp.name]
                         elif inp.name in upper_node.outputs: 
                             outs[inp.name] = upper_node.outputs[inp.name]
 
@@ -1422,8 +1352,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 cur_node = upper_node
             else:
 
-                #for i, outp in enumerate(cur_node.outputs):
-                #    create_link(tree, outp, upper_node.inputs[outp.name + io_suffix['GROUP']])
                 for output_name, outp in outs.items():
                     io_name =  output_name + io_suffix['GROUP']
                     if io_name in upper_node.inputs:

@@ -2014,7 +2014,7 @@ def get_layer_depth(layer):
 
     return depth
 
-def is_top_member(layer):
+def is_top_member(layer, enabled_only=False):
     
     if layer.parent_idx == -1:
         return False
@@ -2022,7 +2022,7 @@ def is_top_member(layer):
     yp = layer.id_data.yp
 
     for i, t in enumerate(yp.layers):
-        if not t.enable: continue
+        if enabled_only and not t.enable: continue
         if t == layer:
             if layer.parent_idx == i-1:
                 return True
@@ -2030,7 +2030,7 @@ def is_top_member(layer):
 
     return False
 
-def is_bottom_member(layer):
+def is_bottom_member(layer, enabled_only=False):
 
     if layer.parent_idx == -1:
         return False
@@ -2040,7 +2040,7 @@ def is_bottom_member(layer):
     layer_idx = -1
     last_member_idx = -1
     for i, t in enumerate(yp.layers):
-        if not t.enable: continue
+        if enabled_only and not t.enable: continue
         if t == layer:
             layer_idx = i
         if t.parent_idx == layer.parent_idx:
@@ -2275,6 +2275,23 @@ def has_channel_childrens(layer, root_ch):
         for i, ch in enumerate(child.channels):
             if i == ch_idx and ch.enable:
                 return True
+
+    return False
+
+def has_previous_layer_channels(layer, root_ch):
+    yp = layer.id_data.yp
+
+    if layer.parent_idx == -1:
+        return True
+
+    ch_idx = get_channel_index(root_ch)
+    layer_idx = get_layer_index(layer)
+
+    for i, t in reversed(list(enumerate(yp.layers))):
+        if i > layer_idx and layer.parent_idx == t.parent_idx:
+            for j, c in enumerate(t.channels):
+                if ch_idx == j and c.enable:
+                    return True
 
     return False
 
