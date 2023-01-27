@@ -186,7 +186,7 @@ class YNewLayerMask(bpy.types.Operator):
     blend_type : EnumProperty(
         name = 'Blend',
         description = 'Blend type',
-        items = blend_type_items,
+        items = mask_blend_type_items,
         default = 'MULTIPLY')
 
     color_option : EnumProperty(
@@ -563,7 +563,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
     blend_type : EnumProperty(
         name = 'Blend',
         description = 'Blend type',
-        items = blend_type_items,
+        items = mask_blend_type_items,
         default = 'MULTIPLY')
 
     def generate_paths(self):
@@ -690,7 +690,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     blend_type : EnumProperty(
         name = 'Blend',
         description = 'Blend type',
-        items = blend_type_items,
+        items = mask_blend_type_items,
         default = 'MULTIPLY')
 
     @classmethod
@@ -1397,7 +1397,7 @@ class YLayerMask(bpy.types.PropertyGroup):
 
     blend_type : EnumProperty(
         name = 'Blend',
-        items = blend_type_items,
+        items = mask_blend_type_items,
         default = 'MULTIPLY',
         update = update_mask_blend_type)
 

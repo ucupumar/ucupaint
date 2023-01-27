@@ -65,6 +65,23 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
 	             ("LINEAR_LIGHT", "Linear Light", ""))
 
+mask_blend_type_items = (("MIX", "Replace", ""),
+	             ("ADD", "Add", ""),
+	             ("SUBTRACT", "Subtract", ""),
+	             ("MULTIPLY", "Multiply", ""),
+	             ("SCREEN", "Screen", ""),
+	             ("OVERLAY", "Overlay", ""),
+	             ("DIFFERENCE", "Difference", ""),
+	             ("DIVIDE", "Divide", ""),
+	             ("DARKEN", "Darken", ""),
+	             ("LIGHTEN", "Lighten", ""),
+	             ("HUE", "Hue", ""),
+	             ("SATURATION", "Saturation", ""),
+	             ("VALUE", "Value", ""),
+	             ("COLOR", "Color", ""),
+	             ("SOFT_LIGHT", "Soft Light", ""),
+	             ("LINEAR_LIGHT", "Linear Light", ""))
+
 COLORID_TOLERANCE = 0.003906 # 1/256
 
 TEMP_UV = '~TL Temp Paint UV'
