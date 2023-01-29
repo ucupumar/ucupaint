@@ -19,12 +19,12 @@ jobs:
         with:
           ref: blender_279
       - name: zip blender_279
-        run: zip -r ${{ github.event.repository.name }}-blender_279-${{ env.RELEASE_VERSION }}.zip . -x ".git/*" ".github/*"
+        run: zip -r ${{ github.event.repository.name }}-blender_279-legacy-${{ env.RELEASE_VERSION }}.zip . -x ".git/*" ".github/*"
       - name: Release
         uses: softprops/action-gh-release@v1
         with:
           draft: true
-          files: ${{ github.event.repository.name }}-develop-${{ env.RELEASE_VERSION }}.zip
+          files: ${{ github.event.repository.name }}-blender_279-legacy-${{ env.RELEASE_VERSION }}.zip
       - name: Checkout
         uses: actions/checkout@v3
       - name: zip
