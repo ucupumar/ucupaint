@@ -1,0 +1,36 @@
+name: Main
+
+on:
+  push:
+    tags:
+      - "*.*.*"
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Set env
+        run: echo "RELEASE_VERSION=${GITHUB_REF#refs/*/}" >> $GITHUB_ENV
+      - name: Checkout blender_279
+        uses: actions/checkout@v3
+        with:
+          ref: blender_279
+      - name: zip blender_279
+        run: zip -r ${{ github.event.repository.name }}-blender_279-${{ env.RELEASE_VERSION }}.zip . -x ".git/*" ".github/*"
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: ${{ github.event.repository.name }}-develop-${{ env.RELEASE_VERSION }}.zip
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: zip
+        run: zip -r ${{ github.event.repository.name }}-${{ env.RELEASE_VERSION }}.zip . -x ".git/*" ".github/*"
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: ${{ github.event.repository.name }}-${{ env.RELEASE_VERSION }}.zip
