@@ -3482,10 +3482,19 @@ def ypaint_force_update_on_anim(scene):
             fcs = ng.animation_data.action.fcurves
             for fc in fcs:
                 if fc.data_path.startswith('yp.'):
+
+                    # Get the datapath of the keyframed prop
                     ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
                     path = ng_string + fc.data_path
-                    #script = path + ' = ' + path
+
+                    # Check if path is an array
+                    if hasattr(eval(path), '__len__'):
+                        path += '[' + str(fc.array_index) + ']'
+
+                    # Construct the script to trigger update
                     script = path + ' = ' + str(fc.evaluate(scene.frame_current))
+
+                    # Run the script to actually trigger update
                     #print(script)
                     exec(script)
 
