@@ -3481,7 +3481,7 @@ def ypaint_force_update_on_anim(scene):
         for ng in ngs:
             fcs = ng.animation_data.action.fcurves
             for fc in fcs:
-                if fc.data_path.startswith('yp.'):
+                if not fc.mute and fc.data_path.startswith('yp.'):
 
                     # Get the datapath of the keyframed prop
                     ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
