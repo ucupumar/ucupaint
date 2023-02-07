@@ -239,6 +239,12 @@ def draw_vcol_props(layout, vcol=None, entity=None):
     else:
         layout.label(text='You can also edit vertex color on edit mode')
 
+def is_input_skipped(inp):
+    if is_greater_than_281():
+        return inp.name == 'Vector' or not inp.enabled
+
+    return inp.name == 'Vector'
+
 def draw_tex_props(source, layout):
 
     title = source.bl_idname.replace('ShaderNodeTex', '')
@@ -248,6 +254,9 @@ def draw_tex_props(source, layout):
     #col.separator()
 
     if title == 'Brick':
+
+        separator_needed  = {'Mortar'}
+
         row = col.row()
         col = row.column(align=True)
         col.label(text='Offset:')
@@ -258,16 +267,11 @@ def draw_tex_props(source, layout):
         col.label(text='Frequency:')
         col.separator()
 
-        col.label(text='Color 1:')
-        col.label(text='Color 2:')
-        col.label(text='Mortar:')
-        col.separator()
-        col.label(text='Scale:')
-        col.label(text='Mortar Size:')
-        col.label(text='Mortar Smooth:')
-        col.label(text='Bias:')
-        col.label(text='Brick Width:')
-        col.label(text='Brick Height:')
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.label(text=inp.name + ':')
+            if inp.name in separator_needed:
+                col.separator()
 
         col = row.column(align=True)
         col.prop(source, 'offset', text='')
@@ -277,22 +281,32 @@ def draw_tex_props(source, layout):
         col.prop(source, 'squash', text='')
         col.prop(source, 'squash_frequency', text='')
         col.separator()
-        for i in range (1,10):
-            if i == 4: col.separator()
-            col.prop(source.inputs[i], 'default_value', text='')
+
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.prop(inp, 'default_value', text='')
+            if inp.name in separator_needed:
+                col.separator()
 
     elif title == 'Checker':
 
+        separator_needed  = {'Color2'}
+
         row = col.row()
+
         col = row.column(align=True)
-        col.label(text='Color 1:')
-        col.label(text='Color 2:')
-        col.separator()
-        col.label(text='Scale:')
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.label(text=inp.name + ':')
+            if inp.name in separator_needed:
+                col.separator()
+
         col = row.column(align=True)
-        for i in range (1,4):
-            if i == 3: col.separator()
-            col.prop(source.inputs[i], 'default_value', text='')
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.prop(inp, 'default_value', text='')
+            if inp.name in separator_needed:
+                col.separator()
 
     elif title == 'Gradient':
 
@@ -305,137 +319,123 @@ def draw_tex_props(source, layout):
     elif title == 'Magic':
 
         row = col.row()
+
         col = row.column(align=True)
         col.label(text='Depth:')
-        col.label(text='Scale:')
-        col.label(text='Distortion:')
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.label(text=inp.name + ':')
+
         col = row.column(align=True)
         col.prop(source, 'turbulence_depth', text='')
-        col.prop(source.inputs[1], 'default_value', text='')
-        col.prop(source.inputs[2], 'default_value', text='')
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.prop(inp, 'default_value', text='')
 
     elif title == 'Musgrave':
 
+        row = col.row()
+        col = row.column(align=True)
         if is_greater_than_281():
-            row = col.row()
-            col = row.column(align=True)
             col.label(text='Dimensions:')
-            col.label(text='Type:')
-            col.separator()
-            col.label(text='Scale:')
-            col.label(text='Detail:')
-            col.label(text='Dimension:')
-            col.label(text='Lacunarity:')
-            col = row.column(align=True)
-            col.prop(source, 'musgrave_dimensions', text='')
-            col.prop(source, 'musgrave_type', text='')
-            col.separator()
-            col.prop(source.inputs[2], 'default_value', text='')
-            col.prop(source.inputs[3], 'default_value', text='')
-            col.prop(source.inputs[4], 'default_value', text='')
-            col.prop(source.inputs[5], 'default_value', text='')
-        else:
+        col.label(text='Type:')
+        col.separator()
 
-            row = col.row()
-            col = row.column(align=True)
-            col.label(text='Type:')
-            col.separator()
-            col.label(text='Scale:')
-            col.label(text='Detail:')
-            col.label(text='Dimension:')
-            col.label(text='Lacunarity:')
-            col.label(text='Offset:')
-            col.label(text='Gain:')
-            col = row.column(align=True)
-            col.prop(source, 'musgrave_type', text='')
-            col.separator()
-            col.prop(source.inputs[1], 'default_value', text='')
-            col.prop(source.inputs[2], 'default_value', text='')
-            col.prop(source.inputs[3], 'default_value', text='')
-            col.prop(source.inputs[4], 'default_value', text='')
-            col.prop(source.inputs[5], 'default_value', text='')
-            col.prop(source.inputs[6], 'default_value', text='')
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.label(text=inp.name + ':')
+
+        col = row.column(align=True)
+        if is_greater_than_281():
+            col.prop(source, 'musgrave_dimensions', text='')
+        col.prop(source, 'musgrave_type', text='')
+        col.separator()
+
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.prop(inp, 'default_value', text='')
 
     elif title == 'Noise':
 
+        row = col.row()
+        col = row.column(align=True)
         if is_greater_than_281():
-            row = col.row()
-            col = row.column(align=True)
             col.label(text='Dimensions:')
             col.separator()
-            col.label(text='Scale:')
-            col.label(text='Detail:')
-            col.label(text='Distortion:')
-            col = row.column(align=True)
+
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.label(text=inp.name + ':')
+
+        col = row.column(align=True)
+        if is_greater_than_281():
             col.prop(source, 'noise_dimensions', text='')
             col.separator()
-            for i in range (2,5):
-                col.prop(source.inputs[i], 'default_value', text='')
-        else:
-            row = col.row()
-            col = row.column(align=True)
-            col.label(text='Scale:')
-            col.label(text='Detail:')
-            col.label(text='Distortion:')
-            col = row.column(align=True)
-            for i in range (1,4):
-                col.prop(source.inputs[i], 'default_value', text='')
+
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.prop(inp, 'default_value', text='')
 
     elif title == 'Voronoi':
 
+        row = col.row()
+
+        col = row.column(align=True)
         if is_greater_than_281():
-            row = col.row()
-            col = row.column(align=True)
             col.label(text='Dimensions:')
+        else: col.label(text='Coloring:')
+
+        if is_greater_than_280():
             col.label(text='Feature:')
-            col.label(text='Distance:')
-            col.separator()
-            col.label(text='Scale:')
-            if source.feature == 'SMOOTH_F1':
-                col.label(text='Smoothness:')
-            col.label(text='Randomness:')
-            col = row.column(align=True)
-            col.prop(source, 'voronoi_dimensions', text='')
-            col.prop(source, 'feature', text='')
-            col.prop(source, 'distance', text='')
-            col.separator()
-            col.prop(source.inputs[2], 'default_value', text='')
-            if source.feature == 'SMOOTH_F1':
-                col.prop(source.inputs[3], 'default_value', text='')
-            col.prop(source.inputs[5], 'default_value', text='')
-        else:
-            row = col.row()
-            col = row.column(align=True)
-            col.label(text='Coloring:')
-            if is_greater_than_280():
+            if source.feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
                 col.label(text='Distance:')
-                col.label(text='Feature:')
-            col.separator()
-            col.label(text='Scale:')
-            col = row.column(align=True)
-            col.prop(source, 'coloring', text='')
-            if is_greater_than_280():
+
+        col.separator()
+
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.label(text=inp.name + ':')
+
+        col = row.column(align=True)
+
+        if is_greater_than_281():
+            col.prop(source, 'voronoi_dimensions', text='')
+        else: col.prop(source, 'coloring', text='')
+
+        if is_greater_than_280():
+            col.prop(source, 'feature', text='')
+            if source.feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
                 col.prop(source, 'distance', text='')
-                col.prop(source, 'feature', text='')
-            col.separator()
-            col.prop(source.inputs[1], 'default_value', text='')
+        col.separator()
+
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.prop(inp, 'default_value', text='')
 
     elif title == 'Wave':
 
         row = col.row()
         col = row.column(align=True)
         col.label(text='Type:')
+        if hasattr(source, 'bands_direction'):
+            col.label(text='Band Direction:')
         col.label(text='Profile:')
-        col.label(text='Scale:')
-        col.label(text='Distortion:')
-        col.label(text='Detail:')
-        col.label(text='Detail Scale:')
+        col.separator()
+
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.label(text=inp.name + ':')
+
         col = row.column(align=True)
         col.prop(source, 'wave_type', text='')
+        if hasattr(source, 'bands_direction'):
+            col.prop(source, 'bands_direction', text='')
         col.prop(source, 'wave_profile', text='')
         col.separator()
-        for i in range (1,5):
-            col.prop(source.inputs[i], 'default_value', text='')
+
+        for inp in source.inputs:
+            if is_input_skipped(inp): continue
+            col.prop(inp, 'default_value', text='')
 
 def draw_colorid_props(layer, source, layout):
     col = layout.column()
