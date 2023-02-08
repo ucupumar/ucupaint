@@ -3512,7 +3512,8 @@ def ypaint_force_update_on_anim(scene):
 
                     # Run the script to actually trigger update
                     #print(script)
-                    exec(script)
+                    if eval(path) != val:
+                        exec(script)
 
 def register():
     bpy.utils.register_class(YSelectMaterialPolygons)
