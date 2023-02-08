@@ -3501,7 +3501,7 @@ def ypaint_force_update_on_anim(scene):
                             parent_path = ng_string + m.group(1)
                             prop_name = m.group(2)
                             enum_path = parent_path + '.bl_rna.properties["' + prop_name + '"].enum_items[' + str(int(val)) + '].identifier'
-                            val = '"' + eval(enum_path) + '"'
+                            val = eval(enum_path)
 
                     # Check if path is an array
                     elif hasattr(eval(path), '__len__'):
@@ -3513,8 +3513,11 @@ def ypaint_force_update_on_anim(scene):
 
                     #print(path, val)
 
+                    # Convert evaluated value to string
+                    string_val = str(val) if type(val) != str else '"' + val + '"'
+
                     # Construct the script to trigger update
-                    script = path + ' = ' + str(val)
+                    script = path + ' = ' + string_val
 
                     # Run the script to actually trigger update
                     #print(script)
