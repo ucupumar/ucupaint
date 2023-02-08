@@ -3490,12 +3490,25 @@ def ypaint_force_update_on_anim(scene):
                     ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
                     path = ng_string + fc.data_path
 
+                    # Check if path is a string
+                    # NOTE: String keyframe is currently not supported yet
+                    if type(eval(path)) == str:
+                        continue
+
                     # Check if path is an array
-                    if hasattr(eval(path), '__len__'):
+                    elif hasattr(eval(path), '__len__'):
                         path += '[' + str(fc.array_index) + ']'
 
+                    # Get evaluated value
+                    val = fc.evaluate(scene.frame_current)
+                    #print(path, val)
+
+                    # Check if path is a boolean
+                    if type(eval(path)) == bool:
+                        val = val == 1.0
+
                     # Construct the script to trigger update
-                    script = path + ' = ' + str(fc.evaluate(scene.frame_current))
+                    script = path + ' = ' + str(val)
 
                     # Run the script to actually trigger update
                     #print(script)
