@@ -3490,22 +3490,28 @@ def ypaint_force_update_on_anim(scene):
                     ng_string = 'bpy.data.node_groups["' + ng.name + '"].'
                     path = ng_string + fc.data_path
 
+                    # Get evaluated value
+                    val = fc.evaluate(scene.frame_current)
+
                     # Check if path is a string
-                    # NOTE: String keyframe is currently not supported yet
                     if type(eval(path)) == str:
-                        continue
+                        # Get prop name
+                        m = re.match(r'(.+)\.(.+)$', fc.data_path)
+                        if m:
+                            parent_path = ng_string + m.group(1)
+                            prop_name = m.group(2)
+                            enum_path = parent_path + '.bl_rna.properties["' + prop_name + '"].enum_items[' + str(int(val)) + '].identifier'
+                            val = '"' + eval(enum_path) + '"'
 
                     # Check if path is an array
                     elif hasattr(eval(path), '__len__'):
                         path += '[' + str(fc.array_index) + ']'
 
-                    # Get evaluated value
-                    val = fc.evaluate(scene.frame_current)
-                    #print(path, val)
-
                     # Check if path is a boolean
-                    if type(eval(path)) == bool:
+                    elif type(eval(path)) == bool:
                         val = val == 1.0
+
+                    #print(path, val)
 
                     # Construct the script to trigger update
                     script = path + ' = ' + str(val)
