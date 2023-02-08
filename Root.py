@@ -3513,15 +3513,17 @@ def ypaint_force_update_on_anim(scene):
 
                     #print(path, val)
 
-                    # Convert evaluated value to string
-                    string_val = str(val) if type(val) != str else '"' + val + '"'
-
-                    # Construct the script to trigger update
-                    script = path + ' = ' + string_val
-
-                    # Run the script to actually trigger update
-                    #print(script)
+                    # Only run script if needed
                     if eval(path) != val:
+
+                        # Convert evaluated value to string
+                        string_val = str(val) if type(val) != str else '"' + val + '"'
+
+                        # Construct the script
+                        script = path + ' = ' + string_val
+
+                        # Run the script to trigger update
+                        #print(script)
                         exec(script)
 
 def register():
