@@ -2129,6 +2129,13 @@ def get_parent_dict(yp):
 
     return parent_dict
 
+def get_index_dict(yp):
+    index_dict = {}
+    for i, t in enumerate(yp.layers):
+        index_dict[t.name] = i
+
+    return index_dict
+
 def get_parent(layer):
 
     yp = layer.id_data.yp
@@ -4128,19 +4135,25 @@ def get_yp_fcurves(yp):
 
     return fcurves
 
-def swap_layer_fcurves(yp, idx0, idx1):
+def remap_layer_fcurves(yp, index_dict):
+
     fcurves = get_yp_fcurves(yp)
+    swapped_fcurves = []
 
-    for fc in fcurves:
-        m = re.match(r'^yp\.layers\[(\d+)\].*', fc.data_path)
-        if m:
-            index = int(m.group(1))
+    for i, lay in enumerate(yp.layers):
+        if lay.name not in index_dict: continue
+        original_index = index_dict[lay.name]
+        if original_index == i: continue
 
-            if index == idx0:
-                fc.data_path = fc.data_path.replace('yp.layers[' + str(idx0) + ']', 'yp.layers[' + str(idx1) + ']')
+        for fc in fcurves:
+            if fc in swapped_fcurves: continue
+            m = re.match(r'^yp\.layers\[(\d+)\].*', fc.data_path)
+            if m:
+                index = int(m.group(1))
 
-            elif index == idx1:
-                fc.data_path = fc.data_path.replace('yp.layers[' + str(idx1) + ']', 'yp.layers[' + str(idx0) + ']')
+                if index == original_index:
+                    fc.data_path = fc.data_path.replace('yp.layers[' + str(original_index) + ']', 'yp.layers[' + str(i) + ']')
+                    swapped_fcurves.append(fc)
 
 def swap_channel_fcurves(yp, idx0, idx1):
     fcurves = get_yp_fcurves(yp)

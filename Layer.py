@@ -108,8 +108,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     yp.halt_reconnect = True
     #yp.halt_update = True
 
-    # Get parent dict
+    # Get parent and index dict
     parent_dict = get_parent_dict(yp)
+    index_dict = get_index_dict(yp)
 
     # Get active layer
     try: active_layer = yp.layers[yp.active_layer_index]
@@ -159,6 +160,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     # Remap parents
     for lay in yp.layers:
         lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
+    # Remap fcurves
+    remap_layer_fcurves(yp, index_dict)
 
     # New layer tree
     tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + layer_name, 'ShaderNodeTree')
@@ -2473,8 +2477,9 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
         layer_idx = yp.active_layer_index
         layer = yp.layers[layer_idx]
 
-        # Remember parent
+        # Remember parent and indices
         parent_dict = get_parent_dict(yp)
+        index_dict = get_index_dict(yp)
         
         # Move image slot
         if self.direction == 'UP':
@@ -2493,7 +2498,6 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
             last_member_idx = get_last_child_idx(layer)
             yp.layers.move(neighbor_idx, last_member_idx)
-            swap_layer_fcurves(yp, neighbor_idx, last_member_idx)
 
             yp.active_layer_index = neighbor_idx
 
@@ -2518,12 +2522,14 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
                 parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, neighbor_idx)
 
                 yp.layers.move(neighbor_idx, layer_idx)
-                swap_layer_fcurves(yp, neighbor_idx, layer_idx)
                 yp.active_layer_index = layer_idx+1
 
         # Remap parents
         for lay in yp.layers:
             lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
+        # Remap fcurves
+        remap_layer_fcurves(yp, index_dict)
 
         layer = yp.layers[yp.active_layer_index]
         #has_parent = layer.parent_idx != -1
@@ -2591,8 +2597,9 @@ class YMoveLayer(bpy.types.Operator):
         if not neighbor_layer:
             return {'CANCELLED'}
 
-        # Remember all parents
+        # Remember all parents and indices
         parent_dict = get_parent_dict(yp)
+        index_dict = get_index_dict(yp)
 
         if layer.type == 'GROUP' and neighbor_layer.type != 'GROUP':
 
@@ -2602,7 +2609,6 @@ class YMoveLayer(bpy.types.Operator):
 
                 # Swap layer
                 yp.layers.move(neighbor_idx, last_member_idx)
-                swap_layer_fcurves(yp, neighbor_idx, last_member_idx)
                 yp.active_layer_index = neighbor_idx
 
             # Group layer DOWN to standard layer
@@ -2611,7 +2617,6 @@ class YMoveLayer(bpy.types.Operator):
 
                 # Swap layer
                 yp.layers.move(neighbor_idx, layer_idx)
-                swap_layer_fcurves(yp, neighbor_idx, layer_idx)
                 yp.active_layer_index = layer_idx+1
 
         elif layer.type == 'GROUP' and neighbor_layer.type == 'GROUP':
@@ -2623,7 +2628,6 @@ class YMoveLayer(bpy.types.Operator):
                 # Swap all related layers
                 for i in range(last_member_idx+1 - layer_idx):
                     yp.layers.move(layer_idx+i, neighbor_idx+i)
-                    swap_layer_fcurves(yp, layer_idx+i, neighbor_idx+i)
 
                 yp.active_layer_index = neighbor_idx
 
@@ -2637,7 +2641,6 @@ class YMoveLayer(bpy.types.Operator):
                 # Swap all related layers
                 for i in range(num_members):
                     yp.layers.move(neighbor_idx+i, layer_idx+i)
-                    swap_layer_fcurves(yp, neighbor_idx+i, layer_idx+i)
 
                 yp.active_layer_index = layer_idx+num_members
 
@@ -2649,7 +2652,6 @@ class YMoveLayer(bpy.types.Operator):
 
                 # Swap layer
                 yp.layers.move(layer_idx, neighbor_idx)
-                swap_layer_fcurves(yp, layer_idx, neighbor_idx)
                 yp.active_layer_index = neighbor_idx
 
                 start_remap = neighbor_idx + 2
@@ -2663,7 +2665,6 @@ class YMoveLayer(bpy.types.Operator):
 
                 # Swap layer
                 yp.layers.move(layer_idx, last_neighbor_member_idx)
-                swap_layer_fcurves(yp, layer_idx, last_neighbor_member_idx)
                 yp.active_layer_index = last_neighbor_member_idx
 
                 start_remap = layer_idx + 1
@@ -2675,12 +2676,14 @@ class YMoveLayer(bpy.types.Operator):
 
             # Swap layer
             yp.layers.move(layer_idx, neighbor_idx)
-            swap_layer_fcurves(yp, layer_idx, neighbor_idx)
             yp.active_layer_index = neighbor_idx
 
         # Remap parents
         for lay in yp.layers:
             lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
+        # Remap fcurves
+        remap_layer_fcurves(yp, index_dict)
 
         # Height calculation can be changed after moving layer
         height_root_ch = get_root_height_channel(yp)
@@ -2875,6 +2878,7 @@ class YRemoveLayer(bpy.types.Operator):
 
         # Remember parents
         parent_dict = get_parent_dict(yp)
+        index_dict = get_index_dict(yp)
 
         need_reconnect_layers = False
 
@@ -2914,6 +2918,9 @@ class YRemoveLayer(bpy.types.Operator):
         # Remap parents
         for lay in yp.layers:
             lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
+        # Remap fcurves
+        remap_layer_fcurves(yp, index_dict)
 
         # Check uv maps
         check_uv_nodes(yp)
@@ -3599,8 +3606,9 @@ class YDuplicateLayer(bpy.types.Operator):
         tree = node.node_tree
         yp = tree.yp
 
-        # Get parent dict
+        # Get parent and index dict
         parent_dict = get_parent_dict(yp)
+        index_dict = get_index_dict(yp)
 
         # Get active layer
         layer_idx = yp.active_layer_index
@@ -3666,6 +3674,9 @@ class YDuplicateLayer(bpy.types.Operator):
             if lay.name in parent_dict:
                 lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
             #print(lay.name, yp.layers[lay.parent_idx].name)
+
+        # Remap fcurves
+        remap_layer_fcurves(yp, index_dict)
 
         # Revert back halt update
         yp.halt_update = False
@@ -3788,8 +3799,9 @@ class YPasteLayer(bpy.types.Operator):
             for child in childs:
                 relevant_layer_names.append(child.name)
 
-        # Get parent dict
+        # Get parent and index dict
         parent_dict = get_parent_dict(yp)
+        index_dict = get_index_dict(yp)
 
         # Current index
         cur_idx = yp.active_layer_index
@@ -3853,6 +3865,9 @@ class YPasteLayer(bpy.types.Operator):
         for lay in yp.layers:
             if lay.name in pasted_layer_names: continue
             lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
+        # Remap fcurves
+        remap_layer_fcurves(yp, index_dict)
 
         # Check uv maps
         check_uv_nodes(yp)
