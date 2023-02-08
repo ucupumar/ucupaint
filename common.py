@@ -4115,6 +4115,120 @@ def get_mix_color_indices(mix):
 
     return idx0, idx1, outidx
 
+def get_yp_fcurves(yp):
+
+    tree = yp.id_data
+
+    fcurves = []
+
+    if tree.animation_data and tree.animation_data.action:
+        for fc in tree.animation_data.action.fcurves:
+            if fc.data_path.startswith('yp.'):
+                fcurves.append(fc)
+
+    return fcurves
+
+def swap_layer_fcurves(yp, idx0, idx1):
+    fcurves = get_yp_fcurves(yp)
+
+    for fc in fcurves:
+        m = re.match(r'^yp\.layers\[(\d+)\].*', fc.data_path)
+        if m:
+            index = int(m.group(1))
+
+            if index == idx0:
+                fc.data_path = fc.data_path.replace('yp.layers[' + str(idx0) + ']', 'yp.layers[' + str(idx1) + ']')
+
+            elif index == idx1:
+                fc.data_path = fc.data_path.replace('yp.layers[' + str(idx1) + ']', 'yp.layers[' + str(idx0) + ']')
+
+def swap_channel_fcurves(yp, idx0, idx1):
+    fcurves = get_yp_fcurves(yp)
+
+    for fc in fcurves:
+        m = re.match(r'^yp\.channels\[(\d+)\].*', fc.data_path)
+        if m:
+            index = int(m.group(1))
+
+            if index == idx0:
+                fc.data_path = fc.data_path.replace('yp.channels[' + str(idx0) + ']', 'yp.channels[' + str(idx1) + ']')
+
+            elif index == idx1:
+                fc.data_path = fc.data_path.replace('yp.channels[' + str(idx1) + ']', 'yp.channels[' + str(idx0) + ']')
+
+
+def swap_layer_channel_fcurves(layer, idx0, idx1):
+    yp = layer.id_data.yp
+    fcurves = get_yp_fcurves(yp)
+
+    for fc in fcurves:
+        if layer.path_from_id() not in fc.data_path: continue
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\].*', fc.data_path)
+        if m:
+            index = int(m.group(2))
+
+            if index == idx0:
+                fc.data_path = fc.data_path.replace('.channels[' + str(idx0) + ']', '.channels[' + str(idx1) + ']')
+
+            elif index == idx1:
+                fc.data_path = fc.data_path.replace('.channels[' + str(idx1) + ']', '.channels[' + str(idx0) + ']')
+
+def swap_mask_fcurves(layer, idx0, idx1):
+    yp = layer.id_data.yp
+    fcurves = get_yp_fcurves(yp)
+
+    for fc in fcurves:
+        if layer.path_from_id() not in fc.data_path: continue
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\].*', fc.data_path)
+        if m:
+            index = int(m.group(2))
+
+            if index == idx0:
+                fc.data_path = fc.data_path.replace('.masks[' + str(idx0) + ']', '.masks[' + str(idx1) + ']')
+
+            elif index == idx1:
+                fc.data_path = fc.data_path.replace('.masks[' + str(idx1) + ']', '.masks[' + str(idx0) + ']')
+
+def swap_mask_channel_fcurves(mask, idx0, idx1):
+    yp = mask.id_data.yp
+    fcurves = get_yp_fcurves(yp)
+
+    for fc in fcurves:
+        if mask.path_from_id() not in fc.data_path: continue
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\].*', fc.data_path)
+        if m:
+            index = int(m.group(3))
+
+            if index == idx0:
+                fc.data_path = fc.data_path.replace('.channels[' + str(idx0) + ']', '.channels[' + str(idx1) + ']')
+
+            elif index == idx1:
+                fc.data_path = fc.data_path.replace('.channels[' + str(idx1) + ']', '.channels[' + str(idx0) + ']')
+
+def swap_modifier_fcurves(entity, idx0, idx1):
+    yp = entity.id_data.yp
+    fcurves = get_yp_fcurves(yp)
+
+    for fc in fcurves:
+        if entity.path_from_id() not in fc.data_path: continue
+        match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\].*', fc.data_path)
+        match2 = re.match(r'yp\.channels\[(\d+)\]\.modifiers\[(\d+)\].*', fc.data_path)
+        match3 = re.match(r'yp\.layers\[(\d+)\]\.modifiers\[(\d+)\].*', fc.data_path)
+
+        if match1 or match2 or match3:
+            if match1:
+                index = int(match1.group(3))
+            elif match2: 
+                index = int(match2.group(2))
+            else:
+                index = int(match3.group(2))
+
+            if index == idx0:
+                fc.data_path = fc.data_path.replace('.modifiers[' + str(idx0) + ']', '.modifiers[' + str(idx1) + ']')
+
+            elif index == idx1:
+                fc.data_path = fc.data_path.replace('.modifiers[' + str(idx1) + ']', '.modifiers[' + str(idx0) + ']')
+
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1

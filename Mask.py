@@ -865,6 +865,7 @@ class YMoveLayerMask(bpy.types.Operator):
 
         # Swap masks
         layer.masks.move(index, new_index)
+        swap_mask_fcurves(layer, index, new_index)
 
         # Dealing with transition bump
         tree = get_tree(layer)

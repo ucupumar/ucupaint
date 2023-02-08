@@ -1120,14 +1120,17 @@ class YMoveYPaintChannel(bpy.types.Operator):
 
         # Move channel
         yp.channels.move(index, new_index)
+        swap_channel_fcurves(yp, index, new_index)
 
         # Move layer channels
         for layer in yp.layers:
             layer.channels.move(index, new_index)
+            swap_layer_channel_fcurves(layer, index, new_index)
 
             # Move mask channels
             for mask in layer.masks:
                 mask.channels.move(index, new_index)
+                swap_mask_channel_fcurves(mask, index, new_index)
 
         # Move IO
         check_all_channel_ios(yp)

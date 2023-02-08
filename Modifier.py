@@ -621,6 +621,7 @@ class YMoveYPaintModifier(bpy.types.Operator):
 
         # Swap modifier
         parent.modifiers.move(index, new_index)
+        swap_modifier_fcurves(parent, index, new_index)
 
         # Reconnect modifier nodes
         #reconnect_between_modifier_nodes(parent)

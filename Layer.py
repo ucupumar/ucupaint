@@ -2493,6 +2493,7 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
             last_member_idx = get_last_child_idx(layer)
             yp.layers.move(neighbor_idx, last_member_idx)
+            swap_layer_fcurves(yp, neighbor_idx, last_member_idx)
 
             yp.active_layer_index = neighbor_idx
 
@@ -2517,6 +2518,7 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
                 parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, neighbor_idx)
 
                 yp.layers.move(neighbor_idx, layer_idx)
+                swap_layer_fcurves(yp, neighbor_idx, layer_idx)
                 yp.active_layer_index = layer_idx+1
 
         # Remap parents
@@ -2600,10 +2602,8 @@ class YMoveLayer(bpy.types.Operator):
 
                 # Swap layer
                 yp.layers.move(neighbor_idx, last_member_idx)
+                swap_layer_fcurves(yp, neighbor_idx, last_member_idx)
                 yp.active_layer_index = neighbor_idx
-
-                #affected_start = neighbor_idx
-                #affected_end = last_member_idx+1
 
             # Group layer DOWN to standard layer
             elif self.direction == 'DOWN':
@@ -2611,10 +2611,8 @@ class YMoveLayer(bpy.types.Operator):
 
                 # Swap layer
                 yp.layers.move(neighbor_idx, layer_idx)
+                swap_layer_fcurves(yp, neighbor_idx, layer_idx)
                 yp.active_layer_index = layer_idx+1
-
-                #affected_start = neighbor_idx
-                #affected_end = layer_idx+1
 
         elif layer.type == 'GROUP' and neighbor_layer.type == 'GROUP':
 
@@ -2625,6 +2623,7 @@ class YMoveLayer(bpy.types.Operator):
                 # Swap all related layers
                 for i in range(last_member_idx+1 - layer_idx):
                     yp.layers.move(layer_idx+i, neighbor_idx+i)
+                    swap_layer_fcurves(yp, layer_idx+i, neighbor_idx+i)
 
                 yp.active_layer_index = neighbor_idx
 
@@ -2638,6 +2637,7 @@ class YMoveLayer(bpy.types.Operator):
                 # Swap all related layers
                 for i in range(num_members):
                     yp.layers.move(neighbor_idx+i, layer_idx+i)
+                    swap_layer_fcurves(yp, neighbor_idx+i, layer_idx+i)
 
                 yp.active_layer_index = layer_idx+num_members
 
@@ -2649,6 +2649,7 @@ class YMoveLayer(bpy.types.Operator):
 
                 # Swap layer
                 yp.layers.move(layer_idx, neighbor_idx)
+                swap_layer_fcurves(yp, layer_idx, neighbor_idx)
                 yp.active_layer_index = neighbor_idx
 
                 start_remap = neighbor_idx + 2
@@ -2662,6 +2663,7 @@ class YMoveLayer(bpy.types.Operator):
 
                 # Swap layer
                 yp.layers.move(layer_idx, last_neighbor_member_idx)
+                swap_layer_fcurves(yp, layer_idx, last_neighbor_member_idx)
                 yp.active_layer_index = last_neighbor_member_idx
 
                 start_remap = layer_idx + 1
@@ -2673,6 +2675,7 @@ class YMoveLayer(bpy.types.Operator):
 
             # Swap layer
             yp.layers.move(layer_idx, neighbor_idx)
+            swap_layer_fcurves(yp, layer_idx, neighbor_idx)
             yp.active_layer_index = neighbor_idx
 
         # Remap parents
