@@ -2882,6 +2882,9 @@ class YRemoveLayer(bpy.types.Operator):
 
         need_reconnect_layers = False
 
+        # Remove layer fcurves first
+        remove_entity_fcurves(layer)
+
         if self.remove_childs:
 
             last_idx = get_last_child_idx(layer)

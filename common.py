@@ -4169,7 +4169,6 @@ def swap_channel_fcurves(yp, idx0, idx1):
             elif index == idx1:
                 fc.data_path = fc.data_path.replace('yp.channels[' + str(idx1) + ']', 'yp.channels[' + str(idx0) + ']')
 
-
 def swap_layer_channel_fcurves(layer, idx0, idx1):
     yp = layer.id_data.yp
     fcurves = get_yp_fcurves(yp)
@@ -4218,29 +4217,81 @@ def swap_mask_channel_fcurves(mask, idx0, idx1):
             elif index == idx1:
                 fc.data_path = fc.data_path.replace('.channels[' + str(idx1) + ']', '.channels[' + str(idx0) + ']')
 
-def swap_modifier_fcurves(entity, idx0, idx1):
-    yp = entity.id_data.yp
+def swap_modifier_fcurves(parent, idx0, idx1):
+    yp = parent.id_data.yp
     fcurves = get_yp_fcurves(yp)
 
     for fc in fcurves:
-        if entity.path_from_id() not in fc.data_path: continue
-        match1 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers\[(\d+)\].*', fc.data_path)
-        match2 = re.match(r'yp\.channels\[(\d+)\]\.modifiers\[(\d+)\].*', fc.data_path)
-        match3 = re.match(r'yp\.layers\[(\d+)\]\.modifiers\[(\d+)\].*', fc.data_path)
-
-        if match1 or match2 or match3:
-            if match1:
-                index = int(match1.group(3))
-            elif match2: 
-                index = int(match2.group(2))
-            else:
-                index = int(match3.group(2))
+        if parent.path_from_id() not in fc.data_path: continue
+        m = re.match(r'.*\.modifiers\[(\d+)\].*', fc.data_path)
+        if m:
+            index = int(m.group(1))
 
             if index == idx0:
                 fc.data_path = fc.data_path.replace('.modifiers[' + str(idx0) + ']', '.modifiers[' + str(idx1) + ']')
 
             elif index == idx1:
                 fc.data_path = fc.data_path.replace('.modifiers[' + str(idx1) + ']', '.modifiers[' + str(idx0) + ']')
+
+def shift_modifier_fcurves(parent, offset=1):
+    yp = parent.id_data.yp
+    fcurves = get_yp_fcurves(yp)
+
+    for i, mod in reversed(list(enumerate(parent.modifiers))):
+        for fc in fcurves:
+            if parent.path_from_id() not in fc.data_path: continue
+            m = re.match(r'.*\.modifiers\[(\d+)\].*', fc.data_path)
+            if m and int(m.group(1)) == i:
+                fc.data_path = fc.data_path.replace('.modifiers[' + str(i) + ']', '.modifiers[' + str(i+offset) + ']')
+
+def swap_normal_modifier_fcurves(modifier, idx0, idx1):
+    yp = modifier.id_data.yp
+    fcurves = get_yp_fcurves(yp)
+
+    for fc in fcurves:
+        if modifier.path_from_id() not in fc.data_path: continue
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]\.modifiers_1\[(\d+)\].*', fc.data_path)
+
+        if m:
+            index = int(m.group(3))
+
+            if index == idx0:
+                fc.data_path = fc.data_path.replace('.modifiers_1[' + str(idx0) + ']', '.modifiers_1[' + str(idx1) + ']')
+
+            elif index == idx1:
+                fc.data_path = fc.data_path.replace('.modifiers_1[' + str(idx1) + ']', '.modifiers_1[' + str(idx0) + ']')
+
+def shift_normal_modifier_fcurves(parent, offset=1):
+    yp = parent.id_data.yp
+    fcurves = get_yp_fcurves(yp)
+
+    for i, mod in reversed(list(enumerate(parent.modifiers_1))):
+        for fc in fcurves:
+            if parent.path_from_id() not in fc.data_path: continue
+            m = re.match(r'.*\.modifiers_1\[(\d+)\].*', fc.data_path)
+            if m and int(m.group(1)) == i:
+                fc.data_path = fc.data_path.replace('.modifiers_1[' + str(i) + ']', '.modifiers_1[' + str(i+offset) + ']')
+
+def remove_entity_fcurves(entity):
+    tree = entity.id_data
+    yp = tree.yp
+    fcurves = get_yp_fcurves(yp)
+
+    for fc in reversed(fcurves):
+        if entity.path_from_id() in fc.data_path:
+            tree.animation_data.action.fcurves.remove(fc)
+
+def remove_channel_fcurves(root_ch):
+    tree = root_ch.id_data
+    yp = tree.yp
+    fcurves = get_yp_fcurves(yp)
+
+    index = get_channel_index(root_ch)
+
+    for fc in reversed(fcurves):
+        m = re.match(r'.*\.channels\[(\d+)\].*', fc.data_path)
+        if m and index == int(m.group(1)):
+            tree.animation_data.action.fcurves.remove(fc)
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

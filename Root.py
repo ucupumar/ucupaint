@@ -1183,6 +1183,9 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         channel = yp.channels[channel_idx]
         channel_name = channel.name
 
+        # Remove channel fcurves first
+        remove_channel_fcurves(channel)
+
         # Collapse the UI
         #setattr(ypui, 'show_channel_modifiers_' + str(channel_idx), False)
 

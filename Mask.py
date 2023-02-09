@@ -122,6 +122,9 @@ def remove_mask(layer, mask, obj):
 
     tree = get_tree(layer)
 
+    # Remove mask fcurves first
+    remove_entity_fcurves(mask)
+
     # Dealing with image atlas segments
     if mask.type == 'IMAGE' and mask.segment_name != '':
         src = get_mask_source(mask)
