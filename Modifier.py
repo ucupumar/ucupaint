@@ -450,7 +450,7 @@ def add_new_modifier(parent, modifier_type):
 
     m.name = get_unique_name(name, modifiers)
     modifiers.move(len(modifiers)-1, 0)
-    shift_modifier_fcurves(parent)
+    shift_modifier_fcurves_down(parent)
     m = modifiers[0]
     m.type = modifier_type
     #m.channel_type = root_ch.type
@@ -672,6 +672,7 @@ class YRemoveYPaintModifier(bpy.types.Operator):
 
         # Remove modifier fcurves first
         remove_entity_fcurves(mod)
+        shift_modifier_fcurves_up(parent, index)
 
         # Delete the nodes
         delete_modifier_nodes(tree, mod)

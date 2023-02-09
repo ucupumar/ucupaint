@@ -51,7 +51,7 @@ def add_new_normalmap_modifier(ch, layer, modifier_type):
     m = ch.modifiers_1.add()
     m.name = get_unique_name(name, ch.modifiers_1)
     ch.modifiers_1.move(len(ch.modifiers_1)-1, 0)
-    shift_normal_modifier_fcurves(ch)
+    shift_normal_modifier_fcurves_down(ch)
     m = ch.modifiers_1[0]
     m.type = modifier_type
 
@@ -201,6 +201,7 @@ class YRemoveNormalMapModifier(bpy.types.Operator):
 
         # Remove modifier fcurves first
         remove_entity_fcurves(parent)
+        shift_normal_modifier_fcurves_up(parent, index)
 
         # Delete the nodes
         delete_modifier_nodes(tree, mod)
