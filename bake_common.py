@@ -44,6 +44,9 @@ def remember_before_bake(yp=None, mat=None):
     if hasattr(scene.cycles, 'use_denoising'):
         book['ori_use_denoising'] = scene.cycles.use_denoising
 
+    if hasattr(scene.cycles, 'use_fast_gi'):
+        book['ori_use_fast_gi'] = scene.cycles.use_fast_gi
+
     if hasattr(scene.render.bake, 'target'):
         book['ori_bake_target'] = scene.render.bake.target
 
@@ -93,7 +96,7 @@ def remember_before_bake(yp=None, mat=None):
     book['editor_pins'] = [a.spaces[0].use_image_pin for a in bpy.context.screen.areas if a.type == 'IMAGE_EDITOR']
 
     # Remember world settings
-    if is_greater_than_280() and scene.world:
+    if scene.world:
         book['ori_distance'] = scene.world.light_settings.distance
 
     # Remember ypui
@@ -292,6 +295,8 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         scene.render.tile_y = book['ori_tile_y']
     if hasattr(scene.cycles, 'use_denoising'):
         scene.cycles.use_denoising = book['ori_use_denoising']
+    if hasattr(scene.cycles, 'use_fast_gi'):
+        scene.cycles.use_fast_gi = book['ori_use_fast_gi']
     if hasattr(scene.render.bake, 'target'):
         scene.render.bake.target = book['ori_bake_target']
     if hasattr(scene.render.bake, 'margin_type'):
@@ -319,7 +324,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         bpy.context.view_layer.material_override = book['material_override']
 
     # Recover world settings
-    if is_greater_than_280() and scene.world:
+    if scene.world:
         scene.world.light_settings.distance = book['ori_distance']
 
     # Recover uv

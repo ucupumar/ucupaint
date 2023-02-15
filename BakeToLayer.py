@@ -1175,21 +1175,13 @@ class YBakeToLayer(bpy.types.Operator):
         ori_bsdf = output.inputs[0].links[0].from_socket
 
         if self.type == 'AO':
-            src = mat.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
-            src.inputs[0].default_value = (1.0, 1.0, 1.0, 1.0)
+            src = None
 
-            # Links
-            if is_greater_than_280():
-                src.inputs[1].default_value = self.ao_distance
+            if hasattr(context.scene.cycles, 'use_fast_gi'):
+                context.scene.cycles.use_fast_gi = True
 
-                mat.node_tree.links.new(src.outputs[0], bsdf.inputs[0])
-                mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
-            else:
-
-                if context.scene.world:
-                    context.scene.world.light_settings.distance = self.ao_distance
-
-                mat.node_tree.links.new(src.outputs[0], output.inputs[0])
+            if context.scene.world:
+                context.scene.world.light_settings.distance = self.ao_distance
 
         elif self.type == 'POINTINESS':
             src = mat.node_tree.nodes.new('ShaderNodeNewGeometry')
