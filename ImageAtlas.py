@@ -446,7 +446,7 @@ class YRefreshTransformedLayerUV(bpy.types.Operator):
 
         # Update tangent sign if height channel and tangent sign hack is enabled
         height_ch = get_root_height_channel(yp)
-        if height_ch and yp.enable_tangent_sign_hacks:
+        if height_ch and is_tangent_sign_hacks_needed(yp):
             for uv in yp.uvs:
                 refresh_tangent_sign_vcol(obj, uv.name)
 
@@ -497,7 +497,7 @@ class YBackToOriginalUV(bpy.types.Operator):
 
             # Update tangent sign if height channel and tangent sign hack is enabled
             height_ch = get_root_height_channel(yp)
-            if height_ch and yp.enable_tangent_sign_hacks:
+            if height_ch and is_tangent_sign_hacks_needed(yp):
                 for uv in yp.uvs:
                     refresh_tangent_sign_vcol(ob, uv.name)
 

@@ -77,6 +77,47 @@ def convert_mix_nodes(tree):
         elif n.type == 'GROUP' and n.node_tree:
             convert_mix_nodes(n.node_tree)
 
+def update_tangent_process_300():
+
+    node_groups = []
+
+    for group in bpy.data.node_groups:
+        for node in group.nodes:
+            if node.type == 'GROUP' and node.node_tree and TANGENT_PROCESS in node.node_tree.name:
+                node_groups.append(node)
+
+    for ng in node_groups:
+
+        # Remember original tree
+        ori_tree = ng.node_tree
+
+        # Duplicate lib tree
+        ng.node_tree = get_node_tree_lib(TANGENT_PROCESS_300)
+        duplicate_lib_node_tree(ng)
+
+        print('INFO:', ori_tree.name, 'is replaced to', ng.node_tree.name + '!')
+
+        # Copy some nodes inside
+        for n in ng.node_tree.nodes:
+            if n.name.startswith('_'):
+                # Try to get the node on original tree
+                ori_n = ori_tree.nodes.get(n.name)
+                if ori_n: copy_node_props(ori_n, n)
+
+        # Delete original tree
+        bpy.data.node_groups.remove(ori_tree)
+
+        # Create info frames
+        create_info_nodes(ng.node_tree)
+
+    # Remove tangent sign vertex colors
+    for ob in bpy.data.objects:
+        vcols = get_vertex_colors(ob)
+        for vcol in reversed(vcols):
+            if vcol.name.startswith(TANGENT_SIGN_PREFIX):
+                print('INFO:', 'Vertex color "' + vcol.name + '" in', ob.name, 'is deleted!')
+                vcols.remove(vcol)
+
 @persistent
 def update_routine(name):
     T = time.time()
@@ -359,6 +400,12 @@ def update_routine(name):
                     # Refresh divider alpha by setting the prop
                     layer.divide_rgb_by_alpha = layer.divide_rgb_by_alpha
 
+        # Version 1.0.12 will use newer tangent process nodes on Blender 3.0 or above
+        if LooseVersion(ng.yp.version) < LooseVersion('1.0.12'):
+            update_happened = True
+            if is_greater_than_300():
+                update_tangent_process_300()
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version
@@ -400,19 +447,18 @@ def update_routine(name):
             m = re.match(r'^(~yPL .+)(?: Legacy)(?:_Copy)?(?:\.\d{3}?)?$', ng.name)
             if m and ng.name not in legacy_groups:
                 legacy_groups.append(ng)
-                newer_group_names.append(m.group(1))
-                #print(ng.name, m.group(1))
+                new_group_name = m.group(1)
+                # Tangent process has its own tangent process for blender 3.0 and above
+                if new_group_name == TANGENT_PROCESS and is_greater_than_300():
+                    newer_group_name = TANGENT_PROCESS_300
+                newer_group_names.append(new_group_name)
 
         # Load node groups
         with bpy.data.libraries.load(filepath) as (data_from, data_to):
             for ng in data_from.node_groups:
                 if ng in newer_group_names:
                     tree = bpy.data.node_groups.get(ng)
-                    #if tree:
-                    #    tree.name += '__OLD'
-                    #tree_names.append(ng)
                     data_to.node_groups.append(ng)
-                    #print(ng)
 
         # Fill newer groups
         for name in newer_group_names:
@@ -424,7 +470,6 @@ def update_routine(name):
         # Update from legacy to newer groups
         for i, legacy_ng in enumerate(legacy_groups):
             newer_ng = newer_groups[i]
-            #print(legacy_ng.name, newer_ng.name)
 
             if '_Copy' not in legacy_ng.name:
 
@@ -502,6 +547,10 @@ def update_routine(name):
         # Remove already copied groups
         for ng in copied_groups:
             bpy.data.node_groups.remove(ng)
+
+    # Update to newer tangent process for files created using Blender 2.93 or older
+    if not is_created_using_279() and is_created_before_300() and is_greater_than_300():
+        update_tangent_process_300()
 
     print('INFO: ' + get_addon_title() + ' update routine are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

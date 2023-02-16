@@ -66,7 +66,10 @@ VECTOR_MIX ='~yPL Vector Mix'
 INTENSITY_MULTIPLIER ='~yPL Intensity Multiplier'
 GET_BITANGENT ='~yPL Get Bitangent'
 BITANGENT_FROM_NATIVE_TANGENT = '~yPL Bitangent from Native Tangent'
-TANGENT_PROCESS = '~yPL Tangent Process'
+
+TANGENT_PROCESS = '~yPL Tangent Process' # For Blender 2.80 to 2.93
+TANGENT_PROCESS_300 = '~yPL Tangent Process 3.0' # For Blender 3.0 and above
+TANGENT_PROCESS_LEGACY = '~yPL Tangent Process Legacy' # For Blender 2.79
 
 PARALLAX_OCCLUSION = '~yPL Parallax Occlusion Mapping'
 PARALLAX_OCCLUSION_PREP = '~yPL Parallax Occlusion Mapping Preparation'
@@ -153,7 +156,6 @@ FLIP_BACKFACE_NORMAL_LEGACY = '~yPL Flip Backface Normal Legacy'
 FLIP_BACKFACE_BUMP_LEGACY = '~yPL Flip Backface Bump Legacy'
 FLIP_BACKFACE_TANGENT_LEGACY = '~yPL Flip Backface Tangent Legacy'
 NORMAL_MAP_PREP_LEGACY = '~yPL Normal Map Preparation Legacy'
-TANGENT_PROCESS_LEGACY = '~yPL Tangent Process Legacy'
 ENGINE_FILTER_LEGACY = '~yPL Engine Filter Legacy'
 
 # END OF NEW ORDER

@@ -2318,7 +2318,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
     # Check if tangent refresh is needed
     need_tangent_refresh = False
-    if height_root_ch and yp.enable_tangent_sign_hacks:
+    if height_root_ch and is_tangent_sign_hacks_needed(yp):
         for uv in yp.uvs:
             if TANGENT_SIGN_PREFIX + uv.name not in vcols:
                 need_tangent_refresh = True
@@ -2743,16 +2743,7 @@ def main_draw(self, context):
 
     height_root_ch = get_root_height_channel(yp)
 
-    #if (area.type == 'VIEW_3D' and get_viewport_shade() == 'RENDERED' 
-    #    and is_greater_than_280() and height_root_ch
-    #    and scene.render.engine == 'CYCLES' and not yp.enable_tangent_sign_hacks):
-
-    #    rrow = row.row(align=True)
-    #    rrow.alert = True
-    #    rrow.prop(yp, 'enable_tangent_sign_hacks', text='Fix Tangent', icon='ERROR', toggle=True)
-    #    rrow.alert = False
-
-    scenario_1 = (yp.enable_tangent_sign_hacks and area.type == 'VIEW_3D' and 
+    scenario_1 = (is_tangent_sign_hacks_needed(yp) and area.type == 'VIEW_3D' and 
             area.spaces[0].shading.type == 'RENDERED' and scene.render.engine == 'CYCLES')
 
     if scenario_1:
@@ -3342,9 +3333,10 @@ class YPaintSpecialMenu(bpy.types.Menu):
         #col.label(text='Performance Options:')
         #col.prop(ypui, 'disable_auto_temp_uv_update')
         #col.prop(yp, 'disable_quick_toggle')
-        col.separator()
-        col.label(text='Hacks:')
-        col.prop(yp, 'enable_tangent_sign_hacks')
+        if is_greater_than_280() and not is_greater_than_300():
+            col.separator()
+            col.label(text='Hacks:')
+            col.prop(yp, 'enable_tangent_sign_hacks')
 
 class YNewLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_layer_menu"

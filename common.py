@@ -471,6 +471,11 @@ def is_created_using_279():
         return True
     return False
 
+def is_created_before_300():
+    if bpy.data.version[:2] < (3, 0):
+        return True
+    return False
+
 def is_created_before_340():
     if bpy.data.version[:2] < (3, 4):
         return True
@@ -4341,6 +4346,9 @@ def shift_mask_fcurves_up(layer, start_index=1):
             m = re.match(r'.*\.masks\[(\d+)\].*', fc.data_path)
             if m and int(m.group(1)) == i:
                 fc.data_path = fc.data_path.replace('.masks[' + str(i) + ']', '.masks[' + str(i-1) + ']')
+
+def is_tangent_sign_hacks_needed(yp):
+    return yp.enable_tangent_sign_hacks and is_greater_than_280() and not is_greater_than_300()
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

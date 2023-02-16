@@ -1012,12 +1012,10 @@ def update_enable_tangent_sign_hacks(self, context):
         tangent_process = tree.nodes.get(uv.tangent_process)
         if tangent_process:
             tsign = tangent_process.node_tree.nodes.get('_tangent_sign')
-            if yp.enable_tangent_sign_hacks:
-                #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
+            if is_tangent_sign_hacks_needed(yp):
                 vcol = refresh_tangent_sign_vcol(obj, uv.name)
                 if vcol: tsign.attribute_name = vcol.name
             else:
-                #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 0.0
                 tsign.attribute_name = ''
                 remove_tangent_sign_vcol(obj, uv.name)
 
@@ -1038,7 +1036,9 @@ def check_actual_uv_nodes(yp, uv, obj):
         if not tangent_process:
             # Create tangent process which output both tangent and bitangent
             tangent_process = new_node(tree, uv, 'tangent_process', 'ShaderNodeGroup', uv.name + ' Tangent Process')
-            if is_greater_than_280():
+            if is_greater_than_300():
+                tangent_process.node_tree = get_node_tree_lib(lib.TANGENT_PROCESS_300)
+            elif is_greater_than_280():
                 tangent_process.node_tree = get_node_tree_lib(lib.TANGENT_PROCESS)
             else: tangent_process.node_tree = get_node_tree_lib(lib.TANGENT_PROCESS_LEGACY)
             duplicate_lib_node_tree(tangent_process)
@@ -1048,13 +1048,13 @@ def check_actual_uv_nodes(yp, uv, obj):
             # Set values inside tangent process
             tp_nodes = tangent_process.node_tree.nodes
             node = tp_nodes.get('_tangent')
-            node.uv_map = uv.name
+            if node: node.uv_map = uv.name
             node = tp_nodes.get('_tangent_from_norm')
-            node.uv_map = uv.name
+            if node: node.uv_map = uv.name
             node = tp_nodes.get('_bitangent_from_norm')
-            node.uv_map = uv.name
+            if node: node.uv_map = uv.name
 
-            if yp.enable_tangent_sign_hacks:
+            if is_tangent_sign_hacks_needed(yp):
                 #tangent_process.inputs['Blender 2.8 Cycles Hack'].default_value = 1.0
                 node = tp_nodes.get('_tangent_sign')
 

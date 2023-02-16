@@ -1799,7 +1799,7 @@ class YFixMissingData(bpy.types.Operator):
         check_uv_nodes(yp, generate_missings=True)
 
         # If there's height channel, refresh uv maps to get tangent hacks
-        if yp.enable_tangent_sign_hacks:
+        if is_tangent_sign_hacks_needed(yp):
             height_root_ch = get_root_height_channel(yp)
             if height_root_ch:
                 for uv in yp.uvs:
