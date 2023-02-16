@@ -808,6 +808,10 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                     #brow.prop(channel, 'main_uv', text='')
                     brow.prop_search(channel, "main_uv", context.object.data, "uv_layers", text='', icon='GROUP_UVS')
 
+                    brow = bbcol.row(align=True)
+                    brow.label(text='Backface Bump Up:')
+                    brow.prop(yp, 'enable_backface_always_up', text='')
+
                 brow = bcol.row(align=True)
                 brow.active = not yp.use_baked or ((not channel.enable_subdiv_setup or channel.subdiv_adaptive) and not yp.enable_baked_outside)
 
@@ -3326,14 +3330,15 @@ class YPaintSpecialMenu(bpy.types.Menu):
             #row = col.row()
             col.operator('node.y_change_active_ypaint_node', text=n.node_tree.name, icon=icon).name = n.name
 
-        col = row.column()
-        col.label(text='Options:')
-        col.prop(yp, 'enable_backface_always_up')
+        #col = row.column()
+        #col.label(text='Options:')
+        #col.prop(yp, 'enable_backface_always_up')
         #col.separator()
         #col.label(text='Performance Options:')
         #col.prop(ypui, 'disable_auto_temp_uv_update')
         #col.prop(yp, 'disable_quick_toggle')
         if is_greater_than_280() and not is_greater_than_300():
+            col = row.column()
             col.separator()
             col.label(text='Hacks:')
             col.prop(yp, 'enable_tangent_sign_hacks')
