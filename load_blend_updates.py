@@ -126,6 +126,7 @@ def update_routine(name):
 
     # Flag to check mix nodes
     need_to_check_mix_nodes = False
+    need_to_update_tangent_process_300 = False
 
     for ng in bpy.data.node_groups:
         if not hasattr(ng, 'yp'): continue
@@ -404,7 +405,7 @@ def update_routine(name):
         if LooseVersion(ng.yp.version) < LooseVersion('1.0.12'):
             update_happened = True
             if is_greater_than_300():
-                update_tangent_process_300()
+                need_to_update_tangent_process_300 = True
 
         # Update version
         if update_happened:
@@ -416,6 +417,10 @@ def update_routine(name):
         print('INFO:', 'Converting old mix rgb nodes to newer ones...')
         for mat in bpy.data.materials:
             if mat.node_tree: convert_mix_nodes(mat.node_tree)
+
+    # Actually update tangent process
+    if need_to_update_tangent_process_300:
+        update_tangent_process_300()
 
     # Special update for opening Blender below 2.92 file
     if is_created_before_292() and is_greater_than_292():
