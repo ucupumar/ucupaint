@@ -817,7 +817,9 @@ def copy_node_props(source, dest, extras = []):
 
     # Copy inputs default value
     for i, inp in enumerate(source.inputs):
-        dest.inputs[i].default_value = inp.default_value
+        socket_name = source.inputs[i].name
+        if socket_name in dest.inputs and dest.inputs[i].name == socket_name:
+            dest.inputs[i].default_value = inp.default_value
 
     # Copy outputs default value
     for i, outp in enumerate(source.outputs):
