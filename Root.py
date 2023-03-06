@@ -863,6 +863,11 @@ def update_connect_to(self, context):
     if item:
         self.name = get_unique_name(item.input_name, yp.channels)
 
+    # Emission will not use clamp by default
+    if 'Emission' in self.name:
+        self.use_clamp = False
+    else: self.use_clamp = True
+
 class YNewYPaintChannel(bpy.types.Operator):
     bl_idname = "node.y_add_new_ypaint_channel"
     bl_label = "Add new " + get_addon_title() + " Channel"
@@ -886,6 +891,11 @@ class YNewYPaintChannel(bpy.types.Operator):
             description = "Non color won't converted to linear first before blending",
             items = colorspace_items,
             default='LINEAR')
+
+    use_clamp : BoolProperty(
+            name='Use Clamp', 
+            description = 'Use clamp of newly the channel',
+            default=True)
 
     @classmethod
     def poll(cls, context):
@@ -947,6 +957,7 @@ class YNewYPaintChannel(bpy.types.Operator):
         col.label(text='Connect To:')
         if self.type != 'NORMAL':
             col.label(text='Color Space:')
+        if self.type != 'NORMAL': col.label(text='')
 
         col = row.column(align=False)
         col.prop(self, 'name', text='')
@@ -954,6 +965,7 @@ class YNewYPaintChannel(bpy.types.Operator):
                 #lib.custom_icons[channel_socket_custom_icon_names[self.type]].icon_id)
         if self.type != 'NORMAL':
             col.prop(self, "colorspace", text='')
+        if self.type != 'NORMAL': col.prop(self, 'use_clamp')
 
     def execute(self, context):
 
@@ -1016,6 +1028,10 @@ class YNewYPaintChannel(bpy.types.Operator):
         if inp and self.type != 'NORMAL': 
             set_input_default_value(node, channel, inp.default_value)
         else: set_input_default_value(node, channel)
+
+        # Set use clamp
+        if channel.use_clamp != self.use_clamp:
+            channel.use_clamp = self.use_clamp
 
         # Change active channel
         last_index = len(yp.channels)-1
