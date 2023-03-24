@@ -3553,7 +3553,7 @@ def move_uv(obj, from_index, to_index):
         for i in range(len(uv_layers)-1-from_index):
             move_uv_to_bottom(obj, to_index+1)
     
-    #uv_layers.active_index = to_index
+    uv_layers.active_index = to_index
 
 def get_vertex_colors(obj):
     if not obj or obj.type != 'MESH': return []
