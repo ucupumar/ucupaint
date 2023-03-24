@@ -223,6 +223,10 @@ class YTransferSomeLayerUV(bpy.types.Operator):
             description = "Remove 'From UV' from objects",
             default=False)
 
+    reorder_uv_list : BoolProperty(name='Reorder UV',
+            description = "Reorder 'To UV' so it will have the same index as 'From UV'",
+            default=True)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH' # and hasattr(context, 'layer')
@@ -267,12 +271,18 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         col.label(text='Margin:')
         col.label(text='')
 
+        if self.remove_from_uv:
+            col.label(text='')
+
         col = row.column(align=False)
         col.prop_search(self, "from_uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
         col.prop(self, 'margin', text='')
         col.prop(self, 'remove_from_uv')
+
+        if self.remove_from_uv:
+            col.prop(self, 'reorder_uv_list')
 
     def execute(self, context):
 
@@ -326,14 +336,22 @@ class YTransferSomeLayerUV(bpy.types.Operator):
 
         #return {'FINISHED'}
 
-        # Recover bake settings
-        recover_bake_settings(book, yp)
-
         if self.remove_from_uv:
             for obj in objs:
                 uv_layers = get_uv_layers(obj)
+                ori_index = get_uv_layer_index(obj, self.from_uv_map)
                 from_uv = uv_layers.get(self.from_uv_map)
                 uv_layers.remove(from_uv)
+
+                # Reorder UV
+                if self.reorder_uv_list and ori_index != -1:
+                    uv_index = get_uv_layer_index(obj, self.uv_map)
+                    if ori_index > uv_index:
+                        ori_index -= 1
+                    move_uv(obj, uv_index, ori_index)
+
+        # Recover bake settings
+        recover_bake_settings(book, yp)
 
         # Check height channel uv
         height_ch = get_root_height_channel(yp)

@@ -3508,6 +3508,53 @@ def get_uv_layers(obj):
 
     return uv_layers
 
+def get_uv_layer_index(obj, uv_name):
+    uv_layers = get_uv_layers(obj)
+    for i, ul in enumerate(uv_layers):
+        if ul.name == uv_name:
+            return i
+
+    return -1
+
+def move_uv_to_bottom(obj, index):
+    set_active_object(obj)
+    uv_layers = get_uv_layers(obj)
+
+    # Get original uv name
+    uv_layers.active_index = index
+    ori_name = uv_layers.active.name
+
+    bpy.ops.mesh.uv_texture_add()
+
+    # Delete old uv
+    uv_layers.active_index = index
+    bpy.ops.mesh.uv_texture_remove()
+
+    # Set original name to newly created uv
+    uv_layers[-1].name = ori_name
+    
+def move_uv(obj, from_index, to_index):
+    uv_layers = get_uv_layers(obj)
+    
+    if from_index == to_index or from_index < 0 or from_index >= len(uv_layers) or to_index < 0 or to_index >= len(uv_layers):
+        #print("Invalid indices")
+        return
+    
+    # Move the UV map down to the target index
+    if from_index < to_index:
+        move_uv_to_bottom(obj, from_index)
+        for i in range(len(uv_layers)-1-to_index):
+            move_uv_to_bottom(obj, to_index)
+            
+    # Move the UV map up to the target index
+    elif from_index > to_index:
+        for i in range(from_index-to_index):
+            move_uv_to_bottom(obj, to_index)
+        for i in range(len(uv_layers)-1-from_index):
+            move_uv_to_bottom(obj, to_index+1)
+    
+    #uv_layers.active_index = to_index
+
 def get_vertex_colors(obj):
     if not obj or obj.type != 'MESH': return []
 
