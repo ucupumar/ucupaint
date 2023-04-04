@@ -838,7 +838,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     if not target_layer:
         # Set nodes
         baked = tree.nodes.get(root_ch.baked)
-        if not baked:
+        # Some user reported baked node can accidentally used by multiple channels,
+        # So it's better to check if the baked node is unique per channel
+        if not baked or not is_root_ch_prop_node_unique(root_ch, 'baked'):
             baked = new_node(tree, root_ch, 'baked', 'ShaderNodeTexImage', 'Baked ' + root_ch.name)
         if hasattr(baked, 'color_space'):
             if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL':

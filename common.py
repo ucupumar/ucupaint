@@ -4407,6 +4407,17 @@ def shift_mask_fcurves_up(layer, start_index=1):
 def is_tangent_sign_hacks_needed(yp):
     return yp.enable_tangent_sign_hacks and is_greater_than_280() and not is_greater_than_300()
 
+def is_root_ch_prop_node_unique(root_ch, prop):
+    yp = root_ch.id_data.yp
+
+    for ch in yp.channels:
+        try:
+            if ch != root_ch and getattr(ch, prop) == getattr(root_ch, prop):
+                return False
+        except Exception as e: print(e)
+
+    return True
+
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1
