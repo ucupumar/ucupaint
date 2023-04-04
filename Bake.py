@@ -1999,6 +1999,7 @@ def update_enable_baked_outside(self, context):
                 con = ch.ori_to.add()
                 con.node = l.to_node.name
                 con.socket = l.to_socket.name
+                con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
             outp_alpha = node.outputs.get(ch.name + io_suffix['ALPHA'])
             if outp_alpha:
@@ -2006,6 +2007,7 @@ def update_enable_baked_outside(self, context):
                     con = ch.ori_alpha_to.add()
                     con.node = l.to_node.name
                     con.socket = l.to_socket.name
+                    con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
             outp_height = node.outputs.get(ch.name + io_suffix['HEIGHT'])
             if outp_height:
@@ -2013,6 +2015,7 @@ def update_enable_baked_outside(self, context):
                     con = ch.ori_height_to.add()
                     con.node = l.to_node.name
                     con.socket = l.to_socket.name
+                    con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
             outp_mheight = node.outputs.get(ch.name + io_suffix['MAX_HEIGHT'])
             if outp_mheight:
@@ -2020,6 +2023,7 @@ def update_enable_baked_outside(self, context):
                     con = ch.ori_max_height_to.add()
                     con.node = l.to_node.name
                     con.socket = l.to_socket.name
+                    con.socket_index = get_node_input_index(l.to_node, l.to_socket)
 
             baked = tree.nodes.get(ch.baked)
             if baked and baked.image and not ch.no_layer_using:
@@ -2151,30 +2155,22 @@ def update_enable_baked_outside(self, context):
         for ch in yp.channels:
 
             outp = node.outputs.get(ch.name)
-            for con in ch.ori_to:
-                try: mtree.links.new(outp, mtree.nodes[con.node].inputs[con.socket])
-                except: pass
+            connect_to_original_node(mtree, outp, ch.ori_to)
             ch.ori_to.clear()
 
             outp_alpha = node.outputs.get(ch.name + io_suffix['ALPHA'])
             if outp_alpha:
-                for con in ch.ori_alpha_to:
-                    try: mtree.links.new(outp_alpha, mtree.nodes[con.node].inputs[con.socket])
-                    except: pass
+                connect_to_original_node(mtree, outp_alpha, ch.ori_alpha_to)
                 ch.ori_alpha_to.clear()
 
             outp_height = node.outputs.get(ch.name + io_suffix['HEIGHT'])
             if outp_height:
-                for con in ch.ori_height_to:
-                    try: mtree.links.new(outp_height, mtree.nodes[con.node].inputs[con.socket])
-                    except: pass
+                connect_to_original_node(mtree, outp_height, ch.ori_height_to)
                 ch.ori_height_to.clear()
 
             outp_mheight = node.outputs.get(ch.name + io_suffix['MAX_HEIGHT'])
             if outp_mheight:
-                for con in ch.ori_max_height_to:
-                    try: mtree.links.new(outp_mheight, mtree.nodes[con.node].inputs[con.socket])
-                    except: pass
+                connect_to_original_node(mtree, outp_mheight, ch.ori_max_height_to)
                 ch.ori_max_height_to.clear()
 
             # Delete nodes inside frames
@@ -2208,6 +2204,18 @@ def update_enable_baked_outside(self, context):
             set_adaptive_displacement_node(mat, node)
 
     #print("howowowo")
+
+def connect_to_original_node(mtree, outp, ori_to):
+    for con in ori_to:
+        node = mtree.nodes.get(con.node)
+        if not node: continue
+        # Some mix inputs has same name so use index instead
+        if node.type == 'MIX':
+            try: mtree.links.new(outp, node.inputs[con.socket_index])
+            except Exception as e: print(e)
+        else:
+            try: mtree.links.new(outp, node.inputs[con.socket])
+            except Exception as e: print(e)
 
 def update_use_baked(self, context):
     tree = self.id_data

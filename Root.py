@@ -2974,6 +2974,7 @@ def update_channel_main_uv(self, context):
 class YNodeConnections(bpy.types.PropertyGroup):
     node : StringProperty(default='')
     socket : StringProperty(default='')
+    socket_index : IntProperty(default=-1)
 
 class YPaintChannel(bpy.types.PropertyGroup):
     name : StringProperty(

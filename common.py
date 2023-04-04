@@ -554,6 +554,14 @@ def get_object_parent_layer_collections(arr, col, obj):
 
     return arr
 
+def get_node_input_index(node, inp):
+    index = -1
+
+    try: index = [i for i, s in enumerate(node.inputs) if s == inp][0]
+    except Exception as e: print(e)
+
+    return index
+
 def get_active_material():
     scene = bpy.context.scene
     engine = scene.render.engine
