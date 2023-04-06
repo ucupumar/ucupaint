@@ -573,6 +573,12 @@ class YSaveAllBakedImages(bpy.types.Operator):
         # But this will be anyway a directory path.
         )
 
+    remove_whitespaces : bpy.props.BoolProperty(
+            name="Remove Whitespaces",
+            description="Remove whitespaces from baked image names",
+            default=False
+            )
+
     def invoke(self, context, event):
         # Open browser, take reference to 'self' read the path to selected
         # file, put path in predetermined self fields.
@@ -637,6 +643,9 @@ class YSaveAllBakedImages(bpy.types.Operator):
                     if filename.endswith(ext):
                         settings.file_format = form
                         break
+
+            if self.remove_whitespaces:
+                filename = filename.replace(' ', '')
 
             path = os.path.join(self.directory, filename)
 
