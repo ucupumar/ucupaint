@@ -456,6 +456,11 @@ def is_greater_than_320():
         return True
     return False
 
+def is_version_320():
+    if bpy.app.version[0] == 3 and bpy.app.version[1] == 2:
+        return True
+    return False
+
 def is_greater_than_330():
     if bpy.app.version >= (3, 3, 0):
         return True
@@ -3516,6 +3521,14 @@ def get_uv_layers(obj):
 
     return uv_layers
 
+def get_vcol_index(obj, vcol_name):
+    vcols = obj.data.vertex_colors
+    for i, vc in enumerate(vcols):
+        if vc.name == vcol_name:
+            return i
+
+    return -1
+
 def get_uv_layer_index(obj, uv_name):
     uv_layers = get_uv_layers(obj)
     for i, ul in enumerate(uv_layers):
@@ -3523,6 +3536,51 @@ def get_uv_layer_index(obj, uv_name):
             return i
 
     return -1
+
+def move_vcol_to_bottom(obj, index):
+    set_active_object(obj)
+    vcols = obj.data.vertex_colors
+
+    # Get original uv name
+    vcols.active_index = index
+    ori_name = vcols.active.name
+
+    # Duplicate vcol
+    if is_greater_than_330():
+        bpy.ops.geometry.color_attribute_duplicate()
+    else: bpy.ops.mesh.vertex_color_add()
+
+    # Delete old vcol
+    vcols.active_index = index
+
+    if is_greater_than_330():
+        bpy.ops.geometry.color_attribute_remove()
+    else: bpy.ops.mesh.vertex_color_remove()
+
+    # Set original name to newly created uv
+    vcols[-1].name = ori_name
+
+def move_vcol(obj, from_index, to_index):
+    vcols = obj.data.vertex_colors
+    
+    if from_index == to_index or from_index < 0 or from_index >= len(vcols) or to_index < 0 or to_index >= len(vcols):
+        #print("Invalid indices")
+        return
+
+    # Move the UV map down to the target index
+    if from_index < to_index:
+        move_vcol_to_bottom(obj, from_index)
+        for i in range(len(vcols)-1-to_index):
+            move_vcol_to_bottom(obj, to_index)
+            
+    # Move the UV map up to the target index
+    elif from_index > to_index:
+        for i in range(from_index-to_index):
+            move_vcol_to_bottom(obj, to_index)
+        for i in range(len(vcols)-1-from_index):
+            move_vcol_to_bottom(obj, to_index+1)
+    
+    vcols.active_index = to_index
 
 def move_uv_to_bottom(obj, index):
     set_active_object(obj)
@@ -3532,6 +3590,7 @@ def move_uv_to_bottom(obj, index):
     uv_layers.active_index = index
     ori_name = uv_layers.active.name
 
+    # Duplicate uv
     bpy.ops.mesh.uv_texture_add()
 
     # Delete old uv

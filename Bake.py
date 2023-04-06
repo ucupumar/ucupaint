@@ -622,10 +622,10 @@ class YBakeChannelToVcol(bpy.types.Operator):
             description='Emission multiplier so the emission can be more visible on the result',
             default=1.0, min=0.0)
 
-    #force_first_index : BoolProperty(
-    #        name='Force First Index', 
-    #        description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
-    #        default=True)
+    force_first_index : BoolProperty(
+            name='Force First Index', 
+            description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
+            default=True)
 
     @classmethod
     def poll(cls, context):
@@ -660,7 +660,9 @@ class YBakeChannelToVcol(bpy.types.Operator):
         if self.show_emission_option:
             col.label(text='Add Emission:')
             col.label(text='Emission Multiplier:')
-        #col.label(text='Force First Index:')
+
+        if not is_version_320():
+            col.label(text='Force First Index:')
 
         col = row.column(align=True)
 
@@ -668,7 +670,8 @@ class YBakeChannelToVcol(bpy.types.Operator):
         if self.show_emission_option:
             col.prop(self, 'add_emission', text='')
             col.prop(self, 'emission_multiplier', text='')
-        #col.prop(self, 'force_first_index', text='')
+        if not is_version_320():
+            col.prop(self, 'force_first_index', text='')
 
     def execute(self, context):
         obj = context.object
@@ -724,17 +727,15 @@ class YBakeChannelToVcol(bpy.types.Operator):
                     vcol = new_vertex_color(ob, self.vcol_name)
                 except Exception as e: print(e)
 
-            # NOTE: This implementation is unfinished since this only works if target vertex color is newly created
-            #if self.force_first_index:
-            #    first_vcol = vcols[0]
-            #    if first_vcol != vcol:
-            #        # Rename vcol
-            #        vcol.name = '___TEMP____'
-            #        first_vcol_name = first_vcol.name
-            #        first_vcol.name = self.vcol_name
-            #        vcol.name = first_vcol_name
-            #        vcol = first_vcol
+            # Get newly created vcol name
+            vcol_name = vcol.name
 
+            # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+            if self.force_first_index and not is_version_320():
+                move_vcol(ob, get_vcol_index(ob, vcol.name), 0)
+
+            # Get the newly created vcol to avoid pointer error
+            vcol = vcols.get(vcol_name)
             set_active_vertex_color(ob, vcol)
 
         # Multi materials setup
