@@ -960,7 +960,7 @@ class YBakeToLayer(bpy.types.Operator):
             # Join
             bpy.ops.object.join()
 
-            # Remap pointer
+            # Remap pointers
             objs = temp_objs = [first_obj]
 
         #return {'FINISHED'}

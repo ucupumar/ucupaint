@@ -826,6 +826,11 @@ class YBakeChannels(bpy.types.Operator):
             default='CPU'
             )
 
+    use_join_objects : BoolProperty(
+            name = 'Join Objects',
+            description="Join objects while baking (this will avoid bleeding on multi objects)",
+            default=True)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -834,7 +839,7 @@ class YBakeChannels(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         obj = self.obj = context.object
-        scene = self.scene = context.scene
+        scene = context.scene
         ypup = get_user_preferences()
 
         # Use active uv layer name by default
@@ -874,6 +879,9 @@ class YBakeChannels(bpy.types.Operator):
         return True
 
     def draw(self, context):
+        obj = context.object
+        mat = obj.active_material
+
         if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
@@ -915,6 +923,9 @@ class YBakeChannels(bpy.types.Operator):
         col.prop(self, 'fxaa', text='Use FXAA')
         col.prop(self, 'force_bake_all_polygons')
 
+        if mat.users > 1:
+            col.prop(self, 'use_join_objects')
+
     def execute(self, context):
 
         T = time.time()
@@ -923,6 +934,7 @@ class YBakeChannels(bpy.types.Operator):
         tree = node.node_tree
         yp = tree.yp
         ypui = context.window_manager.ypui
+        scene = context.scene
         obj = context.object
         mat = obj.active_material
 
@@ -1017,6 +1029,54 @@ class YBakeChannels(bpy.types.Operator):
                     ori_mat_ids[ob.name].append(p.material_index)
                     p.material_index = active_mat_id
 
+        
+        temp_objs = []
+        ori_objs = []
+        if self.use_join_objects and len(objs) > 1:
+            tt = time.time()
+            print('BAKE CHANNELS: Joining meshes for baking...')
+            for o in objs:
+                temp_obj = o.copy()
+                link_object(scene, temp_obj)
+                temp_objs.append(temp_obj)
+                temp_obj.data = temp_obj.data.copy()
+
+                # Hide render of original object
+                o.hide_render = True
+
+            # Select objects
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+            bpy.ops.object.select_all(action='DESELECT')
+            for o in temp_objs:
+                set_active_object(o)
+                set_object_select(o, True)
+
+                # Apply shape keys
+                if o.data.shape_keys:
+                    bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+
+                # Apply modifiers
+                for m in reversed(o.modifiers):
+                    if m.type not in problematic_modifiers:
+                        try:
+                            bpy.ops.object.modifier_apply(modifier=m.name)
+                            continue
+                        except Exception as e: print(e)
+                    bpy.ops.object.modifier_remove(modifier=m.name)
+
+            # Set active object
+            first_obj = temp_objs[0]
+            set_active_object(first_obj)
+
+            # Join
+            bpy.ops.object.join()
+
+            # Remap pointers
+            ori_objs = objs
+            objs = temp_objs = [first_obj]
+
+            print('BAKE TO LAYER: Joining meshes is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+
         # AA setup
         #if self.aa_level > 1:
         margin = self.margin * self.aa_level
@@ -1083,6 +1143,9 @@ class YBakeChannels(bpy.types.Operator):
         # Recover bake settings
         recover_bake_settings(book, yp)
 
+        # Return to original objects
+        if ori_objs: objs = ori_objs
+
         for ob in objs:
             # Recover material index
             if ori_mat_ids[ob.name]:
@@ -1130,6 +1193,13 @@ class YBakeChannels(bpy.types.Operator):
 
         # Update baked outside nodes
         update_enable_baked_outside(yp, context)
+
+        # Remove temporary objects
+        if temp_objs:
+            for o in temp_objs:
+                m = o.data
+                bpy.data.objects.remove(o)
+                bpy.data.meshes.remove(m)
 
         print('INFO:', tree.name, 'channels is baked at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
