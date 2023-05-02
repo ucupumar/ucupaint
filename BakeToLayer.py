@@ -947,8 +947,11 @@ class YBakeToLayer(bpy.types.Operator):
                 # Apply modifiers
                 for m in reversed(obj.modifiers):
                     if m.type not in problematic_modifiers:
-                        bpy.ops.object.modifier_apply(modifier=m.name)
-                    else: bpy.ops.object.modifier_remove(modifier=m.name)
+                        try:
+                            bpy.ops.object.modifier_apply(modifier=m.name)
+                            continue
+                        except Exception as e: print(e)
+                    bpy.ops.object.modifier_remove(modifier=m.name)
 
             # Set active object
             first_obj = objs[0]
