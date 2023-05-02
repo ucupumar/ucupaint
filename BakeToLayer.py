@@ -292,6 +292,11 @@ class YBakeToLayer(bpy.types.Operator):
             description='Use Image Atlas',
             default=False)
 
+    use_join_objects : BoolProperty(
+            name = 'Join Objects',
+            description="Join objects while baking (this will avoid bleeding on multi objects)",
+            default=True)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -555,6 +560,7 @@ class YBakeToLayer(bpy.types.Operator):
     def draw(self, context):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
+        mat = get_active_material()
 
         channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
         height_root_ch = get_root_height_channel(yp)
@@ -567,7 +573,6 @@ class YBakeToLayer(bpy.types.Operator):
         show_use_baked_disp = height_root_ch and not self.type.startswith('MULTIRES_') and self.type not in {'SELECTED_VERTICES'}
 
         col = row.column(align=False)
-
 
         if not self.overwrite_current:
 
@@ -699,6 +704,9 @@ class YBakeToLayer(bpy.types.Operator):
 
         col.prop(self, 'flip_normals')
         col.prop(self, 'force_bake_all_polygons')
+
+        if mat.users > 1:
+            col.prop(self, 'use_join_objects')
 
         col.separator()
 
@@ -902,19 +910,57 @@ class YBakeToLayer(bpy.types.Operator):
 
         #return {'FINISHED'}
 
-        # Cavity bake sometimes will create temporary objects
-        if self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp):
+        # Actually join objects when needed
+        need_join_objects = self.use_join_objects and len(objs) > 1
+
+        # Join objects and sometimes Cavity bake will create temporary objects
+        if need_join_objects or (self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp)):
             tt = time.time()
-            print('BAKE TO LAYER: Duplicating mesh(es) for Cavity bake...')
+            print('BAKE TO LAYER: Duplicating mesh(es) for baking...')
             for obj in objs:
                 temp_obj = obj.copy()
                 link_object(scene, temp_obj)
                 temp_objs.append(temp_obj)
                 temp_obj.data = temp_obj.data.copy()
 
+                # Hide render of original object
+                obj.hide_render = True
+
             objs = temp_objs
 
             print('BAKE TO LAYER: Duplicating mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+
+        # Option to join all objects into one
+        if need_join_objects:
+
+            # Select objects
+            bpy.ops.object.mode_set(mode = 'OBJECT')
+            bpy.ops.object.select_all(action='DESELECT')
+            for obj in objs:
+                set_active_object(obj)
+                set_object_select(obj, True)
+
+                # Apply shape keys
+                if obj.data.shape_keys:
+                    bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+
+                # Apply modifiers
+                for m in reversed(obj.modifiers):
+                    if m.type not in problematic_modifiers:
+                        bpy.ops.object.modifier_apply(modifier=m.name)
+                    else: bpy.ops.object.modifier_remove(modifier=m.name)
+
+            # Set active object
+            first_obj = objs[0]
+            set_active_object(first_obj)
+
+            # Join
+            bpy.ops.object.join()
+
+            # Remap pointer
+            objs = temp_objs = [first_obj]
+
+        #return {'FINISHED'}
 
         fill_mode = 'FACE'
         obj_vertex_indices = {}
