@@ -1905,9 +1905,14 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
     else:
 
-        if root_ch.enable_smooth_bump:
-            lib_name = lib.HEIGHT_COMPARE_SMOOTH
-        else: lib_name = lib.HEIGHT_COMPARE
+        if layer.parent_idx != -1:
+            if root_ch.enable_smooth_bump:
+                lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE_SMOOTH
+            else: lib_name = lib.STRAIGHT_OVER_HEIGHT_COMPARE
+        else:
+            if root_ch.enable_smooth_bump:
+                lib_name = lib.HEIGHT_COMPARE_SMOOTH
+            else: lib_name = lib.HEIGHT_COMPARE
 
         height_blend, need_reconnect = replace_new_node(
                 tree, ch, 'height_blend', 'ShaderNodeGroup', 'Height Blend', 
@@ -2198,7 +2203,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     elif root_ch.type == 'NORMAL':
 
         #if has_parent and ch.normal_blend_type == 'MIX':
-        if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type == 'MIX':
+        if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
             if layer.type == 'BACKGROUND':
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                         'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
@@ -2218,7 +2223,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
                         'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
                         return_status = True, hard_replace=True, dirty=need_reconnect)
 
-        elif ch.normal_blend_type == 'MIX':
+        elif ch.normal_blend_type in {'MIX', 'COMPARE'}:
             blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
                     'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
                     return_status = True, hard_replace=True, dirty=need_reconnect)

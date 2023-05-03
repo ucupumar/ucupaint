@@ -4064,12 +4064,12 @@ def update_blend_type(self, context):
 
     if check_blend_type_nodes(root_ch, layer, self): # and not yp.halt_reconnect:
 
+        rearrange_layer_nodes(layer)
+
         # Reconnect all layer channels if normal channel is updated
         if root_ch.type == 'NORMAL':
             reconnect_layer_nodes(layer) 
         else: reconnect_layer_nodes(layer, ch_index)
-
-        rearrange_layer_nodes(layer)
 
     print('INFO: Layer', layer.name, ' blend type is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())

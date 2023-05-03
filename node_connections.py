@@ -2631,6 +2631,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, height_alpha, height_blend.inputs['Alpha'])
                     create_link(tree, height_proc.outputs['Height'], height_blend.inputs['Height'])
 
+                    # For straight over height compare
+                    if 'Prev Alpha' in height_blend.inputs:
+                        create_link(tree, prev_alpha, height_blend.inputs['Prev Alpha'])
+                    if 'Alpha' in height_blend.outputs:
+                        height_alpha = height_blend.outputs['Alpha']
+
                 if 'Height' in normal_proc.inputs:
                     create_link(tree, height_blend.outputs[hbout], normal_proc.inputs['Height'])
 
@@ -2869,7 +2875,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         if (
                 #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
-                (blend_type == 'MIX' and (has_parent or root_ch.enable_alpha))
+                (blend_type in {'MIX', 'COMPARE'} and (has_parent or root_ch.enable_alpha))
                 or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
             ):
 
