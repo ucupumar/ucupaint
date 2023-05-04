@@ -782,6 +782,41 @@ class YBakeChannelToVcol(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YDeleteBakedChannelImages(bpy.types.Operator):
+    bl_idname = "node.y_delete_baked_channel_images"
+    bl_label = "Delete All Baked Channel Images"
+    bl_description = "Delete all baked channel images"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        # Set bake to false first
+        if yp.use_baked:
+            yp.use_baked = False
+
+        # Remove baked nodes
+        for root_ch in yp.channels:
+            remove_node(tree, root_ch, 'baked')
+
+            if root_ch.type == 'NORMAL':
+                remove_node(tree, root_ch, 'baked_disp')
+                remove_node(tree, root_ch, 'baked_normal_overlay')
+                remove_node(tree, root_ch, 'baked_normal_prep')
+                remove_node(tree, root_ch, 'baked_normal')
+
+        # Reconnect
+        rearrange_yp_nodes(tree)
+        reconnect_yp_nodes(tree)
+
+        return {'FINISHED'}
+
 class YBakeChannels(bpy.types.Operator):
     """Bake Channels to Image(s)"""
     bl_idname = "node.y_bake_channels"
@@ -933,7 +968,6 @@ class YBakeChannels(bpy.types.Operator):
         node = get_active_ypaint_node()
         tree = node.node_tree
         yp = tree.yp
-        ypui = context.window_manager.ypui
         scene = context.scene
         obj = context.object
         mat = obj.active_material
@@ -2833,6 +2867,7 @@ def register():
     bpy.utils.register_class(YMergeMask)
     bpy.utils.register_class(YBakeTempImage)
     bpy.utils.register_class(YDisableTempImage)
+    bpy.utils.register_class(YDeleteBakedChannelImages)
 
 def unregister():
     bpy.utils.unregister_class(YTransferSomeLayerUV)
@@ -2844,3 +2879,4 @@ def unregister():
     bpy.utils.unregister_class(YMergeMask)
     bpy.utils.unregister_class(YBakeTempImage)
     bpy.utils.unregister_class(YDisableTempImage)
+    bpy.utils.unregister_class(YDeleteBakedChannelImages)
