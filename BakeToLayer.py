@@ -292,11 +292,6 @@ class YBakeToLayer(bpy.types.Operator):
             description='Use Image Atlas',
             default=False)
 
-    use_join_objects : BoolProperty(
-            name = 'Join Objects',
-            description="Join objects while baking (this will avoid bleeding on multi objects)",
-            default=True)
-
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -705,9 +700,6 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'flip_normals')
         col.prop(self, 'force_bake_all_polygons')
 
-        if mat.users > 1:
-            col.prop(self, 'use_join_objects')
-
         col.separator()
 
         #if self.overwrite_name == '':
@@ -908,10 +900,8 @@ class YBakeToLayer(bpy.types.Operator):
             if not height_root_ch.enable_subdiv_setup:
                 height_root_ch.enable_subdiv_setup = True
 
-        #return {'FINISHED'}
-
-        # Actually join objects when needed
-        need_join_objects = self.use_join_objects and len(objs) > 1
+        # Join objects if the number of objects is higher than one
+        need_join_objects = len(objs) > 1
 
         # Join objects and sometimes Cavity bake will create temporary objects
         if need_join_objects or (self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp)):

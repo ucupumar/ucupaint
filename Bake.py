@@ -867,11 +867,6 @@ class YBakeChannels(bpy.types.Operator):
             default='CPU'
             )
 
-    use_join_objects : BoolProperty(
-            name = 'Join Objects',
-            description="Join objects while baking (this will avoid bleeding on multi objects)",
-            default=True)
-
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -963,9 +958,6 @@ class YBakeChannels(bpy.types.Operator):
         col.separator()
         col.prop(self, 'fxaa', text='Use FXAA')
         col.prop(self, 'force_bake_all_polygons')
-
-        if mat.users > 1:
-            col.prop(self, 'use_join_objects')
 
     def execute(self, context):
 
@@ -1070,9 +1062,10 @@ class YBakeChannels(bpy.types.Operator):
                     p.material_index = active_mat_id
 
         
+        # Join objects if the number of objects is higher than one
         temp_objs = []
         ori_objs = []
-        if self.use_join_objects and len(objs) > 1:
+        if len(objs) > 1:
             tt = time.time()
             print('BAKE CHANNELS: Joining meshes for baking...')
             for o in objs:
