@@ -796,7 +796,7 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
-        self.layout.label(text='Are you sure you want to delete all channel baked images?', icon='ERROR')
+        self.layout.label(text='Are you sure you want to delete all baked images?', icon='ERROR')
 
     def execute(self, context):
         node = get_active_ypaint_node()

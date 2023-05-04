@@ -3552,10 +3552,10 @@ class YBakedImageMenu(bpy.types.Menu):
         col.separator()
 
         icon = 'FILEBROWSER' if is_greater_than_280() else 'FILE_FOLDER'
-        col.operator('node.y_save_all_baked_images', text='Save All Channel Baked Images to..', icon=icon)
+        col.operator('node.y_save_all_baked_images', text='Save All Baked Images to..', icon=icon)
 
         col.separator()
-        col.operator('node.y_delete_baked_channel_images', text='Delete All Channel Baked Images', icon='ERROR')
+        col.operator('node.y_delete_baked_channel_images', text='Delete All Baked Images', icon='ERROR')
 
 class YLayerListSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_list_special_menu"
