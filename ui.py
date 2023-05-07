@@ -2204,20 +2204,32 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     height_root_ch = get_root_height_channel(yp)
     enable_parallax = is_parallax_enabled(height_root_ch)
 
+    # Check duplicated yp node (indicated by more than one users)
+    if group_tree.users > 1:
+        row = box.row(align=True)
+        row.alert = True
+        op = row.operator("node.y_duplicate_yp_nodes", text='Fix Multi-User ' + get_addon_title() + ' Node', icon='ERROR')
+        op.duplicate_node = True
+        op.duplicate_material = False
+        op.only_active = True
+        row.alert = False
+        #box.prop(ypui, 'make_image_single_user')
+        return
+
     # Check duplicated layers (indicated by more than one users)
-    if len(yp.layers) > 0:
-        last_layer = yp.layers[-1]
-        ltree = get_tree(last_layer)
-        if ltree and (
-            (not enable_parallax and ltree.users > 1) or
-            (enable_parallax and ltree.users > 2)
-            ):
-            row = box.row(align=True)
-            row.alert = True
-            row.operator("node.y_fix_duplicated_yp_nodes", text='Fix Duplicated Layers', icon='ERROR')
-            row.alert = False
-            box.prop(ypui, 'make_image_single_user')
-            return
+    #elif len(yp.layers) > 0:
+    #    last_layer = yp.layers[-1]
+    #    ltree = get_tree(last_layer)
+    #    if ltree and (
+    #        (not enable_parallax and ltree.users > 1) or
+    #        (enable_parallax and ltree.users > 2)
+    #        ):
+    #        row = box.row(align=True)
+    #        row.alert = True
+    #        row.operator("node.y_fix_duplicated_yp_nodes", text='Fix Duplicated Layers', icon='ERROR')
+    #        row.alert = False
+    #        #box.prop(ypui, 'make_image_single_user')
+    #        return
 
     # Check source for missing data
     missing_data = False
@@ -3317,7 +3329,8 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col.separator()
 
-        col.operator('node.y_duplicate_yp_nodes', text='Duplicate Material and ' + get_addon_title() + ' nodes', icon='COPY_ID').duplicate_material = True
+        op = col.operator('node.y_duplicate_yp_nodes', text='Duplicate Material and ' + get_addon_title() + ' nodes', icon='COPY_ID')
+        op.duplicate_material = True
 
         col.separator()
 
@@ -4581,10 +4594,10 @@ class YPaintUI(bpy.types.PropertyGroup):
     halt_prop_update : BoolProperty(default=False)
 
     # Duplicated layer related
-    make_image_single_user : BoolProperty(
-            name = 'Make Images Single User',
-            description = 'Make duplicated image layers single user',
-            default=True)
+    #make_image_single_user : BoolProperty(
+    #        name = 'Make Images Single User',
+    #        description = 'Make duplicated image layers single user',
+    #        default=True)
 
     # HACK: For some reason active float image will glitch after auto save
     # This prop will notify if float image is active after saving

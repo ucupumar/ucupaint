@@ -1535,30 +1535,35 @@ class YChangeActiveYPaintNode(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YFixDuplicatedYPNodes(bpy.types.Operator):
-    bl_idname = "node.y_fix_duplicated_yp_nodes"
-    bl_label = "Fix Duplicated " + get_addon_title() + " Nodes"
-    bl_description = "Fix duplicated " + get_addon_title() + " nodes by making it single user"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        group_node = get_active_ypaint_node()
-        if not group_node: return False
-        yp = group_node.node_tree.yp
-        if len(yp.layers) == 0: return False
-        layer_tree = get_tree(yp.layers[-1])
-        return layer_tree.users > 1
-
-    def execute(self, context):
-        bpy.ops.node.y_duplicate_yp_nodes(duplicate_material=False, only_active=False)
-        return {'FINISHED'}
+#class YFixDuplicatedYPNodes(bpy.types.Operator):
+#    bl_idname = "node.y_fix_duplicated_yp_nodes"
+#    bl_label = "Fix Duplicated " + get_addon_title() + " Nodes"
+#    bl_description = "Fix duplicated " + get_addon_title() + " nodes by making it single user"
+#    bl_options = {'REGISTER', 'UNDO'}
+#
+#    @classmethod
+#    def poll(cls, context):
+#        group_node = get_active_ypaint_node()
+#        if not group_node: return False
+#        yp = group_node.node_tree.yp
+#        if len(yp.layers) == 0: return False
+#        layer_tree = get_tree(yp.layers[-1])
+#        return layer_tree.users > 1
+#
+#    def execute(self, context):
+#        bpy.ops.node.y_duplicate_yp_nodes(duplicate_node=False, duplicate_material=False, only_active=False)
+#        return {'FINISHED'}
 
 class YDuplicateYPNodes(bpy.types.Operator):
     bl_idname = "node.y_duplicate_yp_nodes"
     bl_label = "Duplicate " + get_addon_title() + " Nodes"
-    bl_description = "Duplicate " + get_addon_title() + " nodes to make it single user"
+    bl_description = get_addon_title() + " doesn't work with more than one user! Duplicate to make it single user"
     bl_options = {'REGISTER', 'UNDO'}
+
+    duplicate_node : BoolProperty(
+            name = 'Duplicate this Node',
+            description = 'Duplicate this node',
+            default=False)
 
     duplicate_material : BoolProperty(
             name = 'Also Duplicate Material',
@@ -1576,12 +1581,7 @@ class YDuplicateYPNodes(bpy.types.Operator):
         group_node = get_active_ypaint_node()
         if not group_node: return False
 
-        yp = group_node.node_tree.yp
-        if len(yp.layers) > 0:
-            layer_tree = get_tree(yp.layers[-1])
-        else: layer_tree = None
-
-        return (layer_tree and layer_tree.users > 1) or mat.users > 1
+        return True
 
     def invoke(self, context, event):
         return context.window_manager.invoke_props_dialog(self)
@@ -1605,9 +1605,12 @@ class YDuplicateYPNodes(bpy.types.Operator):
                     if m == mat:
                         obj.data.materials[i] = dup_mat
 
+            mat = dup_mat
+
+        if self.duplicate_material or self.duplicate_node:
             # Get to be duplicated trees
             tree_dict = {}
-            for node in dup_mat.node_tree.nodes:
+            for node in mat.node_tree.nodes:
                 if node.type == 'GROUP' and node.node_tree and node.node_tree.yp.is_ypaint_node and node.node_tree.name not in tree_dict:
                     tree_dict[node.node_tree.name] = node
                     #node.node_tree = node.node_tree.copy()
@@ -1624,7 +1627,8 @@ class YDuplicateYPNodes(bpy.types.Operator):
 
         # Make all layers single(dual) user
         #for layer in yp.layers:
-        Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=ypui.make_image_single_user)
+        #Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=ypui.make_image_single_user)
+        Layer.duplicate_layer_nodes_and_images(tree, make_image_single_user=True)
 
         # Duplicate uv nodes
         for uv in yp.uvs:
@@ -1644,27 +1648,27 @@ class YDuplicateYPNodes(bpy.types.Operator):
         #            re.match(r'^.+_Copy\.*\d{0,3}$', node.node_tree.name)):
         #        node.node_tree = node.node_tree.copy()
 
-        if ypui.make_image_single_user:
+        #if ypui.make_image_single_user:
 
-            # Copy baked image
-            for ch in yp.channels:
-                baked = tree.nodes.get(ch.baked)
-                if baked and baked.image:
-                    baked.image = baked.image.copy()
+        # Copy baked image
+        for ch in yp.channels:
+            baked = tree.nodes.get(ch.baked)
+            if baked and baked.image:
+                baked.image = baked.image.copy()
 
-                    # Also rename path because why not? NO, because it will cause image lost
-                    #path = baked.image.filepath
-                    #ext = os.path.splitext(path)[1]
-                    #baked.image.filepath = os.path.dirname(path) + baked.image.name + ext
+                # Also rename path because why not? NO, because it will cause image lost
+                #path = baked.image.filepath
+                #ext = os.path.splitext(path)[1]
+                #baked.image.filepath = os.path.dirname(path) + baked.image.name + ext
 
-                if ch.type == 'NORMAL':
-                    baked_disp = tree.nodes.get(ch.baked_disp)
-                    if baked_disp and baked_disp.image:
-                        baked_disp.image = baked_disp.image.copy()
+            if ch.type == 'NORMAL':
+                baked_disp = tree.nodes.get(ch.baked_disp)
+                if baked_disp and baked_disp.image:
+                    baked_disp.image = baked_disp.image.copy()
 
-                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image:
-                        baked_normal_overlay.image = baked_normal_overlay.image.copy()
+                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                if baked_normal_overlay and baked_normal_overlay.image:
+                    baked_normal_overlay.image = baked_normal_overlay.image.copy()
 
         # Recover possibly deleted parallax
         height_root_ch = get_root_height_channel(yp)
@@ -3561,7 +3565,7 @@ def register():
     bpy.utils.register_class(YRenameYPaintTree)
     bpy.utils.register_class(YChangeActiveYPaintNode)
     bpy.utils.register_class(YDuplicateYPNodes)
-    bpy.utils.register_class(YFixDuplicatedYPNodes)
+    #bpy.utils.register_class(YFixDuplicatedYPNodes)
     bpy.utils.register_class(YFixMissingData)
     bpy.utils.register_class(YRefreshTangentSignVcol)
     bpy.utils.register_class(YRemoveYPaintNode)
@@ -3609,7 +3613,7 @@ def unregister():
     bpy.utils.unregister_class(YRenameYPaintTree)
     bpy.utils.unregister_class(YChangeActiveYPaintNode)
     bpy.utils.unregister_class(YDuplicateYPNodes)
-    bpy.utils.unregister_class(YFixDuplicatedYPNodes)
+    #bpy.utils.unregister_class(YFixDuplicatedYPNodes)
     bpy.utils.unregister_class(YFixMissingData)
     bpy.utils.unregister_class(YRefreshTangentSignVcol)
     bpy.utils.unregister_class(YRemoveYPaintNode)
