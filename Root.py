@@ -2805,8 +2805,8 @@ def update_channel_alpha(self, context):
         if any(alpha_chs):
             # Set material to use alpha blend
             if is_greater_than_280():
-                mat.blend_method = 'HASHED'
-                mat.shadow_method = 'HASHED'
+                mat.blend_method = self.alpha_blend_mode
+                mat.shadow_method = self.alpha_shadow_mode
             else:
                 mat.game_settings.alpha_blend = 'ALPHA'
 
@@ -2843,6 +2843,17 @@ def update_channel_alpha(self, context):
         self.ori_alpha_to.clear()
 
     yp.refresh_tree = True
+
+def update_channel_alpha_blend_mode(self, context):
+    mat = get_active_material()
+    group_tree = self.id_data
+    yp = group_tree.yp
+
+    if not self.enable_alpha or not is_greater_than_280(): return
+
+    # Set material alpha blend
+    mat.blend_method = self.alpha_blend_mode
+    mat.shadow_method = self.alpha_shadow_mode
 
 #def update_disable_quick_toggle(self, context):
 #    yp = self
@@ -3011,6 +3022,31 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     # Alpha for transparent materials
     enable_alpha : BoolProperty(default=False, update=update_channel_alpha)
+
+    alpha_blend_mode : EnumProperty(
+            name = 'Alpha Blend Mode',
+            description = 'This will change your material blend mode if alpha is enabled',
+            items = (
+                ('CLIP', 'Alpha Clip', ''),
+                ('HASHED', 'Alpha Hashed', ''),
+                ('BLEND', 'Alpha Blend', ''),
+                ),
+            default = 'HASHED',
+            update=update_channel_alpha_blend_mode
+            )
+
+    alpha_shadow_mode : EnumProperty(
+            name = 'Alpha Shadow Mode',
+            description = 'This will change your material shadow mode if alpha is enabled',
+            items = (
+                ('NONE', 'None', ''),
+                ('OPAQUE', 'Opaque', ''),
+                ('HASHED', 'Alpha Hashed', ''),
+                ('CLIP', 'Alpha Clip', ''),
+                ),
+            default = 'HASHED',
+            update=update_channel_alpha_blend_mode
+            )
 
     # Backface mode for alpha
     backface_mode : EnumProperty(

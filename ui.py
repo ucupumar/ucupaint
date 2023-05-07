@@ -766,6 +766,15 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                     bbcol = bbox.column() #align=True)
                     bbcol.active = channel.enable_alpha
 
+                    if is_greater_than_280():
+                        brow = bbcol.row(align=True)
+                        brow.label(text='Blend Mode:')
+                        brow.prop(channel, 'alpha_blend_mode', text='')
+
+                        brow = bbcol.row(align=True)
+                        brow.label(text='Shadow Mode:')
+                        brow.prop(channel, 'alpha_shadow_mode', text='')
+
                     brow = bbcol.row(align=True)
                     brow.active = not (yp.use_baked and yp.enable_baked_outside)
                     brow.label(text='Backface Mode:')
