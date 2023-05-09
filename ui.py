@@ -617,6 +617,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
             #row.label(text='', icon='BLANK1')
 
 def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
+    mat = get_active_material()
     group_tree = node.node_tree
     nodes = group_tree.nodes
     yp = group_tree.yp
@@ -774,6 +775,11 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                         brow = bbcol.row(align=True)
                         brow.label(text='Shadow Mode:')
                         brow.prop(channel, 'alpha_shadow_mode', text='')
+
+                        if channel.alpha_blend_mode == 'CLIP' or channel.alpha_shadow_mode == 'CLIP':
+                            brow = bbcol.row(align=True)
+                            brow.label(text='Clip Threshold:')
+                            brow.prop(mat, 'alpha_threshold', text='')
 
                     brow = bbcol.row(align=True)
                     brow.active = not (yp.use_baked and yp.enable_baked_outside)
