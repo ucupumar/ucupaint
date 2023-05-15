@@ -935,8 +935,9 @@ class YBakeToLayer(bpy.types.Operator):
                     bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
 
                 # Apply modifiers
+                problematic_modifiers = get_problematic_modifiers(obj)
                 for m in reversed(obj.modifiers):
-                    if m.type not in problematic_modifiers:
+                    if m not in problematic_modifiers:
                         try:
                             bpy.ops.object.modifier_apply(modifier=m.name)
                             continue
@@ -1152,9 +1153,8 @@ class YBakeToLayer(bpy.types.Operator):
                             m.show_render = False
                             m.show_viewport = False
             elif obj not in other_objs:
-                for m in obj.modifiers:
-                    if m.type in problematic_modifiers:
-                        m.show_render = False
+                for m in get_problematic_modifiers(obj):
+                    m.show_render = False
 
             ori_mat_ids[obj.name] = []
             ori_loop_locs[obj.name] = []
@@ -1973,9 +1973,8 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             ori_mods[obj.name] = [m.show_render for m in obj.modifiers]
             ori_viewport_mods[obj.name] = [m.show_viewport for m in obj.modifiers]
 
-            for m in obj.modifiers:
-                if m.type in problematic_modifiers:
-                    m.show_render = False
+            for m in get_problematic_modifiers(obj):
+                m.show_render = False
 
         prepare_bake_settings(book, objs, yp, samples=samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device

@@ -5,11 +5,24 @@ from . import lib, Layer, ImageAtlas
 
 BL28_HACK = True
 
-problematic_modifiers = {
+PROBLEMATIC_MODIFIERS = {
         'MIRROR',
         'SOLIDIFY',
         'ARRAY',
         }
+
+def get_problematic_modifiers(obj):
+    pms = []
+
+    for m in obj.modifiers:
+        if m in PROBLEMATIC_MODIFIERS:
+            # Mirror modifier is not problematic if mirror uv is used
+            if m == 'MIRROR':
+                if not m.use_mirror_u and not m.use_mirror_v:
+                    pms.append(pm)
+            else: pms.append(m)
+
+    return pms
 
 def remember_before_bake(yp=None, mat=None):
     book = {}
@@ -245,13 +258,14 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
             book['obj_mods_lib'][obj.name] = {}
             book['obj_mods_lib'][obj.name]['disabled_mods'] = []
             book['obj_mods_lib'][obj.name]['disabled_viewport_mods'] = []
-            for mod in obj.modifiers:
 
-                if mod.show_render and mod.type in problematic_modifiers: #{'MIRROR', 'SOLIDIFY'}:
+            for mod in get_problematic_modifiers(obj):
+
+                if mod.show_render:
                     mod.show_render = False
                     book['obj_mods_lib'][obj.name]['disabled_mods'].append(mod.name)
 
-                if mod.show_viewport and mod.type in problematic_modifiers: #{'MIRROR', 'SOLIDIFY'}:
+                if mod.show_viewport:
                     mod.show_viewport = False
                     book['obj_mods_lib'][obj.name]['disabled_viewport_mods'].append(mod.name)
 
@@ -1284,10 +1298,12 @@ def join_objects(objs):
 
         set_object_select(obj, True)
 
+        problematic_modifiers = get_problematic_modifiers(obj)
+
         for mod in obj.modifiers:
 
             # Disable all problematic modifiers
-            if mod.type in problematic_modifiers:
+            if mod in problematic_modifiers:
                 mod.show_render = False
                 mod.show_viewport = False
 
