@@ -1063,9 +1063,10 @@ class YBakeChannels(bpy.types.Operator):
 
         
         # Join objects if the number of objects is higher than one
+        need_join_objects = len(objs) > 1 and not is_join_objects_problematic(yp)
         temp_objs = []
         ori_objs = []
-        if len(objs) > 1:
+        if need_join_objects:
             tt = time.time()
             print('BAKE CHANNELS: Joining meshes for baking...')
             for o in objs:

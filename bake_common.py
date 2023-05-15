@@ -5,17 +5,22 @@ from . import lib, Layer, ImageAtlas
 
 BL28_HACK = True
 
-PROBLEMATIC_MODIFIERS = {
+BAKE_PROBLEMATIC_MODIFIERS = {
         'MIRROR',
         'SOLIDIFY',
         'ARRAY',
+        }
+
+JOIN_PROBLEMATIC_TEXCOORDS = {
+        'Object',
+        'Generated',
         }
 
 def get_problematic_modifiers(obj):
     pms = []
 
     for m in obj.modifiers:
-        if m in PROBLEMATIC_MODIFIERS:
+        if m in BAKE_PROBLEMATIC_MODIFIERS:
             # Mirror modifier is not problematic if mirror uv is used
             if m == 'MIRROR':
                 if not m.use_mirror_u and not m.use_mirror_v:
@@ -23,6 +28,22 @@ def get_problematic_modifiers(obj):
             else: pms.append(m)
 
     return pms
+
+def is_join_objects_problematic(yp):
+    for layer in yp.layers:
+
+        for mask in layer.masks:
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}: 
+                continue
+            if mask.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS:
+                return True
+
+        if layer.type in {'VCOL', 'COLOR', 'BACKGROUND', 'HEMI', 'GROUP'}: 
+            continue
+        if layer.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS:
+            return True
+
+    return False
 
 def remember_before_bake(yp=None, mat=None):
     book = {}

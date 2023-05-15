@@ -901,7 +901,7 @@ class YBakeToLayer(bpy.types.Operator):
                 height_root_ch.enable_subdiv_setup = True
 
         # Join objects if the number of objects is higher than one
-        need_join_objects = len(objs) > 1
+        need_join_objects = len(objs) > 1 and not is_join_objects_problematic(yp)
 
         # Join objects and sometimes Cavity bake will create temporary objects
         if need_join_objects or (self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp)):
