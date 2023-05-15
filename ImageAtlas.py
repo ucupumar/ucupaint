@@ -137,9 +137,12 @@ def is_there_any_unused_segments(atlas, width, height):
             return True
     return False
 
-def check_need_of_erasing_segments(color='BLACK', width=1024, height=1024, hdr=False):
+def check_need_of_erasing_segments(yp, color='BLACK', width=1024, height=1024, hdr=False):
 
-    for img in bpy.data.images:
+    ypup = get_user_preferences()
+    images = get_yp_images(yp) if ypup.unique_image_atlas_per_yp else bpy.data.images
+
+    for img in images:
         #if img.yia.is_image_atlas and img.yia.color == color and img.yia.float_buffer == hdr:
         if img.yia.is_image_atlas and img.yia.color == color and img.is_float == hdr:
             if not get_available_tile(width, height, img.yia) and is_there_any_unused_segments(img.yia, width, height):
@@ -179,14 +182,10 @@ def copy_segment_pixels(img_from, segment_from, img_to, segment_to):
 
 def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_from=None, segment_from=None, yp=None):
 
-    if is_greater_than_280():
-        ypup = bpy.context.preferences.addons[__package__].preferences
-    else: ypup = bpy.context.user_preferences.addons[__package__].preferences
-
+    ypup = get_user_preferences()
     segment = None
 
     # Get bunch of images
-
     if yp and ypup.unique_image_atlas_per_yp:
         images = get_yp_images(yp)
         name = yp.id_data.name

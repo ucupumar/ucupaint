@@ -259,9 +259,9 @@ class YNewLayerMask(bpy.types.Operator):
     def poll(cls, context):
         return True
 
-    def get_to_be_cleared_image_atlas(self, context):
+    def get_to_be_cleared_image_atlas(self, context, yp):
         if self.type == 'IMAGE' and self.use_image_atlas:
-            return ImageAtlas.check_need_of_erasing_segments(self.color_option, self.width, self.height, self.hdr)
+            return ImageAtlas.check_need_of_erasing_segments(yp, self.color_option, self.width, self.height, self.hdr)
 
         return None
 
@@ -341,6 +341,7 @@ class YNewLayerMask(bpy.types.Operator):
 
     def draw(self, context):
         obj = context.object
+        yp = self.layer.id_data.yp
 
         if is_greater_than_280():
             row = self.layout.split(factor=0.4)
@@ -413,7 +414,7 @@ class YNewLayerMask(bpy.types.Operator):
                 if self.type == 'IMAGE':
                     col.prop(self, 'use_image_atlas')
 
-        if self.get_to_be_cleared_image_atlas(context):
+        if self.get_to_be_cleared_image_atlas(context, yp):
             col = self.layout.column(align=True)
             col.label(text='INFO: An unused atlas segment can be used.', icon='ERROR')
             col.label(text='It will take a couple seconds to clear.')
@@ -444,7 +445,7 @@ class YNewLayerMask(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Clearing unused image atlas segments
-        img_atlas = self.get_to_be_cleared_image_atlas(context)
+        img_atlas = self.get_to_be_cleared_image_atlas(context, yp)
         if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
         # Check if layer with same name is already available
