@@ -143,6 +143,8 @@ NORMAL_MAP_PROCESS_SMOOTH_TRANSITION = '~yPL Normal Map Process Smooth Transitio
 
 ADVANCED_EMISSION_VIEWER = '~yPL Advanced Emission Viewer'
 #GRID_EMISSION_VIEWER = '~yPL Grid Emission Viewer'
+NORMAL_EMISSION_VIEWER = '~yPL Normal Emission Viewer'
+
 
 ENGINE_FILTER = '~yPL Engine Filter'
 

@@ -2145,7 +2145,7 @@ def update_channel_name(self, context):
     print('INFO: Channel renamed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
-def get_preview(mat, output=None, advanced=False):
+def get_preview(mat, output=None, advanced=False, normal_viewer=False):
     tree = mat.node_tree
     #nodes = tree.nodes
 
@@ -2159,7 +2159,6 @@ def get_preview(mat, output=None, advanced=False):
         preview, dirty = simple_replace_new_node(
                 tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
                 lib.ADVANCED_EMISSION_VIEWER,
-                #lib.GRID_EMISSION_VIEWER, 
                 return_status=True, hard_replace=True)
         if dirty:
             duplicate_lib_node_tree(preview)
@@ -2173,9 +2172,16 @@ def get_preview(mat, output=None, advanced=False):
             #    mat.game_settings.alpha_blend = 'ALPHA'
             #mat.yp.ori_blend_method = blend_method
     else:
-        preview, dirty = simple_replace_new_node(
-                tree, EMISSION_VIEWER, 'ShaderNodeEmission', 'Emission Viewer', 
-                return_status=True)
+        if normal_viewer:
+            preview, dirty = simple_replace_new_node(
+                    tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
+                    lib.NORMAL_EMISSION_VIEWER,
+                    return_status=True, hard_replace=True)
+        else:
+            preview, dirty = simple_replace_new_node(
+                    tree, EMISSION_VIEWER, 'ShaderNodeEmission', 'Emission Viewer', 
+                    return_status=True)
+
     if dirty:
         preview.hide = True
         preview.location = (output.location.x, output.location.y + 30.0)
@@ -2358,19 +2364,35 @@ def update_preview_mode(self, context):
         set_srgb_view_transform()
 
         output = get_active_mat_output_node(mat.node_tree)
-        preview = get_preview(mat, output)
+
+        # Get preview node by name first
+        preview = mat.node_tree.nodes.get(EMISSION_VIEWER)
+
+        # Try to get socket that connected to preview first input
+        if preview:
+            from_socket = [link.from_socket for link in preview.inputs[0].links]
+            if from_socket: from_socket = from_socket[0]
+        else: from_socket = None
+
+        # Check if there's any valid socket connected to first input of preview node
+        is_from_socket_missing = not from_socket or (from_socket and not from_socket.name.startswith(channel.name))
+
+        # Get all outputs from current channel
+        outs = [o for o in group_node.outputs if o.name.startswith(channel.name)]
+
+        # Use special preview for normal
+        if channel.type == 'NORMAL' and (is_from_socket_missing or (from_socket and from_socket == outs[-1])):
+            preview = get_preview(mat, output, False, True)
+        else: preview = get_preview(mat, output, False)
+
+        # Preview should exists by now
         if not preview: return
 
-        from_socket = [link.from_socket for link in preview.inputs[0].links]
-        if not from_socket or (from_socket and not from_socket[0].name.startswith(channel.name)):
+        if is_from_socket_missing:
             # Connect first output
-            #tree.links.new(group_node.outputs[channel.io_index], preview.inputs[0])
             tree.links.new(group_node.outputs[channel.name], preview.inputs[0])
         else:
-            from_socket = from_socket[0]
-            outs = [o for o in group_node.outputs if o.name.startswith(channel.name)]
-
-            # Cycle outpus
+            # Cycle outputs
             for i, o in enumerate(outs):
                 if o == from_socket:
                     if i != len(outs)-1:
