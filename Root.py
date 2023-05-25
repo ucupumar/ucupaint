@@ -2156,10 +2156,16 @@ def get_preview(mat, output=None, advanced=False, normal_viewer=False):
     if not output: return None
 
     if advanced:
-        preview, dirty = simple_replace_new_node(
-                tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
-                lib.ADVANCED_EMISSION_VIEWER,
-                return_status=True, hard_replace=True)
+        if normal_viewer:
+            preview, dirty = simple_replace_new_node(
+                    tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
+                    lib.ADVANCED_NORMAL_EMISSION_VIEWER,
+                    return_status=True, hard_replace=True)
+        else:
+            preview, dirty = simple_replace_new_node(
+                    tree, EMISSION_VIEWER, 'ShaderNodeGroup', 'Emission Viewer', 
+                    lib.ADVANCED_EMISSION_VIEWER,
+                    return_status=True, hard_replace=True)
         if dirty:
             duplicate_lib_node_tree(preview)
             #preview.node_tree = preview.node_tree.copy()
@@ -2322,7 +2328,10 @@ def update_layer_preview_mode(self, context):
             tree.links.new(preview.outputs[0], output.inputs[0])
 
         else:
-            preview = get_preview(mat, output, True)
+            if channel.type == 'NORMAL':
+                preview = get_preview(mat, output, True, True)
+            else:
+                preview = get_preview(mat, output, True)
             if not preview: return
 
             tree.links.new(group_node.outputs[LAYER_VIEWER], preview.inputs[0])
@@ -2330,9 +2339,10 @@ def update_layer_preview_mode(self, context):
             tree.links.new(preview.outputs[0], output.inputs[0])
 
             # Set gamma
-            if channel.colorspace != 'LINEAR':
-                preview.inputs[2].default_value = 2.2
-            else: preview.inputs[2].default_value = 1.0
+            if 'Gamma' in preview.inputs:
+                if channel.colorspace != 'LINEAR':
+                    preview.inputs['Gamma'].default_value = 2.2
+                else: preview.inputs['Gamma'].default_value = 1.0
 
             # Set channel layer blending
             ch = layer.channels[yp.active_channel_index]
