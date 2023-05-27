@@ -1415,7 +1415,7 @@ class YBakeToLayer(bpy.types.Operator):
             if not segment or need_to_create_new_segment:
 
                 # Clearing unused image atlas segments
-                img_atlas = ImageAtlas.check_need_of_erasing_segments('TRANSPARENT', self.width, self.height, self.hdr)
+                img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', self.width, self.height, self.hdr)
                 if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
                 segment = ImageAtlas.get_set_image_atlas_segment(
@@ -2009,7 +2009,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
                 mask_name = get_unique_name(mask_name, self.layer.masks)
 
                 # Clearing unused image atlas segments
-                img_atlas = ImageAtlas.check_need_of_erasing_segments('BLACK', self.width, self.height, self.hdr)
+                img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', self.width, self.height, self.hdr)
                 if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
                 segment = ImageAtlas.get_set_image_atlas_segment(
