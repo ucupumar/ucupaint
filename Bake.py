@@ -1091,7 +1091,7 @@ class YBakeChannels(bpy.types.Operator):
 
                 # Apply modifiers
                 for m in reversed(o.modifiers):
-                    if m.type not in problematic_modifiers:
+                    if m.type not in get_problematic_modifiers(o):
                         try:
                             bpy.ops.object.modifier_apply(modifier=m.name)
                             continue
