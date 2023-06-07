@@ -3540,8 +3540,9 @@ def ypaint_last_object_update(scene):
                     if mirror:
                         obj.yp.ori_mirror_offset_u = mirror.mirror_offset_u
                         obj.yp.ori_mirror_offset_v = mirror.mirror_offset_v
-                        obj.yp.ori_offset_u = mirror.offset_u
-                        obj.yp.ori_offset_v = mirror.offset_v
+                        if is_greater_than_280():
+                            obj.yp.ori_offset_u = mirror.offset_u
+                            obj.yp.ori_offset_v = mirror.offset_v
 
                 refresh_temp_uv(obj, src_of_img)
 

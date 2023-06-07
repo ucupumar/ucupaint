@@ -2635,11 +2635,12 @@ def set_uv_mirror_offsets(obj, matrix):
         obj.yp.ori_mirror_offset_v = mirror.mirror_offset_v
         mirror.mirror_offset_v = movec.y * 2 - (1.0 - matrix[1][1])
 
-    obj.yp.ori_offset_u = mirror.offset_u
-    mirror.offset_u *= matrix[0][0]
+    if is_greater_than_280():
+        obj.yp.ori_offset_u = mirror.offset_u
+        mirror.offset_u *= matrix[0][0]
 
-    obj.yp.ori_offset_v = mirror.offset_v
-    mirror.offset_v *= matrix[1][1]
+        obj.yp.ori_offset_v = mirror.offset_v
+        mirror.offset_v *= matrix[1][1]
 
 def remove_temp_uv(obj, entity):
     uv_layers = get_uv_layers(obj)
@@ -2667,8 +2668,9 @@ def remove_temp_uv(obj, entity):
         if mirror.use_mirror_v:
             mirror.mirror_offset_v = obj.yp.ori_mirror_offset_v
 
-        mirror.offset_u = obj.yp.ori_offset_u
-        mirror.offset_v = obj.yp.ori_offset_v
+        if is_greater_than_280():
+            mirror.offset_u = obj.yp.ori_offset_u
+            mirror.offset_v = obj.yp.ori_offset_v
 
 def refresh_temp_uv(obj, entity): 
 
