@@ -23,7 +23,7 @@ def get_problematic_modifiers(obj):
         if m in BAKE_PROBLEMATIC_MODIFIERS:
             # Mirror modifier is not problematic if mirror uv is used
             if m == 'MIRROR':
-                if not m.use_mirror_u and not m.use_mirror_v:
+                if not m.use_mirror_u and not m.use_mirror_v and m.offset_u == 0.0 and m.offset_y == 0.0:
                     pms.append(pm)
             else: pms.append(m)
 

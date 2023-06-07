@@ -287,19 +287,25 @@ def replace_segment_with_image(yp, segment, image, uv_name=''):
 #
 #        return {'FINISHED'}
 
-def set_segment_mapping(entity, segment, image):
-
-    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-
-    if m1: mapping = get_layer_mapping(entity)
-    else: mapping = get_mask_mapping(entity)
+def get_segment_mapping(entity, segment, image):
 
     scale_x = segment.width/image.size[0]
     scale_y = segment.height/image.size[1]
 
     offset_x = scale_x * segment.tile_x
     offset_y = scale_y * segment.tile_y
+
+    return scale_x, scale_y, offset_x, offset_y
+
+def set_segment_mapping(entity, segment, image):
+
+    scale_x, scale_y, offset_x, offset_y = get_segment_mapping(entity, segment, image)
+
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if m1: mapping = get_layer_mapping(entity)
+    else: mapping = get_mask_mapping(entity)
 
     if mapping:
         if is_greater_than_281():

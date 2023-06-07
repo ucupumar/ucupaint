@@ -2617,7 +2617,31 @@ def check_uvmap_on_other_objects_with_same_mat(mat, uv_name, set_active=True):
                     if set_active:
                         uvls.active = uvl
 
-def remove_temp_uv(obj):
+def set_uv_mirror_offsets(obj, matrix):
+
+    mirror = get_first_mirror_modifier(obj)
+    if not mirror: return
+
+    movec = Vector((mirror.mirror_offset_u/2, mirror.mirror_offset_v/2, 0.0))
+    if is_greater_than_280():
+        movec = matrix @ movec
+    else: movec = matrix * movec
+
+    if mirror.use_mirror_u:
+        obj.yp.ori_mirror_offset_u = mirror.mirror_offset_u
+        mirror.mirror_offset_u = movec.x * 2 - (1.0 - matrix[0][0])
+
+    if mirror.use_mirror_v:
+        obj.yp.ori_mirror_offset_v = mirror.mirror_offset_v
+        mirror.mirror_offset_v = movec.y * 2 - (1.0 - matrix[1][1])
+
+    obj.yp.ori_offset_u = mirror.offset_u
+    mirror.offset_u *= matrix[0][0]
+
+    obj.yp.ori_offset_v = mirror.offset_v
+    mirror.offset_v *= matrix[1][1]
+
+def remove_temp_uv(obj, entity):
     uv_layers = get_uv_layers(obj)
     
     if uv_layers:
@@ -2626,13 +2650,33 @@ def remove_temp_uv(obj):
                 uv_layers.remove(uv)
                 #break
 
+    # Remove uv mirror offsets for entity with image atlas
+    mirror = get_first_mirror_modifier(obj)
+    if mirror and entity and entity.type == 'IMAGE' and (
+            entity.segment_name != '' or 
+            # Because sometimes you want to tweak mirror offsets in texture paint mode,
+            # quitting texture paint while using standard image will not reset mirror offsets
+            # But unfortunately, it will still reset if you are changing active layer
+            # even if the layer is not using image atlas
+            # Better solution will requires storing last active layer
+            (entity.segment_name == '' and obj.mode == 'TEXTURE_PAINT')
+            ):
+        if mirror.use_mirror_u:
+            mirror.mirror_offset_u = obj.yp.ori_mirror_offset_u
+
+        if mirror.use_mirror_v:
+            mirror.mirror_offset_v = obj.yp.ori_mirror_offset_v
+
+        mirror.offset_u = obj.yp.ori_offset_u
+        mirror.offset_v = obj.yp.ori_offset_v
+
 def refresh_temp_uv(obj, entity): 
 
     if obj.type != 'MESH':
         return False
 
     if not entity:
-        remove_temp_uv(obj)
+        remove_temp_uv(obj, entity)
         return False
 
     #print(entity.path_from_id())
@@ -2656,15 +2700,15 @@ def refresh_temp_uv(obj, entity):
     else: return False
 
     if m3 and entity.override_type != 'IMAGE':
-        remove_temp_uv(obj)
+        remove_temp_uv(obj, entity)
         return False
 
     if (m1 or m2) and entity.type != 'IMAGE':
-        remove_temp_uv(obj)
+        remove_temp_uv(obj, entity)
         return False
 
     # Delete previous temp uv
-    remove_temp_uv(obj)
+    remove_temp_uv(obj, entity)
 
     uv_layers = get_uv_layers(obj)
 
@@ -2790,6 +2834,10 @@ def refresh_temp_uv(obj, entity):
     # Set back uv coordinates
     #obj.data.uv_layers.active.data.foreach_set('uv', arr.ravel())
     temp_uv_layer.data.foreach_set('uv', arr.ravel())
+
+    # Set UV mirror offset
+    if ori_mode != 'EDIT':
+        set_uv_mirror_offsets(obj, m)
 
     # Back to edit mode if originally from there
     if ori_mode == 'EDIT':
@@ -4476,6 +4524,13 @@ def is_root_ch_prop_node_unique(root_ch, prop):
         except Exception as e: print(e)
 
     return True
+
+def get_first_mirror_modifier(obj):
+    for m in obj.modifiers:
+        if m.type == 'MIRROR':
+            return m
+
+    return None
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:

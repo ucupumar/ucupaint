@@ -2486,7 +2486,6 @@ def update_layer_index(self, context):
     objs = get_all_objects_with_same_materials(mat, selected_only=True)
     for ob in objs:
         refresh_temp_uv(ob, src_of_img)
-    #refresh_temp_uv(obj, src_of_img)
 
     update_image_editor_image(context, image)
 
@@ -3460,6 +3459,11 @@ class YPaintObjectProps(bpy.types.PropertyGroup):
     ori_multires_render_levels : IntProperty(default=1)
     ori_multires_levels : IntProperty(default=1)
 
+    ori_mirror_offset_u : FloatProperty(default=0.0)
+    ori_mirror_offset_v : FloatProperty(default=0.0)
+    ori_offset_u : FloatProperty(default=0.0)
+    ori_offset_v : FloatProperty(default=0.0)
+
 #class YPaintMeshProps(bpy.types.PropertyGroup):
 #    parallax_scale_min : FloatProperty(default=0.0)
 #    parallax_scale_span : FloatProperty(default=1.0)
@@ -3529,6 +3533,16 @@ def ypaint_last_object_update(scene):
             scene.yp.last_mode = obj.mode
             if yp and len(yp.layers) > 0 :
                 image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
+
+                # Store original uv mirror offsets
+                if obj.mode == 'TEXTURE_PAINT':
+                    mirror = get_first_mirror_modifier(obj)
+                    if mirror:
+                        obj.yp.ori_mirror_offset_u = mirror.mirror_offset_u
+                        obj.yp.ori_mirror_offset_v = mirror.mirror_offset_v
+                        obj.yp.ori_offset_u = mirror.offset_u
+                        obj.yp.ori_offset_v = mirror.offset_v
+
                 refresh_temp_uv(obj, src_of_img)
 
         # Into edit mode
