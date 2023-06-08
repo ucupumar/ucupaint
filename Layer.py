@@ -741,7 +741,7 @@ class YNewLayer(bpy.types.Operator):
 
                 # UV Map collections update
                 self.uv_map_coll.clear()
-                for uv in obj.data.uv_layers:
+                for uv in get_uv_layers(obj):
                     if not uv.name.startswith(TEMP_UV):
                         self.uv_map_coll.add().name = uv.name
 

@@ -1573,3 +1573,17 @@ def remove_temp_emit_white_mat():
     mat = bpy.data.materials.get(TEMP_EMIT_WHITE)
     if mat: bpy.data.materials.remove(mat)
 
+def get_output_uv_names_from_geometry_nodes(obj):
+    if not is_greater_than_350: return []
+
+    uv_layers = get_uv_layers(obj)
+    uv_names = []
+    
+    for m in obj.modifiers:
+        if m.type == 'NODES' and m.node_group:
+            for outp in m.node_group.outputs:
+                if outp.type == 'VECTOR':
+                    uv = uv_layers.get(m[outp.identifier + '_attribute_name'])
+                    if uv: uv_names.append(uv.name)
+
+    return uv_names
