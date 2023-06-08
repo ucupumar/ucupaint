@@ -935,8 +935,11 @@ class YBakeToLayer(bpy.types.Operator):
                     bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
 
                 # Apply modifiers
+                mnames = [m.name for m in obj.modifiers]
                 problematic_modifiers = get_problematic_modifiers(obj)
-                for m in reversed(obj.modifiers):
+
+                for mname in mnames:
+                    m = obj.modifiers[mname]
                     if m not in problematic_modifiers:
                         try:
                             bpy.ops.object.modifier_apply(modifier=m.name)

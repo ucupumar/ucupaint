@@ -20,9 +20,9 @@ def get_problematic_modifiers(obj):
     pms = []
 
     for m in obj.modifiers:
-        if m in BAKE_PROBLEMATIC_MODIFIERS:
+        if m.type in BAKE_PROBLEMATIC_MODIFIERS:
             # Mirror modifier is not problematic if mirror uv is used
-            if m == 'MIRROR':
+            if m.type == 'MIRROR':
                 if not m.use_mirror_u and not m.use_mirror_v:
                     if is_greater_than_280():
                         if m.offset_u == 0.0 and m.offset_y == 0.0:
