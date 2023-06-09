@@ -458,6 +458,8 @@ def get_smooth_mix_node(blend_type, layer_type=''):
         mixcol0, mixcol1, mixout = get_mix_color_indices(mix)
         mix.name = '_mix'
         mix.blend_type = blend_type
+        if blend_type not in {'MIX', 'MULTIPLY'}: 
+            set_mix_clamp(mix, True)
 
         mix.location = loc
 
@@ -490,6 +492,8 @@ def get_smooth_mix_node(blend_type, layer_type=''):
             mixcol0, mixcol1, mixout = get_mix_color_indices(mix)
             mix.name = '_mix_' + d
             mix.blend_type = blend_type
+            if blend_type not in {'MIX', 'MULTIPLY'}: 
+                set_mix_clamp(mix, True)
 
             mix.location = loc
 
