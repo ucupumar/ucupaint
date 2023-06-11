@@ -1400,7 +1400,19 @@ class YFixMissingUV(bpy.types.Operator):
         return obj and obj.type == 'MESH'
 
     def invoke(self, context, event):
+        mat = get_active_material()
         obj = context.object
+        objs = get_all_objects_with_same_materials(mat)
+
+        # Remapping will proceed if this flag is true
+        self.need_remap = True
+
+        # No need to remap if other objects has the uv
+        for o in objs:
+            uvls = get_uv_layers(o)
+            if self.source_uv_name in uvls:
+                self.need_remap = False
+                return self.execute(context)
 
         self.target_uv_name = ''
 
@@ -1431,49 +1443,51 @@ class YFixMissingUV(bpy.types.Operator):
         group_tree = node.node_tree
         yp = group_tree.yp
 
-        if self.target_uv_name == '':
+        if self.target_uv_name == '' and self.need_remap:
             self.report({'ERROR'}, "Target UV name is cannot be empty!")
             return {'CANCELLED'}
+
+        target_uv_name = self.target_uv_name if self.need_remap else self.source_uv_name
         
         for o in objs:
             if o.type != 'MESH': continue
 
             uv_layers = get_uv_layers(o)
 
-            #if self.uv_map != '':
             # Get uv layer
             uv_layers = get_uv_layers(o)
-            uvl = uv_layers.get(self.target_uv_name)
+            uvl = uv_layers.get(target_uv_name)
 
             # Create one if it didn't exist
             if not uvl:
-                uvl = uv_layers.new(name=self.target_uv_name)
+                uvl = uv_layers.new(name=target_uv_name)
             uv_layers.active = uvl
 
-        # Check baked images uv
-        if yp.baked_uv_name == self.source_uv_name:
-            yp.baked_uv_name = self.target_uv_name
+        if self.need_remap:
+            # Check baked images uv
+            if yp.baked_uv_name == self.source_uv_name:
+                yp.baked_uv_name = target_uv_name
 
-        # Check baked normal channel
-        for ch in yp.channels:
-            baked_normal = group_tree.nodes.get(ch.baked_normal)
-            if baked_normal and baked_normal.uv_map == self.source_uv_name:
-                baked_normal.uv_map = self.target_uv_name
+            # Check baked normal channel
+            for ch in yp.channels:
+                baked_normal = group_tree.nodes.get(ch.baked_normal)
+                if baked_normal and baked_normal.uv_map == self.source_uv_name:
+                    baked_normal.uv_map = target_uv_name
 
-        # Check layer and masks uv
-        for layer in yp.layers:
-            if layer.uv_name == self.source_uv_name:
-                layer.uv_name = self.target_uv_name
+            # Check layer and masks uv
+            for layer in yp.layers:
+                if layer.uv_name == self.source_uv_name:
+                    layer.uv_name = target_uv_name
 
-            for mask in layer.masks:
-                if mask.uv_name == self.source_uv_name:
-                    mask.uv_name = self.target_uv_name
+                for mask in layer.masks:
+                    if mask.uv_name == self.source_uv_name:
+                        mask.uv_name = target_uv_name
 
-        # Check height channel uv
-        height_ch = get_root_height_channel(yp)
-        if height_ch and height_ch.main_uv == self.source_uv_name:
-            height_ch.main_uv = self.target_uv_name
-            #height_ch.enable_smooth_bump = height_ch.enable_smooth_bump
+            # Check height channel uv
+            height_ch = get_root_height_channel(yp)
+            if height_ch and height_ch.main_uv == self.source_uv_name:
+                height_ch.main_uv = target_uv_name
+                #height_ch.enable_smooth_bump = height_ch.enable_smooth_bump
 
         return {'FINISHED'}
 
