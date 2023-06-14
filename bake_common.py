@@ -25,9 +25,9 @@ def get_problematic_modifiers(obj):
             if m.type == 'MIRROR':
                 if not m.use_mirror_u and not m.use_mirror_v:
                     if is_greater_than_280():
-                        if m.offset_u == 0.0 and m.offset_y == 0.0:
-                            pms.append(pm)
-                    else: pms.append(pm)
+                        if m.offset_u == 0.0 and m.offset_v == 0.0:
+                            pms.append(m)
+                    else: pms.append(m)
             else: pms.append(m)
 
     return pms
