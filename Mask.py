@@ -483,7 +483,7 @@ class YNewLayerMask(bpy.types.Operator):
                 if hasattr(img, 'use_alpha'):
                     img.use_alpha = False
 
-            if img.colorspace_settings.name != 'Linear':
+            if img.colorspace_settings.name != 'Linear' and not img.is_dirty:
                 img.colorspace_settings.name = 'Linear'
 
         # New vertex color
@@ -647,7 +647,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
-            if image.colorspace_settings.name != 'Linear':
+            if image.colorspace_settings.name != 'Linear' and not image.is_dirty:
                 image.colorspace_settings.name = 'Linear'
 
             # Add new mask

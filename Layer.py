@@ -248,7 +248,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 if hasattr(mask_image, 'use_alpha'):
                     mask_image.use_alpha = False
 
-            if mask_image.colorspace_settings.name != 'Linear':
+            if mask_image.colorspace_settings.name != 'Linear' and not mask_image.is_dirty:
                 mask_image.colorspace_settings.name = 'Linear'
 
         # New vertex color
@@ -3185,7 +3185,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
         source.image = image
         if hasattr(source, 'color_space'):
             source.color_space = 'NONE'
-        if image.colorspace_settings.name != 'Linear':
+        if image.colorspace_settings.name != 'Linear' and not image.is_dirty:
             image.colorspace_settings.name = 'Linear'
     elif new_type == 'VCOL':
         set_source_vcol_name(source, item_name)
