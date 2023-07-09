@@ -1123,7 +1123,7 @@ class YBakeChannels(bpy.types.Operator):
                 # 3D vector can't produce correct tangent so smooth bump can't be baked
                 for guv in geo_uv_names:
                     for i, attr in enumerate(o.data.attributes):
-                        if attr.name == guv:
+                        if attr and attr.name == guv:
                             o.data.attributes.active_index = i
                             bpy.ops.geometry.attribute_convert(domain='CORNER', data_type='FLOAT2')
 
