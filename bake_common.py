@@ -740,7 +740,9 @@ def bake_to_vcol(mat, node, root_ch, extra_channel=None, extra_multiplier=1.0):
     if root_ch.type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-        norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
+        if is_greater_than_280 and not is_greater_than_300():
+            norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
+        else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
 
     # Get output node and remember original bsdf input
     output = get_active_mat_output_node(mat.node_tree)
@@ -849,7 +851,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     if root_ch.type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
-        norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
+        if is_greater_than_280 and not is_greater_than_300():
+            norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
+        else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
 
     # Set tex as active node
     mat.node_tree.nodes.active = tex

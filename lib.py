@@ -231,6 +231,7 @@ BUMP_PROCESS = '~yPL Bump Process'
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'
 BAKE_NORMAL_ACTIVE_UV = '~yPL Bake Normal with Active UV'
+BAKE_NORMAL_ACTIVE_UV_300 = '~yPL Bake Normal with Active UV 3.0'
 
 # SRGB Stuff
 SRGB_2_LINEAR = '~yPL SRGB to Linear'
