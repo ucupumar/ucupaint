@@ -2656,9 +2656,17 @@ def remove_temp_uv(obj, entity):
                 uv_layers.remove(uv)
                 #break
 
+    if not entity: return
+
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if not m1 and not m2:
+        return
+
     # Remove uv mirror offsets for entity with image atlas
     mirror = get_first_mirror_modifier(obj)
-    if mirror and entity and entity.type == 'IMAGE' and (
+    if mirror and entity.type == 'IMAGE'  and (
             entity.segment_name != '' or 
             # Because sometimes you want to tweak mirror offsets in texture paint mode,
             # quitting texture paint while using standard image will not reset mirror offsets

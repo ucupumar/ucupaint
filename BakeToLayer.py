@@ -844,6 +844,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # To hold temporary objects
         temp_objs = []
+        temp_meshes = []
 
         # Join objects
         if self.type.startswith('OTHER_OBJECT_'):
@@ -912,6 +913,7 @@ class YBakeToLayer(bpy.types.Operator):
                 link_object(scene, temp_obj)
                 temp_objs.append(temp_obj)
                 temp_obj.data = temp_obj.data.copy()
+                temp_meshes.append(temp_obj.data)
 
                 # Hide render of original object
                 obj.hide_render = True
@@ -957,7 +959,10 @@ class YBakeToLayer(bpy.types.Operator):
             # Remap pointers
             objs = temp_objs = [first_obj]
 
-        #return {'FINISHED'}
+            # Remove temp meshes
+            for tm in temp_meshes:
+                if tm != first_obj.data:
+                    bpy.data.meshes.remove(tm)
 
         fill_mode = 'FACE'
         obj_vertex_indices = {}
