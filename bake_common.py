@@ -148,6 +148,22 @@ def remember_before_bake(yp=None, mat=None):
     if mat:
         book['ori_bsdf'] = mat.yp.ori_bsdf
 
+    # Remember all objects using the same material
+    objs = get_all_objects_with_same_materials(obj.active_material, True)
+    book['ori_mat_objs'] = [o.name for o in objs]
+    book['ori_mat_objs_active_nodes'] = []
+
+    # Remember other material active nodes
+    for o in objs:
+        active_node_names = []
+        for m in o.data.materials:
+            if m.use_nodes and m.node_tree.nodes.active:
+                active_node_names.append(m.node_tree.nodes.active.name)
+                continue
+            active_node_names.append('')
+
+        book['ori_mat_objs_active_nodes'].append(active_node_names)
+
     return book
 
 def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
@@ -314,6 +330,16 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if book['parallax_ch']:
         book['parallax_ch'].enable_parallax = False
 
+    # Make sure other materials in objects does not use image as active node
+    for o in objs:
+        mat = o.active_material
+        for m in o.data.materials:
+            if m == mat or not m.use_nodes: continue
+            for n in m.node_tree.nodes:
+                if n.type not in {'TEX_IMAGE', 'GROUP', 'OUTPUT_MATERIAL'}:
+                    m.node_tree.nodes.active = n
+                    break
+
 def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene = book['scene']
     obj = book['obj']
@@ -471,6 +497,16 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         # Recover stored material original bsdf for preview
         if 'ori_bsdf' in book:
             mat.yp.ori_bsdf = book['ori_bsdf']
+
+    # Recover other material active nodes
+    if 'ori_mat_objs' in book:
+        for i, o_name in enumerate(book['ori_mat_objs']):
+            o = bpy.data.objects.get(o_name)
+            if not o: continue
+            for j, m in enumerate(o.data.materials):
+                if not m.use_nodes: continue
+                active_node = m.node_tree.nodes.get(book['ori_mat_objs_active_nodes'][i][j])
+                m.node_tree.nodes.active = active_node
 
 def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GPU'):
     T = time.time()
