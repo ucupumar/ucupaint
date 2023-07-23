@@ -2797,7 +2797,17 @@ def main_draw(self, context):
 
         images = []
         vcols = []
+        num_ramps = 0
+        num_curves = 0
         num_gen_texs = 0
+
+        for root_ch in yp.channels:
+            for mod in root_ch.modifiers:
+                if not mod.enable: continue
+                if mod.type == 'COLOR_RAMP':
+                    num_ramps += 1
+                elif mod.type == 'RGB_CURVE':
+                    num_curves += 1
 
         for layer in yp.layers:
             if not layer.enable: continue
@@ -2835,6 +2845,26 @@ def main_draw(self, context):
                             if src.image and src.image not in images:
                                 images.append(src.image)
 
+                    for mod in ch.modifiers:
+                        if not mod.enable: continue
+                        if mod.type == 'COLOR_RAMP':
+                            num_ramps += 1
+                        elif mod.type == 'RGB_CURVE':
+                            num_curves += 1
+
+                    if ch.enable_transition_ramp:
+                        num_ramps += 1
+
+                    if ch.enable_transition_bump and ch.transition_bump_falloff and ch.transition_bump_falloff_type == 'CURVE':
+                        num_curves += 1
+
+            for mod in layer.modifiers:
+                if not mod.enable: continue
+                if mod.type == 'COLOR_RAMP':
+                    num_ramps += 1
+                elif mod.type == 'RGB_CURVE':
+                    num_curves += 1
+
             if not layer.enable_masks: continue
 
             for mask in layer.masks:
@@ -2851,6 +2881,13 @@ def main_draw(self, context):
                 else:
                     num_gen_texs += 1
 
+                for mod in mask.modifiers:
+                    if not mod.enable: continue
+                    if mod.type == 'RAMP':
+                        num_ramps += 1
+                    elif mod.type == 'CURVE':
+                        num_curves += 1
+
         box = layout.box()
         col = box.column()
         #col = layout.column(align=True)
@@ -2859,6 +2896,8 @@ def main_draw(self, context):
         col.label(text='Number of Vertex Colors: ' + str(len(vcols)), icon_value=lib.get_icon('vertex_color'))
         #col.label(text='Number of Generated Textures: ' + str(num_gen_texs), icon='TEXTURE')
         col.label(text='Number of Generated Textures: ' + str(num_gen_texs), icon_value=lib.get_icon('texture'))
+        col.label(text='Number of Color Ramps: ' + str(num_ramps), icon_value=lib.get_icon('modifier'))
+        col.label(text='Number of RGB Curves: ' + str(num_curves), icon_value=lib.get_icon('modifier'))
 
         #col.operator('node.y_new_image_atlas_segment_test', icon_value=lib.get_icon('image'))
         #col.operator('node.y_uv_transform_test', icon_value=lib.get_icon('uv'))
