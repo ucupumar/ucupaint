@@ -16,6 +16,8 @@ JOIN_PROBLEMATIC_TEXCOORDS = {
         'Generated',
         }
 
+EMPTY_IMG_NODE = '___EMPTY_IMAGE__'
+
 def get_problematic_modifiers(obj):
     pms = []
 
@@ -330,15 +332,15 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if book['parallax_ch']:
         book['parallax_ch'].enable_parallax = False
 
-    # Make sure other materials in objects does not use image as active node
+    # Create temporary image texture node to make sure
+    # other materials inside single object did not bake to their active image
     for o in objs:
         mat = o.active_material
         for m in o.data.materials:
             if m == mat or not m.use_nodes: continue
-            for n in m.node_tree.nodes:
-                if n.type not in {'TEX_IMAGE', 'GROUP', 'OUTPUT_MATERIAL'}:
-                    m.node_tree.nodes.active = n
-                    break
+            temp = m.node_tree.nodes.new('ShaderNodeTexImage')
+            temp.name = EMPTY_IMG_NODE
+            m.node_tree.nodes.active = temp
 
 def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene = book['scene']
@@ -507,6 +509,10 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
                 if not m.use_nodes: continue
                 active_node = m.node_tree.nodes.get(book['ori_mat_objs_active_nodes'][i][j])
                 m.node_tree.nodes.active = active_node
+
+                # Remove empty tex node
+                temp = m.node_tree.nodes.get(EMPTY_IMG_NODE)
+                if temp: m.node_tree.nodes.remove(temp)
 
 def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GPU'):
     T = time.time()
