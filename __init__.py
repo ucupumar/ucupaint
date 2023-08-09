@@ -26,6 +26,7 @@ if "bpy" in locals():
     imp.reload(transition)
     imp.reload(BakeInfo)
     imp.reload(ImageAtlas)
+    imp.reload(UDIM)
     imp.reload(MaskModifier)
     imp.reload(Mask)
     imp.reload(Modifier)
@@ -37,7 +38,7 @@ if "bpy" in locals():
     imp.reload(load_blend_updates)
 else:
     from . import image_ops, common, bake_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, BakeInfo, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates
+    from . import vcol_editor, transition, BakeInfo, ImageAtlas, UDIM, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates
 
 import bpy 
 
@@ -50,6 +51,7 @@ def register():
     transition.register()
     BakeInfo.register()
     ImageAtlas.register()
+    UDIM.register()
     MaskModifier.register()
     Mask.register()
     Modifier.register()
@@ -71,6 +73,7 @@ def unregister():
     transition.unregister()
     BakeInfo.unregister()
     ImageAtlas.unregister()
+    UDIM.unregister()
     MaskModifier.unregister()
     Mask.unregister()
     Modifier.unregister()

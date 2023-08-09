@@ -1,7 +1,7 @@
-import bpy, time, os
+import bpy, time, os, numpy
 from .common import *
 from .node_connections import *
-from . import lib, Layer, ImageAtlas
+from . import lib, Layer, ImageAtlas, UDIM
 
 BL28_HACK = True
 
@@ -852,6 +852,10 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     tree = node.node_tree
     yp = tree.yp
 
+    # Check if udim image is needed based on number of tiles
+    objs = get_all_objects_with_same_materials(mat)
+    tilenums = UDIM.get_tile_numbers(objs, uv_map)
+
     # Check if temp bake is necessary
     temp_baked = []
     if root_ch.type == 'NORMAL':
@@ -962,36 +966,49 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             width = segment.width
             height = segment.height
 
-        #Create new image
-        img = bpy.data.images.new(name=img_name,
-                width=width, height=height, alpha=True) #, alpha=True, float_buffer=hdr)
-        img.generated_type = 'BLANK'
-
-        if hasattr(img, 'use_alpha'):
-            img.use_alpha = True
-
-        if segment:
             if source.image.yia.color == 'WHITE':
-                img.generated_color = (1.0, 1.0, 1.0, 1.0)
+                color = (1.0, 1.0, 1.0, 1.0)
             elif source.image.yia.color == 'BLACK':
-                img.generated_color = (0.0, 0.0, 0.0, 1.0)
-            else: img.generated_color = (0.0, 0.0, 0.0, 0.0)
+                color = (0.0, 0.0, 0.0, 1.0)
+            else: color = (0.0, 0.0, 0.0, 0.0)
 
         elif root_ch.type == 'NORMAL':
-            img.generated_color = (0.5, 0.5, 1.0, 1.0)
+            color = (0.5, 0.5, 1.0, 1.0)
 
         elif root_ch.type == 'VALUE':
             val = node.inputs[root_ch.name].default_value
-            img.generated_color = (val, val, val, 1.0)
+            color = (val, val, val, 1.0)
 
         elif root_ch.enable_alpha:
-            img.generated_color = (0.0, 0.0, 0.0, 1.0)
+            color = (0.0, 0.0, 0.0, 1.0)
 
         else:
             col = node.inputs[root_ch.name].default_value
             col = Color((col[0], col[1], col[2]))
             col = linear_to_srgb(col)
-            img.generated_color = (col.r, col.g, col.b, 1.0)
+            color = (col.r, col.g, col.b, 1.0)
+
+        # Create new image
+        if len(tilenums) > 1:
+            # Create new udim image
+            img = bpy.data.images.new(name=img_name, width=width, height=height, 
+                    alpha=True, tiled=True) #float_buffer=hdr)
+
+            # Fill tiles
+            for tilenum in tilenums:
+                UDIM.fill_tile(img, tilenum, color, width, height)
+            UDIM.initial_pack_udim(img)
+
+        else:
+            # Create new standard image
+            img = bpy.data.images.new(name=img_name,
+                    width=width, height=height, alpha=True) #, alpha=True, float_buffer=hdr)
+            img.generated_type = 'BLANK'
+
+        # Set image base color
+        if hasattr(img, 'use_alpha'):
+            img.use_alpha = True
+        img.generated_color = color
 
         # Set filepath
         if filepath != '':
@@ -1058,11 +1075,19 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     baked_normal_overlay.image.name = '____NORM_TEMP'
                 else:
                     norm_img_name = tree.name + ' ' + root_ch.name + ' Overlay Only'
+
                 # Create target image
-                norm_img = bpy.data.images.new(name=norm_img_name, width=width, height=height) 
-                norm_img.generated_color = (0.5, 0.5, 1.0, 1.0)
+                norm_img = img.copy()
+                norm_img.name = norm_img_name
                 norm_img.colorspace_settings.name = 'Linear'
-                norm_img.filepath = filepath
+                color = (0.5, 0.5, 1.0, 1.0)
+
+                if img.source == 'TILED':
+                    UDIM.initial_pack_udim(norm_img)
+                    UDIM.fill_tiles(norm_img, color)
+                else: 
+                    norm_img.generated_color = color
+                    norm_img.filepath = filepath
 
                 tex.image = norm_img
 
@@ -1111,10 +1136,18 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             else:
                 disp_img_name = tree.name + ' ' + root_ch.name + ' Displacement'
 
-            disp_img = bpy.data.images.new(name=disp_img_name, width=width, height=height) 
-            disp_img.generated_color = (0.5, 0.5, 0.5, 1.0)
+            disp_img = img.copy()
+            disp_img.name = disp_img_name
             disp_img.colorspace_settings.name = 'Linear'
-            disp_img.filepath = filepath
+            color = (0.5, 0.5, 0.5, 1.0)
+
+            if img.source == 'TILED':
+                UDIM.initial_pack_udim(disp_img)
+                UDIM.fill_tiles(disp_img, color)
+            else: 
+                disp_img.generated_color = color
+                disp_img.filepath = filepath
+
         elif ch.normal_map_type == 'BUMP_MAP':
             disp_img = img
         else: disp_img = None
@@ -1164,33 +1197,47 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     # Bake alpha
     #if root_ch.type != 'NORMAL' and root_ch.enable_alpha:
     if root_ch.enable_alpha:
+
         # Create temp image
-        alpha_img = bpy.data.images.new(name='__TEMP__', width=width, height=height) 
+        alpha_img = img.copy()
         alpha_img.colorspace_settings.name = 'Linear'
         create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], emit.inputs[0])
-
         tex.image = alpha_img
 
-        #return
+        # Set temp filepath
+        if img.source == 'TILED':
+            alpha_img.name = '__TEMP__'
+            UDIM.initial_pack_udim(alpha_img)
 
         # Bake
         print('BAKE CHANNEL: Baking alpha of ' + root_ch.name + ' channel...')
         bpy.ops.object.bake()
 
-        # Copy alpha pixels to main image alpha channel
-        img_pxs = list(img.pixels)
-        alp_pxs = list(alpha_img.pixels)
+        # Set tile pixels
+        for tilenum in tilenums:
 
-        for y in range(height):
-            offset_y = width * 4 * y
-            for x in range(width):
-                a = alp_pxs[offset_y + (x*4)]
-                #a = srgb_to_linear_per_element(a)
-                img_pxs[offset_y + (x*4) + 3] = a
+            # Swap tile
+            if tilenum != 1001:
+                UDIM.swap_tile(img, 1001, tilenum)
+                UDIM.swap_tile(alpha_img, 1001, tilenum)
 
-        img.pixels = img_pxs
+            twidth = img.size[0]
+            theight = img.size[1]
 
-        #return
+            # Store pixels to numpy
+            img_pxs = numpy.empty(shape=twidth*theight*4, dtype=numpy.float32)
+            alp_pxs = numpy.empty(shape=twidth*theight*4, dtype=numpy.float32)
+            img.pixels.foreach_get(img_pxs)
+            alpha_img.pixels.foreach_get(alp_pxs)
+
+            # Copy alpha pixels to main image alpha channel
+            img_pxs[3::4] = alp_pxs[0::4]
+            img.pixels.foreach_set(img_pxs)
+
+            # Swap tile again to recover
+            if tilenum != 1001:
+                UDIM.swap_tile(img, 1001, tilenum)
+                UDIM.swap_tile(alpha_img, 1001, tilenum)
 
         # Remove temp image
         bpy.data.images.remove(alpha_img)
