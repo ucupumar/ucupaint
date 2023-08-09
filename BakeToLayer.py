@@ -1953,9 +1953,11 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         ori_layer_preview_mode = yp.layer_preview_mode
         ori_layer_preview_mode_type = yp.layer_preview_mode_type
 
+        self.layer.enable = True
+
         if self.mask: 
             self.mask.enable = True
-        else: self.layer.enable = True
+            self.mask.active_edit = True
 
         yp.layer_preview_mode_type = 'SPECIFIC_MASK' if self.mask else 'LAYER'
         yp.layer_preview_mode = True
@@ -1987,8 +1989,6 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         prepare_bake_settings(book, objs, yp, samples=samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device
                 )
-
-        #return {'FINISHED'}
 
         # Create bake nodes
         tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
