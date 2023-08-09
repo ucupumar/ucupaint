@@ -4547,28 +4547,6 @@ def get_first_mirror_modifier(obj):
 
     return None
 
-def any_entity_using_udim(yp):
-
-    for layer in yp.layers:
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if source and source.image and source.image.source == 'TILED':
-                return True
-
-        for mask in layer.masks:
-            if mask.type == 'IMAGE':
-                source = get_mask_source(mask)
-                if source and source.image and source.image.source == 'TILED':
-                    return True
-
-        for ch in layer.channels:
-            if ch.override and ch.override_type == 'IMAGE':
-                source = get_channel_source(ch, layer)
-                if source and source.image and source.image.source == 'TILED':
-                    return True
-
-    return False
-
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
 #        return root_ch.io_index+1
