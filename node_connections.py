@@ -2177,18 +2177,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             group_alpha_e = None
             group_alpha_w = None
 
-            if is_greater_than_281():
-                if (
-                    (ch.layer_input == 'RGB' and layer.type in {'NOISE', 'VORONOI'}) or
-                    (ch.layer_input == 'ALPHA' and layer.type not in {'NOISE', 'VORONOI'})
-                    ):
-                    source_index = 2
-                else:
-                    source_index = 0
-            else:
-                if ch.layer_input == 'ALPHA' and layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
-                    source_index = 2
-                else: source_index = 0
+            # Get source output index
+            source_index = 0
+            if ch.layer_input == 'ALPHA' and layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
+                source_index = 2
+
+            # Noise and voronoi output has flipped order since Blender 2.81
+            if is_greater_than_281() and layer.type in {'NOISE', 'VORONOI'} and ch.layer_input == 'RGB':
+                source_index = 2
 
             if source_n and source_s and source_e and source_w:
                 # Use override value instead from actual layer if using default override type
