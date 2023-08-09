@@ -174,9 +174,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         bake_target = 'IMAGE_TEXTURES',
         source_objs=[], bake_device='GPU'):
 
-    #scene = self.scene
     scene = bpy.context.scene
-    #obj = bpy.context.object
     ypui = bpy.context.window_manager.ypui
 
     scene.render.engine = 'CYCLES'

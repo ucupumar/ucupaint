@@ -1996,6 +1996,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         # Create image
         image = bpy.data.images.new(name=self.name,
                 width=self.width, height=self.height, alpha=True, float_buffer=self.hdr)
+        image.colorspace_settings.name = 'Linear'
 
         # Set bake image
         tex.image = image
