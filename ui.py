@@ -165,6 +165,13 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
             if segment.bake_info.is_baked:
                 draw_bake_info(segment.bake_info, col, entity)
 
+        if hasattr(source, 'interpolation'): 
+            split = col.split(factor=0.4)
+            scol = split.column()
+            scol.label(text='Interpolation:')
+            scol = split.column()
+            scol.prop(source, 'interpolation', text='')
+
         return
 
     col.template_ID(source, "image", unlink='node.y_remove_layer')
@@ -183,7 +190,6 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
         row = col.row()
         row.label(text='Color:')
         row.prop(image, 'generated_color', text='')
-        col.template_colorspace_settings(image, "colorspace_settings")
 
     elif image.source == 'FILE':
         if not image.filepath:
@@ -200,22 +206,41 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
         col.label(text='Info: ' + str(image.size[0]) + ' x ' + str(image.size[1]) +
                 ' ' + image_format + ' ' + str(image_bit) + '-bit')
 
-        col.template_colorspace_settings(image, "colorspace_settings")
-        col.prop(source, 'extension')
-        col.prop(source, 'projection')
-        #col.prop(image, 'use_view_as_render')
-        col.prop(image, 'alpha_mode')
+
+    split = col.split(factor=0.4)
+
+    scol = split.column()
+    if not image.is_dirty:
+        scol.label(text='Color Space:')
         if hasattr(image, 'use_alpha'):
-            col.prop(image, 'use_alpha')
-        #col.prop(image, 'use_fields')
+            scol.label(text='Use Alpha:')
+        scol.label(text='Alpha Mode:')
 
-        split = col.split(factor=0.25)
+    if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
+        scol.label(text='Flip Y:')
 
-        if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
-            row = split.row()
-            row.label(text='Flip Y:')
-            row = split.row()
-            row.prop(entity, 'image_flip_y', text='')
+    if hasattr(source, 'interpolation'):
+        scol.label(text='Interpolation:')
+
+    scol.label(text='Extension:')
+    #scol.label(text='Projection:')
+
+    scol = split.column()
+
+    if not image.is_dirty:
+        scol.prop(image.colorspace_settings, "name", text='') 
+        if hasattr(image, 'use_alpha'):
+            scol.prop(image, 'use_alpha', text='')
+        scol.prop(image, 'alpha_mode', text='')
+
+    if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
+        scol.prop(entity, 'image_flip_y', text='')
+
+    if hasattr(source, 'interpolation'): 
+        scol.prop(source, 'interpolation', text='')
+
+    scol.prop(source, 'extension', text='')
+    #scol.prop(source, 'projection', text='')
 
 def draw_object_index_props(entity, layout):
     col = layout.column()
