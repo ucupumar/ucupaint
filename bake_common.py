@@ -645,9 +645,11 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU'):
     height = image.size[1]
 
     # Copy image
-    pixels = list(image.pixels)
+    pixels = numpy.empty(shape=width*height*4, dtype=numpy.float32)
+    image.pixels.foreach_get(pixels)
+    #pixels = list(image.pixels)
     image_copy = image.copy()
-    image_copy.pixels = pixels
+    #image_copy.pixels = pixels
 
     # Set active collection to be root collection
     if is_greater_than_280():
@@ -1219,18 +1221,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 UDIM.swap_tile(img, 1001, tilenum)
                 UDIM.swap_tile(alpha_img, 1001, tilenum)
 
-            twidth = img.size[0]
-            theight = img.size[1]
-
-            # Store pixels to numpy
-            img_pxs = numpy.empty(shape=twidth*theight*4, dtype=numpy.float32)
-            alp_pxs = numpy.empty(shape=twidth*theight*4, dtype=numpy.float32)
-            img.pixels.foreach_get(img_pxs)
-            alpha_img.pixels.foreach_get(alp_pxs)
-
-            # Copy alpha pixels to main image alpha channel
-            img_pxs[3::4] = alp_pxs[0::4]
-            img.pixels.foreach_set(img_pxs)
+            # Copy alpha
+            copy_image_channel_pixels(alpha_img, img, 0, 3)
 
             # Swap tile again to recover
             if tilenum != 1001:

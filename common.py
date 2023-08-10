@@ -441,6 +441,11 @@ def is_greater_than_282():
         return True
     return False
 
+def is_greater_than_283():
+    if bpy.app.version >= (2, 83, 0):
+        return True
+    return False
+
 def is_greater_than_292():
     if bpy.app.version >= (2, 92, 0):
         return True
@@ -4546,6 +4551,36 @@ def get_first_mirror_modifier(obj):
             return m
 
     return None
+
+def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0):
+    width = dest.size[0]
+    height = dest.size[1]
+
+    if is_greater_than_283():
+
+        # Store pixels to numpy
+        dest_pxs = numpy.empty(shape=width*height*4, dtype=numpy.float32)
+        src_pxs = numpy.empty(shape=width*height*4, dtype=numpy.float32)
+        dest.pixels.foreach_get(dest_pxs)
+        src.pixels.foreach_get(src_pxs)
+
+        # Copy to selected channel
+        dest_pxs[dest_idx::4] = src_pxs[src_idx::4]
+        dest.pixels.foreach_set(dest_pxs)
+
+    else:
+        # Get image pixels
+        src_pxs = list(src.pixels)
+        dest_pxs = list(dest.pixels)
+
+        # Copy to selected channel
+        for y in range(height):
+            offset_y = width * 4 * y
+            for x in range(width):
+                offset_x = 4 * x
+                dest_pxs[offset_y + offset_x + dest_idx] = src_pxs[offset_y + offset_x + src_idx]
+
+        dest.pixels = dest_pxs
 
 #def get_io_index(layer, root_ch, alpha=False):
 #    if alpha:
