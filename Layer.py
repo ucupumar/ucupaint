@@ -914,7 +914,7 @@ class YNewLayer(bpy.types.Operator):
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
         if self.type == 'IMAGE':
-            if is_greater_than_282():
+            if is_greater_than_330():
                 col.prop(self, 'use_udim')
             ccol = col.column()
             ccol.active = not self.use_udim
