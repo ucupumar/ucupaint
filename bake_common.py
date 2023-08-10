@@ -641,16 +641,6 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU'):
     print('FXAA: Doing FXAA pass on', image.name + '...')
     book = remember_before_bake()
 
-    width = image.size[0]
-    height = image.size[1]
-
-    # Copy image
-    pixels = numpy.empty(shape=width*height*4, dtype=numpy.float32)
-    image.pixels.foreach_get(pixels)
-    #pixels = list(image.pixels)
-    image_copy = image.copy()
-    #image_copy.pixels = pixels
-
     # Set active collection to be root collection
     if is_greater_than_280():
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
@@ -683,69 +673,81 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU'):
     mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
     mat.node_tree.nodes.active = target_tex
 
-    # Straight over won't work if using fxaa nodes, need another bake pass
-    if alpha_aware:
-        uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
-        #uv_map.uv_map = 'UVMap' # Will use active UV instead since every language has different default UV name
-        source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-        source_tex.image = image_copy
+    if image.source == 'TILED':
+        tilenums = [tile.number for tile in image.tiles]
+    else: tilenums = [1001]
 
-        straight_over = mat.node_tree.nodes.new('ShaderNodeGroup')
-        straight_over.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
-        straight_over.inputs[1].default_value = 0.0
+    for tilenum in tilenums:
 
-        mat.node_tree.links.new(uv_map.outputs[0], source_tex.inputs[0])
-        mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
-        mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
-        mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
 
-        # Bake
-        print('FXAA: Baking straight over on', image.name + '...')
+        width = image.size[0]
+        height = image.size[1]
+
+        pixels = list(image.pixels)
+        image_ori  = None
+        image_copy = image.copy()
+        image_copy.pixels = pixels
+
+        # Straight over won't work if using fxaa nodes, need another bake pass
+        if alpha_aware:
+            image_ori = image.copy()
+            image_ori.pixels = pixels
+
+            uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
+            source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+            source_tex.image = image_copy
+
+            straight_over = mat.node_tree.nodes.new('ShaderNodeGroup')
+            straight_over.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
+            straight_over.inputs[1].default_value = 0.0
+
+            mat.node_tree.links.new(uv_map.outputs[0], source_tex.inputs[0])
+            mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
+            mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
+            mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
+
+            # Bake
+            print('FXAA: Baking straight over on', image.name + '...')
+            bpy.ops.object.bake()
+
+            pixels_1 = list(image.pixels)
+            image_copy.pixels = pixels_1
+
+        # Fill fxaa nodes
+        res_x = fxaa.node_tree.nodes.get('res_x')
+        res_y = fxaa.node_tree.nodes.get('res_y')
+        fxaa_uv_map = fxaa.node_tree.nodes.get('uv_map')
+        tex_node = fxaa.node_tree.nodes.get('tex')
+        tex = tex_node.node_tree.nodes.get('tex')
+
+        res_x.outputs[0].default_value = width
+        res_y.outputs[0].default_value = height
+        tex.image = image_copy
+        if not is_greater_than_280() :
+            if image.colorspace_settings.name == 'sRGB':
+                tex.color_space = 'COLOR'
+            else: tex.color_space = 'NONE'
+
+        # Connect nodes again
+        mat.node_tree.links.new(fxaa.outputs[0], emi.inputs[0])
+        mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
+
+        print('FXAA: Baking FXAA on', image.name + '...')
         bpy.ops.object.bake()
 
-        pixels_1 = list(image.pixels)
-        image_copy.pixels = pixels_1
+        # Copy original alpha to baked image
+        if alpha_aware:
+            print('FXAA: Copying original alpha to FXAA result of', image.name + '...')
+            copy_image_channel_pixels(image_ori, image, 3, 3)
 
-    # Fill fxaa nodes
-    res_x = fxaa.node_tree.nodes.get('res_x')
-    res_y = fxaa.node_tree.nodes.get('res_y')
-    fxaa_uv_map = fxaa.node_tree.nodes.get('uv_map')
-    tex_node = fxaa.node_tree.nodes.get('tex')
-    tex = tex_node.node_tree.nodes.get('tex')
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
 
-    res_x.outputs[0].default_value = width
-    res_y.outputs[0].default_value = height
-    #fxaa_uv_map.uv_map = 'UVMap' # Will use active UV instead since every language has different default UV name
-    tex.image = image_copy
-    if not is_greater_than_280() :
-        if image.colorspace_settings.name == 'sRGB':
-            tex.color_space = 'COLOR'
-        else: tex.color_space = 'NONE'
-
-    # Connect nodes again
-    mat.node_tree.links.new(fxaa.outputs[0], emi.inputs[0])
-    mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
-
-    print('FXAA: Baking FXAA on', image.name + '...')
-    #return
-    bpy.ops.object.bake()
-
-    # Copy original alpha to baked image
-    if alpha_aware:
-        print('FXAA: Copying original alpha to FXAA result of', image.name + '...')
-        target_pxs = list(image.pixels)
-        start_x = 0
-        start_y = 0
-
-        for y in range(height):
-            temp_offset_y = width * 4 * y
-            offset_y = width * 4 * (y + start_y)
-            for x in range(width):
-                temp_offset_x = 4 * x
-                offset_x = 4 * (x + start_x)
-                target_pxs[offset_y + offset_x + 3] = pixels[temp_offset_y + temp_offset_x + 3]
-
-        image.pixels = target_pxs
+        # Remove temp images
+        bpy.data.images.remove(image_copy)
+        if image_ori : bpy.data.images.remove(image_ori )
 
     # Remove temp datas
     print('FXAA: Removing temporary data of FXAA pass')
@@ -757,7 +759,6 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU'):
         bpy.data.node_groups.remove(tex_node.node_tree)
         bpy.data.node_groups.remove(fxaa.node_tree)
 
-    bpy.data.images.remove(image_copy)
     bpy.data.materials.remove(mat)
     plane = plane_obj.data
     bpy.ops.object.delete()

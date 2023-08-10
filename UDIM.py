@@ -25,7 +25,40 @@ def fill_tile(image, tilenum, color, width=0, height=0):
     image.tiles.active = tile
     bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=False, alpha=True)
 
+def make_udim_not_dirty(image):
+    if image.is_dirty:
+        if image.packed_file:
+            image.pack()
+        else: image.save()
+
+def duplicate_udim_image(image):
+    # Make sure image is updated
+    make_udim_not_dirty(image)
+    return image.copy()
+
+def copy_udim_pixels(src, dest):
+    for tile in src.tiles:
+        # Check if tile number exists on both images and has same sizes
+        dtile = dest.tiles.get(tile.number)
+        if not dtile: continue
+        if tile.size[0] != dtile.size[0] or tile.size[1] != dtile.size[1]: continue
+
+        # Swap first
+        if tile.number != 1001:
+            swap_tile(src, 1001, tile.number)
+            swap_tile(dest, 1001, tile.number)
+
+        # Set pixels
+        dst.pixels = list(src.pixels)
+
+        # Swap back
+        if tile.number != 1001:
+            swap_tile(src, 1001, tile.number)
+            swap_tile(dest, 1001, tile.number)
+
 def get_tile_numbers(objs, uv_name):
+
+    if not is_greater_than_330(): return [1001]
 
     arr = numpy.zeros(0, dtype=numpy.float32)
 

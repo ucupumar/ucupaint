@@ -1195,7 +1195,6 @@ class YBakeChannels(bpy.types.Operator):
                 baked = tree.nodes.get(ch.baked)
                 if baked and baked.image:
                     fxaa_image(baked.image, ch.enable_alpha, bake_device=self.bake_device)
-                    #return {'FINISHED'}
 
                 if ch.type == 'NORMAL':
 
