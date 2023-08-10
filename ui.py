@@ -165,12 +165,13 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
             if segment.bake_info.is_baked:
                 draw_bake_info(segment.bake_info, col, entity)
 
-        if hasattr(source, 'interpolation'): 
+        if is_greater_than_280():
             split = col.split(factor=0.4)
-            scol = split.column()
-            scol.label(text='Interpolation:')
-            scol = split.column()
-            scol.prop(source, 'interpolation', text='')
+        else: split = col.split(percentage=0.4) 
+        scol = split.column()
+        scol.label(text='Interpolation:')
+        scol = split.column()
+        scol.prop(source, 'interpolation', text='')
 
         return
 
@@ -206,8 +207,9 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
         col.label(text='Info: ' + str(image.size[0]) + ' x ' + str(image.size[1]) +
                 ' ' + image_format + ' ' + str(image_bit) + '-bit')
 
-
-    split = col.split(factor=0.4)
+    if is_greater_than_280():
+        split = col.split(factor=0.4)
+    else: split = col.split(percentage=0.4) 
 
     scol = split.column()
     if not image.is_dirty:
@@ -219,8 +221,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
     if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
         scol.label(text='Flip Y:')
 
-    if hasattr(source, 'interpolation'):
-        scol.label(text='Interpolation:')
+    scol.label(text='Interpolation:')
 
     scol.label(text='Extension:')
     #scol.label(text='Projection:')
@@ -236,8 +237,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
     if entity and hasattr(entity, 'image_flip_y') and show_flip_y:
         scol.prop(entity, 'image_flip_y', text='')
 
-    if hasattr(source, 'interpolation'): 
-        scol.prop(source, 'interpolation', text='')
+    scol.prop(source, 'interpolation', text='')
 
     scol.prop(source, 'extension', text='')
     #scol.prop(source, 'projection', text='')
