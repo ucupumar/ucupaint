@@ -16,6 +16,28 @@ def get_transition_fine_bump_distance(distance, is_curved=False):
     #return -1.0 * distance * scale
     return distance * scale
 
+def set_transition_ramp_and_intensity_multiplier(tree, bump_ch, ch):
+    if ch == bump_ch: return
+
+    if bump_ch.transition_bump_flip: #or layer.type=='BACKGROUND':
+        tr_ramp_mul = bump_ch.transition_bump_value
+        tr_im_mul = bump_ch.transition_bump_second_edge_value
+    else: 
+        tr_ramp_mul = bump_ch.transition_bump_second_edge_value
+        tr_im_mul = bump_ch.transition_bump_value
+
+    tr_ramp = tree.nodes.get(ch.tr_ramp)
+    if tr_ramp:
+        tr_ramp.inputs['Multiplier'].default_value = 1.0 + (tr_ramp_mul - 1.0) * ch.transition_bump_second_fac
+
+    im = tree.nodes.get(ch.intensity_multiplier)
+    im_val = 1.0 + (tr_im_mul - 1.0) * ch.transition_bump_fac
+    if not im: im = lib.new_intensity_multiplier_node(tree, ch, 'intensity_multiplier')
+    im.inputs[1].default_value = im_val
+
+    # Invert other intensity multipler if mask bump flip active
+    im.inputs['Invert'].default_value = 1.0 if bump_ch.transition_bump_flip else 0.0
+
 def check_transition_bump_influences_to_other_channels(layer, tree=None, target_ch = None):
 
     yp = layer.id_data.yp
@@ -46,29 +68,7 @@ def check_transition_bump_influences_to_other_channels(layer, tree=None, target_
             remove_node(tree, c, 'intensity_multiplier')
             continue
 
-        if bump_ch:
-
-            im = tree.nodes.get(c.intensity_multiplier)
-
-            #tr_ramp = tree.nodes.get(c.tr_ramp)
-            #if tr_ramp or bump_ch.transition_bump_flip or layer.type=='BACKGROUND':
-            if bump_ch.transition_bump_flip: #or layer.type=='BACKGROUND':
-                im_val = 1.0 + (bump_ch.transition_bump_second_edge_value - 1.0) * c.transition_bump_fac
-            else: im_val = 1.0 + (bump_ch.transition_bump_value - 1.0) * c.transition_bump_fac
-
-            if not im:
-
-                im = lib.new_intensity_multiplier_node(tree, c, 'intensity_multiplier', im_val)
-                        #1.0 + (bump_ch.transition_bump_value - 1.0) * c.transition_bump_fac)
-                        #1.0 + (im_val - 1.0) * c.transition_bump_fac)
-
-            im.inputs['Multiplier'].default_value = im_val
-
-            # Invert other intensity multipler if mask bump flip active
-            if bump_ch.transition_bump_flip: #or layer.type == 'BACKGROUND':
-            #if bump_ch.transition_bump_flip:
-                im.inputs['Invert'].default_value = 1.0
-            else: im.inputs['Invert'].default_value = 0.0
+        if bump_ch: set_transition_ramp_and_intensity_multiplier(tree, bump_ch, c)
 
 def get_transition_ao_intensity(ch):
     return ch.transition_ao_intensity * ch.intensity_value if not ch.transition_ao_intensity_unlink else ch.transition_ao_intensity

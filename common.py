@@ -2699,8 +2699,6 @@ def refresh_temp_uv(obj, entity):
         remove_temp_uv(obj, entity)
         return False
 
-    #print(entity.path_from_id())
-
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
     m3 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity.path_from_id())
