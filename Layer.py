@@ -96,7 +96,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space = 'WORLD', hemi_use_prev_normal = True,
         mask_color_id=(1,0,1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
-        use_divider_alpha = False
+        use_divider_alpha = False, use_udim_for_mask=False
         ):
 
     yp = group_tree.yp
@@ -233,18 +233,33 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         mask_segment = None
 
         if mask_type == 'IMAGE':
-            if use_image_atlas_for_mask:
+            if use_image_atlas_for_mask and not use_udim_for_mask:
                 mask_segment = ImageAtlas.get_set_image_atlas_segment(
                         mask_width, mask_height, mask_color, mask_use_hdr, yp=yp) #, ypup.image_atlas_size)
                 mask_image = mask_segment.id_data
             else:
-                mask_image = bpy.data.images.new(mask_name, 
-                        width=mask_width, height=mask_height, alpha=False, float_buffer=mask_use_hdr)
+                color = (0,0,0,0)
                 if mask_color == 'WHITE':
-                    mask_image.generated_color = (1,1,1,1)
+                    color = (1,1,1,1)
                 elif mask_color == 'BLACK':
-                    mask_image.generated_color = (0,0,0,1)
-                #mask_image.generated_color = (0,0,0,1)
+                    color = (0,0,0,1)
+
+                if use_udim_for_mask:
+                    mask_image = bpy.data.images.new(mask_name, 
+                            width=mask_width, height=mask_height, alpha=False, float_buffer=mask_use_hdr, tiled=True)
+
+                    # Fill tiles
+                    objs = get_all_objects_with_same_materials(mat)
+                    tilenums = UDIM.get_tile_numbers(objs, mask_uv_name)
+                    for tilenum in tilenums:
+                        UDIM.fill_tile(mask_image, tilenum, color, mask_width, mask_height)
+                    UDIM.initial_pack_udim(mask_image)
+
+                else:
+                    mask_image = bpy.data.images.new(mask_name, 
+                            width=mask_width, height=mask_height, alpha=False, float_buffer=mask_use_hdr)
+
+                mask_image.generated_color = color
                 if hasattr(mask_image, 'use_alpha'):
                     mask_image.use_alpha = False
 
@@ -613,6 +628,11 @@ class YNewLayer(bpy.types.Operator):
             description='Use UDIM Tiles',
             default=False)
 
+    use_udim_for_mask : BoolProperty(
+            name = 'Use UDIM Tiles for Mask',
+            description='Use UDIM Tiles for Mask',
+            default=False)
+
     use_image_atlas : BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
@@ -758,6 +778,12 @@ class YNewLayer(bpy.types.Operator):
     def is_using_image_atlas(self):
         return self.use_image_atlas and not self.is_using_udim()
 
+    def is_mask_using_udim(self):
+        return self.use_udim_for_mask and is_greater_than_330()
+
+    def is_mask_using_image_atlas(self):
+        return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
+
     def check(self, context):
         ypup = get_user_preferences()
 
@@ -768,7 +794,7 @@ class YNewLayer(bpy.types.Operator):
             if self.width > max_size: self.width = max_size
             if self.height > max_size: self.height = max_size
 
-        if self.use_image_atlas_for_mask:
+        if self.is_mask_using_image_atlas():
             if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
             else: mask_max_size = ypup.image_atlas_size
             if self.mask_width > mask_max_size: self.mask_width = mask_max_size
@@ -779,7 +805,7 @@ class YNewLayer(bpy.types.Operator):
     def get_to_be_cleared_image_atlas(self, context, yp):
         if self.type == 'IMAGE' and not self.add_mask and self.is_using_image_atlas():
             return ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', self.width, self.height, self.hdr)
-        if self.add_mask and self.mask_type == 'IMAGE' and self.use_image_atlas_for_mask:
+        if self.add_mask and self.mask_type == 'IMAGE' and self.is_mask_using_image_atlas():
             return ImageAtlas.check_need_of_erasing_segments(yp, self.mask_color, self.mask_width, self.mask_height, self.hdr)
 
         return None
@@ -859,6 +885,8 @@ class YNewLayer(bpy.types.Operator):
                         col.label(text='Mask Width:')
                         col.label(text='Mask Height:')
                         col.label(text='Mask UV Map:')
+                        if is_greater_than_330():
+                            col.label(text='')
                         col.label(text='')
                 if is_greater_than_320() and self.mask_type == 'VCOL':
                     col.label(text='Mask Domain:')
@@ -934,7 +962,11 @@ class YNewLayer(bpy.types.Operator):
                         col.prop(self, 'mask_height', text='')
                         #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                         col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
-                        col.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+                        if is_greater_than_330():
+                            col.prop(self, 'use_udim_for_mask')
+                        ccol = col.column()
+                        ccol.active = not self.use_udim_for_mask
+                        ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
                 if is_greater_than_320() and self.mask_type == 'VCOL':
                     crow = col.row(align=True)
                     crow.prop(self, 'mask_vcol_domain', expand=True)
@@ -1015,6 +1047,9 @@ class YNewLayer(bpy.types.Operator):
                     for tilenum in tilenums:
                         UDIM.fill_tile(img, tilenum, color, self.width, self.height)
                     UDIM.initial_pack_udim(img)
+
+                    # Remember base color
+                    img.yia.color = 'TRANSPARENT'
                 else:
                     img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
                             alpha=alpha, float_buffer=self.hdr)
@@ -1065,7 +1100,8 @@ class YNewLayer(bpy.types.Operator):
                 self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
                 self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
                 self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id,
-                self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha)
+                self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha,
+                self.is_mask_using_udim())
 
         if segment:
             ImageAtlas.set_segment_mapping(layer, segment, img)
@@ -1444,6 +1480,11 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
     mask_uv_name : StringProperty(default='')
     mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
 
+    use_udim_for_mask : BoolProperty(
+            name = 'Use UDIM Tiles for Mask',
+            description='Use UDIM Tiles for Mask',
+            default=False)
+
     use_image_atlas_for_mask : BoolProperty(
             name = 'Use Image Atlas for Mask',
             description='Use Image Atlas for Mask',
@@ -1451,6 +1492,12 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
 
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
+
+    def is_mask_using_udim(self):
+        return self.use_udim_for_mask and is_greater_than_330()
+
+    def is_mask_using_image_atlas(self):
+        return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
 
     @classmethod
     def poll(cls, context):
@@ -1497,7 +1544,7 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
         ypup = get_user_preferences()
 
         # New image cannot use more pixels than the image atlas
-        if self.use_image_atlas_for_mask:
+        if self.is_mask_using_image_atlas():
             if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
             else: mask_max_size = ypup.image_atlas_size
             if self.mask_width > mask_max_size: self.mask_width = mask_max_size
@@ -1545,7 +1592,11 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                 col.prop(self, 'mask_height', text='')
                 #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
-                col.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+                if is_greater_than_330():
+                    col.prop(self, 'use_udim_for_mask')
+                ccol = col.column()
+                ccol.active = not self.use_udim_for_mask
+                ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
 
         #col.label(text='')
         #rrow = col.row(align=True)
@@ -1739,6 +1790,7 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                         (1,1,1),
                         self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
                         self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
+                        use_udim_for_mask=self.is_mask_using_udim()
                         )
 
                 yp.halt_update = False
