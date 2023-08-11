@@ -2719,17 +2719,6 @@ def refresh_temp_uv(obj, entity):
 
     else: return False
 
-    if m3 and entity.override_type != 'IMAGE':
-        remove_temp_uv(obj, entity)
-        return False
-
-    if (m1 or m2) and entity.type != 'IMAGE':
-        remove_temp_uv(obj, entity)
-        return False
-
-    # Delete previous temp uv
-    remove_temp_uv(obj, entity)
-
     uv_layers = get_uv_layers(obj)
 
     if m3:
@@ -2744,17 +2733,22 @@ def refresh_temp_uv(obj, entity):
         uv_layers.active = layer_uv
         layer_uv.active_render = True
 
-    #print(uv_layers.active)
+    if m3 and entity.override_type != 'IMAGE':
+        remove_temp_uv(obj, entity)
+        return False
+
+    if (m1 or m2) and entity.type != 'IMAGE':
+        remove_temp_uv(obj, entity)
+        return False
+
+    # Delete previous temp uv
+    remove_temp_uv(obj, entity)
 
     # Only set actual uv if not in texture paint mode
     if obj.mode not in {'TEXTURE_PAINT', 'EDIT'}:
         return False
 
-    #yp = entity.id_data.yp
     #yp.need_temp_uv_refresh = False
-
-    #m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-    #m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     # Get source
     if m1: 
