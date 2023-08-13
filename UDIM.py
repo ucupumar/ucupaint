@@ -25,17 +25,6 @@ def fill_tile(image, tilenum, color, width=0, height=0):
     image.tiles.active = tile
     bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=False, alpha=True)
 
-def make_udim_not_dirty(image):
-    if image.is_dirty:
-        if image.packed_file:
-            image.pack()
-        else: image.save()
-
-def duplicate_udim_image(image):
-    # Make sure image is updated
-    make_udim_not_dirty(image)
-    return image.copy()
-
 def copy_udim_pixels(src, dest):
     for tile in src.tiles:
         # Check if tile number exists on both images and has same sizes

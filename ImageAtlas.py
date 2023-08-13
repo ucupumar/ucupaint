@@ -155,11 +155,6 @@ def copy_segment_pixels(img_from, segment_from, img_to, segment_to):
     if segment_from.width != segment_to.width or segment_from.height != segment_to.height:
         return
 
-    from_pxs = list(img_from.pixels)
-    if img_from == img_to:
-        to_pxs = from_pxs
-    else: to_pxs = list(img_to.pixels)
-
     width = segment_from.width
     height = segment_from.height
 
@@ -168,6 +163,11 @@ def copy_segment_pixels(img_from, segment_from, img_to, segment_to):
 
     to_start_x = width * segment_to.tile_x
     to_start_y = height * segment_to.tile_y
+
+    from_pxs = list(img_from.pixels)
+    if img_from == img_to:
+        to_pxs = from_pxs
+    else: to_pxs = list(img_to.pixels)
 
     for y in range(height):
         from_offset_y = img_from.size[0] * 4 * (y + from_start_y)
@@ -179,6 +179,44 @@ def copy_segment_pixels(img_from, segment_from, img_to, segment_to):
                 to_pxs[to_offset_y + to_offset_x + i] = from_pxs[from_offset_y + from_offset_x + i]
 
     img_to.pixels = to_pxs
+
+def fill_image_atlas_segment(segment, src_image):
+
+    ia_image = segment.id_data
+
+    width = src_image.size[0]
+    height = src_image.size[1]
+
+    start_x = width * segment.tile_x
+    start_y = height * segment.tile_y
+
+    if is_greater_than_283():
+        target_pxs = numpy.empty(shape=ia_image.size[0]*ia_image.size[1]*4, dtype=numpy.float32)
+        source_pxs = numpy.empty(shape=src_image.size[0]*src_image.size[1]*4, dtype=numpy.float32)
+        ia_image.pixels.foreach_get(target_pxs)
+        src_image.pixels.foreach_get(source_pxs)
+
+        # Set array to 3d
+        target_pxs.shape = (-1, ia_image.size[0], 4)
+        source_pxs.shape = (-1, src_image.size[0], 4)
+
+        target_pxs[start_x:start_x+width, start_y:start_y+height] = source_pxs
+        ia_image.pixels.foreach_set(target_pxs.ravel())
+
+    else:
+        target_pxs = list(ia_image.pixels)
+        source_pxs = list(src_image.pixels)
+
+        for y in range(height):
+            source_offset_y = width * 4 * y
+            offset_y = ia_image.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                source_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for i in range(4):
+                    target_pxs[offset_y + offset_x + i] = source_pxs[source_offset_y + source_offset_x + i]
+
+        ia_image.pixels = target_pxs
 
 def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_from=None, segment_from=None, yp=None):
 

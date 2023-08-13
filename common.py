@@ -4574,22 +4574,21 @@ def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0):
 
         dest.pixels = dest_pxs
 
-#def get_io_index(layer, root_ch, alpha=False):
-#    if alpha:
-#        return root_ch.io_index+1
-#    return root_ch.io_index
-#
-#def get_alpha_io_index(layer, root_ch):
-#    return get_io_index(layer, root_ch, alpha=True)
+def duplicate_image(image):
+    # Make sure UDIM image is updated
+    if image.source == 'TILED' and image.is_dirty:
 
-# Some image_ops need this
-#def get_active_image():
-#    node = get_active_ypaint_node()
-#    if not node: return None
-#    yp = node.node_tree.yp
-#    nodes = node.node_tree.nodes
-#    if len(yp.layers) == 0: return None
-#    layer = yp.layers[yp.active_layer_index]
-#    if layer.type != 'ShaderNodeTexImage': return None
-#    source = nodes.get(layer.source)
-#    return source.image
+        # WARNING: This will cause a problem if UDIM image is originally from disk
+        # Since duplicated image will point to same source
+        if image.packed_file:
+            image.pack()
+        else: image.save()
+
+    new_image = image.copy()
+
+    # Copied image is not updated by default if it's dirty,
+    # So copy the pixels
+    if new_image.source != 'TILED':
+        new_image.pixels = list(image.pixels)
+
+    return new_image

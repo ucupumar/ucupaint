@@ -1437,21 +1437,7 @@ class YBakeToLayer(bpy.types.Operator):
             #    img.colorspace_settings.name = 'Linear'
 
             # Set baked image to segment
-            target_pxs = list(ia_image.pixels)
-            source_pxs = list(image.pixels)
-
-            start_x = self.width * segment.tile_x
-            start_y = self.height * segment.tile_y
-            for y in range(self.height):
-                source_offset_y = self.width * 4 * y
-                offset_y = ia_image.size[0] * 4 * (y + start_y)
-                for x in range(self.width):
-                    source_offset_x = 4 * x
-                    offset_x = 4 * (x + start_x)
-                    for i in range(4):
-                        target_pxs[offset_y + offset_x + i] = source_pxs[source_offset_y + source_offset_x + i]
-
-            ia_image.pixels = target_pxs
+            ImageAtlas.fill_image_atlas_segment(segment, image)
             temp_img = image
             image = ia_image
 
