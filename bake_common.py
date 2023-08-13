@@ -520,11 +520,6 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
     width = image.size[0]
     height = image.size[1]
 
-    # Copy image
-    pixels = list(image.pixels)
-    image_copy = image.copy()
-    image_copy.pixels = pixels
-
     # Set active collection to be root collection
     if is_greater_than_280():
         ori_layer_collection = bpy.context.view_layer.active_layer_collection
@@ -556,7 +551,6 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
     blur.inputs[0].default_value = factor / 100.0
 
     source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    source_tex.image = image_copy
     target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     target_tex.image = image
 
@@ -568,47 +562,49 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
     mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
     mat.node_tree.nodes.active = target_tex
 
-    # Straight over won't work if using blur nodes, need another bake pass
-    if alpha_aware:
-        straight_over = mat.node_tree.nodes.new('ShaderNodeGroup')
-        straight_over.node_tree = get_node_tree_lib(lib.STRAIGHT_OVER)
-        straight_over.inputs[1].default_value = 0.0
+    if image.source == 'TILED':
+        tilenums = [tile.number for tile in image.tiles]
+    else: tilenums = [1001]
 
-        mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
-        mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
-        mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
+    for tilenum in tilenums:
 
-        # Bake
-        print('BLUR: Baking straight over on', image.name + '...')
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+        width = image.size[0]
+        height = image.size[1]
+
+        # Copy image
+        image_copy = duplicate_image(image)
+
+        # Set source image
+        source_tex.image = image_copy
+
+        # Connect nodes again
+        mat.node_tree.links.new(source_tex.outputs[0], emi.inputs[0])
+        mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
+
+        print('BLUR: Baking blur on', image.name + '...')
         bpy.ops.object.bake()
 
-        pixels_1 = list(image.pixels)
-        image_copy.pixels = pixels_1
+        # Run alpha pass
+        if alpha_aware:
+            print('BLUR: Running alpha pass to blur result of', image.name + '...')
 
-    # Connect nodes again
-    mat.node_tree.links.new(source_tex.outputs[0], emi.inputs[0])
-    mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
+            # TODO: Bake blur on alpha channel
+            pass
 
-    print('BLUR: Baking blur on', image.name + '...')
-    #return
-    bpy.ops.object.bake()
+            # TODO: Bake straight over on blurred rgb
+            pass
 
-    # Copy original alpha to baked image
-    if alpha_aware:
-        print('BLUR: Copying original alpha to blur result of', image.name + '...')
-        target_pxs = list(image.pixels)
-        start_x = 0
-        start_y = 0
+            # TODO: Copy result to main image
+            #copy_image_channel_pixels(image_copy, image, 3, 3)
 
-        for y in range(height):
-            temp_offset_y = width * 4 * y
-            offset_y = width * 4 * (y + start_y)
-            for x in range(width):
-                temp_offset_x = 4 * x
-                offset_x = 4 * (x + start_x)
-                target_pxs[offset_y + offset_x + 3] = pixels[temp_offset_y + temp_offset_x + 3]
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
 
-        image.pixels = target_pxs
+        # Remove temp images
+        bpy.data.images.remove(image_copy)
 
     # Remove temp datas
     print('BLUR: Removing temporary data of blur pass')
@@ -619,7 +615,6 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
     if blur.node_tree.users == 1:
         bpy.data.node_groups.remove(blur.node_tree)
 
-    bpy.data.images.remove(image_copy)
     bpy.data.materials.remove(mat)
     plane = plane_obj.data
     bpy.ops.object.delete()
@@ -685,6 +680,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU'):
         width = image.size[0]
         height = image.size[1]
 
+        # Copy image
         pixels = list(image.pixels)
         image_ori  = None
         image_copy = image.copy()
@@ -747,7 +743,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU'):
 
         # Remove temp images
         bpy.data.images.remove(image_copy)
-        if image_ori : bpy.data.images.remove(image_ori )
+        if image_ori : bpy.data.images.remove(image_ori)
 
     # Remove temp datas
     print('FXAA: Removing temporary data of FXAA pass')
