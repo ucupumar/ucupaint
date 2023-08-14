@@ -842,23 +842,6 @@ class YBakeToLayer(bpy.types.Operator):
             width = self.width
             height = self.height
 
-        # To hold temporary objects
-        temp_objs = []
-        temp_meshes = []
-
-        # Join objects
-        if self.type.startswith('OTHER_OBJECT_'):
-            #print(other_objs)
-            if len(objs) > 1:
-                objs = [copy_and_join_objects(objs)]
-                temp_objs = [objs[0]]
-
-            objs.extend(other_objs)
-            #print(objs)
-            #return {'FINISHED'}
-
-        #print(objs)
-
         # If use baked disp, need to bake normal and height map first
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch and self.use_baked_disp and not self.type.startswith('MULTIRES_'):
@@ -901,68 +884,24 @@ class YBakeToLayer(bpy.types.Operator):
             if not height_root_ch.enable_subdiv_setup:
                 height_root_ch.enable_subdiv_setup = True
 
+        # To hold temporary objects
+        temp_objs = []
+
+        # Sometimes Cavity bake will create temporary objects
+        if (self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp)):
+            objs = temp_objs = get_duplicated_mesh_objects(scene, objs, True)
+
+        # Join objects then extend with other objects
+        elif self.type.startswith('OTHER_OBJECT_'):
+            if len(objs) > 1:
+                objs = [get_merged_mesh_objects(scene, objs)]
+                temp_objs = objs.copy()
+
+            objs.extend(other_objs)
+
         # Join objects if the number of objects is higher than one
-        need_join_objects = len(objs) > 1 and not is_join_objects_problematic(yp)
-
-        # Join objects and sometimes Cavity bake will create temporary objects
-        if need_join_objects or (self.type == 'CAVITY' and (self.subsurf_influence or self.use_baked_disp)):
-            tt = time.time()
-            print('BAKE TO LAYER: Duplicating mesh(es) for baking...')
-            for obj in objs:
-                temp_obj = obj.copy()
-                link_object(scene, temp_obj)
-                temp_objs.append(temp_obj)
-                temp_obj.data = temp_obj.data.copy()
-                temp_meshes.append(temp_obj.data)
-
-                # Hide render of original object
-                obj.hide_render = True
-
-            objs = temp_objs
-
-            print('BAKE TO LAYER: Duplicating mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
-
-        # Option to join all objects into one
-        if need_join_objects:
-
-            # Select objects
-            bpy.ops.object.mode_set(mode = 'OBJECT')
-            bpy.ops.object.select_all(action='DESELECT')
-            for obj in objs:
-                set_active_object(obj)
-                set_object_select(obj, True)
-
-                # Apply shape keys
-                if obj.data.shape_keys:
-                    bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
-
-                # Apply modifiers
-                mnames = [m.name for m in obj.modifiers]
-                problematic_modifiers = get_problematic_modifiers(obj)
-
-                for mname in mnames:
-                    m = obj.modifiers[mname]
-                    if m not in problematic_modifiers:
-                        try:
-                            bpy.ops.object.modifier_apply(modifier=m.name)
-                            continue
-                        except Exception as e: print(e)
-                    bpy.ops.object.modifier_remove(modifier=m.name)
-
-            # Set active object
-            first_obj = objs[0]
-            set_active_object(first_obj)
-
-            # Join
-            bpy.ops.object.join()
-
-            # Remap pointers
-            objs = temp_objs = [first_obj]
-
-            # Remove temp meshes
-            for tm in temp_meshes:
-                if tm != first_obj.data:
-                    bpy.data.meshes.remove(tm)
+        elif len(objs) > 1 and not is_join_objects_problematic(yp):
+            objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
 
         fill_mode = 'FACE'
         obj_vertex_indices = {}
@@ -1437,7 +1376,7 @@ class YBakeToLayer(bpy.types.Operator):
             #    img.colorspace_settings.name = 'Linear'
 
             # Set baked image to segment
-            ImageAtlas.fill_image_atlas_segment(segment, image)
+            copy_image_pixels(image, ia_image, segment)
             temp_img = image
             image = ia_image
 

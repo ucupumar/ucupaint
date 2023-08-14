@@ -4574,6 +4574,46 @@ def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0):
 
         dest.pixels = dest_pxs
 
+def copy_image_pixels(src, dest, segment=None):
+
+    start_x = 0
+    start_y = 0
+
+    width = src.size[0]
+    height = src.size[1]
+
+    if segment:
+        start_x = width * segment.tile_x
+        start_y = height * segment.tile_y
+
+    if is_greater_than_283():
+        target_pxs = numpy.empty(shape=dest.size[0]*dest.size[1]*4, dtype=numpy.float32)
+        source_pxs = numpy.empty(shape=src.size[0]*src.size[1]*4, dtype=numpy.float32)
+        dest.pixels.foreach_get(target_pxs)
+        src.pixels.foreach_get(source_pxs)
+
+        # Set array to 3d
+        target_pxs.shape = (-1, dest.size[0], 4)
+        source_pxs.shape = (-1, src.size[0], 4)
+
+        target_pxs[start_y:start_y+height, start_x:start_x+width] = source_pxs
+        dest.pixels.foreach_set(target_pxs.ravel())
+
+    else:
+        target_pxs = list(dest.pixels)
+        source_pxs = list(src.pixels)
+
+        for y in range(height):
+            source_offset_y = width * 4 * y
+            offset_y = dest.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                source_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for i in range(4):
+                    target_pxs[offset_y + offset_x + i] = source_pxs[source_offset_y + source_offset_x + i]
+
+        dest.pixels = target_pxs
+
 def duplicate_image(image):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
@@ -4592,3 +4632,4 @@ def duplicate_image(image):
         new_image.pixels = list(image.pixels)
 
     return new_image
+

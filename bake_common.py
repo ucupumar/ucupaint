@@ -1375,65 +1375,107 @@ def disable_temp_bake(entity):
     # Set entity attribute
     entity.use_temp_bake = False
 
-def copy_and_join_objects(objs):
+def get_duplicated_mesh_objects(scene, objs, hide_original=False):
+    tt = time.time()
+    print('INFO: Duplicating mesh(es) for baking...')
 
-    temp_objs = []
+    new_objs = []
+
     for obj in objs:
-        temp_obj = obj.copy()
-        link_object(bpy.context.scene, temp_obj)
-        temp_obj.data = temp_obj.data.copy()
-        temp_objs.append(temp_obj)
+        if obj.type != 'MESH': continue
+        new_obj = obj.copy()
+        link_object(scene, new_obj)
+        new_objs.append(new_obj)
+        new_obj.data = new_obj.data.copy()
 
-    return join_objects(temp_objs)
+        # Hide render of original object
+        if hide_original:
+            obj.hide_render = True
 
-def join_objects(objs):
+    print('INFO: Duplicating mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+    return new_objs
 
-    if len(objs) == 0: return None
+def get_merged_mesh_objects(scene, objs, hide_original=False):
 
-    objs = [o for o in objs if o.type == 'MESH']
+    # Duplicate objects
+    new_objs = get_duplicated_mesh_objects(scene, objs, hide_original)
+    new_meshes = [obj.data for obj in new_objs]
 
-    # Deselect all objects
-    bpy.ops.object.mode_set(mode='OBJECT')
+    tt = time.time()
+    print('INFO: Merging mesh(es) for baking...')
+
+    # Check if any objects use geometry nodes to output uv
+    any_uv_geonodes = False
+    for obj in new_objs:
+        if any(get_output_uv_names_from_geometry_nodes(obj)):
+            any_uv_geonodes = True
+
+    # Select objects
+    try: bpy.ops.object.mode_set(mode = 'OBJECT')
+    except: pass
     bpy.ops.object.select_all(action='DESELECT')
 
     max_levels = -1
     hi_obj = None
-    for obj in objs:
-
+    for obj in new_objs:
+        set_active_object(obj)
         set_object_select(obj, True)
 
+        # Apply shape keys
+        if obj.data.shape_keys:
+            bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
+
+        # Apply modifiers
+        mnames = [m.name for m in obj.modifiers]
         problematic_modifiers = get_problematic_modifiers(obj)
 
-        for mod in obj.modifiers:
+        # Get all uv output from geometry nodes
+        geo_uv_names = get_output_uv_names_from_geometry_nodes(obj)
 
-            # Disable all problematic modifiers
-            if mod in problematic_modifiers:
-                mod.show_render = False
-                mod.show_viewport = False
+        for mname in mnames:
 
-            # Check who has highest multires if available
-            if mod.type == 'MULTIRES':
-                if mod.render_levels > max_levels:
-                    max_levels = mod.render_levels
-                    hi_obj = obj
+            m = obj.modifiers[mname]
 
-    # Check who has highest subsurf if multires modifier is not found
-    if not hi_obj:
-        for obj in objs:
-            if mod.type == 'SUBSURF':
-                if mod.levels > max_levels:
-                    max_levels = mod.levels
-                    hi_obj = obj
+            if m not in problematic_modifiers:
+                if m.type == 'SUBSURF':
+                    if m.render_levels > m.levels:
+                        m.levels = m.render_levels
+                elif m.type == 'MULTIRES':
+                    if m.total_levels > m.levels:
+                        m.levels = m.total_levels
+                try:
+                    bpy.ops.object.modifier_apply(modifier=m.name)
+                    continue
+                except Exception as e: print(e)
 
-    if not hi_obj: hi_obj = objs[0]
+            bpy.ops.object.modifier_remove(modifier=m.name)
+
+        # HACK: Convert all geo uvs attribute to 2D vector 
+        # This is needed since it always produce 3D vector on Blender 3.5
+        # 3D vector can't produce correct tangent so smooth bump can't be baked
+        for guv in geo_uv_names:
+            for i, attr in enumerate(obj.data.attributes):
+                if attr and attr.name == guv:
+                    obj.data.attributes.active_index = i
+                    bpy.ops.geometry.attribute_convert(domain='CORNER', data_type='FLOAT2')
+
+    # Set first index as merged object
+    merged_obj = new_objs[0]
 
     # Set active object
-    set_active_object(hi_obj)
-    bpy.ops.object.mode_set(mode='OBJECT')
+    set_active_object(merged_obj)
+    if merged_obj.mode != 'OBJECT': bpy.ops.object.mode_set(mode='OBJECT')
 
+    # Join
     bpy.ops.object.join()
 
-    return bpy.context.object
+    # Remove temp meshes
+    for nm in new_meshes:
+        if nm != merged_obj.data:
+            bpy.data.meshes.remove(nm)
+
+    print('INFO: Merging mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
+    return merged_obj
 
 def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='GPU'):
 
@@ -1667,3 +1709,4 @@ def get_output_uv_names_from_geometry_nodes(obj):
                     if uv: uv_names.append(uv.name)
 
     return uv_names
+
