@@ -1810,26 +1810,7 @@ class YMergeMask(bpy.types.Operator):
         bpy.ops.object.bake()
 
         # Copy results to original image
-        target_pxs = list(source.image.pixels)
-        temp_pxs = list(img.pixels)
-
-        if segment:
-            start_x = width * segment.tile_x
-            start_y = height * segment.tile_y
-        else:
-            start_x = 0
-            start_y = 0
-
-        for y in range(height):
-            temp_offset_y = width * 4 * y
-            offset_y = source.image.size[0] * 4 * (y + start_y)
-            for x in range(width):
-                temp_offset_x = 4 * x
-                offset_x = 4 * (x + start_x)
-                for i in range(3):
-                    target_pxs[offset_y + offset_x + i] = temp_pxs[temp_offset_y + temp_offset_x + i]
-
-        source.image.pixels = target_pxs
+        copy_image_pixels(img, source.image, segment)
 
         # Remove temp image
         bpy.data.images.remove(img)
