@@ -4544,21 +4544,44 @@ def get_first_mirror_modifier(obj):
 
     return None
 
-def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0):
-    width = dest.size[0]
-    height = dest.size[1]
+def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0, segment=None, segment_src=None):
+
+    start_x = 0
+    start_y = 0
+
+    src_start_x = 0
+    src_start_y = 0
+
+    width = src.size[0]
+    height = src.size[1]
+
+    if segment:
+        start_x = width * segment.tile_x
+        start_y = height * segment.tile_y
+
+    if segment_src:
+        width = segment_src.width
+        height = segment_src.height
+
+        src_start_x = width * segment_src.tile_x
+        src_start_y = height * segment_src.tile_y
 
     if is_greater_than_283():
 
         # Store pixels to numpy
-        dest_pxs = numpy.empty(shape=width*height*4, dtype=numpy.float32)
-        src_pxs = numpy.empty(shape=width*height*4, dtype=numpy.float32)
+        dest_pxs = numpy.empty(shape=dest.size[0]*dest.size[1]*4, dtype=numpy.float32)
+        src_pxs = numpy.empty(shape=src.size[0]*src.size[1]*4, dtype=numpy.float32)
         dest.pixels.foreach_get(dest_pxs)
         src.pixels.foreach_get(src_pxs)
 
+        # Set array to 3d
+        dest_pxs.shape = (-1, dest.size[0], 4)
+        src_pxs.shape = (-1, src.size[0], 4)
+
         # Copy to selected channel
-        dest_pxs[dest_idx::4] = src_pxs[src_idx::4]
-        dest.pixels.foreach_set(dest_pxs)
+        #dest_pxs[dest_idx::4] = src_pxs[src_idx::4]
+        dest_pxs[start_y:start_y+height, start_x:start_x+width][::, ::, dest_idx] = src_pxs[src_start_y:src_start_y+height, src_start_x:src_start_x+width][::, ::, src_idx]
+        dest.pixels.foreach_set(dest_pxs.ravel())
 
     else:
         # Get image pixels
@@ -4567,10 +4590,12 @@ def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0):
 
         # Copy to selected channel
         for y in range(height):
-            offset_y = width * 4 * y
+            source_offset_y = width * 4 * (y + src_start_y)
+            offset_y = dest.size[0] * 4 * (y + start_y)
             for x in range(width):
-                offset_x = 4 * x
-                dest_pxs[offset_y + offset_x + dest_idx] = src_pxs[offset_y + offset_x + src_idx]
+                source_offset_x = 4 * (x + src_start_x)
+                offset_x = 4 * (x + start_x)
+                dest_pxs[offset_y + offset_x + dest_idx] = src_pxs[source_offset_y + source_offset_x + src_idx]
 
         dest.pixels = dest_pxs
 

@@ -1260,22 +1260,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         ori_img = source.image
 
         if segment:
-            start_x = width * segment.tile_x
-            start_y = height * segment.tile_y
-
-            target_pxs = list(ori_img.pixels)
-            temp_pxs = list(img.pixels)
-
-            for y in range(height):
-                temp_offset_y = width * 4 * y
-                offset_y = ori_img.size[0] * 4 * (y + start_y)
-                for x in range(width):
-                    temp_offset_x = 4 * x
-                    offset_x = 4 * (x + start_x)
-                    for i in range(4):
-                        target_pxs[offset_y + offset_x + i] = temp_pxs[temp_offset_y + temp_offset_x + i]
-
-            ori_img.pixels = target_pxs
+            copy_image_pixels(img, ori_img, segment)
 
             # Remove temp image
             bpy.data.images.remove(img)
@@ -1635,19 +1620,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
         print('RESIZE IMAGE: Baking resized alpha on', image_name + '...')
         bpy.ops.object.bake()
 
-        # Copy alpha image to scaled image
-        target_pxs = list(scaled_img.pixels)
-        temp_pxs = list(alpha_img.pixels)
-
-        for y in range(height):
-            temp_offset_y = width * 4 * y
-            offset_y = scaled_img.size[0] * 4 * (y + start_y)
-            for x in range(width):
-                temp_offset_x = 4 * x
-                offset_x = 4 * (x + start_x)
-                target_pxs[offset_y + offset_x + 3] = temp_pxs[temp_offset_y + temp_offset_x]
-
-        scaled_img.pixels = target_pxs
+        copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, segment)
 
         # Remove alpha image
         bpy.data.images.remove(alpha_img)
