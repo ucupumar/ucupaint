@@ -973,7 +973,7 @@ class YNewLayer(bpy.types.Operator):
                     crow = col.row(align=True)
                     crow.prop(self, 'mask_vcol_data_type', expand=True)
 
-        if self.get_to_be_cleared_image_atlas(context, yp):
+        if self.get_to_be_cleared_image_atlas(context, yp) and not is_greater_than_283():
             col = self.layout.column(align=True)
             col.label(text='INFO: An unused atlas segment can be used.', icon='ERROR')
             col.label(text='It will take a couple seconds to clear.')

@@ -4574,10 +4574,13 @@ def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0):
 
         dest.pixels = dest_pxs
 
-def copy_image_pixels(src, dest, segment=None):
+def copy_image_pixels(src, dest, segment=None, segment_src=None):
 
     start_x = 0
     start_y = 0
+
+    src_start_x = 0
+    src_start_y = 0
 
     width = src.size[0]
     height = src.size[1]
@@ -4585,6 +4588,13 @@ def copy_image_pixels(src, dest, segment=None):
     if segment:
         start_x = width * segment.tile_x
         start_y = height * segment.tile_y
+
+    if segment_src:
+        width = segment_src.width
+        height = segment_src.height
+
+        src_start_x = width * segment_src.tile_x
+        src_start_y = height * segment_src.tile_y
 
     if is_greater_than_283():
         target_pxs = numpy.empty(shape=dest.size[0]*dest.size[1]*4, dtype=numpy.float32)
@@ -4596,7 +4606,8 @@ def copy_image_pixels(src, dest, segment=None):
         target_pxs.shape = (-1, dest.size[0], 4)
         source_pxs.shape = (-1, src.size[0], 4)
 
-        target_pxs[start_y:start_y+height, start_x:start_x+width] = source_pxs
+        target_pxs[start_y:start_y+height, start_x:start_x+width] = source_pxs[src_start_y:src_start_y+height, src_start_x:src_start_x+width]
+
         dest.pixels.foreach_set(target_pxs.ravel())
 
     else:
@@ -4604,15 +4615,54 @@ def copy_image_pixels(src, dest, segment=None):
         source_pxs = list(src.pixels)
 
         for y in range(height):
-            source_offset_y = width * 4 * y
+            source_offset_y = width * 4 * (y + src_start_y)
             offset_y = dest.size[0] * 4 * (y + start_y)
             for x in range(width):
-                source_offset_x = 4 * x
+                source_offset_x = 4 * (x + src_start_x)
                 offset_x = 4 * (x + start_x)
                 for i in range(4):
                     target_pxs[offset_y + offset_x + i] = source_pxs[source_offset_y + source_offset_x + i]
 
         dest.pixels = target_pxs
+
+def set_image_pixels(image, color, segment=None):
+
+    start_x = 0
+    start_y = 0
+
+    width = image.size[0]
+    height = image.size[1]
+
+    if segment:
+        start_x = width * segment.tile_x
+        start_y = height * segment.tile_y
+
+        width = segment.width
+        height = segment.height
+
+    if is_greater_than_283():
+        pxs = numpy.empty(shape=image.size[0]*image.size[1]*4, dtype=numpy.float32)
+        image.pixels.foreach_get(pxs)
+
+        # Set array to 3d
+        pxs.shape = (-1, image.size[0], 4)
+
+        pxs[start_y:start_y+height, start_x:start_x+width] = color
+        image.pixels.foreach_set(pxs.ravel())
+
+    else:
+        pxs = list(image.pixels)
+
+        for y in range(height):
+            source_offset_y = width * 4 * y
+            offset_y = image.size[0] * 4 * (y + start_y)
+            for x in range(width):
+                source_offset_x = 4 * x
+                offset_x = 4 * (x + start_x)
+                for i in range(4):
+                    pxs[offset_y + offset_x + i] = color[i]
+
+        image.pixels = pxs
 
 def duplicate_image(image):
     # Make sure UDIM image is updated

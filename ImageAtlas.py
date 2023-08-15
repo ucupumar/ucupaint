@@ -102,22 +102,7 @@ def clear_segment(segment):
     else:
         col = (0.0, 0.0, 0.0, 0.0)
 
-    pxs = list(img.pixels)
-
-    # Recolor segment
-    start_x = segment.width * segment.tile_x
-    end_x = start_x + segment.width
-
-    start_y = segment.height * segment.tile_y
-    end_y = start_y + segment.height
-
-    for y in range(start_y, end_y):
-        offset_y = img.size[0] * 4 * y
-        for x in range(start_x, end_x):
-            for i in range(4):
-                pxs[offset_y + (x*4) + i] = col[i]
-
-    img.pixels = pxs
+    set_image_pixels(img, col, segment)
 
 def clear_unused_segments(atlas):
 
@@ -149,36 +134,6 @@ def check_need_of_erasing_segments(yp, color='BLACK', width=1024, height=1024, h
                 return img
 
     return None
-
-def copy_segment_pixels(img_from, segment_from, img_to, segment_to):
-
-    if segment_from.width != segment_to.width or segment_from.height != segment_to.height:
-        return
-
-    width = segment_from.width
-    height = segment_from.height
-
-    from_start_x = width * segment_from.tile_x
-    from_start_y = height * segment_from.tile_y
-
-    to_start_x = width * segment_to.tile_x
-    to_start_y = height * segment_to.tile_y
-
-    from_pxs = list(img_from.pixels)
-    if img_from == img_to:
-        to_pxs = from_pxs
-    else: to_pxs = list(img_to.pixels)
-
-    for y in range(height):
-        from_offset_y = img_from.size[0] * 4 * (y + from_start_y)
-        to_offset_y = img_to.size[0] * 4 * (y + to_start_y)
-        for x in range(width):
-            from_offset_x = 4 * (x + from_start_x)
-            to_offset_x = 4 * (x + to_start_x)
-            for i in range(4):
-                to_pxs[to_offset_y + to_offset_x + i] = from_pxs[from_offset_y + from_offset_x + i]
-
-    img_to.pixels = to_pxs
 
 def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_from=None, segment_from=None, yp=None):
 
@@ -215,7 +170,7 @@ def get_set_image_atlas_segment(width, height, color='BLACK', hdr=False, img_fro
         #if segment: return segment
 
     if img_from and segment_from:
-        copy_segment_pixels(img_from, segment_from, img, segment)
+        copy_image_pixels(img_from, img, segment, segment_from)
 
     return segment
 
