@@ -1309,35 +1309,12 @@ class YBakeToLayer(bpy.types.Operator):
             # Bake emit can will create alpha image
             bpy.ops.object.bake(type='EMIT')
 
-            #return {'FINISHED'}
-
             # Copy alpha to RGB channel, so it can be fxaa-ed
-            temp_pxs = list(temp_img.pixels)
-            for y in range(height):
-                offset_y = width * 4 * y
-                for x in range(width):
-                    offset_x = 4 * x
-                    for i in range(3):
-                        temp_pxs[offset_y + offset_x + i] = temp_pxs[offset_y + offset_x + 3]
-                    temp_pxs[offset_y + offset_x + 3] = 1.0
-            temp_img.pixels = temp_pxs
+            copy_image_channel_pixels(temp_img, temp_img, 3, 0)
+            fxaa_image(temp_img, False, self.bake_device)
 
             # Copy alpha to actual image
-            target_pxs = list(image.pixels)
-            temp_pxs = list(temp_img.pixels)
-
-            start_x = 0
-            start_y = 0
-            for y in range(height):
-                temp_offset_y = width * 4 * y
-                offset_y = width * 4 * (y + start_y)
-                for x in range(width):
-                    temp_offset_x = 4 * x
-                    offset_x = 4 * (x + start_x)
-                    target_pxs[offset_y + offset_x + 3] = temp_pxs[temp_offset_y + temp_offset_x]
-                    #target_pxs[offset_y + offset_x + 3] = temp_pxs[temp_offset_y + temp_offset_x + 3]
-
-            image.pixels = target_pxs
+            copy_image_channel_pixels(temp_img, image, 0, 3)
 
             # Remove temp image
             bpy.data.images.remove(temp_img)
@@ -1952,21 +1929,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
                 ia_image = segment.id_data
 
                 # Set baked image to segment
-                target_pxs = list(ia_image.pixels)
-                source_pxs = list(image.pixels)
-
-                start_x = self.width * segment.tile_x
-                start_y = self.height * segment.tile_y
-                for y in range(self.height):
-                    source_offset_y = self.width * 4 * y
-                    offset_y = ia_image.size[0] * 4 * (y + start_y)
-                    for x in range(self.width):
-                        source_offset_x = 4 * x
-                        offset_x = 4 * (x + start_x)
-                        for i in range(4):
-                            target_pxs[offset_y + offset_x + i] = source_pxs[source_offset_y + source_offset_x + i]
-
-                ia_image.pixels = target_pxs
+                copy_image_pixels(image, ia_image, segment)
                 temp_img = image
                 image = ia_image
 
