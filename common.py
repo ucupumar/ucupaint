@@ -3934,6 +3934,26 @@ def get_yp_images(yp):
 
     return images
 
+def get_yp_images_and_entities(yp):
+
+    images = []
+    entities = []
+
+    for layer in yp.layers:
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source and source.image: #and source.image not in images:
+                images.append(source.image)
+                entities.append(layer)
+        for mask in layer.masks:
+            if mask.type == 'IMAGE':
+                source = get_mask_source(mask)
+                if source and source.image: #and source.image not in images:
+                    images.append(source.image)
+                    entities.append(mask)
+
+    return images, entities
+
 def check_need_prev_normal(layer):
 
     yp = layer.id_data.yp

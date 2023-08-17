@@ -227,7 +227,7 @@ class YNewLayerMask(bpy.types.Operator):
     use_image_atlas : BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
-            default=True)
+            default=False)
 
     # For fake lighting
     hemi_space : EnumProperty(

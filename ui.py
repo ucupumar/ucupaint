@@ -2403,7 +2403,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
     if len(yp.layers) > 0:
         layer = yp.layers[yp.active_layer_index]
-        #layer = entity = yp.layers[yp.active_layer_index]
+        layer = entity = yp.layers[yp.active_layer_index]
 
         if layer:
             layer_tree = get_tree(layer)
@@ -2420,8 +2420,8 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             # Check for active mask
             for i, m in enumerate(layer.masks):
                 if m.active_edit:
-                    #mask = entity = m
-                    mask = m
+                    #mask = m
+                    mask = entity = m
                     mask_idx = i
                     source = get_mask_source(m)
                     if m.type == 'IMAGE':
@@ -2448,7 +2448,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     if mask_image: box.context_pointer_set('image', mask_image)
     elif override_image: box.context_pointer_set('image', override_image)
     elif image: box.context_pointer_set('image', image)
-    #if entity: box.context_pointer_set('entity', entity)
+    if entity: box.context_pointer_set('entity', entity)
 
     col = box.column()
 
@@ -3734,6 +3734,15 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         #if hasattr(context, 'entity') and context.entity:
         #    col = row.column()
         #    col.label(text=context.entity.name, icon=get_layer_type_icon(context.entity.type))
+
+        if hasattr(context, 'image') and context.image.source != 'TILED':
+            col.separator()
+            if context.image.yia.is_image_atlas:
+                col.operator("node.y_convert_to_standard_image", icon='IMAGE_DATA', text='Convert to standard Image').all_images = False
+                col.operator("node.y_convert_to_standard_image", icon='IMAGE_DATA', text='Convert All Image Atlas to standard Images').all_images = True
+            else:
+                col.operator("node.y_convert_to_image_atlas", icon='IMAGE_DATA', text='Convert to Image Atlas').all_images = False
+                col.operator("node.y_convert_to_image_atlas", icon='IMAGE_DATA', text='Convert All Images to Image Atlas').all_images = True
 
 class YUVSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_uv_special_menu"

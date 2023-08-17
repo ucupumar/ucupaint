@@ -636,12 +636,12 @@ class YNewLayer(bpy.types.Operator):
     use_image_atlas : BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
-            default=True)
+            default=False)
 
     use_image_atlas_for_mask : BoolProperty(
             name = 'Use Image Atlas for Mask',
             description='Use Image Atlas for Mask',
-            default=True)
+            default=False)
 
     hemi_space : EnumProperty(
             name = 'Fake Lighting Space',
@@ -973,7 +973,7 @@ class YNewLayer(bpy.types.Operator):
                     crow = col.row(align=True)
                     crow.prop(self, 'mask_vcol_data_type', expand=True)
 
-        if self.get_to_be_cleared_image_atlas(context, yp) and not is_greater_than_283():
+        if self.get_to_be_cleared_image_atlas(context, yp):
             col = self.layout.column(align=True)
             col.label(text='INFO: An unused atlas segment can be used.', icon='ERROR')
             col.label(text='It will take a couple seconds to clear.')
@@ -1488,7 +1488,7 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
     use_image_atlas_for_mask : BoolProperty(
             name = 'Use Image Atlas for Mask',
             description='Use Image Atlas for Mask',
-            default=True)
+            default=False)
 
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
