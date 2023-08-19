@@ -3934,25 +3934,57 @@ def get_yp_images(yp):
 
     return images
 
-def get_yp_images_and_entities(yp):
-
-    images = []
+def get_yp_entities_images_and_segments(yp):
     entities = []
+    images = []
+    segments = []
 
     for layer in yp.layers:
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
-            if source and source.image: #and source.image not in images:
-                images.append(source.image)
-                entities.append(layer)
+            if source and source.image:
+                image = source.image
+                if image.yia.is_image_atlas:
+                    segment = image.yia.segments.get(layer.segment_name)
+                    if segment not in segments:
+                        images.append(image)
+                        segments.append(segment)
+                        entities.append([layer])
+                    else:
+                        idx = [i for i, s in enumerate(segments) if s == segment][0]
+                        entities[idx].append(layer)
+                else:
+                    if image not in images:
+                        images.append(image)
+                        segments.append(None)
+                        entities.append([layer])
+                    else:
+                        idx = [i for i, img in enumerate(images) if img == image][0]
+                        entities[idx].append(layer)
         for mask in layer.masks:
             if mask.type == 'IMAGE':
                 source = get_mask_source(mask)
-                if source and source.image: #and source.image not in images:
-                    images.append(source.image)
-                    entities.append(mask)
+                if source and source.image:
+                    image = source.image
+                    if image.yia.is_image_atlas:
+                        segment = image.yia.segments.get(mask.segment_name)
+                        if segment not in segments:
+                            images.append(image)
+                            segments.append(segment)
+                            entities.append([mask])
+                        else:
+                            idx = [i for i, s in enumerate(segments) if s == segment][0]
+                            entities[idx].append(mask)
+                    else:
+                        if image not in images:
+                            images.append(image)
+                            segments.append(None)
+                            entities.append([mask])
+                        else:
+                            idx = [i for i, img in enumerate(images) if img == image][0]
+                            entities[idx].append(mask)
 
-    return images, entities
+    return entities, images, segments
 
 def check_need_prev_normal(layer):
 

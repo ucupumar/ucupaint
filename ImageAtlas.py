@@ -490,7 +490,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
         yp = node.node_tree.yp
 
         if self.all_images:
-            images, entities = get_yp_images_and_entities(yp)
+            entities, images, segments = get_yp_entities_images_and_segments(yp)
         else:
             mapping = get_entity_mapping(context.entity)
             if is_transformed(mapping):
@@ -498,43 +498,48 @@ class YConvertToImageAtlas(bpy.types.Operator):
                 return {'CANCELLED'}
 
             images = [context.image]
-            entities = [context.entity]
+            entities = [[context.entity]]
+            segments = [context.image.yia.segments.get(context.entity.segment_name)]
 
         for i, image in enumerate(images):
             if image.yia.is_image_atlas : continue
-            entity = entities[i]
+            if image.source == 'TILED': continue # UDIM Atlas is not supported yet
 
-            # UDIM Atlas is not supported yet
-            if image.source == 'TILED': continue
+            # Transformed mapping on entity is not valid for conversion
+            valid_entities = []
+            for entity in entities[i]:
+                mapping = get_entity_mapping(entity)
+                if not is_transformed(mapping):
+                    valid_entities.append(entity)
 
-            # Transformed mapping will not converted to image atlas
-            mapping = get_entity_mapping(entity)
-            if is_transformed(mapping): continue
+            if not any(valid_entities):
+                continue
 
             # Get segment
-            segment = get_set_image_atlas_segment(image.size[0], image.size[1], 'TRANSPARENT', hdr=image.is_float)
+            new_segment = get_set_image_atlas_segment(image.size[0], image.size[1], 'TRANSPARENT', hdr=image.is_float)
 
             # Copy image to segment
-            ia_image = segment.id_data
-            copy_image_pixels(image, ia_image, segment)
+            ia_image = new_segment.id_data
+            copy_image_pixels(image, ia_image, new_segment)
 
             # Copy bake info
             if image.y_bake_info.is_baked:
-                copy_id_props(image.y_bake_info, segment.bake_info)
-                segment.bake_info.use_image_atlas = True
+                copy_id_props(image.y_bake_info, new_segment.bake_info)
+                new_segment.bake_info.use_image_atlas = True
 
-            # Set image atlas to entity
-            source = get_entity_source(entity)
-            source.image = ia_image
-            set_segment_mapping(entity, segment, ia_image)
+            for entity in valid_entities:
+                # Set image atlas to entity
+                source = get_entity_source(entity)
+                source.image = ia_image
+                set_segment_mapping(entity, new_segment, ia_image)
 
-            # Set segment name
-            entity.segment_name = segment.name
+                # Set segment name
+                entity.segment_name = new_segment.name
 
-            # Set image to editor
-            if entity == context.entity:
-                update_image_editor_image(bpy.context, ia_image)
-                context.scene.tool_settings.image_paint.canvas = ia_image
+                # Set image to editor
+                if entity == context.entity:
+                    update_image_editor_image(bpy.context, ia_image)
+                    context.scene.tool_settings.image_paint.canvas = ia_image
 
             # Remove image if no one using it
             if image.users == 0:
@@ -565,22 +570,23 @@ class YConvertToStandardImage(bpy.types.Operator):
         yp = node.node_tree.yp
 
         if self.all_images:
-            images, entities = get_yp_images_and_entities(yp)
+            entities, images, segments = get_yp_entities_images_and_segments(yp)
         else:
             images = [context.image]
-            entities = [context.entity]
+            segment = context.image.yia.segments.get(context.entity.segment_name)
+            entities = [get_entities_with_specific_segment(yp, segment)]
+            segments = [segment]
 
         image_atlases = []
 
         for i, image in enumerate(images):
             if not image.yia.is_image_atlas: continue
-            entity = entities[i]
 
-            segment = image.yia.segments.get(entity.segment_name)
+            segment = segments[i]
             if not segment: continue
 
             # Create new image based on segment
-            new_image = bpy.data.images.new(name=entity.name, 
+            new_image = bpy.data.images.new(name=entities[i][0].name,
                     width=segment.width, height=segment.height, alpha=True, float_buffer=image.is_float)
             new_image.colorspace_settings.name = image.colorspace_settings.name
 
@@ -592,19 +598,20 @@ class YConvertToStandardImage(bpy.types.Operator):
                 copy_id_props(segment.bake_info, new_image.y_bake_info)
                 new_image.y_bake_info.use_image_atlas = False
 
-            # Set new image to entity
-            source = get_entity_source(entity)
-            source.image = new_image
-            clear_mapping(entity)
-
             # Mark unused to the segment
             segment.unused = True
-            entity.segment_name = ''
 
-            # Set image to editor
-            if entity == context.entity:
-                update_image_editor_image(bpy.context, new_image)
-                context.scene.tool_settings.image_paint.canvas = new_image
+            for entity in entities[i]:
+                # Set new image to entity
+                source = get_entity_source(entity)
+                source.image = new_image
+                clear_mapping(entity)
+                entity.segment_name = ''
+
+                # Set image to editor
+                if entity == context.entity:
+                    update_image_editor_image(bpy.context, new_image)
+                    context.scene.tool_settings.image_paint.canvas = new_image
 
             if image not in image_atlases:
                 image_atlases.append(image)
