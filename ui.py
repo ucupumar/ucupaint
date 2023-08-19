@@ -2399,7 +2399,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     override_vcol = None
     colorid_vcol = None
     colorid_col = None
-    #entity = None
+    entity = None
 
     if len(yp.layers) > 0:
         layer = yp.layers[yp.active_layer_index]
