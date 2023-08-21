@@ -49,18 +49,29 @@ def get_tile_numbers(objs, uv_name):
 
     if not is_greater_than_330(): return [1001]
 
+    # Get active object
+    obj = bpy.context.object
+    ori_mode = 'OBJECT'
+    if obj in objs and obj.mode != 'OBJECT':
+        ori_mode = obj.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+
     arr = numpy.zeros(0, dtype=numpy.float32)
 
     # Get all uv coordinates
-    for obj in objs:
-        uv = obj.data.uv_layers.get(uv_name)
+    for o in objs:
+        uv = o.data.uv_layers.get(uv_name)
         if not uv: continue
     
-        uv_arr = numpy.zeros(len(obj.data.loops)*2, dtype=numpy.float32)
+        uv_arr = numpy.zeros(len(o.data.loops)*2, dtype=numpy.float32)
         uv.data.foreach_get('uv', uv_arr)
         arr = numpy.append(arr, uv_arr)
 
+    # Tolerance so a value above 1.0 still considered inside 0.0 tile
+    tolerance = 0.1
+
     # Floor array to integer
+    arr -= tolerance
     arr = numpy.floor(arr).astype(int)
 
     # Get unique value only
@@ -79,6 +90,9 @@ def get_tile_numbers(objs, uv_name):
         tile = 1001 + u + v*10
         if tile not in tiles:
             tiles.append(tile)
+    
+    if ori_mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode=ori_mode)
         
     return tiles
 
