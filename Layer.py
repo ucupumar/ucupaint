@@ -525,6 +525,13 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def update_new_layer_uv_map(self, context):
+    if not is_greater_than_330(): return
+
+    mat = get_active_material()
+    objs = get_all_objects_with_same_materials(mat)
+    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+
 class YNewLayer(bpy.types.Operator):
     bl_idname = "node.y_new_layer"
     bl_label = "New Layer"
@@ -615,7 +622,7 @@ class YNewLayer(bpy.types.Operator):
             min=0.0, max=1.0,
             )
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(default='', update=update_new_layer_uv_map)
 
     normal_map_type : EnumProperty(
             name = 'Normal Map Type',

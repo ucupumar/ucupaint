@@ -3,6 +3,7 @@ from bpy.props import *
 from .common import *
 
 UDIM_DIR = 'udim_textures__'
+UV_TOLERANCE = 0.1
 
 def fill_tiles(image, color, width=0, height=0):
     if image.source != 'TILED': return
@@ -58,7 +59,7 @@ def get_tile_numbers(objs, uv_name):
         ori_mode = obj.mode
         bpy.ops.object.mode_set(mode='OBJECT')
 
-    arr = numpy.zeros(0, dtype=numpy.float32)
+    arr = numpy.empty(0, dtype=numpy.float32)
 
     # Get all uv coordinates
     for o in objs:
@@ -73,8 +74,7 @@ def get_tile_numbers(objs, uv_name):
     arr.shape = (arr.shape[0]//2, 2)
 
     # Tolerance to skip value around x.0
-    tolerance = 0.1
-    trange = [tolerance/2.0, 1.0-(tolerance/2.0)]
+    trange = [UV_TOLERANCE/2.0, 1.0-(UV_TOLERANCE/2.0)]
     arr = arr[((arr[:,0]-(numpy.floor(arr[:,0]))) >= trange[0]) &
               ((arr[:,0]-(numpy.floor(arr[:,0]))) <= trange[1]) & 
               ((arr[:,1]-(numpy.floor(arr[:,1]))) >= trange[0]) &
@@ -105,6 +105,39 @@ def get_tile_numbers(objs, uv_name):
     #print('INFO: Getting tile numbers are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         
     return tiles
+
+def is_uvmap_udim(objs, uv_name):
+
+    if not is_greater_than_330(): return False
+
+    #T = time.time()
+
+    # Get active object
+    obj = bpy.context.object
+    ori_mode = 'OBJECT'
+    if obj in objs and obj.mode != 'OBJECT':
+        ori_mode = obj.mode
+        bpy.ops.object.mode_set(mode='OBJECT')
+
+    arr = numpy.empty(0, dtype=numpy.float32)
+
+    # Get all uv coordinates
+    for o in objs:
+        uv = o.data.uv_layers.get(uv_name)
+        if not uv: continue
+    
+        uv_arr = numpy.zeros(len(o.data.loops)*2, dtype=numpy.float32)
+        uv.data.foreach_get('uv', uv_arr)
+        arr = numpy.append(arr, uv_arr)
+
+    if ori_mode != 'OBJECT':
+        bpy.ops.object.mode_set(mode=ori_mode)
+
+    is_udim = numpy.any(arr > 1.0 + UV_TOLERANCE/2)
+
+    #print('INFO: UDIM checking is done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
+    return is_udim
 
 def get_temp_udim_dir():
     if bpy.data.filepath != '':
