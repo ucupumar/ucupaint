@@ -49,6 +49,8 @@ def get_tile_numbers(objs, uv_name):
 
     if not is_greater_than_330(): return [1001]
 
+    #T = time.time()
+
     # Get active object
     obj = bpy.context.object
     ori_mode = 'OBJECT'
@@ -67,15 +69,21 @@ def get_tile_numbers(objs, uv_name):
         uv.data.foreach_get('uv', uv_arr)
         arr = numpy.append(arr, uv_arr)
 
-    # Tolerance so a value above 1.0 still considered inside 0.0 tile
+    # Reshape the array to 2D
+    arr.shape = (arr.shape[0]//2, 2)
+
+    # Tolerance to skip value around x.0
     tolerance = 0.1
+    trange = [tolerance/2.0, 1.0-(tolerance/2.0)]
+    arr = arr[((arr[:,0]-(numpy.floor(arr[:,0]))) >= trange[0]) &
+              ((arr[:,0]-(numpy.floor(arr[:,0]))) <= trange[1]) & 
+              ((arr[:,1]-(numpy.floor(arr[:,1]))) >= trange[0]) &
+              ((arr[:,1]-(numpy.floor(arr[:,1]))) <= trange[1])]
 
     # Floor array to integer
-    arr -= tolerance
     arr = numpy.floor(arr).astype(int)
 
     # Get unique value only
-    arr.shape = (arr.shape[0]//2, 2)
     arr = numpy.unique(arr, axis=0)
     
     # Get the udim representation
@@ -93,6 +101,8 @@ def get_tile_numbers(objs, uv_name):
     
     if ori_mode != 'OBJECT':
         bpy.ops.object.mode_set(mode=ori_mode)
+
+    #print('INFO: Getting tile numbers are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         
     return tiles
 
