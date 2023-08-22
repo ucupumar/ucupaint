@@ -532,6 +532,13 @@ def update_new_layer_uv_map(self, context):
     objs = get_all_objects_with_same_materials(mat)
     self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
 
+def update_new_layer_mask_uv_map(self, context):
+    if not is_greater_than_330(): return
+
+    mat = get_active_material()
+    objs = get_all_objects_with_same_materials(mat)
+    self.use_udim_for_mask = UDIM.is_uvmap_udim(objs, self.mask_uv_name)
+
 class YNewLayer(bpy.types.Operator):
     bl_idname = "node.y_new_layer"
     bl_label = "New Layer"
@@ -612,7 +619,7 @@ class YNewLayer(bpy.types.Operator):
     mask_width : IntProperty(name='Mask Width', default = 1234, min=1, max=4096)
     mask_height : IntProperty(name='Mask Height', default = 1234, min=1, max=4096)
 
-    mask_uv_name : StringProperty(default='')
+    mask_uv_name : StringProperty(default='', update=update_new_layer_mask_uv_map)
     mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
 
     mask_color_id : FloatVectorProperty(
@@ -1484,7 +1491,7 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
     mask_width : IntProperty(name='Mask Width', default = 1234, min=1, max=4096)
     mask_height : IntProperty(name='Mask Height', default = 1234, min=1, max=4096)
 
-    mask_uv_name : StringProperty(default='')
+    mask_uv_name : StringProperty(default='', update=update_new_layer_mask_uv_map)
     mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
 
     use_udim_for_mask : BoolProperty(

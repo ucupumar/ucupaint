@@ -171,6 +171,13 @@ def get_new_mask_name(obj, layer, mask_type):
         items = layer.masks
         return get_unique_name(name, items, surname)
 
+def update_new_mask_uv_map(self, context):
+    if not is_greater_than_330(): return
+
+    mat = get_active_material()
+    objs = get_all_objects_with_same_materials(mat)
+    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_name)
+
 class YNewLayerMask(bpy.types.Operator):
     bl_idname = "node.y_new_layer_mask"
     bl_label = "New Layer Mask"
@@ -216,7 +223,7 @@ class YNewLayerMask(bpy.types.Operator):
             items = texcoord_type_items,
             default = 'UV')
 
-    uv_name : StringProperty(default='')
+    uv_name : StringProperty(default='', update=update_new_mask_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     use_udim : BoolProperty(
