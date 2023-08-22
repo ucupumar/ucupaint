@@ -700,8 +700,8 @@ class YBakeChannelToVcol(bpy.types.Operator):
             for ob in get_scene_objects():
                 if ob.type != 'MESH': continue
                 if is_greater_than_280() and ob.hide_viewport: continue
-                if ob.hide_render: continue
-                if not in_renderable_layer_collection(ob): continue
+                #if ob.hide_render: continue
+                #if not in_renderable_layer_collection(ob): continue
                 if len(get_uv_layers(ob)) == 0: continue
                 if len(ob.data.polygons) == 0: continue
                 for i, m in enumerate(ob.data.materials):
@@ -763,7 +763,6 @@ class YBakeChannelToVcol(bpy.types.Operator):
 
         # Bake channel
         bake_to_vcol(mat, node, channel, extra_channel, self.emission_multiplier)
-        #return {'FINISHED'}
 
         # Recover bake settings
         recover_bake_settings(book, yp)
