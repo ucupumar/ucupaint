@@ -1331,7 +1331,7 @@ def set_default_value(node, input_name_or_index, value):
     # So try to reload the group again
     # Tested on Blender 3.6.2
     counter = 0
-    while node.type == 'GROUP' and len(node.inputs) == 0 and counter < 20:
+    while node.type == 'GROUP' and len(node.inputs) == 0 and counter < 64:
         print("HACK: Trying to set group '" + node.node_tree.name + "' again!")
         tree_name = node.node_tree.name
         node.node_tree = bpy.data.node_groups.get(tree_name)
