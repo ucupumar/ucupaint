@@ -81,7 +81,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     check_layer_bump_process(layer, tree)
 
     # Check layer io
-    check_layer_tree_ios(layer, tree)
+    check_all_layer_channel_io_and_nodes(layer, tree)
 
     # Check mask linear
     check_mask_image_linear_node(mask)

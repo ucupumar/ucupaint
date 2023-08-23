@@ -408,6 +408,9 @@ class YRenameUVMaterial(bpy.types.Operator):
             if height_ch and height_ch.main_uv == self.uv_map:
                 height_ch.main_uv = new_uv_name
 
+            # Refresh UV
+            check_uv_nodes(yp)
+
         return {'FINISHED'}
 
 class YQuickYPaintNodeSetup(bpy.types.Operator):
