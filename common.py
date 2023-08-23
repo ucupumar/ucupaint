@@ -1325,6 +1325,19 @@ def unmute_node(tree, entity, prop):
     node = tree.nodes.get(getattr(entity, prop))
     if node: node.mute = False
 
+def set_default_value(node, input_name_or_index, value):
+    inp = None
+
+    if type(input_name_or_index) == int:
+        if input_name_or_index < len(node.inputs):
+            inp = node.inputs[input_name_or_index]
+    else: inp = node.inputs.get(input_name_or_index)
+
+    if inp: inp.default_value = value
+    else: 
+        debug_name = node.node_tree.name if node.type == 'GROUP' and node.node_tree else node.name
+        print("WARNING: Input '" + str(input_name_or_index) + "' in '" + debug_name + "' is not found!")
+
 def new_node(tree, entity, prop, node_id_name, label=''):
     ''' Create new node '''
     if not hasattr(entity, prop): return

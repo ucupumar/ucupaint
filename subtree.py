@@ -630,7 +630,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 if not mix:
                     mix = new_node(tree, c, 'mix', 'ShaderNodeGroup', 'Mask Blend')
                     mix.node_tree = lib.get_smooth_mix_node(mask.blend_type, layer.type)
-                    mix.inputs[0].default_value = mask.intensity_value
+                    set_default_value(mix, 0, mask.intensity_value)
             else:
                 mix = tree.nodes.get(c.mix)
                 if mix and mix.type not in {'MIX_RGB', 'MIX'}:
@@ -1820,26 +1820,26 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
     if ch.normal_map_type == 'NORMAL_MAP':
         if ch.enable_transition_bump:
-            height_proc.inputs['Bump Height'].default_value = get_transition_bump_max_distance(ch)
+            set_default_value(height_proc, 'Bump Height', get_transition_bump_max_distance(ch))
         else: 
-            height_proc.inputs['Bump Height'].default_value = ch.normal_bump_distance
+            set_default_value(height_proc, 'Bump Height', ch.normal_bump_distance)
     else:
         if layer.type != 'GROUP':
-            height_proc.inputs['Value Max Height'].default_value = get_layer_channel_bump_distance(layer, ch)
+            set_default_value(height_proc, 'Value Max Height', get_layer_channel_bump_distance(layer, ch))
         if ch.enable_transition_bump:
-            height_proc.inputs['Delta'].default_value = get_transition_disp_delta(layer, ch)
-            height_proc.inputs['Transition Max Height'].default_value = get_transition_bump_max_distance(ch)
+            set_default_value(height_proc, 'Delta', get_transition_disp_delta(layer, ch))
+            set_default_value(height_proc, 'Transition Max Height', get_transition_bump_max_distance(ch))
 
     #height_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
-    height_proc.inputs['Intensity'].default_value = ch.intensity_value
+    set_default_value(height_proc, 'Intensity', ch.intensity_value)
 
     if ch.enable_transition_bump and ch.enable and ch.transition_bump_crease and not ch.transition_bump_flip:
-        height_proc.inputs['Crease Factor'].default_value = ch.transition_bump_crease_factor
-        height_proc.inputs['Crease Power'].default_value = ch.transition_bump_crease_power
+        set_default_value(height_proc, 'Crease Factor', ch.transition_bump_crease_factor)
+        set_default_value(height_proc, 'Crease Power', ch.transition_bump_crease_power)
 
         if not write_height and not root_ch.enable_smooth_bump:
-            height_proc.inputs['Remaining Filter'].default_value = 1.0
-        else: height_proc.inputs['Remaining Filter'].default_value = 0.0
+            set_default_value(height_proc, 'Remaining Filter', 1.0)
+        else: set_default_value(height_proc, 'Remaining Filter', 0.0)
 
     # Height Blend
 

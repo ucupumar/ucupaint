@@ -390,8 +390,8 @@ def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
     if label == '': label = 'Intensity Multiplier'
     im = new_node(tree, obj, prop, 'ShaderNodeGroup', label)
     im.node_tree = get_node_tree_lib(INTENSITY_MULTIPLIER)
-    im.inputs[1].default_value = sharpness
-    im.inputs['Sharpen'].default_value = 1.0
+    set_default_value(im, 1, sharpness)
+    set_default_value(im, 'Sharpen', 1.0)
 
     if BLENDER_28_GROUP_INPUT_HACK:
         duplicate_lib_node_tree(im)
