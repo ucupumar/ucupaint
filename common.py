@@ -1326,6 +1326,17 @@ def unmute_node(tree, entity, prop):
     if node: node.mute = False
 
 def set_default_value(node, input_name_or_index, value):
+
+    # HACK: Sometimes Blender bug will cause node with no inputs
+    # So try to reload the group again
+    # Tested on Blender 3.6.2
+    counter = 0
+    while node.type == 'GROUP' and len(node.inputs) == 0 and counter < 20:
+        print("HACK: Trying to set group '" + node.node_tree.name + "' again!")
+        tree_name = node.node_tree.name
+        node.node_tree = bpy.data.node_groups.get(tree_name)
+        counter += 1
+
     inp = None
 
     if type(input_name_or_index) == int:
