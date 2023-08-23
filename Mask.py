@@ -80,6 +80,9 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     # Check the need of bump process
     check_layer_bump_process(layer, tree)
 
+    # Check uv maps
+    check_uv_nodes(yp)
+
     # Check layer io
     check_all_layer_channel_io_and_nodes(layer, tree)
 
