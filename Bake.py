@@ -606,6 +606,11 @@ class YBakeChannelToVcol(bpy.types.Operator):
     bl_label = "Bake channel to vertex color"
     bl_options = {'REGISTER', 'UNDO'}
 
+    all_materials : BoolProperty(
+            name='Bake All Materials',
+            description='Bake all materials with ucupaint nodes rather than just the active one',
+            default=False)
+
     vcol_name : StringProperty(
             name='Target Vertex Color Name', 
             description="Target vertex color name, it will create one if it doesn't exists",
@@ -673,110 +678,111 @@ class YBakeChannelToVcol(bpy.types.Operator):
             col.prop(self, 'force_first_index', text='')
 
     def execute(self, context):
-        obj = context.object
-        mat = get_active_material()
-        node = get_active_ypaint_node()
-        tree = node.node_tree
-        yp = tree.yp
-        channel = yp.channels[yp.active_channel_index]
-
         if not is_greater_than_292():
             self.report({'ERROR'}, "You need at least Blender 2.92 to use this feature!")
             return {'CANCELLED'}
 
-        #if not obj.mode != 'OBJECT':
-        #    self.report({'ERROR'}, "This operator only works on object mode!")
-        #    return {'CANCELLED'}
+        mat = get_active_material()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        channel = yp.channels[yp.active_channel_index]
+        channel_name = channel.name
 
         book = remember_before_bake(yp)
 
-        # Get all objects using material
-        objs = [obj]
-        meshes = [obj.data]
-        if mat.users > 1:
-            # Emptying the lists again in case active object is problematic
-            objs = []
-            meshes = []
-            for ob in get_scene_objects():
-                if ob.type != 'MESH': continue
-                if is_greater_than_280() and ob.hide_viewport: continue
-                #if ob.hide_render: continue
-                #if not in_renderable_layer_collection(ob): continue
-                if len(get_uv_layers(ob)) == 0: continue
-                if len(ob.data.polygons) == 0: continue
-                for i, m in enumerate(ob.data.materials):
-                    if m == mat:
-                        ob.active_material_index = i
-                        if ob not in objs and ob.data not in meshes:
-                            objs.append(ob)
-                            meshes.append(ob.data)
+        if self.all_materials:
+            mats = get_all_materials_with_yp_nodes()
+        else: mats = [mat]
 
-        # Check vertex color
-        for ob in objs:
-            vcols = get_vertex_colors(ob)
-            vcol = vcols.get(self.vcol_name)
+        for mat in mats:
+            for node in mat.node_tree.nodes:
+                if node.type != 'GROUP' or not node.node_tree or not node.node_tree.yp.is_ypaint_node: continue
+                tree = node.node_tree
+                yp = tree.yp
+                channel = yp.channels.get(channel_name)
+                if not channel: continue
 
-            # Set index to first so new vcol will copy their value
-            if len(vcols) > 0:
-                first_vcol = vcols[0]
-                set_active_vertex_color(ob, first_vcol)
+                # Get all objects using material
+                objs = []
+                meshes = []
+                for ob in get_scene_objects():
+                    if ob.type != 'MESH': continue
+                    if is_greater_than_280() and ob.hide_viewport: continue
+                    #if not in_renderable_layer_collection(ob): continue
+                    if len(ob.data.polygons) == 0: continue
+                    for i, m in enumerate(ob.data.materials):
+                        if m == mat:
+                            ob.active_material_index = i
+                            if ob not in objs and ob.data not in meshes:
+                                objs.append(ob)
+                                meshes.append(ob.data)
 
-            if not vcol:
-                try: 
-                    vcol = new_vertex_color(ob, self.vcol_name)
-                except Exception as e: print(e)
+                if not objs: continue
 
-            # Get newly created vcol name
-            vcol_name = vcol.name
+                set_active_object(objs[i])
 
-            # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-            if self.force_first_index and not is_version_320():
-                move_vcol(ob, get_vcol_index(ob, vcol.name), 0)
+                # Check vertex color
+                for ob in objs:
+                    vcols = get_vertex_colors(ob)
+                    vcol = vcols.get(self.vcol_name)
 
-            # Get the newly created vcol to avoid pointer error
-            vcol = vcols.get(vcol_name)
-            set_active_vertex_color(ob, vcol)
+                    # Set index to first so new vcol will copy their value
+                    if len(vcols) > 0:
+                        first_vcol = vcols[0]
+                        set_active_vertex_color(ob, first_vcol)
 
-        # Multi materials setup
-        ori_mat_ids = {}
-        for ob in objs:
+                    if not vcol:
+                        try: 
+                            vcol = new_vertex_color(ob, self.vcol_name)
+                        except Exception as e: print(e)
 
-            # Need to assign all polygon to active material if there are multiple materials
-            ori_mat_ids[ob.name] = []
+                    # Get newly created vcol name
+                    vcol_name = vcol.name
 
-            if len(ob.data.materials) > 1:
+                    # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+                    if self.force_first_index and not is_version_320():
+                        move_vcol(ob, get_vcol_index(ob, vcol.name), 0)
 
-                active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat][0]
-                for p in ob.data.polygons:
+                    # Get the newly created vcol to avoid pointer error
+                    vcol = vcols.get(vcol_name)
+                    set_active_vertex_color(ob, vcol)
 
-                    # Set active mat
-                    ori_mat_ids[ob.name].append(p.material_index)
-                    p.material_index = active_mat_id
+                # Multi materials setup
+                ori_mat_ids = {}
+                for ob in objs:
 
-        # Prepare bake settings
-        prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device='CPU', bake_target='VERTEX_COLORS')
+                    # Need to assign all polygon to active material if there are multiple materials
+                    ori_mat_ids[ob.name] = []
 
-        # Get extra channel
-        extra_channel = None
-        if self.show_emission_option and self.add_emission:
-            extra_channel = yp.channels.get('Emission')
+                    if len(ob.data.materials) > 1:
 
-        # Bake channel
-        bake_to_vcol(mat, node, channel, extra_channel, self.emission_multiplier)
+                        active_mat_id = [i for i, m in enumerate(ob.data.materials) if m == mat][0]
+                        for p in ob.data.polygons:
+
+                            # Set active mat
+                            ori_mat_ids[ob.name].append(p.material_index)
+                            p.material_index = active_mat_id
+
+                # Prepare bake settings
+                prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device='CPU', bake_target='VERTEX_COLORS')
+
+                # Get extra channel
+                extra_channel = None
+                if self.show_emission_option and self.add_emission:
+                    extra_channel = yp.channels.get('Emission')
+
+                # Bake channel
+                bake_to_vcol(mat, node, channel, extra_channel, self.emission_multiplier)
+
+                for ob in objs:
+                    # Recover material index
+                    if ori_mat_ids[ob.name]:
+                        for i, p in enumerate(ob.data.polygons):
+                            if ori_mat_ids[ob.name][i] != p.material_index:
+                                p.material_index = ori_mat_ids[ob.name][i]
 
         # Recover bake settings
         recover_bake_settings(book, yp)
-
-        for ob in objs:
-            # Recover material index
-            if ori_mat_ids[ob.name]:
-                for i, p in enumerate(ob.data.polygons):
-                    if ori_mat_ids[ob.name][i] != p.material_index:
-                        p.material_index = ori_mat_ids[ob.name][i]
-
-        # Remap vertex color indices
-        #for ob in objs:
-        #    pass
 
         return {'FINISHED'}
 

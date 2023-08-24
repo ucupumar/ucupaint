@@ -3910,6 +3910,19 @@ def is_mesh_flat_shaded(mesh):
 
     return False
 
+def get_all_materials_with_yp_nodes(mesh_only=True):
+    mats = []
+
+    for obj in get_scene_objects():
+        if mesh_only and obj.type != 'MESH': continue
+        if not hasattr(obj, 'data') or not hasattr(obj.data, 'materials'): continue
+        for mat in obj.data.materials:
+            if any([n for n in mat.node_tree.nodes if n.type == 'GROUP' and n.node_tree and n.node_tree.yp.is_ypaint_node]):
+                if mat not in mats:
+                    mats.append(mat)
+
+    return mats
+
 def get_all_objects_with_same_materials(mat, mesh_only=False, uv_name='', selected_only=False):
     objs = []
 
