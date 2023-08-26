@@ -17,6 +17,7 @@ JOIN_PROBLEMATIC_TEXCOORDS = {
         }
 
 EMPTY_IMG_NODE = '___EMPTY_IMAGE__'
+ACTIVE_UV_NODE = '___ACTIVE_UV__'
 
 def get_problematic_modifiers(obj):
     pms = []
@@ -168,6 +169,37 @@ def remember_before_bake(yp=None, mat=None):
 
     return book
 
+def get_active_render_uv_node(tree, active_render_uv_name):
+    act_uv = tree.nodes.get(ACTIVE_UV_NODE)
+    if not act_uv:
+        act_uv = tree.nodes.new('ShaderNodeUVMap')
+        act_uv.name = ACTIVE_UV_NODE
+        act_uv.uv_map = active_render_uv_name
+
+    return act_uv
+
+def add_active_render_uv_node(tree, active_render_uv_name):
+    for n in tree.nodes:
+        # Check for vector input
+        if n.bl_idname.startswith('ShaderNodeTex'):
+            vec = n.inputs.get('Vector')
+            if vec and len(vec.links) == 0:
+                act_uv = get_active_render_uv_node(tree, active_render_uv_name)
+                tree.links.new(act_uv.outputs[0], vec)
+
+        # Check for texcoord node
+        if n.type == 'TEX_COORD':
+            for l in n.outputs['UV'].links:
+                act_uv = get_active_render_uv_node(tree, active_render_uv_name)
+                tree.links.new(act_uv.outputs[0], l.to_socket)
+
+        # Check for normal map
+        if n.type == 'NORMAL_MAP':
+            n.uv_map = active_render_uv_name
+
+        if n.type == 'GROUP' and n.node_tree and not n.node_tree.yp.is_ypaint_node:
+            add_active_render_uv_node(n.node_tree, active_render_uv_name)
+
 def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
@@ -309,16 +341,6 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
                     mod.show_viewport = False
                     book['obj_mods_lib'][obj.name]['disabled_viewport_mods'].append(mod.name)
 
-    # Set active uv layers
-    if uv_map != '':
-        for obj in objs:
-            #set_active_uv_layer(obj, uv_map)
-            uv_layers = get_uv_layers(obj)
-            uv = uv_layers.get(uv_map)
-            if uv: 
-                uv_layers.active = uv
-                uv.active_render = True
-
     # Disable auto temp uv update
     #ypui.disable_auto_temp_uv_update = True
 
@@ -330,15 +352,41 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if book['parallax_ch']:
         book['parallax_ch'].enable_parallax = False
 
-    # Create temporary image texture node to make sure
-    # other materials inside single object did not bake to their active image
     for o in objs:
         mat = o.active_material
+
+        # Add extra uv nodes for non connected texture nodes outside yp node
+        if uv_map != '':
+
+            uv_layers = get_uv_layers(o)
+            active_render_uvs = [u for u in uv_layers if u.active_render]
+
+            if active_render_uvs:
+                active_render_uv = active_render_uvs[0]
+
+                # Only add new uv node if target uv map is different than active render uv
+                if active_render_uv.name != uv_map:
+                    add_active_render_uv_node(mat.node_tree, active_render_uv.name)
+
         for m in o.data.materials:
-            if m == mat or not m.use_nodes: continue
-            temp = m.node_tree.nodes.new('ShaderNodeTexImage')
-            temp.name = EMPTY_IMG_NODE
-            m.node_tree.nodes.active = temp
+            if not m.use_nodes: continue
+
+            # Create temporary image texture node to make sure
+            # other materials inside single object did not bake to their active image
+            if m != mat:
+                temp = m.node_tree.nodes.new('ShaderNodeTexImage')
+                temp.name = EMPTY_IMG_NODE
+                m.node_tree.nodes.active = temp
+
+    # Set active uv layers
+    if uv_map != '':
+        for obj in objs:
+            #set_active_uv_layer(obj, uv_map)
+            uv_layers = get_uv_layers(obj)
+            uv = uv_layers.get(uv_map)
+            if uv: 
+                uv_layers.active = uv
+                uv.active_render = True
 
 def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene = book['scene']
@@ -508,9 +556,11 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
                 active_node = m.node_tree.nodes.get(book['ori_mat_objs_active_nodes'][i][j])
                 m.node_tree.nodes.active = active_node
 
-                # Remove empty tex node
+                # Remove temporary nodes
                 temp = m.node_tree.nodes.get(EMPTY_IMG_NODE)
                 if temp: m.node_tree.nodes.remove(temp)
+                #act_uv = m.node_tree.nodes.get(ACTIVE_UV_NODE)
+                #if act_uv: m.node_tree.nodes.remove(act_uv)
 
 def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GPU'):
     T = time.time()
