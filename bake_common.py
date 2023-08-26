@@ -1428,10 +1428,13 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
                 elif m.type == 'MULTIRES':
                     if m.total_levels > m.levels:
                         m.levels = m.total_levels
-                try:
-                    bpy.ops.object.modifier_apply(modifier=m.name)
-                    continue
-                except Exception as e: print(e)
+
+                # Only apply modifier with show viewport on
+                if m.show_viewport:
+                    try:
+                        bpy.ops.object.modifier_apply(modifier=m.name)
+                        continue
+                    except Exception as e: print(e)
 
             bpy.ops.object.modifier_remove(modifier=m.name)
 
