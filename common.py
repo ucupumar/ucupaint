@@ -1038,11 +1038,18 @@ def get_active_ypaint_node():
 #    if tree.users == 0:
 #        bpy.data.node_groups.remove(tree)
 
-def simple_remove_node(tree, node, remove_data=True):
+def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
     #if not node: return
     scene = bpy.context.scene
 
-    #print(node.name)
+    # Reconneect links if input and output has same name
+    if passthrough_links:
+        for inp in node.inputs:
+            if len(inp.links) == 0: continue
+            outp = node.outputs.get(inp.name)
+            if not outp: continue
+            for link in outp.links:
+                tree.links.new(inp.links[0].from_socket, link.to_socket)
 
     if remove_data:
         if node.bl_idname == 'ShaderNodeTexImage':
