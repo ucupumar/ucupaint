@@ -576,8 +576,12 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         else:
             loc = main_bsdf.location.copy()
 
-            # Move away already exists nodes
+            # Move away already existing nodes
             for n in mat.node_tree.nodes:
+
+                # Skip nodes with parents
+                if n.parent: continue
+
                 if transp_node_needed and n.location.x > loc.x:
                     n.location.x += 200
 
