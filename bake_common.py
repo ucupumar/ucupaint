@@ -35,7 +35,25 @@ def get_problematic_modifiers(obj):
 
     return pms
 
-def is_join_objects_problematic(yp):
+''' Search for texcoord node that output join problematic texcoords outside yp '''
+def search_join_problematic_texcoord(tree, node):
+    for inp in node.inputs:
+        for link in inp.links:
+            from_node = link.from_node
+            from_socket = link.from_socket
+            if from_node.type == 'TEX_COORD' and from_socket.name in JOIN_PROBLEMATIC_TEXCOORDS:
+                return True
+            elif node.type == 'GROUP' and node.node_tree and not node.node_tree.yp.is_ypaint_node:
+                output = [n for n in node.node_tree.nodes if n.type == 'GROUP_OUTPUT' and n.is_active_output]
+                if output:
+                    if search_join_problematic_texcoord(node.node_tree, output[0]):
+                        return True
+            if search_join_problematic_texcoord(tree, from_node):
+                return True
+
+    return False
+
+def is_join_objects_problematic(yp, mat=None):
     for layer in yp.layers:
 
         for mask in layer.masks:
@@ -48,6 +66,13 @@ def is_join_objects_problematic(yp):
             continue
         if layer.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS:
             return True
+
+    if mat:
+        output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+        if output: 
+            output = output[0]
+            if search_join_problematic_texcoord(mat.node_tree, output):
+                return True
 
     return False
 
