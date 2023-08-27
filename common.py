@@ -2794,23 +2794,16 @@ def refresh_temp_uv(obj, entity):
         #print('Channel!')
     else: return False
 
+    img = source.image
+    if not img or not is_transformed(mapping):
+        return False
+
     set_active_object(obj)
 
     # Cannot do this on edit mode
     ori_mode = obj.mode
     if ori_mode == 'EDIT':
         bpy.ops.object.mode_set(mode='OBJECT')
-
-    if not is_transformed(mapping):
-        if ori_mode == 'EDIT':
-            bpy.ops.object.mode_set(mode='EDIT')
-        return False
-
-    img = source.image
-    if not img: 
-        if ori_mode == 'EDIT':
-            bpy.ops.object.mode_set(mode='EDIT')
-        return False
 
     # New uv layers
     temp_uv_layer = uv_layers.new(name=TEMP_UV)
