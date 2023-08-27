@@ -4736,7 +4736,7 @@ def copy_image_pixels(src, dest, segment=None, segment_src=None):
         source_pxs = list(src.pixels)
 
         for y in range(height):
-            source_offset_y = width * 4 * (y + src_start_y)
+            source_offset_y = src.size[0] * 4 * (y + src_start_y)
             offset_y = dest.size[0] * 4 * (y + start_y)
             for x in range(width):
                 source_offset_x = 4 * (x + src_start_x)
