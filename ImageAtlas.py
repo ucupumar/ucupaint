@@ -531,7 +531,6 @@ class YConvertToImageAtlas(bpy.types.Operator):
                 # Set image atlas to entity
                 source = get_entity_source(entity)
                 source.image = ia_image
-                set_segment_mapping(entity, new_segment, ia_image)
 
                 # Set segment name
                 entity.segment_name = new_segment.name
@@ -540,6 +539,10 @@ class YConvertToImageAtlas(bpy.types.Operator):
                 if entity == context.entity:
                     update_image_editor_image(bpy.context, ia_image)
                     context.scene.tool_settings.image_paint.canvas = ia_image
+
+                # Update mapping
+                update_mapping(entity)
+                set_uv_neighbor_resolution(entity)
 
             # Remove image if no one using it
             if image.users == 0:
@@ -612,6 +615,9 @@ class YConvertToStandardImage(bpy.types.Operator):
                 if entity == context.entity:
                     update_image_editor_image(bpy.context, new_image)
                     context.scene.tool_settings.image_paint.canvas = new_image
+
+                # Set UV Neighbor resolution
+                set_uv_neighbor_resolution(entity)
 
             if image not in image_atlases:
                 image_atlases.append(image)
