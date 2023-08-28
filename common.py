@@ -2453,7 +2453,17 @@ def is_valid_to_remove_bump_nodes(layer, ch):
 
     return False
 
-def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=None):
+def get_correct_uv_neighbor_resolution(ch, image=None):
+
+    res_x = image.size[0] if image else 1000
+    res_y = image.size[1] if image else 1000
+
+    res_x /= ch.bump_smooth_multiplier
+    res_y /= ch.bump_smooth_multiplier
+
+    return res_x, res_y
+
+def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None):
 
     yp = entity.id_data.yp
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -2461,21 +2471,20 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
     m3 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity.path_from_id())
 
     if m1: 
+        layer = yp.layers[int(m1.group(1))]
         tree = get_tree(entity)
-        if not mapping: mapping = get_layer_mapping(entity)
         if not source: source = get_layer_source(entity)
         entity_type = entity.type
         scale = entity.scale
     elif m2: 
-        tree = get_tree(yp.layers[int(m2.group(1))])
-        if not mapping: mapping = get_mask_mapping(entity)
+        layer = yp.layers[int(m2.group(1))]
+        tree = get_tree(layer)
         if not source: source = get_mask_source(entity)
         entity_type = entity.type
         scale = entity.scale
     elif m3: 
         layer = yp.layers[int(m3.group(1))]
         tree = get_tree(layer)
-        if not mapping: mapping = get_layer_mapping(layer)
         if not source: source = get_channel_source(entity, layer, tree)
         entity_type = entity.override_type
         scale = layer.scale
@@ -2486,19 +2495,19 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, mapping=No
 
     if 'ResX' not in uv_neighbor.inputs: return
 
-    #if entity.type == 'IMAGE' and source.image:
-    if entity_type == 'IMAGE' and source.image:
-        #if is_greater_than_281():
-        #    uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.inputs[3].default_value[0]
-        #    uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.inputs[3].default_value[1]
-        #else:
-        #    uv_neighbor.inputs['ResX'].default_value = source.image.size[0] * mapping.scale[0]
-        #    uv_neighbor.inputs['ResY'].default_value = source.image.size[1] * mapping.scale[1]
-        uv_neighbor.inputs['ResX'].default_value = source.image.size[0] #* scale[0]
-        uv_neighbor.inputs['ResY'].default_value = source.image.size[1] #* scale[1]
-    else:
-        uv_neighbor.inputs['ResX'].default_value = 1000.0
-        uv_neighbor.inputs['ResY'].default_value = 1000.0
+    # Get height channel
+    height_ch = get_height_channel(layer)
+    if not height_ch: return
+
+    # Get Image
+    image = source.image if entity_type == 'IMAGE' else None
+    
+    # Get correct resolution
+    res_x, res_y = get_correct_uv_neighbor_resolution(height_ch, image)
+
+    # Set UV Neighbor resolution
+    uv_neighbor.inputs['ResX'].default_value = res_x
+    uv_neighbor.inputs['ResY'].default_value = res_y
 
 def clear_mapping(entity):
 

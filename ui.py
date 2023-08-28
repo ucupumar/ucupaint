@@ -1323,7 +1323,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
         if root_ch.type == 'NORMAL':
 
-            #if ch.normal_map_type == 'FINE_BUMP_MAP' and image:
             if root_ch.enable_smooth_bump and image:
 
                 uv_neighbor = layer_tree.nodes.get(layer.uv_neighbor)
@@ -1331,18 +1330,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                     cur_x = uv_neighbor.inputs[1].default_value 
                     cur_y = uv_neighbor.inputs[2].default_value 
 
-                    mapping = get_layer_mapping(layer)
-                    if is_greater_than_281():
-                        correct_x = image.size[0] #* mapping.inputs[3].default_value[0]
-                        correct_y = image.size[1] #* mapping.inputs[3].default_value[1]
-                    else:
-                        correct_x = image.size[0] #* mapping.scale[0]
-                        correct_y = image.size[1] #* mapping.scale[1]
+                    correct_x, correct_y = get_correct_uv_neighbor_resolution(ch, image)
 
-                    #print('X:', correct_x, cur_x)
-                    #print('Y:', correct_y, cur_y)
-
-                    if cur_x != correct_x or cur_y != correct_y:
+                    if round(cur_x, 2) != round(correct_x, 2) or round(cur_y, 2) != round(correct_y, 2):
                         brow = mcol.row(align=True)
                         brow.alert = True
                         brow.context_pointer_set('channel', ch)
@@ -1527,6 +1517,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                         brow.label(text='Max Height:') #, icon_value=lib.get_icon('input'))
                         brow.active == is_bump_distance_relevant(layer, ch)
                         brow.prop(ch, 'bump_distance', text='')
+                        if root_ch.enable_smooth_bump:
+                            brow = cccol.row(align=True)
+                            brow.label(text='Smooth Multiplier:') 
+                            brow.prop(ch, 'bump_smooth_multiplier', text='')
 
                     if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}: 
                         brow = cccol.row(align=True)
@@ -1539,12 +1533,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                         brow.prop(ch, 'normal_bump_distance', text='')
 
                     #if any(layer.masks):
-                    brow = cccol.row(align=True)
-                    #write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
-                    write_height = get_write_height(ch)
-                    brow.active = not ch.enable_transition_bump and any(layer.masks) and not write_height
-                    brow.label(text='Affected Masks:') #, icon_value=lib.get_icon('input'))
-                    brow.prop(ch, 'transition_bump_chain', text='')
+                    if not ch.write_height and any(layer.masks):
+                        brow = cccol.row(align=True)
+                        #write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
+                        write_height = get_write_height(ch)
+                        brow.active = not ch.enable_transition_bump and any(layer.masks) and not write_height
+                        brow.label(text='Affected Masks:') #, icon_value=lib.get_icon('input'))
+                        brow.prop(ch, 'transition_bump_chain', text='')
 
                 #brow = cccol.row(align=True)
                 #brow.label(text='Invert Backface Normal')

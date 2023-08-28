@@ -4232,6 +4232,19 @@ def update_bump_distance(self, context):
 
     update_displacement_height_ratio(root_ch)
 
+def update_bump_smooth_multiplier(self, context):
+    group_tree = self.id_data
+    yp = group_tree.yp
+    if yp.halt_update: return
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    root_ch = yp.channels[int(m.group(2))]
+    tree = get_tree(layer)
+
+    if self.override and self.override_type != 'DEFAULT':
+        set_uv_neighbor_resolution(self)
+    else: set_uv_neighbor_resolution(layer)
+
 def update_layer_input(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -4748,6 +4761,12 @@ class YLayerChannel(bpy.types.PropertyGroup):
             default=0.05, min=-1.0, max=1.0, precision=3, # step=1,
             update=update_bump_distance)
 
+    bump_smooth_multiplier : FloatProperty(
+        name = 'Smooth Bump Step Multiplier',
+        description = 'Multiply the smooth bump step.\n(The default step is based on image resolution or 1000 for generated blender texture)',
+        default=1.0, min=0.1, max=10.0, 
+        update=update_bump_smooth_multiplier)
+
     normal_bump_distance : FloatProperty(
             name='Bump Height Range for normal', 
             description= 'Bump height range for normal channel.\n(White equals this value, black equals negative of this value)', 
@@ -4771,7 +4790,7 @@ class YLayerChannel(bpy.types.PropertyGroup):
         description = 'Normal strength',
         default=1.0, min=0.0, max=10.0, 
         update=update_normal_strength)
-    
+
     image_flip_y : BoolProperty(
             name = 'Image Flip Y',
             description = "Image Flip Y (Use this if you're using normal map created for DirectX application) ",

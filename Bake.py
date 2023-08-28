@@ -595,6 +595,9 @@ class YResizeImage(bpy.types.Operator):
                 segment.unused = True
                 update_mapping(entity)
 
+        # Update UV neighbor resolution
+        set_uv_neighbor_resolution(entity)
+
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
 
