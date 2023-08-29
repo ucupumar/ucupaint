@@ -3000,30 +3000,37 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
 
         group_node = get_active_ypaint_node()
         inputs = group_node.inputs
+        outputs = group_node.outputs
         yp = group_node.node_tree.yp
+
+        input_index = item.io_index
+        output_index = get_output_index(item)
 
         row = layout.row()
 
-        #if hasattr(lib, 'custom_icons'):
         icon_value = lib.custom_icons[lib.channel_custom_icon_dict[item.type]].icon_id
         row.prop(item, 'name', text='', emboss=False, icon_value=icon_value)
-        #else: row.prop(item, 'name', text='', emboss=False, icon=lib.channel_icon_dict[item.type])
 
         if not yp.use_baked or item.no_layer_using:
             if item.type == 'RGB':
                 row = row.row(align=True)
 
-            if len(inputs[item.io_index].links) == 0:
+            if len(outputs[output_index].links) == 0:
+                row.label(text='', icon='ERROR')
+
+            elif len(inputs[input_index].links) == 0:
                 if item.type == 'VALUE':
-                    row.prop(inputs[item.io_index], 'default_value', text='') #, emboss=False)
+                    row.prop(inputs[input_index], 'default_value', text='') #, emboss=False)
                 elif item.type == 'RGB':
-                    row.prop(inputs[item.io_index], 'default_value', text='', icon='COLOR')
+                    row.prop(inputs[input_index], 'default_value', text='', icon='COLOR')
             else:
                 row.label(text='', icon='LINKED')
 
             if item.type=='RGB' and item.enable_alpha:
-                if len(inputs[item.io_index+1].links) == 0:
-                    row.prop(inputs[item.io_index+1], 'default_value', text='')
+                if len(outputs[output_index+1].links) == 0:
+                    row.label(text='', icon='ERROR')
+                elif len(inputs[input_index+1].links) == 0:
+                    row.prop(inputs[input_index+1], 'default_value', text='')
                 else: row.label(text='', icon='LINKED')
 
 class NODE_UL_YPaint_layers(bpy.types.UIList):

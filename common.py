@@ -2077,6 +2077,20 @@ def fix_io_index(item, items, correct_index):
     if cur_index and cur_index[0] != correct_index:
         items.move(cur_index[0], correct_index)
 
+def get_output_index(root_ch):
+    yp = root_ch.id_data.yp
+
+    output_index = root_ch.io_index
+
+    # Check if there's normal channel above current channel because it has extra output
+    for ch in yp.channels:
+        if ch.type == 'NORMAL' and ch != root_ch:
+            output_index += 1
+        if ch == root_ch:
+            break
+
+    return output_index
+
 def get_layer_depth(layer):
 
     yp = layer.id_data.yp

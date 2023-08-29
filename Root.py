@@ -1965,20 +1965,12 @@ def update_channel_name(self, context):
         return
 
     input_index = self.io_index
-    output_index = self.io_index
-
-    # Check if there's normal channel above current channel because it has extra output
-    for ch in yp.channels:
-        if ch.type == 'NORMAL' and ch != self:
-            output_index += 1
-        if ch == self:
-            break
+    output_index = get_output_index(self)
 
     group_tree.inputs[input_index].name = self.name
     group_tree.outputs[output_index].name = self.name
 
     shift = 1
-    #if self.type == 'RGB' and self.enable_alpha:
     if self.enable_alpha:
         group_tree.inputs[input_index+shift].name = self.name + io_suffix['ALPHA']
         group_tree.outputs[output_index+shift].name = self.name + io_suffix['ALPHA']
