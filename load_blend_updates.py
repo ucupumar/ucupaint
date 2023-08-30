@@ -569,6 +569,20 @@ def get_inside_group_update_names(tree, update_names):
 
     return update_names
 
+def fix_missing_lib_trees(tree, problematic_trees):
+    for node in tree.nodes:
+        if node.type != 'GROUP' or not node.node_tree: continue
+        if node.node_tree.is_missing:
+            fixed_trees = [ng for ng in bpy.data.node_groups if ng.name == node.node_tree.name and not ng.is_missing]
+            if fixed_trees: 
+                if node.node_tree not in problematic_trees:
+                    problematic_trees.append(node.node_tree)
+                node.node_tree = fixed_trees[0]
+        else:
+            problematic_trees = fix_missing_lib_trees(node.node_tree, problematic_trees)
+
+    return problematic_trees
+
 @persistent
 def update_node_tree_libs(name):
     T = time.time()
@@ -579,17 +593,42 @@ def update_node_tree_libs(name):
 
     tree_names = []
     exist_groups = []
+    missing_groups = []
 
     for ng in bpy.data.node_groups:
+
+        if ng.is_missing:
+            missing_groups.append(ng.name)
+            print("INFO: '" + ng.name + "' is missing! Trying to reload it from library again...")
+            continue
+
         m = re.match(r'^(~yPL .+?)(?:_Copy?)?(?:\.\d{3}?)?$', ng.name)
-        if m and m.group(1) not in exist_groups:
+        if not m: continue
+        if m.group(1) not in exist_groups:
             exist_groups.append(m.group(1))
-        #if ng.name.startswith('~yPL '):
-        #    exist_groups.append(ng.name)
 
     if not exist_groups: return
 
-    #print(exist_groups)
+    # Fix missing groups
+    if any(missing_groups):
+
+        # Load missing node groups
+        with bpy.data.libraries.load(filepath) as (data_from, data_to):
+            for ng in data_from.node_groups:
+                if ng not in missing_groups: continue
+                fixed_trees = [n for n in bpy.data.node_groups if n.name == ng and not n.is_missing]
+                if not fixed_trees:
+                    data_to.node_groups.append(ng)
+
+        # Fix missing trees
+        problematic_trees = []
+        for ng in bpy.data.node_groups:
+            if hasattr(ng, 'yp') and ng.yp.is_ypaint_node:
+                problematic_trees = fix_missing_lib_trees(ng, problematic_trees)
+
+        # Remove problematic trees
+        for pt in problematic_trees:
+            bpy.data.node_groups.remove(pt)
 
     # Load node groups
     with bpy.data.libraries.load(filepath) as (data_from, data_to):
@@ -602,8 +641,6 @@ def update_node_tree_libs(name):
                 data_to.node_groups.append(ng)
 
     update_names = []
-
-    #print(tree_names)
 
     for i, name in enumerate(tree_names):
 
