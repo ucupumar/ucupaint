@@ -505,9 +505,15 @@ class YConvertToImageAtlas(bpy.types.Operator):
             if image.yia.is_image_atlas : continue
             if image.source == 'TILED': continue # UDIM Atlas is not supported yet
 
-            # Transformed mapping on entity is not valid for conversion
+            used_by_masks = False
             valid_entities = []
             for entity in entities[i]:
+
+                # Mask will use different type of image atlas
+                m = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+                if m: used_by_masks = True
+
+                # Transformed mapping on entity is not valid for conversion
                 mapping = get_entity_mapping(entity)
                 if not is_transformed(mapping):
                     valid_entities.append(entity)
@@ -515,8 +521,11 @@ class YConvertToImageAtlas(bpy.types.Operator):
             if not any(valid_entities):
                 continue
 
+            # Image used by masks will use black image atlas instead of transparent so it will use linear color by default
+            color = 'BLACK' if used_by_masks else 'TRANSPARENT'
+
             # Get segment
-            new_segment = get_set_image_atlas_segment(image.size[0], image.size[1], 'TRANSPARENT', hdr=image.is_float)
+            new_segment = get_set_image_atlas_segment(image.size[0], image.size[1], color, hdr=image.is_float)
 
             # Copy image to segment
             ia_image = new_segment.id_data
