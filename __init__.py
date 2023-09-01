@@ -40,12 +40,13 @@ if "bpy" in locals():
     imp.reload(Bake)
     imp.reload(BakeToLayer)
     imp.reload(Root)
+    imp.reload(TexLib)
     imp.reload(load_blend_updates)
     imp.reload(addon_updater_ops)
 else:
     from . import Localization
     from . import image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates, addon_updater_ops
+    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates, addon_updater_ops, TexLib
 
 import bpy 
 
@@ -70,6 +71,7 @@ def register():
     Bake.register()
     BakeToLayer.register()
     Root.register()
+    TexLib.register()
     load_blend_updates.register()
     addon_updater_ops.register(bl_info)
 
@@ -96,6 +98,7 @@ def unregister():
     Bake.unregister()
     BakeToLayer.unregister()
     Root.unregister()
+    TexLib.unregister()
     load_blend_updates.unregister()
     addon_updater_ops.unregister()
 
