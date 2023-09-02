@@ -872,6 +872,194 @@ def update_connect_to(self, context):
         self.use_clamp = False
     else: self.use_clamp = True
 
+def refresh_input_coll(self, context, ch_type):
+    # Refresh input names
+    self.input_coll.clear()
+    mat = get_active_material()
+    nodes = mat.node_tree.nodes
+    yp_node = get_active_ypaint_node()
+
+    for node in nodes:
+        if node == yp_node: continue
+        for inp in node.inputs:
+            if ch_type == 'VALUE' and inp.type != 'VALUE': continue
+            elif ch_type == 'RGB' and inp.type not in {'RGBA', 'VECTOR'}: continue
+            elif ch_type == 'NORMAL' and 'Normal' not in inp.name: continue
+            if len(inp.links) > 0 : continue
+            label = inp.name + ' (' + node.name +')'
+            item = self.input_coll.add()
+            item.name = label
+            item.node_name = node.name
+            item.input_name = inp.name
+
+def reconnect_alpha(mat, node, channel):
+    tree = mat.node_tree
+    yp = node.node_tree.yp
+
+    input_index = channel.io_index
+    alpha_input = node.inputs[input_index+1]
+
+    output_index = get_output_index(channel)
+    output = node.outputs[output_index]
+    alpha_output = node.outputs[output_index+1]
+
+    # Main channel output need to be already connected
+    if len(output.links) == 0:
+        return
+
+    alpha_input_connected = len(alpha_input.links) > 0
+    new_nodes_created = False
+    for i, l in enumerate(output.links):
+        target_node = l.to_node
+        target_socket = None
+
+        # Connect to alpha input if target node has one
+        if 'Alpha' in target_node.inputs:
+            target_socket = target_node.inputs['Alpha']
+
+        # Search for transparent and mix bsdf
+        if not target_socket and len(target_node.outputs) > 0:
+
+            # Check if target node is mix and has transparent bsdf connected to it
+            if target_node.type == 'MIX_SHADER':
+                if len(target_node.inputs[1].links) > 0 and target_node.inputs[1].links[0].from_node.type == 'BSDF_TRANSPARENT':
+                    target_socket = target_node.inputs[0]
+                
+            if not target_socket:
+                # Check if node following target node is mix and has transparent bsdf connected to it
+                for l in target_node.outputs[0].links:
+                    if l.to_node.type == 'MIX_SHADER':
+                        for n in l.to_node.inputs[1].links:
+                            if n.from_node.type == 'BSDF_TRANSPARENT':
+                                target_socket = l.to_node.inputs[0]
+
+        # Create new transparent and mix bsdf if target node is BSDF
+        if not target_socket and not new_nodes_created and any([o for o in target_node.outputs if o.type == 'SHADER']):
+            # Shift some nodes to the right
+            for n in tree.nodes:
+                if n.location.x > target_node.location.x:
+                    n.location.x += 200
+
+            mix_bsdf = tree.nodes.new('ShaderNodeMixShader')
+            mix_bsdf.location = (target_node.location.x + 175, target_node.location.y)
+            transp_bsdf = tree.nodes.new('ShaderNodeBsdfTransparent')
+            transp_bsdf.location = (target_node.location.x, target_node.location.y + 100)
+
+            final_sockets = []
+            if len(target_node.outputs) > 0:
+                final_sockets = [l.to_socket for l in target_node.outputs[0].links]
+                tree.links.new(target_node.outputs[0], mix_bsdf.inputs[2])
+            tree.links.new(transp_bsdf.outputs[0], mix_bsdf.inputs[1])
+            target_socket = mix_bsdf.inputs[0]
+            if final_sockets: 
+                tree.links.new(mix_bsdf.outputs[0], final_sockets[0])
+
+            new_nodes_created = True
+
+        # Create new transparent and mix bsdf if target node is output material
+        if not target_socket and not new_nodes_created and target_node.type == 'OUTPUT_MATERIAL':
+            # Shift some nodes to the right
+            for n in tree.nodes:
+                if n.location.x > node.location.x:
+                    n.location.x += 200
+
+            mix_bsdf = tree.nodes.new('ShaderNodeMixShader')
+            mix_bsdf.location = (node.location.x + 175, node.location.y)
+            transp_bsdf = tree.nodes.new('ShaderNodeBsdfTransparent')
+            transp_bsdf.location = (node.location.x, node.location.y + 100)
+
+            ori_targets = [l.to_socket for l in output.links]
+            tree.links.new(output, mix_bsdf.inputs[2])
+            tree.links.new(transp_bsdf.outputs[0], mix_bsdf.inputs[1])
+            target_socket = mix_bsdf.inputs[0]
+
+            for ot in ori_targets:
+                tree.links.new(mix_bsdf.outputs[0], ot)
+
+            new_nodes_created = True
+
+        if not target_socket: continue
+
+        if len(target_socket.links) > 0 and not alpha_input_connected:
+            tree.links.new(target_socket.links[0].from_socket, alpha_input)
+            alpha_input_connected = True
+
+        tree.links.new(alpha_output, target_socket)
+
+class YConnectYPaintChannelAlpha(bpy.types.Operator):
+    bl_idname = "node.y_connect_ypaint_channel_alpha"
+    bl_label = "Connect " + get_addon_title() + " Channel Alpha"
+    bl_description = "Connect " + get_addon_title() + " channel alpha to other nodes"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    def execute(self, context):
+        reconnect_alpha(get_active_material(), get_active_ypaint_node(), context.channel)
+        return {'FINISHED'}
+
+class YConnectYPaintChannel(bpy.types.Operator):
+    bl_idname = "node.y_connect_ypaint_channel"
+    bl_label = "Connect " + get_addon_title() + " Channel"
+    bl_description = "Connect " + get_addon_title() + " channel to other nodes"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    connect_to : StringProperty(name='Connect To', default='') #, update=update_connect_to)
+    input_coll : CollectionProperty(type=YPaintNodeInputCollItem)
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        self.channel = context.channel
+        refresh_input_coll(self, context, self.channel.type)
+        self.connect_to = ''
+
+        return context.window_manager.invoke_props_dialog(self)
+
+    def check(self, context):
+        return True
+
+    def draw(self, context):
+        if is_greater_than_280():
+            row = self.layout.split(factor=0.4)
+        else: row = self.layout.split(percentage=0.4)
+
+        col = row.column(align=False)
+        col.label(text='Connect To:')
+
+        col = row.column(align=False)
+        col.prop_search(self, "connect_to", self, "input_coll", icon = 'NODETREE', text='')
+
+    def execute(self, context):
+
+        if self.connect_to == '':
+            self.report({'ERROR'}, "'Connect To' is cannot be empty!")
+            return {'CANCELLED'}
+
+        mat = get_active_material()
+        node = get_active_ypaint_node()
+
+        channel = self.channel
+        output_index = get_output_index(channel)
+
+        # Connect to socket
+        item = self.input_coll.get(self.connect_to)
+        inp = None
+        if item:
+            target_node = mat.node_tree.nodes.get(item.node_name)
+            inp = target_node.inputs[item.input_name]
+            mat.node_tree.links.new(node.outputs[channel.name], inp)
+
+            if channel.enable_alpha:
+                reconnect_alpha(mat, node, channel)
+
+        # Set input default value
+        if inp and self.channel.type != 'NORMAL': 
+            set_input_default_value(node, channel, inp.default_value)
+        else: set_input_default_value(node, channel)
+
+        return {'FINISHED'}
+
 class YNewYPaintChannel(bpy.types.Operator):
     bl_idname = "node.y_add_new_ypaint_channel"
     bl_label = "Add new " + get_addon_title() + " Channel"
@@ -905,27 +1093,6 @@ class YNewYPaintChannel(bpy.types.Operator):
     def poll(cls, context):
         return get_active_ypaint_node()
 
-    def refresh_input_coll(self, context):
-        # Refresh input names
-        self.input_coll.clear()
-        mat = get_active_material()
-        nodes = mat.node_tree.nodes
-        yp_node = get_active_ypaint_node()
-
-        for node in nodes:
-            if node == yp_node: continue
-            for inp in node.inputs:
-                #if inp.type != channel_socket_types[self.type]: continue
-                if self.type == 'VALUE' and inp.type != 'VALUE': continue
-                elif self.type == 'RGB' and inp.type not in {'RGBA', 'VECTOR'}: continue
-                elif self.type == 'NORMAL' and 'Normal' not in inp.name: continue
-                if len(inp.links) > 0 : continue
-                label = inp.name + ' (' + node.name +')'
-                item = self.input_coll.add()
-                item.name = label
-                item.node_name = node.name
-                item.input_name = inp.name
-
     def invoke(self, context, event):
         group_node = get_active_ypaint_node()
         channels = group_node.node_tree.yp.channels
@@ -942,11 +1109,10 @@ class YNewYPaintChannel(bpy.types.Operator):
         # Check if name already available on the list
         self.name = get_unique_name(self.name, channels)
 
-        self.refresh_input_coll(context)
+        refresh_input_coll(self, context, self.type)
         self.connect_to = ''
 
         return context.window_manager.invoke_props_dialog(self)
-        #return context.window_manager.invoke_popup(self)
 
     def check(self, context):
         return True
@@ -975,13 +1141,11 @@ class YNewYPaintChannel(bpy.types.Operator):
 
         T = time.time()
 
-        #node = context.active_node
         wm = context.window_manager
         mat = get_active_material()
         node = get_active_ypaint_node()
         group_tree = node.node_tree
         yp = group_tree.yp
-        #ypup = context.user_preferences.addons[__name__].preferences
         channels = yp.channels
 
         if len(yp.channels) > 19:
@@ -1013,7 +1177,6 @@ class YNewYPaintChannel(bpy.types.Operator):
         if item:
             target_node = mat.node_tree.nodes.get(item.node_name)
             inp = target_node.inputs[item.input_name]
-            #mat.node_tree.links.new(node.outputs[channel.io_index], inp)
             mat.node_tree.links.new(node.outputs[channel.name], inp)
 
             # Search for possible alpha input
@@ -1552,25 +1715,6 @@ class YChangeActiveYPaintNode(bpy.types.Operator):
             return {'CANCELLED'}
 
         return {'FINISHED'}
-
-#class YFixDuplicatedYPNodes(bpy.types.Operator):
-#    bl_idname = "node.y_fix_duplicated_yp_nodes"
-#    bl_label = "Fix Duplicated " + get_addon_title() + " Nodes"
-#    bl_description = "Fix duplicated " + get_addon_title() + " nodes by making it single user"
-#    bl_options = {'REGISTER', 'UNDO'}
-#
-#    @classmethod
-#    def poll(cls, context):
-#        group_node = get_active_ypaint_node()
-#        if not group_node: return False
-#        yp = group_node.node_tree.yp
-#        if len(yp.layers) == 0: return False
-#        layer_tree = get_tree(yp.layers[-1])
-#        return layer_tree.users > 1
-#
-#    def execute(self, context):
-#        bpy.ops.node.y_duplicate_yp_nodes(duplicate_node=False, duplicate_material=False, only_active=False)
-#        return {'FINISHED'}
 
 class YDuplicateYPNodes(bpy.types.Operator):
     bl_idname = "node.y_duplicate_yp_nodes"
@@ -2714,8 +2858,11 @@ def update_channel_alpha(self, context):
         node = get_active_ypaint_node()
         node.inputs[alpha_name].default_value = 0.0
 
+        alpha_connected = False
+
         # Try to relink to original connections
-        tree = context.object.active_material.node_tree
+        #tree = context.object.active_material.node_tree
+        tree = mat.node_tree
         try:
             node_from = tree.nodes.get(self.ori_alpha_from.node)
             socket_from = node_from.outputs[self.ori_alpha_from.socket]
@@ -2731,7 +2878,12 @@ def update_channel_alpha(self, context):
                         mat.node_tree.links.new(tex.outputs[1], socket_to)
                     else:
                         tree.links.new(node.outputs[alpha_name], socket_to)
+                    alpha_connected = True
             except: pass
+
+        # Try to connect alpha without prior memory
+        if not alpha_connected:
+            reconnect_alpha(mat, node, self)
 
         # Reset memory
         self.ori_alpha_from.node = ''
@@ -3505,6 +3657,8 @@ def register():
     bpy.utils.register_class(YQuickYPaintNodeSetup)
     bpy.utils.register_class(YNewYPaintNode)
     bpy.utils.register_class(YPaintNodeInputCollItem)
+    bpy.utils.register_class(YConnectYPaintChannel)
+    bpy.utils.register_class(YConnectYPaintChannelAlpha)
     bpy.utils.register_class(YNewYPaintChannel)
     bpy.utils.register_class(YMoveYPaintChannel)
     bpy.utils.register_class(YRemoveYPaintChannel)
@@ -3513,7 +3667,6 @@ def register():
     bpy.utils.register_class(YRenameYPaintTree)
     bpy.utils.register_class(YChangeActiveYPaintNode)
     bpy.utils.register_class(YDuplicateYPNodes)
-    #bpy.utils.register_class(YFixDuplicatedYPNodes)
     bpy.utils.register_class(YFixMissingData)
     bpy.utils.register_class(YRefreshTangentSignVcol)
     bpy.utils.register_class(YRemoveYPaintNode)
@@ -3553,6 +3706,8 @@ def unregister():
     bpy.utils.unregister_class(YQuickYPaintNodeSetup)
     bpy.utils.unregister_class(YNewYPaintNode)
     bpy.utils.unregister_class(YPaintNodeInputCollItem)
+    bpy.utils.unregister_class(YConnectYPaintChannel)
+    bpy.utils.unregister_class(YConnectYPaintChannelAlpha)
     bpy.utils.unregister_class(YNewYPaintChannel)
     bpy.utils.unregister_class(YMoveYPaintChannel)
     bpy.utils.unregister_class(YRemoveYPaintChannel)
@@ -3561,7 +3716,6 @@ def unregister():
     bpy.utils.unregister_class(YRenameYPaintTree)
     bpy.utils.unregister_class(YChangeActiveYPaintNode)
     bpy.utils.unregister_class(YDuplicateYPNodes)
-    #bpy.utils.unregister_class(YFixDuplicatedYPNodes)
     bpy.utils.unregister_class(YFixMissingData)
     bpy.utils.unregister_class(YRefreshTangentSignVcol)
     bpy.utils.unregister_class(YRemoveYPaintNode)

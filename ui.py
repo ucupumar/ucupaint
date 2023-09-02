@@ -687,6 +687,27 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
 
         chui = ypui.channel_ui
 
+        # Check if channel output is connected or not
+        inputs = node.inputs
+        outputs = node.outputs
+        output_index = get_output_index(channel)
+        target_node = None
+
+        if len(outputs[output_index].links) == 0:
+            row = mcol.row(align=True)
+            row.alert = True
+            row.operator('node.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
+        else:
+            target_node = outputs[output_index].links[0].to_node
+
+        # Fix for alpha channel missing connection, only works for bsdf for now
+        if (channel.type=='RGB' and channel.enable_alpha and len(outputs[output_index+1].links) == 0 and
+            target_node and (any([o for o in target_node.outputs if o.type == 'SHADER']) or target_node.type == 'OUTPUT_MATERIAL')
+            ):
+            row = mcol.row(align=True)
+            row.alert = True
+            row.operator('node.y_connect_ypaint_channel_alpha', icon='ERROR', text='Fix Unconnected Alpha Output')
+
         row = mcol.row(align=True)
 
         #if custom_icon_enable:
@@ -765,7 +786,9 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 brow.label(text='', icon='BLANK1')
 
             # Alpha settings will only visible on color channel without developer mode
-            if channel.type == 'RGB' or ypup.developer_mode or channel.enable_alpha:
+            # Alpha will also not visible if other channel already enable the alpha
+            if ((channel.type == 'RGB' and not any([c for c in yp.channels if c.enable_alpha and c != channel]))
+                or ypup.developer_mode or channel.enable_alpha):
                 brow = bcol.row(align=True)
                 #brow.label(text='', icon_value=lib.get_icon('input'))
                 if chui.expand_alpha_settings:
@@ -3015,10 +3038,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
             if item.type == 'RGB':
                 row = row.row(align=True)
 
-            if len(outputs[output_index].links) == 0:
-                row.label(text='', icon='ERROR')
-
-            elif len(inputs[input_index].links) == 0:
+            if len(inputs[input_index].links) == 0:
                 if item.type == 'VALUE':
                     row.prop(inputs[input_index], 'default_value', text='') #, emboss=False)
                 elif item.type == 'RGB':
@@ -3026,12 +3046,16 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
             else:
                 row.label(text='', icon='LINKED')
 
+            if len(outputs[output_index].links) == 0:
+                row.label(text='', icon='ERROR')
+
             if item.type=='RGB' and item.enable_alpha:
-                if len(outputs[output_index+1].links) == 0:
-                    row.label(text='', icon='ERROR')
-                elif len(inputs[input_index+1].links) == 0:
+                if len(inputs[input_index+1].links) == 0:
                     row.prop(inputs[input_index+1], 'default_value', text='')
                 else: row.label(text='', icon='LINKED')
+
+                if len(outputs[output_index+1].links) == 0:
+                    row.label(text='', icon='ERROR')
 
 class NODE_UL_YPaint_layers(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
