@@ -631,6 +631,9 @@ class YBakeToLayer(bpy.types.Operator):
         if show_use_baked_disp:
             col.label(text='')
 
+        col.label(text='')
+        col.label(text='')
+
         if self.type not in {'OTHER_OBJECT_CHANNELS'}:
             col.separator()
             col.label(text='')
@@ -706,13 +709,9 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'flip_normals')
         col.prop(self, 'force_bake_all_polygons')
 
-
-        #if self.overwrite_name == '':
         if self.type not in {'OTHER_OBJECT_CHANNELS'}:
             col.separator()
             col.prop(self, 'use_image_atlas')
-
-        col.separator()
 
     def execute(self, context):
         T = time.time()
