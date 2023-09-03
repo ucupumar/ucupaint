@@ -225,6 +225,45 @@ def add_active_render_uv_node(tree, active_render_uv_name):
         if n.type == 'GROUP' and n.node_tree and not n.node_tree.yp.is_ypaint_node:
             add_active_render_uv_node(n.node_tree, active_render_uv_name)
 
+def get_other_objects_matching_channels(yp, other_objs):
+    other_channel_names = []
+    filtered_other_objs = []
+    other_yps = []
+
+    for o in other_objs:
+        for m in o.data.materials:
+            if not m.use_nodes: continue
+            for n in m.node_tree.nodes:
+                if n.type != 'GROUP' or not n.node_tree or not n.node_tree.yp.is_ypaint_node: continue
+
+                oyp = n.node_tree.yp
+
+                # Is there any layers using channel with same name
+                #ch_found = False
+                for ch in yp.channels:
+                    och = oyp.channels.get(ch.name)
+                    if not och: continue
+                    ochi = get_channel_index(och)
+                    for olay in oyp.layers:
+                        if olay.enable and olay.channels[ochi].enable:
+
+                            if oyp not in other_yps:
+                                other_yps.append(oyp)
+
+                            if o not in filtered_other_objs:
+                                filtered_other_objs.append(o)
+
+                            if ch.name not in other_channel_names:
+                                other_channel_names.append(ch.name)
+                                #ch_found = True
+                                break
+
+                # Set preview mode if channel found
+                #if ch_found:
+                #    oyp.preview_mode = True
+
+    return other_channel_names, other_yps, filtered_other_objs
+
 def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,

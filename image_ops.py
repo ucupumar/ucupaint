@@ -184,6 +184,19 @@ def save_pack_all(yp, only_dirty = True):
                 if source.image and source.image not in images:
                     images.append(source.image)
 
+        # Channel override image
+        for ch in layer.channels:
+
+            if ch.override and ch.override_type == 'IMAGE':
+                source = get_channel_source(ch, layer)
+                if source.image and source.image not in images:
+                    images.append(source.image)
+
+            if ch.override_1 and ch.override_1_type == 'IMAGE':
+                source = get_channel_source_1(ch, layer)
+                if source.image and source.image not in images:
+                    images.append(source.image)
+
     # Baked images
     for ch in yp.channels:
         baked = tree.nodes.get(ch.baked)

@@ -2307,15 +2307,23 @@ def layer_preview_mode_type_items(self, context):
     return items
 
 def update_layer_preview_mode(self, context):
-    try:
-        mat = bpy.context.object.active_material
-        tree = mat.node_tree
+    yp = self
+    mat = get_active_material()
+
+    if is_yp_on_material(yp, mat):
         group_node = get_active_ypaint_node()
-        yp = group_node.node_tree.yp
-        index = yp.active_channel_index
-        channel = yp.channels[index]
-        layer = yp.layers[yp.active_layer_index]
-    except: return
+    else:
+        mats = get_materials_using_yp(yp)
+        if not mats: return
+        mat = mats[0]
+        group_nodes = get_nodes_using_yp(mat, yp)
+        if not group_nodes: return
+        group_node = group_nodes[0]
+
+    tree = mat.node_tree
+    index = yp.active_channel_index
+    channel = yp.channels[index]
+    layer = yp.layers[yp.active_layer_index]
 
     if yp.preview_mode and yp.layer_preview_mode:
         yp.preview_mode = False
@@ -2323,13 +2331,13 @@ def update_layer_preview_mode(self, context):
     check_all_channel_ios(yp)
 
     # Get preview node
-    if self.layer_preview_mode:
+    if yp.layer_preview_mode:
 
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
 
         output = get_active_mat_output_node(mat.node_tree)
-        if self.layer_preview_mode_type in {'ALPHA', 'SPECIFIC_MASK'}:
+        if yp.layer_preview_mode_type in {'ALPHA', 'SPECIFIC_MASK'}:
             preview = get_preview(mat, output, False)
             if not preview: return
 
@@ -2366,14 +2374,22 @@ def update_layer_preview_mode(self, context):
         remove_preview(mat)
 
 def update_preview_mode(self, context):
-    try:
-        mat = bpy.context.object.active_material
-        tree = mat.node_tree
+    yp = self
+    mat = get_active_material()
+
+    if is_yp_on_material(yp, mat):
         group_node = get_active_ypaint_node()
-        yp = group_node.node_tree.yp
-        index = yp.active_channel_index
-        channel = yp.channels[index]
-    except: return
+    else:
+        mats = get_materials_using_yp(yp)
+        if not mats: return
+        mat = mats[0]
+        group_nodes = get_nodes_using_yp(mat, yp)
+        if not group_nodes: return
+        group_node = group_nodes[0]
+
+    tree = mat.node_tree
+    index = yp.active_channel_index
+    channel = yp.channels[index]
 
     if yp.layer_preview_mode and yp.preview_mode:
         yp.layer_preview_mode = False

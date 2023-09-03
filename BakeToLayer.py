@@ -398,6 +398,9 @@ class YBakeToLayer(bpy.types.Operator):
                 self.normal_map_type = 'NORMAL_MAP'
                 self.normal_blend_type = 'OVERLAY'
 
+        elif self.type == 'OTHER_OBJECT_CHANNELS':
+            self.subsurf_influence = False
+
         elif self.type == 'SELECTED_VERTICES':
             self.subsurf_influence = False
             self.use_baked_disp = False
@@ -795,8 +798,15 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Get other objects for other object baking
         other_objs = []
+        other_yps = []
+        other_channel_names = []
         if self.type.startswith('OTHER_OBJECT_'):
-            other_objs = [o for o in context.selected_objects if o not in objs and mat.name not in o.data.materials]
+
+            # Get other objects based on selected objects with different material
+            for o in context.selected_objects:
+                if o in objs or not o.data or not hasattr(o.data, 'materials'): continue
+                if mat.name not in o.data.materials:
+                    other_objs.append(o)
 
             # Try to get other_objects from bake info
             if overwrite_img:
@@ -816,12 +826,13 @@ class YBakeToLayer(bpy.types.Operator):
                             if o and o not in other_objs:
                                 other_objs.append(o)
 
-            #print(other_objs)
+            if self.type == 'OTHER_OBJECT_CHANNELS':
+                other_channel_names, other_yps, other_objs = get_other_objects_matching_channels(yp, other_objs)
 
             if not other_objs:
                 if overwrite_img:
                     self.report({'ERROR'}, "No source objects found! They're probably deleted!")
-                else: self.report({'ERROR'}, "Source objects must be selected and it must has different material!")
+                else: self.report({'ERROR'}, "Source objects must be selected and it should have different material!")
                 return {'CANCELLED'}
 
         # Remember things
@@ -893,7 +904,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Join objects then extend with other objects
         elif self.type.startswith('OTHER_OBJECT_'):
-            if len(objs) > 1:
+            if len(objs) > 1 and self.type != 'OTHER_OBJECT_CHANNELS':
                 objs = [get_merged_mesh_objects(scene, objs)]
                 temp_objs = objs.copy()
 
@@ -1250,201 +1261,323 @@ class YBakeToLayer(bpy.types.Operator):
             src = None
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
-        # New target image
-        image = bpy.data.images.new(name=self.name,
-                width=width, height=height, alpha=True, float_buffer=self.hdr)
-        if self.type == 'AO':
-            image.generated_color = (1.0, 1.0, 1.0, 1.0) 
-        elif self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL'}:
-            if self.hdr:
-                image.generated_color = (0.7354, 0.7354, 1.0, 1.0) 
+        # Get number of target images
+        num_target_images = 1
+
+        if self.type == 'OTHER_OBJECT_CHANNELS':
+            num_target_images = len(other_channel_names)
+
+            ori_yp_preview_modes = []
+            ori_yp_active_channel_indices = []
+
+            # Set preview mode on and remember things
+            for oyp in other_yps:
+                ori_yp_preview_modes.append(oyp.preview_mode)
+                ori_yp_active_channel_indices.append(oyp.active_channel_index)
+                oyp.preview_mode = True
+
+        for idx in range(num_target_images):
+
+            # Image name and colorspace
+            image_name = self.name
+            colorspace = 'sRGB'
+
+            if self.type == 'OTHER_OBJECT_CHANNELS':
+                image_name += ' ' + other_channel_names[idx]
+
+                root_ch = yp.channels.get(other_channel_names[idx])
+
+                # Set other yp active channel
+                for oyp in other_yps:
+                    och = oyp.channels.get(other_channel_names[idx])
+                    oyp.active_channel_index = get_channel_index(och)
+
+                colorspace = 'Linear' if root_ch.colorspace == 'LINEAR' else 'sRGB'
+
+            elif self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL'}:
+                colorspace = 'Linear'
+
+            # Base color of baked image
+            if self.type == 'AO':
+                color = [1.0, 1.0, 1.0, 1.0] 
+            elif self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL'}:
+                if self.hdr:
+                    color = [0.7354, 0.7354, 1.0, 1.0]
+                else:
+                    color = [0.5, 0.5, 1.0, 1.0] 
+            elif self.type == 'FLOW':
+                color = [0.5, 0.5, 0.0, 1.0]
             else:
-                image.generated_color = (0.5, 0.5, 1.0, 1.0) 
-        elif self.type == 'FLOW':
-            image.generated_color = (0.5, 0.5, 0.0, 1.0) 
-        else:
-        #elif self.type == 'MULTIRES_DISPLACEMENT':
-            if self.hdr:
-                image.generated_color = (0.7354, 0.7354, 0.7354, 1.0) 
-            else: image.generated_color = (0.5, 0.5, 0.5, 1.0) 
-        #else: 
-        #    image.generated_color = (0.7354, 0.7354, 0.7354, 1.0)
+                if self.hdr:
+                    color = [0.7354, 0.7354, 0.7354, 1.0]
+                else: color = [0.5, 0.5, 0.5, 1.0]
 
-        # Make image transparent if its baked from other objects
-        if self.type.startswith('OTHER_OBJECT_'):
-            image.generated_color[3] = 0.0
+            # Make image transparent if its baked from other objects
+            if self.type.startswith('OTHER_OBJECT_'):
+                color[3] = 0.0
 
-        if self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL'}:
-            image.colorspace_settings.name = 'Linear'
-
-        # Set image filepath if overwrite image is found
-        if overwrite_img and not overwrite_img.packed_file:
-            image.filepath = overwrite_img.filepath
-
-        # Set bake image
-        tex.image = image
-        mat.node_tree.nodes.active = tex
-        #return {'FINISHED'}
-
-        # Bake!
-        if self.type.startswith('MULTIRES_'):
-            bpy.ops.object.bake_image()
-        else:
-            if bake_type != 'EMIT':
-                bpy.ops.object.bake(type=bake_type)
-            else: bpy.ops.object.bake()
-
-        if use_fxaa: fxaa_image(image, False, bake_device=self.bake_device)
-
-        # Bake alpha if baking other objects normal
-        #if self.type.startswith('OTHER_OBJECT_'):
-        if self.type == 'OTHER_OBJECT_NORMAL':
-            temp_img = bpy.data.images.new(name='__TEMP_IMAGE__',
+            # New target image
+            image = bpy.data.images.new(name=image_name,
                     width=width, height=height, alpha=True, float_buffer=self.hdr)
-            tex.image = temp_img
+            image.generated_color = color
+            image.colorspace_settings.name = colorspace
 
-            # Need to use clear so there's alpha on the baked image
-            scene.render.bake.use_clear = True
+            # Set image filepath if overwrite image is found
+            if idx == 0 and overwrite_img and not overwrite_img.packed_file:
+                image.filepath = overwrite_img.filepath
 
-            # Bake emit can will create alpha image
-            bpy.ops.object.bake(type='EMIT')
+            # Set bake image
+            tex.image = image
+            mat.node_tree.nodes.active = tex
 
-            # Copy alpha to RGB channel, so it can be fxaa-ed
-            copy_image_channel_pixels(temp_img, temp_img, 3, 0)
-            fxaa_image(temp_img, False, self.bake_device)
+            # Bake!
+            if self.type.startswith('MULTIRES_'):
+                bpy.ops.object.bake_image()
+            else:
+                if bake_type != 'EMIT':
+                    bpy.ops.object.bake(type=bake_type)
+                else: bpy.ops.object.bake()
 
-            # Copy alpha to actual image
-            copy_image_channel_pixels(temp_img, image, 0, 3)
+            if use_fxaa: fxaa_image(image, False, bake_device=self.bake_device)
 
-            # Remove temp image
-            bpy.data.images.remove(temp_img)
+            # Bake alpha if baking other objects normal
+            #if self.type.startswith('OTHER_OBJECT_'):
+            if self.type == 'OTHER_OBJECT_NORMAL':
+                temp_img = bpy.data.images.new(name='__TEMP_IMAGE__',
+                        width=width, height=height, alpha=True, float_buffer=self.hdr)
+                tex.image = temp_img
 
-        # Back to original size if using SSA
-        if use_ssaa:
-            image, temp_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, alpha_aware=True, bake_device=self.bake_device)
+                # Need to use clear so there's alpha on the baked image
+                scene.render.bake.use_clear = True
 
-        #return {'FINISHED'}
+                # Bake emit can will create alpha image
+                bpy.ops.object.bake(type='EMIT')
 
-        need_to_create_new_segment = False
-        new_segment_created = False
+                # Copy alpha to RGB channel, so it can be fxaa-ed
+                copy_image_channel_pixels(temp_img, temp_img, 3, 0)
+                fxaa_image(temp_img, False, self.bake_device)
 
-        if self.use_image_atlas:
+                # Copy alpha to actual image
+                copy_image_channel_pixels(temp_img, image, 0, 3)
 
-            if segment:
+                # Remove temp image
+                bpy.data.images.remove(temp_img)
+
+            # Back to original size if using SSA
+            if use_ssaa:
+                image, temp_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, alpha_aware=True, bake_device=self.bake_device)
+
+            need_to_create_new_segment = False
+            new_segment_created = False
+
+            if self.use_image_atlas:
+
+                if segment:
+                    ia_image = segment.id_data
+                    need_to_create_new_segment = self.width != segment.width or self.height != segment.height or ia_image.is_float != self.hdr
+                    if need_to_create_new_segment:
+                        segment.unused = True
+
+                if not segment or need_to_create_new_segment:
+
+                    # Clearing unused image atlas segments
+                    img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', self.width, self.height, self.hdr)
+                    if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
+
+                    segment = ImageAtlas.get_set_image_atlas_segment(
+                            self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
+
+                    new_segment_created = True
+
                 ia_image = segment.id_data
-                need_to_create_new_segment = self.width != segment.width or self.height != segment.height or ia_image.is_float != self.hdr
-                if need_to_create_new_segment:
-                    segment.unused = True
 
-            if not segment or need_to_create_new_segment:
+                # Set baked image to segment
+                copy_image_pixels(image, ia_image, segment)
+                temp_img = image
+                image = ia_image
 
-                # Clearing unused image atlas segments
-                img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', self.width, self.height, self.hdr)
-                if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
+                # Remove original baked image
+                bpy.data.images.remove(temp_img)
 
-                segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
+            # Index 0 is the main image
+            if idx == 0:
+                if overwrite_img:
 
-                new_segment_created = True
+                    active_id = yp.active_layer_index
 
-            ia_image = segment.id_data
+                    if overwrite_img != image:
+                        if segment and not self.use_image_atlas:
+                            entities = ImageAtlas.replace_segment_with_image(yp, segment, image)
+                            segment = None
+                        else: entities = replace_image(overwrite_img, image, yp, self.uv_map)
+                    elif segment: entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
+                    else: entities = get_entities_with_specific_image(yp, image)
 
-            #if img.colorspace_settings.name != 'Linear':
-            #    img.colorspace_settings.name = 'Linear'
+                    for entity in entities:
+                        if new_segment_created:
+                            entity.segment_name = segment.name
+                            ImageAtlas.set_segment_mapping(entity, segment, image)
 
-            # Set baked image to segment
-            copy_image_pixels(image, ia_image, segment)
-            temp_img = image
-            image = ia_image
+                        if entity.uv_name != self.uv_map:
+                            entity.uv_name = self.uv_map
 
-            # Remove original baked image
-            bpy.data.images.remove(temp_img)
+                    if self.target_type == 'LAYER':
+                        layer_ids = [i for i, l in enumerate(yp.layers) if l in entities]
+                        if entities and yp.active_layer_index not in layer_ids:
+                            active_id = layer_ids[0]
 
-        if overwrite_img:
-            active_id = yp.active_layer_index
+                        # Refresh uv
+                        refresh_temp_uv(context.object, yp.layers[active_id])
 
-            if overwrite_img != image:
-                if segment and not self.use_image_atlas:
-                    entities = ImageAtlas.replace_segment_with_image(yp, segment, image)
-                    segment = None
-                else: entities = replace_image(overwrite_img, image, yp, self.uv_map)
-            elif segment: entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
-            else: entities = get_entities_with_specific_image(yp, image)
+                        # Refresh Neighbor UV resolution
+                        set_uv_neighbor_resolution(yp.layers[active_id])
 
-            for entity in entities:
-                if new_segment_created:
-                    entity.segment_name = segment.name
-                    ImageAtlas.set_segment_mapping(entity, segment, image)
+                    elif self.target_type == 'MASK':
+                        masks = []
+                        for l in yp.layers:
+                            masks.extend([m for m in l.masks if m in entities])
+                        if masks: 
+                            masks[0].active_edit = True
 
-                if entity.uv_name != self.uv_map:
-                    entity.uv_name = self.uv_map
+                            # Refresh uv
+                            refresh_temp_uv(context.object, masks[0])
 
-            if self.target_type == 'LAYER':
-                layer_ids = [i for i, l in enumerate(yp.layers) if l in entities]
-                if entities and yp.active_layer_index not in layer_ids:
-                    active_id = layer_ids[0]
-                # Refresh uv
-                refresh_temp_uv(context.object, yp.layers[active_id])
+                            # Refresh Neighbor UV resolution
+                            set_uv_neighbor_resolution(masks[0])
 
-                # Refresh Neighbor UV resolution
-                set_uv_neighbor_resolution(yp.layers[active_id])
+                elif self.target_type == 'LAYER':
 
-            elif self.target_type == 'MASK':
-                masks = []
-                for l in yp.layers:
-                    masks.extend([m for m in l.masks if m in entities])
-                if masks: 
-                    masks[0].active_edit = True
-                    refresh_temp_uv(context.object, masks[0])
+                    layer_name = image.name if not self.use_image_atlas else self.name
+
+                    if self.use_image_atlas:
+                        layer_name = get_unique_name(layer_name, yp.layers)
+
+                    yp.halt_update = True
+                    layer = Layer.add_new_layer(node.node_tree, layer_name, 'IMAGE', int(self.channel_idx), self.blend_type, 
+                            self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image, None, segment
+                            )
+                    yp.halt_update = False
+                    active_id = yp.active_layer_index
+
+                    if segment:
+                        ImageAtlas.set_segment_mapping(layer, segment, image)
+
+                    # Refresh uv
+                    refresh_temp_uv(context.object, layer)
 
                     # Refresh Neighbor UV resolution
-                    set_uv_neighbor_resolution(masks[0])
+                    set_uv_neighbor_resolution(layer)
 
-        elif self.target_type == 'LAYER':
 
-            layer_name = image.name if not self.use_image_atlas else self.name
+                else:
+                    mask_name = image.name if not self.use_image_atlas else self.name
 
-            if self.use_image_atlas:
-                layer_name = get_unique_name(layer_name, yp.layers)
+                    if self.use_image_atlas:
+                        mask_name = get_unique_name(mask_name, active_layer.masks)
 
-            yp.halt_update = True
-            layer = Layer.add_new_layer(node.node_tree, layer_name, 'IMAGE', int(self.channel_idx), self.blend_type, 
-                    self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image, None, segment
-                    )
-            yp.halt_update = False
-            active_id = yp.active_layer_index
+                    mask = Mask.add_new_mask(active_layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
+                    mask.active_edit = True
 
-            if segment:
-                ImageAtlas.set_segment_mapping(layer, segment, image)
+                    rearrange_layer_nodes(active_layer)
+                    reconnect_layer_nodes(active_layer)
 
-            # Refresh uv
-            refresh_temp_uv(context.object, layer)
+                    active_id = yp.active_layer_index
 
-            # Refresh Neighbor UV resolution
-            set_uv_neighbor_resolution(layer)
+                    if segment:
+                        ImageAtlas.set_segment_mapping(mask, segment, image)
 
-        else:
-            mask_name = image.name if not self.use_image_atlas else self.name
+                    # Refresh uv
+                    refresh_temp_uv(context.object, mask)
 
-            if self.use_image_atlas:
-                mask_name = get_unique_name(mask_name, active_layer.masks)
+                    # Refresh Neighbor UV resolution
+                    set_uv_neighbor_resolution(mask)
 
-            mask = Mask.add_new_mask(active_layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
-            mask.active_edit = True
+            # Indices > 0 are for channel override images
+            else:
+                # Set images to channel override
+                layer = yp.layers[yp.active_layer_index]
+                root_ch = yp.channels.get(other_channel_names[idx])
+                ch = layer.channels[get_channel_index(root_ch)]
+                ch.enable = True
 
-            rearrange_layer_nodes(active_layer)
-            reconnect_layer_nodes(active_layer)
+                # Normal channel will use second override
+                if root_ch.type == 'NORMAL':
+                    ch.normal_map_type = 'NORMAL_MAP'
+                    ch.override_1 = True
+                    ch.override_1_type = 'IMAGE'
+                    source = get_channel_source_1(ch, layer)
+                else:
+                    ch.override = True
+                    ch.override_type = 'IMAGE'
+                    source = get_channel_source(ch, layer)
 
-            active_id = yp.active_layer_index
+                # If image already exists on source
+                old_image = None
+                if source.image and image != source.image:
+                    old_image = source.image
+                    source_name = old_image.name
+                    current_name = image.name
 
-            if segment:
-                ImageAtlas.set_segment_mapping(mask, segment, image)
+                    old_image.name = '_____temp'
+                    image.name = source_name
+                    old_image.name = current_name
+                    
+                # Set image to source
+                source.image = image
 
-            # Refresh uv
-            refresh_temp_uv(context.object, mask)
+                # Remove image if it's not used anymore
+                if old_image: safe_remove_image(old_image)
 
-            # Refresh Neighbor UV resolution
-            set_uv_neighbor_resolution(mask)
+            # Set bake info to image/segment
+            bi = segment.bake_info if segment else image.y_bake_info
+
+            bi.is_baked = True
+            bi.bake_type = self.type
+            for attr in dir(bi):
+                #if attr in dir(self):
+                if attr.startswith('__'): continue
+                if attr.startswith('bl_'): continue
+                if attr in {'rna_type'}: continue
+                try: setattr(bi, attr, getattr(self, attr))
+                except: pass
+
+            if other_objs:
+
+                # Remember other objects to bake info
+                for o in other_objs:
+                    if not any([oo for oo in bi.other_objects if oo.object == o]):
+                        oo = bi.other_objects.add()
+                        oo.object = o
+
+                # Remove unused other objects on bake info
+                for i, oo in reversed(list(enumerate(bi.other_objects))):
+                    if oo.object not in other_objs:
+                        bi.other_objects.remove(i)
+
+            if self.type == 'SELECTED_VERTICES':
+                #fill_mode = 'FACE'
+                #obj_vertex_indices = {}
+                bi.selected_face_mode = True if fill_mode == 'FACE' else False
+
+                # Clear selected objects first
+                bi.selected_objects.clear()
+
+                # Collect object to bake info
+                for obj_name, v_indices in obj_vertex_indices.items():
+                    obj = bpy.data.objects.get(obj_name)
+                    bso = bi.selected_objects.add()
+                    bso.object = obj
+
+                    # Collect selected vertex data to bake info
+                    for vi in v_indices:
+                        bvi = bso.selected_vertex_indices.add()
+                        bvi.index = vi
+
+        # Recover other yps
+        if self.type == 'OTHER_OBJECT_CHANNELS':
+            for i, oyp in enumerate(other_yps):
+                oyp.preview_mode = ori_yp_preview_modes[i]
+                oyp.active_channel_index = ori_yp_active_channel_indices[i]
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)
@@ -1536,51 +1669,6 @@ class YBakeToLayer(bpy.types.Operator):
             height_root_ch.subdiv_adaptive = ori_subdiv_adaptive
             if height_root_ch.enable_subdiv_setup != ori_subdiv_setup:
                 height_root_ch.enable_subdiv_setup = ori_subdiv_setup
-
-        # Set bake info to image/segment
-        bi = segment.bake_info if segment else image.y_bake_info
-
-        bi.is_baked = True
-        bi.bake_type = self.type
-        for attr in dir(bi):
-            #if attr in dir(self):
-            if attr.startswith('__'): continue
-            if attr.startswith('bl_'): continue
-            if attr in {'rna_type'}: continue
-            try: setattr(bi, attr, getattr(self, attr))
-            except: pass
-
-        if other_objs:
-
-            # Remember other objects to bake info
-            for o in other_objs:
-                if not any([oo for oo in bi.other_objects if oo.object == o]):
-                    oo = bi.other_objects.add()
-                    oo.object = o
-
-            # Remove unused other objects on bake info
-            for i, oo in reversed(list(enumerate(bi.other_objects))):
-                if oo.object not in other_objs:
-                    bi.other_objects.remove(i)
-
-        if self.type == 'SELECTED_VERTICES':
-            #fill_mode = 'FACE'
-            #obj_vertex_indices = {}
-            bi.selected_face_mode = True if fill_mode == 'FACE' else False
-
-            # Clear selected objects first
-            bi.selected_objects.clear()
-
-            # Collect object to bake info
-            for obj_name, v_indices in obj_vertex_indices.items():
-                obj = bpy.data.objects.get(obj_name)
-                bso = bi.selected_objects.add()
-                bso.object = obj
-
-                # Collect selected vertex data to bake info
-                for vi in v_indices:
-                    bvi = bso.selected_vertex_indices.add()
-                    bvi.index = vi
 
         # Remove flow vcols
         if self.type == 'FLOW':

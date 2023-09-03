@@ -210,6 +210,7 @@ bake_type_items = (
 
         ('OTHER_OBJECT_NORMAL', 'Other Objects Normal', ''),
         ('OTHER_OBJECT_EMISSION', 'Other Objects Emission', ''),
+        ('OTHER_OBJECT_CHANNELS', 'Other Objects Ucupaint Channels', ''),
 
         ('SELECTED_VERTICES', 'Selected Vertices/Edges/Faces', ''),
 
@@ -246,6 +247,7 @@ bake_type_labels = {
 
         'OTHER_OBJECT_NORMAL': 'Other Objects Normal',
         'OTHER_OBJECT_EMISSION': 'Other Objects Emission',
+        'OTHER_OBJECT_CHANNELS': 'Other Objects Ucupaint Channels',
 
         'SELECTED_VERTICES': 'Selected Vertices',
 
@@ -267,6 +269,7 @@ bake_type_suffixes = {
 
         'OTHER_OBJECT_NORMAL': 'OO Normal',
         'OTHER_OBJECT_EMISSION': 'OO Emission',
+        'OTHER_OBJECT_CHANNELS': 'OO Channel',
 
         'SELECTED_VERTICES': 'Selected Vertices',
 
@@ -1023,6 +1026,31 @@ def get_active_ypaint_node():
 
     return None
 
+def is_yp_on_material(yp, mat):
+    if not mat.use_nodes: return False
+    for node in mat.node_tree.nodes:
+        if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
+            return True
+    
+    return False
+
+def get_materials_using_yp(yp):
+    mats = []
+    for mat in bpy.data.materials:
+        if not mat.use_nodes: continue
+        for node in mat.node_tree.nodes:
+            if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp and mat not in mats:
+                mats.append(mat)
+    return mats
+
+def get_nodes_using_yp(mat, yp):
+    if not mat.use_nodes: return []
+    yp_nodes = []
+    for node in mat.node_tree.nodes:
+        if node.type == 'GROUP' and node.node_tree and node.node_tree.yp == yp:
+            yp_nodes.append(node)
+    return yp_nodes
+
 #def remove_tree_data_recursive(node):
 #
 #    try: tree = node.node_tree
@@ -1037,6 +1065,14 @@ def get_active_ypaint_node():
 #
 #    if tree.users == 0:
 #        bpy.data.node_groups.remove(tree)
+
+def safe_remove_image(image):
+    scene = bpy.context.scene
+
+    if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
+        (scene.tool_settings.image_paint.canvas != image and image.users == 1) or
+        image.users == 0):
+        bpy.data.images.remove(image)
 
 def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
     #if not node: return
@@ -1054,10 +1090,7 @@ def simple_remove_node(tree, node, remove_data=True, passthrough_links=False):
     if remove_data:
         if node.bl_idname == 'ShaderNodeTexImage':
             image = node.image
-            if image:
-                if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
-                    (scene.tool_settings.image_paint.canvas != image and image.users == 1)):
-                    bpy.data.images.remove(image)
+            if image: safe_remove_image(image)
 
         elif node.bl_idname == 'ShaderNodeGroup':
             if node.node_tree and node.node_tree.users == 1:
@@ -1105,10 +1138,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
             if node.bl_idname == 'ShaderNodeTexImage':
 
                 image = node.image
-                if image:
-                    if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
-                        (scene.tool_settings.image_paint.canvas != image and image.users == 1)):
-                        bpy.data.images.remove(image)
+                if image: safe_remove_image(image)
 
             elif node.bl_idname == 'ShaderNodeGroup':
 

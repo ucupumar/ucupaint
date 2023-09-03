@@ -108,6 +108,7 @@ def update_yp_ui():
 
 def draw_bake_info(bake_info, layout, entity):
 
+    yp = entity.id_data.yp
     bi = bake_info
 
     if len(bi.other_objects) > 0:
@@ -121,15 +122,21 @@ def draw_bake_info(bake_info, layout, entity):
             brow.label(text=oo.object.name, icon_value=lib.get_icon('object_index'))
             brow.operator('node.y_remove_bake_info_other_object', text='', icon_value=lib.get_icon('close'))
 
-    layout.context_pointer_set('entity', entity)
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m3 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', entity.path_from_id())
+
+    if m3:
+        layer = yp.layers[int(m3.group(1))]
+        layout.context_pointer_set('entity', layer)
+    else: layout.context_pointer_set('entity', entity)
+
     layout.context_pointer_set('bake_info', bi)
     if bi.bake_type == 'SELECTED_VERTICES':
         c = layout.operator("node.y_try_to_select_baked_vertex", text='Try to Reselect Vertices', icon='GROUP_VERTEX')
     c = layout.operator("node.y_bake_to_layer", text='Rebake', icon_value=lib.get_icon('bake'))
     c.type = bi.bake_type
-    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-    if m1: c.target_type = 'LAYER'
+    if m1 or m3: c.target_type = 'LAYER'
     else: c.target_type = 'MASK'
     c.overwrite_current = True
 
@@ -1756,7 +1763,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
                 if ch.override_type == 'IMAGE':
-                    draw_image_props(context, ch_source, rbox)
+                    draw_image_props(context, ch_source, rbox, ch)
                 elif ch.override_type == 'VCOL':
                     draw_vcol_props(rbox)
                 else:
@@ -3619,6 +3626,11 @@ class YNewLayerMenu(bpy.types.Menu):
 
         c = col.operator("node.y_bake_to_layer", text='Other Objects Normal')
         c.type = 'OTHER_OBJECT_NORMAL'
+        c.target_type = 'LAYER'
+        c.overwrite_current = False
+
+        c = col.operator("node.y_bake_to_layer", text='Other Objects Channels')
+        c.type = 'OTHER_OBJECT_CHANNELS'
         c.target_type = 'LAYER'
         c.overwrite_current = False
 
