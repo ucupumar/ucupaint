@@ -410,10 +410,11 @@ class YVcolFill(bpy.types.Operator):
                     if is_greater_than_280():
                         np_vdata = numpy.array(vcol.data)
                         np_vdata_filtered = np_vdata[loop_indices]
-                        def vectorize_func(data):
-                            data.color = color
-                        np_vectorized = numpy.vectorize(vectorize_func)
-                        np_vectorized(np_vdata_filtered)
+                        if len(np_vdata_filtered) > 0:
+                            def vectorize_func(data):
+                                data.color = color
+                            np_vectorized = numpy.vectorize(vectorize_func)
+                            np_vectorized(np_vdata_filtered)
                     else:                    
                         for loop_index in loop_indices:
                             vcol.data[loop_index].color = color
