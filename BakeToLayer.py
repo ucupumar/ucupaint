@@ -400,6 +400,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         elif self.type == 'OTHER_OBJECT_CHANNELS':
             self.subsurf_influence = False
+            self.use_image_atlas = False
 
         elif self.type == 'SELECTED_VERTICES':
             self.subsurf_influence = False
@@ -630,7 +631,9 @@ class YBakeToLayer(bpy.types.Operator):
         if show_use_baked_disp:
             col.label(text='')
 
-        col.label(text='')
+        if self.type not in {'OTHER_OBJECT_CHANNELS'}:
+            col.separator()
+            col.label(text='')
 
         col = row.column(align=False)
 
@@ -703,10 +706,11 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'flip_normals')
         col.prop(self, 'force_bake_all_polygons')
 
-        col.separator()
 
         #if self.overwrite_name == '':
-        col.prop(self, 'use_image_atlas')
+        if self.type not in {'OTHER_OBJECT_CHANNELS'}:
+            col.separator()
+            col.prop(self, 'use_image_atlas')
 
         col.separator()
 
