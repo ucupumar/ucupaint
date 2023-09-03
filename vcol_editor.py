@@ -253,10 +253,10 @@ class YVcolFillFaceCustom(bpy.types.Operator):
 
             if is_greater_than_280():
                 if len(loop_indices) > 0:
-                    vcol.data[0].color = color
+                    vcol.data[loop_indices[0]].color = color
                 
-                    if any([color[i] for i in range(3) if color[i] != vcol.data[0].color[i]]) and hasattr(context, 'mask'):
-                        written_col = vcol.data[0].color
+                    if any([color[i] for i in range(3) if color[i] != vcol.data[loop_indices[0]].color[i]]) and hasattr(context, 'mask'):
+                        written_col = vcol.data[loop_indices[0]].color
                         color = (written_col[0], written_col[1], written_col[2])
                                     
                         context.mask.color_id = Color(color)
@@ -372,9 +372,10 @@ class YVcolFill(bpy.types.Operator):
                 nverts = numpy.array(bm.verts)
                 selected_verts = list(
                     filter(lambda x: x.select == True, nverts))
-                vectorized_index = numpy.vectorize(lambda obj: obj.index)
-                nvert_indices = vectorized_index(selected_verts)
-                vert_indices = nvert_indices.tolist()
+                if len(selected_verts) > 0:
+                    vectorized_index = numpy.vectorize(lambda obj: obj.index)
+                    nvert_indices = vectorized_index(selected_verts)
+                    vert_indices = nvert_indices.tolist()
             else:
                 for vert in bm.verts:
                     if vert.select:
@@ -409,10 +410,11 @@ class YVcolFill(bpy.types.Operator):
                     if is_greater_than_280():
                         np_vdata = numpy.array(vcol.data)
                         np_vdata_filtered = np_vdata[loop_indices]
-                        def vectorize_func(data):
-                            data.color = color
-                        np_vectorized = numpy.vectorize(vectorize_func)
-                        np_vectorized(np_vdata_filtered)
+                        if len(np_vdata_filtered) > 0:
+                            def vectorize_func(data):
+                                data.color = color
+                            np_vectorized = numpy.vectorize(vectorize_func)
+                            np_vectorized(np_vdata_filtered)
                     else:                    
                         for loop_index in loop_indices:
                             vcol.data[loop_index].color = color
@@ -420,17 +422,18 @@ class YVcolFill(bpy.types.Operator):
                     if is_greater_than_280():
                         np_loops = numpy.array(mesh.loops)
                         np_loops_filtered = list(filter(lambda x: x.vertex_index in vert_indices, np_loops))
-                        def vectorize_func_loop(data):
-                            return data.index
-                        np_vectorized = numpy.vectorize(vectorize_func_loop)
-                        loop_indices = np_vectorized(np_loops_filtered)
+                        if len(np_loops_filtered) > 0: 
+                            def vectorize_func_loop(data):
+                                return data.index
+                            np_vectorized = numpy.vectorize(vectorize_func_loop)
+                            loop_indices = np_vectorized(np_loops_filtered)
                         
-                        np_vdata = numpy.array(vcol.data)
-                        np_vdata_filtered = np_vdata[loop_indices]
-                        def vectorize_func_data(data):
-                            data.color = color
-                        np_vectorized = numpy.vectorize(vectorize_func_data)
-                        np_vectorized(np_vdata_filtered)
+                            np_vdata = numpy.array(vcol.data)
+                            np_vdata_filtered = np_vdata[loop_indices]
+                            def vectorize_func_data(data):
+                                data.color = color
+                            np_vectorized = numpy.vectorize(vectorize_func_data)
+                            np_vectorized(np_vdata_filtered)
                     for poly in mesh.polygons:
                         for loop_index in poly.loop_indices:
                             loop_vert_index = mesh.loops[loop_index].vertex_index
