@@ -210,7 +210,7 @@ class YVcolFillFaceCustom(bpy.types.Operator):
         T = time.time()
 
         # Experiment with numpy
-        use_numpy = is_greater_than_280()
+        use_numpy = True #is_greater_than_280()
 
         if is_greater_than_280():
             objs = context.objects_in_mode
@@ -253,11 +253,14 @@ class YVcolFillFaceCustom(bpy.types.Operator):
                 if is_greater_than_280():
                     color = (written_col[0], written_col[1], written_col[2], written_col[3])
 
+            # Blender 2.80+ has alpha channel on vertex color
+            dimension = 4 if is_greater_than_280() else 3
+
             if use_numpy:
                 if len(loop_indices) > 0:
-                    nvcol = numpy.zeros(len(vcol.data) * 4, dtype=numpy.float32)
+                    nvcol = numpy.zeros(len(vcol.data) * dimension, dtype=numpy.float32)
                     vcol.data.foreach_get('color', nvcol)
-                    nvcol2D = nvcol.reshape(-1, 4)
+                    nvcol2D = nvcol.reshape(-1, dimension)
                     nvcol2D[loop_indices]= color
                     vcol.data.foreach_set('color', nvcol)
             else :
@@ -303,7 +306,7 @@ class YVcolFill(bpy.types.Operator):
         T = time.time()
 
         # Experiment with numpy
-        use_numpy = is_greater_than_280()
+        use_numpy = True #is_greater_than_280()
 
         if is_greater_than_280():
             objs = context.objects_in_mode
@@ -346,11 +349,11 @@ class YVcolFill(bpy.types.Operator):
             elif self.color_option == 'BLACK':
                 color = (0,0,0)
                 alpha = 1.0
-            #elif self.color_option == 'TRANSPARENT':
-            #    alpha = 0.0
             elif not is_greater_than_320():
                 color = linear_to_srgb(color)
 
+            # Blender 2.80+ has alpha channel on vertex color
+            dimension = 4 if is_greater_than_280() else 3
             if is_greater_than_280():
                 color = (color[0], color[1], color[2], alpha)
 
@@ -360,9 +363,9 @@ class YVcolFill(bpy.types.Operator):
             else:
                 if fill_mode == 'FACE':
                     if use_numpy:
-                        nvcol = numpy.zeros(len(vcol.data) * 4, dtype=numpy.float32)
+                        nvcol = numpy.zeros(len(vcol.data) * dimension, dtype=numpy.float32)
                         vcol.data.foreach_get('color', nvcol)
-                        nvcol2D = nvcol.reshape(-1, 4)
+                        nvcol2D = nvcol.reshape(-1, dimension)
                         nvcol2D[loop_indices]= color
                         vcol.data.foreach_set('color', nvcol)
                     else:                    
@@ -373,9 +376,9 @@ class YVcolFill(bpy.types.Operator):
                         loop_to_vert = numpy.zeros(len(mesh.loops), dtype=numpy.uint32)
                         mesh.loops.foreach_get('vertex_index', loop_to_vert)
                         loop_indices = (numpy.in1d(loop_to_vert, vert_indices)).nonzero()[0]
-                        nvcol = numpy.zeros(len(vcol.data) * 4, dtype=numpy.float32)
+                        nvcol = numpy.zeros(len(vcol.data) * dimension, dtype=numpy.float32)
                         vcol.data.foreach_get('color', nvcol)
-                        nvcol2D = nvcol.reshape(-1, 4)
+                        nvcol2D = nvcol.reshape(-1, dimension)
                         nvcol2D[loop_indices] = color
                         vcol.data.foreach_set('color', nvcol)   
                     else:
