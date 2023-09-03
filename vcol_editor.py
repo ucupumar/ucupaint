@@ -1,4 +1,4 @@
-import bpy, bmesh, numpy
+import bpy, bmesh, numpy, time
 from mathutils import *
 from bpy.props import *
 
@@ -207,6 +207,11 @@ class YVcolFillFaceCustom(bpy.types.Operator):
         return obj.mode == 'EDIT'
 
     def execute(self, context):
+        T = time.time()
+
+        # Experiment with numpy
+        use_numpy = is_greater_than_280()
+
         if is_greater_than_280():
             objs = context.objects_in_mode
         else: objs = [context.object]
@@ -221,7 +226,7 @@ class YVcolFillFaceCustom(bpy.types.Operator):
             bm.faces.ensure_lookup_table()
 
             loop_indices = []
-            if is_greater_than_280():
+            if use_numpy:
                 def vectorize_loop(face):
                     def vectorize_faces(loop):
                         return loop.index
@@ -251,19 +256,20 @@ class YVcolFillFaceCustom(bpy.types.Operator):
             if is_greater_than_280():
                 color = (color[0], color[1], color[2], self.color[3])
 
-            if is_greater_than_280():
+            # HACK: Sometimes color assigned are different so read the assigned color and write it back to mask color id
+            vcol.data[loop_indices[0]].color = color
+            if any([color[i] for i in range(3) if color[i] != vcol.data[loop_indices[0]].color[i]]) and hasattr(context, 'mask'):
+                written_col = vcol.data[loop_indices[0]].color
+                color = (written_col[0], written_col[1], written_col[2])
+                            
+                context.mask.color_id = Color(color)
+                if not is_greater_than_320():
+                    context.mask.color_id = srgb_to_linear(context.mask.color_id)
+                if is_greater_than_280():
+                    color = (written_col[0], written_col[1], written_col[2], written_col[3])
+
+            if use_numpy:
                 if len(loop_indices) > 0:
-                    vcol.data[loop_indices[0]].color = color
-                
-                    if any([color[i] for i in range(3) if color[i] != vcol.data[loop_indices[0]].color[i]]) and hasattr(context, 'mask'):
-                        written_col = vcol.data[loop_indices[0]].color
-                        color = (written_col[0], written_col[1], written_col[2])
-                                    
-                        context.mask.color_id = Color(color)
-                        if not is_greater_than_320():
-                            context.mask.color_id = srgb_to_linear(context.mask.color_id)
-                        if is_greater_than_280():
-                            color = (written_col[0], written_col[1], written_col[2], written_col[3])
 
                     np_vdata = numpy.array(vcol.data)
                     np_vdata_filtered = np_vdata[loop_indices]
@@ -275,21 +281,9 @@ class YVcolFillFaceCustom(bpy.types.Operator):
                 for i, loop_index in enumerate(loop_indices):
                     vcol.data[loop_index].color = color
 
-                    # HACK: Sometimes color assigned are different so read the assigned color and write it back to mask color id
-                    if i == 0 and any([color[i] for i in range(3) if color[i] != vcol.data[loop_index].color[i]]) and hasattr(context, 'mask'):
-                        #print(color[0], vcol.data[loop_index].color[0])
-                        written_col = vcol.data[loop_index].color
-                        color = (written_col[0], written_col[1], written_col[2])
-
-                        # Set color back to mask color id
-                        context.mask.color_id = Color(color)
-                        if not is_greater_than_320():
-                            context.mask.color_id = srgb_to_linear(context.mask.color_id)
-
-                        if is_greater_than_280():
-                            color = (written_col[0], written_col[1], written_col[2], written_col[3])
-
             bpy.ops.object.mode_set(mode='EDIT')
+
+        print('VCOL: Fill Color ID is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
@@ -323,6 +317,10 @@ class YVcolFill(bpy.types.Operator):
         return obj.mode == 'EDIT'
 
     def execute(self, context):
+        T = time.time()
+
+        # Experiment with numpy
+        use_numpy = is_greater_than_280()
 
         if is_greater_than_280():
             objs = context.objects_in_mode
@@ -345,7 +343,7 @@ class YVcolFill(bpy.types.Operator):
             #if fill_mode == 'FACE':
             #face_indices = []
             loop_indices = []
-            if is_greater_than_280():
+            if use_numpy:
                 def vectorize_loop(face):
                     def vectorize_faces(loop):
                         return loop.index
@@ -368,7 +366,7 @@ class YVcolFill(bpy.types.Operator):
 
             #else:
             vert_indices = []
-            if is_greater_than_280():
+            if use_numpy:
                 nverts = numpy.array(bm.verts)
                 selected_verts = list(
                     filter(lambda x: x.select == True, nverts))
@@ -407,7 +405,7 @@ class YVcolFill(bpy.types.Operator):
             else:
                 #if ve.fill_mode == 'FACE':
                 if fill_mode == 'FACE':
-                    if is_greater_than_280():
+                    if use_numpy:
                         np_vdata = numpy.array(vcol.data)
                         np_vdata_filtered = np_vdata[loop_indices]
                         if len(np_vdata_filtered) > 0:
@@ -419,7 +417,7 @@ class YVcolFill(bpy.types.Operator):
                         for loop_index in loop_indices:
                             vcol.data[loop_index].color = color
                 else:
-                    if is_greater_than_280():
+                    if use_numpy:
                         np_loops = numpy.array(mesh.loops)
                         np_loops_filtered = list(filter(lambda x: x.vertex_index in vert_indices, np_loops))
                         if len(np_loops_filtered) > 0: 
@@ -434,18 +432,16 @@ class YVcolFill(bpy.types.Operator):
                                 data.color = color
                             np_vectorized = numpy.vectorize(vectorize_func_data)
                             np_vectorized(np_vdata_filtered)
-                    for poly in mesh.polygons:
-                        for loop_index in poly.loop_indices:
-                            loop_vert_index = mesh.loops[loop_index].vertex_index
-                            if loop_vert_index in vert_indices:
-                                vcol.data[loop_index].color = color
+                    else:
+                        for poly in mesh.polygons:
+                            for loop_index in poly.loop_indices:
+                                loop_vert_index = mesh.loops[loop_index].vertex_index
+                                if loop_vert_index in vert_indices:
+                                    vcol.data[loop_index].color = color
 
             bpy.ops.object.mode_set(mode='EDIT')
 
-            #pal = bpy.data.palettes.get('SuperPalette')
-            #if not pal:
-            #    pal = bpy.data.palettes.new('SuperPalette')
-            #context.scene.ve_edit.palette = pal
+        print('VCOL: Fill vertex color is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
