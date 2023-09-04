@@ -408,6 +408,8 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 math.node_tree.nodes.get('Math.R').use_clamp = m.use_clamp
                 math.node_tree.nodes.get('Math.A').use_clamp = m.use_clamp
 
+                math.node_tree.nodes.get('Mix.A').mute = not m.affect_alpha
+
                 if channel_type == 'VALUE':
                     math.inputs[3].default_value = m.math_a_val
                 else:
