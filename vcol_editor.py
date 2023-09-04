@@ -358,8 +358,15 @@ class YVcolFill(bpy.types.Operator):
                 color = (color[0], color[1], color[2], alpha)
 
             if is_greater_than_320() and vcol.domain == 'POINT':
-                for vert_index in vert_indices:
-                    vcol.data[vert_index].color = color
+                if use_numpy:
+                    nvcol = numpy.zeros(len(vcol.data) * dimension, dtype=numpy.float32)
+                    vcol.data.foreach_get('color', nvcol)
+                    nvcol2D = nvcol.reshape(-1, dimension)
+                    nvcol2D[vert_indices]= color
+                    vcol.data.foreach_set('color', nvcol)
+                else:
+                    for vert_index in vert_indices:
+                        vcol.data[vert_index].color = color
             else:
                 if fill_mode == 'FACE':
                     if use_numpy:
