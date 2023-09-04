@@ -887,10 +887,10 @@ def reconnect_alpha(mat, node, channel):
     alpha_input_connected = len(alpha_input.links) > 0
     new_nodes_created = False
     for i, l in enumerate(output.links):
+
         if is_valid_bsdf_node(l.to_node) or l.to_node.type == 'OUTPUT_MATERIAL':
             target_node = l.to_node
         else: target_node = get_closest_bsdf_forward(l.to_node)
-        print(target_node)
         if not target_node: continue
         target_socket = None
 
@@ -2835,6 +2835,19 @@ def update_channel_alpha(self, context):
         if yp.use_baked and yp.enable_baked_outside and tex:
             for l in outp.links:
                 mat.node_tree.links.remove(link)
+
+        # Try to reconnect input to output
+        fn = mat.node_tree.nodes.get(self.ori_alpha_from.node)
+        if fn:
+            fs = fn.outputs.get(self.ori_alpha_from.socket)
+            if fs:
+                for oat in self.ori_alpha_to:
+                    n = mat.node_tree.nodes.get(oat.node)
+                    if not n: continue
+                    s = n.inputs.get(oat.socket)
+                    if not s: continue
+
+                    mat.node_tree.links.new(fs, s)
 
     # Update channel io
     check_all_channel_ios(yp)
