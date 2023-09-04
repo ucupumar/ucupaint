@@ -1,8 +1,11 @@
+import typing
+from bpy.types import AnyType, Context, UILayout
 from .common import * 
 from .lib import *
 
 import bpy, threading, os, requests
 from bpy.props import *
+from bpy.types import PropertyGroup, Panel, Operator, UIList, Scene
 
 
 dl_threads = []
@@ -30,7 +33,7 @@ class TexLibProps(bpy.types.PropertyGroup):
         items = preview_enums,
     )
 
-class AmbientOp(bpy.types.Operator):
+class TexLibDownloadOp(Operator):
     bl_label = "Ambient Op"
     bl_idname = "texlib.op"
     
@@ -49,7 +52,7 @@ class AmbientOp(bpy.types.Operator):
         return {'FINISHED'}
 
 
-class TexLibBrowser(bpy.types.Panel):
+class TexLibBrowser(Panel):
     bl_label = "Texlib Browser"
     bl_idname = "TEXLIB_PT_AmbientCG"
     bl_space_type = "VIEW_3D"
@@ -59,42 +62,126 @@ class TexLibBrowser(bpy.types.Panel):
 
     def draw(self, context):
         layout = self.layout
-        amb_br = context.scene.ambient_browser
+        scene = context.scene
+        amb_br = scene.ambient_browser
+        sel_index = scene.material_index
+        my_list = scene.material_items
+
         layout.prop(amb_br, "input_search")
-        layout.operator("texlib.op")
-        layout.prop(amb_br, "progress", slider=True, text="Download")
+        layout.operator("texlib.new_material")
+        layout.operator("texlib.refresh_material")
+        layout.operator("texlib.rem_material")
+        # layout.prop(amb_br, "progress", slider=True, text="Download")
+        # layout.template_icon_view(amb_br, "shaders_previews", show_labels=True,scale = 7, scale_popup = 5)
+        # layout.label(text="download "+str(amb_br.persen))
+        layout.template_list("TexLibMaterialUIList", "material_list", scene, "material_items", scene, "material_index")
+        
+        sel_mat = my_list[sel_index]
+        layout.separator()
+        prev = layout.column(align=True)
+        prev.alignment = "CENTER"
+        prev.template_icon(icon_value=sel_mat.thumb, scale=5.0)
+        prev.label(text=sel_mat.name)
 
-        layout.template_icon_view(amb_br, "shaders_previews", show_labels=True,scale = 7, scale_popup = 5)
+class MaterialItem(PropertyGroup): 
+    name: StringProperty( name="Name", description="Material name", default="Untitled") 
+    thumb: IntProperty( name="thumbnail", description="", default=0)
 
-        layout.label(text="download "+str(amb_br.persen))
 
-classes = [TexLibProps, TexLibBrowser, AmbientOp]
+class TexLibMaterialUIList(UIList):
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        """Demo UIList."""
+
+        # We could write some code to decide which icon to use here...
+        thumb = preview_items[index % 4][3]
+
+        # print("tipe ",self.layout_type)
+        row = layout.row(align=True)
+        # row.alignment = "CENTER"
+        # Make sure your code supports all 3 layout types
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            row.template_icon(icon_value = thumb, scale = 1.0)
+            row.label(text=item.name)
+
+        elif self.layout_type in {'GRID'}:
+            layout.alignment = 'CENTER'
+            layout.label(text=item.name, icon_value = thumb)
+
+class TexLibRefreshItems(Operator):
+    """Add a new item to the list."""
+
+    bl_idname = "texlib.refresh_material"
+    bl_label = "Refresh material"
+    
+    
+    def execute(self, context):
+        scene = context.scene
+        amb_br = scene.ambient_browser
+        context.scene.material_items.clear()
+        for index, item in enumerate(preview_items):
+            new_item = context.scene.material_items.add()
+            new_item.name = item[0]
+            new_item.thumb = item[3]
+
+        return{'FINISHED'}
+    
+class TexLibMaterialNewItem(Operator):
+    """Add a new item to the list."""
+
+    bl_idname = "texlib.new_material"
+    bl_label = "Add material"
+    @classmethod
+    def poll(cls, context: Context):
+        return context.scene.ambient_browser.input_search
+    
+    def execute(self, context):
+        scene = context.scene
+        amb_br = scene.ambient_browser
+        content = amb_br.input_search
+
+        new_item = context.scene.material_items.add()
+
+        print("add content "+content)
+        new_item.name = content
+
+        amb_br.input_search = ""
+
+        return{'FINISHED'}
+
+class TexLibMaterialDelItem(Operator):
+    """remove item to the list."""
+
+    bl_idname = "texlib.rem_material"
+    bl_label = "Remove material"
+
+    @classmethod
+    def poll(cls, context: Context):
+        return context.scene.material_items
+    
+    def execute(self, context):
+        scene = context.scene
+        index = scene.material_index
+        my_list = scene.material_items
+
+        my_list.remove(index)
+
+        context.scene.material_index = 0
+
+        return{'FINISHED'}
+    
+classes = [TexLibProps, TexLibBrowser, TexLibDownloadOp, MaterialItem, TexLibMaterialUIList
+           ,TexLibMaterialNewItem, TexLibMaterialDelItem, TexLibRefreshItems]
+
 def register():
     for cl in classes:
         bpy.utils.register_class(cl)
 
-    print("INIT TexLIB")
-    previews_collection = bpy.utils.previews.new()
+    Scene.material_items = CollectionProperty(type=MaterialItem)
+    Scene.material_index = IntProperty(default=0, name="Material index")
+    Scene.ambient_browser = PointerProperty(type= TexLibProps)
 
-    file_path = get_addon_filepath()
-    
-    print(">> fp = "+file_path)
-
-    dir_name = os.path.join(file_path, "previews") + os.sep
-
-    print(">> fp = "+dir_name)
-    file00 = dir_name + 'Asphalt001.png'
-    file01 = dir_name + 'Asphalt002.png'
-    print(">> fp = ", file00)
-
-    as0 = previews_collection.load('Asphalt001', file00, 'IMAGE')
-    as1 = previews_collection.load('Asphalt002', file01, 'IMAGE')
-
-    preview_items.append(('Asphalt001.png', 'Asphalt001.png', "", as0.icon_id, 0))
-    preview_items.append(('Asphalt002.png', 'Asphalt002.png', "", as1.icon_id, 1))
-
-
-    bpy.types.Scene.ambient_browser = bpy.props.PointerProperty(type= TexLibProps)
+    init_test_thumbnails()
 
     # bpy.app.timers.register(monitor_downloads, first_interval=1, persistent=True)    
 
@@ -102,10 +189,34 @@ def unregister():
     for cl in classes:
         bpy.utils.unregister_class(cl)
     del bpy.types.Scene.ambient_browser
-    # Unregister the downloads timer
+    del Scene.material_items
+    del Scene.material_index
+
     # if bpy.app.timers.is_registered(monitor_downloads):
     #     bpy.app.timers.unregister(monitor_downloads)
 
+def init_test_thumbnails():
+    print(">>>>>>>>>>>>>>>>>>>>>>> INIT TexLIB")
+    previews_collection = bpy.utils.previews.new()
+
+    file_path = get_addon_filepath()
+
+    mat_items = ("Asphalt001.png", "Asphalt002.png", "Candy001.png", "Candy002.png")
+    
+    print(">> fp = "+file_path)
+
+    dir_name = os.path.join(file_path, "previews") + os.sep
+
+    for index, item in enumerate(mat_items):
+        file = dir_name + item
+        print(">> fp = ", file)
+
+        loaded = previews_collection.load(item, file, 'IMAGE')
+
+        
+        preview_items.append((item.split(".")[0], item, "", loaded.icon_id, index))
+
+        # Scene.ambient_browser.shaders_previews.
 
 def monitor_downloads():
     
