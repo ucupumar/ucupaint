@@ -164,13 +164,30 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
     return channel
 
-def get_closest_bsdf(node, valid_types=['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']):
+def is_valid_bsdf_node(node, valid_types=[]):
+    if not valid_types:
+        return node.type == 'EMISSION' or node.type.startswith('BSDF_') or node.type.endswith('_SHADER')
+    
+    return node.type in valid_types
+
+def get_closest_bsdf_backward(node, valid_types=[]):
     for inp in node.inputs:
         for link in inp.links:
-            if link.from_node.type in valid_types:
+            if is_valid_bsdf_node(link.from_node, valid_types):
                 return link.from_node
             else:
-                n = get_closest_bsdf(link.from_node, valid_types)
+                n = get_closest_bsdf_backward(link.from_node, valid_types)
+                if n: return n
+
+    return None
+
+def get_closest_bsdf_forward(node, valid_types=[]):
+    for outp in node.outputs:
+        for link in outp.links:
+            if is_valid_bsdf_node(link.to_node, valid_types):
+                return link.to_node
+            else:
+                n = get_closest_bsdf_forward(link.to_node, valid_types)
                 if n: return n
 
     return None
@@ -444,12 +461,14 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         obj = context.object
         mat = get_active_material()
 
+        valid_bsdf_types = ['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']
+
         # Get target bsdf
         self.target_bsdf_name = ''
         if mat and mat.node_tree: # and is_greater_than_280():
             output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
             if output:
-                bsdf_node = get_closest_bsdf(output[0])
+                bsdf_node = get_closest_bsdf_backward(output[0], valid_bsdf_types)
                 if bsdf_node:
                     self.type = bsdf_node.type
                     self.target_bsdf_name = bsdf_node.name
@@ -525,13 +544,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         nodes = mat.node_tree.nodes
         links = mat.node_tree.links
 
-        transp_node_needed = not is_greater_than_280() or self.type != 'BSDF_PRINCIPLED'
         ao_needed = self.ao and self.type != 'EMISSION'
 
         main_bsdf = None
         outsoc = None
-        trans_bsdf = None
-        mix_bsdf = None
         ao_mul = None
 
         # If target bsdf is used as main bsdf
@@ -582,9 +598,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 # Skip nodes with parents
                 if n.parent: continue
 
-                if transp_node_needed and n.location.x > loc.x:
-                    n.location.x += 200
-
                 if n.location.x < loc.x:
                     if ao_needed: n.location.x -= 400
                     else: n.location.x -= 200
@@ -616,21 +629,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             loc.x += 270
         else: loc.x += 200
 
-        if transp_node_needed: 
-
-            trans_bsdf = nodes.new('ShaderNodeBsdfTransparent')
-            mix_bsdf = nodes.new('ShaderNodeMixShader')
-            mix_bsdf.inputs[0].default_value = 1.0
-
-            links.new(trans_bsdf.outputs[0], mix_bsdf.inputs[1])
-            links.new(main_bsdf.outputs[0], mix_bsdf.inputs[2])
-
-            trans_bsdf.location = main_bsdf.location.copy()
-            trans_bsdf.location.y += 100
-
-            mix_bsdf.location = loc.copy()
-            loc.x += 200
-
         if not outsoc:
             # Blender 3.1 has bug which prevent material output changes
             if output and bpy.data.version >= (3, 1, 0) and bpy.data.version < (3, 2, 0):
@@ -648,10 +646,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 if output: 
                     output.is_active_output = False
 
-        if transp_node_needed: 
-            links.new(mix_bsdf.outputs[0], outsoc)
-        else:
-            links.new(main_bsdf.outputs[0], outsoc)
+        links.new(main_bsdf.outputs[0], outsoc)
 
         # Add new channels
         ch_color = None
@@ -700,24 +695,6 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 links.new(ao_mul.outputs[ao_mixout], inp)
             else:
                 links.new(node.outputs[ch_color.name], inp)
-
-            # Enable, link, and disable alpha to remember which input was alpha connected to
-            disable_alpha = True
-            ch_color.enable_alpha = True
-            if transp_node_needed:
-                links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], mix_bsdf.inputs[0])
-            else: 
-                inp_alpha = main_bsdf.inputs.get('Alpha')
-
-                # Check original link
-                for l in inp_alpha.links:
-                    disable_alpha = False
-                    links.new(l.from_socket, node.inputs[ch_color.name+io_suffix['ALPHA']])
-
-                links.new(node.outputs[ch_color.name+io_suffix['ALPHA']], main_bsdf.inputs['Alpha'])
-
-            if disable_alpha:
-                ch_color.enable_alpha = False
 
         if ch_ao:
             set_input_default_value(node, ch_ao, (1,1,1))
@@ -910,7 +887,11 @@ def reconnect_alpha(mat, node, channel):
     alpha_input_connected = len(alpha_input.links) > 0
     new_nodes_created = False
     for i, l in enumerate(output.links):
-        target_node = l.to_node
+        if is_valid_bsdf_node(l.to_node) or l.to_node.type == 'OUTPUT_MATERIAL':
+            target_node = l.to_node
+        else: target_node = get_closest_bsdf_forward(l.to_node)
+        print(target_node)
+        if not target_node: continue
         target_socket = None
 
         # Connect to alpha input if target node has one
@@ -937,11 +918,12 @@ def reconnect_alpha(mat, node, channel):
         if not target_socket and not new_nodes_created and any([o for o in target_node.outputs if o.type == 'SHADER']):
             # Shift some nodes to the right
             for n in tree.nodes:
-                if n.location.x > target_node.location.x:
+                if n.location.x > target_node.location.x and n.location.x < target_node.location.x + 350:
                     n.location.x += 200
 
             mix_bsdf = tree.nodes.new('ShaderNodeMixShader')
-            mix_bsdf.location = (target_node.location.x + 175, target_node.location.y)
+            mix_bsdf.location = (target_node.location.x + 200, target_node.location.y)
+            mix_bsdf.inputs[0].default_value = 1.0
             transp_bsdf = tree.nodes.new('ShaderNodeBsdfTransparent')
             transp_bsdf.location = (target_node.location.x, target_node.location.y + 100)
 
@@ -960,11 +942,12 @@ def reconnect_alpha(mat, node, channel):
         if not target_socket and not new_nodes_created and target_node.type == 'OUTPUT_MATERIAL':
             # Shift some nodes to the right
             for n in tree.nodes:
-                if n.location.x > node.location.x:
+                if n.location.x > node.location.x and n.location.x < node.location.x + 350:
                     n.location.x += 200
 
             mix_bsdf = tree.nodes.new('ShaderNodeMixShader')
-            mix_bsdf.location = (node.location.x + 175, node.location.y)
+            mix_bsdf.location = (node.location.x + 200, node.location.y)
+            mix_bsdf.inputs[0].default_value = 1.0
             transp_bsdf = tree.nodes.new('ShaderNodeBsdfTransparent')
             transp_bsdf.location = (node.location.x, node.location.y + 100)
 
@@ -2886,16 +2869,16 @@ def update_channel_alpha(self, context):
         except: pass
 
         for con in self.ori_alpha_to:
-            try:
-                node_to = tree.nodes.get(con.node)
-                socket_to = node_to.inputs[con.socket]
-                if len(socket_to.links) < 1:
-                    if yp.use_baked and yp.enable_baked_outside and tex:
-                        mat.node_tree.links.new(tex.outputs[1], socket_to)
-                    else:
-                        tree.links.new(node.outputs[alpha_name], socket_to)
-                    alpha_connected = True
-            except: pass
+            node_to = tree.nodes.get(con.node)
+            if not node_to: continue
+            socket_to = node_to.inputs.get(con.socket)
+            if not socket_to: continue
+            if len(socket_to.links) < 1:
+                if yp.use_baked and yp.enable_baked_outside and tex:
+                    mat.node_tree.links.new(tex.outputs[1], socket_to)
+                else:
+                    tree.links.new(node.outputs[alpha_name], socket_to)
+                alpha_connected = True
 
         # Try to connect alpha without prior memory
         if not alpha_connected:
@@ -3542,7 +3525,6 @@ def ypaint_last_object_update(scene):
     if not obj: return
 
     if scene.yp.last_object != obj.name:
-        #print(obj.name)
         scene.yp.last_object = obj.name
         node = get_active_ypaint_node()
 

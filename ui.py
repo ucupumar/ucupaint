@@ -698,19 +698,14 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
         inputs = node.inputs
         outputs = node.outputs
         output_index = get_output_index(channel)
-        target_node = None
 
         if len(outputs[output_index].links) == 0:
             row = mcol.row(align=True)
             row.alert = True
             row.operator('node.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
-        else:
-            target_node = outputs[output_index].links[0].to_node
 
         # Fix for alpha channel missing connection, only works for bsdf for now
-        if (channel.type=='RGB' and channel.enable_alpha and len(outputs[output_index+1].links) == 0 and
-            target_node and (any([o for o in target_node.outputs if o.type == 'SHADER']) or target_node.type == 'OUTPUT_MATERIAL')
-            ):
+        elif channel.type=='RGB' and channel.enable_alpha and len(outputs[output_index+1].links) == 0:
             row = mcol.row(align=True)
             row.alert = True
             row.operator('node.y_connect_ypaint_channel_alpha', icon='ERROR', text='Fix Unconnected Alpha Output')
