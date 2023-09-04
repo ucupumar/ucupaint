@@ -699,16 +699,18 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
         outputs = node.outputs
         output_index = get_output_index(channel)
 
-        if len(outputs[output_index].links) == 0:
-            row = mcol.row(align=True)
-            row.alert = True
-            row.operator('node.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
+        if not (yp.use_baked and yp.enable_baked_outside):
 
-        # Fix for alpha channel missing connection, only works for bsdf for now
-        elif channel.type=='RGB' and channel.enable_alpha and len(outputs[output_index+1].links) == 0:
-            row = mcol.row(align=True)
-            row.alert = True
-            row.operator('node.y_connect_ypaint_channel_alpha', icon='ERROR', text='Fix Unconnected Alpha Output')
+            if len(outputs[output_index].links) == 0:
+                row = mcol.row(align=True)
+                row.alert = True
+                row.operator('node.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
+
+            # Fix for alpha channel missing connection, only works for bsdf for now
+            elif channel.type=='RGB' and channel.enable_alpha and len(outputs[output_index+1].links) == 0:
+                row = mcol.row(align=True)
+                row.alert = True
+                row.operator('node.y_connect_ypaint_channel_alpha', icon='ERROR', text='Fix Unconnected Alpha Output')
 
         row = mcol.row(align=True)
 
@@ -3048,7 +3050,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
             else:
                 row.label(text='', icon='LINKED')
 
-            if len(outputs[output_index].links) == 0:
+            if len(outputs[output_index].links) == 0 and not (yp.use_baked and yp.enable_baked_outside):
                 row.label(text='', icon='ERROR')
 
             if item.type=='RGB' and item.enable_alpha:
@@ -3056,7 +3058,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
                     row.prop(inputs[input_index+1], 'default_value', text='')
                 else: row.label(text='', icon='LINKED')
 
-                if len(outputs[output_index+1].links) == 0:
+                if len(outputs[output_index+1].links) == 0 and not (yp.use_baked and yp.enable_baked_outside):
                     row.label(text='', icon='ERROR')
 
 class NODE_UL_YPaint_layers(bpy.types.UIList):
