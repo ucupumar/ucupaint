@@ -869,7 +869,7 @@ def refresh_input_coll(self, context, ch_type):
             item.node_name = node.name
             item.input_name = inp.name
 
-def reconnect_alpha(mat, node, channel):
+def do_alpha_setup(mat, node, channel):
     tree = mat.node_tree
     yp = node.node_tree.yp
 
@@ -976,7 +976,7 @@ class YConnectYPaintChannelAlpha(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        reconnect_alpha(get_active_material(), get_active_ypaint_node(), context.channel)
+        do_alpha_setup(get_active_material(), get_active_ypaint_node(), context.channel)
         return {'FINISHED'}
 
 class YConnectYPaintChannel(bpy.types.Operator):
@@ -1034,7 +1034,7 @@ class YConnectYPaintChannel(bpy.types.Operator):
             mat.node_tree.links.new(node.outputs[channel.name], inp)
 
             if channel.enable_alpha:
-                reconnect_alpha(mat, node, channel)
+                do_alpha_setup(mat, node, channel)
 
         # Set input default value
         if inp and self.channel.type != 'NORMAL': 
@@ -1161,18 +1161,6 @@ class YNewYPaintChannel(bpy.types.Operator):
             target_node = mat.node_tree.nodes.get(item.node_name)
             inp = target_node.inputs[item.input_name]
             mat.node_tree.links.new(node.outputs[channel.name], inp)
-
-            # Search for possible alpha input
-            #if self.type == 'RGB':
-            for l in target_node.outputs[0].links:
-                if l.to_node.type == 'MIX_SHADER' and not any([m for m in l.to_node.inputs[0].links]):
-                    for n in l.to_node.inputs[1].links:
-                        if n.from_node.type == 'BSDF_TRANSPARENT':
-                            channel.enable_alpha = True
-                            #mat.node_tree.links.new(node.outputs[channel.io_index+1], l.to_node.inputs[0])
-                            mat.node_tree.links.new(
-                                    node.outputs[channel.name+io_suffix['ALPHA']], l.to_node.inputs[0])
-                            channel.enable_alpha = False
 
         # Set input default value
         if inp and self.type != 'NORMAL': 
@@ -2894,8 +2882,8 @@ def update_channel_alpha(self, context):
                 alpha_connected = True
 
         # Try to connect alpha without prior memory
-        if not alpha_connected:
-            reconnect_alpha(mat, node, self)
+        if yp.alpha_auto_setup and not alpha_connected:
+            do_alpha_setup(mat, node, self)
 
         # Reset memory
         self.ori_alpha_from.node = ''
@@ -3081,7 +3069,10 @@ class YPaintChannel(bpy.types.PropertyGroup):
     io_index : IntProperty(default=-1)
 
     # Alpha for transparent materials
-    enable_alpha : BoolProperty(default=False, update=update_channel_alpha)
+    enable_alpha : BoolProperty(
+            name = 'Enable Alpha Blend on Channel',
+            description = 'Enable alpha blend on channel',
+            default=False, update=update_channel_alpha)
 
     alpha_blend_mode : EnumProperty(
             name = 'Alpha Blend Mode',
@@ -3436,6 +3427,9 @@ class YPaint(bpy.types.PropertyGroup):
             name = 'Enable Tangent Sign VCol Hacks for Blender 2.80+ Cycles',
             description = "Tangent sign vertex color needed to make sure Blender 2.8 Cycles normal and parallax works.\n(This is because Blender 2.8 normal map node has different behavior than Blender 2.7)",
             default=False, update=update_enable_tangent_sign_hacks)
+
+    # When enabled, alpha can create some node setup, disable this to avoid that
+    alpha_auto_setup : BoolProperty(default=True)
 
     # HACK: Refresh tree to remove glitchy normal
     refresh_tree : BoolProperty(default=False)
