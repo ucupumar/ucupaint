@@ -1273,7 +1273,7 @@ class YBakeToLayer(bpy.types.Operator):
             ori_yp_preview_modes = []
             ori_yp_active_channel_indices = []
 
-            # Set preview mode on and remember things
+            # Remember things
             for oyp in other_yps:
                 ori_yp_preview_modes.append(oyp.preview_mode)
                 ori_yp_active_channel_indices.append(oyp.active_channel_index)
@@ -1292,8 +1292,14 @@ class YBakeToLayer(bpy.types.Operator):
 
                 # Set other yp active channel
                 for oyp in other_yps:
-                    och = oyp.channels.get(other_channel_names[idx])
-                    oyp.active_channel_index = get_channel_index(och)
+                    if root_ch.type == 'NORMAL':
+                        oyp.preview_mode = False
+                        bake_type = 'NORMAL'
+                    else: 
+                        if not oyp.preview_mode: oyp.preview_mode = True
+                        och = oyp.channels.get(other_channel_names[idx])
+                        oyp.active_channel_index = get_channel_index(och)
+                        bake_type = 'EMIT'
 
                 colorspace = 'Linear' if root_ch.colorspace == 'LINEAR' else 'sRGB'
 
