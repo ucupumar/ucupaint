@@ -2432,12 +2432,15 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
             # Check for active override channel
             for i, c in enumerate(layer.channels):
                 if c.override and c.override_type != 'DEFAULT' and c.active_edit:
-                    #source = layer_tree.nodes.get(c.source)
                     source = get_channel_source(c, layer)
                     if c.override_type == 'IMAGE':
                         override_image = source.image
                     elif c.override_type == 'VCOL':
                         override_vcol = get_vcol_from_source(obj, source)
+                elif c.override_1 and c.override_1_type == 'IMAGE' and c.active_edit_1:
+                    source = get_channel_source_1(c, layer)
+                    if source and source.image:
+                        override_image = source.image
 
             # Check for active mask
             for i, m in enumerate(layer.masks):

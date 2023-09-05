@@ -1326,8 +1326,21 @@ class YBakeToLayer(bpy.types.Operator):
             image.colorspace_settings.name = colorspace
 
             # Set image filepath if overwrite image is found
-            if idx == 0 and overwrite_img and not overwrite_img.packed_file:
-                image.filepath = overwrite_img.filepath
+            if overwrite_img:
+                if idx == 0:
+                    if not overwrite_img.packed_file:
+                        image.filepath = overwrite_img.filepath
+                else:
+                    layer = yp.layers[yp.active_layer_index]
+                    root_ch = yp.channels.get(other_channel_names[idx])
+                    ch = layer.channels[get_channel_index(root_ch)]
+
+                    if root_ch.type == 'NORMAL':
+                        source = get_channel_source_1(ch, layer)
+                    else: source = get_channel_source(ch, layer)
+
+                    if source and hasattr(source, 'image') and source.image and not source.image.packed_file:
+                        image.filepath = source.image.filepath
 
             # Set bake image
             tex.image = image
