@@ -2187,6 +2187,7 @@ def remove_tree_input(tree, item):
 def remove_tree_output(tree, item):
     if not is_greater_than_400():
         tree.outputs.remove(item)
+        return
 
     if item.in_out == 'BOTH':
         item.in_out = 'INPUT'
