@@ -529,8 +529,8 @@ class YNewLayerMask(bpy.types.Operator):
 
                 img.generated_color = color
 
-            if img.colorspace_settings.name != 'Linear' and not img.is_dirty:
-                img.colorspace_settings.name = 'Linear'
+            if img.colorspace_settings.name != 'Non-Color' and not img.is_dirty:
+                img.colorspace_settings.name = 'Non-Color'
 
         # New vertex color
         elif self.type in {'VCOL', 'COLOR_ID'}:
@@ -693,8 +693,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
-            if image.colorspace_settings.name != 'Linear' and not image.is_dirty:
-                image.colorspace_settings.name = 'Linear'
+            if image.colorspace_settings.name != 'Non-Color' and not image.is_dirty:
+                image.colorspace_settings.name = 'Non-Color'
 
             # Add new mask
             mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, blend_type=self.blend_type)
@@ -838,8 +838,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             image = bpy.data.images.get(self.image_name)
             name = image.name
-            if image.colorspace_settings.name != 'Linear' and not image.is_dirty:
-                image.colorspace_settings.name = 'Linear'
+            if image.colorspace_settings.name != 'Non-Color' and not image.is_dirty:
+                image.colorspace_settings.name = 'Non-Color'
         elif self.type == 'VCOL':
             vcols = get_vertex_colors(obj)
             vcol = vcols.get(self.vcol_name)

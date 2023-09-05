@@ -74,7 +74,7 @@ def pack_float_image(image):
     image.filepath = temp_filepath
     if image.file_format == 'PNG':
         image.colorspace_settings.name = 'sRGB'
-    else: image.colorspace_settings.name = 'Linear'
+    else: image.colorspace_settings.name = 'Non-Color'
 
     # Delete temporary scene
     bpy.data.scenes.remove(tmpscene)
@@ -245,7 +245,7 @@ def save_pack_all(yp, only_dirty = True):
                 save_float_image(image)
             else:
                 # BLENDER BUG: Blender 3.3 has wrong srgb if not packed first
-                if is_greater_than_330() and image.colorspace_settings.name == 'Linear':
+                if is_greater_than_330() and image.colorspace_settings.name in {'Linear', 'Non-Color'}:
 
                     # Get image path
                     path = bpy.path.abspath(image.filepath)
@@ -269,7 +269,7 @@ def save_pack_all(yp, only_dirty = True):
                     except: image.filepath = path
 
                     # Bring back linear
-                    image.colorspace_settings.name = 'Linear'
+                    image.colorspace_settings.name = 'Non-Color'
 
                     # Remove unpacked images on Blender 3.3 
                     remove_unpacked_image_path(path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)

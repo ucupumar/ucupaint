@@ -1236,10 +1236,10 @@ def enable_modifiers_tree(parent, rearrange = False):
     # Create modifier tree
     mod_tree = bpy.data.node_groups.new('~yP Modifiers ' + name, 'ShaderNodeTree')
 
-    mod_tree.inputs.new('NodeSocketColor', 'RGB')
-    mod_tree.inputs.new('NodeSocketFloat', 'Alpha')
-    mod_tree.outputs.new('NodeSocketColor', 'RGB')
-    mod_tree.outputs.new('NodeSocketFloat', 'Alpha')
+    new_tree_input(mod_tree, 'RGB', 'NodeSocketColor')
+    new_tree_input(mod_tree, 'Alpha', 'NodeSocketFloat')
+    new_tree_output(mod_tree, 'RGB', 'NodeSocketColor')
+    new_tree_output(mod_tree, 'Alpha', 'NodeSocketFloat')
 
     # New inputs and outputs
     mod_tree_start = mod_tree.nodes.new('NodeGroupInput')

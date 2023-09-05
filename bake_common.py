@@ -1128,11 +1128,11 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         # Use hdr if not baking normal
         if root_ch.type != 'NORMAL' and use_hdr:
             img.use_generated_float = True
-            #img.colorspace_settings.name = 'Linear'
+            #img.colorspace_settings.name = 'Non-Color'
 
         # Set colorspace to linear
         if root_ch.colorspace == 'LINEAR' or root_ch.type == 'NORMAL' or (root_ch.type != 'NORMAL' and use_hdr):
-            img.colorspace_settings.name = 'Linear'
+            img.colorspace_settings.name = 'Non-Color'
         else: img.colorspace_settings.name = 'sRGB'
 
     # Bake main image
@@ -1190,7 +1190,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 # Create target image
                 norm_img = img.copy()
                 norm_img.name = norm_img_name
-                norm_img.colorspace_settings.name = 'Linear'
+                norm_img.colorspace_settings.name = 'Non-Color'
                 color = (0.5, 0.5, 1.0, 1.0)
 
                 if img.source == 'TILED':
@@ -1249,7 +1249,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
             disp_img = img.copy()
             disp_img.name = disp_img_name
-            disp_img.colorspace_settings.name = 'Linear'
+            disp_img.colorspace_settings.name = 'Non-Color'
             color = (0.5, 0.5, 0.5, 1.0)
 
             if img.source == 'TILED':
@@ -1311,7 +1311,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         # Create temp image
         alpha_img = img.copy()
-        alpha_img.colorspace_settings.name = 'Linear'
+        alpha_img.colorspace_settings.name = 'Non-Color'
         create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['ALPHA']], emit.inputs[0])
         tex.image = alpha_img
 
@@ -1407,7 +1407,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
     # New target image
     image = bpy.data.images.new(name=name,
             width=width, height=height, alpha=True, float_buffer=hdr)
-    image.colorspace_settings.name = 'Linear'
+    image.colorspace_settings.name = 'Non-Color'
 
     if entity.type == 'HEMI':
 
@@ -1579,7 +1579,7 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
     print('INFO: Merging mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
     return merged_obj
 
-def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='GPU'):
+def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='GPU'):
 
     T = time.time()
     image_name = image.name
@@ -1711,7 +1711,7 @@ def resize_image(image, width, height, colorspace='Linear', samples=1, margin=0,
         # Create alpha image as bake target
         alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
                 width=width, height=height, alpha=True, float_buffer=image.is_float)
-        alpha_img.colorspace_settings.name = 'Linear'
+        alpha_img.colorspace_settings.name = 'Non-Color'
 
         # Retransform back uv
         if segment:

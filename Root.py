@@ -1182,42 +1182,6 @@ class YNewYPaintChannel(bpy.types.Operator):
 
         return {'FINISHED'}
 
-#def swap_channel_io(root_ch, swap_ch, io_index, io_index_swap, inputs, outputs):
-#    if root_ch.type == 'RGB' and root_ch.enable_alpha:
-#        if swap_ch.type == 'RGB' and swap_ch.enable_alpha:
-#            if io_index > io_index_swap:
-#                inputs.move(io_index, io_index_swap)
-#                inputs.move(io_index+1, io_index_swap+1)
-#                outputs.move(io_index, io_index_swap)
-#                outputs.move(io_index+1, io_index_swap+1)
-#            else:
-#                inputs.move(io_index, io_index_swap)
-#                inputs.move(io_index, io_index_swap+1)
-#                outputs.move(io_index, io_index_swap)
-#                outputs.move(io_index, io_index_swap+1)
-#        else:
-#            if io_index > io_index_swap:
-#                inputs.move(io_index, io_index_swap)
-#                inputs.move(io_index+1, io_index_swap+1)
-#                outputs.move(io_index, io_index_swap)
-#                outputs.move(io_index+1, io_index_swap+1)
-#            else:
-#                inputs.move(io_index+1, io_index_swap)
-#                inputs.move(io_index, io_index_swap-1)
-#                outputs.move(io_index+1, io_index_swap)
-#                outputs.move(io_index, io_index_swap-1)
-#    else:
-#        if swap_ch.type == 'RGB' and swap_ch.enable_alpha:
-#            if io_index > io_index_swap:
-#                inputs.move(io_index, io_index_swap)
-#                outputs.move(io_index, io_index_swap)
-#            else:
-#                inputs.move(io_index, io_index_swap+1)
-#                outputs.move(io_index, io_index_swap+1)
-#        else:
-#            inputs.move(io_index, io_index_swap)
-#            outputs.move(io_index, io_index_swap)
-
 class YMoveYPaintChannel(bpy.types.Operator):
     bl_idname = "node.y_move_ypaint_channel"
     bl_label = "Move " + get_addon_title() + " Channel"
@@ -1268,9 +1232,6 @@ class YMoveYPaintChannel(bpy.types.Operator):
         swap_ch = yp.channels[new_index]
         io_index = channel.io_index
         io_index_swap = swap_ch.io_index
-
-        # Move IO
-        #swap_channel_io(channel, swap_ch, io_index, io_index_swap, group_tree.inputs, group_tree.outputs)
 
         # Move channel
         yp.channels.move(index, new_index)
@@ -1324,8 +1285,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         ypui = context.window_manager.ypui
         #ypup = context.user_preferences.addons[__name__].preferences
         nodes = group_tree.nodes
-        inputs = group_tree.inputs
-        outputs = group_tree.outputs
+        inputs = get_tree_inputs(group_tree)
+        outputs = get_tree_outputs(group_tree)
 
         # Disable layer preview mode to avoid error
         ori_layer_preview_mode = yp.layer_preview_mode
@@ -1429,14 +1390,6 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             else:
                 for mod in ch.modifiers:
                     Modifier.delete_modifier_nodes(ttree, mod)
-
-            # Remove layer IO
-            #ttree.inputs.remove(ttree.inputs[channel.io_index])
-            #ttree.outputs.remove(ttree.outputs[channel.io_index])
-
-            #if channel.type == 'RGB' and channel.enable_alpha:
-            #    ttree.inputs.remove(ttree.inputs[channel.io_index])
-            #    ttree.outputs.remove(ttree.outputs[channel.io_index])
 
             # Remove transition bump and ramp
             if channel.type == 'NORMAL' and ch.enable_transition_bump:
@@ -2082,22 +2035,22 @@ def update_channel_name(self, context):
     input_index = self.io_index
     output_index = get_output_index(self)
 
-    group_tree.inputs[input_index].name = self.name
-    group_tree.outputs[output_index].name = self.name
+    get_tree_input_by_index(group_tree, input_index).name = self.name
+    get_tree_output_by_index(group_tree, output_index).name = self.name
 
     shift = 1
     if self.enable_alpha:
-        group_tree.inputs[input_index+shift].name = self.name + io_suffix['ALPHA']
-        group_tree.outputs[output_index+shift].name = self.name + io_suffix['ALPHA']
+        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['ALPHA']
+        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['ALPHA']
         shift += 1
 
     if self.type == 'NORMAL':
-        group_tree.inputs[input_index+shift].name = self.name + io_suffix['HEIGHT']
-        group_tree.outputs[output_index+shift].name = self.name + io_suffix['HEIGHT']
+        get_tree_input_by_index(group_tree, input_index+shift).name = self.name + io_suffix['HEIGHT']
+        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['HEIGHT']
 
         shift += 1
 
-        group_tree.outputs[output_index+shift].name = self.name + io_suffix['MAX_HEIGHT']
+        get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['MAX_HEIGHT']
 
 
     #check_all_channel_ios(yp)
@@ -2779,8 +2732,8 @@ def update_channel_alpha(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
     nodes = group_tree.nodes
-    inputs = group_tree.inputs
-    outputs = group_tree.outputs
+    inputs = get_tree_inputs(group_tree)
+    outputs = get_tree_outputs(group_tree)
 
     # Baked outside nodes
     frame = get_node(mat.node_tree, yp.baked_outside_frame)

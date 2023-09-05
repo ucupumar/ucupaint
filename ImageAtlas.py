@@ -60,17 +60,17 @@ def create_image_atlas(color='BLACK', size=8192, hdr=False, name=''):
 
     if color == 'BLACK':
         img.generated_color = (0,0,0,1)
-        img.colorspace_settings.name = 'Linear'
+        img.colorspace_settings.name = 'Non-Color'
     elif color == 'WHITE':
         img.generated_color = (1,1,1,1)
-        img.colorspace_settings.name = 'Linear'
+        img.colorspace_settings.name = 'Non-Color'
     else: img.generated_color = (0,0,0,0)
 
     img.yia.is_image_atlas = True
     img.yia.color = color
     #img.yia.float_buffer = hdr
     #if hdr:
-    #img.colorspace_settings.name = 'Linear'
+    #img.colorspace_settings.name = 'Non-Color'
 
     return img
 

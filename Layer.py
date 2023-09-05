@@ -263,8 +263,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 if hasattr(mask_image, 'use_alpha'):
                     mask_image.use_alpha = False
 
-            if mask_image.colorspace_settings.name != 'Linear' and not mask_image.is_dirty:
-                mask_image.colorspace_settings.name = 'Linear'
+            if mask_image.colorspace_settings.name != 'Non-Color' and not mask_image.is_dirty:
+                mask_image.colorspace_settings.name = 'Non-Color'
 
         # New vertex color
         elif mask_type in {'VCOL', 'COLOR_ID'}:
@@ -399,7 +399,7 @@ class YUseLinearColorSpace(bpy.types.Operator):
     def execute(self, context):
         #set_uv_neighbor_resolution(context.layer)
         #print(context.image.name)
-        #context.image.colorspace_settings.name = 'Linear'
+        #context.image.colorspace_settings.name = 'Non-Color'
         yp = context.layer.id_data.yp
         check_yp_linear_nodes(yp)
 
@@ -1074,8 +1074,8 @@ class YNewLayer(bpy.types.Operator):
                 if hasattr(img, 'use_alpha'):
                     img.use_alpha = True
 
-            #if img.colorspace_settings.name != 'Linear':
-            #    img.colorspace_settings.name = 'Linear'
+            #if img.colorspace_settings.name != 'Non-Color':
+            #    img.colorspace_settings.name = 'Non-Color'
 
             update_image_editor_image(context, img)
 
@@ -1784,8 +1784,8 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
             syname = valid_synonyms[i]
 
             # Set image to linear
-            #if image.colorspace_settings.name != 'Linear':
-            #    image.colorspace_settings.name = 'Linear'
+            #if image.colorspace_settings.name != 'Non-Color':
+            #    image.colorspace_settings.name = 'Non-Color'
 
             m = re.match(r'^yp\.channels\[(\d+)\].*', root_ch.path_from_id())
             ch_idx = int(m.group(1))
@@ -2005,8 +2005,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
                 try: image.filepath = bpy.path.relpath(image.filepath)
                 except: pass
 
-            #if image.colorspace_settings.name != 'Linear':
-            #    image.colorspace_settings.name = 'Linear'
+            #if image.colorspace_settings.name != 'Non-Color':
+            #    image.colorspace_settings.name = 'Non-Color'
 
             add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map,
@@ -2123,8 +2123,8 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
             else: image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
 
         image_node.image = image
-        #if image.colorspace_settings.name != 'Linear':
-        #    image.colorspace_settings.name = 'Linear'
+        #if image.colorspace_settings.name != 'Non-Color':
+        #    image.colorspace_settings.name = 'Non-Color'
 
         if should_be_bump:
             ch.override_type = 'IMAGE'
@@ -2253,8 +2253,8 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                 else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
-            #if image.colorspace_settings.name != 'Linear':
-            #    image.colorspace_settings.name = 'Linear'
+            #if image.colorspace_settings.name != 'Non-Color':
+            #    image.colorspace_settings.name = 'Non-Color'
 
         elif self.type == 'VCOL':
 
@@ -2499,8 +2499,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         if self.type == 'IMAGE':
             image = bpy.data.images.get(self.image_name)
             name = image.name
-            #if image.colorspace_settings.name != 'Linear':
-            #    image.colorspace_settings.name = 'Linear'
+            #if image.colorspace_settings.name != 'Non-Color':
+            #    image.colorspace_settings.name = 'Non-Color'
         elif self.type == 'VCOL':
             vcols = get_vertex_colors(obj)
             vcol = vcols.get(self.vcol_name)
@@ -3124,8 +3124,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
             source.image = image
             if hasattr(source, 'color_space'):
                 source.color_space = 'NONE'
-            #if image.colorspace_settings.name != 'Linear':
-            #    image.colorspace_settings.name = 'Linear'
+            #if image.colorspace_settings.name != 'Non-Color':
+            #    image.colorspace_settings.name = 'Non-Color'
         elif new_type == 'VCOL':
             set_source_vcol_name(source, item_name)
         elif new_type == 'HEMI':
@@ -3275,8 +3275,8 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
         source.image = image
         if hasattr(source, 'color_space'):
             source.color_space = 'NONE'
-        if image.colorspace_settings.name != 'Linear' and not image.is_dirty:
-            image.colorspace_settings.name = 'Linear'
+        if image.colorspace_settings.name != 'Non-Color' and not image.is_dirty:
+            image.colorspace_settings.name = 'Non-Color'
     elif new_type == 'VCOL':
         set_source_vcol_name(source, item_name)
     elif new_type == 'HEMI':

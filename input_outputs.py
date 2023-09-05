@@ -6,30 +6,61 @@ from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
 
+def fix_io_index_360(item, items, correct_index):
+    cur_index = [i for i, it in enumerate(items) if it == item]
+    if cur_index and cur_index[0] != correct_index:
+        items.move(cur_index[0], correct_index)
+
+def fix_io_index_400(item, interface, correct_index):
+    if get_actual_item_io_index_400(item, interface) == correct_index:
+        return
+    
+    # HACK: Try to move using all index because interface move is still inconsistent
+    for i in range(len(interface.ui_items)):
+        interface.move(item, i)
+        if get_actual_item_io_index_400(item, interface) == correct_index:
+            return
+
+def fix_tree_input_index(tree, item, correct_index):
+    if not is_greater_than_400():
+        fix_io_index_360(item, tree.inputs, correct_index)
+        return
+
+    fix_io_index_400(item, tree.interface, correct_index)
+
+def fix_tree_output_index(tree, item, correct_index):
+    if not is_greater_than_400():
+        fix_io_index_360(item, tree.outputs, correct_index)
+        return
+
+    fix_io_index_400(item, tree.interface, correct_index)
+
 def create_input(tree, name, socket_type, valid_inputs, index, 
         dirty = False, min_value=None, max_value=None, default_value=None):
 
-    inp = tree.inputs.get(name)
+    inp = get_tree_input_by_name(tree, name)
     if not inp:
-        inp = tree.inputs.new(socket_type, name)
+        inp = new_tree_input(tree, name, socket_type)
+        dirty = True
         if min_value != None: inp.min_value = min_value
         if max_value != None: inp.max_value = max_value
         if default_value != None: inp.default_value = default_value
-        dirty = True
+
     valid_inputs.append(inp)
-    fix_io_index(inp, tree.inputs, index)
+    fix_tree_input_index(tree, inp, index)
 
     return dirty
 
 def create_output(tree, name, socket_type, valid_outputs, index, dirty=False, default_value=None):
 
-    outp = tree.outputs.get(name)
+    outp = get_tree_output_by_name(tree, name)
     if not outp:
-        outp = tree.outputs.new(socket_type, name)
-        if default_value != None: outp.default_value = default_value
+        outp = new_tree_output(tree, name, socket_type)
         dirty = True
+        if default_value != None: outp.default_value = default_value
+
     valid_outputs.append(outp)
-    fix_io_index(outp, tree.outputs, index)
+    fix_tree_output_index(tree, outp, index)
 
     return dirty
 
@@ -148,13 +179,13 @@ def check_all_channel_ios(yp, reconnect=True):
         output_index += 1
 
     # Check for invalid io
-    for inp in group_tree.inputs:
+    for inp in get_tree_inputs(group_tree):
         if inp not in valid_inputs:
-            group_tree.inputs.remove(inp)
+            remove_tree_input(group_tree, inp)
 
-    for outp in group_tree.outputs:
+    for outp in get_tree_outputs(group_tree):
         if outp not in valid_outputs:
-            group_tree.outputs.remove(outp)
+            remove_tree_output(group_tree, outp)
 
     # Check uv maps
     check_uv_nodes(yp)
@@ -488,13 +519,13 @@ def check_layer_tree_ios(layer, tree=None):
         output_index += 1
 
     # Check for invalid io
-    for inp in tree.inputs:
+    for inp in get_tree_inputs(tree):
         if inp not in valid_inputs:
-            tree.inputs.remove(inp)
+            remove_tree_input(tree, inp)
 
-    for outp in tree.outputs:
+    for outp in get_tree_outputs(tree):
         if outp not in valid_outputs:
-            tree.outputs.remove(outp)
+            remove_tree_output(tree, outp)
 
     return dirty
 

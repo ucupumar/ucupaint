@@ -484,6 +484,11 @@ def is_greater_than_350():
         return True
     return False
 
+def is_greater_than_400():
+    if bpy.app.version >= (4, 0, 0):
+        return True
+    return False
+
 def is_created_using_279():
     if bpy.data.version[:2] == (2, 79):
         return True
@@ -1641,11 +1646,11 @@ def simple_replace_new_node(tree, node_name, node_id_name, label='', group_name=
 
             else:
                 # Compare previous group inputs with current group inputs
-                if len(prev_tree.inputs) != len(node.inputs):
+                if len(get_tree_inputs(prev_tree)) != len(node.inputs):
                     dirty = True
                 else:
                     for i, inp in enumerate(node.inputs):
-                        if inp.name != prev_tree.inputs[i].name:
+                        if inp.name != get_tree_inputs(prev_tree)[i].name:
                             dirty = True
                             break
 
@@ -1706,11 +1711,11 @@ def replace_new_node(tree, entity, prop, node_id_name, label='', group_name='', 
 
             else:
                 # Compare previous group inputs with current group inputs
-                if len(prev_tree.inputs) != len(node.inputs):
+                if len(get_tree_inputs(prev_tree)) != len(node.inputs):
                     dirty = True
                 else:
                     for i, inp in enumerate(node.inputs):
-                        if inp.name != prev_tree.inputs[i].name:
+                        if inp.name != get_tree_inputs(prev_tree)[i].name:
                             dirty = True
                             break
 
@@ -2102,10 +2107,131 @@ def match_group_input(node, key=None, extra_node_names=[]):
                         link.to_socket.default_value = node.inputs[outp.name].default_value
                 except: pass
 
-def fix_io_index(item, items, correct_index):
-    cur_index = [i for i, it in enumerate(items) if it == item]
-    if cur_index and cur_index[0] != correct_index:
-        items.move(cur_index[0], correct_index)
+def get_tree_inputs(tree):
+    if not is_greater_than_400():
+        return tree.inputs
+
+    return [ui for ui in tree.interface.ui_items if ui.in_out in {'INPUT', 'BOTH'}]
+
+def get_tree_outputs(tree):
+    if not is_greater_than_400():
+        return tree.outputs
+
+    return [ui for ui in tree.interface.ui_items if ui.in_out in {'OUTPUT', 'BOTH'}]
+
+def get_tree_input_by_name(tree, name):
+    if not is_greater_than_400():
+        return tree.inputs.get(name)
+
+    inp = [ui for ui in tree.interface.ui_items if ui.name == name and ui.in_out in {'INPUT', 'BOTH'}]
+    if inp: return inp[0]
+
+    return None
+
+def get_tree_output_by_name(tree, name):
+    if not is_greater_than_400():
+        return tree.outputs.get(name)
+
+    outp = [ui for ui in tree.interface.ui_items if ui.name == name and ui.in_out in {'OUTPUT', 'BOTH'}]
+    if outp: return outp[0]
+
+    return None
+
+def new_tree_input(tree, name, socket_type, description=''):
+    if not is_greater_than_400():
+        return tree.inputs.new(socket_type, name)
+
+    # There's no longer NodeSocketFloatFactor
+    subtype = 'NONE'
+    if socket_type == 'NodeSocketFloatFactor': 
+        socket_type = 'NodeSocketFloat'
+        subtype = 'FACTOR'
+
+    # Check if output with same name already exists
+    items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
+    #if items:
+    #    inp = items[0]
+    #    inp.in_out = 'BOTH'
+    #else: 
+    inp =  tree.interface.new_socket(name, description=description, in_out={'INPUT'}, socket_type=socket_type)
+
+    if hasattr(inp, 'subtype'): inp.subtype = subtype
+    return inp
+
+def new_tree_output(tree, name, socket_type, description=''):
+    if not is_greater_than_400():
+        return tree.outputs.new(socket_type, name)
+
+    # There's no longer NodeSocketFloatFactor
+    if socket_type == 'NodeSocketFloatFactor': socket_type = 'NodeSocketFloat'
+
+    # Check if input with same name already exists
+    #items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'INPUT']
+    #if items:
+    #    outp = items[0]
+    #    outp.in_out = 'BOTH'
+    #else: 
+    outp = tree.interface.new_socket(name, description=description, in_out={'OUTPUT'}, socket_type=socket_type)
+    return outp
+
+def remove_tree_input(tree, item):
+    if not is_greater_than_400():
+        tree.inputs.remove(item)
+        return
+
+    if item.in_out == 'BOTH':
+        item.in_out = 'OUTPUT'
+    elif item.in_out == 'INPUT':
+        tree.interface.remove(item)
+
+def remove_tree_output(tree, item):
+    if not is_greater_than_400():
+        tree.outputs.remove(item)
+
+    if item.in_out == 'BOTH':
+        item.in_out = 'INPUT'
+    elif item.in_out == 'OUTPUT':
+        tree.interface.remove(item)
+
+def get_tree_input_by_index(tree, index):
+    if not is_greater_than_400():
+        return tree.inputs[index]
+
+    i = -1
+    for item in tree.interface.ui_items:
+        if item.in_out in {'INPUT', 'BOTH'}:
+            i += 1
+
+        if i == index:
+            return item
+
+    return None
+
+def get_tree_output_by_index(tree, index):
+    if not is_greater_than_400():
+        return tree.outputs[index]
+
+    i = -1
+    for item in tree.interface.ui_items:
+        if item.in_out in {'OUTPUT', 'BOTH'}:
+            i += 1
+
+        if i == index:
+            return item
+
+    return None
+
+def get_actual_item_io_index_400(item, interface):
+    index = -1
+    for it in interface.ui_items:
+        if ((item.in_out in {'INPUT', 'BOTH'} and it.in_out in {'INPUT', 'BOTH'}) or
+            (item.in_out in {'OUTPUT', 'BOTH'} and it.in_out in {'OUTPUT', 'BOTH'})
+            ):
+            index += 1
+        if it == item:
+             return index
+
+    return index
 
 def get_output_index(root_ch):
     yp = root_ch.id_data.yp
@@ -3013,42 +3139,50 @@ def match_io_between_node_tree(source, target):
     valid_outputs = []
 
     # Copy inputs
-    for inp in source.inputs:
-        target_inp = target.inputs.get(inp.name)
+    for inp in get_tree_inputs(source):
+        #target_inp = target.inputs.get(inp.name)
+        target_inp = get_tree_input_by_name(target, inp.name)
 
         if target_inp and target_inp.bl_socket_idname != inp.bl_socket_idname:
-            target.inputs.remove(target_inp)
+            #target.inputs.remove(target_inp)
+            remove_tree_input(target, target_inp)
             target_inp = None
 
         if not target_inp:
-            target_inp = target.inputs.new(inp.bl_socket_idname, inp.name)
+            #target_inp = target.inputs.new(inp.bl_socket_idname, inp.name)
+            target_inp = new_tree_input(target, inp.name, inp.bl_socket_idname)
             target_inp.default_value = inp.default_value
 
         valid_inputs.append(target_inp)
 
     # Copy outputs
-    for outp in source.outputs:
-        target_outp = target.outputs.get(outp.name)
+    for outp in get_tree_outputs(source):
+        #target_outp = target.outputs.get(outp.name)
+        target_outp = get_tree_output_by_name(target, outp.name)
 
         if target_outp and target_outp.bl_socket_idname != outp.bl_socket_idname:
-            target.outputs.remove(target_outp)
+            #target.outputs.remove(target_outp)
+            remove_tree_output(target, target_outp)
             target_outp = None
 
         if not target_outp:
-            target_outp = target.outputs.new(outp.bl_socket_idname, outp.name)
+            #target_outp = target.outputs.new(outp.bl_socket_idname, outp.name)
+            target_outp = new_tree_output(target, outp.name, outp.bl_socket_idname)
             target_outp.default_value = outp.default_value
 
         valid_outputs.append(target_outp)
 
     # Remove invalid inputs
-    for inp in target.inputs:
+    for inp in get_tree_inputs(target):
         if inp not in valid_inputs:
-            target.inputs.remove(inp)
+            #target.inputs.remove(inp)
+            remove_tree_input(target, inp)
 
     # Remove invalid outputs
-    for outp in target.outputs:
+    for outp in get_tree_outputs(target):
         if outp not in valid_outputs:
-            target.outputs.remove(outp)
+            #target.outputs.remove(outp)
+            remove_tree_output(target, outp)
 
 def create_iterate_group_nodes(iter_tree, match_io=False):
 
@@ -3121,7 +3255,6 @@ def create_delete_iterate_nodes__(tree, num_of_iteration):
     for i in range(depth):
         ig = tree.nodes.get('_iterate_depth_' + str(i))
         if ig and not ig.node_tree:
-            #print('Aaaaaa')
             ig.node_tree = create_iterate_group_nodes(cur_tree, True)
 
         if ig and ig.node_tree:

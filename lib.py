@@ -418,28 +418,28 @@ def get_smooth_mix_node(blend_type, layer_type=''):
         tree = bpy.data.node_groups.new(tree_name, 'ShaderNodeTree')
 
         # IO
-        inp = tree.inputs.new('NodeSocketFloatFactor', 'Fac')
+        inp = new_tree_input(tree, 'Fac', 'NodeSocketFloatFactor')
         inp.min_value = 0.0
         inp.max_value = 1.0
 
-        tree.inputs.new('NodeSocketColor', 'Color1')
+        new_tree_input(tree, 'Color1', 'NodeSocketColor')
         for d in neighbor_directions:
-            tree.inputs.new('NodeSocketColor', 'Color1 ' + d)
+            new_tree_input(tree, 'Color1 ' + d, 'NodeSocketColor')
 
-        tree.inputs.new('NodeSocketColor', 'Color2')
+        new_tree_input(tree, 'Color2', 'NodeSocketColor')
         for d in neighbor_directions:
-            tree.inputs.new('NodeSocketColor', 'Color2 ' + d)
+            new_tree_input(tree, 'Color2 ' + d, 'NodeSocketColor')
 
-        tree.outputs.new('NodeSocketColor', 'Color')
+        new_tree_output(tree, 'Color', 'NodeSocketColor')
         for d in neighbor_directions:
-            tree.outputs.new('NodeSocketColor', 'Color ' + d)
+            new_tree_output(tree, 'Color ' + d, 'NodeSocketColor')
 
         # Group alpha limit inputs
         if is_group_limited:
-            inp = tree.inputs.new('NodeSocketFloat', 'Limit')
+            inp = new_tree_input(tree, 'Limit', 'NodeSocketFloat')
             inp.default_value = 1.0
             for d in neighbor_directions:
-                inp = tree.inputs.new('NodeSocketFloat', 'Limit ' + d)
+                inp = new_tree_input(tree, 'Limit ' + d, 'NodeSocketFloat')
                 inp.default_value = 1.0
 
         # Nodes

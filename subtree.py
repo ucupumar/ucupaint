@@ -45,32 +45,26 @@ def move_mod_group(layer, from_tree, to_tree):
 def refresh_source_tree_ios(source_tree, layer_type):
 
     # Create input and outputs
-    inp = source_tree.inputs.get('Vector')
-    if not inp: source_tree.inputs.new('NodeSocketVector', 'Vector')
+    inp = get_tree_input_by_name(source_tree, 'Vector')
+    if not inp: new_tree_input(source_tree, 'Vector', 'NodeSocketVector')
 
-    out = source_tree.outputs.get('Color')
-    if not out: source_tree.outputs.new('NodeSocketColor', 'Color')
+    out = get_tree_output_by_name(source_tree, 'Color')
+    if not out: new_tree_output(source_tree, 'Color', 'NodeSocketColor')
 
-    out = source_tree.outputs.get('Alpha')
-    if not out: source_tree.outputs.new('NodeSocketFloat', 'Alpha')
+    out = get_tree_output_by_name(source_tree, 'Alpha')
+    if not out: new_tree_output(source_tree, 'Alpha', 'NodeSocketFloat')
 
-    col1 = source_tree.outputs.get('Color 1')
-    alp1 = source_tree.outputs.get('Alpha 1')
-    #solid = source_tree.nodes.get(ONE_VALUE)
+    col1 = get_tree_output_by_name(source_tree, 'Color 1')
+    alp1 = get_tree_output_by_name(source_tree, 'Alpha 1')
 
     if layer_type not in {'IMAGE', 'MUSGRAVE'}:
 
-        if not col1: col1 = source_tree.outputs.new('NodeSocketColor', 'Color 1')
-        if not alp1: alp1 = source_tree.outputs.new('NodeSocketFloat', 'Alpha 1')
+        if not col1: col1 = new_tree_output(source_tree, 'Color 1', 'NodeSocketColor')
+        if not alp1: alp1 = new_tree_output(source_tree, 'Alpha 1', 'NodeSocketFloat')
 
-        #if not solid:
-        #    solid = source_tree.nodes.new('ShaderNodeValue')
-        #    solid.outputs[0].default_value = 1.0
-        #    solid.name = ONE_VALUE
     else:
-        if col1: source_tree.outputs.remove(col1)
-        if alp1: source_tree.outputs.remove(alp1)
-        #if solid: source_tree.nodes.remove(solid)
+        if col1: remove_tree_output(source_tree, col1)
+        if alp1: remove_tree_output(source_tree, alp1)
 
 def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
     #if not ch.override: return
@@ -447,9 +441,8 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
 
         # Create input and outputs
-        mask_tree.inputs.new('NodeSocketVector', 'Vector')
-        #mask_tree.outputs.new('NodeSocketColor', 'Color')
-        mask_tree.outputs.new('NodeSocketFloat', 'Value')
+        new_tree_input(mask_tree, 'Vector', 'NodeSocketVector')
+        new_tree_output(mask_tree, 'Value', 'NodeSocketFloat')
 
         create_essential_nodes(mask_tree)
 
@@ -1067,11 +1060,11 @@ def check_actual_uv_nodes(yp, uv, obj):
 
 def check_parallax_process_outputs(parallax, uv_name, remove=False):
 
-    outp = parallax.node_tree.outputs.get(uv_name)
+    outp = get_tree_output_by_name(parallax.node_tree, uv_name)
     if remove and outp:
-        parallax.node_tree.outputs.remove(outp)
+        remove_tree_output(parallax.node_tree, outp)
     elif not remove and not outp:
-        outp = parallax.node_tree.outputs.new('NodeSocketVector', uv_name)
+        outp = new_tree_output(parallax.node_tree, uv_name, 'NodeSocketVector')
 
 def check_parallax_mix(tree, uv, baked=False, remove=False):
 
@@ -1104,35 +1097,38 @@ def check_start_delta_uv_inputs(tree, uv_name, remove=False):
     start_uv_name = uv_name + START_UV
     delta_uv_name = uv_name + DELTA_UV
 
-    start = tree.inputs.get(start_uv_name)
+    start = get_tree_input_by_name(tree, start_uv_name)
     if remove and start:
-        tree.inputs.remove(start)
+        remove_tree_input(tree, start)
     elif not remove and not start:
-        tree.inputs.new('NodeSocketVector', start_uv_name)
+        new_tree_input(tree, start_uv_name, 'NodeSocketVector')
 
-    delta = tree.inputs.get(delta_uv_name)
+    delta = get_tree_input_by_name(tree, delta_uv_name)
     if remove and delta:
-        tree.inputs.remove(delta)
+        remove_tree_input(tree, delta)
     elif not remove and not delta:
-        tree.inputs.new('NodeSocketVector', delta_uv_name)
+        new_tree_input(tree, delta_uv_name, 'NodeSocketVector')
 
 def check_current_uv_outputs(tree, uv_name, remove=False):
     current_uv_name = uv_name + CURRENT_UV
 
-    current = tree.outputs.get(current_uv_name)
+    #current = tree.outputs.get(current_uv_name)
+    current = get_tree_output_by_name(tree, current_uv_name)
     if remove and current:
-        tree.outputs.remove(current)
+        #tree.outputs.remove(current)
+        remove_tree_output(tree, current)
     elif not remove and not current:
-        tree.outputs.new('NodeSocketVector', current_uv_name)
+        #tree.outputs.new('NodeSocketVector', current_uv_name)
+        new_tree_output(tree, current_uv_name, 'NodeSocketVector')
 
 def check_current_uv_inputs(tree, uv_name, remove=False):
     current_uv_name = uv_name + CURRENT_UV
 
-    current = tree.inputs.get(current_uv_name)
+    current = get_tree_input_by_name(tree, current_uv_name)
     if remove and current:
-        tree.inputs.remove(current)
+        remove_tree_input(tree, current)
     elif not remove and not current:
-        tree.inputs.new('NodeSocketVector', current_uv_name)
+        new_tree_input(tree, current_uv_name, 'NodeSocketVector')
 
 def check_iterate_current_uv_mix(tree, uv, baked=False, remove=False):
 
