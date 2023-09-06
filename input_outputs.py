@@ -70,7 +70,7 @@ def create_input(tree, name, socket_type, valid_inputs, index,
 
     inp = get_tree_input_by_name(tree, name)
     if not inp:
-        inp = new_tree_input(tree, name, socket_type)
+        inp = new_tree_input(tree, name, socket_type, use_both=True)
         dirty = True
         if min_value != None: inp.min_value = min_value
         if max_value != None: inp.max_value = max_value
@@ -86,7 +86,7 @@ def create_output(tree, name, socket_type, valid_outputs, index, dirty=False, de
 
     outp = get_tree_output_by_name(tree, name)
     if not outp:
-        outp = new_tree_output(tree, name, socket_type)
+        outp = new_tree_output(tree, name, socket_type, use_both=True)
         dirty = True
         if default_value != None: outp.default_value = default_value
 

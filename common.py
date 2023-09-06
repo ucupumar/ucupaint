@@ -2137,7 +2137,7 @@ def get_tree_output_by_name(tree, name):
 
     return None
 
-def new_tree_input(tree, name, socket_type, description=''):
+def new_tree_input(tree, name, socket_type, description='', use_both=False):
     if not is_greater_than_400():
         return tree.inputs.new(socket_type, name)
 
@@ -2147,31 +2147,38 @@ def new_tree_input(tree, name, socket_type, description=''):
         socket_type = 'NodeSocketFloat'
         subtype = 'FACTOR'
 
-    # Check if output with same name already exists
-    items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
-    if items:
-        inp = items[0]
-        inp.in_out = 'BOTH'
-    else: 
+    inp = None
+    if use_both:
+        # Check if output with same name already exists
+        items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
+        if items:
+            inp = items[0]
+            inp.in_out = 'BOTH'
+
+    if not inp: 
         inp =  tree.interface.new_socket(name, description=description, in_out={'INPUT'}, socket_type=socket_type)
 
     if hasattr(inp, 'subtype'): inp.subtype = subtype
     return inp
 
-def new_tree_output(tree, name, socket_type, description=''):
+def new_tree_output(tree, name, socket_type, description='', use_both=False):
     if not is_greater_than_400():
         return tree.outputs.new(socket_type, name)
 
     # There's no longer NodeSocketFloatFactor
     if socket_type == 'NodeSocketFloatFactor': socket_type = 'NodeSocketFloat'
 
-    # Check if input with same name already exists
-    items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'INPUT']
-    if items:
-        outp = items[0]
-        outp.in_out = 'BOTH'
-    else: 
+    outp = None
+    if use_both:
+        # Check if input with same name already exists
+        items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'INPUT']
+        if items:
+            outp = items[0]
+            outp.in_out = 'BOTH'
+
+    if not outp: 
         outp = tree.interface.new_socket(name, description=description, in_out={'OUTPUT'}, socket_type=socket_type)
+
     return outp
 
 def remove_tree_input(tree, item):
