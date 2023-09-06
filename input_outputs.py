@@ -66,7 +66,7 @@ def fix_tree_output_index(tree, item, correct_index):
     fix_tree_output_index_400(tree.interface, item, correct_index)
 
 def create_input(tree, name, socket_type, valid_inputs, index, 
-        dirty = False, min_value=None, max_value=None, default_value=None):
+        dirty = False, min_value=None, max_value=None, default_value=None, hide_value=False):
 
     inp = get_tree_input_by_name(tree, name)
     if not inp:
@@ -75,6 +75,7 @@ def create_input(tree, name, socket_type, valid_inputs, index,
         if min_value != None: inp.min_value = min_value
         if max_value != None: inp.max_value = max_value
         if default_value != None: inp.default_value = default_value
+        if hasattr(inp, 'hide_value'): inp.hide_value = hide_value
 
     valid_inputs.append(inp)
     fix_tree_input_index(tree, inp, index)
@@ -113,7 +114,7 @@ def check_all_channel_ios(yp, reconnect=True):
         elif ch.type == 'NORMAL':
             # Use 999 as normal z value so it will fallback to use geometry normal at checking process
             create_input(group_tree, ch.name, channel_socket_input_bl_idnames[ch.type], 
-                    valid_inputs, input_index, default_value=(999,999,999))
+                    valid_inputs, input_index, default_value=(999,999,999), hide_value=True)
 
         create_output(group_tree, ch.name, channel_socket_output_bl_idnames[ch.type], 
                 valid_outputs, output_index)
