@@ -13,14 +13,36 @@ addon_folder = os.path.dirname(__file__)
 # global previews_collection
 # preview_items = []
 assets_lib = {}
+last_search = {}
 
-def preview_enums(self, context):
-    return previews_collection.preview_items
+# def preview_enums(self, context):
+#     return previews_collection.preview_items
+
+def update_input_search(self, context):
+    scene = context.scene
+    retrieve_assets_info(self.input_search)
+    if not read_asset_info():
+        retrieve_assets_info()
     
+    # new_t = threading.Thread(target=download_previews, args=(False      ,))
+    # new_t.start()
+    download_previews(False)
+    load_previews()
+
+    scene.material_items.clear()
+    for i in last_search:
+    # for index, item in enumerate(previews_collection.preview_items):
+        new_item = scene.material_items.add()
+        item_id =  last_search[i]["id"]
+        new_item.name = item_id
+        # new_item.thumb = lib.custom_icons["input"].icon_id # previews_collection.preview_items[item_id][3]
+        new_item.thumb = previews_collection.preview_items[item_id][3]
 
 class TexLibProps(bpy.types.PropertyGroup):
     page: IntProperty(name="page", default= 0)
-    input_search:StringProperty(name="Search")
+    input_search:StringProperty(name="Search", update=update_input_search)
+    searching:BoolProperty(default=False)
+    
     persen:StringProperty()
     progress : IntProperty(
         default = 0,
@@ -29,10 +51,10 @@ class TexLibProps(bpy.types.PropertyGroup):
         description = 'Progress of the download',
         subtype = 'PERCENTAGE'
     )
-    shaders_previews : EnumProperty(
-        name = 'PBR Shader',
-        items = preview_enums,
-    )
+    # shaders_previews : EnumProperty(
+    #     name = 'PBR Shader',
+    #     items = preview_enums,
+    # )
 
 class TexLibDownload(Operator):
     bl_label = "texlib Download"
@@ -77,8 +99,7 @@ class TexLibBrowser(Panel):
         my_list = scene.material_items
 
         layout.prop(amb_br, "input_search")
-        layout.operator("texlib.search_material")
-        layout.operator("texlib.refresh_previews")
+        # layout.operator("texlib.refresh_previews")
         # layout.operator("texlib.rem_material")
         # layout.prop(amb_br, "progress", slider=True, text="Download")
         # layout.template_icon_view(amb_br, "shaders_previews", show_labels=True,scale = 7, scale_popup = 5)
@@ -112,20 +133,22 @@ class TexLibMaterialUIList(UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         """Demo UIList."""
 
-        # We could write some code to decide which icon to use here...
-        thumb = previews_collection.preview_items[index % 4][3]
+#   index = scene.material_index
+        scene = context.scene
+        my_list = scene.material_items
+
 
         # print("tipe ",self.layout_type)
         row = layout.row(align=True)
         # row.alignment = "CENTER"
         # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            row.template_icon(icon_value = thumb, scale = 1.0)
+            row.template_icon(icon_value = item.thumb, scale = 1.0)
             row.label(text=item.name)
 
         elif self.layout_type in {'GRID'}:
             layout.alignment = 'CENTER'
-            layout.label(text=item.name, icon_value = thumb)
+            layout.label(text=item.name, icon_value = item.thumb)
 
 class TexLibRefreshItems(Operator):
     bl_idname = "texlib.refresh_previews"
@@ -137,30 +160,22 @@ class TexLibRefreshItems(Operator):
         amb_br = scene.ambient_browser
         context.scene.material_items.clear()
         if not read_asset_info():
-            retrieve_assets_info(0, 10)
+            retrieve_assets_info()
         
         # new_t = threading.Thread(target=download_previews, args=(False      ,))
         # new_t.start()
         download_previews(False)
         load_previews()
-        for index, item in enumerate(previews_collection.preview_items):
+
+        for i in last_search:
+        # for index, item in enumerate(previews_collection.preview_items):
             new_item = context.scene.material_items.add()
-            new_item.name = item[0]
-            new_item.thumb = item[3]
+            item_id =  last_search[i]["id"]
+            new_item.name = item_id
+            new_item.thumb = previews_collection.preview_items[item_id][3]
        
         return{'FINISHED'}
-    
-class TexLibSearchMaterial(Operator):
-    bl_idname = "texlib.search_material"
-    bl_label = "Search Materials"
-    
-    
-    def execute(self, context):
-        scene = context.scene
-        amb_br = scene.ambient_browser
-        retrieve_assets_info(0, 10)
-       
-        return{'FINISHED'}
+
     
 class TexLibMaterialNewItem(Operator):
     """Add a new item to the list."""
@@ -207,7 +222,7 @@ class TexLibMaterialDelItem(Operator):
         return{'FINISHED'}
     
 classes = [TexLibProps, TexLibBrowser, TexLibDownload, MaterialItem, TexLibMaterialUIList
-           ,TexLibMaterialNewItem, TexLibMaterialDelItem, TexLibRefreshItems, TexLibSearchMaterial]
+           ,TexLibMaterialNewItem, TexLibMaterialDelItem, TexLibRefreshItems]
 
 def register():
     for cl in classes:
@@ -249,16 +264,14 @@ def load_previews():
     files = os.listdir(dir_name)
     
     previews_collection.clear()
-    preview_items = []
+    preview_items = {}
     # for index, item in enumerate(mat_items):
     for index, item in enumerate(files):
         file = dir_name + item
         print(">> fp = ", file)
-
+        my_id = item.split(".")[0]
         loaded = previews_collection.load(item, file, 'IMAGE', force_reload=True)
-
-        
-        preview_items.append((item.split(".")[0], item, "", loaded.icon_id, index))
+        preview_items[my_id] = (my_id, item, "", loaded.icon_id, index)
 
         # Scene.ambient_browser.shaders_previews.
     previews_collection.preview_items = preview_items
@@ -341,6 +354,8 @@ def download_stream(link, timeout, skipExisting = False):
 
 def download_previews(overwrite_existing:bool):
     directory = _get_preview_dir()
+    if not os.path.exists(directory):
+        os.mkdir(directory)
     print("download to ",directory)
     print("asset",assets_lib)
     for ast in assets_lib:
@@ -368,7 +383,7 @@ def download_previews(overwrite_existing:bool):
                 print('Error #2 while downloading', link, ':', e)
 
 def read_asset_info() -> bool:
-    dir_name = get_addon_filepath()
+    dir_name = _get_lib_dir()
     file_name = os.path.join(dir_name, "lib.json")
 
     if os.path.exists(file_name):
@@ -381,7 +396,7 @@ def read_asset_info() -> bool:
         return True
     return False
 
-def retrieve_assets_info(page:int, limit:int):
+def retrieve_assets_info(keyword:str = '', page:int = 0, limit:int = 10):
     base_link = "https://ambientCG.com/api/v2/full_json"
     params = {
         'type': 'Material',
@@ -389,15 +404,13 @@ def retrieve_assets_info(page:int, limit:int):
         'limit': str(limit),
         'offset': str(limit * page) 
     }
+
+    if keyword != '':
+        params['q'] = keyword
     
-
-
-    dir_name = get_addon_filepath()
+    dir_name = _get_lib_dir()
     file_name = os.path.join(dir_name, "lib.json")
     file_name_ori = os.path.join(dir_name, "lib-ori.json")
-
-
-    
 
     response = requests.get(base_link, params=params)
     if not response.status_code == 200:
@@ -407,7 +420,8 @@ def retrieve_assets_info(page:int, limit:int):
     assets = response.json()["foundAssets"]
     file = open(file_name, 'w')
 
-    assets_lib = {}
+    # assets_lib = {}
+    last_search.clear()
     for asst in assets:
         asset_obj = {}
         asset_obj["id"] = asst["assetId"]
@@ -422,6 +436,7 @@ def retrieve_assets_info(page:int, limit:int):
             }
         asset_obj["downloads"] = downloads
         assets_lib[asst["assetId"]] = asset_obj
+        last_search[asst["assetId"]] = asset_obj
 
     file.write(json.dumps(assets_lib))
     file.close()
@@ -432,9 +447,20 @@ def retrieve_assets_info(page:int, limit:int):
     file_ori.write(json.dumps({"foundAssets":assets}))
     file_ori.close()
 
-def _get_preview_dir():
+
+def _get_preview_dir() -> str:
+    file_path = _get_lib_dir()
+    retval = os.path.join(file_path, "previews") + os.sep
+    if not os.path.exists(retval):
+        os.mkdir(retval)
+    return retval
+
+def _get_lib_dir() -> str:
     file_path = get_addon_filepath()
-    return os.path.join(file_path, "previews") + os.sep
+    retval = os.path.join(file_path, "library") + os.sep
+    if not os.path.exists(retval):
+        os.mkdir(retval)
+    return retval
 
 if __name__ == "__main__":
     register()
