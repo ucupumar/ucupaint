@@ -699,18 +699,16 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
         outputs = node.outputs
         output_index = get_output_index(channel)
 
-        if not (yp.use_baked and yp.enable_baked_outside):
+        if is_output_unconnected(node, output_index, channel):
+            row = mcol.row(align=True)
+            row.alert = True
+            row.operator('node.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
 
-            if len(outputs[output_index].links) == 0:
-                row = mcol.row(align=True)
-                row.alert = True
-                row.operator('node.y_connect_ypaint_channel', icon='ERROR', text='Fix Unconnected Channel Output')
-
-            # Fix for alpha channel missing connection, only works for bsdf for now
-            elif channel.type=='RGB' and channel.enable_alpha and len(outputs[output_index+1].links) == 0:
-                row = mcol.row(align=True)
-                row.alert = True
-                row.operator('node.y_connect_ypaint_channel_alpha', icon='ERROR', text='Fix Unconnected Alpha Output')
+        # Fix for alpha channel missing connection
+        elif channel.type=='RGB' and channel.enable_alpha and is_output_unconnected(node, output_index+1, channel):
+            row = mcol.row(align=True)
+            row.alert = True
+            row.operator('node.y_connect_ypaint_channel_alpha', icon='ERROR', text='Fix Unconnected Alpha Output')
 
         row = mcol.row(align=True)
 
@@ -3025,6 +3023,13 @@ class VIEW3D_PT_YPaint_ui(bpy.types.Panel):
     def draw(self, context):
         main_draw(self, context)
 
+def is_output_unconnected(node, index, root_ch=None):
+    yp = node.node_tree.yp
+    unconnected = len(node.outputs[index].links) == 0 and not (yp.use_baked and yp.enable_baked_outside)
+    if root_ch and root_ch.type == 'NORMAL':
+        unconnected &= not (not is_greater_than_280() and yp.use_baked and root_ch.subdiv_adaptive)
+    return unconnected
+
 class NODE_UL_YPaint_channels(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
 
@@ -3053,7 +3058,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
             else:
                 row.label(text='', icon='LINKED')
 
-            if len(outputs[output_index].links) == 0 and not (yp.use_baked and yp.enable_baked_outside):
+            if is_output_unconnected(group_node, output_index, item):
                 row.label(text='', icon='ERROR')
 
             if item.type=='RGB' and item.enable_alpha:
@@ -3061,7 +3066,7 @@ class NODE_UL_YPaint_channels(bpy.types.UIList):
                     row.prop(inputs[input_index+1], 'default_value', text='')
                 else: row.label(text='', icon='LINKED')
 
-                if len(outputs[output_index+1].links) == 0 and not (yp.use_baked and yp.enable_baked_outside):
+                if is_output_unconnected(group_node, output_index+1, item):
                     row.label(text='', icon='ERROR')
 
 class NODE_UL_YPaint_layers(bpy.types.UIList):
