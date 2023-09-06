@@ -2149,11 +2149,11 @@ def new_tree_input(tree, name, socket_type, description=''):
 
     # Check if output with same name already exists
     items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
-    #if items:
-    #    inp = items[0]
-    #    inp.in_out = 'BOTH'
-    #else: 
-    inp =  tree.interface.new_socket(name, description=description, in_out={'INPUT'}, socket_type=socket_type)
+    if items:
+        inp = items[0]
+        inp.in_out = 'BOTH'
+    else: 
+        inp =  tree.interface.new_socket(name, description=description, in_out={'INPUT'}, socket_type=socket_type)
 
     if hasattr(inp, 'subtype'): inp.subtype = subtype
     return inp
@@ -2166,12 +2166,12 @@ def new_tree_output(tree, name, socket_type, description=''):
     if socket_type == 'NodeSocketFloatFactor': socket_type = 'NodeSocketFloat'
 
     # Check if input with same name already exists
-    #items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'INPUT']
-    #if items:
-    #    outp = items[0]
-    #    outp.in_out = 'BOTH'
-    #else: 
-    outp = tree.interface.new_socket(name, description=description, in_out={'OUTPUT'}, socket_type=socket_type)
+    items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'INPUT']
+    if items:
+        outp = items[0]
+        outp.in_out = 'BOTH'
+    else: 
+        outp = tree.interface.new_socket(name, description=description, in_out={'OUTPUT'}, socket_type=socket_type)
     return outp
 
 def remove_tree_input(tree, item):
@@ -2221,18 +2221,6 @@ def get_tree_output_by_index(tree, index):
             return item
 
     return None
-
-def get_actual_item_io_index_400(item, interface):
-    index = -1
-    for it in interface.ui_items:
-        if ((item.in_out in {'INPUT', 'BOTH'} and it.in_out in {'INPUT', 'BOTH'}) or
-            (item.in_out in {'OUTPUT', 'BOTH'} and it.in_out in {'OUTPUT', 'BOTH'})
-            ):
-            index += 1
-        if it == item:
-             return index
-
-    return index
 
 def get_output_index(root_ch):
     yp = root_ch.id_data.yp

@@ -11,14 +11,44 @@ def fix_io_index_360(item, items, correct_index):
     if cur_index and cur_index[0] != correct_index:
         items.move(cur_index[0], correct_index)
 
-def fix_io_index_400(item, interface, correct_index):
-    if get_actual_item_io_index_400(item, interface) == correct_index:
+def get_tree_input_index_400(interface, item):
+    index = -1
+    for it in interface.ui_items:
+        if item.in_out in {'INPUT', 'BOTH'} and it.in_out in {'INPUT', 'BOTH'}:
+            index += 1
+        if it == item:
+             return index
+
+    return index
+
+def get_tree_output_index_400(interface, item):
+    index = -1
+    for it in interface.ui_items:
+        if item.in_out in {'OUTPUT', 'BOTH'} and it.in_out in {'OUTPUT', 'BOTH'}:
+            index += 1
+        if it == item:
+             return index
+
+    return index
+
+def fix_tree_input_index_400(interface, item, correct_index):
+    if get_tree_input_index_400(interface, item) == correct_index:
         return
     
     # HACK: Try to move using all index because interface move is still inconsistent
     for i in range(len(interface.ui_items)):
         interface.move(item, i)
-        if get_actual_item_io_index_400(item, interface) == correct_index:
+        if get_tree_input_index_400(interface, item) == correct_index:
+            return
+
+def fix_tree_output_index_400(interface, item, correct_index):
+    if get_tree_output_index_400(interface, item) == correct_index:
+        return
+    
+    # HACK: Try to move using all index because interface move is still inconsistent
+    for i in range(len(interface.ui_items)):
+        interface.move(item, i)
+        if get_tree_output_index_400(interface, item) == correct_index:
             return
 
 def fix_tree_input_index(tree, item, correct_index):
@@ -26,14 +56,14 @@ def fix_tree_input_index(tree, item, correct_index):
         fix_io_index_360(item, tree.inputs, correct_index)
         return
 
-    fix_io_index_400(item, tree.interface, correct_index)
+    fix_tree_input_index_400(tree.interface, item, correct_index)
 
 def fix_tree_output_index(tree, item, correct_index):
     if not is_greater_than_400():
         fix_io_index_360(item, tree.outputs, correct_index)
         return
 
-    fix_io_index_400(item, tree.interface, correct_index)
+    fix_tree_output_index_400(tree.interface, item, correct_index)
 
 def create_input(tree, name, socket_type, valid_inputs, index, 
         dirty = False, min_value=None, max_value=None, default_value=None):
@@ -137,15 +167,6 @@ def check_all_channel_ios(yp, reconnect=True):
             create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
 
             output_index += 1
-
-            #if yp.use_baked and ch.enable_subdiv_setup and ch.subdiv_adaptive:
-            #    name = ch.name + io_suffix['DISPLACEMENT']
-
-            #    if is_greater_than_280():
-            #        create_output(group_tree, name, 'NodeSocketVector', valid_outputs, output_index)
-            #    else: create_output(group_tree, name, 'NodeSocketFloat', valid_outputs, output_index)
-
-            #    output_index += 1
 
             # Add end linear for converting displacement map to grayscale
             if ch.enable_smooth_bump:
