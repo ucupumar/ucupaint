@@ -990,8 +990,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         # Unpack image if image is packed
         unpack = False
-        #if not is_greater_than_280() and 
-        if self.unpack and image.packed_file:
+        if self.unpack or image.packed_file:
             unpack = True
             self.unpack_image(context)
 
@@ -1021,7 +1020,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         settings.use_jpeg2k_cinema_preset = self.use_jpeg2k_cinema_preset
         settings.use_jpeg2k_ycc = self.use_jpeg2k_ycc
         settings.use_cineon_log = self.use_cineon_log
-        settings.use_zbuffer = self.use_zbuffer
+        if hasattr(settings, 'use_zbuffer'): settings.use_zbuffer = self.use_zbuffer
 
         #print(self.file_format)
 
