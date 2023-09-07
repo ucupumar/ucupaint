@@ -585,7 +585,6 @@ class YResizeImage(bpy.types.Operator):
             space.image = ori_space_image
 
         else:
-            #scaled_img, new_segment = resize_image(image, self.width, self.height, 'Non-Color', self.samples, 0, segment)
             scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, bake_device='CPU', yp=yp)
 
             if new_segment:

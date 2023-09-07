@@ -1,9 +1,10 @@
 bl_info = {
     "name": "Ucupaint",
     "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha",
-    "version": (1, 0, 12),
+    "version": (1, 1, 0),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
+    "warning": "Alpha Version",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
     "wiki_url": "https://ucupumar.github.io/ucupaint-wiki/",
     "category": "Node",

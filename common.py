@@ -425,6 +425,16 @@ def get_addon_title():
     bl_info = sys.modules[get_addon_name()].bl_info
     return bl_info['name']
 
+def get_addon_warning():
+    bl_info = sys.modules[get_addon_name()].bl_info
+    return bl_info['warning']
+
+def get_alpha_suffix():
+    bl_info = sys.modules[get_addon_name()].bl_info
+    if 'Alpha' in bl_info['warning']:
+        return ' Alpha'
+    return ''
+
 def get_current_version_str():
     bl_info = sys.modules[get_addon_name()].bl_info
     return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
