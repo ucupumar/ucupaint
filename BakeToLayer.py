@@ -6,7 +6,7 @@ from .bake_common import *
 from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
-from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, BakeInfo
+from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, BakeInfo, UDIM
 
 TEMP_VCOL = '__temp__vcol__'
 
@@ -132,6 +132,13 @@ class YRemoveBakeInfoOtherObject(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def update_bake_to_layer_uv_map(self, context):
+    if not is_greater_than_330(): return
+
+    mat = get_active_material()
+    objs = get_all_objects_with_same_materials(mat)
+    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+
 class YBakeToLayer(bpy.types.Operator):
     bl_idname = "node.y_bake_to_layer"
     bl_label = "Bake To Layer"
@@ -140,7 +147,7 @@ class YBakeToLayer(bpy.types.Operator):
 
     name : StringProperty(default='')
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(default='', update=update_bake_to_layer_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     uv_map_1 : StringProperty(default='')
@@ -245,12 +252,6 @@ class YBakeToLayer(bpy.types.Operator):
             default=False
             )
 
-    #use_multires : BoolProperty(
-    #        name='Use Multires',
-    #        description='Use top level multires modifier if available',
-    #        default=True
-    #        )
-
     flip_normals : BoolProperty(
             name='Flip Normals',
             description='Flip normal of mesh',
@@ -282,15 +283,21 @@ class YBakeToLayer(bpy.types.Operator):
             default='CPU'
             )
 
-    #source_object : PointerProperty(
-    #        type=bpy.types.Object,
-    #        #poll=scene_mychosenobject_poll
-    #        )
-
     use_image_atlas : BoolProperty(
             name = 'Use Image Atlas',
             description='Use Image Atlas',
             default=False)
+
+    use_udim : BoolProperty(
+            name = 'Use UDIM Tiles',
+            description='Use UDIM Tiles',
+            default=False)
+
+    def is_using_udim(self):
+        return self.use_udim and is_greater_than_330()
+
+    def is_using_image_atlas(self):
+        return self.use_image_atlas and not self.is_using_udim()
 
     @classmethod
     def poll(cls, context):
@@ -301,13 +308,15 @@ class YBakeToLayer(bpy.types.Operator):
         if hasattr(context, 'entity'):
             self.entity = context.entity
         else: self.entity = None
-        #print(context.entity)
 
         obj = self.obj = context.object
         scene = self.scene = context.scene
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         ypup = get_user_preferences()
+
+        # UDIM is turned off by default
+        #self.use_udim = False
 
         # Use user preference default image size if input uses default image size
         if self.width == 1234 and self.height == 1234:
@@ -416,16 +425,6 @@ class YBakeToLayer(bpy.types.Operator):
                     break
 
         suffix = bake_type_suffixes[self.type]
-
-        #if self.use_image_atlas:
-        #    if self.target_type == 'LAYER':
-        #        self.name = get_unique_name(mat.name + ' ' + suffix, yp.layers)
-        #    else: 
-        #        try:
-        #            active_layer = yp.layers[yp.active_layer_index]
-        #            self.name = get_unique_name(mat.name + ' ' + suffix, active_layer.masks)
-        #        except: pass
-        #else: 
         self.name = get_unique_name(mat.name + ' ' + suffix, bpy.data.images)
 
         self.overwrite_choice = False
@@ -531,11 +530,6 @@ class YBakeToLayer(bpy.types.Operator):
             if not uv.name.startswith(TEMP_UV):
                 self.uv_map_coll.add().name = uv.name
 
-        #if len(uv_layers) > 0:
-            #active_name = uv_layers.active.name
-            #if active_name == TEMP_UV:
-            #    self.uv_map = yp.layers[yp.active_layer_index].uv_name
-            #else: self.uv_map = uv_layers.active.name
         if len(self.uv_map_coll) > 0 and not overwrite_entity: #len(self.overwrite_coll) == 0:
             self.uv_map = self.uv_map_coll[0].name
 
@@ -548,7 +542,7 @@ class YBakeToLayer(bpy.types.Operator):
         ypup = get_user_preferences()
 
         # New image cannot use more pixels than the image atlas
-        if self.use_image_atlas:
+        if self.is_using_image_atlas():
             if self.hdr: max_size = ypup.hdr_image_atlas_size
             else: max_size = ypup.image_atlas_size
             if self.width > max_size: self.width = max_size
@@ -673,8 +667,6 @@ class YBakeToLayer(bpy.types.Operator):
             col.prop(self, 'bevel_radius', text='')
         elif self.type.startswith('MULTIRES_'):
             col.prop(self, 'multires_base', text='')
-        #elif self.type.startswith('OTHER_OBJECT_'):
-        #    col.prop(self, 'source_object', text='')
 
         col.prop(self, 'hdr')
         col.prop(self, 'width', text='')
@@ -711,7 +703,9 @@ class YBakeToLayer(bpy.types.Operator):
 
         if self.type not in {'OTHER_OBJECT_CHANNELS'}:
             col.separator()
-            col.prop(self, 'use_image_atlas')
+            ccol = col.column(align=True)
+            ccol.active = not self.use_udim
+            ccol.prop(self, 'use_image_atlas')
 
     def execute(self, context):
         T = time.time()
@@ -837,6 +831,11 @@ class YBakeToLayer(bpy.types.Operator):
                     self.report({'ERROR'}, "No source objects found! They're probably deleted!")
                 else: self.report({'ERROR'}, "Source objects must be selected and it should have different material!")
                 return {'CANCELLED'}
+
+        # Get tile numbers
+        tilenums = [1001]
+        if self.is_using_udim():
+            tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
 
         # Remember things
         book = remember_before_bake(yp, mat=mat)
@@ -1326,15 +1325,28 @@ class YBakeToLayer(bpy.types.Operator):
                 color[3] = 0.0
 
             # New target image
-            image = bpy.data.images.new(name=image_name,
-                    width=width, height=height, alpha=True, float_buffer=self.hdr)
+            if self.is_using_udim():
+                image = bpy.data.images.new(name=image_name, width=width, height=height, 
+                        alpha=True, float_buffer=self.hdr, tiled=True)
+
+                # Fill tiles
+                for tilenum in tilenums:
+                    UDIM.fill_tile(image, tilenum, color, width, height)
+                UDIM.initial_pack_udim(image)
+
+                # Remember base color
+                image.yia.color = 'TRANSPARENT'
+            else:
+                image = bpy.data.images.new(name=image_name,
+                        width=width, height=height, alpha=True, float_buffer=self.hdr)
+
             image.generated_color = color
             image.colorspace_settings.name = colorspace
 
             # Set image filepath if overwrite image is found
             if overwrite_img:
                 if idx == 0:
-                    if not overwrite_img.packed_file:
+                    if not overwrite_img.packed_file and overwrite_img.filepath != '':
                         image.filepath = overwrite_img.filepath
                 else:
                     layer = yp.layers[yp.active_layer_index]
@@ -1345,7 +1357,7 @@ class YBakeToLayer(bpy.types.Operator):
                         source = get_channel_source_1(ch, layer)
                     else: source = get_channel_source(ch, layer)
 
-                    if source and hasattr(source, 'image') and source.image and not source.image.packed_file:
+                    if source and hasattr(source, 'image') and source.image and not source.image.packed_file and source.image.filepath != '':
                         image.filepath = source.image.filepath
 
             # Set bake image
@@ -1365,9 +1377,14 @@ class YBakeToLayer(bpy.types.Operator):
             # Bake alpha if baking other objects normal
             #if self.type.startswith('OTHER_OBJECT_'):
             if self.type == 'OTHER_OBJECT_NORMAL':
-                temp_img = bpy.data.images.new(name='__TEMP_IMAGE__',
-                        width=width, height=height, alpha=True, float_buffer=self.hdr)
+                temp_img = image.copy()
+                temp_img.colorspace_settings.name = 'Non-Color'
                 tex.image = temp_img
+
+                # Set temp filepath
+                if image.source == 'TILED':
+                    temp_img.name = '__TEMP__'
+                    UDIM.initial_pack_udim(temp_img)
 
                 # Need to use clear so there's alpha on the baked image
                 scene.render.bake.use_clear = True
@@ -1375,12 +1392,25 @@ class YBakeToLayer(bpy.types.Operator):
                 # Bake emit can will create alpha image
                 bpy.ops.object.bake(type='EMIT')
 
-                # Copy alpha to RGB channel, so it can be fxaa-ed
-                copy_image_channel_pixels(temp_img, temp_img, 3, 0)
-                fxaa_image(temp_img, False, self.bake_device)
+                # Set tile pixels
+                for tilenum in tilenums:
 
-                # Copy alpha to actual image
-                copy_image_channel_pixels(temp_img, image, 0, 3)
+                    # Swap tile
+                    if tilenum != 1001:
+                        UDIM.swap_tile(image, 1001, tilenum)
+                        UDIM.swap_tile(temp_img, 1001, tilenum)
+
+                    # Copy alpha to RGB channel, so it can be fxaa-ed
+                    copy_image_channel_pixels(temp_img, temp_img, 3, 0)
+                    fxaa_image(temp_img, False, self.bake_device, first_tile_only=True)
+
+                    # Copy alpha to actual image
+                    copy_image_channel_pixels(temp_img, image, 0, 3)
+
+                    # Swap tile again to recover
+                    if tilenum != 1001:
+                        UDIM.swap_tile(image, 1001, tilenum)
+                        UDIM.swap_tile(temp_img, 1001, tilenum)
 
                 # Remove temp image
                 bpy.data.images.remove(temp_img)
@@ -1389,11 +1419,11 @@ class YBakeToLayer(bpy.types.Operator):
             if use_ssaa:
                 image, temp_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, alpha_aware=True, bake_device=self.bake_device)
 
-            need_to_create_new_segment = False
             new_segment_created = False
 
-            if self.use_image_atlas:
+            if self.is_using_image_atlas():
 
+                need_to_create_new_segment = False
                 if segment:
                     ia_image = segment.id_data
                     need_to_create_new_segment = self.width != segment.width or self.height != segment.height or ia_image.is_float != self.hdr
@@ -1428,7 +1458,7 @@ class YBakeToLayer(bpy.types.Operator):
                     active_id = yp.active_layer_index
 
                     if overwrite_img != image:
-                        if segment and not self.use_image_atlas:
+                        if segment and not self.is_using_image_atlas():
                             entities = ImageAtlas.replace_segment_with_image(yp, segment, image)
                             segment = None
                         else: entities = replace_image(overwrite_img, image, yp, self.uv_map)
@@ -1469,9 +1499,9 @@ class YBakeToLayer(bpy.types.Operator):
 
                 elif self.target_type == 'LAYER':
 
-                    layer_name = image.name if not self.use_image_atlas else self.name
+                    layer_name = image.name if not self.is_using_image_atlas() else self.name
 
-                    if self.use_image_atlas:
+                    if self.is_using_image_atlas():
                         layer_name = get_unique_name(layer_name, yp.layers)
 
                     yp.halt_update = True
@@ -1492,9 +1522,9 @@ class YBakeToLayer(bpy.types.Operator):
 
 
                 else:
-                    mask_name = image.name if not self.use_image_atlas else self.name
+                    mask_name = image.name if not self.is_using_image_atlas() else self.name
 
-                    if self.use_image_atlas:
+                    if self.is_using_image_atlas():
                         mask_name = get_unique_name(mask_name, active_layer.masks)
 
                     mask = Mask.add_new_mask(active_layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)

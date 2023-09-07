@@ -745,7 +745,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
 
     return image
 
-def fxaa_image(image, alpha_aware=True, bake_device='GPU'):
+def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False):
     T = time.time()
     print('FXAA: Doing FXAA pass on', image.name + '...')
     book = remember_before_bake()
@@ -782,7 +782,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU'):
     mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
     mat.node_tree.nodes.active = target_tex
 
-    if image.source == 'TILED':
+    if image.source == 'TILED' and not first_tile_only:
         tilenums = [tile.number for tile in image.tiles]
     else: tilenums = [1001]
 
