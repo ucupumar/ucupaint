@@ -1760,11 +1760,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
         if image.source == 'TILED':
             # Resize tile first
-            override = bpy.context.copy()
-            override['edit_image'] = image
-            tile = image.tiles.get(1001)
-            image.tiles.active = tile
-            bpy.ops.image.tile_fill(override, color=image.generated_color, width=width, height=height, float=image.is_float, alpha=True)
+            UDIM.fill_tile(image, 1001, image.generated_color, width, height)
 
             # Copy resized image to tile
             copy_image_pixels(scaled_img, image)

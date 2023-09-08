@@ -15,8 +15,6 @@ def fill_tile(image, tilenum, color, width=0, height=0):
     tile = image.tiles.get(tilenum)
     if not tile:
         tile = image.tiles.new(tile_number=tilenum)
-    override = bpy.context.copy()
-    override['edit_image'] = image
 
     if width == 0: width = tile.size[0]
     if height == 0: height = tile.size[1]
@@ -24,7 +22,18 @@ def fill_tile(image, tilenum, color, width=0, height=0):
     if height == 0: height = 1024
 
     image.tiles.active = tile
-    bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=image.is_float, alpha=True)
+
+    # NOTE: Override operator won't work on Blender 4.0
+    #override = bpy.context.copy()
+    #override['edit_image'] = image
+    #bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=image.is_float, alpha=True)
+
+    # Fill tile
+    ori_ui_type = bpy.context.area.ui_type
+    bpy.context.area.ui_type = 'IMAGE_EDITOR'
+    bpy.context.space_data.image = image
+    bpy.ops.image.tile_fill(color=color, width=width, height=height, float=image.is_float, alpha=True)
+    bpy.context.area.ui_type = ori_ui_type
 
 def copy_udim_pixels(src, dest):
     for tile in src.tiles:

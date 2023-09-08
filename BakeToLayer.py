@@ -1300,10 +1300,10 @@ class YBakeToLayer(bpy.types.Operator):
                         oyp.active_channel_index = get_channel_index(och)
                         bake_type = 'EMIT'
 
-                colorspace = 'Linear' if root_ch.colorspace == 'LINEAR' else 'sRGB'
+                colorspace = 'Non-Color' if root_ch.colorspace == 'LINEAR' else 'sRGB'
 
             elif self.type in {'BEVEL_NORMAL', 'MULTIRES_NORMAL', 'OTHER_OBJECT_NORMAL'}:
-                colorspace = 'Linear'
+                colorspace = 'Non-Color'
 
             # Base color of baked image
             if self.type == 'AO':
@@ -2038,7 +2038,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         # Create image
         image = bpy.data.images.new(name=self.name,
                 width=self.width, height=self.height, alpha=True, float_buffer=self.hdr)
-        image.colorspace_settings.name = 'Linear'
+        image.colorspace_settings.name = 'Non-Color'
 
         # Set bake image
         tex.image = image
