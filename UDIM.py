@@ -24,7 +24,7 @@ def fill_tile(image, tilenum, color, width=0, height=0):
     if height == 0: height = 1024
 
     image.tiles.active = tile
-    bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=False, alpha=True)
+    bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=image.is_float, alpha=True)
 
 def copy_udim_pixels(src, dest):
     for tile in src.tiles:

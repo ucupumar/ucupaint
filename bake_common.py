@@ -418,6 +418,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
 
     for o in objs:
         mat = o.active_material
+        if not mat: continue
 
         # Add extra uv nodes for non connected texture nodes outside yp node
         if uv_map != '':
@@ -628,7 +629,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
 
 def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GPU'):
     T = time.time()
-    print('FXAA: Doing FXAA pass on', image.name + '...')
+    print('FXAA: Doing Blur pass on', image.name + '...')
     book = remember_before_bake()
 
     width = image.size[0]
@@ -682,6 +683,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
 
     for tilenum in tilenums:
 
+        # Swap tile to 1001 to access the data
         if tilenum != 1001:
             UDIM.swap_tile(image, 1001, tilenum)
 
@@ -714,6 +716,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
             # TODO: Copy result to main image
             #copy_image_channel_pixels(image_copy, image, 3, 3)
 
+        # Swap back the tile
         if tilenum != 1001:
             UDIM.swap_tile(image, 1001, tilenum)
 
@@ -788,6 +791,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
 
     for tilenum in tilenums:
 
+        # Swap tile to 1001 to access the data
         if tilenum != 1001:
             UDIM.swap_tile(image, 1001, tilenum)
 
@@ -852,6 +856,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
             print('FXAA: Copying original alpha to FXAA result of', image.name + '...')
             copy_image_channel_pixels(image_ori, image, 3, 3)
 
+        # Swap back the tile
         if tilenum != 1001:
             UDIM.swap_tile(image, 1001, tilenum)
 
@@ -1579,45 +1584,30 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
     print('INFO: Merging mesh(es) is done at', '{:0.2f}'.format(time.time() - tt), 'seconds!')
     return merged_obj
 
-def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='GPU'):
+def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin=0, segment=None, alpha_aware=True, yp=None, bake_device='GPU', specific_tile=0):
 
     T = time.time()
     image_name = image.name
     print('RESIZE IMAGE: Doing resize image pass on', image_name + '...')
 
+    if image.source != 'TILED':
+        if segment:
+            ori_width = segment.width
+            ori_height = segment.height
+        else:
+            ori_width = image.size[0]
+            ori_height = image.size[1]
+
+        if ori_width == width and ori_height == height:
+            return
+
     book = remember_before_bake()
 
-    if segment:
-        ori_width = segment.width
-        ori_height = segment.height
-    else:
-        ori_width = image.size[0]
-        ori_height = image.size[1]
-
-    if ori_width == width and ori_height == height:
-        return
-
-    if segment:
-        new_segment = ImageAtlas.get_set_image_atlas_segment(
-                    width, height, image.yia.color, image.is_float, yp=yp) #, ypup.image_atlas_size)
-        scaled_img = new_segment.id_data
-
-        ori_start_x = segment.width * segment.tile_x
-        ori_start_y = segment.height * segment.tile_y
-
-        start_x = width * new_segment.tile_x
-        start_y = height * new_segment.tile_y
-    else:
-        scaled_img = bpy.data.images.new(name='__TEMP__', 
-            width=width, height=height, alpha=True, float_buffer=image.is_float)
-        scaled_img.colorspace_settings.name = colorspace
-        if image.filepath != '' and not image.packed_file:
-            scaled_img.filepath = image.filepath
-
-        start_x = 0
-        start_y = 0
-
-        new_segment = None
+    if image.source == 'TILED':
+        if specific_tile < 1001:
+            tilenums = [tile.number for tile in image.tiles]
+        else: tilenums = [specific_tile]
+    else: tilenums = [1001]
 
     # Set active collection to be root collection
     if is_greater_than_280():
@@ -1633,45 +1623,6 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
     prepare_bake_settings(book, [plane_obj], samples=samples, margin=margin, bake_device=bake_device)
 
-    # If using image atlas, transform uv
-    if segment:
-        uv_layers = get_uv_layers(plane_obj)
-
-        # Transform current uv using previous segment
-        #uv_layer = uv_layers.active
-        for i, d in enumerate(plane_obj.data.uv_layers.active.data):
-            if i == 0: # Top right
-                d.uv.x = (ori_start_x + segment.width) / image.size[0]
-                d.uv.y = (ori_start_y + segment.height) / image.size[1]
-            elif i == 1: # Top left
-                d.uv.x = ori_start_x / image.size[0]
-                d.uv.y = (ori_start_y + segment.height) / image.size[1]
-            elif i == 2: # Bottom left
-                d.uv.x = ori_start_x / image.size[0]
-                d.uv.y = ori_start_y / image.size[1]
-            elif i == 3: # Bottom right
-                d.uv.x = (ori_start_x + segment.width) / image.size[0]
-                d.uv.y = ori_start_y / image.size[1]
-
-        # Create new uv and transform it using new segment
-        temp_uv_layer = uv_layers.new(name='__TEMP')
-        uv_layers.active = temp_uv_layer
-        for i, d in enumerate(plane_obj.data.uv_layers.active.data):
-            if i == 0: # Top right
-                d.uv.x = (start_x + width) / scaled_img.size[0]
-                d.uv.y = (start_y + height) / scaled_img.size[1]
-            elif i == 1: # Top left
-                d.uv.x = start_x / scaled_img.size[0]
-                d.uv.y = (start_y + height) / scaled_img.size[1]
-            elif i == 2: # Bottom left
-                d.uv.x = start_x / scaled_img.size[0]
-                d.uv.y = start_y / scaled_img.size[1]
-            elif i == 3: # Bottom right
-                d.uv.x = (start_x + width) / scaled_img.size[0]
-                d.uv.y = start_y / scaled_img.size[1]
-
-    #return{'FINISHED'}
-
     mat = bpy.data.materials.new('__TEMP__')
     mat.use_nodes = True
     plane_obj.active_material = mat
@@ -1681,7 +1632,6 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
     uv_map = mat.node_tree.nodes.new('ShaderNodeUVMap')
     #uv_map.uv_map = 'UVMap' # Will use active UV instead since every language has different default UV name
     target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
-    target_tex.image = scaled_img
     source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     source_tex.image = image
 
@@ -1696,55 +1646,139 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
     # Connect nodes
     mat.node_tree.links.new(uv_map.outputs[0], source_tex.inputs[0])
-    mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
-    mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
-    mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
     mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
     mat.node_tree.nodes.active = target_tex
 
-    # Bake
-    print('RESIZE IMAGE: Baking resized image on', image_name + '...')
-    bpy.ops.object.bake()
+    new_segment = None
 
-    if alpha_aware:
+    for tilenum in tilenums:
 
-        # Create alpha image as bake target
-        alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
-                width=width, height=height, alpha=True, float_buffer=image.is_float)
-        alpha_img.colorspace_settings.name = 'Non-Color'
+        # Swap tile to 1001 to access the data
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
 
-        # Retransform back uv
         if segment:
+            new_segment = ImageAtlas.get_set_image_atlas_segment(
+                        width, height, image.yia.color, image.is_float, yp=yp) #, ypup.image_atlas_size)
+            scaled_img = new_segment.id_data
+
+            ori_start_x = segment.width * segment.tile_x
+            ori_start_y = segment.height * segment.tile_y
+
+            start_x = width * new_segment.tile_x
+            start_y = height * new_segment.tile_y
+
+            # If using image atlas, transform uv
+            uv_layers = get_uv_layers(plane_obj)
+
+            # Transform current uv using previous segment
             for i, d in enumerate(plane_obj.data.uv_layers.active.data):
                 if i == 0: # Top right
-                    d.uv.x = 1.0
-                    d.uv.y = 1.0
+                    d.uv.x = (ori_start_x + segment.width) / image.size[0]
+                    d.uv.y = (ori_start_y + segment.height) / image.size[1]
                 elif i == 1: # Top left
-                    d.uv.x = 0.0
-                    d.uv.y = 1.0
+                    d.uv.x = ori_start_x / image.size[0]
+                    d.uv.y = (ori_start_y + segment.height) / image.size[1]
                 elif i == 2: # Bottom left
-                    d.uv.x = 0.0
-                    d.uv.y = 0.0
+                    d.uv.x = ori_start_x / image.size[0]
+                    d.uv.y = ori_start_y / image.size[1]
                 elif i == 3: # Bottom right
-                    d.uv.x = 1.0
-                    d.uv.y = 0.0
+                    d.uv.x = (ori_start_x + segment.width) / image.size[0]
+                    d.uv.y = ori_start_y / image.size[1]
 
-        # Setup texture
-        target_tex.image = alpha_img
-        mat.node_tree.links.new(source_tex.outputs[1], emi.inputs[0])
+            # Create new uv and transform it using new segment
+            temp_uv_layer = uv_layers.new(name='__TEMP')
+            uv_layers.active = temp_uv_layer
+            for i, d in enumerate(plane_obj.data.uv_layers.active.data):
+                if i == 0: # Top right
+                    d.uv.x = (start_x + width) / scaled_img.size[0]
+                    d.uv.y = (start_y + height) / scaled_img.size[1]
+                elif i == 1: # Top left
+                    d.uv.x = start_x / scaled_img.size[0]
+                    d.uv.y = (start_y + height) / scaled_img.size[1]
+                elif i == 2: # Bottom left
+                    d.uv.x = start_x / scaled_img.size[0]
+                    d.uv.y = start_y / scaled_img.size[1]
+                elif i == 3: # Bottom right
+                    d.uv.x = (start_x + width) / scaled_img.size[0]
+                    d.uv.y = start_y / scaled_img.size[1]
 
-        # Bake again!
-        print('RESIZE IMAGE: Baking resized alpha on', image_name + '...')
+        else:
+            scaled_img = bpy.data.images.new(name='__TEMP__', 
+                width=width, height=height, alpha=True, float_buffer=image.is_float)
+            scaled_img.colorspace_settings.name = colorspace
+            if image.filepath != '' and not image.packed_file:
+                scaled_img.filepath = image.filepath
+
+        # Reconnect bake setup nodes
+        mat.node_tree.links.new(source_tex.outputs[0], straight_over.inputs[2])
+        mat.node_tree.links.new(source_tex.outputs[1], straight_over.inputs[3])
+        mat.node_tree.links.new(straight_over.outputs[0], emi.inputs[0])
+
+        # Set image target
+        target_tex.image = scaled_img
+
+        # Bake
+        print('RESIZE IMAGE: Baking resized image on', image_name + '...')
         bpy.ops.object.bake()
 
-        copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, segment)
+        if alpha_aware:
 
-        # Remove alpha image
-        bpy.data.images.remove(alpha_img)
+            # Create alpha image as bake target
+            alpha_img = bpy.data.images.new(name='__TEMP_ALPHA__',
+                    width=width, height=height, alpha=True, float_buffer=image.is_float)
+            alpha_img.colorspace_settings.name = 'Non-Color'
 
-    # Replace original image to scaled image
-    if not new_segment:
-        replace_image(image, scaled_img)
+            # Retransform back uv
+            if segment:
+                for i, d in enumerate(plane_obj.data.uv_layers.active.data):
+                    if i == 0: # Top right
+                        d.uv.x = 1.0
+                        d.uv.y = 1.0
+                    elif i == 1: # Top left
+                        d.uv.x = 0.0
+                        d.uv.y = 1.0
+                    elif i == 2: # Bottom left
+                        d.uv.x = 0.0
+                        d.uv.y = 0.0
+                    elif i == 3: # Bottom right
+                        d.uv.x = 1.0
+                        d.uv.y = 0.0
+
+            # Setup texture
+            target_tex.image = alpha_img
+            mat.node_tree.links.new(source_tex.outputs[1], emi.inputs[0])
+
+            # Bake again!
+            print('RESIZE IMAGE: Baking resized alpha on', image_name + '...')
+            bpy.ops.object.bake()
+
+            copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, segment)
+
+            # Remove alpha image
+            bpy.data.images.remove(alpha_img)
+
+        if image.source == 'TILED':
+            # Resize tile first
+            override = bpy.context.copy()
+            override['edit_image'] = image
+            tile = image.tiles.get(1001)
+            image.tiles.active = tile
+            bpy.ops.image.tile_fill(override, color=image.generated_color, width=width, height=height, float=image.is_float, alpha=True)
+
+            # Copy resized image to tile
+            copy_image_pixels(scaled_img, image)
+
+            bpy.data.images.remove(scaled_img)
+        else:
+            if not new_segment:
+                # Replace original image to scaled image
+                replace_image(image, scaled_img)
+            image = scaled_img
+
+        # Swap back the tile
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
 
     # Remove temp datas
     if straight_over.node_tree.users == 1:
@@ -1763,7 +1797,7 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
     print('RESIZE IMAGE:', image_name, 'Resize image is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
-    return scaled_img, new_segment
+    return image, new_segment
 
 TEMP_EMIT_WHITE = '__EMIT_WHITE__'
 
