@@ -1391,7 +1391,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         return True
 
-def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake_device='GPU'):
+def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake_device='CPU'):
 
     m1 = re.match(r'yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
