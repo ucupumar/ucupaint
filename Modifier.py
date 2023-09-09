@@ -92,7 +92,10 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 invert_ref = ref_tree.nodes.get(m.invert)
                 if invert_ref: ref_tree.nodes.remove(invert_ref)
 
-            invert, dirty = check_new_node(tree, m, 'invert', 'ShaderNodeGroup', 'Invert', True)
+                invert = new_node(tree, m, 'invert', 'ShaderNodeGroup', 'Invert')
+                dirty = True
+            else:
+                invert, dirty = check_new_node(tree, m, 'invert', 'ShaderNodeGroup', 'Invert', True)
 
             if dirty:
                 if channel_type == 'VALUE':
@@ -116,7 +119,10 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 rgb2i_ref = ref_tree.nodes.get(m.rgb2i)
                 if rgb2i_ref: ref_tree.nodes.remove(rgb2i_ref)
 
-            rgb2i, dirty = check_new_node(tree, m, 'rgb2i', 'ShaderNodeGroup', 'RGB to Intensity', True)
+                rgb2i = new_node(tree, m, 'rgb2i', 'ShaderNodeGroup', 'RGB to Intensity')
+                dirty = True
+            else:
+                rgb2i, dirty = check_new_node(tree, m, 'rgb2i', 'ShaderNodeGroup', 'RGB to Intensity', True)
 
             if dirty:
                 rgb2i.node_tree = get_node_tree_lib(lib.MOD_RGB2INT)
@@ -135,7 +141,10 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 i2rgb_ref = ref_tree.nodes.get(m.i2rgb)
                 if i2rgb_ref: ref_tree.nodes.remove(i2rgb_ref)
 
-            i2rgb, dirty = check_new_node(tree, m, 'i2rgb', 'ShaderNodeGroup', 'Intensity to RGB', True)
+                i2rgb = new_node(tree, m, 'i2rgb', 'ShaderNodeGroup', 'Intensity to RGB')
+                dirty = True
+            else:
+                i2rgb, dirty = check_new_node(tree, m, 'i2rgb', 'ShaderNodeGroup', 'Intensity to RGB', True)
 
             if dirty:
                 i2rgb.node_tree = get_node_tree_lib(lib.MOD_INT2RGB)
@@ -149,7 +158,10 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 oc_ref = ref_tree.nodes.get(m.oc)
                 if oc_ref: ref_tree.nodes.remove(oc_ref)
 
-            oc, dirty = check_new_node(tree, m, 'oc', 'ShaderNodeGroup', 'Override Color', True)
+                oc = new_node(tree, m, 'oc', 'ShaderNodeGroup', 'Override Color')
+                dirty = True
+            else:
+                oc, dirty = check_new_node(tree, m, 'oc', 'ShaderNodeGroup', 'Override Color', True)
 
             if dirty:
                 oc.node_tree = get_node_tree_lib(lib.MOD_OVERRIDE_COLOR)
@@ -188,14 +200,26 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 color_ramp_mix_alpha_ref = ref_tree.nodes.get(m.color_ramp_mix_alpha)
                 color_ramp_mix_rgb_ref = ref_tree.nodes.get(m.color_ramp_mix_rgb)
 
-            color_ramp_alpha_multiply, dirty = check_new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply', True)
-            color_ramp_linear_start = check_new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
-            color_ramp, ramp_dirty = check_new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp', True)
-            color_ramp_linear = check_new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
-            color_ramp_mix_alpha = check_new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
-            color_ramp_mix_rgb = check_new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
+                # Create new nodes if reference is used
+                color_ramp_alpha_multiply = new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply')
+                color_ramp_linear_start = new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
+                color_ramp = new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp')
+                color_ramp_linear = new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
+                color_ramp_mix_alpha = new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
+                color_ramp_mix_rgb = new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
+                dirty = True
+                ramp_dirty = False
+            else:
+
+                color_ramp_alpha_multiply, dirty = check_new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply', True)
+                color_ramp_linear_start = check_new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
+                color_ramp, ramp_dirty = check_new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp', True)
+                color_ramp_linear = check_new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
+                color_ramp_mix_alpha = check_new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
+                color_ramp_mix_rgb = check_new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
 
             if ref_tree:
+
                 if color_ramp_alpha_multiply_ref:
                     copy_node_props(color_ramp_alpha_multiply_ref, color_ramp_alpha_multiply)
                     ref_tree.nodes.remove(color_ramp_alpha_multiply_ref)
@@ -221,6 +245,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                     ref_tree.nodes.remove(color_ramp_mix_rgb_ref)
 
             if dirty:
+
                 color_ramp_alpha_multiply.inputs[0].default_value = 1.0
                 color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
                 color_ramp_mix_alpha.inputs[0].default_value = 1.0
@@ -259,7 +284,10 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 huesat_ref = ref_tree.nodes.get(m.huesat)
                 if huesat_ref: ref_tree.nodes.remove(huesat_ref)
 
-            huesat, dirty = check_new_node(tree, m, 'huesat', 'ShaderNodeHueSaturation', 'Hue Saturation', True)
+                huesat = new_node(tree, m, 'huesat', 'ShaderNodeHueSaturation', 'Hue Saturation')
+                dirty = True
+            else:
+                huesat, dirty = check_new_node(tree, m, 'huesat', 'ShaderNodeHueSaturation', 'Hue Saturation', True)
 
             if dirty:
                 huesat.inputs['Hue'].default_value = m.huesat_hue_val
@@ -276,7 +304,10 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 brightcon_ref = ref_tree.nodes.get(m.brightcon)
                 if brightcon_ref: ref_tree.nodes.remove(brightcon_ref)
 
-            brightcon, dirty = check_new_node(tree, m, 'brightcon', 'ShaderNodeBrightContrast', 'Brightness Contrast', True)
+                brightcon = new_node(tree, m, 'brightcon', 'ShaderNodeBrightContrast', 'Brightness Contrast')
+                dirty = True
+            else:
+                brightcon, dirty = check_new_node(tree, m, 'brightcon', 'ShaderNodeBrightContrast', 'Brightness Contrast', True)
 
             if dirty:
                 brightcon.inputs['Bright'].default_value = m.brightness_value
@@ -292,7 +323,10 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 multiplier_ref = ref_tree.nodes.get(m.multiplier)
                 if multiplier_ref: ref_tree.nodes.remove(multiplier_ref)
 
-            multiplier, dirty = check_new_node(tree, m, 'multiplier', 'ShaderNodeGroup', 'Multiplier', True)
+                multiplier = new_node(tree, m, 'multiplier', 'ShaderNodeGroup', 'Multiplier')
+                dirty = True
+            else:
+                multiplier, dirty = check_new_node(tree, m, 'multiplier', 'ShaderNodeGroup', 'Multiplier', True)
 
             if dirty:
                 if channel_type == 'VALUE':
@@ -318,7 +352,10 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 math_ref = ref_tree.nodes.get(m.math)
                 if math_ref: ref_tree.nodes.remove(math_ref)
 
-            math, dirty = check_new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math', True)
+                math = new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math')
+                dirty = True
+            else:
+                math, dirty = check_new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math', True)
 
             if dirty:
                 if channel_type == 'VALUE':
