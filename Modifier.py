@@ -1060,18 +1060,25 @@ def check_modifiers_trees(parent, rearrange=False):
     yp = group_tree.yp
 
     enable_tree = False
+    is_layer = False
 
     match1 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
     match2 = re.match(r'^yp\.layers\[(\d+)\]$', parent.path_from_id())
+
     if match1:
         layer = yp.layers[int(match1.group(1))]
         root_ch = yp.channels[int(match1.group(2))]
         ch = parent
         name = root_ch.name + ' ' + layer.name
-        if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-            if (layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not ch.override) or (ch.override and ch.override_type not in {'DEFAULT'}):
-                enable_tree = True
+        if (
+            root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and (
+                (not ch.override and layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'}) or 
+                (ch.override and ch.override_type not in {'DEFAULT'} and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'})
+            )
+            ):
+            enable_tree = True
         parent_tree = get_tree(layer)
+
     elif match2:
         layer = parent
         name = layer.name
@@ -1080,6 +1087,8 @@ def check_modifiers_trees(parent, rearrange=False):
         if layer.source_group != '':
             parent_tree = get_source_tree(layer)
         else: parent_tree = get_tree(layer)
+        is_layer=True
+
     else:
         parent_tree = group_tree
 
@@ -1095,90 +1104,52 @@ def check_modifiers_trees(parent, rearrange=False):
             for mod in parent.modifiers:
                 check_modifier_nodes(mod, mod_group.node_tree)
         else:
-            # Create modifier tree
-            mod_tree = bpy.data.node_groups.new('~yP Modifiers ' + name, 'ShaderNodeTree')
-
-            new_tree_input(mod_tree, 'RGB', 'NodeSocketColor')
-            new_tree_input(mod_tree, 'Alpha', 'NodeSocketFloat')
-            new_tree_output(mod_tree, 'RGB', 'NodeSocketColor')
-            new_tree_output(mod_tree, 'Alpha', 'NodeSocketFloat')
-
-            # New inputs and outputs
-            mod_tree_start = mod_tree.nodes.new('NodeGroupInput')
-            mod_tree_start.name = MOD_TREE_START
-            mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
-            mod_tree_end.name = MOD_TREE_END
-
-            # Create main modifier group
-            mod_group = new_node(parent_tree, parent, 'mod_group', 'ShaderNodeGroup', 'mod_group')
-            mod_group.node_tree = mod_tree
-
-            if match1:
-                # Create modifier group neighbor
-                mod_n = new_node(parent_tree, parent, 'mod_n', 'ShaderNodeGroup', 'mod_n')
-                mod_s = new_node(parent_tree, parent, 'mod_s', 'ShaderNodeGroup', 'mod_s')
-                mod_e = new_node(parent_tree, parent, 'mod_e', 'ShaderNodeGroup', 'mod_e')
-                mod_w = new_node(parent_tree, parent, 'mod_w', 'ShaderNodeGroup', 'mod_w')
-                mod_n.node_tree = mod_tree
-                mod_s.node_tree = mod_tree
-                mod_e.node_tree = mod_tree
-                mod_w.node_tree = mod_tree
-            elif match2:
-                mod_group_1 = new_node(parent_tree, parent, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
-                mod_group_1.node_tree = mod_tree
-
-            for mod in parent.modifiers:
-                check_modifier_nodes(mod, mod_tree, parent_tree)
-
+            enable_modifiers_tree(parent, parent_tree, name, is_layer)
     else:
         if not mod_group:
             for mod in parent.modifiers:
                 check_modifier_nodes(mod, parent_tree)
         else:
-            # Add new copied modifier nodes on layer tree
-            for mod in parent.modifiers:
-                check_modifier_nodes(mod, parent_tree, mod_group.node_tree)
-
-            # Remove modifier tree
-            remove_node(parent_tree, parent, 'mod_group')
-
-            if match1:
-                # Remove modifier group neighbor
-                remove_node(parent_tree, parent, 'mod_n')
-                remove_node(parent_tree, parent, 'mod_s')
-                remove_node(parent_tree, parent, 'mod_e')
-                remove_node(parent_tree, parent, 'mod_w')
-            elif match2:
-                remove_node(parent_tree, parent, 'mod_group_1')
+            disable_modifiers_tree(parent, parent_tree)
 
     if rearrange:
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
-def enable_modifiers_tree(parent, rearrange = False):
+def enable_modifiers_tree(parent, parent_tree=None, name='', is_layer=False, rearrange = False):
     
     group_tree = parent.id_data
     yp = group_tree.yp
 
-    match1 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
-    match2 = re.match(r'^yp\.layers\[(\d+)\]$', parent.path_from_id())
-    if match1:
-        layer = yp.layers[int(match1.group(1))]
-        root_ch = yp.channels[int(match1.group(2))]
-        ch = parent
-        name = root_ch.name + ' ' + layer.name
-        if (layer.type in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not ch.override) or (ch.override and ch.override_type in {'DEFAULT'}):
+    if not parent_tree and name == '':
+        match1 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+        match2 = re.match(r'^yp\.layers\[(\d+)\]$', parent.path_from_id())
+
+        if match1:
+            layer = yp.layers[int(match1.group(1))]
+            root_ch = yp.channels[int(match1.group(2))]
+            ch = parent
+            name = root_ch.name + ' ' + layer.name
+            if (layer.type in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not ch.override) or (ch.override and ch.override_type in {'DEFAULT'}):
+                return
+            parent_tree = get_tree(layer)
+            is_layer=False
+
+        elif match2:
+            layer = parent
+            name = layer.name
+            if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'}:
+                return
+            if layer.source_group != '':
+                parent_tree = get_source_tree(layer)
+            else: parent_tree = get_tree(layer)
+            is_layer=True
+
+        else:
             return
-    elif match2:
-        layer = parent
-        name = layer.name
-        if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'}:
-            return
-    else:
-        return
 
     if len(parent.modifiers) == 0:
-        return None
+        return 
 
     # Check if modifier tree already available
     if parent.mod_group != '': 
@@ -1198,91 +1169,81 @@ def enable_modifiers_tree(parent, rearrange = False):
     mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
     mod_tree_end.name = MOD_TREE_END
 
-    if match2 and layer.source_group != '':
-        layer_tree = get_source_tree(layer)
-    else: layer_tree = get_tree(layer)
-
     # Create main modifier group
-    mod_group = new_node(layer_tree, parent, 'mod_group', 'ShaderNodeGroup', 'mod_group')
+    mod_group = new_node(parent_tree, parent, 'mod_group', 'ShaderNodeGroup', 'mod_group')
     mod_group.node_tree = mod_tree
 
-    if match1:
+    if not is_layer:
         # Create modifier group neighbor
-        mod_n = new_node(layer_tree, parent, 'mod_n', 'ShaderNodeGroup', 'mod_n')
-        mod_s = new_node(layer_tree, parent, 'mod_s', 'ShaderNodeGroup', 'mod_s')
-        mod_e = new_node(layer_tree, parent, 'mod_e', 'ShaderNodeGroup', 'mod_e')
-        mod_w = new_node(layer_tree, parent, 'mod_w', 'ShaderNodeGroup', 'mod_w')
+        mod_n = new_node(parent_tree, parent, 'mod_n', 'ShaderNodeGroup', 'mod_n')
+        mod_s = new_node(parent_tree, parent, 'mod_s', 'ShaderNodeGroup', 'mod_s')
+        mod_e = new_node(parent_tree, parent, 'mod_e', 'ShaderNodeGroup', 'mod_e')
+        mod_w = new_node(parent_tree, parent, 'mod_w', 'ShaderNodeGroup', 'mod_w')
         mod_n.node_tree = mod_tree
         mod_s.node_tree = mod_tree
         mod_e.node_tree = mod_tree
         mod_w.node_tree = mod_tree
-    elif match2:
-        mod_group_1 = new_node(layer_tree, parent, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
+    else:
+        mod_group_1 = new_node(parent_tree, parent, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
         mod_group_1.node_tree = mod_tree
 
     for mod in parent.modifiers:
-        check_modifier_nodes(mod, mod_tree, layer_tree)
+        check_modifier_nodes(mod, mod_tree, parent_tree)
 
     if rearrange:
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
-    return mod_tree
-
-def disable_modifiers_tree(parent, rearrange=False):
+def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
     group_tree = parent.id_data
     yp = group_tree.yp
 
-    match1 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
-    match2 = re.match(r'^yp\.layers\[(\d+)\]$', parent.path_from_id())
-    if match1: 
-        layer = yp.layers[int(match1.group(1))]
-        root_ch = yp.channels[int(match1.group(2))]
+    if not parent_tree:
 
-        # Check if fine bump map is still used
-        if parent.enable and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-            if layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not parent.override:
+        match1 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+        match2 = re.match(r'^yp\.layers\[(\d+)\]$', parent.path_from_id())
+
+        if match1: 
+            layer = yp.layers[int(match1.group(1))]
+            root_ch = yp.channels[int(match1.group(2))]
+
+            # Check if fine bump map is still used
+            if parent.enable and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+                if layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not parent.override:
+                    return
+                if parent.override and parent.override_type != 'DEFAULT':
+                    return
+            parent_tree = get_tree(layer)
+
+        elif match2:
+            layer = parent
+            if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'MUSGRAVE'}:
                 return
-            if parent.override and parent.override_type != 'DEFAULT':
-                return
+            if layer.source_group != '':
+                parent_tree = get_source_tree(layer)
+            else: parent_tree = get_tree(layer)
 
-        #if (len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and parent.override) or (parent.override and parent.override_type != 'DEFAULT'):
-            #parent.normal_map_type == 'FINE_BUMP_MAP'
-            #or (parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})
-            #return
-
-    elif match2:
-        layer = parent
-        if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'MUSGRAVE'}:
+        else:
             return
-    else:
-        return
-
-    # Check if modifier tree already gone
-    if parent.mod_group == '': return
-
-    if match2 and layer.source_group != '':
-        layer_tree = get_source_tree(layer)
-    else: layer_tree = get_tree(layer)
 
     # Get modifier group
-    mod_group = layer_tree.nodes.get(parent.mod_group)
+    mod_group = parent_tree.nodes.get(parent.mod_group)
 
-    # Add new copied modifier nodes on layer tree
-    for mod in parent.modifiers:
-        check_modifier_nodes(mod, layer_tree, mod_group.node_tree)
+    if mod_group:
 
-    # Remove modifier tree
-    remove_node(layer_tree, parent, 'mod_group')
+        # Add new copied modifier nodes on layer tree
+        for mod in parent.modifiers:
+            check_modifier_nodes(mod, parent_tree, mod_group.node_tree)
 
-    if match1:
+        # Remove modifier tree
+        remove_node(parent_tree, parent, 'mod_group')
+
         # Remove modifier group neighbor
-        remove_node(layer_tree, parent, 'mod_n')
-        remove_node(layer_tree, parent, 'mod_s')
-        remove_node(layer_tree, parent, 'mod_e')
-        remove_node(layer_tree, parent, 'mod_w')
-    elif match2:
-        remove_node(layer_tree, parent, 'mod_group_1')
+        remove_node(parent_tree, parent, 'mod_n')
+        remove_node(parent_tree, parent, 'mod_s')
+        remove_node(parent_tree, parent, 'mod_e')
+        remove_node(parent_tree, parent, 'mod_w')
+        remove_node(parent_tree, parent, 'mod_group_1')
 
 def register():
     bpy.utils.register_class(YNewYPaintModifier)

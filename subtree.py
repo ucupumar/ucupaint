@@ -1722,18 +1722,18 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     # Dealing with neighbor related nodes
     if root_ch.enable_smooth_bump:
         enable_layer_source_tree(layer)
-        Modifier.enable_modifiers_tree(ch)
+        #Modifier.enable_modifiers_tree(ch)
     else:
         disable_layer_source_tree(layer, False)
-        Modifier.disable_modifiers_tree(ch)
+        #Modifier.disable_modifiers_tree(ch)
 
     if ch.override:
         if root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
             enable_channel_source_tree(layer, root_ch, ch)
-            Modifier.enable_modifiers_tree(ch)
+            #Modifier.enable_modifiers_tree(ch)
         else:
             disable_channel_source_tree(layer, root_ch, ch, False)
-            Modifier.disable_modifiers_tree(ch)
+            #Modifier.disable_modifiers_tree(ch)
     else:
         disable_channel_source_tree(layer, root_ch, ch, False)
 
