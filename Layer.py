@@ -1011,11 +1011,14 @@ class YNewLayer(bpy.types.Operator):
             self.report({'ERROR'}, "Vertex color only works with mesh object!")
             return {'CANCELLED'}
 
-        if (    ((self.type == 'VCOL' or (self.add_mask and self.mask_type == 'VCOL')) 
+        if (not is_greater_than_330() and
+                (
+                ((self.type == 'VCOL' or (self.add_mask and self.mask_type == 'VCOL')) 
                 and len(vcols) >= 8) 
             or
                 ((self.type == 'VCOL' and (self.add_mask and self.mask_type == 'VCOL')) 
                 and len(vcols) >= 7)
+                )
             ):
             self.report({'ERROR'}, "Mesh can only use 8 vertex colors!")
             return {'CANCELLED'}
