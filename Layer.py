@@ -3106,11 +3106,6 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     else:
         remove_node(source_tree, layer, 'source', remove_data=remove_data)
 
-    # Disable modifier tree
-    if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'MUSGRAVE'} and 
-            new_type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'MUSGRAVE'}):
-        Modifier.disable_modifiers_tree(layer)
-
     # Try to get available cache
     cache = None
     if new_type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'GROUP', 'HEMI'}:
@@ -3142,9 +3137,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     ori_type = layer.type
     layer.type = new_type
 
-    # Enable modifiers tree if generated texture is used
-    if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
-        Modifier.enable_modifiers_tree(layer)
+    # Check modifiers tree
+    Modifier.check_modifiers_trees(layer)
 
     # Update group ios
     check_all_layer_channel_io_and_nodes(layer, tree)
@@ -3294,8 +3288,9 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
     mask.type = new_type
 
     # Enable modifiers tree if generated texture is used
-    if mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
-        Modifier.enable_modifiers_tree(mask)
+    #if mask.type not in {'IMAGE', 'VCOL', 'BACKGROUND'}:
+    #    Modifier.enable_modifiers_tree(mask)
+    Modifier.check_modifiers_trees(mask)
 
     # Update group ios
     check_all_layer_channel_io_and_nodes(layer, tree)

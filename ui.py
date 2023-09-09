@@ -745,47 +745,23 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
             if channel.type in {'RGB', 'VALUE'}:
                 brow = bcol.row(align=True)
 
-                #if channel.type == 'NORMAL':
-                #    if chui.expand_base_vector:
-                #        icon_value = lib.custom_icons["uncollapsed_input"].icon_id
-                #    else: icon_value = lib.custom_icons["collapsed_input"].icon_id
-                #    brow.prop(chui, 'expand_base_vector', text='', emboss=False, icon_value=icon_value)
-                #else: brow.label(text='', icon_value=lib.get_icon('input'))
-
                 brow.label(text='', icon_value=lib.get_icon('input'))
 
                 if channel.type == 'RGB':
                     brow.label(text='Background:')
                 elif channel.type == 'VALUE':
                     brow.label(text='Base Value:')
-                #elif channel.type == 'NORMAL':
-                    #if chui.expand_base_vector:
-                    #    brow.label(text='Base Normal:')
-                    #else: brow.label(text='Base Normal')
-                    #brow.label(text='Base Normal')
 
-            if channel.type == 'NORMAL':
-                #if chui.expand_base_vector:
-                #    brow = bcol.row(align=True)
-                #    brow.label(text='', icon='BLANK1')
-                #    brow.prop(inp,'default_value', text='')
-                pass
-            elif len(inp.links) == 0:
-                #if BLENDER_28_GROUP_INPUT_HACK:
-                #    if channel.type == 'RGB':
-                #        brow.prop(channel,'col_input', text='')
-                #    elif channel.type == 'VALUE':
-                #        brow.prop(channel,'val_input', text='')
-                #else:
-                if not yp.use_baked or channel.no_layer_using:
-                    brow.prop(inp,'default_value', text='')
+                if len(inp.links) == 0:
+                    if not yp.use_baked or channel.no_layer_using:
+                        brow.prop(inp,'default_value', text='')
+                    else:
+                        brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
                 else:
-                    brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
-            else:
-                brow.label(text='', icon='LINKED')
+                    brow.label(text='', icon='LINKED')
 
-            if len(channel.modifiers) > 0:
-                brow.label(text='', icon='BLANK1')
+                if len(channel.modifiers) > 0:
+                    brow.label(text='', icon='BLANK1')
 
             # Alpha settings will only visible on color channel without developer mode
             # Alpha will also not visible if other channel already enable the alpha
