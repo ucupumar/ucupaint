@@ -2326,11 +2326,6 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         # Get missing uvs
         uv_missings = []
-        #entities = []
-        #for uv in yp.uvs:
-        #    uv_layer = uv_layers.get(uv.name)
-        #    if not uv_layer:
-        #        uv_missings.append(uv.name)
 
         # Check baked images
         if yp.baked_uv_name != '':
@@ -2347,7 +2342,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND'}:
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)

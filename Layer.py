@@ -775,8 +775,8 @@ class YNewLayer(bpy.types.Operator):
         else:
             if obj.type == 'MESH':
                 uv_name = get_default_uv_name(obj, yp)
-                self.uv_map = uv_name
-                self.mask_uv_name = uv_name
+                if self.type == 'IMAGE': self.uv_map = uv_name
+                if self.add_mask and self.mask_type == 'IMAGE': self.mask_uv_name = uv_name
 
                 # UV Map collections update
                 self.uv_map_coll.clear()
@@ -813,6 +813,16 @@ class YNewLayer(bpy.types.Operator):
             else: mask_max_size = ypup.image_atlas_size
             if self.mask_width > mask_max_size: self.mask_width = mask_max_size
             if self.mask_height > mask_max_size: self.mask_height = mask_max_size
+
+        # Init mask uv name
+        if self.add_mask and self.mask_uv_name == '' and self.mask_type == 'IMAGE':
+
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
+            obj = context.object
+
+            uv_name = get_default_uv_name(obj, yp)
+            self.mask_uv_name = uv_name
 
         return True
 
@@ -1543,7 +1553,7 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
         if obj.type == 'MESH':
             uv_name = get_default_uv_name(obj, yp)
             self.uv_map = uv_name
-            self.mask_uv_name = uv_name
+            if self.add_mask and self.mask_type == 'IMAGE': self.mask_uv_name = uv_name
 
             # UV Map collections update
             self.uv_map_coll.clear()
@@ -1567,6 +1577,16 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
             else: mask_max_size = ypup.image_atlas_size
             if self.mask_width > mask_max_size: self.mask_width = mask_max_size
             if self.mask_height > mask_max_size: self.mask_height = mask_max_size
+
+        # Init mask uv name
+        if self.add_mask and self.mask_uv_name == '' and self.mask_type == 'IMAGE':
+
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
+            obj = context.object
+
+            uv_name = get_default_uv_name(obj, yp)
+            self.mask_uv_name = uv_name
 
         return True
 

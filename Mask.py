@@ -334,7 +334,7 @@ class YNewLayerMask(bpy.types.Operator):
             self.texcoord_type = 'Generated'
         elif len(obj.data.uv_layers) > 0:
 
-            self.uv_name = get_default_uv_name(obj, yp)
+            if self.type == 'IMAGE': self.uv_name = get_default_uv_name(obj, yp)
 
             # UV Map collections update
             self.uv_map_coll.clear()

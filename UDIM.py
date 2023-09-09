@@ -122,7 +122,7 @@ def is_uvmap_udim(objs, uv_name):
 
     if not is_greater_than_330(): return False
 
-    #T = time.time()
+    T = time.time()
 
     # Get active object
     obj = bpy.context.object
@@ -147,7 +147,7 @@ def is_uvmap_udim(objs, uv_name):
 
     is_udim = numpy.any(arr > 1.0 + UV_TOLERANCE/2)
 
-    #print('INFO: UDIM checking is done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: UDIM checking is done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
     return is_udim
 
