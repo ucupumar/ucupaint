@@ -92,10 +92,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 invert_ref = ref_tree.nodes.get(m.invert)
                 if invert_ref: ref_tree.nodes.remove(invert_ref)
 
-                invert = new_node(tree, m, 'invert', 'ShaderNodeGroup', 'Invert')
-                dirty = True
-            else:
-                invert, dirty = check_new_node(tree, m, 'invert', 'ShaderNodeGroup', 'Invert', True)
+            invert, dirty = check_new_node(tree, m, 'invert', 'ShaderNodeGroup', 'Invert', True)
 
             if dirty:
                 if channel_type == 'VALUE':
@@ -119,10 +116,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 rgb2i_ref = ref_tree.nodes.get(m.rgb2i)
                 if rgb2i_ref: ref_tree.nodes.remove(rgb2i_ref)
 
-                rgb2i = new_node(tree, m, 'rgb2i', 'ShaderNodeGroup', 'RGB to Intensity')
-                dirty = True
-            else:
-                rgb2i, dirty = check_new_node(tree, m, 'rgb2i', 'ShaderNodeGroup', 'RGB to Intensity', True)
+            rgb2i, dirty = check_new_node(tree, m, 'rgb2i', 'ShaderNodeGroup', 'RGB to Intensity', True)
 
             if dirty:
                 rgb2i.node_tree = get_node_tree_lib(lib.MOD_RGB2INT)
@@ -141,10 +135,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 i2rgb_ref = ref_tree.nodes.get(m.i2rgb)
                 if i2rgb_ref: ref_tree.nodes.remove(i2rgb_ref)
 
-                i2rgb = new_node(tree, m, 'i2rgb', 'ShaderNodeGroup', 'Intensity to RGB')
-                dirty = True
-            else:
-                i2rgb, dirty = check_new_node(tree, m, 'i2rgb', 'ShaderNodeGroup', 'Intensity to RGB', True)
+            i2rgb, dirty = check_new_node(tree, m, 'i2rgb', 'ShaderNodeGroup', 'Intensity to RGB', True)
 
             if dirty:
                 i2rgb.node_tree = get_node_tree_lib(lib.MOD_INT2RGB)
@@ -158,10 +149,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 oc_ref = ref_tree.nodes.get(m.oc)
                 if oc_ref: ref_tree.nodes.remove(oc_ref)
 
-                oc = new_node(tree, m, 'oc', 'ShaderNodeGroup', 'Override Color')
-                dirty = True
-            else:
-                oc, dirty = check_new_node(tree, m, 'oc', 'ShaderNodeGroup', 'Override Color', True)
+            oc, dirty = check_new_node(tree, m, 'oc', 'ShaderNodeGroup', 'Override Color', True)
 
             if dirty:
                 oc.node_tree = get_node_tree_lib(lib.MOD_OVERRIDE_COLOR)
@@ -200,26 +188,14 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 color_ramp_mix_alpha_ref = ref_tree.nodes.get(m.color_ramp_mix_alpha)
                 color_ramp_mix_rgb_ref = ref_tree.nodes.get(m.color_ramp_mix_rgb)
 
-                # Create new nodes if reference is used
-                color_ramp_alpha_multiply = new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply')
-                color_ramp_linear_start = new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
-                color_ramp = new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp')
-                color_ramp_linear = new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
-                color_ramp_mix_alpha = new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
-                color_ramp_mix_rgb = new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
-                dirty = True
-                ramp_dirty = False
-            else:
-
-                color_ramp_alpha_multiply, dirty = check_new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply', True)
-                color_ramp_linear_start = check_new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
-                color_ramp, ramp_dirty = check_new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp', True)
-                color_ramp_linear = check_new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
-                color_ramp_mix_alpha = check_new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
-                color_ramp_mix_rgb = check_new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
+            color_ramp_alpha_multiply, dirty = check_new_mix_node(tree, m, 'color_ramp_alpha_multiply', 'ColorRamp Alpha Multiply', True)
+            color_ramp_linear_start = check_new_node(tree, m, 'color_ramp_linear_start', 'ShaderNodeGamma', 'ColorRamp Linear Start')
+            color_ramp, ramp_dirty = check_new_node(tree, m, 'color_ramp', 'ShaderNodeValToRGB', 'ColorRamp', True)
+            color_ramp_linear = check_new_node(tree, m, 'color_ramp_linear', 'ShaderNodeGamma', 'ColorRamp Linear')
+            color_ramp_mix_alpha = check_new_mix_node(tree, m, 'color_ramp_mix_alpha', 'ColorRamp Mix Alpha')
+            color_ramp_mix_rgb = check_new_mix_node(tree, m, 'color_ramp_mix_rgb', 'ColorRamp Mix RGB')
 
             if ref_tree:
-
                 if color_ramp_alpha_multiply_ref:
                     copy_node_props(color_ramp_alpha_multiply_ref, color_ramp_alpha_multiply)
                     ref_tree.nodes.remove(color_ramp_alpha_multiply_ref)
@@ -244,8 +220,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                     copy_node_props(color_ramp_mix_rgb_ref, color_ramp_mix_rgb)
                     ref_tree.nodes.remove(color_ramp_mix_rgb_ref)
 
-            elif dirty:
-
+            if dirty:
                 color_ramp_alpha_multiply.inputs[0].default_value = 1.0
                 color_ramp_alpha_multiply.blend_type = 'MULTIPLY'
                 color_ramp_mix_alpha.inputs[0].default_value = 1.0
@@ -284,10 +259,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 huesat_ref = ref_tree.nodes.get(m.huesat)
                 if huesat_ref: ref_tree.nodes.remove(huesat_ref)
 
-                huesat = new_node(tree, m, 'huesat', 'ShaderNodeHueSaturation', 'Hue Saturation')
-                dirty = True
-            else:
-                huesat, dirty = check_new_node(tree, m, 'huesat', 'ShaderNodeHueSaturation', 'Hue Saturation', True)
+            huesat, dirty = check_new_node(tree, m, 'huesat', 'ShaderNodeHueSaturation', 'Hue Saturation', True)
 
             if dirty:
                 huesat.inputs['Hue'].default_value = m.huesat_hue_val
@@ -304,10 +276,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 brightcon_ref = ref_tree.nodes.get(m.brightcon)
                 if brightcon_ref: ref_tree.nodes.remove(brightcon_ref)
 
-                brightcon = new_node(tree, m, 'brightcon', 'ShaderNodeBrightContrast', 'Brightness Contrast')
-                dirty = True
-            else:
-                brightcon, dirty = check_new_node(tree, m, 'brightcon', 'ShaderNodeBrightContrast', 'Brightness Contrast', True)
+            brightcon, dirty = check_new_node(tree, m, 'brightcon', 'ShaderNodeBrightContrast', 'Brightness Contrast', True)
 
             if dirty:
                 brightcon.inputs['Bright'].default_value = m.brightness_value
@@ -323,10 +292,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 multiplier_ref = ref_tree.nodes.get(m.multiplier)
                 if multiplier_ref: ref_tree.nodes.remove(multiplier_ref)
 
-                multiplier = new_node(tree, m, 'multiplier', 'ShaderNodeGroup', 'Multiplier')
-                dirty = True
-            else:
-                multiplier, dirty = check_new_node(tree, m, 'multiplier', 'ShaderNodeGroup', 'Multiplier', True)
+            multiplier, dirty = check_new_node(tree, m, 'multiplier', 'ShaderNodeGroup', 'Multiplier', True)
 
             if dirty:
                 if channel_type == 'VALUE':
@@ -352,10 +318,7 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 math_ref = ref_tree.nodes.get(m.math)
                 if math_ref: ref_tree.nodes.remove(math_ref)
 
-                math = new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math')
-                dirty = True
-            else:
-                math, dirty = check_new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math', True)
+            math, dirty = check_new_node(tree, m, 'math', 'ShaderNodeGroup', 'Math', True)
 
             if dirty:
                 if channel_type == 'VALUE':
@@ -512,16 +475,13 @@ class YNewYPaintModifier(bpy.types.Operator):
         elif m3:
             context.channel_ui.expand_content = True
 
-        # Rearrange nodes
+        # Reconnect and rearrange nodes
         if layer:
             rearrange_layer_nodes(layer)
             reconnect_layer_nodes(layer)
         else: 
             rearrange_yp_nodes(group_tree)
             reconnect_yp_nodes(group_tree)
-
-        # Reconnect modifier nodes
-        #reconnect_between_modifier_nodes(context.parent)
 
         # Update UI
         context.window_manager.ypui.need_update = True
@@ -572,9 +532,6 @@ class YMoveYPaintModifier(bpy.types.Operator):
             return {'CANCELLED'}
 
         layer = context.layer if hasattr(context, 'layer') else None
-
-        #if layer: tree = get_tree(layer)
-        #else: tree = group_tree
 
         # Swap modifier
         parent.modifiers.move(index, new_index)
@@ -674,7 +631,6 @@ def draw_modifier_properties(context, channel_type, nodes, modifier, layout, is_
         row.prop(modifier, 'rgb2i_col', text='')
 
         # Shortcut only available on layer channel
-        #if 'YLayerChannel' in str(type(channel)):
         if is_layer_ch:
             row = col.row(align=True)
             row.label(text='Shortcut on layer list:')
@@ -1099,7 +1055,8 @@ def check_modifiers_trees(parent, rearrange=False):
 
     if enable_tree:
         if mod_group:
-            check_modifier_nodes(mod, mod_group.node_tree)
+            for mod in parent.modifiers:
+                check_modifier_nodes(mod, mod_group.node_tree)
         else:
             # Create modifier tree
             mod_tree = bpy.data.node_groups.new('~yP Modifiers ' + name, 'ShaderNodeTree')
@@ -1160,6 +1117,135 @@ def check_modifiers_trees(parent, rearrange=False):
     if rearrange:
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+
+def enable_modifiers_tree(parent, rearrange = False):
+    
+    group_tree = parent.id_data
+    yp = group_tree.yp
+
+    match1 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^yp\.layers\[(\d+)\]$', parent.path_from_id())
+    if match1:
+        layer = yp.layers[int(match1.group(1))]
+        root_ch = yp.channels[int(match1.group(2))]
+        ch = parent
+        name = root_ch.name + ' ' + layer.name
+        if (layer.type in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not ch.override) or (ch.override and ch.override_type in {'DEFAULT'}):
+            return
+    elif match2:
+        layer = parent
+        name = layer.name
+        if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'}:
+            return
+    else:
+        return
+
+    if len(parent.modifiers) == 0:
+        return None
+
+    # Check if modifier tree already available
+    if parent.mod_group != '': 
+        return 
+
+    # Create modifier tree
+    mod_tree = bpy.data.node_groups.new('~yP Modifiers ' + name, 'ShaderNodeTree')
+
+    new_tree_input(mod_tree, 'RGB', 'NodeSocketColor')
+    new_tree_input(mod_tree, 'Alpha', 'NodeSocketFloat')
+    new_tree_output(mod_tree, 'RGB', 'NodeSocketColor')
+    new_tree_output(mod_tree, 'Alpha', 'NodeSocketFloat')
+
+    # New inputs and outputs
+    mod_tree_start = mod_tree.nodes.new('NodeGroupInput')
+    mod_tree_start.name = MOD_TREE_START
+    mod_tree_end = mod_tree.nodes.new('NodeGroupOutput')
+    mod_tree_end.name = MOD_TREE_END
+
+    if match2 and layer.source_group != '':
+        layer_tree = get_source_tree(layer)
+    else: layer_tree = get_tree(layer)
+
+    # Create main modifier group
+    mod_group = new_node(layer_tree, parent, 'mod_group', 'ShaderNodeGroup', 'mod_group')
+    mod_group.node_tree = mod_tree
+
+    if match1:
+        # Create modifier group neighbor
+        mod_n = new_node(layer_tree, parent, 'mod_n', 'ShaderNodeGroup', 'mod_n')
+        mod_s = new_node(layer_tree, parent, 'mod_s', 'ShaderNodeGroup', 'mod_s')
+        mod_e = new_node(layer_tree, parent, 'mod_e', 'ShaderNodeGroup', 'mod_e')
+        mod_w = new_node(layer_tree, parent, 'mod_w', 'ShaderNodeGroup', 'mod_w')
+        mod_n.node_tree = mod_tree
+        mod_s.node_tree = mod_tree
+        mod_e.node_tree = mod_tree
+        mod_w.node_tree = mod_tree
+    elif match2:
+        mod_group_1 = new_node(layer_tree, parent, 'mod_group_1', 'ShaderNodeGroup', 'mod_group_1')
+        mod_group_1.node_tree = mod_tree
+
+    for mod in parent.modifiers:
+        check_modifier_nodes(mod, mod_tree, layer_tree)
+
+    if rearrange:
+        rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
+
+    return mod_tree
+
+def disable_modifiers_tree(parent, rearrange=False):
+    group_tree = parent.id_data
+    yp = group_tree.yp
+
+    match1 = re.match(r'^yp\.layers\[(\d+)\]\.channels\[(\d+)\]$', parent.path_from_id())
+    match2 = re.match(r'^yp\.layers\[(\d+)\]$', parent.path_from_id())
+    if match1: 
+        layer = yp.layers[int(match1.group(1))]
+        root_ch = yp.channels[int(match1.group(2))]
+
+        # Check if fine bump map is still used
+        if parent.enable and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+            if layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not parent.override:
+                return
+            if parent.override and parent.override_type != 'DEFAULT':
+                return
+
+        #if (len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and parent.override) or (parent.override and parent.override_type != 'DEFAULT'):
+            #parent.normal_map_type == 'FINE_BUMP_MAP'
+            #or (parent.enable_transition_bump and parent.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'})
+            #return
+
+    elif match2:
+        layer = parent
+        if layer.type in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'MUSGRAVE'}:
+            return
+    else:
+        return
+
+    # Check if modifier tree already gone
+    if parent.mod_group == '': return
+
+    if match2 and layer.source_group != '':
+        layer_tree = get_source_tree(layer)
+    else: layer_tree = get_tree(layer)
+
+    # Get modifier group
+    mod_group = layer_tree.nodes.get(parent.mod_group)
+
+    # Add new copied modifier nodes on layer tree
+    for mod in parent.modifiers:
+        check_modifier_nodes(mod, layer_tree, mod_group.node_tree)
+
+    # Remove modifier tree
+    remove_node(layer_tree, parent, 'mod_group')
+
+    if match1:
+        # Remove modifier group neighbor
+        remove_node(layer_tree, parent, 'mod_n')
+        remove_node(layer_tree, parent, 'mod_s')
+        remove_node(layer_tree, parent, 'mod_e')
+        remove_node(layer_tree, parent, 'mod_w')
+    elif match2:
+        remove_node(layer_tree, parent, 'mod_group_1')
 
 def register():
     bpy.utils.register_class(YNewYPaintModifier)

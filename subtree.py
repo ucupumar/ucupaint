@@ -113,13 +113,6 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
         layer_tree.nodes.remove(source_ref)
         if linear_ref: layer_tree.nodes.remove(linear_ref)
 
-        # Bring modifiers to source tree
-        #if ch.override_type in {'IMAGE', 'MUSGRAVE'}:
-        #    for mod in ch.modifiers:
-        #        Modifier.check_modifier_nodes(mod, source_tree, layer_tree)
-        #else:
-        #    move_mod_group(ch, layer_tree, source_tree)
-
     # Create uv neighbor
     if ch.override_type in {'VCOL', 'HEMI'}: #, 'OBJECT_INDEX'}:
         uv_neighbor = replace_new_node(layer_tree, ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
@@ -266,16 +259,6 @@ def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False)
         if linear_ref:
             linear = new_node(layer_tree, ch, 'linear', linear_ref.bl_idname)
             copy_node_props(linear_ref, linear)
-
-        #mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
-        #if mapping_ref: copy_node_props(mapping_ref, mapping)
-
-        # Bring back channel modifier to original tree
-        #if ch.override_type in {'IMAGE', 'MUSGRAVE'}:
-        #    for mod in ch.modifiers:
-        #        Modifier.check_modifier_nodes(mod, layer_tree, source_group.node_tree)
-        #else:
-        #    move_mod_group(ch, source_group.node_tree, layer_tree)
 
     # Remove previous source
     remove_node(layer_tree, ch, 'source_group')
@@ -1686,7 +1669,7 @@ def remove_layer_normal_channel_nodes(root_ch, layer, ch, tree=None):
     # Remove neighbor related nodes
     if root_ch.enable_smooth_bump:
         disable_layer_source_tree(layer, False)
-        Modifier.disable_modifiers_tree(ch, False)
+        Modifier.disable_modifiers_tree(ch)
 
         if ch.override and ch.override_type != 'DEFAULT':
             disable_channel_source_tree(layer, root_ch, ch, False)
@@ -1737,32 +1720,27 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     check_create_spread_alpha(layer, tree, root_ch, ch)
 
     # Dealing with neighbor related nodes
-    #if not ch.override or (ch.override and ch.override_type == 'DEFAULT'):
     if root_ch.enable_smooth_bump:
         enable_layer_source_tree(layer)
         Modifier.enable_modifiers_tree(ch)
     else:
         disable_layer_source_tree(layer, False)
-        Modifier.disable_modifiers_tree(ch, False)
-
-    #disable_channel_source_tree(layer, root_ch, ch, False)
-    #else:
-    #elif ch.override_type != 'DEFAULT':
+        Modifier.disable_modifiers_tree(ch)
 
     if ch.override:
-        #if ch.override_type != 'DEFAULT' and root_ch.enable_smooth_bump:
         if root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
             enable_channel_source_tree(layer, root_ch, ch)
             Modifier.enable_modifiers_tree(ch)
         else:
             disable_channel_source_tree(layer, root_ch, ch, False)
-            Modifier.disable_modifiers_tree(ch, False)
-
-        #disable_layer_source_tree(layer, False, True)
+            Modifier.disable_modifiers_tree(ch)
     else:
         disable_channel_source_tree(layer, root_ch, ch, False)
 
     #mute = not layer.enable or not ch.enable
+
+    # Check modifier trees
+    Modifier.check_modifiers_trees(ch)
 
     max_height = get_displacement_max_height(root_ch, layer)
     update_displacement_height_ratio(root_ch)
@@ -2070,7 +2048,7 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
     # Disable source tree first to avoid error
     if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable:
         disable_channel_source_tree(layer, root_ch, ch, rearrange=False, force=True)
-        Modifier.disable_modifiers_tree(ch, False)
+        Modifier.disable_modifiers_tree(ch)
 
     # Current source
     source = layer_tree.nodes.get(ch.source)

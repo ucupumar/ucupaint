@@ -597,7 +597,7 @@ def update_node_tree_libs(name):
 
     for ng in bpy.data.node_groups:
 
-        if ng.is_missing:
+        if hasattr(ng, 'is_missing') and ng.is_missing:
             missing_groups.append(ng.name)
             print("INFO: '" + ng.name + "' is missing! Trying to reload it from library again...")
             continue
