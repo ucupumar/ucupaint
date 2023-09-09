@@ -175,7 +175,7 @@ def get_new_mask_name(obj, layer, mask_type):
         return get_unique_name(name, items, surname)
 
 def update_new_mask_uv_map(self, context):
-    if not is_greater_than_330(): return
+    if not UDIM.is_udim_supported(): return
 
     mat = get_active_material()
     objs = get_all_objects_with_same_materials(mat)
@@ -275,7 +275,7 @@ class YNewLayerMask(bpy.types.Operator):
         return True
 
     def is_using_udim(self):
-        return self.use_udim and is_greater_than_330()
+        return self.use_udim and UDIM.is_udim_supported()
 
     def is_using_image_atlas(self):
         return self.use_image_atlas and not self.is_using_udim()
@@ -394,7 +394,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
             col.label(text='Vector:')
             if self.type == 'IMAGE':
-                if is_greater_than_330():
+                if UDIM.is_udim_supported():
                     col.label(text='')
                 col.label(text='')
 
@@ -435,7 +435,7 @@ class YNewLayerMask(bpy.types.Operator):
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 crow.prop_search(self, "uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
                 if self.type == 'IMAGE':
-                    if is_greater_than_330():
+                    if UDIM.is_udim_supported():
                         col.prop(self, 'use_udim')
                     ccol = col.column()
                     ccol.active = not self.use_udim

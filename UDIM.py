@@ -5,6 +5,9 @@ from .common import *
 UDIM_DIR = 'udim_textures__'
 UV_TOLERANCE = 0.1
 
+def is_udim_supported():
+    return is_greater_than_340()
+
 def fill_tiles(image, color, width=0, height=0):
     if image.source != 'TILED': return
     for tile in image.tiles:

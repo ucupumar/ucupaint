@@ -133,7 +133,7 @@ class YRemoveBakeInfoOtherObject(bpy.types.Operator):
         return {'FINISHED'}
 
 def update_bake_to_layer_uv_map(self, context):
-    if not is_greater_than_330(): return
+    if not UDIM.is_udim_supported(): return
 
     mat = get_active_material()
     objs = get_all_objects_with_same_materials(mat)
@@ -294,7 +294,7 @@ class YBakeToLayer(bpy.types.Operator):
             default=False)
 
     def is_using_udim(self):
-        return self.use_udim and is_greater_than_330()
+        return self.use_udim and UDIM.is_udim_supported()
 
     def is_using_image_atlas(self):
         return self.use_image_atlas and not self.is_using_udim()
