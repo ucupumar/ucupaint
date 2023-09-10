@@ -1965,17 +1965,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if root_ch.enable_alpha:
                 bg_alpha = source.outputs[root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND']]
 
+        # Get source output index
+        source_index = 0
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
-            if is_greater_than_281():
-                if (
-                    (layer.type in {'NOISE', 'VORONOI'} and ch.layer_input == 'RGB') or 
-                    (layer.type not in {'NOISE', 'VORONOI'} and ch.layer_input == 'ALPHA')
-                    ):
+            # Noise and voronoi output has flipped order since Blender 2.81
+            if is_greater_than_281() and layer.type in {'NOISE', 'VORONOI'}:
+                if ch.layer_input == 'RGB':
                     rgb = start_rgb_1
                     alpha = start_alpha_1
+                    source_index = 2
             elif ch.layer_input == 'ALPHA':
                 rgb = start_rgb_1
                 alpha = start_alpha_1
+                source_index = 2
 
         rgb_before_override = rgb
 
@@ -2176,15 +2178,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             group_alpha_s = None
             group_alpha_e = None
             group_alpha_w = None
-
-            # Get source output index
-            source_index = 0
-            if ch.layer_input == 'ALPHA' and layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
-                source_index = 2
-
-            # Noise and voronoi output has flipped order since Blender 2.81
-            if is_greater_than_281() and layer.type in {'NOISE', 'VORONOI'} and ch.layer_input == 'RGB':
-                source_index = 2
 
             if source_n and source_s and source_e and source_w:
                 # Use override value instead from actual layer if using default override type
