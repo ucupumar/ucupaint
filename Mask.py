@@ -176,6 +176,9 @@ def get_new_mask_name(obj, layer, mask_type):
 
 def update_new_mask_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
+    if self.type != 'IMAGE': 
+        self.use_udim = False
+        return
 
     mat = get_active_material()
     objs = get_all_objects_with_same_materials(mat)
@@ -334,7 +337,7 @@ class YNewLayerMask(bpy.types.Operator):
             self.texcoord_type = 'Generated'
         elif len(obj.data.uv_layers) > 0:
 
-            if self.type == 'IMAGE': self.uv_name = get_default_uv_name(obj, yp)
+            self.uv_name = get_default_uv_name(obj, yp)
 
             # UV Map collections update
             self.uv_map_coll.clear()

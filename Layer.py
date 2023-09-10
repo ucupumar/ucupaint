@@ -527,6 +527,9 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
 
 def update_new_layer_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
+    if self.type != 'IMAGE': 
+        self.use_udim = False
+        return
 
     mat = get_active_material()
     objs = get_all_objects_with_same_materials(mat)
@@ -534,6 +537,9 @@ def update_new_layer_uv_map(self, context):
 
 def update_new_layer_mask_uv_map(self, context):
     if not UDIM.is_udim_supported(): return
+    if self.mask_type != 'IMAGE': 
+        self.use_udim_for_mask = False
+        return
 
     mat = get_active_material()
     objs = get_all_objects_with_same_materials(mat)
@@ -775,8 +781,8 @@ class YNewLayer(bpy.types.Operator):
         else:
             if obj.type == 'MESH':
                 uv_name = get_default_uv_name(obj, yp)
-                if self.type == 'IMAGE': self.uv_map = uv_name
-                if self.add_mask and self.mask_type == 'IMAGE': self.mask_uv_name = uv_name
+                self.uv_map = uv_name
+                if self.add_mask: self.mask_uv_name = uv_name
 
                 # UV Map collections update
                 self.uv_map_coll.clear()
@@ -815,7 +821,7 @@ class YNewLayer(bpy.types.Operator):
             if self.mask_height > mask_max_size: self.mask_height = mask_max_size
 
         # Init mask uv name
-        if self.add_mask and self.mask_uv_name == '' and self.mask_type == 'IMAGE':
+        if self.add_mask and self.mask_uv_name == '':
 
             node = get_active_ypaint_node()
             yp = node.node_tree.yp
@@ -1579,7 +1585,7 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
             if self.mask_height > mask_max_size: self.mask_height = mask_max_size
 
         # Init mask uv name
-        if self.add_mask and self.mask_uv_name == '' and self.mask_type == 'IMAGE':
+        if self.add_mask and self.mask_uv_name == '':
 
             node = get_active_ypaint_node()
             yp = node.node_tree.yp
