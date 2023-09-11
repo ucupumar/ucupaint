@@ -1,22 +1,20 @@
-import typing
-from bpy.types import AnyType, Context, UILayout
+from bpy.types import Context
 from .common import * 
 from .lib import *
+from zipfile import ZipFile
 
 import bpy, threading, os, requests, json
 from bpy.props import *
 from bpy.types import PropertyGroup, Panel, Operator, UIList, Scene
 
-
+THREAD_SEARCHING = "thread_searching"
 # thread_search:threading.Thread # progress:int
-addon_folder = os.path.dirname(__file__)
 # global previews_collection
 # preview_items = []
 assets_lib = {}
 last_search = {}
 
-# def preview_enums(self, context):
-#     return previews_collection.preview_items
+threads = {} # progress:int,
 
 def update_input_search(self, context):
     if self.input_last == self.input_search:
@@ -31,16 +29,19 @@ def update_input_search(self, context):
         last_search.clear()
         return
 
-    global thread_search
     thread_search = threading.Thread(target=searching_material, args=(self.input_search,context))
     thread_search.progress = 0
-    thread_search.stop = False
+    thread_search.cancel = False
+    threads[THREAD_SEARCHING] = thread_search
+
     thread_search.start()
 
     self.progress = 0
     
 def searching_material(keyword:str, context:Context):
     scene = context.scene
+
+    thread_search = threads[THREAD_SEARCHING]
 
     retrieve_assets_info(keyword)
     thread_search.progress = 10
@@ -121,7 +122,16 @@ class TexLibDownload(Operator):
 
             # thread.start()
         lib = assets_lib[self.id]
-        print("setar =",self.attribute, "selected = "+self.id, "lib =", lib["downloads"][self.attribute]["link"])
+        link = lib["downloads"][self.attribute]["link"]
+        file_name = lib["downloads"][self.attribute]["fileName"]
+        print("setar =",self.attribute, "selected = "+self.id, "lib =", link)
+
+        file = download_stream(link, self.id, self.attribute, file_name)
+        if file != None:
+            extract_file(file)
+            os.remove(file)
+        else:
+            print("not found",file)
         return {'FINISHED'}
 
 class TexLibBrowser(Panel):
@@ -142,7 +152,11 @@ class TexLibBrowser(Panel):
         layout.prop(amb_br, "input_search")
 
         if amb_br.progress >= 0:
-            layout.label(text="Searching..."+str(amb_br.progress)+"%")
+            prog = amb_br.progress
+            if prog < 10:
+                layout.label(text="Searching..."+str(prog)+"%")
+            else:
+                layout.label(text="Retrieving thumbnails..."+str(prog)+"%")
             layout.operator("texlib.cancel_search")
         # layout.operator("texlib.refresh_previews")
         # layout.operator("texlib.rem_material")
@@ -201,56 +215,10 @@ class TexLibCancelSearch(Operator):
     
     
     def execute(self, context):
-        thread_search.stop = True
+        thread_search = threading[THREAD_SEARCHING]
+        thread_search.cancel = True
 
         return{'FINISHED'}
-
-    
-class TexLibMaterialNewItem(Operator):
-    """Add a new item to the list."""
-
-    bl_idname = "texlib.new_material"
-    bl_label = "Add material"
-    @classmethod
-    def poll(cls, context: Context):
-        return context.scene.ambient_browser.input_search
-    
-    def execute(self, context):
-        scene = context.scene
-        amb_br = scene.ambient_browser
-        content = amb_br.input_search
-
-        new_item = context.scene.material_items.add()
-
-        print("add content "+content)
-        new_item.name = content
-
-        amb_br.input_search = ""
-
-        return{'FINISHED'}
-
-class TexLibMaterialDelItem(Operator):
-    """remove item to the list."""
-
-    bl_idname = "texlib.rem_material"
-    bl_label = "Remove material"
-
-    @classmethod
-    def poll(cls, context: Context):
-        return context.scene.material_items
-    
-    def execute(self, context):
-        scene = context.scene
-        index = scene.material_index
-        my_list = scene.material_items
-
-        my_list.remove(index)
-
-        context.scene.material_index = 0
-
-        return{'FINISHED'}
-    
-
 
 def load_previews():
     # print(">>>>>>>>>>>>>>>>>>>>>>> INIT TexLIB")
@@ -272,9 +240,8 @@ def monitor_downloads():
     
     interval = 0.1
    
-    
     try:
-        thread_search
+        thread_search = threads[THREAD_SEARCHING]
     except:
         return 1
 
@@ -289,12 +256,6 @@ def monitor_downloads():
         if not area.type == 'VIEW_3D':
             continue
         area.tag_redraw()
-        # for sp in area.spaces:
-        #     print("redraw ",sp.type)
-        # if area.spaces[0].tree_type == "ShaderNodeTree":
-        #     update_progress = True
-        #     area.tag_redraw()
-
 
     if thread_search.progress == 100:
         thread_search.progress = -1
@@ -302,21 +263,29 @@ def monitor_downloads():
     amb = scn.ambient_browser
     amb.progress = thread_search.progress
 
-
-        
-    # if thread_search.is_alive():
-    #     thread_search.progress 
-    
     return interval
 
-def download_stream(link, timeout, skipExisting = False):
-    directory = bpy.path.abspath("//textures")
+def extract_file(my_file):
+    with ZipFile(my_file, 'r') as zObject:
 
-    file_name = bpy.path.basename(link)
-    file_name = os.path.join(directory, file_name)
-    print("url = "+link)
-    print("base name = "+file_name)
+        dir_name = os.path.dirname(my_file)
+        # new_folder = os.path.basename(my_file).split('.')[0]
+        # dir_name = os.path.join(dir_name, new_folder)
     
+        print("extract "+my_file+" to "+dir_name)
+        zObject.extractall(path=dir_name)
+        return dir_name
+    
+def download_stream(link:str,id:str,attribute:str,file_name:str,
+                    timeout:int = 10,skipExisting:bool = False) -> str:
+    directory = _get_textures_dir()
+    location = os.path.join(id, attribute)
+    directory = os.path.join(directory, location)
+    file_name = os.path.join(directory, file_name)
+    print("url = ",link, "directory", directory, "filename", file_name)
+    if not os.path.exists(directory):
+        print("make dir "+directory)
+        os.makedirs(directory)
     # if not skipExisting and os.path.exists(file_name):
     #     print("EXIST "+file_name)
     #     return file_name
@@ -344,25 +313,27 @@ def download_stream(link, timeout, skipExisting = False):
                 prog = int(100 * dl / total_length)
                 # dl_threads[0].progress = prog
                 
-                # print("proggg "+str(prog)+"%  "+str(dl)+"/"+str(total_length))
+                print("proggg "+str(prog)+"%  "+str(dl)+"/"+str(total_length))
             # dl_threads.pop(0)
+            return file_name
         except Exception as e:
             print('Error #2 while downloading', link, ':', e)
-
+    return None
 def download_previews(overwrite_existing:bool, material_items):
     directory = _get_preview_dir()
     if not os.path.exists(directory):
         os.mkdir(directory)
     print("download to ",directory)
     # print("asset",assets_lib)
-
+    thread_search = threads[THREAD_SEARCHING]
+    
     progress_initial = thread_search.progress
     progress_max = 90
     span = progress_max - progress_initial
     item_count = len(last_search)
 
     for index,ast in enumerate(last_search):
-        if thread_search.stop:
+        if thread_search.cancel:
             break
         link = last_search[ast]["preview"]
         file_name = bpy.path.basename(link)
@@ -422,7 +393,7 @@ def retrieve_assets_info(keyword:str = '', page:int = 0, limit:int = 10):
     file_name = os.path.join(dir_name, "lib.json")
     file_name_ori = os.path.join(dir_name, "lib-ori.json")
 
-    response = requests.get(base_link, params=params)
+    response = requests.get(base_link, params=params, verify=False)
     if not response.status_code == 200:
         print("Can't download, Code: " + str(response.status_code))
         return None
@@ -457,6 +428,13 @@ def retrieve_assets_info(keyword:str = '', page:int = 0, limit:int = 10):
     file_ori.write(json.dumps({"foundAssets":assets}))
     file_ori.close()
 
+def _get_textures_dir() -> str:
+    file_path = _get_lib_dir()
+    retval = os.path.join(file_path, "textures") + os.sep
+    if not os.path.exists(retval):
+        os.mkdir(retval)
+    return retval
+
 def _get_preview_dir() -> str:
     file_path = _get_lib_dir()
     retval = os.path.join(file_path, "previews") + os.sep
@@ -472,7 +450,7 @@ def _get_lib_dir() -> str:
     return retval
 
 classes = [TexLibProps, TexLibBrowser, TexLibDownload, MaterialItem, TEXLIB_UL_Material
-           ,TexLibMaterialNewItem, TexLibMaterialDelItem, TexLibCancelSearch]
+            ,TexLibCancelSearch]
 
 def register():
     for cl in classes:
