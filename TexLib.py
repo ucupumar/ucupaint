@@ -36,7 +36,8 @@ def update_input_search(self, context):
 
     thread_search.start()
 
-    self.progress = 0
+    self.searching_download.progress = 0
+    self.searching_download.alive = True
     
 def searching_material(keyword:str, context:Context):
     scene = context.scene
@@ -86,17 +87,26 @@ def load_per_material(file_name, material_item):
     previews_collection.preview_items[my_id] = (my_id, item, "", loaded.icon_id, len(previews_collection.preview_items))
     material_item.thumb = loaded.icon_id
 
-class TexLibProps(bpy.types.PropertyGroup):
-    page: IntProperty(name="page", default= 0)
-    input_search:StringProperty(name="Search", update=update_input_search)
-    input_last:StringProperty()
+class DownloadThread(PropertyGroup):
+    asset_id : StringProperty()
+    asset_attribute: StringProperty()
+    file_path : StringProperty()
+    alive : BoolProperty(default = False)
     progress : IntProperty(
-        default = -1,
-        min = -1,
+        default = 0,
+        min = 0,
         max = 100,
         description = 'Progress of the download',
         subtype = 'PERCENTAGE'
     )
+
+class TexLibProps(bpy.types.PropertyGroup):
+    page: IntProperty(name="page", default= 0)
+    input_search:StringProperty(name="Search", update=update_input_search)
+    input_last:StringProperty()
+    downloads:CollectionProperty(type=DownloadThread)
+    searching_download:PointerProperty(type=DownloadThread)
+    selected_download_item:IntProperty(default=0)
 
 
 class TexLibDownload(Operator):
@@ -107,31 +117,43 @@ class TexLibDownload(Operator):
     id:bpy.props.StringProperty()
     
     def execute(self, context):
-        # scene = context.scene
-        # sel_index = scene.material_index
-        # my_list = scene.material_items
-        # if sel_index < len(my_list):
-
-            # scene = context.scene
-            # amb_br = scene.ambient_browser
-            # content = amb_br.input_search
-
-            # thread = threading.Thread(target=download_stream, args=("https://acg-download.struffelproductions.com/file/ambientCG-Web/download/Ground068_c5MREyAu/Ground068_1K-JPG.zip", 30))
-            # thread.progress = 0.0
-            # dl_threads.append(thread)
-
-            # thread.start()
+       
         lib = assets_lib[self.id]
         link = lib["downloads"][self.attribute]["link"]
         file_name = lib["downloads"][self.attribute]["fileName"]
         print("setar =",self.attribute, "selected = "+self.id, "lib =", link)
 
-        file = download_stream(link, self.id, self.attribute, file_name)
-        if file != None:
-            extract_file(file)
-            os.remove(file)
-        else:
-            print("not found",file)
+        # file = download_stream(link, self.id, self.attribute, file_name)
+        # if file != None:
+        #     extract_file(file)
+        #     os.remove(file)
+        # else:
+        #     print("not found",file)
+
+        directory = _get_textures_dir()
+        location = os.path.join(self.id, self.attribute)
+        directory = os.path.join(directory, location)
+        file_name = os.path.join(directory, file_name)
+
+        if not os.path.exists(directory):
+            print("make dir "+directory)
+            os.makedirs(directory)
+        thread_id = _get_thread_id(self.id, self.attribute)
+        new_thread = threading.Thread(target=download_stream, args=(link,file_name,thread_id,))
+        new_thread.progress = 0
+        new_thread.cancel = False
+        threads[_get_thread_id(self.id, self.attribute)] = new_thread
+
+        new_thread.start()
+
+        amb_br = context.scene.ambient_browser
+        new_dwn = amb_br.downloads.add()
+        new_dwn.asset_id = self.id
+        new_dwn.file_path = file_name
+        new_dwn.asset_attribute = self.attribute
+        new_dwn.alive = True
+        new_dwn.progress = 0
+
         return {'FINISHED'}
 
 class TexLibBrowser(Panel):
@@ -150,14 +172,16 @@ class TexLibBrowser(Panel):
         my_list = scene.material_items
 
         layout.prop(amb_br, "input_search")
-
-        if amb_br.progress >= 0:
-            prog = amb_br.progress
-            if prog < 10:
-                layout.label(text="Searching..."+str(prog)+"%")
-            else:
-                layout.label(text="Retrieving thumbnails..."+str(prog)+"%")
+        searching_dwn = amb_br.searching_download
+       
+        if searching_dwn.alive:
             layout.operator("texlib.cancel_search")
+            prog = searching_dwn.progress
+            if prog >= 0:
+                if prog < 10:
+                    layout.label(text="Searching..."+str(prog)+"%")
+                else:
+                    layout.label(text="Retrieving thumbnails..."+str(prog)+"%")
         # layout.operator("texlib.refresh_previews")
         # layout.operator("texlib.rem_material")
         # layout.prop(amb_br, "progress", slider=True, text="Download")
@@ -181,26 +205,34 @@ class TexLibBrowser(Panel):
                     op = layout.operator("texlib.download", text=d)
                     op.attribute = d
                     op.id = sel_mat.name
+        layout.template_list("TEXLIB_UL_Downloads", "download_list", amb_br, "downloads", amb_br, "selected_download_item")
+
 
 class MaterialItem(PropertyGroup): 
     name: StringProperty( name="Name", description="Material name", default="Untitled") 
     thumb: IntProperty( name="thumbnail", description="", default=0)
 
+class TEXLIB_UL_Downloads(UIList):
+
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        """Demo UIList."""
+
+        # print("tipe ",self.layout_type)
+        row = layout.row(align=True)
+        # row.alignment = "CENTER"
+        # Make sure your code supports all 3 layout types
+        if self.layout_type in {'DEFAULT', 'COMPACT'}:
+            row.label(text=item.asset_id+" | "+item.asset_attribute+"="+str(item.progress))
+            # layout.prop(amb_br, "progress", slider=True, text="Download")
+
+       
 
 class TEXLIB_UL_Material(UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         """Demo UIList."""
 
-#   index = scene.material_index
-        scene = context.scene
-        my_list = scene.material_items
-
-
-        # print("tipe ",self.layout_type)
         row = layout.row(align=True)
-        # row.alignment = "CENTER"
-        # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row.template_icon(icon_value = item.thumb, scale = 1.0)
             row.label(text=item.name)
@@ -215,8 +247,12 @@ class TexLibCancelSearch(Operator):
     
     
     def execute(self, context):
-        thread_search = threading[THREAD_SEARCHING]
+        thread_search = threads[THREAD_SEARCHING]
         thread_search.cancel = True
+        ambr = context.scene.ambient_browser
+        
+        searching_dwn = ambr.searching_download
+        searching_dwn.alive = False
 
         return{'FINISHED'}
 
@@ -239,14 +275,14 @@ def load_previews():
 def monitor_downloads():
     
     interval = 0.1
-   
-    try:
-        thread_search = threads[THREAD_SEARCHING]
-    except:
-        return 1
+    
 
-    if not thread_search.is_alive() and thread_search.progress < 0:
-        return 1
+    searching = False
+    if THREAD_SEARCHING in threads:
+        thread_search = threads[THREAD_SEARCHING]
+        searching = True
+    # else:
+    #     return 1
     
     if not hasattr(bpy, 'context'):
         return 2
@@ -256,13 +292,47 @@ def monitor_downloads():
         if not area.type == 'VIEW_3D':
             continue
         area.tag_redraw()
-
-    if thread_search.progress == 100:
-        thread_search.progress = -1
+    # if thread_search.progress == 100:
+    #     thread_search.progress = -1
     
     amb = scn.ambient_browser
-    amb.progress = thread_search.progress
+    downloads = amb.downloads
 
+    if len(downloads) == 0 and not searching:
+        # print("KOSONG")
+        return 1 
+    
+    if searching:
+        prog_search = thread_search.progress
+        amb.searching_download.progress = prog_search
+        if thread_search.progress >= 100:
+            amb.searching_download.alive = False
+
+        if not thread_search.is_alive():
+            del threads[THREAD_SEARCHING]
+    
+    for index, dwn in enumerate(downloads):
+        
+        thread_id = _get_thread_id(dwn.asset_id, dwn.asset_attribute)
+        thread = _get_thread(thread_id)
+        if thread == None:
+            extract_file(dwn.file_path)
+            delete_zip(dwn.file_path)
+            downloads.remove(index)
+            # extract 
+            continue
+        
+        prog =  thread.progress
+
+        dwn.progress = prog
+        if thread.progress >= 100:
+           dwn.alive = False
+
+        if not thread.is_alive():
+            del threads[thread_id]
+
+    
+    
     return interval
 
 def extract_file(my_file):
@@ -276,19 +346,25 @@ def extract_file(my_file):
         zObject.extractall(path=dir_name)
         return dir_name
     
-def download_stream(link:str,id:str,attribute:str,file_name:str,
-                    timeout:int = 10,skipExisting:bool = False) -> str:
-    directory = _get_textures_dir()
-    location = os.path.join(id, attribute)
-    directory = os.path.join(directory, location)
-    file_name = os.path.join(directory, file_name)
-    print("url = ",link, "directory", directory, "filename", file_name)
-    if not os.path.exists(directory):
-        print("make dir "+directory)
-        os.makedirs(directory)
+# Delete the zip file
+def delete_zip(file_path):
+    if not os.path.exists(file_path):
+        #print(file_path + " Zip file doesn't exists")
+        return
+    try:
+        os.remove(file_path)
+    except Exception as e:
+        print('Error while deleting zip file:', e)
+
+def download_stream(link:str, file_name:str, thread_id:str,
+                    timeout:int = 10,skipExisting:bool = False):
+    print("url = ",link, "filename", file_name)
     # if not skipExisting and os.path.exists(file_name):
     #     print("EXIST "+file_name)
     #     return file_name
+
+    thread = _get_thread(thread_id)
+    
     prog = 0
     with open(file_name, "wb") as f:
         try:
@@ -312,13 +388,12 @@ def download_stream(link:str,id:str,attribute:str,file_name:str,
                 
                 prog = int(100 * dl / total_length)
                 # dl_threads[0].progress = prog
-                
-                print("proggg "+str(prog)+"%  "+str(dl)+"/"+str(total_length))
+                thread.progress = prog
+                # print("proggg "+str(prog)+"%  "+str(dl)+"/"+str(total_length))
             # dl_threads.pop(0)
-            return file_name
         except Exception as e:
             print('Error #2 while downloading', link, ':', e)
-    return None
+
 def download_previews(overwrite_existing:bool, material_items):
     directory = _get_preview_dir()
     if not os.path.exists(directory):
@@ -449,8 +524,16 @@ def _get_lib_dir() -> str:
         os.mkdir(retval)
     return retval
 
-classes = [TexLibProps, TexLibBrowser, TexLibDownload, MaterialItem, TEXLIB_UL_Material
-            ,TexLibCancelSearch]
+def _get_thread_id(asset_id:str, asset_attribute:str):
+    return asset_id+"_"+asset_attribute
+
+def _get_thread(id:str):
+    if id in threads: 
+        return threads[id]
+    return None
+
+classes = [DownloadThread, TexLibProps, TexLibBrowser, TexLibDownload, MaterialItem, TEXLIB_UL_Material
+            ,TexLibCancelSearch, TEXLIB_UL_Downloads]
 
 def register():
     for cl in classes:
