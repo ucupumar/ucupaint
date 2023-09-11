@@ -64,9 +64,22 @@ def transfer_uv(objs, mat, entity, uv_map):
             col = (0.0, 0.0, 0.0, 0.0)
             use_alpha = True
 
+    # Get tile numbers
+    tilenums = UDIM.get_tile_numbers(objs, uv_map)
+
     # Create temp image as bake target
-    temp_image = bpy.data.images.new(name='__TEMP',
-            width=width, height=height, alpha=True, float_buffer=image.is_float)
+    if len(tilenums) > 1:
+        temp_image = bpy.data.images.new(name='__TEMP',
+                width=width, height=height, alpha=True, float_buffer=image.is_float, tiled=True)
+
+        # Fill tiles
+        for tilenum in tilenums:
+            UDIM.fill_tile(temp_image, tilenum, col, width, height)
+        UDIM.initial_pack_udim(temp_image)
+    else:
+        temp_image = bpy.data.images.new(name='__TEMP',
+                width=width, height=height, alpha=True, float_buffer=image.is_float)
+
     #temp_image.colorspace_settings.name = 'Non-Color'
     temp_image.colorspace_settings.name = image.colorspace_settings.name
     temp_image.generated_color = col
@@ -141,15 +154,14 @@ def transfer_uv(objs, mat, entity, uv_map):
 
     # Bake alpha if using alpha
     if use_alpha:
-        #srgb2lin = mat.node_tree.nodes.new('ShaderNodeGroup')
-        #srgb2lin.node_tree = get_node_tree_lib(lib.SRGB_2_LINEAR)
-
-        #mat.node_tree.links.new(src.outputs[1], srgb2lin.inputs[0])
-        #mat.node_tree.links.new(srgb2lin.outputs[0], emit.inputs[0])
 
         # Create another temp image
         temp_image1 = temp_image.copy()
         tex.image = temp_image1
+
+        if temp_image1.source == 'TILED':
+            temp_image1.name = '__TEMP1'
+            UDIM.initial_pack_udim(temp_image1)
 
         mat.node_tree.links.new(src.outputs[1], emit.inputs[0])
 
@@ -159,20 +171,35 @@ def transfer_uv(objs, mat, entity, uv_map):
         # Bake again!
         bpy.ops.object.bake()
 
-        # Copy the result to original temp image
-        copy_image_channel_pixels(temp_image1, temp_image, 0, 3)
+        # Set tile pixels
+        for tilenum in tilenums:
+
+            # Swap tile
+            if tilenum != 1001:
+                UDIM.swap_tile(temp_image, 1001, tilenum)
+                UDIM.swap_tile(temp_image1, 1001, tilenum)
+
+            # Copy the result to original temp image
+            copy_image_channel_pixels(temp_image1, temp_image, 0, 3)
+
+            # Swap tile again to recover
+            if tilenum != 1001:
+                UDIM.swap_tile(temp_image, 1001, tilenum)
+                UDIM.swap_tile(temp_image1, 1001, tilenum)
 
         # Remove temp image 1
         bpy.data.images.remove(temp_image1)
 
-        #if srgb2lin:
-        #    simple_remove_node(mat.node_tree, srgb2lin)
+    # Replace image if both images don't have the same source
+    if ((temp_image.source == 'TILED' and image.source != 'TILED') or
+        (temp_image.source != 'TILED' and image.source == 'TILED')):
+        replace_image(image, temp_image)
+    else:
+        # Copy back temp/baked image to original image
+        copy_image_pixels(temp_image, image, segment)
 
-    # Copy back temp/baked image to original image
-    copy_image_pixels(temp_image, image, segment)
-
-    # Remove temp image
-    bpy.data.images.remove(temp_image)
+        # Remove temp image
+        bpy.data.images.remove(temp_image)
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, tex)

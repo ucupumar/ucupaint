@@ -1079,7 +1079,6 @@ class YNewLayer(bpy.types.Operator):
                     tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
                     for tilenum in tilenums:
                         UDIM.fill_tile(img, tilenum, color, self.width, self.height)
-                    print(tilenums)
                     UDIM.initial_pack_udim(img)
 
                     # Remember base color

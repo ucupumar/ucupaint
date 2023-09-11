@@ -60,9 +60,9 @@ def copy_udim_pixels(src, dest):
 
 def get_tile_numbers(objs, uv_name):
 
-    if not is_greater_than_330(): return [1001]
+    if not is_udim_supported(): return [1001]
 
-    #T = time.time()
+    T = time.time()
 
     # Get active object
     obj = bpy.context.object
@@ -114,13 +114,13 @@ def get_tile_numbers(objs, uv_name):
     if ori_mode != 'OBJECT':
         bpy.ops.object.mode_set(mode=ori_mode)
 
-    #print('INFO: Getting tile numbers are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Getting tile numbers are done at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         
     return tiles
 
 def is_uvmap_udim(objs, uv_name):
 
-    if not is_greater_than_330(): return False
+    if not is_udim_supported(): return False
 
     T = time.time()
 
