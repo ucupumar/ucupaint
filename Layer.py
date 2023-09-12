@@ -253,7 +253,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                     tilenums = UDIM.get_tile_numbers(objs, mask_uv_name)
                     for tilenum in tilenums:
                         UDIM.fill_tile(mask_image, tilenum, color, mask_width, mask_height)
-                    UDIM.initial_pack_udim(mask_image)
+                    UDIM.initial_pack_udim(mask_image, color)
 
                 else:
                     mask_image = bpy.data.images.new(mask_name, 
@@ -1079,10 +1079,8 @@ class YNewLayer(bpy.types.Operator):
                     tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
                     for tilenum in tilenums:
                         UDIM.fill_tile(img, tilenum, color, self.width, self.height)
-                    UDIM.initial_pack_udim(img)
+                    UDIM.initial_pack_udim(img, color)
 
-                    # Remember base color
-                    img.yia.color = 'TRANSPARENT'
                 else:
                     img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
                             alpha=alpha, float_buffer=self.hdr)

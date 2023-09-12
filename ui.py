@@ -1,7 +1,7 @@
 import bpy, re, time
 from bpy.props import *
 from bpy.app.handlers import persistent
-from . import lib, Modifier, MaskModifier, NormalMapModifier, Root
+from . import lib, Modifier, MaskModifier, NormalMapModifier, Root, UDIM
 from .common import *
 #from .subtree import *
 
@@ -3699,7 +3699,9 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         col.operator('node.y_copy_layer', text='Copy All Layers', icon='COPYDOWN').all_layers = True
         col.operator('node.y_paste_layer', text='Paste Layer(s)', icon='PASTEDOWN')
 
-        col.separator()
+        if UDIM.is_udim_supported():
+            col.separator()
+            col.operator('node.y_refill_udim_tiles', text='Refill UDIM Tiles', icon_value=lib.get_icon('uv'))
 
         #col.prop(yp, 'layer_preview_mode', text='Layer Only Viewer')
 
@@ -3768,8 +3770,10 @@ class YUVSpecialMenu(bpy.types.Menu):
         return get_active_ypaint_node()
 
     def draw(self, context):
-        self.layout.operator('node.y_transfer_layer_uv', text='Transfer UV', icon_value=lib.get_icon('uv'))
-        self.layout.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon_value=lib.get_icon('uv'))
+        col = self.layout.column()
+
+        col.operator('node.y_transfer_layer_uv', text='Transfer UV', icon_value=lib.get_icon('uv'))
+        col.operator('node.y_transfer_some_layer_uv', text='Transfer All Layers & Masks UV', icon_value=lib.get_icon('uv'))
 
 class YModifierMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_modifier_menu"

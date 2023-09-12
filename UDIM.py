@@ -8,23 +8,30 @@ UV_TOLERANCE = 0.1
 def is_udim_supported():
     return is_greater_than_340()
 
-def fill_tiles(image, color, width=0, height=0):
+def fill_tiles(image, color, width=0, height=0, empty_only=False):
     if image.source != 'TILED': return
     for tile in image.tiles:
-        fill_tile(image, tile.number, color, width, height)
+        fill_tile(image, tile.number, color, width, height, empty_only)
 
-def fill_tile(image, tilenum, color, width=0, height=0):
+def fill_tile(image, tilenum, color, width=0, height=0, empty_only=False):
     if image.source != 'TILED': return
     tile = image.tiles.get(tilenum)
+    new_tile = False
     if not tile:
         tile = image.tiles.new(tile_number=tilenum)
+        new_tile = True
+
+    if tile.size[0] == 0 or tile.size[1] == 0:
+        new_tile = True
+
+    image.tiles.active = tile
+
+    if not new_tile and empty_only: return
 
     if width == 0: width = tile.size[0]
     if height == 0: height = tile.size[1]
     if width == 0: width = 1024
     if height == 0: height = 1024
-
-    image.tiles.active = tile
 
     # NOTE: Override operator won't work on Blender 4.0
     #override = bpy.context.copy()
@@ -182,7 +189,10 @@ def set_udim_filepath(image, filename, directory):
 
 # UDIM need filepath to work, 
 # So there's need to initialize filepath for every udim image created
-def initial_pack_udim(image):
+def initial_pack_udim(image, base_color=None):
+
+    # Remember original filepath
+    ori_filepath = image.filepath
 
     # Get temporary directory
     temp_dir = get_temp_udim_dir()
@@ -196,6 +206,13 @@ def initial_pack_udim(image):
 
     # Remove temporary files
     remove_udim_files_from_disk(image, temp_dir, True)
+
+    if ori_filepath != '':
+        image.filepath = ori_filepath
+
+    # Remember base color
+    if base_color:
+        image.yui.base_color = base_color
 
 def swap_tile(image, tilenum0, tilenum1):
 
@@ -246,8 +263,41 @@ def swap_tile(image, tilenum0, tilenum1):
 class YRefillUDIMTiles(bpy.types.Operator):
     bl_idname = "node.y_refill_udim_tiles"
     bl_label = "Refill UDIM Tiles"
-    bl_description = "Refill UDIM tiles (Use this after unwrapping your objects to new tile)"
+    bl_description = "Refill all UDIM tiles used by all layers and masks based on their UV"
     bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+        yp = context.layer.id_data.yp
+        entities, images, segments = get_yp_entities_images_and_segments(yp)
+
+        mat = get_active_material()
+
+        for i, image in enumerate(images):
+            if image.source != 'TILED': continue
+            ents = entities[i]
+            entity = ents[0]
+
+            # Get width and height
+            width = 1024
+            height = 1024
+            if image.size[0] != 0: width = image.size[0]
+            if image.size[1] != 0: height = image.size[1]
+
+            # Get tile numbers based from uv
+            uv_name = entity.uv_name
+            objs = get_all_objects_with_same_materials(mat, True, uv_name)
+            tilenums = get_tile_numbers(objs, uv_name)
+
+            color = image.yui.base_color
+
+            for tilenum in tilenums:
+                fill_tile(image, tilenum, color, width, height, empty_only=True)
+
+        return {'FINISHED'}
 
 class YUDIMAtlasSegments(bpy.types.PropertyGroup):
 
@@ -288,14 +338,20 @@ class YUDIMAtlas(bpy.types.PropertyGroup):
 
     segments : CollectionProperty(type=YUDIMAtlasSegments)
 
+class YUDIMInfo(bpy.types.PropertyGroup):
+    base_color : FloatVectorProperty(subtype='COLOR', size=4, min=0.0, max=1.0, default=(0.0, 0.0, 0.0, 0.0))
+
 def register():
     bpy.utils.register_class(YRefillUDIMTiles)
     bpy.utils.register_class(YUDIMAtlasSegments)
     bpy.utils.register_class(YUDIMAtlas)
+    bpy.utils.register_class(YUDIMInfo)
 
-    bpy.types.Image.yua = PointerProperty(type=YUDIMAtlas)
+    #bpy.types.Image.yua = PointerProperty(type=YUDIMAtlas)
+    bpy.types.Image.yui = PointerProperty(type=YUDIMInfo)
 
 def unregister():
     bpy.utils.unregister_class(YRefillUDIMTiles)
     bpy.utils.unregister_class(YUDIMAtlasSegments)
     bpy.utils.unregister_class(YUDIMAtlas)
+    bpy.utils.unregister_class(YUDIMInfo)

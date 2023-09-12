@@ -521,10 +521,7 @@ class YNewLayerMask(bpy.types.Operator):
                     tilenums = UDIM.get_tile_numbers(objs, self.uv_name)
                     for tilenum in tilenums:
                         UDIM.fill_tile(img, tilenum, color, self.width, self.height)
-                    UDIM.initial_pack_udim(img)
-
-                    # Remember base color
-                    img.yia.color = self.color_option
+                    UDIM.initial_pack_udim(img, color)
 
                 else:
                     img = bpy.data.images.new(name=self.name, 

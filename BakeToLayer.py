@@ -1332,7 +1332,7 @@ class YBakeToLayer(bpy.types.Operator):
                 # Fill tiles
                 for tilenum in tilenums:
                     UDIM.fill_tile(image, tilenum, color, width, height)
-                UDIM.initial_pack_udim(image)
+                UDIM.initial_pack_udim(image, color)
 
                 # Remember base color
                 image.yia.color = 'TRANSPARENT'
@@ -2067,7 +2067,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             # Fill tiles
             for tilenum in tilenums:
                 UDIM.fill_tile(image, tilenum, color, self.width, self.height)
-            UDIM.initial_pack_udim(image)
+            UDIM.initial_pack_udim(image, color)
 
             # Remember base color
             image.yia.color = color_str

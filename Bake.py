@@ -75,7 +75,7 @@ def transfer_uv(objs, mat, entity, uv_map):
         # Fill tiles
         for tilenum in tilenums:
             UDIM.fill_tile(temp_image, tilenum, col, width, height)
-        UDIM.initial_pack_udim(temp_image)
+        UDIM.initial_pack_udim(temp_image, col)
     else:
         temp_image = bpy.data.images.new(name='__TEMP',
                 width=width, height=height, alpha=True, float_buffer=image.is_float)
