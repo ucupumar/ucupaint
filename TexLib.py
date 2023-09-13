@@ -92,6 +92,7 @@ class DownloadThread(PropertyGroup):
     asset_attribute: StringProperty()
     file_path : StringProperty()
     alive : BoolProperty(default = False)
+    file_size:IntProperty()
     progress : IntProperty(
         default = 0,
         min = 0,
@@ -110,34 +111,28 @@ class TexLibProps(bpy.types.PropertyGroup):
 
 
 class TexLibDownload(Operator):
-    bl_label = "texlib Download"
+    bl_label = "Download"
     bl_idname = "texlib.download"
-
-    attribute:bpy.props.StringProperty()
-    id:bpy.props.StringProperty()
     
+
+    attribute:StringProperty()
+    id:StringProperty()
+    file_size:IntProperty
+
     def execute(self, context):
        
         lib = assets_lib[self.id]
-        link = lib["downloads"][self.attribute]["link"]
-        file_name = lib["downloads"][self.attribute]["fileName"]
+        attr_dwn = lib["downloads"][self.attribute]
+        link = attr_dwn["link"]
+        directory = attr_dwn["location"]
+        file_name = os.path.join(directory, attr_dwn["fileName"])
+
         print("setar =",self.attribute, "selected = "+self.id, "lib =", link)
 
-        # file = download_stream(link, self.id, self.attribute, file_name)
-        # if file != None:
-        #     extract_file(file)
-        #     os.remove(file)
-        # else:
-        #     print("not found",file)
-
-        directory = _get_textures_dir()
-        location = os.path.join(self.id, self.attribute)
-        directory = os.path.join(directory, location)
-        file_name = os.path.join(directory, file_name)
-
         if not os.path.exists(directory):
-            print("make dir "+directory)
+            # print("make dir "+directory)
             os.makedirs(directory)
+
         thread_id = _get_thread_id(self.id, self.attribute)
         new_thread = threading.Thread(target=download_stream, args=(link,file_name,thread_id,))
         new_thread.progress = 0
@@ -147,11 +142,12 @@ class TexLibDownload(Operator):
         new_thread.start()
 
         amb_br = context.scene.ambient_browser
-        new_dwn = amb_br.downloads.add()
+        new_dwn:DownloadThread = amb_br.downloads.add()
         new_dwn.asset_id = self.id
         new_dwn.file_path = file_name
         new_dwn.asset_attribute = self.attribute
         new_dwn.alive = True
+        new_dwn.file_size = attr_dwn["size"]
         new_dwn.progress = 0
 
         return {'FINISHED'}
@@ -167,7 +163,7 @@ class TexLibBrowser(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        amb_br = scene.ambient_browser
+        amb_br:TexLibProps = scene.ambient_browser
         sel_index = scene.material_index
         my_list = scene.material_items
 
@@ -179,7 +175,7 @@ class TexLibBrowser(Panel):
             prog = searching_dwn.progress
             if prog >= 0:
                 if prog < 10:
-                    layout.label(text="Searching..."+str(prog)+"%")
+                    layout.label(text="Searching...")
                 else:
                     layout.label(text="Retrieving thumbnails..."+str(prog)+"%")
         # layout.operator("texlib.refresh_previews")
@@ -189,23 +185,60 @@ class TexLibBrowser(Panel):
         # layout.label(text="download "+str(amb_br.persen))
 
         if len(my_list) > 0:
+            layout.separator()
+            layout.label(text="Textures:")
             layout.template_list("TEXLIB_UL_Material", "material_list", scene, "material_items", scene, "material_index")
-        # print("index ", sel_index, "my list", len(my_list))
             if sel_index < len(my_list):
                 sel_mat = my_list[sel_index]
-            
+                mat_id:str = sel_mat.name
                 layout.separator()
+                layout.label(text="Preview:")
                 selected_mat = layout.column(align=True)
                 selected_mat.alignment = "CENTER"
                 selected_mat.template_icon(icon_value=sel_mat.thumb, scale=5.0)
-                selected_mat.label(text=sel_mat.name)
-                downloads = assets_lib[sel_mat.name]["downloads"]
+                selected_mat.label(text=mat_id)
+                downloads = assets_lib[mat_id]["downloads"]
 
+                layout.separator()
+                layout.label(text="Attributes:")
                 for d in downloads:
-                    op = layout.operator("texlib.download", text=d)
-                    op.attribute = d
-                    op.id = sel_mat.name
-        layout.template_list("TEXLIB_UL_Downloads", "download_list", amb_br, "downloads", amb_br, "selected_download_item")
+                    dwn = downloads[d]
+                    row = layout.row()
+                    ukuran = round(dwn["size"] / 1000000,2)
+
+                  
+
+                    check_exist:bool = False
+                    lokasi = dwn["location"]
+                    if os.path.exists(lokasi):
+                        files = os.listdir(lokasi)
+                        for f in files:
+                            if mat_id in f:
+                                check_exist = True
+                                break
+                    else:
+                        check_exist = False
+
+                    row.label(text=d)
+                    row.label(text=str(ukuran)+ "MB")
+
+                    thread_id = _get_thread_id(mat_id, d)
+                    dwn_thread = _get_thread(thread_id)
+
+                    if dwn_thread != None:
+                        row.label(text=str(dwn_thread.progress)+"%")
+                    else:
+                        if check_exist:
+                            row.label(text="Downloaded")
+                        else:
+                            op:TexLibDownload = row.operator("texlib.download", icon="IMPORT", text="")
+                            op.attribute = d
+                            op.id = sel_mat.name
+
+        if len(amb_br.downloads):
+            layout.separator()
+            layout.label(text="Downloads:")
+            layout.template_list("TEXLIB_UL_Downloads", "download_list", amb_br, "downloads", amb_br, "selected_download_item")
 
 
 class MaterialItem(PropertyGroup): 
@@ -266,7 +299,7 @@ def load_previews():
     for index, item in enumerate(files):
         file = dir_name + item
         my_id = item.split(".")[0]
-        print(">>item",item,"file",file)
+        # print(">>item",item,"file",file)
         loaded = previews_collection.load(item, file, 'IMAGE', force_reload=True)
         preview_items[my_id] = (my_id, item, "", loaded.icon_id, index)
 
@@ -311,45 +344,50 @@ def monitor_downloads():
         if not thread_search.is_alive():
             del threads[THREAD_SEARCHING]
     
+    # print("downloadku", len(downloads))
+    # for index, dwn in enumerate(downloads):
+    #     print("cek aja",dwn.asset_id," | ",dwn.asset_attribute)
+    
+    to_remove = []
     for index, dwn in enumerate(downloads):
         
         thread_id = _get_thread_id(dwn.asset_id, dwn.asset_attribute)
         thread = _get_thread(thread_id)
         if thread == None:
+            print("thread id", thread_id, ">",dwn.asset_id,">", dwn.asset_attribute)
             extract_file(dwn.file_path)
             delete_zip(dwn.file_path)
-            downloads.remove(index)
-            # extract 
-            continue
-        
-        prog =  thread.progress
+            to_remove.append(index)
 
-        dwn.progress = prog
-        if thread.progress >= 100:
-           dwn.alive = False
+        else:
+            prog =  thread.progress
 
-        if not thread.is_alive():
-            del threads[thread_id]
+            dwn.progress = prog
+            if thread.progress >= 100:
+                dwn.alive = False
 
-    
+            if not thread.is_alive():
+                del threads[thread_id]
+
+    for i in to_remove:
+        downloads.remove(i)
+
     
     return interval
 
 def extract_file(my_file):
-    with ZipFile(my_file, 'r') as zObject:
+    dir_name = os.path.dirname(my_file)
+    # new_folder = os.path.basename(my_file).split('.')[0]
+    # dir_name = os.path.join(dir_name, new_folder)
+    print("extract "+my_file+" to "+dir_name)
 
-        dir_name = os.path.dirname(my_file)
-        # new_folder = os.path.basename(my_file).split('.')[0]
-        # dir_name = os.path.join(dir_name, new_folder)
-    
-        print("extract "+my_file+" to "+dir_name)
+    with ZipFile(my_file, 'r') as zObject:
         zObject.extractall(path=dir_name)
         return dir_name
     
 # Delete the zip file
 def delete_zip(file_path):
     if not os.path.exists(file_path):
-        #print(file_path + " Zip file doesn't exists")
         return
     try:
         os.remove(file_path)
@@ -358,10 +396,7 @@ def delete_zip(file_path):
 
 def download_stream(link:str, file_name:str, thread_id:str,
                     timeout:int = 10,skipExisting:bool = False):
-    print("url = ",link, "filename", file_name)
-    # if not skipExisting and os.path.exists(file_name):
-    #     print("EXIST "+file_name)
-    #     return file_name
+    # print("url = ",link, "filename", file_name)
 
     thread = _get_thread(thread_id)
     
@@ -478,21 +513,35 @@ def retrieve_assets_info(keyword:str = '', page:int = 0, limit:int = 10):
 
     # assets_lib = {}
     last_search.clear()
+
+    tex_directory = _get_textures_dir()
+    
+    
     for asst in assets:
         asset_obj = {}
-        asset_obj["id"] = asst["assetId"]
+        asset_id = asst["assetId"]
+        asset_obj["id"] = asset_id
         asset_obj["preview"] = asst["previewImage"]["256-PNG"]
 
         zip_assets = asst["downloadFolders"]["default"]["downloadFiletypeCategories"]["zip"]["downloads"]
+
+
+       
+
         downloads = {}
         for k in zip_assets:
+            location = os.path.join(asset_id, k["attribute"])
+            directory = os.path.join(tex_directory, location)
+
             downloads[k["attribute"]] = {
                 "link" : k["downloadLink"],
-                "fileName" : k["fileName"]
+                "fileName" : k["fileName"],
+                "location" : directory+os.sep,
+                "size" : k["size"]
             }
         asset_obj["downloads"] = downloads
-        assets_lib[asst["assetId"]] = asset_obj
-        last_search[asst["assetId"]] = asset_obj
+        assets_lib[asset_id] = asset_obj
+        last_search[asset_id] = asset_obj
 
     file.write(json.dumps(assets_lib))
     file.close()
@@ -538,6 +587,7 @@ classes = [DownloadThread, TexLibProps, TexLibBrowser, TexLibDownload, MaterialI
 def register():
     for cl in classes:
         bpy.utils.register_class(cl)
+
 
     Scene.material_items = CollectionProperty(type= MaterialItem)
     Scene.material_index = IntProperty(default=0, name="Material index")
