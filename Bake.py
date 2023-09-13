@@ -512,21 +512,29 @@ class YResizeImage(bpy.types.Operator):
             description='Bake Samples, more means less jagged on generated image', 
             default=1, min=1)
 
+    all_tiles : BoolProperty(name='Resize All Tiles',
+            description='Resize all tiles',
+            default=False)
+
+    tile_number : IntProperty(name='Tile Number',
+            description='Tile number that will be resized',
+            default=1001, min=1001, max=2000)
+
     @classmethod
     def poll(cls, context):
-        #return hasattr(context, 'image') and hasattr(context, 'layer')
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
     def invoke(self, context, event):
         ypup = get_user_preferences()
-
-        #if hasattr(context, 'image') and hasattr(context, 'layer'):
-        #    self.image = context.image
-        #    self.layer = context.layer
+        image = bpy.data.images.get(self.image_name)
 
         # Use user preference default image size if input uses default image size
         if self.width == 1234 and self.height == 1234:
             self.width = self.height = ypup.default_new_image_size
+
+        if image.source == 'TILED':
+            tile = image.tiles.active
+            self.tile_number = tile.number
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -534,27 +542,36 @@ class YResizeImage(bpy.types.Operator):
         if is_greater_than_280():
             row = self.layout.split(factor=0.4)
         else: row = self.layout.split(percentage=0.4)
-        col = row.column(align=True)
+
+        image = bpy.data.images.get(self.image_name)
+
+        col = row.column(align=False)
 
         col.label(text='Width:')
         col.label(text='Height:')
-        col.label(text='Samples:')
 
-        col = row.column(align=True)
+        if image.yia.is_image_atlas or not is_greater_than_281():
+            col.label(text='Samples:')
+
+        if image.source == 'TILED':
+            col.label(text='')
+            if not self.all_tiles:
+                col.label(text='Tile Number:')
+
+        col = row.column(align=False)
 
         col.prop(self, 'width', text='')
         col.prop(self, 'height', text='')
-        col.prop(self, 'samples', text='')
+
+        if image.yia.is_image_atlas or not is_greater_than_281():
+            col.prop(self, 'samples', text='')
+
+        if image.source == 'TILED':
+            col.prop(self, 'all_tiles')
+            if not self.all_tiles:
+                col.prop(self, 'tile_number', text='')
 
     def execute(self, context):
-
-        #if not hasattr(self, 'image') or not hasattr(self, 'layer'):
-        #    self.report({'ERROR'}, "No active image/layer found!")
-        #    return {'CANCELLED'}
-
-        #image = self.image
-        #layer = self.layer
-        #yp = layer.id_data.yp
 
         yp = get_active_ypaint_node().node_tree.yp
         layer = yp.layers.get(self.layer_name)
@@ -593,23 +610,23 @@ class YResizeImage(bpy.types.Operator):
 
         if not image.yia.is_image_atlas and is_greater_than_281():
 
-            # Search for context
-            for area in context.screen.areas:
-                if area.type == 'IMAGE_EDITOR':
-                    space = area.spaces[0]
-                    ori_space_image = space.image
-                    space.image = image
+            tilenums = [self.tile_number]
+            if image.source == 'TILED' and self.all_tiles:
+                tilenums = [t.number for t in image.tiles]
 
-                    override_context = context.copy()
+            ori_ui_type = bpy.context.area.ui_type
+            bpy.context.area.ui_type = 'UV'
+            bpy.context.space_data.image = image
 
-                    override_context['area'] = area
-                    override_context['space_data'] = space
-                    break
+            for tilenum in tilenums:
+                if image.source == 'TILED':
+                    tile = image.tiles.get(tilenum)
+                    if not tile: continue
+                    image.tiles.active = tile
 
-        if override_context:
-            # Resize image
-            bpy.ops.image.resize(override_context, size=(self.width, self.height))
-            space.image = ori_space_image
+                bpy.ops.image.resize(size=(self.width, self.height))
+
+            bpy.context.area.ui_type = ori_ui_type
 
         else:
             scaled_img, new_segment = resize_image(image, self.width, self.height, image.colorspace_settings.name, self.samples, 0, segment, bake_device='CPU', yp=yp)
