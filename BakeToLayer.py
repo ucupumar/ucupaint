@@ -906,7 +906,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Join objects then extend with other objects
         elif self.type.startswith('OTHER_OBJECT_'):
-            if len(objs) > 1 and self.type != 'OTHER_OBJECT_CHANNELS':
+            if len(objs) > 1:
                 objs = [get_merged_mesh_objects(scene, objs)]
                 temp_objs = objs.copy()
 
@@ -915,6 +915,8 @@ class YBakeToLayer(bpy.types.Operator):
         # Join objects if the number of objects is higher than one
         elif len(objs) > 1 and not is_join_objects_problematic(yp):
             objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
+
+        print(other_objs)
 
         fill_mode = 'FACE'
         obj_vertex_indices = {}
