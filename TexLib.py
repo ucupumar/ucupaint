@@ -101,7 +101,7 @@ class DownloadThread(PropertyGroup):
         subtype = 'PERCENTAGE'
     )
 
-class TexLibProps(bpy.types.PropertyGroup):
+class TexLibProps(PropertyGroup):
     page: IntProperty(name="page", default= 0)
     input_search:StringProperty(name="Search", update=update_input_search)
     input_last:StringProperty()
@@ -109,6 +109,17 @@ class TexLibProps(bpy.types.PropertyGroup):
     searching_download:PointerProperty(type=DownloadThread)
     selected_download_item:IntProperty(default=0)
 
+class TexLibRemove(Operator):
+    bl_label = "Remove"
+    bl_idname = "texlib.remove"
+    attribute:StringProperty()
+    id:StringProperty()
+
+class TexLibCancelDownload(Operator):
+    bl_label = "Remove"
+    bl_idname = "texlib.cancel"
+    attribute:StringProperty()
+    id:StringProperty()
 
 class TexLibDownload(Operator):
     bl_label = "Download"
@@ -230,10 +241,13 @@ class TexLibBrowser(Panel):
                     else:
                         if check_exist:
                             row.label(text="Downloaded")
-                        else:
-                            op:TexLibDownload = row.operator("texlib.download", icon="IMPORT", text="")
+                            op:TexLibRemove = row.operator("texlib.remove", icon="TRASH", text="")
                             op.attribute = d
                             op.id = sel_mat.name
+                        
+                        op:TexLibDownload = row.operator("texlib.download", icon="IMPORT", text="")
+                        op.attribute = d
+                        op.id = sel_mat.name
 
         if len(amb_br.downloads):
             layout.separator()
@@ -306,34 +320,23 @@ def load_previews():
     previews_collection.preview_items.update(preview_items)
 
 def monitor_downloads():
-    
-    interval = 0.1
-    
-
+        
     searching = False
     if THREAD_SEARCHING in threads:
         thread_search = threads[THREAD_SEARCHING]
         searching = True
-    # else:
-    #     return 1
-    
-    if not hasattr(bpy, 'context'):
-        return 2
-    scn = bpy.context.scene
 
-    for area in bpy.context.screen.areas:
-        if not area.type == 'VIEW_3D':
-            continue
-        area.tag_redraw()
-    # if thread_search.progress == 100:
-    #     thread_search.progress = -1
-    
+    if not hasattr(bpy, 'context'):
+        print("no context")
+        return 2
+
+    scn = bpy.context.scene
     amb = scn.ambient_browser
     downloads = amb.downloads
 
     if len(downloads) == 0 and not searching:
         # print("KOSONG")
-        return 1 
+        return 2
     
     if searching:
         prog_search = thread_search.progress
@@ -348,32 +351,44 @@ def monitor_downloads():
     # for index, dwn in enumerate(downloads):
     #     print("cek aja",dwn.asset_id," | ",dwn.asset_attribute)
     
-    to_remove = []
-    for index, dwn in enumerate(downloads):
-        
-        thread_id = _get_thread_id(dwn.asset_id, dwn.asset_attribute)
-        thread = _get_thread(thread_id)
-        if thread == None:
-            print("thread id", thread_id, ">",dwn.asset_id,">", dwn.asset_attribute)
-            extract_file(dwn.file_path)
-            delete_zip(dwn.file_path)
-            to_remove.append(index)
+    if len(downloads):
+        to_remove = []
+        for index, dwn in enumerate(downloads):
+            
+            thread_id = _get_thread_id(dwn.asset_id, dwn.asset_attribute)
+            thread = _get_thread(thread_id)
+            if thread == None:
+                print("thread id", thread_id, ">",dwn.asset_id,">", dwn.asset_attribute)
+                extract_file(dwn.file_path)
+                delete_zip(dwn.file_path)
+                to_remove.append(index)
 
-        else:
-            prog =  thread.progress
+            else:
+                prog =  thread.progress
 
-            dwn.progress = prog
-            if thread.progress >= 100:
-                dwn.alive = False
+                dwn.progress = prog
+                if thread.progress >= 100:
+                    dwn.alive = False
 
-            if not thread.is_alive():
-                del threads[thread_id]
+                if not thread.is_alive():
+                    del threads[thread_id]
 
-    for i in to_remove:
-        downloads.remove(i)
+        for i in to_remove:
+            downloads.remove(i)
 
-    
-    return interval
+    for window in bpy.context.window_manager.windows:
+        # print("==============windoss ", window)
+        for area in window.screen.areas:
+            if area.type == 'VIEW_3D':
+                for reg in area.regions:
+                    # print("region",reg.type, "width", reg.width)
+                    open_tab = reg.width > 1
+                    if reg.type == "UI" and open_tab:
+                        print("redraw area", area.type, "reg", reg.type)
+                        reg.tag_redraw()
+                        return 0.1
+
+    return 1.0
 
 def extract_file(my_file):
     dir_name = os.path.dirname(my_file)
@@ -581,7 +596,7 @@ def _get_thread(id:str):
         return threads[id]
     return None
 
-classes = [DownloadThread, TexLibProps, TexLibBrowser, TexLibDownload, MaterialItem, TEXLIB_UL_Material
+classes = [DownloadThread, TexLibProps, TexLibBrowser, TexLibDownload, TexLibRemove, TexLibCancelDownload, MaterialItem, TEXLIB_UL_Material
             ,TexLibCancelSearch, TEXLIB_UL_Downloads]
 
 def register():
