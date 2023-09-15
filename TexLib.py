@@ -69,7 +69,7 @@ def searching_material(keyword:str, context:Context):
 def load_material_items(material_items):
     material_items.clear()
     for i in last_search:
-        new_item = material_items.add()
+        new_item:MaterialItem = material_items.add()
         item_id =  last_search[i]["id"]
         new_item.name = item_id
         if hasattr(previews_collection, "preview_items") and item_id in previews_collection.preview_items:
@@ -77,7 +77,7 @@ def load_material_items(material_items):
         else:
             new_item.thumb = lib.custom_icons["input"].icon_id
 
-def load_per_material(file_name, material_item):
+def load_per_material(file_name:str, material_item):
     item = os.path.basename(file_name)
 
     my_id = item.split(".")[0]
@@ -109,26 +109,38 @@ class TexLibProps(PropertyGroup):
     searching_download:PointerProperty(type=DownloadThread)
     selected_download_item:IntProperty(default=0)
 
-class TexLibRemove(Operator):
-    bl_label = "Remove"
-    bl_idname = "texlib.remove"
+class TexLibAddToUcupaint(Operator):
+    bl_label = ""
+    bl_idname = "texlib.add_to_ucupaint"
     attribute:StringProperty()
     id:StringProperty()
 
+    def execute(self, context):
+        print("tambah tambah")
+
+        return {'FINISHED'}
+
 class TexLibCancelDownload(Operator):
-    bl_label = "Remove"
+    bl_label = ""
     bl_idname = "texlib.cancel"
     attribute:StringProperty()
     id:StringProperty()
 
+    def execute(self, context):
+        print("cancel cancel")
+
+        return {'FINISHED'}
+
+
 class TexLibDownload(Operator):
-    bl_label = "Download"
+    bl_label = ""
     bl_idname = "texlib.download"
     
 
     attribute:StringProperty()
     id:StringProperty()
     file_size:IntProperty
+    file_exist:BoolProperty(default=False)
 
     def execute(self, context):
        
@@ -178,33 +190,33 @@ class TexLibBrowser(Panel):
         sel_index = scene.material_index
         my_list = scene.material_items
 
+
         layout.prop(amb_br, "input_search")
         searching_dwn = amb_br.searching_download
        
         if searching_dwn.alive:
-            layout.operator("texlib.cancel_search")
             prog = searching_dwn.progress
+
             if prog >= 0:
+                row_search = layout.row()
+
                 if prog < 10:
-                    layout.label(text="Searching...")
+                    row_search.label(text="Searching...")
                 else:
-                    layout.label(text="Retrieving thumbnails..."+str(prog)+"%")
-        # layout.operator("texlib.refresh_previews")
-        # layout.operator("texlib.rem_material")
-        # layout.prop(amb_br, "progress", slider=True, text="Download")
-        # layout.template_icon_view(amb_br, "shaders_previews", show_labels=True,scale = 7, scale_popup = 5)
-        # layout.label(text="download "+str(amb_br.persen))
+                    row_search.label(text="Retrieving thumbnails..."+str(prog)+"%")
+                row_search.operator("texlib.cancel_search", icon="CANCEL")
 
         if len(my_list) > 0:
             layout.separator()
             layout.label(text="Textures:")
             layout.template_list("TEXLIB_UL_Material", "material_list", scene, "material_items", scene, "material_index")
             if sel_index < len(my_list):
-                sel_mat = my_list[sel_index]
+                sel_mat:MaterialItem = my_list[sel_index]
                 mat_id:str = sel_mat.name
                 layout.separator()
                 layout.label(text="Preview:")
-                selected_mat = layout.column(align=True)
+                prev_box = layout.box()
+                selected_mat = prev_box.column(align=True)
                 selected_mat.alignment = "CENTER"
                 selected_mat.template_icon(icon_value=sel_mat.thumb, scale=5.0)
                 selected_mat.label(text=mat_id)
@@ -214,10 +226,10 @@ class TexLibBrowser(Panel):
                 layout.label(text="Attributes:")
                 for d in downloads:
                     dwn = downloads[d]
-                    row = layout.row()
-                    ukuran = round(dwn["size"] / 1000000,2)
+                    ui_attr = layout.split(factor=0.7)
+                    # row.alignment = "LEFT"
 
-                  
+                    ukuran = round(dwn["size"] / 1000000,2)
 
                     check_exist:bool = False
                     lokasi = dwn["location"]
@@ -229,25 +241,32 @@ class TexLibBrowser(Panel):
                                 break
                     else:
                         check_exist = False
+                    
+                    row = ui_attr.row()
 
-                    row.label(text=d)
+                    row.label(text=d, )
+                    # rr.label(text=d, )
                     row.label(text=str(ukuran)+ "MB")
 
                     thread_id = _get_thread_id(mat_id, d)
                     dwn_thread = _get_thread(thread_id)
 
+                    btn_row = ui_attr.row()
+                    btn_row.alignment = "RIGHT"
+
                     if dwn_thread != None:
-                        row.label(text=str(dwn_thread.progress)+"%")
+                        btn_row.label(text=str(dwn_thread.progress)+"%")
+                        btn_row.operator("texlib.cancel", icon="X")
                     else:
                         if check_exist:
-                            row.label(text="Downloaded")
-                            op:TexLibRemove = row.operator("texlib.remove", icon="TRASH", text="")
+                            op:TexLibAddToUcupaint = btn_row.operator("texlib.add_to_ucupaint", icon="ADD")
                             op.attribute = d
                             op.id = sel_mat.name
                         
-                        op:TexLibDownload = row.operator("texlib.download", icon="IMPORT", text="")
+                        op:TexLibDownload = btn_row.operator("texlib.download", icon="IMPORT")
                         op.attribute = d
                         op.id = sel_mat.name
+                        op.file_exist = check_exist
 
         if len(amb_br.downloads):
             layout.separator()
@@ -263,15 +282,10 @@ class TEXLIB_UL_Downloads(UIList):
 
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         """Demo UIList."""
-
-        # print("tipe ",self.layout_type)
-        row = layout.row(align=True)
-        # row.alignment = "CENTER"
-        # Make sure your code supports all 3 layout types
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
-            row.label(text=item.asset_id+" | "+item.asset_attribute+"="+str(item.progress))
-            # layout.prop(amb_br, "progress", slider=True, text="Download")
-
+            row = layout.row(align=True)
+            row.prop(item, "progress", slider=True, text=item.asset_id+" | "+item.asset_attribute)
+            row.operator("texlib.cancel", icon="X")
        
 
 class TEXLIB_UL_Material(UIList):
@@ -290,7 +304,7 @@ class TEXLIB_UL_Material(UIList):
 
 class TexLibCancelSearch(Operator):
     bl_idname = "texlib.cancel_search"
-    bl_label = "Cancel"
+    bl_label = ""
     
     
     def execute(self, context):
@@ -384,7 +398,7 @@ def monitor_downloads():
                     # print("region",reg.type, "width", reg.width)
                     open_tab = reg.width > 1
                     if reg.type == "UI" and open_tab:
-                        print("redraw area", area.type, "reg", reg.type)
+                        # print("redraw area", area.type, "reg", reg.type)
                         reg.tag_redraw()
                         return 0.1
 
@@ -465,7 +479,6 @@ def download_previews(overwrite_existing:bool, material_items):
         file_name = os.path.join(directory, file_name)
         
         if not overwrite_existing and os.path.exists(file_name):
-            print("EXIST "+file_name)
             continue
         with open(file_name, "wb") as f:
             try:
@@ -596,7 +609,7 @@ def _get_thread(id:str):
         return threads[id]
     return None
 
-classes = [DownloadThread, TexLibProps, TexLibBrowser, TexLibDownload, TexLibRemove, TexLibCancelDownload, MaterialItem, TEXLIB_UL_Material
+classes = [DownloadThread, TexLibProps, TexLibBrowser, TexLibDownload, TexLibAddToUcupaint, TexLibCancelDownload, MaterialItem, TEXLIB_UL_Material
             ,TexLibCancelSearch, TEXLIB_UL_Downloads]
 
 def register():
