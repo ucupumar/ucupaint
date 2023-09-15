@@ -2,6 +2,9 @@ from bpy.types import Context
 from .common import * 
 from .lib import *
 from zipfile import ZipFile
+from bpy_extras.image_utils import load_image  
+
+from . import lib, Layer
 
 import bpy, threading, os, requests, json
 from bpy.props import *
@@ -15,77 +18,10 @@ assets_lib = {}
 last_search = {}
 
 threads = {} # progress:int,
-
-def update_input_search(self, context):
-    if self.input_last == self.input_search:
-        print("no search:"+self.input_search)
-        return
-    
-    self.input_last = self.input_search
-
-    context.scene.material_items.clear()
-
-    if self.input_search == '':
-        last_search.clear()
-        return
-
-    thread_search = threading.Thread(target=searching_material, args=(self.input_search,context))
-    thread_search.progress = 0
-    thread_search.cancel = False
-    threads[THREAD_SEARCHING] = thread_search
-
-    thread_search.start()
-
-    self.searching_download.progress = 0
-    self.searching_download.alive = True
-    
-def searching_material(keyword:str, context:Context):
-    scene = context.scene
-
-    thread_search = threads[THREAD_SEARCHING]
-
-    retrieve_assets_info(keyword)
-    thread_search.progress = 10
-    load_material_items(scene.material_items)
-
-    download_previews(False, scene.material_items)
-    thread_search.progress = 90
-    load_previews()
-    thread_search.progress = 95
-
-
-    load_material_items(scene.material_items)
-    # scene.material_items.clear()
-    # for i in last_search:
-    #     new_item = scene.material_items.add()
-    #     item_id =  last_search[i]["id"]
-    #     new_item.name = item_id
-    #     # new_item.thumb = lib.custom_icons["input"].icon_id # previews_collection.preview_items[item_id][3]
-    #     new_item.thumb = previews_collection.preview_items[item_id][3]
-    thread_search.progress = 100
-
-    print("finish search")
-
-def load_material_items(material_items):
-    material_items.clear()
-    for i in last_search:
-        new_item:MaterialItem = material_items.add()
-        item_id =  last_search[i]["id"]
-        new_item.name = item_id
-        if hasattr(previews_collection, "preview_items") and item_id in previews_collection.preview_items:
-            new_item.thumb = previews_collection.preview_items[item_id][3]
-        else:
-            new_item.thumb = lib.custom_icons["input"].icon_id
-
-def load_per_material(file_name:str, material_item):
-    item = os.path.basename(file_name)
-
-    my_id = item.split(".")[0]
-    # print(">>item",item,"file",file_name, "my_id", my_id)
-    loaded = previews_collection.load(item, file_name, 'IMAGE', force_reload=True)
-
-    previews_collection.preview_items[my_id] = (my_id, item, "", loaded.icon_id, len(previews_collection.preview_items))
-    material_item.thumb = loaded.icon_id
+ 
+class MaterialItem(PropertyGroup): 
+    name: StringProperty( name="Name", description="Material name", default="Untitled") 
+    thumb: IntProperty( name="thumbnail", description="", default=0)
 
 class DownloadThread(PropertyGroup):
     asset_id : StringProperty()
@@ -101,26 +37,245 @@ class DownloadThread(PropertyGroup):
         subtype = 'PERCENTAGE'
     )
 
+
+def update_input_search(self, context):
+    if self.input_last == self.input_search:
+        print("no search:"+self.input_search)
+        return
+    
+    self.input_last = self.input_search
+
+    txlib = context.scene.texlib
+    txlib.material_items.clear()
+
+    if self.input_search == '':
+        last_search.clear()
+        return
+
+    thread_search = threading.Thread(target=searching_material, args=(self.input_search,context))
+    thread_search.progress = 0
+    thread_search.cancel = False
+    threads[THREAD_SEARCHING] = thread_search
+
+    thread_search.start()
+
+    self.searching_download.progress = 0
+    self.searching_download.alive = True
+
 class TexLibProps(PropertyGroup):
     page: IntProperty(name="page", default= 0)
     input_search:StringProperty(name="Search", update=update_input_search)
     input_last:StringProperty()
+    material_items:CollectionProperty(type= MaterialItem)
+    material_index:IntProperty(default=0, name="Material index")
+
     downloads:CollectionProperty(type=DownloadThread)
     searching_download:PointerProperty(type=DownloadThread)
     selected_download_item:IntProperty(default=0)
 
 class TexLibAddToUcupaint(Operator):
+    """Open Multiple Textures to Layer Ucupaint"""
+
     bl_label = ""
     bl_idname = "texlib.add_to_ucupaint"
     attribute:StringProperty()
     id:StringProperty()
 
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
     def execute(self, context):
+        T = time.time()
+
         print("tambah tambah")
+        lib = assets_lib[self.id]
+        attr_dwn = lib["downloads"][self.attribute]
+        directory = attr_dwn["location"]
+        print("== location", directory)
+        import_list = os.listdir(directory)
+
+        images = list(load_image(path, directory) for path in import_list)
+
+        for fl in images:
+            print(">>",fl)
+
+        wm = context.window_manager
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+
+        valid_channels = []
+        valid_images = []
+        valid_synonyms = []
+
+        synonym_libs = {
+                'color' : ['albedo', 'diffuse', 'base color'], 
+                'ambient occlusion' : ['ao'], 
+                'roughness' : ['glossiness'],
+                'normal' : ['displacement', 'height', 'bump'], # Prioritize displacement/bump before actual normal map
+                }
+
+
+        for ch in yp.channels:
+
+            # One channel will only use one image
+            if ch in valid_channels: continue
+
+            ch_name = ch.name.lower()
+
+            # Get synonyms
+            synonyms = []
+            if ch_name in synonym_libs:
+                synonyms = synonym_libs[ch_name]
+            synonyms.append(ch_name)
+
+            # Normal channel can use two override images, this flag will check it
+            secondary_imgae_found = False
+            main_image_found = False
+                
+            for syname in synonyms:
+
+                # Break if channel already used
+                #if ch in valid_channels: break
+                if main_image_found: break
+            
+                # Get channel name possible variation
+                initial = syname[0]
+
+                if len(ch.name) > 3:
+                    threes = syname[:3]
+                else: threes = ''
+
+                no_whitespace = syname.replace(' ', '')
+                underscore = syname.replace(' ', '_')
+
+                for image in images:
+
+                    # One image will only use one channel
+                    if image in valid_images: continue
+
+                    # Get filename without extension
+                    img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
+
+                    if (
+                            ## Check image name suffix and match it with channel name
+                            #(img_name.endswith(syname)) or
+
+                            #(img_name.endswith(no_whitespace)) or
+
+                            #(img_name.endswith(underscore)) or
+
+                            # Check if synonym is in image name
+                            (syname in img_name) or
+
+                            (no_whitespace in img_name) or
+
+                            (underscore in img_name) or
+
+                            # Check image name suffix and match it with channel initial first threes
+                            (threes != '' and img_name.endswith(('_' + threes, '.' + threes))) or
+
+                            # Check image name suffix and match it with channel initial name
+                            # Avoid initial a because it's too common
+                            (initial != 'a' and img_name.endswith(('_' + initial, '.' + initial)))
+
+                            ):
+                        valid_images.append(image)
+                        valid_channels.append(ch)
+                        valid_synonyms.append(syname)
+
+                        if ch.type != 'NORMAL' or secondary_imgae_found:
+                            main_image_found = True
+                            break
+
+                        secondary_imgae_found = True
+
+        for i, image in enumerate(valid_images):
+            #print(image.name, yp.channels[channel_ids[i]].name)
+            print(image.name, valid_channels[i].name, valid_synonyms[i])
+
+        if not valid_images:
+            # Remove loaded images
+            for image in images:
+                #if image not in exist_images:
+                bpy.data.images.remove(image)
+            self.report({'ERROR'}, "Images should have channel name as suffix!")
+            return {'CANCELLED'}
+
+        # Check if found more than 1 images for normal channel
+        
+        if len([ch for ch in valid_channels if ch.type == 'NORMAL']) >= 2:
+            normal_map_type = 'BUMP_NORMAL_MAP'
+        elif any([ch for i, ch in enumerate(valid_channels) if ch.type == 'NORMAL' and valid_synonyms[i] == 'normal']):
+            normal_map_type = 'NORMAL_MAP'
+        else: normal_map_type = 'BUMP_MAP'
+
+        #if valid_channels and valid_channels[0]
+        layer = None
+        for i, image in enumerate(valid_images):
+            root_ch = valid_channels[i]
+            syname = valid_synonyms[i]
+
+            # Set image to linear
+            #if image.colorspace_settings.name != 'Non-Color':
+            #    image.colorspace_settings.name = 'Non-Color'
+
+            m = re.match(r'^yp\.channels\[(\d+)\].*', root_ch.path_from_id())
+            ch_idx = int(m.group(1))
+
+            # Use image directly to layer for the first index
+            if i == 0:
+                yp.halt_update = True
+                #layer = add_new_layer(node.node_tree, image.name, 'IMAGE', int(ch_idx), 'MIX', 
+                #        'MIX', normal_map_type, self.texcoord_type, self.uv_map,
+                #        image, None, None, 
+                #        )
+
+                layer = Layer.add_new_layer(node.node_tree, image.name, 'IMAGE', 
+                        int(ch_idx), 'MIX', 'MIX', 
+                        normal_map_type, 'UV')
+
+                yp.halt_update = False
+                #reconnect_yp_nodes(node.node_tree)
+                #rearrange_yp_nodes(node.node_tree)
+                tree = get_tree(layer)
+            else:
+                ch = layer.channels[ch_idx]
+                ch.enable = True
+                if root_ch.type == 'NORMAL' and syname == 'normal':
+                    image_node, dirty = check_new_node(tree, ch, 'cache_1_image', 'ShaderNodeTexImage', '', True)
+                    image_node.image = image
+                    ch.override_1 = True
+                    ch.override_1_type = 'IMAGE'
+                else:
+                    image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
+                    image_node.image = image
+                    ch.override = True
+                    ch.override_type = 'IMAGE'
+
+         ## Reconnect and rearrange nodes
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
+
+        # Remove unused images
+        for image in images:
+            if image not in valid_images: # and image not in exist_images:
+                bpy.data.images.remove(image)
+
+        # Update UI
+        wm.ypui.need_update = True
+        print('INFO: Image(s) is opened at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+        wm.yptimer.time = str(time.time())
+
+        # Make sure to expand channels so it can be obvious which channels are active
+        wm.ypui.expand_channels = True
 
         return {'FINISHED'}
 
 class TexLibCancelDownload(Operator):
+    """Cancel downloading textures"""
+
     bl_label = ""
     bl_idname = "texlib.cancel"
     attribute:StringProperty()
@@ -133,6 +288,8 @@ class TexLibCancelDownload(Operator):
 
 
 class TexLibDownload(Operator):
+    """Download textures from source"""
+
     bl_label = ""
     bl_idname = "texlib.download"
     
@@ -164,8 +321,8 @@ class TexLibDownload(Operator):
 
         new_thread.start()
 
-        amb_br = context.scene.ambient_browser
-        new_dwn:DownloadThread = amb_br.downloads.add()
+        texlib = context.scene.texlib
+        new_dwn:DownloadThread = texlib.downloads.add()
         new_dwn.asset_id = self.id
         new_dwn.file_path = file_name
         new_dwn.asset_attribute = self.attribute
@@ -177,7 +334,7 @@ class TexLibDownload(Operator):
 
 class TexLibBrowser(Panel):
     bl_label = "Texlib Browser"
-    bl_idname = "TEXLIB_PT_AmbientCG"
+    bl_idname = "TEXLIB_PT_Browser"
     bl_space_type = "VIEW_3D"
     bl_region_type = "UI"
     bl_category = "Ucupaint"
@@ -186,13 +343,12 @@ class TexLibBrowser(Panel):
     def draw(self, context):
         layout = self.layout
         scene = context.scene
-        amb_br:TexLibProps = scene.ambient_browser
-        sel_index = scene.material_index
-        my_list = scene.material_items
+        texlib:TexLibProps = scene.texlib
+        sel_index = texlib.material_index
 
 
-        layout.prop(amb_br, "input_search")
-        searching_dwn = amb_br.searching_download
+        layout.prop(texlib, "input_search")
+        searching_dwn = texlib.searching_download
        
         if searching_dwn.alive:
             prog = searching_dwn.progress
@@ -206,10 +362,12 @@ class TexLibBrowser(Panel):
                     row_search.label(text="Retrieving thumbnails..."+str(prog)+"%")
                 row_search.operator("texlib.cancel_search", icon="CANCEL")
 
-        if len(my_list) > 0:
+        if len(texlib.material_items):
+            my_list = texlib.material_items
+
             layout.separator()
             layout.label(text="Textures:")
-            layout.template_list("TEXLIB_UL_Material", "material_list", scene, "material_items", scene, "material_index")
+            layout.template_list("TEXLIB_UL_Material", "material_list", texlib, "material_items", texlib, "material_index")
             if sel_index < len(my_list):
                 sel_mat:MaterialItem = my_list[sel_index]
                 mat_id:str = sel_mat.name
@@ -268,15 +426,13 @@ class TexLibBrowser(Panel):
                         op.id = sel_mat.name
                         op.file_exist = check_exist
 
-        if len(amb_br.downloads):
+        if len(texlib.downloads):
             layout.separator()
             layout.label(text="Downloads:")
-            layout.template_list("TEXLIB_UL_Downloads", "download_list", amb_br, "downloads", amb_br, "selected_download_item")
+            layout.template_list("TEXLIB_UL_Downloads", "download_list", texlib, "downloads", texlib, "selected_download_item")
 
 
-class MaterialItem(PropertyGroup): 
-    name: StringProperty( name="Name", description="Material name", default="Untitled") 
-    thumb: IntProperty( name="thumbnail", description="", default=0)
+
 
 class TEXLIB_UL_Downloads(UIList):
 
@@ -310,13 +466,56 @@ class TexLibCancelSearch(Operator):
     def execute(self, context):
         thread_search = threads[THREAD_SEARCHING]
         thread_search.cancel = True
-        ambr = context.scene.ambient_browser
+        texlib = context.scene.texlib
         
-        searching_dwn = ambr.searching_download
+        searching_dwn = texlib.searching_download
         searching_dwn.alive = False
 
         return{'FINISHED'}
 
+
+def load_material_items(material_items):
+    material_items.clear()
+    for i in last_search:
+        new_item:MaterialItem = material_items.add()
+        item_id =  last_search[i]["id"]
+        new_item.name = item_id
+        if hasattr(previews_collection, "preview_items") and item_id in previews_collection.preview_items:
+            new_item.thumb = previews_collection.preview_items[item_id][3]
+        else:
+            new_item.thumb = lib.custom_icons["input"].icon_id
+
+def load_per_material(file_name:str, material_item):
+    item = os.path.basename(file_name)
+
+    my_id = item.split(".")[0]
+    # print(">>item",item,"file",file_name, "my_id", my_id)
+    loaded = previews_collection.load(item, file_name, 'IMAGE', force_reload=True)
+
+    previews_collection.preview_items[my_id] = (my_id, item, "", loaded.icon_id, len(previews_collection.preview_items))
+    material_item.thumb = loaded.icon_id
+
+    
+def searching_material(keyword:str, context:Context):
+    scene = context.scene
+    txlib = scene.texlib
+
+    thread_search = threads[THREAD_SEARCHING]
+
+    retrieve_assets_info(keyword)
+    thread_search.progress = 10
+    load_material_items(txlib.material_items)
+
+    download_previews(False, txlib.material_items)
+    thread_search.progress = 90
+    load_previews()
+    thread_search.progress = 95
+
+
+    load_material_items(txlib.material_items)
+    thread_search.progress = 100
+
+   
 def load_previews():
     # print(">>>>>>>>>>>>>>>>>>>>>>> INIT TexLIB")
     dir_name = _get_preview_dir()
@@ -345,8 +544,8 @@ def monitor_downloads():
         return 2
 
     scn = bpy.context.scene
-    amb = scn.ambient_browser
-    downloads = amb.downloads
+    txlb = scn.texlib
+    downloads = txlb.downloads
 
     if len(downloads) == 0 and not searching:
         # print("KOSONG")
@@ -354,9 +553,9 @@ def monitor_downloads():
     
     if searching:
         prog_search = thread_search.progress
-        amb.searching_download.progress = prog_search
+        txlb.searching_download.progress = prog_search
         if thread_search.progress >= 100:
-            amb.searching_download.alive = False
+            txlb.searching_download.alive = False
 
         if not thread_search.is_alive():
             del threads[THREAD_SEARCHING]
@@ -609,7 +808,7 @@ def _get_thread(id:str):
         return threads[id]
     return None
 
-classes = [DownloadThread, TexLibProps, TexLibBrowser, TexLibDownload, TexLibAddToUcupaint, TexLibCancelDownload, MaterialItem, TEXLIB_UL_Material
+classes = [DownloadThread,  MaterialItem, TexLibProps, TexLibBrowser, TexLibDownload, TexLibAddToUcupaint, TexLibCancelDownload,TEXLIB_UL_Material
             ,TexLibCancelSearch, TEXLIB_UL_Downloads]
 
 def register():
@@ -617,10 +816,8 @@ def register():
         bpy.utils.register_class(cl)
 
 
-    Scene.material_items = CollectionProperty(type= MaterialItem)
-    Scene.material_index = IntProperty(default=0, name="Material index")
-    Scene.material_attr_index = IntProperty(default=0, name="Attribute index")
-    Scene.ambient_browser = PointerProperty(type= TexLibProps)
+
+    Scene.texlib = PointerProperty(type= TexLibProps)
 
     global previews_collection
     previews_collection = bpy.utils.previews.new()
@@ -632,10 +829,7 @@ def register():
 def unregister():
     for cl in classes:
         bpy.utils.unregister_class(cl)
-    del bpy.types.Scene.ambient_browser
-    del Scene.material_items
-    del Scene.material_index
-    del Scene.material_attr_index
+    del bpy.types.Scene.texlib
 
     bpy.utils.previews.remove(previews_collection)
 
