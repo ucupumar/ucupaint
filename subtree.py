@@ -2315,12 +2315,10 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
                 )
         )
         ):
-
         if root_ch.type == 'VALUE':
             linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
             linear.inputs[1].default_value = 1.0
             linear.operation = 'POWER'
-        #elif root_ch.type == 'RGB':
         else:
             linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
 
@@ -2356,14 +2354,11 @@ def check_layer_image_linear_node(layer, source_tree=None):
         if not image: return
 
         # Create linear if image type is srgb
-        #if image.colorspace_settings.name == 'sRGB':
         if is_image_source_srgb(image, source):
             linear = source_tree.nodes.get(layer.linear)
             if not linear:
                 linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
                 linear.inputs[1].default_value = 1.0 / GAMMA
-                #linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGroup', 'Linear')
-                #linear.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
 
             return
 

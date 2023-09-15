@@ -4346,8 +4346,11 @@ def is_image_source_srgb(image, source):
     if not is_greater_than_280():
         return source.color_space == 'COLOR'
 
+    # HACK: Sometimes just loaded UDIM images has empty colorspace settings name
+    if image.source == 'TILED' and image.colorspace_settings.name == '':
+        return True
+
     return image.colorspace_settings.name == 'sRGB'
-    
 
 def any_linear_images_problem(yp):
     for layer in yp.layers:
