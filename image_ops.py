@@ -272,7 +272,7 @@ def save_pack_all(yp, only_dirty = True):
                     image.colorspace_settings.name = 'Non-Color'
 
                     # Remove unpacked images on Blender 3.3 
-                    remove_unpacked_image_path(path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
+                    remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
 
                     print('INFO:', image.name, 'image is saved at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -556,11 +556,17 @@ def unpack_image(image, filepath):
 
     return default_dir, default_dir_found, default_filepath, temp_path, unpacked_path
 
-def remove_unpacked_image_path(filepath, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path):
+def remove_unpacked_image_path(image, filepath, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path):
 
     # Remove unpacked file
     if filepath != unpacked_path:
-        os.remove(unpacked_path)
+        if image.source == 'TILED':
+            for tile in image.tiles:
+                upath = unpacked_path.replace('<UDIM>', str(tile.number))
+                try: os.remove(upath)
+                except Exception as e: print(e)
+        else:
+            os.remove(unpacked_path)
 
     # Rename back temporary file
     if temp_path != '':
@@ -696,7 +702,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
             # Remove temporarily unpacked image
             if unpack:
-                remove_unpacked_image_path(path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
+                remove_unpacked_image_path(image, path, default_dir, default_dir_found, default_filepath, temp_path, unpacked_path)
 
             #print(path)
 
@@ -957,10 +963,17 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         self.unpacked_path = os.path.join(folder, file)
 
     def remove_unpacked_image(self, context):
+        image = self.image
 
         # Remove unpacked file
         if self.filepath != self.unpacked_path:
-            os.remove(self.unpacked_path)
+            if image.source == 'TILED':
+                for tile in image.tiles:
+                    unpacked_path = self.unpacked_path.replace('<UDIM>', str(tile.number))
+                    try: os.remove(unpacked_path)
+                    except Exception as e: print(e)
+            else:
+                os.remove(self.unpacked_path)
 
         # Rename back temporary file
         if self.temp_path != '':
@@ -1025,17 +1038,23 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         #print(self.file_format)
 
         # Save image
-        image.save_render(self.filepath, scene=tmpscene)
+        if image.source == 'TILED':
+            ori_ui_type = bpy.context.area.ui_type
+            bpy.context.area.ui_type = 'IMAGE_EDITOR'
+            bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
+            bpy.context.area.ui_type = ori_ui_type
+        else:
+            image.save_render(self.filepath, scene=tmpscene)
 
-        if not self.copy:
-            image.filepath = self.filepath
+            if not self.copy:
+                image.filepath = self.filepath
 
-            if self.relative:
-                image.filepath = bpy.path.relpath(image.filepath)
-            else: image.filepath = bpy.path.abspath(image.filepath)
+                if self.relative:
+                    image.filepath = bpy.path.relpath(image.filepath)
+                else: image.filepath = bpy.path.abspath(image.filepath)
 
-            image.source = 'FILE'
-            image.reload()
+                image.source = 'FILE'
+                image.reload()
 
         # Remove unpacked file
         if unpack:

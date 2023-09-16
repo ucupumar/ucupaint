@@ -1199,8 +1199,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 color = (0.5, 0.5, 1.0, 1.0)
 
                 if img.source == 'TILED':
-                    UDIM.initial_pack_udim(norm_img, color)
                     UDIM.fill_tiles(norm_img, color)
+                    UDIM.initial_pack_udim(norm_img, color)
                 else: 
                     norm_img.generated_color = color
                     norm_img.filepath = filepath
@@ -1258,8 +1258,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             color = (0.5, 0.5, 0.5, 1.0)
 
             if img.source == 'TILED':
-                UDIM.initial_pack_udim(disp_img, color)
                 UDIM.fill_tiles(disp_img, color)
+                UDIM.initial_pack_udim(disp_img, color)
             else: 
                 disp_img.generated_color = color
                 disp_img.filepath = filepath

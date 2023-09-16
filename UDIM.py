@@ -2,7 +2,7 @@ import bpy, numpy, os, tempfile
 from bpy.props import *
 from .common import *
 
-UDIM_DIR = 'udim_textures__'
+UDIM_DIR = 'UDIM__'
 UV_TOLERANCE = 0.1
 
 def is_udim_supported():
@@ -165,12 +165,21 @@ def get_temp_udim_dir():
 
     return tempfile.gettempdir()
 
+def is_using_temp_dir(image):
+    directory = os.path.dirname(bpy.path.abspath(image.filepath))
+    if directory == get_temp_udim_dir() or directory == tempfile.gettempdir():
+        return True
+    return False
+
 def remove_udim_files_from_disk(image, directory, remove_dir=False):
     # Get filenames
     img_names = []
-    for f in os.listdir(directory):
-        if f.startswith(image.name) and f.endswith('.png'):
-            img_names.append(f)
+    filename = bpy.path.basename(image.filepath)
+    prefix = filename.split('.<UDIM>.')[0]
+    if os.path.isdir(directory):
+        for f in os.listdir(directory):
+            m = re.match(r'' + re.escape(prefix) + '\.\d{4}\.*', f)
+            if m: img_names.append(f)
 
     # Remove images
     for f in img_names:
@@ -184,31 +193,48 @@ def remove_udim_files_from_disk(image, directory, remove_dir=False):
 
 def set_udim_filepath(image, filename, directory):
     filepath = os.path.join(directory, filename + '.<UDIM>.png')
-    try: image.filepath = bpy.path.relpath(filepath)
-    except: image.filepath = filepath
+    if directory != tempfile.gettempdir():
+        try: image.filepath = bpy.path.relpath(filepath)
+        except: image.filepath = filepath
+    else: image.filepath = filepath
+
+def is_image_filepath_unique(image):
+    for img in bpy.data.images:
+        if img != image and img.filepath == image.filepath:
+            return False
+    return True
 
 # UDIM need filepath to work, 
 # So there's need to initialize filepath for every udim image created
 def initial_pack_udim(image, base_color=None):
 
-    # Remember original filepath
-    ori_filepath = image.filepath
-
     # Get temporary directory
     temp_dir = get_temp_udim_dir()
 
-    # Set filepath
-    set_udim_filepath(image, image.name, temp_dir)
+    # Check if image is already packed
+    use_packed = False 
+    if image.packed_file: use_packed = True
+
+    # Check if image already use temporary filepath
+    use_temp_dir = is_using_temp_dir(image)
+
+    # Set temporary filepath
+    directory = os.path.dirname(bpy.path.abspath(image.filepath))
+    if (image.filepath == '' or # Set image filepath if it's still empty
+        not is_image_filepath_unique(image) or # Force set new filepath when image filepath is not unique
+        (not use_temp_dir and not os.path.isdir(directory)) # When blend file is copied to another PC, there's a chance directory is missing
+        ):
+        use_temp_dir = True
+        set_udim_filepath(image, image.name, temp_dir)
 
     # Save then pack
     image.save()
-    image.pack()
+    if use_packed or use_temp_dir:
+        image.pack()
 
     # Remove temporary files
-    remove_udim_files_from_disk(image, temp_dir, True)
-
-    if ori_filepath != '':
-        image.filepath = ori_filepath
+    if use_temp_dir:
+        remove_udim_files_from_disk(image, temp_dir, True)
 
     # Remember base color
     if base_color:
@@ -224,13 +250,12 @@ def swap_tile(image, tilenum0, tilenum1):
     str0 = '.' + str(tilenum0) + '.'
     str1 = '.' + str(tilenum1) + '.'
     filename = bpy.path.basename(image.filepath)
-    prefix = filename.split('<UDIM>')[0]
+    prefix = filename.split('.<UDIM>.')[0]
     directory = os.path.dirname(bpy.path.abspath(image.filepath))
 
     # Remember stuff
     ori_packed = False
-    if image.packed_file:
-        ori_packed = True
+    if image.packed_file: ori_packed = True
 
     # Save the image first
     image.save()
@@ -239,7 +264,8 @@ def swap_tile(image, tilenum0, tilenum1):
     path0 = ''
     path1 = ''
     for f in os.listdir(directory):
-        if f.startswith(prefix) and f.endswith('.png'):
+        m = re.match(r'' + re.escape(prefix) + '\.\d{4}\.*', f)
+        if m:
             if str0 in f: path0 = os.path.join(directory, f)
             elif str1 in f: path1 = os.path.join(directory, f)
     
@@ -257,7 +283,7 @@ def swap_tile(image, tilenum0, tilenum1):
         image.pack()
 
         # Remove file if they are using temporary directory
-        if directory == get_temp_udim_dir() or directory == tempfile.gettempdir():
+        if is_using_temp_dir(image):
             remove_udim_files_from_disk(image, directory, True)
 
 class YRefillUDIMTiles(bpy.types.Operator):
@@ -296,6 +322,8 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
             for tilenum in tilenums:
                 fill_tile(image, tilenum, color, width, height, empty_only=True)
+
+            initial_pack_udim(image)
 
         return {'FINISHED'}
 
