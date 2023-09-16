@@ -1041,6 +1041,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         if image.source == 'TILED':
             ori_ui_type = bpy.context.area.ui_type
             bpy.context.area.ui_type = 'IMAGE_EDITOR'
+            bpy.context.space_data.image = image
             bpy.ops.image.save_as(copy=self.copy, filepath=self.filepath, relative_path=self.relative)
             bpy.context.area.ui_type = ori_ui_type
         else:

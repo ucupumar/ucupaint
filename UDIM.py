@@ -219,13 +219,22 @@ def initial_pack_udim(image, base_color=None):
     use_temp_dir = is_using_temp_dir(image)
 
     # Set temporary filepath
-    directory = os.path.dirname(bpy.path.abspath(image.filepath))
     if (image.filepath == '' or # Set image filepath if it's still empty
-        not is_image_filepath_unique(image) or # Force set new filepath when image filepath is not unique
-        (not use_temp_dir and not os.path.isdir(directory)) # When blend file is copied to another PC, there's a chance directory is missing
+        not is_image_filepath_unique(image) # Force set new filepath when image filepath is not unique
         ):
         use_temp_dir = True
         set_udim_filepath(image, image.name, temp_dir)
+
+    # When blend file is copied to another PC, there's a chance directory is missing
+    directory = os.path.dirname(bpy.path.abspath(image.filepath))
+    if not use_temp_dir and not os.path.isdir(directory):
+        ori_ui_type = bpy.context.area.ui_type
+        bpy.context.area.ui_type = 'IMAGE_EDITOR'
+        bpy.context.space_data.image = image
+        path = temp_dir + os.sep + image.name + '.<UDIM>.png'
+        bpy.ops.image.save_as(filepath=path , relative_path=True)
+        bpy.context.area.ui_type = ori_ui_type
+        use_temp_dir = True
 
     # Save then pack
     image.save()
