@@ -18,6 +18,8 @@ JOIN_PROBLEMATIC_TEXCOORDS = {
 
 EMPTY_IMG_NODE = '___EMPTY_IMAGE__'
 ACTIVE_UV_NODE = '___ACTIVE_UV__'
+TEMP_EMIT_WHITE = '__EMIT_WHITE__'
+TEMP_MATERIAL = '__TEMP_MATERIAL_'
 
 def get_problematic_modifiers(obj):
     pms = []
@@ -225,44 +227,117 @@ def add_active_render_uv_node(tree, active_render_uv_name):
         if n.type == 'GROUP' and n.node_tree and not n.node_tree.yp.is_ypaint_node:
             add_active_render_uv_node(n.node_tree, active_render_uv_name)
 
-def get_other_objects_matching_channels(yp, other_objs):
-    other_channel_names = []
-    filtered_other_objs = []
-    other_yps = []
+def prepare_other_objs_channels(yp, other_objs):
 
+    ch_other_objects = []
+    ch_other_mats = []
+    ch_other_sockets = []
+    ch_other_defaults = []
+
+    ori_mat_no_nodes = []
+
+    valid_bsdf_types = ['BSDF_PRINCIPLED', 'BSDF_DIFFUSE', 'EMISSION']
+
+    for ch in yp.channels:
+        objs = []
+        mats = []
+        sockets = []
+        defaults = []
+
+        for o in other_objs:
+
+            # Normal channel will always use any objects
+            if ch.type == 'NORMAL':
+                objs.append(o)
+                continue
+
+            # Set new material if there's no material
+            if len(o.data.materials) == 0:
+                temp_mat = get_temp_default_material()
+                o.data.materials.append(temp_mat)
+            else:
+                for i, m in enumerate(o.data.materials):
+                    if m == None:
+                        temp_mat = get_temp_default_material()
+                        o.data.materials[i] = temp_mat
+                    elif not m.use_nodes:
+                        if m not in ori_mat_no_nodes:
+                            ori_mat_no_nodes.append(m)
+                        m.use_nodes = True
+
+            for mat in o.data.materials:
+
+                if mat == None: continue
+                if mat in mats: continue
+                if not mat.use_nodes: continue
+
+                # Get output
+                output = [n for n in mat.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+                if not output: continue
+                output = output[0]
+
+                socket = None
+                default = None
+
+                # If material originally aren't using nodes
+                if mat in ori_mat_no_nodes:
+                    if ch.name == 'Color' and hasattr(mat, 'diffuse_color'):
+                        default = mat.diffuse_color
+                    elif hasattr(mat, ch.name):
+                        default = getattr(mat, ch.name)
+                    elif hasattr(mat, ch.name.lower()):
+                        default = getattr(mat, ch.name.lower())
+
+                # Search material nodes for yp node
+                yp_node = get_closest_yp_node_backward(output)
+                if yp_node:
+                    oyp = yp_node.node_tree.yp
+                    if ch.name in oyp.channels:
+                        socket = yp_node.outputs[ch.name]
+
+                # Check for possible sockets available on the bsdf node
+                if not socket:
+                    # Search for main bsdf
+                    bsdf_node = get_closest_bsdf_backward(output, valid_bsdf_types)
+
+                    if ch.name == 'Color' and bsdf_node.type == 'BSDF_PRINCIPLED':
+                        socket = bsdf_node.inputs['Base Color']
+
+                    elif ch.name in bsdf_node.inputs:
+                        socket = bsdf_node.inputs[ch.name]
+
+                    if socket and len(socket.links) == 0 and default == None:
+                        default = socket.default_value
+
+                # Append objects and materials if socket is found
+                if socket or default:
+                    mats.append(mat)
+                    sockets.append(socket)
+                    defaults.append(default)
+
+                    if o not in objs:
+                        objs.append(o)
+
+        ch_other_objects.append(objs)
+        ch_other_mats.append(mats)
+        ch_other_sockets.append(sockets)
+        ch_other_defaults.append(defaults)
+
+    return ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ori_mat_no_nodes
+
+def recover_other_objs_channels(other_objs, ori_mat_no_nodes):
     for o in other_objs:
-        for m in o.data.materials:
-            if not m.use_nodes: continue
-            for n in m.node_tree.nodes:
-                if n.type != 'GROUP' or not n.node_tree or not n.node_tree.yp.is_ypaint_node: continue
+        if len(o.data.materials) == 1 and o.data.materials[0].name == TEMP_MATERIAL:
+            o.data.materials.clear()
+        else:
+            for i, m in reversed(list(enumerate(o.data.materials))):
+                if m.name == TEMP_MATERIAL:
+                    o.data.materials.pop(index=i)
 
-                oyp = n.node_tree.yp
+    for m in ori_mat_no_nodes:
+        m.use_nodes = False
 
-                # Is there any layers using channel with same name
-                #ch_found = False
-                for ch in yp.channels:
-                    och = oyp.channels.get(ch.name)
-                    if not och: continue
-                    ochi = get_channel_index(och)
-                    for olay in oyp.layers:
-                        if olay.enable and olay.channels[ochi].enable:
-
-                            if oyp not in other_yps:
-                                other_yps.append(oyp)
-
-                            if o not in filtered_other_objs:
-                                filtered_other_objs.append(o)
-
-                            if ch.name not in other_channel_names:
-                                other_channel_names.append(ch.name)
-                                #ch_found = True
-                                break
-
-                # Set preview mode if channel found
-                #if ch_found:
-                #    oyp.preview_mode = True
-
-    return other_channel_names, other_yps, filtered_other_objs
+    remove_temp_default_material()
 
 def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', bake_type='EMIT', 
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
@@ -1795,7 +1870,18 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
 
     return image, new_segment
 
-TEMP_EMIT_WHITE = '__EMIT_WHITE__'
+def get_temp_default_material():
+    mat = bpy.data.materials.get(TEMP_MATERIAL)
+
+    if not mat: 
+        mat = bpy.data.materials.new(TEMP_MATERIAL)
+        mat.use_nodes = True
+
+    return mat
+
+def remove_temp_default_material():
+    mat = bpy.data.materials.get(TEMP_MATERIAL)
+    if mat: bpy.data.materials.remove(mat)
 
 def get_temp_emit_white_mat():
     mat = bpy.data.materials.get(TEMP_EMIT_WHITE)

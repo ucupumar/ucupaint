@@ -9,6 +9,7 @@ from .node_arrangements import *
 from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, BakeInfo, UDIM
 
 TEMP_VCOL = '__temp__vcol__'
+TEMP_EMISSION = '_TEMP_EMI_'
 
 class YTryToSelectBakedVertexSelect(bpy.types.Operator):
     bl_idname = "node.y_try_to_select_baked_vertex"
@@ -795,8 +796,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Get other objects for other object baking
         other_objs = []
-        other_yps = []
-        other_channel_names = []
+        
         if self.type.startswith('OTHER_OBJECT_'):
 
             # Get other objects based on selected objects with different material
@@ -824,7 +824,7 @@ class YBakeToLayer(bpy.types.Operator):
                                 other_objs.append(o)
 
             if self.type == 'OTHER_OBJECT_CHANNELS':
-                other_channel_names, other_yps, other_objs = get_other_objects_matching_channels(yp, other_objs)
+                ch_other_objects, ch_other_mats, ch_other_sockets, ch_other_defaults, ori_mat_no_nodes = prepare_other_objs_channels(yp, other_objs)
 
             if not other_objs:
                 if overwrite_img:
@@ -915,8 +915,6 @@ class YBakeToLayer(bpy.types.Operator):
         # Join objects if the number of objects is higher than one
         elif len(objs) > 1 and not is_join_objects_problematic(yp):
             objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
-
-        print(other_objs)
 
         fill_mode = 'FACE'
         obj_vertex_indices = {}
@@ -1266,41 +1264,87 @@ class YBakeToLayer(bpy.types.Operator):
             mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
         # Get number of target images
-        num_target_images = 1
+        ch_ids = [0]
+        
+        # Other object channels related
+        all_other_mats = []
+        ori_sockets = {}
 
         if self.type == 'OTHER_OBJECT_CHANNELS':
-            num_target_images = len(other_channel_names)
+            ch_ids = [i for i, coo in enumerate(ch_other_objects) if len(coo) > 0]
 
-            ori_yp_preview_modes = []
-            ori_yp_active_channel_indices = []
+            # Get all other materials
+            for oo in other_objs:
+                for m in oo.data.materials:
+                    if m == None or not m.use_nodes: continue
+                    if m not in all_other_mats:
+                        all_other_mats.append(m)
 
-            # Remember things
-            for oyp in other_yps:
-                ori_yp_preview_modes.append(oyp.preview_mode)
-                ori_yp_active_channel_indices.append(oyp.active_channel_index)
-                oyp.preview_mode = True
+            # Remember original socket connected to outputs
+            for m in all_other_mats:
+                soc = None
+                outputs = [n for n in m.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+                if outputs: 
+                    for l in outputs[0].inputs[0].links:
+                        soc = l.from_socket
 
-        for idx in range(num_target_images):
+                    # Create temporary emission
+                    temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                    if not temp_emi:
+                        temp_emi = m.node_tree.nodes.new('ShaderNodeEmission')
+                        temp_emi.name = TEMP_EMISSION
+                        m.node_tree.links.new(temp_emi.outputs[0], outputs[0].inputs[0])
+
+                ori_sockets[m.name] = soc
+
+        for idx in ch_ids:
 
             # Image name and colorspace
             image_name = self.name
             colorspace = 'sRGB'
 
             if self.type == 'OTHER_OBJECT_CHANNELS':
-                image_name += ' ' + other_channel_names[idx]
 
-                root_ch = yp.channels.get(other_channel_names[idx])
+                root_ch = yp.channels[idx]
+                image_name += ' ' + yp.channels[idx].name
 
-                # Set other yp active channel
-                for oyp in other_yps:
-                    if root_ch.type == 'NORMAL':
-                        oyp.preview_mode = False
-                        bake_type = 'NORMAL'
-                    else: 
-                        if not oyp.preview_mode: oyp.preview_mode = True
-                        och = oyp.channels.get(other_channel_names[idx])
-                        oyp.active_channel_index = get_channel_index(och)
-                        bake_type = 'EMIT'
+                # Hide irrelevant objects
+                for oo in other_objs:
+                    if oo not in ch_other_objects[idx]:
+                        oo.hide_render = True
+                    else: oo.hide_render = False
+
+                if root_ch.type == 'NORMAL':
+                    bake_type = 'NORMAL'
+
+                    # Set back original socket
+                    for m in all_other_mats:
+                        outputs = [n for n in m.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+                        if outputs: 
+                            m.node_tree.links.new(ori_sockets[m.name], outputs[0].inputs[0])
+
+                else:
+                    bake_type = 'EMIT'
+
+                    # Set emission connection
+                    for j, m in enumerate(ch_other_mats[idx]):
+                        default = ch_other_defaults[idx][j]
+                        socket = ch_other_sockets[idx][j]
+
+                        temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                        if not temp_emi: continue
+
+                        if default != None:
+                            # Set default
+                            if type(default) == float:
+                                temp_emi.inputs[0].default_value = (default, default, default, 1.0)
+                            else: temp_emi.inputs[0].default_value = (default[0], default[1], default[2], 1.0)
+
+                            # Break link
+                            for l in temp_emi.inputs[0].links:
+                                m.node_tree.links.remove(l)
+                        elif socket:
+                            m.node_tree.links.new(socket, temp_emi.inputs[0])
 
                 colorspace = 'Non-Color' if root_ch.colorspace == 'LINEAR' else 'sRGB'
 
@@ -1347,13 +1391,14 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Set image filepath if overwrite image is found
             if overwrite_img:
-                if idx == 0:
+                #if idx == 0:
+                if idx == min(ch_ids):
                     if not overwrite_img.packed_file and overwrite_img.filepath != '':
                         image.filepath = overwrite_img.filepath
                 else:
                     layer = yp.layers[yp.active_layer_index]
-                    root_ch = yp.channels.get(other_channel_names[idx])
-                    ch = layer.channels[get_channel_index(root_ch)]
+                    root_ch = yp.channels[idx]
+                    ch = layer.channels[idx]
 
                     if root_ch.type == 'NORMAL':
                         source = get_channel_source_1(ch, layer)
@@ -1454,7 +1499,7 @@ class YBakeToLayer(bpy.types.Operator):
                 bpy.data.images.remove(temp_img)
 
             # Index 0 is the main image
-            if idx == 0:
+            if idx == min(ch_ids):
                 if overwrite_img:
 
                     active_id = yp.active_layer_index
@@ -1550,8 +1595,8 @@ class YBakeToLayer(bpy.types.Operator):
             else:
                 # Set images to channel override
                 layer = yp.layers[yp.active_layer_index]
-                root_ch = yp.channels.get(other_channel_names[idx])
-                ch = layer.channels[get_channel_index(root_ch)]
+                root_ch = yp.channels[idx]
+                ch = layer.channels[idx]
                 ch.enable = True
 
                 # Normal channel will use second override
@@ -1629,9 +1674,18 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Recover other yps
         if self.type == 'OTHER_OBJECT_CHANNELS':
-            for i, oyp in enumerate(other_yps):
-                oyp.preview_mode = ori_yp_preview_modes[i]
-                oyp.active_channel_index = ori_yp_active_channel_indices[i]
+            for m in all_other_mats:
+                # Set back original socket
+                outputs = [n for n in m.node_tree.nodes if n.type == 'OUTPUT_MATERIAL' and n.is_active_output]
+                if outputs: 
+                    m.node_tree.links.new(ori_sockets[m.name], outputs[0].inputs[0])
+
+                # Remove temp emission
+                temp_emi = m.node_tree.nodes.get(TEMP_EMISSION)
+                if temp_emi: m.node_tree.nodes.remove(temp_emi)
+
+            # Recover other objects material settings
+            recover_other_objs_channels(other_objs, ori_mat_no_nodes)
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)

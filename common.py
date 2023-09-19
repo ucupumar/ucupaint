@@ -4992,3 +4992,43 @@ def duplicate_image(image):
 
     return new_image
 
+def is_valid_bsdf_node(node, valid_types=[]):
+    if not valid_types:
+        return node.type == 'EMISSION' or node.type.startswith('BSDF_') or node.type.endswith('_SHADER')
+    
+    return node.type in valid_types
+
+def get_closest_yp_node_backward(node):
+    for inp in node.inputs:
+        for link in inp.links:
+            n = link.from_node
+            if n.type == 'GROUP' and n.node_tree and n.node_tree.yp.is_ypaint_node:
+                return n
+            else:
+                n = get_closest_yp_node_backward(n)
+                if n: return n
+
+    return None
+
+def get_closest_bsdf_backward(node, valid_types=[]):
+    for inp in node.inputs:
+        for link in inp.links:
+            if is_valid_bsdf_node(link.from_node, valid_types):
+                return link.from_node
+            else:
+                n = get_closest_bsdf_backward(link.from_node, valid_types)
+                if n: return n
+
+    return None
+
+def get_closest_bsdf_forward(node, valid_types=[]):
+    for outp in node.outputs:
+        for link in outp.links:
+            if is_valid_bsdf_node(link.to_node, valid_types):
+                return link.to_node
+            else:
+                n = get_closest_bsdf_forward(link.to_node, valid_types)
+                if n: return n
+
+    return None
+

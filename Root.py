@@ -164,34 +164,6 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
 
     return channel
 
-def is_valid_bsdf_node(node, valid_types=[]):
-    if not valid_types:
-        return node.type == 'EMISSION' or node.type.startswith('BSDF_') or node.type.endswith('_SHADER')
-    
-    return node.type in valid_types
-
-def get_closest_bsdf_backward(node, valid_types=[]):
-    for inp in node.inputs:
-        for link in inp.links:
-            if is_valid_bsdf_node(link.from_node, valid_types):
-                return link.from_node
-            else:
-                n = get_closest_bsdf_backward(link.from_node, valid_types)
-                if n: return n
-
-    return None
-
-def get_closest_bsdf_forward(node, valid_types=[]):
-    for outp in node.outputs:
-        for link in outp.links:
-            if is_valid_bsdf_node(link.to_node, valid_types):
-                return link.to_node
-            else:
-                n = get_closest_bsdf_forward(link.to_node, valid_types)
-                if n: return n
-
-    return None
-
 class YSelectMaterialPolygons(bpy.types.Operator):
     bl_idname = "material.y_select_all_material_polygons"
     bl_label = "Select All Material Polygons"
