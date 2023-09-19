@@ -1391,12 +1391,7 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
 
         return {'FINISHED'}
 
-class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
-    """Open Multiple Images to Single Layer"""
-    bl_idname = "node.y_open_multiple_images_to_single_layer"
-    bl_label = "Open Multiple Images to Single Layer"
-    bl_options = {'REGISTER', 'UNDO'}
-
+class BaseMultipleImagesLayer():
     # File related
     files : CollectionProperty(type=bpy.types.OperatorFileListElement, options={'HIDDEN', 'SKIP_SAVE'})
     directory : StringProperty(maxlen=1024, subtype='FILE_PATH', options={'HIDDEN', 'SKIP_SAVE'}) 
@@ -1467,132 +1462,11 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
 
     def is_mask_using_image_atlas(self):
         return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
-
-    @classmethod
-    def poll(cls, context):
-        #return hasattr(context, 'group_node') and context.group_node
-        return get_active_ypaint_node()
-
-    def invoke(self, context, event):
-        obj = context.object
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        ypup = get_user_preferences()
-
-        # Use user preference default image size if input uses default image size
-        if self.mask_width == 1234 and self.mask_height == 1234:
-            self.mask_width = self.mask_height = ypup.default_new_image_size
-
-        if obj.type != 'MESH':
-            self.texcoord_type = 'Object'
-
-        # Use active uv layer name by default
-        if obj.type == 'MESH':
-            uv_name = get_default_uv_name(obj, yp)
-            self.uv_map = uv_name
-            if self.add_mask and self.mask_type == 'IMAGE': self.mask_uv_name = uv_name
-
-            # UV Map collections update
-            self.uv_map_coll.clear()
-            for uv in obj.data.uv_layers:
-                if not uv.name.startswith(TEMP_UV):
-                    self.uv_map_coll.add().name = uv.name
-
-        # Normal map is the default
-        #self.normal_map_type = 'NORMAL_MAP'
-
-        #return context.window_manager.invoke_props_dialog(self)
-        context.window_manager.fileselect_add(self)
-        return {'RUNNING_MODAL'}
-
-    def check(self, context):
-        ypup = get_user_preferences()
-
-        # New image cannot use more pixels than the image atlas
-        if self.is_mask_using_image_atlas():
-            if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
-            else: mask_max_size = ypup.image_atlas_size
-            if self.mask_width > mask_max_size: self.mask_width = mask_max_size
-            if self.mask_height > mask_max_size: self.mask_height = mask_max_size
-
-        # Init mask uv name
-        if self.add_mask and self.mask_uv_name == '':
-
-            node = get_active_ypaint_node()
-            yp = node.node_tree.yp
-            obj = context.object
-
-            uv_name = get_default_uv_name(obj, yp)
-            self.mask_uv_name = uv_name
-
-        return True
-
-    def draw(self, context):
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-        obj = context.object
-
-        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
-        
-        row = self.layout.row()
-
-        col = row.column()
-        col.label(text='Vector:')
-
-        col.label(text='')
-        if self.add_mask:
-            col.label(text='Mask Type:')
-            col.label(text='Mask Color:')
-            if self.mask_type == 'IMAGE':
-                col.label(text='')
-                col.label(text='Mask Width:')
-                col.label(text='Mask Height:')
-                col.label(text='Mask UV Map:')
-                col.label(text='')
-
-        col = row.column()
-        crow = col.row(align=True)
-        crow.prop(self, 'texcoord_type', text='')
-        if obj.type == 'MESH' and self.texcoord_type == 'UV':
-            #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-            crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
-
-        col.prop(self, 'add_mask', text='Add Mask')
-        if self.add_mask:
-            col.prop(self, 'mask_type', text='')
-            col.prop(self, 'mask_color', text='')
-            if self.mask_type == 'IMAGE':
-                col.prop(self, 'mask_use_hdr')
-                col.prop(self, 'mask_width', text='')
-                col.prop(self, 'mask_height', text='')
-                #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
-                col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
-                if UDIM.is_udim_supported():
-                    col.prop(self, 'use_udim_for_mask')
-                ccol = col.column()
-                ccol.active = not self.use_udim_for_mask
-                ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
-
-        #col.label(text='')
-        #rrow = col.row(align=True)
-        #rrow.prop(self, 'channel_idx', text='')
-        #if channel:
-        #    if channel.type == 'NORMAL':
-        #        rrow.prop(self, 'normal_blend_type', text='')
-        #        col.prop(self, 'normal_map_type', text='')
-        #    else: 
-        #        rrow.prop(self, 'blend_type', text='')
-
-        self.layout.prop(self, 'relative')
-
-    def execute(self, context):
+    
+    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list) -> bool:
+    
         T = time.time()
 
-        wm = context.window_manager
-        node = get_active_ypaint_node()
-        yp = node.node_tree.yp
-
-        import_list, directory = self.generate_paths()
         #images = tuple(load_image(path, directory) for path in import_list)
         images = list(load_image(path, directory) for path in import_list)
 
@@ -1638,6 +1512,10 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                 'roughness' : ['glossiness'],
                 'normal' : ['displacement', 'height', 'bump'], # Prioritize displacement/bump before actual normal map
                 }
+
+        wm = context.window_manager
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
 
         for ch in yp.channels:
 
@@ -1722,8 +1600,7 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
             for image in images:
                 #if image not in exist_images:
                 bpy.data.images.remove(image)
-            self.report({'ERROR'}, "Images should have channel name as suffix!")
-            return {'CANCELLED'}
+            return False
 
         # Check if found more than 1 images for normal channel
         
@@ -1754,14 +1631,13 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
                 #        image, None, None, 
                 #        )
 
+                                                 
                 layer = add_new_layer(node.node_tree, image.name, 'IMAGE', 
                         int(ch_idx), 'MIX', 'MIX', 
                         normal_map_type, self.texcoord_type, self.uv_map, image, None, None,
-                        (1,1,1),
-                        self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
+                        (1,1,1),self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
                         self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
-                        use_udim_for_mask=self.is_mask_using_udim()
-                        )
+                        use_udim_for_mask=self.is_mask_using_udim())
 
                 yp.halt_update = False
                 #reconnect_yp_nodes(node.node_tree)
@@ -1798,6 +1674,142 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper):
         # Make sure to expand channels so it can be obvious which channels are active
         wm.ypui.expand_channels = True
 
+    def invoke_operator(self, context:bpy.context):
+        obj = context.object
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        ypup = get_user_preferences()
+
+        # Use user preference default image size if input uses default image size
+        if self.mask_width == 1234 and self.mask_height == 1234:
+            self.mask_width = self.mask_height = ypup.default_new_image_size
+
+        if obj.type != 'MESH':
+            self.texcoord_type = 'Object'
+
+        # Use active uv layer name by default
+        if obj.type == 'MESH':
+            uv_name = get_default_uv_name(obj, yp)
+            self.uv_map = uv_name
+            if self.add_mask and self.mask_type == 'IMAGE': self.mask_uv_name = uv_name
+
+            # UV Map collections update
+            self.uv_map_coll.clear()
+            for uv in obj.data.uv_layers:
+                if not uv.name.startswith(TEMP_UV):
+                    self.uv_map_coll.add().name = uv.name
+
+        # Normal map is the default
+        #self.normal_map_type = 'NORMAL_MAP'
+
+        #return context.window_manager.invoke_props_dialog(self)
+    def draw_operator(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        obj = context.object
+
+        #channel = yp.channels[int(self.channel_idx)] if self.channel_idx != '-1' else None
+        
+        row = self.layout.row()
+
+        col = row.column()
+        col.label(text='Vector:')
+
+        col.label(text='')
+        if self.add_mask:
+            col.label(text='Mask Type:')
+            col.label(text='Mask Color:')
+            if self.mask_type == 'IMAGE':
+                col.label(text='')
+                col.label(text='Mask Width:')
+                col.label(text='Mask Height:')
+                col.label(text='Mask UV Map:')
+                col.label(text='')
+
+        col = row.column()
+        crow = col.row(align=True)
+        crow.prop(self, 'texcoord_type', text='')
+        if obj.type == 'MESH' and self.texcoord_type == 'UV':
+            #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+            crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        col.prop(self, 'add_mask', text='Add Mask')
+        if self.add_mask:
+            col.prop(self, 'mask_type', text='')
+            col.prop(self, 'mask_color', text='')
+            if self.mask_type == 'IMAGE':
+                col.prop(self, 'mask_use_hdr')
+                col.prop(self, 'mask_width', text='')
+                col.prop(self, 'mask_height', text='')
+                #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+                col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
+                if UDIM.is_udim_supported():
+                    col.prop(self, 'use_udim_for_mask')
+                ccol = col.column()
+                ccol.active = not self.use_udim_for_mask
+                ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
+
+        #col.label(text='')
+        #rrow = col.row(align=True)
+        #rrow.prop(self, 'channel_idx', text='')
+        #if channel:
+        #    if channel.type == 'NORMAL':
+        #        rrow.prop(self, 'normal_blend_type', text='')
+        #        col.prop(self, 'normal_map_type', text='')
+        #    else: 
+        #        rrow.prop(self, 'blend_type', text='')
+
+        self.layout.prop(self, 'relative')
+
+    def check_operator(self, context:bpy.context):
+        ypup = get_user_preferences()
+        # New image cannot use more pixels than the image atlas
+        if self.is_mask_using_image_atlas():
+            if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
+            else: mask_max_size = ypup.image_atlas_size
+            if self.mask_width > mask_max_size: self.mask_width = mask_max_size
+            if self.mask_height > mask_max_size: self.mask_height = mask_max_size
+
+        # Init mask uv name
+        if self.add_mask and self.mask_uv_name == '':
+
+            node = get_active_ypaint_node()
+            yp = node.node_tree.yp
+            obj = context.object
+
+            uv_name = get_default_uv_name(obj, yp)
+            self.mask_uv_name = uv_name
+
+
+class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMultipleImagesLayer):
+    """Open Multiple Images to Single Layer"""
+    bl_idname = "node.y_open_multiple_images_to_single_layer"
+    bl_label = "Open Multiple Images to Single Layer"
+    bl_options = {'REGISTER', 'UNDO'}
+
+
+    @classmethod
+    def poll(cls, context):
+        #return hasattr(context, 'group_node') and context.group_node
+        return get_active_ypaint_node()
+
+    def invoke(self, context, event):
+        self.invoke_operator(context)
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+    def check(self, context):
+        return self.check_operator(context)
+
+    def draw(self, context):
+        self.draw_operator(context)
+
+    def execute(self, context):
+        import_list, directory = self.generate_paths()
+        if not self.open_images_to_single_layer(context, directory, import_list):
+            self.report({'ERROR'}, "Images should have channel name as suffix!")
+            return {'CANCELLED'}
+        
         return {'FINISHED'}
 
 class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
