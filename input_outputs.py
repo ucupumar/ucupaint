@@ -13,7 +13,7 @@ def fix_io_index_360(item, items, correct_index):
 
 def get_tree_input_index_400(interface, item):
     index = -1
-    for it in interface.ui_items:
+    for it in interface.items_tree:
         if item.in_out in {'INPUT', 'BOTH'} and it.in_out in {'INPUT', 'BOTH'}:
             index += 1
         if it == item:
@@ -23,7 +23,7 @@ def get_tree_input_index_400(interface, item):
 
 def get_tree_output_index_400(interface, item):
     index = -1
-    for it in interface.ui_items:
+    for it in interface.items_tree:
         if item.in_out in {'OUTPUT', 'BOTH'} and it.in_out in {'OUTPUT', 'BOTH'}:
             index += 1
         if it == item:
@@ -36,7 +36,7 @@ def fix_tree_input_index_400(interface, item, correct_index):
         return
     
     # HACK: Try to move using all index because interface move is still inconsistent
-    for i in range(len(interface.ui_items)):
+    for i in range(len(interface.items_tree)):
         interface.move(item, i)
         if get_tree_input_index_400(interface, item) == correct_index:
             return
@@ -46,7 +46,7 @@ def fix_tree_output_index_400(interface, item, correct_index):
         return
     
     # HACK: Try to move using all index because interface move is still inconsistent
-    for i in range(len(interface.ui_items)):
+    for i in range(len(interface.items_tree)):
         interface.move(item, i)
         if get_tree_output_index_400(interface, item) == correct_index:
             return

@@ -2121,19 +2121,19 @@ def get_tree_inputs(tree):
     if not is_greater_than_400():
         return tree.inputs
 
-    return [ui for ui in tree.interface.ui_items if ui.in_out in {'INPUT', 'BOTH'}]
+    return [ui for ui in tree.interface.items_tree if ui.in_out in {'INPUT', 'BOTH'}]
 
 def get_tree_outputs(tree):
     if not is_greater_than_400():
         return tree.outputs
 
-    return [ui for ui in tree.interface.ui_items if ui.in_out in {'OUTPUT', 'BOTH'}]
+    return [ui for ui in tree.interface.items_tree if ui.in_out in {'OUTPUT', 'BOTH'}]
 
 def get_tree_input_by_name(tree, name):
     if not is_greater_than_400():
         return tree.inputs.get(name)
 
-    inp = [ui for ui in tree.interface.ui_items if ui.name == name and ui.in_out in {'INPUT', 'BOTH'}]
+    inp = [ui for ui in tree.interface.items_tree if ui.name == name and ui.in_out in {'INPUT', 'BOTH'}]
     if inp: return inp[0]
 
     return None
@@ -2142,7 +2142,7 @@ def get_tree_output_by_name(tree, name):
     if not is_greater_than_400():
         return tree.outputs.get(name)
 
-    outp = [ui for ui in tree.interface.ui_items if ui.name == name and ui.in_out in {'OUTPUT', 'BOTH'}]
+    outp = [ui for ui in tree.interface.items_tree if ui.name == name and ui.in_out in {'OUTPUT', 'BOTH'}]
     if outp: return outp[0]
 
     return None
@@ -2160,13 +2160,13 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
     inp = None
     if use_both:
         # Check if output with same name already exists
-        items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
+        items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
         if items:
             inp = items[0]
             inp.in_out = 'BOTH'
 
     if not inp: 
-        inp =  tree.interface.new_socket(name, description=description, in_out={'INPUT'}, socket_type=socket_type)
+        inp =  tree.interface.new_socket(name, description=description, in_out='INPUT', socket_type=socket_type)
 
     if hasattr(inp, 'subtype'): inp.subtype = subtype
     return inp
@@ -2181,13 +2181,13 @@ def new_tree_output(tree, name, socket_type, description='', use_both=False):
     outp = None
     if use_both:
         # Check if input with same name already exists
-        items = [it for it in tree.interface.ui_items if it.name == name and it.socket_type == socket_type and it.in_out == 'INPUT']
+        items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and it.in_out == 'INPUT']
         if items:
             outp = items[0]
             outp.in_out = 'BOTH'
 
     if not outp: 
-        outp = tree.interface.new_socket(name, description=description, in_out={'OUTPUT'}, socket_type=socket_type)
+        outp = tree.interface.new_socket(name, description=description, in_out='OUTPUT', socket_type=socket_type)
 
     return outp
 
@@ -2216,7 +2216,7 @@ def get_tree_input_by_index(tree, index):
         return tree.inputs[index]
 
     i = -1
-    for item in tree.interface.ui_items:
+    for item in tree.interface.items_tree:
         if item.in_out in {'INPUT', 'BOTH'}:
             i += 1
 
@@ -2230,7 +2230,7 @@ def get_tree_output_by_index(tree, index):
         return tree.outputs[index]
 
     i = -1
-    for item in tree.interface.ui_items:
+    for item in tree.interface.items_tree:
         if item.in_out in {'OUTPUT', 'BOTH'}:
             i += 1
 
