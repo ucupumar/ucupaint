@@ -2399,7 +2399,7 @@ def check_yp_linear_nodes(yp, specific_layer=None, reconnect=True):
             check_layer_image_linear_node(layer)
             image_found = True
         for ch in layer.channels:
-            if ch.override_type == 'IMAGE':
+            if ch.override_type == 'IMAGE' or ch.override_1_type == 'IMAGE':
                 #set_layer_channel_linear_node(ch)
                 check_layer_channel_linear_node(ch)
                 image_found = True
