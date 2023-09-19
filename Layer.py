@@ -1463,7 +1463,7 @@ class BaseMultipleImagesLayer():
     def is_mask_using_image_atlas(self):
         return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
     
-    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list:list[str]) -> bool:
+    def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list) -> bool:
     
         T = time.time()
 
