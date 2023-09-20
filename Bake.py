@@ -76,15 +76,13 @@ def transfer_uv(objs, mat, entity, uv_map):
 
     # Create temp image as bake target
     if len(tilenums) > 1:
-        # Use actual image name with UDIM suffix so it will has proper path 
-        # if this image is replacing original image
-        temp_image = bpy.data.images.new(name=image.name + ' UDIM',
+        temp_image = bpy.data.images.new(name='__TEMP',
                 width=width, height=height, alpha=True, float_buffer=image.is_float, tiled=True)
 
         # Fill tiles
         for tilenum in tilenums:
             UDIM.fill_tile(temp_image, tilenum, col, width, height)
-        UDIM.initial_pack_udim(temp_image, col)
+        UDIM.initial_pack_udim(temp_image, col, image.name)
     else:
         temp_image = bpy.data.images.new(name='__TEMP',
                 width=width, height=height, alpha=True, float_buffer=image.is_float)
