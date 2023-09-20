@@ -1,14 +1,10 @@
 from bpy.types import Context
 from .common import * 
-from .lib import *
-from zipfile import ZipFile
-from bpy_extras.image_utils import load_image  
-
-from . import lib, Layer, UDIM
-
-import bpy, threading, os, requests, json
+from . import lib, Layer
 from bpy.props import *
 from bpy.types import PropertyGroup, Panel, Operator, UIList, Scene
+
+import bpy, threading, os, requests, json, zipfile
 
 THREAD_SEARCHING = "thread_searching"
 # thread_search:threading.Thread # progress:int
@@ -23,7 +19,7 @@ class MaterialItem(PropertyGroup):
     name: StringProperty( name="Name", description="Material name", default="Untitled") 
     thumb: IntProperty( name="thumbnail", description="", default=0)
 
-class DownloadThread(PropertyGroup):
+class DownloadQueue(PropertyGroup):
     asset_id : StringProperty()
     asset_attribute: StringProperty()
     file_path : StringProperty()
@@ -69,8 +65,8 @@ class TexLibProps(PropertyGroup):
     material_items:CollectionProperty(type= MaterialItem)
     material_index:IntProperty(default=0, name="Material index")
 
-    downloads:CollectionProperty(type=DownloadThread)
-    searching_download:PointerProperty(type=DownloadThread)
+    downloads:CollectionProperty(type=DownloadQueue)
+    searching_download:PointerProperty(type=DownloadQueue)
     selected_download_item:IntProperty(default=0)
 
 class TexLibAddToUcupaint(Operator, Layer.BaseMultipleImagesLayer):
@@ -115,10 +111,29 @@ class TexLibCancelDownload(Operator):
     attribute:StringProperty()
     id:StringProperty()
 
-    def execute(self, context):
-        print("cancel cancel")
+    def execute(self, context:bpy.context):
+        print("cancel", self.id, "| attr",self.attribute)
 
-        return {'FINISHED'}
+        thread_id = _get_thread_id(self.id, self.attribute)
+        thread = _get_thread(thread_id)
+
+        if thread == None:
+            print("cancel false", thread_id)
+            return {'CANCELLED'}
+        
+        print("cancel true", thread_id)
+        thread.cancel = True
+
+
+        texlib:TexLibProps = context.scene.texlib
+        dwn:DownloadQueue
+        for dwn in texlib.downloads:
+            if dwn.asset_id ==  self.id and dwn.asset_attribute == self.attribute:
+                dwn.alive = False
+                print("cancelling >> "+dwn.asset_id)
+                return {'FINISHED'}
+            
+        return {'CANCELLED'}
 
 class TexLibDownload(Operator):
     """Download textures from source"""
@@ -154,7 +169,7 @@ class TexLibDownload(Operator):
         new_thread.start()
 
         texlib = context.scene.texlib
-        new_dwn:DownloadThread = texlib.downloads.add()
+        new_dwn:DownloadQueue = texlib.downloads.add()
         new_dwn.asset_id = self.id
         new_dwn.file_path = file_name
         new_dwn.asset_attribute = self.attribute
@@ -193,7 +208,8 @@ class TexLibBrowser(Panel):
                 else:
                     row_search.label(text="Retrieving thumbnails..."+str(prog)+"%")
                 row_search.operator("texlib.cancel_search", icon="CANCEL")
-
+                
+                
         if len(texlib.material_items):
             my_list = texlib.material_items
 
@@ -246,7 +262,9 @@ class TexLibBrowser(Panel):
 
                     if dwn_thread != None:
                         btn_row.label(text=str(dwn_thread.progress)+"%")
-                        btn_row.operator("texlib.cancel", icon="X")
+                        op:TexLibCancelDownload = btn_row.operator("texlib.cancel", icon="X")
+                        op.attribute = d
+                        op.id = mat_id
                     else:
                         if check_exist:
                             op:TexLibAddToUcupaint = btn_row.operator("texlib.add_to_ucupaint", icon="ADD")
@@ -265,12 +283,17 @@ class TexLibBrowser(Panel):
 
 class TEXLIB_UL_Downloads(UIList):
 
-    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+    def draw_item(self, context, layout, data, item:DownloadQueue, icon, active_data, active_propname, index):
         """Demo UIList."""
         if self.layout_type in {'DEFAULT', 'COMPACT'}:
             row = layout.row(align=True)
-            row.prop(item, "progress", slider=True, text=item.asset_id+" | "+item.asset_attribute)
-            row.operator("texlib.cancel", icon="X")  
+            if item.alive:
+                row.prop(item, "progress", slider=True, text=item.asset_id+" | "+item.asset_attribute)
+                op:TexLibCancelDownload = row.operator("texlib.cancel", icon="X")  
+                op.attribute = item.asset_attribute
+                op.id = item.asset_id
+            else:
+                row.label(text="cancelling")
 
 class TEXLIB_UL_Material(UIList):
 
@@ -370,7 +393,7 @@ def monitor_downloads():
         return 2
 
     scn = bpy.context.scene
-    txlb = scn.texlib
+    txlb:TexLibProps = scn.texlib
     downloads = txlb.downloads
 
     if len(downloads) == 0 and not searching:
@@ -392,6 +415,7 @@ def monitor_downloads():
     
     if len(downloads):
         to_remove = []
+        dwn:DownloadQueue
         for index, dwn in enumerate(downloads):
             
             thread_id = _get_thread_id(dwn.asset_id, dwn.asset_attribute)
@@ -429,16 +453,19 @@ def monitor_downloads():
 
     return 1.0
 
-def extract_file(my_file):
+def extract_file(my_file:str) -> bool:
     dir_name = os.path.dirname(my_file)
     # new_folder = os.path.basename(my_file).split('.')[0]
     # dir_name = os.path.join(dir_name, new_folder)
     print("extract "+my_file+" to "+dir_name)
 
-    with ZipFile(my_file, 'r') as zObject:
-        zObject.extractall(path=dir_name)
-        return dir_name
-    
+    try:
+        with zipfile.ZipFile(my_file, 'r') as zObject:
+            zObject.extractall(path=dir_name)
+            return True    
+    except zipfile.BadZipFile:
+        return False
+
 # Delete the zip file
 def delete_zip(file_path):
     if not os.path.exists(file_path):
@@ -471,6 +498,9 @@ def download_stream(link:str, file_name:str, thread_id:str,
             total_length = int(total_length)
             # TODO a way for calculating the chunk size
             for data in response.iter_content(chunk_size = 4096):
+                if thread is not None and thread.cancel:
+                    response.close()
+                    break
 
                 dl += len(data)
                 f.write(data)
@@ -634,7 +664,7 @@ def _get_thread(id:str):
         return threads[id]
     return None
 
-classes = [DownloadThread,  MaterialItem, TexLibProps, TexLibBrowser, TexLibDownload, TexLibAddToUcupaint, TexLibCancelDownload,TEXLIB_UL_Material
+classes = [DownloadQueue,  MaterialItem, TexLibProps, TexLibBrowser, TexLibDownload, TexLibAddToUcupaint, TexLibCancelDownload, TEXLIB_UL_Material
             ,TexLibCancelSearch, TEXLIB_UL_Downloads]
 
 def register():
