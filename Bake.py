@@ -20,9 +20,11 @@ def transfer_uv(objs, mat, entity, uv_map):
     if m1: 
         source = get_layer_source(entity)
         mapping = get_layer_mapping(entity)
+        index = int(m1.group(1))
     elif m2: 
         source = get_mask_source(entity)
         mapping = get_mask_mapping(entity)
+        index = int(m2.group(2))
     else: return
 
     image = source.image
@@ -60,6 +62,11 @@ def transfer_uv(objs, mat, entity, uv_map):
             col = (0.73, 0.73, 0.73, 1.0)
         elif 'AO' in image.name:
             col = (1.0, 1.0, 1.0, 1.0)
+        elif m2: # Possible mask base color
+            if index == 0:
+                col = (0.0, 0.0, 0.0, 1.0)
+            else:
+                col = (1.0, 1.0, 1.0, 1.0)
         else:
             col = (0.0, 0.0, 0.0, 0.0)
             use_alpha = True
