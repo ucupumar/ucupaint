@@ -76,7 +76,9 @@ def transfer_uv(objs, mat, entity, uv_map):
 
     # Create temp image as bake target
     if len(tilenums) > 1:
-        temp_image = bpy.data.images.new(name='__TEMP',
+        # Use actual image name with UDIM suffix so it will has proper path 
+        # if this image is replacing original image
+        temp_image = bpy.data.images.new(name=image.name + ' UDIM',
                 width=width, height=height, alpha=True, float_buffer=image.is_float, tiled=True)
 
         # Fill tiles
@@ -197,9 +199,8 @@ def transfer_uv(objs, mat, entity, uv_map):
         # Remove temp image 1
         bpy.data.images.remove(temp_image1)
 
-    # Replace image if both images don't have the same source
-    if ((temp_image.source == 'TILED' and image.source != 'TILED') or
-        (temp_image.source != 'TILED' and image.source == 'TILED')):
+    # Replace image if any of the images is using UDIM
+    if temp_image.source == 'TILED' or image.source == 'TILED':
         replace_image(image, temp_image)
     else:
         # Copy back temp/baked image to original image
