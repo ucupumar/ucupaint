@@ -146,8 +146,17 @@ class TexLibDownload(Operator):
     file_size:IntProperty
     file_exist:BoolProperty(default=False)
 
+    def invoke(self, context, event):
+        if self.file_exist:
+            return context.window_manager.invoke_props_dialog(self)
+        return self.execute(context)
+    
+    def draw(self, context:bpy.context):
+        layout = self.layout
+
+        layout.label(text="Already downloaded. Overwrite?", icon="QUESTION")
+
     def execute(self, context):
-       
         lib = assets_lib[self.id]
         attr_dwn = lib["downloads"][self.attribute]
         link = attr_dwn["link"]
@@ -237,16 +246,9 @@ class TexLibBrowser(Panel):
 
                     ukuran = round(dwn["size"] / 1000000,2)
 
-                    check_exist:bool = False
                     lokasi = dwn["location"]
-                    if os.path.exists(lokasi):
-                        files = os.listdir(lokasi)
-                        for f in files:
-                            if mat_id in f:
-                                check_exist = True
-                                break
-                    else:
-                        check_exist = False
+                    
+                    check_exist:bool = _texture_exist(mat_id, lokasi)
                     
                     row = ui_attr.row()
 
@@ -312,7 +314,6 @@ class TEXLIB_UL_Material(UIList):
 class TexLibCancelSearch(Operator):
     bl_idname = "texlib.cancel_search"
     bl_label = ""
-    
     
     def execute(self, context):
         thread_search = threads[THREAD_SEARCHING]
@@ -634,6 +635,15 @@ def retrieve_assets_info(keyword:str = '', page:int = 0, limit:int = 10):
     file_ori = open(file_name_ori, 'w')
     file_ori.write(json.dumps({"foundAssets":assets}))
     file_ori.close()
+
+def _texture_exist(asset_id:str, location:str) -> bool:
+    if os.path.exists(location):
+        files = os.listdir(location)
+        for f in files:
+            if asset_id in f:
+                return True
+    
+    return False
 
 def _get_textures_dir() -> str:
     file_path = _get_lib_dir()
