@@ -3593,22 +3593,29 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                         alpha = img.use_alpha
                     else: alpha = True
 
-                    img_nodes[i].image = bpy.data.images.new(get_unique_name(img.name, bpy.data.images), 
-                            width=img.size[0], height=img.size[1], alpha=alpha, float_buffer=img.is_float)
-                    img_nodes[i].image.colorspace_settings.name = img.colorspace_settings.name
-
                     # Mask will have alpha filled
                     m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', img_users[i].path_from_id())
                     if m: 
                         mask_idx = int(m.group(2))
-                        #mask = yp.layers[int(m.group(1))].masks[mask_idx]
 
                         # Only first mask will be black by default, others will be white
                         if mask_idx == 0:
-                            img_nodes[i].image.generated_color = (0,0,0,1)
-                        else: img_nodes[i].image.generated_color = (1,1,1,1)
+                            color = (0,0,0,1)
+                        else: color = (1,1,1,1)
+                    else: color = (0,0,0,0)
 
-                    else: img_nodes[i].image.generated_color = (0,0,0,0)
+                    img_name = get_unique_name(img.name, bpy.data.images)
+
+                    if img.source == 'TILED':
+                        img_nodes[i].image = img.copy()
+                        UDIM.fill_tiles(img_nodes[i].image, color)
+                        UDIM.initial_pack_udim(img_nodes[i].image, color)
+                    else:
+                        img_nodes[i].image = bpy.data.images.new(img_name,
+                                width=img.size[0], height=img.size[1], alpha=alpha, float_buffer=img.is_float)
+                        img_nodes[i].image.generated_color = color
+
+                    img_nodes[i].image.colorspace_settings.name = img.colorspace_settings.name
 
                 else:
                     img_nodes[i].image = duplicate_image(img)
