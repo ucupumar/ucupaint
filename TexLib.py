@@ -58,12 +58,63 @@ def update_input_search(self, context):
     self.searching_download.progress = 0
     self.searching_download.alive = True
 
+def change_mode_asset(self, context):
+    if not len(assets_lib):
+        read_asset_info()
+
+    last_search.clear()
+    self.input_search = ""
+    self.material_items.clear()
+
+    if self.mode_asset == "ONLINE":
+        pass
+    else:
+        if THREAD_SEARCHING in threads:
+            thread_search = threads[THREAD_SEARCHING]
+            thread_search.cancel = True
+
+            searching_dwn = self.searching_download
+            searching_dwn.alive = False
+        
+        textures_dir = _get_textures_dir()
+        tex_lis = os.listdir(textures_dir)
+
+        for tx in tex_lis:
+            tx_dir = os.path.join(textures_dir, tx)
+            # print(tx)
+            attr_lis = os.listdir(tx_dir)
+
+            for att in attr_lis:
+                attr_dir = os.path.join(tx_dir, att)
+                # print("--", att)
+                if _texture_exist(tx, attr_dir):
+                    last_search[tx] = assets_lib[tx] 
+                    break
+
+        load_material_items(self.material_items)
+        # download_previews(False, self.material_items)
+        load_previews()
+        load_material_items(self.material_items)
+
+        # print(last_search)
+
+
 class TexLibProps(PropertyGroup):
     page: IntProperty(name="page", default= 0)
     input_search:StringProperty(name="Search", update=update_input_search)
     input_last:StringProperty()
     material_items:CollectionProperty(type= MaterialItem)
     material_index:IntProperty(default=0, name="Material index")
+
+    mode_asset:EnumProperty(
+            items =  (('ONLINE', 'Online', ''), ('DOWNLOADED', 'Downloaded', '')),
+            name = 'Location',
+            default = 'ONLINE',
+            description = 'Location of the PBR Texture.\n'
+                '  Local: the assets that you have already downloaded.\n'
+                '  Online: available for download on AmbientCG.com.\n',
+            update=change_mode_asset
+        )
 
     downloads:CollectionProperty(type=DownloadQueue)
     searching_download:PointerProperty(type=DownloadQueue)
@@ -202,23 +253,26 @@ class TexLibBrowser(Panel):
         texlib:TexLibProps = scene.texlib
         sel_index = texlib.material_index
 
+        layout.prop(texlib, "mode_asset", expand=True)
 
-        layout.prop(texlib, "input_search")
-        searching_dwn = texlib.searching_download
-       
-        if searching_dwn.alive:
-            prog = searching_dwn.progress
+        if texlib.mode_asset == "ONLINE":
+            layout.prop(texlib, "input_search")
+            searching_dwn = texlib.searching_download
+        
+            if searching_dwn.alive:
+                prog = searching_dwn.progress
 
-            if prog >= 0:
-                row_search = layout.row()
+                if prog >= 0:
+                    row_search = layout.row()
 
-                if prog < 10:
-                    row_search.label(text="Searching...")
-                else:
-                    row_search.label(text="Retrieving thumbnails..."+str(prog)+"%")
-                row_search.operator("texlib.cancel_search", icon="CANCEL")
-                
-                
+                    if prog < 10:
+                        row_search.label(text="Searching...")
+                    else:
+                        row_search.prop(searching_dwn, "progress", slider=True, text="Retrieving thumbnails.")
+                        # row_search.label(text="Retrieving thumbnails..."+str(prog)+"%")
+                    row_search.operator("texlib.cancel_search", icon="CANCEL")
+                    
+                    
         if len(texlib.material_items):
             my_list = texlib.material_items
 
@@ -278,10 +332,10 @@ class TexLibBrowser(Panel):
                         op.id = sel_mat.name
                         op.file_exist = check_exist
 
-        if len(texlib.downloads):
-            layout.separator()
-            layout.label(text="Downloads:")
-            layout.template_list("TEXLIB_UL_Downloads", "download_list", texlib, "downloads", texlib, "selected_download_item")
+            if len(texlib.downloads):
+                layout.separator()
+                layout.label(text="Downloads:")
+                layout.template_list("TEXLIB_UL_Downloads", "download_list", texlib, "downloads", texlib, "selected_download_item")
 
 class TEXLIB_UL_Downloads(UIList):
 
@@ -349,9 +403,12 @@ def load_per_material(file_name:str, material_item):
     
 def searching_material(keyword:str, context:Context):
     scene = context.scene
-    txlib = scene.texlib
+    txlib:TexLibProps = scene.texlib
 
     thread_search = threads[THREAD_SEARCHING]
+
+    if not len(assets_lib):
+        read_asset_info()
 
     retrieve_assets_info(keyword)
     thread_search.progress = 10
@@ -546,6 +603,9 @@ def download_previews(overwrite_existing:bool, material_items):
                 dl = 0
                 total_length = int(total_length)
                 for data in response.iter_content(chunk_size = 4096):
+                    if thread_search is not None and thread_search.cancel:
+                        response.close()
+                        return
                     dl += len(data)
                     f.write(data)                    
             except Exception as e:
@@ -567,11 +627,11 @@ def read_asset_info() -> bool:
         jsn = json.loads(content)
         assets_lib.update(jsn)
         file.close()
-        print("read ", content)
+        # print("read ", content)
         return True
     return False
 
-def retrieve_assets_info(keyword:str = '', page:int = 0, limit:int = 10):
+def retrieve_assets_info(keyword:str = '', save_ori:bool = False, page:int = 0, limit:int = 100):
     base_link = "https://ambientCG.com/api/v2/full_json"
     params = {
         'type': 'Material',
@@ -585,7 +645,6 @@ def retrieve_assets_info(keyword:str = '', page:int = 0, limit:int = 10):
     
     dir_name = _get_lib_dir()
     file_name = os.path.join(dir_name, "lib.json")
-    file_name_ori = os.path.join(dir_name, "lib-ori.json")
 
     response = requests.get(base_link, params=params, verify=False)
     if not response.status_code == 200:
@@ -593,6 +652,9 @@ def retrieve_assets_info(keyword:str = '', page:int = 0, limit:int = 10):
         return None
     
     assets = response.json()["foundAssets"]
+
+    print("Found ",len(assets), "textures")
+    
     file = open(file_name, 'w')
 
     # assets_lib = {}
@@ -632,9 +694,11 @@ def retrieve_assets_info(keyword:str = '', page:int = 0, limit:int = 10):
     print("stored to ", file_name)
     # print("content to ", str(assets_lib))
 
-    file_ori = open(file_name_ori, 'w')
-    file_ori.write(json.dumps({"foundAssets":assets}))
-    file_ori.close()
+    if save_ori:
+        file_name_ori = os.path.join(dir_name, "lib-ori.json")
+        file_ori = open(file_name_ori, 'w')
+        file_ori.write(json.dumps({"foundAssets":assets}))
+        file_ori.close()
 
 def _texture_exist(asset_id:str, location:str) -> bool:
     if os.path.exists(location):
