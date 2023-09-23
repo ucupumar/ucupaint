@@ -148,7 +148,9 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
 
     if image.y_bake_info.is_baked:
         bi = image.y_bake_info
-        col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
+        if image.yia.is_image_atlas:
+            col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
+        else: col.template_ID(source, "image", unlink='node.y_remove_layer')
         col.label(text='Type: ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
 
         draw_bake_info(bi, col, entity)
@@ -1092,7 +1094,10 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         #    row.prop(lui, 'expand_source', text='', emboss=True, icon=icon)
 
         if image:
-            row.label(text='Source: ' + image.name)
+            image_name = image.name
+            if image.y_bake_info.is_baked:
+                image_name += ' (Baked)'
+            row.label(text='Source: ' + image_name)
         elif vcol:
             row.label(text='Source: ' + vcol.name)
         else: row.label(text='Source: ' + layer.name)
