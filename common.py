@@ -2158,7 +2158,10 @@ def new_tree_input(tree, name, socket_type, description='', use_both=False):
         subtype = 'FACTOR'
 
     inp = None
-    if use_both:
+
+    # NOTE: Used to be working on Blender 4.0 Alpha, 'BOTH' in_out is no longer supported
+    # Keep the code just in case it will work again someday
+    if use_both and False:
         # Check if output with same name already exists
         items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and it.in_out == 'OUTPUT']
         if items:
@@ -2179,7 +2182,10 @@ def new_tree_output(tree, name, socket_type, description='', use_both=False):
     if socket_type == 'NodeSocketFloatFactor': socket_type = 'NodeSocketFloat'
 
     outp = None
-    if use_both:
+
+    # NOTE: Used to be working on Blender 4.0 Alpha, 'BOTH' in_out is no longer supported
+    # Keep the code just in case it will work again someday
+    if use_both and False:
         # Check if input with same name already exists
         items = [it for it in tree.interface.items_tree if it.name == name and it.socket_type == socket_type and it.in_out == 'INPUT']
         if items:
