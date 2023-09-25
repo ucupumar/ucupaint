@@ -4208,9 +4208,6 @@ def update_uv_name(self, context):
 
     nodes = tree.nodes
 
-    if layer.type in {'HEMI', 'GROUP', 'COLOR'} or layer.texcoord_type != 'UV':
-        return
-
     # Use first uv if temp uv or empty is selected
     if layer.uv_name in {TEMP_UV, ''}:
         if len(yp.uvs) > 0:
@@ -4231,9 +4228,7 @@ def update_uv_name(self, context):
         check_uvmap_on_other_objects_with_same_mat(mat, layer.uv_name)
 
     # Update global uv
-    #yp_dirty = check_uv_nodes(yp)
     check_uv_nodes(yp)
-    #layer_dirty = False
 
     # Update uv neighbor
     smooth_bump_ch = get_smooth_bump_channel(layer)
@@ -4247,19 +4242,13 @@ def update_uv_name(self, context):
                     lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
                     return_status=False, hard_replace=True)
             set_uv_neighbor_resolution(smooth_bump_ch, uv_neighbor)
-    #else:
-    #    remove_node(tree, layer, 'uv_neighbor')
 
     # Update neighbor uv if mask bump is active
     for i, mask in enumerate(layer.masks):
         set_mask_uv_neighbor(tree, layer, mask, i)
-        #if set_mask_uv_neighbor(tree, layer, mask, i):
-        #    layer_dirty = True
 
     # Update layer tree inputs
     check_layer_tree_ios(layer, tree)
-    #if check_layer_tree_ios(layer, tree):
-        #yp_dirty = True
 
     #if yp_dirty or layer_dirty: #and not yp.halt_reconnect:
     rearrange_layer_nodes(layer)
