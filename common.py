@@ -2975,7 +2975,7 @@ def refresh_temp_uv(obj, entity):
         #print('Channel!')
     else: return False
 
-    if not hasattr(source, image): return False
+    if not hasattr(source, 'image'): return False
 
     img = source.image
     if not img or not is_transformed(mapping):

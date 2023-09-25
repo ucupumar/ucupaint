@@ -1029,10 +1029,15 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     row.context_pointer_set('layer_ui', lui)
 
     if obj.mode == 'EDIT':
-        if obj.type == 'MESH' and obj.data.uv_layers.active and obj.data.uv_layers.active.name == TEMP_UV:
-            row = row.row(align=True)
-            row.alert = True
-            row.operator('node.y_back_to_original_uv', icon='EDITMODE_HLT', text='Edit Original UV')
+        if obj.type == 'MESH' and obj.data.uv_layers.active:
+            if layer.type != 'IMAGE' and is_layer_using_vector(layer) and obj.data.uv_layers.active.name != layer.uv_name:
+                row = row.row(align=True)
+                row.alert = True
+                row.operator('node.y_refresh_transformed_uv', icon='FILE_REFRESH', text='Refresh UV')
+            elif obj.data.uv_layers.active.name == TEMP_UV:
+                row = row.row(align=True)
+                row.alert = True
+                row.operator('node.y_back_to_original_uv', icon='EDITMODE_HLT', text='Edit Original UV')
     else:
         #if ypui.disable_auto_temp_uv_update and yp.need_temp_uv_refresh:
         #if yp.need_temp_uv_refresh or is_active_uv_map_match_entity(obj, layer):
