@@ -2769,26 +2769,16 @@ def update_mapping(entity):
 
 def is_active_uv_map_match_entity(obj, entity):
 
-    if entity.type != 'IMAGE' or entity.texcoord_type != 'UV': return False
+    m = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+
+    #if entity.type != 'IMAGE' or entity.texcoord_type != 'UV': return False
+    if (m and not is_layer_using_vector(entity)) or entity.texcoord_type != 'UV': return False
     mapping = get_entity_mapping(entity)
-
-    #m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-    #m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
-
-    ## Get source
-    #if m1: 
-    #    source = get_layer_source(entity)
-    #    mapping = get_layer_mapping(entity)
-    #elif m2: 
-    #    source = get_mask_source(entity)
-    #    mapping = get_mask_mapping(entity)
-    #else:
-    #    return
 
     uv_layers = get_uv_layers(obj)
     uv_layer = uv_layers.active
 
-    if is_transformed(mapping) and obj.mode == 'TEXTURE_PAINT':
+    if mapping and is_transformed(mapping) and obj.mode == 'TEXTURE_PAINT':
         if uv_layer.name != TEMP_UV:
             return True
 
@@ -2984,6 +2974,8 @@ def refresh_temp_uv(obj, entity):
         mapping = get_layer_mapping(layer)
         #print('Channel!')
     else: return False
+
+    if not hasattr(source, image): return False
 
     img = source.image
     if not img or not is_transformed(mapping):
