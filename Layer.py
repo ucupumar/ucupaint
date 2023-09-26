@@ -661,7 +661,7 @@ class YNewLayer(bpy.types.Operator):
 
     use_divider_alpha : BoolProperty(
             name = 'Spread Fix',
-            description='Use spread fix (very recommended for vertex color layer)',
+            description='Use spread fix (very recommended for vertex color or image layer)',
             default=False)
 
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
@@ -699,7 +699,7 @@ class YNewLayer(bpy.types.Operator):
             self.add_mask = False
 
         # Set spread fix by default on vertex color layer
-        self.use_divider_alpha = True if self.type == 'VCOL' else False
+        self.use_divider_alpha = True if self.type in {'VCOL', 'IMAGE'} else False
 
         # Use white color mask as default for group
         if self.type == 'GROUP':
@@ -825,11 +825,9 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.label(text='Color:')
 
-        if self.type == 'VCOL':
-            if is_greater_than_320():
-                col.label(text='Domain:')
-                col.label(text='Data Type:')
-            col.label(text='')
+        if self.type == 'VCOL' and is_greater_than_320():
+            col.label(text='Domain:')
+            col.label(text='Data Type:')
 
         #if self.type == 'IMAGE':
         #    col.label(text='')
@@ -845,6 +843,9 @@ class YNewLayer(bpy.types.Operator):
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
             col.label(text='Vector:')
+
+        if self.type in {'VCOL', 'IMAGE'}:
+            col.label(text='')
 
         if self.type == 'IMAGE':
             col.label(text='')
@@ -886,13 +887,11 @@ class YNewLayer(bpy.types.Operator):
         if self.type == 'COLOR':
             col.prop(self, 'solid_color', text='')
 
-        if self.type == 'VCOL':
-            if is_greater_than_320():
-                crow = col.row(align=True)
-                crow.prop(self, 'vcol_domain', expand=True)
-                crow = col.row(align=True)
-                crow.prop(self, 'vcol_data_type', expand=True)
-            col.prop(self, 'use_divider_alpha')
+        if self.type == 'VCOL' and is_greater_than_320():
+            crow = col.row(align=True)
+            crow.prop(self, 'vcol_domain', expand=True)
+            crow = col.row(align=True)
+            crow.prop(self, 'vcol_data_type', expand=True)
 
         if self.type == 'HEMI':
             col.prop(self, 'hemi_space', text='')
@@ -909,6 +908,9 @@ class YNewLayer(bpy.types.Operator):
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
                 #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        if self.type in {'VCOL', 'IMAGE'}:
+            col.prop(self, 'use_divider_alpha')
 
         if self.type == 'IMAGE':
             if UDIM.is_udim_supported():

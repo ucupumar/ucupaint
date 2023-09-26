@@ -261,7 +261,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     check_layer_bump_process(layer, tree)
 
     # Check the need of divider alpha
-    check_layer_divider_alpha(layer, tree)
+    check_layer_divider_alpha(layer)
 
     #print(specific_ch.enable)
 

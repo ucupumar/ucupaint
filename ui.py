@@ -1117,6 +1117,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 bbox.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
             elif image:
                 draw_image_props(context, source, bbox, layer, show_flip_y=True)
+                if hasattr(layer, 'divide_rgb_by_alpha'):
+                    bbox.prop(layer, 'divide_rgb_by_alpha')
             elif layer.type == 'COLOR':
                 draw_solid_color_props(layer, source, bbox)
             elif layer.type == 'VCOL':

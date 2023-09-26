@@ -27,6 +27,7 @@ def check_layer_divider_alpha(layer, tree=None):
         divider_alpha = check_new_mix_node(tree, layer, 'divider_alpha', 'Spread Fix')
         divider_alpha.blend_type = 'DIVIDE'
         divider_alpha.inputs[0].default_value = 1.0
+        set_mix_clamp(divider_alpha, True)
     else:
         remove_node(tree, layer, 'divider_alpha')
 
