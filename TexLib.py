@@ -1,5 +1,6 @@
 from bpy.types import Context
 from .common import * 
+from .preferences import * 
 from . import lib, Layer
 from bpy.props import *
 from bpy.types import PropertyGroup, Panel, Operator, UIList, Scene
@@ -92,11 +93,8 @@ def change_mode_asset(self, context):
                     break
 
         load_material_items(self.material_items)
-        # download_previews(False, self.material_items)
         load_previews()
         load_material_items(self.material_items)
-
-        # print(last_search)
 
 
 class TexLibProps(PropertyGroup):
@@ -254,8 +252,9 @@ class TexLibBrowser(Panel):
         sel_index = texlib.material_index
 
         layout.prop(texlib, "mode_asset", expand=True)
+        local_files_mode = texlib.mode_asset == "DOWNLOADED"
 
-        if texlib.mode_asset == "ONLINE":
+        if not local_files_mode:
             layout.prop(texlib, "input_search")
             searching_dwn = texlib.searching_download
         
@@ -295,15 +294,17 @@ class TexLibBrowser(Panel):
                 layout.label(text="Attributes:")
                 for d in downloads:
                     dwn = downloads[d]
-                    ui_attr = layout.split(factor=0.7)
                     # row.alignment = "LEFT"
-
                     ukuran = round(dwn["size"] / 1000000,2)
-
                     lokasi = dwn["location"]
                     
                     check_exist:bool = _texture_exist(mat_id, lokasi)
-                    
+
+                    # if local_files_mode and not check_exist:
+                    #     continue
+
+                    ui_attr = layout.split(factor=0.7)
+
                     row = ui_attr.row()
 
                     row.label(text=d, )
@@ -326,7 +327,7 @@ class TexLibBrowser(Panel):
                             op:TexLibAddToUcupaint = btn_row.operator("texlib.add_to_ucupaint", icon="ADD")
                             op.attribute = d
                             op.id = sel_mat.name
-                        
+                        # if not local_files_mode:
                         op:TexLibDownload = btn_row.operator("texlib.download", icon="IMPORT")
                         op.attribute = d
                         op.id = sel_mat.name
@@ -724,8 +725,8 @@ def _get_preview_dir() -> str:
     return retval
 
 def _get_lib_dir() -> str:
-    file_path = get_addon_filepath()
-    retval = os.path.join(file_path, "library") + os.sep
+    ypup:YPaintPreferences = get_user_preferences()
+    retval = ypup.library_location
     if not os.path.exists(retval):
         os.mkdir(retval)
     return retval

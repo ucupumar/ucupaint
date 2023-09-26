@@ -97,6 +97,12 @@ class YPaintPreferences(AddonPreferences):
         min=0,
         max=59)
 
+    library_location : StringProperty(
+            name = 'Texture library path',
+            description = 'Location of texture library',
+            subtype='DIR_PATH',
+            )
+
     def draw(self, context):
         self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')
@@ -109,6 +115,29 @@ class YPaintPreferences(AddonPreferences):
             self.layout.prop(self, 'eevee_next_displacement')
         self.layout.prop(self, 'developer_mode')
         self.layout.prop(self, 'parallax_without_baked')
+        addon_updater_ops.update_settings_ui(self, context)
+        self.layout.prop(self, 'library_location')
+        if not self.library_location.strip():
+            self.layout.label(text = "Please select the folder of textures library", icon = 'INFO')
+
+@persistent
+def setup_library(scene):
+    bpy.app.handlers.load_post.remove(setup_library)
+    ypup:YPaintPreferences = get_user_preferences()
+   
+    if not ypup.library_location:
+        libraries = bpy.context.preferences.filepaths.asset_libraries
+        if len(libraries):
+            for lib in libraries:
+                if os.path.exists(lib.path):
+                    ypup.library_location = lib.path
+                    break
+    if not ypup.library_location:
+        home = os.path.expanduser("~")
+        new_path = os.path.join(home, "ucupaint-library") + os.sep 
+        if not os.path.exists(new_path):
+            os.mkdir(new_path)
+        ypup.library_location = new_path
 
         if self.developer_mode:
             box = self.layout.box()
@@ -166,8 +195,8 @@ def refresh_float_image_hack(scene):
 
 def register():
     bpy.utils.register_class(YPaintPreferences)
-
     bpy.app.handlers.save_pre.append(auto_save_images)
+    bpy.app.handlers.load_post.append(setup_library)
     bpy.app.handlers.save_post.append(refresh_float_image_hack)
 
 def unregister():
