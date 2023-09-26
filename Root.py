@@ -548,8 +548,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         if not main_bsdf:
             if self.type == 'BSDF_PRINCIPLED':
                 main_bsdf = nodes.new('ShaderNodeBsdfPrincipled')
-                main_bsdf.inputs[2].default_value = (1.0, 0.2, 0.1) # Use eevee default value
-                main_bsdf.inputs[3].default_value = (0.8, 0.8, 0.8, 1.0) # Use eevee default value
+                if 'Subsurface Radius' in main_bsdf.inputs:
+                    main_bsdf.inputs['Subsurface Radius'].default_value = (1.0, 0.2, 0.1) # Use eevee default value
+                if 'Subsurface Color' in main_bsdf.inputs:
+                    main_bsdf.inputs['Subsurface Color'].default_value = (0.8, 0.8, 0.8, 1.0) # Use eevee default value
             elif self.type == 'BSDF_DIFFUSE':
                 main_bsdf = nodes.new('ShaderNodeBsdfDiffuse')
             elif self.type == 'EMISSION':
