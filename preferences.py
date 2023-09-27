@@ -125,7 +125,7 @@ def setup_library(scene):
     bpy.app.handlers.load_post.remove(setup_library)
     ypup:YPaintPreferences = get_user_preferences()
    
-    if not ypup.library_location:
+    if is_greater_than_300() and not ypup.library_location:
         libraries = bpy.context.preferences.filepaths.asset_libraries
         if len(libraries):
             for lib in libraries:
