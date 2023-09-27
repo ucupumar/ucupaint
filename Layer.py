@@ -699,7 +699,7 @@ class YNewLayer(bpy.types.Operator):
             self.add_mask = False
 
         # Set spread fix by default on vertex color layer
-        self.use_divider_alpha = True if self.type in {'VCOL', 'IMAGE'} else False
+        self.use_divider_alpha = True if self.type in {'VCOL'} else False
 
         # Use white color mask as default for group
         if self.type == 'GROUP':

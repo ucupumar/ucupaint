@@ -1424,13 +1424,13 @@ def reconnect_source_internal_nodes(layer):
         alpha = solid.outputs[0]
     else: alpha = source.outputs[1]
 
-    if linear:
-        rgb = create_link(tree, rgb, linear.inputs[0])[0]
-
     if divider_alpha: 
         mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
         rgb = create_link(tree, rgb, divider_alpha.inputs[mixcol0])[mixout]
         create_link(tree, alpha, divider_alpha.inputs[mixcol1])
+
+    if linear:
+        rgb = create_link(tree, rgb, linear.inputs[0])[0]
 
     if flip_y:
         rgb = create_link(tree, rgb, flip_y.inputs[0])[0]
@@ -1635,11 +1635,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     # RGB continued
     if not source_group:
-        if linear: start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
         if divider_alpha: 
             mixcol0, mixcol1, mixout = get_mix_color_indices(divider_alpha)
             start_rgb = create_link(tree, start_rgb, divider_alpha.inputs[mixcol0])[mixout]
             create_link(tree, start_alpha, divider_alpha.inputs[mixcol1])
+        if linear: start_rgb = create_link(tree, start_rgb, linear.inputs[0])[0]
         if flip_y: start_rgb = create_link(tree, start_rgb, flip_y.inputs[0])[0]
 
     if source_group and layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
@@ -2065,7 +2065,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         blend = nodes.get(ch.blend)
         bcol0, bcol1, bout = get_mix_color_indices(blend)
 
-        if ch.source_group == '' and (root_ch.type != 'NORMAL' or  ch.normal_map_type != 'NORMAL_MAP'):
+        if ch.source_group == '' and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
             ch_linear = nodes.get(ch.linear)
             if ch_linear:
                 create_link(tree, rgb, ch_linear.inputs[0])

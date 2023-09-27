@@ -441,10 +441,10 @@ def rearrange_source_tree_nodes(layer):
     if check_set_node_loc(source_tree, layer.source, loc):
         loc.x += 280
 
-    if check_set_node_loc(source_tree, layer.linear, loc):
+    if check_set_node_loc(source_tree, layer.divider_alpha, loc):
         loc.x += 200
 
-    if check_set_node_loc(source_tree, layer.divider_alpha, loc):
+    if check_set_node_loc(source_tree, layer.linear, loc):
         loc.x += 200
 
     if check_set_node_loc(source_tree, layer.flip_y, loc):
@@ -628,11 +628,11 @@ def rearrange_layer_nodes(layer, tree=None):
         if check_set_node_loc(tree, layer.flip_y, loc, hide=False):
             loc.y -= 140
 
-        if check_set_node_loc(tree, layer.divider_alpha, loc, hide=False):
-            loc.y -= 180
-
         if check_set_node_loc(tree, layer.linear, loc, hide=False):
             loc.y -= 140
+
+        if check_set_node_loc(tree, layer.divider_alpha, loc, hide=False):
+            loc.y -= 250
 
         if check_set_node_loc(tree, layer.source, loc, hide=False):
             if layer.type == 'BRICK':
@@ -650,7 +650,7 @@ def rearrange_layer_nodes(layer, tree=None):
             elif layer.type == 'VORONOI':
                 loc.y -= 190
             else:
-                loc.y -= 260
+                loc.y -= 320
 
     if check_set_node_loc(tree, layer.source_n, loc, hide=True):
         loc.y -= 40
