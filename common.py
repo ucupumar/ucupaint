@@ -433,6 +433,8 @@ def get_alpha_suffix():
     bl_info = sys.modules[get_addon_name()].bl_info
     if 'Alpha' in bl_info['warning']:
         return ' Alpha'
+    elif 'Beta' in bl_info['warning']:
+        return ' Beta'
     return ''
 
 def get_current_version_str():
@@ -4340,12 +4342,16 @@ def is_colorid_vcol_still_being_used(objs):
 
     return False
 
-def is_image_source_srgb(image, source):
+def is_image_source_srgb(image, source, root_ch=None):
     if not is_greater_than_280():
         return source.color_space == 'COLOR'
 
     # HACK: Sometimes just loaded UDIM images has empty colorspace settings name
     if image.source == 'TILED' and image.colorspace_settings.name == '':
+        return True
+
+    # Float images is behaving like srgb for some reason in blender
+    if root_ch and root_ch.colorspace == 'SRGB' and image.is_float and image.colorspace_settings.name != 'sRGB':
         return True
 
     return image.colorspace_settings.name == 'sRGB'
@@ -4354,7 +4360,8 @@ def any_linear_images_problem(yp):
     for layer in yp.layers:
         layer_tree = get_tree(layer)
 
-        for ch in layer.channels:
+        for i, ch in enumerate(layer.channels):
+            root_ch = yp.channels[i]
             if ch.override_type == 'IMAGE':
                 source_tree = get_channel_source_tree(ch)
                 linear = source_tree.nodes.get(ch.linear)
@@ -4364,8 +4371,8 @@ def any_linear_images_problem(yp):
                 image = source.image
                 if not image: continue
                 if (
-                    (is_image_source_srgb(image, source) and not linear) or
-                    (not is_image_source_srgb(image, source) and linear)
+                    (is_image_source_srgb(image, source, root_ch) and not linear) or
+                    (not is_image_source_srgb(image, source, root_ch) and linear)
                     ):
                     return True
 

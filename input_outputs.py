@@ -286,6 +286,9 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     #for mask in layer.masks:
     #    check_mask_image_linear_node(mask)
 
+    # Linear nodes
+    check_yp_linear_nodes(yp, layer)
+
 def check_layer_tree_ios(layer, tree=None):
 
     yp = layer.id_data.yp

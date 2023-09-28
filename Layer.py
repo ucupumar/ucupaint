@@ -217,6 +217,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     layer.texcoord_type = texcoord_type
 
     # Set layer spread fix
+    #if image and image.is_float:
+    #    layer.divide_rgb_by_alpha = True
+    #else: 
     layer.divide_rgb_by_alpha = use_divider_alpha
 
     # Add channels to current layer
@@ -366,9 +369,6 @@ class YUseLinearColorSpace(bpy.types.Operator):
         return hasattr(context, 'layer') #and hasattr(context, 'channel') and hasattr(context, 'image') and context.image
 
     def execute(self, context):
-        #set_uv_neighbor_resolution(context.layer)
-        #print(context.image.name)
-        #context.image.colorspace_settings.name = 'Non-Color'
         yp = context.layer.id_data.yp
         check_yp_linear_nodes(yp)
 
@@ -844,7 +844,7 @@ class YNewLayer(bpy.types.Operator):
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
             col.label(text='Vector:')
 
-        if self.type in {'VCOL', 'IMAGE'}:
+        if self.type in {'VCOL'}:
             col.label(text='')
 
         if self.type == 'IMAGE':
@@ -909,7 +909,7 @@ class YNewLayer(bpy.types.Operator):
                 #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-        if self.type in {'VCOL', 'IMAGE'}:
+        if self.type in {'VCOL'}:
             col.prop(self, 'use_divider_alpha')
 
         if self.type == 'IMAGE':
@@ -3114,15 +3114,10 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
             root_ch.colorspace = root_ch.colorspace
 
     # Check childrens which need rearrange
-    #for i in child_ids:
-        #lay = yp.layers[i]
     for lay in yp.layers:
         check_all_layer_channel_io_and_nodes(lay)
         rearrange_layer_nodes(lay)
         reconnect_layer_nodes(lay)
-
-    #rearrange_layer_nodes(layer)
-    #reconnect_layer_nodes(layer)
 
     if layer.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
         rearrange_yp_nodes(layer.id_data)
@@ -4039,41 +4034,6 @@ def update_channel_enable(self, context):
         ch.active_edit = False
         ch.active_edit_1 = False
 
-    #print(ch.enable)
-
-    #return
-
-    #mute = not layer.enable or not ch.enable
-
-    #blend = tree.nodes.get(ch.blend)
-    #if blend:
-    #    if yp.disable_quick_toggle:
-    #        blend.mute = mute
-    #    else: blend.mute = False
-
-    #if root_ch.type == 'NORMAL':
-    #    height_blend = tree.nodes.get(ch.height_blend)
-    #    if height_blend:
-    #        if yp.disable_quick_toggle:
-    #            height_blend.mute = mute
-    #        else: height_blend.mute = False
-
-    #    for d in neighbor_directions:
-    #        hb = tree.nodes.get(getattr(ch, 'height_blend_' + d))
-    #        if hb:
-    #            if yp.disable_quick_toggle:
-    #                hb.mute = mute
-    #            else: hb.mute = False
-
-    #update_channel_intensity_value(ch, context)
-
-    #if root_ch.type == 'NORMAL':
-    #    transition.check_transition_bump_nodes(layer, tree, ch)
-
-        #need_reconnect = check_extra_alpha(layer)
-        #if need_reconnect:
-        #    pass
-
     print('INFO: Channel', root_ch.name, ' of ' + layer.name + ' is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
@@ -4431,8 +4391,6 @@ def update_layer_enable(self, context):
 
     #group_trash_update(yp)
 
-    #for ch in layer.channels:
-    #    update_channel_enable(ch, context)
     height_root_ch = get_root_height_channel(yp)
     if height_root_ch:
         update_displacement_height_ratio(height_root_ch)
@@ -5058,7 +5016,7 @@ class YLayer(bpy.types.PropertyGroup):
 
     divide_rgb_by_alpha : BoolProperty(
             name = 'Spread Fix',
-            description = "Spread fix will divide RGB value by its alpha, this can be useful for some source, like vertex color",
+            description = "Spread fix will divide RGB value by its alpha\nThis can be useful remove dark outline on painted image/vertex color\nWARNING: This is a hack solution so the result might not looks right",
             default = False,
             update=update_divide_rgb_by_alpha)
 
