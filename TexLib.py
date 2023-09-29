@@ -62,40 +62,26 @@ def update_input_search(self, context):
 def change_mode_asset(self, context):
     if not len(assets_lib):
         read_asset_info()
-
-    last_search.clear()
-    self.input_search = ""
-    self.material_items.clear()
+        load_previews()
 
     if self.mode_asset == "ONLINE":
         pass
     else:
-        if THREAD_SEARCHING in threads:
-            thread_search = threads[THREAD_SEARCHING]
-            thread_search.cancel = True
-
-            searching_dwn = self.searching_download
-            searching_dwn.alive = False
-        
         textures_dir = _get_textures_dir()
         tex_lis = os.listdir(textures_dir)
 
+        _offline_files = {}
         for tx in tex_lis:
             tx_dir = os.path.join(textures_dir, tx)
-            # print(tx)
             attr_lis = os.listdir(tx_dir)
 
             for att in attr_lis:
                 attr_dir = os.path.join(tx_dir, att)
-                # print("--", att)
                 if _texture_exist(tx, attr_dir):
-                    last_search[tx] = assets_lib[tx] 
-                    break
+                    _offline_files[tx] = assets_lib[tx] 
+                    break       
 
-        load_material_items(self.material_items)
-        load_previews()
-        load_material_items(self.material_items)
-
+        load_material_items(self.downloaded_material_items, _offline_files)
 
 class TexLibProps(PropertyGroup):
     page: IntProperty(name="page", default= 0)
@@ -103,6 +89,8 @@ class TexLibProps(PropertyGroup):
     input_last:StringProperty()
     material_items:CollectionProperty(type= MaterialItem)
     material_index:IntProperty(default=0, name="Material index")
+    downloaded_material_items:CollectionProperty(type= MaterialItem)
+    downloaded_material_index:IntProperty(default=0, name="Material index")
 
     mode_asset:EnumProperty(
             items =  (('ONLINE', 'Online', ''), ('DOWNLOADED', 'Downloaded', '')),
@@ -161,25 +149,18 @@ class TexLibCancelDownload(Operator):
     id:StringProperty()
 
     def execute(self, context:bpy.context):
-        print("cancel", self.id, "| attr",self.attribute)
-
         thread_id = _get_thread_id(self.id, self.attribute)
         thread = _get_thread(thread_id)
 
         if thread == None:
-            print("cancel false", thread_id)
             return {'CANCELLED'}
-        
-        print("cancel true", thread_id)
         thread.cancel = True
-
 
         texlib:TexLibProps = context.scene.texlib
         dwn:DownloadQueue
         for dwn in texlib.downloads:
             if dwn.asset_id ==  self.id and dwn.asset_attribute == self.attribute:
                 dwn.alive = False
-                print("cancelling >> "+dwn.asset_id)
                 return {'FINISHED'}
             
         return {'CANCELLED'}
@@ -211,8 +192,6 @@ class TexLibDownload(Operator):
         link = attr_dwn["link"]
         directory = attr_dwn["location"]
         file_name = os.path.join(directory, attr_dwn["fileName"])
-
-        print("setar =",self.attribute, "selected = "+self.id, "lib =", link)
 
         if not os.path.exists(directory):
             # print("make dir "+directory)
@@ -249,12 +228,17 @@ class TexLibBrowser(Panel):
         layout = self.layout
         scene = context.scene
         texlib:TexLibProps = scene.texlib
-        sel_index = texlib.material_index
 
         layout.prop(texlib, "mode_asset", expand=True)
         local_files_mode = texlib.mode_asset == "DOWNLOADED"
 
-        if not local_files_mode:
+        if local_files_mode:
+            sel_index = texlib.downloaded_material_index
+            my_list = texlib.downloaded_material_items
+        else:
+            sel_index = texlib.material_index
+            my_list = texlib.material_items
+
             layout.prop(texlib, "input_search")
             searching_dwn = texlib.searching_download
         
@@ -271,13 +255,17 @@ class TexLibBrowser(Panel):
                         # row_search.label(text="Retrieving thumbnails..."+str(prog)+"%")
                     row_search.operator("texlib.cancel_search", icon="CANCEL")
                     
-                    
-        if len(texlib.material_items):
-            my_list = texlib.material_items
+        # print("list", local_files_mode, ":",sel_index,"/",len(my_list))
+        # print("list", local_files_mode, ":",texlib.material_index,"/",len(texlib.material_items)," | ", texlib.downloaded_material_index,"/",len(texlib.downloaded_material_items))
+        if len(my_list):
 
             layout.separator()
             layout.label(text="Textures:")
-            layout.template_list("TEXLIB_UL_Material", "material_list", texlib, "material_items", texlib, "material_index")
+            if local_files_mode:
+                layout.template_list("TEXLIB_UL_Material", "material_list", texlib, "downloaded_material_items", texlib, "downloaded_material_index")
+            else:
+                layout.template_list("TEXLIB_UL_Material", "material_list", texlib, "material_items", texlib, "material_index")
+
             if sel_index < len(my_list):
                 sel_mat:MaterialItem = my_list[sel_index]
                 mat_id:str = sel_mat.name
@@ -380,11 +368,11 @@ class TexLibCancelSearch(Operator):
 
         return{'FINISHED'}
 
-def load_material_items(material_items):
+def load_material_items(material_items, list_tex):
     material_items.clear()
-    for i in last_search:
+    for i in list_tex:
         new_item:MaterialItem = material_items.add()
-        item_id =  last_search[i]["id"]
+        item_id =  list_tex[i]["id"]
         new_item.name = item_id
         if hasattr(previews_collection, "preview_items") and item_id in previews_collection.preview_items:
             new_item.thumb = previews_collection.preview_items[item_id][3]
@@ -413,15 +401,14 @@ def searching_material(keyword:str, context:Context):
 
     retrieve_assets_info(keyword)
     thread_search.progress = 10
-    load_material_items(txlib.material_items)
+    load_material_items(txlib.material_items, last_search)
 
     download_previews(False, txlib.material_items)
     thread_search.progress = 90
     load_previews()
     thread_search.progress = 95
 
-
-    load_material_items(txlib.material_items)
+    load_material_items(txlib.material_items, last_search)
     thread_search.progress = 100
 
 def load_previews():
@@ -434,7 +421,11 @@ def load_previews():
     for index, item in enumerate(files):
         file = dir_name + item
         my_id = item.split(".")[0]
-        # print(">>item",item,"file",file)
+        sizefile = os.path.getsize(file)
+        # print(">>item",item,"file",file,"size", sizefile)
+        if sizefile == 0: # detect corrupt image
+            os.remove(file)
+            continue
         loaded = previews_collection.load(item, file, 'IMAGE', force_reload=True)
         preview_items[my_id] = (my_id, item, "", loaded.icon_id, index)
 
@@ -576,8 +567,6 @@ def download_previews(overwrite_existing:bool, material_items):
     directory = _get_preview_dir()
     if not os.path.exists(directory):
         os.mkdir(directory)
-    print("download to ",directory)
-    # print("asset",assets_lib)
     thread_search = threads[THREAD_SEARCHING]
     
     progress_initial = thread_search.progress
@@ -612,7 +601,7 @@ def download_previews(overwrite_existing:bool, material_items):
             except Exception as e:
                 print('Error #2 while downloading', link, ':', e)
         prog = (index + 1) / item_count
-        print("url = ",prog, ' | ',link,' | ', file_name)
+        # print("url = ",prog, ' | ',link,' | ', file_name)
         # refresh list
         load_per_material(file_name, material_items[index])
 
