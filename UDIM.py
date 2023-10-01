@@ -67,7 +67,9 @@ def copy_udim_pixels(src, dest):
 
 def get_tile_numbers(objs, uv_name):
 
-    if not is_udim_supported(): return [1001]
+    tiles = [1001]
+
+    if not is_udim_supported(): return tiles
 
     T = time.time()
 
@@ -106,7 +108,6 @@ def get_tile_numbers(objs, uv_name):
     arr = numpy.unique(arr, axis=0)
     
     # Get the udim representation
-    tiles = []
     for i in arr:
 
         # UV value can only be within 0 .. 10 range
