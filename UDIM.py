@@ -194,9 +194,11 @@ def remove_udim_files_from_disk(image, directory, remove_dir=False):
 def set_udim_filepath(image, filename, directory):
     filepath = os.path.join(directory, filename + '.<UDIM>.png')
     if directory != tempfile.gettempdir():
-        try: image.filepath = bpy.path.relpath(filepath)
-        except: image.filepath = filepath
-    else: image.filepath = filepath
+        try: filepath = bpy.path.relpath(filepath)
+        except: pass
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+    image.filepath = filepath
 
 def is_image_filepath_unique(image):
     for img in bpy.data.images:
