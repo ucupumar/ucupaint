@@ -7,6 +7,7 @@ bl_info = {
     "warning": "Alpha Version",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
     "wiki_url": "https://ucupumar.github.io/ucupaint-wiki/",
+    "doc_url": "https://ucupumar.github.io/ucupaint-wiki/",
     "category": "Node",
 }
 
