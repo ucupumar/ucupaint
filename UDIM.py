@@ -197,8 +197,8 @@ def set_udim_filepath(image, filename, directory):
     if directory != tempfile.gettempdir():
         try: filepath = bpy.path.relpath(filepath)
         except: pass
-    if not os.path.exists(directory):
-        os.makedirs(directory)
+    #if not os.path.exists(directory):
+    #    os.makedirs(directory)
     image.filepath = filepath
 
 def is_image_filepath_unique(image):
