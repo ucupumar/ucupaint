@@ -1471,16 +1471,16 @@ def create_info_nodes(tree):
         info.width = 250.0
 
     info.use_custom_color = True
-    info.color = (1.0, 1.0, 1.0)
-    info.height = 30.0
+    info.color = (0.5, 0.5, 0.5)
+    info.height = 60.0
     infos.append(info)
 
     info = nodes.new('NodeFrame')
     info.label = 'Get the addon from github.com/ucupumar/ucupaint'
     info.use_custom_color = True
-    info.color = (1.0, 1.0, 1.0)
-    info.width = 620.0
-    info.height = 30.0
+    info.color = (0.5, 0.5, 0.5)
+    info.width = 520.0
+    info.height = 60.0
     infos.append(info)
 
     info = nodes.new('NodeFrame')
@@ -1488,7 +1488,7 @@ def create_info_nodes(tree):
     info.use_custom_color = True
     info.color = (1.0, 0.5, 0.5)
     info.width = 450.0
-    info.height = 30.0
+    info.height = 60.0
     infos.append(info)
 
     info = nodes.new('NodeFrame')
@@ -1497,7 +1497,7 @@ def create_info_nodes(tree):
     info.use_custom_color = True
     info.color = (1.0, 0.5, 0.5)
     info.width = 580.0
-    info.height = 30.0
+    info.height = 60.0
     infos.append(info)
 
     if tree_type in {'LAYER', 'ROOT'}:
@@ -1507,7 +1507,7 @@ def create_info_nodes(tree):
         for info in reversed(infos):
             info.name = INFO_PREFIX + info.name
 
-            loc.y += 40
+            loc.y += 80
             info.location = loc
     else:
 
