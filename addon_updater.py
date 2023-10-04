@@ -41,6 +41,7 @@ from datetime import datetime, timedelta
 # Blender imports, used in limited cases.
 import bpy
 import addon_utils
+from .common import *
 
 # -----------------------------------------------------------------------------
 # The main class
@@ -105,6 +106,7 @@ class SingletonUpdater:
         self._check_thread = None
         self._select_link = None
         self.skip_tag = None
+        self.legacy_blender = is_created_using_279() # not is_greater_than_281()
 
         # Get data from the running blender module (addon).
         self._addon = __package__.lower()
@@ -599,6 +601,7 @@ class SingletonUpdater:
         self.print_verbose("Getting tags from server")
 
         # get all tags, internet call
+        # print("url:", request)
         all_tags = self._engine.parse_tags(self.get_api(request), self)
         if all_tags is not None:
             self._prefiltered_tag_count = len(all_tags)
@@ -618,12 +621,16 @@ class SingletonUpdater:
             temp_branches = self._include_branch_list.copy()
             temp_branches.reverse()
             for branch in temp_branches:
-                request = self.form_branch_url(branch)
-                include = {
-                    "name": branch.title(),
-                    "zipball_url": request
-                }
-                self._tags = [include] + self._tags  # append to front
+                legacy_branch = "279" in branch
+                if self.legacy_blender == legacy_branch:
+                    request = self.form_branch_url(branch)
+                    # print("req", request)
+                    include = {
+                        "name": branch.title(),
+                        "zipball_url": request
+                    }
+                    self._tags = [include] + self._tags  # append to front
+                    break
 
         if self._tags is None:
             # some error occurred
@@ -1355,6 +1362,7 @@ class SingletonUpdater:
             link = self.form_branch_url(tg)
             self._update_version = name  # this will break things
             self._update_link = link
+        # print("download url", self._update_link)
         if not tg:
             raise ValueError("Version tag not found: " + name)
 
@@ -1374,7 +1382,9 @@ class SingletonUpdater:
         if revert_tag is not None:
             self.set_tag(revert_tag)
             self._update_ready = True
-
+        # print("self._update_link", self._update_link)
+        # if True:
+        #     return 0
         # clear the errors if any
         self._error = None
         self._error_msg = None
