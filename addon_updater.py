@@ -106,7 +106,7 @@ class SingletonUpdater:
         self._check_thread = None
         self._select_link = None
         self.skip_tag = None
-        self.legacy_blender = is_created_using_279() # not is_greater_than_281()
+        self.legacy_blender = bpy.app.version <= (2, 7, 9)  # not is_greater_than_281()
 
         # Get data from the running blender module (addon).
         self._addon = __package__.lower()
