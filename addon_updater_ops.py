@@ -330,7 +330,7 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
         ret = []
         i = 0
         for tag in updater.tags:
-            ret.append((tag, tag, "Select to install " + tag))
+            ret.append(tag)
             i += 1
         return ret
 

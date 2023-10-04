@@ -41,7 +41,7 @@ from datetime import datetime, timedelta
 # Blender imports, used in limited cases.
 import bpy
 import addon_utils
-from .common import *
+# from .common import *
 
 # -----------------------------------------------------------------------------
 # The main class
@@ -106,7 +106,8 @@ class SingletonUpdater:
         self._check_thread = None
         self._select_link = None
         self.skip_tag = None
-        self.legacy_blender = bpy.app.version <= (2, 7, 9)  # not is_greater_than_281()
+        self.legacy_blender = bpy.app.version <= (2, 7, 9) 
+        # self.legacy_blender = not is_greater_than_281() 
 
         # Get data from the running blender module (addon).
         self._addon = __package__.lower()
@@ -422,7 +423,12 @@ class SingletonUpdater:
             return list()
         tag_names = list()
         for tag in self._tags:
-            tag_names.append(tag["name"])
+            nm = tag["name"]
+            if "label" in tag.keys():
+                label =  tag["label"]
+            else:
+                label = nm
+            tag_names.append((nm, label, "Select to install " + nm))
         return tag_names
 
     @property
@@ -627,6 +633,7 @@ class SingletonUpdater:
                     # print("req", request)
                     include = {
                         "name": branch.title(),
+                        "label": "Master (2.79)" if legacy_branch else branch.title(),
                         "zipball_url": request
                     }
                     self._tags = [include] + self._tags  # append to front
