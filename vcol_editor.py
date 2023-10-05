@@ -242,30 +242,30 @@ class YVcolFillFaceCustom(bpy.types.Operator):
                 color = (color[0], color[1], color[2], self.color[3])
 
             # HACK: Sometimes color assigned are different so read the assigned color and write it back to mask color id
-            vcol.data[loop_indices[0]].color = color
-            if any([color[i] for i in range(3) if color[i] != vcol.data[loop_indices[0]].color[i]]) and hasattr(context, 'mask'):
-                written_col = vcol.data[loop_indices[0]].color
-                color = (written_col[0], written_col[1], written_col[2])
-                            
-                context.mask.color_id = Color(color)
-                if not is_greater_than_320():
-                    context.mask.color_id = srgb_to_linear(context.mask.color_id)
-                if is_greater_than_280():
-                    color = (written_col[0], written_col[1], written_col[2], written_col[3])
+            if len(loop_indices) > 0:
+                vcol.data[loop_indices[0]].color = color
+                if any([color[i] for i in range(3) if color[i] != vcol.data[loop_indices[0]].color[i]]) and hasattr(context, 'mask'):
+                    written_col = vcol.data[loop_indices[0]].color
+                    color = (written_col[0], written_col[1], written_col[2])
+                                
+                    context.mask.color_id = Color(color)
+                    if not is_greater_than_320():
+                        context.mask.color_id = srgb_to_linear(context.mask.color_id)
+                    if is_greater_than_280():
+                        color = (written_col[0], written_col[1], written_col[2], written_col[3])
 
-            # Blender 2.80+ has alpha channel on vertex color
-            dimension = 4 if is_greater_than_280() else 3
+                # Blender 2.80+ has alpha channel on vertex color
+                dimension = 4 if is_greater_than_280() else 3
 
-            if use_numpy:
-                if len(loop_indices) > 0:
+                if use_numpy:
                     nvcol = numpy.zeros(len(vcol.data) * dimension, dtype=numpy.float32)
                     vcol.data.foreach_get('color', nvcol)
                     nvcol2D = nvcol.reshape(-1, dimension)
-                    nvcol2D[loop_indices]= color
+                    nvcol2D[loop_indices]= color    
                     vcol.data.foreach_set('color', nvcol)
-            else :
-                for i, loop_index in enumerate(loop_indices):
-                    vcol.data[loop_index].color = color
+                else :
+                    for i, loop_index in enumerate(loop_indices):
+                        vcol.data[loop_index].color = color
 
             bpy.ops.object.mode_set(mode='EDIT')
 
