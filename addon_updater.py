@@ -627,17 +627,18 @@ class SingletonUpdater:
             temp_branches = self._include_branch_list.copy()
             temp_branches.reverse()
             for branch in temp_branches:
-                legacy_branch = "279" in branch
-                if self.legacy_blender == legacy_branch:
-                    request = self.form_branch_url(branch)
-                    # print("req", request)
-                    include = {
-                        "name": branch.title(),
-                        "label": "Master (2.79)" if legacy_branch else branch.title(),
-                        "zipball_url": request
-                    }
-                    self._tags = [include] + self._tags  # append to front
-                    break
+                # legacy_branch = "279" in branch
+                # if self.legacy_blender == legacy_branch:
+                request = self.form_branch_url(branch)
+                # print("req", request)
+                include = {
+                    "name": branch.title(),
+                    # "label": "Master (2.79)" if legacy_branch else branch.title(),
+                    "label": branch.title(),
+                    "zipball_url": request
+                }
+                self._tags = [include] + self._tags  # append to front
+                    # break
 
         if self._tags is None:
             # some error occurred
