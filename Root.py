@@ -796,11 +796,6 @@ class YNewYPaintNode(bpy.types.Operator):
         return result
 
 def new_channel_items(self, context):
-    #if is_greater_than_280():
-    #    items = [('VALUE', 'Value', '', lib.channel_icon_dict['VALUE'], 0),
-    #             ('RGB', 'RGB', '', lib.channel_icon_dict['RGB'], 1),
-    #             ('NORMAL', 'Normal', '', lib.channel_icon_dict['NORMAL'], 2)]
-    #else:
     items = [('VALUE', 'Value', '', lib.custom_icons[lib.channel_custom_icon_dict['VALUE']].icon_id, 0),
              ('RGB', 'RGB', '', lib.custom_icons[lib.channel_custom_icon_dict['RGB']].icon_id, 1),
              ('NORMAL', 'Normal', '', lib.custom_icons[lib.channel_custom_icon_dict['NORMAL']].icon_id, 2)]
