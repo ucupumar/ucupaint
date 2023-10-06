@@ -1175,7 +1175,7 @@ class SingletonUpdater:
     # -------------------------------------------------------------------------
     # Other non-api functions and setups
     # -------------------------------------------------------------------------
-    def restore_saved_branches(self):
+    def restore_saved_branches(self, dev_build:bool):
         saved_json = self.json
         if "branches" in saved_json.keys():
             self.include_branch_list = saved_json["branches"]
@@ -1189,8 +1189,9 @@ class SingletonUpdater:
                         "zipball_url": request_br
                     }
                     self._tags = [include] + self._tags  # append to front
-            self._update_ready = True
-
+            if dev_build:
+                self._update_ready = dev_build
+                
     def clear_state(self):
         self._update_ready = None
         self._update_link = None
@@ -1503,7 +1504,7 @@ class SingletonUpdater:
         if revert_tag is not None:
             self.set_tag(revert_tag)
             self._update_ready = True
-        # print("self._update_link", self._update_link)
+        print("self._update_link", self._update_link)
         # if True:
         #     return 0
         # clear the errors if any

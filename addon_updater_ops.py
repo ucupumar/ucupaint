@@ -290,10 +290,16 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
         if updater.update_ready:
             # if it fails, offer to open the website instead
             try:
-                res = updater.run_update(force=False,
-                                         callback=post_update_callback,
-                                         clean=self.clean_install)
-
+                settings:YPaintPreferences = get_user_preferences()
+                if settings.development_build:
+                    res = updater.run_update(force=False,
+                                            revert_tag=settings.branches,
+                                            callback=post_update_callback,
+                                            clean=self.clean_install)
+                else:
+                    res = updater.run_update(force=False,
+                                            callback=post_update_callback,
+                                            clean=self.clean_install)
                 # Should return 0, if not something happened.
                 if updater.verbose:
                     if res == 0:
@@ -1403,8 +1409,9 @@ def register(bl_info):
     # Special situation: we just updated the addon, show a popup to tell the
     # user it worked. Could enclosed in try/catch in case other issues arise.
     show_reload_popup()
-    update_development_build(get_user_preferences(), None)
-    updater.restore_saved_branches()
+    pref:YPaintPreferences = get_user_preferences()
+    update_development_build(pref, None)
+    updater.restore_saved_branches(pref.development_build)
 
 
 def unregister():
