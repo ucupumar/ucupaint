@@ -686,28 +686,25 @@ class SingletonUpdater:
     def get_branches(self):
         request = self.form_branch_list_url()
         self.print_verbose("Getting branches from server "+request)
-
-        # get all tags, internet call
         
         all_branches = self.get_api(request)
-        # all_tags = self._engine.parse_tags(self.get_api(request), self)
-        
-        print(all_branches)
         self._include_branch_list.clear()
         self._tags.clear()
 
         for br in all_branches:
             branch = br["name"]
-            request_br = self.form_branch_url(branch)
+            legacy_version = "279" in branch
+            if  legacy_version == self.legacy_blender:
+                request_br = self.form_branch_url(branch)
+                include = {
+                    "name": branch.title(),
+                    "label": branch.title(),
+                    "zipball_url": request_br
+                }
+                self._tags = [include] + self._tags  # append to front
+                self._include_branch_list.append(branch)
+        self._json["branches"] = self._include_branch_list
 
-            include = {
-                "name": branch.title(),
-                "label": branch.title(),
-                "zipball_url": request_br
-            }
-            self._tags = [include] + self._tags  # append to front
-            self._include_branch_list.append(branch)
-                
     def get_raw(self, url):
         """All API calls to base url."""
         request = urllib.request.Request(url)
@@ -1178,6 +1175,22 @@ class SingletonUpdater:
     # -------------------------------------------------------------------------
     # Other non-api functions and setups
     # -------------------------------------------------------------------------
+    def restore_saved_branches(self):
+        saved_json = self.json
+        if "branches" in saved_json.keys():
+            self.include_branch_list = saved_json["branches"]
+            for branch in self.include_branch_list:
+                legacy_version = "279" in branch
+                if  legacy_version == self.legacy_blender:
+                    request_br = self.form_branch_url(branch)
+                    include = {
+                        "name": branch.title(),
+                        "label": branch.title(),
+                        "zipball_url": request_br
+                    }
+                    self._tags = [include] + self._tags  # append to front
+            self._update_ready = True
+
     def clear_state(self):
         self._update_ready = None
         self._update_link = None
@@ -1440,63 +1453,18 @@ class SingletonUpdater:
         self._json["last_check"] = str(datetime.now())
         self.save_updater_json()
 
-        # Can be () or ('master') in addition to branches, and version tag.
-        # new_version = self.version_tuple_from_text(self.tag_latest)
-
-        # if len(self._tags) == 0:
-        #     self._update_ready = False
-        #     self._update_version = None
-        #     self._update_link = None
-        #     return (False, None, None)
-
-        # if not self._include_branches:
-        #     link = self.select_link(self, self._tags[0])
-        # else:
-        #     n = len(self._include_branch_list)
-        #     if len(self._tags) == n:
-        #         # effectively means no tags found on repo
-        #         # so provide the first one as default
-        #         link = self.select_link(self, self._tags[0])
-        #     else:
-        #         link = self.select_link(self, self._tags[n])
-
-        # if new_version == ():
-        #     self._update_ready = False
-        #     self._update_version = None
-        #     self._update_link = None
-        #     return (False, None, None)
-        # elif str(new_version).lower() in self._include_branch_list:
-        #     # Handle situation where master/whichever branch is included
-        #     # however, this code effectively is not triggered now
-        #     # as new_version will only be tag names, not branch names.
-        #     if not self._include_branch_auto_check:
-        #         # Don't offer update as ready, but set the link for the
-        #         # default branch for installing.
-        #         self._update_ready = False
-        #         self._update_version = new_version
-        #         self._update_link = link
-        #         self.save_updater_json()
-        #         return (True, new_version, link)
-        #     else:
-        #         # Bypass releases and look at timestamp of last update from a
-        #         # branch compared to now, see if commit values match or not.
-        #         raise ValueError("include_branch_autocheck: NOT YET DEVELOPED")
-
-        # else:
-        #     # Situation where branches not included.
-        #     if new_version > self._current_version:
-
-        #         self._update_ready = True
-        #         self._update_version = new_version
-        #         self._update_link = link
-        #         self.save_updater_json()
-        #         return (True, new_version, link)
-
-        # If no update, set ready to False from None to show it was checked.
-        self._update_ready = False
-        self._update_version = None
-        self._update_link = None
-        return (False, None, None)
+        link = self.select_link(self, self._tags[0]) # last selected branch
+        
+        # if latest 
+        self._update_ready = True
+        # self._update_version =  # commit hash
+        self._update_link = link
+        self.save_updater_json()
+        # # If no update, set ready to False from None to show it was checked.
+        # self._update_ready = False
+        # self._update_version = None
+        # self._update_link = None
+        # return (False, None, None)
 
     def set_tag(self, name):
         """Assign the tag name and url to update to"""

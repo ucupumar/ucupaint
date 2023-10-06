@@ -1046,7 +1046,7 @@ def update_settings_ui(self, context, element=None):
         # No releases found, but still show the appropriate branch.
         sub_col = row.row(align=True)
         split = sub_col.split(align=True)
-        update_now_txt = "Update directly to {}".format(
+        update_now_txt = "Update to branch {}".format(
             settings.branches)
         split.operator(AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
         split = sub_col.split(align=True)
@@ -1404,6 +1404,7 @@ def register(bl_info):
     # user it worked. Could enclosed in try/catch in case other issues arise.
     show_reload_popup()
     update_development_build(get_user_preferences(), None)
+    updater.restore_saved_branches()
 
 
 def unregister():
