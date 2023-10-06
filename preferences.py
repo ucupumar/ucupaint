@@ -111,7 +111,6 @@ class YPaintPreferences(AddonPreferences):
     branches : EnumProperty(
         name="Target branch to install",
         description="Select the branch to install",
-        default=0,
         items= addon_updater_ops.list_branches # (("master","Master",""),("blender_279","Master (Blender 2.79)",""))
     )
 
