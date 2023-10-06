@@ -217,8 +217,7 @@ class RefreshBranchesNow(bpy.types.Operator):
     bl_idname = updater.addon + ".branches_refresh"
     bl_description = "Refresh development branches"
     def execute(self, context):
-        print("refresh branches")
-        updater._update_ready = True
+        updater.check_for_branches_now(ui_refresh)
         return {'FINISHED'}
 
 
@@ -630,6 +629,13 @@ ran_background_check = False
 def update_development_build(self, context):
     updater.use_releases = not self.development_build
     updater.include_branches = self.development_build
+    updater.clear_state()
+
+def list_branches(self, context):
+    retval = list()
+    for br in updater.include_branch_list:
+        retval.append((br,br,"desc"))
+    return retval 
 
 @persistent
 def updater_run_success_popup_handler(scene):
@@ -1005,6 +1011,7 @@ def update_settings_ui(self, context, element=None):
     check_operator = RefreshBranchesNow.bl_idname if dev_mode else AddonUpdaterCheckNow.bl_idname
     # update_operator = RefreshBranchesNow.bl_idname if dev_mode else AddonUpdaterUpdateNow.bl_idname
     
+    # print("include br", updater.include_branches, " dev_mode", dev_mode)
     # Checking / managing updates.
     row = box.column()
     # col = row#column()
@@ -1040,7 +1047,7 @@ def update_settings_ui(self, context, element=None):
         sub_col = row.row(align=True)
         split = sub_col.split(align=True)
         update_now_txt = "Update directly to {}".format(
-            updater.include_branch_list[0])
+            settings.branches)
         split.operator(AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
         split = sub_col.split(align=True)
         split.operator(check_operator,
@@ -1338,7 +1345,7 @@ def register(bl_info):
     # Note: updater.include_branch_list defaults to ['master'] branch if set to
     # none. Example targeting another multiple branches allowed to pull from:
     # updater.include_branch_list = ['master', 'dev']
-    updater.include_branch_list = ['master', 'blender_279'] # None is the equivalent = ['master']
+    updater.include_branch_list = None # ['master', 'blender_279'] # None is the equivalent = ['master']
 
     # Only allow manual install, thus prompting the user to open
     # the addon's web page to download, specifically: updater.website
@@ -1396,6 +1403,7 @@ def register(bl_info):
     # Special situation: we just updated the addon, show a popup to tell the
     # user it worked. Could enclosed in try/catch in case other issues arise.
     show_reload_popup()
+    update_development_build(get_user_preferences(), None)
 
 
 def unregister():

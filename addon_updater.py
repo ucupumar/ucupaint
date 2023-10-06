@@ -598,6 +598,9 @@ class SingletonUpdater:
 
     def form_tags_url(self):
         return self._engine.form_tags_url(self)
+    
+    def form_branch_list_url(self):
+        return self._engine.form_branch_list_url(self)
 
     def form_branch_url(self, branch):
         return self._engine.form_branch_url(branch, self)
@@ -679,7 +682,32 @@ class SingletonUpdater:
                 self._tag_latest = self._tags[n]  # guaranteed at least len()=n+1
                 self.print_verbose(
                     "Most recent tag found:" + str(self._tags[n]['name']))
+    
+    def get_branches(self):
+        request = self.form_branch_list_url()
+        self.print_verbose("Getting branches from server "+request)
 
+        # get all tags, internet call
+        
+        all_branches = self.get_api(request)
+        # all_tags = self._engine.parse_tags(self.get_api(request), self)
+        
+        print(all_branches)
+        self._include_branch_list.clear()
+        self._tags.clear()
+
+        for br in all_branches:
+            branch = br["name"]
+            request_br = self.form_branch_url(branch)
+
+            include = {
+                "name": branch.title(),
+                "label": branch.title(),
+                "zipball_url": request_br
+            }
+            self._tags = [include] + self._tags  # append to front
+            self._include_branch_list.append(branch)
+                
     def get_raw(self, url):
         """All API calls to base url."""
         request = urllib.request.Request(url)
@@ -1241,6 +1269,20 @@ class SingletonUpdater:
             self._update_ready = None
             self.start_async_check_update(True, callback)
 
+    def check_for_branches_now(self, callback=None):
+        self._error = None
+        self._error_msg = None
+        self.print_verbose(
+            "Check update pressed, first getting current status")
+        if self._async_checking:
+            self.print_verbose("Skipping async check, already started")
+            return  # already running the bg thread
+        elif self._update_ready is None:
+            self.start_async_check_branches(callback)
+        else:
+            self._update_ready = None
+            self.start_async_check_branches(callback)
+
     def check_for_update(self, now=False):
         """Check for update not in a syncrhonous manner.
 
@@ -1346,6 +1388,109 @@ class SingletonUpdater:
                 self._update_link = link
                 self.save_updater_json()
                 return (True, new_version, link)
+
+        # If no update, set ready to False from None to show it was checked.
+        self._update_ready = False
+        self._update_version = None
+        self._update_link = None
+        return (False, None, None)
+    
+    def check_for_branches(self):
+        """Check for update not in a syncrhonous manner.
+
+        This function is not async, will always return in sequential fashion
+        but should have a parent which calls it in another thread.
+        """
+        self.print_verbose("Checking for update function")
+
+        # clear the errors if any
+        self._error = None
+        self._error_msg = None
+
+        # avoid running again in, just return past result if found
+        # but if force now check, then still do it
+        if self._update_ready is not None:
+            return (self._update_ready,
+                    self._update_version,
+                    self._update_link)
+
+        self.set_updater_json()  # self._json
+
+        if not self.past_interval_timestamp():
+            self.print_verbose(
+                "Aborting check for updated, check interval not reached")
+            return (False, None, None)
+
+        # check if using tags or releases
+        # note that if called the first time, this will pull tags from online
+        # if self._fake_install:
+        #     self.print_verbose(
+        #         "fake_install = True, setting fake version as ready")
+        #     self._update_ready = True
+        #     self._update_version = "(999,999,999)"
+        #     self._update_link = "http://127.0.0.1"
+
+        #     return (self._update_ready,
+        #             self._update_version,
+        #             self._update_link)
+
+        # Primary internet call, sets self._tags and self._tag_latest.
+        self.get_branches()
+
+        self._json["last_check"] = str(datetime.now())
+        self.save_updater_json()
+
+        # Can be () or ('master') in addition to branches, and version tag.
+        # new_version = self.version_tuple_from_text(self.tag_latest)
+
+        # if len(self._tags) == 0:
+        #     self._update_ready = False
+        #     self._update_version = None
+        #     self._update_link = None
+        #     return (False, None, None)
+
+        # if not self._include_branches:
+        #     link = self.select_link(self, self._tags[0])
+        # else:
+        #     n = len(self._include_branch_list)
+        #     if len(self._tags) == n:
+        #         # effectively means no tags found on repo
+        #         # so provide the first one as default
+        #         link = self.select_link(self, self._tags[0])
+        #     else:
+        #         link = self.select_link(self, self._tags[n])
+
+        # if new_version == ():
+        #     self._update_ready = False
+        #     self._update_version = None
+        #     self._update_link = None
+        #     return (False, None, None)
+        # elif str(new_version).lower() in self._include_branch_list:
+        #     # Handle situation where master/whichever branch is included
+        #     # however, this code effectively is not triggered now
+        #     # as new_version will only be tag names, not branch names.
+        #     if not self._include_branch_auto_check:
+        #         # Don't offer update as ready, but set the link for the
+        #         # default branch for installing.
+        #         self._update_ready = False
+        #         self._update_version = new_version
+        #         self._update_link = link
+        #         self.save_updater_json()
+        #         return (True, new_version, link)
+        #     else:
+        #         # Bypass releases and look at timestamp of last update from a
+        #         # branch compared to now, see if commit values match or not.
+        #         raise ValueError("include_branch_autocheck: NOT YET DEVELOPED")
+
+        # else:
+        #     # Situation where branches not included.
+        #     if new_version > self._current_version:
+
+        #         self._update_ready = True
+        #         self._update_version = new_version
+        #         self._update_link = link
+        #         self.save_updater_json()
+        #         return (True, new_version, link)
 
         # If no update, set ready to False from None to show it was checked.
         self._update_ready = False
@@ -1641,7 +1786,60 @@ class SingletonUpdater:
         self._error = None
         self._error_msg = None
 
+    def start_async_check_branches(self, callback=None):
+        """Start a background thread which will check for updates"""
+        if self._async_checking:
+            return
+        self.print_verbose("Starting background checking thread")
+        check_thread = threading.Thread(target=self.async_check_branches,
+                                        args=(callback,))
+        check_thread.daemon = True
+        self._check_thread = check_thread
+        check_thread.start()
 
+    def async_check_branches(self, callback=None):
+        """Perform update check, run as target of background thread"""
+        self._async_checking = True
+        self.print_verbose("Checking for update now in background")
+
+        try:
+            self.check_for_branches()
+        except Exception as exception:
+            print("Checking for update error:")
+            print(exception)
+            self.print_trace()
+            if not self._error:
+                self._update_ready = False
+                self._update_version = None
+                self._update_link = None
+                self._error = "Error occurred"
+                self._error_msg = "Encountered an error while checking for updates"
+
+        self._async_checking = False
+        self._check_thread = None
+
+        if callback:
+            self.print_verbose("Finished check update, doing callback")
+            callback(self._update_ready)
+        self.print_verbose("BG thread: Finished check update, no callback")
+
+    def stop_async_check_update(self):
+        """Method to give impression of stopping check for update.
+
+        Currently does nothing but allows user to retry/stop blocking UI from
+        hitting a refresh button. This does not actually stop the thread, as it
+        will complete after the connection timeout regardless. If the thread
+        does complete with a successful response, this will be still displayed
+        on next UI refresh (ie no update, or update available).
+        """
+        if self._check_thread is not None:
+            self.print_verbose("Thread will end in normal course.")
+            # however, "There is no direct kill method on a thread object."
+            # better to let it run its course
+            # self._check_thread.stop()
+        self._async_checking = False
+        self._error = None
+        self._error_msg = None
 # -----------------------------------------------------------------------------
 # Updater Engines
 # -----------------------------------------------------------------------------
