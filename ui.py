@@ -2960,6 +2960,7 @@ def main_draw(self, context):
         col.label(text='Number of RGB Curves: ' + str(num_curves), icon_value=lib.get_icon('modifier'))
 
         #col.operator('node.y_new_image_atlas_segment_test', icon_value=lib.get_icon('image'))
+        col.operator('node.y_new_udim_atlas_segment_test', icon_value=lib.get_icon('image'))
         #col.operator('node.y_uv_transform_test', icon_value=lib.get_icon('uv'))
 
     # Hide support this addon panel for now
