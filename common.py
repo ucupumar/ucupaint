@@ -4146,20 +4146,28 @@ def get_all_objects_with_same_materials(mat, mesh_only=False, uv_name='', select
 
     return objs
 
-def get_yp_images(yp):
+def get_yp_images(yp, udim_only=False):
 
     images = []
 
     for layer in yp.layers:
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if source and source.image and source.image not in images:
-                images.append(source.image)
+
         for mask in layer.masks:
             if mask.type == 'IMAGE':
                 source = get_mask_source(mask)
-                if source and source.image and source.image not in images:
+                if not source or not source.image: continue
+                image = source.image
+                if udim_only and image.source != 'TILED': continue
+                if image not in images:
                     images.append(source.image)
+
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if not source or not source.image: continue
+            image = source.image
+            if udim_only and image.source != 'TILED': continue
+            if image not in images:
+                images.append(source.image)
 
     return images
 
