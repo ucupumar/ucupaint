@@ -9,13 +9,15 @@ UV_TOLERANCE = 0.1
 def is_udim_supported():
     return is_greater_than_340()
 
-def fill_tiles(image, color, width=0, height=0, empty_only=False):
+def fill_tiles(image, color=None, width=0, height=0, empty_only=False):
     if image.source != 'TILED': return
+    if color == None: color = image.yui.base_color
     for tile in image.tiles:
         fill_tile(image, tile.number, color, width, height, empty_only)
 
-def fill_tile(image, tilenum, color, width=0, height=0, empty_only=False):
+def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
     if image.source != 'TILED': return
+    if color == None: color = image.yui.base_color
     tile = image.tiles.get(tilenum)
     new_tile = False
     if not tile:
@@ -173,15 +175,17 @@ def is_using_temp_dir(image):
         return True
     return False
 
-def remove_udim_files_from_disk(image, directory, remove_dir=False):
+def remove_udim_files_from_disk(image, directory, remove_dir=False, tilenum=-1):
     # Get filenames
     img_names = []
     filename = bpy.path.basename(image.filepath)
     prefix = filename.split('.<UDIM>.')[0]
     if os.path.isdir(directory):
         for f in os.listdir(directory):
-            m = re.match(r'' + re.escape(prefix) + '\.\d{4}\.*', f)
-            if m: img_names.append(f)
+            m = re.match(r'' + re.escape(prefix) + '\.(\d{4})\.*', f)
+            if m:
+                if tilenum != -1 and tilenum != int(m.group(1)): continue
+                img_names.append(f)
 
     # Remove images
     for f in img_names:
@@ -260,6 +264,9 @@ def swap_tile(image, tilenum0, tilenum1):
     tile1 = image.tiles.get(tilenum1)
 
     if not tile0 or not tile1: return
+    if tilenum0 == tilenum1: return
+
+    print('UDIM: Swapping tile', tilenum0, 'to', tilenum1)
 
     str0 = '.' + str(tilenum0) + '.'
     str1 = '.' + str(tilenum1) + '.'
@@ -299,6 +306,38 @@ def swap_tile(image, tilenum0, tilenum1):
         # Remove file if they are using temporary directory
         if is_using_temp_dir(image):
             remove_udim_files_from_disk(image, directory, True)
+
+def remove_tile(image, tilenum):
+
+    tile = image.tiles.get(tilenum)
+    if not tile: return
+
+    print('UDIM: Removing tile', tilenum)
+
+    # Directory of image
+    directory = os.path.dirname(bpy.path.abspath(image.filepath))
+
+    # Remember stuff
+    ori_packed = False
+    if image.packed_file: ori_packed = True
+
+    # Save the image first
+    image.save()
+
+    # Remove tile
+    image.tiles.remove(tile)
+
+    # Repack image
+    if ori_packed:
+        image.pack()
+
+        # Remove file if they are using temporary directory
+        if is_using_temp_dir(image):
+            remove_udim_files_from_disk(image, directory, True)
+    else:
+        # Remove file
+        remove_udim_files_from_disk(image, directory, False, tilenum)
+
 
 class YRefillUDIMTiles(bpy.types.Operator):
     bl_idname = "node.y_refill_udim_tiles"
@@ -415,16 +454,65 @@ class YRefreshUDIMAtlasOffset(bpy.types.Operator):
     def poll(cls, context):
         return True
 
-    def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width=320)
-
-    def draw(self, context):
-        col = self.layout.column()
-        col.label(text='Refresh offset')
-
     def execute(self, context):
-        print('INFO: Offset added!')
+        mat = get_active_material()
+        uv_name = 'UVMap'
 
+        objs = get_all_objects_with_same_materials(mat, True, uv_name)
+        tilenums = get_tile_numbers(objs, uv_name)
+
+        area = context.area
+        image = area.spaces[0].image
+        if not image.yua.is_udim_atlas: return {'CANCELLED'}
+
+        # Get current tilenums
+        cur_tilenums = [t.number for t in image.tiles]
+
+        # Set new offset_y
+        ori_offset_y = image.yua.offset_y
+        max_y = int((max(tilenums) - 1000) / 10)
+        offset_y = max_y + 2
+        image.yua.offset_y = offset_y
+        offset_diff = offset_y - ori_offset_y
+
+        # Create conversion dict
+        convert_dict = {}
+        for i in range(len(image.yua.segments)):
+            min_y = 1001 + i * ori_offset_y * 10
+            max_y = 1001 + (i+1) * ori_offset_y * 10 
+            for j in range(min_y, max_y):
+                if j not in cur_tilenums: continue
+                convert_dict[j] = j + offset_diff * i * 10
+
+        # Extend tilenums
+        extended_tilenums = []
+        for i in range(len(image.yua.segments)):
+            for tilenum in tilenums:
+                tilenum += offset_y * 10 * i
+                extended_tilenums.append(tilenum)
+        tilenums = extended_tilenums
+
+        # Fill tiles
+        for tilenum in tilenums:
+            fill_tile(image, tilenum, empty_only=True)
+
+        # Pack first
+        initial_pack_udim(image)
+
+        # Convert tile numbers by swapping tiles
+        if offset_diff > 0:
+            for key in reversed(convert_dict):
+                swap_tile(image, key, convert_dict[key])
+        elif offset_diff < 0:
+            for key in convert_dict:
+                swap_tile(image, key, convert_dict[key])
+
+        # Remove unused tilenum
+        for tile in reversed(image.tiles):
+            if tile.number not in tilenums:
+                remove_tile(image, tile.number)
+
+        print('INFO: Offset refreshed!')
         return {'FINISHED'}
 
 class YNewUDIMAtlasSegmentTest(bpy.types.Operator):
