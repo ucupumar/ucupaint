@@ -41,7 +41,7 @@ from datetime import datetime, timedelta
 # Blender imports, used in limited cases.
 import bpy
 import addon_utils
-# from .common import *
+from .common import *
 
 # -----------------------------------------------------------------------------
 # The main class
@@ -106,7 +106,7 @@ class SingletonUpdater:
         self._check_thread = None
         self._select_link = None
         self.skip_tag = None
-        self.legacy_blender = bpy.app.version <= (2, 7, 9) 
+        self.legacy_blender = not is_greater_than_280() 
         # self.legacy_blender = not is_greater_than_281() 
 
         # Get data from the running blender module (addon).
@@ -286,7 +286,11 @@ class SingletonUpdater:
     def include_branch_list(self, value):
         try:
             if value is None:
-                self._include_branch_list = ['master']
+                if self.legacy_blender:
+                    self._include_branch_list = ['blender_279']
+                else:
+                    self._include_branch_list = ['master']
+
             elif not isinstance(value, list) or len(value) == 0:
                 raise ValueError(
                     "include_branch_list should be a list of valid branches")
@@ -695,20 +699,18 @@ class SingletonUpdater:
         self._include_branch_list.append(default_branch)
         self._tags.append(self.get_branch_obj(default_branch))
 
-        if self.legacy_blender:
-            return 
-        
-        request = self.form_branch_list_url()
-        self.print_verbose("Getting branches from server "+request)
-        all_branches = self.get_api(request)
+        if not self.legacy_blender:
+            request = self.form_branch_list_url()
+            self.print_verbose("Getting branches from server "+request)
+            all_branches = self.get_api(request)
 
-        for br in all_branches:
-            branch = br["name"]
-            if branch == "master" or branch == "blender_279": # skip default branches
-                continue
-            include = self.get_branch_obj(branch)
-            self._tags = [include] + self._tags  # append to front
-            self._include_branch_list.append(branch)
+            for br in all_branches:
+                branch = br["name"]
+                if branch == "master" or branch == "blender_279": # skip default branches
+                    continue
+                include = self.get_branch_obj(branch)
+                self._tags = [include] + self._tags  # append to front
+                self._include_branch_list.append(branch)
         
         self._json["branches"] = self._include_branch_list
 
