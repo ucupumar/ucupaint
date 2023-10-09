@@ -108,6 +108,7 @@ class SingletonUpdater:
         self.skip_tag = None
         self.legacy_blender = not is_greater_than_280() 
         # self.legacy_blender = not is_greater_than_281() 
+        self.using_development_build = False
 
         # Get data from the running blender module (addon).
         self._addon = __package__.lower()
@@ -1045,6 +1046,7 @@ class SingletonUpdater:
         # Change to True to trigger the handler on other side if allowing
         # reloading within same blender session.
         self._json["just_updated"] = True
+        self._json["using_development_build"] = self.using_development_build
         self.save_updater_json()
         self.reload_addon()
         self._update_ready = False
@@ -1209,7 +1211,10 @@ class SingletonUpdater:
                     self._tags = [include] + self._tags  # append to front
             if dev_build:
                 self._update_ready = dev_build
-                
+
+        if "using_development_build" in saved_json.keys():
+            self.using_development_build = saved_json["using_development_build"]
+
     def clear_state(self):
         self._update_ready = None
         self._update_link = None
@@ -1413,7 +1418,7 @@ class SingletonUpdater:
 
         else:
             # Situation where branches not included.
-            if new_version > self._current_version:
+            if  self.using_development_build or new_version > self._current_version:
 
                 self._update_ready = True
                 self._update_version = new_version
@@ -1673,6 +1678,7 @@ class SingletonUpdater:
             self._json = {
                 "last_check": "",
                 "backup_date": "",
+                "using_development_build" : self.using_development_build,
                 "update_ready": False,
                 "ignore": False,
                 "just_restored": False,

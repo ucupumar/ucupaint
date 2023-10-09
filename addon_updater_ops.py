@@ -291,6 +291,8 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
             # if it fails, offer to open the website instead
             try:
                 settings = get_user_preferences()
+                updater.using_development_build = settings.development_build
+
                 if settings.development_build:
                     res = updater.run_update(force=False,
                                             revert_tag=settings.branches,
