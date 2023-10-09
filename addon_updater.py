@@ -684,26 +684,42 @@ class SingletonUpdater:
                     "Most recent tag found:" + str(self._tags[n]['name']))
     
     def get_branches(self):
-        request = self.form_branch_list_url()
-        self.print_verbose("Getting branches from server "+request)
-        
-        all_branches = self.get_api(request)
         self._include_branch_list.clear()
         self._tags.clear()
 
+        if self.legacy_blender:
+            default_branch = "blender_279"
+        else:
+            default_branch = "master"
+            
+        self._include_branch_list.append(default_branch)
+        self._tags.append(self.get_branch_obj(default_branch))
+
+        if self.legacy_blender:
+            return 
+        
+        request = self.form_branch_list_url()
+        self.print_verbose("Getting branches from server "+request)
+        all_branches = self.get_api(request)
+
         for br in all_branches:
             branch = br["name"]
-            legacy_version = "279" in branch
-            if  legacy_version == self.legacy_blender:
-                request_br = self.form_branch_url(branch)
-                include = {
-                    "name": branch.title(),
-                    "label": branch.title(),
-                    "zipball_url": request_br
-                }
-                self._tags = [include] + self._tags  # append to front
-                self._include_branch_list.append(branch)
+            if branch == "master" or branch == "blender_279": # skip default branches
+                continue
+            include = self.get_branch_obj(branch)
+            self._tags = [include] + self._tags  # append to front
+            self._include_branch_list.append(branch)
+        
         self._json["branches"] = self._include_branch_list
+
+    def get_branch_obj(self, branch_name):
+        request_br = self.form_branch_url(branch_name)
+
+        return {
+            "name": branch_name,
+            "label": branch_name,
+            "zipball_url": request_br
+        }
 
     def get_raw(self, url):
         """All API calls to base url."""
