@@ -638,10 +638,9 @@ def update_development_build(self, context):
     updater.clear_state()
 
 def list_branches(self, context):
-    retval = [('master','master',"")]
+    retval = list()
     for br in updater.include_branch_list:
-        if br != 'master':
-            retval.append((br,br,""))
+        retval.append((br,br,""))
     return retval 
 
 @persistent
