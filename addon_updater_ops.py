@@ -290,7 +290,7 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
         if updater.update_ready:
             # if it fails, offer to open the website instead
             try:
-                settings:YPaintPreferences = get_user_preferences()
+                settings = get_user_preferences()
                 if settings.development_build:
                     res = updater.run_update(force=False,
                                             revert_tag=settings.branches,
@@ -967,7 +967,7 @@ def update_settings_ui(self, context, element=None):
         box.label(text="Error initializing updater code:")
         box.label(text=updater.error_msg)
         return
-    settings:YPaintPreferences = get_user_preferences()
+    settings = get_user_preferences()
     if not settings:
         box.label(text="Error getting updater preferences", icon='ERROR')
         return
@@ -1410,7 +1410,7 @@ def register(bl_info):
     # Special situation: we just updated the addon, show a popup to tell the
     # user it worked. Could enclosed in try/catch in case other issues arise.
     show_reload_popup()
-    pref:YPaintPreferences = get_user_preferences()
+    pref = get_user_preferences()
     update_development_build(pref, None)
     updater.restore_saved_branches(pref.development_build)
 
