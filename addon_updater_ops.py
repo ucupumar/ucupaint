@@ -291,6 +291,8 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
             # if it fails, offer to open the website instead
             try:
                 settings = get_user_preferences()
+                updater.using_development_build = settings.development_build
+
                 if settings.development_build:
                     res = updater.run_update(force=False,
                                             revert_tag=settings.branches,
@@ -633,9 +635,10 @@ ran_update_success_popup = False
 ran_background_check = False
 
 def update_development_build(self, context):
-    updater.use_releases = not self.development_build
-    updater.include_branches = self.development_build
-    updater.clear_state()
+    updater.on_dev_mode_change(self.development_build)
+     # if latest 
+
+
 
 def list_branches(self, context):
     retval = list()
@@ -1010,12 +1013,11 @@ def update_settings_ui(self, context, element=None):
     row.prop(settings, 'development_build')
 
     dev_mode = settings.development_build
-    if dev_mode:
+    if dev_mode and not updater.legacy_blender:
         row.prop(settings, 'branches', text="Branch")
 
     # print("use releases", updater.use_releases, "| use branch", updater.include_branches)
     check_operator = RefreshBranchesNow.bl_idname if dev_mode else AddonUpdaterCheckNow.bl_idname
-    # update_operator = RefreshBranchesNow.bl_idname if dev_mode else AddonUpdaterUpdateNow.bl_idname
     
     # print("include br", updater.include_branches, " dev_mode", dev_mode)
     # Checking / managing updates.
@@ -1035,7 +1037,9 @@ def update_settings_ui(self, context, element=None):
         split = sub_col.split(align=True)
         split.operator(check_operator,
                     text="", icon="FILE_REFRESH")
-
+    elif updater.legacy_blender and dev_mode:
+        row.operator(AddonUpdaterUpdateNow.bl_idname,
+                    text="Update now")
     elif updater.update_ready is None and not updater.async_checking:
         row.operator(check_operator)
     elif updater.update_ready is None:  # async is running
