@@ -1485,6 +1485,18 @@ class SingletonUpdater:
         # self._update_link = None
         # return (False, None, None)
 
+    def on_dev_mode_change(self, dev_mode):
+        self.use_releases = not dev_mode
+        self.include_branches = dev_mode
+        self.clear_state()
+
+        if self.legacy_blender and dev_mode:
+            self.get_branches()
+            link = self.select_link(self, self._tags[0]) # last selected branch
+            self._update_ready = True
+            self._update_link = link
+            self.save_updater_json()
+
     def set_tag(self, name):
         """Assign the tag name and url to update to"""
         tg = None
