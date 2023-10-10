@@ -2703,6 +2703,8 @@ def main_draw(self, context):
         row.label(text='Object: ' + obj.name)
     else: row.label(text='Object: -')
 
+    row.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
+
     if ypui.show_object:
         box = layout.box()
         col = box.column()
@@ -3396,6 +3398,23 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             if layer.enable: eye_icon = 'HIDE_OFF'
             else: eye_icon = 'HIDE_ON'
         row.prop(layer, 'enable', emboss=False, text='', icon=eye_icon)
+
+class YPaintAboutMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_ypaint_about_menu"
+    bl_label = get_addon_title() + " About"
+    bl_description = get_addon_title() + " About"
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def draw(self, context):
+        col = self.layout.column()
+        col.label(text=get_addon_title() + ' is created by:')
+        col.operator('wm.url_open', text='ucupumar', icon='ARMATURE_DATA').url = 'https://www.patreon.com/ucupumar'
+        col.operator('wm.url_open', text='arsa', icon='ARMATURE_DATA').url = 'https://www.twitter.com/RakaiSahakarya'
+        col.operator('wm.url_open', text='swifterik', icon='ARMATURE_DATA').url = 'https://jblaha.art/'
+        col.operator('wm.url_open', text='rifai', icon='ARMATURE_DATA').url = 'https://github.com/rifai'
 
 class YPaintSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_ypaint_special_menu"
@@ -4774,6 +4793,7 @@ def yp_load_ui_settings(scene):
     wmui.need_update = True
 
 def register():
+    bpy.utils.register_class(YPaintAboutMenu)
     bpy.utils.register_class(YPaintSpecialMenu)
     bpy.utils.register_class(YNewLayerMenu)
     bpy.utils.register_class(YBakedImageMenu)
@@ -4821,6 +4841,7 @@ def register():
     bpy.app.handlers.save_pre.append(yp_save_ui_settings)
 
 def unregister():
+    bpy.utils.unregister_class(YPaintAboutMenu)
     bpy.utils.unregister_class(YPaintSpecialMenu)
     bpy.utils.unregister_class(YNewLayerMenu)
     bpy.utils.unregister_class(YBakedImageMenu)
