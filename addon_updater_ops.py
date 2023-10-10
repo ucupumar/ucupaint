@@ -1056,7 +1056,7 @@ def update_settings_ui(self, context, element=None):
         # No releases found, but still show the appropriate branch.
         sub_col = row.row(align=True)
         split = sub_col.split(align=True)
-        update_now_txt = "Update to branch {}".format(
+        update_now_txt = "Update to latest commit on '{}' branch".format(
             settings.branches)
         split.operator(AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
         split = sub_col.split(align=True)
