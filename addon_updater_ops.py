@@ -1283,7 +1283,8 @@ def register(bl_info):
     # 			/addons/{__package__}/{__package__}_updater
 
     # Auto create a backup of the addon when installing other versions.
-    updater.backup_current = not updater.legacy_blender  # True by default
+    #updater.backup_current = not updater.legacy_blender  # True by default
+    updater.backup_current = False
 
     # Sample ignore patterns for when creating backup of current during update.
     updater.backup_ignore_patterns = ["__pycache__"]
