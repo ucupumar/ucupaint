@@ -1047,6 +1047,10 @@ class SingletonUpdater:
         # reloading within same blender session.
         self._json["just_updated"] = True
         self._json["using_development_build"] = self.using_development_build
+        
+        if self.legacy_blender:
+            bpy.ops.wm.save_userpref()
+
         self.save_updater_json()
         self.reload_addon()
         self._update_ready = False
