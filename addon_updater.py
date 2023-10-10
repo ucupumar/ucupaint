@@ -1499,12 +1499,17 @@ class SingletonUpdater:
         self.include_branches = dev_mode
         self.clear_state()
 
-        if self.legacy_blender and dev_mode:
-            self.get_branches()
-            link = self.select_link(self, self._tags[0]) # last selected branch
-            self._update_ready = True
-            self._update_link = link
-            self.save_updater_json()
+        if dev_mode:
+            if self.legacy_blender:
+                self.get_branches()
+                link = self.select_link(self, self._tags[0]) # last selected branch
+                self._update_ready = True
+                self._update_link = link
+                self.save_updater_json()
+            else:
+                from . import addon_updater_ops 
+                self.check_for_branches_now(addon_updater_ops.ui_refresh)
+
 
     def set_tag(self, name):
         """Assign the tag name and url to update to"""
