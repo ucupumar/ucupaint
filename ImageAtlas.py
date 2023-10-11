@@ -242,7 +242,13 @@ def replace_segment_with_image(yp, segment, image, uv_name=''):
 #
 #        return {'FINISHED'}
 
-def get_segment_mapping(entity, segment, image):
+def get_udim_segment_mapping_offset(segment, image):
+
+    for i, seg in enumerate(image.yua.segments):
+        if seg == segment:
+            return image.yua.offset_y * i
+
+def get_segment_mapping(segment, image):
 
     scale_x = segment.width/image.size[0]
     scale_y = segment.height/image.size[1]
@@ -254,7 +260,10 @@ def get_segment_mapping(entity, segment, image):
 
 def set_segment_mapping(entity, segment, image):
 
-    scale_x, scale_y, offset_x, offset_y = get_segment_mapping(entity, segment, image)
+    if image.source == 'TILED':
+        offset_y = get_udim_segment_mapping_offset(segment, image)
+    else:
+        scale_x, scale_y, offset_x, offset_y = get_segment_mapping(segment, image)
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
@@ -263,18 +272,23 @@ def set_segment_mapping(entity, segment, image):
     else: mapping = get_mask_mapping(entity)
 
     if mapping:
-        if is_greater_than_281():
-            mapping.inputs[3].default_value[0] = scale_x
-            mapping.inputs[3].default_value[1] = scale_y
-
-            mapping.inputs[1].default_value[0] = offset_x
-            mapping.inputs[1].default_value[1] = offset_y
+        if image.source == 'TILED':
+            if is_greater_than_281():
+                mapping.inputs[1].default_value[1] = offset_y
+            else: mapping.translation[1] = offset_y
         else:
-            mapping.scale[0] = scale_x
-            mapping.scale[1] = scale_y
+            if is_greater_than_281():
+                mapping.inputs[3].default_value[0] = scale_x
+                mapping.inputs[3].default_value[1] = scale_y
 
-            mapping.translation[0] = offset_x
-            mapping.translation[1] = offset_y
+                mapping.inputs[1].default_value[0] = offset_x
+                mapping.inputs[1].default_value[1] = offset_y
+            else:
+                mapping.scale[0] = scale_x
+                mapping.scale[1] = scale_y
+
+                mapping.translation[0] = offset_x
+                mapping.translation[1] = offset_y
 
 class YNewImageAtlasSegmentTest(bpy.types.Operator):
     bl_idname = "node.y_new_image_atlas_segment_test"
