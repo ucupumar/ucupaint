@@ -426,7 +426,7 @@ def get_set_udim_atlas_segment(tilenums, width, height, hdr=False, yp=None):
     segment = None
 
     # Get bunch of images
-    if yp and ypup.unique_image_atlas_per_yp:
+    if yp: #and ypup.unique_image_atlas_per_yp:
         images = get_yp_images(yp, udim_only=True)
         name = yp.id_data.name
     else:
