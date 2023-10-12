@@ -382,7 +382,7 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
         return {'FINISHED'}
 
-def create_udim_atlas(tilenums, name='', width=1024, height=1024, hdr=False):
+def create_udim_atlas(tilenums, name='', width=1024, height=1024, color=(0,0,0,0), colorspace='', hdr=False):
     if name != '':
         name = '~' + name + ' UDIM Atlas'
     else: name = '~UDIM Atlas'
@@ -397,10 +397,12 @@ def create_udim_atlas(tilenums, name='', width=1024, height=1024, hdr=False):
             width=width, height=height, alpha=True, float_buffer=hdr, tiled=True)
     image.yua.is_udim_atlas = True
     image.yua.offset_y = offset_y
+    image.yui.base_color = color
+    if colorspace != '': image.colorspace_settings.name = colorspace
 
     return image
 
-def create_udim_atlas_segment(image, tilenums, width, height):
+def create_udim_atlas_segment(image, tilenums, width, height, color):
     atlas = image.yua
     name = get_unique_name('Segment', atlas.segments)
 
@@ -410,7 +412,8 @@ def create_udim_atlas_segment(image, tilenums, width, height):
     segment = atlas.segments.add()
     segment.name = name
 
-    color = image.yui.base_color
+    #color = image.yui.base_color
+    segment.base_color = color
 
     for tilenum in tilenums:
         tilenum += offset
@@ -420,7 +423,7 @@ def create_udim_atlas_segment(image, tilenums, width, height):
 
     return segment
 
-def get_set_udim_atlas_segment(tilenums, width, height, hdr=False, yp=None):
+def get_set_udim_atlas_segment(tilenums, width, height, color, colorspace='', hdr=False, yp=None):
 
     ypup = get_user_preferences()
     segment = None
@@ -435,43 +438,17 @@ def get_set_udim_atlas_segment(tilenums, width, height, hdr=False, yp=None):
 
     for image in images:
         if image.yua.is_udim_atlas and image.is_float == hdr:
-            segment = create_udim_atlas_segment(image, tilenums, width, height)
+            if colorspace != '' and image.colorspace_settings.name != colorspace: continue
+            segment = create_udim_atlas_segment(image, tilenums, width, height, color)
         if segment:
             break
 
     if not segment:
         # If proper UDIM atlas can't be found, create new one
-        image = create_udim_atlas(tilenums, name, width, height, hdr)
-        segment = create_udim_atlas_segment(image, tilenums, width, height)
+        image = create_udim_atlas(tilenums, name, width, height, color, colorspace, hdr)
+        segment = create_udim_atlas_segment(image, tilenums, width, height, color)
 
     return segment
-
-class YNewUDIMAtlasSegmentTest(bpy.types.Operator):
-    bl_idname = "image.y_new_udim_atlas_segment_test"
-    bl_label = "New UDIM Atlas Segment Test"
-    bl_description = "New UDIM Atlas segment test"
-    bl_options = {'REGISTER', 'UNDO'}
-
-    @classmethod
-    def poll(cls, context):
-        return True
-
-    def execute(self, context):
-        mat = get_active_material()
-        uv_name = 'UVMap'
-
-        objs = get_all_objects_with_same_materials(mat, True, uv_name)
-        tilenums = get_tile_numbers(objs, uv_name)
-
-        new_segment = get_set_udim_atlas_segment(tilenums, 1024, 1024, False)
-
-        image = new_segment.id_data
-
-        area = context.area
-        if hasattr(area.spaces[0], 'image'):
-            area.spaces[0].image = image
-
-        return {'FINISHED'}
 
 def get_all_udim_atlas_tilenums(image, tilenums):
 
@@ -576,6 +553,33 @@ def remove_udim_atlas_segment(image, index, tilenums):
 
     print('INFO: UDIM Atlas segment', index, 'removed!')
 
+class YNewUDIMAtlasSegmentTest(bpy.types.Operator):
+    bl_idname = "image.y_new_udim_atlas_segment_test"
+    bl_label = "New UDIM Atlas Segment Test"
+    bl_description = "New UDIM Atlas segment test"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return True
+
+    def execute(self, context):
+        mat = get_active_material()
+        uv_name = 'UVMap'
+
+        objs = get_all_objects_with_same_materials(mat, True, uv_name)
+        tilenums = get_tile_numbers(objs, uv_name)
+
+        new_segment = get_set_udim_atlas_segment(tilenums, 1024, 1024, color=(0,0,0,0), colorspace='sRGB', hdr=False)
+
+        image = new_segment.id_data
+
+        area = context.area
+        if hasattr(area.spaces[0], 'image'):
+            area.spaces[0].image = image
+
+        return {'FINISHED'}
+
 class YRefreshUDIMAtlasOffset(bpy.types.Operator):
     bl_idname = "image.y_refresh_udim_atlas_offset"
     bl_label = "Refresh UDIM Atlas Offset"
@@ -658,20 +662,12 @@ class Y_PT_UDIM_Atlas_menu(bpy.types.Panel):
         c.operator('image.y_refresh_udim_atlas_offset', icon_value=lib.get_icon('image'))
         c.operator('image.y_remove_udim_atlas_segment', icon_value=lib.get_icon('image'))
 
-class YUDIMAtlasSegments(bpy.types.PropertyGroup):
+class YUDIMAtlasSegment(bpy.types.PropertyGroup):
 
     name : StringProperty(
             name='Name',
             description='Name of UDIM Atlas Segments',
             default='')
-
-    #offset_y : IntProperty(default=5)
-
-    #tile_x : IntProperty(default=0)
-    #tile_y : IntProperty(default=0)
-
-    #width : IntProperty(default=1024)
-    #height : IntProperty(default=1024)
 
     unused : BoolProperty(default=False)
 
@@ -684,14 +680,12 @@ class YUDIMAtlas(bpy.types.PropertyGroup):
             description='Name of UDIM Atlas',
             default='')
 
-    offset_y : IntProperty(default=5)
-
     is_udim_atlas : BoolProperty(default=False)
 
     #float_buffer : BoolProperty(default=False)
-    step_y : IntProperty(default=1, min=1, max=9)
+    offset_y : IntProperty(default=5)
 
-    segments : CollectionProperty(type=YUDIMAtlasSegments)
+    segments : CollectionProperty(type=YUDIMAtlasSegment)
 
 class YUDIMInfo(bpy.types.PropertyGroup):
     base_color : FloatVectorProperty(subtype='COLOR', size=4, min=0.0, max=1.0, default=(0.0, 0.0, 0.0, 0.0))
@@ -702,7 +696,7 @@ def register():
     bpy.utils.register_class(YRefreshUDIMAtlasOffset)
     bpy.utils.register_class(YRemoveUDIMAtlasSegment)
     bpy.utils.register_class(Y_PT_UDIM_Atlas_menu)
-    bpy.utils.register_class(YUDIMAtlasSegments)
+    bpy.utils.register_class(YUDIMAtlasSegment)
     bpy.utils.register_class(YUDIMAtlas)
     bpy.utils.register_class(YUDIMInfo)
 
@@ -715,6 +709,6 @@ def unregister():
     bpy.utils.unregister_class(YRefreshUDIMAtlasOffset)
     bpy.utils.unregister_class(YRemoveUDIMAtlasSegment)
     bpy.utils.unregister_class(Y_PT_UDIM_Atlas_menu)
-    bpy.utils.unregister_class(YUDIMAtlasSegments)
+    bpy.utils.unregister_class(YUDIMAtlasSegment)
     bpy.utils.unregister_class(YUDIMAtlas)
     bpy.utils.unregister_class(YUDIMInfo)
