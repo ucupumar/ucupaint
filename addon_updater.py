@@ -109,6 +109,7 @@ class SingletonUpdater:
         self.legacy_blender = not is_greater_than_280() 
         # self.legacy_blender = not is_greater_than_281() 
         self.using_development_build = False
+        self.current_branch = None
 
         # Get data from the running blender module (addon).
         self._addon = __package__.lower()
@@ -432,7 +433,7 @@ class SingletonUpdater:
             if "label" in tag.keys():
                 label = tag["label"]
             else:
-                label = "Stable("+nm+")"
+                label = "Stable ("+nm+")"
             tag_names.append((nm, label, "Select to install " + nm))
         return tag_names
 
@@ -1048,6 +1049,7 @@ class SingletonUpdater:
         # reloading within same blender session.
         self._json["just_updated"] = True
         self._json["using_development_build"] = self.using_development_build
+        self._json["current_branch"] = self.current_branch
         
         if self.legacy_blender:
             bpy.ops.wm.save_userpref()
@@ -1200,7 +1202,7 @@ class SingletonUpdater:
     # -------------------------------------------------------------------------
     # Other non-api functions and setups
     # -------------------------------------------------------------------------
-    def restore_saved_branches(self, dev_build:bool):
+    def restore_saved_branches(self):
         saved_json = self.json
         if "branches" in saved_json.keys():
             self.include_branch_list = saved_json["branches"]
@@ -1214,11 +1216,11 @@ class SingletonUpdater:
                         "zipball_url": request_br
                     }
                     self._tags = [include] + self._tags  # append to front
-            if dev_build:
-                self._update_ready = dev_build
-
+            
         if "using_development_build" in saved_json.keys():
             self.using_development_build = saved_json["using_development_build"]
+        if "current_branch" in saved_json.keys():
+            self.current_branch = saved_json["current_branch"]
 
     def clear_state(self):
         self._update_ready = None
@@ -1437,7 +1439,7 @@ class SingletonUpdater:
 
         else:
             # Situation where branches not included.
-            if  self.using_development_build or new_version > self._current_version:
+            if  new_version > self._current_version:
 
                 self._update_ready = True
                 self._update_version = new_version
@@ -1563,6 +1565,10 @@ class SingletonUpdater:
         if revert_tag is not None:
             self.set_tag(revert_tag)
             self._update_ready = True
+
+            self.using_development_build = revert_tag in self.include_branch_list
+            self.current_branch = revert_tag
+            
         print("self._update_link", self._update_link)
         # if True:
         #     return 0
@@ -1703,6 +1709,7 @@ class SingletonUpdater:
                 "last_check": "",
                 "backup_date": "",
                 "using_development_build" : self.using_development_build,
+                "current_branch" : self.current_branch,
                 "update_ready": False,
                 "ignore": False,
                 "just_restored": False,

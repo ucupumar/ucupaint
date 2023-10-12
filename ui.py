@@ -2696,6 +2696,15 @@ def main_draw(self, context):
     #layout.operator("node.y_debug_mesh", icon='MESH_DATA')
     #layout.operator("node.y_test_ray", icon='MESH_DATA')
 
+    from . import addon_updater_ops
+
+    row_update = layout.row()
+    updater = addon_updater_ops.updater
+    if updater.update_ready:
+        row_update.alert = True
+        row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
+                    text="Update now to " + str(updater.update_version))
+
     icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
     row.prop(ypui, 'show_object', emboss=False, text='', icon=icon)
@@ -3417,6 +3426,22 @@ class YPaintAboutMenu(bpy.types.Panel):
         col.operator('wm.url_open', text='arsa', icon='ARMATURE_DATA').url = 'https://www.twitter.com/RakaiSahakarya'
         col.operator('wm.url_open', text='swifterik', icon='ARMATURE_DATA').url = 'https://jblaha.art/'
         col.operator('wm.url_open', text='rifai', icon='ARMATURE_DATA').url = 'https://github.com/rifai'
+
+        col.separator()
+
+        from . import addon_updater_ops
+        updater = addon_updater_ops.updater
+
+        if updater.using_development_build:
+            col.label(text="Branch: "+updater.current_branch)
+        else:
+            col.label(text="Version: "+str(updater.current_version))
+
+        if updater.update_ready:
+            col.alert = True
+            col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
+                        text="Update now to " + str(updater.update_version))
+        col.operator(addon_updater_ops.AddonUpdaterUpdateTarget.bl_idname, text="Change Branch")
 
 class YPaintSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_ypaint_special_menu"

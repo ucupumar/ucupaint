@@ -300,8 +300,6 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
             # if it fails, offer to open the website instead
             try:
                 settings = get_user_preferences()
-                updater.using_development_build = settings.branches in updater.include_branch_list
-              
                 res = updater.run_update(force=False,
                                         revert_tag=settings.branches,
                                         callback=post_update_callback,
@@ -1385,7 +1383,8 @@ def register(bl_info):
     # Special situation: we just updated the addon, show a popup to tell the
     # user it worked. Could enclosed in try/catch in case other issues arise.
     show_reload_popup()
-
+    updater.check_for_branches_releases_now(None)
+    updater.restore_saved_branches()
 
 
 def unregister():
