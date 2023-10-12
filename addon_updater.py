@@ -430,9 +430,9 @@ class SingletonUpdater:
         for tag in self._tags:
             nm = tag["name"]
             if "label" in tag.keys():
-                label =  tag["label"]
+                label = tag["label"]
             else:
-                label = nm
+                label = "Stable("+nm+")"
             tag_names.append((nm, label, "Select to install " + nm))
         return tag_names
 
@@ -629,24 +629,25 @@ class SingletonUpdater:
         else:
             self._tags = all_tags
 
+        if len(self._tags) > 0:
+            self._tags = [self._tags[0]]
+
         # get additional branches too, if needed, and place in front
         # Does NO checking here whether branch is valid
         if self._include_branches:
             temp_branches = self._include_branch_list.copy()
-            temp_branches.reverse()
             for branch in temp_branches:
                 # legacy_branch = "279" in branch
                 # if self.legacy_blender == legacy_branch:
                 request = self.form_branch_url(branch)
                 # print("req", request)
                 include = {
-                    "name": branch.title(),
+                    "name": branch,
                     # "label": "Master (2.79)" if legacy_branch else branch.title(),
-                    "label": branch.title(),
+                    "label": branch,
                     "zipball_url": request
                 }
-                self._tags = [include] + self._tags  # append to front
-                    # break
+                self._tags.append(include)
 
         if self._tags is None:
             # some error occurred
@@ -683,7 +684,7 @@ class SingletonUpdater:
                     "Most recent tag found:" + str(self._tags[0]['name']))
             else:
                 # Don't return branch if in list.
-                n = len(self._include_branch_list)
+                n = 0 #len(self._include_branch_list)
                 self._tag_latest = self._tags[n]  # guaranteed at least len()=n+1
                 self.print_verbose(
                     "Most recent tag found:" + str(self._tags[n]['name']))
@@ -1208,8 +1209,8 @@ class SingletonUpdater:
                 if  legacy_version == self.legacy_blender:
                     request_br = self.form_branch_url(branch)
                     include = {
-                        "name": branch.title(),
-                        "label": branch.title(),
+                        "name": branch,
+                        "label": branch,
                         "zipball_url": request_br
                     }
                     self._tags = [include] + self._tags  # append to front
@@ -1323,6 +1324,20 @@ class SingletonUpdater:
         else:
             self._update_ready = None
             self.start_async_check_branches(callback)
+
+    def check_for_branches_releases_now(self, callback=None):
+        self._error = None
+        self._error_msg = None
+        self.print_verbose(
+            "Check update pressed, first getting current status")
+        if self._async_checking:
+            self.print_verbose("Skipping async check, already started")
+            return  # already running the bg thread
+        elif self._update_ready is None:
+            self.start_async_check_branches_releases(callback)
+        else:
+            self._update_ready = None
+            self.start_async_check_branches_releases(callback)
 
     def check_for_update(self, now=False):
         """Check for update not in a syncrhonous manner.
@@ -1810,6 +1825,45 @@ class SingletonUpdater:
         check_thread.daemon = True
         self._check_thread = check_thread
         check_thread.start()
+
+    def start_async_check_branches_releases(self, callback=None):
+        """Start a background thread which will check for updates"""
+        if self._async_checking:
+            return
+        self.print_verbose("Starting background checking thread")
+        check_thread = threading.Thread(target=self.async_check_branches_releases,
+                                        args=(callback,))
+        check_thread.daemon = True
+        self._check_thread = check_thread
+        check_thread.start()
+
+    def async_check_branches_releases(self, callback=None):
+        """Perform update check, run as target of background thread"""
+        self._async_checking = True
+        self.print_verbose("Checking for update now in background")
+
+        try:
+            self.check_for_branches()
+            self._update_ready = None
+            self.check_for_update()
+        except Exception as exception:
+            print("Checking for update error:")
+            print(exception)
+            self.print_trace()
+            if not self._error:
+                self._update_ready = False
+                self._update_version = None
+                self._update_link = None
+                self._error = "Error occurred"
+                self._error_msg = "Encountered an error while checking for updates"
+
+        self._async_checking = False
+        self._check_thread = None
+
+        if callback:
+            self.print_verbose("Finished check update, doing callback")
+            callback(self._update_ready)
+        self.print_verbose("BG thread: Finished check update, no callback")
 
     def async_check_branches(self, callback=None):
         """Perform update check, run as target of background thread"""

@@ -2703,7 +2703,7 @@ def main_draw(self, context):
         row.label(text='Object: ' + obj.name)
     else: row.label(text='Object: -')
 
-    row.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
+    row.popover("NODE_MT_ypaint_about_menu", text='', icon='INFO')
 
     if ypui.show_object:
         box = layout.box()
@@ -3399,11 +3399,13 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             else: eye_icon = 'HIDE_ON'
         row.prop(layer, 'enable', emboss=False, text='', icon=eye_icon)
 
-class YPaintAboutMenu(bpy.types.Menu):
+class YPaintAboutMenu(bpy.types.Panel):
     bl_idname = "NODE_MT_ypaint_about_menu"
     bl_label = get_addon_title() + " About"
     bl_description = get_addon_title() + " About"
-
+    bl_space_type = "VIEW_3D"
+    bl_region_type = "UI"
+    
     @classmethod
     def poll(cls, context):
         return True
