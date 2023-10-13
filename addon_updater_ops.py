@@ -229,6 +229,7 @@ class RefreshBranchesReleasesNow(bpy.types.Operator):
         wm = context.window_manager
         ypui = wm.ypui
         ypui.hide_update = False
+        updater.set_check_interval(enabled=False)
         updater.check_for_branches_releases_now(ui_refresh)
         return {'FINISHED'}
 
@@ -1398,7 +1399,19 @@ def register(bl_info):
     # Special situation: we just updated the addon, show a popup to tell the
     # user it worked. Could enclosed in try/catch in case other issues arise.
     show_reload_popup()
-    updater.check_for_branches_releases_now(None)
+    
+    settings = get_user_preferences()
+    updater.set_check_interval(
+        enabled=settings.auto_check_update,
+        months=settings.updater_interval_months,
+        days=settings.updater_interval_days,
+        hours=settings.updater_interval_hours,
+        minutes=settings.updater_interval_minutes)
+    
+    if updater.past_interval_timestamp():
+        updater.check_for_branches_releases_now(None)
+    else:
+        print("Aborting check for updated, check interval not reached")
     updater.restore_saved_branches()
 
 
