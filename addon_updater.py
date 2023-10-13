@@ -1207,9 +1207,6 @@ class SingletonUpdater:
             for tag in self._tags:
                 self._include_branch_list.append(tag["name"])
 
-            self.invalid_updater = False
-            self._update_ready = True
-
         if "using_development_build" in saved_json.keys():
             self.using_development_build = saved_json["using_development_build"]
         if "current_branch" in saved_json.keys():
@@ -1217,7 +1214,6 @@ class SingletonUpdater:
         if "last_commit" in saved_json.keys():
             self._last_commit = saved_json["last_commit"]
 
-        
         
     def clear_state(self):
         self._update_ready = None

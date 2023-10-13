@@ -366,7 +366,8 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
     def poll(cls, context):
         if updater.invalid_updater:
             return False
-        return updater.update_ready is not None and len(updater.tags) > 0
+        # return updater.update_ready is not None and len(updater.tags) > 0
+        return len(updater.tags) > 0
 
     def invoke(self, context, event):
         
@@ -1401,12 +1402,16 @@ def register(bl_info):
     show_reload_popup()
     
     settings = get_user_preferences()
-    updater.set_check_interval(
-        enabled=settings.auto_check_update,
-        months=settings.updater_interval_months,
-        days=settings.updater_interval_days,
-        hours=settings.updater_interval_hours,
-        minutes=settings.updater_interval_minutes)
+
+    first_time =  "last_check" not in updater._json or updater._json["last_check"] == ""
+
+    if not first_time:
+        updater.set_check_interval(
+            enabled=settings.auto_check_update,
+            months=settings.updater_interval_months,
+            days=settings.updater_interval_days,
+            hours=settings.updater_interval_hours,
+            minutes=settings.updater_interval_minutes)
     
     if updater.past_interval_timestamp():
         updater.check_for_branches_releases_now(None)
