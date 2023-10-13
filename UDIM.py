@@ -16,7 +16,7 @@ def fill_tiles(image, color=None, width=0, height=0, empty_only=False):
         fill_tile(image, tile.number, color, width, height, empty_only)
 
 def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
-    if image.source != 'TILED': return
+    if image.source != 'TILED': return False
     if color == None: color = image.yui.base_color
     tile = image.tiles.get(tilenum)
     new_tile = False
@@ -31,7 +31,7 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
 
     image.tiles.active = tile
 
-    if not new_tile and empty_only: return
+    if not new_tile and empty_only: return False
 
     if width == 0: width = tile.size[0]
     if height == 0: height = tile.size[1]
@@ -49,6 +49,8 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
     bpy.context.space_data.image = image
     bpy.ops.image.tile_fill(color=color, width=width, height=height, float=image.is_float, alpha=True)
     bpy.context.area.ui_type = ori_ui_type
+
+    return True
 
 def copy_udim_pixels(src, dest):
     for tile in src.tiles:
@@ -462,6 +464,8 @@ def get_all_udim_atlas_tilenums(image, tilenums):
     return extended_tilenums
 
 def refresh_udim_atlas(image, tilenums):
+    T = time.time()
+
     # Get current tilenums
     cur_tilenums = [t.number for t in image.tiles]
 
@@ -485,11 +489,13 @@ def refresh_udim_atlas(image, tilenums):
     tilenums = get_all_udim_atlas_tilenums(image, tilenums)
 
     # Fill tiles
+    dirty = False
     for tilenum in tilenums:
-        fill_tile(image, tilenum, empty_only=True)
+        if fill_tile(image, tilenum, empty_only=True):
+            dirty = True
 
     # Pack after fill
-    initial_pack_udim(image)
+    if dirty: initial_pack_udim(image)
 
     # Convert tile numbers by swapping tiles
     if offset_diff > 0:
@@ -504,54 +510,64 @@ def refresh_udim_atlas(image, tilenums):
         if tile.number not in tilenums:
             remove_tile(image, tile.number)
 
-    print('INFO: UDIM Atlas offset refreshed!')
+    print('INFO: UDIM Atlas offsets are refreshed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-def remove_udim_atlas_segment(image, index, tilenums):
+def remove_udim_atlas_segment(image, index, tilenums, actual_removal=True):
+    T = time.time()
 
-    cur_tilenums = [t.number for t in image.tiles]
+    if not actual_removal:
+        segment = image.yua.segments[index]
+        segment.unused = True
+        print('INFO: UDIM Atlas segment is marked as unused at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    else:
 
-    # Remove tiles inside segment
-    for i in range(len(image.yua.segments)):
-        if i != index: continue
-        min_y = 1001 + i * image.yua.offset_y * 10
-        max_y = 1001 + (i+1) * image.yua.offset_y * 10 
-        for j in range(min_y, max_y):
-            if j not in cur_tilenums: continue
-            remove_tile(image, j)
+        cur_tilenums = [t.number for t in image.tiles]
 
-    # Create conversion dict
-    convert_dict = {}
-    for i in range(len(image.yua.segments)):
-        if i <= index: continue
-        min_y = 1001 + i * image.yua.offset_y * 10
-        max_y = 1001 + (i+1) * image.yua.offset_y * 10 
-        for j in range(min_y, max_y):
-            if j not in cur_tilenums: continue
-            convert_dict[j] = j - image.yua.offset_y * 10
+        # Remove tiles inside segment
+        for i in range(len(image.yua.segments)):
+            if i != index: continue
+            min_y = 1001 + i * image.yua.offset_y * 10
+            max_y = 1001 + (i+1) * image.yua.offset_y * 10 
+            for j in range(min_y, max_y):
+                if j not in cur_tilenums: continue
+                remove_tile(image, j)
 
-    # Remove segment
-    image.yua.segments.remove(index)
+        # Create conversion dict
+        convert_dict = {}
+        for i in range(len(image.yua.segments)):
+            if i <= index: continue
+            min_y = 1001 + i * image.yua.offset_y * 10
+            max_y = 1001 + (i+1) * image.yua.offset_y * 10 
+            for j in range(min_y, max_y):
+                if j not in cur_tilenums: continue
+                convert_dict[j] = j - image.yua.offset_y * 10
 
-    # Extend tilenums
-    tilenums = get_all_udim_atlas_tilenums(image, tilenums)
+        # Remove segment
+        image.yua.segments.remove(index)
 
-    # Fill tiles
-    for tilenum in tilenums:
-        fill_tile(image, tilenum, empty_only=True)
+        # Extend tilenums
+        tilenums = get_all_udim_atlas_tilenums(image, tilenums)
 
-    # Pack after fill
-    #initial_pack_udim(image)
+        # Fill tiles
+        #dirty = False
+        for tilenum in tilenums:
+            fill_tile(image, tilenum, empty_only=True)
+            #if fill_tile(image, tilenum, empty_only=True):
+            #    dirty = True
 
-    # Convert tile numbers by swapping tiles
-    for key in convert_dict:
-        swap_tile(image, key, convert_dict[key])
+        # Pack after fill
+        #if dirty: initial_pack_udim(image)
 
-    # Remove unused tilenum
-    for tile in reversed(image.tiles):
-        if tile.number not in tilenums:
-            remove_tile(image, tile.number)
+        # Convert tile numbers by swapping tiles
+        for key in convert_dict:
+            swap_tile(image, key, convert_dict[key])
 
-    print('INFO: UDIM Atlas segment', index, 'removed!')
+        # Remove unused tilenum
+        for tile in reversed(image.tiles):
+            if tile.number not in tilenums:
+                remove_tile(image, tile.number)
+
+        print('INFO: UDIM Atlas segment is removed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 class YNewUDIMAtlasSegmentTest(bpy.types.Operator):
     bl_idname = "image.y_new_udim_atlas_segment_test"
@@ -639,7 +655,7 @@ class YRemoveUDIMAtlasSegment(bpy.types.Operator):
         refresh_udim_atlas(image, tilenums)
 
         # Remove segment
-        remove_udim_atlas_segment(image, self.index, tilenums)
+        remove_udim_atlas_segment(image, self.index, tilenums, actual_removal=False)
 
         return {'FINISHED'}
 
