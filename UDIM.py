@@ -320,8 +320,7 @@ def swap_tiles(image, swap_dict, reverse=False):
     # Save the image first
     image.save()
 
-    if reverse: iterator = reversed(swap_dict)
-    else: iterator = swap_dict
+    iterator = reversed(swap_dict) if reverse else swap_dict
 
     for tilenum0 in iterator:
 
