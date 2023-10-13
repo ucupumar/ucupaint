@@ -3458,6 +3458,7 @@ class YPaintAboutMenu(bpy.types.Panel):
             col.enabled = False
             col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text="Checking...")
         elif updater.update_ready:
+            col.alert = True
             if updater.using_development_build:
                 update_now_txt = "Update to latest commit on '{}' branch".format(
                     updater.current_branch)

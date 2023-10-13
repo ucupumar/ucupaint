@@ -90,7 +90,7 @@ class SingletonUpdater:
         # Settings for the frequency of automated background checks.
         self._check_interval_enabled = False
         self._check_interval_months = 0
-        self._check_interval_days = 7
+        self._check_interval_days = 1
         self._check_interval_hours = 0
         self._check_interval_minutes = 0
 
@@ -661,7 +661,7 @@ class SingletonUpdater:
                 self._error_msg = "No releases or tags found in repository"
             self.print_verbose("No releases or tags found in repository")
 
-        elif self._prefiltered_tag_count == 0 and self._include_branches:
+        elif self._prefiltered_tag_count == 0 and self._include_branches and len(self._include_branch_list) > 0:
             if not self._error:
                 self._tag_latest = self._tags[0]
             branch = self._include_branch_list[0]
@@ -682,7 +682,8 @@ class SingletonUpdater:
             self._tag_latest = self._tags[0]
             self.print_verbose(
                 "Most recent tag found:" + str(self._tags[0]['name']))
-           
+            
+        self._json["branches"] = self._tags
     
     def get_branches(self):
         self._include_branch_list.clear()
@@ -692,6 +693,8 @@ class SingletonUpdater:
             request = self.form_branch_list_url()
             self.print_verbose("Getting branches from server "+request)
             all_branches = self.get_api(request)
+            if all_branches is None:
+                all_branches = list()
 
             for br in all_branches:
                 branch = br["name"]
@@ -707,8 +710,6 @@ class SingletonUpdater:
 
                 self._include_branch_list.append(branch)
         
-        self._json["branches"] = self._include_branch_list
-
     def get_branch_obj(self, branch_name, last_commit):
         request_br = self.form_branch_url(branch_name)
 
@@ -1199,24 +1200,20 @@ class SingletonUpdater:
     def restore_saved_branches(self):
         saved_json = self.json
         if "branches" in saved_json.keys():
-            self.include_branch_list = saved_json["branches"]
-            for branch in self.include_branch_list:
-                legacy_version = "279" in branch
-                if  legacy_version == self.legacy_blender:
-                    request_br = self.form_branch_url(branch)
-                    include = {
-                        "name": branch,
-                        "label": branch,
-                        "zipball_url": request_br
-                    }
-                    self._tags = [include] + self._tags  # append to front
             
+            self._tags = saved_json["branches"]
+            self._include_branch_list = []
+
+            for tag in self._tags:
+                self._include_branch_list.append(tag["name"])
+
         if "using_development_build" in saved_json.keys():
             self.using_development_build = saved_json["using_development_build"]
         if "current_branch" in saved_json.keys():
             self.current_branch = saved_json["current_branch"]
         if "last_commit" in saved_json.keys():
             self._last_commit = saved_json["last_commit"]
+
         
     def clear_state(self):
         self._update_ready = None
@@ -1501,18 +1498,20 @@ class SingletonUpdater:
         self._json["last_check"] = str(datetime.now())
         self.save_updater_json()
 
+        if len(self._tags) == 0:
+            self._update_ready = False
+            self._update_version = None
+            self._update_link = None
+            return (False, None, None)
+
         link = self.select_link(self, self._tags[0]) # last selected branch
         
-        # if latest 
         self._update_ready = True
-        # self._update_version =  # commit hash
         self._update_link = link
         self.save_updater_json()
-        # # If no update, set ready to False from None to show it was checked.
-        # self._update_ready = False
-        # self._update_version = None
-        # self._update_link = None
-        # return (False, None, None)
+
+        return (True, "", link)
+
 
     def on_dev_mode_change(self, dev_mode):
         self.use_releases = not dev_mode
@@ -1755,7 +1754,6 @@ class SingletonUpdater:
             print("Failed to open/save data to json: ", jpath)
             self.print_trace()
         self.print_verbose("Wrote out updater JSON settings with content:")
-        self.print_verbose(str(self._json))
 
     def json_reset_postupdate(self):
         self._json["just_updated"] = False

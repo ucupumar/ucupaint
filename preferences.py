@@ -72,7 +72,7 @@ class YPaintPreferences(AddonPreferences):
     auto_check_update : BoolProperty(
         name="Auto-check for Update",
         description="If enabled, auto-check for updates using an interval",
-        default=False)
+        default=True)
     
     updater_interval_months : IntProperty(
         name='Months',
@@ -83,7 +83,7 @@ class YPaintPreferences(AddonPreferences):
     updater_interval_days : IntProperty(
         name='Days',
         description="Number of days between checking for updates",
-        default=7,
+        default=0,
         min=0,
         max=31)
     
@@ -97,7 +97,7 @@ class YPaintPreferences(AddonPreferences):
     updater_interval_minutes : IntProperty(
         name='Minutes',
         description="Number of minutes between checking for updates",
-        default=0,
+        default=1,
         min=0,
         max=59)
 
@@ -118,7 +118,6 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'show_experimental')
         self.layout.prop(self, 'developer_mode')
         self.layout.prop(self, 'parallax_without_baked')
-        addon_updater_ops.update_settings_ui(self, context)
 
 @persistent
 def auto_save_images(scene):
