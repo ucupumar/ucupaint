@@ -101,6 +101,7 @@ class SingletonUpdater:
         self._async_checking = False  # only true when async daemon started
         self._update_ready = None
         self._update_link = None
+        self._last_commit = None
         self._update_version = None
         self._source_zip = None
         self._check_thread = None
@@ -109,6 +110,7 @@ class SingletonUpdater:
         self.legacy_blender = not is_greater_than_280() 
         # self.legacy_blender = not is_greater_than_281() 
         self.using_development_build = False
+        self.current_branch = None
 
         # Get data from the running blender module (addon).
         self._addon = __package__.lower()
@@ -430,9 +432,9 @@ class SingletonUpdater:
         for tag in self._tags:
             nm = tag["name"]
             if "label" in tag.keys():
-                label =  tag["label"]
+                label = tag["label"]
             else:
-                label = nm
+                label = "Stable ("+nm+")"
             tag_names.append((nm, label, "Select to install " + nm))
         return tag_names
 
@@ -623,30 +625,29 @@ class SingletonUpdater:
             self._prefiltered_tag_count = 0
             all_tags = list()
 
-        # pre-process to skip tags
-        if self.skip_tag is not None:
-            self._tags = [tg for tg in all_tags if not self.skip_tag(self, tg)]
-        else:
-            self._tags = all_tags
+        if len(all_tags) > 0:
+            # only need the latest release 
+            # all_tags = [all_tags[0]]
+            self._tags = [all_tags[0]] + self._tags
 
+        # pre-process to skip tags
+        # if self.skip_tag is not None:
+        #     self._tags = [tg for tg in all_tags if not self.skip_tag(self, tg)]
+        # else:
+        #     self._tags = all_tags
+        
         # get additional branches too, if needed, and place in front
         # Does NO checking here whether branch is valid
-        if self._include_branches:
-            temp_branches = self._include_branch_list.copy()
-            temp_branches.reverse()
-            for branch in temp_branches:
-                # legacy_branch = "279" in branch
-                # if self.legacy_blender == legacy_branch:
-                request = self.form_branch_url(branch)
-                # print("req", request)
-                include = {
-                    "name": branch.title(),
-                    # "label": "Master (2.79)" if legacy_branch else branch.title(),
-                    "label": branch.title(),
-                    "zipball_url": request
-                }
-                self._tags = [include] + self._tags  # append to front
-                    # break
+        # if self._include_branches:
+        #     temp_branches = self._include_branch_list.copy()
+        #     for branch in temp_branches:
+        #         request = self.form_branch_url(branch)
+        #         include = {
+        #             "name": branch,
+        #             "label": branch,
+        #             "zipball_url": request
+        #         }
+        #         self._tags.append(include)
 
         if self._tags is None:
             # some error occurred
@@ -677,28 +678,15 @@ class SingletonUpdater:
             self.print_verbose(self._error_msg)
 
         else:
-            if not self._include_branches:
-                self._tag_latest = self._tags[0]
-                self.print_verbose(
-                    "Most recent tag found:" + str(self._tags[0]['name']))
-            else:
-                # Don't return branch if in list.
-                n = len(self._include_branch_list)
-                self._tag_latest = self._tags[n]  # guaranteed at least len()=n+1
-                self.print_verbose(
-                    "Most recent tag found:" + str(self._tags[n]['name']))
+            
+            self._tag_latest = self._tags[0]
+            self.print_verbose(
+                "Most recent tag found:" + str(self._tags[0]['name']))
+           
     
     def get_branches(self):
         self._include_branch_list.clear()
         self._tags.clear()
-
-        if self.legacy_blender:
-            default_branch = "blender_279"
-        else:
-            default_branch = "master"
-            
-        self._include_branch_list.append(default_branch)
-        self._tags.append(self.get_branch_obj(default_branch))
 
         if not self.legacy_blender:
             request = self.form_branch_list_url()
@@ -707,19 +695,26 @@ class SingletonUpdater:
 
             for br in all_branches:
                 branch = br["name"]
-                if branch == "master" or branch == "blender_279": # skip default branches
-                    continue
-                include = self.get_branch_obj(branch)
-                self._tags = [include] + self._tags  # append to front
+                include = self.get_branch_obj(branch, br["commit"]["sha"])
+
+                if branch == "master" or branch == "blender_279": 
+                    if (branch == "master" and not self.legacy_blender) or (branch == "blender_279" and self.legacy_blender) : # skip default branches
+                        self._tags = [include] + self._tags
+                    else: # skip default branches
+                        continue
+                else:
+                    self._tags.append(include)
+
                 self._include_branch_list.append(branch)
         
         self._json["branches"] = self._include_branch_list
 
-    def get_branch_obj(self, branch_name):
+    def get_branch_obj(self, branch_name, last_commit):
         request_br = self.form_branch_url(branch_name)
 
         return {
             "name": branch_name,
+            "last_commit": last_commit,
             "label": branch_name,
             "zipball_url": request_br
         }
@@ -1047,6 +1042,8 @@ class SingletonUpdater:
         # reloading within same blender session.
         self._json["just_updated"] = True
         self._json["using_development_build"] = self.using_development_build
+        self._json["current_branch"] = self.current_branch
+        self._json["last_commit"] = self._last_commit
         
         if self.legacy_blender:
             bpy.ops.wm.save_userpref()
@@ -1199,7 +1196,7 @@ class SingletonUpdater:
     # -------------------------------------------------------------------------
     # Other non-api functions and setups
     # -------------------------------------------------------------------------
-    def restore_saved_branches(self, dev_build:bool):
+    def restore_saved_branches(self):
         saved_json = self.json
         if "branches" in saved_json.keys():
             self.include_branch_list = saved_json["branches"]
@@ -1208,20 +1205,23 @@ class SingletonUpdater:
                 if  legacy_version == self.legacy_blender:
                     request_br = self.form_branch_url(branch)
                     include = {
-                        "name": branch.title(),
-                        "label": branch.title(),
+                        "name": branch,
+                        "label": branch,
                         "zipball_url": request_br
                     }
                     self._tags = [include] + self._tags  # append to front
-            if dev_build:
-                self._update_ready = dev_build
-
+            
         if "using_development_build" in saved_json.keys():
             self.using_development_build = saved_json["using_development_build"]
-
+        if "current_branch" in saved_json.keys():
+            self.current_branch = saved_json["current_branch"]
+        if "last_commit" in saved_json.keys():
+            self._last_commit = saved_json["last_commit"]
+        
     def clear_state(self):
         self._update_ready = None
         self._update_link = None
+        self._last_commit = None
         self._update_version = None
         self._source_zip = None
         self._error = None
@@ -1300,7 +1300,7 @@ class SingletonUpdater:
         self._error = None
         self._error_msg = None
         self.print_verbose(
-            "Check update pressed, first getting current status")
+            "Check update now pressed, first getting current status")
         if self._async_checking:
             self.print_verbose("Skipping async check, already started")
             return  # already running the bg thread
@@ -1314,7 +1314,7 @@ class SingletonUpdater:
         self._error = None
         self._error_msg = None
         self.print_verbose(
-            "Check update pressed, first getting current status")
+            "Check update branches pressed, first getting current status")
         if self._async_checking:
             self.print_verbose("Skipping async check, already started")
             return  # already running the bg thread
@@ -1323,6 +1323,20 @@ class SingletonUpdater:
         else:
             self._update_ready = None
             self.start_async_check_branches(callback)
+
+    def check_for_branches_releases_now(self, callback=None):
+        self._error = None
+        self._error_msg = None
+        self.print_verbose(
+            "Check update pressed, first getting current status")
+        if self._async_checking:
+            self.print_verbose("Skipping async check, already started")
+            return  # already running the bg thread
+        elif self._update_ready is None:
+            self.start_async_check_branches_releases(callback)
+        else:
+            self._update_ready = None
+            self.start_async_check_branches_releases(callback)
 
     def check_for_update(self, now=False):
         """Check for update not in a syncrhonous manner.
@@ -1398,37 +1412,43 @@ class SingletonUpdater:
             else:
                 link = self.select_link(self, self._tags[n])
 
-        if new_version == ():
-            self._update_ready = False
-            self._update_version = None
-            self._update_link = None
-            return (False, None, None)
-        elif str(new_version).lower() in self._include_branch_list:
-            # Handle situation where master/whichever branch is included
-            # however, this code effectively is not triggered now
-            # as new_version will only be tag names, not branch names.
-            if not self._include_branch_auto_check:
-                # Don't offer update as ready, but set the link for the
-                # default branch for installing.
-                self._update_ready = False
-                self._update_version = new_version
-                self._update_link = link
-                self.save_updater_json()
-                return (True, new_version, link)
-            else:
-                # Bypass releases and look at timestamp of last update from a
-                # branch compared to now, see if commit values match or not.
-                raise ValueError("include_branch_autocheck: NOT YET DEVELOPED")
-
-        else:
-            # Situation where branches not included.
-            if  self.using_development_build or new_version > self._current_version:
-
-                self._update_ready = True
-                self._update_version = new_version
-                self._update_link = link
-                self.save_updater_json()
-                return (True, new_version, link)
+        # if new_version == ():
+        #     self._update_ready = False
+        #     self._update_version = None
+        #     self._update_link = None
+        #     return (False, None, None)
+        # elif str(new_version).lower() in self._include_branch_list:
+        #     # Handle situation where master/whichever branch is included
+        #     # however, this code effectively is not triggered now
+        #     # as new_version will only be tag names, not branch names.
+        #     if not self._include_branch_auto_check:
+        #         # Don't offer update as ready, but set the link for the
+        #         # default branch for installing.
+        #         self._update_ready = False
+        #         self._update_version = new_version
+        #         self._update_link = link
+        #         self.save_updater_json()
+        #         return (True, new_version, link)
+        #     else:
+        #         # Bypass releases and look at timestamp of last update from a
+        #         # branch compared to now, see if commit values match or not.
+        #         raise ValueError("include_branch_autocheck: NOT YET DEVELOPED")
+        # else:
+        if self.using_development_build:
+            for tg in self._tags:
+                if tg["name"] == self.current_branch:
+                    if self._last_commit is not None and self._last_commit != tg["last_commit"]:
+                        self._update_ready = True
+                        self._update_version = new_version
+                        self._update_link = link
+                        self.save_updater_json()
+                        return (True, new_version, link) 
+        elif new_version > self._current_version:
+            self._update_ready = True
+            self._update_version = new_version
+            self._update_link = link
+            self.save_updater_json()
+            return (True, new_version, link)
 
         # If no update, set ready to False from None to show it was checked.
         self._update_ready = False
@@ -1442,7 +1462,7 @@ class SingletonUpdater:
         This function is not async, will always return in sequential fashion
         but should have a parent which calls it in another thread.
         """
-        self.print_verbose("Checking for update function")
+        self.print_verbose("Checking for branches function")
 
         # clear the errors if any
         self._error = None
@@ -1518,10 +1538,18 @@ class SingletonUpdater:
             if name == tag["name"]:
                 tg = tag
                 break
+        self.using_development_build = name in self.include_branch_list
+        self.current_branch = name
+        settings = get_user_preferences()
+        settings.branches = name
+        
         if tg:
             new_version = self.version_tuple_from_text(self.tag_latest)
             self._update_version = new_version
             self._update_link = self.select_link(self, tg)
+            if self.using_development_build:
+                self._last_commit = tg["last_commit"]
+            
         elif self._include_branches and name in self._include_branch_list:
             # scenario if reverting to a specific branch name instead of tag
             tg = name
@@ -1548,6 +1576,8 @@ class SingletonUpdater:
         if revert_tag is not None:
             self.set_tag(revert_tag)
             self._update_ready = True
+
+           
         print("self._update_link", self._update_link)
         # if True:
         #     return 0
@@ -1688,6 +1718,8 @@ class SingletonUpdater:
                 "last_check": "",
                 "backup_date": "",
                 "using_development_build" : self.using_development_build,
+                "current_branch" : self.current_branch,
+                "last_commit" : self._last_commit,
                 "update_ready": False,
                 "ignore": False,
                 "just_restored": False,
@@ -1810,6 +1842,45 @@ class SingletonUpdater:
         check_thread.daemon = True
         self._check_thread = check_thread
         check_thread.start()
+
+    def start_async_check_branches_releases(self, callback=None):
+        """Start a background thread which will check for updates"""
+        if self._async_checking:
+            return
+        self.print_verbose("Starting background checking thread")
+        check_thread = threading.Thread(target=self.async_check_branches_releases,
+                                        args=(callback,))
+        check_thread.daemon = True
+        self._check_thread = check_thread
+        check_thread.start()
+
+    def async_check_branches_releases(self, callback=None):
+        """Perform update check, run as target of background thread"""
+        self._async_checking = True
+        self.print_verbose("Checking for update now in background")
+
+        try:
+            self.check_for_branches()
+            self._update_ready = None
+            self.check_for_update()
+        except Exception as exception:
+            print("Checking for update error:")
+            print(exception)
+            self.print_trace()
+            if not self._error:
+                self._update_ready = False
+                self._update_version = None
+                self._update_link = None
+                self._error = "Error occurred"
+                self._error_msg = "Encountered an error while checking for updates"
+
+        self._async_checking = False
+        self._check_thread = None
+
+        if callback:
+            self.print_verbose("Finished check update, doing callback")
+            callback(self._update_ready)
+        self.print_verbose("BG thread: Finished check update, no callback")
 
     def async_check_branches(self, callback=None):
         """Perform update check, run as target of background thread"""

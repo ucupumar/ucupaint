@@ -219,7 +219,18 @@ class RefreshBranchesNow(bpy.types.Operator):
     def execute(self, context):
         updater.check_for_branches_now(ui_refresh)
         return {'FINISHED'}
-
+    
+# User preference check-now operator
+class RefreshBranchesReleasesNow(bpy.types.Operator):
+    bl_label = "Check for update"
+    bl_idname = updater.addon + ".branches_releases_refresh"
+    bl_description = "Refresh development releases branches"
+    def execute(self, context):
+        wm = context.window_manager
+        ypui = wm.ypui
+        ypui.hide_update = False
+        updater.check_for_branches_releases_now(ui_refresh)
+        return {'FINISHED'}
 
 # User preference check-now operator
 class AddonUpdaterCheckNow(bpy.types.Operator):
@@ -291,17 +302,11 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
             # if it fails, offer to open the website instead
             try:
                 settings = get_user_preferences()
-                updater.using_development_build = settings.development_build
-
-                if settings.development_build:
-                    res = updater.run_update(force=False,
-                                            revert_tag=settings.branches,
-                                            callback=post_update_callback,
-                                            clean=self.clean_install)
-                else:
-                    res = updater.run_update(force=False,
-                                            callback=post_update_callback,
-                                            clean=self.clean_install)
+                res = updater.run_update(force=False,
+                                        revert_tag=settings.branches,
+                                        callback=post_update_callback,
+                                        clean=self.clean_install)
+              
                 # Should return 0, if not something happened.
                 if updater.verbose:
                     if res == 0:
@@ -356,17 +361,6 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
         items=target_version
     )
 
-    # If true, run clean install - ie remove all files before adding new
-    # equivalent to deleting the addon and reinstalling, except the
-    # updater folder/backup folder remains.
-    clean_install : BoolProperty(
-        name="Clean install",
-        description=("If enabled, completely clear the addon's folder before "
-                     "installing new update, creating a fresh install"),
-        default=False,
-        options={'HIDDEN'}
-    )
-
     @classmethod
     def poll(cls, context):
         if updater.invalid_updater:
@@ -374,6 +368,9 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
         return updater.update_ready is not None and len(updater.tags) > 0
 
     def invoke(self, context, event):
+        
+        if updater.current_branch is not None:
+            self.target = updater.current_branch
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
@@ -395,8 +392,7 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
         res = updater.run_update(
             force=False,
             revert_tag=self.target,
-            callback=post_update_callback,
-            clean=self.clean_install)
+            callback=post_update_callback)
 
         # Should return 0, if not something happened.
         if res == 0:
@@ -621,7 +617,27 @@ class AddonUpdaterEndBackground(bpy.types.Operator):
         updater.stop_async_check_update()
         return {'FINISHED'}
 
+class UpdaterSettingMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_updater_setting_menu"
+    bl_description = 'Add New Layer'
+    bl_label = "New Layer Menu"
 
+    def draw(self, context):
+        col = self.layout.column()
+        col.operator(AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="DOCUMENTS")
+        col.operator(RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
+
+class UpdaterPendingUpdate(bpy.types.Operator):
+    bl_label = "Pending Update"
+    bl_idname = updater.addon + ".updater_pending_update"
+    bl_description = "Pending Update"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    def execute(self, context):
+        wm = context.window_manager
+        ypui = wm.ypui
+        ypui.hide_update = True
+        return {'FINISHED'}
 # -----------------------------------------------------------------------------
 # Handler related, to create popups
 # -----------------------------------------------------------------------------
@@ -634,16 +650,10 @@ ran_update_success_popup = False
 # global var for preventing successive calls
 ran_background_check = False
 
-def update_development_build(self, context):
-    updater.on_dev_mode_change(self.development_build)
-     # if latest 
-
-
-
 def list_branches(self, context):
     retval = list()
-    for br in updater.include_branch_list:
-        retval.append((br,br,""))
+    for tag in updater.tags:
+        retval.append(tag)
     return retval 
 
 @persistent
@@ -988,36 +998,8 @@ def update_settings_ui(self, context, element=None):
                          icon="ERROR")
             return
 
-
-    # split = layout_split(row, factor=0.4)
-    # sub_col = split.column()
-    # sub_col.prop(settings, "auto_check_update")
-    # sub_col = split.column()
-
-    # if not settings.auto_check_update:  
-    #     sub_col.enabled = False
-    # sub_row = sub_col.row()
-    # sub_row.label(text="Interval between checks")
-    # sub_row = sub_col.row(align=True)
-    # check_col = sub_row.column(align=True)
-    # check_col.prop(settings, "updater_interval_months")
-    # check_col = sub_row.column(align=True)
-    # check_col.prop(settings, "updater_interval_days")
-    # check_col = sub_row.column(align=True)
-
-    # Consider un-commenting for local dev (e.g. to set shorter intervals)
-    # check_col.prop(settings,"updater_interval_hours")
-    # check_col = sub_row.column(align=True)
-    # check_col.prop(settings,"updater_interval_minutes")
-
-    row.prop(settings, 'development_build')
-
-    dev_mode = settings.development_build
-    if dev_mode and not updater.legacy_blender:
-        row.prop(settings, 'branches', text="Branch")
-
     # print("use releases", updater.use_releases, "| use branch", updater.include_branches)
-    check_operator = RefreshBranchesNow.bl_idname if dev_mode else AddonUpdaterCheckNow.bl_idname
+    check_operator = RefreshBranchesReleasesNow.bl_idname
     
     # print("include br", updater.include_branches, " dev_mode", dev_mode)
     # Checking / managing updates.
@@ -1037,9 +1019,6 @@ def update_settings_ui(self, context, element=None):
         split = sub_col.split(align=True)
         split.operator(check_operator,
                     text="", icon="FILE_REFRESH")
-    elif updater.legacy_blender and dev_mode:
-        row.operator(AddonUpdaterUpdateNow.bl_idname,
-                    text="Update now")
     elif updater.update_ready is None and not updater.async_checking:
         row.operator(check_operator)
     elif updater.update_ready is None:  # async is running
@@ -1085,6 +1064,8 @@ def update_settings_ui(self, context, element=None):
         split = sub_col.split(align=True)
         split.operator(check_operator,
                     text="", icon="FILE_REFRESH")
+    if updater.update_ready is not None:
+        row.prop(settings, 'branches', text="Branch")
 
     # if not updater.manual_only:
     #     # col = row#.column(align=True)
@@ -1216,6 +1197,7 @@ def select_link_function(self, tag):
 classes = (
     AddonUpdaterInstallPopup,
     RefreshBranchesNow,
+    RefreshBranchesReleasesNow,
     AddonUpdaterCheckNow,
     AddonUpdaterUpdateNow,
     AddonUpdaterUpdateTarget,
@@ -1223,7 +1205,9 @@ classes = (
     AddonUpdaterUpdatedSuccessful,
     AddonUpdaterRestoreBackup,
     AddonUpdaterIgnore,
-    AddonUpdaterEndBackground
+    AddonUpdaterEndBackground,
+    UpdaterSettingMenu,
+    UpdaterPendingUpdate
 )
 
 
@@ -1339,7 +1323,7 @@ def register(bl_info):
     # but the user has the option from user preferences to directly
     # update to the master branch or any other branches specified using
     # the "install {branch}/older version" operator.
-    updater.include_branches = False
+    updater.include_branches = True
 
     # (GitHub only) This options allows using "releases" instead of "tags",
     # which enables pulling down release logs/notes, as well as installs update
@@ -1414,9 +1398,8 @@ def register(bl_info):
     # Special situation: we just updated the addon, show a popup to tell the
     # user it worked. Could enclosed in try/catch in case other issues arise.
     show_reload_popup()
-    pref = get_user_preferences()
-    update_development_build(pref, None)
-    updater.restore_saved_branches(pref.development_build)
+    updater.check_for_branches_releases_now(None)
+    updater.restore_saved_branches()
 
 
 def unregister():

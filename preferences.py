@@ -100,13 +100,6 @@ class YPaintPreferences(AddonPreferences):
         default=0,
         min=0,
         max=59)
-    
-    development_build : BoolProperty(
-        name="Development Build",
-        description="Update using development mode (warning:unstable)",
-        default=False,
-        update=addon_updater_ops.update_development_build
-    )
 
     branches : EnumProperty(
         name="Target branch to install",
