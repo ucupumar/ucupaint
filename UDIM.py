@@ -313,6 +313,9 @@ def swap_tile(image, tilenum0, tilenum1):
 
 def swap_tiles(image, swap_dict, reverse=False):
 
+    # Directory of image
+    directory = os.path.dirname(bpy.path.abspath(image.filepath))
+
     # Remember stuff
     ori_packed = False
     if image.packed_file: ori_packed = True
@@ -338,7 +341,6 @@ def swap_tiles(image, swap_dict, reverse=False):
         str1 = '.' + str(tilenum1) + '.'
         filename = bpy.path.basename(image.filepath)
         prefix = filename.split('.<UDIM>.')[0]
-        directory = os.path.dirname(bpy.path.abspath(image.filepath))
 
         # Get image paths
         path0 = ''
@@ -589,7 +591,7 @@ def remove_udim_atlas_segment(image, index, tilenums, actual_removal=True):
                 if j not in unused_tilenums:
                     unused_tilenums.append(j)
 
-        remove_tiles(image, unused_tilenums)
+        #remove_tiles(image, unused_tilenums)
 
         # Create conversion dict
         convert_dict = {}
