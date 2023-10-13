@@ -2700,10 +2700,16 @@ def main_draw(self, context):
 
     row_update = layout.row()
     updater = addon_updater_ops.updater
-    if updater.update_ready:
-        row_update.alert = True
+    settings = get_user_preferences()
+    row_update.alert = True
+    if updater.using_development_build:
+        update_now_txt = "Update to latest commit on '{}' branch".format(
+            settings.branches)
+        row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
+    elif updater.update_ready and not updater.manual_only:
         row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
                     text="Update now to " + str(updater.update_version))
+        
 
     icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -3437,10 +3443,31 @@ class YPaintAboutMenu(bpy.types.Panel):
         else:
             col.label(text="Version: "+str(updater.current_version))
 
-        if updater.update_ready:
-            col.alert = True
-            col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
+        check_operator = addon_updater_ops.RefreshBranchesReleasesNow.bl_idname
+        settings = get_user_preferences()
+
+        if updater.using_development_build:
+            sub_col = col.row(align=True)
+            split = sub_col.split(align=True)
+            update_now_txt = "Update to latest commit on '{}' branch".format(
+                settings.branches)
+            split.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
+            split = sub_col.split(align=True)
+            split.operator(check_operator,
+                        text="", icon="FILE_REFRESH")
+        elif updater.update_ready and not updater.manual_only:
+            sub_col = col.row(align=True)
+            split = sub_col.split(align=True)
+            split.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
                         text="Update now to " + str(updater.update_version))
+            split = sub_col.split(align=True)
+            split.operator(check_operator,
+                        text="", icon="FILE_REFRESH")
+    
+        # if updater.update_ready:
+        #     col.alert = True
+        #     col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
+        #                 text="Update now to " + str(updater.update_version))
         col.operator(addon_updater_ops.AddonUpdaterUpdateTarget.bl_idname, text="Change Branch")
 
 class YPaintSpecialMenu(bpy.types.Menu):

@@ -1414,7 +1414,7 @@ class SingletonUpdater:
                 link = self.select_link(self, self._tags[0])
             else:
                 link = self.select_link(self, self._tags[n])
-
+        print("compare ", new_version, "vs", self._current_version)
         if new_version == ():
             self._update_ready = False
             self._update_version = None
@@ -1439,7 +1439,7 @@ class SingletonUpdater:
 
         else:
             # Situation where branches not included.
-            if  new_version > self._current_version:
+            if self.using_development_build or new_version > self._current_version:
 
                 self._update_ready = True
                 self._update_version = new_version
