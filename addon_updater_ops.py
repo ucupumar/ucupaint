@@ -222,13 +222,15 @@ class RefreshBranchesNow(bpy.types.Operator):
     
 # User preference check-now operator
 class RefreshBranchesReleasesNow(bpy.types.Operator):
-    bl_label = "Refresh branches & releases"
+    bl_label = "Check for update"
     bl_idname = updater.addon + ".branches_releases_refresh"
     bl_description = "Refresh development releases branches"
     def execute(self, context):
+        wm = context.window_manager
+        ypui = wm.ypui
+        ypui.hide_update = False
         updater.check_for_branches_releases_now(ui_refresh)
         return {'FINISHED'}
-
 
 # User preference check-now operator
 class AddonUpdaterCheckNow(bpy.types.Operator):
@@ -359,17 +361,6 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
         items=target_version
     )
 
-    # If true, run clean install - ie remove all files before adding new
-    # equivalent to deleting the addon and reinstalling, except the
-    # updater folder/backup folder remains.
-    clean_install : BoolProperty(
-        name="Clean install",
-        description=("If enabled, completely clear the addon's folder before "
-                     "installing new update, creating a fresh install"),
-        default=False,
-        options={'HIDDEN'}
-    )
-
     @classmethod
     def poll(cls, context):
         if updater.invalid_updater:
@@ -377,6 +368,9 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
         return updater.update_ready is not None and len(updater.tags) > 0
 
     def invoke(self, context, event):
+        
+        if updater.current_branch is not None:
+            self.target = updater.current_branch
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
@@ -398,8 +392,7 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
         res = updater.run_update(
             force=False,
             revert_tag=self.target,
-            callback=post_update_callback,
-            clean=self.clean_install)
+            callback=post_update_callback)
 
         # Should return 0, if not something happened.
         if res == 0:
@@ -624,7 +617,27 @@ class AddonUpdaterEndBackground(bpy.types.Operator):
         updater.stop_async_check_update()
         return {'FINISHED'}
 
+class UpdaterSettingMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_updater_setting_menu"
+    bl_description = 'Add New Layer'
+    bl_label = "New Layer Menu"
 
+    def draw(self, context):
+        col = self.layout.column()
+        col.operator(AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="DOCUMENTS")
+        col.operator(RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
+
+class UpdaterPendingUpdate(bpy.types.Operator):
+    bl_label = "Pending Update"
+    bl_idname = updater.addon + ".updater_pending_update"
+    bl_description = "Pending Update"
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    def execute(self, context):
+        wm = context.window_manager
+        ypui = wm.ypui
+        ypui.hide_update = True
+        return {'FINISHED'}
 # -----------------------------------------------------------------------------
 # Handler related, to create popups
 # -----------------------------------------------------------------------------
@@ -1192,7 +1205,9 @@ classes = (
     AddonUpdaterUpdatedSuccessful,
     AddonUpdaterRestoreBackup,
     AddonUpdaterIgnore,
-    AddonUpdaterEndBackground
+    AddonUpdaterEndBackground,
+    UpdaterSettingMenu,
+    UpdaterPendingUpdate
 )
 
 

@@ -3,7 +3,6 @@ from bpy.props import *
 from bpy.app.handlers import persistent
 from . import lib, Modifier, MaskModifier, NormalMapModifier, Root, UDIM
 from .common import *
-#from .subtree import *
 
 def update_yp_ui():
 
@@ -2700,16 +2699,27 @@ def main_draw(self, context):
 
     row_update = layout.row()
     updater = addon_updater_ops.updater
-    settings = get_user_preferences()
-    row_update.alert = True
-    if updater.using_development_build:
-        update_now_txt = "Update to latest commit on '{}' branch".format(
-            settings.branches)
-        row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
-    elif updater.update_ready and not updater.manual_only:
-        row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                    text="Update now to " + str(updater.update_version))
+
+    if not updater.auto_reload_post_update:
+        saved_state = updater.json
+        if "just_updated" in saved_state and saved_state["just_updated"]:
+            row_update.alert = True
+            row_update.operator("wm.quit_blender",
+                         text="Restart blender to complete update",
+                         icon="ERROR")
+            return
         
+    if updater.update_ready and not ypui.hide_update:
+        row_update.alert = True
+        if updater.using_development_build:
+            update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
+            row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
+        else:
+            row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
+                        text="Update now to " + str(updater.update_version))
+        row_update.alert = False
+
+        row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
 
     icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -3432,43 +3442,30 @@ class YPaintAboutMenu(bpy.types.Panel):
         col.operator('wm.url_open', text='arsa', icon='ARMATURE_DATA').url = 'https://www.twitter.com/RakaiSahakarya'
         col.operator('wm.url_open', text='swifterik', icon='ARMATURE_DATA').url = 'https://jblaha.art/'
         col.operator('wm.url_open', text='rifai', icon='ARMATURE_DATA').url = 'https://github.com/rifai'
-
         col.separator()
 
         from . import addon_updater_ops
         updater = addon_updater_ops.updater
 
+        row = col.row()            
         if updater.using_development_build:
-            col.label(text="Branch: "+updater.current_branch)
+            row.label(text="Branch: "+updater.current_branch)
         else:
-            col.label(text="Version: "+str(updater.current_version))
+            row.label(text="Branch: Stable "+str(updater.current_version))
+        row.menu("NODE_MT_updater_setting_menu", text='', icon='PREFERENCES')
 
-        check_operator = addon_updater_ops.RefreshBranchesReleasesNow.bl_idname
-        settings = get_user_preferences()
-
-        if updater.using_development_build:
-            sub_col = col.row(align=True)
-            split = sub_col.split(align=True)
-            update_now_txt = "Update to latest commit on '{}' branch".format(
-                settings.branches)
-            split.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
-            split = sub_col.split(align=True)
-            split.operator(check_operator,
-                        text="", icon="FILE_REFRESH")
-        elif updater.update_ready and not updater.manual_only:
-            sub_col = col.row(align=True)
-            split = sub_col.split(align=True)
-            split.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                        text="Update now to " + str(updater.update_version))
-            split = sub_col.split(align=True)
-            split.operator(check_operator,
-                        text="", icon="FILE_REFRESH")
-    
-        # if updater.update_ready:
-        #     col.alert = True
-        #     col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-        #                 text="Update now to " + str(updater.update_version))
-        col.operator(addon_updater_ops.AddonUpdaterUpdateTarget.bl_idname, text="Change Branch")
+        if updater.async_checking:
+            col.enabled = False
+            col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text="Checking...")
+        elif updater.update_ready:
+            if updater.using_development_build:
+                update_now_txt = "Update to latest commit on '{}' branch".format(
+                    updater.current_branch)
+                col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
+                
+            else:
+                col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
+                            text="Update now to " + str(updater.update_version))
 
 class YPaintSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_ypaint_special_menu"
@@ -4800,6 +4797,7 @@ class YPaintUI(bpy.types.PropertyGroup):
     active_mat : StringProperty(default='')
     active_ypaint_node : StringProperty(default='')
 
+    hide_update : BoolProperty(default=False)
     #random_prop : BoolProperty(default=False)
 
 def add_new_ypaint_node_menu(self, context):
