@@ -311,12 +311,63 @@ def swap_tile(image, tilenum0, tilenum1):
         if is_using_temp_dir(image):
             remove_udim_files_from_disk(image, directory, True)
 
-def remove_tile(image, tilenum):
+def swap_tiles(image, swap_dict, reverse=False):
 
-    tile = image.tiles.get(tilenum)
-    if not tile: return
+    # Remember stuff
+    ori_packed = False
+    if image.packed_file: ori_packed = True
 
-    print('UDIM: Removing tile', tilenum)
+    # Save the image first
+    image.save()
+
+    if reverse: iterator = reversed(swap_dict)
+    else: iterator = swap_dict
+
+    for tilenum0 in iterator:
+
+        tilenum1 = swap_dict[tilenum0]
+
+        tile0 = image.tiles.get(tilenum0)
+        tile1 = image.tiles.get(tilenum1)
+
+        if not tile0 or not tile1: continue
+        if tilenum0 == tilenum1: continue
+
+        print('UDIM: Swapping tile', tilenum0, 'to', tilenum1)
+
+        str0 = '.' + str(tilenum0) + '.'
+        str1 = '.' + str(tilenum1) + '.'
+        filename = bpy.path.basename(image.filepath)
+        prefix = filename.split('.<UDIM>.')[0]
+        directory = os.path.dirname(bpy.path.abspath(image.filepath))
+
+        # Get image paths
+        path0 = ''
+        path1 = ''
+        for f in os.listdir(directory):
+            m = re.match(r'' + re.escape(prefix) + '\.\d{4}\.*', f)
+            if m:
+                if str0 in f: path0 = os.path.join(directory, f)
+                elif str1 in f: path1 = os.path.join(directory, f)
+
+        # Swap paths
+        temp_path = path0.replace(str0, '.xxxx.')
+        os.rename(path0, temp_path)
+        os.rename(path1, path0)
+        os.rename(temp_path, path1)
+    
+    # Reload to update image
+    image.reload()
+
+    # Repack image
+    if ori_packed:
+        image.pack()
+
+        # Remove file if they are using temporary directory
+        if is_using_temp_dir(image):
+            remove_udim_files_from_disk(image, directory, True)
+
+def remove_tiles(image, tilenums):
 
     # Directory of image
     directory = os.path.dirname(bpy.path.abspath(image.filepath))
@@ -328,8 +379,14 @@ def remove_tile(image, tilenum):
     # Save the image first
     image.save()
 
-    # Remove tile
-    image.tiles.remove(tile)
+    for tilenum in tilenums:
+        tile = image.tiles.get(tilenum)
+        if not tile: continue
+
+        print('UDIM: Removing tile', tilenum)
+
+        # Remove tile
+        image.tiles.remove(tile)
 
     # Repack image
     if ori_packed:
@@ -342,6 +399,8 @@ def remove_tile(image, tilenum):
         # Remove file
         remove_udim_files_from_disk(image, directory, False, tilenum)
 
+def remove_tile(image, tilenum):
+    remove_tiles(image, [tilenum])
 
 class YRefillUDIMTiles(bpy.types.Operator):
     bl_idname = "node.y_refill_udim_tiles"
@@ -499,16 +558,13 @@ def refresh_udim_atlas(image, tilenums):
 
     # Convert tile numbers by swapping tiles
     if offset_diff > 0:
-        for key in reversed(convert_dict):
-            swap_tile(image, key, convert_dict[key])
+        swap_tiles(image, convert_dict, reverse=True)
     elif offset_diff < 0:
-        for key in convert_dict:
-            swap_tile(image, key, convert_dict[key])
+        swap_tiles(image, convert_dict)
 
     # Remove unused tilenum
-    for tile in reversed(image.tiles):
-        if tile.number not in tilenums:
-            remove_tile(image, tile.number)
+    unused_tilenums = [tile.number for tile in image.tiles if tile.number not in tilenums]
+    remove_tiles(image, unused_tilenums)
 
     print('INFO: UDIM Atlas offsets are refreshed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -524,13 +580,17 @@ def remove_udim_atlas_segment(image, index, tilenums, actual_removal=True):
         cur_tilenums = [t.number for t in image.tiles]
 
         # Remove tiles inside segment
+        unused_tilenums = []
         for i in range(len(image.yua.segments)):
             if i != index: continue
             min_y = 1001 + i * image.yua.offset_y * 10
             max_y = 1001 + (i+1) * image.yua.offset_y * 10 
             for j in range(min_y, max_y):
                 if j not in cur_tilenums: continue
-                remove_tile(image, j)
+                if j not in unused_tilenums:
+                    unused_tilenums.append(j)
+
+        remove_tiles(image, unused_tilenums)
 
         # Create conversion dict
         convert_dict = {}
@@ -559,13 +619,11 @@ def remove_udim_atlas_segment(image, index, tilenums, actual_removal=True):
         #if dirty: initial_pack_udim(image)
 
         # Convert tile numbers by swapping tiles
-        for key in convert_dict:
-            swap_tile(image, key, convert_dict[key])
+        swap_tiles(image, convert_dict)
 
         # Remove unused tilenum
-        for tile in reversed(image.tiles):
-            if tile.number not in tilenums:
-                remove_tile(image, tile.number)
+        unused_tilenums = [tile.number for tile in image.tiles if tile.number not in tilenums]
+        remove_tiles(image, unused_tilenums)
 
         print('INFO: UDIM Atlas segment is removed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -655,7 +713,7 @@ class YRemoveUDIMAtlasSegment(bpy.types.Operator):
         refresh_udim_atlas(image, tilenums)
 
         # Remove segment
-        remove_udim_atlas_segment(image, self.index, tilenums, actual_removal=False)
+        remove_udim_atlas_segment(image, self.index, tilenums, actual_removal=True)
 
         return {'FINISHED'}
 
