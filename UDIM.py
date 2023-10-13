@@ -320,8 +320,8 @@ def swap_tiles(image, swap_dict, reverse=False):
     ori_packed = False
     if image.packed_file: ori_packed = True
 
-    # Save the image first
-    image.save()
+    # Image saved flag
+    image_saved = False
 
     iterator = reversed(swap_dict) if reverse else swap_dict
 
@@ -334,6 +334,11 @@ def swap_tiles(image, swap_dict, reverse=False):
 
         if not tile0 or not tile1: continue
         if tilenum0 == tilenum1: continue
+
+        # Save the image first
+        if not image_saved:
+            image.save()
+            image_saved = True
 
         print('UDIM: Swapping tile', tilenum0, 'to', tilenum1)
 
@@ -357,16 +362,18 @@ def swap_tiles(image, swap_dict, reverse=False):
         os.rename(path1, path0)
         os.rename(temp_path, path1)
     
-    # Reload to update image
-    image.reload()
+    if image_saved:
 
-    # Repack image
-    if ori_packed:
-        image.pack()
+        # Reload to update image
+        image.reload()
 
-        # Remove file if they are using temporary directory
-        if is_using_temp_dir(image):
-            remove_udim_files_from_disk(image, directory, True)
+        # Repack image
+        if ori_packed:
+            image.pack()
+
+            # Remove file if they are using temporary directory
+            if is_using_temp_dir(image):
+                remove_udim_files_from_disk(image, directory, True)
 
 def remove_tiles(image, tilenums):
 
@@ -377,12 +384,17 @@ def remove_tiles(image, tilenums):
     ori_packed = False
     if image.packed_file: ori_packed = True
 
-    # Save the image first
-    image.save()
+    # Image saved flag
+    image_saved = False
 
     for tilenum in tilenums:
         tile = image.tiles.get(tilenum)
         if not tile: continue
+
+        # Save the image first
+        if not image_saved:
+            image.save()
+            image_saved = True
 
         print('UDIM: Removing tile', tilenum)
 
@@ -390,15 +402,16 @@ def remove_tiles(image, tilenums):
         image.tiles.remove(tile)
 
     # Repack image
-    if ori_packed:
-        image.pack()
+    if image_saved:
+        if ori_packed:
+            image.pack()
 
-        # Remove file if they are using temporary directory
-        if is_using_temp_dir(image):
-            remove_udim_files_from_disk(image, directory, True)
-    else:
-        # Remove file
-        remove_udim_files_from_disk(image, directory, False, tilenum)
+            # Remove file if they are using temporary directory
+            if is_using_temp_dir(image):
+                remove_udim_files_from_disk(image, directory, True)
+        else:
+            # Remove file
+            remove_udim_files_from_disk(image, directory, False, tilenum)
 
 def remove_tile(image, tilenum):
     remove_tiles(image, [tilenum])
