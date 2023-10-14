@@ -4171,6 +4171,34 @@ def get_yp_images(yp, udim_only=False):
 
     return images
 
+def get_yp_entites_using_same_image(yp, image):
+    entities = []
+
+    for layer in yp.layers:
+
+        for mask in layer.masks:
+            if mask.type == 'IMAGE':
+                source = get_mask_source(mask)
+                if source and source.image == image:
+                    entities.append(mask)
+
+        for ch in layer.channels:
+            if ch.override and ch.override_type == 'IMAGE':
+                source = get_channel_source(ch, layer)
+                if source and source.image == image:
+                    entities.append(ch)
+            elif ch.override_1 and ch.override_1_type == 'IMAGE':
+                source = get_channel_source_1(ch, layer)
+                if source and source.image == image:
+                    entities.append(ch)
+
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source and source.image == image:
+                entities.append(layer)
+
+    return entities 
+
 def get_yp_entities_images_and_segments(yp):
     entities = []
     images = []
