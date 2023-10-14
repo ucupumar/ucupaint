@@ -124,6 +124,9 @@ def remove_mask_channel(tree, layer, ch_index):
 def remove_mask(layer, mask, obj):
 
     tree = get_tree(layer)
+    yp = layer.id_data.yp
+    mat = obj.active_material
+    objs = get_all_objects_with_same_materials(mat)
 
     # Get mask index
     mask_index = [i for i, m in enumerate(layer.masks) if m == mask][0]
@@ -133,10 +136,17 @@ def remove_mask(layer, mask, obj):
     shift_mask_fcurves_up(layer, mask_index)
 
     # Dealing with image atlas segments
-    if mask.type == 'IMAGE' and mask.segment_name != '':
+    if mask.type == 'IMAGE':
         src = get_mask_source(mask)
-        segment = src.image.yia.segments.get(mask.segment_name)
-        segment.unused = True
+        if src and src.image:
+            image = src.image
+            if mask.segment_name != '':
+                if image.yia.is_image_atlas:
+                    segment = image.yia.segments.get(mask.segment_name)
+                    segment.unused = True
+                elif image.yua.is_udim_atlas:
+                    tilenums = UDIM.get_tile_numbers(objs, mask.uv_name)
+                    UDIM.remove_udim_atlas_segment_by_name(image, mask.segment_name, tilenums, yp)
 
     disable_mask_source_tree(layer, mask)
 

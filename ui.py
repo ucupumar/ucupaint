@@ -147,7 +147,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
 
     if image.y_bake_info.is_baked:
         bi = image.y_bake_info
-        if image.yia.is_image_atlas:
+        if image.yia.is_image_atlas or image.yua.is_udim_atlas:
             col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
         else: col.template_ID(source, "image", unlink='node.y_remove_layer')
         col.label(text='Type: ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
@@ -155,20 +155,32 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
         draw_bake_info(bi, col, entity)
         return
 
-    if image.yia.is_image_atlas:
-        segment = image.yia.segments.get(entity.segment_name)
+    if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+
+        if image.yia.is_image_atlas:
+            segment = image.yia.segments.get(entity.segment_name)
+        else: segment = image.yua.segments.get(entity.segment_name)
+
         if segment and segment.bake_info.is_baked:
             bi = segment.bake_info
             col.label(text=image.name + ' (Baked)', icon_value=lib.get_icon('image'))
             col.label(text='Type: ' + bake_type_labels[bi.bake_type], icon_value=lib.get_icon('bake'))
         else: col.label(text=image.name, icon_value=lib.get_icon('image'))
         if segment:
-            row = col.row()
-            row.label(text='Tile X: ' + str(segment.tile_x))
-            row.label(text='Tile Y: ' + str(segment.tile_y))
-            row = col.row()
-            row.label(text='Width: ' + str(segment.width))
-            row.label(text='Height: ' + str(segment.height))
+            if image.yia.is_image_atlas:
+                row = col.row()
+                row.label(text='Tile X: ' + str(segment.tile_x))
+                row.label(text='Tile Y: ' + str(segment.tile_y))
+                row = col.row()
+                row.label(text='Width: ' + str(segment.width))
+                row.label(text='Height: ' + str(segment.height))
+            else:
+                row = col.row()
+                index = [i for i, s in enumerate(image.yua.segments) if s == segment]
+                if len(index) > 0:
+                    index = index[0]
+                    row.label(text='Index: ' + str(index))
+                row.label(text='Offset Y: ' + str(image.yua.offset_y))
 
             if segment.bake_info.is_baked:
                 draw_bake_info(segment.bake_info, col, entity)
@@ -979,7 +991,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             icon_value = lib.custom_icons["uncollapsed_image"].icon_id
         else: icon_value = lib.custom_icons["collapsed_image"].icon_id
         row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        if image.yia.is_image_atlas:
+        if image.yia.is_image_atlas or image.yua.is_udim_atlas:
             row.label(text=layer.name)
         else: row.label(text=image.name)
     elif vcol:
@@ -1165,7 +1177,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 row = rcol.row(align=True)
                 row.label(text='', icon='BLANK1')
                 bbox = row.box()
-                if image and image.yia.is_image_atlas:
+                if image and (image.yia.is_image_atlas or image.yua.is_udim_atlas):
                     #bbox.label(text="Transform vector with image atlas is not possible!")
                     pass
                 else:
@@ -1941,7 +1953,7 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
         mask_source = mask_tree.nodes.get(mask.source)
         if mask.type == 'IMAGE':
             mask_image = mask_source.image
-            if mask_image.yia.is_image_atlas:
+            if mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas:
                 row.label(text=mask.name)
             else: row.label(text=mask_image.name)
         else: row.label(text=mask.name)
@@ -2064,7 +2076,7 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 rrow = rrcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
-                if mask_image and mask_image.yia.is_image_atlas:
+                if mask_image and (mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas):
                     #rbox.label(text="Transform vector with image atlas is not possible!")
                     pass
                 else:
@@ -3146,7 +3158,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
         if len(selectable_masks) == 0 and len(selectable_overrides) == 0:
             row = master.row(align=True)
             row.active = is_hidden
-            if image and image.yia.is_image_atlas: 
+            if image and (image.yia.is_image_atlas or image.yua.is_udim_atlas): 
                 if image.preview and ypup.use_image_preview: row.prop(layer, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
                 else: row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
             elif image: 
@@ -3314,7 +3326,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             row.active = is_hidden
             if override_ch:
                 if active_override_image:
-                    if active_override_image.yia.is_image_atlas:
+                    if active_override_image.yia.is_image_atlas or active_override_image.yua.is_udim_atlas:
                         #row.label(text='Image Atlas Override')
                         row.label(text=override_image.name)
                     else: row.prop(active_override_image, 'name', text='', emboss=False)
@@ -3324,7 +3336,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 else:
                     row.label(text='Channel Override')
             elif active_mask_image:
-                if active_mask_image.yia.is_image_atlas:
+                if active_mask_image.yia.is_image_atlas or active_mask_image.yua.is_udim_atlas:
                     row.prop(mask, 'name', text='', emboss=False)
                 else: row.prop(active_mask_image, 'name', text='', emboss=False)
             elif active_vcol_mask:
@@ -3332,7 +3344,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             elif active_mask:
                 row.prop(active_mask, 'name', text='', emboss=False)
             else: 
-                if image and not image.yia.is_image_atlas: 
+                if image and not image.yia.is_image_atlas and not image.yua.is_udim_atlas: 
                     row.prop(image, 'name', text='', emboss=False)
                 else: row.prop(layer, 'name', text='', emboss=False)
 
@@ -3856,9 +3868,9 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         #    col = row.column()
         #    col.label(text=context.entity.name, icon=get_layer_type_icon(context.entity.type))
 
-        if hasattr(context, 'image') and context.image.source != 'TILED':
+        if hasattr(context, 'image'):
             col.separator()
-            if context.image.yia.is_image_atlas:
+            if context.image.yia.is_image_atlas or context.image.yua.is_udim_atlas:
                 col.operator("node.y_convert_to_standard_image", icon='IMAGE_DATA', text='Convert to standard Image').all_images = False
                 col.operator("node.y_convert_to_standard_image", icon='IMAGE_DATA', text='Convert All Image Atlas to standard Images').all_images = True
             else:

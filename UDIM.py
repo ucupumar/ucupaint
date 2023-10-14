@@ -559,6 +559,9 @@ def refresh_udim_atlas(image, tilenums):
 def remove_udim_atlas_segment_by_index(image, index, tilenums, yp=None, actual_removal=True):
     T = time.time()
 
+    # Refresh udim atlas first
+    refresh_udim_atlas(image, tilenums)
+
     if not actual_removal:
         segment = image.yua.segments[index]
         segment.unused = True
@@ -699,9 +702,6 @@ class YRemoveUDIMAtlasSegment(bpy.types.Operator):
         area = context.area
         image = area.spaces[0].image
         if not image.yua.is_udim_atlas: return {'CANCELLED'}
-
-        # Refresh udim atlas first
-        refresh_udim_atlas(image, tilenums)
 
         # Remove segment
         remove_udim_atlas_segment_by_index(image, self.index, tilenums, actual_removal=True)
