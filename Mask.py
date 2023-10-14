@@ -126,7 +126,6 @@ def remove_mask(layer, mask, obj):
     tree = get_tree(layer)
     yp = layer.id_data.yp
     mat = obj.active_material
-    objs = get_all_objects_with_same_materials(mat)
 
     # Get mask index
     mask_index = [i for i, m in enumerate(layer.masks) if m == mask][0]
@@ -145,6 +144,7 @@ def remove_mask(layer, mask, obj):
                     segment = image.yia.segments.get(mask.segment_name)
                     segment.unused = True
                 elif image.yua.is_udim_atlas:
+                    objs = get_all_objects_with_same_materials(mat, True, mask.uv_name)
                     tilenums = UDIM.get_tile_numbers(objs, mask.uv_name)
                     UDIM.remove_udim_atlas_segment_by_name(image, mask.segment_name, tilenums, yp)
 
