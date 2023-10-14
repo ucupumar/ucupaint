@@ -2798,15 +2798,21 @@ def remove_layer(yp, index):
     obj = bpy.context.object
     layer = yp.layers[index]
     layer_tree = get_tree(layer)
+    mat = obj.active_material
+    objs = get_all_objects_with_same_materials(mat)
 
     # Dealing with image atlas segments
     if layer.type == 'IMAGE': # and layer.segment_name != '':
         src = get_layer_source(layer)
-        if src and src.image.yia.is_image_atlas and layer.segment_name != '':
-            segment = src.image.yia.segments.get(layer.segment_name)
-            entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
-            if len(entities) == 1:
-                segment.unused = True
+        if src:
+            if src.image.yia.is_image_atlas and layer.segment_name != '':
+                segment = src.image.yia.segments.get(layer.segment_name)
+                entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
+                if len(entities) == 1:
+                    segment.unused = True
+            elif src.image.yua.is_udim_atlas and layer.segment_name != '':
+                tilenums = UDIM.get_tile_numbers(objs, layer.uv_name)
+                UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, tilenums, yp, False)
 
     # Remove the source first to remove image
     source_tree = get_source_tree(layer) #, layer_tree)
@@ -2818,11 +2824,15 @@ def remove_layer(yp, index):
         # Dealing with image atlas segments
         if mask.type == 'IMAGE': # and mask.segment_name != '':
             src = get_mask_source(mask)
+            if not src: continue
             if src.image.yia.is_image_atlas and mask.segment_name != '':
                 segment = src.image.yia.segments.get(mask.segment_name)
                 entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
                 if len(entities) == 1:
                     segment.unused = True
+            elif src.image.yua.is_udim_atlas and mask.segment_name != '':
+                tilenums = UDIM.get_tile_numbers(objs, layer.uv_name)
+                UDIM.remove_udim_atlas_segment_by_name(src.image, mask.segment_name, tilenums, yp, False)
 
         mask_tree = get_mask_tree(mask)
         remove_node(mask_tree, mask, 'source')

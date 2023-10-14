@@ -413,6 +413,24 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def get_udim_segment_mapping_offset(segment, image):
+
+    for i, seg in enumerate(image.yua.segments):
+        if seg == segment:
+            return image.yua.offset_y * i
+
+def set_udim_segment_mapping(entity, segment, image):
+
+    offset_y = get_udim_segment_mapping_offset(segment, image)
+
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    if m1: mapping = get_layer_mapping(entity)
+    else: mapping = get_mask_mapping(entity)
+
+    if mapping: mapping.inputs[1].default_value[1] = offset_y
+
 def create_udim_atlas(tilenums, name='', width=1024, height=1024, color=(0,0,0,0), colorspace='', hdr=False):
     if name != '':
         name = '~' + name + ' UDIM Atlas'
@@ -538,7 +556,7 @@ def refresh_udim_atlas(image, tilenums):
 
     print('INFO: UDIM Atlas offsets are refreshed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-def remove_udim_atlas_segment(image, index, tilenums, actual_removal=True):
+def remove_udim_atlas_segment_by_index(image, index, tilenums, yp=None, actual_removal=True):
     T = time.time()
 
     if not actual_removal:
@@ -560,8 +578,6 @@ def remove_udim_atlas_segment(image, index, tilenums, actual_removal=True):
                 if j not in unused_tilenums:
                     unused_tilenums.append(j)
 
-        #remove_tiles(image, unused_tilenums)
-
         # Create conversion dict
         convert_dict = {}
         for i in range(len(image.yua.segments)):
@@ -578,16 +594,6 @@ def remove_udim_atlas_segment(image, index, tilenums, actual_removal=True):
         # Extend tilenums
         tilenums = get_all_udim_atlas_tilenums(image, tilenums)
 
-        # Fill tiles
-        #dirty = False
-        for tilenum in tilenums:
-            fill_tile(image, tilenum, empty_only=True)
-            #if fill_tile(image, tilenum, empty_only=True):
-            #    dirty = True
-
-        # Pack after fill
-        #if dirty: initial_pack_udim(image)
-
         # Convert tile numbers by swapping tiles
         swap_tiles(image, convert_dict)
 
@@ -595,7 +601,22 @@ def remove_udim_atlas_segment(image, index, tilenums, actual_removal=True):
         unused_tilenums = [tile.number for tile in image.tiles if tile.number not in tilenums]
         remove_tiles(image, unused_tilenums)
 
+        # Offset other segment users
+        if yp:
+            entities = get_yp_entites_using_same_image(yp, image)
+
+            for entity in entities:
+                if entity.segment_name != '':
+                    segment = image.yua.segments.get(entity.segment_name)
+                    if segment: set_udim_segment_mapping(entity, segment, image)
+
         print('INFO: UDIM Atlas segment is removed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+
+def remove_udim_atlas_segment_by_name(image, segment_name, tilenums, yp=None, actual_removal=True):
+    index = [i for i, s in enumerate(image.yua.segments) if s.name == segment_name]
+    if len(index) == 0: return
+    index = index[0]
+    remove_udim_atlas_segment_by_index(image, index, tilenums, yp, actual_removal)
 
 class YNewUDIMAtlasSegmentTest(bpy.types.Operator):
     bl_idname = "image.y_new_udim_atlas_segment_test"
@@ -683,7 +704,7 @@ class YRemoveUDIMAtlasSegment(bpy.types.Operator):
         refresh_udim_atlas(image, tilenums)
 
         # Remove segment
-        remove_udim_atlas_segment(image, self.index, tilenums, actual_removal=True)
+        remove_udim_atlas_segment_by_index(image, self.index, tilenums, actual_removal=True)
 
         return {'FINISHED'}
 
