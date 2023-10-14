@@ -2812,7 +2812,7 @@ def remove_layer(yp, index):
                     segment.unused = True
             elif src.image.yua.is_udim_atlas and layer.segment_name != '':
                 tilenums = UDIM.get_tile_numbers(objs, layer.uv_name)
-                UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, tilenums, yp, False)
+                UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, tilenums, yp)
 
     # Remove the source first to remove image
     source_tree = get_source_tree(layer) #, layer_tree)
@@ -2832,7 +2832,7 @@ def remove_layer(yp, index):
                     segment.unused = True
             elif src.image.yua.is_udim_atlas and mask.segment_name != '':
                 tilenums = UDIM.get_tile_numbers(objs, layer.uv_name)
-                UDIM.remove_udim_atlas_segment_by_name(src.image, mask.segment_name, tilenums, yp, False)
+                UDIM.remove_udim_atlas_segment_by_name(src.image, mask.segment_name, tilenums, yp)
 
         mask_tree = get_mask_tree(mask)
         remove_node(mask_tree, mask, 'source')
@@ -2894,6 +2894,20 @@ class YRemoveLayer(bpy.types.Operator):
         return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
     def invoke(self, context, event):
+        # Removing UDIM atlas segment is can't be undoed
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = yp.layers[yp.active_layer_index]
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source and source.image and source.image.yua.is_udim_atlas:
+                return context.window_manager.invoke_props_dialog(self, width=300)
+            for mask in layer.masks:
+                if mask.type != 'IMAGE': continue
+                source = get_mask_source(mask)
+                if source and source.image and source.image.yua.is_udim_atlas:
+                    return context.window_manager.invoke_props_dialog(self, width=300)
+
         obj = context.object
         if obj.mode != 'OBJECT':
             return context.window_manager.invoke_props_dialog(self, width=400)
@@ -2903,6 +2917,11 @@ class YRemoveLayer(bpy.types.Operator):
         obj = context.object
         if obj.mode != 'OBJECT':
             self.layout.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
+        else:
+            col = self.layout.column(align=True)
+            col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
+            col.label(text='You cannot UNDO after removal', icon='BLANK1')
+            col.label(text='Are you sure want to continue?', icon='BLANK1')
 
     def execute(self, context):
         T = time.time()
