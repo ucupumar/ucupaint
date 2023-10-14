@@ -390,26 +390,31 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
         for i, image in enumerate(images):
             if image.source != 'TILED': continue
+
             ents = entities[i]
             entity = ents[0]
-
-            # Get width and height
-            width = 1024
-            height = 1024
-            if image.size[0] != 0: width = image.size[0]
-            if image.size[1] != 0: height = image.size[1]
 
             # Get tile numbers based from uv
             uv_name = entity.uv_name
             objs = get_all_objects_with_same_materials(mat, True, uv_name)
             tilenums = get_tile_numbers(objs, uv_name)
 
-            color = image.yui.base_color
+            if image.yua.is_udim_atlas:
+                refresh_udim_atlas(image, tilenums, yp)
 
-            for tilenum in tilenums:
-                fill_tile(image, tilenum, color, width, height, empty_only=True)
+            else:
+                # Get width and height
+                width = 1024
+                height = 1024
+                if image.size[0] != 0: width = image.size[0]
+                if image.size[1] != 0: height = image.size[1]
 
-            initial_pack_udim(image)
+                color = image.yui.base_color
+
+                for tilenum in tilenums:
+                    fill_tile(image, tilenum, color, width, height, empty_only=True)
+
+                initial_pack_udim(image)
 
         return {'FINISHED'}
 
@@ -510,7 +515,7 @@ def get_all_udim_atlas_tilenums(image, tilenums):
 
     return extended_tilenums
 
-def refresh_udim_atlas(image, tilenums):
+def refresh_udim_atlas(image, tilenums, yp=None):
     T = time.time()
 
     # Get current tilenums
@@ -554,13 +559,22 @@ def refresh_udim_atlas(image, tilenums):
     unused_tilenums = [tile.number for tile in image.tiles if tile.number not in tilenums]
     remove_tiles(image, unused_tilenums)
 
+    # Refresh entities mapping
+    if yp:
+        entities = get_yp_entites_using_same_image(yp, image)
+
+        for entity in entities:
+            if entity.segment_name != '':
+                segment = image.yua.segments.get(entity.segment_name)
+                if segment: set_udim_segment_mapping(entity, segment, image)
+
     print('INFO: UDIM Atlas offsets are refreshed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
 def remove_udim_atlas_segment_by_index(image, index, tilenums, yp=None, actual_removal=True):
     T = time.time()
 
     # Refresh udim atlas first
-    refresh_udim_atlas(image, tilenums)
+    refresh_udim_atlas(image, tilenums, yp)
 
     if not actual_removal:
         segment = image.yua.segments[index]
