@@ -262,55 +262,6 @@ def initial_pack_udim(image, base_color=None, filename=''):
     if base_color:
         image.yui.base_color = base_color
 
-def swap_tile(image, tilenum0, tilenum1):
-
-    tile0 = image.tiles.get(tilenum0)
-    tile1 = image.tiles.get(tilenum1)
-
-    if not tile0 or not tile1: return
-    if tilenum0 == tilenum1: return
-
-    print('UDIM: Swapping tile', tilenum0, 'to', tilenum1)
-
-    str0 = '.' + str(tilenum0) + '.'
-    str1 = '.' + str(tilenum1) + '.'
-    filename = bpy.path.basename(image.filepath)
-    prefix = filename.split('.<UDIM>.')[0]
-    directory = os.path.dirname(bpy.path.abspath(image.filepath))
-
-    # Remember stuff
-    ori_packed = False
-    if image.packed_file: ori_packed = True
-
-    # Save the image first
-    image.save()
-
-    # Get image paths
-    path0 = ''
-    path1 = ''
-    for f in os.listdir(directory):
-        m = re.match(r'' + re.escape(prefix) + '\.\d{4}\.*', f)
-        if m:
-            if str0 in f: path0 = os.path.join(directory, f)
-            elif str1 in f: path1 = os.path.join(directory, f)
-
-    # Swap paths
-    temp_path = path0.replace(str0, '.xxxx.')
-    os.rename(path0, temp_path)
-    os.rename(path1, path0)
-    os.rename(temp_path, path1)
-    
-    # Reload to update image
-    image.reload()
-
-    # Repack image
-    if ori_packed:
-        image.pack()
-
-        # Remove file if they are using temporary directory
-        if is_using_temp_dir(image):
-            remove_udim_files_from_disk(image, directory, True)
-
 def swap_tiles(image, swap_dict, reverse=False):
 
     # Directory of image
@@ -374,6 +325,11 @@ def swap_tiles(image, swap_dict, reverse=False):
             # Remove file if they are using temporary directory
             if is_using_temp_dir(image):
                 remove_udim_files_from_disk(image, directory, True)
+
+def swap_tile(image, tilenum0, tilenum1):
+    swap_dict = {}
+    swap_dict[tilenum0] = tilenum1
+    swap_tiles(image, swap_dict)
 
 def remove_tiles(image, tilenums):
 
