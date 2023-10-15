@@ -568,6 +568,17 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
 
     return segment
 
+def is_tilenums_fit_in_image_atlas(image, tilenums):
+    max_y = int((max(tilenums) - 1000) / 10)
+    atlas_tilenums = [t.number for t in image.tiles]
+    if len(atlas_tilenums) > 0:
+        atlas_max_y = int((max(atlas_tilenums) - 1000) / 10) + 1
+    else: atlas_max_y = 0
+
+    remains_y = 99 - atlas_max_y
+    
+    return remains_y > max_y
+
 def get_set_udim_atlas_segment(tilenums, width=1024, height=1024, color=(0,0,0,0), colorspace='', hdr=False, yp=None, source_image=None):
 
     ypup = get_user_preferences()
@@ -582,7 +593,7 @@ def get_set_udim_atlas_segment(tilenums, width=1024, height=1024, color=(0,0,0,0
         name = ''
 
     for image in images:
-        if image.yua.is_udim_atlas and image.is_float == hdr:
+        if image.yua.is_udim_atlas and image.is_float == hdr and is_tilenums_fit_in_image_atlas(image, tilenums):
             if colorspace != '' and image.colorspace_settings.name != colorspace: continue
             segment = create_udim_atlas_segment(image, tilenums, width, height, color, source_image=source_image)
         if segment:
