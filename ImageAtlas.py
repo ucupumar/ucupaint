@@ -488,6 +488,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
         return hasattr(context, 'image') and context.image and hasattr(context, 'entity')
 
     def execute(self, context):
+        mat = get_active_material()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
@@ -504,8 +505,8 @@ class YConvertToImageAtlas(bpy.types.Operator):
             segments = [context.image.yia.segments.get(context.entity.segment_name)]
 
         for i, image in enumerate(images):
-            if image.yia.is_image_atlas : continue
-            if image.source == 'TILED': continue # UDIM Atlas is not supported yet
+            if image.yia.is_image_atlas or image.yua.is_udim_atlas: continue
+            #if image.source == 'TILED': continue # UDIM Atlas is not supported yet
 
             used_by_masks = False
             valid_entities = []
@@ -525,13 +526,20 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
             # Image used by masks will use black image atlas instead of transparent so it will use linear color by default
             color = 'BLACK' if used_by_masks else 'TRANSPARENT'
+            colorspace = 'Non-Color' if used_by_masks else 'sRGB'
 
             # Get segment
-            new_segment = get_set_image_atlas_segment(image.size[0], image.size[1], color, hdr=image.is_float)
+            if image.source == 'TILED':
+                objs = get_all_objects_with_same_materials(mat, True, valid_entities[0].uv_name)
+                tilenums = UDIM.get_tile_numbers(objs, valid_entities[0].uv_name)
+                new_segment = UDIM.get_set_udim_atlas_segment(tilenums, color=image.yui.base_color, colorspace=colorspace, hdr=image.is_float, yp=yp, source_image=image)
+                ia_image = new_segment.id_data
+            else:
+                new_segment = get_set_image_atlas_segment(image.size[0], image.size[1], color, hdr=image.is_float)
 
-            # Copy image to segment
-            ia_image = new_segment.id_data
-            copy_image_pixels(image, ia_image, new_segment)
+                # Copy image to segment
+                ia_image = new_segment.id_data
+                copy_image_pixels(image, ia_image, new_segment)
 
             # Copy bake info
             if image.y_bake_info.is_baked:

@@ -2738,22 +2738,33 @@ def update_mapping(entity):
 
     if entity.type == 'IMAGE' and entity.segment_name != '':
         image = source.image
-        segment = image.yia.segments.get(entity.segment_name)
+        if image.source == 'TILED':
+            segment = image.yua.segments.get(entity.segment_name)
 
-        scale_x = segment.width/image.size[0] * scale_x
-        scale_y = segment.height/image.size[1] * scale_y
+            offset_y = 0
+            for i, seg in enumerate(image.yua.segments):
+                if seg == segment:
+                    offset_y = image.yua.offset_y * i
+                    break
 
-        offset_x = scale_x * segment.tile_x + offset_x * scale_x
-        offset_y = scale_y * segment.tile_y + offset_y * scale_y
+            mapping.inputs[1].default_value[1] = offset_y
+        else:
+            segment = image.yia.segments.get(entity.segment_name)
 
-    if is_greater_than_281():
-        mapping.inputs[1].default_value = (offset_x, offset_y, offset_z)
-        mapping.inputs[2].default_value = entity.rotation
-        mapping.inputs[3].default_value = (scale_x, scale_y, scale_z)
-    else:
-        mapping.translation = (offset_x, offset_y, offset_z)
-        mapping.rotation = entity.rotation
-        mapping.scale = (scale_x, scale_y, scale_z)
+            scale_x = segment.width/image.size[0] * scale_x
+            scale_y = segment.height/image.size[1] * scale_y
+
+            offset_x = scale_x * segment.tile_x + offset_x * scale_x
+            offset_y = scale_y * segment.tile_y + offset_y * scale_y
+
+            if is_greater_than_281():
+                mapping.inputs[1].default_value = (offset_x, offset_y, offset_z)
+                mapping.inputs[2].default_value = entity.rotation
+                mapping.inputs[3].default_value = (scale_x, scale_y, scale_z)
+            else:
+                mapping.translation = (offset_x, offset_y, offset_z)
+                mapping.rotation = entity.rotation
+                mapping.scale = (scale_x, scale_y, scale_z)
 
     # Setting UV neighbor resolution probably isn't important right now
     #set_uv_neighbor_resolution(entity, source=source, mapping=mapping)
