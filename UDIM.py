@@ -529,6 +529,9 @@ def create_udim_atlas(tilenums, name='', width=1024, height=1024, color=(0,0,0,0
     image.yui.base_color = color
     if colorspace != '': image.colorspace_settings.name = colorspace
 
+    # Pack image
+    initial_pack_udim(image)
+
     return image
 
 def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0,0,0,0), source_image=None):
