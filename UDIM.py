@@ -505,7 +505,7 @@ def get_udim_segment_tilenums(image, segment):
     all_tilenums = [t.number for t in image.tiles]
 
     min_y = 1001 + index * image.yua.offset_y * 10
-    max_y = 1001 + (index+1) * image.yua.offset_y * 10 - 10 # -10 is for margin
+    max_y = 1001 + (index+1) * image.yua.offset_y * 10
 
     tilenums = []
     for i in range(min_y, max_y):
