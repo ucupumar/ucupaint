@@ -1,4 +1,4 @@
-import bpy, numpy, os, tempfile
+import bpy, numpy, os, tempfile, shutil
 from bpy.props import *
 from .common import *
 from . import lib, BakeInfo
@@ -197,7 +197,7 @@ def remove_udim_files_from_disk(image, directory, remove_dir=False, tilenum=-1):
         except Exception as e: print(e)
 
     # Remove directory
-    if remove_dir and directory != tempfile.gettempdir():
+    if remove_dir and directory != tempfile.gettempdir() and len(os.listdir(directory)) == 0:
         try: os.rmdir(directory)
         except Exception as e: print(e)
 
@@ -331,6 +331,81 @@ def swap_tile(image, tilenum0, tilenum1):
     swap_dict[tilenum0] = tilenum1
     swap_tiles(image, swap_dict)
 
+def copy_tiles(image0, image1, copy_dict):
+
+    # Directory of images
+    directory0 = os.path.dirname(bpy.path.abspath(image0.filepath))
+    directory1 = os.path.dirname(bpy.path.abspath(image1.filepath))
+
+    # Remember stuff
+    ori0_packed = False
+    ori1_packed = False
+    if image0.packed_file: ori0_packed = True
+    if image1.packed_file: ori1_packed = True
+
+    # Image saved flag
+    image_saved = False
+
+    for tilenum0, tilenum1 in copy_dict.items():
+
+        tile0 = image0.tiles.get(tilenum0)
+        tile1 = image1.tiles.get(tilenum1)
+
+        if not tile0 or not tile1: continue
+
+        # Get image paths
+        str0 = '.' + str(tilenum0) + '.'
+        str1 = '.' + str(tilenum1) + '.'
+        filename0 = bpy.path.basename(image0.filepath)
+        filename1 = bpy.path.basename(image1.filepath)
+        splits0 = filename0.split('.<UDIM>.')
+        splits1 = filename1.split('.<UDIM>.')
+        prefix0 = splits0[0]
+        prefix1 = splits1[0]
+        suffix0 = splits0[1]
+        suffix1 = splits1[1]
+
+        path0 = os.path.join(directory0, prefix0 + str0 + suffix0)
+        path1 = os.path.join(directory1, prefix1 + str1 + suffix1)
+
+        if suffix0 != suffix1: continue
+        if path0 == path1: continue
+
+        # Save the image first
+        if not image_saved:
+            image0.save()
+            image1.save()
+            image_saved = True
+
+        print('UDIM: Copying tile', tilenum0, '(' + image0.name + ') to', tilenum1, '(' + image1.name + ')')
+
+        # Copy and replace image
+        if os.path.exists(path1):
+            os.remove(path1)
+        shutil.copyfile(path0, path1)
+
+    if image_saved:
+
+        # Reload to update image
+        #image0.reload()
+        image1.reload()
+
+        # Repack image 0
+        if ori0_packed:
+            image0.pack()
+
+            # Remove file if they are using temporary directory
+            if is_using_temp_dir(image0):
+                remove_udim_files_from_disk(image0, directory0, True)
+
+        # Repack image 1
+        if ori1_packed:
+            image1.pack()
+
+            # Remove file if they are using temporary directory
+            if is_using_temp_dir(image1):
+                remove_udim_files_from_disk(image1, directory1, True)
+
 def remove_tiles(image, tilenums):
 
     # Directory of image
@@ -456,7 +531,7 @@ def create_udim_atlas(tilenums, name='', width=1024, height=1024, color=(0,0,0,0
 
     return image
 
-def create_udim_atlas_segment(image, tilenums, width, height, color):
+def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0,0,0,0), source_image=None):
     atlas = image.yua
     name = get_unique_name('Segment', atlas.segments)
 
@@ -469,15 +544,28 @@ def create_udim_atlas_segment(image, tilenums, width, height, color):
     #color = image.yui.base_color
     segment.base_color = color
 
+    copy_dict = {}
+    
     for tilenum in tilenums:
-        tilenum += offset
-        fill_tile(image, tilenum, color, width, height) #, empty_only=True)
+        if source_image:
+            source_tile = source_image.tiles.get(tilenum)
+            width = source_tile.size[0]
+            height = source_tile.size[1]
+            copy_dict[tilenum] = tilenum + offset
 
+        tilenum += offset
+        fill_tile(image, tilenum, color, width, height, empty_only=True)
+
+    # Copy from source image
+    if source_image:
+        copy_tiles(source_image, image, copy_dict)
+
+    # Pack image
     initial_pack_udim(image)
 
     return segment
 
-def get_set_udim_atlas_segment(tilenums, width, height, color, colorspace='', hdr=False, yp=None):
+def get_set_udim_atlas_segment(tilenums, width=1024, height=1024, color=(0,0,0,0), colorspace='', hdr=False, yp=None, source_image=None):
 
     ypup = get_user_preferences()
     segment = None
@@ -493,14 +581,14 @@ def get_set_udim_atlas_segment(tilenums, width, height, color, colorspace='', hd
     for image in images:
         if image.yua.is_udim_atlas and image.is_float == hdr:
             if colorspace != '' and image.colorspace_settings.name != colorspace: continue
-            segment = create_udim_atlas_segment(image, tilenums, width, height, color)
+            segment = create_udim_atlas_segment(image, tilenums, width, height, color, source_image=source_image)
         if segment:
             break
 
     if not segment:
         # If proper UDIM atlas can't be found, create new one
         image = create_udim_atlas(tilenums, name, width, height, color, colorspace, hdr)
-        segment = create_udim_atlas_segment(image, tilenums, width, height, color)
+        segment = create_udim_atlas_segment(image, tilenums, width, height, color, source_image=source_image)
 
     return segment
 
