@@ -493,6 +493,27 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def get_udim_segment_index(image, segment):
+    index = -1
+    ids = [i for i, s in enumerate(image.yua.segments) if s == segment]
+    if len(ids) > 0: index = ids[0]
+    return index
+
+def get_udim_segment_tilenums(image, segment):
+
+    index = get_udim_segment_index(image, segment)
+    all_tilenums = [t.number for t in image.tiles]
+
+    min_y = 1001 + index * image.yua.offset_y * 10
+    max_y = 1001 + (index+1) * image.yua.offset_y * 10 - 10 # -10 is for margin
+
+    tilenums = []
+    for i in range(min_y, max_y):
+        if i in all_tilenums:
+            tilenums.append(i)
+
+    return tilenums
+
 def get_udim_segment_mapping_offset(segment, image):
 
     for i, seg in enumerate(image.yua.segments):
@@ -568,7 +589,7 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
 
     return segment
 
-def is_tilenums_fit_in_image_atlas(image, tilenums):
+def is_tilenums_fit_in_udim_atlas(image, tilenums):
     max_y = int((max(tilenums) - 1000) / 10)
     atlas_tilenums = [t.number for t in image.tiles]
     if len(atlas_tilenums) > 0:
@@ -593,7 +614,7 @@ def get_set_udim_atlas_segment(tilenums, width=1024, height=1024, color=(0,0,0,0
         name = ''
 
     for image in images:
-        if image.yua.is_udim_atlas and image.is_float == hdr and is_tilenums_fit_in_image_atlas(image, tilenums):
+        if image.yua.is_udim_atlas and image.is_float == hdr and is_tilenums_fit_in_udim_atlas(image, tilenums):
             if colorspace != '' and image.colorspace_settings.name != colorspace: continue
             segment = create_udim_atlas_segment(image, tilenums, width, height, color, source_image=source_image)
         if segment:

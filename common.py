@@ -1294,9 +1294,12 @@ def get_layer_ids_with_specific_segment(yp, segment):
     for i, layer in enumerate(yp.layers):
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
-            if (source and source.image and source.image.yia.is_image_atlas and 
-                any([s for s in source.image.yia.segments if s == segment]) and segment.name == layer.segment_name):
-                    ids.append(i)
+            if not source or not source.image: continue
+            image = source.image
+            if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == layer.segment_name) or
+                (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == layer.segment_name)
+                ):
+                ids.append(i)
 
     return ids
 
@@ -1317,9 +1320,12 @@ def get_masks_with_specific_segment(layer, segment):
     for m in layer.masks:
         if m.type == 'IMAGE':
             source = get_mask_source(m)
-            if (source and source.image and source.image.yia.is_image_atlas and
-                any([s for s in source.image.yia.segments if s == segment]) and segment.name == m.segment_name):
-                    masks.append(m)
+            if not source or not source.image: continue
+            image = source.image
+            if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == m.segment_name) or
+                (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == m.segment_name)
+                ):
+                masks.append(m)
 
     return masks
 
@@ -4220,8 +4226,10 @@ def get_yp_entities_images_and_segments(yp):
             source = get_layer_source(layer)
             if source and source.image:
                 image = source.image
-                if image.yia.is_image_atlas:
-                    segment = image.yia.segments.get(layer.segment_name)
+                if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+                    if image.is_image_atlas:
+                        segment = image.yia.segments.get(layer.segment_name)
+                    else: segment = image.yua.segments.get(layer.segment_name)
                     if segment not in segments:
                         images.append(image)
                         segments.append(segment)
@@ -4242,8 +4250,10 @@ def get_yp_entities_images_and_segments(yp):
                 source = get_mask_source(mask)
                 if source and source.image:
                     image = source.image
-                    if image.yia.is_image_atlas:
-                        segment = image.yia.segments.get(mask.segment_name)
+                    if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+                        if image.is_image_atlas:
+                            segment = image.yia.segments.get(mask.segment_name)
+                        else: segment = image.yua.segments.get(mask.segment_name)
                         if segment not in segments:
                             images.append(image)
                             segments.append(segment)
