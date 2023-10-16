@@ -626,7 +626,7 @@ class UpdaterSettingMenu(bpy.types.Menu):
 
     def draw(self, context):
         col = self.layout.column()
-        col.operator(AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="DOCUMENTS")
+        col.operator(AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="FILE_SCRIPT")
         col.operator(RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
 
 class UpdaterPendingUpdate(bpy.types.Operator):
