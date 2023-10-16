@@ -4219,7 +4219,7 @@ def get_yp_entites_using_same_image(yp, image):
 def get_yp_entities_images_and_segments(yp):
     entities = []
     images = []
-    segments = []
+    segment_names = []
 
     for layer in yp.layers:
         if layer.type == 'IMAGE':
@@ -4227,20 +4227,20 @@ def get_yp_entities_images_and_segments(yp):
             if source and source.image:
                 image = source.image
                 if image.yia.is_image_atlas or image.yua.is_udim_atlas:
-                    if image.is_image_atlas:
+                    if image.yia.is_image_atlas:
                         segment = image.yia.segments.get(layer.segment_name)
                     else: segment = image.yua.segments.get(layer.segment_name)
-                    if segment not in segments:
+                    if segment.name not in segment_names:
                         images.append(image)
-                        segments.append(segment)
+                        segment_names.append(segment.name)
                         entities.append([layer])
                     else:
-                        idx = [i for i, s in enumerate(segments) if s == segment][0]
+                        idx = [i for i, s in enumerate(segment_names) if s == segment.name][0]
                         entities[idx].append(layer)
                 else:
                     if image not in images:
                         images.append(image)
-                        segments.append(None)
+                        segment_names.append('')
                         entities.append([layer])
                     else:
                         idx = [i for i, img in enumerate(images) if img == image][0]
@@ -4251,26 +4251,26 @@ def get_yp_entities_images_and_segments(yp):
                 if source and source.image:
                     image = source.image
                     if image.yia.is_image_atlas or image.yua.is_udim_atlas:
-                        if image.is_image_atlas:
+                        if image.yia.is_image_atlas:
                             segment = image.yia.segments.get(mask.segment_name)
                         else: segment = image.yua.segments.get(mask.segment_name)
-                        if segment not in segments:
+                        if segment.name not in segment_names:
                             images.append(image)
-                            segments.append(segment)
+                            segment_names.append(segment.name)
                             entities.append([mask])
                         else:
-                            idx = [i for i, s in enumerate(segments) if s == segment][0]
+                            idx = [i for i, s in enumerate(segment_names) if s == segment.name][0]
                             entities[idx].append(mask)
                     else:
                         if image not in images:
                             images.append(image)
-                            segments.append(None)
+                            segment_names.append('')
                             entities.append([mask])
                         else:
                             idx = [i for i, img in enumerate(images) if img == image][0]
                             entities[idx].append(mask)
 
-    return entities, images, segments
+    return entities, images, segment_names
 
 def check_need_prev_normal(layer):
 

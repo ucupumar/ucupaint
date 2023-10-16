@@ -493,7 +493,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
         yp = node.node_tree.yp
 
         if self.all_images:
-            entities, images, segments = get_yp_entities_images_and_segments(yp)
+            entities, images, segment_names = get_yp_entities_images_and_segments(yp)
         else:
             mapping = get_entity_mapping(context.entity)
             if is_transformed(mapping):
@@ -502,7 +502,7 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
             images = [context.image]
             entities = [[context.entity]]
-            segments = [context.image.yia.segments.get(context.entity.segment_name)]
+            segment_names = [context.entity.segment_name]
 
         for i, image in enumerate(images):
             if image.yia.is_image_atlas or image.yua.is_udim_atlas: continue
@@ -592,7 +592,7 @@ class YConvertToStandardImage(bpy.types.Operator):
         yp = node.node_tree.yp
 
         if self.all_images:
-            entities, images, segments = get_yp_entities_images_and_segments(yp)
+            entities, images, segment_names = get_yp_entities_images_and_segments(yp)
         else:
             images = [context.image]
 
@@ -601,14 +601,17 @@ class YConvertToStandardImage(bpy.types.Operator):
             else: segment = context.image.yua.segments.get(context.entity.segment_name)
 
             entities = [get_entities_with_specific_segment(yp, segment)]
-            segments = [segment]
+            segment_names = [context.entity.segment_name]
 
         image_atlases = []
 
         for i, image in enumerate(images):
             if not image.yia.is_image_atlas and not image.yua.is_udim_atlas: continue
 
-            segment = segments[i]
+            if image.yia.is_image_atlas:
+                segment = image.yia.segments.get(segment_names[i])
+            else: segment = image.yua.segments.get(segment_names[i])
+
             if not segment: continue
 
             # Create new image based on image atlas
@@ -619,7 +622,10 @@ class YConvertToStandardImage(bpy.types.Operator):
                 new_image = bpy.data.images.new(name=entities[i][0].name,
                         width=image.size[0], height=image.size[1], alpha=True, float_buffer=image.is_float, tiled=True)
 
+                print(new_image.name)
+
                 atlas_tilenums = UDIM.get_udim_segment_tilenums(image, segment)
+                print(atlas_tilenums)
                 index = UDIM.get_udim_segment_index(image, segment)
                 offset = (image.yua.offset_y) * index * 10
                 copy_dict = {}
@@ -640,6 +646,9 @@ class YConvertToStandardImage(bpy.types.Operator):
                 copy_image_pixels(image, new_image, None, segment)
             else:
                 UDIM.copy_tiles(image, new_image, copy_dict)
+
+                # Pack image
+                UDIM.initial_pack_udim(new_image)
 
             # Copy bake info
             if segment.bake_info.is_baked:
