@@ -709,6 +709,8 @@ class SingletonUpdater:
                     self._tags.append(include)
 
                 self._include_branch_list.append(branch)
+
+        print("branches", self._include_branch_list)
         
     def get_branch_obj(self, branch_name, last_commit):
         request_br = self.form_branch_url(branch_name)
@@ -1335,7 +1337,7 @@ class SingletonUpdater:
             self._update_ready = None
             self.start_async_check_branches_releases(callback)
 
-    def check_for_update(self, now=False):
+    def check_for_update(self, update_last_check:bool = True, now=False):
         """Check for update not in a syncrhonous manner.
 
         This function is not async, will always return in sequential fashion
@@ -1386,8 +1388,11 @@ class SingletonUpdater:
         # Primary internet call, sets self._tags and self._tag_latest.
         self.get_tags()
 
-        self._json["last_check"] = str(datetime.now())
+
+        if update_last_check:
+            self._json["last_check"] = str(datetime.now())
         self.save_updater_json()
+        
 
         # Can be () or ('master') in addition to branches, and version tag.
         new_version = self.version_tuple_from_text(self.tag_latest)
@@ -1453,7 +1458,7 @@ class SingletonUpdater:
         self._update_link = None
         return (False, None, None)
     
-    def check_for_branches(self):
+    def check_for_branches(self, update_last_check:bool = True):
         """Check for update not in a syncrhonous manner.
 
         This function is not async, will always return in sequential fashion
@@ -1476,7 +1481,7 @@ class SingletonUpdater:
 
         if not self.past_interval_timestamp():
             self.print_verbose(
-                "Aborting check for updated, check interval not reached")
+                "Aborting check for brannches, check interval not reached")
             return (False, None, None)
 
         # check if using tags or releases
@@ -1495,7 +1500,8 @@ class SingletonUpdater:
         # Primary internet call, sets self._tags and self._tag_latest.
         self.get_branches()
 
-        self._json["last_check"] = str(datetime.now())
+        if update_last_check:
+            self._json["last_check"] = str(datetime.now())
         self.save_updater_json()
 
         if len(self._tags) == 0:
@@ -1676,7 +1682,7 @@ class SingletonUpdater:
             self.print_verbose("Time to check for updates!")
             return True
 
-        self.print_verbose("Determined it's not yet time to check for updates")
+        print("Determined it's not yet time to check for updates", delta.total_seconds())
         return False
 
     def get_json_path(self):
@@ -1858,9 +1864,9 @@ class SingletonUpdater:
         self.print_verbose("Checking for update now in background")
 
         try:
-            self.check_for_branches()
+            self.check_for_branches(update_last_check=False)
             self._update_ready = None
-            self.check_for_update()
+            self.check_for_update(update_last_check=False)
         except Exception as exception:
             print("Checking for update error:")
             print(exception)

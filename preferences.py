@@ -83,7 +83,7 @@ class YPaintPreferences(AddonPreferences):
     updater_interval_days : IntProperty(
         name='Days',
         description="Number of days between checking for updates",
-        default=0,
+        default=1,
         min=0,
         max=31)
     
@@ -119,6 +119,23 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'developer_mode')
         self.layout.prop(self, 'parallax_without_baked')
 
+        if self.developer_mode:
+            box = self.layout.box()
+
+            box.prop(self, "auto_check_update")
+            sub_col = box.column()
+            if not self.auto_check_update:
+                sub_col.enabled = False
+            sub_row = sub_col.row()
+            sub_row.label(text="Interval between checks")
+            sub_row = sub_col.row(align=True)
+            check_col = sub_row.column(align=True)
+            check_col.prop(self, "updater_interval_days")
+            check_col = sub_row.column(align=True)
+            check_col.prop(self, "updater_interval_hours")
+            check_col = sub_row.column(align=True)
+            check_col.prop(self, "updater_interval_minutes")
+            check_col = sub_row.column(align=True)
 @persistent
 def auto_save_images(scene):
 
