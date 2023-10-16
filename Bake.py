@@ -1463,9 +1463,9 @@ class YMergeLayer(bpy.types.Operator):
 
         # Get height channnel
         height_root_ch = self.height_root_ch = get_root_height_channel(yp)
-        height_ch_idx = self.height_ch_idx = get_channel_index(height_root_ch)
 
         if height_root_ch and neighbor_layer:
+            height_ch_idx = self.height_ch_idx = get_channel_index(height_root_ch)
             height_ch = self.height_ch = layer.channels[height_ch_idx] 
             neighbor_height_ch = self.neighbor_height_ch = neighbor_layer.channels[height_ch_idx] 
 
