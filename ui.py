@@ -4867,8 +4867,11 @@ def yp_load_ui_settings(scene):
     wmui.need_update = True
 
 def register():
-    bpy.utils.register_class(YPaintAboutMenu)
-    bpy.utils.register_class(YPaintAboutPopover)
+
+    if not is_greater_than_280():
+        bpy.utils.register_class(YPaintAboutMenu)
+    else: bpy.utils.register_class(YPaintAboutPopover)
+
     bpy.utils.register_class(YPaintSpecialMenu)
     bpy.utils.register_class(YNewLayerMenu)
     bpy.utils.register_class(YBakedImageMenu)
@@ -4916,8 +4919,11 @@ def register():
     bpy.app.handlers.save_pre.append(yp_save_ui_settings)
 
 def unregister():
-    bpy.utils.unregister_class(YPaintAboutMenu)
-    bpy.utils.unregister_class(YPaintAboutPopover)
+
+    if not is_greater_than_280():
+        bpy.utils.unregister_class(YPaintAboutMenu)
+    else: bpy.utils.unregister_class(YPaintAboutPopover)
+
     bpy.utils.unregister_class(YPaintSpecialMenu)
     bpy.utils.unregister_class(YNewLayerMenu)
     bpy.utils.unregister_class(YBakedImageMenu)
