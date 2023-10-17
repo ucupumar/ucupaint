@@ -704,70 +704,65 @@ def refresh_udim_atlas(image, tilenums, yp=None):
 
     print('INFO: UDIM Atlas offsets are refreshed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-def remove_udim_atlas_segment_by_index(image, index, tilenums, yp=None, actual_removal=True):
+def remove_udim_atlas_segment_by_index(image, index, tilenums, yp=None):
     T = time.time()
 
     # Refresh udim atlas first
     refresh_udim_atlas(image, tilenums, yp)
 
-    if not actual_removal:
-        segment = image.yua.segments[index]
-        segment.unused = True
-        print('INFO: UDIM Atlas segment is marked as unused at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-    else:
+    cur_tilenums = [t.number for t in image.tiles]
 
-        cur_tilenums = [t.number for t in image.tiles]
+    # Remove tiles inside segment
+    unused_tilenums = []
+    for i in range(len(image.yua.segments)):
+        if i != index: continue
+        min_y = 1001 + i * image.yua.offset_y * 10
+        max_y = 1001 + (i+1) * image.yua.offset_y * 10 
+        for j in range(min_y, max_y):
+            if j not in cur_tilenums: continue
+            if j not in unused_tilenums:
+                unused_tilenums.append(j)
 
-        # Remove tiles inside segment
-        unused_tilenums = []
-        for i in range(len(image.yua.segments)):
-            if i != index: continue
-            min_y = 1001 + i * image.yua.offset_y * 10
-            max_y = 1001 + (i+1) * image.yua.offset_y * 10 
-            for j in range(min_y, max_y):
-                if j not in cur_tilenums: continue
-                if j not in unused_tilenums:
-                    unused_tilenums.append(j)
+    # Create conversion dict
+    convert_dict = {}
+    for i in range(len(image.yua.segments)):
+        if i <= index: continue
+        min_y = 1001 + i * image.yua.offset_y * 10
+        max_y = 1001 + (i+1) * image.yua.offset_y * 10 
+        for j in range(min_y, max_y):
+            if j not in cur_tilenums: continue
+            convert_dict[j] = j - image.yua.offset_y * 10
 
-        # Create conversion dict
-        convert_dict = {}
-        for i in range(len(image.yua.segments)):
-            if i <= index: continue
-            min_y = 1001 + i * image.yua.offset_y * 10
-            max_y = 1001 + (i+1) * image.yua.offset_y * 10 
-            for j in range(min_y, max_y):
-                if j not in cur_tilenums: continue
-                convert_dict[j] = j - image.yua.offset_y * 10
+    # Remove segment
+    image.yua.segments.remove(index)
 
-        # Remove segment
-        image.yua.segments.remove(index)
+    # Extend tilenums
+    tilenums = get_all_udim_atlas_tilenums(image, tilenums)
 
-        # Extend tilenums
-        tilenums = get_all_udim_atlas_tilenums(image, tilenums)
+    # Convert tile numbers by swapping tiles
+    swap_tiles(image, convert_dict)
 
-        # Convert tile numbers by swapping tiles
-        swap_tiles(image, convert_dict)
+    # Remove unused tilenum
+    unused_tilenums = [tile.number for tile in image.tiles if tile.number not in tilenums]
+    remove_tiles(image, unused_tilenums)
 
-        # Remove unused tilenum
-        unused_tilenums = [tile.number for tile in image.tiles if tile.number not in tilenums]
-        remove_tiles(image, unused_tilenums)
+    # Offset other segment users
+    if yp:
+        entities = get_yp_entites_using_same_image(yp, image)
 
-        # Offset other segment users
-        if yp:
-            entities = get_yp_entites_using_same_image(yp, image)
+        for entity in entities:
+            if entity.segment_name != '':
+                segment = image.yua.segments.get(entity.segment_name)
+                if segment: set_udim_segment_mapping(entity, segment, image)
 
-            for entity in entities:
-                if entity.segment_name != '':
-                    segment = image.yua.segments.get(entity.segment_name)
-                    if segment: set_udim_segment_mapping(entity, segment, image)
+    print('INFO: UDIM Atlas segment is removed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-        print('INFO: UDIM Atlas segment is removed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
-
-def remove_udim_atlas_segment_by_name(image, segment_name, tilenums, yp=None, actual_removal=True):
+def remove_udim_atlas_segment_by_name(image, segment_name, tilenums=[], yp=None):
+    if tilenums == []: tilenums = get_udim_atlas_base_tilenums(image)
     index = [i for i, s in enumerate(image.yua.segments) if s.name == segment_name]
     if len(index) == 0: return
     index = index[0]
-    remove_udim_atlas_segment_by_index(image, index, tilenums, yp, actual_removal)
+    remove_udim_atlas_segment_by_index(image, index, tilenums, yp)
 
 class YNewUDIMAtlasSegmentTest(bpy.types.Operator):
     bl_idname = "image.y_new_udim_atlas_segment_test"
@@ -852,7 +847,7 @@ class YRemoveUDIMAtlasSegment(bpy.types.Operator):
         if not image.yua.is_udim_atlas: return {'CANCELLED'}
 
         # Remove segment
-        remove_udim_atlas_segment_by_index(image, self.index, tilenums, actual_removal=True)
+        remove_udim_atlas_segment_by_index(image, self.index, tilenums)
 
         return {'FINISHED'}
 

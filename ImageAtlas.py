@@ -204,8 +204,12 @@ def replace_segment_with_image(yp, segment, image, uv_name=''):
         if uv_name != '' and entity.uv_name != uv_name:
             entity.uv_name = uv_name
 
-    # Make segment unused
-    segment.unused = True
+    # Remove segment
+    if segment.id_data.source == 'TILED':
+        UDIM.remove_udim_atlas_segment_by_name(segment.id_data, segment.name)
+    else:
+        # Make segment unused
+        segment.unused = True
 
     #print(segment.name, entities)
 

@@ -2810,9 +2810,7 @@ def remove_layer(yp, index):
                 if len(entities) == 1:
                     segment.unused = True
             elif src.image.yua.is_udim_atlas and layer.segment_name != '':
-                objs = get_all_objects_with_same_materials(mat, True, layer.uv_name)
-                tilenums = UDIM.get_tile_numbers(objs, layer.uv_name)
-                UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, tilenums, yp)
+                UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, yp=yp)
 
     # Remove the source first to remove image
     source_tree = get_source_tree(layer) #, layer_tree)
@@ -2831,9 +2829,7 @@ def remove_layer(yp, index):
                 if len(entities) == 1:
                     segment.unused = True
             elif src.image.yua.is_udim_atlas and mask.segment_name != '':
-                objs = get_all_objects_with_same_materials(mat, True, mask.uv_name)
-                tilenums = UDIM.get_tile_numbers(objs, layer.uv_name)
-                UDIM.remove_udim_atlas_segment_by_name(src.image, mask.segment_name, tilenums, yp)
+                UDIM.remove_udim_atlas_segment_by_name(src.image, mask.segment_name, yp=yp)
 
         mask_tree = get_mask_tree(mask)
         remove_node(mask_tree, mask, 'source')
