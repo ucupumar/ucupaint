@@ -514,6 +514,11 @@ def get_udim_segment_tilenums(image, segment):
 
     return tilenums
 
+def get_udim_atlas_base_tilenums(image):
+    try: segment = image.yua.segments[0]
+    except: return []
+    return get_udim_segment_tilenums(image, segment)
+
 def get_udim_segment_mapping_offset(segment, image):
 
     for i, seg in enumerate(image.yua.segments):
@@ -555,7 +560,7 @@ def create_udim_atlas(tilenums, name='', width=1024, height=1024, color=(0,0,0,0
 
     return image
 
-def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0,0,0,0), source_image=None):
+def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0,0,0,0), source_image=None, source_tilenums=[]):
     atlas = image.yua
     name = get_unique_name('Segment', atlas.segments)
 
@@ -570,12 +575,16 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
 
     copy_dict = {}
     
-    for tilenum in tilenums:
+    for i, tilenum in enumerate(tilenums):
         if source_image:
-            source_tile = source_image.tiles.get(tilenum)
+            if source_tilenums != []:
+                source_tile = source_image.tiles.get(source_tilenums[i])
+            else: source_tile = source_image.tiles.get(tilenum)
             width = source_tile.size[0]
             height = source_tile.size[1]
-            copy_dict[tilenum] = tilenum + offset
+            if source_tilenums != []:
+                copy_dict[source_tilenums[i]] = tilenum + offset
+            else: copy_dict[tilenum] = tilenum + offset
 
         tilenum += offset
         fill_tile(image, tilenum, color, width, height, empty_only=True)
@@ -600,7 +609,7 @@ def is_tilenums_fit_in_udim_atlas(image, tilenums):
     
     return remains_y > max_y
 
-def get_set_udim_atlas_segment(tilenums, width=1024, height=1024, color=(0,0,0,0), colorspace='', hdr=False, yp=None, source_image=None):
+def get_set_udim_atlas_segment(tilenums, width=1024, height=1024, color=(0,0,0,0), colorspace='', hdr=False, yp=None, source_image=None, source_tilenums=[]):
 
     ypup = get_user_preferences()
     segment = None
@@ -616,14 +625,16 @@ def get_set_udim_atlas_segment(tilenums, width=1024, height=1024, color=(0,0,0,0
     for image in images:
         if image.yua.is_udim_atlas and image.is_float == hdr and is_tilenums_fit_in_udim_atlas(image, tilenums):
             if colorspace != '' and image.colorspace_settings.name != colorspace: continue
-            segment = create_udim_atlas_segment(image, tilenums, width, height, color, source_image=source_image)
+            segment = create_udim_atlas_segment(image, tilenums, width, height, color, 
+                    source_image=source_image, source_tilenums=source_tilenums)
         if segment:
             break
 
     if not segment:
         # If proper UDIM atlas can't be found, create new one
         image = create_udim_atlas(tilenums, name, width, height, color, colorspace, hdr)
-        segment = create_udim_atlas_segment(image, tilenums, width, height, color, source_image=source_image)
+        segment = create_udim_atlas_segment(image, tilenums, width, height, color, 
+                source_image=source_image, source_tilenums=source_tilenums)
 
     return segment
 

@@ -623,7 +623,6 @@ class YConvertToStandardImage(bpy.types.Operator):
                         width=image.size[0], height=image.size[1], alpha=True, float_buffer=image.is_float, tiled=True)
 
                 atlas_tilenums = UDIM.get_udim_segment_tilenums(image, segment)
-                print(atlas_tilenums)
                 index = UDIM.get_udim_segment_index(image, segment)
                 offset = (image.yua.offset_y) * index * 10
                 copy_dict = {}
