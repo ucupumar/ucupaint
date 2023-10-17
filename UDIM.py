@@ -459,7 +459,7 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
     def execute(self, context):
         yp = context.layer.id_data.yp
-        entities, images, segments = get_yp_entities_images_and_segments(yp)
+        entities, images, segment_names = get_yp_entities_images_and_segments(yp)
 
         mat = get_active_material()
 
