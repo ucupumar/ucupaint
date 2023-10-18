@@ -294,12 +294,6 @@ class YBakeToLayer(bpy.types.Operator):
             description='Use UDIM Tiles',
             default=False)
 
-    def is_using_udim(self):
-        return self.use_udim and UDIM.is_udim_supported()
-
-    def is_using_image_atlas(self):
-        return self.use_image_atlas and not self.is_using_udim()
-
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -451,8 +445,10 @@ class YBakeToLayer(bpy.types.Operator):
                             img = source.image
                             if img.y_bake_info.is_baked and img.y_bake_info.bake_type == self.type:
                                 self.overwrite_coll.add().name = layer.name
-                            elif img.yia.is_image_atlas:
-                                segment = img.yia.segments.get(layer.segment_name)
+                            elif img.yia.is_image_atlas or img.yua.is_udim_atlas:
+                                if img.yia.is_image_atlas:
+                                    segment = img.yia.segments.get(layer.segment_name)
+                                else: segment = img.yua.segments.get(layer.segment_name)
                                 if segment and segment.bake_info.is_baked and segment.bake_info.bake_type == self.type:
                                     self.overwrite_coll.add().name = layer.name
 
@@ -466,8 +462,10 @@ class YBakeToLayer(bpy.types.Operator):
                             img = source.image
                             if img.y_bake_info.is_baked and img.y_bake_info.bake_type == self.type:
                                 self.overwrite_coll.add().name = mask.name
-                            elif img.yia.is_image_atlas:
-                                segment = img.yia.segments.get(mask.segment_name)
+                            elif img.yia.is_image_atlas or img.yua.is_udim_atlas:
+                                if img.yia.is_image_atlas:
+                                    segment = img.yia.segments.get(mask.segment_name)
+                                else: segment = img.yua.segments.get(mask.segment_name)
                                 if segment and segment.bake_info.is_baked and segment.bake_info.bake_type == self.type:
                                     self.overwrite_coll.add().name = mask.name
 
@@ -495,7 +493,7 @@ class YBakeToLayer(bpy.types.Operator):
             bi = None
             if overwrite_entity.type == 'IMAGE' and source.image:
                 self.overwrite_image_name = source.image.name
-                if not source.image.yia.is_image_atlas:
+                if not source.image.yia.is_image_atlas and not source.image.yua.is_udim_atlas:
                     self.overwrite_name = source.image.name
                     self.width = source.image.size[0]
                     self.height = source.image.size[1]
@@ -504,11 +502,19 @@ class YBakeToLayer(bpy.types.Operator):
                 else:
                     self.overwrite_name = overwrite_entity.name
                     self.overwrite_segment_name = overwrite_entity.segment_name
-                    segment = source.image.yia.segments.get(overwrite_entity.segment_name)
-                    self.width = segment.width
-                    self.height = segment.height
-                    self.use_image_atlas = True
+                    if source.image.yia.is_image_atlas:
+                        segment = source.image.yia.segments.get(overwrite_entity.segment_name)
+                        self.width = segment.width
+                        self.height = segment.height
+                    else: 
+                        segment = source.image.yua.segments.get(overwrite_entity.segment_name)
+                        tilenums = UDIM.get_udim_segment_tilenums(source.image, segment)
+                        if len(tilenums) > 0:
+                            tile = source.image.tiles.get(tilenums[0])
+                            self.width = tile.size[0]
+                            self.height = tile.size[1]
                     bi = segment.bake_info
+                    self.use_image_atlas = True
                 self.hdr = source.image.is_float
 
             # Fill settings using bake info stored on image
@@ -543,7 +549,7 @@ class YBakeToLayer(bpy.types.Operator):
         ypup = get_user_preferences()
 
         # New image cannot use more pixels than the image atlas
-        if self.is_using_image_atlas():
+        if self.use_image_atlas:
             if self.hdr: max_size = ypup.hdr_image_atlas_size
             else: max_size = ypup.image_atlas_size
             if self.width > max_size: self.width = max_size
@@ -705,7 +711,7 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type not in {'OTHER_OBJECT_CHANNELS'}:
             col.separator()
             ccol = col.column(align=True)
-            ccol.active = not self.use_udim
+            #ccol.active = not self.use_udim
             ccol.prop(self, 'use_image_atlas')
 
     def execute(self, context):
@@ -791,8 +797,11 @@ class YBakeToLayer(bpy.types.Operator):
             overwrite_img = bpy.data.images.get(self.overwrite_image_name)
 
         segment = None
-        if overwrite_img and overwrite_img.yia.is_image_atlas:
-            segment = overwrite_img.yia.segments.get(self.overwrite_segment_name)
+        if overwrite_img:
+            if overwrite_img.yia.is_image_atlas:
+                segment = overwrite_img.yia.segments.get(self.overwrite_segment_name)
+            elif overwrite_img.yua.is_udim_atlas:
+                segment = overwrite_img.yua.segments.get(self.overwrite_segment_name)
 
         # Get other objects for other object baking
         other_objs = []
@@ -834,7 +843,7 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Get tile numbers
         tilenums = [1001]
-        if self.is_using_udim():
+        if self.use_udim:
             tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
 
         # Remember things
@@ -1371,7 +1380,7 @@ class YBakeToLayer(bpy.types.Operator):
                 color[3] = 0.0
 
             # New target image
-            if self.is_using_udim():
+            if self.use_udim:
                 image = bpy.data.images.new(name=image_name, width=width, height=height, 
                         alpha=True, float_buffer=self.hdr, tiled=True)
 
@@ -1381,7 +1390,7 @@ class YBakeToLayer(bpy.types.Operator):
                 UDIM.initial_pack_udim(image, color)
 
                 # Remember base color
-                image.yia.color = 'TRANSPARENT'
+                image.yui.base_color = color
             else:
                 image = bpy.data.images.new(name=image_name,
                         width=width, height=height, alpha=True, float_buffer=self.hdr)
@@ -1468,30 +1477,45 @@ class YBakeToLayer(bpy.types.Operator):
 
             new_segment_created = False
 
-            if self.is_using_image_atlas():
+            if self.use_image_atlas:
 
                 need_to_create_new_segment = False
                 if segment:
                     ia_image = segment.id_data
-                    need_to_create_new_segment = self.width != segment.width or self.height != segment.height or ia_image.is_float != self.hdr
-                    if need_to_create_new_segment:
-                        segment.unused = True
+                    if self.use_udim:
+                        need_to_create_new_segment = ia_image.is_float != self.hdr
+                        if need_to_create_new_segment:
+                            UDIM.remove_udim_atlas_segment_by_name(ia_image, segment.name, tilenums, yp)
+                    else:
+                        need_to_create_new_segment = self.width != segment.width or self.height != segment.height or ia_image.is_float != self.hdr
+                        if need_to_create_new_segment:
+                            segment.unused = True
 
                 if not segment or need_to_create_new_segment:
 
-                    # Clearing unused image atlas segments
-                    img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', self.width, self.height, self.hdr)
-                    if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
+                    if self.use_udim:
+                        segment = UDIM.get_set_udim_atlas_segment(tilenums, color=(0,0,0,0), 
+                                colorspace='sRGB', hdr=self.hdr, yp=yp)
+                    else:
+                        # Clearing unused image atlas segments
+                        img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', self.width, self.height, self.hdr)
+                        if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
-                    segment = ImageAtlas.get_set_image_atlas_segment(
-                            self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
+                        segment = ImageAtlas.get_set_image_atlas_segment(
+                                self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
 
                     new_segment_created = True
 
                 ia_image = segment.id_data
 
                 # Set baked image to segment
-                copy_image_pixels(image, ia_image, segment)
+                if self.use_udim:
+                    segment_index = UDIM.get_udim_segment_index(ia_image, segment)
+                    copy_dict = {}
+                    for tilenum in tilenums:
+                        copy_dict[tilenum] = tilenum + ia_image.yua.offset_y * segment_index * 10
+                    UDIM.copy_tiles(image, ia_image, copy_dict)
+                else: copy_image_pixels(image, ia_image, segment)
                 temp_img = image
                 image = ia_image
 
@@ -1505,7 +1529,7 @@ class YBakeToLayer(bpy.types.Operator):
                     active_id = yp.active_layer_index
 
                     if overwrite_img != image:
-                        if segment and not self.is_using_image_atlas():
+                        if segment and not self.use_image_atlas:
                             entities = ImageAtlas.replace_segment_with_image(yp, segment, image)
                             segment = None
                         else: entities = replace_image(overwrite_img, image, yp, self.uv_map)
@@ -1546,9 +1570,9 @@ class YBakeToLayer(bpy.types.Operator):
 
                 elif self.target_type == 'LAYER':
 
-                    layer_name = image.name if not self.is_using_image_atlas() else self.name
+                    layer_name = image.name if not self.use_image_atlas else self.name
 
-                    if self.is_using_image_atlas():
+                    if self.use_image_atlas:
                         layer_name = get_unique_name(layer_name, yp.layers)
 
                     yp.halt_update = True
@@ -1569,9 +1593,9 @@ class YBakeToLayer(bpy.types.Operator):
 
 
                 else:
-                    mask_name = image.name if not self.is_using_image_atlas() else self.name
+                    mask_name = image.name if not self.use_image_atlas else self.name
 
-                    if self.is_using_image_atlas():
+                    if self.use_image_atlas:
                         mask_name = get_unique_name(mask_name, active_layer.masks)
 
                     mask = Mask.add_new_mask(active_layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
@@ -1877,12 +1901,6 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             description='Use UDIM Tiles',
             default=False)
 
-    def is_using_udim(self):
-        return self.use_udim and UDIM.is_udim_supported()
-
-    def is_using_image_atlas(self):
-        return self.use_image_atlas and not self.is_using_udim()
-
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -1949,7 +1967,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         ypup = get_user_preferences()
 
         # New image cannot use more pixels than the image atlas
-        if self.is_using_image_atlas():
+        if self.use_image_atlas:
             if self.hdr: max_size = ypup.hdr_image_atlas_size
             else: max_size = ypup.image_atlas_size
             if self.width > max_size: self.width = max_size
@@ -1995,7 +2013,6 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         col.separator()
         col.prop(self, 'fxaa')
         ccol = col.column(align=True)
-        ccol.active = not self.use_udim
         ccol.prop(self, 'use_image_atlas')
         if self.mask:
             col.prop(self, 'disable_current', text='Disable Current Mask')
@@ -2114,7 +2131,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             colorspace = 'sRGB'
 
         # Create image
-        if self.is_using_udim():
+        if self.use_udim:
             image = bpy.data.images.new(name=self.name,
                     width=self.width, height=self.height, alpha=True, float_buffer=self.hdr, tiled=True)
 
@@ -2147,23 +2164,33 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             blur_image(image, False, bake_device=self.bake_device, factor=self.blur_factor, samples=samples)
 
         if self.mask:
-            mask_name = image.name if not self.is_using_image_atlas() else self.name
+            mask_name = image.name if not self.use_image_atlas else self.name
 
             segment = None
-            if self.is_using_image_atlas():
+            if self.use_image_atlas:
                 mask_name = get_unique_name(mask_name, self.layer.masks)
 
-                # Clearing unused image atlas segments
-                img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', self.width, self.height, self.hdr)
-                if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
+                if self.use_udim:
+                    segment = UDIM.get_set_udim_atlas_segment(tilenums, color=(0,0,0,1), 
+                            colorspace='Non-Color', hdr=self.hdr, yp=yp)
+                else:
+                    # Clearing unused image atlas segments
+                    img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', self.width, self.height, self.hdr)
+                    if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
-                segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, 'BLACK', self.hdr, yp=yp) #, ypup.image_atlas_size)
+                    segment = ImageAtlas.get_set_image_atlas_segment(
+                            self.width, self.height, 'BLACK', self.hdr, yp=yp) #, ypup.image_atlas_size)
 
                 ia_image = segment.id_data
 
                 # Set baked image to segment
-                copy_image_pixels(image, ia_image, segment)
+                if self.use_udim:
+                    segment_index = UDIM.get_udim_segment_index(ia_image, segment)
+                    copy_dict = {}
+                    for tilenum in tilenums:
+                        copy_dict[tilenum] = tilenum + ia_image.yua.offset_y * segment_index * 10
+                    UDIM.copy_tiles(image, ia_image, copy_dict)
+                else: copy_image_pixels(image, ia_image, segment)
                 temp_img = image
                 image = ia_image
 

@@ -235,24 +235,31 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         mask_segment = None
 
         if mask_type == 'IMAGE':
-            if use_image_atlas_for_mask and not use_udim_for_mask:
-                mask_segment = ImageAtlas.get_set_image_atlas_segment(
-                        mask_width, mask_height, mask_color, mask_use_hdr, yp=yp) #, ypup.image_atlas_size)
+
+            color = (0,0,0,0)
+            if mask_color == 'WHITE':
+                color = (1,1,1,1)
+            elif mask_color == 'BLACK':
+                color = (0,0,0,1)
+
+            if use_udim_for_mask:
+                objs = get_all_objects_with_same_materials(mat)
+                tilenums = UDIM.get_tile_numbers(objs, mask_uv_name)
+
+            if use_image_atlas_for_mask:
+                if use_udim_for_mask:
+                    mask_segment = UDIM.get_set_udim_atlas_segment(tilenums,
+                            mask_width, mask_height, color, colorspace='Non-Color', hdr=mask_use_hdr, yp=yp)
+                else:
+                    mask_segment = ImageAtlas.get_set_image_atlas_segment(
+                            mask_width, mask_height, mask_color, mask_use_hdr, yp=yp)
                 mask_image = mask_segment.id_data
             else:
-                color = (0,0,0,0)
-                if mask_color == 'WHITE':
-                    color = (1,1,1,1)
-                elif mask_color == 'BLACK':
-                    color = (0,0,0,1)
-
                 if use_udim_for_mask:
                     mask_image = bpy.data.images.new(mask_name, 
                             width=mask_width, height=mask_height, alpha=False, float_buffer=mask_use_hdr, tiled=True)
 
                     # Fill tiles
-                    objs = get_all_objects_with_same_materials(mat)
-                    tilenums = UDIM.get_tile_numbers(objs, mask_uv_name)
                     for tilenum in tilenums:
                         UDIM.fill_tile(mask_image, tilenum, color, mask_width, mask_height)
                     UDIM.initial_pack_udim(mask_image, color)
@@ -745,29 +752,23 @@ class YNewLayer(bpy.types.Operator):
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
-    def is_using_udim(self):
-        return self.use_udim and UDIM.is_udim_supported()
+    #def is_mask_using_udim(self):
+    #    return self.use_udim_for_mask and UDIM.is_udim_supported()
 
-    def is_using_image_atlas(self):
-        return self.use_image_atlas and not self.is_using_udim()
-
-    def is_mask_using_udim(self):
-        return self.use_udim_for_mask and UDIM.is_udim_supported()
-
-    def is_mask_using_image_atlas(self):
-        return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
+    #def is_mask_using_image_atlas(self):
+    #    return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
 
     def check(self, context):
         ypup = get_user_preferences()
 
         # New image cannot use more pixels than the image atlas
-        if self.is_using_image_atlas():
+        if self.use_image_atlas:
             if self.hdr: max_size = ypup.hdr_image_atlas_size
             else: max_size = ypup.image_atlas_size
             if self.width > max_size: self.width = max_size
             if self.height > max_size: self.height = max_size
 
-        if self.is_mask_using_image_atlas():
+        if self.use_image_atlas_for_mask:
             if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
             else: mask_max_size = ypup.image_atlas_size
             if self.mask_width > mask_max_size: self.mask_width = mask_max_size
@@ -786,9 +787,9 @@ class YNewLayer(bpy.types.Operator):
         return True
 
     def get_to_be_cleared_image_atlas(self, context, yp):
-        if self.type == 'IMAGE' and not self.add_mask and self.is_using_image_atlas():
+        if self.type == 'IMAGE' and not self.add_mask and self.use_image_atlas:
             return ImageAtlas.check_need_of_erasing_segments(yp, 'TRANSPARENT', self.width, self.height, self.hdr)
-        if self.add_mask and self.mask_type == 'IMAGE' and self.is_mask_using_image_atlas():
+        if self.add_mask and self.mask_type == 'IMAGE' and self.use_image_atlas_for_mask:
             return ImageAtlas.check_need_of_erasing_segments(yp, self.mask_color, self.mask_width, self.mask_height, self.hdr)
 
         return None
@@ -916,7 +917,6 @@ class YNewLayer(bpy.types.Operator):
             if UDIM.is_udim_supported():
                 col.prop(self, 'use_udim')
             ccol = col.column()
-            ccol.active = not self.use_udim
             ccol.prop(self, 'use_image_atlas')
 
         if self.type != 'IMAGE':
@@ -936,7 +936,6 @@ class YNewLayer(bpy.types.Operator):
                         if UDIM.is_udim_supported():
                             col.prop(self, 'use_udim_for_mask')
                         ccol = col.column()
-                        ccol.active = not self.use_udim_for_mask
                         ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
                 if is_greater_than_320() and self.mask_type == 'VCOL':
                     crow = col.row(align=True)
@@ -1002,22 +1001,27 @@ class YNewLayer(bpy.types.Operator):
         segment = None
         if self.type == 'IMAGE':
 
-            if self.is_using_image_atlas():
-                segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
+            alpha = True
+            color = (0,0,0,0)
+
+            if self.use_udim:
+                objs = get_all_objects_with_same_materials(mat)
+                tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
+
+            if self.use_image_atlas:
+                if self.use_udim:
+                    segment = UDIM.get_set_udim_atlas_segment(tilenums, self.width, self.height, color, 'sRGB', self.hdr, yp)
+                else:
+                    segment = ImageAtlas.get_set_image_atlas_segment(
+                            self.width, self.height, 'TRANSPARENT', self.hdr, yp=yp) #, ypup.image_atlas_size)
                 img = segment.id_data
             else:
 
-                alpha = True
-                color = (0,0,0,0)
-
-                if self.is_using_udim():
+                if self.use_udim:
                     img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
                             alpha=alpha, float_buffer=self.hdr, tiled=True)
 
                     # Fill tiles
-                    objs = get_all_objects_with_same_materials(mat)
-                    tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
                     for tilenum in tilenums:
                         UDIM.fill_tile(img, tilenum, color, self.width, self.height)
                     UDIM.initial_pack_udim(img, color)
@@ -1072,7 +1076,7 @@ class YNewLayer(bpy.types.Operator):
                 self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
                 self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id,
                 self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha,
-                self.is_mask_using_udim())
+                self.use_udim_for_mask)
 
         if segment:
             ImageAtlas.set_segment_mapping(layer, segment, img)
@@ -1459,11 +1463,11 @@ class BaseMultipleImagesLayer():
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
 
-    def is_mask_using_udim(self):
-        return self.use_udim_for_mask and UDIM.is_udim_supported()
+    #def is_mask_using_udim(self):
+    #    return self.use_udim_for_mask and UDIM.is_udim_supported()
 
-    def is_mask_using_image_atlas(self):
-        return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
+    #def is_mask_using_image_atlas(self):
+    #    return self.use_image_atlas_for_mask and not self.is_mask_using_udim()
     
     def open_images_to_single_layer(self, context:bpy.context, directory:str, import_list) -> bool:
     
@@ -1639,7 +1643,7 @@ class BaseMultipleImagesLayer():
                         normal_map_type, self.texcoord_type, self.uv_map, image, None, None,
                         (1,1,1),self.add_mask, self.mask_type, self.mask_color, self.mask_use_hdr, 
                         self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
-                        use_udim_for_mask=self.is_mask_using_udim())
+                        use_udim_for_mask=self.use_udim_for_mask)
 
                 yp.halt_update = False
                 #reconnect_yp_nodes(node.node_tree)
@@ -1748,7 +1752,6 @@ class BaseMultipleImagesLayer():
                 if UDIM.is_udim_supported():
                     col.prop(self, 'use_udim_for_mask')
                 ccol = col.column()
-                ccol.active = not self.use_udim_for_mask
                 ccol.prop(self, 'use_image_atlas_for_mask', text='Use Image Atlas')
 
         #col.label(text='')
@@ -1766,7 +1769,7 @@ class BaseMultipleImagesLayer():
     def check_operator(self, context:bpy.context):
         ypup = get_user_preferences()
         # New image cannot use more pixels than the image atlas
-        if self.is_mask_using_image_atlas():
+        if self.use_image_atlas_for_mask:
             if self.mask_use_hdr: mask_max_size = ypup.hdr_image_atlas_size
             else: mask_max_size = ypup.image_atlas_size
             if self.mask_width > mask_max_size: self.mask_width = mask_max_size
@@ -2795,15 +2798,19 @@ def remove_layer(yp, index):
     obj = bpy.context.object
     layer = yp.layers[index]
     layer_tree = get_tree(layer)
+    mat = obj.active_material
 
     # Dealing with image atlas segments
     if layer.type == 'IMAGE': # and layer.segment_name != '':
         src = get_layer_source(layer)
-        if src and src.image.yia.is_image_atlas and layer.segment_name != '':
-            segment = src.image.yia.segments.get(layer.segment_name)
-            entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
-            if len(entities) == 1:
-                segment.unused = True
+        if src:
+            if src.image.yia.is_image_atlas and layer.segment_name != '':
+                segment = src.image.yia.segments.get(layer.segment_name)
+                entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
+                if len(entities) == 1:
+                    segment.unused = True
+            elif src.image.yua.is_udim_atlas and layer.segment_name != '':
+                UDIM.remove_udim_atlas_segment_by_name(src.image, layer.segment_name, yp=yp)
 
     # Remove the source first to remove image
     source_tree = get_source_tree(layer) #, layer_tree)
@@ -2815,11 +2822,14 @@ def remove_layer(yp, index):
         # Dealing with image atlas segments
         if mask.type == 'IMAGE': # and mask.segment_name != '':
             src = get_mask_source(mask)
+            if not src: continue
             if src.image.yia.is_image_atlas and mask.segment_name != '':
                 segment = src.image.yia.segments.get(mask.segment_name)
                 entities = ImageAtlas.get_entities_with_specific_segment(yp, segment)
                 if len(entities) == 1:
                     segment.unused = True
+            elif src.image.yua.is_udim_atlas and mask.segment_name != '':
+                UDIM.remove_udim_atlas_segment_by_name(src.image, mask.segment_name, yp=yp)
 
         mask_tree = get_mask_tree(mask)
         remove_node(mask_tree, mask, 'source')
@@ -2881,6 +2891,20 @@ class YRemoveLayer(bpy.types.Operator):
         return context.object and group_node and len(group_node.node_tree.yp.layers) > 0
 
     def invoke(self, context, event):
+        # Removing UDIM atlas segment is can't be undoed
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = yp.layers[yp.active_layer_index]
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source and source.image and source.image.yua.is_udim_atlas:
+                return context.window_manager.invoke_props_dialog(self, width=300)
+            for mask in layer.masks:
+                if mask.type != 'IMAGE': continue
+                source = get_mask_source(mask)
+                if source and source.image and source.image.yua.is_udim_atlas:
+                    return context.window_manager.invoke_props_dialog(self, width=300)
+
         obj = context.object
         if obj.mode != 'OBJECT':
             return context.window_manager.invoke_props_dialog(self, width=400)
@@ -2890,6 +2914,11 @@ class YRemoveLayer(bpy.types.Operator):
         obj = context.object
         if obj.mode != 'OBJECT':
             self.layout.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
+        else:
+            col = self.layout.column(align=True)
+            col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
+            col.label(text='You cannot UNDO after removal', icon='BLANK1')
+            col.label(text='Are you sure want to continue?', icon='BLANK1')
 
     def execute(self, context):
         T = time.time()
@@ -3569,7 +3598,39 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                     new_segment = ImageAtlas.get_set_image_atlas_segment(segment.width, segment.height,
                             img.yia.color, img.is_float, img, segment)
 
-                #print(img_users[i], new_segment.tile_x, new_segment.tile_y)
+                if new_segment:
+
+                    img_users[i].segment_name = new_segment.name
+
+                    # Change image if different image is returned
+                    if new_segment.id_data != img:
+                        img_nodes[i].image = new_segment.id_data
+
+                    # Update layer transform
+                    update_mapping(img_users[i])
+
+            elif img.yua.is_udim_atlas:
+                segment = img.yua.segments.get(img_users[i].segment_name)
+                new_segment = None
+
+                tilenums = UDIM.get_udim_atlas_base_tilenums(img)
+                segment_tilenums = UDIM.get_udim_segment_tilenums(img, segment)
+
+                # create new segment based on previous one
+                if make_image_blank:
+                    new_segment = UDIM.get_set_udim_atlas_segment(tilenums, color=img.yui.base_color, 
+                            colorspace=img.colorspace_settings.name, hdr=img.is_float, yp=yp) #, source_image=img)
+
+                # If using different image atlas per yp, just copy the image (unless specific layer is on)
+                elif not specific_layer:
+                    if img.name not in copied_image_atlas:
+                        copied_image_atlas[img.name] = duplicate_image(img)
+                    img_nodes[i].image = copied_image_atlas[img.name]
+
+                else:
+                    new_segment = UDIM.get_set_udim_atlas_segment(tilenums, color=img.yui.base_color, 
+                            colorspace=img.colorspace_settings.name, hdr=img.is_float, yp=yp, 
+                            source_image=img, source_tilenums=segment_tilenums)
 
                 if new_segment:
 

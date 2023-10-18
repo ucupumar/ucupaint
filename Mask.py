@@ -124,6 +124,8 @@ def remove_mask_channel(tree, layer, ch_index):
 def remove_mask(layer, mask, obj):
 
     tree = get_tree(layer)
+    yp = layer.id_data.yp
+    mat = obj.active_material
 
     # Get mask index
     mask_index = [i for i, m in enumerate(layer.masks) if m == mask][0]
@@ -133,10 +135,16 @@ def remove_mask(layer, mask, obj):
     shift_mask_fcurves_up(layer, mask_index)
 
     # Dealing with image atlas segments
-    if mask.type == 'IMAGE' and mask.segment_name != '':
+    if mask.type == 'IMAGE':
         src = get_mask_source(mask)
-        segment = src.image.yia.segments.get(mask.segment_name)
-        segment.unused = True
+        if src and src.image:
+            image = src.image
+            if mask.segment_name != '':
+                if image.yia.is_image_atlas:
+                    segment = image.yia.segments.get(mask.segment_name)
+                    segment.unused = True
+                elif image.yua.is_udim_atlas:
+                    UDIM.remove_udim_atlas_segment_by_name(image, mask.segment_name, yp=yp)
 
     disable_mask_source_tree(layer, mask)
 
@@ -277,14 +285,8 @@ class YNewLayerMask(bpy.types.Operator):
     def poll(cls, context):
         return True
 
-    def is_using_udim(self):
-        return self.use_udim and UDIM.is_udim_supported()
-
-    def is_using_image_atlas(self):
-        return self.use_image_atlas and not self.is_using_udim()
-
     def get_to_be_cleared_image_atlas(self, context, yp):
-        if self.type == 'IMAGE' and self.is_using_image_atlas():
+        if self.type == 'IMAGE' and self.use_image_atlas:
             return ImageAtlas.check_need_of_erasing_segments(yp, self.color_option, self.width, self.height, self.hdr)
 
         return None
@@ -355,7 +357,7 @@ class YNewLayerMask(bpy.types.Operator):
         ypup = get_user_preferences()
 
         # New image cannot use more pixels than the image atlas
-        if self.is_using_image_atlas():
+        if self.use_image_atlas:
             if self.hdr: max_size = ypup.hdr_image_atlas_size
             else: max_size = ypup.image_atlas_size
             if self.width > max_size: self.width = max_size
@@ -441,7 +443,6 @@ class YNewLayerMask(bpy.types.Operator):
                     if UDIM.is_udim_supported():
                         col.prop(self, 'use_udim')
                     ccol = col.column()
-                    ccol.active = not self.use_udim
                     ccol.prop(self, 'use_image_atlas')
 
         if self.get_to_be_cleared_image_atlas(context, yp):
@@ -499,26 +500,30 @@ class YNewLayerMask(bpy.types.Operator):
 
         # New image
         if self.type == 'IMAGE':
-            if self.is_using_image_atlas():
-                segment = ImageAtlas.get_set_image_atlas_segment(
-                        self.width, self.height, self.color_option, self.hdr, yp=yp) #, ypup.image_atlas_size)
+
+            if self.color_option == 'WHITE':
+                color = (1,1,1,1)
+            elif self.color_option == 'BLACK':
+                color = (0,0,0,1)
+
+            if self.use_udim:
+                objs = get_all_objects_with_same_materials(mat)
+                tilenums = UDIM.get_tile_numbers(objs, self.uv_name)
+
+            if self.use_image_atlas:
+                if self.use_udim:
+                    segment = UDIM.get_set_udim_atlas_segment(tilenums, self.width, self.height, color, 'Non-Color', self.hdr, yp)
+                else:
+                    segment = ImageAtlas.get_set_image_atlas_segment(
+                            self.width, self.height, self.color_option, self.hdr, yp=yp) #, ypup.image_atlas_size)
                 img = segment.id_data
             else:
 
-                if self.color_option == 'WHITE':
-                    color = (1,1,1,1)
-                elif self.color_option == 'BLACK':
-                    color = (0,0,0,1)
-                if hasattr(img, 'use_alpha'):
-                    img.use_alpha = False
-
-                if self.is_using_udim():
+                if self.use_udim:
                     img = bpy.data.images.new(name=self.name, width=self.width, height=self.height, 
                             alpha=alpha, float_buffer=self.hdr, tiled=True)
 
                     # Fill tiles
-                    objs = get_all_objects_with_same_materials(mat)
-                    tilenums = UDIM.get_tile_numbers(objs, self.uv_name)
                     for tilenum in tilenums:
                         UDIM.fill_tile(img, tilenum, color, self.width, self.height)
                     UDIM.initial_pack_udim(img, color)
@@ -528,6 +533,8 @@ class YNewLayerMask(bpy.types.Operator):
                             width=self.width, height=self.height, alpha=alpha, float_buffer=self.hdr)
 
                 img.generated_color = color
+                if hasattr(img, 'use_alpha'):
+                    img.use_alpha = False
 
             if img.colorspace_settings.name != 'Non-Color' and not img.is_dirty:
                 img.colorspace_settings.name = 'Non-Color'

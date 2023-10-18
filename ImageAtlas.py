@@ -2,7 +2,7 @@ import bpy, time, random, numpy, re
 from bpy.props import *
 from .common import *
 from .subtree import *
-from . import BakeInfo
+from . import BakeInfo, UDIM
 
 def is_tile_available(x, y, width, height, atlas):
 
@@ -204,8 +204,12 @@ def replace_segment_with_image(yp, segment, image, uv_name=''):
         if uv_name != '' and entity.uv_name != uv_name:
             entity.uv_name = uv_name
 
-    # Make segment unused
-    segment.unused = True
+    # Remove segment
+    if segment.id_data.source == 'TILED':
+        UDIM.remove_udim_atlas_segment_by_name(segment.id_data, segment.name)
+    else:
+        # Make segment unused
+        segment.unused = True
 
     #print(segment.name, entities)
 
@@ -242,7 +246,7 @@ def replace_segment_with_image(yp, segment, image, uv_name=''):
 #
 #        return {'FINISHED'}
 
-def get_segment_mapping(entity, segment, image):
+def get_segment_mapping(segment, image):
 
     scale_x = segment.width/image.size[0]
     scale_y = segment.height/image.size[1]
@@ -254,7 +258,11 @@ def get_segment_mapping(entity, segment, image):
 
 def set_segment_mapping(entity, segment, image):
 
-    scale_x, scale_y, offset_x, offset_y = get_segment_mapping(entity, segment, image)
+    if image.source == 'TILED':
+        UDIM.set_udim_segment_mapping(entity, segment, image)
+        return
+    
+    scale_x, scale_y, offset_x, offset_y = get_segment_mapping(segment, image)
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
@@ -484,11 +492,12 @@ class YConvertToImageAtlas(bpy.types.Operator):
         return hasattr(context, 'image') and context.image and hasattr(context, 'entity')
 
     def execute(self, context):
+        mat = get_active_material()
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
         if self.all_images:
-            entities, images, segments = get_yp_entities_images_and_segments(yp)
+            entities, images, segment_names = get_yp_entities_images_and_segments(yp)
         else:
             mapping = get_entity_mapping(context.entity)
             if is_transformed(mapping):
@@ -497,11 +506,11 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
             images = [context.image]
             entities = [[context.entity]]
-            segments = [context.image.yia.segments.get(context.entity.segment_name)]
+            segment_names = [context.entity.segment_name]
 
         for i, image in enumerate(images):
-            if image.yia.is_image_atlas : continue
-            if image.source == 'TILED': continue # UDIM Atlas is not supported yet
+            if image.yia.is_image_atlas or image.yua.is_udim_atlas: continue
+            #if image.source == 'TILED': continue # UDIM Atlas is not supported yet
 
             used_by_masks = False
             valid_entities = []
@@ -521,13 +530,20 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
             # Image used by masks will use black image atlas instead of transparent so it will use linear color by default
             color = 'BLACK' if used_by_masks else 'TRANSPARENT'
+            colorspace = 'Non-Color' if used_by_masks else 'sRGB'
 
             # Get segment
-            new_segment = get_set_image_atlas_segment(image.size[0], image.size[1], color, hdr=image.is_float)
+            if image.source == 'TILED':
+                objs = get_all_objects_with_same_materials(mat, True, valid_entities[0].uv_name)
+                tilenums = UDIM.get_tile_numbers(objs, valid_entities[0].uv_name)
+                new_segment = UDIM.get_set_udim_atlas_segment(tilenums, color=image.yui.base_color, colorspace=colorspace, hdr=image.is_float, yp=yp, source_image=image)
+                ia_image = new_segment.id_data
+            else:
+                new_segment = get_set_image_atlas_segment(image.size[0], image.size[1], color, hdr=image.is_float)
 
-            # Copy image to segment
-            ia_image = new_segment.id_data
-            copy_image_pixels(image, ia_image, new_segment)
+                # Copy image to segment
+                ia_image = new_segment.id_data
+                copy_image_pixels(image, ia_image, new_segment)
 
             # Copy bake info
             if image.y_bake_info.is_baked:
@@ -580,36 +596,71 @@ class YConvertToStandardImage(bpy.types.Operator):
         yp = node.node_tree.yp
 
         if self.all_images:
-            entities, images, segments = get_yp_entities_images_and_segments(yp)
+            entities, images, segment_names = get_yp_entities_images_and_segments(yp)
         else:
             images = [context.image]
-            segment = context.image.yia.segments.get(context.entity.segment_name)
+
+            if context.image.yia.is_image_atlas:
+                segment = context.image.yia.segments.get(context.entity.segment_name)
+            else: segment = context.image.yua.segments.get(context.entity.segment_name)
+
             entities = [get_entities_with_specific_segment(yp, segment)]
-            segments = [segment]
+            segment_names = [context.entity.segment_name]
 
         image_atlases = []
 
         for i, image in enumerate(images):
-            if not image.yia.is_image_atlas: continue
+            if not image.yia.is_image_atlas and not image.yua.is_udim_atlas: continue
 
-            segment = segments[i]
+            if image.yia.is_image_atlas:
+                segment = image.yia.segments.get(segment_names[i])
+            else: segment = image.yua.segments.get(segment_names[i])
+
             if not segment: continue
 
-            # Create new image based on segment
-            new_image = bpy.data.images.new(name=entities[i][0].name,
-                    width=segment.width, height=segment.height, alpha=True, float_buffer=image.is_float)
+            # Create new image based on image atlas
+            if image.yia.is_image_atlas:
+                new_image = bpy.data.images.new(name=entities[i][0].name,
+                        width=segment.width, height=segment.height, alpha=True, float_buffer=image.is_float)
+            else:
+                new_image = bpy.data.images.new(name=entities[i][0].name,
+                        width=image.size[0], height=image.size[1], alpha=True, float_buffer=image.is_float, tiled=True)
+
+                atlas_tilenums = UDIM.get_udim_segment_tilenums(image, segment)
+                index = UDIM.get_udim_segment_index(image, segment)
+                offset = (image.yua.offset_y) * index * 10
+                copy_dict = {}
+                tilenums = []
+                for atilenum in atlas_tilenums:
+                    atile = image.tiles.get(atilenum)
+                    tilenum = atilenum - offset
+                    tilenums.append(tilenum)
+                    copy_dict[atilenum] = tilenum
+                    UDIM.fill_tile(new_image, tilenum, image.yui.base_color, atile.size[0], atile.size[1])
+
+                UDIM.initial_pack_udim(new_image)
+
             new_image.colorspace_settings.name = image.colorspace_settings.name
 
             # Copy the pixels
-            copy_image_pixels(image, new_image, None, segment)
+            if image.yia.is_image_atlas:
+                copy_image_pixels(image, new_image, None, segment)
+            else:
+                UDIM.copy_tiles(image, new_image, copy_dict)
+
+                # Pack image
+                UDIM.initial_pack_udim(new_image)
 
             # Copy bake info
             if segment.bake_info.is_baked:
                 copy_id_props(segment.bake_info, new_image.y_bake_info)
                 new_image.y_bake_info.use_image_atlas = False
 
-            # Mark unused to the segment
-            segment.unused = True
+            if image.yia.is_image_atlas:
+                # Mark unused to the segment
+                segment.unused = True
+            else:
+                UDIM.remove_udim_atlas_segment_by_name(image, segment.name, tilenums, yp)
 
             for entity in entities[i]:
                 # Set new image to entity
@@ -632,10 +683,15 @@ class YConvertToStandardImage(bpy.types.Operator):
         # Remove unused image atlas
         for ia_image in image_atlases:
             still_used = False
-            for segment in ia_image.yia.segments:
-                if not segment.unused:
+
+            if ia_image.yia.is_image_atlas:
+                for segment in ia_image.yia.segments:
+                    if not segment.unused:
+                        still_used = True
+                        break
+            else:
+                if len(ia_image.yua.segments) > 0:
                     still_used = True
-                    break
 
             if not still_used:
                 bpy.data.images.remove(ia_image)
