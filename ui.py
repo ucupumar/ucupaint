@@ -2742,7 +2742,7 @@ def main_draw(self, context):
 
     if not is_greater_than_280():
         row.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
-    else: row.popover("NODE_MT_ypaint_about_popover", text='', icon='INFO')
+    else: row.popover("NODE_PT_ypaint_about_popover", text='', icon='INFO')
 
     if ypui.show_object:
         box = layout.box()
@@ -3477,7 +3477,7 @@ def draw_ypaint_about(self, context):
                         text="Update now to " + str(updater.update_version))
 
 class YPaintAboutPopover(bpy.types.Panel):
-    bl_idname = "NODE_MT_ypaint_about_popover"
+    bl_idname = "NODE_PT_ypaint_about_popover"
     bl_label = get_addon_title() + " About"
     bl_description = get_addon_title() + " About"
     bl_space_type = "VIEW_3D"
