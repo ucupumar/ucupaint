@@ -1510,12 +1510,10 @@ class YBakeToLayer(bpy.types.Operator):
 
                 # Set baked image to segment
                 if self.use_udim:
-                    UDIM.refresh_udim_atlas(ia_image, tilenums, yp)
                     segment_index = UDIM.get_udim_segment_index(ia_image, segment)
                     copy_dict = {}
                     for tilenum in tilenums:
                         copy_dict[tilenum] = tilenum + ia_image.yua.offset_y * segment_index * 10
-                    print(copy_dict)
                     UDIM.copy_tiles(image, ia_image, copy_dict)
                 else: copy_image_pixels(image, ia_image, segment)
                 temp_img = image
@@ -2187,11 +2185,10 @@ class YDuplicateLayerToImage(bpy.types.Operator):
 
                 # Set baked image to segment
                 if self.use_udim:
-                    UDIM.refresh_udim_atlas(ia_image, tilenums, yp)
                     segment_index = UDIM.get_udim_segment_index(ia_image, segment)
                     copy_dict = {}
                     for tilenum in tilenums:
-                        copy_dict[tilenum] = tilenum + ia_image.yua.offset_y * segment_index
+                        copy_dict[tilenum] = tilenum + ia_image.yua.offset_y * segment_index * 10
                     UDIM.copy_tiles(image, ia_image, copy_dict)
                 else: copy_image_pixels(image, ia_image, segment)
                 temp_img = image

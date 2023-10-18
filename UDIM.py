@@ -560,7 +560,10 @@ def create_udim_atlas(tilenums, name='', width=1024, height=1024, color=(0,0,0,0
 
     return image
 
-def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0,0,0,0), source_image=None, source_tilenums=[]):
+def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0,0,0,0), source_image=None, source_tilenums=[], yp=None):
+
+    if yp: refresh_udim_atlas(image, tilenums, yp)
+
     atlas = image.yua
     name = get_unique_name('Segment', atlas.segments)
 
@@ -626,7 +629,7 @@ def get_set_udim_atlas_segment(tilenums, width=1024, height=1024, color=(0,0,0,0
         if image.yua.is_udim_atlas and image.is_float == hdr and is_tilenums_fit_in_udim_atlas(image, tilenums):
             if colorspace != '' and image.colorspace_settings.name != colorspace: continue
             segment = create_udim_atlas_segment(image, tilenums, width, height, color, 
-                    source_image=source_image, source_tilenums=source_tilenums)
+                    source_image=source_image, source_tilenums=source_tilenums, yp=yp)
         if segment:
             break
 
@@ -634,7 +637,7 @@ def get_set_udim_atlas_segment(tilenums, width=1024, height=1024, color=(0,0,0,0
         # If proper UDIM atlas can't be found, create new one
         image = create_udim_atlas(tilenums, name, width, height, color, colorspace, hdr)
         segment = create_udim_atlas_segment(image, tilenums, width, height, color, 
-                source_image=source_image, source_tilenums=source_tilenums)
+                source_image=source_image, source_tilenums=source_tilenums, yp=yp)
 
     return segment
 
@@ -655,21 +658,21 @@ def refresh_udim_atlas(image, tilenums, yp=None):
     # Get current tilenums
     cur_tilenums = [t.number for t in image.tiles]
 
-    # Set new offset_y
-    ori_offset_y = image.yua.offset_y
+    # Get new offset
     max_y = int((max(tilenums) - 1000) / 10)
-    offset_y = max_y + 2
-    image.yua.offset_y = offset_y
-    offset_diff = offset_y - ori_offset_y
+    new_offset_y = max_y + 2
+    offset_diff = new_offset_y - image.yua.offset_y
 
     # Create conversion dict
     convert_dict = {}
-    for i in range(len(image.yua.segments)):
-        min_y = 1001 + i * ori_offset_y * 10
-        max_y = 1001 + (i+1) * ori_offset_y * 10 
-        for j in range(min_y, max_y):
+    for i, segment in enumerate(image.yua.segments):
+        segment_tilenums = get_udim_segment_tilenums(image, segment)
+        for j in (segment_tilenums):
             if j not in cur_tilenums: continue
             convert_dict[j] = j + offset_diff * i * 10
+
+    # Set new offset
+    image.yua.offset_y = new_offset_y
 
     # Extend tilenums
     tilenums = get_all_udim_atlas_tilenums(image, tilenums)
@@ -704,32 +707,22 @@ def refresh_udim_atlas(image, tilenums, yp=None):
 
     print('INFO: UDIM Atlas offsets are refreshed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-def remove_udim_atlas_segment_by_index(image, index, tilenums, yp=None):
+def remove_udim_atlas_segment_by_index(image, index, tilenums=[], yp=None):
     T = time.time()
 
     # Refresh udim atlas first
-    refresh_udim_atlas(image, tilenums, yp)
+    if tilenums == []: 
+        tilenums = get_udim_atlas_base_tilenums(image)
+    else: refresh_udim_atlas(image, tilenums, yp)
 
     cur_tilenums = [t.number for t in image.tiles]
 
-    # Remove tiles inside segment
-    unused_tilenums = []
-    for i in range(len(image.yua.segments)):
-        if i != index: continue
-        min_y = 1001 + i * image.yua.offset_y * 10
-        max_y = 1001 + (i+1) * image.yua.offset_y * 10 
-        for j in range(min_y, max_y):
-            if j not in cur_tilenums: continue
-            if j not in unused_tilenums:
-                unused_tilenums.append(j)
-
     # Create conversion dict
     convert_dict = {}
-    for i in range(len(image.yua.segments)):
+    for i, segment in enumerate(image.yua.segments):
         if i <= index: continue
-        min_y = 1001 + i * image.yua.offset_y * 10
-        max_y = 1001 + (i+1) * image.yua.offset_y * 10 
-        for j in range(min_y, max_y):
+        segment_tilenums = get_udim_segment_tilenums(image, segment)
+        for j in segment_tilenums:
             if j not in cur_tilenums: continue
             convert_dict[j] = j - image.yua.offset_y * 10
 
