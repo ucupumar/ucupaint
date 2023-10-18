@@ -26,6 +26,9 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
         tile = image.tiles.new(tile_number=tilenum)
         new_tile = True
 
+    # If tile is still not created even after creating new one
+    if not tile: return False
+
     if tile.size[0] == 0 or tile.size[1] == 0:
         new_tile = True
 
@@ -42,6 +45,14 @@ def fill_tile(image, tilenum, color=None, width=0, height=0, empty_only=False):
     #override = bpy.context.copy()
     #override['edit_image'] = image
     #bpy.ops.image.tile_fill(override, color=color, width=width, height=height, float=image.is_float, alpha=True)
+
+    color_str = '('
+    color_str += str(color[0]) + ', '
+    color_str += str(color[1]) + ', '
+    color_str += str(color[2]) + ', '
+    color_str += str(color[3]) + ')'
+
+    print('UDIM: Filling tile ' + str(tilenum) + ' with color ' + color_str)
 
     # Fill tile
     ori_ui_type = bpy.context.area.ui_type
@@ -573,7 +584,6 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
     segment = atlas.segments.add()
     segment.name = name
 
-    #color = image.yui.base_color
     segment.base_color = color
 
     copy_dict = {}
@@ -590,7 +600,7 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
             else: copy_dict[tilenum] = tilenum + offset
 
         tilenum += offset
-        fill_tile(image, tilenum, color, width, height, empty_only=True)
+        fill_tile(image, tilenum, color, width, height, empty_only=False)
 
     # Copy from source image
     if source_image:
@@ -646,16 +656,23 @@ def get_all_udim_atlas_tilenums(image, tilenums):
     # Extend tilenums
     extended_tilenums = []
     for i in range(len(image.yua.segments)):
+        segment_tilenums = []
+        out_of_bound = False
         for tilenum in tilenums:
             tilenum += image.yua.offset_y * 10 * i
-            extended_tilenums.append(tilenum)
+            segment_tilenums.append(tilenum)
+            if tilenum > 2000:
+                out_of_bound = True
+
+        #if not out_of_bound:
+        extended_tilenums.extend(segment_tilenums)
 
     return extended_tilenums
 
 def refresh_udim_atlas(image, tilenums, yp=None):
     T = time.time()
 
-    # Get current tilenums
+    # Actual tilenums from the image
     cur_tilenums = [t.number for t in image.tiles]
 
     # Get new offset
@@ -666,10 +683,24 @@ def refresh_udim_atlas(image, tilenums, yp=None):
     # Create conversion dict
     convert_dict = {}
     for i, segment in enumerate(image.yua.segments):
+
         segment_tilenums = get_udim_segment_tilenums(image, segment)
-        for j in (segment_tilenums):
-            if j not in cur_tilenums: continue
-            convert_dict[j] = j + offset_diff * i * 10
+        new_tilenums = []
+
+        out_of_bound = False
+        for st in segment_tilenums:
+            if st not in cur_tilenums: continue
+            new_tilenum = st + offset_diff * i * 10
+            new_tilenums.append(new_tilenum)
+
+            if new_tilenum > 2000:
+                out_of_bound = True
+
+        if out_of_bound:
+            print('UDIM: Segment', i, 'is out of bound!')
+        #else:
+        for j, st in enumerate(segment_tilenums):
+            convert_dict[st] = new_tilenums[j]
 
     # Set new offset
     image.yua.offset_y = new_offset_y
@@ -693,7 +724,7 @@ def refresh_udim_atlas(image, tilenums, yp=None):
         swap_tiles(image, convert_dict)
 
     # Remove unused tilenum
-    unused_tilenums = [tile.number for tile in image.tiles if tile.number not in tilenums]
+    unused_tilenums = [tile.number for tile in image.tiles if tile.number not in tilenums and tile.number != 1001]
     remove_tiles(image, unused_tilenums)
 
     # Refresh entities mapping
@@ -707,15 +738,23 @@ def refresh_udim_atlas(image, tilenums, yp=None):
 
     print('INFO: UDIM Atlas offsets are refreshed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-def remove_udim_atlas_segment_by_index(image, index, tilenums=[], yp=None):
+    return image
+
+def remove_udim_atlas_segment_by_name(image, segment_name, tilenums=[], yp=None):
     T = time.time()
 
-    # Refresh udim atlas first
     if tilenums == []: 
         tilenums = get_udim_atlas_base_tilenums(image)
-    else: refresh_udim_atlas(image, tilenums, yp)
+    else:
+        # Tilenums based on input (current objects uv islands) will refresh udim atlas
+        refresh_udim_atlas(image, tilenums, yp)
 
+    # Actual tilenums from the image
     cur_tilenums = [t.number for t in image.tiles]
+
+    index = [i for i, s in enumerate(image.yua.segments) if s.name == segment_name]
+    if len(index) == 0: return
+    index = index[0]
 
     # Create conversion dict
     convert_dict = {}
@@ -750,12 +789,11 @@ def remove_udim_atlas_segment_by_index(image, index, tilenums=[], yp=None):
 
     print('INFO: UDIM Atlas segment is removed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
-def remove_udim_atlas_segment_by_name(image, segment_name, tilenums=[], yp=None):
+def remove_udim_atlas_segment_by_index(image, index, tilenums=[], yp=None):
     if tilenums == []: tilenums = get_udim_atlas_base_tilenums(image)
-    index = [i for i, s in enumerate(image.yua.segments) if s.name == segment_name]
-    if len(index) == 0: return
-    index = index[0]
-    remove_udim_atlas_segment_by_index(image, index, tilenums, yp)
+    try: segment = image.yua.segments[index]
+    except: return
+    remove_udim_atlas_segment_by_name(image, segment.name, tilenums, yp)
 
 class YNewUDIMAtlasSegmentTest(bpy.types.Operator):
     bl_idname = "image.y_new_udim_atlas_segment_test"
