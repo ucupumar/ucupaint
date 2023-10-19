@@ -1074,6 +1074,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         if source.image.yia.is_image_atlas and target_layer.segment_name != '':
             segment = source.image.yia.segments.get(target_layer.segment_name)
+        elif source.image.yua.is_udim_atlas and target_layer.segment_name != '':
+            segment = source.image.yua.segments.get(target_layer.segment_name)
         else:
             img_name = source.image.name
             img = source.image.copy()
@@ -1154,14 +1156,20 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     if not img:
 
         if segment:
-            width = segment.width
-            height = segment.height
+            if source.image.yia.is_image_atlas:
+                width = segment.width
+                height = segment.height
 
-            if source.image.yia.color == 'WHITE':
-                color = (1.0, 1.0, 1.0, 1.0)
-            elif source.image.yia.color == 'BLACK':
-                color = (0.0, 0.0, 0.0, 1.0)
-            else: color = (0.0, 0.0, 0.0, 0.0)
+                if source.image.yia.color == 'WHITE':
+                    color = (1.0, 1.0, 1.0, 1.0)
+                elif source.image.yia.color == 'BLACK':
+                    color = (0.0, 0.0, 0.0, 1.0)
+                else: color = (0.0, 0.0, 0.0, 0.0)
+            else:
+                segment_tilenums = UDIM.get_udim_segment_tilenums(source.image, segment)
+                tilenums = UDIM.get_udim_atlas_base_tilenums(source.image)
+
+                color = segment.base_color
 
         elif root_ch.type == 'NORMAL':
             color = (0.5, 0.5, 1.0, 1.0)
@@ -1181,13 +1189,22 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         # Create new image
         if len(tilenums) > 1:
+
             # Create new udim image
             img = bpy.data.images.new(name=img_name, width=width, height=height, 
                     alpha=True, tiled=True) #float_buffer=hdr)
 
             # Fill tiles
-            for tilenum in tilenums:
-                UDIM.fill_tile(img, tilenum, color, width, height)
+            if segment:
+                copy_dict = {}
+                for i, tilenum in enumerate(tilenums):
+                    tile = source.image.tiles.get(segment_tilenums[i])
+                    copy_dict[tilenum] = segment_tilenums[i]
+                    if tile: UDIM.fill_tile(img, tilenum, color, tile.size[0], tile.size[1])
+            else:
+                for tilenum in tilenums:
+                    UDIM.fill_tile(img, tilenum, color, width, height)
+
             UDIM.initial_pack_udim(img, color)
 
         else:
@@ -1454,7 +1471,10 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         ori_img = source.image
 
         if segment:
-            copy_image_pixels(img, ori_img, segment)
+            if ori_img.yia.is_image_atlas:
+                copy_image_pixels(img, ori_img, segment)
+            else:
+                UDIM.copy_tiles(img, ori_img, copy_dict)
 
             # Remove temp image
             bpy.data.images.remove(img)
