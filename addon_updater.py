@@ -1208,7 +1208,8 @@ class SingletonUpdater:
             self._include_branch_list = []
 
             for tag in self._tags:
-                self._include_branch_list.append(tag["name"])
+                if "last_commit" in tag:
+                    self._include_branch_list.append(tag["name"])
 
         if "using_development_build" in saved_json.keys():
             self.using_development_build = saved_json["using_development_build"]
@@ -1544,7 +1545,7 @@ class SingletonUpdater:
             if name == tag["name"]:
                 tg = tag
                 break
-        self.using_development_build = name in self.include_branch_list
+        self.using_development_build = name in self._include_branch_list
         self.current_branch = name
         settings = get_user_preferences()
         settings.branches = name
