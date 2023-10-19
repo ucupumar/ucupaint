@@ -1579,6 +1579,9 @@ class SingletonUpdater:
         self._json["ignore"] = False  # clear ignore flag
         self._json["version_text"] = dict()
 
+        # in case error
+        prev_data = (self.using_development_build, self.current_branch)
+
         if revert_tag is not None:
             self.set_tag(revert_tag)
             self._update_ready = True
@@ -1630,6 +1633,11 @@ class SingletonUpdater:
             res = self.stage_repository(self._update_link)
             if not res:
                 print("Error in staging repository: " + str(res))
+                # revert
+                self._update_ready = False
+                self.using_development_build = prev_data[0] 
+                self.current_branch = prev_data[1]
+                
                 if callback is not None:
                     callback(self._addon_package, self._error_msg)
                 return self._error_msg
@@ -1648,6 +1656,11 @@ class SingletonUpdater:
             res = self.stage_repository(self._update_link)
             if not res:
                 print("Error in staging repository: " + str(res))
+                # revert
+                self._update_ready = False
+                self.using_development_build = prev_data[0] 
+                self.current_branch = prev_data[1]
+                
                 if callback:
                     callback(self._addon_package, self._error_msg)
                 return self._error_msg
@@ -1867,7 +1880,7 @@ class SingletonUpdater:
         try:
             self.check_for_branches(update_last_check=False)
             self._update_ready = None
-            self.check_for_update(update_last_check=False)
+            self.check_for_update(update_last_check=True)
         except Exception as exception:
             print("Checking for update error:")
             print(exception)
