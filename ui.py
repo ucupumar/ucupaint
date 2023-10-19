@@ -175,12 +175,12 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
                 row.label(text='Width: ' + str(segment.width))
                 row.label(text='Height: ' + str(segment.height))
             else:
-                row = col.row()
-                index = [i for i, s in enumerate(image.yua.segments) if s == segment]
-                if len(index) > 0:
-                    index = index[0]
-                    row.label(text='Index: ' + str(index))
-                row.label(text='Offset Y: ' + str(image.yua.offset_y))
+                split = col.split(factor=0.4)
+                split.label(text='Tile Numbers: ')
+                row = split.row(align=True)
+                segment_tilenums = UDIM.get_udim_segment_tilenums(image, segment)
+                for tilenum in segment_tilenums:
+                    row.label(text=str(tilenum))
 
             if segment.bake_info.is_baked:
                 draw_bake_info(segment.bake_info, col, entity)

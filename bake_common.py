@@ -1848,7 +1848,9 @@ def resize_image(image, width, height, colorspace='Non-Color', samples=1, margin
             print('RESIZE IMAGE: Baking resized alpha on', image_name + '...')
             bpy.ops.object.bake()
 
-            copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, segment)
+            if new_segment:
+                copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, new_segment)
+            else: copy_image_channel_pixels(alpha_img, scaled_img, 0, 3, segment)
 
             # Remove alpha image
             bpy.data.images.remove(alpha_img)

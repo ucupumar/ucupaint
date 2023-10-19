@@ -504,6 +504,35 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def udim_tilenum_items(self, context):
+    image = bpy.data.images.get(self.image_name)
+
+    if image.yua.is_udim_atlas:
+        yp = get_active_ypaint_node().node_tree.yp
+        layer = yp.layers.get(self.layer_name)
+
+        # Get entity
+        entity = layer
+        mask_entity = False
+        for mask in layer.masks:
+            if mask.active_edit:
+                entity = mask
+                mask_entity = True
+                break
+
+        segment = image.yua.segments.get(entity.segment_name)
+
+        tilenums = get_udim_segment_tilenums(image, segment)
+    else:
+        tilenums = [t.number for t in image.tiles]
+
+    items = []
+
+    for i, tilenum in enumerate(tilenums):
+        items.append((str(tilenum), str(tilenum), '', 'IMAGE_DATA', i))
+
+    return items
+
 def get_udim_segment_index(image, segment):
     index = -1
     ids = [i for i, s in enumerate(image.yua.segments) if s == segment]
