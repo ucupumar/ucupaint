@@ -418,6 +418,11 @@ class AddonUpdaterUpdateBranch(bpy.types.Operator):
         description="Select the version to install",
     )
 
+    label : StringProperty(
+        name="Target version to install",
+        description="Select the version to install",
+    )
+
     @classmethod
     def poll(cls, context):
         if updater.invalid_updater:
@@ -426,8 +431,6 @@ class AddonUpdaterUpdateBranch(bpy.types.Operator):
         return len(updater.tags) > 0
 
     def invoke(self, context, event):
-        if updater.current_branch is not None:
-            self.target = updater.current_branch
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
@@ -437,7 +440,7 @@ class AddonUpdaterUpdateBranch(bpy.types.Operator):
             row.label(text="Updater error")
             return
         
-        row.label(text="Do you want to install branch "+self.target+"?")
+        row.label(text="Do you want to install branch "+self.label+"?")
 
     def execute(self, context):
 
@@ -681,12 +684,12 @@ class UpdaterSettingMenu(bpy.types.Menu):
 
     def draw(self, context):
         col = self.layout.column()
-        
     
         for index, tg  in enumerate(updater.tags):
             item_icon = "RADIOBUT_ON" if tg[0] == updater.current_branch or (index == 0 and not updater.using_development_build) else "RADIOBUT_OFF"
             opr = col.operator(AddonUpdaterUpdateBranch.bl_idname, text=tg[1], icon=item_icon)
             opr.target = tg[0]
+            opr.label = tg[1]
 
 class UpdaterPendingUpdate(bpy.types.Operator):
     bl_label = "Pending Update"
