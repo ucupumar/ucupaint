@@ -405,6 +405,60 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
             return {'CANCELLED'}
 
         return {'FINISHED'}
+    
+class AddonUpdaterUpdateBranch(bpy.types.Operator):
+    bl_label = "Install new branch"
+    bl_idname = updater.addon + ".updater_update_branch"
+    bl_description = "Install a targeted version of the {x} addon".format(
+        x=updater.addon)
+    bl_options = {'REGISTER', 'INTERNAL'}
+
+    target : StringProperty(
+        name="Target version to install",
+        description="Select the version to install",
+    )
+
+    @classmethod
+    def poll(cls, context):
+        if updater.invalid_updater:
+            return False
+        # return updater.update_ready is not None and len(updater.tags) > 0
+        return len(updater.tags) > 0
+
+    def invoke(self, context, event):
+        if updater.current_branch is not None:
+            self.target = updater.current_branch
+        return context.window_manager.invoke_props_dialog(self)
+
+    def draw(self, context):
+        row = self.layout.row()
+        
+        if updater.invalid_updater:
+            row.label(text="Updater error")
+            return
+        
+        row.label(text="Do you want to install branch "+self.target+"?")
+
+    def execute(self, context):
+
+        # In case of error importing updater.
+        if updater.invalid_updater:
+            return {'CANCELLED'}
+
+        res = updater.run_update(
+            force=False,
+            revert_tag=self.target,
+            callback=post_update_callback)
+
+        # Should return 0, if not something happened.
+        if res == 0:
+            updater.print_verbose("Updater returned successful")
+        else:
+            updater.print_verbose(
+                "Updater returned {}, , error occurred".format(res))
+            return {'CANCELLED'}
+
+        return {'FINISHED'}
 
 
 class AddonUpdaterInstallManually(bpy.types.Operator):
@@ -621,13 +675,18 @@ class AddonUpdaterEndBackground(bpy.types.Operator):
 
 class UpdaterSettingMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_updater_setting_menu"
-    bl_description = 'Add New Layer'
-    bl_label = "New Layer Menu"
+    bl_description = 'Change branch'
+    bl_label = "Change active branch"
+
 
     def draw(self, context):
         col = self.layout.column()
-        col.operator(AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="FILE_SCRIPT")
-        col.operator(RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
+        
+    
+        for index, tg  in enumerate(updater.tags):
+            item_icon = "RADIOBUT_ON" if tg[0] == updater.current_branch or (index == 0 and not updater.using_development_build) else "RADIOBUT_OFF"
+            opr = col.operator(AddonUpdaterUpdateBranch.bl_idname, text=tg[1], icon=item_icon)
+            opr.target = tg[0]
 
 class UpdaterPendingUpdate(bpy.types.Operator):
     bl_label = "Pending Update"
@@ -1203,6 +1262,7 @@ classes = (
     AddonUpdaterCheckNow,
     AddonUpdaterUpdateNow,
     AddonUpdaterUpdateTarget,
+    AddonUpdaterUpdateBranch,
     AddonUpdaterInstallManually,
     AddonUpdaterUpdatedSuccessful,
     AddonUpdaterRestoreBackup,

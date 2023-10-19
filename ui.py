@@ -3456,11 +3456,10 @@ def draw_ypaint_about(self, context):
         row.label(text="Branch: "+updater.current_branch)
     else:
         row.label(text="Branch: Stable "+str(updater.current_version))
-    if not is_greater_than_280():
-        col.operator(updater.addon + '.updater_update_target', text="Change Branch", icon="FILE_SCRIPT")
-        col.operator(updater.addon + '.branches_releases_refresh', text="Check for update", icon="FILE_REFRESH")
+    if addon_updater_ops.updater.legacy_blender:
+        col.operator(addon_updater_ops.AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="FILE_SCRIPT")
     else:
-        row.menu("NODE_MT_updater_setting_menu", text='', icon='PREFERENCES')
+        row.menu(addon_updater_ops.UpdaterSettingMenu.bl_idname, text='', icon='PREFERENCES')
 
     if updater.async_checking:
         col.enabled = False
@@ -3475,6 +3474,8 @@ def draw_ypaint_about(self, context):
         else:
             col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
                         text="Update now to " + str(updater.update_version))
+    else:
+        col.operator(addon_updater_ops.RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
 
 class YPaintAboutPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ypaint_about_popover"
