@@ -1166,7 +1166,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     color = (0.0, 0.0, 0.0, 1.0)
                 else: color = (0.0, 0.0, 0.0, 0.0)
             else:
-                segment_tilenums = UDIM.get_udim_segment_tilenums(source.image, segment)
+                segment_tilenums = UDIM.get_udim_segment_tilenums(segment)
                 tilenums = UDIM.get_udim_atlas_base_tilenums(source.image)
 
                 color = segment.base_color

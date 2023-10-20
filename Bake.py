@@ -645,7 +645,7 @@ class YResizeImage(bpy.types.Operator):
             if image.source == 'TILED' and self.all_tiles:
                 if image.yua.is_udim_atlas:
                     segment = image.yua.segments.get(entity.segment_name)
-                    tilenums = UDIM.get_udim_segment_tilenums(image, segment)
+                    tilenums = UDIM.get_udim_segment_tilenums(segment)
                 else:
                     tilenums = [t.number for t in image.tiles]
 

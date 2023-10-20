@@ -3614,7 +3614,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                 new_segment = None
 
                 tilenums = UDIM.get_udim_atlas_base_tilenums(img)
-                segment_tilenums = UDIM.get_udim_segment_tilenums(img, segment)
+                segment_tilenums = UDIM.get_udim_segment_tilenums(segment)
 
                 # create new segment based on previous one
                 if make_image_blank:

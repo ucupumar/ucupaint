@@ -508,7 +508,7 @@ class YBakeToLayer(bpy.types.Operator):
                         self.height = segment.height
                     else: 
                         segment = source.image.yua.segments.get(overwrite_entity.segment_name)
-                        tilenums = UDIM.get_udim_segment_tilenums(source.image, segment)
+                        tilenums = UDIM.get_udim_segment_tilenums(segment)
                         if len(tilenums) > 0:
                             tile = source.image.tiles.get(tilenums[0])
                             self.width = tile.size[0]

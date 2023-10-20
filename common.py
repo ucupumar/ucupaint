@@ -2709,7 +2709,8 @@ def get_udim_segment_tiles_height(segment):
     tilenums = [btile.number for btile in segment.base_tiles]
     return get_tilenums_height(tilenums)
 
-def get_udim_segment_mapping_offset(segment, image):
+def get_udim_segment_mapping_offset(segment):
+    image = segment.id_data
 
     offset_y = 0 
     for i, seg in enumerate(image.yua.segments):
@@ -2766,7 +2767,7 @@ def update_mapping(entity):
         image = source.image
         if image.source == 'TILED':
             segment = image.yua.segments.get(entity.segment_name)
-            offset_y = get_udim_segment_mapping_offset(segment, image) 
+            offset_y = get_udim_segment_mapping_offset(segment) 
             mapping.inputs[1].default_value[1] = offset_y
         else:
             segment = image.yia.segments.get(entity.segment_name)

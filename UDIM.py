@@ -528,7 +528,7 @@ def udim_tilenum_items(self, context):
 
         segment = image.yua.segments.get(entity.segment_name)
 
-        tilenums = get_udim_segment_tilenums(image, segment)
+        tilenums = get_udim_segment_tilenums(segment)
     else:
         tilenums = [t.number for t in image.tiles]
 
@@ -545,28 +545,12 @@ def get_udim_segment_index(image, segment):
     if len(ids) > 0: index = ids[0]
     return index
 
-def get_udim_segment_tilenums(image, segment):
+def get_udim_segment_tilenums(segment):
 
-    all_tilenums = [t.number for t in image.tiles]
+    image = segment.id_data
+    offset_y = get_udim_segment_mapping_offset(segment)
+
     tilenums = []
-
-    #index = get_udim_segment_index(image, segment)
-    #min_y = 1001 + index * image.yua.offset_y * 10
-    #max_y = 1001 + (index+1) * image.yua.offset_y * 10
-
-    #for i in range(min_y, max_y):
-    #    if i in all_tilenums:
-    #        tilenums.append(i)
-
-    offset_y = get_udim_segment_mapping_offset(segment, image)
-
-    #tiles_height = get_udim_segment_tiles_height(segment)
-    #min_y = 1001 + offset_y * 10
-    #max_y = 1001 + (offset_y + tiles_height) * 10
-    #for i in range(min_y, max_y):
-    #    if i in all_tilenums:
-    #        tilenums.append(i)
-
     for btile in segment.base_tiles:
         tilenum = btile.number + offset_y * 10
         tilenums.append(tilenum)
@@ -576,14 +560,14 @@ def get_udim_segment_tilenums(image, segment):
 def get_udim_atlas_base_tilenums(image):
     try: segment = image.yua.segments[0]
     except: return []
-    return get_udim_segment_tilenums(image, segment)
+    return get_udim_segment_tilenums(segment)
 
 def get_udim_segment_base_tilenums(segment):
     return [btile.number for btile in segment.base_tiles]
 
 def set_udim_segment_mapping(entity, segment, image):
 
-    offset_y = get_udim_segment_mapping_offset(segment, image)
+    offset_y = get_udim_segment_mapping_offset(segment)
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
@@ -638,13 +622,11 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
 
     segment = None
 
-    #offset = len(atlas.segments) * atlas.offset_y * 10
     segment = atlas.segments.add()
     segment.name = name
     segment.base_color = color
-    #segment.tiles_height = get_tiles_height(tilenums)
     refresh_udim_segment_base_tilenums(segment, tilenums)
-    offset = get_udim_segment_mapping_offset(segment, image) * 10
+    offset = get_udim_segment_mapping_offset(segment) * 10
 
     copy_dict = {}
     
@@ -716,7 +698,7 @@ def get_all_udim_atlas_tilenums(image, tilenums=[]):
     all_tilenums = []
 
     for segment in image.yua.segments:
-        tilenums = get_udim_segment_tilenums(image, segment)
+        tilenums = get_udim_segment_tilenums(segment)
         all_tilenums.extend(tilenums)
 
     return all_tilenums
@@ -1032,9 +1014,6 @@ class YUDIMAtlasSegment(bpy.types.PropertyGroup):
 
     bake_info : PointerProperty(type=BakeInfo.YBakeInfoProps)
     base_color : FloatVectorProperty(subtype='COLOR', size=4, min=0.0, max=1.0, default=(0.0, 0.0, 0.0, 0.0))
-
-    #tiles_height : IntProperty(default=1, min=1, max=100,
-    #        name='Tiles Height', description='Number of tiles height')
 
     base_tiles : CollectionProperty(type=YUDIMAtlasSegmentTile)
 
