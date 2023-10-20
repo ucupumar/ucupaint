@@ -2699,6 +2699,26 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None):
     uv_neighbor.inputs['ResX'].default_value = res_x
     uv_neighbor.inputs['ResY'].default_value = res_y
 
+def get_tilenums_height(tilenums):
+    min_y = int(min(tilenums) / 10)
+    max_y = int(max(tilenums) / 10)
+
+    return max_y - min_y + 1
+
+def get_udim_segment_tiles_height(segment):
+    tilenums = [btile.number for btile in segment.base_tiles]
+    return get_tilenums_height(tilenums)
+
+def get_udim_segment_mapping_offset(segment, image):
+
+    offset_y = 0 
+    for i, seg in enumerate(image.yua.segments):
+        if seg == segment:
+            #return image.yua.offset_y * i
+            return offset_y
+        tiles_height = get_udim_segment_tiles_height(seg)
+        offset_y += tiles_height + 1
+
 def clear_mapping(entity):
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -2746,13 +2766,7 @@ def update_mapping(entity):
         image = source.image
         if image.source == 'TILED':
             segment = image.yua.segments.get(entity.segment_name)
-
-            offset_y = 0
-            for i, seg in enumerate(image.yua.segments):
-                if seg == segment:
-                    offset_y = image.yua.offset_y * i
-                    break
-
+            offset_y = get_udim_segment_mapping_offset(segment, image) 
             mapping.inputs[1].default_value[1] = offset_y
         else:
             segment = image.yia.segments.get(entity.segment_name)

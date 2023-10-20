@@ -1485,7 +1485,7 @@ class YBakeToLayer(bpy.types.Operator):
                     if self.use_udim:
                         need_to_create_new_segment = ia_image.is_float != self.hdr
                         if need_to_create_new_segment:
-                            UDIM.remove_udim_atlas_segment_by_name(ia_image, segment.name, tilenums, yp)
+                            UDIM.remove_udim_atlas_segment_by_name(ia_image, segment.name, yp)
                     else:
                         need_to_create_new_segment = self.width != segment.width or self.height != segment.height or ia_image.is_float != self.hdr
                         if need_to_create_new_segment:

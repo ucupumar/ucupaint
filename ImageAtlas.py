@@ -206,7 +206,7 @@ def replace_segment_with_image(yp, segment, image, uv_name=''):
 
     # Remove segment
     if segment.id_data.source == 'TILED':
-        UDIM.remove_udim_atlas_segment_by_name(segment.id_data, segment.name)
+        UDIM.remove_udim_atlas_segment_by_name(segment.id_data, segment.name, yp)
     else:
         # Make segment unused
         segment.unused = True
@@ -660,7 +660,7 @@ class YConvertToStandardImage(bpy.types.Operator):
                 # Mark unused to the segment
                 segment.unused = True
             else:
-                UDIM.remove_udim_atlas_segment_by_name(image, segment.name, tilenums, yp)
+                UDIM.remove_udim_atlas_segment_by_name(image, segment.name, yp)
 
             for entity in entities[i]:
                 # Set new image to entity

@@ -40,6 +40,9 @@ def transfer_uv(objs, mat, entity, uv_map):
         uv_layers = get_uv_layers(obj)
         uv_layers.active = uv_layers.get(uv_map)
 
+    # Get tile numbers
+    tilenums = UDIM.get_tile_numbers(objs, uv_map)
+
     # Get image settings
     segment = None
     use_alpha = False
@@ -70,9 +73,6 @@ def transfer_uv(objs, mat, entity, uv_map):
         else:
             col = (0.0, 0.0, 0.0, 0.0)
             use_alpha = True
-
-    # Get tile numbers
-    tilenums = UDIM.get_tile_numbers(objs, uv_map)
 
     # Create temp image as bake target
     if len(tilenums) > 1:
