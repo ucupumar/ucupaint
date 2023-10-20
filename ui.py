@@ -3453,7 +3453,10 @@ def draw_ypaint_about(self, context):
 
     row = col.row()            
     if updater.using_development_build:
-        row.label(text="Branch: "+updater.current_branch)
+        if addon_updater_ops.updater.legacy_blender:
+            row.label(text="Branch: Master (2.79)")
+        else:
+            row.label(text="Branch: "+updater.current_branch)
     else:
         row.label(text="Branch: Stable "+str(updater.current_version))
     if addon_updater_ops.updater.legacy_blender:
