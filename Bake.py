@@ -57,6 +57,19 @@ def transfer_uv(objs, mat, entity, uv_map):
         else: 
             col = (0.0, 0.0, 0.0, 0.0)
             use_alpha = True
+    elif image.yua.is_udim_atlas and entity.segment_name != '':
+        segment = image.yua.segments.get(entity.segment_name)
+        segment_tilenums = UDIM.get_udim_segment_tilenums(segment)
+
+        # Get the highest resolution
+        for i, st in enumerate(segment_tilenums):
+            if i == 0 : width = height = 1
+            tile = image.tiles.get(st)
+            if tile.size[0] > width: width = tile.size[0]
+            if tile.size[1] > height: height = tile.size[1]
+
+        col = segment.base_color
+        use_alpha = True if col[3] < 0.5 else False
     else:
         width = image.size[0]
         height = image.size[1]
@@ -75,14 +88,19 @@ def transfer_uv(objs, mat, entity, uv_map):
             use_alpha = True
 
     # Create temp image as bake target
-    if len(tilenums) > 1:
+    if len(tilenums) > 1 or (segment and image.source == 'TILED'):
         temp_image = bpy.data.images.new(name='__TEMP',
                 width=width, height=height, alpha=True, float_buffer=image.is_float, tiled=True)
 
         # Fill tiles
         for tilenum in tilenums:
             UDIM.fill_tile(temp_image, tilenum, col, width, height)
-        UDIM.initial_pack_udim(temp_image, col, image.name)
+
+        # Initial pack
+        if image.yua.is_udim_atlas:
+            UDIM.initial_pack_udim(temp_image, col)
+        else: UDIM.initial_pack_udim(temp_image, col, image.name)
+
     else:
         temp_image = bpy.data.images.new(name='__TEMP',
                 width=width, height=height, alpha=True, float_buffer=image.is_float)
@@ -197,8 +215,26 @@ def transfer_uv(objs, mat, entity, uv_map):
         # Remove temp image 1
         bpy.data.images.remove(temp_image1)
 
-    # Replace image if any of the images is using UDIM
-    if temp_image.source == 'TILED' or image.source == 'TILED':
+    if segment and image.source == 'TILED':
+
+        # Remove original segment
+        UDIM.remove_udim_atlas_segment_by_name(image, segment.name, yp)
+
+        # Create new segment
+        new_segment = UDIM.get_set_udim_atlas_segment(tilenums, 
+                width=width, height=height, color=col, 
+                colorspace=image.colorspace_settings.name, hdr=image.is_float, yp=yp, 
+                source_image=temp_image, source_tilenums=tilenums)
+
+        # Set image
+        if image != new_segment.id_data:
+            source.image = new_segment.id_data
+
+        # Remove temp image
+        bpy.data.images.remove(temp_image)
+
+    elif temp_image.source == 'TILED' or image.source == 'TILED':
+        # Replace image if any of the images is using UDIM
         replace_image(image, temp_image)
     else:
         # Copy back temp/baked image to original image
@@ -225,6 +261,9 @@ def transfer_uv(objs, mat, entity, uv_map):
 
     # Change uv of entity
     entity.uv_name = uv_map
+
+    # Update mapping
+    update_mapping(entity)
 
     # Remove temporary objects
     if temp_objs:

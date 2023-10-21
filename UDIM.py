@@ -594,7 +594,6 @@ def create_udim_atlas(tilenums, name='', width=1024, height=1024, color=(0,0,0,0
     image = bpy.data.images.new(name=name, 
             width=width, height=height, alpha=True, float_buffer=hdr, tiled=True)
     image.yua.is_udim_atlas = True
-    image.yua.offset_y = offset_y
     image.yui.base_color = color
     if colorspace != '': image.colorspace_settings.name = colorspace
 
@@ -891,7 +890,7 @@ def remove_udim_atlas_segment_by_name(image, segment_name, yp=None):
     if len(index) == 0: return
     index = index[0]
 
-    refresh_udim_atlas(image, yp, remove_index=index)
+    refresh_udim_atlas(image, yp, check_uv=False, remove_index=index)
 
     print('INFO: UDIM Atlas segment is removed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -1027,8 +1026,6 @@ class YUDIMAtlas(bpy.types.PropertyGroup):
             default='')
 
     is_udim_atlas : BoolProperty(default=False)
-
-    offset_y : IntProperty(default=5)
 
     segments : CollectionProperty(type=YUDIMAtlasSegment)
 
