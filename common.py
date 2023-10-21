@@ -1583,10 +1583,12 @@ def get_node_tree_lib(name):
 
         # Load node groups
         exist_groups = [ng.name for ng in bpy.data.node_groups]
-        for ng in data_from.node_groups:
+        from_ngs = getattr(data_from, 'node groups') if is_greater_than_400() else data_from.node_groups
+        for ng in from_ngs:
             if ng == name: # and ng not in exist_groups:
 
-                data_to.node_groups.append(ng)
+                to_ngs = getattr(data_to, 'node groups') if is_greater_than_400() else data_to.node_groups
+                to_ngs.append(ng)
                 #appended = True
 
                 break
