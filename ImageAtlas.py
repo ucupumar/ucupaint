@@ -628,7 +628,7 @@ class YConvertToStandardImage(bpy.types.Operator):
 
                 atlas_tilenums = UDIM.get_udim_segment_tilenums(segment)
                 index = UDIM.get_udim_segment_index(image, segment)
-                offset = (image.yua.offset_y) * index * 10
+                offset = get_udim_segment_mapping_offset(segment) * 10
                 copy_dict = {}
                 tilenums = []
                 for atilenum in atlas_tilenums:

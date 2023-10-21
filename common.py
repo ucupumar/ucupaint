@@ -2715,7 +2715,6 @@ def get_udim_segment_mapping_offset(segment):
     offset_y = 0 
     for i, seg in enumerate(image.yua.segments):
         if seg == segment:
-            #return image.yua.offset_y * i
             return offset_y
         tiles_height = get_udim_segment_tiles_height(seg)
         offset_y += tiles_height + 1
