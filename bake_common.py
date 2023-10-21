@@ -1166,8 +1166,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     color = (0.0, 0.0, 0.0, 1.0)
                 else: color = (0.0, 0.0, 0.0, 0.0)
             else:
+                copy_dict = {}
                 segment_tilenums = UDIM.get_udim_segment_tilenums(segment)
-                tilenums = UDIM.get_udim_atlas_base_tilenums(source.image)
+                tilenums = UDIM.get_udim_segment_base_tilenums(segment)
 
                 color = segment.base_color
 
@@ -1188,7 +1189,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             color = (col.r, col.g, col.b, 1.0)
 
         # Create new image
-        if len(tilenums) > 1:
+        if len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED'):
 
             # Create new udim image
             img = bpy.data.images.new(name=img_name, width=width, height=height, 
@@ -1196,7 +1197,6 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
             # Fill tiles
             if segment:
-                copy_dict = {}
                 for i, tilenum in enumerate(tilenums):
                     tile = source.image.tiles.get(segment_tilenums[i])
                     copy_dict[tilenum] = segment_tilenums[i]

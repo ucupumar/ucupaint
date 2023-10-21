@@ -328,6 +328,7 @@ def swap_tiles(image, swap_dict, reverse=False):
 
         # Reload to update image
         image.reload()
+        image.save()
 
         # Repack image
         if ori_packed:
@@ -400,6 +401,8 @@ def copy_tiles(image0, image1, copy_dict):
         # Reload to update image
         #image0.reload()
         image1.reload()
+        #image0.save()
+        image1.save()
 
         # Repack image 0
         if ori0_packed:
@@ -649,7 +652,7 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
         copy_tiles(source_image, image, copy_dict)
 
     # Pack image
-    initial_pack_udim(image)
+    #initial_pack_udim(image)
 
     return segment
 
@@ -772,6 +775,7 @@ def rearrange_tiles(image, convert_dict):
 
         # Reload to update image
         image.reload()
+        image.save()
 
         # Repack image
         if ori_packed:
@@ -800,6 +804,7 @@ def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
     new_offset_y = 0
     for i, segment in enumerate(image.yua.segments):
 
+        # Get original base tilenums
         ori_tilenums = new_tilenums = get_udim_segment_base_tilenums(segment)
 
         # Get UV name
@@ -809,11 +814,12 @@ def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
             if ents: uv_name = ents[0].uv_name
 
             # Get new tilenums based on uv
-            if uv_name != '' and uv_name not in uv_tilenums_dict:
-                mat = get_active_material()
-                objs = get_all_objects_with_same_materials(mat, True, uv_name)
-                new_tilenums = uv_tilenums_dict[uv_name] = get_tile_numbers(objs, uv_name)
-            else: new_tilenums = uv_tilenums_dict[uv_name]
+            if uv_name != '':
+                if uv_name not in uv_tilenums_dict:
+                    mat = get_active_material()
+                    objs = get_all_objects_with_same_materials(mat, True, uv_name)
+                    new_tilenums = uv_tilenums_dict[uv_name] = get_tile_numbers(objs, uv_name)
+                else: new_tilenums = uv_tilenums_dict[uv_name]
 
         # Remember new tilenums
         new_tilenums_dict[segment.name] = new_tilenums
@@ -885,7 +891,7 @@ def remove_udim_atlas_segment_by_name(image, segment_name, yp=None):
     if len(index) == 0: return
     index = index[0]
 
-    refresh_udim_atlas(image, yp, check_uv=False, remove_index=index)
+    refresh_udim_atlas(image, yp, remove_index=index)
 
     print('INFO: UDIM Atlas segment is removed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -912,8 +918,6 @@ class YNewUDIMAtlasSegmentTest(bpy.types.Operator):
 
         objs = get_all_objects_with_same_materials(mat, True, uv_name)
         tilenums = get_tile_numbers(objs, uv_name)
-
-        print(get_tiles_height(tilenums))
 
         new_segment = get_set_udim_atlas_segment(tilenums, 1024, 1024, color=(0,0,0,0), colorspace='sRGB', hdr=False)
 
