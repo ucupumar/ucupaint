@@ -615,7 +615,7 @@ def refresh_udim_segment_base_tilenums(segment, tilenums):
 
 def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0,0,0,0), source_image=None, source_tilenums=[], yp=None):
 
-    if yp: refresh_udim_atlas(image, yp)
+    #if yp: refresh_udim_atlas(image, yp)
 
     atlas = image.yua
     name = get_unique_name('Segment', atlas.segments)
@@ -781,7 +781,7 @@ def rearrange_tiles(image, convert_dict):
             if is_using_temp_dir(image):
                 remove_udim_files_from_disk(image, directory, True)
 
-def refresh_udim_atlas(image, yp=None, remove_index=-1):
+def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
     T = time.time()
 
     # Actual tilenums from the image
@@ -791,39 +791,37 @@ def refresh_udim_atlas(image, yp=None, remove_index=-1):
 
     entities = get_yp_entites_using_same_image(yp, image)
 
-    uv_tilenums_dict = {}
-    new_base_tilenums = {}
-
-    for entity in entities:
-        if entity.segment_name == '': continue
-
-        # Get segment
-        segment = image.yua.segments.get(entity.segment_name)
-        if not segment: continue
-
-        # Get uv tile numbers
-        if entity.uv_name not in uv_tilenums_dict:
-            mat = get_active_material()
-            objs = get_all_objects_with_same_materials(mat, True, entity.uv_name)
-            tilenums = uv_tilenums_dict[entity.uv_name] = get_tile_numbers(objs, entity.uv_name)
-        else: tilenums = uv_tilenums_dict[entity.uv_name]
-
-        new_base_tilenums[segment.name] = tilenums
-
     # Create conversion dict
     convert_dict = {}
+    uv_tilenums_dict = {}
+    new_tilenums_dict = {}
 
     ori_offset_y = 0
     new_offset_y = 0
     for i, segment in enumerate(image.yua.segments):
 
-        ori_tilenums = get_udim_segment_base_tilenums(segment)
+        ori_tilenums = new_tilenums = get_udim_segment_base_tilenums(segment)
+
+        # Get UV name
+        if check_uv:
+            uv_name = ''
+            ents = [ent for ent in entities if ent.segment_name == segment.name]
+            if ents: uv_name = ents[0].uv_name
+
+            # Get new tilenums based on uv
+            if uv_name != '' and uv_name not in uv_tilenums_dict:
+                mat = get_active_material()
+                objs = get_all_objects_with_same_materials(mat, True, uv_name)
+                new_tilenums = uv_tilenums_dict[uv_name] = get_tile_numbers(objs, uv_name)
+            else: new_tilenums = uv_tilenums_dict[uv_name]
+
+        # Remember new tilenums
+        new_tilenums_dict[segment.name] = new_tilenums
 
         # Skip for to be removed index
         if i != remove_index:
 
-            new_tilenums = new_base_tilenums[segment.name]
-
+            # Fill conversion dict
             for nt in new_tilenums:
                 new_index = nt + new_offset_y * 10
                 if nt in ori_tilenums:
@@ -836,6 +834,7 @@ def refresh_udim_atlas(image, yp=None, remove_index=-1):
 
         # Skip for to be removed index
         if i != remove_index:
+
             # Add tilenums height to new offset
             new_offset_y += get_tilenums_height(new_tilenums) + 1
 
@@ -845,7 +844,7 @@ def refresh_udim_atlas(image, yp=None, remove_index=-1):
 
     # Set new tilenums
     for segment in image.yua.segments:
-        new_tilenums = new_base_tilenums[segment.name]
+        new_tilenums = new_tilenums_dict[segment.name]
         refresh_udim_segment_base_tilenums(segment, new_tilenums)
 
     # Extend tilenums
@@ -886,7 +885,7 @@ def remove_udim_atlas_segment_by_name(image, segment_name, yp=None):
     if len(index) == 0: return
     index = index[0]
 
-    refresh_udim_atlas(image, yp, remove_index=index)
+    refresh_udim_atlas(image, yp, check_uv=False, remove_index=index)
 
     print('INFO: UDIM Atlas segment is removed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
