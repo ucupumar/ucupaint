@@ -652,7 +652,7 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
         copy_tiles(source_image, image, copy_dict)
 
     # Pack image
-    #initial_pack_udim(image)
+    initial_pack_udim(image)
 
     return segment
 
