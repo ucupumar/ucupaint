@@ -3613,7 +3613,6 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
                 segment = img.yua.segments.get(img_users[i].segment_name)
                 new_segment = None
 
-                #tilenums = UDIM.get_udim_atlas_base_tilenums(img)
                 tilenums = UDIM.get_udim_segment_base_tilenums(segment)
                 segment_tilenums = UDIM.get_udim_segment_tilenums(segment)
 

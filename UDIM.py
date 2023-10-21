@@ -130,7 +130,7 @@ def get_tile_numbers(objs, uv_name):
 
         # UV value can only be within 0 .. 10 range
         u = min(max(i[0], 0), 10)
-        v = min(max(i[1], 0), 10)
+        v = min(max(i[1], 0), 100)
 
         # Calculate the tile
         tile = 1001 + u + v*10
@@ -559,11 +559,6 @@ def get_udim_segment_tilenums(segment):
         tilenums.append(tilenum)
 
     return tilenums
-
-def get_udim_atlas_base_tilenums(image):
-    try: segment = image.yua.segments[0]
-    except: return []
-    return get_udim_segment_tilenums(segment)
 
 def get_udim_segment_base_tilenums(segment):
     return [btile.number for btile in segment.base_tiles]
