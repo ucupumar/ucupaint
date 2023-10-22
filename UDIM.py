@@ -1035,9 +1035,6 @@ class Y_PT_UDIM_Atlas_menu(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        #area = context.area
-        #image = area.spaces[0].image
-        #return image and image.source == 'TILED'
         return True
 
     def draw(self, context):
@@ -1082,7 +1079,7 @@ def register():
     bpy.utils.register_class(YNewUDIMAtlasSegmentTest)
     bpy.utils.register_class(YRefreshUDIMAtlasOffset)
     bpy.utils.register_class(YRemoveUDIMAtlasSegment)
-    bpy.utils.register_class(Y_PT_UDIM_Atlas_menu)
+    #bpy.utils.register_class(Y_PT_UDIM_Atlas_menu)
     bpy.utils.register_class(YUDIMAtlasSegmentTile)
     bpy.utils.register_class(YUDIMAtlasSegment)
     bpy.utils.register_class(YUDIMAtlas)
@@ -1096,7 +1093,7 @@ def unregister():
     bpy.utils.unregister_class(YNewUDIMAtlasSegmentTest)
     bpy.utils.unregister_class(YRefreshUDIMAtlasOffset)
     bpy.utils.unregister_class(YRemoveUDIMAtlasSegment)
-    bpy.utils.unregister_class(Y_PT_UDIM_Atlas_menu)
+    #bpy.utils.unregister_class(Y_PT_UDIM_Atlas_menu)
     bpy.utils.unregister_class(YUDIMAtlasSegmentTile)
     bpy.utils.unregister_class(YUDIMAtlasSegment)
     bpy.utils.unregister_class(YUDIMAtlas)
