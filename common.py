@@ -5070,7 +5070,7 @@ def duplicate_image(image):
     new_image = image.copy()
     new_image.name = new_name
 
-    if image.source == 'TILED'  or not image.packed_file:
+    if image.source == 'TILED'  or (not image.packed_file and image.filepath != ''):
 
         # NOTE: Duplicated image will always be packed for now
         if not image.packed_file:
