@@ -915,6 +915,7 @@ def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
     for entity in entities:
         if entity.segment_name != '':
             if entity.segment_name in oob_dict: 
+                # Set entity that are using newly create segment on other image
                 source = get_entity_source(entity)
                 source.image = new_segment.id_data
                 entity.segment_name = new_segment.name

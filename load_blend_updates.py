@@ -460,10 +460,11 @@ def update_routine(name):
 
         # Load node groups
         with bpy.data.libraries.load(filepath) as (data_from, data_to):
-            for ng in data_from.node_groups:
+            from_ngs = data_from.node_groups if hasattr(data_from, 'node_groups') else getattr(data_from, 'node groups')
+            to_ngs = data_to.node_groups if hasattr(data_to, 'node_groups') else getattr(data_to, 'node groups')
+            for ng in from_ngs:
                 if ng in newer_group_names:
-                    tree = bpy.data.node_groups.get(ng)
-                    data_to.node_groups.append(ng)
+                    to_ngs.append(ng)
 
         # Fill newer groups
         for name in newer_group_names:
@@ -632,13 +633,15 @@ def update_node_tree_libs(name):
 
     # Load node groups
     with bpy.data.libraries.load(filepath) as (data_from, data_to):
-        for ng in data_from.node_groups:
+        from_ngs = data_from.node_groups if hasattr(data_from, 'node_groups') else getattr(data_from, 'node groups')
+        to_ngs = data_to.node_groups if hasattr(data_to, 'node_groups') else getattr(data_to, 'node groups')
+        for ng in from_ngs:
             if ng in exist_groups:
                 tree = bpy.data.node_groups.get(ng)
                 if tree:
                     tree.name += '__OLD'
                 tree_names.append(ng)
-                data_to.node_groups.append(ng)
+                to_ngs.append(ng)
 
     update_names = []
 
