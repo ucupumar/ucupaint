@@ -5049,17 +5049,66 @@ def set_image_pixels(image, color, segment=None):
 
         image.pixels = pxs
 
+def is_image_filepath_unique(image):
+    abspath = bpy.path.abspath(image.filepath)
+    for img in bpy.data.images:
+        if img != image and bpy.path.abspath(img.filepath) == abspath:
+            return False
+    return True
+
 def duplicate_image(image):
     # Make sure UDIM image is updated
     if image.source == 'TILED' and image.is_dirty:
-
-        # WARNING: This will cause a problem if UDIM image is originally from disk
-        # Since duplicated image will point to same source
         if image.packed_file:
             image.pack()
         else: image.save()
 
+    # Get new name
+    new_name = get_unique_name(image.name, bpy.data.images)
+
+    # Copy image
     new_image = image.copy()
+    new_image.name = new_name
+
+    if image.source == 'TILED'  or not image.packed_file:
+
+        # NOTE: Duplicated image will always be packed for now
+        if not image.packed_file:
+            new_image.pack()
+
+        directory = os.path.dirname(bpy.path.abspath(image.filepath))
+        filename = bpy.path.basename(new_image.filepath)
+
+        # Get base name
+        if image.source == 'TILED':
+            splits = filename.split('.<UDIM>.')
+            infix = '.<UDIM>.'
+        else: 
+            splits = os.path.splitext(filename)
+            infix = ''
+
+        basename = new_name
+        extension = splits[1]
+
+        # Try to get the counter
+        m = re.match(r'^(.+)\s(\d*)$', basename)
+        if m:
+            basename = m.group(1)
+            counter = int(m.group(2))
+        else: counter = 1
+
+        # Try to set the image filepath with added counter
+        while True:
+            new_name = basename + ' ' + str(counter)
+            new_path = os.path.join(directory, new_name + infix + extension)
+            new_image.filepath = new_path
+            if is_image_filepath_unique(new_image):
+                break
+            counter += 1
+
+        # Trying to set the filepath to relative
+        try: new_image.filepath = bpy.path.relpath(new_image.filepath)
+        except: pass
 
     # Copied image is not updated by default if it's dirty,
     # So copy the pixels

@@ -3666,6 +3666,7 @@ def duplicate_layer_nodes_and_images(tree, specific_layer=None, make_image_singl
 
                     if img.source == 'TILED':
                         img_nodes[i].image = img.copy()
+                        img_nodes[i].image.name = img_name
                         UDIM.fill_tiles(img_nodes[i].image, color)
                         UDIM.initial_pack_udim(img_nodes[i].image, color)
                     else:

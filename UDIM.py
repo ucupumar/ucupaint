@@ -221,12 +221,6 @@ def set_udim_filepath(image, filename, directory):
     #    os.makedirs(directory)
     image.filepath = filepath
 
-def is_image_filepath_unique(image):
-    for img in bpy.data.images:
-        if img != image and img.filepath == image.filepath:
-            return False
-    return True
-
 # UDIM need filepath to work, 
 # So there's need to initialize filepath for every udim image created
 def initial_pack_udim(image, base_color=None, filename=''):
