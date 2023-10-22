@@ -5076,7 +5076,7 @@ def duplicate_image(image):
         if not image.packed_file:
             if is_greater_than_280():
                 new_image.pack()
-            else: image.pack(as_png=True)
+            else: new_image.pack(as_png=True)
 
         directory = os.path.dirname(bpy.path.abspath(image.filepath))
         filename = bpy.path.basename(new_image.filepath)
