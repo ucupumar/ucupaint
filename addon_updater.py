@@ -1216,8 +1216,16 @@ class SingletonUpdater:
         if "current_branch" in saved_json.keys():
             self.current_branch = saved_json["current_branch"]
         if "last_commit" in saved_json.keys():
-            self._last_commit = saved_json["last_commit"]
-
+            self._last_commit = saved_json["last_commit"] 
+            
+        if "update_ready" in saved_json.keys():
+            self._update_ready = saved_json["update_ready"]
+            if self._update_ready:
+                if self.using_development_build:
+                    self.set_tag(self.current_branch)
+                else:
+                    self._tag_latest = self._tags[0]
+                    self.set_tag(self.tag_latest)
         
     def clear_state(self):
         self._update_ready = None
@@ -1416,28 +1424,6 @@ class SingletonUpdater:
             else:
                 link = self.select_link(self, self._tags[n])
 
-        # if new_version == ():
-        #     self._update_ready = False
-        #     self._update_version = None
-        #     self._update_link = None
-        #     return (False, None, None)
-        # elif str(new_version).lower() in self._include_branch_list:
-        #     # Handle situation where master/whichever branch is included
-        #     # however, this code effectively is not triggered now
-        #     # as new_version will only be tag names, not branch names.
-        #     if not self._include_branch_auto_check:
-        #         # Don't offer update as ready, but set the link for the
-        #         # default branch for installing.
-        #         self._update_ready = False
-        #         self._update_version = new_version
-        #         self._update_link = link
-        #         self.save_updater_json()
-        #         return (True, new_version, link)
-        #     else:
-        #         # Bypass releases and look at timestamp of last update from a
-        #         # branch compared to now, see if commit values match or not.
-        #         raise ValueError("include_branch_autocheck: NOT YET DEVELOPED")
-        # else:
         if self.using_development_build:
             for tg in self._tags:
                 if tg["name"] == self.current_branch:
@@ -1446,13 +1432,20 @@ class SingletonUpdater:
                         self._update_version = new_version
                         self._update_link = link
                         self.save_updater_json()
+                        print("use branch build(",self.current_branch,") there is update", new_version, "|", link)
                         return (True, new_version, link) 
-        elif new_version > self._current_version:
-            self._update_ready = True
-            self._update_version = new_version
-            self._update_link = link
-            self.save_updater_json()
-            return (True, new_version, link)
+                    self.print_verbose("use branch "+self.current_branch+" build no update")
+            self.print_verbose("use branch build no update")
+        else:
+            if new_version > self._current_version:
+                self._update_ready = True
+                self._update_version = new_version
+                self._update_link = link
+                self.save_updater_json()
+                print("use stable build(",self.current_branch,") there is update", new_version, "|", link)
+
+                return (True, new_version, link)
+            self.print_verbose("use stable build no update")
 
         # If no update, set ready to False from None to show it was checked.
         self._update_ready = False
@@ -1475,6 +1468,8 @@ class SingletonUpdater:
         # avoid running again in, just return past result if found
         # but if force now check, then still do it
         if self._update_ready is not None:
+            self.print_verbose(
+                "Aborting check for brannches, update ready="+str(self._update_ready))
             return (self._update_ready,
                     self._update_version,
                     self._update_link)
@@ -1547,8 +1542,6 @@ class SingletonUpdater:
                 break
         self.using_development_build = name in self._include_branch_list
         self.current_branch = name
-        settings = get_user_preferences()
-        settings.branches = name
         
         if tg:
             new_version = self.version_tuple_from_text(self.tag_latest)
@@ -1879,6 +1872,7 @@ class SingletonUpdater:
         self.print_verbose("Checking for update now in background")
 
         try:
+            self._update_ready = None
             self.check_for_branches(update_last_check=False)
             self._update_ready = None
             self.check_for_update(update_last_check=True)
