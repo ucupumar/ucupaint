@@ -1446,13 +1446,20 @@ class SingletonUpdater:
                         self._update_version = new_version
                         self._update_link = link
                         self.save_updater_json()
+                        self.print_verbose("use branch build, there is update")
                         return (True, new_version, link) 
-        elif new_version > self._current_version:
-            self._update_ready = True
-            self._update_version = new_version
-            self._update_link = link
-            self.save_updater_json()
-            return (True, new_version, link)
+                    self.print_verbose("use branch "+self.current_branch+" build no update")
+            self.print_verbose("use branch build no update")
+        else:
+            if new_version > self._current_version:
+                self._update_ready = True
+                self._update_version = new_version
+                self._update_link = link
+                self.save_updater_json()
+                self.print_verbose("use stable build has update")
+
+                return (True, new_version, link)
+            self.print_verbose("use stable build no update")
 
         # If no update, set ready to False from None to show it was checked.
         self._update_ready = False

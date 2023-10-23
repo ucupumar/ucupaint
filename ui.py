@@ -3478,6 +3478,7 @@ def draw_ypaint_about(self, context):
             col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
                         text="Update now to " + str(updater.update_version))
     else:
+        col.label(text="Ucupaint is up to date")
         col.operator(addon_updater_ops.RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
 
 class YPaintAboutPopover(bpy.types.Panel):
