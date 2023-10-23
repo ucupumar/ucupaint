@@ -101,12 +101,6 @@ class YPaintPreferences(AddonPreferences):
         min=0,
         max=59)
 
-    branches : EnumProperty(
-        name="Target branch to install",
-        description="Select the branch to install",
-        items= addon_updater_ops.list_branches # (("master","Master",""),("blender_279","Master (Blender 2.79)",""))
-    )
-
     def draw(self, context):
         self.layout.prop(self, 'auto_save')
         self.layout.prop(self, 'default_new_image_size')

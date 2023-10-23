@@ -302,9 +302,13 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
         if updater.update_ready:
             # if it fails, offer to open the website instead
             try:
-                settings = get_user_preferences()
+                if updater.using_development_build:
+                    tag = updater.current_branch
+                else:
+                    tag = updater._tags[0]["name"]
+
                 res = updater.run_update(force=False,
-                                        revert_tag=settings.branches,
+                                        revert_tag=tag,
                                         callback=post_update_callback,
                                         clean=self.clean_install)
               
