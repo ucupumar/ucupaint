@@ -234,6 +234,10 @@ class YVcolFillFaceCustom(bpy.types.Operator):
             bpy.ops.object.mode_set(mode='OBJECT')
             vcol = get_active_vertex_color(obj)
 
+            if not vcol: 
+                bpy.ops.object.mode_set(mode='EDIT')
+                continue
+
             color = Color((self.color[0], self.color[1], self.color[2]))
             if not is_greater_than_320():
                 color = linear_to_srgb(color)
@@ -339,6 +343,10 @@ class YVcolFill(bpy.types.Operator):
 
             bpy.ops.object.mode_set(mode='OBJECT')
             vcol = get_active_vertex_color(obj)
+
+            if not vcol: 
+                bpy.ops.object.mode_set(mode='EDIT')
+                continue
 
             color = Color((ve.color[0], ve.color[1], ve.color[2]))
             alpha = context.scene.ve_edit.color[3]
