@@ -2895,14 +2895,17 @@ class YRemoveLayer(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         layer = yp.layers[yp.active_layer_index]
+        self.using_udim_atlas = False
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source and source.image and source.image.yua.is_udim_atlas:
+                self.using_udim_atlas = True
                 return context.window_manager.invoke_props_dialog(self, width=300)
             for mask in layer.masks:
                 if mask.type != 'IMAGE': continue
                 source = get_mask_source(mask)
                 if source and source.image and source.image.yua.is_udim_atlas:
+                    self.using_udim_atlas = True
                     return context.window_manager.invoke_props_dialog(self, width=300)
 
         obj = context.object
@@ -2914,7 +2917,7 @@ class YRemoveLayer(bpy.types.Operator):
         obj = context.object
         if obj.mode != 'OBJECT':
             self.layout.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
-        else:
+        elif self.using_udim_atlas:
             col = self.layout.column(align=True)
             col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
             col.label(text='You cannot UNDO after removal', icon='BLANK1')
