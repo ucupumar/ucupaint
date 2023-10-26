@@ -2975,23 +2975,6 @@ def main_draw(self, context):
         #col.operator('node.y_new_udim_atlas_segment_test', icon_value=lib.get_icon('image'))
         #col.operator('node.y_uv_transform_test', icon_value=lib.get_icon('uv'))
 
-    # Hide support this addon panel for now
-    #return
-
-    #icon = 'TRIA_DOWN' if ypui.show_support else 'TRIA_RIGHT'
-    #row = layout.row(align=True)
-    #row.prop(ypui, 'show_support', emboss=False, text='', icon=icon)
-    #row.label(text='Support This Addon!')
-
-    #if ypui.show_support:
-    #    box = layout.box()
-    #    col = box.column()
-    #    col.alert = True
-    #    if is_greater_than_280():
-    #        col.operator('wm.url_open', text='Become A Patron!', icon='ARMATURE_DATA').url = 'https://www.patreon.com/ucupumar'
-    #    else: col.operator('wm.url_open', text='Become A Patron!', icon='POSE_DATA').url = 'https://www.patreon.com/ucupumar'
-    #    col.alert = False
-
 class NODE_PT_YPaint(bpy.types.Panel):
     bl_space_type = 'NODE_EDITOR'
     bl_label = get_addon_title() + " " + get_current_version_str() + get_alpha_suffix()
@@ -3442,7 +3425,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
     col.label(text=get_addon_title() + ' is created by:')
-    col.operator('wm.url_open', text='ucupumar', icon='ARMATURE_DATA').url = 'https://www.patreon.com/ucupumar'
+    col.operator('wm.url_open', text='ucupumar', icon='ARMATURE_DATA').url = 'https://github.com/ucupumar'
     col.operator('wm.url_open', text='arsa', icon='ARMATURE_DATA').url = 'https://sites.google.com/view/arsanagara'
     col.operator('wm.url_open', text='swifterik', icon='ARMATURE_DATA').url = 'https://jblaha.art/'
     col.operator('wm.url_open', text='rifai', icon='ARMATURE_DATA').url = 'https://github.com/rifai'
