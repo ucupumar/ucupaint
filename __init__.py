@@ -1,10 +1,10 @@
 bl_info = {
     "name": "Ucupaint",
     "author": "Yusuf Umar, Agni Rakai Sahakarya, Jan Bláha, Ahmad Rifai, Patrick W. Crawford, neomonkeus",
-    "version": (1, 1, 0),
+    "version": (1, 1, 1),
     "blender": (2, 80, 0),
     "location": "Node Editor > Properties > Ucupaint",
-    "warning": "",
+    "warning": "Beta Version",
     "description": "Special node to manage painting layers for Cycles and Eevee materials",
     "wiki_url": "https://ucupumar.github.io/ucupaint-wiki/",
     "doc_url": "https://ucupumar.github.io/ucupaint-wiki/",
