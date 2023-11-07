@@ -55,12 +55,16 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             default=False)
 
     fxaa : BoolProperty(name='Use FXAA', 
-            description = "Use FXAA to baked image (doesn't work with float images)",
+            description = "Use FXAA on baked image (doesn't work with float images)",
             default=False)
 
     ssaa : BoolProperty(name='Use SSAA', 
-            description = "Use Supersample AA to baked image",
+            description = "Use Supersample AA on baked image",
             default=False)
+
+    denoise : BoolProperty(name='Use Denoise', 
+            description = "Use Denoise on baked image",
+            default=True)
 
     use_baked_disp : BoolProperty(
             name='Use Baked Displacement Map',
