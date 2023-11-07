@@ -972,10 +972,28 @@ class YBakeToLayer(bpy.types.Operator):
 
         #return {'FINISHED'}
 
-        # Prepare bake settings
+        # Check if there's channel using alpha
+        alpha_outp = None
+        for c in yp.channels:
+            if c.enable_alpha:
+                alpha_outp = node.outputs.get(c.name + io_suffix['ALPHA'])
+                if alpha_outp: break
 
+        # Denoising is disabled by default
+        use_denoising = False
+
+        # Prepare bake settings
         if self.type == 'AO':
-            bake_type = 'AO'
+            if alpha_outp:
+                # If there's alpha channel use standard AO bake, which has no denoising
+                bake_type = 'AO'
+            else: 
+                # When there is no alpha channel use combined render bake, which has denoising
+                bake_type = 'COMBINED'
+                # NOTE: Enabling denoise code is still commented since it can cause dark artifacts in the seam area
+                # It has been known issue since Blender 3.0 until at least Blender 4.0
+                # Below those versions, denoising on bake result is still not possible
+                #use_denoising = True
         elif self.type == 'MULTIRES_NORMAL':
             bake_type = 'NORMALS'
         elif self.type == 'MULTIRES_DISPLACEMENT':
@@ -1002,7 +1020,7 @@ class YBakeToLayer(bpy.types.Operator):
                 bake_from_multires=self.type.startswith('MULTIRES_'), tile_x = tile_x, tile_y = tile_y, 
                 use_selected_to_active=self.type.startswith('OTHER_OBJECT_'),
                 max_ray_distance=self.max_ray_distance, cage_extrusion=self.cage_extrusion,
-                source_objs=other_objs,
+                source_objs=other_objs, use_denoising=use_denoising
                 )
 
         # Set multires level
@@ -1183,13 +1201,28 @@ class YBakeToLayer(bpy.types.Operator):
         ori_bsdf = output.inputs[0].links[0].from_socket
 
         if self.type == 'AO':
-            src = None
+            # If there's alpha channel use standard AO bake, which has no denoising
+            if alpha_outp:
+                src = None
 
-            if hasattr(context.scene.cycles, 'use_fast_gi'):
-                context.scene.cycles.use_fast_gi = True
+                if hasattr(context.scene.cycles, 'use_fast_gi'):
+                    context.scene.cycles.use_fast_gi = True
 
-            if context.scene.world:
-                context.scene.world.light_settings.distance = self.ao_distance
+                if context.scene.world:
+                    context.scene.world.light_settings.distance = self.ao_distance
+            # When there is no alpha channel use combined render bake, which has denoising
+            else:
+                src = mat.node_tree.nodes.new('ShaderNodeAmbientOcclusion')
+
+                if 'Distance' in src.inputs:
+                    src.inputs['Distance'].default_value = self.ao_distance
+
+                # Links
+                if not is_greater_than_280():
+                    mat.node_tree.links.new(src.outputs[0], output.inputs[0])
+                else:
+                    mat.node_tree.links.new(src.outputs['AO'], bsdf.inputs[0])
+                    mat.node_tree.links.new(bsdf.outputs[0], output.inputs[0])
 
         elif self.type == 'POINTINESS':
             src = mat.node_tree.nodes.new('ShaderNodeNewGeometry')

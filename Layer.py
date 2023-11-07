@@ -4161,8 +4161,6 @@ def update_write_height(self, context):
 
     check_channel_normal_map_nodes(tree, layer, root_ch, ch)
 
-    #max_height = get_displacement_max_height(root_ch)
-    #root_ch.displacement_height_ratio = max_height
     update_displacement_height_ratio(root_ch)
 
     rearrange_layer_nodes(layer)
@@ -4403,7 +4401,6 @@ def update_channel_intensity_value(self, context):
             tb_crease_intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
 
     if root_ch.type == 'NORMAL':
-        #transition.check_transition_bump_nodes(layer, tree, ch)
         update_displacement_height_ratio(root_ch)
 
 def group_trash_update(yp):

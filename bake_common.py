@@ -343,7 +343,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         bake_target = 'IMAGE_TEXTURES',
-        source_objs=[], bake_device='GPU'):
+        source_objs=[], bake_device='GPU', use_denoising=False):
 
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
@@ -365,7 +365,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         scene.render.tile_y = tile_y
 
     if hasattr(scene.cycles, 'use_denoising'):
-        scene.cycles.use_denoising = False
+        scene.cycles.use_denoising = use_denoising
 
     if hasattr(scene.render.bake, 'target'):
         scene.render.bake.target = bake_target
