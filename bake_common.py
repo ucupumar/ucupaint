@@ -705,12 +705,8 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
 def remember_before_composite():
     book = {}
 
-    # Remember scene
+    # Remember original scene
     book['ori_scene_name'] = bpy.context.scene.name
-
-    # Remember collection
-    if is_greater_than_280():
-        book['ori_layer_collection'] = bpy.context.view_layer.active_layer_collection
 
     return book
 
@@ -720,6 +716,7 @@ def prepare_composite_settings(book, res_x=1024, res_y=1024, use_hdr=False):
     scene = bpy.data.scenes.new(name='TEMP_COMPOSITE_SCENE')
     bpy.context.window.scene = scene
 
+    # Set up render settings
     scene.cycles.samples = 1
     if hasattr(scene, 'eevee'):
         scene.eevee.taa_render_samples = 1
@@ -731,10 +728,12 @@ def prepare_composite_settings(book, res_x=1024, res_y=1024, use_hdr=False):
     scene.use_nodes = True
     scene.view_settings.view_transform = 'Standard' if is_greater_than_280() else 'Default'
 
+    # Float/HDR image related
     scene.render.image_settings.file_format = 'OPEN_EXR' if use_hdr else 'PNG'
     scene.render.image_settings.color_mode = 'RGBA'
     scene.render.image_settings.color_depth = '32' if use_hdr else '8'
 
+    # Remember temp scene name
     book['temp_scene_name'] = scene.name
 
     # Create temporary camera
