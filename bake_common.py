@@ -702,15 +702,11 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
                 #act_uv = m.node_tree.nodes.get(ACTIVE_UV_NODE)
                 #if act_uv: m.node_tree.nodes.remove(act_uv)
 
-def remember_before_composite():
+def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     book = {}
 
     # Remember original scene
     book['ori_scene_name'] = bpy.context.scene.name
-
-    return book
-
-def prepare_composite_settings(book, res_x=1024, res_y=1024, use_hdr=False):
 
     # Create new temporary scene
     scene = bpy.data.scenes.new(name='TEMP_COMPOSITE_SCENE')
@@ -770,11 +766,8 @@ def denoise_image(image):
     T = time.time()
     print('DENOISE: Doing Denoise pass on', image.name + '...')
 
-    # Remember settings
-    book = remember_before_composite()
-
     # Preparing settings
-    prepare_composite_settings(book, use_hdr=image.is_float)
+    book = prepare_composite_settings(use_hdr=image.is_float)
     scene = bpy.context.scene
 
     # Set up compositor
