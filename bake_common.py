@@ -770,11 +770,8 @@ def denoise_image(image):
     # Remember settings
     book = remember_before_composite()
 
-    width = image.size[0]
-    height = image.size[1]
-
     # Preparing settings
-    prepare_composite_settings(book, width, height)
+    prepare_composite_settings(book)
     scene = bpy.context.scene
 
     # Set up compositor
@@ -788,22 +785,42 @@ def denoise_image(image):
     tree.links.new(image_node.outputs[0], denoise.inputs['Image'])
     tree.links.new(denoise.outputs[0], composite.inputs[0])
 
-    # Render image!
-    bpy.ops.render.render()
+    if image.source == 'TILED':
+        tilenums = [tile.number for tile in image.tiles]
+    else: tilenums = [1001]
 
-    # Save the image
+    # Get temporary filepath
     ext = 'exr' if image.is_float else 'png'
     filepath = os.path.join(tempfile.gettempdir(), 'TEST_RENDER__.' + ext)
-    render_result = next(img for img in bpy.data.images if img.type == "RENDER_RESULT")
-    render_result.save_render(filepath)
-    temp_image = bpy.data.images.load(filepath)
 
-    # Copy image pixels
-    copy_image_pixels(temp_image, image)
+    for tilenum in tilenums:
 
-    # Remove temp image
-    bpy.data.images.remove(temp_image)
-    os.remove(filepath)
+        # Swap tile to 1001 to access the data
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
+
+        # Set render resolution
+        scene.render.resolution_x = image.size[0]
+        scene.render.resolution_y = image.size[1]
+
+        # Render image!
+        bpy.ops.render.render()
+
+        # Save the image
+        render_result = next(img for img in bpy.data.images if img.type == "RENDER_RESULT")
+        render_result.save_render(filepath)
+        temp_image = bpy.data.images.load(filepath)
+
+        # Copy image pixels
+        copy_image_pixels(temp_image, image)
+
+        # Remove temp image
+        bpy.data.images.remove(temp_image)
+        os.remove(filepath)
+
+        # Swap back the tile
+        if tilenum != 1001:
+            UDIM.swap_tile(image, 1001, tilenum)
 
     # Recover settings
     recover_composite_settings(book)
