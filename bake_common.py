@@ -714,7 +714,7 @@ def remember_before_composite():
 
     return book
 
-def prepare_composite_settings(book, res_x=1024, res_y=1024):
+def prepare_composite_settings(book, res_x=1024, res_y=1024, use_hdr=False):
 
     # Create new temporary scene
     scene = bpy.data.scenes.new(name='TEMP_COMPOSITE_SCENE')
@@ -730,6 +730,10 @@ def prepare_composite_settings(book, res_x=1024, res_y=1024):
     scene.render.pixel_aspect_y = 1.0
     scene.use_nodes = True
     scene.view_settings.view_transform = 'Standard' if is_greater_than_280() else 'Default'
+
+    scene.render.image_settings.file_format = 'OPEN_EXR' if use_hdr else 'PNG'
+    scene.render.image_settings.color_mode = 'RGBA'
+    scene.render.image_settings.color_depth = '32' if use_hdr else '8'
 
     book['temp_scene_name'] = scene.name
 
@@ -771,7 +775,7 @@ def denoise_image(image):
     book = remember_before_composite()
 
     # Preparing settings
-    prepare_composite_settings(book)
+    prepare_composite_settings(book, use_hdr=image.is_float)
     scene = bpy.context.scene
 
     # Set up compositor
@@ -810,6 +814,8 @@ def denoise_image(image):
         render_result = next(img for img in bpy.data.images if img.type == "RENDER_RESULT")
         render_result.save_render(filepath)
         temp_image = bpy.data.images.load(filepath)
+
+        print(temp_image, temp_image.size[0], temp_image.size[1])
 
         # Copy image pixels
         copy_image_pixels(temp_image, image)
