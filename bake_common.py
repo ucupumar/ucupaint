@@ -807,8 +807,6 @@ def denoise_image(image):
         render_result.save_render(filepath)
         temp_image = bpy.data.images.load(filepath)
 
-        print(temp_image, temp_image.size[0], temp_image.size[1])
-
         # Copy image pixels
         copy_image_pixels(temp_image, image)
 

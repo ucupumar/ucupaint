@@ -978,6 +978,10 @@ class YBakeChannels(bpy.types.Operator):
         description='Super Sample Anti Aliasing Level (1=off)',
         default=1, min=1, max=2)
 
+    denoise : BoolProperty(name='Use Denoise', 
+            description = "Use Denoise on baked images",
+            default=False)
+
     force_bake_all_polygons : BoolProperty(
             name='Force Bake all Polygons',
             description='Force bake all polygons, useful if material is not using direct polygon (ex: solidify material)',
@@ -1062,6 +1066,7 @@ class YBakeChannels(bpy.types.Operator):
         col.separator()
         col.label(text='')
         col.label(text='')
+        col.label(text='')
 
         col = row.column(align=True)
 
@@ -1081,6 +1086,7 @@ class YBakeChannels(bpy.types.Operator):
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.separator()
         col.prop(self, 'fxaa', text='Use FXAA')
+        col.prop(self, 'denoise', text='Use Denoise')
         col.prop(self, 'force_bake_all_polygons')
 
     def execute(self, context):
@@ -1257,6 +1263,23 @@ class YBakeChannels(bpy.types.Operator):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
                         fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
+
+        # Denoise
+        if self.denoise:
+            for ch in yp.channels:
+                baked = tree.nodes.get(ch.baked)
+                if baked and baked.image:
+                    denoise_image(baked.image)
+
+                if ch.type == 'NORMAL':
+
+                    baked_disp = tree.nodes.get(ch.baked_disp)
+                    if baked_disp and baked_disp.image:
+                        denoise_image(baked_disp.image)
+
+                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                    if baked_normal_overlay and baked_normal_overlay.image:
+                        denoise_image(baked_normal_overlay.image)
 
         # Set baked uv
         yp.baked_uv_name = self.uv_map
