@@ -1065,7 +1065,8 @@ class YBakeChannels(bpy.types.Operator):
         col.label(text='UV Map:')
         col.separator()
         col.label(text='')
-        col.label(text='')
+        if is_greater_than_281():
+            col.label(text='')
         col.label(text='')
 
         col = row.column(align=True)
@@ -1086,7 +1087,8 @@ class YBakeChannels(bpy.types.Operator):
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.separator()
         col.prop(self, 'fxaa', text='Use FXAA')
-        col.prop(self, 'denoise', text='Use Denoise')
+        if is_greater_than_281():
+            col.prop(self, 'denoise', text='Use Denoise')
         col.prop(self, 'force_bake_all_polygons')
 
     def execute(self, context):
@@ -1265,7 +1267,7 @@ class YBakeChannels(bpy.types.Operator):
                         fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
 
         # Denoise
-        if self.denoise:
+        if self.denoise and is_greater_than_281():
             for ch in yp.channels:
                 baked = tree.nodes.get(ch.baked)
                 if baked and baked.image:
