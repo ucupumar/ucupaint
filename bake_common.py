@@ -708,6 +708,10 @@ def prepare_composite_settings(res_x=1024, res_y=1024, use_hdr=False):
     # Remember original scene
     book['ori_scene_name'] = bpy.context.scene.name
 
+    # Check if original viewport is using camera view
+    area = bpy.context.area
+    book['ori_camera_view'] = area.type == 'VIEW_3D' and area.spaces[0].region_3d.view_perspective == 'CAMERA'
+
     # Create new temporary scene
     scene = bpy.data.scenes.new(name='TEMP_COMPOSITE_SCENE')
     bpy.context.window.scene = scene
@@ -759,6 +763,10 @@ def recover_composite_settings(book):
     # Go back to original scene
     scene = bpy.data.scenes.get(book['ori_scene_name'])
     bpy.context.window.scene = scene
+
+    # Recover camera view
+    if book['ori_camera_view']:
+        bpy.context.area.spaces[0].region_3d.view_perspective = 'CAMERA'
 
 def denoise_image(image):
     if not is_greater_than_281(): return image
