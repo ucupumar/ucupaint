@@ -3529,7 +3529,7 @@ def get_transition_disp_delta(layer, ch):
         delta = get_transition_bump_max_distance(ch) - max_child_heights
 
     else:
-        bump_distance = ch.normal_bump_distance if ch.normal_blend_type else get_layer_channel_bump_distance(layer, ch)
+        bump_distance = ch.normal_bump_distance if ch.normal_map_type == 'NORMAL_MAP' else get_layer_channel_bump_distance(layer, ch)
         delta = get_transition_bump_max_distance(ch) - abs(bump_distance)
 
     return delta

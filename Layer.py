@@ -4395,11 +4395,6 @@ def update_channel_intensity_value(self, context):
         tao = tree.nodes.get(ch.tao)
         if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
 
-    if ch.enable_transition_bump and ch.transition_bump_crease:
-        tb_crease_intensity = tree.nodes.get(ch.tb_crease_intensity)
-        if tb_crease_intensity:
-            tb_crease_intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
-
     if root_ch.type == 'NORMAL':
         update_displacement_height_ratio(root_ch)
 
