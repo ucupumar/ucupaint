@@ -3857,6 +3857,11 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         #    col.label(text=context.entity.name, icon=get_layer_type_icon(context.entity.type))
 
         if hasattr(context, 'image'):
+
+            col.separator()
+            text = 'Convert to ' + ('Byte ' if context.image.is_float else 'Float ') + 'Image'
+            col.operator("node.y_convert_image_bit_depth", icon='IMAGE_DATA', text=text)
+
             col.separator()
             if context.image.yia.is_image_atlas or context.image.yua.is_udim_atlas:
                 col.operator("node.y_convert_to_standard_image", icon='IMAGE_DATA', text='Convert to standard Image').all_images = False

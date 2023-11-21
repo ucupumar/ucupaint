@@ -5,6 +5,7 @@ from bpy_extras.io_utils import ExportHelper
 #from bpy_extras.image_utils import load_image  
 from .common import *
 import time
+from . import UDIM
 
 def save_float_image(image):
     original_path = image.filepath
@@ -1089,6 +1090,74 @@ class YSavePackAll(bpy.types.Operator):
         ypui.refresh_image_hack = False
         return {'FINISHED'}
 
+class YConvertImageBitDepth(bpy.types.Operator):
+    """Convert Image Bit Depth"""
+    bl_idname = "node.y_convert_image_bit_depth"
+    bl_label = "Convert Image Bit Depth"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'image') and context.image and hasattr(context, 'entity')
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        image = context.image
+
+        # Create new image based on original image but with different bit depth
+        if image.source == 'TILED':
+            tilenums = [tile.number for tile in image.tiles]
+            new_image = bpy.data.images.new(image.name,
+                                    width=image.size[0], height=image.size[1], 
+                                    alpha=True, float_buffer= not image.is_float, tiled=True)
+
+            # Fill tiles
+            color = (0, 0, 0, 0)
+            for tilenum in tilenums:
+                ori_width = image.tiles.get(tilenum).size[0]
+                ori_height = image.tiles.get(tilenum).size[1]
+                UDIM.fill_tile(new_image, tilenum, color, ori_width, ori_height)
+            UDIM.initial_pack_udim(new_image, color)
+
+        else:
+            new_image = bpy.data.images.new(image.name,
+                                    width=image.size[0], height=image.size[1], 
+                                    alpha=True, float_buffer= not image.is_float)
+
+            if image.filepath != '':
+                new_image.filepath = image.filepath
+
+        new_image.colorspace_settings.name = image.colorspace_settings.name
+
+        # Copy image pixels
+        if image.source == 'TILED':
+            UDIM.copy_udim_pixels(image, new_image)
+        else: copy_image_pixels(image, new_image)
+
+        # Pack image
+        if image.packed_file and image.source != 'TILED':
+            if is_greater_than_280():
+                new_image.pack()
+            else:
+                if new_image.is_float:
+                    pack_float_image(new_image)
+                else: new_image.pack(as_png=True)
+
+            # HACK: Float image need to be reloaded after packing to be showed correctly
+            if new_image.is_float:
+                new_image.reload()
+
+        # Replace image
+        replace_image(image, new_image)
+
+        # Update image editor
+        update_image_editor_image(context, new_image)
+        update_tool_canvas_image(context, new_image)
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YInvertImage)
     bpy.utils.register_class(YRefreshImage)
@@ -1097,6 +1166,7 @@ def register():
     bpy.utils.register_class(YSaveAsImage)
     bpy.utils.register_class(YSavePackAll)
     bpy.utils.register_class(YSaveAllBakedImages)
+    bpy.utils.register_class(YConvertImageBitDepth)
 
 def unregister():
     bpy.utils.unregister_class(YInvertImage)
@@ -1106,3 +1176,4 @@ def unregister():
     bpy.utils.unregister_class(YSaveAsImage)
     bpy.utils.unregister_class(YSavePackAll)
     bpy.utils.unregister_class(YSaveAllBakedImages)
+    bpy.utils.unregister_class(YConvertImageBitDepth)

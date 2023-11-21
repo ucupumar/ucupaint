@@ -76,7 +76,7 @@ def copy_udim_pixels(src, dest):
             swap_tile(dest, 1001, tile.number)
 
         # Set pixels
-        dst.pixels = list(src.pixels)
+        dest.pixels = list(src.pixels)
 
         # Swap back
         if tile.number != 1001:
