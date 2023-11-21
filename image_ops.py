@@ -1106,6 +1106,10 @@ class YConvertImageBitDepth(bpy.types.Operator):
 
         image = context.image
 
+        if image.yua.is_udim_atlas or image.yia.is_image_atlas:
+            self.report({'ERROR'}, 'Cannot convert image atlas segment to different bit depth!')
+            return {'CANCELLED'}
+
         # Create new image based on original image but with different bit depth
         if image.source == 'TILED':
             tilenums = [tile.number for tile in image.tiles]
