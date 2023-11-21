@@ -2061,8 +2061,10 @@ def get_output_uv_names_from_geometry_nodes(obj):
     
     for m in obj.modifiers:
         if m.type == 'NODES' and m.node_group:
-            for outp in m.node_group.outputs:
-                if outp.type == 'VECTOR':
+            outputs = get_tree_outputs(m.node_group)
+            for outp in outputs:
+                if ((is_greater_than_400() and outp.socket_type == 'NodeSocketVector') or
+                    (not is_greater_than_400() and outp.type == 'VECTOR')):
                     uv = uv_layers.get(m[outp.identifier + '_attribute_name'])
                     if uv: uv_names.append(uv.name)
 
