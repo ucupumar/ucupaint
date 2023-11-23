@@ -2331,9 +2331,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                     if root_ch.enable_smooth_bump:
                         end_chain_n = alpha_n = create_link(tree, end_chain_n, tb_falloff.inputs['Value n'])['Value n']
-                        end_chain_s = alpha_s = create_link(tree, end_chain_n, tb_falloff.inputs['Value s'])['Value s']
-                        end_chain_e = alpha_e = create_link(tree, end_chain_n, tb_falloff.inputs['Value e'])['Value e']
-                        end_chain_w = alpha_w = create_link(tree, end_chain_n, tb_falloff.inputs['Value w'])['Value w']
+                        end_chain_s = alpha_s = create_link(tree, end_chain_s, tb_falloff.inputs['Value s'])['Value s']
+                        end_chain_e = alpha_e = create_link(tree, end_chain_e, tb_falloff.inputs['Value e'])['Value e']
+                        end_chain_w = alpha_w = create_link(tree, end_chain_w, tb_falloff.inputs['Value w'])['Value w']
 
             for j, mask in enumerate(layer.masks):
                 if not mask.enable: continue
