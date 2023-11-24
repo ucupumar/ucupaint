@@ -4663,7 +4663,6 @@ def get_mix_color_indices(mix):
     return idx0, idx1, outidx
 
 def get_yp_fcurves(yp):
-
     tree = yp.id_data
 
     fcurves = []
@@ -4675,9 +4674,26 @@ def get_yp_fcurves(yp):
 
     return fcurves
 
+def get_yp_drivers(yp):
+    tree = yp.id_data
+
+    drivers = []
+
+    if tree.animation_data:
+        for dr in tree.animation_data.drivers:
+            if dr.data_path.startswith('yp.'):
+                drivers.append(dr)
+
+    return drivers
+
+def get_yp_fcurves_and_drivers(yp):
+    fcurves = get_yp_fcurves(yp)
+    fcurves.extend(get_yp_drivers(yp))
+    return fcurves
+
 def remap_layer_fcurves(yp, index_dict):
 
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
     swapped_fcurves = []
 
     for i, lay in enumerate(yp.layers):
@@ -4696,7 +4712,7 @@ def remap_layer_fcurves(yp, index_dict):
                     swapped_fcurves.append(fc)
 
 def swap_channel_fcurves(yp, idx0, idx1):
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         m = re.match(r'^yp\.channels\[(\d+)\].*', fc.data_path)
@@ -4711,7 +4727,7 @@ def swap_channel_fcurves(yp, idx0, idx1):
 
 def swap_layer_channel_fcurves(layer, idx0, idx1):
     yp = layer.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         if layer.path_from_id() not in fc.data_path: continue
@@ -4727,7 +4743,7 @@ def swap_layer_channel_fcurves(layer, idx0, idx1):
 
 def swap_mask_fcurves(layer, idx0, idx1):
     yp = layer.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         if layer.path_from_id() not in fc.data_path: continue
@@ -4743,7 +4759,7 @@ def swap_mask_fcurves(layer, idx0, idx1):
 
 def swap_mask_channel_fcurves(mask, idx0, idx1):
     yp = mask.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         if mask.path_from_id() not in fc.data_path: continue
@@ -4759,7 +4775,7 @@ def swap_mask_channel_fcurves(mask, idx0, idx1):
 
 def swap_modifier_fcurves(parent, idx0, idx1):
     yp = parent.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         if parent.path_from_id() not in fc.data_path: continue
@@ -4775,7 +4791,7 @@ def swap_modifier_fcurves(parent, idx0, idx1):
 
 def swap_normal_modifier_fcurves(modifier, idx0, idx1):
     yp = modifier.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for fc in fcurves:
         if modifier.path_from_id() not in fc.data_path: continue
@@ -4794,15 +4810,21 @@ def remove_entity_fcurves(entity):
     tree = entity.id_data
     yp = tree.yp
     fcurves = get_yp_fcurves(yp)
+    drivers = get_yp_drivers(yp)
 
     for fc in reversed(fcurves):
         if entity.path_from_id() in fc.data_path:
             tree.animation_data.action.fcurves.remove(fc)
 
+    for dr in reversed(drivers):
+        if entity.path_from_id() in dr.data_path:
+            tree.animation_data.drivers.remove(dr)
+
 def remove_channel_fcurves(root_ch):
     tree = root_ch.id_data
     yp = tree.yp
     fcurves = get_yp_fcurves(yp)
+    drivers = get_yp_drivers(yp)
 
     index = get_channel_index(root_ch)
 
@@ -4811,9 +4833,14 @@ def remove_channel_fcurves(root_ch):
         if m and index == int(m.group(1)):
             tree.animation_data.action.fcurves.remove(fc)
 
+    for dr in reversed(drivers):
+        m = re.match(r'.*\.channels\[(\d+)\].*', dr.data_path)
+        if m and index == int(m.group(1)):
+            tree.animation_data.drivers.remove(dr)
+
 def shift_modifier_fcurves_down(parent):
     yp = parent.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, mod in reversed(list(enumerate(parent.modifiers))):
         for fc in fcurves:
@@ -4824,7 +4851,7 @@ def shift_modifier_fcurves_down(parent):
 
 def shift_normal_modifier_fcurves_down(parent):
     yp = parent.id_data.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, mod in reversed(list(enumerate(parent.modifiers_1))):
         for fc in fcurves:
@@ -4836,7 +4863,7 @@ def shift_normal_modifier_fcurves_down(parent):
 def shift_modifier_fcurves_up(parent, start_index=1):
     tree = parent.id_data
     yp = tree.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, mod in enumerate(parent.modifiers):
         if i < start_index: continue
@@ -4849,7 +4876,7 @@ def shift_modifier_fcurves_up(parent, start_index=1):
 def shift_normal_modifier_fcurves_up(parent, start_index=1):
     tree = parent.id_data
     yp = tree.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, mod in enumerate(parent.modifiers_1):
         if i < start_index: continue
@@ -4860,7 +4887,7 @@ def shift_normal_modifier_fcurves_up(parent, start_index=1):
                 fc.data_path = fc.data_path.replace('.modifiers_1[' + str(i) + ']', '.modifiers_1[' + str(i-1) + ']')
 
 def shift_channel_fcurves_up(yp, start_index=1):
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, root_ch in enumerate(yp.channels):
         if i < start_index: continue
@@ -4872,7 +4899,7 @@ def shift_channel_fcurves_up(yp, start_index=1):
 def shift_mask_fcurves_up(layer, start_index=1):
     tree = layer.id_data
     yp = tree.yp
-    fcurves = get_yp_fcurves(yp)
+    fcurves = get_yp_fcurves_and_drivers(yp)
 
     for i, mask in enumerate(layer.masks):
         if i < start_index: continue
