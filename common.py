@@ -2719,6 +2719,9 @@ def get_udim_segment_mapping_offset(segment):
         tiles_height = get_udim_segment_tiles_height(seg)
         offset_y += tiles_height + 1
 
+def is_mapping_possible(entity_type):
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'} 
+
 def clear_mapping(entity):
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())

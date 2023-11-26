@@ -54,9 +54,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         col = (color_id[0], color_id[1], color_id[2], 1.0)
         source.inputs[0].default_value = col
 
-    if mask_type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
-        #uv_map = new_node(tree, mask, 'uv_map', 'ShaderNodeUVMap', 'Mask UV Map')
-        #uv_map.uv_map = uv_name
+    if is_mapping_possible(mask_type):
         mask.uv_name = uv_name
 
         mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')

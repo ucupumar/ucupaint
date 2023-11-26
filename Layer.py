@@ -210,7 +210,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     texcoord = new_node(tree, layer, 'texcoord', 'NodeGroupInput', 'TexCoord Inputs')
 
     # Add mapping node
-    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+    if is_mapping_possible(layer.type):
         mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping', 'Mapping')
 
     # Set layer coordinate type
@@ -3261,7 +3261,7 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
     #        remove_node(tree, ch, 'normal_process')
 
     mapping = tree.nodes.get(mask.mapping)
-    if new_type == 'IMAGE' :
+    if is_mapping_possible(new_type):
         if not mapping:
             mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping', 'Mask Mapping')
     else:
