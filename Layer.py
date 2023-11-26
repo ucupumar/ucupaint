@@ -4637,19 +4637,31 @@ class YLayerChannel(bpy.types.PropertyGroup):
     modifiers_1 : CollectionProperty(type=NormalMapModifier.YNormalMapModifier)
 
     # Override source
-    override : BoolProperty(default=False, update=update_layer_channel_override)
-    #override_tex : BoolProperty(default=False)
+    override : BoolProperty(
+            name = 'Enable Override',
+            description = 'Use override value rather than layer value for this channel',
+            default=False, update=update_layer_channel_override)
     override_type : EnumProperty(items=channel_override_type_items, default='DEFAULT', update=update_layer_channel_override)
-    override_color : FloatVectorProperty(subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5), update=update_layer_channel_override_value)
-    override_value : FloatProperty(min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
+    override_color : FloatVectorProperty(
+            name = 'Override Color',
+            description = 'Override color value for this channel',
+            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 0.5), update=update_layer_channel_override_value)
+    override_value : FloatProperty(
+            name = 'Override Value',
+            description = 'Override value for this channel',
+            min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
     override_vcol_name : StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
 
     # Extra override needed when bump and normal are used at the same time
-    override_1 : BoolProperty(default=False, update=update_layer_channel_override_1)
+    override_1 : BoolProperty(
+            name = 'Enable Override (Normal Map Channel)',
+            description = 'Use override value rather than layer value for normal map of this channel',
+            default=False, update=update_layer_channel_override_1)
     override_1_type : EnumProperty(items=channel_override_1_type_items, default='DEFAULT', update=update_layer_channel_override_1)
-    override_1_color : FloatVectorProperty(subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 1.0), update=update_layer_channel_override_1_value)
-    #override_1_value : FloatProperty(min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_1_value)
-    #override_1_vcol_name : StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
+    override_1_color : FloatVectorProperty(
+            name = 'Override Color',
+            description = 'Override color value for normal map of this channel',
+            subtype='COLOR', size=3, min=0.0, max=1.0, default=(0.5, 0.5, 1.0), update=update_layer_channel_override_1_value)
 
     # Sources
     source : StringProperty(default='')
@@ -5139,7 +5151,7 @@ class YLayer(bpy.types.PropertyGroup):
 
     blur_vector_factor : FloatProperty(
             name = 'Blur Vector Factor', 
-            description = 'Mask Intensity Factor',
+            description = 'Blur vector factor',
             default=1.0, min=0.0, max=100.0,
             update=update_layer_blur_vector_factor)
 
