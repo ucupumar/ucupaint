@@ -98,6 +98,7 @@ def remember_before_bake(yp=None, mat=None):
     book['ori_device'] = scene.cycles.device
     book['ori_use_pass_direct'] = scene.render.bake.use_pass_direct
     book['ori_use_pass_indirect'] = scene.render.bake.use_pass_indirect
+    book['ori_use_pass_diffuse'] = scene.render.bake.use_pass_diffuse
     book['ori_use_pass_emit'] = scene.render.bake.use_pass_emit
     if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'):
         book['ori_use_pass_ambient_occlusion'] = scene.render.bake.use_pass_ambient_occlusion
@@ -368,6 +369,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     scene.render.use_simplify = False
     scene.render.bake.use_pass_direct = True
     scene.render.bake.use_pass_indirect = True
+    scene.render.bake.use_pass_diffuse = True
     scene.render.bake.use_pass_emit = True
     if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'):
         scene.render.bake.use_pass_ambient_occlusion = True
@@ -557,6 +559,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene.render.bake.use_pass_direct = book['ori_use_pass_direct']
     scene.render.bake.use_pass_indirect = book['ori_use_pass_indirect']
     scene.render.bake.use_pass_emit = book['ori_use_pass_emit']
+    scene.render.bake.use_pass_diffuse = book['ori_use_pass_diffuse']
     if hasattr(scene.render.bake, 'use_pass_ambient_occlusion'):
         scene.render.bake.use_pass_ambient_occlusion = book['ori_use_pass_ambient_occlusion']
     if hasattr(scene.render, 'tile_x'):
