@@ -1719,7 +1719,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if mask.source_input == 'RGB':
                     mask_source_index = 1
             elif mask.source_input == 'ALPHA':
-                mask_source_index = 1
+                if mask.type == 'VCOL':
+                    if is_greater_than_292():
+                        mask_source_index = 'Alpha'
+                    else: mask_source_index = 'Fac'
+                else: mask_source_index = 1
 
         # Mask source
         if mask.group_node != '':

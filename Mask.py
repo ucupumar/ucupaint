@@ -625,7 +625,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             name = 'Source Input',
             description = 'Source data for mask input',
             items = (('RGB', 'Color', ''),
-                ('Alpha', 'Alpha', '')),
+                ('ALPHA', 'Alpha', '')),
             default = 'RGB')
 
     def generate_paths(self):
@@ -752,7 +752,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             name = 'Source Input',
             description = 'Source data for mask input',
             items = (('RGB', 'Color', ''),
-                ('Alpha', 'Alpha', '')),
+                ('ALPHA', 'Alpha', '')),
             default = 'RGB')
 
     uv_map : StringProperty(default='')
@@ -837,7 +837,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         if self.type == 'IMAGE':
             col.label(text='Image Channel:')
-        elif self.type == 'VCOL':
+        elif self.type == 'VCOL' and is_greater_than_292():
             col.label(text='Vertex Color Data:')
 
         col = row.column()
@@ -852,8 +852,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if len(self.layer.masks) > 0:
             col.prop(self, 'blend_type', text='')
 
-        crow = col.row(align=True)
-        crow.prop(self, 'source_input', expand=True)
+        if is_greater_than_292() or self.type != 'VCOL':
+            crow = col.row(align=True)
+            crow.prop(self, 'source_input', expand=True)
 
     def execute(self, context):
         if not hasattr(self, 'layer'): return {'CANCELLED'}

@@ -1963,7 +1963,7 @@ def draw_layer_masks(context, layout, layer):
             else: draw_tex_props(mask_source, rbox)
 
         # Input row
-        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX'}:
+        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX'} and (is_greater_than_292() or mask.type != 'VCOL'):
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon_value=lib.get_icon('input'))
             splits = split_layout(rrow, 0.3)
