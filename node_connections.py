@@ -1711,18 +1711,27 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     # Layer Masks
     for i, mask in enumerate(layer.masks):
 
+        # Get source output index
+        mask_source_index = 0
+        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX'}:
+            # Noise and voronoi output has flipped order since Blender 2.81
+            if is_greater_than_281() and mask.type in {'NOISE', 'VORONOI'}:
+                if mask.source_input == 'RGB':
+                    mask_source_index = 1
+            elif mask.source_input == 'ALPHA':
+                mask_source_index = 1
+
         # Mask source
         if mask.group_node != '':
             mask_source = nodes.get(mask.group_node)
             reconnect_mask_internal_nodes(mask)
-            #mask_mapping = None
-            mask_val = mask_source.outputs[0]
+
+            mask_val = mask_source.outputs[mask_source_index]
         else:
             mask_source = nodes.get(mask.source)
             mask_linear = nodes.get(mask.linear)
-            #mask_mapping = nodes.get(mask.mapping)
 
-            mask_val = mask_source.outputs[0]
+            mask_val = mask_source.outputs[mask_source_index]
 
             if mask_linear:
                 mask_val = create_link(tree, mask_val, mask_linear.inputs[0])[0]

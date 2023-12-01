@@ -33,40 +33,6 @@ def channel_items(self, context):
 
     return items
 
-def layer_input_items(self, context):
-    yp = self.id_data.yp
-
-    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    if not m: return []
-    layer = yp.layers[int(m.group(1))]
-    #root_ch = yp.channels[int(m.group(2))]
-
-    items = []
-
-    label = layer_type_labels[layer.type]
-
-    #if is_greater_than_281() and layer.type in {'NOISE'}:
-    #    items.append(('RGB', label + ' Color',  ''))
-    #    items.append(('ALPHA', label + ' Factor',  ''))
-    #else:
-    if is_greater_than_281() and layer.type == 'VORONOI':
-        items.append(('RGB', label + ' Color',  ''))
-        items.append(('ALPHA', label + ' Distance',  ''))
-    else:
-        items.append(('RGB', label + ' Color',  ''))
-        items.append(('ALPHA', label + ' Factor',  ''))
-        
-    #if layer.type == 'IMAGE':
-    #    items.append(('ALPHA', label + ' Alpha',  ''))
-    #else: items.append(('ALPHA', label + ' Factor',  ''))
-
-    #if root_ch.type in {'RGB', 'NORMAL'}:
-    #    items.append(('CUSTOM', 'Custom Color',  ''))
-    #elif root_ch.type == 'VALUE':
-    #    items.append(('CUSTOM', 'Custom Value',  ''))
-
-    return items
-
 def get_normal_map_type_items(self, context):
     items = []
 
@@ -420,9 +386,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
 
         col = row.column()
         col.label(text='Name:')
@@ -811,9 +775,7 @@ class YNewLayer(bpy.types.Operator):
             else: channel = None
         except: channel = None
 
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
         col = row.column(align=False)
 
         col.label(text='Name:')
@@ -3399,9 +3361,7 @@ class YReplaceLayerType(bpy.types.Operator):
     def draw(self, context):
         layout = self.layout
 
-        if is_greater_than_280():
-            split = layout.split(factor=0.35, align=True)
-        else: split = layout.split(percentage=0.35)
+        split = split_layout(layout, 0.35, align=True)
 
         #row = self.layout.row()
         if self.type == 'IMAGE':
@@ -4210,12 +4170,6 @@ def update_layer_input(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
 
-    #m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
-    #layer = yp.layers[int(m.group(1))]
-    #root_ch = yp.channels[int(m.group(2))]
-    #tree = get_tree(layer)
-    #ch = self
-
     check_layer_channel_linear_node(self, reconnect=True)
 
 def update_uv_name(self, context):
@@ -4584,10 +4538,8 @@ class YLayerChannel(bpy.types.PropertyGroup):
 
     layer_input : EnumProperty(
             name = 'Layer Input',
-            #items = (('RGB', 'Color', ''),
-            #         ('ALPHA', 'Alpha / Factor', '')),
-            #default = 'RGB',
-            items = layer_input_items,
+            description = 'Input for layer channel',
+            items = entity_input_items,
             update = update_layer_input)
 
     gamma_space : BoolProperty(

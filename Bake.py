@@ -331,9 +331,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
 
     def draw(self, context):
 
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
 
         col = row.column(align=False)
         col.label(text='From UV:')
@@ -486,9 +484,7 @@ class YTransferLayerUV(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
 
         col = row.column(align=False)
         col.label(text='Target UV:')
@@ -615,9 +611,7 @@ class YResizeImage(bpy.types.Operator):
     def draw(self, context):
         image = bpy.data.images.get(self.image_name)
 
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
 
         col = row.column(align=False)
 
@@ -775,9 +769,7 @@ class YBakeChannelToVcol(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
         col = row.column(align=True)
 
         col.label(text='Target Vertex Color:')
@@ -1046,9 +1038,7 @@ class YBakeChannels(bpy.types.Operator):
         obj = context.object
         mat = obj.active_material
 
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
         col = row.column(align=True)
 
         col.label(text='Width:')
@@ -1590,10 +1580,7 @@ class YMergeLayer(bpy.types.Operator):
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def draw(self, context):
-        #col = self.layout.column()
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.5)
-        else: row = self.layout.split(percentage=0.5)
+        row = split_layout(self.layout, 0.5)
 
         col = row.column(align=False)
         col.label(text='Main Channel:')
@@ -2071,9 +2058,7 @@ class YBakeTempImage(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
 
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
 
         col = row.column(align=False)
 

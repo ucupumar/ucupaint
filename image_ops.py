@@ -828,9 +828,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
         return hasattr(context, 'image') and context.image and get_active_ypaint_node()
 
     def draw(self, context):
-        if is_greater_than_280(): 
-            split = self.layout.split(factor=0.5)
-        else: split = self.layout.split(percentage=0.5)
+        split = split_layout(self.layout, 0.5)
 
         split.prop(self, 'file_format', text='')
         row = split.row(align=True)

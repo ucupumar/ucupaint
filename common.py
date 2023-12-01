@@ -82,6 +82,32 @@ mask_blend_type_items = (("MIX", "Replace", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
 	             ("LINEAR_LIGHT", "Linear Light", ""))
 
+def entity_input_items(self, context):
+    yp = self.id_data.yp
+    entity = self
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', entity.path_from_id())
+    if m: entity = yp.layers[int(m.group(1))]
+
+    label = layer_type_labels[entity.type]
+
+    items = []
+
+    if is_greater_than_281() and entity.type == 'VORONOI':
+        items.append(('RGB', label + ' Color',  ''))
+        items.append(('ALPHA', label + ' Distance',  ''))
+    elif entity.type == 'VCOL':
+        items.append(('RGB', label,  ''))
+        items.append(('ALPHA', label + ' Alpha',  ''))
+    elif entity.type == 'IMAGE':
+        items.append(('RGB', label + ' Color',  ''))
+        items.append(('ALPHA', label + ' Alpha',  ''))
+    else:
+        items.append(('RGB', label + ' Color',  ''))
+        items.append(('ALPHA', label + ' Factor',  ''))
+        
+    return items
+
 COLORID_TOLERANCE = 0.003906 # 1/256
 
 TEMP_UV = '~TL Temp Paint UV'
@@ -5187,4 +5213,10 @@ def get_closest_bsdf_forward(node, valid_types=[]):
                 if n: return n
 
     return None
+
+def split_layout(layout, factor, align=False):
+    if not is_greater_than_280():
+        return layout.split(percentage=factor, align=align)
+
+    return layout.split(factor=factor, align=align)
 

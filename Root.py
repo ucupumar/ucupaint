@@ -456,10 +456,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        #row = self.layout.row()
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.35)
-        else: row = self.layout.split(percentage=0.35)
+        row = split_layout(self.layout, 0.35)
 
         col = row.column()
         col.label(text='Type:')
@@ -972,9 +969,7 @@ class YConnectYPaintChannel(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
 
         col = row.column(align=False)
         col.label(text='Connect To:')
@@ -1070,9 +1065,7 @@ class YNewYPaintChannel(bpy.types.Operator):
         return True
 
     def draw(self, context):
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
 
         col = row.column(align=False)
         col.label(text='Name:')
@@ -1488,9 +1481,7 @@ class YFixMissingUV(bpy.types.Operator):
 
     def draw(self, context):
 
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.5)
-        else: row = self.layout.split(percentage=0.5)
+        row = split_layout(self.layout, 0.5)
 
         row.label(text='Remap ' + self.source_uv_name + ' to:')
         row.prop_search(self, "target_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')

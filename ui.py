@@ -175,7 +175,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
                 row.label(text='Width: ' + str(segment.width))
                 row.label(text='Height: ' + str(segment.height))
             else:
-                split = col.split(factor=0.4)
+                split = split_layout(col, 0.4)
                 split.label(text='Tile Numbers: ')
                 row = split.row(align=True)
                 segment_tilenums = UDIM.get_udim_segment_tilenums(segment)
@@ -185,9 +185,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
             if segment.bake_info.is_baked:
                 draw_bake_info(segment.bake_info, col, entity)
 
-        if is_greater_than_280():
-            split = col.split(factor=0.4)
-        else: split = col.split(percentage=0.4) 
+        split = split_layout(col, 0.4)
         scol = split.column()
         scol.label(text='Interpolation:')
         scol = split.column()
@@ -227,9 +225,7 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
         col.label(text='Info: ' + str(image.size[0]) + ' x ' + str(image.size[1]) +
                 ' ' + image_format + ' ' + str(image_bit) + '-bit')
 
-    if is_greater_than_280():
-        split = col.split(factor=0.4)
-    else: split = col.split(percentage=0.4) 
+    split = split_layout(col, 0.4)
 
     scol = split.column()
     if not image.is_dirty:
@@ -502,7 +498,7 @@ def draw_solid_color_props(layer, source, layout):
     row.label(text='Shortcut on list:')
     row.prop(layer, 'color_shortcut', text='')
 
-def draw_mask_modifier_stack(layer, mask, layout, ui): #, custom_icon_enable):
+def draw_mask_modifier_stack(layer, mask, layout, ui):
     ypui = bpy.context.window_manager.ypui
     tree = get_mask_tree(mask)
 
@@ -518,13 +514,10 @@ def draw_mask_modifier_stack(layer, mask, layout, ui): #, custom_icon_enable):
         row = layout.row(align=True)
 
         if can_be_expanded:
-            #if custom_icon_enable:
             if modui.expand_content:
                 icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
             else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
             row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-            #else:
-            #    row.prop(modui, 'expand_content', text='', icon_value=lib.get_icon('modifier'))
         else:
             row.label(text='', icon_value=lib.get_icon('modifier'))
 
@@ -578,13 +571,10 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
         row = layout.row(align=True)
 
         if can_be_expanded:
-            #if custom_icon_enable:
             if modui.expand_content:
                 icon_value = lib.custom_icons["uncollapsed_modifier"].icon_id
             else: icon_value = lib.custom_icons["collapsed_modifier"].icon_id
             row.prop(modui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-            #else:
-            #    row.prop(modui, 'expand_content', text='', icon_value=lib.get_icon('modifier'))
         else:
             row.label(text='', icon_value=lib.get_icon('modifier'))
         
@@ -661,7 +651,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
 
             #row.label(text='', icon='BLANK1')
 
-def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
+def draw_root_channels_ui(context, layout, node):
     mat = get_active_material()
     group_tree = node.node_tree
     nodes = group_tree.nodes
@@ -677,7 +667,6 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
     if len(yp.channels) > 0:
         pcol = rcol.column()
         if yp.preview_mode: pcol.alert = True
-        #if custom_icon_enable:
         if not is_greater_than_280():
             pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='RESTRICT_VIEW_OFF')
         else: pcol.prop(yp, 'preview_mode', text='Preview Mode', icon='HIDE_OFF')
@@ -725,7 +714,6 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
 
         row = mcol.row(align=True)
 
-        #if custom_icon_enable:
         icon_name = lib.channel_custom_icon_dict[channel.type]
         if chui.expand_content:
             icon_name = 'uncollapsed_' + icon_name
@@ -740,7 +728,6 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
         #if channel.type != 'NORMAL':
         row.context_pointer_set('parent', channel)
         row.context_pointer_set('channel_ui', chui)
-        #if custom_icon_enable:
         if is_greater_than_280():
             row.menu("NODE_MT_y_new_modifier_menu", icon='PREFERENCES', text='')
         else: row.menu("NODE_MT_y_new_modifier_menu", icon='SCRIPTWIN', text='')
@@ -751,7 +738,7 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
             row.label(text='', icon='BLANK1')
             bcol = row.column()
 
-            draw_modifier_stack(context, channel, channel.type, bcol, chui) #, custom_icon_enable)
+            draw_modifier_stack(context, channel, channel.type, bcol, chui)
 
             inp = node.inputs[channel.io_index]
 
@@ -869,15 +856,10 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 brow = bcol.row(align=True)
                 brow.active = not yp.use_baked or ((not channel.enable_subdiv_setup or channel.subdiv_adaptive) and not yp.enable_baked_outside)
 
-                #if custom_icon_enable:
                 if chui.expand_parallax_settings:
                     icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                 else: icon_value = lib.custom_icons["collapsed_input"].icon_id
                 brow.prop(chui, 'expand_parallax_settings', text='', emboss=False, icon_value=icon_value)
-                #else:
-                #    brow.prop(chui, 'expand_parallax_settings', text='', emboss=True, icon_value=lib.get_icon('input'))
-
-                #brow.label(text='', icon_value=lib.get_icon('input'))
 
                 brow.label(text='Parallax:')
                 if not chui.expand_parallax_settings and channel.enable_parallax:
@@ -924,7 +906,6 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 brow = bcol.row(align=True)
                 #brow.label(text='', icon_value=lib.get_icon('input'))
 
-                #if custom_icon_enable:
                 if chui.expand_subdiv_settings:
                     icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                 else: icon_value = lib.custom_icons["collapsed_input"].icon_id
@@ -970,15 +951,12 @@ def draw_root_channels_ui(context, layout, node): #, custom_icon_enable):
                 brow = bcol.row(align=True)
                 brow.label(text='', icon_value=lib.get_icon('input'))
 
-                if is_greater_than_280():
-                    split = brow.split(factor=0.375, align=True)
-                else: split = brow.split(percentage=0.375)
+                split = split_layout(brow, 0.375, align=True)
 
-                #split = brow.row(align=False)
                 split.label(text='Space:')
                 split.prop(channel, 'colorspace', text='')
 
-def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh): #, custom_icon_enable):
+def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
     obj = context.object
     yp = layer.id_data.yp
     ypui = context.window_manager.ypui
@@ -1084,7 +1062,6 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     if layer.type not in {'BACKGROUND'}:
         row = rcol.row(align=True)
 
-        #if custom_icon_enable:
         if layer.type == 'IMAGE':
             suffix = 'image'
         elif layer.type == 'COLOR':
@@ -1143,7 +1120,6 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         if is_layer_using_vector(layer):
             row = rcol.row(align=True)
 
-            #if custom_icon_enable:
             if lui.expand_vector:
                 icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
             else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
@@ -1151,18 +1127,13 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
             #else:
             #    row.prop(lui, 'expand_vector', text='', emboss=True, icon_value=lib.get_icon('uv'))
 
-            if is_greater_than_280():
-                split = row.split(factor=0.275, align=True)
-            else: split = row.split(percentage=0.275, align=True)
+            split = split_layout(row, 0.275, align=True)
 
             split.label(text='Vector:')
             if is_a_mesh and layer.texcoord_type == 'UV':
 
-                if is_greater_than_280():
-                    ssplit = split.split(factor=0.33, align=True)
-                else: ssplit = split.split(percentage=0.33, align=True)
+                ssplit = split_layout(split, 0.33, align=True)
 
-                #ssplit = split.split(percentage=0.33, align=True)
                 ssplit.prop(layer, 'texcoord_type', text='')
                 ssplit.prop_search(layer, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
             else:
@@ -1194,9 +1165,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
                 # Blur row
                 rrow = bbox.row(align=True)
-                if is_greater_than_280():
-                    splits = rrow.split(factor=0.3)
-                else: splits = rrow.split(percentage=0.3)
+                splits = split_layout(rrow, 0.3)
                 splits.label(text='Blur:')
                 if layer.enable_blur_vector:
                     splits.prop(layer, 'blur_vector_factor', text='')
@@ -1204,19 +1173,17 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
     layout.separator()
 
-def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_icon_enable):
+def draw_layer_channels(context, layout, layer, layer_tree, image):
 
     yp = layer.id_data.yp
     ypui = context.window_manager.ypui
     lui = ypui.layer_ui
     
     row = layout.row(align=True)
-    #if custom_icon_enable:
     if lui.expand_channels:
         icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
     else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
     row.prop(lui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
-    #else: row.prop(lui, 'expand_channels', text='', emboss=True, icon='GROUP_VERTEX')
 
     #label = 'Channels:'
     #if not lui.expand_channels:
@@ -1254,9 +1221,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
     if not lui.expand_channels:
         return
 
-    #if custom_icon_enable:
     row.prop(ypui, 'expand_channels', text='', emboss=True, icon_value = lib.custom_icons['channels'].icon_id)
-    #else: row.prop(ypui, 'expand_channels', text='', emboss=True, icon = 'GROUP_VERTEX')
 
     rrow = layout.row(align=True)
     rrow.label(text='', icon='BLANK1')
@@ -1300,7 +1265,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
         #        showed_bump_ch_found
         #        )
 
-        #if custom_icon_enable:
         icon_name = lib.channel_custom_icon_dict[root_ch.type]
         if expandable:
             if chui.expand_content:
@@ -1310,11 +1274,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
         if expandable:
             row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
         else: row.label(text='', icon_value=icon_value)
-        #else:
-        #    icon = lib.channel_icon_dict[root_ch.type]
-        #    if expandable:
-        #        row.prop(chui, 'expand_content', text='', emboss=True, icon=icon)
-        #    else: row.label(text='', icon=icon)
 
         row.label(text=yp.channels[i].name + ':')
 
@@ -1330,7 +1289,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('channel_ui', chui)
 
-        #if custom_icon_enable:
         if is_greater_than_280():
             row.menu("NODE_MT_y_new_modifier_menu", icon='PREFERENCES', text='')
         else:
@@ -1366,7 +1324,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
             if ch.show_transition_bump or ch.enable_transition_bump:
 
                 brow = mcol.row(align=True)
-                #if custom_icon_enable:
                 if chui.expand_transition_bump_settings:
                     icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                 else: icon_value = lib.custom_icons["collapsed_input"].icon_id
@@ -1480,26 +1437,18 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
             #row.active = layer.type != 'COLOR'
             #row.active = not is_valid_to_remove_bump_nodes(layer, ch)
 
-            #if custom_icon_enable:
             if chui.expand_bump_settings:
                 icon_value = lib.custom_icons["uncollapsed_input"].icon_id
             else: icon_value = lib.custom_icons["collapsed_input"].icon_id
             row.prop(chui, 'expand_bump_settings', text='', emboss=False, icon_value=icon_value)
-            #else:
-            #    row.prop(chui, 'expand_bump_settings', text='', emboss=True, icon_value=lib.get_icon('input'))
 
-            #else:
             if layer.type == 'GROUP':
                 if chui.expand_bump_settings:
-                    row.label(text='Group Normal Settings:') #, icon_value=lib.get_icon('input'))
-                else: row.label(text='Group Normal Settings') #, icon_value=lib.get_icon('input'))
+                    row.label(text='Group Normal Settings:')
+                else: row.label(text='Group Normal Settings')
             else:
-                #    row.label(text='', icon_value=lib.get_icon('input'))
-                if is_greater_than_280():
-                    split = row.split(factor=0.275)
-                else: split = row.split(percentage=0.275)
-
-                split.label(text='Type:') #, icon_value=lib.get_icon('input'))
+                split = split_layout(row, 0.275)
+                split.label(text='Type:')
                 srow = split.row(align=True)
                 srow.prop(ch, 'normal_map_type', text='')
                 if not chui.expand_bump_settings:
@@ -1584,13 +1533,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 if not tr_ramp:
                     row.label(text='', icon_value=lib.get_icon('input'))
                 else:
-                    #if custom_icon_enable:
                     if chui.expand_transition_ramp_settings:
                         icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                     else: icon_value = lib.custom_icons["collapsed_input"].icon_id
                     row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=False, icon_value=icon_value)
-                    #else:
-                    #    row.prop(chui, 'expand_transition_ramp_settings', text='', emboss=True, icon='MOD_MASK')
                 row.label(text='Transition Ramp:')
                 if ch.enable_transition_ramp and not chui.expand_transition_ramp_settings:
                     row.prop(ch, 'transition_ramp_intensity_value', text='')
@@ -1634,13 +1580,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                 # Transition AO
                 row = mcol.row(align=True)
                 row.active = bump_ch_found #and layer.type != 'BACKGROUND'
-                #if custom_icon_enable:
                 if chui.expand_transition_ao_settings:
                     icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                 else: icon_value = lib.custom_icons["collapsed_input"].icon_id
                 row.prop(chui, 'expand_transition_ao_settings', text='', emboss=False, icon_value=icon_value)
-                #else:
-                #    row.prop(chui, 'expand_transition_ao_settings', text='', emboss=True, icon='MOD_MASK')
                 row.label(text='Transition AO:')
                 if ch.enable_transition_ao and not chui.expand_transition_ao_settings:
                     row.prop(ch, 'transition_ao_intensity', text='')
@@ -1705,7 +1648,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                     ypui.layer_ui.channels[i], layer)
 
             row = mcol.row(align=True)
-            #if custom_icon_enable:
             if ch.override_type == 'DEFAULT':
                 row.label(text='', icon_value=lib.get_icon('input'))
             else:
@@ -1772,7 +1714,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                     ypui.layer_ui.channels[i], layer, use_modifier_1=True)
 
             row = mcol.row(align=True)
-            #if custom_icon_enable:
             if ch.override_1_type == 'DEFAULT':
                 row.label(text='', icon_value=lib.get_icon('input'))
             else:
@@ -1828,20 +1769,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
                     and root_ch.colorspace == 'SRGB' and root_ch.type != 'NORMAL' )
 
             if input_settings_available:
-                #if custom_icon_enable:
                 if chui.expand_input_settings:
                     icon_value = lib.custom_icons["uncollapsed_input"].icon_id
                 else: icon_value = lib.custom_icons["collapsed_input"].icon_id
                 row.prop(chui, 'expand_input_settings', text='', emboss=False, icon_value=icon_value)
-                #else:
-                #    row.prop(chui, 'expand_input_settings', text='', emboss=True, icon_value=lib.get_icon('input'))
             else:
                 row.label(text='', icon_value=lib.get_icon('input'))
 
-            #row.label(text='', icon_value=lib.get_icon('input'))
-            if is_greater_than_280():
-                split = row.split(factor=0.275)
-            else: split = row.split(percentage=0.275)
+            split = split_layout(row, 0.275)
 
             split.label(text='Input:')
             srow = split.row(align=True)
@@ -1872,7 +1807,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image): #, custom_ic
 
     layout.separator()
 
-def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
+def draw_layer_masks(context, layout, layer):
     obj = context.object
     yp = layer.id_data.yp
     ypui = context.window_manager.ypui
@@ -1883,12 +1818,10 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
 
     row = col.row(align=True)
     if len(layer.masks) > 0:
-        #if custom_icon_enable:
         if lui.expand_masks:
             icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
         else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
         row.prop(lui, 'expand_masks', text='', emboss=False, icon_value=icon_value)
-        #else: row.prop(lui, 'expand_masks', text='', emboss=True, icon='MOD_MASK')
     else: 
         icon_value = lib.custom_icons["mask"].icon_id
         row.label(text='', icon_value=icon_value)
@@ -1915,14 +1848,9 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
 
     row.label(text=label)
 
-    #if custom_icon_enable:
-    #row.menu('NODE_MT_y_add_layer_mask_menu', text='', icon_value = lib.custom_icons['add_mask'].icon_id)
     if is_greater_than_280():
         row.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='ADD')
     else: row.menu('NODE_MT_y_add_layer_mask_menu', text='', icon='ZOOMIN')
-    #else: 
-    #    #row.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='MOD_MASK')
-    #    row.menu("NODE_MT_y_add_layer_mask_menu", text='', icon='ADD')
 
     if not lui.expand_masks or len(layer.masks) == 0: return
 
@@ -1940,13 +1868,10 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
         row = rcol.row(align=True)
         row.active = mask.enable
 
-        #if custom_icon_enable:
         if maskui.expand_content:
             icon_value = lib.custom_icons["uncollapsed_mask"].icon_id
         else: icon_value = lib.custom_icons["collapsed_mask"].icon_id
         row.prop(maskui, 'expand_content', text='', emboss=False, icon_value=icon_value)
-        #else:
-        #    row.prop(maskui, 'expand_content', text='', emboss=True, icon='MOD_MASK')
 
         mask_image = None
         mask_tree = get_mask_tree(mask)
@@ -1954,15 +1879,19 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
         if mask.type == 'IMAGE':
             mask_image = mask_source.image
             if mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas:
-                row.label(text=mask.name)
-            else: row.label(text=mask_image.name)
-        else: row.label(text=mask.name)
+                label_text = mask.name
+            else: label_text = mask_image.name
+        else: label_text = mask.name
+
+        if mask.type in {'IMAGE', 'VCOL'} and mask.source_input == 'ALPHA':
+            label_text += ' (Alpha)'
+
+        row.label(text=label_text)
 
         if mask.enable:
             if mask.type == 'IMAGE':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
             elif mask.type == 'VCOL':
-                #row.prop(mask, 'active_edit', text='', toggle=True, icon='GROUP_VCOL')
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
             elif mask.type == 'HEMI':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('hemi'))
@@ -1997,7 +1926,6 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
             #rrow.label(text='', icon='GROUP_VCOL')
             rrow.label(text='', icon_value=lib.get_icon('vertex_color'))
         else:
-            #if custom_icon_enable:
             if mask.type == 'IMAGE':
                 suffix = 'image' 
             elif mask.type == 'HEMI':
@@ -2012,9 +1940,6 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 icon_value = lib.custom_icons["uncollapsed_" + suffix].icon_id
             else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
             rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
-            #else:
-            #    icon = 'IMAGE_DATA' if mask.type == 'IMAGE' else 'TEXTURE'
-            #    rrow.prop(maskui, 'expand_source', text='', emboss=True, icon=icon)
 
         if mask_image:
             rrow.label(text='Source: ' + mask_image.name)
@@ -2037,21 +1962,24 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 draw_colorid_props(mask, mask_source, rbox)
             else: draw_tex_props(mask_source, rbox)
 
+        # Input row
+        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX'}:
+            rrow = rrcol.row(align=True)
+            rrow.label(text='', icon_value=lib.get_icon('input'))
+            splits = split_layout(rrow, 0.3)
+            splits.label(text='Input:')
+            splits.prop(mask, 'source_input', text='')
+
         # Vector row
         if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
             rrow = rrcol.row(align=True)
 
-            #if custom_icon_enable:
             if maskui.expand_vector:
                 icon_value = lib.custom_icons["uncollapsed_uv"].icon_id
             else: icon_value = lib.custom_icons["collapsed_uv"].icon_id
             rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
-            #else:
-            #    rrow.prop(maskui, 'expand_vector', text='', emboss=True, icon_value=lib.get_icon('uv'))
 
-            if is_greater_than_280():
-                splits = rrow.split(factor=0.3)
-            else: splits = rrow.split(percentage=0.3)
+            splits = split_layout(rrow, 0.3)
 
             #splits = rrow.split(percentage=0.3)
             splits.label(text='Vector:')
@@ -2059,11 +1987,7 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
                 splits.prop(mask, 'texcoord_type', text='')
             else:
 
-                if is_greater_than_280():
-                    rrrow = splits.split(factor=0.35, align=True)
-                else: rrrow = splits.split(percentage=0.35, align=True)
-
-                #rrrow = splits.split(percentage=0.35, align=True)
+                rrrow = split_layout(splits, 0.35, align=True)
                 rrrow.prop(mask, 'texcoord_type', text='')
                 rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
@@ -2093,15 +2017,13 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
             
                 # Blur row
                 rrow = rbox.row(align=True)
-                if is_greater_than_280():
-                    splits = rrow.split(factor=0.3)
-                else: splits = rrow.split(percentage=0.3)
+                splits = split_layout(rrow, 0.3)
                 splits.label(text='Blur:')
                 if mask.enable_blur_vector:
                     splits.prop(mask, 'blur_vector_factor', text='')
                 rrow.prop(mask, 'enable_blur_vector', text='')
 
-        draw_mask_modifier_stack(layer, mask, rrcol, maskui) #, custom_icon_enable)
+        draw_mask_modifier_stack(layer, mask, rrcol, maskui)
 
         rrow = rrcol.row(align=True)
         rrow.label(text='', icon_value=lib.get_icon('blend'))
@@ -2111,13 +2033,10 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
 
         # Mask Channels row
         rrow = rrcol.row(align=True)
-        #if custom_icon_enable:
         if maskui.expand_channels:
             icon_value = lib.custom_icons["uncollapsed_channels"].icon_id
         else: icon_value = lib.custom_icons["collapsed_channels"].icon_id
         rrow.prop(maskui, 'expand_channels', text='', emboss=False, icon_value=icon_value)
-        #else:
-        #    rrow.prop(maskui, 'expand_channels', text='', emboss=True, icon='GROUP_VERTEX')
         rrow.label(text='Channels')
 
         if maskui.expand_channels:
@@ -2131,18 +2050,15 @@ def draw_layer_masks(context, layout, layer): #, custom_icon_enable):
             for k, c in enumerate(mask.channels):
                 rrow = bcol.row(align=True)
                 root_ch = yp.channels[k]
-                #if custom_icon_enable:
                 rrow.label(text='', 
                         icon_value=lib.custom_icons[lib.channel_custom_icon_dict[root_ch.type]].icon_id)
-                #else:
-                #    rrow.label(text='', icon = lib.channel_icon_dict[root_ch.type])
                 rrow.label(text=root_ch.name)
                 rrow.prop(c, 'enable', text='')
 
         if i < len(layer.masks)-1:
             rcol.separator()
 
-def draw_layers_ui(context, layout, node): #, custom_icon_enable):
+def draw_layers_ui(context, layout, node):
     group_tree = node.node_tree
     nodes = group_tree.nodes
     yp = group_tree.yp
@@ -2183,12 +2099,9 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 row = col.row(align=True)
                 #label = 'Baked Image (' + root_ch.name + '):'
                 label = 'Baked ' + root_ch.name + ':'
-                #if custom_icon_enable:
                 icon_name = lib.channel_custom_icon_dict[root_ch.type]
                 icon_value = lib.custom_icons[icon_name].icon_id
                 row.label(text=label, icon_value=icon_value)
-                #else:
-                #    row.label(text=label, icon=lib.channel_icon_dict[root_ch.type])
 
                 row.context_pointer_set('root_ch', root_ch)
                 row.context_pointer_set('image', baked.image)
@@ -2474,9 +2387,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
     if len(yp.layers) > 0:
         #prow = rcol.row(align=True)
 
-        if is_greater_than_280():
-            prow = rcol.split(factor=0.667, align=True)
-        else: prow = rcol.split(percentage=0.667, align=True)
+        prow = split_layout(rcol, 0.667, align=True)
 
         if yp.layer_preview_mode: prow.alert = True
         if not is_greater_than_280():
@@ -2624,18 +2535,18 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
                 row.prop(ve, "color", text="", icon='COLOR')
 
-            elif obj.mode == 'VERTEX_PAINT' and layer.type == 'VCOL' and is_greater_than_292() and not mask_vcol and not override_vcol:
+            elif obj.mode == 'VERTEX_PAINT' and is_greater_than_292() and ((layer.type == 'VCOL' and not mask_vcol) or (mask_vcol and mask.source_input == 'ALPHA')) and not override_vcol:
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
 
-            elif obj.mode == 'SCULPT' and layer.type == 'VCOL' and is_greater_than_320() and not mask_vcol and not override_vcol:
+            elif obj.mode == 'SCULPT' and is_greater_than_320() and ((layer.type == 'VCOL' and not mask_vcol) or (mask_vcol and mask.source_input == 'ALPHA')) and not override_vcol:
 
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
 
-        if obj.type == 'MESH' and obj.mode == 'TEXTURE_PAINT' and layer.type == 'IMAGE' and not mask_image and not override_image:
+        if obj.type == 'MESH' and obj.mode == 'TEXTURE_PAINT' and ((layer.type == 'IMAGE' and not mask_image) or (mask_image and mask.source_input == 'ALPHA')) and not override_image:
             bbox = col.box()
             row = bbox.row(align=True)
             row.operator('paint.y_toggle_eraser', text='Toggle Eraser')
@@ -2643,7 +2554,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
         ve = context.scene.ve_edit
         if obj.mode == 'TEXTURE_PAINT':
             brush = context.tool_settings.image_paint.brush
-            if (mask_image or override_image) and brush.blend == 'ERASE_ALPHA':
+            if ((mask_image and mask.source_input == 'RGB') or override_image) and brush.blend == 'ERASE_ALPHA':
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -2652,7 +2563,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         elif obj.mode == 'VERTEX_PAINT' and is_greater_than_280(): 
             brush = context.tool_settings.vertex_paint.brush
-            if mask_vcol and brush.blend == 'ERASE_ALPHA':
+            if mask_vcol and mask.source_input == 'RGB' and brush.blend == 'ERASE_ALPHA':
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -2661,7 +2572,7 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
 
         elif obj.mode == 'SCULPT' and is_greater_than_320(): 
             brush = context.tool_settings.sculpt.brush
-            if mask_vcol and brush.blend == 'ERASE_ALPHA':
+            if mask_vcol and mask.source_input == 'RGB' and brush.blend == 'ERASE_ALPHA':
                 bbox = col.box()
                 row = bbox.row(align=True)
                 row.alert = True
@@ -2669,13 +2580,13 @@ def draw_layers_ui(context, layout, node): #, custom_icon_enable):
                 row.alert = False
 
         # Source
-        draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh) #, custom_icon_enable)
+        draw_layer_source(context, col, layer, layer_tree, source, image, vcol, is_a_mesh)
 
         # Channels
-        draw_layer_channels(context, col, layer, layer_tree, image) #, custom_icon_enable)
+        draw_layer_channels(context, col, layer, layer_tree, image)
 
         # Masks
-        draw_layer_masks(context, col, layer) #, custom_icon_enable)
+        draw_layer_masks(context, col, layer)
 
 def main_draw(self, context):
 
@@ -2694,10 +2605,6 @@ def main_draw(self, context):
 
     # Update ui props first
     update_yp_ui()
-
-    #if hasattr(lib, 'custom_icons'):
-    #    custom_icon_enable = True
-    #else: custom_icon_enable = False
 
     node = get_active_ypaint_node()
     ypui = wm.ypui
@@ -2789,20 +2696,6 @@ def main_draw(self, context):
 
         box.template_ID(obj, "active_material", new="material.new")
 
-        #split = box.split(factor=0.65)
-
-        #if obj:
-        #    split.template_ID(obj, "active_material", new="material.new")
-        #    row = split.row()
-
-        #    if slot:
-        #        row.prop(slot, "link", text="")
-        #    else:
-        #        row.label()
-        #elif mat:
-        #    split.template_ID(space, "pin_id")
-        #    split.separator()
-
     if not node:
         layout.label(text="No active " + get_addon_title() + " node!", icon='ERROR')
         layout.operator("node.y_quick_ypaint_node_setup", icon_value=lib.get_icon('nodetree'))
@@ -2837,7 +2730,7 @@ def main_draw(self, context):
     row.label(text='Channels')
 
     if ypui.show_channels:
-        draw_root_channels_ui(context, layout, node) #, custom_icon_enable)
+        draw_root_channels_ui(context, layout, node)
 
     icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -2857,7 +2750,7 @@ def main_draw(self, context):
         row.prop(yp, 'enable_baked_outside', toggle=True, text='', icon='NODETREE')
 
     if ypui.show_layers :
-        draw_layers_ui(context, layout, node) #, custom_icon_enable)
+        draw_layers_ui(context, layout, node)
 
     # Stats
     icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'

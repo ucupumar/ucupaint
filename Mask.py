@@ -12,7 +12,7 @@ from .input_outputs import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
-def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1)):
+def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1), source_input='RGB'):
     yp = layer.id_data.yp
     yp.halt_update = True
 
@@ -23,6 +23,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     mask.name = name
     mask.type = mask_type
     mask.texcoord_type = texcoord_type
+    mask.source_input = source_input
 
     if segment:
         mask.segment_name = segment.name
@@ -367,9 +368,7 @@ class YNewLayerMask(bpy.types.Operator):
         obj = context.object
         yp = self.layer.id_data.yp
 
-        if is_greater_than_280():
-            row = self.layout.split(factor=0.4)
-        else: row = self.layout.split(percentage=0.4)
+        row = split_layout(self.layout, 0.4)
 
         col = row.column(align=False)
         col.label(text='Name:')
@@ -622,6 +621,13 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         items = mask_blend_type_items,
         default = 'MULTIPLY')
 
+    source_input : EnumProperty(
+            name = 'Source Input',
+            description = 'Source data for mask input',
+            items = (('RGB', 'Color', ''),
+                ('Alpha', 'Alpha', '')),
+            default = 'RGB')
+
     def generate_paths(self):
         return (fn.name for fn in self.files), self.directory
 
@@ -652,6 +658,9 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         if len(self.layer.masks) == 0:
             self.blend_type = 'MULTIPLY'
 
+        # Default source input is always color for now
+        self.source_input = 'RGB'
+
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -668,6 +677,8 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         if len(self.layer.masks) > 0:
             col.label(text='Blend:')
 
+        col.label(text='Image Channel:')
+
         col = row.column()
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
@@ -677,6 +688,9 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
         if len(self.layer.masks) > 0:
             col.prop(self, 'blend_type', text='')
+
+        crow = col.row(align=True)
+        crow.prop(self, 'source_input', expand=True)
 
         self.layout.prop(self, 'relative')
 
@@ -702,7 +716,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 image.colorspace_settings.name = 'Non-Color'
 
             # Add new mask
-            mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, blend_type=self.blend_type)
+            mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, blend_type=self.blend_type, source_input=self.source_input)
 
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
@@ -733,6 +747,13 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             name = 'Texture Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
+
+    source_input : EnumProperty(
+            name = 'Source Input',
+            description = 'Source data for mask input',
+            items = (('RGB', 'Color', ''),
+                ('Alpha', 'Alpha', '')),
+            default = 'RGB')
 
     uv_map : StringProperty(default='')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
@@ -789,6 +810,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if len(self.layer.masks) == 0:
             self.blend_type = 'MULTIPLY'
 
+        # Default source input is always color for now
+        self.source_input = 'RGB'
+
         return context.window_manager.invoke_props_dialog(self)
 
     def check(self, context):
@@ -807,8 +831,14 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         col = row.column()
         if self.type == 'IMAGE':
             col.label(text='Vector:')
-            if len(self.layer.masks) > 0:
-                col.label(text='Blend:')
+
+        if len(self.layer.masks) > 0:
+            col.label(text='Blend:')
+
+        if self.type == 'IMAGE':
+            col.label(text='Image Channel:')
+        elif self.type == 'VCOL':
+            col.label(text='Vertex Color Data:')
 
         col = row.column()
 
@@ -821,6 +851,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         if len(self.layer.masks) > 0:
             col.prop(self, 'blend_type', text='')
+
+        crow = col.row(align=True)
+        crow.prop(self, 'source_input', expand=True)
 
     def execute(self, context):
         if not hasattr(self, 'layer'): return {'CANCELLED'}
@@ -864,7 +897,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                         except: pass
 
         # Add new mask
-        mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, blend_type=self.blend_type)
+        mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, blend_type=self.blend_type, source_input=self.source_input)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'}:
@@ -1369,6 +1402,16 @@ def update_mask_color_id(self, context):
     col = (mask.color_id[0], mask.color_id[1], mask.color_id[2], 1.0)
     if source: source.inputs[0].default_value = col
 
+def update_mask_source_input(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+
+    # Reconnect nodes
+    reconnect_layer_nodes(layer)
+
 class YLayerMaskChannel(bpy.types.PropertyGroup):
     enable : BoolProperty(default=True, update=update_layer_mask_channel_enable)
 
@@ -1415,6 +1458,12 @@ class YLayerMask(bpy.types.PropertyGroup):
             description='Active mask for editing or preview', 
             default=False,
             update=update_mask_active_edit)
+
+    source_input : EnumProperty(
+            name = 'Mask Source Input',
+            description = 'Source input for mask',
+            items = entity_input_items,
+            update = update_mask_source_input)
 
     #active_vcol_edit : BoolProperty(
     #        name='Active vertex color for editing', 
