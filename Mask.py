@@ -794,12 +794,25 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                     self.uv_map_coll.add().name = uv.name
 
         if self.type == 'IMAGE':
+
+            layer_image = None
+            if self.layer.type == 'IMAGE':
+                source = get_layer_source(self.layer)
+                layer_image = source.image
+
+            mask_images = []
+            for mask in self.layer.masks:
+                if mask.type == 'IMAGE':
+                    source = get_mask_source(mask)
+                    if source.image:
+                        mask_images.append(source.image)
+
             # Update image names
             self.image_coll.clear()
             imgs = bpy.data.images
             baked_channel_images = get_all_baked_channel_images(self.layer.id_data)
             for img in imgs:
-                if not img.yia.is_image_atlas and img not in baked_channel_images:
+                if not img.yia.is_image_atlas and img not in baked_channel_images and img != layer_image and img not in mask_images and img.name not in {'Render Result', 'Viewer Node'}:
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
@@ -877,7 +890,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             image = bpy.data.images.get(self.image_name)
             name = image.name
-            if image.colorspace_settings.name != 'Non-Color' and not image.is_dirty:
+
+            if self.source_input == 'RGB' and image.colorspace_settings.name != 'Non-Color' and not image.is_dirty:
                 image.colorspace_settings.name = 'Non-Color'
         elif self.type == 'VCOL':
             vcols = get_vertex_colors(obj)

@@ -1980,7 +1980,7 @@ class YOpenAvailableDataToOverride1Channel(bpy.types.Operator):
         imgs = bpy.data.images
         baked_channel_images = get_all_baked_channel_images(node.node_tree)
         for img in imgs:
-            if not img.yia.is_image_atlas and img not in baked_channel_images:
+            if not img.yia.is_image_atlas and img not in baked_channel_images and img.name not in {'Render Result', 'Viewer Node'}:
                 self.image_coll.add().name = img.name
 
         return context.window_manager.invoke_props_dialog(self)
@@ -2104,7 +2104,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
             imgs = bpy.data.images
             baked_channel_images = get_all_baked_channel_images(node.node_tree)
             for img in imgs:
-                if not img.yia.is_image_atlas and img not in baked_channel_images:
+                if not img.yia.is_image_atlas and img not in baked_channel_images and img.name not in {'Render Result', 'Viewer Node'}:
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
@@ -2328,7 +2328,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             imgs = bpy.data.images
             baked_channel_images = get_all_baked_channel_images(node.node_tree)
             for img in imgs:
-                if not img.yia.is_image_atlas and img not in baked_channel_images:
+                if not img.yia.is_image_atlas and img not in baked_channel_images and img.name not in {'Render Result', 'Viewer Node'}:
                     self.image_coll.add().name = img.name
         elif self.type == 'VCOL':
             self.vcol_coll.clear()
