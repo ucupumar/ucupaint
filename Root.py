@@ -2038,8 +2038,8 @@ def update_channel_name(self, context):
         rearrange_layer_frame_nodes(layer, tree)
     
     rearrange_yp_frame_nodes(yp)
-    rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)
+    rearrange_yp_nodes(group_tree)
 
     print('INFO: Channel renamed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
@@ -2536,8 +2536,8 @@ def update_channel_colorspace(self, context):
     check_start_end_linear_nodes(group_tree, self)
 
     if not yp.halt_reconnect:
-        rearrange_yp_nodes(group_tree)
         reconnect_yp_nodes(group_tree)
+        rearrange_yp_nodes(group_tree)
 
 def update_enable_smooth_bump(self, context):
     yp = self.id_data.yp
@@ -2873,14 +2873,14 @@ def update_channel_use_clamp(self, context):
     group_tree = self.id_data
     check_start_end_linear_nodes(group_tree, self)
 
-    rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)
+    rearrange_yp_nodes(group_tree)
 
 def update_channel_disable_global_baked(self, context):
     group_tree = self.id_data
 
-    rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)
+    rearrange_yp_nodes(group_tree)
 
 def update_backface_mode(self, context):
     yp = self.id_data.yp

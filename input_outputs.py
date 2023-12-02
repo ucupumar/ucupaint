@@ -241,8 +241,8 @@ def check_all_channel_ios(yp, reconnect=True):
             reconnect_layer_nodes(layer)
 
         # Rearrange nodes
-        rearrange_yp_nodes(group_tree)
         reconnect_yp_nodes(group_tree)
+        rearrange_yp_nodes(group_tree)
 
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #, check_uvs=False): #, has_parent=False):
 

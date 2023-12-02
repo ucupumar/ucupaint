@@ -899,7 +899,46 @@ def reconnect_depth_layer_nodes(group_tree, parallax_ch, parallax):
 
                 break
 
-#def reconnect_yp_nodes(tree, ch_idx=-1):
+''' Get essential node and if not found, create one '''
+def get_essential_node(tree, name):
+    node = tree.nodes.get(name)
+    if not node:
+        if name == ONE_VALUE:
+            node = tree.nodes.new('ShaderNodeValue')
+            node.name = ONE_VALUE
+            node.label = 'One Value'
+            node.outputs[0].default_value = 1.0
+
+        elif name == ZERO_VALUE:
+            node = tree.nodes.new('ShaderNodeValue')
+            node.name = ZERO_VALUE
+            node.label = 'Zero Value'
+            node.outputs[0].default_value = 0.0
+
+        elif name == GEOMETRY:
+            node = tree.nodes.new('ShaderNodeNewGeometry')
+            node.name = GEOMETRY
+
+        elif name == TEXCOORD:
+            node = tree.nodes.new('ShaderNodeTexCoord')
+            node.name = TEXCOORD
+
+    return node.outputs
+
+''' Check for all essential nodes and delete them if no links found '''
+def clean_essential_nodes(tree, exclude_texcoord=False):
+    for name in [ONE_VALUE, ZERO_VALUE, GEOMETRY, TEXCOORD]:
+        if exclude_texcoord and name == TEXCOORD: continue
+        node = tree.nodes.get(name)
+        if node:
+            link_found = False
+            for outp in node.outputs:
+                if len(outp.links) > 0:
+                    link_found = True
+                    break
+            if not link_found:
+                tree.nodes.remove(node)
+
 def reconnect_yp_nodes(tree, merged_layer_ids = []):
     yp = tree.yp
     nodes = tree.nodes
@@ -911,12 +950,12 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
     texcoord = nodes.get(TEXCOORD)
     parallax = tree.nodes.get(PARALLAX)
-    geometry = tree.nodes.get(GEOMETRY)
+    #geometry = tree.nodes.get(GEOMETRY)
 
-    one_value = nodes.get(ONE_VALUE)
-    if one_value: one_value = one_value.outputs[0]
-    zero_value = nodes.get(ZERO_VALUE)
-    if zero_value: zero_value = zero_value.outputs[0]
+    #one_value = nodes.get(ONE_VALUE)
+    #if one_value: one_value = one_value.outputs[0]
+    #zero_value = nodes.get(ZERO_VALUE)
+    #if zero_value: zero_value = zero_value.outputs[0]
 
     # Parallax
     parallax_ch = get_root_parallax_channel(yp)
@@ -1001,7 +1040,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
     for tc in texcoord_lists:
         parallax_prep = tree.nodes.get(tc + PARALLAX_PREP_SUFFIX)
         if parallax_prep:
-            create_link(tree, texcoord.outputs[tc], parallax_prep.inputs[0])
+            #create_link(tree, texcoord.outputs[tc], parallax_prep.inputs[0])
+            create_link(tree, get_essential_node(tree, TEXCOORD)[tc], parallax_prep.inputs[0])
             if tangent and bitangent:
                 create_link(tree, tangent, parallax_prep.inputs['Tangent'])
                 create_link(tree, bitangent, parallax_prep.inputs['Bitangent'])
@@ -1047,7 +1087,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         #if ch.enable_alpha and ch.type == 'RGB':
         if ch.enable_alpha:
             alpha = start.outputs[io_alpha_name]
-        else: alpha = one_value
+        else: 
+            #alpha = one_value
+            alpha = get_essential_node(tree, ONE_VALUE)[0]
 
         if ch.type == 'NORMAL':
             if ch.enable_smooth_bump:
@@ -1097,12 +1139,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
                     if col_preview:
                         #create_link(tree, rgb, col_preview)
-                        if not layer.enable and zero_value:
-                            create_link(tree, zero_value, col_preview)
+                        if not layer.enable: # and zero_value:
+                            #create_link(tree, zero_value, col_preview)
+                            create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], col_preview)
                         else: create_link(tree, node.outputs[LAYER_VIEWER], col_preview)
                     if alpha_preview:
-                        if not layer.enable and zero_value:
-                            create_link(tree, zero_value, alpha_preview)
+                        if not layer.enable: #and zero_value:
+                            create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], alpha_preview)
                         else: create_link(tree, node.outputs[LAYER_ALPHA_VIEWER], alpha_preview)
                 else:
                     continue
@@ -1175,7 +1218,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 if inp: 
                     if parallax_ch and parallax:
                         create_link(tree, parallax.outputs[TEXCOORD_IO_PREFIX + tc], inp)
-                    else: create_link(tree, texcoord.outputs[tc], inp)
+                    else: 
+                        #create_link(tree, texcoord.outputs[tc], inp)
+                        create_link(tree, get_essential_node(tree, TEXCOORD)[tc], inp)
 
             # Background layer
             if layer.type == 'BACKGROUND':
@@ -1287,7 +1332,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         if end_backface:
             alpha = create_link(tree, alpha, end_backface.inputs[0])[0]
-            create_link(tree, geometry.outputs['Backfacing'], end_backface.inputs[1])
+            #create_link(tree, geometry.outputs['Backfacing'], end_backface.inputs[1])
+            create_link(tree, get_essential_node(tree, GEOMETRY)['Backfacing'], end_backface.inputs[1])
 
         #print(rgb)
         create_link(tree, rgb, end.inputs[io_name])
@@ -1358,6 +1404,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                         create_link(tree, outp, upper_node.inputs[io_name])
 
                 break
+
+    # Clean unused essential nodes
+    clean_essential_nodes(tree)
 
 def reconnect_channel_source_internal_nodes(ch, ch_source_tree):
 

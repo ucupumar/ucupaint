@@ -2532,8 +2532,8 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
         reconnect_layer_nodes(layer)
 
         # Refresh layer channel blend nodes
-        rearrange_yp_nodes(node.node_tree)
         reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
 
         # Update UI
         wm.ypui.need_update = True
@@ -3111,8 +3111,8 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
         reconnect_layer_nodes(lay)
 
     if layer.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
-        rearrange_yp_nodes(layer.id_data)
         reconnect_yp_nodes(layer.id_data)
+        rearrange_yp_nodes(layer.id_data)
 
 def replace_mask_type(mask, new_type, item_name='', remove_data=False):
 
@@ -3265,8 +3265,8 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
     #reconnect_layer_nodes(layer)
 
     #if mask.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
-    rearrange_yp_nodes(mask.id_data)
     reconnect_yp_nodes(mask.id_data)
+    rearrange_yp_nodes(mask.id_data)
 
 class YReplaceLayerChannelOverride(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_channel_override"
@@ -3742,8 +3742,8 @@ class YDuplicateLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Rearrange and reconnect
-        rearrange_yp_nodes(tree)
         reconnect_yp_nodes(tree)
+        rearrange_yp_nodes(tree)
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
@@ -3936,8 +3936,8 @@ class YPasteLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Rearrange and reconnect
-        rearrange_yp_nodes(tree)
         reconnect_yp_nodes(tree)
+        rearrange_yp_nodes(tree)
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
@@ -4048,8 +4048,8 @@ def update_channel_enable(self, context):
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
-        rearrange_yp_nodes(self.id_data)
         reconnect_yp_nodes(self.id_data)
+        rearrange_yp_nodes(self.id_data)
 
     # Disable active edit on overrides
     if not ch.enable:
@@ -4232,8 +4232,8 @@ def update_uv_name(self, context):
 
     # Update layer tree inputs
     #if yp_dirty:
-    rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)
+    rearrange_yp_nodes(group_tree)
 
 def update_texcoord_type(self, context):
     yp = self.id_data.yp
@@ -4268,8 +4268,8 @@ def update_texcoord_type(self, context):
 
     # Update layer tree inputs
     #if yp_dirty:
-    rearrange_yp_nodes(self.id_data)
     reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_hemi_space(self, context):
     if self.type != 'HEMI': return
@@ -4408,8 +4408,8 @@ def update_layer_enable(self, context):
         yp.layer_preview_mode = yp.layer_preview_mode
     else:
         #if yp.disable_quick_toggle:
-        rearrange_yp_nodes(layer.id_data)
         reconnect_yp_nodes(layer.id_data)
+        rearrange_yp_nodes(layer.id_data)
 
     context.window_manager.yptimer.time = str(time.time())
 
