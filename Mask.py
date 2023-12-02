@@ -744,7 +744,7 @@ def update_available_data_name_as_mask(self, context):
                     self.source_input = 'ALPHA'
                     return
 
-    elif self.type == 'VCOL':
+    elif self.type == 'VCOL' and is_greater_than_292():
         for layer in yp.layers:
             if layer.type == 'VCOL':
                 source = get_layer_source(layer)
