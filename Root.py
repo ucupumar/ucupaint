@@ -58,38 +58,44 @@ def set_input_default_value(group_node, channel, custom_value=None):
         #group_node.inputs[channel.io_index+1].default_value = 1.0
         group_node.inputs[channel.name + io_suffix['ALPHA']].default_value = 1.0
 
+def check_start_end_linear_nodes(group_tree, channel):
+
+    if channel.type in {'RGB', 'VALUE'}:
+
+        # Create start linear
+        if channel.colorspace != 'LINEAR':
+            if channel.type == 'RGB':
+                start_linear, dirty = check_new_node(group_tree, channel, 'start_linear', 'ShaderNodeGamma', 'Start Linear', return_dirty=True)
+            else: 
+                start_linear, dirty = check_new_node(group_tree, channel, 'start_linear', 'ShaderNodeMath', 'Start Linear', return_dirty=True)
+                start_linear.operation = 'POWER' if channel.colorspace != 'LINEAR' else 'MULTIPLY' # Multiply is probably faster if channel is linear
+            start_linear.inputs[1].default_value = 1.0/GAMMA if channel.colorspace != 'LINEAR' else 1.0
+        else:
+            dirty = remove_node(group_tree, channel, 'start_linear')
+
+        # Create end linear
+        if channel.colorspace != 'LINEAR' or channel.use_clamp:
+            if channel.type == 'RGB':
+                end_linear, dirty = check_new_node(group_tree, channel, 'end_linear', 'ShaderNodeGamma', 'End Linear', return_dirty=True)
+            else: 
+                end_linear, dirty = check_new_node(group_tree, channel, 'end_linear', 'ShaderNodeMath', 'End Linear & Clamp', return_dirty=True)
+                end_linear.operation = 'POWER' if channel.colorspace != 'LINEAR' else 'MULTIPLY' # Multiply is probably faster if channel is linear
+            end_linear.inputs[1].default_value = GAMMA if channel.colorspace != 'LINEAR' else 1.0
+
+            check_channel_clamp(group_tree, channel)
+        else:
+            dirty = remove_node(group_tree, channel, 'end_linear')
+
 def create_yp_channel_nodes(group_tree, channel, channel_idx):
     yp = group_tree.yp
     nodes = group_tree.nodes
 
-    # Create linarize node and converter node
-    if channel.type in {'RGB', 'VALUE'}:
-        if channel.type == 'RGB':
-            start_linear = new_node(group_tree, channel, 'start_linear', 'ShaderNodeGamma', 'Start Linear')
-        else: 
-            start_linear = new_node(group_tree, channel, 'start_linear', 'ShaderNodeMath', 'Start Linear')
-            start_linear.operation = 'POWER'
-        start_linear.inputs[1].default_value = 1.0/GAMMA
-
-        if channel.type == 'RGB':
-            end_linear = new_node(group_tree, channel, 'end_linear', 'ShaderNodeGamma', 'End Linear')
-        else: 
-            end_linear = new_node(group_tree, channel, 'end_linear', 'ShaderNodeMath', 'End Linear')
-            end_linear.operation = 'POWER'
-        end_linear.inputs[1].default_value = GAMMA
-
-        check_channel_clamp(group_tree, channel)
+    # Create start and end linear nodes
+    check_start_end_linear_nodes(group_tree, channel)
 
     if channel.type == 'NORMAL':
         start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
         start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
-
-        # Set main uv
-        #obj = bpy.context.object
-        #uv_layers = get_uv_layers(obj)
-        #if len(uv_layers) > 0:
-        #    channel.main_uv = uv_layers[0].name
-        #    check_uvmap_on_other_objects_with_same_mat(obj.active_material, channel.main_uv)
 
     # Link between layers
     for t in yp.layers:
@@ -2399,19 +2405,10 @@ def update_layer_index(self, context):
     update_image_editor_image(context, image)
 
 def update_channel_colorspace(self, context):
+
     group_tree = self.id_data
     yp = group_tree.yp
     nodes = group_tree.nodes
-
-    start_linear = nodes.get(self.start_linear)
-    end_linear = nodes.get(self.end_linear)
-
-    #start_linear.mute = end_linear.mute = self.colorspace == 'LINEAR'
-    if self.colorspace == 'LINEAR':
-        start_linear.inputs[1].default_value = end_linear.inputs[1].default_value = 1.0
-    else: 
-        start_linear.inputs[1].default_value = 1.0/GAMMA
-        end_linear.inputs[1].default_value = GAMMA
 
     # Check for modifier that aware of colorspace
     channel_index = -1
@@ -2535,6 +2532,12 @@ def update_channel_colorspace(self, context):
                     if self.colorspace == 'SRGB':
                         color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
                     else: color_ramp_linear.inputs[1].default_value = 1.0
+
+    check_start_end_linear_nodes(group_tree, self)
+
+    if not yp.halt_reconnect:
+        rearrange_yp_nodes(group_tree)
+        reconnect_yp_nodes(group_tree)
 
 def update_enable_smooth_bump(self, context):
     yp = self.id_data.yp
@@ -2868,7 +2871,7 @@ def update_channel_use_clamp(self, context):
     if self.type == 'NORMAL': return
 
     group_tree = self.id_data
-    check_channel_clamp(group_tree, self)
+    check_start_end_linear_nodes(group_tree, self)
 
     rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)

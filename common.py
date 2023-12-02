@@ -1174,12 +1174,15 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
     if not tree: return
     #if prop not in entity: return
 
+    dirty = False
 
     scene = bpy.context.scene
     node = tree.nodes.get(getattr(entity, prop))
     #node = tree.nodes.get(entity[prop])
 
     if node: 
+
+        dirty = True
 
         if parent and node.parent != parent:
             setattr(entity, prop, '')
@@ -1231,6 +1234,8 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
 
     setattr(entity, prop, '')
     #entity[prop] = ''
+
+    return dirty
 
 def create_essential_nodes(tree, solid_value=False, texcoord=False, geometry=False):
 
