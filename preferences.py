@@ -145,6 +145,10 @@ def auto_save_images(scene):
             elif ypup.auto_save == 'FORCE_ALL':
                 image_ops.save_pack_all(tree.yp, only_dirty=False)
 
+        # Update version
+        tree.yp.version = get_current_version_str()
+        tree.yp.is_unstable = get_alpha_suffix() != ''
+
 # HACK: For some reason active float image will glitch after auto save
 # This hack will fix that
 @persistent
