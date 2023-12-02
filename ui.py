@@ -3030,7 +3030,6 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 row.label(text='', icon='BLANK1')
 
         # Image icon
-        #if len(all_masks) == 0 and len(all_overrides) == 0:
         if len(selectable_masks) == 0 and len(selectable_overrides) == 0:
             row = master.row(align=True)
             row.active = is_hidden
@@ -3040,20 +3039,15 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
             elif image: 
                 if image.preview and ypup.use_image_preview: row.prop(image, 'name', text='', emboss=False, icon_value=image.preview.icon_id)
                 else: row.prop(image, 'name', text='', emboss=False, icon_value=lib.get_icon('image'))
-            #elif vcol: row.prop(vcol, 'name', text='', emboss=False, icon='GROUP_VCOL')
             elif layer.type == 'VCOL': 
-                #row.prop(layer, 'name', text='', emboss=False, icon='GROUP_VCOL')
                 row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
             elif layer.type == 'HEMI': 
                 row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('hemi'))
             elif layer.type == 'COLOR': 
                 row.prop(layer, 'name', text='', emboss=False, icon='COLOR')
-                #icon_value = lib.custom_icons["color"].icon_id
-                #row.prop(layer, 'name', text='', emboss=False, icon_value=icon_value)
             elif layer.type == 'BACKGROUND': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('background'))
             elif layer.type == 'GROUP': row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('group'))
             else: 
-                #row.prop(layer, 'name', text='', emboss=False, icon='TEXTURE')
                 row.prop(layer, 'name', text='', emboss=False, icon_value=lib.get_icon('texture'))
         else:
             if active_override:
@@ -3064,9 +3058,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 if image: 
                     if image.preview and ypup.use_image_preview: row.prop(active_override, ae_prop, text='', emboss=False, icon_value=image.preview.icon_id)
                     else: row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('image'))
-                #elif vcol: 
                 elif layer.type == 'VCOL': 
-                    #row.prop(active_override, ae_prop, text='', emboss=False, icon='GROUP_VCOL')
                     row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 elif layer.type == 'COLOR': 
                     row.prop(active_override, ae_prop, text='', emboss=False, icon='COLOR')
@@ -3077,15 +3069,12 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 elif layer.type == 'GROUP': 
                     row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('group'))
                 else: 
-                    #row.prop(active_override, ae_prop, text='', emboss=False, icon='TEXTURE')
                     row.prop(active_override, ae_prop, text='', emboss=False, icon_value=lib.get_icon('texture'))
             else:
                 if image: 
                     if image.preview and ypup.use_image_preview: row.label(text='', icon_value=image.preview.icon_id)
                     else: row.label(text='', icon_value=lib.get_icon('image'))
-                #elif vcol: 
                 elif layer.type == 'VCOL': 
-                    #row.label(text='', icon='GROUP_VCOL')
                     row.label(text='', icon_value=lib.get_icon('vertex_color'))
                 elif layer.type == 'COLOR': 
                     row.label(text='', icon='COLOR')
@@ -3096,7 +3085,6 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 elif layer.type == 'GROUP': 
                     row.label(text='', icon_value=lib.get_icon('group'))
                 else: 
-                    #row.label(text='', icon='TEXTURE')
                     row.label(text='', icon_value=lib.get_icon('texture'))
 
         # Override icons
@@ -3108,7 +3096,6 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 row = master.row(align=True)
                 row.active = c.active_edit
                 if c.active_edit:
-                    #src = layer_tree.nodes.get(c.source)
                     src = get_channel_source(c, layer)
                     override_ch = c
                     if src and c.override_type == 'IMAGE':
@@ -3117,13 +3104,11 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                         else: row.label(text='', icon_value=lib.get_icon('image'))
                     elif c.override_type == 'VCOL':
                         #active_override_vcol = c
-                        #row.label(text='', icon='GROUP_VCOL')
                         row.label(text='', icon_value=lib.get_icon('vertex_color'))
                     else:
                         row.label(text='', icon_value=lib.get_icon('texture'))
                 else:
                     if c.override_type == 'IMAGE':
-                        #src = layer_tree.nodes.get(c.source)
                         src = get_channel_source(c, layer)
                         if src: 
                             if src.image.preview and ypup.use_image_preview: row.prop(c, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
@@ -3164,10 +3149,15 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 if m.type == 'IMAGE':
                     active_mask_image = src.image
                     if src.image.preview and ypup.use_image_preview: row.label(text='', icon_value=src.image.preview.icon_id)
-                    else: row.label(text='', icon_value=lib.get_icon('image'))
+                    else: 
+                        if m.source_input == 'ALPHA':
+                            row.label(text='', icon_value=lib.get_icon('image_alpha'))
+                        else: row.label(text='', icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
                     active_vcol_mask = m
-                    row.label(text='', icon_value=lib.get_icon('vertex_color'))
+                    if m.source_input == 'ALPHA':
+                        row.label(text='', icon_value=lib.get_icon('vertex_color_alpha'))
+                    else: row.label(text='', icon_value=lib.get_icon('vertex_color'))
                 elif m.type == 'HEMI':
                     row.label(text='', icon_value=lib.get_icon('hemi'))
                 elif m.type == 'OBJECT_INDEX':
@@ -3180,10 +3170,14 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                 if m.type == 'IMAGE':
                     src = mask_tree.nodes.get(m.source)
                     if src.image.preview and ypup.use_image_preview: row.prop(m, 'active_edit', text='', emboss=False, icon_value=src.image.preview.icon_id)
-                    else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
+                    else: 
+                        if m.source_input == 'ALPHA':
+                            row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image_alpha'))
+                        else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('image'))
                 elif m.type == 'VCOL':
-                    #row.prop(m, 'active_edit', text='', emboss=False, icon='GROUP_VCOL')
-                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
+                    if m.source_input == 'ALPHA':
+                        row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color_alpha'))
+                    else: row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('vertex_color'))
                 elif m.type == 'HEMI':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
                 elif m.type == 'OBJECT_INDEX':

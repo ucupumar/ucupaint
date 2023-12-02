@@ -286,6 +286,7 @@ def load_custom_icons():
     custom_icons.load('uncollapsed_texture', filepath + 'uncollapsed_texture_icon.png', 'IMAGE')
 
     custom_icons.load('image', filepath + 'image_icon.png', 'IMAGE')
+    custom_icons.load('image_alpha', filepath + 'image_alpha_icon.png', 'IMAGE')
     custom_icons.load('collapsed_image', filepath + 'collapsed_image_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_image', filepath + 'uncollapsed_image_icon.png', 'IMAGE')
 
@@ -313,6 +314,7 @@ def load_custom_icons():
     custom_icons.load('clean', filepath + 'clean_icon.png', 'IMAGE')
 
     custom_icons.load('vertex_color', filepath + 'vertex_color_icon.png', 'IMAGE')
+    custom_icons.load('vertex_color_alpha', filepath + 'vertex_color_alpha_icon.png', 'IMAGE')
 
     custom_icons.load('bake', filepath + 'bake_icon.png', 'IMAGE')
     custom_icons.load('group', filepath + 'group_icon.png', 'IMAGE')
