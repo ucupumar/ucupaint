@@ -731,6 +731,29 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
         return {'FINISHED'}
 
+''' Check if data is used as layer, if so, source input will change to ALPHA '''
+def update_available_data_name_as_mask(self, context):
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
+
+    if self.type == 'IMAGE':
+        for layer in yp.layers:
+            if layer.type == 'IMAGE':
+                source = get_layer_source(layer)
+                if source.image and source.image.name == self.image_name:
+                    self.source_input = 'ALPHA'
+                    return
+
+    elif self.type == 'VCOL':
+        for layer in yp.layers:
+            if layer.type == 'VCOL':
+                source = get_layer_source(layer)
+                if source.attribute_name == self.vcol_name:
+                    self.source_input = 'ALPHA'
+                    return
+
+    self.source_input = 'RGB'
+
 class YOpenAvailableDataAsMask(bpy.types.Operator):
     bl_idname = "node.y_open_available_data_as_mask"
     bl_label = "Open available data as Layer Mask"
@@ -758,10 +781,10 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     uv_map : StringProperty(default='')
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    image_name : StringProperty(name="Image")
+    image_name : StringProperty(name="Image", update=update_available_data_name_as_mask)
     image_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
-    vcol_name : StringProperty(name="Vertex Color")
+    vcol_name : StringProperty(name="Vertex Color", update=update_available_data_name_as_mask)
     vcol_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     blend_type : EnumProperty(
@@ -781,6 +804,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
+
+        # Set the default source input first
+        self.source_input = 'RGB'
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(obj.data.uv_layers) > 0:
@@ -814,17 +840,38 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             for img in imgs:
                 if not img.yia.is_image_atlas and img not in baked_channel_images and img != layer_image and img not in mask_images and img.name not in {'Render Result', 'Viewer Node'}:
                     self.image_coll.add().name = img.name
+
+            # Make sure default image is available on the collection and update the source input based on the default name
+            if self.image_name not in self.image_coll:
+                self.image_name = ''
+            else: self.image_name = self.image_name
+
         elif self.type == 'VCOL':
+
+            layer_vcol_name = None
+            if self.layer.type == 'VCOL':
+                source = get_layer_source(self.layer)
+                layer_vcol_name = source.attribute_name
+
+            mask_vcol_names = []
+            for mask in self.layer.masks:
+                if mask.type == 'VCOL':
+                    source = get_mask_source(mask)
+                    mask_vcol_names.append(source.attribute_name)
+
             self.vcol_coll.clear()
             for vcol in get_vertex_colors(obj):
-                self.vcol_coll.add().name = vcol.name
+                if vcol.name != layer_vcol_name and vcol.name not in mask_vcol_names:
+                    self.vcol_coll.add().name = vcol.name
+
+            # Make sure default vcol is available on the collection and update the source input based on the default name
+            if self.vcol_name not in self.vcol_coll:
+                self.vcol_name = ''
+            else: self.vcol_name = self.vcol_name
 
         # The default blend type for mask is multiply
         if len(self.layer.masks) == 0:
             self.blend_type = 'MULTIPLY'
-
-        # Default source input is always color for now
-        self.source_input = 'RGB'
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -915,7 +962,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, blend_type=self.blend_type, source_input=self.source_input)
 
         # Enable edit mask
-        if self.type in {'IMAGE', 'VCOL'}:
+        if self.type in {'IMAGE', 'VCOL'} and self.source_input == 'RGB':
             mask.active_edit = True
 
         rearrange_layer_nodes(layer)
