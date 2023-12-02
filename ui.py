@@ -1890,9 +1890,13 @@ def draw_layer_masks(context, layout, layer):
 
         if mask.enable:
             if mask.type == 'IMAGE':
-                row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
+                if mask.source_input == 'ALPHA':
+                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image_alpha'))
+                else: row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('image'))
             elif mask.type == 'VCOL':
-                row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
+                if mask.source_input == 'ALPHA':
+                    row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color_alpha'))
+                else: row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('vertex_color'))
             elif mask.type == 'HEMI':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('hemi'))
             elif mask.type == 'OBJECT_INDEX':
