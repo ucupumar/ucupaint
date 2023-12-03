@@ -113,6 +113,76 @@ def create_output(tree, name, socket_type, valid_outputs, index, dirty=False, de
 
     return dirty
 
+def check_start_end_root_ch_nodes(group_tree, channel):
+
+    if channel.type in {'RGB', 'VALUE'}:
+
+        # Create start linear
+        if channel.colorspace != 'LINEAR':
+            if channel.type == 'RGB':
+                start_linear = check_new_node(group_tree, channel, 'start_linear', 'ShaderNodeGamma', 'Start Linear')
+            else: 
+                start_linear = check_new_node(group_tree, channel, 'start_linear', 'ShaderNodeMath', 'Start Linear')
+                start_linear.operation = 'POWER' if channel.colorspace != 'LINEAR' else 'MULTIPLY' # Multiply is probably faster if channel is linear
+            start_linear.inputs[1].default_value = 1.0/GAMMA if channel.colorspace != 'LINEAR' else 1.0
+        else:
+            remove_node(group_tree, channel, 'start_linear')
+
+        # Create end linear
+        if channel.type == 'RGB':
+
+            if channel.colorspace != 'LINEAR':
+                end_linear = check_new_node(group_tree, channel, 'end_linear', 'ShaderNodeGamma', 'End Linear')
+                end_linear.inputs[1].default_value = GAMMA
+            else:
+                remove_node(group_tree, channel, 'end_linear')
+
+            if channel.use_clamp:
+                clamp = group_tree.nodes.get(channel.clamp)
+                if not clamp:
+                    clamp = new_mix_node(group_tree, channel, 'clamp', 'Clamp')
+                    clamp.inputs[0].default_value = 0.0
+                    set_mix_clamp(clamp, True)
+            else:
+                remove_node(group_tree, channel, 'clamp')
+
+        elif channel.type == 'VALUE':
+
+            if channel.colorspace != 'LINEAR' or channel.use_clamp:
+                end_linear = check_new_node(group_tree, channel, 'end_linear', 'ShaderNodeMath', 'End Linear & Clamp')
+                end_linear.operation = 'POWER' if channel.colorspace != 'LINEAR' else 'MULTIPLY' # Multiply is probably faster if channel is linear
+                end_linear.use_clamp = channel.use_clamp
+                end_linear.inputs[1].default_value = GAMMA if channel.colorspace != 'LINEAR' else 1.0
+            else:
+                remove_node(group_tree, channel, 'end_linear')
+
+    elif channel.type == 'NORMAL':
+
+        start_normal_filter = group_tree.nodes.get(channel.start_normal_filter)
+        if not start_normal_filter:
+            start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
+            start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
+
+        # Add end linear for converting displacement map to grayscale
+        if channel.enable_smooth_bump:
+            lib_name = lib.FINE_BUMP_PROCESS
+        else: lib_name = lib.BUMP_PROCESS
+
+        end_linear = replace_new_node(group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Bump Process',
+                lib_name, hard_replace=True)
+
+        max_height = get_displacement_max_height(channel)
+        if max_height != 0.0:
+            end_linear.inputs['Max Height'].default_value = max_height
+        else: end_linear.inputs['Max Height'].default_value = 1.0
+
+        if channel.enable_smooth_bump:
+            end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+
+        # Create a node to store max height
+        end_max_height = check_new_node(group_tree, channel, 'end_max_height', 'ShaderNodeValue', 'Max Height')
+        end_max_height.outputs[0].default_value = max_height
+
 def check_all_channel_ios(yp, reconnect=True):
     group_tree = yp.id_data
 
@@ -187,28 +257,8 @@ def check_all_channel_ios(yp, reconnect=True):
 
             output_index += 1
 
-            # Add end linear for converting displacement map to grayscale
-            if ch.enable_smooth_bump:
-                lib_name = lib.FINE_BUMP_PROCESS
-            else: lib_name = lib.BUMP_PROCESS
-
-            end_linear = replace_new_node(group_tree, ch, 'end_linear', 'ShaderNodeGroup', 'Bump Process',
-                    lib_name, hard_replace=True)
-
-            max_height = get_displacement_max_height(ch)
-            if max_height != 0.0:
-                end_linear.inputs['Max Height'].default_value = max_height
-            else: end_linear.inputs['Max Height'].default_value = 1.0
-
-            if ch.enable_smooth_bump:
-                end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
-
-            # Create a node to store max height
-            end_max_height = check_new_node(group_tree, ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
-            end_max_height.outputs[0].default_value = max_height
-
-        # Check clamps
-        check_channel_clamp(group_tree, ch)
+        # Check start and end nodes
+        check_start_end_root_ch_nodes(group_tree, ch)
 
     if yp.layer_preview_mode:
         create_output(group_tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index)

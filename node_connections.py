@@ -1285,9 +1285,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             else:
                 rgb = create_link(tree, rgb, end_linear.inputs[0])[0]
 
-                if clamp:
-                    mixcol0, mixcol1, mixout = get_mix_color_indices(clamp)
-                    rgb = create_link(tree, rgb, clamp.inputs[mixcol0])[mixout]
+        if clamp:
+            mixcol0, mixcol1, mixout = get_mix_color_indices(clamp)
+            rgb = create_link(tree, rgb, clamp.inputs[mixcol0])[mixout]
 
         if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked: # and baked_uv:
             baked = nodes.get(ch.baked)

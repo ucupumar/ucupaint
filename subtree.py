@@ -4,22 +4,6 @@ from .common import *
 from .node_arrangements import *
 from .node_connections import *
 
-def check_channel_clamp(tree, root_ch):
-    
-    if root_ch.type == 'RGB':
-        if root_ch.use_clamp:
-            clamp = tree.nodes.get(root_ch.clamp)
-            if not clamp:
-                clamp = new_mix_node(tree, root_ch, 'clamp')
-                clamp.inputs[0].default_value = 0.0
-                set_mix_clamp(clamp, True)
-        else:
-            remove_node(tree, root_ch, 'clamp')
-
-    elif root_ch.type == 'VALUE':
-        end_linear = tree.nodes.get(root_ch.end_linear)
-        if end_linear: end_linear.use_clamp = root_ch.use_clamp
-
 def check_layer_divider_alpha(layer, tree=None):
     if not tree: tree = get_source_tree(layer)
 

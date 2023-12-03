@@ -58,44 +58,9 @@ def set_input_default_value(group_node, channel, custom_value=None):
         #group_node.inputs[channel.io_index+1].default_value = 1.0
         group_node.inputs[channel.name + io_suffix['ALPHA']].default_value = 1.0
 
-def check_start_end_linear_nodes(group_tree, channel):
-
-    if channel.type in {'RGB', 'VALUE'}:
-
-        # Create start linear
-        if channel.colorspace != 'LINEAR':
-            if channel.type == 'RGB':
-                start_linear, dirty = check_new_node(group_tree, channel, 'start_linear', 'ShaderNodeGamma', 'Start Linear', return_dirty=True)
-            else: 
-                start_linear, dirty = check_new_node(group_tree, channel, 'start_linear', 'ShaderNodeMath', 'Start Linear', return_dirty=True)
-                start_linear.operation = 'POWER' if channel.colorspace != 'LINEAR' else 'MULTIPLY' # Multiply is probably faster if channel is linear
-            start_linear.inputs[1].default_value = 1.0/GAMMA if channel.colorspace != 'LINEAR' else 1.0
-        else:
-            dirty = remove_node(group_tree, channel, 'start_linear')
-
-        # Create end linear
-        if channel.colorspace != 'LINEAR' or channel.use_clamp:
-            if channel.type == 'RGB':
-                end_linear, dirty = check_new_node(group_tree, channel, 'end_linear', 'ShaderNodeGamma', 'End Linear', return_dirty=True)
-            else: 
-                end_linear, dirty = check_new_node(group_tree, channel, 'end_linear', 'ShaderNodeMath', 'End Linear & Clamp', return_dirty=True)
-                end_linear.operation = 'POWER' if channel.colorspace != 'LINEAR' else 'MULTIPLY' # Multiply is probably faster if channel is linear
-            end_linear.inputs[1].default_value = GAMMA if channel.colorspace != 'LINEAR' else 1.0
-
-            check_channel_clamp(group_tree, channel)
-        else:
-            dirty = remove_node(group_tree, channel, 'end_linear')
-
 def create_yp_channel_nodes(group_tree, channel, channel_idx):
     yp = group_tree.yp
     nodes = group_tree.nodes
-
-    # Create start and end linear nodes
-    check_start_end_linear_nodes(group_tree, channel)
-
-    if channel.type == 'NORMAL':
-        start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
-        start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
 
     # Link between layers
     for t in yp.layers:
@@ -2018,17 +1983,6 @@ def update_channel_name(self, context):
 
         get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['MAX_HEIGHT']
 
-
-    #check_all_channel_ios(yp)
-
-    # Fix normal input
-    #if self.type == 'NORMAL':
-    #    mat = get_active_material()
-    #    for node in mat.node_tree.nodes:
-    #        if node.type == 'GROUP' and node.node_tree == group_tree:
-    #            inp = node.inputs.get(self.name)
-    #            inp.default_value = (999, 999, 999)
-
     for layer in yp.layers:
         tree = get_tree(layer)
         Layer.check_all_layer_channel_io_and_nodes(layer, tree)
@@ -2533,7 +2487,7 @@ def update_channel_colorspace(self, context):
                         color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
                     else: color_ramp_linear.inputs[1].default_value = 1.0
 
-    check_start_end_linear_nodes(group_tree, self)
+    check_start_end_root_ch_nodes(group_tree, self)
 
     if not yp.halt_reconnect:
         reconnect_yp_nodes(group_tree)
@@ -2871,7 +2825,7 @@ def update_channel_use_clamp(self, context):
     if self.type == 'NORMAL': return
 
     group_tree = self.id_data
-    check_start_end_linear_nodes(group_tree, self)
+    check_start_end_root_ch_nodes(group_tree, self)
 
     reconnect_yp_nodes(group_tree)
     rearrange_yp_nodes(group_tree)
