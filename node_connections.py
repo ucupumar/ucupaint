@@ -1092,12 +1092,13 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             alpha = get_essential_node(tree, ONE_VALUE)[0]
 
         if ch.type == 'NORMAL':
+            height = start.outputs[io_height_name]
             if ch.enable_smooth_bump:
                 height_ons = start.outputs[io_height_name]
                 height_ew = start.outputs[io_height_name]
-                height = None
+                #height = None
             else:
-                height = start.outputs[io_height_name]
+                #height = start.outputs[io_height_name]
                 height_ons = None
                 height_ew = None
         else: 
@@ -1342,12 +1343,16 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             create_link(tree, alpha, end.inputs[io_alpha_name])
         if ch.type == 'NORMAL':
             create_link(tree, height, end.inputs[io_height_name])
-            if ch.name + io_suffix['MAX_HEIGHT'] in end.inputs and end_max_height:
+            if ch.name + io_suffix['MAX_HEIGHT'] in end.inputs:
+                max_height = height
+
+                if end_max_height:
+                    max_height = end_max_height.outputs[0]
+
                 if end_max_height_tweak:
-                    create_link(tree, end_max_height.outputs[0], end_max_height_tweak.inputs[0])
-                    create_link(tree, end_max_height_tweak.outputs[0], end.inputs[ch.name + io_suffix['MAX_HEIGHT']])
-                else:
-                    create_link(tree, end_max_height.outputs[0], end.inputs[ch.name + io_suffix['MAX_HEIGHT']])
+                    max_height = create_link(tree, max_height, end_max_height_tweak.inputs[0])[0]
+                
+                create_link(tree, max_height, end.inputs[ch.name + io_suffix['MAX_HEIGHT']])
 
     # Merge process doesn't care with parents
     if merged_layer_ids: return

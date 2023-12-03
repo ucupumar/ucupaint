@@ -3470,6 +3470,23 @@ def get_layer_channel_index(layer, ch):
         if c == ch:
             return i
 
+def any_layers_using_channel(root_ch, parent=None):
+    yp = root_ch.id_data.yp
+    channel_idx = get_channel_index(root_ch)
+
+    if parent:
+        layers, layer_ids = get_list_of_all_childs_and_child_ids(parent)
+    else: layers = yp.layers
+
+    for layer in yp.layers:
+        if not layer.enable: continue
+        for i, ch in enumerate(layer.channels):
+            if not ch.enable: continue
+            if i == channel_idx:
+                return True
+
+    return False
+
 def is_bump_distance_relevant(layer, ch):
     if layer.type in {'COLOR', 'BACKGROUND'} and ch.enable_transition_bump:
         return False

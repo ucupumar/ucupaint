@@ -1047,6 +1047,7 @@ class YNewLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Reconnect and rearrange nodes
+        check_start_end_root_ch_nodes(node.node_tree)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1626,6 +1627,7 @@ class BaseMultipleImagesLayer():
                     ch.override_type = 'IMAGE'
 
         ## Reconnect and rearrange nodes
+        check_start_end_root_ch_nodes(node.node_tree)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1945,6 +1947,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         node.node_tree.yp.halt_update = False
 
         # Reconnect and rearrange nodes
+        check_start_end_root_ch_nodes(node.node_tree)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -2428,6 +2431,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         node.node_tree.yp.halt_update = False
 
         # Reconnect and rearrange nodes
+        check_start_end_root_ch_nodes(node.node_tree)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -2959,6 +2963,7 @@ class YRemoveLayer(bpy.types.Operator):
         if height_ch: update_displacement_height_ratio(height_ch)
 
         # Refresh layer channel blend nodes
+        check_start_end_root_ch_nodes(group_tree)
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
 
@@ -3936,6 +3941,7 @@ class YPasteLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Rearrange and reconnect
+        check_start_end_root_ch_nodes(tree)
         reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
 
@@ -4048,6 +4054,7 @@ def update_channel_enable(self, context):
         rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
 
+        check_start_end_root_ch_nodes(self.id_data)
         reconnect_yp_nodes(self.id_data)
         rearrange_yp_nodes(self.id_data)
 
@@ -4408,6 +4415,7 @@ def update_layer_enable(self, context):
         yp.layer_preview_mode = yp.layer_preview_mode
     else:
         #if yp.disable_quick_toggle:
+        check_start_end_root_ch_nodes(layer.id_data)
         reconnect_yp_nodes(layer.id_data)
         rearrange_yp_nodes(layer.id_data)
 
