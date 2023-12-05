@@ -89,22 +89,26 @@ def entity_input_items(self, context):
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', entity.path_from_id())
     if m: entity = yp.layers[int(m.group(1))]
 
-    label = layer_type_labels[entity.type]
-
     items = []
 
-    if is_greater_than_281() and entity.type == 'VORONOI':
-        items.append(('RGB', label + ' Color',  ''))
-        items.append(('ALPHA', label + ' Distance',  ''))
-    elif entity.type == 'VCOL':
-        items.append(('RGB', label,  ''))
-        items.append(('ALPHA', label + ' Alpha',  ''))
-    elif entity.type == 'IMAGE':
-        items.append(('RGB', label + ' Color',  ''))
-        items.append(('ALPHA', label + ' Alpha',  ''))
+    if entity.type not in layer_type_labels:
+        items.append(('RGB', 'RGB',  ''))
+        items.append(('ALPHA', 'Alpha',  ''))
     else:
-        items.append(('RGB', label + ' Color',  ''))
-        items.append(('ALPHA', label + ' Factor',  ''))
+        label = layer_type_labels[entity.type]
+
+        if is_greater_than_281() and entity.type == 'VORONOI':
+            items.append(('RGB', label + ' Color',  ''))
+            items.append(('ALPHA', label + ' Distance',  ''))
+        elif entity.type == 'VCOL':
+            items.append(('RGB', label,  ''))
+            items.append(('ALPHA', label + ' Alpha',  ''))
+        elif entity.type == 'IMAGE':
+            items.append(('RGB', label + ' Color',  ''))
+            items.append(('ALPHA', label + ' Alpha',  ''))
+        else:
+            items.append(('RGB', label + ' Color',  ''))
+            items.append(('ALPHA', label + ' Factor',  ''))
         
     return items
 
