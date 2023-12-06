@@ -180,8 +180,8 @@ def update_transition_bump_chain(self, context):
     #ch.normal_map_type = ch.normal_map_type
     check_channel_normal_map_nodes(tree, layer, root_ch, ch)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer) #, mod_reconnect=True)
+    rearrange_layer_nodes(layer)
 
     print('INFO: Transition bump chain is updated at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
@@ -456,8 +456,8 @@ def update_enable_transition_ao(self, context):
     # Update mask multiply
     check_mask_mix_nodes(layer, tree)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     if ch.enable_transition_ao:
         print('INFO: Transition AO is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -482,8 +482,8 @@ def update_enable_transition_ramp(self, context):
 
     check_blend_type_nodes(root_ch, layer, ch)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     if ch.enable_transition_ramp:
         print('INFO: Transition ramp is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')
@@ -503,8 +503,8 @@ def update_enable_transition_bump(self, context):
 
     check_transition_bump_nodes(layer, tree, ch)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer) #, mod_reconnect=True)
+    rearrange_layer_nodes(layer)
 
     if ch.enable_transition_bump:
         print('INFO: Transition bump is enabled at {:0.2f}'.format((time.time() - T) * 1000), 'ms!')

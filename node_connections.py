@@ -247,9 +247,9 @@ def remove_all_prev_inputs(tree, layer, node): #, height_only=False):
         io_name = root_ch.name
         if io_name in node.inputs:
             # Should always fill normal input
-            geometry = tree.nodes.get(GEOMETRY)
-            if root_ch.type == 'NORMAL' and geometry:
-                create_link(tree, geometry.outputs['Normal'], node.inputs[io_name])
+            #geometry = tree.nodes.get(GEOMETRY)
+            if root_ch.type == 'NORMAL': # and geometry:
+                create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], node.inputs[io_name])
             else:
                 break_input_link(tree, node.inputs[io_name])
             
@@ -926,9 +926,10 @@ def get_essential_node(tree, name):
     return node.outputs
 
 ''' Check for all essential nodes and delete them if no links found '''
-def clean_essential_nodes(tree, exclude_texcoord=False):
+def clean_essential_nodes(tree, exclude_texcoord=False, exclude_geometry=False):
     for name in [ONE_VALUE, ZERO_VALUE, GEOMETRY, TEXCOORD]:
         if exclude_texcoord and name == TEXCOORD: continue
+        if exclude_geometry and name == GEOMETRY: continue
         node = tree.nodes.get(name)
         if node:
             link_found = False
@@ -950,12 +951,6 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
     texcoord = nodes.get(TEXCOORD)
     parallax = tree.nodes.get(PARALLAX)
-    #geometry = tree.nodes.get(GEOMETRY)
-
-    #one_value = nodes.get(ONE_VALUE)
-    #if one_value: one_value = one_value.outputs[0]
-    #zero_value = nodes.get(ZERO_VALUE)
-    #if zero_value: zero_value = zero_value.outputs[0]
 
     # Parallax
     parallax_ch = get_root_parallax_channel(yp)
@@ -1087,9 +1082,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         #if ch.enable_alpha and ch.type == 'RGB':
         if ch.enable_alpha:
             alpha = start.outputs[io_alpha_name]
-        else: 
-            #alpha = one_value
-            alpha = get_essential_node(tree, ONE_VALUE)[0]
+        else: alpha = get_essential_node(tree, ONE_VALUE)[0]
 
         if ch.type == 'NORMAL':
             height = start.outputs[io_height_name]
@@ -1140,12 +1133,11 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
                     if col_preview:
                         #create_link(tree, rgb, col_preview)
-                        if not layer.enable: # and zero_value:
-                            #create_link(tree, zero_value, col_preview)
+                        if not layer.enable:
                             create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], col_preview)
                         else: create_link(tree, node.outputs[LAYER_VIEWER], col_preview)
                     if alpha_preview:
-                        if not layer.enable: #and zero_value:
+                        if not layer.enable:
                             create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], alpha_preview)
                         else: create_link(tree, node.outputs[LAYER_ALPHA_VIEWER], alpha_preview)
                 else:
@@ -1420,14 +1412,14 @@ def reconnect_channel_source_internal_nodes(ch, ch_source_tree):
     source = tree.nodes.get(ch.source)
     linear = tree.nodes.get(ch.linear)
     start = tree.nodes.get(TREE_START)
-    solid = tree.nodes.get(ONE_VALUE)
+    #solid = tree.nodes.get(ONE_VALUE)
     end = tree.nodes.get(TREE_END)
 
     create_link(tree, start.outputs[0], source.inputs[0])
 
     rgb = source.outputs[0]
     if ch.override_type == 'MUSGRAVE':
-        alpha = solid.outputs[0]
+        alpha = get_essential_node(tree, ONE_VALUE)[0]
     else: alpha = source.outputs[1]
 
     if linear:
@@ -1435,8 +1427,8 @@ def reconnect_channel_source_internal_nodes(ch, ch_source_tree):
 
     if ch.override_type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         rgb_1 = source.outputs[1]
-        alpha = solid.outputs[0]
-        alpha_1 = solid.outputs[0]
+        alpha = get_essential_node(tree, ONE_VALUE)[0]
+        alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
 
         #mod_group = tree.nodes.get(ch.mod_group)
         #if mod_group:
@@ -1453,6 +1445,9 @@ def reconnect_channel_source_internal_nodes(ch, ch_source_tree):
     create_link(tree, rgb, end.inputs[0])
     create_link(tree, alpha, end.inputs[1])
 
+    # Clean unused essential nodes
+    clean_essential_nodes(tree, exclude_texcoord=True, exclude_geometry=True)
+
 def reconnect_source_internal_nodes(layer):
     tree = get_source_tree(layer)
 
@@ -1462,7 +1457,7 @@ def reconnect_source_internal_nodes(layer):
     divider_alpha = tree.nodes.get(layer.divider_alpha)
     flip_y = tree.nodes.get(layer.flip_y)
     start = tree.nodes.get(TREE_START)
-    solid = tree.nodes.get(ONE_VALUE)
+    #solid = tree.nodes.get(ONE_VALUE)
     end = tree.nodes.get(TREE_END)
 
     #if layer.type != 'VCOL':
@@ -1475,7 +1470,7 @@ def reconnect_source_internal_nodes(layer):
 
     rgb = source.outputs[0]
     if layer.type == 'MUSGRAVE':
-        alpha = solid.outputs[0]
+        alpha = get_essential_node(tree, ONE_VALUE)[0]
     else: alpha = source.outputs[1]
 
     if divider_alpha: 
@@ -1491,8 +1486,8 @@ def reconnect_source_internal_nodes(layer):
 
     if layer.type not in {'IMAGE', 'VCOL', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
         rgb_1 = source.outputs[1]
-        alpha = solid.outputs[0]
-        alpha_1 = solid.outputs[0]
+        alpha = get_essential_node(tree, ONE_VALUE)[0]
+        alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
 
         mod_group = tree.nodes.get(layer.mod_group)
         if mod_group:
@@ -1512,6 +1507,9 @@ def reconnect_source_internal_nodes(layer):
 
     create_link(tree, rgb, end.inputs[0])
     create_link(tree, alpha, end.inputs[1])
+
+    # Clean unused essential nodes
+    clean_essential_nodes(tree, exclude_texcoord=True, exclude_geometry=True)
 
 def reconnect_mask_internal_nodes(mask):
 
@@ -1551,10 +1549,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     start = nodes.get(TREE_START)
     end = nodes.get(TREE_END)
-    one_value = nodes.get(ONE_VALUE)
-    if one_value: one_value = one_value.outputs[0]
-    zero_value = nodes.get(ZERO_VALUE)
-    if zero_value: zero_value = zero_value.outputs[0]
 
     source_group = nodes.get(layer.source_group)
 
@@ -1579,7 +1573,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     else: texcoord = nodes.get(layer.texcoord)
 
     #texcoord = nodes.get(TEXCOORD)
-    geometry = nodes.get(GEOMETRY)
+    #geometry = nodes.get(GEOMETRY)
     blur_vector = nodes.get(layer.blur_vector)
     mapping = nodes.get(layer.mapping)
     linear = nodes.get(layer.linear)
@@ -1621,7 +1615,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if layer.type == 'HEMI':
         if layer.hemi_use_prev_normal and bump_process:
             create_link(tree, bump_process.outputs['Normal'], source.inputs['Normal'])
-        else: create_link(tree, geometry.outputs['Normal'], source.inputs['Normal'])
+        else: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], source.inputs['Normal'])
 
     # Find override channels
     #using_vector = is_channel_override_using_vector(layer)
@@ -1682,8 +1676,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         start_alpha = source.outputs[1]
     elif layer.type == 'VCOL' and 'Alpha' in source.outputs:
         start_alpha = source.outputs['Alpha']
-    else: start_alpha = one_value
-    start_alpha_1 = one_value
+    else: start_alpha = get_essential_node(tree, ONE_VALUE)[0]
+    start_alpha_1 = get_essential_node(tree, ONE_VALUE)[0]
 
     alpha_preview = end.inputs.get(LAYER_ALPHA_VIEWER)
 
@@ -1716,7 +1710,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             mod_group_1 = nodes.get(layer.mod_group_1)
             start_rgb_1, start_alpha_1 = reconnect_all_modifier_nodes(
-                    tree, layer, source.outputs[1], one_value, mod_group_1)
+                    tree, layer, source.outputs[1], get_essential_node(tree, ONE_VALUE)[0], mod_group_1)
 
     # UV neighbor vertex color
     if layer.type in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX'} and uv_neighbor:
@@ -1760,7 +1754,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         chain = min(len(layer.masks), trans_bump_ch.transition_bump_chain)
 
     # Root mask value for merging mask
-    root_mask_val = one_value
+    root_mask_val = get_essential_node(tree, ONE_VALUE)[0]
 
     # Layer Masks
     for i, mask in enumerate(layer.masks):
@@ -1808,7 +1802,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if mask.type == 'HEMI':
             if mask.hemi_use_prev_normal and bump_process:
                 create_link(tree, bump_process.outputs['Normal'], mask_source.inputs['Normal'])
-            else: create_link(tree, geometry.outputs['Normal'], mask_source.inputs['Normal'])
+            else: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], mask_source.inputs['Normal'])
 
         # Mask source directions
         mask_source_n = nodes.get(mask.source_n)
@@ -1952,14 +1946,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             # Disabled channel layer preview
             if yp.layer_preview_mode:
                 if yp.layer_preview_mode_type == 'SPECIFIC_MASK' and ch.override and ch.active_edit == True:
-                    if alpha_preview and zero_value:
-                        create_link(tree, zero_value, alpha_preview)
+                    if alpha_preview:
+                        create_link(tree, get_essential_node(tree, ZERO_VALUE), alpha_preview)
                 elif root_ch == yp.channels[yp.active_channel_index]:
                     col_preview = end.inputs.get(LAYER_VIEWER)
-                    if col_preview and zero_value:
-                        create_link(tree, zero_value, col_preview)
-                    if alpha_preview and zero_value:
-                        create_link(tree, zero_value, alpha_preview)
+                    if col_preview:
+                        create_link(tree, get_essential_node(tree, ZERO_VALUE), col_preview)
+                    if alpha_preview:
+                        create_link(tree, get_essential_node(tree, ZERO_VALUE), alpha_preview)
                     #break_input_link(tree, col_preview)
                     #break_input_link(tree, alpha_preview)
                     #col_preview.default_value = (0,0,0,0)
@@ -2027,7 +2021,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         elif layer.type == 'BACKGROUND':
             rgb = source.outputs[root_ch.name + io_suffix['BACKGROUND']]
-            alpha = one_value
+            alpha = get_essential_node(tree, ONE_VALUE)[0]
 
             if root_ch.enable_alpha:
                 bg_alpha = source.outputs[root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND']]
@@ -2063,7 +2057,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 #if layer.type != 'IMAGE':
                 #    if ch.override_type in {'IMAGE'}:
                 #        alpha = ch_source.outputs[1]
-                #    else: alpha = one_value
+                #    else: alpha = get_essential_node(tree, ONE_VALUE)[0]
 
             ch_uv_neighbor = nodes.get(ch.uv_neighbor)
             if ch_uv_neighbor:
@@ -2388,7 +2382,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             end_chain_crease_w = alpha_w
 
             pure = alpha_after_mod
-            remains = one_value
+            remains = get_essential_node(tree, ONE_VALUE)[0]
 
             tb_falloff = nodes.get(ch.tb_falloff)
 
@@ -2436,10 +2430,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 if root_ch.enable_smooth_bump and mask_mix:
                     if j == chain and trans_bump_ch == ch and trans_bump_crease:
-                        alpha_n = create_link(tree, one_value, mask_mix.inputs['Color1 n'])['Color n']
-                        alpha_s = create_link(tree, one_value, mask_mix.inputs['Color1 s'])['Color s']
-                        alpha_e = create_link(tree, one_value, mask_mix.inputs['Color1 e'])['Color e']
-                        alpha_w = create_link(tree, one_value, mask_mix.inputs['Color1 w'])['Color w']
+                        alpha_n = create_link(tree, get_essential_node(tree, ONE_VALUE)[0], mask_mix.inputs['Color1 n'])['Color n']
+                        alpha_s = create_link(tree, get_essential_node(tree, ONE_VALUE)[0], mask_mix.inputs['Color1 s'])['Color s']
+                        alpha_e = create_link(tree, get_essential_node(tree, ONE_VALUE)[0], mask_mix.inputs['Color1 e'])['Color e']
+                        alpha_w = create_link(tree, get_essential_node(tree, ONE_VALUE)[0], mask_mix.inputs['Color1 w'])['Color w']
                     elif 'Color1 n' in mask_mix.inputs:
                         alpha_n = create_link(tree, alpha_n, mask_mix.inputs['Color1 n'])['Color n']
                         alpha_s = create_link(tree, alpha_s, mask_mix.inputs['Color1 s'])['Color s']
@@ -2485,15 +2479,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if 'Value' in height_proc.inputs:
                 #create_link(tree, rgb_after_mod, height_proc.inputs['Value'])
                 if layer.type == 'BACKGROUND':
-                    create_link(tree, one_value, height_proc.inputs['Value'])
+                    create_link(tree, get_essential_node(tree, ONE_VALUE)[0], height_proc.inputs['Value'])
                 else: create_link(tree, rgb, height_proc.inputs['Value'])
 
             if 'Value n' in  height_proc.inputs: 
                 if layer.type == 'BACKGROUND':
-                    create_link(tree, one_value, height_proc.inputs['Value n'])
-                    create_link(tree, one_value, height_proc.inputs['Value s'])
-                    create_link(tree, one_value, height_proc.inputs['Value e'])
-                    create_link(tree, one_value, height_proc.inputs['Value w'])
+                    create_link(tree, get_essential_node(tree, ONE_VALUE)[0], height_proc.inputs['Value n'])
+                    create_link(tree, get_essential_node(tree, ONE_VALUE)[0], height_proc.inputs['Value s'])
+                    create_link(tree, get_essential_node(tree, ONE_VALUE)[0], height_proc.inputs['Value e'])
+                    create_link(tree, get_essential_node(tree, ONE_VALUE)[0], height_proc.inputs['Value w'])
                 else:
                     create_link(tree, rgb_n, height_proc.inputs['Value n'])
                     create_link(tree, rgb_s, height_proc.inputs['Value s'])
@@ -2751,7 +2745,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 elif 'Normal No Bump' in normal_proc.outputs:
                     rgb = normal_proc.outputs['Normal No Bump']
                 else: 
-                    rgb = geometry.outputs['Normal']
+                    rgb = get_essential_node(tree, GEOMETRY)['Normal']
             else: 
                 rgb = normal_proc.outputs[0]
 
@@ -2822,7 +2816,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
 
                 # Dealing with chain
-                remaining_alpha = one_value
+                remaining_alpha = get_essential_node(tree, ONE_VALUE)[0]
                 for j, mask in enumerate(layer.masks):
                     if j >= chain:
                         mix_remains = nodes.get(mask.channels[i].mix_remains)
@@ -2994,3 +2988,5 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if alpha_preview and yp.layer_preview_mode_type != 'SPECIFIC_MASK':
                     create_link(tree, alpha, alpha_preview)
                 
+    # Clean unused essential nodes
+    clean_essential_nodes(tree, exclude_texcoord=True)

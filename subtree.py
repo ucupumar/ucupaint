@@ -2331,8 +2331,8 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
         remove_node(layer_tree, ch, 'linear_1')
 
     if reconnect:
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
     return image
 
@@ -2402,5 +2402,5 @@ def check_yp_linear_nodes(yp, specific_layer=None, reconnect=True):
                 image_found = True
 
         if image_found and reconnect:
-            rearrange_layer_nodes(layer)
             reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)

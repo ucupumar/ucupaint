@@ -406,8 +406,10 @@ def rearrange_channel_source_tree_nodes(layer, ch):
     loc.y -= 300
     if check_set_node_loc(source_tree, ONE_VALUE, loc):
         loc.y -= 90
-    if check_set_node_loc(source_tree, ZERO_VALUE, loc):
-        loc.y += 390
+    check_set_node_loc(source_tree, ZERO_VALUE, loc)
+        #loc.y += 390
+
+    loc.y = 0
 
     #if check_set_node_loc(source_tree, layer.mapping, loc):
     #    loc.x += 380
@@ -432,8 +434,10 @@ def rearrange_source_tree_nodes(layer):
     loc.y -= 300
     if check_set_node_loc(source_tree, ONE_VALUE, loc):
         loc.y -= 90
-    if check_set_node_loc(source_tree, ZERO_VALUE, loc):
-        loc.y += 390
+    check_set_node_loc(source_tree, ZERO_VALUE, loc)
+        #loc.y += 390
+
+    loc.y = 0
 
     #if check_set_node_loc(source_tree, layer.mapping, loc):
     #    loc.x += 380

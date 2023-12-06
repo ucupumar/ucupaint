@@ -570,11 +570,11 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type in {'IMAGE', 'VCOL', 'COLOR_ID'}:
             mask.active_edit = True
 
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
-        rearrange_yp_nodes(layer.id_data)
         reconnect_yp_nodes(layer.id_data)
+        rearrange_yp_nodes(layer.id_data)
 
         ypui.layer_ui.expand_masks = True
         ypui.need_update = True
@@ -715,11 +715,11 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
             # Add new mask
             mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, blend_type=self.blend_type, source_input=self.source_input)
 
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
-        rearrange_yp_nodes(layer.id_data)
         reconnect_yp_nodes(layer.id_data)
+        rearrange_yp_nodes(layer.id_data)
 
         # Update UI
         wm.ypui.need_update = True
@@ -963,11 +963,11 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if self.type in {'IMAGE', 'VCOL'} and self.source_input == 'RGB':
             mask.active_edit = True
 
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
-        rearrange_yp_nodes(layer.id_data)
         reconnect_yp_nodes(layer.id_data)
+        rearrange_yp_nodes(layer.id_data)
 
         # Make sure all layers which used the opened image is using correct linear color
         if self.type == 'IMAGE':
@@ -1022,8 +1022,8 @@ class YMoveLayerMask(bpy.types.Operator):
         check_mask_source_tree(layer) #, bump_ch)
         #check_mask_image_linear_node(mask)
 
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
         return {'FINISHED'}
 
@@ -1159,8 +1159,8 @@ def update_mask_blur_vector(self, context):
     else:
         remove_node(tree, mask, 'blur_vector')
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
 def update_mask_blur_vector_factor(self, context):
     yp = self.id_data.yp
@@ -1204,8 +1204,8 @@ def update_layer_mask_channel_enable(self, context):
 
     check_mask_mix_nodes(layer, tree, mask, self)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     #mute = not self.enable or not mask.enable or not layer.enable_masks
 
@@ -1239,8 +1239,8 @@ def update_layer_mask_enable(self, context):
 
     check_mask_mix_nodes(layer, tree, self)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     #for ch in self.channels:
     #    update_layer_mask_channel_enable(ch, context)
@@ -1255,8 +1255,8 @@ def update_enable_layer_masks(self, context):
     #    update_layer_mask_enable(mask, context)
     check_mask_mix_nodes(self)
 
-    rearrange_layer_nodes(self)
     reconnect_layer_nodes(self)
+    rearrange_layer_nodes(self)
 
 def update_mask_texcoord_type(self, context):
     yp = self.id_data.yp
@@ -1275,12 +1275,12 @@ def update_mask_texcoord_type(self, context):
 
     set_mask_uv_neighbor(tree, layer, self, mask_idx)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     if yp_dirty:
-        rearrange_yp_nodes(self.id_data)
         reconnect_yp_nodes(self.id_data)
+        rearrange_yp_nodes(self.id_data)
 
 def update_mask_uv_name(self, context):
     obj = context.object
@@ -1330,12 +1330,12 @@ def update_mask_uv_name(self, context):
 
     set_mask_uv_neighbor(tree, layer, self, mask_idx)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     if yp_dirty:
-        rearrange_yp_nodes(self.id_data)
         reconnect_yp_nodes(self.id_data)
+        rearrange_yp_nodes(self.id_data)
 
 def update_mask_hemi_space(self, context):
     if self.type != 'HEMI': return
@@ -1355,8 +1355,8 @@ def update_mask_hemi_use_prev_normal(self, context):
     check_layer_tree_ios(layer, tree)
     check_layer_bump_process(layer, tree)
 
-    rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
 
     reconnect_yp_nodes(layer.id_data)
 
@@ -1379,8 +1379,8 @@ def update_mask_hemi_camera_ray_mask(self, context):
             trans = source.node_tree.nodes.get('Vector Transform')
             if trans: trans.convert_from = self.hemi_space
 
-            rearrange_layer_nodes(layer)
             reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
 
         source.inputs['Camera Ray Mask'].default_value = 1.0 if self.hemi_camera_ray_mask else 0.0
 
@@ -1434,11 +1434,11 @@ def update_mask_blend_type(self, context):
 
     check_mask_mix_nodes(layer, tree, mask)
 
-    # Rearrange nodes
-    rearrange_layer_nodes(layer)
-
     # Reconnect nodes
     reconnect_layer_nodes(layer)
+
+    # Rearrange nodes
+    rearrange_layer_nodes(layer)
 
 def update_mask_object_index(self, context):
     yp = self.id_data.yp
