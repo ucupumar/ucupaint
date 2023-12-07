@@ -1632,7 +1632,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if is_layer_using_vector(layer):
         if layer.texcoord_type == 'UV':
             vector = texcoord.outputs.get(layer.uv_name + io_suffix['UV'])
-        else: vector = texcoord.outputs[io_names[layer.texcoord_type]]
+        else: vector = texcoord.outputs.get(io_names[layer.texcoord_type])
 
         if vector and blur_vector:
             vector = create_link(tree, vector, blur_vector.inputs[1])[0]
@@ -1824,16 +1824,16 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 #mask_vector = mask_uv_map.outputs[0]
                 mask_vector = texcoord.outputs.get(mask.uv_name + io_suffix['UV'])
             else: 
-                mask_vector = texcoord.outputs[io_names[mask.texcoord_type]]
+                mask_vector = texcoord.outputs.get(io_names[mask.texcoord_type])
 
             if mask_blur_vector:
-                mask_vector = create_link(tree, mask_vector, mask_blur_vector.inputs[1])[0]
+                if mask_vector: mask_vector = create_link(tree, mask_vector, mask_blur_vector.inputs[1])[0]
 
             if mask_mapping:
-                mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
+                if mask_vector: mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
                 #create_link(tree, mask_mapping.outputs[0], mask_source.inputs[0])
             #else:
-            create_link(tree, mask_vector, mask_source.inputs[0])
+            if mask_vector: create_link(tree, mask_vector, mask_source.inputs[0])
 
         # Mask uv neighbor
         mask_uv_neighbor = nodes.get(mask.uv_neighbor)
@@ -1845,7 +1845,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else:
                 if mask.texcoord_type == 'UV':
                     #create_link(tree, mask_uv_map.outputs[0], mask_uv_neighbor.inputs[0])
-                    create_link(tree, mask_vector, mask_uv_neighbor.inputs[0])
+                    if mask_vector: create_link(tree, mask_vector, mask_uv_neighbor.inputs[0])
                 else: 
                     #create_link(tree, texcoord.outputs[mask.texcoord_type], mask_uv_neighbor.inputs[0])
                     create_link(tree, texcoord.outputs[io_names[mask.texcoord_type]],
