@@ -1947,13 +1947,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if yp.layer_preview_mode:
                 if yp.layer_preview_mode_type == 'SPECIFIC_MASK' and ch.override and ch.active_edit == True:
                     if alpha_preview:
-                        create_link(tree, get_essential_node(tree, ZERO_VALUE), alpha_preview)
+                        create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], alpha_preview)
                 elif root_ch == yp.channels[yp.active_channel_index]:
                     col_preview = end.inputs.get(LAYER_VIEWER)
                     if col_preview:
-                        create_link(tree, get_essential_node(tree, ZERO_VALUE), col_preview)
+                        create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], col_preview)
                     if alpha_preview:
-                        create_link(tree, get_essential_node(tree, ZERO_VALUE), alpha_preview)
+                        create_link(tree, get_essential_node(tree, ZERO_VALUE)[0], alpha_preview)
                     #break_input_link(tree, col_preview)
                     #break_input_link(tree, alpha_preview)
                     #col_preview.default_value = (0,0,0,0)
