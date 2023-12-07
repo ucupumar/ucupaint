@@ -4159,20 +4159,22 @@ def is_uv_input_needed(layer, uv_name):
 def is_tangent_input_needed(layer, uv_name):
     yp = layer.id_data.yp
 
-    height_root_ch = get_root_height_channel(yp)
-    if height_root_ch and height_root_ch.main_uv == uv_name:
+    if layer.enable:
 
-        height_ch = get_height_channel(layer)
-        if height_ch and height_ch.enable:
+        height_root_ch = get_root_height_channel(yp)
+        if height_root_ch and height_root_ch.main_uv == uv_name:
 
-            if height_root_ch.enable_smooth_bump and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-                return True
-            if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
-                return True
+            height_ch = get_height_channel(layer)
+            if height_ch and height_ch.enable:
 
-        need_prev_normal = check_need_prev_normal(layer)
-        if need_prev_normal:
-             return True
+                if height_root_ch.enable_smooth_bump and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                    return True
+                if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                    return True
+
+            need_prev_normal = check_need_prev_normal(layer)
+            if need_prev_normal:
+                 return True
 
     return False
 

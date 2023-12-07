@@ -1861,8 +1861,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             mask_bitangent = texcoord.outputs.get(mask.uv_name + io_suffix['BITANGENT'])
 
             if 'Tangent' in mask_uv_neighbor.inputs:
-                create_link(tree, tangent, mask_uv_neighbor.inputs['Tangent'])
-                create_link(tree, bitangent, mask_uv_neighbor.inputs['Bitangent'])
+                if tangent: create_link(tree, tangent, mask_uv_neighbor.inputs['Tangent'])
+                if bitangent: create_link(tree, bitangent, mask_uv_neighbor.inputs['Bitangent'])
 
             if 'Mask Tangent' in mask_uv_neighbor.inputs:
                 create_link(tree, mask_tangent, mask_uv_neighbor.inputs['Mask Tangent'])

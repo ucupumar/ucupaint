@@ -4061,7 +4061,6 @@ def update_channel_enable(self, context):
         rearrange_layer_nodes(layer)
 
         check_start_end_root_ch_nodes(self.id_data)
-        check_uv_nodes(yp)
         reconnect_yp_nodes(self.id_data)
         rearrange_yp_nodes(self.id_data)
 
@@ -4417,13 +4416,18 @@ def update_layer_enable(self, context):
     if height_root_ch:
         update_displacement_height_ratio(height_root_ch)
 
+    check_uv_nodes(yp)
+    check_all_layer_channel_io_and_nodes(layer, tree)
+    check_start_end_root_ch_nodes(layer.id_data)
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
     if yp.layer_preview_mode:
         # Refresh preview mode, rearrange and reconnect already done in this event
         yp.layer_preview_mode = yp.layer_preview_mode
     else:
         #if yp.disable_quick_toggle:
-        check_start_end_root_ch_nodes(layer.id_data)
-        check_uv_nodes(yp)
         reconnect_yp_nodes(layer.id_data)
         rearrange_yp_nodes(layer.id_data)
 
