@@ -966,7 +966,8 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
     for uv in yp.uvs:
         uv_map = nodes.get(uv.uv_map)
-        uv_maps[uv.name] = uv_map.outputs[0]
+        if uv_map:
+            uv_maps[uv.name] = uv_map.outputs[0]
 
         tangent_process = nodes.get(uv.tangent_process)
         if tangent_process:
@@ -1188,14 +1189,19 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 inp = node.inputs.get(uv_name + io_suffix['UV'])
                 if inp:
                     if parallax_ch and parallax:
-                        create_link(tree, parallax.outputs[uv_name], inp)
-                    else: create_link(tree, uv_maps[uv_name], inp)
+                        if uv_name in parallax.outputs:
+                            create_link(tree, parallax.outputs[uv_name], inp)
+                    else: 
+                        if uv_name in uv_maps:
+                            create_link(tree, uv_maps[uv_name], inp)
 
                 inp = node.inputs.get(uv_name + io_suffix['TANGENT'])
-                if inp: create_link(tree, tangents[uv_name], inp)
+                if inp and uv_name in tangents: 
+                    create_link(tree, tangents[uv_name], inp)
 
                 inp = node.inputs.get(uv_name + io_suffix['BITANGENT'])
-                if inp: create_link(tree, bitangents[uv_name], inp)
+                if inp and uv_name in bitangents: 
+                    create_link(tree, bitangents[uv_name], inp)
 
             # Texcoord inputs
             texcoords = []

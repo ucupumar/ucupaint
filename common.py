@@ -3470,23 +3470,6 @@ def get_layer_channel_index(layer, ch):
         if c == ch:
             return i
 
-def any_layers_using_channel(root_ch, parent=None):
-    yp = root_ch.id_data.yp
-    channel_idx = get_channel_index(root_ch)
-
-    if parent:
-        layers, layer_ids = get_list_of_all_childs_and_child_ids(parent)
-    else: layers = yp.layers
-
-    for layer in yp.layers:
-        if not layer.enable: continue
-        for i, ch in enumerate(layer.channels):
-            if not ch.enable: continue
-            if i == channel_idx:
-                return True
-
-    return False
-
 def is_bump_distance_relevant(layer, ch):
     if layer.type in {'COLOR', 'BACKGROUND'} and ch.enable_transition_bump:
         return False
@@ -4156,6 +4139,92 @@ def set_active_uv_layer(obj, uv_name):
         if uv.name == uv_name:
             if uv_layers.active_index != i:
                 uv_layers.active_index = i
+
+def is_uv_input_needed(layer, uv_name):
+
+    if layer.enable:
+
+        if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+            if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
+                return True
+        
+        for mask in layer.masks:
+            if not mask.enable: continue
+            if mask.type in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}: continue
+            if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
+                return True
+
+    return False
+
+def is_tangent_input_needed(layer, uv_name):
+    yp = layer.id_data.yp
+
+    height_root_ch = get_root_height_channel(yp)
+    if height_root_ch and height_root_ch.main_uv == uv_name:
+
+        height_ch = get_height_channel(layer)
+        if height_ch and height_ch.enable:
+
+            if height_root_ch.enable_smooth_bump and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                return True
+            if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                return True
+
+        need_prev_normal = check_need_prev_normal(layer)
+        if need_prev_normal:
+             return True
+
+    return False
+
+def is_tangent_process_needed(yp, uv_name):
+
+    height_root_ch = get_root_height_channel(yp)
+    if height_root_ch and height_root_ch.main_uv == uv_name:
+
+        if any_layers_using_channel(height_root_ch):
+            return True
+
+        for layer in yp.layers:
+            if is_tangent_input_needed(layer, uv_name):
+                return True
+
+    return False
+
+def is_any_entity_using_uv(yp, uv_name):
+
+    for layer in yp.layers:
+        if is_uv_input_needed(layer, uv_name):
+            return True
+
+        #if not layer.enable: continue
+        #if layer.type in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}: continue
+        #if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
+        #    return True
+        #
+        #for mask in layer.masks:
+        #    if not mask.enable: continue
+        #    if mask.type in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}: continue
+        #    if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
+        #        return True
+
+    return False
+
+def any_layers_using_channel(root_ch, parent=None):
+    yp = root_ch.id_data.yp
+    channel_idx = get_channel_index(root_ch)
+
+    if parent:
+        layers, layer_ids = get_list_of_all_childs_and_child_ids(parent)
+    else: layers = yp.layers
+
+    for layer in yp.layers:
+        if not layer.enable: continue
+        for i, ch in enumerate(layer.channels):
+            if not ch.enable: continue
+            if i == channel_idx:
+                return True
+
+    return False
 
 def is_any_layer_using_channel(root_ch, node=None):
 

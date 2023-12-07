@@ -984,14 +984,15 @@ def check_actual_uv_nodes(yp, uv, obj):
 
     tree = yp.id_data
 
-    uv_map = tree.nodes.get(uv.uv_map)
-    if not uv_map:
-        uv_map = new_node(tree, uv, 'uv_map', 'ShaderNodeUVMap', uv.name)
-        uv_map.uv_map = uv.name
+    if is_any_entity_using_uv(yp, uv.name):
+        uv_map = tree.nodes.get(uv.uv_map)
+        if not uv_map:
+            uv_map = new_node(tree, uv, 'uv_map', 'ShaderNodeUVMap', uv.name)
+            uv_map.uv_map = uv.name
+    else:
+        remove_node(tree, uv, 'uv_map')
 
-    height_root_ch = get_root_height_channel(yp)
-
-    if height_root_ch:
+    if is_tangent_process_needed(yp, uv.name):
         tangent_process = tree.nodes.get(uv.tangent_process)
 
         if not tangent_process:
@@ -1527,7 +1528,6 @@ def check_uv_nodes(yp, generate_missings=False):
             uv.name = yp.baked_uv_name
 
         if uv.name not in uv_names: 
-            #check_actual_uv_nodes(yp, uv, obj)
             uv_names.append(uv.name)
 
     # Get height channel
@@ -1561,7 +1561,6 @@ def check_uv_nodes(yp, generate_missings=False):
                 uv.name = layer.uv_name
 
             if uv.name not in uv_names: 
-                #check_actual_uv_nodes(yp, uv, obj)
                 uv_names.append(uv.name)
 
         for mask in layer.masks:
@@ -1573,7 +1572,6 @@ def check_uv_nodes(yp, generate_missings=False):
                     uv.name = mask.uv_name
 
                 if uv.name not in uv_names: 
-                    #check_actual_uv_nodes(yp, uv, obj)
                     uv_names.append(uv.name)
 
     # Get unused uv objects

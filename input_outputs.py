@@ -558,46 +558,20 @@ def check_layer_tree_ios(layer, tree=None):
                     #    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
                     #    input_index += 1
 
-    # UV necessary container
-    uv_names = []
-
-    # Check height root channel
-    height_root_ch = get_root_height_channel(yp)
-    height_ch = get_height_channel(layer)
-    if height_root_ch and height_root_ch.main_uv != '' and height_root_ch.main_uv not in uv_names:
-        uv_names.append(height_root_ch.main_uv)
-
-    # Add main UV if need previous normal
-    if need_prev_normal and height_root_ch.main_uv != '':
-        uv_names.append(height_root_ch.main_uv)
-
-    # Check layer uv
-    if layer.texcoord_type == 'UV' and layer.uv_name not in uv_names and layer.uv_name != '':
-        uv_names.append(layer.uv_name)
-
-    # Check masks uvs
-    for mask in layer.masks:
-        if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names and mask.uv_name != '':
-            uv_names.append(mask.uv_name)
-
-    #print(height_root_ch.main_uv)
-
     # Create inputs
-    for uv_name in uv_names:
-        name = uv_name + io_suffix['UV']
-        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-        input_index += 1
-
-        #print(uv_name)
-
-        #if height_ch and not (yp.disable_quick_toggle and not height_ch.enable):
-        if (height_ch and height_ch.enable) or (need_prev_normal and uv_name == height_root_ch.main_uv):
-
-            name = uv_name + io_suffix['TANGENT']
+    for uv in yp.uvs:
+        if is_uv_input_needed(layer, uv.name):
+            name = uv.name + io_suffix['UV']
             dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
             input_index += 1
 
-            name = uv_name + io_suffix['BITANGENT']
+        if is_tangent_input_needed(layer, uv.name):
+
+            name = uv.name + io_suffix['TANGENT']
+            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
+            input_index += 1
+
+            name = uv.name + io_suffix['BITANGENT']
             dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
             input_index += 1
 
