@@ -4144,13 +4144,13 @@ def is_uv_input_needed(layer, uv_name):
 
     if layer.enable:
 
-        if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+        if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
             if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
                 return True
         
         for mask in layer.masks:
             if not mask.enable: continue
-            if mask.type in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}: continue
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}: continue
             if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
                 return True
 
@@ -4195,17 +4195,6 @@ def is_any_entity_using_uv(yp, uv_name):
     for layer in yp.layers:
         if is_uv_input_needed(layer, uv_name):
             return True
-
-        #if not layer.enable: continue
-        #if layer.type in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}: continue
-        #if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
-        #    return True
-        #
-        #for mask in layer.masks:
-        #    if not mask.enable: continue
-        #    if mask.type in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}: continue
-        #    if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
-        #        return True
 
     return False
 
