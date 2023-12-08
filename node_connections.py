@@ -2345,8 +2345,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             # Connect tangent if overlay blend is used
             if blend and ch.normal_blend_type == 'OVERLAY':
-                create_link(tree, tangent, blend.inputs['Tangent'])
-                create_link(tree, bitangent, blend.inputs['Bitangent'])
+                if tangent: create_link(tree, tangent, blend.inputs['Tangent'])
+                if bitangent: create_link(tree, bitangent, blend.inputs['Bitangent'])
 
             #if layer.type not in {'BACKGROUND', 'GROUP'}: #, 'COLOR'}:
 
@@ -2667,7 +2667,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                             break_input_link(tree, height_blend.inputs[0])
                         else: create_link(tree, prev_height, height_blend.inputs[0])
 
-                        create_link(tree, prev_alpha, height_blend.inputs[1])
+                        create_link(tree, prev_height_alpha, height_blend.inputs[1])
                         create_link(tree, height_proc.outputs['Height'], height_blend.inputs[2])
                         height_alpha = create_link(tree, height_alpha, height_blend.inputs[3])[1]
                     else:
