@@ -2351,11 +2351,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             #if layer.type not in {'BACKGROUND', 'GROUP'}: #, 'COLOR'}:
 
-            if ch.normal_map_type == 'NORMAL_MAP':
-                create_link(tree, rgb, normal_proc.inputs['Normal Map'])
-            elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                create_link(tree, normal, normal_proc.inputs['Normal Map'])
-                #else: create_link(tree, rgb, normal_proc.inputs['Normal Map'])
+            if normal_proc:
+                if ch.normal_map_type == 'NORMAL_MAP':
+                    create_link(tree, rgb, normal_proc.inputs['Normal Map'])
+                elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
+                    create_link(tree, normal, normal_proc.inputs['Normal Map'])
+                    #else: create_link(tree, rgb, normal_proc.inputs['Normal Map'])
 
             if write_height:
                 chain_local = len(layer.masks)
@@ -2503,7 +2504,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if layer.type == 'GROUP':
 
                 normal_group = source.outputs.get(root_ch.name + io_suffix['GROUP'])
-                create_link(tree, normal_group, normal_proc.inputs['Normal'])
+                if normal_proc: create_link(tree, normal_group, normal_proc.inputs['Normal'])
 
                 if root_ch.enable_smooth_bump:
                     height_group = height_group_unpack.outputs[0]
@@ -2547,7 +2548,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     if 'Edge 1 Alpha' in height_proc.inputs:
                         create_link(tree, intensity_multiplier.outputs[0], height_proc.inputs['Edge 1 Alpha'])
 
-                    if 'Edge 1 Alpha' in normal_proc.inputs:
+                    if normal_proc and 'Edge 1 Alpha' in normal_proc.inputs:
                         if not write_height and not root_ch.enable_smooth_bump:
                             create_link(tree, height_proc.outputs['Filtered Alpha'], normal_proc.inputs['Edge 1 Alpha'])
                         else: create_link(tree, intensity_multiplier.outputs[0], normal_proc.inputs['Edge 1 Alpha'])
@@ -2570,7 +2571,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         if 'Edge 1 Alpha' in height_proc.inputs:
                             create_link(tree, intensity_multiplier.outputs[0], height_proc.inputs['Edge 1 Alpha'])
 
-                        if 'Edge 1 Alpha' in normal_proc.inputs:
+                        if normal_proc and 'Edge 1 Alpha' in normal_proc.inputs:
                             create_link(tree, intensity_multiplier.outputs[0], normal_proc.inputs['Edge 1 Alpha'])
 
                     else:
@@ -2585,13 +2586,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         if 'Edge 1 Alpha' in height_proc.inputs:
                             create_link(tree, alpha_before_intensity, height_proc.inputs['Edge 1 Alpha'])
 
-                        if 'Edge 1 Alpha' in normal_proc.inputs:
+                        if normal_proc and 'Edge 1 Alpha' in normal_proc.inputs:
                             create_link(tree, alpha_before_intensity, normal_proc.inputs['Edge 1 Alpha'])
 
                 tb_inverse = nodes.get(ch.tb_inverse)
                 tb_intensity_multiplier = nodes.get(ch.tb_intensity_multiplier)
 
-                if 'Edge 2 Alpha' in normal_proc.inputs:
+                if normal_proc and 'Edge 2 Alpha' in normal_proc.inputs:
                     create_link(tree, tb_intensity_multiplier.outputs[0], normal_proc.inputs['Edge 2 Alpha'])
 
                 if 'Edge 2 Alpha' in height_proc.inputs:
@@ -2693,7 +2694,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     if 'Alpha' in height_blend.outputs:
                         height_alpha = height_blend.outputs['Alpha']
 
-                if 'Height' in normal_proc.inputs:
+                if normal_proc and 'Height' in normal_proc.inputs:
                     create_link(tree, height_blend.outputs[hbout], normal_proc.inputs['Height'])
 
             else:
@@ -2720,39 +2721,42 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if alpha_ns: create_link(tree, alpha_ns, height_blend.inputs['Alpha NS'])
                 if alpha_ew: create_link(tree, alpha_ew, height_blend.inputs['Alpha EW'])
 
-                if 'Height ONS' in normal_proc.inputs:
-                    create_link(tree, height_blend.outputs['Height ONS'], normal_proc.inputs['Height ONS'])
-                if 'Height EW' in normal_proc.inputs:
-                    create_link(tree, height_blend.outputs['Height EW'], normal_proc.inputs['Height EW'])
+                if normal_proc:
+                    if 'Height ONS' in normal_proc.inputs:
+                        create_link(tree, height_blend.outputs['Height ONS'], normal_proc.inputs['Height ONS'])
+                    if 'Height EW' in normal_proc.inputs:
+                        create_link(tree, height_blend.outputs['Height EW'], normal_proc.inputs['Height EW'])
 
             if 'Normal Alpha' in height_blend.outputs:
                 alpha = height_blend.outputs['Normal Alpha']
 
-            if 'Alpha' in normal_proc.inputs:
-                create_link(tree, alpha, normal_proc.inputs['Alpha'])
-            if 'Normal Alpha' in normal_proc.inputs:
-                create_link(tree, normal_alpha, normal_proc.inputs['Normal Alpha'])
+            if normal_proc:
+                if 'Alpha' in normal_proc.inputs:
+                    create_link(tree, alpha, normal_proc.inputs['Alpha'])
+                if 'Normal Alpha' in normal_proc.inputs:
+                    create_link(tree, normal_alpha, normal_proc.inputs['Normal Alpha'])
 
             if layer.type == 'GROUP':
-                if write_height: #and 'Normal Alpha' in normal_proc.outputs:
-                    alpha = normal_proc.outputs['Normal Alpha']
-                #elif 'Combined Alpha' in normal_proc.outputs:
-                else:
-                    alpha = normal_proc.outputs['Combined Alpha']
+                if normal_proc:
+                    if write_height: #and 'Normal Alpha' in normal_proc.outputs:
+                        alpha = normal_proc.outputs['Normal Alpha']
+                    #elif 'Combined Alpha' in normal_proc.outputs:
+                    else:
+                        alpha = normal_proc.outputs['Combined Alpha']
 
-            if tangent and bitangent and 'Tangent' in normal_proc.inputs:
+            if normal_proc and tangent and bitangent and 'Tangent' in normal_proc.inputs:
                 create_link(tree, tangent, normal_proc.inputs['Tangent'])
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
 
             #if root_ch.type == 'NORMAL' and ch.write_height:
             if write_height:
-                if ch.normal_map_type == 'BUMP_NORMAL_MAP':
+                if normal_proc and ch.normal_map_type == 'BUMP_NORMAL_MAP':
                     rgb = normal_proc.outputs['Normal']
-                elif 'Normal No Bump' in normal_proc.outputs:
+                elif normal_proc and 'Normal No Bump' in normal_proc.outputs:
                     rgb = normal_proc.outputs['Normal No Bump']
                 else: 
                     rgb = get_essential_node(tree, GEOMETRY)['Normal']
-            else: 
+            elif normal_proc: 
                 rgb = normal_proc.outputs[0]
 
             if not root_ch.enable_smooth_bump and not write_height:
@@ -2989,7 +2993,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             elif root_ch == yp.channels[yp.active_channel_index]:
                 col_preview = end.inputs.get(LAYER_VIEWER)
                 if col_preview:
-                    if root_ch.type == 'NORMAL': create_link(tree, normal_proc.outputs[0], col_preview)
+                    if normal_proc and root_ch.type == 'NORMAL': create_link(tree, normal_proc.outputs[0], col_preview)
                     else: create_link(tree, rgb, col_preview)
                 if alpha_preview and yp.layer_preview_mode_type != 'SPECIFIC_MASK':
                     create_link(tree, alpha, alpha_preview)

@@ -4167,9 +4167,11 @@ def is_tangent_input_needed(layer, uv_name):
             height_ch = get_height_channel(layer)
             if height_ch and height_ch.enable:
 
-                if height_root_ch.enable_smooth_bump and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+                if height_root_ch.enable_smooth_bump and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and (yp.layer_preview_mode or not height_ch.write_height):
                     return True
                 if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                    return True
+                if height_ch.normal_blend_type == 'OVERLAY':
                     return True
 
             need_prev_normal = check_need_prev_normal(layer)

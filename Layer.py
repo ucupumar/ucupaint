@@ -4081,10 +4081,14 @@ def update_normal_map_type(self, context):
     tree = get_tree(layer)
 
     check_channel_normal_map_nodes(tree, layer, root_ch, self)
+    check_all_layer_channel_io_and_nodes(layer, tree, self)
 
     #if not yp.halt_reconnect:
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_blend_type(self, context):
     T = time.time()
@@ -4094,10 +4098,13 @@ def update_blend_type(self, context):
     if yp.halt_update: return
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
+    tree = get_tree(layer)
     ch_index = int(m.group(2))
     root_ch = yp.channels[ch_index]
 
     if check_blend_type_nodes(root_ch, layer, self): # and not yp.halt_reconnect:
+
+        check_all_layer_channel_io_and_nodes(layer, tree, self)
 
         # Reconnect all layer channels if normal channel is updated
         if root_ch.type == 'NORMAL':
@@ -4105,6 +4112,9 @@ def update_blend_type(self, context):
         else: reconnect_layer_nodes(layer, ch_index)
 
         rearrange_layer_nodes(layer)
+
+        reconnect_yp_nodes(self.id_data)
+        rearrange_yp_nodes(self.id_data)
 
     print('INFO: Layer', layer.name, ' blend type is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
@@ -4130,11 +4140,14 @@ def update_write_height(self, context):
     tree = get_tree(layer)
 
     check_channel_normal_map_nodes(tree, layer, root_ch, ch)
-
+    check_all_layer_channel_io_and_nodes(layer, tree, self)
     update_displacement_height_ratio(root_ch)
 
     reconnect_layer_nodes(layer) #, ch_index)
     rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_normal_strength(self, context):
     yp = self.id_data.yp
