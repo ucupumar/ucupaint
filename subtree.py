@@ -1836,7 +1836,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
 
     # Normal Process
-    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not ch.write_height:
+    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not ch.write_height or layer.type == 'GROUP':
         if ch.normal_map_type == 'NORMAL_MAP' or (ch.normal_map_type == 'BUMP_NORMAL_MAP' and not ch.write_height):
             if root_ch.enable_smooth_bump:
                 if ch.enable_transition_bump:
@@ -1877,10 +1877,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             normal_proc.inputs['Strength'].default_value = ch.normal_strength
 
         # Normal flip
-        if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or root_ch.enable_smooth_bump:
-            remove_node(tree, ch, 'normal_flip')
-        else:
-
+        if not root_ch.enable_smooth_bump and not write_height:
             if is_greater_than_280(): lib_name = lib.FLIP_BACKFACE_BUMP
             else: lib_name = lib.FLIP_BACKFACE_BUMP_LEGACY
 
@@ -1888,6 +1885,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                     'Normal Backface Flip', lib_name)
 
             set_bump_backface_flip(normal_flip, yp.enable_backface_always_up)
+        else:
+            remove_node(tree, ch, 'normal_flip')
     else:
         if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
         if remove_node(tree, ch, 'normal_flip'): need_reconnect = True
@@ -2119,7 +2118,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not ch.write_height:
+        if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not ch.write_height or yp.layer_preview_mode or layer.type == 'GROUP':
 
             #if has_parent and ch.normal_blend_type == 'MIX':
             if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
