@@ -2219,7 +2219,7 @@ def check_extra_alpha(layer, need_reconnect=False):
 
         extra_alpha = tree.nodes.get(ch.extra_alpha)
 
-        if disp_ch.enable and disp_ch.normal_blend_type == 'COMPARE':
+        if ch.enable and disp_ch.enable and disp_ch.normal_blend_type == 'COMPARE':
 
             if not extra_alpha:
                 extra_alpha = new_node(tree, ch, 'extra_alpha', 'ShaderNodeMath', 'Extra Alpha')

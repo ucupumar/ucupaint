@@ -2667,6 +2667,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                             break_input_link(tree, height_blend.inputs[0])
                         else: create_link(tree, prev_height, height_blend.inputs[0])
 
+                        #create_link(tree, prev_alpha, height_blend.inputs[1])
                         create_link(tree, prev_height_alpha, height_blend.inputs[1])
                         create_link(tree, height_proc.outputs['Height'], height_blend.inputs[2])
                         height_alpha = create_link(tree, height_alpha, height_blend.inputs[3])[1]
@@ -2689,7 +2690,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                     # For straight over height compare
                     if 'Prev Alpha' in height_blend.inputs:
-                        create_link(tree, prev_alpha, height_blend.inputs['Prev Alpha'])
+                        #create_link(tree, prev_alpha, height_blend.inputs['Prev Alpha'])
+                        create_link(tree, prev_height_alpha, height_blend.inputs['Prev Alpha'])
                     if 'Alpha' in height_blend.outputs:
                         height_alpha = height_blend.outputs['Alpha']
 
