@@ -2130,7 +2130,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         intensity_multiplier = nodes.get(ch.intensity_multiplier)
         extra_alpha = nodes.get(ch.extra_alpha)
         blend = nodes.get(ch.blend)
-        bcol0, bcol1, bout = get_mix_color_indices(blend)
 
         if ch.source_group == '' and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
             ch_linear = nodes.get(ch.linear)
@@ -2345,7 +2344,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     alpha_w = create_link(tree, alpha_w, mod_w.inputs[1])[1]
 
             # Connect tangent if overlay blend is used
-            if ch.normal_blend_type == 'OVERLAY':
+            if blend and ch.normal_blend_type == 'OVERLAY':
                 create_link(tree, tangent, blend.inputs['Tangent'])
                 create_link(tree, bitangent, blend.inputs['Bitangent'])
 
@@ -2919,11 +2918,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             alpha = create_link(tree, alpha, extra_alpha.inputs[0])[0]
             create_link(tree, compare_alpha, extra_alpha.inputs[1])
 
-        # Pass rgb to blend
-        create_link(tree, rgb, blend.inputs[bcol1])
-
         # End node
         next_rgb = end.inputs.get(root_ch.name)
+        next_alpha = end.inputs.get(root_ch.name + io_suffix['ALPHA'])
 
         # Background layer only know mix
         if layer.type == 'BACKGROUND':
@@ -2933,42 +2930,46 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 blend_type = ch.normal_blend_type
             else: blend_type = ch.blend_type
 
-        if (
-                #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
-                (blend_type in {'MIX', 'COMPARE'} and (has_parent or root_ch.enable_alpha))
-                or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
-            ):
+        if blend:
+            bcol0, bcol1, bout = get_mix_color_indices(blend)
 
-            create_link(tree, prev_rgb, blend.inputs[0])
-            create_link(tree, prev_alpha, blend.inputs[1])
+            # Pass rgb to blend
+            create_link(tree, rgb, blend.inputs[bcol1])
 
-            create_link(tree, alpha, blend.inputs[3])
-
-            if bg_alpha and len(blend.inputs) > 4:
-                create_link(tree, bg_alpha, blend.inputs[4])
-
-        else:
-            create_link(tree, alpha, blend.inputs[0])
-            create_link(tree, prev_rgb, blend.inputs[bcol0])
-
-        # Armory can't recognize mute node, so reconnect input to output directly
-        #if layer.enable and ch.enable:
-        #    create_link(tree, blend.outputs[0], next_rgb)
-        #else: create_link(tree, prev_rgb, next_rgb)
-        create_link(tree, blend.outputs[bout], next_rgb)
-
-        # End alpha
-        next_alpha = end.inputs.get(root_ch.name + io_suffix['ALPHA'])
-        if next_alpha:
             if (
-                #(blend_type != 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
+                    #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
+                    (blend_type in {'MIX', 'COMPARE'} and (has_parent or root_ch.enable_alpha))
+                    or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
+                ):
+
+                create_link(tree, prev_rgb, blend.inputs[0])
+                create_link(tree, prev_alpha, blend.inputs[1])
+
+                create_link(tree, alpha, blend.inputs[3])
+
+                if bg_alpha and len(blend.inputs) > 4:
+                    create_link(tree, bg_alpha, blend.inputs[4])
+
+            else:
+                create_link(tree, alpha, blend.inputs[0])
+                create_link(tree, prev_rgb, blend.inputs[bcol0])
+
+            # Armory can't recognize mute node, so reconnect input to output directly
+            #if layer.enable and ch.enable:
+            #    create_link(tree, blend.outputs[0], next_rgb)
+            #else: create_link(tree, prev_rgb, next_rgb)
+            create_link(tree, blend.outputs[bout], next_rgb)
+        else: 
+            create_link(tree, prev_rgb, next_rgb)
+
+        if next_alpha:
+            if not blend or (
                 (blend_type != 'MIX' and (has_parent or root_ch.enable_alpha))
                 and not (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
-                #or (has_parent and root_ch.type == 'NORMAL' and not ch.write_height)
                 ):
                 create_link(tree, prev_alpha, next_alpha)
             else:
-                create_link(tree, blend.outputs[1], next_alpha)
+                if blend: create_link(tree, blend.outputs[1], next_alpha)
 
         # Layer preview
         if yp.layer_preview_mode:
@@ -2993,7 +2994,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             elif root_ch == yp.channels[yp.active_channel_index]:
                 col_preview = end.inputs.get(LAYER_VIEWER)
                 if col_preview:
-                    if normal_proc and root_ch.type == 'NORMAL': create_link(tree, normal_proc.outputs[0], col_preview)
+                    if root_ch.type == 'NORMAL' and normal_proc: create_link(tree, normal_proc.outputs[0], col_preview)
                     else: create_link(tree, rgb, col_preview)
                 if alpha_preview and yp.layer_preview_mode_type != 'SPECIFIC_MASK':
                     create_link(tree, alpha, alpha_preview)

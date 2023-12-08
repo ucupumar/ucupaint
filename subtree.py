@@ -2119,40 +2119,40 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        #if ch.normal_map_type != 'BUMP_MAP':
+        if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not ch.write_height:
 
-        #if has_parent and ch.normal_blend_type == 'MIX':
-        if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
-            if layer.type == 'BACKGROUND':
+            #if has_parent and ch.normal_blend_type == 'MIX':
+            if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
+                if layer.type == 'BACKGROUND':
+                    blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                            'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
+                            return_status = True, hard_replace=True, dirty=need_reconnect)
+                else:
+                    blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                            'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, 
+                            return_status = True, hard_replace=True, dirty=need_reconnect)
+
+            elif ch.normal_blend_type == 'OVERLAY':
+                if has_parent:
+                    blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                            'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL_STRAIGHT_OVER, 
+                            return_status = True, hard_replace=True, dirty=need_reconnect)
+                else:
+                    blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
+                            'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
+                            return_status = True, hard_replace=True, dirty=need_reconnect)
+
+            elif ch.normal_blend_type in {'MIX', 'COMPARE'}:
                 blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_BG_VEC, 
-                        return_status = True, hard_replace=True, dirty=need_reconnect)
-            else:
-                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.STRAIGHT_OVER_VEC, 
+                        'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
                         return_status = True, hard_replace=True, dirty=need_reconnect)
 
-        elif ch.normal_blend_type == 'OVERLAY':
-            if has_parent:
-                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL_STRAIGHT_OVER, 
-                        return_status = True, hard_replace=True, dirty=need_reconnect)
-            else:
-                blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                        'ShaderNodeGroup', 'Blend', lib.OVERLAY_NORMAL, 
-                        return_status = True, hard_replace=True, dirty=need_reconnect)
+            #if not root_ch.enable_smooth_bump:
+            #    for d in neighbor_directions:
+            #        remove_node(tree, ch, 'height_blend_' + d)
 
-        elif ch.normal_blend_type in {'MIX', 'COMPARE'}:
-            blend, need_reconnect = replace_new_node(tree, ch, 'blend', 
-                    'ShaderNodeGroup', 'Blend', lib.VECTOR_MIX, 
-                    return_status = True, hard_replace=True, dirty=need_reconnect)
-
-        #if not root_ch.enable_smooth_bump:
-        #    for d in neighbor_directions:
-        #        remove_node(tree, ch, 'height_blend_' + d)
-
-        #else:
-        #    remove_node(tree, ch, 'blend')
+        else:
+            remove_node(tree, ch, 'blend')
 
     elif root_ch.type == 'VALUE':
 
