@@ -1362,8 +1362,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         # Rearrange and reconnect nodes
         check_all_channel_ios(yp)
         #for t in yp.layers:
-        #    rearrange_layer_nodes(t)
         #    reconnect_layer_nodes(t)
+        #    rearrange_layer_nodes(t)
         #rearrange_yp_nodes(group_tree)
 
         # Set new active index
@@ -1986,8 +1986,8 @@ def update_channel_name(self, context):
     for layer in yp.layers:
         tree = get_tree(layer)
         Layer.check_all_layer_channel_io_and_nodes(layer, tree)
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
         rearrange_layer_frame_nodes(layer, tree)
     

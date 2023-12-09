@@ -300,8 +300,8 @@ def check_all_channel_ios(yp, reconnect=True):
     if reconnect:
         # Rearrange layers
         for layer in yp.layers:
-            rearrange_layer_nodes(layer)
             reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
 
         # Rearrange nodes
         reconnect_yp_nodes(group_tree)

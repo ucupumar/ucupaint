@@ -2798,7 +2798,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         create_link(tree, prev_height_alpha_ons, next_height_alpha_ons)
                         create_link(tree, prev_height_alpha_ew, next_height_alpha_ew)
                 else:
-                    if write_height:
+                    # Do not connect from height_alpha if height_blend is not found
+                    if height_blend and write_height:
                         create_link(tree, height_alpha, next_height_alpha)
                     else: create_link(tree, prev_height_alpha, next_height_alpha)
 

@@ -4233,7 +4233,7 @@ def any_layers_using_channel(root_ch, parent=None):
     for layer in layers:
         if not layer.enable: continue
         for i, ch in enumerate(layer.channels):
-            if not ch.enable: continue
+            if not ch.enable or (layer.type == 'GROUP' and not any_layers_using_channel(root_ch, layer)): continue
             if i == channel_idx:
                 return True
 
