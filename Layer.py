@@ -4095,7 +4095,6 @@ def update_normal_map_type(self, context):
     root_ch = yp.channels[int(m.group(2))]
     tree = get_tree(layer)
 
-    check_channel_normal_map_nodes(tree, layer, root_ch, self)
     check_all_layer_channel_io_and_nodes(layer, tree, self)
 
     #if not yp.halt_reconnect:
@@ -4116,9 +4115,6 @@ def update_blend_type(self, context):
     tree = get_tree(layer)
     ch_index = int(m.group(2))
     root_ch = yp.channels[ch_index]
-
-    #if check_blend_type_nodes(root_ch, layer, self): # and not yp.halt_reconnect:
-    check_blend_type_nodes(root_ch, layer, self)
 
     check_all_layer_channel_io_and_nodes(layer, tree, self)
 
@@ -4143,7 +4139,7 @@ def update_flip_backface_normal(self, context):
     tree = get_tree(layer)
 
     normal_flip = tree.nodes.get(self.normal_flip)
-    normal_flip.mute = self.invert_backface_normal
+    if normal_flip: normal_flip.mute = self.invert_backface_normal
 
 def update_write_height(self, context):
     yp = self.id_data.yp
@@ -4155,7 +4151,6 @@ def update_write_height(self, context):
     ch = self
     tree = get_tree(layer)
 
-    check_channel_normal_map_nodes(tree, layer, root_ch, ch)
     check_all_layer_channel_io_and_nodes(layer, tree, self)
     update_displacement_height_ratio(root_ch)
 
