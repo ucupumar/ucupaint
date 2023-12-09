@@ -1656,7 +1656,6 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
     if root_ch.type != 'NORMAL': return need_reconnect
 
-    #print('ntab')
     write_height = get_write_height(ch)
 
     # Check mask source tree
@@ -1836,7 +1835,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 lib_name, return_status=True, hard_replace=True, dirty=need_reconnect)
 
     # Normal Process
-    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not ch.write_height or layer.type == 'GROUP':
+    if is_normal_process_needed(layer):
+
         if ch.normal_map_type == 'NORMAL_MAP' or (ch.normal_map_type == 'BUMP_NORMAL_MAP' and not ch.write_height):
             if root_ch.enable_smooth_bump:
                 if ch.enable_transition_bump:
@@ -2118,7 +2118,8 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not ch.write_height or yp.layer_preview_mode or layer.type == 'GROUP':
+        #if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not ch.write_height or yp.layer_preview_mode or layer.type == 'GROUP' or root_ch.enable_alpha:
+        if is_normal_process_needed(layer) or root_ch.enable_alpha:
 
             #if has_parent and ch.normal_blend_type == 'MIX':
             if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
@@ -2151,7 +2152,16 @@ def check_blend_type_nodes(root_ch, layer, ch):
             #        remove_node(tree, ch, 'height_blend_' + d)
 
         else:
-            remove_node(tree, ch, 'blend')
+            if remove_node(tree, ch, 'blend'): need_reconnect = True
+
+        # Check parent normal blend nodes
+        parent = get_parent(layer)
+        if parent:
+            ch_index = get_channel_index(root_ch)
+            parent_ch =  parent.channels[ch_index]
+            if check_blend_type_nodes(root_ch, parent, parent_ch):
+                reconnect_layer_nodes(parent)
+                rearrange_layer_nodes(parent)
 
     elif root_ch.type == 'VALUE':
 

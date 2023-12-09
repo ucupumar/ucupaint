@@ -2487,6 +2487,10 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
             neighbor_idx = -1
             neighbor_layer = None
 
+        #move_outside_up = False
+        #move_outside_down = False
+        original_parent_idx = -1
+
         # Move outside up
         if is_top_member(layer) and self.direction == 'UP':
             #print('Case 1')
@@ -2498,11 +2502,15 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
             yp.active_layer_index = neighbor_idx
 
+            original_parent_idx = last_member_idx
+
         # Move outside down
         elif is_bottom_member(layer) and self.direction == 'DOWN':
             #print('Case 2')
 
             parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, yp.layers[layer.parent_idx].parent_idx)
+
+            original_parent_idx = layer.parent_idx
 
         elif neighbor_layer and neighbor_layer.type == 'GROUP':
 
@@ -2538,6 +2546,13 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
         check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
         reconnect_layer_nodes(layer)
         rearrange_layer_nodes(layer)
+
+        # Also check original parent io and nodes
+        if original_parent_idx != -1:
+            original_parent = yp.layers[original_parent_idx]
+            check_all_layer_channel_io_and_nodes(original_parent) #, has_parent=has_parent)
+            reconnect_layer_nodes(original_parent)
+            rearrange_layer_nodes(original_parent)
 
         # Refresh layer channel blend nodes
         reconnect_yp_nodes(node.node_tree)
