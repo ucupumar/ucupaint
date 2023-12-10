@@ -509,36 +509,47 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
 def check_create_height_pack(layer, tree, height_root_ch, height_ch):
 
     channel_enabled = get_channel_enabled(height_root_ch, layer, height_ch)
+    need_reconnect = False
     
     # Height unpack for group layer
     if channel_enabled and height_root_ch.enable_smooth_bump and layer.type == 'GROUP':
 
-        height_group_unpack = replace_new_node(tree, height_ch, 'height_group_unpack', 
-                'ShaderNodeGroup', 'Unpack Height Group', lib.UNPACK_ONSEW)
-        height_alpha_group_unpack = replace_new_node(tree, height_ch, 'height_alpha_group_unpack', 
-                'ShaderNodeGroup', 'Pack Height Alpha Group', lib.UNPACK_ONSEW)
+        height_group_unpack, dirty = replace_new_node(tree, height_ch, 'height_group_unpack', 
+                'ShaderNodeGroup', 'Unpack Height Group', lib.UNPACK_ONSEW, return_status=True)
+        if dirty: need_reconnect = True
+        height_alpha_group_unpack, dirty = replace_new_node(tree, height_ch, 'height_alpha_group_unpack', 
+                'ShaderNodeGroup', 'Pack Height Alpha Group', lib.UNPACK_ONSEW, return_status=True)
+        if dirty: need_reconnect = True
     else:
-        remove_node(tree, height_ch, 'height_group_unpack')
-        remove_node(tree, height_ch, 'height_alpha_group_unpack')
+        if remove_node(tree, height_ch, 'height_group_unpack'): need_reconnect = True
+        if remove_node(tree, height_ch, 'height_alpha_group_unpack'): need_reconnect = True
+
+    return need_reconnect
 
 def check_create_spread_alpha(layer, tree, root_ch, ch):
 
     channel_enabled = get_channel_enabled(root_ch, layer, ch)
+    need_reconnect = False
 
     if channel_enabled and layer.type == 'IMAGE' and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
         if root_ch.enable_smooth_bump:
-            spread_alpha = replace_new_node(tree, ch, 'spread_alpha', 
-                    'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA_SMOOTH, hard_replace=True)
+            spread_alpha, dirty = replace_new_node(tree, ch, 'spread_alpha', 
+                    'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA_SMOOTH, hard_replace=True, return_status=True)
         else:
-            spread_alpha = replace_new_node(tree, ch, 'spread_alpha', 
-                    'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA, hard_replace=True)
+            spread_alpha, dirty = replace_new_node(tree, ch, 'spread_alpha', 
+                    'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA, hard_replace=True, return_status=True)
+        if dirty: need_reconnect = True
     else:
-        remove_node(tree, ch, 'spread_alpha')
+        if remove_node(tree, ch, 'spread_alpha'): need_reconnect = True
+
+    return need_reconnect
 
 def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None):
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
+
+    need_reconnect = False
 
     trans_bump = get_transition_bump_channel(layer)
     trans_bump_flip = trans_bump.transition_bump_flip if trans_bump else False
@@ -560,13 +571,13 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
             #if yp.disable_quick_toggle and not ch.enable:
             if not channel_enabled or not layer.enable_masks or not mask.enable or not c.enable:
-                remove_node(tree, c, 'mix')
-                remove_node(tree, c, 'mix_remains')
-                remove_node(tree, c, 'mix_limit')
-                remove_node(tree, c, 'mix_limit_normal')
+                if remove_node(tree, c, 'mix'): need_reconnect = True
+                if remove_node(tree, c, 'mix_remains'): need_reconnect = True
+                if remove_node(tree, c, 'mix_limit'): need_reconnect = True
+                if remove_node(tree, c, 'mix_limit_normal'): need_reconnect = True
                 if root_ch.type == 'NORMAL':
-                    remove_node(tree, c, 'mix_pure')
-                    remove_node(tree, c, 'mix_normal')
+                    if remove_node(tree, c, 'mix_pure'): need_reconnect = True
+                    if remove_node(tree, c, 'mix_normal'): need_reconnect = True
                 continue
 
             if (root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and
@@ -574,18 +585,20 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 ):
                 mix = tree.nodes.get(c.mix)
                 if mix and (mix.type != 'GROUP' or not mix.name.endswith(mask.blend_type)):
-                    remove_node(tree, c, 'mix')
+                    if remove_node(tree, c, 'mix'): need_reconnect = True
                     mix = None
                 if not mix:
+                    need_reconnect = True
                     mix = new_node(tree, c, 'mix', 'ShaderNodeGroup', 'Mask Blend')
                     mix.node_tree = lib.get_smooth_mix_node(mask.blend_type, layer.type)
                     set_default_value(mix, 0, mask.intensity_value)
             else:
                 mix = tree.nodes.get(c.mix)
                 if mix and mix.type not in {'MIX_RGB', 'MIX'}:
-                    remove_node(tree, c, 'mix')
+                    if remove_node(tree, c, 'mix'): need_reconnect = True
                     mix = None
                 if not mix:
+                    need_reconnect = True
                     mix = new_mix_node(tree, c, 'mix', 'Mask Blend')
                     mix.inputs[0].default_value = mask.intensity_value
                 mix.blend_type = mask.blend_type
@@ -598,6 +611,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 if i >= chain and trans_bump and ch == trans_bump:
                     mix_pure = tree.nodes.get(c.mix_pure)
                     if not mix_pure:
+                        need_reconnect = True
                         mix_pure = new_mix_node(tree, c, 'mix_pure', 'Mask Blend Pure')
                         mix_pure.blend_type = mask.blend_type
                         # Use clamp to keep value between 0.0 to 1.0
@@ -605,7 +619,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                         mix_pure.inputs[0].default_value = mask.intensity_value
 
                 else:
-                    remove_node(tree, c, 'mix_pure')
+                    if remove_node(tree, c, 'mix_pure'): need_reconnect = True
 
                 if i >= chain and (
                     (trans_bump and ch == trans_bump and ch.transition_bump_crease) or
@@ -613,6 +627,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     ):
                     mix_remains = tree.nodes.get(c.mix_remains)
                     if not mix_remains:
+                        need_reconnect = True
                         mix_remains = new_mix_node(tree, c, 'mix_remains', 'Mask Blend Remaining')
                         mix_remains.inputs[0].default_value = mask.intensity_value
                     mix_remains.blend_type = mask.blend_type
@@ -620,11 +635,12 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
                         set_mix_clamp(mix_remains, True)
                 else:
-                    remove_node(tree, c, 'mix_remains')
+                    if remove_node(tree, c, 'mix_remains'): need_reconnect = True
 
                 if layer.type == 'GROUP':
                     mix_normal = tree.nodes.get(c.mix_normal)
                     if not mix_normal:
+                        need_reconnect = True
                         mix_normal = new_mix_node(tree, c, 'mix_normal', 'Mask Normal')
                         mix_normal.inputs[0].default_value = mask.intensity_value
                     mix_normal.blend_type = mask.blend_type
@@ -632,7 +648,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
                         set_mix_clamp(mix_normal, True)
                 else:
-                    remove_node(tree, c, 'mix_normal')
+                    if remove_node(tree, c, 'mix_normal'): need_reconnect = True
 
             else: 
                 if (trans_bump and i >= chain and (
@@ -642,6 +658,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     mix_remains = tree.nodes.get(c.mix_remains)
 
                     if not mix_remains:
+                        need_reconnect = True
                         mix_remains = new_mix_node(tree, c, 'mix_remains', 'Mask Blend n')
                         mix_remains.inputs[0].default_value = mask.intensity_value
 
@@ -650,28 +667,32 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     if mask.blend_type not in {'MIX', 'MULTIPLY'}: 
                         set_mix_clamp(mix_remains, True)
                 else:
-                    remove_node(tree, c, 'mix_remains')
+                    if remove_node(tree, c, 'mix_remains'): need_reconnect = True
 
             if layer.type == 'GROUP' and mask.blend_type in limited_mask_blend_types:
 
                 if root_ch.type != 'NORMAL' or not root_ch.enable_smooth_bump:
                     mix_limit = tree.nodes.get(c.mix_limit)
                     if not mix_limit:
+                        need_reconnect = True
                         mix_limit = new_node(tree, c, 'mix_limit', 'ShaderNodeMath', root_ch.name + ' Mask Limit')
                     mix_limit.operation = 'MINIMUM'
                     mix_limit.use_clamp = True
                 else:
-                    remove_node(tree, c, 'mix_limit')
+                    if remove_node(tree, c, 'mix_limit'): need_reconnect = True
 
                 if root_ch.type == 'NORMAL':
                     mix_limit_normal = tree.nodes.get(c.mix_limit_normal)
                     if not mix_limit_normal:
+                        need_reconnect = True
                         mix_limit_normal = new_node(tree, c, 'mix_limit_normal', 'ShaderNodeMath', root_ch.name + ' Mask Limit Normal')
                     mix_limit_normal.operation = 'MINIMUM'
                     mix_limit_normal.use_clamp = True
             else:
-                remove_node(tree, c, 'mix_limit')
-                remove_node(tree, c, 'mix_limit_normal')
+                if remove_node(tree, c, 'mix_limit'): need_reconnect = True
+                if remove_node(tree, c, 'mix_limit_normal'): need_reconnect = True
+
+    return need_reconnect
 
 def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
 
@@ -1677,7 +1698,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     check_mask_source_tree(layer) #, ch)
 
     # Check mask mix nodes
-    check_mask_mix_nodes(layer, tree)
+    if check_mask_mix_nodes(layer, tree): need_reconnect = True
 
     # Return if channel is disabled
     if not channel_enabled:
@@ -1686,10 +1707,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         #return need_reconnect
 
     # Check height pack/unpack
-    check_create_height_pack(layer, tree, root_ch, ch)
+    if check_create_height_pack(layer, tree, root_ch, ch): need_reconnect = True
 
     # Check spread alpha if its needed
-    check_create_spread_alpha(layer, tree, root_ch, ch)
+    if check_create_spread_alpha(layer, tree, root_ch, ch): need_reconnect = True
 
     # Dealing with neighbor related nodes
     if channel_enabled and root_ch.enable_smooth_bump:
@@ -2213,6 +2234,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     if parent:
         ch_index = get_channel_index(root_ch)
         parent_ch =  parent.channels[ch_index]
+        #check_blend_type_nodes(root_ch, parent, parent_ch)
         if check_blend_type_nodes(root_ch, parent, parent_ch):
             reconnect_layer_nodes(parent)
             rearrange_layer_nodes(parent)
