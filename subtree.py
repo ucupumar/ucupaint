@@ -637,7 +637,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 else:
                     if remove_node(tree, c, 'mix_remains'): need_reconnect = True
 
-                if layer.type == 'GROUP':
+                if layer.type == 'GROUP' and is_normal_process_needed(layer):
                     mix_normal = tree.nodes.get(c.mix_normal)
                     if not mix_normal:
                         need_reconnect = True
