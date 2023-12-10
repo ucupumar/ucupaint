@@ -564,7 +564,6 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
             ch = layer.channels[j]
             root_ch = yp.channels[j]
             channel_enabled = get_channel_enabled(root_ch, layer, ch)
-
             write_height = get_write_height(ch)
 
             if specific_ch and ch != specific_ch: continue
@@ -1658,51 +1657,31 @@ def check_uv_nodes(yp, generate_missings=False):
 
     return dirty
 
-def remove_layer_normal_channel_nodes(root_ch, layer, ch, tree=None):
-
-    if not tree: tree = get_tree(layer)
-
-    # Remove neighbor related nodes
-    if root_ch.enable_smooth_bump:
-        disable_layer_source_tree(layer, False)
-        Modifier.disable_modifiers_tree(ch)
-
-        if ch.override and ch.override_type != 'DEFAULT':
-            disable_channel_source_tree(layer, root_ch, ch, False)
-
-    #remove_node(tree, ch, 'spread_alpha')
-
-    #remove_node(tree, ch, 'height_proc')
-    #remove_node(tree, ch, 'height_blend')
-
-    #remove_node(tree, ch, 'normal_proc')
-    #remove_node(tree, ch, 'normal_flip')
-
-''' Group with no childs using the channel is considered not enabled '''
-def get_channel_enabled(root_ch, layer, ch):
-    return ch and ch.enable and (layer.type != 'GROUP' or any_layers_using_channel(root_ch, layer))
-
 def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=False):
 
     #print("Checking channel normal map nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
 
     yp = layer.id_data.yp
 
+    # Check mask mix nodes
+    if check_mask_mix_nodes(layer, tree): need_reconnect = True
+
+    # Only normal channel will continue proceed with this function
     if root_ch.type != 'NORMAL': return need_reconnect
 
     channel_enabled = get_channel_enabled(root_ch, layer, ch)
-
     write_height = get_write_height(ch)
 
     # Check mask source tree
     check_mask_source_tree(layer) #, ch)
 
-    # Check mask mix nodes
-    if check_mask_mix_nodes(layer, tree): need_reconnect = True
+    # Remove neighbor related nodes
+    if not channel_enabled and root_ch.enable_smooth_bump:
+        disable_layer_source_tree(layer, False)
+        Modifier.disable_modifiers_tree(ch)
 
-    # Return if channel is disabled
-    if not channel_enabled:
-        remove_layer_normal_channel_nodes(root_ch, layer, ch, tree)
+        if ch.override and ch.override_type != 'DEFAULT':
+            disable_channel_source_tree(layer, root_ch, ch, False)
 
         #return need_reconnect
 
@@ -2115,8 +2094,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     need_reconnect = False
 
     # Update normal map nodes
-    if root_ch.type == 'NORMAL':
-        need_reconnect = check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect)
+    need_reconnect = check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect)
 
     # Extra alpha
     need_reconnect = check_extra_alpha(layer, need_reconnect)

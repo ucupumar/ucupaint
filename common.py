@@ -4211,8 +4211,9 @@ def is_normal_process_needed(layer):
 
     return False
 
-def is_blending_nodes_needed(layer, ch):
-    pass
+''' Group with no childs using the channel is considered not enabled '''
+def get_channel_enabled(root_ch, layer, ch):
+    return ch and ch.enable and (layer.type != 'GROUP' or any_layers_using_channel(root_ch, layer))
 
 def is_any_entity_using_uv(yp, uv_name):
 
