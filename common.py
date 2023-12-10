@@ -4142,7 +4142,7 @@ def set_active_uv_layer(obj, uv_name):
 
 def is_uv_input_needed(layer, uv_name):
 
-    if layer.enable:
+    if get_layer_enabled(layer):
 
         if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
             if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
@@ -4159,7 +4159,7 @@ def is_uv_input_needed(layer, uv_name):
 def is_tangent_input_needed(layer, uv_name):
     yp = layer.id_data.yp
 
-    if layer.enable:
+    if get_layer_enabled(layer):
 
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch and height_root_ch.main_uv == uv_name:
@@ -4211,9 +4211,31 @@ def is_normal_process_needed(layer):
 
     return False
 
-''' Group with no childs using the channel is considered not enabled '''
+''' Check if layer is practically enabled or not '''
+def get_layer_enabled(layer):
+    yp = layer.id_data.yp
+
+    # Check all parents enable
+    parent_enable = True
+    for parent_id in get_list_of_parent_ids(layer):
+        parent = yp.layers[parent_id]
+        if not parent.enable:
+            parent_enable = False
+            break
+
+    return layer.enable and parent_enable
+    #return (layer.enable and parent_enable) or yp.layer_preview_mode
+
+''' Check if mask is practically enabled or not '''
+def get_mask_enabled(layer, mask):
+    yp = layer.id_data.yp
+
+    return get_layer_enabled(layer) and mask.enable
+    #return (get_layer_enabled(layer) and mask.enable) or yp.layer_preview_mode
+
+''' Check if channel is practically enabled or not '''
 def get_channel_enabled(root_ch, layer, ch):
-    return ch and ch.enable and (layer.type != 'GROUP' or any_layers_using_channel(root_ch, layer))
+    return get_layer_enabled(layer) and ch and ch.enable and (layer.type != 'GROUP' or any_layers_using_channel(root_ch, layer))
 
 def is_any_entity_using_uv(yp, uv_name):
 
@@ -4232,7 +4254,7 @@ def any_layers_using_channel(root_ch, parent=None):
     else: layers = yp.layers
 
     for layer in layers:
-        if not layer.enable: continue
+        if not get_layer_enabled(layer): continue
         for i, ch in enumerate(layer.channels):
             if not ch.enable or (layer.type == 'GROUP' and not any_layers_using_channel(root_ch, layer)): continue
             if i == channel_idx:

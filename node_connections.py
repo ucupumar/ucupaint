@@ -1616,9 +1616,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if prev_height: create_link(tree, prev_height, bump_process.inputs['Height'])
 
-        create_link(tree, prev_normal, bump_process.inputs['Normal Overlay'])
-        create_link(tree, tangent, bump_process.inputs['Tangent'])
-        create_link(tree, bitangent, bump_process.inputs['Bitangent'])
+        if prev_normal: create_link(tree, prev_normal, bump_process.inputs['Normal Overlay'])
+        if tangent: create_link(tree, tangent, bump_process.inputs['Tangent'])
+        if bitangent: create_link(tree, bitangent, bump_process.inputs['Bitangent'])
 
     if layer.type == 'HEMI':
         if layer.hemi_use_prev_normal and bump_process:
@@ -1748,11 +1748,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         #fine_bump_ch = trans_bump_ch.transition_bump_type in {'FINE_BUMP_MAP', 'CURVED_BUMP_MAP'}
 
     # Get normal/height channel
+    compare_alpha = None
     height_ch = get_height_channel(layer)
     if height_ch and height_ch.normal_blend_type == 'COMPARE':
         height_blend = nodes.get(height_ch.height_blend)
         if height_blend: compare_alpha = height_blend.outputs.get('Normal Alpha')
-    else: compare_alpha = None
 
     chain = -1
     if trans_bump_ch:
@@ -2981,7 +2981,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             #if layer.enable and ch.enable:
             #    create_link(tree, blend.outputs[0], next_rgb)
             #else: create_link(tree, prev_rgb, next_rgb)
-            create_link(tree, blend.outputs[bout], next_rgb)
+            if next_rgb: create_link(tree, blend.outputs[bout], next_rgb)
         elif prev_rgb and next_rgb: 
             create_link(tree, prev_rgb, next_rgb)
 

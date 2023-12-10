@@ -2101,13 +2101,16 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     has_parent = layer.parent_idx != -1
 
+    # Check if channel is enabled
+    channel_enabled = get_channel_enabled(root_ch, layer, ch)
+
     # Background layer always using mix blend type
     if layer.type == 'BACKGROUND':
         blend_type = 'MIX'
     else: blend_type = ch.blend_type
 
     if root_ch.type in {'RGB', 'VALUE'}:
-        if ch.enable and (layer.type != 'GROUP' or any_layers_using_channel(root_ch, layer)):
+        if channel_enabled:
             if root_ch.type == 'RGB':
                 if (has_parent or root_ch.enable_alpha) and blend_type == 'MIX':
 
@@ -2167,7 +2170,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if ch.enable and (is_normal_process_needed(layer) or root_ch.enable_alpha):
+        if channel_enabled and (is_normal_process_needed(layer) or root_ch.enable_alpha):
 
             #if has_parent and ch.normal_blend_type == 'MIX':
             if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
@@ -2211,17 +2214,22 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
 def check_extra_alpha(layer, need_reconnect=False):
 
+    yp = layer.id_data.yp
+
     disp_ch = get_height_channel(layer)
     if not disp_ch: return
 
     tree = get_tree(layer)
 
-    for ch in layer.channels:
+    for i, ch in enumerate(layer.channels):
         if disp_ch == ch: continue
+
+        root_ch = yp.channels[i]
+        channel_enabled = get_channel_enabled(root_ch, layer, ch)
 
         extra_alpha = tree.nodes.get(ch.extra_alpha)
 
-        if ch.enable and disp_ch.enable and disp_ch.normal_blend_type == 'COMPARE':
+        if channel_enabled and disp_ch.enable and disp_ch.normal_blend_type == 'COMPARE':
 
             if not extra_alpha:
                 extra_alpha = new_node(tree, ch, 'extra_alpha', 'ShaderNodeMath', 'Extra Alpha')
@@ -2253,7 +2261,9 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
         source = get_layer_source(layer)
         if source: image = source.image
 
-    if ch.enable and ((
+    channel_enabled = get_channel_enabled(root_ch, layer, ch)
+
+    if channel_enabled and ((
             ch.override and (
                 (image and is_image_source_srgb(image, source, root_ch)) or 
                 (
@@ -2288,7 +2298,7 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
         source_1 = layer_tree.nodes.get(ch.source_1)
         if source_1: image_1 = source_1.image
 
-    if ch.enable and ch.override_1 and image_1 and is_image_source_srgb(image_1, source_1):
+    if channel_enabled and ch.override_1 and image_1 and is_image_source_srgb(image_1, source_1):
         linear_1 = replace_new_node(layer_tree, ch, 'linear_1', 'ShaderNodeGamma', 'Linear 1')
         linear_1.inputs[1].default_value = 1.0 / GAMMA
     else:
