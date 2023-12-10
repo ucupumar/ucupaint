@@ -1609,8 +1609,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             prev_height_ons = texcoord.outputs.get(height_root_ch.name + io_suffix['HEIGHT_ONS'])
             prev_height_ew = texcoord.outputs.get(height_root_ch.name + io_suffix['HEIGHT_EW'])
 
-            create_link(tree, prev_height_ons, bump_process.inputs['Height ONS'])
-            create_link(tree, prev_height_ew, bump_process.inputs['Height EW'])
+            if prev_height_ons: create_link(tree, prev_height_ons, bump_process.inputs['Height ONS'])
+            if prev_height_ew: create_link(tree, prev_height_ew, bump_process.inputs['Height EW'])
         else:
             prev_height = texcoord.outputs.get(height_root_ch.name + io_suffix['HEIGHT'])
 
@@ -2687,7 +2687,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                             elif prev_height: create_link(tree, prev_height, height_blend.inputs[0])
 
                             #create_link(tree, prev_alpha, height_blend.inputs[1])
-                            create_link(tree, prev_height_alpha, height_blend.inputs[1])
+                            if prev_height_alpha: create_link(tree, prev_height_alpha, height_blend.inputs[1])
                             if height_proc: create_link(tree, height_proc.outputs['Height'], height_blend.inputs[2])
                             height_alpha = create_link(tree, height_alpha, height_blend.inputs[3])[1]
                         else:
@@ -2708,7 +2708,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         if height_proc: create_link(tree, height_proc.outputs['Height'], height_blend.inputs['Height'])
 
                         # For straight over height compare
-                        if 'Prev Alpha' in height_blend.inputs:
+                        if 'Prev Alpha' in height_blend.inputs and prev_height_alpha:
                             #create_link(tree, prev_alpha, height_blend.inputs['Prev Alpha'])
                             create_link(tree, prev_height_alpha, height_blend.inputs['Prev Alpha'])
                         if 'Alpha' in height_blend.outputs:
@@ -2732,8 +2732,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, height_alpha, height_blend.inputs['Alpha'])
 
                     if has_parent:
-                        create_link(tree, prev_height_alpha_ons, height_blend.inputs['Prev Height Alpha ONS'])
-                        create_link(tree, prev_height_alpha_ew, height_blend.inputs['Prev Height Alpha EW'])
+                        if prev_height_alpha_ons: create_link(tree, prev_height_alpha_ons, height_blend.inputs['Prev Height Alpha ONS'])
+                        if prev_height_alpha_ew: create_link(tree, prev_height_alpha_ew, height_blend.inputs['Prev Height Alpha EW'])
 
                     #for d in neighbor_directions:
                     #    create_link(tree, alphas[d], height_blend.inputs['Alpha ' + d])
@@ -2791,9 +2791,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if write_height and height_blend:
                 if root_ch.enable_smooth_bump:
-                    create_link(tree, height_blend.outputs['Height ONS'], next_height_ons)
-                    create_link(tree, height_blend.outputs['Height EW'], next_height_ew)
-                else:
+                    if next_height_ons: create_link(tree, height_blend.outputs['Height ONS'], next_height_ons)
+                    if next_height_ew: create_link(tree, height_blend.outputs['Height EW'], next_height_ew)
+                elif next_height:
                     create_link(tree, height_blend.outputs[hbout], next_height)
             else:
                 if root_ch.enable_smooth_bump:
@@ -2807,17 +2807,18 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if root_ch.enable_smooth_bump:
 
                     if height_blend and write_height:
-                        create_link(tree, height_blend.outputs['Height Alpha ONS'], next_height_alpha_ons)
-                        create_link(tree, height_blend.outputs['Height Alpha EW'], next_height_alpha_ew)
+                        if next_height_alpha_ons: create_link(tree, height_blend.outputs['Height Alpha ONS'], next_height_alpha_ons)
+                        if next_height_alpha_ew: create_link(tree, height_blend.outputs['Height Alpha EW'], next_height_alpha_ew)
                     else:
-                        create_link(tree, prev_height_alpha_ons, next_height_alpha_ons)
-                        create_link(tree, prev_height_alpha_ew, next_height_alpha_ew)
+                        if prev_height_alpha_ons and next_height_alpha_ons: create_link(tree, prev_height_alpha_ons, next_height_alpha_ons)
+                        if prev_height_alpha_ew and next_height_alpha_ew: create_link(tree, prev_height_alpha_ew, next_height_alpha_ew)
                 else:
                     # Do not connect from height_alpha if height_blend is not found
-                    if height_blend and write_height:
-                        create_link(tree, height_alpha, next_height_alpha)
-                    elif prev_height_alpha and next_height_alpha: 
-                        create_link(tree, prev_height_alpha, next_height_alpha)
+                    if next_height_alpha:
+                        if height_blend and write_height:
+                            if height_alpha: create_link(tree, height_alpha, next_height_alpha)
+                        else:
+                            if prev_height_alpha: create_link(tree, prev_height_alpha, next_height_alpha)
 
         # Transition AO
         if root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao: # and layer.type != 'BACKGROUND':
@@ -2964,8 +2965,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     or (blend_type == 'OVERLAY' and has_parent and root_ch.type == 'NORMAL')
                 ):
 
-                create_link(tree, prev_rgb, blend.inputs[0])
-                create_link(tree, prev_alpha, blend.inputs[1])
+                if prev_rgb: create_link(tree, prev_rgb, blend.inputs[0])
+                if prev_alpha: create_link(tree, prev_alpha, blend.inputs[1])
 
                 create_link(tree, alpha, blend.inputs[3])
 
