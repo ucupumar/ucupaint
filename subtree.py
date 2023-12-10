@@ -2207,16 +2207,6 @@ def check_blend_type_nodes(root_ch, layer, ch):
         preview = mat.node_tree.nodes.get(EMISSION_VIEWER)
         if preview: update_preview_mix(ch, preview)
 
-    # Check parent blend nodes
-    parent = get_parent(layer)
-    if parent:
-        ch_index = get_channel_index(root_ch)
-        parent_ch =  parent.channels[ch_index]
-        #check_blend_type_nodes(root_ch, parent, parent_ch)
-        if check_blend_type_nodes(root_ch, parent, parent_ch):
-            reconnect_layer_nodes(parent)
-            rearrange_layer_nodes(parent)
-
     return need_reconnect
 
 def check_extra_alpha(layer, need_reconnect=False):

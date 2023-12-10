@@ -370,6 +370,13 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     # Linear nodes
     check_yp_linear_nodes(yp, layer, False)
 
+    # Check parent blend nodes
+    parent = get_parent(layer)
+    if parent:
+        check_all_layer_channel_io_and_nodes(parent)
+        reconnect_layer_nodes(parent)
+        rearrange_layer_nodes(parent)
+
 def check_layer_tree_ios(layer, tree=None):
 
     yp = layer.id_data.yp
@@ -387,30 +394,32 @@ def check_layer_tree_ios(layer, tree=None):
     
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
-        #if yp.disable_quick_toggle and not ch.enable: continue
         root_ch = yp.channels[i]
+        channel_enabled = get_channel_enabled(root_ch, layer, ch)
 
-        if not (root_ch.type == 'NORMAL' and need_prev_normal) and not ch.enable:
-            continue
+        #if not (root_ch.type == 'NORMAL' and need_prev_normal) and not channel_enabled:
+        #    continue
 
-        dirty = create_input(tree, root_ch.name, channel_socket_input_bl_idnames[root_ch.type], 
-                valid_inputs, input_index, dirty)
-        input_index += 1
+        if channel_enabled:
+            dirty = create_input(tree, root_ch.name, channel_socket_input_bl_idnames[root_ch.type], 
+                    valid_inputs, input_index, dirty)
+            input_index += 1
 
-        if root_ch.type != 'NORMAL' or not need_prev_normal or ch.enable:
+        if root_ch.type != 'NORMAL' or not need_prev_normal or channel_enabled:
             dirty = create_output(tree, root_ch.name, channel_socket_output_bl_idnames[root_ch.type], 
                     valid_outputs, output_index, dirty)
             output_index += 1
 
         # Alpha IO
-        #if (root_ch.type == 'RGB' and root_ch.enable_alpha) or has_parent:
         if root_ch.enable_alpha or has_parent:
 
             name = root_ch.name + io_suffix['ALPHA']
-            dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-            input_index += 1
 
-            if root_ch.type != 'NORMAL' or not need_prev_normal or ch.enable:
+            if channel_enabled:
+                dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
+                input_index += 1
+
+            if root_ch.type != 'NORMAL' or not need_prev_normal or channel_enabled:
                 dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
                 output_index += 1
 
@@ -420,56 +429,68 @@ def check_layer_tree_ios(layer, tree=None):
             if not root_ch.enable_smooth_bump:
 
                 name = root_ch.name + io_suffix['HEIGHT']
-                dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-                input_index += 1
 
-                if not need_prev_normal or ch.enable:
+                if channel_enabled:
+                    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
+                    input_index += 1
+
+                if not need_prev_normal or channel_enabled:
                     dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
                     output_index += 1
 
                 if has_parent:
 
                     name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
-                    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-                    input_index += 1
 
-                    if not need_prev_normal or ch.enable:
+                    if channel_enabled:
+                        dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
+                        input_index += 1
+
+                    if not need_prev_normal or channel_enabled:
                         dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
                         output_index += 1
 
             else:
 
                 name = root_ch.name + io_suffix['HEIGHT_ONS']
-                dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                input_index += 1
+                
+                if channel_enabled:
+                    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
+                    input_index += 1
 
-                if not need_prev_normal or ch.enable:
+                if not need_prev_normal or channel_enabled:
                     dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                     output_index += 1
 
                 name = root_ch.name + io_suffix['HEIGHT_EW']
-                dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                input_index += 1
 
-                if not need_prev_normal or ch.enable:
+                if channel_enabled:
+                    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
+                    input_index += 1
+
+                if not need_prev_normal or channel_enabled:
                     dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                     output_index += 1
 
                 if has_parent:
 
                     name = root_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['ALPHA']
-                    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                    input_index += 1
 
-                    if not need_prev_normal or ch.enable:
+                    if channel_enabled:
+                        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
+                        input_index += 1
+
+                    if not need_prev_normal or channel_enabled:
                         dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                         output_index += 1
 
                     name = root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['ALPHA']
-                    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                    input_index += 1
 
-                    if not need_prev_normal or ch.enable:
+                    if channel_enabled:
+                        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
+                        input_index += 1
+
+                    if not need_prev_normal or channel_enabled:
                         dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                         output_index += 1
 
@@ -493,8 +514,11 @@ def check_layer_tree_ios(layer, tree=None):
     if layer.type in {'BACKGROUND', 'GROUP'}:
 
         for i, ch in enumerate(layer.channels):
-            #if yp.disable_quick_toggle and not ch.enable: continue
-            if not ch.enable: continue
+            root_ch = yp.channels[i]
+            channel_enabled = get_channel_enabled(root_ch, layer, ch)
+
+            #if yp.disable_quick_toggle and not channel_enabled: continue
+            if not channel_enabled: continue
 
             root_ch = yp.channels[i]
 
@@ -558,7 +582,7 @@ def check_layer_tree_ios(layer, tree=None):
                     #    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
                     #    input_index += 1
 
-    # Create inputs
+    # Create UV inputs
     for uv in yp.uvs:
         if is_uv_input_needed(layer, uv.name):
             name = uv.name + io_suffix['UV']
