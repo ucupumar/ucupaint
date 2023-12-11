@@ -1800,6 +1800,10 @@ class YMergeLayer(bpy.types.Operator):
             # Remove neighbor layer
             Layer.remove_layer(yp, neighbor_idx)
 
+            # Remap parents
+            for lay in yp.layers:
+                lay.parent_idx = get_layer_index_by_name(yp, parent_dict[lay.name])
+
             if height_ch and main_ch.type == 'NORMAL' and height_ch.normal_map_type == 'BUMP_MAP':
                 height_ch.bump_distance = max_height
 
