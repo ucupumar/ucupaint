@@ -4244,7 +4244,7 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
         layer = yp.layers[int(m.group(1))]
         root_ch = yp.channels[int(m.group(2))]
 
-    return get_layer_enabled(layer) and ch and ch.enable and (layer.type != 'GROUP' or any_layers_using_channel(root_ch, layer))
+    return get_layer_enabled(layer) and ch.enable and (layer.type != 'GROUP' or any_layers_using_channel(root_ch, layer))
 
 def is_any_entity_using_uv(yp, uv_name):
 

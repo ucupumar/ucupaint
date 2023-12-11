@@ -349,7 +349,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
     # Get chain
     chain = get_bump_chain(layer)
 
-    if get_channel_enabled(smooth_bump_ch) and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX', 'COLOR_ID'}:
+    if smooth_bump_ch and get_channel_enabled(smooth_bump_ch) and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX', 'COLOR_ID'}:
 
         #print('ntob')
 
@@ -670,7 +670,7 @@ def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
     write_height_ch = get_write_height_normal_channel(layer)
     chain = get_bump_chain(layer)
 
-    channel_enabled = get_channel_enabled(smooth_bump_ch)
+    channel_enabled = get_channel_enabled(smooth_bump_ch) if smooth_bump_ch else False
 
     for i, mask in enumerate(layer.masks):
         if specific_mask and specific_mask != mask: continue
