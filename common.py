@@ -2841,6 +2841,7 @@ def is_active_uv_map_match_entity(obj, entity):
     mapping = get_entity_mapping(entity)
 
     uv_layers = get_uv_layers(obj)
+    if not uv_layers: return False
     uv_layer = uv_layers.active
 
     if mapping and is_transformed(mapping) and obj.mode == 'TEXTURE_PAINT':
