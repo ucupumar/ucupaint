@@ -4462,11 +4462,14 @@ def is_image_source_srgb(image, source, root_ch=None):
 
 def any_linear_images_problem(yp):
     for layer in yp.layers:
+        if not layer.enable: continue
         layer_tree = get_tree(layer)
 
         for i, ch in enumerate(layer.channels):
+            if not ch.enable: continue
             root_ch = yp.channels[i]
-            if ch.override_type == 'IMAGE':
+
+            if ch.override and ch.override_type == 'IMAGE':
                 source_tree = get_channel_source_tree(ch)
                 linear = source_tree.nodes.get(ch.linear)
                 source = source_tree.nodes.get(ch.source)
@@ -4480,8 +4483,7 @@ def any_linear_images_problem(yp):
                     ):
                     return True
 
-        for ch in layer.channels:
-            if ch.override_1_type == 'IMAGE':
+            if ch.override_1 and ch.override_1_type == 'IMAGE':
                 linear_1 = layer_tree.nodes.get(ch.linear_1)
                 source_1 = layer_tree.nodes.get(ch.source_1)
                 if not source_1: continue
@@ -4495,6 +4497,7 @@ def any_linear_images_problem(yp):
                     return True
 
         for mask in layer.masks:
+            if not mask.enable: continue
             if mask.type == 'IMAGE':
                 source_tree = get_mask_tree(mask)
                 linear = source_tree.nodes.get(mask.linear)
