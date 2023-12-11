@@ -387,7 +387,7 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
 
         # Check background layers
         layer_idx = get_layer_index(layer)
-        bgs = [l for i, l in enumerate(yp.layers) if i < layer_idx and l.type == 'BACKGROUND' and l.parent_idx == layer.parent_idx]
+        bgs = [l for i, l in enumerate(yp.layers) if i < layer_idx and l.type == 'BACKGROUND']
         other_layers.extend(bgs)
 
         # Recursive to other affected layers
