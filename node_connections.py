@@ -2084,7 +2084,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             ch_uv_neighbor = nodes.get(ch.uv_neighbor)
             if ch_uv_neighbor:
 
-                create_link(tree, vector, ch_uv_neighbor.inputs[0])
+                if vector: create_link(tree, vector, ch_uv_neighbor.inputs[0])
 
                 if ch.override_type in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
                     create_link(tree, rgb, ch_uv_neighbor.inputs[0])
@@ -2119,7 +2119,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     if ch_source_e: create_link(tree, ch_uv_neighbor.outputs['e'], ch_source_e.inputs[0])
                     if ch_source_w: create_link(tree, ch_uv_neighbor.outputs['w'], ch_source_w.inputs[0])
 
-            if 'Vector' in ch_source.inputs:
+            if vector and 'Vector' in ch_source.inputs:
                 create_link(tree, vector, ch_source.inputs['Vector'])
 
             if yp.layer_preview_mode and yp.layer_preview_mode_type == 'SPECIFIC_MASK' and ch.active_edit == True:
@@ -2137,7 +2137,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if ch_linear_1: normal = create_link(tree, normal, ch_linear_1.inputs[0])[0]
             if ch_flip_y: normal = create_link(tree, normal, ch_flip_y.inputs[0])[0]
 
-            if 'Vector' in ch_source_1.inputs:
+            if vector and 'Vector' in ch_source_1.inputs:
                 create_link(tree, vector, ch_source_1.inputs['Vector'])
 
         if ch_idx != -1 and i != ch_idx: continue

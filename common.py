@@ -4234,7 +4234,14 @@ def get_mask_enabled(layer, mask):
     #return (get_layer_enabled(layer) and mask.enable) or yp.layer_preview_mode
 
 ''' Check if channel is practically enabled or not '''
-def get_channel_enabled(root_ch, layer, ch):
+def get_channel_enabled(ch, layer=None, root_ch=None):
+
+    if not layer or not root_ch:
+        yp = ch.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        layer = yp.layers[int(m.group(1))]
+        root_ch = yp.channels[int(m.group(2))]
+
     return get_layer_enabled(layer) and ch and ch.enable and (layer.type != 'GROUP' or any_layers_using_channel(root_ch, layer))
 
 def is_any_entity_using_uv(yp, uv_name):

@@ -1208,7 +1208,7 @@ def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
             root_ch = yp.channels[int(match1.group(2))]
 
             # Check if fine bump map is still used
-            if parent.enable and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+            if get_channel_enabled(parent, layer, root_ch) and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
                 if layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not parent.override:
                     return
                 if parent.override and parent.override_type != 'DEFAULT':

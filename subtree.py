@@ -118,15 +118,8 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
 def enable_layer_source_tree(layer, rearrange=False):
 
     # Check if source tree is already available
-    #if layer.type in {'BACKGROUND', 'COLOR', 'GROUP'}: return
     if layer.type in {'BACKGROUND', 'COLOR'}: return
     if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and layer.source_group != '': return
-
-    # Check if there's override channel
-    #for i, ch in enumerate(layer.channels):
-    #    root_ch = yp.channels[i]
-    #    if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable and ch.override and ch.override_type != 'DEFAULT':
-    #        return
 
     layer_tree = get_tree(layer)
 
@@ -136,12 +129,9 @@ def enable_layer_source_tree(layer, rearrange=False):
         linear_ref = layer_tree.nodes.get(layer.linear)
         flip_y_ref = layer_tree.nodes.get(layer.flip_y)
         divider_alpha_ref = layer_tree.nodes.get(layer.divider_alpha)
-        #mapping_ref = layer_tree.nodes.get(layer.mapping)
 
         # Create source tree
         source_tree = bpy.data.node_groups.new(LAYERGROUP_PREFIX + layer.name + ' Source', 'ShaderNodeTree')
-
-        #source_tree.outputs.new('NodeSocketFloat', 'Factor')
 
         create_essential_nodes(source_tree, True)
 
@@ -163,9 +153,6 @@ def enable_layer_source_tree(layer, rearrange=False):
             divider_alpha = new_node(source_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
             copy_node_props(divider_alpha_ref, divider_alpha)
 
-        #mapping = new_node(source_tree, layer, 'mapping', 'ShaderNodeMapping')
-        #if mapping_ref: copy_node_props(mapping_ref, mapping)
-
         # Create source node group
         source_group = new_node(layer_tree, layer, 'source_group', 'ShaderNodeGroup', 'source_group')
         source_n = new_node(layer_tree, layer, 'source_n', 'ShaderNodeGroup', 'source_n')
@@ -184,7 +171,6 @@ def enable_layer_source_tree(layer, rearrange=False):
         if linear_ref: layer_tree.nodes.remove(linear_ref)
         if flip_y_ref: layer_tree.nodes.remove(flip_y_ref)
         if divider_alpha_ref: layer_tree.nodes.remove(divider_alpha_ref)
-        #if mapping_ref: layer_tree.nodes.remove(mapping_ref)
     
         # Bring modifiers to source tree
         if layer.type in {'IMAGE', 'MUSGRAVE'}:
@@ -194,14 +180,12 @@ def enable_layer_source_tree(layer, rearrange=False):
             move_mod_group(layer, layer_tree, source_tree)
 
     # Create uv neighbor
-    #if layer.type in {'VCOL', 'GROUP'}:
-    if layer.type in {'VCOL', 'HEMI'}: #, 'OBJECT_INDEX'}:
+    if layer.type in {'VCOL', 'HEMI'}:
         uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.NEIGHBOR_FAKE, hard_replace=True)
         if layer.type == 'VCOL':
             uv_neighbor_1 = replace_new_node(layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
                     lib.NEIGHBOR_FAKE, hard_replace=True)
-    #else: 
     elif layer.type not in {'GROUP', 'OBJECT_INDEX'}: 
         uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
@@ -221,7 +205,7 @@ def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False)
     if not force:
         smooth_bump_ch = None
         for i, root_ch in enumerate(yp.channels):
-            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and layer.channels[i].enable:
+            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and get_channel_enabled(layer.channels[i], layer, root_ch):
                 smooth_bump_ch = root_ch
 
         if (ch.override_type not in {'DEFAULT'} and ch.source_group == '') or (not ch.override and smooth_bump_ch):
@@ -234,7 +218,6 @@ def disable_channel_source_tree(layer, root_ch, ch, rearrange=True, force=False)
     if source_group:
         source_ref = source_group.node_tree.nodes.get(ch.source)
         linear_ref = source_group.node_tree.nodes.get(ch.linear)
-        #mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
         # Create new source
         source = new_node(layer_tree, ch, 'source', source_ref.bl_idname)
@@ -270,7 +253,7 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
     if not force:
         smooth_bump_ch = None
         for i, root_ch in enumerate(yp.channels):
-            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and layer.channels[i].enable:
+            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and get_channel_enabled(layer.channels[i], layer, root_ch):
                 smooth_bump_ch = root_ch
 
         if (layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and layer.source_group == '') or smooth_bump_ch:
@@ -285,7 +268,6 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
             linear_ref = source_group.node_tree.nodes.get(layer.linear)
             flip_y_ref = source_group.node_tree.nodes.get(layer.flip_y)
             divider_alpha_ref = source_group.node_tree.nodes.get(layer.divider_alpha)
-            #mapping_ref = source_group.node_tree.nodes.get(layer.mapping)
 
             # Create new source
             source = new_node(layer_tree, layer, 'source', source_ref.bl_idname)
@@ -302,9 +284,6 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
             if divider_alpha_ref:
                 divider_alpha = new_node(layer_tree, layer, 'divider_alpha', divider_alpha_ref.bl_idname)
                 copy_node_props(divider_alpha_ref, divider_alpha)
-
-            #mapping = new_node(layer_tree, layer, 'mapping', 'ShaderNodeMapping')
-            #if mapping_ref: copy_node_props(mapping_ref, mapping)
 
             # Bring back layer modifier to original tree
             if layer.type in {'IMAGE', 'MUSGRAVE'}:
@@ -370,7 +349,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
     # Get chain
     chain = get_bump_chain(layer)
 
-    if smooth_bump_ch and smooth_bump_ch.enable and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX', 'COLOR_ID'}:
+    if get_channel_enabled(smooth_bump_ch) and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX', 'COLOR_ID'}:
 
         #print('ntob')
 
@@ -403,7 +382,6 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
         linear_ref = layer_tree.nodes.get(mask.linear)
-        #mapping_ref = layer_tree.nodes.get(mask.mapping)
 
         # Create mask tree
         mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
@@ -425,9 +403,6 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
             linear = new_node(mask_tree, mask, 'linear', linear_ref.bl_idname)
             copy_node_props(linear_ref, linear)
 
-        #mapping = new_node(mask_tree, mask, 'mapping', 'ShaderNodeMapping')
-        #if mapping_ref: copy_node_props(mapping_ref, mapping)
-
         # Create source node group
         group_node = new_node(layer_tree, mask, 'group_node', 'ShaderNodeGroup', 'source_group')
         source_n = new_node(layer_tree, mask, 'source_n', 'ShaderNodeGroup', 'source_n')
@@ -447,7 +422,6 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         # Remove previous nodes
         layer_tree.nodes.remove(source_ref)
         if linear_ref: layer_tree.nodes.remove(linear_ref)
-        #if mapping_ref: layer_tree.nodes.remove(mapping_ref)
 
     if reconnect:
         # Reconnect outside nodes
@@ -469,7 +443,6 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
 
         source_ref = mask_tree.nodes.get(mask.source)
         linear_ref = mask_tree.nodes.get(mask.linear)
-        #mapping_ref = mask_tree.nodes.get(mask.mapping)
         group_node = layer_tree.nodes.get(mask.group_node)
 
         # Create new nodes
@@ -479,9 +452,6 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         if linear_ref:
             linear = new_node(layer_tree, mask, 'linear', linear_ref.bl_idname)
             copy_node_props(linear_ref, linear)
-
-        #mapping = new_node(layer_tree, mask, 'mapping', 'ShaderNodeMapping')
-        #if mapping_ref: copy_node_props(mapping_ref, mapping)
 
         for mod in mask.modifiers:
             MaskModifier.add_modifier_nodes(mod, layer_tree, mask_tree)
@@ -508,7 +478,7 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
 
 def check_create_height_pack(layer, tree, height_root_ch, height_ch):
 
-    channel_enabled = get_channel_enabled(height_root_ch, layer, height_ch)
+    channel_enabled = get_channel_enabled(height_ch, layer, height_root_ch)
     need_reconnect = False
     
     # Height unpack for group layer
@@ -528,7 +498,7 @@ def check_create_height_pack(layer, tree, height_root_ch, height_ch):
 
 def check_create_spread_alpha(layer, tree, root_ch, ch):
 
-    channel_enabled = get_channel_enabled(root_ch, layer, ch)
+    channel_enabled = get_channel_enabled(ch, layer, root_ch)
     need_reconnect = False
 
     if channel_enabled and layer.type == 'IMAGE' and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
@@ -563,12 +533,11 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
             ch = layer.channels[j]
             root_ch = yp.channels[j]
-            channel_enabled = get_channel_enabled(root_ch, layer, ch)
+            channel_enabled = get_channel_enabled(ch, layer, root_ch)
             write_height = get_write_height(ch)
 
             if specific_ch and ch != specific_ch: continue
 
-            #if yp.disable_quick_toggle and not ch.enable:
             if not channel_enabled or not layer.enable_masks or not mask.enable or not c.enable:
                 if remove_node(tree, c, 'mix'): need_reconnect = True
                 if remove_node(tree, c, 'mix_remains'): need_reconnect = True
@@ -698,16 +667,14 @@ def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
     yp = layer.id_data.yp
 
     smooth_bump_ch = get_smooth_bump_channel(layer)
-    height_root_ch = get_root_height_channel(yp)
     write_height_ch = get_write_height_normal_channel(layer)
     chain = get_bump_chain(layer)
 
-    channel_enabled = get_channel_enabled(height_root_ch, layer, smooth_bump_ch)
+    channel_enabled = get_channel_enabled(smooth_bump_ch)
 
     for i, mask in enumerate(layer.masks):
         if specific_mask and specific_mask != mask: continue
 
-        #if smooth_bump_ch and smooth_bump_ch.enable and (write_height_ch or i < chain):
         if channel_enabled and (write_height_ch or i < chain):
             enable_mask_source_tree(layer, mask)
         else: disable_mask_source_tree(layer, mask)
@@ -1669,21 +1636,11 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     # Only normal channel will continue proceed with this function
     if root_ch.type != 'NORMAL': return need_reconnect
 
-    channel_enabled = get_channel_enabled(root_ch, layer, ch)
+    channel_enabled = get_channel_enabled(ch, layer, root_ch)
     write_height = get_write_height(ch)
 
     # Check mask source tree
     check_mask_source_tree(layer) #, ch)
-
-    # Remove neighbor related nodes
-    if not channel_enabled and root_ch.enable_smooth_bump:
-        disable_layer_source_tree(layer, False)
-        Modifier.disable_modifiers_tree(ch)
-
-        if ch.override and ch.override_type != 'DEFAULT':
-            disable_channel_source_tree(layer, root_ch, ch, False)
-
-        #return need_reconnect
 
     # Check height pack/unpack
     if check_create_height_pack(layer, tree, root_ch, ch): need_reconnect = True
@@ -1694,12 +1651,16 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     # Dealing with neighbor related nodes
     if channel_enabled and root_ch.enable_smooth_bump:
         enable_layer_source_tree(layer)
-    else: disable_layer_source_tree(layer, False)
+    else: 
+        disable_layer_source_tree(layer, False)
+        Modifier.disable_modifiers_tree(ch)
 
-    if channel_enabled and ch.override:
-        if root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
-            enable_channel_source_tree(layer, root_ch, ch)
-        else: disable_channel_source_tree(layer, root_ch, ch, False)
+        #if ch.override and ch.override_type != 'DEFAULT':
+        #    disable_channel_source_tree(layer, root_ch, ch, False)
+
+    # Dealing with channel override
+    if channel_enabled and ch.override and root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+        enable_channel_source_tree(layer, root_ch, ch)
     else:
         disable_channel_source_tree(layer, root_ch, ch, False)
 
@@ -1772,7 +1733,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         set_default_value(height_proc, 'Intensity', ch.intensity_value)
 
-        if ch.enable_transition_bump and ch.enable and ch.transition_bump_crease and not ch.transition_bump_flip:
+        if ch.enable_transition_bump and channel_enabled and ch.transition_bump_crease and not ch.transition_bump_flip:
             set_default_value(height_proc, 'Crease Factor', ch.transition_bump_crease_factor)
             set_default_value(height_proc, 'Crease Power', ch.transition_bump_crease_power)
 
@@ -2007,14 +1968,15 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
     yp = layer.id_data.yp
     layer_tree = get_tree(layer)
 
+    channel_enabled = get_channel_enabled(ch, layer, root_ch)
+
     # Disable source tree first to avoid error
-    if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable:
+    if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and channel_enabled:
         disable_channel_source_tree(layer, root_ch, ch, rearrange=False, force=True)
         Modifier.disable_modifiers_tree(ch)
 
     # Current source
     source = layer_tree.nodes.get(ch.source)
-    #source = get_channel_source(ch, layer, layer_tree)
 
     prev_type = ''
 
@@ -2078,7 +2040,7 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
     check_layer_channel_linear_node(ch, layer, root_ch, reconnect=True)
 
     # Enable source tree back again
-    if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and ch.enable and ch.override:
+    if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and channel_enabled and ch.override:
         enable_channel_source_tree(layer, root_ch, ch)
         Modifier.enable_modifiers_tree(ch)
 
@@ -2102,7 +2064,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
     has_parent = layer.parent_idx != -1
 
     # Check if channel is enabled
-    channel_enabled = get_channel_enabled(root_ch, layer, ch)
+    channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
     # Background layer always using mix blend type
     if layer.type == 'BACKGROUND':
@@ -2225,7 +2187,7 @@ def check_extra_alpha(layer, need_reconnect=False):
         if disp_ch == ch: continue
 
         root_ch = yp.channels[i]
-        channel_enabled = get_channel_enabled(root_ch, layer, ch)
+        channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
         extra_alpha = tree.nodes.get(ch.extra_alpha)
 
@@ -2261,7 +2223,7 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
         source = get_layer_source(layer)
         if source: image = source.image
 
-    channel_enabled = get_channel_enabled(root_ch, layer, ch)
+    channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
     if channel_enabled and ((
             ch.override and (

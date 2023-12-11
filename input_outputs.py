@@ -409,7 +409,7 @@ def check_layer_tree_ios(layer, tree=None):
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
         root_ch = yp.channels[i]
-        channel_enabled = get_channel_enabled(root_ch, layer, ch)
+        channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
         force_normal_input = root_ch.type == 'NORMAL' and need_prev_normal and layer_enabled
 
@@ -528,7 +528,7 @@ def check_layer_tree_ios(layer, tree=None):
 
         for i, ch in enumerate(layer.channels):
             root_ch = yp.channels[i]
-            channel_enabled = get_channel_enabled(root_ch, layer, ch)
+            channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
             #if yp.disable_quick_toggle and not channel_enabled: continue
             if not channel_enabled: continue
