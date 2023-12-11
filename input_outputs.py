@@ -370,24 +370,39 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_
     # Linear nodes
     check_yp_linear_nodes(yp, layer, False)
 
+    # Check other affected layers
     if do_recursive:
-        # Check relative layers blend nodes
+        do_recursive = False
         other_layers = []
-        parent = get_parent(layer)
-        if parent: 
+
+        # Check parent layers
+        for pid in get_list_of_parent_ids(layer):
+            parent = yp.layers[pid]
             other_layers.append(parent)
-            do_recursive = True
-        else:
-            # Check child blend nodes
-            childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
-            for child in childs: other_layers.append(child)
-            do_recursive = False
+
+        # Check child layers
+        childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
+        for child in childs: 
+            other_layers.append(child)
+
+        # Check background layers
+        layer_idx = get_layer_index(layer)
+        bgs = [l for i, l in enumerate(yp.layers) if i < layer_idx and l.type == 'BACKGROUND' and l.parent_idx == layer.parent_idx]
+        other_layers.extend(bgs)
 
         # Recursive to other affected layers
         for ol in other_layers:
             check_all_layer_channel_io_and_nodes(ol, do_recursive=do_recursive)
             reconnect_layer_nodes(ol)
             rearrange_layer_nodes(ol)
+
+def recheck_background_layers_ios(yp, index_dict):
+    for i, layer in enumerate(yp.layers):
+        if layer.type != 'BACKGROUND': continue
+        if index_dict[layer.name] != i or len(yp.layers) != len(index_dict):
+            check_all_layer_channel_io_and_nodes(layer, do_recursive=False)
+            reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
 
 def check_layer_tree_ios(layer, tree=None):
 

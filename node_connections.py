@@ -1229,13 +1229,15 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 inp_height = node.inputs.get(ch.name + io_suffix['HEIGHT'] + io_suffix['BACKGROUND'])
 
                 if layer.parent_idx == -1:
-                    create_link(tree, bg_rgb, inp)
+                    if inp: 
+                        create_link(tree, bg_rgb, inp)
                     if inp_alpha:
                         create_link(tree, bg_alpha, inp_alpha)
                     if inp_height:
                         create_link(tree, bg_height, inp_height)
                 else:
-                    break_input_link(tree, inp)
+                    if inp: 
+                        break_input_link(tree, inp)
                     if inp_alpha:
                         break_input_link(tree, inp_alpha)
                     if inp_height:
@@ -1250,7 +1252,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 rgb = create_link(tree, rgb, node.inputs[io_name])[io_name]
 
             #if ch.type =='RGB' and ch.enable_alpha:
-            if ch.enable_alpha:
+            if ch.enable_alpha and io_alpha_name in node.inputs:
                 alpha = create_link(tree, alpha, node.inputs[io_alpha_name])[io_alpha_name]
 
             if height_ons:
@@ -2042,11 +2044,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             group_alpha = alpha
 
         elif layer.type == 'BACKGROUND':
-            rgb = source.outputs[root_ch.name + io_suffix['BACKGROUND']]
+            source_rgb = source.outputs.get(root_ch.name + io_suffix['BACKGROUND'])
+            if source_rgb: rgb = source_rgb
             alpha = get_essential_node(tree, ONE_VALUE)[0]
 
             if root_ch.enable_alpha:
-                bg_alpha = source.outputs[root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND']]
+                bg_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['BACKGROUND'])
 
         # Get source output index
         source_index = 0

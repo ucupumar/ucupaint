@@ -2554,6 +2554,9 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
             reconnect_layer_nodes(original_parent)
             rearrange_layer_nodes(original_parent)
 
+        # Background layers should update its ios
+        recheck_background_layers_ios(yp, index_dict)
+
         # Refresh layer channel blend nodes
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
@@ -2700,6 +2703,9 @@ class YMoveLayer(bpy.types.Operator):
         # Height calculation can be changed after moving layer
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch: update_displacement_height_ratio(height_root_ch)
+
+        # Background layers should update its ios
+        recheck_background_layers_ios(yp, index_dict)
 
         # Refresh layer channel blend nodes
         reconnect_yp_nodes(node.node_tree)
@@ -2980,6 +2986,9 @@ class YRemoveLayer(bpy.types.Operator):
         # Update max height
         height_ch = get_root_height_channel(yp)
         if height_ch: update_displacement_height_ratio(height_ch)
+
+        # Background layers should update its ios
+        recheck_background_layers_ios(yp, index_dict)
 
         # Refresh layer channel blend nodes
         check_start_end_root_ch_nodes(group_tree)
