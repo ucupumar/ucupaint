@@ -620,7 +620,7 @@ def check_layer_tree_ios(layer, tree=None):
         texcoords.append(layer.texcoord_type)
 
     for mask in layer.masks:
-        if get_mask_enabled(layer, mask) and mask.texcoord_type != 'UV' and mask.type not in {'VCOL', 'COLOR_ID', 'OBJECT_INDEX', 'HEMI'} and mask.texcoord_type not in texcoords:
+        if get_mask_enabled(mask, layer) and mask.texcoord_type != 'UV' and mask.type not in {'VCOL', 'COLOR_ID', 'OBJECT_INDEX', 'HEMI'} and mask.texcoord_type not in texcoords:
             texcoords.append(mask.texcoord_type)
 
     for texcoord in texcoords:

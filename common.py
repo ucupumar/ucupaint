@@ -4227,15 +4227,17 @@ def get_layer_enabled(layer):
     #return (layer.enable and parent_enable) or yp.layer_preview_mode
 
 ''' Check if mask is practically enabled or not '''
-def get_mask_enabled(layer, mask):
-    yp = layer.id_data.yp
+def get_mask_enabled(mask, layer=None):
+    if not layer:
+        yp = mask.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        layer = yp.layers[int(m.group(1))]
 
     return get_layer_enabled(layer) and mask.enable
     #return (get_layer_enabled(layer) and mask.enable) or yp.layer_preview_mode
 
 ''' Check if channel is practically enabled or not '''
 def get_channel_enabled(ch, layer=None, root_ch=None):
-
     if not layer or not root_ch:
         yp = ch.id_data.yp
         m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
@@ -4655,12 +4657,12 @@ def is_image_source_srgb(image, source, root_ch=None):
 
 def any_linear_images_problem(yp):
     for layer in yp.layers:
-        if not layer.enable: continue
+        if not get_layer_enabled(layer): continue
         layer_tree = get_tree(layer)
 
         for i, ch in enumerate(layer.channels):
-            if not ch.enable: continue
             root_ch = yp.channels[i]
+            if not get_channel_enabled(ch, layer, root_ch): continue
 
             if ch.override and ch.override_type == 'IMAGE':
                 source_tree = get_channel_source_tree(ch)
@@ -4690,7 +4692,7 @@ def any_linear_images_problem(yp):
                     return True
 
         for mask in layer.masks:
-            if not mask.enable: continue
+            if not get_mask_enabled(mask, layer): continue
             if mask.type == 'IMAGE':
                 source_tree = get_mask_tree(mask)
                 linear = source_tree.nodes.get(mask.linear)
