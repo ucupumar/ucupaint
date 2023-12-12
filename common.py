@@ -4156,37 +4156,62 @@ def is_uv_input_needed(layer, uv_name):
 
     return False
 
-def is_tangent_input_needed(layer, uv_name):
-    yp = layer.id_data.yp
+def is_tangent_input_needed(entity, uv_name):
+    yp = entity.id_data.yp
 
-    if get_layer_enabled(layer):
+    m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', entity.path_from_id())
+    if m: 
+        layer = yp.layers[int(m.group(1))]
+        entity_enabled = get_mask_enabled(entity)
+    else: 
+        layer = entity
+        entity_enabled = get_layer_enabled(entity)
+
+    if entity_enabled:
 
         height_root_ch = get_root_height_channel(yp)
-        if height_root_ch and height_root_ch.main_uv == uv_name:
+        height_ch = get_height_channel(layer)
+        if height_root_ch and height_ch and height_ch.enable:
 
-            height_ch = get_height_channel(layer)
-            if height_ch and height_ch.enable:
+            if height_root_ch.main_uv == uv_name:
 
+                # Main UV tangent is needed for normal process
                 if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
                     return True
 
-            need_prev_normal = check_need_prev_normal(layer)
-            if need_prev_normal:
-                 return True
+                # Main UV Tangent is needed if smooth bump is on and entity is using non-uv texcoord or have different UV
+                if height_root_ch.enable_smooth_bump and (entity.texcoord_type != 'UV' or entity.uv_name != uv_name):
+                    return True
+
+                # Previous normal is calculated using normal process
+                need_prev_normal = check_need_prev_normal(layer)
+                if need_prev_normal:
+                     return True
+
+            elif entity.texcoord_type == 'UV' and entity.uv_name == uv_name:
+
+                # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
+                if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name:
+                    return True
 
     return False
 
 def is_tangent_process_needed(yp, uv_name):
 
     height_root_ch = get_root_height_channel(yp)
-    if height_root_ch and height_root_ch.main_uv == uv_name:
+    if height_root_ch:
 
-        if any_layers_using_channel(height_root_ch):
+        if height_root_ch.main_uv == uv_name and any_layers_using_channel(height_root_ch):
             return True
 
         for layer in yp.layers:
+
             if is_tangent_input_needed(layer, uv_name):
                 return True
+
+            for mask in layer.masks:
+                if is_tangent_input_needed(mask, uv_name):
+                    return True
 
     return False
 
