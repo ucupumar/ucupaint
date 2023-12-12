@@ -1049,8 +1049,13 @@ class YRemoveLayerMask(bpy.types.Operator):
 
         remove_mask(layer, mask, obj)
 
+        check_all_layer_channel_io_and_nodes(layer, tree)
+
         reconnect_layer_nodes(layer)
         rearrange_layer_nodes(layer)
+
+        reconnect_yp_nodes(layer.id_data)
+        rearrange_yp_nodes(layer.id_data)
 
         # Seach for active edit mask
         found_active_edit = False
@@ -1237,7 +1242,11 @@ def update_layer_mask_enable(self, context):
     layer = yp.layers[int(match.group(1))]
     tree = get_tree(layer)
 
-    check_mask_mix_nodes(layer, tree, self)
+    #check_mask_mix_nodes(layer, tree, self)
+
+    check_uv_nodes(yp)
+    check_all_layer_channel_io_and_nodes(layer, tree)
+    check_start_end_root_ch_nodes(layer.id_data)
 
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
@@ -1245,18 +1254,31 @@ def update_layer_mask_enable(self, context):
     #for ch in self.channels:
     #    update_layer_mask_channel_enable(ch, context)
 
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
+
     self.active_edit = self.enable and self.type in {'IMAGE', 'VCOL', 'COLOR_ID'}
 
 def update_enable_layer_masks(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
 
+    layer = self
+    tree = get_tree(layer)
+
     #for mask in self.masks:
     #    update_layer_mask_enable(mask, context)
-    check_mask_mix_nodes(self)
+    #check_mask_mix_nodes(self)
 
-    reconnect_layer_nodes(self)
-    rearrange_layer_nodes(self)
+    check_uv_nodes(yp)
+    check_all_layer_channel_io_and_nodes(layer, tree)
+    check_start_end_root_ch_nodes(layer.id_data)
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_mask_texcoord_type(self, context):
     yp = self.id_data.yp
@@ -1271,16 +1293,15 @@ def update_mask_texcoord_type(self, context):
     check_uv_nodes(yp)
 
     # Update layer tree inputs
-    yp_dirty = True if check_layer_tree_ios(layer, tree) else False
+    check_all_layer_channel_io_and_nodes(layer, tree)
 
     set_mask_uv_neighbor(tree, layer, self, mask_idx)
 
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
-    if yp_dirty:
-        reconnect_yp_nodes(self.id_data)
-        rearrange_yp_nodes(self.id_data)
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_mask_uv_name(self, context):
     obj = context.object
@@ -1319,23 +1340,18 @@ def update_mask_uv_name(self, context):
             uv_layers.active = uv_layers.get(mask.uv_name)
 
     # Update global uv
-    dirty = check_uv_nodes(yp)
+    check_uv_nodes(yp)
 
     # Update layer tree inputs
-    yp_dirty = True if check_layer_tree_ios(layer, tree) else False
-
-    # Update neighbor uv if mask bump is active
-    #if dirty or yp_dirty:
-    #if set_mask_uv_neighbor(tree, layer, self, mask_idx) or dirty or yp_dirty:
+    check_all_layer_channel_io_and_nodes(layer, tree)
 
     set_mask_uv_neighbor(tree, layer, self, mask_idx)
 
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
 
-    if yp_dirty:
-        reconnect_yp_nodes(self.id_data)
-        rearrange_yp_nodes(self.id_data)
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_mask_hemi_space(self, context):
     if self.type != 'HEMI': return

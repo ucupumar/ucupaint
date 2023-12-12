@@ -1869,12 +1869,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if bitangent: create_link(tree, bitangent, mask_uv_neighbor.inputs['Bitangent'])
 
             if 'Mask Tangent' in mask_uv_neighbor.inputs:
-                create_link(tree, mask_tangent, mask_uv_neighbor.inputs['Mask Tangent'])
-                create_link(tree, mask_bitangent, mask_uv_neighbor.inputs['Mask Bitangent'])
+                if mask_tangent: create_link(tree, mask_tangent, mask_uv_neighbor.inputs['Mask Tangent'])
+                if mask_bitangent: create_link(tree, mask_bitangent, mask_uv_neighbor.inputs['Mask Bitangent'])
 
             if 'Entity Tangent' in mask_uv_neighbor.inputs:
-                create_link(tree, mask_tangent, mask_uv_neighbor.inputs['Entity Tangent'])
-                create_link(tree, mask_bitangent, mask_uv_neighbor.inputs['Entity Bitangent'])
+                if mask_tangent: create_link(tree, mask_tangent, mask_uv_neighbor.inputs['Entity Tangent'])
+                if mask_bitangent: create_link(tree, mask_bitangent, mask_uv_neighbor.inputs['Entity Bitangent'])
 
         # Mask root mix
         mmix = nodes.get(mask.mix)

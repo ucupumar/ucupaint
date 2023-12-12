@@ -4149,14 +4149,14 @@ def is_uv_input_needed(layer, uv_name):
                 return True
         
         for mask in layer.masks:
-            if not mask.enable: continue
+            if not get_mask_enabled(mask): continue
             if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}: continue
             if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
                 return True
 
     return False
 
-def is_tangent_input_needed(entity, uv_name):
+def is_entity_need_tangent_input(entity, uv_name):
     yp = entity.id_data.yp
 
     m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', entity.path_from_id())
@@ -4166,14 +4166,16 @@ def is_tangent_input_needed(entity, uv_name):
     else: 
         layer = entity
         entity_enabled = get_layer_enabled(entity)
+        if layer.type in {'COLOR'}:
+            return False
 
-    if entity_enabled:
+    if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'GROUP', 'OBJECT_INDEX', 'COLOR_ID'}:
 
         height_root_ch = get_root_height_channel(yp)
         height_ch = get_height_channel(layer)
         if height_root_ch and height_ch and height_ch.enable:
 
-            if height_root_ch.main_uv == uv_name:
+            if uv_name == height_root_ch.main_uv:
 
                 # Main UV tangent is needed for normal process
                 if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
@@ -4188,11 +4190,22 @@ def is_tangent_input_needed(entity, uv_name):
                 if need_prev_normal:
                      return True
 
-            elif entity.texcoord_type == 'UV' and entity.uv_name == uv_name:
+            elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
 
                 # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
                 if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name:
                     return True
+
+    return False
+
+def is_tangent_input_needed(layer, uv_name):
+
+    if is_entity_need_tangent_input(layer, uv_name):
+        return True
+
+    for mask in layer.masks:
+        if is_entity_need_tangent_input(mask, uv_name):
+            return True
 
     return False
 
@@ -4205,13 +4218,8 @@ def is_tangent_process_needed(yp, uv_name):
             return True
 
         for layer in yp.layers:
-
             if is_tangent_input_needed(layer, uv_name):
                 return True
-
-            for mask in layer.masks:
-                if is_tangent_input_needed(mask, uv_name):
-                    return True
 
     return False
 
@@ -4258,7 +4266,7 @@ def get_mask_enabled(mask, layer=None):
         m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
         layer = yp.layers[int(m.group(1))]
 
-    return get_layer_enabled(layer) and mask.enable
+    return get_layer_enabled(layer) and layer.enable_masks and mask.enable
     #return (get_layer_enabled(layer) and mask.enable) or yp.layer_preview_mode
 
 ''' Check if channel is practically enabled or not '''
