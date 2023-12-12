@@ -1048,7 +1048,7 @@ class YNewLayer(bpy.types.Operator):
 
         # Reconnect and rearrange nodes
         check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(yp)
+        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1629,7 +1629,7 @@ class BaseMultipleImagesLayer():
 
         ## Reconnect and rearrange nodes
         check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(yp)
+        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1950,7 +1950,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
         # Reconnect and rearrange nodes
         check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(yp)
+        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -2435,7 +2435,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         # Reconnect and rearrange nodes
         check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(yp)
+        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -2992,7 +2992,6 @@ class YRemoveLayer(bpy.types.Operator):
 
         # Refresh layer channel blend nodes
         check_start_end_root_ch_nodes(group_tree)
-        check_uv_nodes(yp)
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
 
@@ -3971,7 +3970,6 @@ class YPasteLayer(bpy.types.Operator):
 
         # Rearrange and reconnect
         check_start_end_root_ch_nodes(tree)
-        check_uv_nodes(yp)
         reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
 
