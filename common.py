@@ -966,11 +966,16 @@ def update_tool_canvas_image(context, image):
 # Check if name already available on the list
 def get_unique_name(name, items, surname = ''):
 
+    # Check if items is list of strings
+    if len(items) > 0 and type(items[0]) == str:
+        item_names = items
+    else: item_names = [item.name for item in items]
+
     if surname != '':
         unique_name = name + ' ' + surname
     else: unique_name = name
 
-    name_found = [item for item in items if item.name == unique_name]
+    name_found = [item for item in item_names if item == unique_name]
     if name_found:
 
         m = re.match(r'^(.+)\s(\d*)$', name)
@@ -986,7 +991,7 @@ def get_unique_name(name, items, surname = ''):
                 new_name = name + ' ' + str(i) + ' ' + surname
             else: new_name = name + ' ' + str(i)
 
-            name_found = [item for item in items if item.name == new_name]
+            name_found = [item for item in item_names if item == new_name]
             if not name_found:
                 unique_name = new_name
                 break
@@ -3970,6 +3975,32 @@ def get_vertex_colors(obj):
 
     return obj.data.color_attributes
 
+def get_vertex_color_names(obj):
+    if not obj: return []
+
+    vcol_names = []
+
+    # Check vertex colors / color attributes
+    if not is_greater_than_320():
+        if hasattr(obj.data, 'vertex_colors'):
+            vcol_names = [v.name for v in obj.data.vertex_colors]
+    else:
+        if hasattr(obj.data, 'color_attributes'):
+            vcol_names = [v.name for v in obj.data.color_attributes]
+
+    # Check geometry nodes outputs
+    for mod in obj.modifiers:
+        if mod.type == 'NODES' and mod.node_group:
+            outputs = get_tree_outputs(mod.node_group)
+            for outp in outputs:
+                if ((is_greater_than_400() and outp.socket_type == 'NodeSocketColor') or
+                    (not is_greater_than_400() and outp.type == 'RGBA')):
+                    name = mod[outp.identifier + '_attribute_name']
+                    if name != '' and name not in vcol_names:
+                        vcol_names.append(name)
+
+    return vcol_names
+
 def get_active_vertex_color(obj):
     if not obj or obj.type != 'MESH': return None
 
@@ -4406,6 +4437,34 @@ def get_source_vcol_name(src):
     #if is_greater_than_281():
     #    return src.layer_name
     return src.attribute_name
+
+def get_vcol_data_type_and_domain_by_name(obj, vcol_name):
+
+    data_type = 'BYTE_COLOR'
+    domain = 'CORNER'
+
+    vcol = None
+    vcols = get_vertex_colors(obj)
+    if vcol_name in vcols:
+        vcol = vcols.get(vcol_name)
+        if is_greater_than_320():
+            data_type = vcol.data_type
+            domain = vcol.domain
+
+    if not vcol:
+
+        # Check geometry nodes outputs
+        for mod in obj.modifiers:
+            if mod.type == 'NODES' and mod.node_group:
+                outputs = get_tree_outputs(mod.node_group)
+                for outp in outputs:
+                    if ((is_greater_than_400() and outp.socket_type == 'NodeSocketColor') or
+                        (not is_greater_than_400() and outp.type == 'RGBA')):
+                        if mod[outp.identifier + '_attribute_name'] == vcol_name:
+                            data_type = 'FLOAT_COLOR'
+                            domain = outp.attribute_domain
+
+    return data_type, domain
 
 def get_vcol_from_source(obj, src):
     name = get_source_vcol_name(src)

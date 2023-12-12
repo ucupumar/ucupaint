@@ -174,7 +174,7 @@ def get_new_mask_name(obj, layer, mask_type):
         return name
     elif mask_type == 'VCOL' and obj.type == 'MESH':
         name = 'Mask VCol'
-        items = get_vertex_colors(obj)
+        items = get_vertex_color_names(obj)
         return get_unique_name(name, items, surname)
     else:
         name = 'Mask ' + [i[1] for i in mask_type_items if i[0] == mask_type][0]
@@ -313,7 +313,7 @@ class YNewLayerMask(bpy.types.Operator):
         #    self.name = get_unique_name(name, items, surname)
         #elif self.type == 'VCOL' and obj.type == 'MESH':
         #    name = 'Mask VCol'
-        #    items = get_vertex_colors(obj)
+        #    items = get_vertex_color_names(obj)
         #    self.name = get_unique_name(name, items, surname)
         #else:
         #    #name += ' ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
@@ -468,7 +468,7 @@ class YNewLayerMask(bpy.types.Operator):
             self.report({'ERROR'}, "Vertex color mask only works with mesh object!")
             return {'CANCELLED'}
 
-        if not is_greater_than_330() and self.type == 'VCOL' and len(get_vertex_colors(obj)) >= 8:
+        if not is_greater_than_330() and self.type == 'VCOL' and len(get_vertex_color_names(obj)) >= 8:
             self.report({'ERROR'}, "Mesh can only use 8 vertex colors!")
             return {'CANCELLED'}
 
@@ -480,7 +480,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             same_name = [i for i in bpy.data.images if i.name == self.name]
         elif self.type == 'VCOL':
-            same_name = [i for i in get_vertex_colors(obj) if i.name == self.name]
+            same_name = [i for i in get_vertex_color_names(obj) if i == self.name]
         else: same_name = [m for m in layer.masks if m.name == self.name]
         if same_name:
             if self.type == 'IMAGE':
@@ -549,18 +549,14 @@ class YNewLayerMask(bpy.types.Operator):
             if self.type == 'VCOL':
 
                 for o in objs:
-                    ovcols = get_vertex_colors(o)
-                    if self.name not in ovcols:
-                        try:
-                            vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
-                            if self.color_option == 'WHITE':
-                                set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
-                            elif self.color_option == 'BLACK':
-                                set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
-                            set_active_vertex_color(o, vcol)
-                        except Exception as ex:
-                            print(ex)
-                            pass
+                    if self.name not in get_vertex_colors(o):
+                        if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                        vcol = new_vertex_color(o, self.name, self.vcol_data_type, self.vcol_domain)
+                        if self.color_option == 'WHITE':
+                            set_obj_vertex_colors(o, vcol.name, (1.0, 1.0, 1.0, 1.0))
+                        elif self.color_option == 'BLACK':
+                            set_obj_vertex_colors(o, vcol.name, (0.0, 0.0, 0.0, 1.0))
+                        set_active_vertex_color(o, vcol)
 
             elif self.type == 'COLOR_ID':
                 check_colorid_vcol(objs)
@@ -860,9 +856,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                     mask_vcol_names.append(source.attribute_name)
 
             self.vcol_coll.clear()
-            for vcol in get_vertex_colors(obj):
-                if vcol.name != layer_vcol_name and vcol.name not in mask_vcol_names:
-                    self.vcol_coll.add().name = vcol.name
+            for vcol_name in get_vertex_color_names(obj):
+                if vcol_name != layer_vcol_name and vcol_name not in mask_vcol_names:
+                    self.vcol_coll.add().name = vcol_name
 
             # Make sure default vcol is available on the collection and update the source input based on the default name
             if self.vcol_name not in self.vcol_coll:
@@ -941,22 +937,23 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             if self.source_input == 'RGB' and image.colorspace_settings.name != 'Non-Color' and not image.is_dirty:
                 image.colorspace_settings.name = 'Non-Color'
         elif self.type == 'VCOL':
-            vcols = get_vertex_colors(obj)
-            vcol = vcols.get(self.vcol_name)
-            name = vcol.name
+            name = self.vcol_name
 
+            objs = [obj]
             if mat.users > 1:
                 for o in get_scene_objects():
-                    ovcols = get_vertex_colors(o)
-                    if o.type != 'MESH' or o == obj: continue
-                    if mat.name in o.data.materials and self.vcol_name not in ovcols:
-                        try:
-                            if is_greater_than_320():
-                                other_v = new_vertex_color(o, self.vcol_name, vcol.data_type, vcol.domain)
-                            else: other_v = new_vertex_color(o, self.vcol_name)
-                            set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0, 1.0))
-                            set_active_vertex_color(o, other_v)
-                        except: pass
+                    if o.type != 'MESH': continue
+                    if mat.name in o.data.materials and o not in objs:
+                        objs.append(o)
+
+            if mat.users > 1:
+                for o in objs:
+                    if self.vcol_name not in get_vertex_colors(o):
+                        if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
+                        data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name)
+                        other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
+                        set_obj_vertex_colors(o, other_v.name, (1.0, 1.0, 1.0, 1.0))
+                        set_active_vertex_color(o, other_v)
 
         # Add new mask
         mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, blend_type=self.blend_type, source_input=self.source_input)
