@@ -539,7 +539,7 @@ class YNewLayerMask(bpy.types.Operator):
         # New vertex color
         elif self.type in {'VCOL', 'COLOR_ID'}:
 
-            objs = [obj]
+            objs = [obj] if obj.type == 'MESH' else []
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
@@ -939,7 +939,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         elif self.type == 'VCOL':
             name = self.vcol_name
 
-            objs = [obj]
+            objs = [obj] if obj.type == 'MESH' else []
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue

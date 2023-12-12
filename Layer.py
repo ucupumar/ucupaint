@@ -244,7 +244,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
         # New vertex color
         elif mask_type in {'VCOL', 'COLOR_ID'}:
-            objs = [obj]
+            objs = [obj] if obj.type == 'MESH' else []
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
@@ -428,7 +428,7 @@ class YNewVcolToOverrideChannel(bpy.types.Operator):
         if not ch.override:
             ch.override = True
 
-        objs = [obj]
+        objs = [obj] if obj.type == 'MESH' else []
         if mat.users > 1:
             for o in get_scene_objects():
                 if o.type != 'MESH': continue
@@ -1007,7 +1007,7 @@ class YNewLayer(bpy.types.Operator):
         vcol = None
         if self.type == 'VCOL':
 
-            objs = [obj]
+            objs = [obj] if obj.type == 'MESH' else []
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
@@ -2202,7 +2202,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
             if not ch.override:
                 ch.override = True
 
-            objs = [obj]
+            objs = [obj] if obj.type == 'MESH' else []
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
@@ -2403,7 +2403,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             if self.vcol_name in vcols:
                 vcol = vcols.get(self.vcol_name)
 
-            objs = [obj]
+            objs = [obj] if obj.type == 'MESH' else []
             if mat.users > 1:
                 for o in get_scene_objects():
                     if o.type != 'MESH': continue
