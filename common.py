@@ -4166,8 +4166,6 @@ def is_entity_need_tangent_input(entity, uv_name):
     else: 
         layer = entity
         entity_enabled = get_layer_enabled(entity)
-        if layer.type in {'COLOR'}:
-            return False
 
     if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'GROUP', 'OBJECT_INDEX', 'COLOR_ID'}:
 
