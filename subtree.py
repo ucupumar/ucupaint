@@ -2276,7 +2276,7 @@ def check_layer_image_linear_node(layer, source_tree=None):
 
     if not source_tree: source_tree = get_source_tree(layer)
 
-    if layer.type == 'IMAGE':
+    if get_layer_enabled(layer) and layer.type == 'IMAGE':
 
         source = source_tree.nodes.get(layer.source)
         image = source.image
@@ -2291,9 +2291,10 @@ def check_layer_image_linear_node(layer, source_tree=None):
                 linear.inputs[1].default_value = 1.0 / GAMMA
 
             return
+    else:
 
-    # Delete linear
-    remove_node(source_tree, layer, 'linear')
+        # Delete linear
+        remove_node(source_tree, layer, 'linear')
 
 def check_mask_image_linear_node(mask, mask_tree=None):
 

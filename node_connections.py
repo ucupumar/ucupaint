@@ -2485,7 +2485,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     end_chain_crease_w = alpha_w
 
                     if tb_falloff:
-                        create_link(tree, mask_mix.outputs[mmixout], tb_falloff.inputs[0])[0]
+                        if mask_mix: create_link(tree, mask_mix.outputs[mmixout], tb_falloff.inputs[0])[0]
                         end_chain = tb_falloff.outputs[0]
                     elif mask_mix: 
                         end_chain = mask_mix.outputs[mmixout]
