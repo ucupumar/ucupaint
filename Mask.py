@@ -35,8 +35,9 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         source.image = image
         if hasattr(source, 'color_space'):
             source.color_space = 'NONE'
-    elif vcol:
-        set_source_vcol_name(source, vcol.name)
+    elif mask_type == 'VCOL':
+        if vcol: set_source_vcol_name(source, vcol.name)
+        else: set_source_vcol_name(source, name)
 
     if mask_type == 'HEMI':
         source.node_tree = get_node_tree_lib(lib.HEMI)
