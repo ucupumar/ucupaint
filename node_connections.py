@@ -2844,7 +2844,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     bg_alpha = tao.outputs['Bg Alpha']
 
             else: 
-                create_link(tree, prev_rgb, tao.inputs[0])
+                if prev_rgb: create_link(tree, prev_rgb, tao.inputs[0])
 
                 # Get intensity multiplier of transition bump
                 trans_im = nodes.get(trans_bump_ch.intensity_multiplier)
@@ -2864,7 +2864,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, remaining_alpha, tao.inputs['Remaining Alpha'])
 
                 if 'Input Alpha' in tao.inputs:
-                    create_link(tree, prev_alpha, tao.inputs['Input Alpha'])
+                    if prev_alpha: create_link(tree, prev_alpha, tao.inputs['Input Alpha'])
                     prev_alpha = tao.outputs['Input Alpha']
 
                 # Extra alpha
@@ -2886,7 +2886,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if trans_bump_flip:
 
-                create_link(tree, prev_rgb, tr_ramp_blend.inputs['Input RGB'])
+                if prev_rgb: create_link(tree, prev_rgb, tr_ramp_blend.inputs['Input RGB'])
                 create_link(tree, intensity_multiplier.outputs[0], tr_ramp_blend.inputs['Multiplied Alpha'])
 
                 create_link(tree, tr_ramp.outputs[0], tr_ramp_blend.inputs['Ramp RGB'])
@@ -2904,7 +2904,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 prev_rgb = tr_ramp_blend.outputs[0]
 
                 if 'Input Alpha' in tr_ramp_blend.inputs:
-                    create_link(tree, prev_alpha, tr_ramp_blend.inputs['Input Alpha'])
+                    if prev_alpha: create_link(tree, prev_alpha, tr_ramp_blend.inputs['Input Alpha'])
                     prev_alpha = tr_ramp_blend.outputs['Input Alpha']
 
                 break_input_link(tree, tr_ramp_blend.inputs['Intensity'])
@@ -2924,8 +2924,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                         if ch.transition_ramp_intensity_unlink:
                             create_link(tree, alpha_before_intensity, tr_ramp.inputs['Alpha before Intensity'])
 
-                        create_link(tree, prev_rgb, tr_ramp.inputs['Input RGB'])
-                        create_link(tree, prev_alpha, tr_ramp.inputs['Input Alpha'])
+                        if prev_rgb: create_link(tree, prev_rgb, tr_ramp.inputs['Input RGB'])
+                        if prev_alpha: create_link(tree, prev_alpha, tr_ramp.inputs['Input Alpha'])
 
                         prev_rgb = tr_ramp.outputs[0]
                         prev_alpha = tr_ramp.outputs[1]
