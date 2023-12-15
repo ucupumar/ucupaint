@@ -934,8 +934,8 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
                 remove_node(tree, root_ch, 'baked_normal')
 
         # Reconnect
-        reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
+        reconnect_yp_nodes(tree)
 
         return {'FINISHED'}
 
@@ -1321,8 +1321,8 @@ class YBakeChannels(bpy.types.Operator):
             update_enable_tangent_sign_hacks(yp, context)
 
         # Rearrange
-        reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
+        reconnect_yp_nodes(tree)
 
         # Refresh active channel index
         yp.active_channel_index = yp.active_channel_index
@@ -1807,8 +1807,8 @@ class YMergeLayer(bpy.types.Operator):
             if height_ch and main_ch.type == 'NORMAL' and height_ch.normal_map_type == 'BUMP_MAP':
                 height_ch.bump_distance = max_height
 
-            reconnect_yp_nodes(tree)
             rearrange_yp_nodes(tree)
+            reconnect_yp_nodes(tree)
 
             # Refresh index routine
             yp.active_layer_index = min(layer_idx, neighbor_idx)
@@ -1920,8 +1920,8 @@ class YMergeMask(bpy.types.Operator):
                 linear.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
 
         # Reconnect nodes
-        reconnect_layer_nodes(layer, merge_mask=True)
         rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer, merge_mask=True)
 
         # Prepare to bake
         objs = get_all_objects_with_same_materials(mat, True)
@@ -2425,8 +2425,8 @@ def update_use_baked(self, context):
     check_uv_nodes(yp)
 
     # Reconnect nodes
-    reconnect_yp_nodes(tree)
     rearrange_yp_nodes(tree)
+    reconnect_yp_nodes(tree)
 
     # Trigger active image update
     if self.use_baked:
@@ -2777,8 +2777,8 @@ def update_subdiv_setup(self, context):
         recover_subsurf_levels()
 
     # Reconnect nodes
-    reconnect_yp_nodes(tree)
     rearrange_yp_nodes(tree)
+    reconnect_yp_nodes(tree)
 
 def remember_subsurf_levels():
     #print('Remembering')

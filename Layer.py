@@ -313,8 +313,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     #yp.halt_update = False
 
     # Rearrange node inside layers
-    reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
     return layer
 
@@ -1047,8 +1047,6 @@ class YNewLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1628,8 +1626,6 @@ class BaseMultipleImagesLayer():
                     ch.override_type = 'IMAGE'
 
         ## Reconnect and rearrange nodes
-        check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1949,8 +1945,6 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         node.node_tree.yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -2434,8 +2428,6 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         node.node_tree.yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -2487,10 +2479,6 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
             neighbor_idx = -1
             neighbor_layer = None
 
-        #move_outside_up = False
-        #move_outside_down = False
-        original_parent_idx = -1
-
         # Move outside up
         if is_top_member(layer) and self.direction == 'UP':
             #print('Case 1')
@@ -2502,15 +2490,11 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
             yp.active_layer_index = neighbor_idx
 
-            original_parent_idx = last_member_idx
-
         # Move outside down
         elif is_bottom_member(layer) and self.direction == 'DOWN':
             #print('Case 2')
 
             parent_dict = set_parent_dict_val(yp, parent_dict, layer.name, yp.layers[layer.parent_idx].parent_idx)
-
-            original_parent_idx = layer.parent_idx
 
         elif neighbor_layer and neighbor_layer.type == 'GROUP':
 
@@ -2544,22 +2528,12 @@ class YMoveInOutLayerGroup(bpy.types.Operator):
 
         #if layer.type == 'GROUP' or has_parent:
         check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
-        reconnect_layer_nodes(layer)
         rearrange_layer_nodes(layer)
-
-        # Also check original parent io and nodes
-        if original_parent_idx != -1:
-            original_parent = yp.layers[original_parent_idx]
-            check_all_layer_channel_io_and_nodes(original_parent) #, has_parent=has_parent)
-            reconnect_layer_nodes(original_parent)
-            rearrange_layer_nodes(original_parent)
-
-        # Background layers should update its ios
-        recheck_background_layers_ios(yp, index_dict)
+        reconnect_layer_nodes(layer)
 
         # Refresh layer channel blend nodes
-        reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
+        reconnect_yp_nodes(node.node_tree)
 
         # Update UI
         wm.ypui.need_update = True
@@ -2703,9 +2677,6 @@ class YMoveLayer(bpy.types.Operator):
         # Height calculation can be changed after moving layer
         height_root_ch = get_root_height_channel(yp)
         if height_root_ch: update_displacement_height_ratio(height_root_ch)
-
-        # Background layers should update its ios
-        recheck_background_layers_ios(yp, index_dict)
 
         # Refresh layer channel blend nodes
         reconnect_yp_nodes(node.node_tree)
@@ -2980,18 +2951,14 @@ class YRemoveLayer(bpy.types.Operator):
         for i in child_ids:
             lay = yp.layers[i-1]
             check_all_layer_channel_io_and_nodes(lay)
-            reconnect_layer_nodes(lay)
             rearrange_layer_nodes(lay)
+            reconnect_layer_nodes(lay)
 
         # Update max height
         height_ch = get_root_height_channel(yp)
         if height_ch: update_displacement_height_ratio(height_ch)
 
-        # Background layers should update its ios
-        recheck_background_layers_ios(yp, index_dict)
-
         # Refresh layer channel blend nodes
-        check_start_end_root_ch_nodes(group_tree)
         reconnect_yp_nodes(group_tree)
         rearrange_yp_nodes(group_tree)
 
@@ -3140,12 +3107,12 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     # Check childrens which need rearrange
     for lay in yp.layers:
         check_all_layer_channel_io_and_nodes(lay)
-        reconnect_layer_nodes(lay)
         rearrange_layer_nodes(lay)
+        reconnect_layer_nodes(lay)
 
     if layer.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
-        reconnect_yp_nodes(layer.id_data)
         rearrange_yp_nodes(layer.id_data)
+        reconnect_yp_nodes(layer.id_data)
 
 def replace_mask_type(mask, new_type, item_name='', remove_data=False):
 
@@ -3286,20 +3253,20 @@ def replace_mask_type(mask, new_type, item_name='', remove_data=False):
         #lay = yp.layers[i]
     #for lay in yp.layers:
     #    check_all_layer_channel_io_and_nodes(lay)
-    #    reconnect_layer_nodes(lay)
     #    rearrange_layer_nodes(lay)
+    #    reconnect_layer_nodes(lay)
 
     for lay in yp.layers:
         check_all_layer_channel_io_and_nodes(lay)
-        reconnect_layer_nodes(lay)
         rearrange_layer_nodes(lay)
+        reconnect_layer_nodes(lay)
 
-    #reconnect_layer_nodes(layer)
     #rearrange_layer_nodes(layer)
+    #reconnect_layer_nodes(layer)
 
     #if mask.type in {'BACKGROUND', 'GROUP'} or ori_type == 'GROUP':
-    reconnect_yp_nodes(mask.id_data)
     rearrange_yp_nodes(mask.id_data)
+    reconnect_yp_nodes(mask.id_data)
 
 class YReplaceLayerChannelOverride(bpy.types.Operator):
     bl_idname = "node.y_replace_layer_channel_override"
@@ -3775,8 +3742,8 @@ class YDuplicateLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Rearrange and reconnect
-        reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
+        reconnect_yp_nodes(tree)
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
@@ -3951,8 +3918,8 @@ class YPasteLayer(bpy.types.Operator):
             # Refresh io and nodes
             check_all_layer_channel_io_and_nodes(nl)
 
-            reconnect_layer_nodes(nl)
             rearrange_layer_nodes(nl)
+            reconnect_layer_nodes(nl)
 
         # Remap parents for non pasted layers
         for lay in yp.layers:
@@ -3969,9 +3936,8 @@ class YPasteLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Rearrange and reconnect
-        check_start_end_root_ch_nodes(tree)
-        reconnect_yp_nodes(tree)
         rearrange_yp_nodes(tree)
+        reconnect_yp_nodes(tree)
 
         # Refresh active layer
         yp.active_layer_index = yp.active_layer_index
@@ -4024,8 +3990,8 @@ def update_layer_channel_override_1(self, context):
         ch.halt_update = False
 
     check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
-    reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
 def update_layer_channel_override(self, context):
     yp = self.id_data.yp
@@ -4046,8 +4012,8 @@ def update_layer_channel_override(self, context):
         ch.halt_update = False
 
     check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
-    reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
     # Reselect layer so vcol or image will be updated
     yp.active_layer_index = yp.active_layer_index
@@ -4079,12 +4045,11 @@ def update_channel_enable(self, context):
         yp.layer_preview_mode = yp.layer_preview_mode
     else:
 
-        reconnect_layer_nodes(layer)
         rearrange_layer_nodes(layer)
+        reconnect_layer_nodes(layer)
 
-        check_start_end_root_ch_nodes(self.id_data)
-        reconnect_yp_nodes(self.id_data)
         rearrange_yp_nodes(self.id_data)
+        reconnect_yp_nodes(self.id_data)
 
     # Disable active edit on overrides
     if not ch.enable:
@@ -4102,14 +4067,11 @@ def update_normal_map_type(self, context):
     root_ch = yp.channels[int(m.group(2))]
     tree = get_tree(layer)
 
-    check_all_layer_channel_io_and_nodes(layer, tree, self)
+    check_channel_normal_map_nodes(tree, layer, root_ch, self)
 
     #if not yp.halt_reconnect:
-    reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
-
-    reconnect_yp_nodes(self.id_data)
-    rearrange_yp_nodes(self.id_data)
+    reconnect_layer_nodes(layer)
 
 def update_blend_type(self, context):
     T = time.time()
@@ -4119,21 +4081,17 @@ def update_blend_type(self, context):
     if yp.halt_update: return
     m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(m.group(1))]
-    tree = get_tree(layer)
     ch_index = int(m.group(2))
     root_ch = yp.channels[ch_index]
 
-    check_all_layer_channel_io_and_nodes(layer, tree, self)
+    if check_blend_type_nodes(root_ch, layer, self): # and not yp.halt_reconnect:
 
-    # Reconnect all layer channels if normal channel is updated
-    if root_ch.type == 'NORMAL':
-        reconnect_layer_nodes(layer) 
-    else: reconnect_layer_nodes(layer, ch_index)
+        rearrange_layer_nodes(layer)
 
-    rearrange_layer_nodes(layer)
-
-    reconnect_yp_nodes(self.id_data)
-    rearrange_yp_nodes(self.id_data)
+        # Reconnect all layer channels if normal channel is updated
+        if root_ch.type == 'NORMAL':
+            reconnect_layer_nodes(layer) 
+        else: reconnect_layer_nodes(layer, ch_index)
 
     print('INFO: Layer', layer.name, ' blend type is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
@@ -4146,7 +4104,7 @@ def update_flip_backface_normal(self, context):
     tree = get_tree(layer)
 
     normal_flip = tree.nodes.get(self.normal_flip)
-    if normal_flip: normal_flip.mute = self.invert_backface_normal
+    normal_flip.mute = self.invert_backface_normal
 
 def update_write_height(self, context):
     yp = self.id_data.yp
@@ -4158,14 +4116,12 @@ def update_write_height(self, context):
     ch = self
     tree = get_tree(layer)
 
-    check_all_layer_channel_io_and_nodes(layer, tree, self)
+    check_channel_normal_map_nodes(tree, layer, root_ch, ch)
+
     update_displacement_height_ratio(root_ch)
 
-    reconnect_layer_nodes(layer) #, ch_index)
     rearrange_layer_nodes(layer)
-
-    reconnect_yp_nodes(self.id_data)
-    rearrange_yp_nodes(self.id_data)
+    reconnect_layer_nodes(layer) #, ch_index)
 
 def update_normal_strength(self, context):
     yp = self.id_data.yp
@@ -4271,13 +4227,13 @@ def update_uv_name(self, context):
     check_layer_tree_ios(layer, tree)
 
     #if yp_dirty or layer_dirty: #and not yp.halt_reconnect:
-    reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
     # Update layer tree inputs
     #if yp_dirty:
-    reconnect_yp_nodes(group_tree)
     rearrange_yp_nodes(group_tree)
+    reconnect_yp_nodes(group_tree)
 
 def update_texcoord_type(self, context):
     yp = self.id_data.yp
@@ -4307,13 +4263,13 @@ def update_texcoord_type(self, context):
     check_layer_tree_ios(layer, tree)
 
     #if not yp.halt_reconnect:
-    reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
     # Update layer tree inputs
     #if yp_dirty:
-    reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
+    reconnect_yp_nodes(self.id_data)
 
 def update_hemi_space(self, context):
     if self.type != 'HEMI': return
@@ -4339,8 +4295,8 @@ def update_hemi_camera_ray_mask(self, context):
             trans = source.node_tree.nodes.get('Vector Transform')
             if trans: trans.convert_from = self.hemi_space
 
-            reconnect_layer_nodes(self)
             rearrange_layer_nodes(self)
+            reconnect_layer_nodes(self)
 
         source.inputs['Camera Ray Mask'].default_value = 1.0 if self.hemi_camera_ray_mask else 0.0
 
@@ -4353,8 +4309,8 @@ def update_hemi_use_prev_normal(self, context):
     check_layer_tree_ios(layer, tree)
     check_layer_bump_process(layer, tree)
 
-    reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
     reconnect_yp_nodes(layer.id_data)
 
@@ -4447,20 +4403,13 @@ def update_layer_enable(self, context):
     if height_root_ch:
         update_displacement_height_ratio(height_root_ch)
 
-    check_uv_nodes(yp)
-    check_all_layer_channel_io_and_nodes(layer, tree)
-    check_start_end_root_ch_nodes(layer.id_data)
-
-    reconnect_layer_nodes(layer)
-    rearrange_layer_nodes(layer)
-
     if yp.layer_preview_mode:
         # Refresh preview mode, rearrange and reconnect already done in this event
         yp.layer_preview_mode = yp.layer_preview_mode
     else:
         #if yp.disable_quick_toggle:
-        reconnect_yp_nodes(layer.id_data)
         rearrange_yp_nodes(layer.id_data)
+        reconnect_yp_nodes(layer.id_data)
 
     context.window_manager.yptimer.time = str(time.time())
 
@@ -4508,8 +4457,8 @@ def update_divide_rgb_by_alpha(self, context):
 
     check_layer_divider_alpha(self)
 
-    reconnect_layer_nodes(self)
     rearrange_layer_nodes(self)
+    reconnect_layer_nodes(self)
 
 def update_image_flip_y(self, context):
     yp = self.id_data.yp
@@ -4536,8 +4485,8 @@ def update_image_flip_y(self, context):
     else:
         remove_node(tree, self, 'flip_y')
 
-    reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
 def update_channel_active_edit(self, context):
     yp = self.id_data.yp
@@ -5020,8 +4969,8 @@ def update_layer_blur_vector(self, context):
     else:
         remove_node(tree, layer, 'blur_vector')
 
-    reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+    reconnect_layer_nodes(layer)
 
 def update_layer_blur_vector_factor(self, context):
     yp = self.id_data.yp
