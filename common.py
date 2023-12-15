@@ -1174,12 +1174,15 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
     if not tree: return
     #if prop not in entity: return
 
+    dirty = False
 
     scene = bpy.context.scene
     node = tree.nodes.get(getattr(entity, prop))
     #node = tree.nodes.get(entity[prop])
 
     if node: 
+
+        dirty = True
 
         if parent and node.parent != parent:
             setattr(entity, prop, '')
@@ -1231,6 +1234,8 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
 
     setattr(entity, prop, '')
     #entity[prop] = ''
+
+    return dirty
 
 def create_essential_nodes(tree, solid_value=False, texcoord=False, geometry=False):
 
@@ -4135,6 +4140,193 @@ def set_active_uv_layer(obj, uv_name):
             if uv_layers.active_index != i:
                 uv_layers.active_index = i
 
+def is_uv_input_needed(layer, uv_name):
+
+    if get_layer_enabled(layer):
+
+        if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
+            if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
+                return True
+        
+        for mask in layer.masks:
+            if not get_mask_enabled(mask): continue
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}: continue
+            if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
+                return True
+
+    return False
+
+def is_entity_need_tangent_input(entity, uv_name):
+    yp = entity.id_data.yp
+
+    m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', entity.path_from_id())
+    if m: 
+        layer = yp.layers[int(m.group(1))]
+        entity_enabled = get_mask_enabled(entity)
+    else: 
+        layer = entity
+        entity_enabled = get_layer_enabled(entity)
+
+    if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'GROUP', 'OBJECT_INDEX', 'COLOR_ID'}:
+
+        height_root_ch = get_root_height_channel(yp)
+        height_ch = get_height_channel(layer)
+        if height_root_ch and height_ch and height_ch.enable:
+
+            if uv_name == height_root_ch.main_uv:
+
+                # Main UV tangent is needed for normal process
+                if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
+                    return True
+
+                # Main UV Tangent is needed if smooth bump is on and entity is using non-uv texcoord or have different UV
+                if height_root_ch.enable_smooth_bump and (entity.texcoord_type != 'UV' or entity.uv_name != uv_name):
+                    return True
+
+                # Previous normal is calculated using normal process
+                need_prev_normal = check_need_prev_normal(layer)
+                if need_prev_normal:
+                     return True
+
+            elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
+
+                # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
+                if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name:
+                    return True
+
+    return False
+
+def is_tangent_input_needed(layer, uv_name):
+
+    if is_entity_need_tangent_input(layer, uv_name):
+        return True
+
+    for mask in layer.masks:
+        if is_entity_need_tangent_input(mask, uv_name):
+            return True
+
+    return False
+
+def is_tangent_process_needed(yp, uv_name):
+
+    height_root_ch = get_root_height_channel(yp)
+    if height_root_ch:
+
+        if height_root_ch.main_uv == uv_name and any_layers_using_channel(height_root_ch):
+            return True
+
+        for layer in yp.layers:
+            if is_tangent_input_needed(layer, uv_name):
+                return True
+
+    return False
+
+def is_normal_process_needed(layer):
+    yp = layer.id_data.yp
+    if yp.layer_preview_mode: return True
+
+    layers = []
+    if layer.type == 'GROUP':
+        layers, layer_ids = get_list_of_all_childs_and_child_ids(layer)
+    layers.append(layer)
+
+    for l in layers:
+        height_ch = get_height_channel(l)
+        if not height_ch.enable: continue
+
+        if l.type == 'GROUP': 
+            if not height_ch.write_height:
+                return True
+        elif height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not height_ch.write_height:
+            return True
+
+    return False
+
+''' Check if layer is practically enabled or not '''
+def get_layer_enabled(layer):
+    yp = layer.id_data.yp
+
+    # Check all parents enable
+    parent_enable = True
+    for parent_id in get_list_of_parent_ids(layer):
+        parent = yp.layers[parent_id]
+        if not parent.enable:
+            parent_enable = False
+            break
+
+    return layer.enable and parent_enable
+    #return (layer.enable and parent_enable) or yp.layer_preview_mode
+
+''' Check if mask is practically enabled or not '''
+def get_mask_enabled(mask, layer=None):
+    if not layer:
+        yp = mask.id_data.yp
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', mask.path_from_id())
+        layer = yp.layers[int(m.group(1))]
+
+    return get_layer_enabled(layer) and layer.enable_masks and mask.enable
+    #return (get_layer_enabled(layer) and mask.enable) or yp.layer_preview_mode
+
+''' Check if channel is practically enabled or not '''
+def get_channel_enabled(ch, layer=None, root_ch=None):
+    yp = ch.id_data.yp
+
+    if not layer or not root_ch:
+        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', ch.path_from_id())
+        layer = yp.layers[int(m.group(1))]
+        root_ch = yp.channels[int(m.group(2))]
+
+    if not get_layer_enabled(layer) or not ch.enable:
+        return False
+
+    channel_idx = get_channel_index(root_ch)
+
+    if layer.type in {'BACKGROUND', 'GROUP'}:
+        
+        if layer.type == 'BACKGROUND':
+            layer_idx = get_layer_index(layer)
+            lays = [l for i, l in enumerate(yp.layers) if i > layer_idx and l.parent_idx == layer.parent_idx]
+        else:
+            lays = get_list_of_direct_childrens(layer)
+        
+        for l in lays:
+            if not l.enable: continue
+            c = l.channels[channel_idx]
+
+            if l.type not in {'GROUP', 'BACKGROUND'} and c.enable:
+                return True
+
+            if l.type == 'GROUP' and get_channel_enabled(l.channels[channel_idx]):
+                return True
+
+        return False
+
+    else:
+        for pid in get_list_of_parent_ids(layer):
+            parent = yp.layers[pid]
+            if not parent.channels[channel_idx].enable:
+                return False
+
+    return True
+
+def is_any_entity_using_uv(yp, uv_name):
+
+    for layer in yp.layers:
+        if is_uv_input_needed(layer, uv_name):
+            return True
+
+    return False
+
+def any_layers_using_channel(root_ch): #, parent=None):
+    yp = root_ch.id_data.yp
+    channel_idx = get_channel_index(root_ch)
+
+    for layer in yp.layers:
+        if get_channel_enabled(layer.channels[channel_idx], layer, root_ch):
+            return True
+
+    return False
+
 def is_any_layer_using_channel(root_ch, node=None):
 
     yp = root_ch.id_data.yp
@@ -4521,12 +4713,12 @@ def is_image_source_srgb(image, source, root_ch=None):
 
 def any_linear_images_problem(yp):
     for layer in yp.layers:
-        if not layer.enable: continue
+        if not get_layer_enabled(layer): continue
         layer_tree = get_tree(layer)
 
         for i, ch in enumerate(layer.channels):
-            if not ch.enable: continue
             root_ch = yp.channels[i]
+            if not get_channel_enabled(ch, layer, root_ch): continue
 
             if ch.override and ch.override_type == 'IMAGE':
                 source_tree = get_channel_source_tree(ch)
@@ -4556,7 +4748,7 @@ def any_linear_images_problem(yp):
                     return True
 
         for mask in layer.masks:
-            if not mask.enable: continue
+            if not get_mask_enabled(mask, layer): continue
             if mask.type == 'IMAGE':
                 source_tree = get_mask_tree(mask)
                 linear = source_tree.nodes.get(mask.linear)

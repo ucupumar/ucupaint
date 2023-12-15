@@ -113,6 +113,89 @@ def create_output(tree, name, socket_type, valid_outputs, index, dirty=False, de
 
     return dirty
 
+def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
+
+    yp = group_tree.yp
+
+    for channel in yp.channels:
+        if specific_channel and channel != specific_channel: continue
+
+        if channel.type in {'RGB', 'VALUE'}:
+
+            # Create start linear
+            if channel.colorspace != 'LINEAR' and any_layers_using_channel(channel):
+                if channel.type == 'RGB':
+                    start_linear = check_new_node(group_tree, channel, 'start_linear', 'ShaderNodeGamma', 'Start Linear')
+                else: 
+                    start_linear = check_new_node(group_tree, channel, 'start_linear', 'ShaderNodeMath', 'Start Linear')
+                    start_linear.operation = 'POWER' if channel.colorspace != 'LINEAR' else 'MULTIPLY' # Multiply is probably faster if channel is linear
+                start_linear.inputs[1].default_value = 1.0/GAMMA if channel.colorspace != 'LINEAR' else 1.0
+            else:
+                remove_node(group_tree, channel, 'start_linear')
+
+            # Create end linear
+            if channel.type == 'RGB':
+
+                if channel.colorspace != 'LINEAR' and any_layers_using_channel(channel):
+                    end_linear = check_new_node(group_tree, channel, 'end_linear', 'ShaderNodeGamma', 'End Linear')
+                    end_linear.inputs[1].default_value = GAMMA
+                else:
+                    remove_node(group_tree, channel, 'end_linear')
+
+                if channel.use_clamp and any_layers_using_channel(channel):
+                    clamp = group_tree.nodes.get(channel.clamp)
+                    if not clamp:
+                        clamp = new_mix_node(group_tree, channel, 'clamp', 'Clamp')
+                        clamp.inputs[0].default_value = 0.0
+                        set_mix_clamp(clamp, True)
+                else:
+                    remove_node(group_tree, channel, 'clamp')
+
+            elif channel.type == 'VALUE':
+
+                if (channel.colorspace != 'LINEAR' or channel.use_clamp) and any_layers_using_channel(channel):
+                    end_linear = check_new_node(group_tree, channel, 'end_linear', 'ShaderNodeMath', 'End Linear & Clamp')
+                    end_linear.operation = 'POWER' if channel.colorspace != 'LINEAR' else 'MULTIPLY' # Multiply is probably faster if channel is linear
+                    end_linear.use_clamp = channel.use_clamp
+                    end_linear.inputs[1].default_value = GAMMA if channel.colorspace != 'LINEAR' else 1.0
+                else:
+                    remove_node(group_tree, channel, 'end_linear')
+
+        elif channel.type == 'NORMAL':
+
+            start_normal_filter = group_tree.nodes.get(channel.start_normal_filter)
+            if not start_normal_filter:
+                start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
+                start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
+
+
+            if any_layers_using_channel(channel):
+
+                max_height = get_displacement_max_height(channel)
+
+                # Add end linear for converting displacement map to grayscale
+                if channel.enable_smooth_bump:
+                    lib_name = lib.FINE_BUMP_PROCESS
+                else: lib_name = lib.BUMP_PROCESS
+
+                end_linear = replace_new_node(group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Bump Process',
+                        lib_name, hard_replace=True)
+
+                if max_height != 0.0:
+                    end_linear.inputs['Max Height'].default_value = max_height
+                else: end_linear.inputs['Max Height'].default_value = 1.0
+
+                if channel.enable_smooth_bump:
+                    end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+
+                # Create a node to store max height
+                end_max_height = check_new_node(group_tree, channel, 'end_max_height', 'ShaderNodeValue', 'Max Height')
+                end_max_height.outputs[0].default_value = max_height
+
+            else:
+                remove_node(group_tree, channel, 'end_linear')
+                remove_node(group_tree, channel, 'end_max_height')
+
 def check_all_channel_ios(yp, reconnect=True):
     group_tree = yp.id_data
 
@@ -187,28 +270,8 @@ def check_all_channel_ios(yp, reconnect=True):
 
             output_index += 1
 
-            # Add end linear for converting displacement map to grayscale
-            if ch.enable_smooth_bump:
-                lib_name = lib.FINE_BUMP_PROCESS
-            else: lib_name = lib.BUMP_PROCESS
-
-            end_linear = replace_new_node(group_tree, ch, 'end_linear', 'ShaderNodeGroup', 'Bump Process',
-                    lib_name, hard_replace=True)
-
-            max_height = get_displacement_max_height(ch)
-            if max_height != 0.0:
-                end_linear.inputs['Max Height'].default_value = max_height
-            else: end_linear.inputs['Max Height'].default_value = 1.0
-
-            if ch.enable_smooth_bump:
-                end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
-
-            # Create a node to store max height
-            end_max_height = check_new_node(group_tree, ch, 'end_max_height', 'ShaderNodeValue', 'Max Height')
-            end_max_height.outputs[0].default_value = max_height
-
-        # Check clamps
-        check_channel_clamp(group_tree, ch)
+    # Check start and end nodes
+    check_start_end_root_ch_nodes(group_tree)
 
     if yp.layer_preview_mode:
         create_output(group_tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index)
@@ -237,14 +300,14 @@ def check_all_channel_ios(yp, reconnect=True):
     if reconnect:
         # Rearrange layers
         for layer in yp.layers:
-            rearrange_layer_nodes(layer)
             reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
 
         # Rearrange nodes
-        rearrange_yp_nodes(group_tree)
         reconnect_yp_nodes(group_tree)
+        rearrange_yp_nodes(group_tree)
 
-def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #, check_uvs=False): #, has_parent=False):
+def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True): #, check_uvs=False): #, has_parent=False):
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)
@@ -307,6 +370,40 @@ def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None): #,
     # Linear nodes
     check_yp_linear_nodes(yp, layer, False)
 
+    # Check other affected layers
+    if do_recursive:
+        do_recursive = False
+        other_layers = []
+
+        # Check parent layers
+        for pid in get_list_of_parent_ids(layer):
+            parent = yp.layers[pid]
+            other_layers.append(parent)
+
+        # Check child layers
+        childs, child_ids = get_list_of_all_childs_and_child_ids(layer)
+        for child in childs: 
+            other_layers.append(child)
+
+        # Check background layers
+        layer_idx = get_layer_index(layer)
+        bgs = [l for i, l in enumerate(yp.layers) if i < layer_idx and l.type == 'BACKGROUND']
+        other_layers.extend(bgs)
+
+        # Recursive to other affected layers
+        for ol in other_layers:
+            check_all_layer_channel_io_and_nodes(ol, do_recursive=do_recursive)
+            reconnect_layer_nodes(ol)
+            rearrange_layer_nodes(ol)
+
+def recheck_background_layers_ios(yp, index_dict):
+    for i, layer in enumerate(yp.layers):
+        if layer.type != 'BACKGROUND': continue
+        if index_dict[layer.name] != i or len(yp.layers) != len(index_dict):
+            check_all_layer_channel_io_and_nodes(layer, do_recursive=False)
+            reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
+
 def check_layer_tree_ios(layer, tree=None):
 
     yp = layer.id_data.yp
@@ -321,33 +418,36 @@ def check_layer_tree_ios(layer, tree=None):
 
     has_parent = layer.parent_idx != -1
     need_prev_normal = check_need_prev_normal(layer)
+
+    layer_enabled = get_layer_enabled(layer)
     
     # Tree input and outputs
     for i, ch in enumerate(layer.channels):
-        #if yp.disable_quick_toggle and not ch.enable: continue
         root_ch = yp.channels[i]
+        channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
-        if not (root_ch.type == 'NORMAL' and need_prev_normal) and not ch.enable:
-            continue
+        force_normal_input = root_ch.type == 'NORMAL' and need_prev_normal and layer_enabled
 
-        dirty = create_input(tree, root_ch.name, channel_socket_input_bl_idnames[root_ch.type], 
-                valid_inputs, input_index, dirty)
-        input_index += 1
+        if channel_enabled or force_normal_input:
+            dirty = create_input(tree, root_ch.name, channel_socket_input_bl_idnames[root_ch.type], 
+                    valid_inputs, input_index, dirty)
+            input_index += 1
 
-        if root_ch.type != 'NORMAL' or not need_prev_normal or ch.enable:
+        if channel_enabled:
             dirty = create_output(tree, root_ch.name, channel_socket_output_bl_idnames[root_ch.type], 
                     valid_outputs, output_index, dirty)
             output_index += 1
 
         # Alpha IO
-        #if (root_ch.type == 'RGB' and root_ch.enable_alpha) or has_parent:
         if root_ch.enable_alpha or has_parent:
 
             name = root_ch.name + io_suffix['ALPHA']
-            dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-            input_index += 1
 
-            if root_ch.type != 'NORMAL' or not need_prev_normal or ch.enable:
+            if channel_enabled or force_normal_input:
+                dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
+                input_index += 1
+
+            if channel_enabled:
                 dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
                 output_index += 1
 
@@ -357,56 +457,68 @@ def check_layer_tree_ios(layer, tree=None):
             if not root_ch.enable_smooth_bump:
 
                 name = root_ch.name + io_suffix['HEIGHT']
-                dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-                input_index += 1
 
-                if not need_prev_normal or ch.enable:
+                if channel_enabled or force_normal_input:
+                    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
+                    input_index += 1
+
+                if channel_enabled:
                     dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
                     output_index += 1
 
                 if has_parent:
 
                     name = root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA']
-                    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
-                    input_index += 1
 
-                    if not need_prev_normal or ch.enable:
+                    if channel_enabled or force_normal_input:
+                        dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
+                        input_index += 1
+
+                    if channel_enabled:
                         dirty = create_output(tree, name, 'NodeSocketFloat', valid_outputs, output_index, dirty)
                         output_index += 1
 
             else:
 
                 name = root_ch.name + io_suffix['HEIGHT_ONS']
-                dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                input_index += 1
+                
+                if channel_enabled or force_normal_input:
+                    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
+                    input_index += 1
 
-                if not need_prev_normal or ch.enable:
+                if channel_enabled:
                     dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                     output_index += 1
 
                 name = root_ch.name + io_suffix['HEIGHT_EW']
-                dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                input_index += 1
 
-                if not need_prev_normal or ch.enable:
+                if channel_enabled or force_normal_input:
+                    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
+                    input_index += 1
+
+                if channel_enabled:
                     dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                     output_index += 1
 
                 if has_parent:
 
                     name = root_ch.name + io_suffix['HEIGHT_ONS'] + io_suffix['ALPHA']
-                    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                    input_index += 1
 
-                    if not need_prev_normal or ch.enable:
+                    if channel_enabled or force_normal_input:
+                        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
+                        input_index += 1
+
+                    if channel_enabled:
                         dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                         output_index += 1
 
                     name = root_ch.name + io_suffix['HEIGHT_EW'] + io_suffix['ALPHA']
-                    dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-                    input_index += 1
 
-                    if not need_prev_normal or ch.enable:
+                    if channel_enabled or force_normal_input:
+                        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
+                        input_index += 1
+
+                    if channel_enabled:
                         dirty = create_output(tree, name, 'NodeSocketVector', valid_outputs, output_index, dirty)
                         output_index += 1
 
@@ -430,8 +542,11 @@ def check_layer_tree_ios(layer, tree=None):
     if layer.type in {'BACKGROUND', 'GROUP'}:
 
         for i, ch in enumerate(layer.channels):
-            #if yp.disable_quick_toggle and not ch.enable: continue
-            if not ch.enable: continue
+            root_ch = yp.channels[i]
+            channel_enabled = get_channel_enabled(ch, layer, root_ch)
+
+            #if yp.disable_quick_toggle and not channel_enabled: continue
+            if not channel_enabled: continue
 
             root_ch = yp.channels[i]
 
@@ -495,46 +610,20 @@ def check_layer_tree_ios(layer, tree=None):
                     #    dirty = create_input(tree, name, 'NodeSocketFloatFactor', valid_inputs, input_index, dirty)
                     #    input_index += 1
 
-    # UV necessary container
-    uv_names = []
-
-    # Check height root channel
-    height_root_ch = get_root_height_channel(yp)
-    height_ch = get_height_channel(layer)
-    if height_root_ch and height_root_ch.main_uv != '' and height_root_ch.main_uv not in uv_names:
-        uv_names.append(height_root_ch.main_uv)
-
-    # Add main UV if need previous normal
-    if need_prev_normal and height_root_ch.main_uv != '':
-        uv_names.append(height_root_ch.main_uv)
-
-    # Check layer uv
-    if layer.texcoord_type == 'UV' and layer.uv_name not in uv_names and layer.uv_name != '':
-        uv_names.append(layer.uv_name)
-
-    # Check masks uvs
-    for mask in layer.masks:
-        if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names and mask.uv_name != '':
-            uv_names.append(mask.uv_name)
-
-    #print(height_root_ch.main_uv)
-
-    # Create inputs
-    for uv_name in uv_names:
-        name = uv_name + io_suffix['UV']
-        dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
-        input_index += 1
-
-        #print(uv_name)
-
-        #if height_ch and not (yp.disable_quick_toggle and not height_ch.enable):
-        if (height_ch and height_ch.enable) or (need_prev_normal and uv_name == height_root_ch.main_uv):
-
-            name = uv_name + io_suffix['TANGENT']
+    # Create UV inputs
+    for uv in yp.uvs:
+        if is_uv_input_needed(layer, uv.name):
+            name = uv.name + io_suffix['UV']
             dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
             input_index += 1
 
-            name = uv_name + io_suffix['BITANGENT']
+        if is_tangent_input_needed(layer, uv.name):
+
+            name = uv.name + io_suffix['TANGENT']
+            dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
+            input_index += 1
+
+            name = uv.name + io_suffix['BITANGENT']
             dirty = create_input(tree, name, 'NodeSocketVector', valid_inputs, input_index, dirty)
             input_index += 1
 
@@ -542,11 +631,11 @@ def check_layer_tree_ios(layer, tree=None):
     texcoords = []
 
     # Check layer texcoords
-    if layer.texcoord_type != 'UV':
+    if layer_enabled and layer.texcoord_type != 'UV' and layer.type not in {'VCOL', 'COLOR', 'HEMI', 'GROUP', 'BACKGROUND'}:
         texcoords.append(layer.texcoord_type)
 
     for mask in layer.masks:
-        if mask.texcoord_type != 'UV' and mask.texcoord_type not in texcoords:
+        if get_mask_enabled(mask, layer) and mask.texcoord_type != 'UV' and mask.type not in {'VCOL', 'COLOR_ID', 'OBJECT_INDEX', 'HEMI'} and mask.texcoord_type not in texcoords:
             texcoords.append(mask.texcoord_type)
 
     for texcoord in texcoords:

@@ -62,35 +62,6 @@ def create_yp_channel_nodes(group_tree, channel, channel_idx):
     yp = group_tree.yp
     nodes = group_tree.nodes
 
-    # Create linarize node and converter node
-    if channel.type in {'RGB', 'VALUE'}:
-        if channel.type == 'RGB':
-            start_linear = new_node(group_tree, channel, 'start_linear', 'ShaderNodeGamma', 'Start Linear')
-        else: 
-            start_linear = new_node(group_tree, channel, 'start_linear', 'ShaderNodeMath', 'Start Linear')
-            start_linear.operation = 'POWER'
-        start_linear.inputs[1].default_value = 1.0/GAMMA
-
-        if channel.type == 'RGB':
-            end_linear = new_node(group_tree, channel, 'end_linear', 'ShaderNodeGamma', 'End Linear')
-        else: 
-            end_linear = new_node(group_tree, channel, 'end_linear', 'ShaderNodeMath', 'End Linear')
-            end_linear.operation = 'POWER'
-        end_linear.inputs[1].default_value = GAMMA
-
-        check_channel_clamp(group_tree, channel)
-
-    if channel.type == 'NORMAL':
-        start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
-        start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
-
-        # Set main uv
-        #obj = bpy.context.object
-        #uv_layers = get_uv_layers(obj)
-        #if len(uv_layers) > 0:
-        #    channel.main_uv = uv_layers[0].name
-        #    check_uvmap_on_other_objects_with_same_mat(obj.active_material, channel.main_uv)
-
     # Link between layers
     for t in yp.layers:
 
@@ -1391,8 +1362,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         # Rearrange and reconnect nodes
         check_all_channel_ios(yp)
         #for t in yp.layers:
-        #    rearrange_layer_nodes(t)
         #    reconnect_layer_nodes(t)
+        #    rearrange_layer_nodes(t)
         #rearrange_yp_nodes(group_tree)
 
         # Set new active index
@@ -2012,28 +1983,17 @@ def update_channel_name(self, context):
 
         get_tree_output_by_index(group_tree, output_index+shift).name = self.name + io_suffix['MAX_HEIGHT']
 
-
-    #check_all_channel_ios(yp)
-
-    # Fix normal input
-    #if self.type == 'NORMAL':
-    #    mat = get_active_material()
-    #    for node in mat.node_tree.nodes:
-    #        if node.type == 'GROUP' and node.node_tree == group_tree:
-    #            inp = node.inputs.get(self.name)
-    #            inp.default_value = (999, 999, 999)
-
     for layer in yp.layers:
         tree = get_tree(layer)
         Layer.check_all_layer_channel_io_and_nodes(layer, tree)
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
         rearrange_layer_frame_nodes(layer, tree)
     
     rearrange_yp_frame_nodes(yp)
-    rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)
+    rearrange_yp_nodes(group_tree)
 
     print('INFO: Channel renamed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
@@ -2399,19 +2359,10 @@ def update_layer_index(self, context):
     update_image_editor_image(context, image)
 
 def update_channel_colorspace(self, context):
+
     group_tree = self.id_data
     yp = group_tree.yp
     nodes = group_tree.nodes
-
-    start_linear = nodes.get(self.start_linear)
-    end_linear = nodes.get(self.end_linear)
-
-    #start_linear.mute = end_linear.mute = self.colorspace == 'LINEAR'
-    if self.colorspace == 'LINEAR':
-        start_linear.inputs[1].default_value = end_linear.inputs[1].default_value = 1.0
-    else: 
-        start_linear.inputs[1].default_value = 1.0/GAMMA
-        end_linear.inputs[1].default_value = GAMMA
 
     # Check for modifier that aware of colorspace
     channel_index = -1
@@ -2535,6 +2486,12 @@ def update_channel_colorspace(self, context):
                     if self.colorspace == 'SRGB':
                         color_ramp_linear.inputs[1].default_value = 1.0/GAMMA
                     else: color_ramp_linear.inputs[1].default_value = 1.0
+
+    check_start_end_root_ch_nodes(group_tree, self)
+
+    if not yp.halt_reconnect:
+        reconnect_yp_nodes(group_tree)
+        rearrange_yp_nodes(group_tree)
 
 def update_enable_smooth_bump(self, context):
     yp = self.id_data.yp
@@ -2868,16 +2825,16 @@ def update_channel_use_clamp(self, context):
     if self.type == 'NORMAL': return
 
     group_tree = self.id_data
-    check_channel_clamp(group_tree, self)
+    check_start_end_root_ch_nodes(group_tree, self)
 
-    rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)
+    rearrange_yp_nodes(group_tree)
 
 def update_channel_disable_global_baked(self, context):
     group_tree = self.id_data
 
-    rearrange_yp_nodes(group_tree)
     reconnect_yp_nodes(group_tree)
+    rearrange_yp_nodes(group_tree)
 
 def update_backface_mode(self, context):
     yp = self.id_data.yp
