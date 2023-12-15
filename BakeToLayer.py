@@ -1639,8 +1639,8 @@ class YBakeToLayer(bpy.types.Operator):
                     mask = Mask.add_new_mask(active_layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
                     mask.active_edit = True
 
-                    rearrange_layer_nodes(active_layer)
                     reconnect_layer_nodes(active_layer)
+                    rearrange_layer_nodes(active_layer)
 
                     active_id = yp.active_layer_index
 
@@ -2265,8 +2265,8 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             # Refresh Neighbor UV resolution
             set_uv_neighbor_resolution(mask)
 
-            rearrange_layer_nodes(self.layer)
             reconnect_layer_nodes(self.layer)
+            rearrange_layer_nodes(self.layer)
 
         # Remove temp bake nodes
         simple_remove_node(mat.node_tree, tex)

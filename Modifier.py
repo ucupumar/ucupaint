@@ -514,11 +514,11 @@ class YNewYPaintModifier(bpy.types.Operator):
 
         # Reconnect and rearrange nodes
         if layer:
-            rearrange_layer_nodes(layer)
             reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
         else: 
-            rearrange_yp_nodes(group_tree)
             reconnect_yp_nodes(group_tree)
+            rearrange_yp_nodes(group_tree)
 
         # Update UI
         context.window_manager.ypui.need_update = True
@@ -771,13 +771,13 @@ def update_modifier_enable(self, context):
         if match1: layer = yp.layers[int(match1.group(1))]
         else: layer = yp.layers[int(match2.group(1))]
 
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
     elif match3:
         channel = yp.channels[int(match3.group(1))]
-        rearrange_yp_nodes(self.id_data)
         reconnect_yp_nodes(self.id_data)
+        rearrange_yp_nodes(self.id_data)
 
 def update_modifier_shortcut(self, context):
 
@@ -1113,8 +1113,8 @@ def check_modifiers_trees(parent, rearrange=False):
             disable_modifiers_tree(parent, parent_tree)
 
     if rearrange:
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
 def enable_modifiers_tree(parent, parent_tree=None, name='', is_layer=False, rearrange = False):
     
@@ -1191,8 +1191,8 @@ def enable_modifiers_tree(parent, parent_tree=None, name='', is_layer=False, rea
         check_modifier_nodes(mod, mod_tree, parent_tree)
 
     if rearrange:
-        rearrange_layer_nodes(layer)
         reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
 def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
     group_tree = parent.id_data
@@ -1208,7 +1208,7 @@ def disable_modifiers_tree(parent, parent_tree=None, rearrange=False):
             root_ch = yp.channels[int(match1.group(2))]
 
             # Check if fine bump map is still used
-            if parent.enable and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
+            if get_channel_enabled(parent, layer, root_ch) and len(parent.modifiers) > 0 and root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
                 if layer.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX'} and not parent.override:
                     return
                 if parent.override and parent.override_type != 'DEFAULT':
