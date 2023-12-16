@@ -19,24 +19,29 @@ def get_transition_fine_bump_distance(distance, is_curved=False):
 def set_transition_ramp_and_intensity_multiplier(tree, bump_ch, ch):
     if ch == bump_ch: return
 
-    if bump_ch.transition_bump_flip: #or layer.type=='BACKGROUND':
-        tr_ramp_mul = bump_ch.transition_bump_value
-        tr_im_mul = bump_ch.transition_bump_second_edge_value
-    else: 
-        tr_ramp_mul = bump_ch.transition_bump_second_edge_value
-        tr_im_mul = bump_ch.transition_bump_value
+    if get_channel_enabled(ch):
 
-    tr_ramp = tree.nodes.get(ch.tr_ramp)
-    if tr_ramp:
-        tr_ramp.inputs['Multiplier'].default_value = 1.0 + (tr_ramp_mul - 1.0) * ch.transition_bump_second_fac
+        if bump_ch.transition_bump_flip: #or layer.type=='BACKGROUND':
+            tr_ramp_mul = bump_ch.transition_bump_value
+            tr_im_mul = bump_ch.transition_bump_second_edge_value
+        else: 
+            tr_ramp_mul = bump_ch.transition_bump_second_edge_value
+            tr_im_mul = bump_ch.transition_bump_value
 
-    im = tree.nodes.get(ch.intensity_multiplier)
-    im_val = 1.0 + (tr_im_mul - 1.0) * ch.transition_bump_fac
-    if not im: im = lib.new_intensity_multiplier_node(tree, ch, 'intensity_multiplier')
-    im.inputs[1].default_value = im_val
+        tr_ramp = tree.nodes.get(ch.tr_ramp)
+        if tr_ramp:
+            tr_ramp.inputs['Multiplier'].default_value = 1.0 + (tr_ramp_mul - 1.0) * ch.transition_bump_second_fac
 
-    # Invert other intensity multipler if mask bump flip active
-    im.inputs['Invert'].default_value = 1.0 if bump_ch.transition_bump_flip else 0.0
+        im = tree.nodes.get(ch.intensity_multiplier)
+        im_val = 1.0 + (tr_im_mul - 1.0) * ch.transition_bump_fac
+        if not im: im = lib.new_intensity_multiplier_node(tree, ch, 'intensity_multiplier')
+        im.inputs[1].default_value = im_val
+
+        # Invert other intensity multipler if mask bump flip active
+        im.inputs['Invert'].default_value = 1.0 if bump_ch.transition_bump_flip else 0.0
+
+    else:
+        remove_node(tree, ch, 'intensity_multiplier')
 
 def check_transition_bump_influences_to_other_channels(layer, tree=None, target_ch = None):
 
@@ -64,9 +69,9 @@ def check_transition_bump_influences_to_other_channels(layer, tree=None, target_
 
         # Remove node if channel is disabled
         #if yp.disable_quick_toggle and not c.enable: 
-        if not c.enable: 
-            remove_node(tree, c, 'intensity_multiplier')
-            continue
+        #if not c.enable: 
+        #    remove_node(tree, c, 'intensity_multiplier')
+        #    continue
 
         if bump_ch: set_transition_ramp_and_intensity_multiplier(tree, bump_ch, c)
 
@@ -383,7 +388,7 @@ def check_transition_bump_nodes(layer, tree, ch):
     ch_index = get_layer_channel_index(layer, ch)
     root_ch = yp.channels[ch_index]
 
-    if ch.enable_transition_bump and ch.enable:
+    if ch.enable_transition_bump and get_channel_enabled(ch):
         set_transition_bump_nodes(layer, tree, ch, ch_index)
     else: remove_transition_bump_nodes(layer, tree, ch, ch_index)
 
