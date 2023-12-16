@@ -42,6 +42,7 @@ def set_transition_ramp_and_intensity_multiplier(tree, bump_ch, ch):
 
     else:
         remove_node(tree, ch, 'intensity_multiplier')
+        remove_node(tree, ch, 'tr_ramp')
 
 def check_transition_bump_influences_to_other_channels(layer, tree=None, target_ch = None):
 
@@ -83,7 +84,7 @@ def check_transition_ao_nodes(tree, layer, ch, bump_ch=None):
     yp = layer.id_data.yp
 
     #if (not bump_ch or not ch.enable_transition_ao) or (yp.disable_quick_toggle and not ch.enable):
-    if (not bump_ch or not ch.enable_transition_ao) or not ch.enable:
+    if (not bump_ch or not ch.enable_transition_ao) or not get_channel_enabled(ch):
         remove_node(tree, ch, 'tao')
 
     elif bump_ch != ch and ch.enable_transition_ao:
@@ -252,7 +253,7 @@ def check_transition_ramp_nodes(tree, layer, ch):
 
     yp = layer.id_data.yp
     #if yp.disable_quick_toggle and not ch.enable:
-    if not ch.enable:
+    if not get_channel_enabled(ch):
         remove_transition_ramp_nodes(tree, ch)
         return
 

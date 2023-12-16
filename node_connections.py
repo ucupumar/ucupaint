@@ -2824,8 +2824,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                             if prev_height_alpha: create_link(tree, prev_height_alpha, next_height_alpha)
 
         # Transition AO
-        if root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao: # and layer.type != 'BACKGROUND':
-            tao = nodes.get(ch.tao)
+        tao = nodes.get(ch.tao)
+        if tao and root_ch.type in {'RGB', 'VALUE'} and trans_bump_ch and ch.enable_transition_ao: # and layer.type != 'BACKGROUND':
 
             if trans_bump_flip:
                 create_link(tree, rgb, tao.inputs[0])
@@ -2837,7 +2837,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 #else: 
                 trans_im = nodes.get(trans_bump_ch.tb_intensity_multiplier)
 
-                create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
+                if trans_im: create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
 
                 if 'Bg Alpha' in tao.inputs and bg_alpha:
                     create_link(tree, bg_alpha, tao.inputs['Bg Alpha'])
@@ -2848,7 +2848,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 # Get intensity multiplier of transition bump
                 trans_im = nodes.get(trans_bump_ch.intensity_multiplier)
-                create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
+                if trans_im: create_link(tree, trans_im.outputs[0], tao.inputs['Multiplied Alpha'])
 
                 # Dealing with chain
                 remaining_alpha = get_essential_node(tree, ONE_VALUE)[0]
@@ -2877,14 +2877,14 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             create_link(tree, transition_input, tao.inputs['Transition'])
 
         # Transition Ramp
-        if root_ch.type in {'RGB', 'VALUE'} and ch.enable_transition_ramp:
+        tr_ramp = nodes.get(ch.tr_ramp)
+        if tr_ramp and root_ch.type in {'RGB', 'VALUE'} and ch.enable_transition_ramp:
 
-            tr_ramp = nodes.get(ch.tr_ramp)
             tr_ramp_blend = nodes.get(ch.tr_ramp_blend)
 
             create_link(tree, transition_input, tr_ramp.inputs['Transition'])
 
-            if trans_bump_flip:
+            if tr_ramp_blend and trans_bump_flip:
 
                 if prev_rgb: create_link(tree, prev_rgb, tr_ramp_blend.inputs['Input RGB'])
                 create_link(tree, intensity_multiplier.outputs[0], tr_ramp_blend.inputs['Multiplied Alpha'])
@@ -2909,7 +2909,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                 break_input_link(tree, tr_ramp_blend.inputs['Intensity'])
 
-            else:
+            elif not trans_bump_flip:
                 create_link(tree, rgb, tr_ramp.inputs['RGB'])
                 rgb = tr_ramp.outputs[0]
 
