@@ -4317,12 +4317,18 @@ def is_any_entity_using_uv(yp, uv_name):
 
     return False
 
-def any_layers_using_channel(root_ch): #, parent=None):
+def any_layers_using_channel(root_ch, check_normal_map=False): #, parent=None):
     yp = root_ch.id_data.yp
     channel_idx = get_channel_index(root_ch)
 
     for layer in yp.layers:
-        if get_channel_enabled(layer.channels[channel_idx], layer, root_ch):
+        ch = layer.channels[channel_idx]
+        if get_channel_enabled(ch, layer, root_ch):
+            if check_normal_map:
+                if root_ch.type == 'NORMAL' and (ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not ch.write_height):
+                    return True
+                continue
+
             return True
 
     return False

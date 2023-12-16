@@ -4103,6 +4103,7 @@ def update_normal_map_type(self, context):
     tree = get_tree(layer)
 
     check_all_layer_channel_io_and_nodes(layer, tree, self)
+    check_start_end_root_ch_nodes(self.id_data)
 
     #if not yp.halt_reconnect:
     reconnect_layer_nodes(layer)

@@ -1272,7 +1272,11 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         if end_linear:
             if ch.type == 'NORMAL':
-                rgb = create_link(tree, rgb, end_linear.inputs['Normal Overlay'])[0]
+
+                if 'Normal Overlay' in end_linear.inputs:
+                    rgb = create_link(tree, rgb, end_linear.inputs['Normal Overlay'])[0]
+                else: rgb = end_linear.outputs[0]
+
                 if end_max_height:
                     create_link(tree, end_max_height.outputs[0], end_linear.inputs['Max Height'])
 
@@ -1282,8 +1286,10 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                 else:
                     height = create_link(tree, height, end_linear.inputs[0])[1]
                 
-                if tangent and bitangent:
+                if tangent and 'Tangent' in end_linear.inputs:
                     create_link(tree, tangent, end_linear.inputs['Tangent'])
+
+                if bitangent and 'Bitangent' in end_linear.inputs:
                     create_link(tree, bitangent, end_linear.inputs['Bitangent'])
             else:
                 rgb = create_link(tree, rgb, end_linear.inputs[0])[0]

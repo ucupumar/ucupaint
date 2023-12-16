@@ -226,7 +226,9 @@ FALLOFF_CURVE = '~yPL Falloff Curve'
 FALLOFF_CURVE_SMOOTH = '~yPL Falloff Curve Smooth'
 
 FINE_BUMP_PROCESS = '~yPL Fine Bump Process'
+FINE_BUMP_PROCESS_NO_OVERLAY = '~yPL Fine Bump Process No Overlay'
 BUMP_PROCESS = '~yPL Bump Process'
+BUMP_PROCESS_NO_OVERLAY = '~yPL Bump Process No Overlay'
 
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'
