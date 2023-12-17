@@ -501,7 +501,8 @@ def check_create_spread_alpha(layer, tree, root_ch, ch):
     channel_enabled = get_channel_enabled(ch, layer, root_ch)
     need_reconnect = False
 
-    if channel_enabled and layer.type == 'IMAGE' and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
+    # NOTE: Remove spread alpha node entirely (at least for now), since it provides almost nothing in most situation
+    if False and channel_enabled and layer.type == 'IMAGE' and ch.normal_map_type != 'NORMAL_MAP': # and ch.enable_transition_bump:
         if root_ch.enable_smooth_bump:
             spread_alpha, dirty = replace_new_node(tree, ch, 'spread_alpha', 
                     'ShaderNodeGroup', 'Spread Alpha Hack', lib.SPREAD_ALPHA_SMOOTH, hard_replace=True, return_status=True)

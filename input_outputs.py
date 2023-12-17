@@ -147,6 +147,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                     if not clamp:
                         clamp = new_mix_node(group_tree, channel, 'clamp', 'Clamp')
                         clamp.inputs[0].default_value = 0.0
+                        clamp.blend_type = 'MULTIPLY' # Multiply is probably faster than Mix
                         set_mix_clamp(clamp, True)
                 else:
                     remove_node(group_tree, channel, 'clamp')
