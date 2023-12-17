@@ -4291,6 +4291,7 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
         
         for l in lays:
             if not l.enable: continue
+            if channel_idx >= len(l.channels): continue
             c = l.channels[channel_idx]
 
             if l.type not in {'GROUP', 'BACKGROUND'} and c.enable:
