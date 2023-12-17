@@ -201,7 +201,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 remove_node(group_tree, channel, 'end_linear')
                 remove_node(group_tree, channel, 'end_max_height')
 
-def check_all_channel_ios(yp, reconnect=True):
+def check_all_channel_ios(yp, reconnect=True, specific_layer=None):
     group_tree = yp.id_data
 
     input_index = 0
@@ -278,6 +278,7 @@ def check_all_channel_ios(yp, reconnect=True):
     # Check start and end nodes
     check_start_end_root_ch_nodes(group_tree)
 
+    specific_channel = None
     if yp.layer_preview_mode:
         create_output(group_tree, LAYER_VIEWER, 'NodeSocketColor', valid_outputs, output_index)
         output_index += 1
@@ -298,13 +299,18 @@ def check_all_channel_ios(yp, reconnect=True):
     # Check uv maps
     check_uv_nodes(yp)
 
-    # Move layer IO
+    # Update layer IO
     for layer in yp.layers:
-        check_all_layer_channel_io_and_nodes(layer)
+        if specific_layer and layer != specific_layer: continue
+        specific_ch = None
+        if yp.layer_preview_mode and yp.active_channel_index < len(layer.channels):
+            specific_ch = layer.channels[yp.active_channel_index]
+        check_all_layer_channel_io_and_nodes(layer, specific_ch=specific_ch, do_recursive=False)
 
     if reconnect:
         # Rearrange layers
         for layer in yp.layers:
+            if specific_layer and layer != specific_layer: continue
             reconnect_layer_nodes(layer)
             rearrange_layer_nodes(layer)
 

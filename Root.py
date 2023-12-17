@@ -2172,10 +2172,11 @@ def update_layer_preview_mode(self, context):
     if yp.preview_mode and yp.layer_preview_mode:
         yp.preview_mode = False
 
-    check_all_channel_ios(yp)
 
     # Get preview node
     if yp.layer_preview_mode:
+
+        check_all_channel_ios(yp, specific_layer=layer)
 
         # Set view transform to srgb so color picker won't pick wrong color
         set_srgb_view_transform()
@@ -2215,6 +2216,7 @@ def update_layer_preview_mode(self, context):
             preview.inputs['Missing Data'].default_value = 1.0 if (not ch.enable or not layer.enable) else 0.0
 
     else:
+        check_all_channel_ios(yp)
         remove_preview(mat)
 
 def update_preview_mode(self, context):
