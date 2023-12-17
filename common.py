@@ -1506,26 +1506,17 @@ def create_info_nodes(tree):
 
     info = nodes.new('NodeFrame')
 
-    if tree_type == 'LAYER':
-        info.label = 'Part of ' + get_addon_title() + ' addon version ' + yp.version
-        info.width = 390.0
-    elif tree_type == 'ROOT':
-        info.label = 'Created using ' + get_addon_title() + ' addon version ' + yp.version
-        info.width = 460.0
+    addon_link = 'github.com/ucupumar/ucupaint'
+
+    if tree_type == 'ROOT':
+        info.label = 'Created using ' + get_addon_title() + ' ' + yp.version + ' (' + addon_link + ')'
+        info.width = 620.0
     else:
-        info.label = 'Part of ' + get_addon_title() + ' addon'
-        info.width = 250.0
+        info.label = 'Part of ' + get_addon_title() + ' addon (' + addon_link + ')'
+        info.width = 560.0
 
     info.use_custom_color = True
     info.color = (0.5, 0.5, 0.5)
-    info.height = 60.0
-    infos.append(info)
-
-    info = nodes.new('NodeFrame')
-    info.label = 'Get the addon from github.com/ucupumar/ucupaint'
-    info.use_custom_color = True
-    info.color = (0.5, 0.5, 0.5)
-    info.width = 520.0
     info.height = 60.0
     infos.append(info)
 
@@ -1534,15 +1525,6 @@ def create_info_nodes(tree):
     info.use_custom_color = True
     info.color = (1.0, 0.5, 0.5)
     info.width = 450.0
-    info.height = 60.0
-    infos.append(info)
-
-    info = nodes.new('NodeFrame')
-    info.label = 'Please use this panel: Node Editor > Properties > ' + get_addon_title()
-    #info.label = 'Please use this panel: Node Editor > Tools > Misc'
-    info.use_custom_color = True
-    info.color = (1.0, 0.5, 0.5)
-    info.width = 580.0
     info.height = 60.0
     infos.append(info)
 
@@ -1566,7 +1548,7 @@ def create_info_nodes(tree):
         for info in infos:
             info.name = INFO_PREFIX + info.name
 
-            loc.y -= 40
+            loc.y -= 80
             info.location = loc
 
 def check_duplicated_node_group(node_group, duplicated_trees = []):
