@@ -4212,7 +4212,7 @@ def is_tangent_process_needed(yp, uv_name):
     height_root_ch = get_root_height_channel(yp)
     if height_root_ch:
 
-        if height_root_ch.main_uv == uv_name and any_layers_using_channel(height_root_ch):
+        if height_root_ch.main_uv == uv_name and (any_layers_using_channel(height_root_ch, check_normal_map=True) or height_root_ch.enable_smooth_bump):
             return True
 
         for layer in yp.layers:

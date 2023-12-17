@@ -4104,6 +4104,7 @@ def update_normal_map_type(self, context):
 
     check_all_layer_channel_io_and_nodes(layer, tree, self)
     check_start_end_root_ch_nodes(self.id_data)
+    check_uv_nodes(yp)
 
     #if not yp.halt_reconnect:
     reconnect_layer_nodes(layer)
@@ -4161,6 +4162,8 @@ def update_write_height(self, context):
 
     check_all_layer_channel_io_and_nodes(layer, tree, self)
     update_displacement_height_ratio(root_ch)
+    check_start_end_root_ch_nodes(self.id_data)
+    check_uv_nodes(yp)
 
     reconnect_layer_nodes(layer) #, ch_index)
     rearrange_layer_nodes(layer)
