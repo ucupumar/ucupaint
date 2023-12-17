@@ -900,11 +900,14 @@ def do_alpha_setup(mat, node, channel):
 
         if not target_socket: continue
 
-        if len(target_socket.links) > 0 and not alpha_input_connected:
+        # Connect the original target socket connection to channel alpha input
+        if len(target_socket.links) > 0 and not alpha_input_connected and target_socket.links[0].from_node != node:
             tree.links.new(target_socket.links[0].from_socket, alpha_input)
             alpha_input_connected = True
 
-        tree.links.new(alpha_output, target_socket)
+        # Only connect to target socket if the original connection isn't from yp node
+        if len(target_socket.links) == 0 or target_socket.links[0].from_node != node:
+            tree.links.new(alpha_output, target_socket)
 
 class YConnectYPaintChannelAlpha(bpy.types.Operator):
     bl_idname = "node.y_connect_ypaint_channel_alpha"
