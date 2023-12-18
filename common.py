@@ -4205,6 +4205,9 @@ def is_tangent_process_needed(yp, uv_name):
 
 def is_height_process_needed(layer):
     yp = layer.id_data.yp
+    height_root_ch = get_root_height_channel(yp)
+    if not height_root_ch: return False
+
     if yp.layer_preview_mode: return True
 
     layers = []
@@ -4223,6 +4226,9 @@ def is_height_process_needed(layer):
 
 def is_normal_process_needed(layer):
     yp = layer.id_data.yp
+    height_root_ch = get_root_height_channel(yp)
+    if not height_root_ch: return False
+
     if yp.layer_preview_mode: return True
 
     layers = []
