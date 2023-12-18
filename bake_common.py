@@ -907,7 +907,7 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
 
     blur = mat.node_tree.nodes.new('ShaderNodeGroup')
     blur.node_tree = get_node_tree_lib(lib.BLUR_VECTOR)
-    blur.inputs[0].default_value = factor / 100.0
+    blur.inputs[0].default_value = factor
 
     source_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     target_tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -1565,6 +1565,46 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     bpy.data.images.remove(temp)
                 else:
                     baked_normal_overlay.image = norm_img
+
+            ### Max Height
+
+            # Create target image
+            mh_img = bpy.data.images.new(name='____MAXHEIGHT_TEMP', width=1, height=1, 
+                    alpha=False, tiled=False, float_buffer=True)
+            mh_img.colorspace_settings.name = 'Non-Color'
+            tex.image = mh_img
+
+            # Bake setup (doing little bit doing hacky reconnection here)
+            start = tree.nodes.get(TREE_START)
+            end = tree.nodes.get(TREE_END)
+            ori_soc = end.inputs[root_ch.name].links[0].from_socket
+            max_height = start.outputs.get(root_ch.name + io_suffix['HEIGHT'])
+            # Get the last layer that output max height
+            for l in yp.layers:
+                if not l.enable or not l.channels[get_channel_index(root_ch)].enable: continue
+                lnode = tree.nodes.get(l.group_node)
+                outp = lnode.outputs.get(root_ch.name + io_suffix['MAX_HEIGHT'])
+                if outp:
+                    max_height = outp
+                    break
+            create_link(tree, max_height, end.inputs[root_ch.name])
+            create_link(mat.node_tree, node.outputs[root_ch.name + io_suffix['MAX_HEIGHT']], 
+                    emit.inputs[0])
+
+            # Bake
+            print('BAKE CHANNEL: Baking max height of ' + root_ch.name + ' channel...')
+            bpy.ops.object.bake()
+
+            # Recover connection
+            create_link(tree, ori_soc, end.inputs[root_ch.name])
+
+            # Set baked max height image
+            max_height_value = mh_img.pixels[0]
+            end_max_height = tree.nodes.get(root_ch.end_max_height)
+            end_max_height.outputs[0].default_value = max_height_value
+
+            # Remove max height image
+            bpy.data.images.remove(mh_img)
 
             ### Displacement
 

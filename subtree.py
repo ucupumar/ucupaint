@@ -1684,6 +1684,40 @@ def check_uv_nodes(yp, generate_missings=False):
 
     return dirty
 
+def remove_layer_normal_channel_nodes(root_ch, layer, ch, tree=None):
+
+    if not tree: tree = get_tree(layer)
+
+    # Remove neighbor related nodes
+    if root_ch.enable_smooth_bump:
+        disable_layer_source_tree(layer, False)
+        Modifier.disable_modifiers_tree(ch)
+
+        if ch.override and ch.override_type != 'DEFAULT':
+            disable_channel_source_tree(layer, root_ch, ch, False)
+
+    remove_node(tree, ch, 'spread_alpha')
+    #remove_node(tree, ch, 'spread_alpha_n')
+    #remove_node(tree, ch, 'spread_alpha_s')
+    #remove_node(tree, ch, 'spread_alpha_e')
+    #remove_node(tree, ch, 'spread_alpha_w')
+
+    remove_node(tree, ch, 'tb_distance_flipper')
+    remove_node(tree, ch, 'tb_delta_calc')
+    remove_node(tree, ch, 'bump_distance_ignorer')
+
+    remove_node(tree, ch, 'height_proc')
+    remove_node(tree, ch, 'height_blend')
+    #remove_node(tree, ch, 'height_blend_n')
+    #remove_node(tree, ch, 'height_blend_s')
+    #remove_node(tree, ch, 'height_blend_e')
+    #remove_node(tree, ch, 'height_blend_w')
+
+    remove_node(tree, ch, 'normal_proc')
+    remove_node(tree, ch, 'normal_flip')
+
+    remove_node(tree, ch, 'max_height_calc')
+
 def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=False):
 
     #print("Checking channel normal map nodes. Layer: " + layer.name + ' Channel: ' + root_ch.name)
@@ -1734,6 +1768,51 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         update_displacement_height_ratio(root_ch)
 
     if channel_enabled and height_process_needed:
+
+        # Bump distance ignorer
+        if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and not is_bump_distance_relevant(layer, ch):
+            bump_distance_ignorer, dirty = check_new_node(
+                    tree, ch, 'bump_distance_ignorer', 'ShaderNodeMath', 'Bump Distance Ignorer', True)
+            if dirty: need_reconnect = True
+            bump_distance_ignorer.operation = 'MULTIPLY'
+            bump_distance_ignorer.inputs[1].default_value = 0.0
+        else:
+            if remove_node(tree, ch, 'bump_distance_ignorer'): need_reconnect = True
+
+        # Transition bump flipper
+        if ch.enable_transition_bump and ch.transition_bump_flip:
+            tb_distance_flipper, dirty = check_new_node(
+                    tree, ch, 'tb_distance_flipper', 'ShaderNodeMath', 'Transition Bump Distance Flipper', True)
+            if dirty: need_reconnect = True
+            tb_distance_flipper.operation = 'MULTIPLY'
+            tb_distance_flipper.inputs[1].default_value = -1.0
+        else:
+            if remove_node(tree, ch, 'tb_distance_flipper'): need_reconnect = True
+
+        # Delta calculation node
+        if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.enable_transition_bump:
+            tb_delta_calc, dirty = check_new_node(
+                    tree, ch, 'tb_delta_calc', 'ShaderNodeGroup', 'Transition Bump Delta Calculation', True)
+            if dirty: need_reconnect = True
+            tb_delta_calc.node_tree = get_node_tree_lib(lib.TB_DELTA_CALC)
+        else:
+            if remove_node(tree, ch, 'tb_delta_calc'): need_reconnect = True
+
+        # Max Height calculation node
+        if ch.enable_transition_bump:
+            if ch.transition_bump_crease and not ch.transition_bump_flip:
+                lib_name = lib.CH_MAX_HEIGHT_TBC_CALC
+            else:
+                lib_name = lib.CH_MAX_HEIGHT_TB_CALC
+        else:
+            lib_name = lib.CH_MAX_HEIGHT_CALC
+
+        max_height_calc, need_reconnect = replace_new_node(
+                tree, ch, 'max_height_calc', 'ShaderNodeGroup', 'Max Height Calculation', 
+                lib_name, return_status = True, hard_replace=True, dirty=need_reconnect)
+
+        inp = max_height_calc.inputs.get('Is Flipped')
+        if inp: inp.default_value = 1.0 if ch.enable_transition_bump and ch.transition_bump_flip else 0.0
 
         # Height Process
         if ch.normal_map_type == 'NORMAL_MAP':
@@ -1877,6 +1956,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     else:
         if remove_node(tree, ch, 'height_proc'): need_reconnect = True
         if remove_node(tree, ch, 'height_blend'): need_reconnect = True
+        if remove_node(tree, ch, 'bump_distance_ignorer'): need_reconnect = True
+        if remove_node(tree, ch, 'tb_distance_flipper'): need_reconnect = True
+        if remove_node(tree, ch, 'tb_delta_calc'): need_reconnect = True
+        if remove_node(tree, ch, 'max_height_calc'): need_reconnect = True
 
     # Normal Process
     if channel_enabled and is_normal_process_needed(layer):
@@ -1973,28 +2056,6 @@ def update_preview_mix(ch, preview):
     mix = preview.node_tree.nodes.get('Mix')
     if mix: mix.blend_type = ch.blend_type
 
-def update_override_1_value(root_ch, layer, ch, tree=None):
-
-    if not tree: tree = get_tree(layer)
-    source = tree.nodes.get(ch.source_1)
-
-    col = ch.override_1_color
-    col = (col[0], col[1], col[2], 1.0)
-    source.outputs[0].default_value = col
-
-def update_override_value(root_ch, layer, ch, tree=None):
-
-    #if not tree: tree = get_tree(layer)
-
-    #source = tree.nodes.get(ch.source)
-    source = get_channel_source(ch, layer)
-    if root_ch.type in {'RGB', 'NORMAL'}:
-        col = ch.override_color
-        col = (col[0], col[1], col[2], 1.0)
-        source.outputs[0].default_value = col
-    elif root_ch.type == 'VALUE':
-        source.outputs[0].default_value = ch.override_value
-
 def check_override_1_layer_channel_nodes(root_ch, layer, ch):
 
     yp = layer.id_data.yp
@@ -2024,24 +2085,21 @@ def check_override_1_layer_channel_nodes(root_ch, layer, ch):
                 ch.source_1 = ''
 
     # Try to get channel source
-    if ch.override_1:
+    if ch.override_1 and ch.override_1_type != 'DEFAULT':
         source_label = root_ch.name + ' Override 1 : ' + ch.override_1_type
-        if ch.override_1_type == 'DEFAULT':
-            source = replace_new_node(layer_tree, ch, 'source_1', 'ShaderNodeRGB', source_label)
-            update_override_1_value(root_ch, layer, ch, layer_tree)
+
+        cache = layer_tree.nodes.get(ch.cache_1_image)
+        if cache:
+            # Delete non cached source
+            if prev_type == 'DEFAULT':
+                remove_node(layer_tree, ch, 'source_1')
+
+            ch.source_1 = cache.name
+            ch.cache_1_image = ''
+
+            cache.label = source_label
         else:
-            cache = layer_tree.nodes.get(ch.cache_1_image)
-            if cache:
-                # Delete non cached source
-                if prev_type == 'DEFAULT':
-                    remove_node(layer_tree, ch, 'source_1')
-
-                ch.source_1 = cache.name
-                ch.cache_1_image = ''
-
-                cache.label = source_label
-            else:
-                source = replace_new_node(layer_tree, ch, 'source_1', 'ShaderNodeTexImage', source_label)
+            source = replace_new_node(layer_tree, ch, 'source_1', 'ShaderNodeTexImage', source_label)
 
     else:
         remove_node(layer_tree, ch, 'source_1')
@@ -2088,36 +2146,26 @@ def check_override_layer_channel_nodes(root_ch, layer, ch):
                 ch.source = ''
 
     # Try to get channel source
-    if ch.override:
+    if ch.override and ch.override_type != 'DEFAULT':
         source_label = root_ch.name + ' Override : ' + ch.override_type
-        if ch.override_type == 'DEFAULT':
 
-            if root_ch.type in {'RGB', 'NORMAL'}:
-                source = replace_new_node(layer_tree, ch, 'source', 'ShaderNodeRGB', source_label)
-                #print(root_ch.name)
-            elif root_ch.type == 'VALUE':
-                source = replace_new_node(layer_tree, ch, 'source', 'ShaderNodeValue', source_label)
-            update_override_value(root_ch, layer, ch, layer_tree)
+        src_tree = get_channel_source_tree(ch, layer)
 
+        cache = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_type.lower()))
+        if cache:
+            # Delete non cached source
+            if prev_type == 'DEFAULT':
+                remove_node(layer_tree, ch, 'source')
+
+            ch.source = cache.name
+            setattr(ch, 'cache_' + ch.override_type.lower(), '')
+
+            cache.label = source_label
         else:
-
-            src_tree = get_channel_source_tree(ch, layer)
-
-            cache = layer_tree.nodes.get(getattr(ch, 'cache_' + ch.override_type.lower()))
-            if cache:
-                # Delete non cached source
-                if prev_type == 'DEFAULT':
-                    remove_node(layer_tree, ch, 'source')
-
-                ch.source = cache.name
-                setattr(ch, 'cache_' + ch.override_type.lower(), '')
-
-                cache.label = source_label
+            if ch.override_type == 'VCOL':
+                source = replace_new_node(src_tree, ch, 'source', get_vcol_bl_idname(), source_label)
             else:
-                if ch.override_type == 'VCOL':
-                    source = replace_new_node(src_tree, ch, 'source', get_vcol_bl_idname(), source_label)
-                else:
-                    source = replace_new_node(src_tree, ch, 'source', 'ShaderNodeTex' + ch.override_type.capitalize(), source_label)
+                source = replace_new_node(src_tree, ch, 'source', 'ShaderNodeTex' + ch.override_type.capitalize(), source_label)
 
     else:
         remove_node(layer_tree, ch, 'source')

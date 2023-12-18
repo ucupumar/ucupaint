@@ -416,6 +416,108 @@ def update_routine(name):
                     if mask.type in {'VORONOI', 'NOISE'}:
                         mask.source_input = 'ALPHA'
 
+        # Version 2.0 won't use custom prop for mapping and intensity
+        if LooseVersion(ng.yp.version) < LooseVersion('2.0.0'):
+
+            # Update input outputs
+            check_all_channel_ios(ng.yp)
+
+            # Check for mapping actions
+            if ng.animation_data and ng.animation_data.action:
+                fcs = ng.animation_data.action.fcurves
+                new_fcs = []
+                for fc in fcs:
+                    #print(fc.data_path)
+
+                    # New fcurve
+                    nfc = None
+
+                    # Get entity
+                    mlayer = re.match(r'yp\.layers\[(\d+)\]\.+', fc.data_path)
+                    mmask = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.+', fc.data_path)
+
+                    if mlayer: entity = ng.yp.layers[int(mlayer.group(1))]
+                    if mmask: entity = ng.yp.layers[int(mmask.group(1))].masks[int(mmask.group(2))]
+
+                    # Match data path
+                    m1 = re.match(r'yp\.layers\[(\d+)\]\.translation', fc.data_path)
+                    m2 = re.match(r'yp\.layers\[(\d+)\]\.rotation', fc.data_path)
+                    m3 = re.match(r'yp\.layers\[(\d+)\]\.scale', fc.data_path)
+                    m4 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.translation', fc.data_path)
+                    m5 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.rotation', fc.data_path)
+                    m6 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.scale', fc.data_path)
+
+                    # Mapping
+                    if m1 or m2 or m3 or m4 or m5 or m6:
+                        mapping = get_entity_mapping(entity)
+                        parent_node = mapping.id_data
+
+                        # Translation
+                        if m1 or m4:
+                            if is_greater_than_281():
+                                new_data_path = 'nodes["' + mapping.name + '"].inputs[1].default_value'
+                            else: new_data_path = 'nodes["' + mapping.name + '"].translation'
+
+                        # Rotation
+                        elif m2 or m5:
+                            if is_greater_than_281():
+                                new_data_path = 'nodes["' + mapping.name + '"].inputs[2].default_value'
+                            else: new_data_path = 'nodes["' + mapping.name + '"].rotation'
+
+                        # Scale
+                        else: #elif m3 or m6:
+                            if is_greater_than_281():
+                                new_data_path = 'nodes["' + mapping.name + '"].inputs[3].default_value'
+                            else: new_data_path = 'nodes["' + mapping.name + '"].scale'
+
+                        for i, kp in enumerate(fc.keyframe_points):
+
+                            # Set current frame and value
+                            #mapping.inputs[1].default_value[fc.array_index] = fc.evaluate(int(kp.co[0]))
+                            bpy.context.scene.frame_set(int(kp.co[0]))
+                            if m1 or m4: # Translation
+                                mapping.inputs[1].default_value[fc.array_index] = entity.translation[fc.array_index]
+                            elif m2 or m5: # Rotation
+                                mapping.inputs[2].default_value[fc.array_index] = entity.rotation[fc.array_index]
+                            elif m3 or m6: # Scale
+                                mapping.inputs[3].default_value[fc.array_index] = entity.scale[fc.array_index]
+
+                            # Insert keyframe
+                            parent_node.keyframe_insert(data_path=new_data_path, frame=int(kp.co[0]))
+
+                            # Get new fcurve
+                            if not nfc:
+                                nfc = [f for f in parent_node.animation_data.action.fcurves if f.data_path == new_data_path and f.array_index == fc.array_index][0]
+
+                            # Get new keyframe point
+                            nkp = nfc.keyframe_points[i]
+
+                            # Copy keyframe props
+                            copy_id_props(kp, nkp)
+
+                    new_fcs.append(nfc)
+
+                for i, fc in reversed(list(enumerate(fcs))):
+
+                    # Get new fcurve
+                    nfc = new_fcs[i]
+                    if not nfc: continue
+
+                    # Copy modifiers
+                    for mod in fc.modifiers:
+                        nmod = nfc.modifiers.new(type=mod.type)
+                        copy_id_props(mod, nmod)
+
+                    # Copy fcurve props
+                    #copy_id_props(fc, nfc)
+                    nfc.mute = fc.mute
+                    nfc.hide = fc.hide
+                    nfc.extrapolation = fc.extrapolation
+                    nfc.lock = fc.lock
+
+                    # Remove original fcurve
+                    fcs.remove(fc)
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version

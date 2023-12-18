@@ -64,6 +64,10 @@ RAMP_FLIP_STRAIGHT_OVER_BLEND = '~yPL Ramp Flip Straight Over Blend'
 VECTOR_MIX ='~yPL Vector Mix'
 #INVERTED_MULTIPLIER ='~yPL Inverted Multiplier'
 INTENSITY_MULTIPLIER ='~yPL Intensity Multiplier'
+INTENSITY_MULTIPLIER_SHARPEN ='~yPL Intensity Multiplier Sharpen'
+INTENSITY_MULTIPLIER_SHARPEN_INVERT ='~yPL Intensity Multiplier Sharpen Invert'
+INTENSITY_MULTIPLIER_SHARPEN_NO_FACTOR ='~yPL Intensity Multiplier Sharpen No Factor'
+INTENSITY_MULTIPLIER_INVERT ='~yPL Intensity Multiplier Invert'
 GET_BITANGENT ='~yPL Get Bitangent'
 BITANGENT_FROM_NATIVE_TANGENT = '~yPL Bitangent from Native Tangent'
 
@@ -158,8 +162,15 @@ FLIP_BACKFACE_TANGENT_LEGACY = '~yPL Flip Backface Tangent Legacy'
 NORMAL_MAP_PREP_LEGACY = '~yPL Normal Map Preparation Legacy'
 ENGINE_FILTER_LEGACY = '~yPL Engine Filter Legacy'
 
+TB_DELTA_CALC = '~yPL Transition Bump Delta Calculation'
+CH_MAX_HEIGHT_CALC = '~yPL Layer Channel Max Height'
+CH_MAX_HEIGHT_TB_CALC = '~yPL Layer Channel Max Height with Transition Bump'
+CH_MAX_HEIGHT_TBC_CALC = '~yPL Layer Channel Max Height with Transition Bump Crease'
+
 EMULATED_CURVE = '~yPL Emulated Curve'
+EMULATED_CURVE_FLIP = '~yPL Emulated Curve Flip'
 EMULATED_CURVE_SMOOTH = '~yPL Emulated Curve Smooth'
+EMULATED_CURVE_SMOOTH_FLIP = '~yPL Emulated Curve Smooth Flip'
 FALLOFF_CURVE = '~yPL Falloff Curve'
 FALLOFF_CURVE_SMOOTH = '~yPL Falloff Curve Smooth'
 
@@ -353,24 +364,6 @@ def get_neighbor_uv_tree_name(texcoord_type, entity):
         return NEIGHBOR_UV_OBJECT
     if texcoord_type in {'Camera', 'Window', 'Reflection'}:
         return NEIGHBOR_UV_CAMERA
-
-def new_intensity_multiplier_node(tree, obj, prop, sharpness=1.0, label=''):
-    if label == '': label = 'Intensity Multiplier'
-    im = new_node(tree, obj, prop, 'ShaderNodeGroup', label)
-    im.node_tree = get_node_tree_lib(INTENSITY_MULTIPLIER)
-    set_default_value(im, 1, sharpness)
-    set_default_value(im, 'Sharpen', 1.0)
-
-    if BLENDER_28_GROUP_INPUT_HACK:
-        duplicate_lib_node_tree(im)
-
-    #m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', obj.path_from_id())
-    #if m:
-    #    yp = obj.id_data.yp
-    #    root_ch = yp.channels[int(m.group(2))]
-    #    print(root_ch.name, prop)
-
-    return im
 
 def get_smooth_mix_node(blend_type, layer_type=''):
 

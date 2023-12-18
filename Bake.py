@@ -2036,20 +2036,7 @@ class YMergeLayer(bpy.types.Operator):
         ch = layer.channels[int(self.channel_idx)]
         neighbor_ch = neighbor_layer.channels[int(self.channel_idx)]
 
-        # Get parent dict
-        parent_dict = get_parent_dict(yp)
-
         merge_success = False
-
-        # Get max height
-        if height_root_ch and main_ch.type == 'NORMAL':
-            end_max_height = tree.nodes.get(height_root_ch.end_max_height)
-            ori_max_height = 0.0
-            max_height = 0.0
-            if end_max_height:
-                ori_max_height = end_max_height.outputs[0].default_value
-                max_height = get_max_height_from_list_of_layers([layer, neighbor_layer], int(self.channel_idx))
-                end_max_height.outputs[0].default_value = max_height
 
         # Merge image layers
         if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
@@ -2064,6 +2051,17 @@ class YMergeLayer(bpy.types.Operator):
             temp_objs = []
             if len(objs) > 1 and not is_join_objects_problematic(yp):
                 objs = temp_objs = [get_merged_mesh_objects(scene, objs)]
+
+            # Get list of parent ids
+            pids = get_list_of_parent_ids(layer)
+
+            # Disable other layers
+            layer_oris = []
+            for i, l in enumerate(yp.layers):
+                layer_oris.append(l.enable)
+                if i in pids or l in {layer, neighbor_layer}:
+                    l.enable = True
+                else: l.enable = False
 
             # Disable modfiers and transformations if apply modifiers is not enabled
             if not self.apply_modifiers:
@@ -2090,7 +2088,6 @@ class YMergeLayer(bpy.types.Operator):
 
             # Bake main channel
             merge_success = bake_channel(layer.uv_name, mat, node, main_ch, target_layer=layer)
-            #return {'FINISHED'}
 
             # Remove temporary objects
             if temp_objs:
@@ -2105,6 +2102,11 @@ class YMergeLayer(bpy.types.Operator):
             if not self.apply_modifiers:
                 recover_layer_modifiers_and_transforms(layer, mod_oris)
             else: remove_layer_modifiers_and_transforms(layer)
+
+            # Recover layer enable
+            for i, le in enumerate(layer_oris):
+                if yp.layers[i].enable != le:
+                    yp.layers[i].enable = le
 
             # Recover original props
             main_ch.enable_alpha = ori_enable_alpha
@@ -2195,10 +2197,6 @@ class YMergeLayer(bpy.types.Operator):
         else:
             self.report({'ERROR'}, "This kind of merge is not supported yet!")
             return {'CANCELLED'}
-
-        # Recover max height
-        if height_root_ch and main_ch.type == 'NORMAL':
-            if end_max_height: end_max_height.outputs[0].default_value = ori_max_height
 
         if merge_success:
             # Remove neighbor layer
@@ -3026,9 +3024,9 @@ def check_subdiv_setup(height_ch):
 
     # Max height tweak node
     if height_ch.enable_subdiv_setup and (yp.use_baked or ypup.eevee_next_displacement):
-        end_max_height = check_new_node(tree, height_ch, 'end_max_height_tweak', 'ShaderNodeMath', 'Max Height Tweak')
-        end_max_height.operation = 'MULTIPLY'
-        end_max_height.inputs[1].default_value = height_ch.subdiv_tweak
+        end_max_height_tweak = check_new_node(tree, height_ch, 'end_max_height_tweak', 'ShaderNodeMath', 'Max Height Tweak')
+        end_max_height_tweak.operation = 'MULTIPLY'
+        end_max_height_tweak.inputs[1].default_value = height_ch.subdiv_tweak
     else:
         remove_node(tree, height_ch, 'end_max_height_tweak')
 
