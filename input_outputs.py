@@ -169,13 +169,14 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
                 start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
 
+            lib_name = ''
 
-            if any_layers_using_channel(channel):
+            if any_layers_using_channel(channel) and any_layers_using_bump_map(yp):
 
                 max_height = get_displacement_max_height(channel)
 
                 # Add end linear for converting displacement map to grayscale
-                if any_layers_using_channel(channel, check_normal_map=True):
+                if any_layers_using_normal_map(yp):
                     if channel.enable_smooth_bump:
                         lib_name = lib.FINE_BUMP_PROCESS
                     else: lib_name = lib.BUMP_PROCESS

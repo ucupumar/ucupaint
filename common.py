@@ -4194,7 +4194,7 @@ def is_tangent_process_needed(yp, uv_name):
     height_root_ch = get_root_height_channel(yp)
     if height_root_ch:
 
-        if height_root_ch.main_uv == uv_name and (any_layers_using_channel(height_root_ch, check_normal_map=True) or height_root_ch.enable_smooth_bump):
+        if height_root_ch.main_uv == uv_name and (any_layers_using_normal_map(yp) or height_root_ch.enable_smooth_bump):
             return True
 
         for layer in yp.layers:
@@ -4324,18 +4324,40 @@ def is_any_entity_using_uv(yp, uv_name):
 
     return False
 
-def any_layers_using_channel(root_ch, check_normal_map=False): #, parent=None):
+def any_layers_using_bump_map(yp):
+    root_ch = get_root_height_channel(yp)
+    if not root_ch: return False
+    channel_idx = get_channel_index(root_ch)
+
+    for layer in yp.layers:
+        try: ch = layer.channels[channel_idx]
+        except: continue
+        if layer.type != 'GROUP' and get_channel_enabled(ch, layer, root_ch) and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+            return True
+
+    return False
+
+def any_layers_using_normal_map(yp):
+    root_ch = get_root_height_channel(yp)
+    if not root_ch: return False
+    channel_idx = get_channel_index(root_ch)
+
+    for layer in yp.layers:
+        try: ch = layer.channels[channel_idx]
+        except: continue
+        if layer.type != 'GROUP' and get_channel_enabled(ch, layer, root_ch) and (ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not ch.write_height):
+            return True
+
+    return False
+
+def any_layers_using_channel(root_ch):
     yp = root_ch.id_data.yp
     channel_idx = get_channel_index(root_ch)
 
     for layer in yp.layers:
-        ch = layer.channels[channel_idx]
+        try: ch = layer.channels[channel_idx]
+        except: continue
         if get_channel_enabled(ch, layer, root_ch):
-            if check_normal_map:
-                if root_ch.type == 'NORMAL' and (ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not ch.write_height):
-                    return True
-                continue
-
             return True
 
     return False
