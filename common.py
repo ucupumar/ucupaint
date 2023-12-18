@@ -4214,7 +4214,7 @@ def is_height_process_needed(layer):
 
     for l in layers:
         height_ch = get_height_channel(l)
-        if not height_ch.enable: continue
+        if not height_ch or not height_ch.enable: continue
 
         if l.type != 'GROUP' and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
             return True
