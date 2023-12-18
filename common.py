@@ -4232,7 +4232,7 @@ def is_normal_process_needed(layer):
 
     for l in layers:
         height_ch = get_height_channel(l)
-        if not height_ch.enable: continue
+        if not height_ch or not height_ch.enable: continue
 
         if l.type == 'GROUP': 
             if not height_ch.write_height:
