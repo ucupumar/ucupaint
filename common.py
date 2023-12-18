@@ -4791,13 +4791,9 @@ def any_linear_images_problem(yp):
     return False
 
 def get_write_height(ch):
-    if ch.normal_map_type == 'NORMAL_MAP':
-        return ch.normal_write_height
-    #if ch.normal_map_type == 'BUMP_MAP':
+    #if ch.normal_map_type == 'NORMAL_MAP':
+    #    return ch.normal_write_height
     return ch.write_height
-
-    # BUMP_NORMAL_MAP currently always write height
-    #return True 
 
 def get_flow_vcol(obj, uv0, uv1):
 

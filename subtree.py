@@ -1871,8 +1871,9 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         if 'Strength' in normal_proc.inputs:
             normal_proc.inputs['Strength'].default_value = ch.normal_strength
 
+        # NOTE: Normal flip node is kinda unecessary since non smooth bump don't support backface up for now
         # Normal flip
-        if not root_ch.enable_smooth_bump and not write_height:
+        if False and not root_ch.enable_smooth_bump and not write_height:
             if is_greater_than_280(): lib_name = lib.FLIP_BACKFACE_BUMP
             else: lib_name = lib.FLIP_BACKFACE_BUMP_LEGACY
 
@@ -1881,7 +1882,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
             set_bump_backface_flip(normal_flip, yp.enable_backface_always_up)
         else:
-            remove_node(tree, ch, 'normal_flip')
+            if remove_node(tree, ch, 'normal_flip'): need_reconnect = True
     else:
         if remove_node(tree, ch, 'normal_proc'): need_reconnect = True
         if remove_node(tree, ch, 'normal_flip'): need_reconnect = True

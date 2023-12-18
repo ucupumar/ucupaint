@@ -2777,16 +2777,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, tangent, normal_proc.inputs['Tangent'])
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
 
-            #if root_ch.type == 'NORMAL' and ch.write_height:
-            if write_height:
+            if normal_proc:
                 if normal_proc and ch.normal_map_type == 'BUMP_NORMAL_MAP':
                     rgb = normal_proc.outputs['Normal']
                 elif normal_proc and 'Normal No Bump' in normal_proc.outputs:
                     rgb = normal_proc.outputs['Normal No Bump']
                 else: 
-                    rgb = get_essential_node(tree, GEOMETRY)['Normal']
+                    rgb = normal_proc.outputs[0]
             elif normal_proc: 
-                rgb = normal_proc.outputs[0]
+                rgb = get_essential_node(tree, GEOMETRY)['Normal']
 
             if not root_ch.enable_smooth_bump and not write_height:
                 normal_flip = nodes.get(ch.normal_flip)

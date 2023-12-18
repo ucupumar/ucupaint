@@ -188,8 +188,8 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                         lib_name, hard_replace=True)
 
                 if max_height != 0.0:
-                    end_linear.inputs['Max Height'].default_value = max_height
-                else: end_linear.inputs['Max Height'].default_value = 1.0
+                    set_default_value(end_linear, 'Max Height', max_height)
+                else: set_default_value(end_linear, 'Max Height', 1.0)
 
                 if channel.enable_smooth_bump:
                     end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
