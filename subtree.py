@@ -1673,10 +1673,10 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         # Check modifier trees
         Modifier.check_modifiers_trees(ch)
 
-    if channel_enabled and height_process_needed:
-
         max_height = get_displacement_max_height(root_ch, layer)
         update_displacement_height_ratio(root_ch)
+
+    if channel_enabled and height_process_needed:
 
         # Height Process
         if ch.normal_map_type == 'NORMAL_MAP':
