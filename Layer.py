@@ -4183,7 +4183,7 @@ def update_normal_strength(self, context):
 
     normal_proc = tree.nodes.get(ch.normal_proc)
     if 'Strength' in normal_proc.inputs:
-        normal_proc.inputs['Strength'].default_value = ch.normal_strength
+        normal_proc.inputs['Strength'].default_value = ch.normal_strength * ch.intensity_value
 
 def update_bump_distance(self, context):
     group_tree = self.id_data
@@ -4373,26 +4373,24 @@ def update_channel_intensity_value(self, context):
     ch = self
     root_ch = yp.channels[ch_index]
 
-    mute = not layer.enable or not ch.enable
-
     intensity = tree.nodes.get(ch.intensity)
     if intensity:
-        intensity.inputs[1].default_value = 0.0 if mute else ch.intensity_value
+        intensity.inputs[1].default_value = ch.intensity_value
 
     height_proc = tree.nodes.get(ch.height_proc)
     if height_proc:
-        height_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+        height_proc.inputs['Intensity'].default_value = ch.intensity_value
 
     normal_proc = tree.nodes.get(ch.normal_proc)
-    if normal_proc and 'Intensity' in normal_proc.inputs:
-        normal_proc.inputs['Intensity'].default_value = 0.0 if mute else ch.intensity_value
+    if normal_proc and 'Strength' in normal_proc.inputs:
+        normal_proc.inputs['Strength'].default_value = ch.normal_strength * ch.intensity_value
 
     if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, layer, ch)
 
     if ch.enable_transition_ao:
         tao = tree.nodes.get(ch.tao)
-        if tao: tao.inputs['Intensity'].default_value = 0.0 if mute else transition.get_transition_ao_intensity(ch)
+        if tao: tao.inputs['Intensity'].default_value = transition.get_transition_ao_intensity(ch)
 
     if root_ch.type == 'NORMAL':
         update_displacement_height_ratio(root_ch)
