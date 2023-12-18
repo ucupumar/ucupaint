@@ -1473,11 +1473,13 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 cccol = bbox.column(align=True)
 
                 #if ch.normal_map_type != 'BUMP_NORMAL_MAP':
-                brow = cccol.row(align=True)
-                brow.label(text='Write Height:') #, icon_value=lib.get_icon('input'))
-                if ch.normal_map_type == 'NORMAL_MAP':
-                    brow.prop(ch, 'normal_write_height', text='')
-                else: brow.prop(ch, 'write_height', text='')
+                if ch.normal_map_type != 'NORMAL_MAP':
+                    brow = cccol.row(align=True)
+                    brow.label(text='Write Height:') #, icon_value=lib.get_icon('input'))
+                    #if ch.normal_map_type == 'NORMAL_MAP':
+                    #    brow.prop(ch, 'normal_write_height', text='')
+                    #else: 
+                    brow.prop(ch, 'write_height', text='')
 
                 #if ch.normal_map_type in {'BUMP_MAP', 'FINE_BUMP_MAP'}:
 
@@ -1500,10 +1502,10 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                         brow.label(text='Normal Strength:') #, icon_value=lib.get_icon('input'))
                         brow.prop(ch, 'normal_strength', text='')
 
-                    if ch.normal_map_type == 'NORMAL_MAP':
-                        brow = cccol.row(align=True)
-                        brow.label(text='Bump Height:') #, icon_value=lib.get_icon('input'))
-                        brow.prop(ch, 'normal_bump_distance', text='')
+                    #if ch.normal_map_type == 'NORMAL_MAP':
+                    #    brow = cccol.row(align=True)
+                    #    brow.label(text='Bump Height:') #, icon_value=lib.get_icon('input'))
+                    #    brow.prop(ch, 'normal_bump_distance', text='')
 
                     #if any(layer.masks):
                     if not ch.write_height and any(layer.masks):

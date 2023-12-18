@@ -253,7 +253,7 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
     if not force:
         smooth_bump_ch = None
         for i, root_ch in enumerate(yp.channels):
-            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and get_channel_enabled(layer.channels[i], layer, root_ch):
+            if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and get_channel_enabled(layer.channels[i], layer, root_ch) and is_height_process_needed(layer):
                 smooth_bump_ch = root_ch
 
         if (layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and layer.source_group == '') or smooth_bump_ch:
@@ -525,6 +525,8 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
     trans_bump = get_transition_bump_channel(layer)
     trans_bump_flip = trans_bump.transition_bump_flip if trans_bump else False
 
+    height_process_needed = is_height_process_needed(layer)
+
     chain = get_bump_chain(layer)
 
     for i, mask in enumerate(layer.masks):
@@ -549,7 +551,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                     if remove_node(tree, c, 'mix_normal'): need_reconnect = True
                 continue
 
-            if (root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and
+            if (root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and height_process_needed and
                 (write_height or (not write_height and i < chain))
                 ):
                 mix = tree.nodes.get(c.mix)
@@ -640,7 +642,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
             if layer.type == 'GROUP' and mask.blend_type in limited_mask_blend_types:
 
-                if root_ch.type != 'NORMAL' or not root_ch.enable_smooth_bump:
+                if root_ch.type != 'NORMAL' or not root_ch.enable_smooth_bump and height_process_needed:
                     mix_limit = tree.nodes.get(c.mix_limit)
                     if not mix_limit:
                         need_reconnect = True
@@ -671,12 +673,12 @@ def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
     write_height_ch = get_write_height_normal_channel(layer)
     chain = get_bump_chain(layer)
 
-    channel_enabled = get_channel_enabled(smooth_bump_ch) if smooth_bump_ch else False
+    height_process_needed = is_height_process_needed(layer)
 
     for i, mask in enumerate(layer.masks):
         if specific_mask and specific_mask != mask: continue
 
-        if get_mask_enabled(mask) and channel_enabled and (write_height_ch or i < chain):
+        if get_mask_enabled(mask) and height_process_needed and (write_height_ch or i < chain):
             enable_mask_source_tree(layer, mask)
         else: disable_mask_source_tree(layer, mask)
 
@@ -1638,6 +1640,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     if root_ch.type != 'NORMAL': return need_reconnect
 
     channel_enabled = get_channel_enabled(ch, layer, root_ch)
+    height_process_needed = is_height_process_needed(layer)
     write_height = get_write_height(ch)
 
     # Check mask source tree
@@ -1650,7 +1653,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     if check_create_spread_alpha(layer, tree, root_ch, ch): need_reconnect = True
 
     # Dealing with neighbor related nodes
-    if channel_enabled and root_ch.enable_smooth_bump:
+    if channel_enabled and root_ch.enable_smooth_bump and height_process_needed:
         enable_layer_source_tree(layer)
     else: 
         disable_layer_source_tree(layer, False)
@@ -1660,7 +1663,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
         #    disable_channel_source_tree(layer, root_ch, ch, False)
 
     # Dealing with channel override
-    if channel_enabled and ch.override and root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+    if channel_enabled and ch.override and root_ch.enable_smooth_bump and ch.override_type != 'DEFAULT' and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and height_process_needed:
         enable_channel_source_tree(layer, root_ch, ch)
     else:
         disable_channel_source_tree(layer, root_ch, ch, False)
@@ -1669,6 +1672,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
 
         # Check modifier trees
         Modifier.check_modifiers_trees(ch)
+
+    if channel_enabled and height_process_needed:
 
         max_height = get_displacement_max_height(root_ch, layer)
         update_displacement_height_ratio(root_ch)
@@ -1819,17 +1824,13 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     # Normal Process
     if channel_enabled and is_normal_process_needed(layer):
 
-        if ch.normal_map_type == 'NORMAL_MAP' or (ch.normal_map_type == 'BUMP_NORMAL_MAP' and not ch.write_height):
-            if root_ch.enable_smooth_bump:
-                if ch.enable_transition_bump:
+        if ch.normal_map_type == 'NORMAL_MAP':
+            if ch.enable_transition_bump:
+                if root_ch.enable_smooth_bump:
                     lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_TRANSITION
-                else:
-                    lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH
+                else: lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION
             else:
-                if ch.enable_transition_bump:
-                    lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION
-                else:
-                    lib_name = lib.NORMAL_MAP_PROCESS
+                lib_name = lib.NORMAL_MAP
         elif ch.normal_map_type == 'BUMP_MAP':
             if root_ch.enable_smooth_bump:
                 lib_name = lib.NORMAL_PROCESS_SMOOTH
@@ -1839,7 +1840,19 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             if layer.type == 'GROUP':
                 lib_name += ' Group'
         elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
-            lib_name = lib.NORMAL_MAP
+            if not ch.write_height:
+                if root_ch.enable_smooth_bump:
+                    if ch.enable_transition_bump:
+                        lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_TRANSITION
+                    else:
+                        lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH
+                else:
+                    if ch.enable_transition_bump:
+                        lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION
+                    else:
+                        lib_name = lib.NORMAL_MAP_PROCESS
+            else:
+                lib_name = lib.NORMAL_MAP
 
         normal_proc, need_reconnect = replace_new_node(
                 tree, ch, 'normal_proc', 'ShaderNodeGroup', 'Normal Process', 

@@ -4203,6 +4203,24 @@ def is_tangent_process_needed(yp, uv_name):
 
     return False
 
+def is_height_process_needed(layer):
+    yp = layer.id_data.yp
+    if yp.layer_preview_mode: return True
+
+    layers = []
+    if layer.type == 'GROUP':
+        layers, layer_ids = get_list_of_all_childs_and_child_ids(layer)
+    layers.append(layer)
+
+    for l in layers:
+        height_ch = get_height_channel(l)
+        if not height_ch.enable: continue
+
+        if l.type != 'GROUP' and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
+            return True
+
+    return False
+
 def is_normal_process_needed(layer):
     yp = layer.id_data.yp
     if yp.layer_preview_mode: return True
