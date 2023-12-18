@@ -4194,7 +4194,7 @@ def is_tangent_process_needed(yp, uv_name):
     height_root_ch = get_root_height_channel(yp)
     if height_root_ch:
 
-        if height_root_ch.main_uv == uv_name and (any_layers_using_normal_map(yp) or height_root_ch.enable_smooth_bump):
+        if height_root_ch.main_uv == uv_name and (any_layers_using_normal_map(height_root_ch) or height_root_ch.enable_smooth_bump):
             return True
 
         for layer in yp.layers:
@@ -4260,7 +4260,14 @@ def get_layer_enabled(layer):
             parent_enable = False
             break
 
-    return layer.enable and parent_enable
+    # Check if no channel is enabled
+    channel_enabled = False
+    for ch in layer.channels:
+        if ch.enable:
+            channel_enabled = True
+            break
+
+    return layer.enable and parent_enable and channel_enabled
     #return (layer.enable and parent_enable) or yp.layer_preview_mode
 
 ''' Check if mask is practically enabled or not '''
@@ -4324,9 +4331,9 @@ def is_any_entity_using_uv(yp, uv_name):
 
     return False
 
-def any_layers_using_bump_map(yp):
-    root_ch = get_root_height_channel(yp)
-    if not root_ch: return False
+def any_layers_using_bump_map(root_ch):
+    if root_ch.type != 'NORMAL': return False
+    yp = root_ch.id_data.yp
     channel_idx = get_channel_index(root_ch)
 
     for layer in yp.layers:
@@ -4337,9 +4344,9 @@ def any_layers_using_bump_map(yp):
 
     return False
 
-def any_layers_using_normal_map(yp):
-    root_ch = get_root_height_channel(yp)
-    if not root_ch: return False
+def any_layers_using_normal_map(root_ch):
+    if root_ch.type != 'NORMAL': return False
+    yp = root_ch.id_data.yp
     channel_idx = get_channel_index(root_ch)
 
     for layer in yp.layers:

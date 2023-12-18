@@ -171,12 +171,12 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
             lib_name = ''
 
-            if any_layers_using_channel(channel) and any_layers_using_bump_map(yp):
+            if any_layers_using_channel(channel) and any_layers_using_bump_map(channel):
 
                 max_height = get_displacement_max_height(channel)
 
                 # Add end linear for converting displacement map to grayscale
-                if any_layers_using_normal_map(yp):
+                if any_layers_using_normal_map(channel):
                     if channel.enable_smooth_bump:
                         lib_name = lib.FINE_BUMP_PROCESS
                     else: lib_name = lib.BUMP_PROCESS
