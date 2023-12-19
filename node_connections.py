@@ -2778,13 +2778,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
 
             if normal_proc:
-                if normal_proc and ch.normal_map_type == 'BUMP_NORMAL_MAP':
+                if ch.normal_map_type == 'BUMP_NORMAL_MAP' or (ch.enable_transition_bump and not ch.write_height):
                     rgb = normal_proc.outputs['Normal']
-                elif normal_proc and 'Normal No Bump' in normal_proc.outputs:
+                elif 'Normal No Bump' in normal_proc.outputs:
                     rgb = normal_proc.outputs['Normal No Bump']
                 else: 
                     rgb = normal_proc.outputs[0]
-            elif normal_proc: 
+            else:
                 rgb = get_essential_node(tree, GEOMETRY)['Normal']
 
             if not root_ch.enable_smooth_bump and not write_height:

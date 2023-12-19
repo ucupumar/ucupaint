@@ -1474,7 +1474,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 cccol = bbox.column(align=True)
 
                 #if ch.normal_map_type != 'BUMP_NORMAL_MAP':
-                if ch.normal_map_type != 'NORMAL_MAP':
+                if ch.normal_map_type != 'NORMAL_MAP' or ch.enable_transition_bump:
                     brow = cccol.row(align=True)
                     brow.label(text='Write Height:') #, icon_value=lib.get_icon('input'))
                     #if ch.normal_map_type == 'NORMAL_MAP':
@@ -1502,20 +1502,6 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                         brow = cccol.row(align=True)
                         brow.label(text='Normal Strength:') #, icon_value=lib.get_icon('input'))
                         brow.prop(ch, 'normal_strength', text='')
-
-                    #if ch.normal_map_type == 'NORMAL_MAP':
-                    #    brow = cccol.row(align=True)
-                    #    brow.label(text='Bump Height:') #, icon_value=lib.get_icon('input'))
-                    #    brow.prop(ch, 'normal_bump_distance', text='')
-
-                    #if any(layer.masks):
-                    if not ch.write_height and any(layer.masks):
-                        brow = cccol.row(align=True)
-                        #write_height = ch.normal_write_height if ch.normal_map_type == 'NORMAL_MAP' else ch.write_height 
-                        write_height = get_write_height(ch)
-                        brow.active = not ch.enable_transition_bump and any(layer.masks) and not write_height
-                        brow.label(text='Affected Masks:') #, icon_value=lib.get_icon('input'))
-                        brow.prop(ch, 'transition_bump_chain', text='')
 
                 #brow = cccol.row(align=True)
                 #brow.label(text='Invert Backface Normal')
