@@ -1824,21 +1824,26 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     # Normal Process
     if channel_enabled and is_normal_process_needed(layer):
 
-        if ch.normal_map_type == 'NORMAL_MAP':
+        if layer.type == 'GROUP':
+            if root_ch.enable_smooth_bump:
+                lib_name = lib.NORMAL_PROCESS_SMOOTH_GROUP
+            else:
+                lib_name = lib.NORMAL_PROCESS_GROUP
+
+        elif ch.normal_map_type == 'NORMAL_MAP':
             if ch.enable_transition_bump:
                 if root_ch.enable_smooth_bump:
                     lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_TRANSITION
                 else: lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION
             else:
                 lib_name = lib.NORMAL_MAP
+
         elif ch.normal_map_type == 'BUMP_MAP':
             if root_ch.enable_smooth_bump:
                 lib_name = lib.NORMAL_PROCESS_SMOOTH
             else:
                 lib_name = lib.NORMAL_PROCESS
 
-            if layer.type == 'GROUP':
-                lib_name += ' Group'
         elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
             if not ch.write_height:
                 if root_ch.enable_smooth_bump:

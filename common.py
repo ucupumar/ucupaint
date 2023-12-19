@@ -4282,6 +4282,7 @@ def get_mask_enabled(mask, layer=None):
 
 ''' Check if channel is practically enabled or not '''
 def get_channel_enabled(ch, layer=None, root_ch=None):
+    #print('Checking', layer.name, root_ch.name, "if it's enabled or not...")
     yp = ch.id_data.yp
 
     if not layer or not root_ch:
@@ -4331,15 +4332,50 @@ def is_any_entity_using_uv(yp, uv_name):
 
     return False
 
+def is_layer_using_bump_map(layer, root_ch=None):
+    yp = layer.id_data.yp
+    if not root_ch: root_ch = get_root_height_channel(yp)
+    if not root_ch: return False
+
+    channel_idx = get_channel_index(root_ch)
+    try: ch = layer.channels[channel_idx]
+    except: return False
+    if get_channel_enabled(ch, layer, root_ch):
+        if layer.type == 'GROUP':
+            childs = get_list_of_direct_childrens(layer)
+            for child in childs:
+                if is_layer_using_bump_map(child):
+                    return True
+        elif ch.write_height and  (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or ch.enable_transition_bump):
+            return True
+
+    return False
+
+def is_layer_using_normal_map(layer, root_ch=None):
+    yp = layer.id_data.yp
+    if not root_ch: root_ch = get_root_height_channel(yp)
+    if not root_ch: return False
+
+    channel_idx = get_channel_index(root_ch)
+    try: ch = layer.channels[channel_idx]
+    except: return False
+    if get_channel_enabled(ch, layer, root_ch):
+        if layer.type == 'GROUP':
+            childs = get_list_of_direct_childrens(layer)
+            for child in childs:
+                if is_layer_using_bump_map(child):
+                    return True
+        elif not ch.write_height or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+            return True
+
+    return False
+
 def any_layers_using_bump_map(root_ch):
     if root_ch.type != 'NORMAL': return False
     yp = root_ch.id_data.yp
-    channel_idx = get_channel_index(root_ch)
 
     for layer in yp.layers:
-        try: ch = layer.channels[channel_idx]
-        except: continue
-        if layer.type != 'GROUP' and get_channel_enabled(ch, layer, root_ch) and (ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or ch.enable_transition_bump) and ch.write_height:
+        if is_layer_using_bump_map(layer, root_ch):
             return True
 
     return False
@@ -4350,9 +4386,7 @@ def any_layers_using_normal_map(root_ch):
     channel_idx = get_channel_index(root_ch)
 
     for layer in yp.layers:
-        try: ch = layer.channels[channel_idx]
-        except: continue
-        if layer.type != 'GROUP' and get_channel_enabled(ch, layer, root_ch) and (ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not ch.write_height):
+        if is_layer_using_normal_map(layer, root_ch):
             return True
 
     return False
