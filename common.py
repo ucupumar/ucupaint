@@ -4363,7 +4363,7 @@ def is_layer_using_normal_map(layer, root_ch=None):
         if layer.type == 'GROUP':
             childs = get_list_of_direct_childrens(layer)
             for child in childs:
-                if is_layer_using_bump_map(child):
+                if is_layer_using_normal_map(child):
                     return True
         elif not ch.write_height or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
             return True
