@@ -4339,7 +4339,7 @@ def any_layers_using_bump_map(root_ch):
     for layer in yp.layers:
         try: ch = layer.channels[channel_idx]
         except: continue
-        if layer.type != 'GROUP' and get_channel_enabled(ch, layer, root_ch) and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
+        if layer.type != 'GROUP' and get_channel_enabled(ch, layer, root_ch) and ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.write_height:
             return True
 
     return False
