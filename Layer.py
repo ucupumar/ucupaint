@@ -4383,8 +4383,11 @@ def update_channel_intensity_value(self, context):
         height_proc.inputs['Intensity'].default_value = ch.intensity_value
 
     normal_proc = tree.nodes.get(ch.normal_proc)
-    if normal_proc and 'Strength' in normal_proc.inputs:
-        normal_proc.inputs['Strength'].default_value = ch.normal_strength * ch.intensity_value
+    if normal_proc:
+        if 'Strength' in normal_proc.inputs:
+            normal_proc.inputs['Strength'].default_value = ch.normal_strength * ch.intensity_value
+        elif 'Intensity' in normal_proc.inputs:
+            normal_proc.inputs['Intensity'].default_value = ch.intensity_value
 
     if ch.enable_transition_ramp:
         transition.set_ramp_intensity_value(tree, layer, ch)
