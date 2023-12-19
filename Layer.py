@@ -4159,6 +4159,9 @@ def update_write_height(self, context):
     reconnect_layer_nodes(layer) #, ch_index)
     rearrange_layer_nodes(layer)
 
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
+
 def update_bump_smooth_multiplier(self, context):
     group_tree = self.id_data
     yp = group_tree.yp
