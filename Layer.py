@@ -1047,6 +1047,7 @@ class YNewLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Reconnect and rearrange nodes
+        check_all_layer_channel_io_and_nodes(layer)
         check_start_end_root_ch_nodes(node.node_tree)
         check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
