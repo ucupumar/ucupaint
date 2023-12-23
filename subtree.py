@@ -2296,19 +2296,20 @@ def check_layer_image_linear_node(layer, source_tree=None):
 
     if not source_tree: source_tree = get_source_tree(layer)
 
-    if get_layer_enabled(layer) and layer.type == 'IMAGE' and is_image_source_srgb(image, source):
+    if get_layer_enabled(layer) and layer.type == 'IMAGE':
 
         source = source_tree.nodes.get(layer.source)
         image = source.image
         if not image: return
 
         # Create linear if image type is srgb or float image
-        linear = source_tree.nodes.get(layer.linear)
-        if not linear:
-            linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
-            linear.inputs[1].default_value = 1.0 / GAMMA
+        if is_image_source_srgb(image, source):
+            linear = source_tree.nodes.get(layer.linear)
+            if not linear:
+                linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
+                linear.inputs[1].default_value = 1.0 / GAMMA
 
-        return
+            return
 
     # Delete linear
     remove_node(source_tree, layer, 'linear')
@@ -2325,14 +2326,11 @@ def check_mask_image_linear_node(mask, mask_tree=None):
         if not image: return
 
         # Create linear if image type is srgb
-        #if image.colorspace_settings.name == 'sRGB':
         if is_image_source_srgb(image, source):
             linear = mask_tree.nodes.get(mask.linear)
             if not linear:
                 linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGamma', 'Linear')
                 linear.inputs[1].default_value = 1.0 / GAMMA
-                #linear = new_node(mask_tree, mask, 'linear', 'ShaderNodeGroup', 'Linear')
-                #linear.node_tree = get_node_tree_lib(lib.LINEAR_2_SRGB)
 
             return
 
