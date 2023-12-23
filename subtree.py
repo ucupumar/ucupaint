@@ -2296,27 +2296,28 @@ def check_layer_image_linear_node(layer, source_tree=None):
 
     if not source_tree: source_tree = get_source_tree(layer)
 
-    source = source_tree.nodes.get(layer.source)
-    image = source.image
-
-    if not image: return
-
     if get_layer_enabled(layer) and layer.type == 'IMAGE' and is_image_source_srgb(image, source):
+
+        source = source_tree.nodes.get(layer.source)
+        image = source.image
+        if not image: return
 
         # Create linear if image type is srgb or float image
         linear = source_tree.nodes.get(layer.linear)
         if not linear:
             linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
             linear.inputs[1].default_value = 1.0 / GAMMA
-    else:
-        # Delete linear
-        remove_node(source_tree, layer, 'linear')
+
+        return
+
+    # Delete linear
+    remove_node(source_tree, layer, 'linear')
 
 def check_mask_image_linear_node(mask, mask_tree=None):
 
     if not mask_tree: mask_tree = get_mask_tree(mask)
 
-    if mask.type == 'IMAGE':
+    if get_mask_enabled(mask) and mask.type == 'IMAGE':
 
         source = mask_tree.nodes.get(mask.source)
         image = source.image
