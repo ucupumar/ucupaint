@@ -1918,8 +1918,9 @@ def draw_layer_masks(context, layout, layer):
         rrow = rrcol.row(align=True)
 
         if mask.type == 'VCOL':
-            #rrow.label(text='', icon='GROUP_VCOL')
             rrow.label(text='', icon_value=lib.get_icon('vertex_color'))
+        elif mask.type == 'BACKFACE':
+            rrow.label(text='', icon_value=lib.get_icon('backface'))
         else:
             if mask.type == 'IMAGE':
                 suffix = 'image' 
@@ -1929,8 +1930,6 @@ def draw_layer_masks(context, layout, layer):
                 suffix = 'object_index' 
             elif mask.type == 'COLOR_ID':
                 suffix = 'color' 
-            elif mask.type == 'BACKFACE':
-                suffix = 'backface' 
             else:
                 suffix = 'texture' 
             if maskui.expand_source:

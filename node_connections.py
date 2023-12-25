@@ -1774,7 +1774,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
     # Layer Masks
     for i, mask in enumerate(layer.masks):
-
         # Get source output index
         mask_source_index = 0
         if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX'}:
@@ -1801,7 +1800,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             mask_source = nodes.get(mask.source)
             mask_linear = nodes.get(mask.linear)
 
-            mask_val = mask_source.outputs[mask_source_index]
+            if mask.type == 'BACKFACE':
+                mask_val = get_essential_node(tree, GEOMETRY)[mask_source_index]
+            else: mask_val = mask_source.outputs[mask_source_index]
 
             if mask_linear:
                 mask_val = create_link(tree, mask_val, mask_linear.inputs[0])[0]
