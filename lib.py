@@ -330,6 +330,8 @@ def load_custom_icons():
     custom_icons.load('collapsed_object_index', filepath + 'collapsed_object_index_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_object_index', filepath + 'uncollapsed_object_index_icon.png', 'IMAGE')
 
+    custom_icons.load('backface', filepath + 'backface_icon.png', 'IMAGE')
+
     custom_icons.load('hemi', filepath + 'hemi_icon.png', 'IMAGE')
     custom_icons.load('collapsed_hemi', filepath + 'collapsed_hemi_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_hemi', filepath + 'uncollapsed_hemi_icon.png', 'IMAGE')

@@ -1751,7 +1751,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 draw_image_props(context, ch_source_1, rbox, entity=ch, show_flip_y=True)
 
         # Layer input
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'}: #, 'OBJECT_INDEX'
+        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'}:
             row = mcol.row(align=True)
 
             input_settings_available = (ch.layer_input != 'ALPHA' 
@@ -1892,6 +1892,8 @@ def draw_layer_masks(context, layout, layer):
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('object_index'))
             elif mask.type == 'COLOR_ID':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('color'))
+            elif mask.type == 'BACKFACE':
+                row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('backface'))
             else:
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
@@ -1927,6 +1929,8 @@ def draw_layer_masks(context, layout, layer):
                 suffix = 'object_index' 
             elif mask.type == 'COLOR_ID':
                 suffix = 'color' 
+            elif mask.type == 'BACKFACE':
+                suffix = 'backface' 
             else:
                 suffix = 'texture' 
             if maskui.expand_source:
@@ -1938,7 +1942,7 @@ def draw_layer_masks(context, layout, layer):
             rrow.label(text='Source: ' + mask_image.name)
         else: rrow.label(text='Source: ' + mask.name)
 
-        if maskui.expand_source and mask.type != 'VCOL':
+        if maskui.expand_source and mask.type not in {'VCOL', 'BACKFACE'}:
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon='BLANK1')
             rbox = rrow.box()
@@ -1956,7 +1960,7 @@ def draw_layer_masks(context, layout, layer):
             else: draw_tex_props(mask_source, rbox)
 
         # Input row
-        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX'} and (is_greater_than_292() or mask.type != 'VCOL'):
+        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'} and (is_greater_than_292() or mask.type != 'VCOL'):
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon_value=lib.get_icon('input'))
             splits = split_layout(rrow, 0.3)
@@ -1964,7 +1968,7 @@ def draw_layer_masks(context, layout, layer):
             splits.prop(mask, 'source_input', text='')
 
         # Vector row
-        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
+        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
             rrow = rrcol.row(align=True)
 
             if maskui.expand_vector:
@@ -2278,7 +2282,7 @@ def draw_layers_ui(context, layout, node):
                     #entities.append(layer.name)
 
             for mask in layer.masks:
-                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
+                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
                     uv_layer = uv_layers.get(mask.uv_name)
                     if not uv_layer and mask.uv_name not in uv_missings:
                         uv_missings.append(mask.uv_name)
@@ -3157,6 +3161,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.label(text='', icon_value=lib.get_icon('object_index'))
                 elif m.type == 'COLOR_ID':
                     row.label(text='', icon_value=lib.get_icon('color'))
+                elif m.type == 'BACKFACE':
+                    row.label(text='', icon_value=lib.get_icon('backface'))
                 else:
                     row.label(text='', icon_value=lib.get_icon('texture'))
             else:
@@ -3177,6 +3183,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('object_index'))
                 elif m.type == 'COLOR_ID':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('color'))
+                elif m.type == 'BACKFACE':
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('backface'))
                 else:
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
 
@@ -4004,6 +4012,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         col.separator()
         col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('object_index'), text='Object Index').type = 'OBJECT_INDEX'
+        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('backface'), text='Backface').type = 'BACKFACE'
 
         col = row.column()
         col.label(text='Bake as Mask:')

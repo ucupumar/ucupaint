@@ -99,7 +99,7 @@ def enable_channel_source_tree(layer, root_ch, ch, rearrange = False):
         if linear_ref: layer_tree.nodes.remove(linear_ref)
 
     # Create uv neighbor
-    if ch.override_type in {'VCOL', 'HEMI'}: #, 'OBJECT_INDEX'}:
+    if ch.override_type in {'VCOL', 'HEMI'}:
         uv_neighbor = replace_new_node(layer_tree, ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.NEIGHBOR_FAKE, hard_replace=True)
     #else: 
@@ -119,11 +119,11 @@ def enable_layer_source_tree(layer, rearrange=False):
 
     # Check if source tree is already available
     if layer.type in {'BACKGROUND', 'COLOR'}: return
-    if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and layer.source_group != '': return
+    if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'} and layer.source_group != '': return
 
     layer_tree = get_tree(layer)
 
-    if layer.type not in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+    if layer.type not in {'VCOL', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
         # Get current source for reference
         source_ref = layer_tree.nodes.get(layer.source)
         linear_ref = layer_tree.nodes.get(layer.linear)
@@ -186,7 +186,7 @@ def enable_layer_source_tree(layer, rearrange=False):
         if layer.type == 'VCOL':
             uv_neighbor_1 = replace_new_node(layer_tree, layer, 'uv_neighbor_1', 'ShaderNodeGroup', 'Neighbor UV 1', 
                     lib.NEIGHBOR_FAKE, hard_replace=True)
-    elif layer.type not in {'GROUP', 'OBJECT_INDEX'}: 
+    elif layer.type not in {'GROUP', 'OBJECT_INDEX', 'BACKFACE'}: 
         uv_neighbor = replace_new_node(layer_tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
         set_uv_neighbor_resolution(layer, uv_neighbor)
@@ -256,12 +256,12 @@ def disable_layer_source_tree(layer, rearrange=True, force=False):
             if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump and get_channel_enabled(layer.channels[i], layer, root_ch) and is_height_process_needed(layer):
                 smooth_bump_ch = root_ch
 
-        if (layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'} and layer.source_group == '') or smooth_bump_ch:
+        if (layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'} and layer.source_group == '') or smooth_bump_ch:
             return
 
     layer_tree = get_tree(layer)
 
-    if force or layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX'}:
+    if force or layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
         source_group = layer_tree.nodes.get(layer.source_group)
         if source_group:
             source_ref = source_group.node_tree.nodes.get(layer.source)
@@ -349,11 +349,11 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
     # Get chain
     chain = get_bump_chain(layer)
 
-    if smooth_bump_ch and get_channel_enabled(smooth_bump_ch) and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX', 'COLOR_ID'}:
+    if smooth_bump_ch and get_channel_enabled(smooth_bump_ch) and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
 
         #print('ntob')
 
-        if mask.type in {'VCOL', 'HEMI'}: #, 'OBJECT_INDEX'}: 
+        if mask.type in {'VCOL', 'HEMI'}:
             lib_name = lib.NEIGHBOR_FAKE
         else: lib_name = lib.get_neighbor_uv_tree_name(mask.texcoord_type, entity=mask)
 
@@ -369,7 +369,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 def enable_mask_source_tree(layer, mask, reconnect = False):
 
     # Check if source tree is already available
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'} and mask.group_node != '': return
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} and mask.group_node != '': return
 
     layer_tree = get_tree(layer)
 
@@ -378,7 +378,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
     #return
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
         linear_ref = layer_tree.nodes.get(mask.linear)
@@ -433,11 +433,11 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 def disable_mask_source_tree(layer, mask, reconnect=False):
 
     # Check if source tree is already gone
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'} and mask.group_node == '': return
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} and mask.group_node == '': return
 
     layer_tree = get_tree(layer)
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}:
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
 
         mask_tree = get_mask_tree(mask)
 

@@ -169,7 +169,8 @@ mask_type_items = (
         ('VCOL', 'Vertex Color', ''),
         ('HEMI', 'Fake Lighting', ''),
         ('OBJECT_INDEX', 'Object Index', ''),
-        ('COLOR_ID', 'Color ID', '')
+        ('COLOR_ID', 'Color ID', ''),
+        ('BACKFACE', 'Backface', '')
         )
 
 channel_override_type_items = (
@@ -382,6 +383,7 @@ layer_node_bl_idnames = {
         'HEMI' : 'ShaderNodeGroup',
         'OBJECT_INDEX' : 'ShaderNodeGroup',
         'COLOR_ID' : 'ShaderNodeGroup',
+        'BACKFACE' : 'ShaderNodeNewGeometry',
         }
 
 io_suffix = {
@@ -2742,7 +2744,7 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} 
 
 def clear_mapping(entity):
 
@@ -4132,7 +4134,7 @@ def is_uv_input_needed(layer, uv_name):
         
         for mask in layer.masks:
             if not get_mask_enabled(mask): continue
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}: continue
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}: continue
             if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
                 return True
 
@@ -4149,7 +4151,7 @@ def is_entity_need_tangent_input(entity, uv_name):
         layer = entity
         entity_enabled = get_layer_enabled(entity)
 
-    if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'GROUP', 'OBJECT_INDEX', 'COLOR_ID'}:
+    if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'GROUP', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
 
         height_root_ch = get_root_height_channel(yp)
         height_ch = get_height_channel(layer)
@@ -4662,7 +4664,7 @@ def get_all_baked_channel_images(tree):
     return images
 
 def is_layer_using_vector(layer):
-    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
+    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
         return True
 
     for ch in layer.channels:
