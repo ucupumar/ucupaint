@@ -312,6 +312,11 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     yp.halt_reconnect = False
     #yp.halt_update = False
 
+    # Check layer IO
+    check_all_layer_channel_io_and_nodes(layer)
+    check_start_end_root_ch_nodes(group_tree)
+    check_uv_nodes(yp)
+
     # Rearrange node inside layers
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
@@ -1047,9 +1052,6 @@ class YNewLayer(bpy.types.Operator):
         yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        check_all_layer_channel_io_and_nodes(layer)
-        check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1629,8 +1631,6 @@ class BaseMultipleImagesLayer():
                     ch.override_type = 'IMAGE'
 
         ## Reconnect and rearrange nodes
-        check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -1950,8 +1950,6 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         node.node_tree.yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
@@ -2435,8 +2433,6 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         node.node_tree.yp.halt_update = False
 
         # Reconnect and rearrange nodes
-        check_start_end_root_ch_nodes(node.node_tree)
-        check_uv_nodes(node.node_tree.yp)
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
