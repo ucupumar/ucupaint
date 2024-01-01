@@ -1155,7 +1155,9 @@ class YBakeToLayer(bpy.types.Operator):
                         break
 
             if len(obj.data.materials) > 1:
-                active_mat_id = [i for i, m in enumerate(obj.data.materials) if m == mat][0]
+                active_mat_id = [i for i, m in enumerate(obj.data.materials) if m == mat]
+                if active_mat_id: active_mat_id = active_mat_id[0]
+                else: continue
 
                 uv_layers = get_uv_layers(obj)
                 uvl = uv_layers.get(self.uv_map)
