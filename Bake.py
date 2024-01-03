@@ -745,6 +745,16 @@ class YBakeChannelToVcol(bpy.types.Operator):
             description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
             default=True)
 
+    include_alpha : BoolProperty(
+            name='Include Alpha',
+            description="Bake channel alpha to result (need channel enable alpha)",
+            default=False)
+
+    bake_to_alpha_only : BoolProperty(
+            name='Bake To Alpha Only',
+            description="Bake value into the alpha",
+            default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -763,6 +773,16 @@ class YBakeChannelToVcol(bpy.types.Operator):
                 if ch.name == 'Emission':
                     self.show_emission_option = True
 
+        # Only the 'RGB' type has alpha data
+        self.show_include_alpha_option = False
+        if channel.type == 'RGB':
+            self.show_include_alpha_option = True
+
+        # The type 'VALUE' can optionally be directly into the alpha channel
+        self.show_bake_to_alpha_only_option = False
+        if channel.type == 'VALUE':
+            self.show_bake_to_alpha_only_option = True
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
@@ -776,6 +796,10 @@ class YBakeChannelToVcol(bpy.types.Operator):
         if self.show_emission_option:
             col.label(text='Add Emission:')
             col.label(text='Emission Multiplier:')
+        if self.show_include_alpha_option:
+            col.label(text='Include Alpha:')
+        if self.show_bake_to_alpha_only_option:
+            col.label(text='Bake to Alpha:')
 
         if not is_version_320():
             col.label(text='Force First Index:')
@@ -786,6 +810,11 @@ class YBakeChannelToVcol(bpy.types.Operator):
         if self.show_emission_option:
             col.prop(self, 'add_emission', text='')
             col.prop(self, 'emission_multiplier', text='')
+        if self.show_include_alpha_option:
+            col.prop(self, 'include_alpha', text='')
+        if self.show_bake_to_alpha_only_option:
+            col.prop(self, 'bake_to_alpha_only', text='')
+
         if not is_version_320():
             col.prop(self, 'force_first_index', text='')
 
@@ -831,7 +860,7 @@ class YBakeChannelToVcol(bpy.types.Operator):
 
                 if not objs: continue
 
-                set_active_object(objs[i])
+                set_active_object(objs[0])
 
                 # Check vertex color
                 for ob in objs:
@@ -884,7 +913,7 @@ class YBakeChannelToVcol(bpy.types.Operator):
                     extra_channel = yp.channels.get('Emission')
 
                 # Bake channel
-                bake_to_vcol(mat, node, channel, extra_channel, self.emission_multiplier)
+                bake_to_vcol(mat, node, channel, objs, extra_channel, self.emission_multiplier, self.include_alpha or self.bake_to_alpha_only)
 
                 for ob in objs:
                     # Recover material index

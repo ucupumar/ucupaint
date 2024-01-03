@@ -1124,7 +1124,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
 
     return image
 
-def bake_to_vcol(mat, node, root_ch, extra_channel=None, extra_multiplier=1.0):
+def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=1.0, bake_alpha=False):
 
     # Create setup nodes
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
@@ -1168,8 +1168,41 @@ def bake_to_vcol(mat, node, root_ch, extra_channel=None, extra_multiplier=1.0):
 
     mat.node_tree.links.new(rgb, emit.inputs[0])
 
+    # To avoid duplicate code, define the function here
+    def bake_alpha_to_vcol():
+        origin_vcol_name = ''
+        for obj in objs:
+            # Gets the origin vertex color of the objs, Their names are normally the same
+            origin_vcol_name = get_active_vertex_color(obj).name
+            # Creates temp vertex color for baking alpha
+            temp_vcol = new_vertex_color(obj, temp_vcol_alpha_name)
+            set_active_vertex_color(obj, temp_vcol)
+        bpy.ops.object.bake()
+        for obj in objs:
+            vcols = get_vertex_colors(obj)
+            temp_vcol_alpha = vcols.get(temp_vcol_alpha_name)
+            target_vcol = vcols.get(origin_vcol_name)
+            # Moves the alpha of the temp vertex color to the target vertex color
+            for a, b in zip(temp_vcol_alpha.data , target_vcol.data):
+                b.color[3] = a.color[0] 
+            vcols.remove(temp_vcol_alpha)
+            set_active_vertex_color(obj, target_vcol)
+
     # Bake!
-    bpy.ops.object.bake()
+    temp_vcol_alpha_name = '__temp__ucupaint_vertex_color_for_alpha_bake'
+    # When bake_alpha is True and the channel type is 'VALUE', bake the alpha channel separately.
+    if bake_alpha and root_ch.type == 'VALUE':
+        bake_alpha_to_vcol()
+    else:
+        # Bake without alpha channel
+        bpy.ops.object.bake()
+    
+    # If bake_alpha is True and the channel type is 'RGB', Bake twice to merge Alpha channel
+    if bake_alpha and root_ch.type == 'RGB' and root_ch.enable_alpha:
+        # Connect channel alpha channel
+        alpha_outp = node.outputs.get(root_ch.name + io_suffix['ALPHA'])
+        mat.node_tree.links.new(alpha_outp, emit.inputs[0])
+        bake_alpha_to_vcol()
 
     # Remove temp nodes
     simple_remove_node(mat.node_tree, emit)
