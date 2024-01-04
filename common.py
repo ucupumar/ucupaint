@@ -4328,6 +4328,9 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
 
 def is_any_entity_using_uv(yp, uv_name):
 
+    if yp.baked_uv_name != '' and yp.baked_uv_name == uv_name:
+        return True
+
     for layer in yp.layers:
         if is_uv_input_needed(layer, uv_name):
             return True
