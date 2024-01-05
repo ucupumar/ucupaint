@@ -1124,7 +1124,7 @@ def fxaa_image(image, alpha_aware=True, bake_device='GPU', first_tile_only=False
 
     return image
 
-def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=1.0, bake_alpha=False, bake_to_vcol=''):
+def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=1.0, bake_alpha=False, vcol_name=''):
 
     # Create setup nodes
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
@@ -1179,7 +1179,7 @@ def bake_to_vcol(mat, node, root_ch, objs, extra_channel=None, extra_multiplier=
         for obj in objs:
             vcols = get_vertex_colors(obj)
             temp_vcol = vcols.get(temp_vcol_alpha_name)
-            target_vcol = vcols.get(bake_to_vcol)
+            target_vcol = vcols.get(vcol_name)
             
             # Speed up the process with numpy
             dim_rgba = 4
