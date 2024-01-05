@@ -1607,8 +1607,8 @@ def get_node_tree_lib(name):
 
         # Load node groups
         exist_groups = [ng.name for ng in bpy.data.node_groups]
-        from_ngs = data_from.node_groups if hasattr(data_from, 'node_groups') else getattr(data_from, 'node groups')
-        to_ngs = data_to.node_groups if hasattr(data_to, 'node_groups') else getattr(data_to, 'node groups')
+        from_ngs = data_from.node_groups
+        to_ngs = data_to.node_groups
         for ng in from_ngs:
             if ng == name: # and ng not in exist_groups:
                 to_ngs.append(ng)
