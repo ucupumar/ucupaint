@@ -913,7 +913,7 @@ class YBakeChannelToVcol(bpy.types.Operator):
                     extra_channel = yp.channels.get('Emission')
 
                 # Bake channel
-                bake_to_vcol(mat, node, channel, objs, extra_channel, self.emission_multiplier, self.include_alpha or self.bake_to_alpha_only)
+                bake_to_vcol(mat, node, channel, objs, extra_channel, self.emission_multiplier, self.include_alpha or self.bake_to_alpha_only, self.vcol_name)
 
                 for ob in objs:
                     # Recover material index
