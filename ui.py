@@ -240,9 +240,9 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
     scol.label(text='Interpolation:')
 
     scol.label(text='Extension:')
-    scol.label(text='Projection:')
-    if source.projection == 'BOX':
-        scol.label(text='Blend:')
+    #scol.label(text='Projection:')
+    #if source.projection == 'BOX':
+    #    scol.label(text='Blend:')
 
     scol = split.column()
 
@@ -258,9 +258,9 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
     scol.prop(source, 'interpolation', text='')
 
     scol.prop(source, 'extension', text='')
-    scol.prop(source, 'projection', text='')
-    if source.projection == 'BOX':
-        scol.prop(source, 'projection_blend', text='')
+    #scol.prop(source, 'projection', text='')
+    #if source.projection == 'BOX':
+    #    scol.prop(entity, 'projection_blend', text='')
 
 def draw_object_index_props(entity, layout):
     col = layout.column()
@@ -1141,6 +1141,11 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
 
                 ssplit.prop(layer, 'texcoord_type', text='')
                 ssplit.prop_search(layer, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
+            elif layer.type == 'IMAGE' and layer.texcoord_type in {'Generated', 'Object'} and not lui.expand_vector:
+                ssplit = split_layout(split, 0.5, align=True)
+
+                ssplit.prop(layer, 'texcoord_type', text='')
+                ssplit.prop(layer, 'projection_blend', text='')
             else:
                 split.prop(layer, 'texcoord_type', text='')
 
@@ -1157,7 +1162,11 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                     #bbox.label(text="Transform vector with image atlas is not possible!")
                     pass
                 else:
-                    crow = row.column()
+                    if layer.type == 'IMAGE' and layer.texcoord_type in {'Generated', 'Object'}:
+                        splits = split_layout(bbox, 0.5, align=True)
+                        splits.label(text='Projection Blend:')
+                        splits.prop(layer, 'projection_blend', text='')
+
                     bbox.prop(layer, 'translation', text='Offset')
                     bbox.prop(layer, 'rotation')
                     bbox.prop(layer, 'scale')
@@ -1981,11 +1990,10 @@ def draw_layer_masks(context, layout, layer):
 
             splits = split_layout(rrow, 0.3)
 
-            #splits = rrow.split(percentage=0.3)
+            mask_src = get_mask_source(mask)
+
             splits.label(text='Vector:')
-            if mask.texcoord_type != 'UV':
-                splits.prop(mask, 'texcoord_type', text='')
-            else:
+            if mask.texcoord_type == 'UV':
 
                 rrrow = split_layout(splits, 0.35, align=True)
                 rrrow.prop(mask, 'texcoord_type', text='')
@@ -1995,6 +2003,13 @@ def draw_layer_masks(context, layout, layer):
                 if is_greater_than_280():
                     rrow.menu("NODE_MT_y_uv_special_menu", icon='PREFERENCES', text='')
                 else: rrow.menu("NODE_MT_y_uv_special_menu", icon='SCRIPTWIN', text='')
+            elif mask.type == 'IMAGE' and mask.texcoord_type in {'Generated', 'Object'} and not maskui.expand_vector:
+                rrrow = split_layout(splits, 0.5, align=True)
+
+                rrrow.prop(mask, 'texcoord_type', text='')
+                rrrow.prop(mask_src, 'projection_blend', text='')
+            else:
+                splits.prop(mask, 'texcoord_type', text='')
 
             if maskui.expand_vector:
                 rrow = rrcol.row(align=True)
@@ -2004,6 +2019,11 @@ def draw_layer_masks(context, layout, layer):
                     #rbox.label(text="Transform vector with image atlas is not possible!")
                     pass
                 else:
+                    if mask.type == 'IMAGE' and mask.texcoord_type in {'Generated', 'Object'}:
+                        splits = split_layout(rbox, 0.5, align=True)
+                        splits.label(text='Projection Blend:')
+                        splits.prop(mask_src, 'projection_blend', text='')
+
                     rbox.prop(mask, 'translation', text='Offset')
                     rbox.prop(mask, 'rotation')
                     rbox.prop(mask, 'scale')

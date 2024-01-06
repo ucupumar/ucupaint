@@ -511,7 +511,8 @@ class YNewLayer(bpy.types.Operator):
     hdr : BoolProperty(name='32 bit Float', default=False)
 
     texcoord_type : EnumProperty(
-            name = 'Texture Coordinate Type',
+            name = 'Layer Coordinate Type',
+            description = 'Layer Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
@@ -1383,7 +1384,8 @@ class BaseMultipleImagesLayer():
     relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
     texcoord_type : EnumProperty(
-            name = 'Texture Coordinate Type',
+            name = 'Layer Coordinate Type',
+            description = 'Layer Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
@@ -1808,7 +1810,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
     texcoord_type : EnumProperty(
-            name = 'Texture Coordinate Type',
+            name = 'Layer Coordinate Type',
+            description = 'Layer Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
@@ -2263,7 +2266,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             default = 'IMAGE')
 
     texcoord_type : EnumProperty(
-            name = 'Texture Coordinate Type',
+            name = 'Layer Coordinate Type',
+            description = 'Layer Coordinate Type',
             items = texcoord_type_items,
             default = 'UV')
 
@@ -4280,6 +4284,14 @@ def update_uv_name(self, context):
     reconnect_yp_nodes(group_tree)
     rearrange_yp_nodes(group_tree)
 
+def update_projection_blend(self, context):
+    yp = self.id_data.yp
+    layer = self
+
+    source = get_layer_source(layer)
+    if hasattr(source, 'projection_blend'):
+        source.projection_blend = layer.projection_blend
+
 def update_texcoord_type(self, context):
     yp = self.id_data.yp
     layer = self
@@ -4300,12 +4312,15 @@ def update_texcoord_type(self, context):
             uv_neighbor = replace_new_node(tree, smooth_bump_ch, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                     lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
             set_uv_neighbor_resolution(smooth_bump_ch, uv_neighbor)
-    #else:
-    #    remove_node(tree, layer, 'uv_neighbor')
 
     # Update layer tree inputs
-    #yp_dirty = True if check_layer_tree_ios(layer, tree) else False
     check_layer_tree_ios(layer, tree)
+
+    # Set image source projection
+    if layer.type == 'IMAGE':
+        source = get_layer_source(layer)
+        source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object'} else 'FLAT'
+        source.projection_blend = layer.projection_blend
 
     #if not yp.halt_reconnect:
     reconnect_layer_nodes(layer)
@@ -5061,10 +5076,17 @@ class YLayer(bpy.types.PropertyGroup):
             update=update_layer_color_chortcut)
 
     texcoord_type : EnumProperty(
-        name = 'Layer Coordinate Type',
-        items = texcoord_type_items,
-        default = 'UV',
-        update=update_texcoord_type)
+            name = 'Layer Coordinate Type',
+            description = 'Layer Coordinate Type',
+            items = texcoord_type_items,
+            default = 'UV',
+            update=update_texcoord_type)
+
+    projection_blend : FloatProperty(
+            name = 'Box Projection Blend',
+            description = 'Amount of blend to use between sides',
+            default=0.0, min=0.0, max=1.0, subtype='FACTOR',
+            update=update_projection_blend)
 
     # For temporary bake
     use_temp_bake : BoolProperty(
@@ -5122,7 +5144,10 @@ class YLayer(bpy.types.PropertyGroup):
     # To get segment if using image atlas
     segment_name : StringProperty(default='')
 
-    uv_name : StringProperty(default='', update=update_uv_name)
+    uv_name : StringProperty(
+            name = 'UV Name',
+            description = 'UV Name to use for layer coordinate',
+            default='', update=update_uv_name)
 
     # Parent index
     parent_idx : IntProperty(default=-1)
