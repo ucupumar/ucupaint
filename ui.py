@@ -240,7 +240,9 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
     scol.label(text='Interpolation:')
 
     scol.label(text='Extension:')
-    #scol.label(text='Projection:')
+    scol.label(text='Projection:')
+    if source.projection == 'BOX':
+        scol.label(text='Blend:')
 
     scol = split.column()
 
@@ -256,7 +258,9 @@ def draw_image_props(context, source, layout, entity=None, show_flip_y=False):
     scol.prop(source, 'interpolation', text='')
 
     scol.prop(source, 'extension', text='')
-    #scol.prop(source, 'projection', text='')
+    scol.prop(source, 'projection', text='')
+    if source.projection == 'BOX':
+        scol.prop(source, 'projection_blend', text='')
 
 def draw_object_index_props(entity, layout):
     col = layout.column()
