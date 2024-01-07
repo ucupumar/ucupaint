@@ -302,6 +302,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     # Check uv maps
     check_uv_nodes(yp)
 
+    # Check image projections
+    check_layer_projections(layer)
+
     # Check and create layer channel nodes
     check_all_layer_channel_io_and_nodes(layer, tree) #, has_parent=has_parent)
 
@@ -315,7 +318,6 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
     # Check layer IO
     check_all_layer_channel_io_and_nodes(layer)
     check_start_end_root_ch_nodes(group_tree)
-    check_uv_nodes(yp)
 
     # Rearrange node inside layers
     reconnect_layer_nodes(layer)
@@ -1632,6 +1634,9 @@ class BaseMultipleImagesLayer():
                     ch.override = True
                     ch.override_type = 'IMAGE'
 
+        # Check image projections
+        check_layer_projections(layer)
+
         ## Reconnect and rearrange nodes
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
@@ -1760,7 +1765,6 @@ class YOpenMultipleImagesToSingleLayer(bpy.types.Operator, ImportHelper, BaseMul
     bl_idname = "node.y_open_multiple_images_to_single_layer"
     bl_label = "Open Multiple Images to Single Layer"
     bl_options = {'REGISTER', 'UNDO'}
-
 
     @classmethod
     def poll(cls, context):
@@ -4285,12 +4289,7 @@ def update_uv_name(self, context):
     rearrange_yp_nodes(group_tree)
 
 def update_projection_blend(self, context):
-    yp = self.id_data.yp
-    layer = self
-
-    source = get_layer_source(layer)
-    if hasattr(source, 'projection_blend'):
-        source.projection_blend = layer.projection_blend
+    check_layer_projection_blends(self)
 
 def update_texcoord_type(self, context):
     yp = self.id_data.yp
@@ -4316,11 +4315,8 @@ def update_texcoord_type(self, context):
     # Update layer tree inputs
     check_layer_tree_ios(layer, tree)
 
-    # Set image source projection
-    if layer.type == 'IMAGE':
-        source = get_layer_source(layer)
-        source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object'} else 'FLAT'
-        source.projection_blend = layer.projection_blend
+    # Check layer projections
+    check_layer_projections(layer)
 
     #if not yp.halt_reconnect:
     reconnect_layer_nodes(layer)

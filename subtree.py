@@ -1490,6 +1490,41 @@ def remove_uv_nodes(uv, obj):
 
     #yp.uvs.remove(uv)
 
+def check_layer_projection_blends(layer):
+    source = get_layer_source(layer)
+    if hasattr(source, 'projection_blend'):
+        source.projection_blend = layer.projection_blend
+
+    for ch in layer.channels:
+        if ch.override and ch.override_type == 'IMAGE':
+            source = get_channel_source(ch, layer)
+            if hasattr(source, 'projection_blend'):
+                source.projection_blend = layer.projection_blend
+
+        if ch.override_1 and ch.override_1_type == 'IMAGE':
+            source = get_channel_source_1(ch, layer)
+            if hasattr(source, 'projection_blend'):
+                source.projection_blend = layer.projection_blend
+
+def check_layer_projections(layer):
+    # Set image source projection
+    if layer.type == 'IMAGE':
+        source = get_layer_source(layer)
+        source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object'} else 'FLAT'
+
+    # Set channel override images
+    for ch in layer.channels:
+        if ch.override and ch.override_type == 'IMAGE':
+            source = get_channel_source(ch, layer)
+            source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object'} else 'FLAT'
+
+        if ch.override_1 and ch.override_1_type == 'IMAGE':
+            source = get_channel_source_1(ch, layer)
+            source.projection = 'BOX' if layer.texcoord_type in {'Generated', 'Object'} else 'FLAT'
+
+    # Check projection blends
+    check_layer_projection_blends(layer)
+
 def check_uv_nodes(yp, generate_missings=False):
 
     # Check for UV needed
