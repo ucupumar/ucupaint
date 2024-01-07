@@ -1491,9 +1491,11 @@ def remove_uv_nodes(uv, obj):
     #yp.uvs.remove(uv)
 
 def check_layer_projection_blends(layer):
-    source = get_layer_source(layer)
-    if hasattr(source, 'projection_blend'):
-        source.projection_blend = layer.projection_blend
+
+    if layer.type == 'IMAGE':
+        source = get_layer_source(layer)
+        if hasattr(source, 'projection_blend'):
+            source.projection_blend = layer.projection_blend
 
     for ch in layer.channels:
         if ch.override and ch.override_type == 'IMAGE':
