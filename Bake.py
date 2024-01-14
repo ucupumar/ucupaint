@@ -1331,6 +1331,43 @@ class YBakeChannels(bpy.types.Operator):
                             #print(ori_loop_locs[ob.name][i][j])
                             uvl.data[li].uv = ori_loop_locs[ob.name][i][j]
 
+        prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device='CPU', bake_target='VERTEX_COLORS')
+        for ch in yp.channels:
+            if ch.enable_bake_as_vcol:
+                # Check vertex color
+                for ob in objs:
+                    vcols = get_vertex_colors(ob)
+                    vcol = vcols.get(ch.bake_vcol_name)
+
+                    # Set index to first so new vcol will copy their value
+                    if len(vcols) > 0:
+                        first_vcol = vcols[0]
+                        set_active_vertex_color(ob, first_vcol)
+
+                    if not vcol:
+                        try: 
+                            vcol = new_vertex_color(ob, ch.bake_vcol_name)
+                        except Exception as e: print(e)
+
+                    # Get newly created vcol name
+                    vcol_name = vcol.name
+
+                    # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+                    if ch.bake_vcol_force_first_index and not is_version_320():
+                        move_vcol(ob, get_vcol_index(ob, vcol.name), 0)
+
+                    # Get the newly created vcol to avoid pointer error
+                    vcol = vcols.get(vcol_name)
+                    set_active_vertex_color(ob, vcol)
+                bake_to_vcol(mat, node, ch, objs, None,1, ch.bake_vcol_alpha, ch.bake_vcol_name)
+                for ob in objs:
+                    # Recover material index
+                    if ori_mat_ids[ob.name]:
+                        for i, p in enumerate(ob.data.polygons):
+                            if ori_mat_ids[ob.name][i] != p.material_index:
+                                p.material_index = ori_mat_ids[ob.name][i]
+        # Recover bake settings
+        recover_bake_settings(book, yp)
         # Use bake results
         yp.halt_update = True
         yp.use_baked = True
@@ -2462,6 +2499,7 @@ def update_use_baked(self, context):
         self.active_channel_index = self.active_channel_index
     else:
         self.active_layer_index = self.active_layer_index
+        self.vcol_preview_mode = self.vcol_preview_mode
 
     # Update baked outside
     update_enable_baked_outside(self, context)
