@@ -563,18 +563,20 @@ def check_layer_tree_ios(layer, tree=None):
 
             root_ch = yp.channels[i]
 
-            name = root_ch.name + io_suffix[layer.type]
-            dirty = create_input(tree, name, channel_socket_input_bl_idnames[root_ch.type],
-                    valid_inputs, input_index, dirty)
-            input_index += 1
+            if root_ch.type != 'NORMAL' or (layer.type == 'GROUP' and is_layer_using_normal_map(layer, root_ch)):
 
-            # Alpha Input
-            if root_ch.enable_alpha or layer.type == 'GROUP':
-
-                name = root_ch.name + io_suffix['ALPHA'] + io_suffix[layer.type]
-                dirty = create_input(tree, name, 'NodeSocketFloatFactor',
+                name = root_ch.name + io_suffix[layer.type]
+                dirty = create_input(tree, name, channel_socket_input_bl_idnames[root_ch.type],
                         valid_inputs, input_index, dirty)
                 input_index += 1
+
+                # Alpha Input
+                if root_ch.enable_alpha or layer.type == 'GROUP':
+
+                    name = root_ch.name + io_suffix['ALPHA'] + io_suffix[layer.type]
+                    dirty = create_input(tree, name, 'NodeSocketFloatFactor',
+                            valid_inputs, input_index, dirty)
+                    input_index += 1
 
             # Displacement Input
             if root_ch.type == 'NORMAL' and layer.type == 'GROUP' and is_height_process_needed(layer):
