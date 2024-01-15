@@ -2043,9 +2043,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     group_height_alpha = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
                     if group_height_alpha: alpha = group_height_alpha
 
-                group_normal_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
-                if group_normal_alpha: normal_alpha = group_normal_alpha
-
             else:
                 group_channel_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
                 if group_channel_alpha: alpha = group_channel_alpha
@@ -2175,18 +2172,20 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         alpha_before_mod = alpha
 
         # Background layer won't use modifier outputs
-        #if layer.type == 'BACKGROUND' or (layer.type == 'COLOR' and root_ch.type == 'NORMAL'):
-        #if layer.type == 'BACKGROUND':
-        if layer.type == 'BACKGROUND' or (layer.type == 'GROUP' and root_ch.type == 'NORMAL'):
-            #reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
+        if layer.type == 'BACKGROUND':
             pass
+        elif layer.type == 'GROUP' and root_ch.type == 'NORMAL':
+            if root_ch.name + io_suffix['GROUP'] in source.outputs:
+                normal = source.outputs.get(root_ch.name + io_suffix['GROUP'])
+            if root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'] in source.outputs:
+                normal_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
         elif root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
             rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, use_modifier_1=True)
         else:
             rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
 
             if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                normal, alpha_normal = reconnect_all_modifier_nodes(tree, ch, normal, alpha_before_mod, use_modifier_1=True)
+                normal, normal_alpha = reconnect_all_modifier_nodes(tree, ch, normal, alpha_before_mod, use_modifier_1=True)
 
         rgb_after_mod = rgb
         alpha_after_mod = alpha
@@ -2221,7 +2220,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         height_proc = nodes.get(ch.height_proc)
         normal_proc = nodes.get(ch.normal_proc)
-        normal_group = None
 
         if root_ch.type == 'NORMAL':
 
@@ -2528,8 +2526,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if layer.type == 'GROUP':
 
-                normal_group = source.outputs.get(root_ch.name + io_suffix['GROUP'])
-                if normal_proc: create_link(tree, normal_group, normal_proc.inputs['Normal'])
+                if normal_proc: create_link(tree, normal, normal_proc.inputs['Normal'])
 
                 if root_ch.enable_smooth_bump and height_group_unpack:
                     height_group = height_group_unpack.outputs[0]
@@ -2971,8 +2968,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             bcol0, bcol1, bout = get_mix_color_indices(blend)
 
             # Pass rgb to blend
-            if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc and normal_group:
-                create_link(tree, normal_group, blend.inputs[bcol1])
+            if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc:
+                create_link(tree, normal, blend.inputs[bcol1])
             else:
                 create_link(tree, rgb, blend.inputs[bcol1])
 
