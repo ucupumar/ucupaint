@@ -2600,7 +2600,7 @@ def has_previous_layer_channels(layer, root_ch):
     for i, t in reversed(list(enumerate(yp.layers))):
         if i > layer_idx and layer.parent_idx == t.parent_idx:
             for j, c in enumerate(t.channels):
-                if ch_idx == j and c.enable:
+                if ch_idx == j and get_channel_enabled(c, t, yp.channels[ch_idx]):
                     return True
 
     return False
@@ -4364,7 +4364,7 @@ def is_layer_using_normal_map(layer, root_ch=None):
         if layer.type == 'GROUP':
             childs = get_list_of_direct_childrens(layer)
             for child in childs:
-                if is_layer_using_normal_map(child):
+                if is_layer_using_normal_map(child) or (not ch.write_height and is_layer_using_bump_map(child)):
                     return True
         elif not ch.write_height or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
             return True

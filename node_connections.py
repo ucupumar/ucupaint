@@ -2759,7 +2759,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if normal_proc:
                 if 'Alpha' in normal_proc.inputs:
                     create_link(tree, alpha, normal_proc.inputs['Alpha'])
-                if 'Normal Alpha' in normal_proc.inputs:
+                if 'Normal Alpha' in normal_proc.inputs and normal_alpha:
                     create_link(tree, normal_alpha, normal_proc.inputs['Normal Alpha'])
 
             if layer.type == 'GROUP':
