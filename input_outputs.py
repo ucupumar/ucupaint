@@ -577,7 +577,7 @@ def check_layer_tree_ios(layer, tree=None):
                 input_index += 1
 
             # Displacement Input
-            if root_ch.type == 'NORMAL' and layer.type == 'GROUP':
+            if root_ch.type == 'NORMAL' and layer.type == 'GROUP' and is_height_process_needed(layer):
 
                 if not root_ch.enable_smooth_bump:
 
