@@ -2219,16 +2219,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Bookmark alpha before intensity because it can be useful
         alpha_before_intensity = alpha
 
-        # Pass alpha to intensity
-        if intensity:
-            alpha = create_link(tree, alpha, intensity.inputs[0])[0]
+        height_proc = nodes.get(ch.height_proc)
+        normal_proc = nodes.get(ch.normal_proc)
+        normal_group = None
 
         if root_ch.type == 'NORMAL':
 
             write_height = get_write_height(ch)
-
-            height_proc = nodes.get(ch.height_proc)
-            normal_proc = nodes.get(ch.normal_proc)
 
             height_blend = nodes.get(ch.height_blend)
             hbcol0, hbcol1, hbout = get_mix_color_indices(height_blend)
@@ -2781,7 +2778,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
 
             if normal_proc:
-                if ch.normal_map_type == 'BUMP_NORMAL_MAP' or (ch.enable_transition_bump and not ch.write_height):
+                if ch.normal_map_type == 'BUMP_NORMAL_MAP' or (ch.enable_transition_bump and not ch.write_height) or (layer.type == 'GROUP' and not write_height):
                     rgb = normal_proc.outputs['Normal']
                 elif 'Normal No Bump' in normal_proc.outputs:
                     rgb = normal_proc.outputs['Normal No Bump']
@@ -2830,6 +2827,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                             if height_alpha: create_link(tree, height_alpha, next_height_alpha)
                         else:
                             if prev_height_alpha: create_link(tree, prev_height_alpha, next_height_alpha)
+
+        # Pass alpha to intensity
+        if intensity:
+            if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc and normal_alpha:
+                normal_alpha = create_link(tree, normal_alpha, intensity.inputs[0])[0]
+            else: alpha = create_link(tree, alpha, intensity.inputs[0])[0]
 
         # Transition AO
         tao = nodes.get(ch.tao)
@@ -2968,7 +2971,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             bcol0, bcol1, bout = get_mix_color_indices(blend)
 
             # Pass rgb to blend
-            create_link(tree, rgb, blend.inputs[bcol1])
+            if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc and normal_group:
+                create_link(tree, normal_group, blend.inputs[bcol1])
+            else:
+                create_link(tree, rgb, blend.inputs[bcol1])
 
             if (
                     #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
@@ -2985,7 +2991,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, bg_alpha, blend.inputs[4])
 
             else:
-                create_link(tree, alpha, blend.inputs[0])
+                if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc and normal_alpha:
+                    create_link(tree, normal_alpha, blend.inputs[0])
+                else: create_link(tree, alpha, blend.inputs[0])
                 if prev_rgb: create_link(tree, prev_rgb, blend.inputs[bcol0])
 
             # Armory can't recognize mute node, so reconnect input to output directly

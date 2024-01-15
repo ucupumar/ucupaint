@@ -608,7 +608,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 else:
                     if remove_node(tree, c, 'mix_remains'): need_reconnect = True
 
-                if layer.type == 'GROUP' and is_normal_process_needed(layer):
+                if layer.type == 'GROUP' and is_layer_using_normal_map(layer):
                     mix_normal = tree.nodes.get(c.mix_normal)
                     if not mix_normal:
                         need_reconnect = True
@@ -2189,7 +2189,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if channel_enabled and (is_normal_process_needed(layer) or root_ch.enable_alpha):
+        if channel_enabled and (is_layer_using_normal_map(layer) or root_ch.enable_alpha):
 
             #if has_parent and ch.normal_blend_type == 'MIX':
             if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
@@ -2220,8 +2220,18 @@ def check_blend_type_nodes(root_ch, layer, ch):
         else:
             if remove_node(tree, ch, 'blend'): need_reconnect = True
 
-        # Remove intensity nodes
-        if remove_node(tree, ch, 'intensity'): need_reconnect = True
+        if layer.type == 'GROUP' and is_layer_using_normal_map(layer) and not is_normal_process_needed(layer):
+            # Intensity nodes
+            intensity = tree.nodes.get(ch.intensity)
+            if not intensity:
+                intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
+                intensity.operation = 'MULTIPLY'
+
+            # Channel intensity
+            intensity.inputs[1].default_value = ch.intensity_value
+
+        else:
+            if remove_node(tree, ch, 'intensity'): need_reconnect = True
 
     # Update preview mode node
     if yp.layer_preview_mode:

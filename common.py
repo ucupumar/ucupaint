@@ -4151,13 +4151,18 @@ def is_entity_need_tangent_input(entity, uv_name):
         layer = entity
         entity_enabled = get_layer_enabled(entity)
 
-    if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'GROUP', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+    if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
 
         height_root_ch = get_root_height_channel(yp)
         height_ch = get_height_channel(layer)
         if height_root_ch and height_ch and height_ch.enable:
 
-            if uv_name == height_root_ch.main_uv:
+            if entity.type == 'GROUP':
+
+                if is_layer_using_normal_map(entity, height_root_ch):
+                    return True
+
+            elif uv_name == height_root_ch.main_uv:
 
                 # Main UV tangent is needed for normal process
                 if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
@@ -4212,17 +4217,14 @@ def is_height_process_needed(layer):
 
     if yp.layer_preview_mode: return True
 
-    layers = []
-    if layer.type == 'GROUP':
-        layers, layer_ids = get_list_of_all_childs_and_child_ids(layer)
-    layers.append(layer)
+    height_ch = get_height_channel(layer)
+    if not height_ch or not height_ch.enable: return False
 
-    for l in layers:
-        height_ch = get_height_channel(l)
-        if not height_ch or not height_ch.enable: continue
-
-        if l.type != 'GROUP' and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
+    if layer.type == 'GROUP': 
+        if is_layer_using_bump_map(layer, height_root_ch):
             return True
+    elif height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
+        return True
 
     return False
 
@@ -4233,20 +4235,14 @@ def is_normal_process_needed(layer):
 
     if yp.layer_preview_mode: return True
 
-    layers = []
-    if layer.type == 'GROUP':
-        layers, layer_ids = get_list_of_all_childs_and_child_ids(layer)
-    layers.append(layer)
+    height_ch = get_height_channel(layer)
+    if not height_ch or not height_ch.enable: return False
 
-    for l in layers:
-        height_ch = get_height_channel(l)
-        if not height_ch or not height_ch.enable: continue
-
-        if l.type == 'GROUP': 
-            if not height_ch.write_height:
-                return True
-        elif height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not height_ch.write_height:
+    if layer.type == 'GROUP': 
+        if is_layer_using_bump_map(layer, height_root_ch) and not height_ch.write_height:
             return True
+    elif height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not height_ch.write_height:
+        return True
 
     return False
 
