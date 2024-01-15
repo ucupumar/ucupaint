@@ -1,6 +1,7 @@
 import bpy, re, time
 from bpy.props import *
 from bpy.app.handlers import persistent
+from bpy.app.translations import pgettext_iface
 from . import lib, Modifier, MaskModifier, NormalMapModifier, Root, UDIM
 from .common import *
 
@@ -727,7 +728,7 @@ def draw_root_channels_ui(context, layout, node):
         #else:
         #    row.prop(chui, 'expand_content', text='', emboss=True, icon=lib.channel_icon_dict[channel.type])
 
-        row.label(text=channel.name + ' Channel')
+        row.label(text=channel.name + ' ' + pgettext_iface('Channel'))
 
         #if channel.type != 'NORMAL':
         row.context_pointer_set('parent', channel)
@@ -1090,15 +1091,15 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         #        icon = 'TEXTURE'
         #    #icon = 'IMAGE_DATA' if layer.type == 'IMAGE' else 'TEXTURE'
         #    row.prop(lui, 'expand_source', text='', emboss=True, icon=icon)
-
+        text_source = pgettext_iface('Source: ')
         if image:
             image_name = image.name
             if image.y_bake_info.is_baked:
                 image_name += ' (Baked)'
-            row.label(text='Source: ' + image_name)
+            row.label(text=text_source + image_name)
         elif vcol:
-            row.label(text='Source: ' + vcol.name)
-        else: row.label(text='Source: ' + layer.name)
+            row.label(text=text_source + vcol.name)
+        else: row.label(text=text_source + layer.name)
 
         if lui.expand_source:
             row = rcol.row(align=True)
@@ -1218,14 +1219,14 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
 
     enabled_channels = len([c for c in layer.channels if c.enable])
 
-    label = 'Channel'
+    label = pgettext_iface('Channel')
     if enabled_channels == 0:
         #label += ' (0)'
         pass
     elif enabled_channels == 1:
         label += ' (1)'
     else:
-        label += 's (' + str(enabled_channels) + ')'
+        label = pgettext_iface('Channels') + ' (' + str(enabled_channels) + ')'
 
     if lui.expand_channels:
         label += ':'
@@ -1289,7 +1290,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
             row.prop(chui, 'expand_content', text='', emboss=False, icon_value=icon_value)
         else: row.label(text='', icon_value=icon_value)
 
-        row.label(text=yp.channels[i].name + ':')
+        row.label(text=yp.channels[i].name + ':', translate=False)
 
         #if layer.type != 'BACKGROUND':
         if root_ch.type == 'NORMAL':
@@ -1834,15 +1835,16 @@ def draw_layer_masks(context, layout, layer):
     num_masks = len(layer.masks)
     num_enabled_masks = len([m for m in layer.masks if m.enable])
 
+    text_mask = pgettext_iface('Mask')
     if num_masks == 0:
         #label += ' (0)'
-        label = 'Mask' # (0)'
+        label = text_mask # (0)'
     elif num_enabled_masks == 0:
-        label = 'Mask (0)'
+        label = text_mask + ' (0)'
     elif num_enabled_masks == 1:
-        label = 'Mask (1)'
+        label = text_mask + ' (1)'
     else:
-        label = 'Masks ('
+        label = pgettext_iface('Masks') + ' ('
         label += str(num_enabled_masks) + ')'
 
     if lui.expand_masks:
@@ -1950,9 +1952,10 @@ def draw_layer_masks(context, layout, layer):
             else: icon_value = lib.custom_icons["collapsed_" + suffix].icon_id
             rrow.prop(maskui, 'expand_source', text='', emboss=False, icon_value=icon_value)
 
+        text_source = pgettext_iface('Source: ')
         if mask_image:
-            rrow.label(text='Source: ' + mask_image.name)
-        else: rrow.label(text='Source: ' + mask.name)
+            rrow.label(text=text_source + mask_image.name)
+        else: rrow.label(text=text_source + mask.name)
 
         if maskui.expand_source and mask.type not in {'VCOL', 'BACKFACE'}:
             rrow = rrcol.row(align=True)
@@ -2072,7 +2075,7 @@ def draw_layer_masks(context, layout, layer):
                 root_ch = yp.channels[k]
                 rrow.label(text='', 
                         icon_value=lib.custom_icons[lib.channel_custom_icon_dict[root_ch.type]].icon_id)
-                rrow.label(text=root_ch.name)
+                rrow.label(text=root_ch.name, translate=False)
                 rrow.prop(c, 'enable', text='')
 
         if i < len(layer.masks)-1:
@@ -2542,7 +2545,7 @@ def draw_layers_ui(context, layout, node):
                 row = ccol.row(align=True)
                 #row.label(text='', icon='GROUP_VCOL')
                 row.label(text='', icon_value=lib.get_icon('vertex_color'))
-                row.label(text='Fill ' + get_active_vertex_color(obj).name + ':')
+                row.label(text=pgettext_iface('Fill ') + get_active_vertex_color(obj).name + ':')
                 row = ccol.row(align=True)
                 #row.prop(ve, 'fill_mode', text='') #, expand=True)
                 #row.separator()
@@ -2663,9 +2666,10 @@ def main_draw(self, context):
     icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
     row.prop(ypui, 'show_object', emboss=False, text='', icon=icon)
+    text_object = pgettext_iface('Object: ')
     if obj:
-        row.label(text='Object: ' + obj.name)
-    else: row.label(text='Object: -')
+        row.label(text=text_object + obj.name)
+    else: row.label(text=text_object + '-')
 
     if not is_greater_than_280():
         row.menu("NODE_MT_ypaint_about_menu", text='', icon='INFO')
@@ -2680,9 +2684,10 @@ def main_draw(self, context):
     icon = 'TRIA_DOWN' if ypui.show_materials else 'TRIA_RIGHT'
     row = layout.row(align=True)
     row.prop(ypui, 'show_materials', emboss=False, text='', icon=icon)
+    text_material = pgettext_iface('Material: ')
     if mat:
-        row.label(text='Material: ' + mat.name)
-    else: row.label(text='Material: -')
+        row.label(text=text_material + mat.name)
+    else: row.label(text=text_material + '-')
 
     if ypui.show_materials:
         is_sortable = len(obj.material_slots) > 1
@@ -2876,13 +2881,13 @@ def main_draw(self, context):
         box = layout.box()
         col = box.column()
         #col = layout.column(align=True)
-        col.label(text='Number of Images: ' + str(len(images)), icon_value=lib.get_icon('image'))
+        col.label(text=pgettext_iface('Number of Images: ') + str(len(images)), icon_value=lib.get_icon('image'))
         #col.label(text='Number of Vertex Colors: ' + str(len(vcols)), icon='GROUP_VCOL')
-        col.label(text='Number of Vertex Colors: ' + str(len(vcols)), icon_value=lib.get_icon('vertex_color'))
+        col.label(text=pgettext_iface('Number of Vertex Colors: ') + str(len(vcols)), icon_value=lib.get_icon('vertex_color'))
         #col.label(text='Number of Generated Textures: ' + str(num_gen_texs), icon='TEXTURE')
-        col.label(text='Number of Generated Textures: ' + str(num_gen_texs), icon_value=lib.get_icon('texture'))
-        col.label(text='Number of Color Ramps: ' + str(num_ramps), icon_value=lib.get_icon('modifier'))
-        col.label(text='Number of RGB Curves: ' + str(num_curves), icon_value=lib.get_icon('modifier'))
+        col.label(text=pgettext_iface('Number of Generated Textures: ') + str(num_gen_texs), icon_value=lib.get_icon('texture'))
+        col.label(text=pgettext_iface('Number of Color Ramps: ') + str(num_ramps), icon_value=lib.get_icon('modifier'))
+        col.label(text=pgettext_iface('Number of RGB Curves: ') + str(num_curves), icon_value=lib.get_icon('modifier'))
 
         #col.operator('node.y_new_image_atlas_segment_test', icon_value=lib.get_icon('image'))
         #col.operator('node.y_new_udim_atlas_segment_test', icon_value=lib.get_icon('image'))
@@ -3727,7 +3732,7 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         #col.context_pointer_set('space_data', context.screen.areas[6].spaces[0])
         #col.operator('image.save_as', icon='FILE_TICK')
         if hasattr(context, 'image') and context.image:
-            col.label(text='Active Image: ' + context.image.name, icon_value=lib.get_icon('image'))
+            col.label(text=pgettext_iface('Active Image: ') + context.image.name, icon_value=lib.get_icon('image'))
         else:
             col.label(text='No active image')
 

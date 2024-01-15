@@ -13,6 +13,7 @@ bl_info = {
 
 if "bpy" in locals():
     import imp
+    imp.reload(Localization)
     imp.reload(image_ops)
     imp.reload(common)
     imp.reload(bake_common)
@@ -40,12 +41,15 @@ if "bpy" in locals():
     imp.reload(load_blend_updates)
     imp.reload(addon_updater_ops)
 else:
+    from . import Localization
     from . import image_ops, common, bake_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
     from . import vcol_editor, transition, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates, addon_updater_ops
 
 import bpy 
 
 def register():
+    Localization.register_module(ui)
+
     image_ops.register()
     preferences.register()
     lib.register()
@@ -69,6 +73,8 @@ def register():
     print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is registered!')
 
 def unregister():
+    Localization.unregister_module(ui)
+
     image_ops.unregister()
     preferences.unregister()
     lib.unregister()
