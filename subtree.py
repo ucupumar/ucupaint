@@ -1895,7 +1895,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                         lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION
                     else:
                         lib_name = lib.NORMAL_MAP_PROCESS
-            else:
+            elif is_parallax_enabled(root_ch):
                 lib_name = lib.NORMAL_MAP
 
         if lib_name == '':
