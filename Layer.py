@@ -4133,6 +4133,7 @@ def update_blend_type(self, context):
     root_ch = yp.channels[ch_index]
 
     check_all_layer_channel_io_and_nodes(layer, tree, self)
+    check_uv_nodes(yp)
 
     # Reconnect all layer channels if normal channel is updated
     if root_ch.type == 'NORMAL':

@@ -2229,7 +2229,9 @@ def check_blend_type_nodes(root_ch, layer, ch):
         else:
             if remove_node(tree, ch, 'blend'): need_reconnect = True
 
-        if layer.type == 'GROUP' and is_layer_using_normal_map(layer) and not is_normal_process_needed(layer):
+        if channel_enabled and ((layer.type == 'GROUP' and is_layer_using_normal_map(layer) and not is_normal_process_needed(layer)) or
+                (layer.type != 'GROUP' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and not ch.enable_transition_bump)
+                ):
             # Intensity nodes
             intensity = tree.nodes.get(ch.intensity)
             if not intensity:
