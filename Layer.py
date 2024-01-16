@@ -2912,7 +2912,7 @@ class YRemoveLayer(bpy.types.Operator):
         obj = context.object
         if obj.mode != 'OBJECT':
             self.layout.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
-        elif self.using_udim_atlas:
+        elif hasattr(self, 'using_udim_atlas') and self.using_udim_atlas:
             col = self.layout.column(align=True)
             col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
             col.label(text='You cannot UNDO after removal', icon='BLANK1')
