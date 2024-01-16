@@ -2375,7 +2375,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if normal_proc:
                 if ch.normal_map_type == 'NORMAL_MAP':
-                    create_link(tree, rgb, normal_proc.inputs['Normal Map'])
+                    if 'Normal Map' in normal_proc.inputs:
+                        create_link(tree, rgb, normal_proc.inputs['Normal Map'])
+                    elif 'Color' in normal_proc.inputs:
+                        create_link(tree, rgb, normal_proc.inputs['Color'])
                 elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
                     create_link(tree, normal, normal_proc.inputs['Normal Map'])
                     #else: create_link(tree, rgb, normal_proc.inputs['Normal Map'])
