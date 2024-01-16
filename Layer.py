@@ -4191,7 +4191,7 @@ def update_normal_strength(self, context):
 
     normal_proc = tree.nodes.get(ch.normal_proc)
     if 'Strength' in normal_proc.inputs:
-        normal_proc.inputs['Strength'].default_value = ch.normal_strength * ch.intensity_value
+        normal_proc.inputs['Strength'].default_value = ch.normal_strength
 
 def update_bump_distance(self, context):
     group_tree = self.id_data
@@ -4402,7 +4402,7 @@ def update_channel_intensity_value(self, context):
     normal_proc = tree.nodes.get(ch.normal_proc)
     if normal_proc:
         if 'Strength' in normal_proc.inputs:
-            normal_proc.inputs['Strength'].default_value = ch.normal_strength * ch.intensity_value
+            normal_proc.inputs['Strength'].default_value = ch.normal_strength
         elif 'Intensity' in normal_proc.inputs:
             normal_proc.inputs['Intensity'].default_value = ch.intensity_value
 

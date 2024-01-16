@@ -1920,7 +1920,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             normal_proc.inputs['Intensity'].default_value = ch.intensity_value
 
         if 'Strength' in normal_proc.inputs:
-            normal_proc.inputs['Strength'].default_value = ch.normal_strength * ch.intensity_value
+            normal_proc.inputs['Strength'].default_value = ch.normal_strength
 
         # NOTE: Normal flip node is kinda unecessary since non smooth bump don't support backface up for now
         # Normal flip
