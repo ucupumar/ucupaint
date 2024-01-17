@@ -123,7 +123,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
         if channel.type in {'RGB', 'VALUE'}:
 
             # Create start linear
-            if channel.colorspace != 'LINEAR' and any_layers_using_channel(channel):
+            if not yp.use_linear_blending and channel.colorspace != 'LINEAR' and any_layers_using_channel(channel):
                 if channel.type == 'RGB':
                     start_linear = check_new_node(group_tree, channel, 'start_linear', 'ShaderNodeGamma', 'Start Linear')
                 else: 
@@ -136,7 +136,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
             # Create end linear
             if channel.type == 'RGB':
 
-                if channel.colorspace != 'LINEAR' and any_layers_using_channel(channel):
+                if not yp.use_linear_blending and channel.colorspace != 'LINEAR' and any_layers_using_channel(channel):
                     end_linear = check_new_node(group_tree, channel, 'end_linear', 'ShaderNodeGamma', 'End Linear')
                     end_linear.inputs[1].default_value = GAMMA
                 else:
@@ -154,7 +154,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
             elif channel.type == 'VALUE':
 
-                if (channel.colorspace != 'LINEAR' or channel.use_clamp) and any_layers_using_channel(channel):
+                if not yp.use_linear_blending and (channel.colorspace != 'LINEAR' or channel.use_clamp) and any_layers_using_channel(channel):
                     end_linear = check_new_node(group_tree, channel, 'end_linear', 'ShaderNodeMath', 'End Linear & Clamp')
                     end_linear.operation = 'POWER' if channel.colorspace != 'LINEAR' else 'MULTIPLY' # Multiply is probably faster if channel is linear
                     end_linear.use_clamp = channel.use_clamp

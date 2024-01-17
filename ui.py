@@ -3453,6 +3453,10 @@ class YPaintSpecialMenu(bpy.types.Menu):
             #row = col.row()
             col.operator('node.y_change_active_ypaint_node', text=n.node_tree.name, icon=icon).name = n.name
 
+        col.separator()
+        col.label(text='Option:')
+        col.prop(yp, 'use_linear_blending')
+
         #col = row.column()
         #col.label(text='Options:')
         #col.prop(yp, 'enable_backface_always_up')

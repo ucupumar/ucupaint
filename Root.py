@@ -396,6 +396,11 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             description = 'Set Stencil Mask Opacity found in the 3D Viewport\'s Overlays menu to 0',
             default = True)
 
+    use_linear_blending : BoolProperty(
+            name = 'Use Linear Color Blending',
+            description = 'Use more accurate linear color blending (it will behave diffrently than Photoshop)',
+            default = True)
+
     @classmethod
     def poll(cls, context):
         return context.object
@@ -451,6 +456,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 ccol.prop(self, 'metallic', toggle=True)
             ccol.prop(self, 'roughness', toggle=True)
             ccol.prop(self, 'normal', toggle=True)
+
+        col.prop(self, 'use_linear_blending')
 
         if is_greater_than_280():
             col.prop(self, 'mute_texture_paint_overlay')
@@ -615,6 +622,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         # Update io
         check_all_channel_ios(group_tree.yp)
+
+        # Update linear blending
+        if self.use_linear_blending:
+            group_tree.yp.use_linear_blending = self.use_linear_blending
 
         # HACK: Remap channel pointers, because sometimes pointers are lost at this time
         ch_color = group_tree.yp.channels.get('Color')
@@ -2858,6 +2869,13 @@ def update_channel_main_uv(self, context):
     if self.type == 'NORMAL':
         self.enable_smooth_bump = self.enable_smooth_bump
 
+def update_use_linear_blending(self, context):
+    check_start_end_root_ch_nodes(self.id_data)
+    check_yp_linear_nodes(self)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
+
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
 #    group_tree = group_node.node_tree
@@ -3321,6 +3339,12 @@ class YPaint(bpy.types.PropertyGroup):
 
     # Remind user to refresh UV after edit image layer mapping
     need_temp_uv_refresh : BoolProperty(default=False)
+
+    # Use linear color blending
+    use_linear_blending : BoolProperty(
+            name = 'Use Linear Color Blending',
+            description = 'Use more accurate linear color blending (it will behave diffrently than Photoshop)',
+            default=False, update=update_use_linear_blending)
 
     # Index pointer to the UI
     #ui_index : IntProperty(default=0)

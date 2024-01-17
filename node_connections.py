@@ -2156,15 +2156,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         extra_alpha = nodes.get(ch.extra_alpha)
         blend = nodes.get(ch.blend)
 
-        if ch.source_group == '' and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
+        # Check if normal is overriden
+        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
+            rgb = normal
+
+        if ch.source_group == '': # and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
             ch_linear = nodes.get(ch.linear)
             if ch_linear:
                 create_link(tree, rgb, ch_linear.inputs[0])
                 rgb = ch_linear.outputs[0]
-
-        # Check if normal is overriden
-        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
-            rgb = normal
 
         mod_group = nodes.get(ch.mod_group)
 

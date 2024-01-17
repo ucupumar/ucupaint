@@ -4803,7 +4803,7 @@ def any_linear_images_problem(yp):
             root_ch = yp.channels[i]
             if not get_channel_enabled(ch, layer, root_ch): continue
 
-            if ch.override and ch.override_type == 'IMAGE':
+            if not yp.use_linear_blending and ch.override and ch.override_type == 'IMAGE':
                 source_tree = get_channel_source_tree(ch)
                 linear = source_tree.nodes.get(ch.linear)
                 source = source_tree.nodes.get(ch.source)
@@ -4852,11 +4852,27 @@ def any_linear_images_problem(yp):
             if not source: continue
             image = source.image
             if not image: continue
-            if (
-                (is_image_source_srgb(image, source) and not linear) or
-                (not is_image_source_srgb(image, source) and linear)
-                ):
-                return True
+
+            if yp.use_linear_blending:
+                normal_ch = get_height_channel(layer)
+                normal_root_ch = get_root_height_channel(yp)
+                if normal_ch and get_channel_enabled(normal_ch, layer, normal_root_ch) and not normal_ch.override_1 and normal_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                    ch_linear = layer_tree.nodes.get(normal_ch.linear)
+                    if ((is_image_source_srgb(image, source) and not ch_linear) or
+                        (not is_image_source_srgb(image, source) and ch_linear)
+                        ):
+                        return True
+
+                if ((is_image_source_srgb(image, source) and linear) or
+                    (not is_image_source_srgb(image, source) and not linear)
+                    ):
+                    return True
+
+            else:
+                if ((is_image_source_srgb(image, source) and not linear) or
+                    (not is_image_source_srgb(image, source) and linear)
+                    ):
+                    return True
 
     return False
 
