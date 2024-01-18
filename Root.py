@@ -754,6 +754,9 @@ class YNewYPaintNode(bpy.types.Operator):
         # Set default input value
         set_input_default_value(node, channel)
 
+        # Linear blending is on by default
+        yp.use_linear_blending = True
+
         # Set the location of new node
         node.location = space.cursor_location
 

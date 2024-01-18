@@ -4863,8 +4863,13 @@ def any_linear_images_problem(yp):
                         ):
                         return True
 
-                if ((is_image_source_srgb(image, source) and linear) or
+                if not image.is_float and ((is_image_source_srgb(image, source) and linear) or
                     (not is_image_source_srgb(image, source) and not linear)
+                    ):
+                    return True
+
+                if image.is_float and ((is_image_source_srgb(image, source) and not linear) or
+                    (not is_image_source_srgb(image, source) and linear)
                     ):
                     return True
 

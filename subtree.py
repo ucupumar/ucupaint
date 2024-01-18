@@ -2332,12 +2332,27 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
         )):
         if root_ch.type == 'VALUE':
             linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
-            linear.inputs[1].default_value = 1.0
             linear.operation = 'POWER'
-        else:
-            linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
+        else: linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
 
         linear.inputs[1].default_value = 1.0 / GAMMA
+
+    elif channel_enabled and (
+            yp.use_linear_blending
+            and root_ch.type != 'NORMAL' 
+            and root_ch.colorspace == 'SRGB' 
+            and (
+                (ch.gamma_space and ch.layer_input == 'RGB' and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'})
+                #or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name == 'sRGB') 
+                )
+        ):
+        if root_ch.type == 'VALUE':
+            linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
+            linear.operation = 'POWER'
+        else: linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
+
+        linear.inputs[1].default_value = GAMMA
+
     else:
         remove_node(source_tree, ch, 'linear')
 
@@ -2372,7 +2387,7 @@ def check_layer_image_linear_node(layer, source_tree=None):
         if not image: return
 
         # Create linear if image type is srgb or float image
-        if not yp.use_linear_blending and is_image_source_srgb(image, source):
+        if is_image_source_srgb(image, source) and (not yp.use_linear_blending or (yp.use_linear_blending and image.is_float)):
             linear = source_tree.nodes.get(layer.linear)
             if not linear:
                 linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
@@ -2380,7 +2395,7 @@ def check_layer_image_linear_node(layer, source_tree=None):
 
             return
 
-        elif yp.use_linear_blending and not is_image_source_srgb(image, source):
+        elif yp.use_linear_blending and not image.is_float and not is_image_source_srgb(image, source):
             linear = source_tree.nodes.get(layer.linear)
             if not linear:
                 linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
