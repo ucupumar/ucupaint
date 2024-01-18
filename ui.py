@@ -407,7 +407,12 @@ def draw_tex_props(source, layout):
         col = row.column(align=True)
         if is_greater_than_281():
             col.label(text='Dimensions:')
-            col.separator()
+            if hasattr(source, 'noise_type'):
+                col.label(text='Type:')
+            if is_greater_than_400():
+                col.label(text='Normalize:')
+            else:
+                col.separator()
 
         for inp in source.inputs:
             if is_input_skipped(inp): continue
@@ -416,7 +421,13 @@ def draw_tex_props(source, layout):
         col = row.column(align=True)
         if is_greater_than_281():
             col.prop(source, 'noise_dimensions', text='')
-            col.separator()
+
+            if hasattr(source, 'noise_type'):
+                col.prop(source, 'noise_type', text='')
+            if is_greater_than_400():
+                col.prop(source, 'normalize', text='')
+            else:
+                col.separator()
 
         for inp in source.inputs:
             if is_input_skipped(inp): continue
@@ -436,7 +447,10 @@ def draw_tex_props(source, layout):
             if source.feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
                 col.label(text='Distance:')
 
-        col.separator()
+        if is_greater_than_400():
+            col.label(text='Normalize:')
+        else:
+            col.separator()
 
         for inp in source.inputs:
             if is_input_skipped(inp): continue
@@ -452,7 +466,11 @@ def draw_tex_props(source, layout):
             col.prop(source, 'feature', text='')
             if source.feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
                 col.prop(source, 'distance', text='')
-        col.separator()
+
+        if is_greater_than_400():
+            col.prop(source, 'normalize', text='')
+        else:
+            col.separator()
 
         for inp in source.inputs:
             if is_input_skipped(inp): continue
@@ -3563,7 +3581,7 @@ class YNewLayerMenu(bpy.types.Menu):
         col.operator("node.y_new_layer", text='Checker').type = 'CHECKER'
         col.operator("node.y_new_layer", text='Gradient').type = 'GRADIENT'
         col.operator("node.y_new_layer", text='Magic').type = 'MAGIC'
-        col.operator("node.y_new_layer", text='Musgrave').type = 'MUSGRAVE'
+        if not is_greater_than_410(): col.operator("node.y_new_layer", text='Musgrave').type = 'MUSGRAVE'
         col.operator("node.y_new_layer", text='Noise').type = 'NOISE'
         col.operator("node.y_new_layer", text='Voronoi').type = 'VORONOI'
         col.operator("node.y_new_layer", text='Wave').type = 'WAVE'
@@ -4035,7 +4053,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Checker').type = 'CHECKER'
         col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Gradient').type = 'GRADIENT'
         col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Magic').type = 'MAGIC'
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Musgrave').type = 'MUSGRAVE'
+        if not is_greater_than_410(): col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Musgrave').type = 'MUSGRAVE'
         col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Noise').type = 'NOISE'
         col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Voronoi').type = 'VORONOI'
         col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Wave').type = 'WAVE'
@@ -4494,7 +4512,7 @@ class YLayerSpecialMenu(bpy.types.Menu):
         col.operator('node.y_replace_layer_type', text='Checker', icon_value=lib.get_icon('texture')).type = 'CHECKER'
         col.operator('node.y_replace_layer_type', text='Gradient', icon_value=lib.get_icon('texture')).type = 'GRADIENT'
         col.operator('node.y_replace_layer_type', text='Magic', icon_value=lib.get_icon('texture')).type = 'MAGIC'
-        col.operator('node.y_replace_layer_type', text='Musgrave', icon_value=lib.get_icon('texture')).type = 'MUSGRAVE'
+        if not is_greater_than_410(): col.operator('node.y_replace_layer_type', text='Musgrave', icon_value=lib.get_icon('texture')).type = 'MUSGRAVE'
         col.operator('node.y_replace_layer_type', text='Noise', icon_value=lib.get_icon('texture')).type = 'NOISE'
         col.operator('node.y_replace_layer_type', text='Voronoi', icon_value=lib.get_icon('texture')).type = 'VORONOI'
         col.operator('node.y_replace_layer_type', text='Wave', icon_value=lib.get_icon('texture')).type = 'WAVE'

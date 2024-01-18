@@ -439,6 +439,25 @@ def update_routine(name):
         if show_message:
             print("INFO: Now " + get_addon_title() + " capable to use vertex paint alpha since Blender 2.92, Enjoy!")
 
+    # Blender 4.10 no longer has musgrave node
+    if is_created_before_410() and is_greater_than_410():
+        show_message = False
+        for ng in bpy.data.node_groups:
+            if not hasattr(ng, 'yp'): continue
+            if not ng.yp.is_ypaint_node: continue
+            
+            for layer in ng.yp.layers:
+                if layer.type == 'MUSGRAVE':
+                    layer.type = 'NOISE'
+                    show_message = True
+                for mask in layer.masks:
+                    if mask.type == 'MUSGRAVE':
+                        mask.type = 'NOISE'
+                        show_message = True
+
+        if show_message:
+            print("INFO: 'Musgrave' node is no longer available since Blender 4.1, converting it to 'Noise'..")
+
     # Special update for opening Blender 2.79 file
     filepath = get_addon_filepath() + "lib.blend"
     if is_created_using_279() and is_greater_than_280() and bpy.data.filepath != filepath:
