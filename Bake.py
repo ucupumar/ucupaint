@@ -2035,6 +2035,9 @@ class YMergeLayer(bpy.types.Operator):
         main_ch = yp.channels[int(self.channel_idx)]
         ch = layer.channels[int(self.channel_idx)]
         neighbor_ch = neighbor_layer.channels[int(self.channel_idx)]
+        
+        # Get parent dict
+        parent_dict = get_parent_dict(yp)  
 
         merge_success = False
 
