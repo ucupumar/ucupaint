@@ -523,9 +523,9 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
     ori_sculpt_brush : StringProperty(default='')
 
 def register():
-    bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
-    if not is_greater_than_280():
-        bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
+    #bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
+    #if not is_greater_than_280():
+    #    bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.register_class(YVcolEditorProps)
 
     bpy.types.Scene.ve_edit = PointerProperty(type=YVcolEditorProps)
@@ -536,9 +536,9 @@ def register():
     bpy.utils.register_class(YSetActiveVcol)
 
 def unregister():
-    bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
-    if not is_greater_than_280():
-        bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
+    #bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
+    #if not is_greater_than_280():
+    #    bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.unregister_class(YVcolEditorProps)
 
     bpy.utils.unregister_class(YVcolFill)
