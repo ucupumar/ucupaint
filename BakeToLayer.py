@@ -1905,6 +1905,10 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, min=0, subtype='PIXEL')
 
+    samples : IntProperty(name='Bake Samples', 
+            description='Bake Samples, more means less jagged on generated textures', 
+            default=1, min=1)
+
     bake_device : EnumProperty(
             name='Bake Device',
             description='Device to use for baking',
@@ -1916,6 +1920,10 @@ class YDuplicateLayerToImage(bpy.types.Operator):
     fxaa : BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked image (doesn't work with float images)",
             default=True)
+
+    denoise : BoolProperty(name='Use Denoise', 
+            description = "Use Denoise on baked images",
+            default=False)
 
     use_image_atlas : BoolProperty(
             name = 'Use Image Atlas',
@@ -2026,12 +2034,15 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         col.label(text='Width:')
         col.label(text='Height:')
         col.label(text='UV Map:')
+        col.label(text='Samples:')
         col.label(text='Margin:')
         if is_greater_than_280():
             col.separator()
             col.label(text='Bake Device:')
         col.separator()
         col.label(text='')
+        if is_greater_than_281():
+            col.label(text='')
         col.label(text='')
         col.label(text='')
         #col.label(text='Blur:')
@@ -2043,6 +2054,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         col.prop(self, 'width', text='')
         col.prop(self, 'height', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+        col.prop(self, 'samples', text='')
         col.prop(self, 'margin', text='')
 
         if is_greater_than_280():
@@ -2050,6 +2062,8 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             col.prop(self, 'bake_device', text='')
         col.separator()
         col.prop(self, 'fxaa')
+        if is_greater_than_281():
+            col.prop(self, 'denoise', text='Use Denoise')
         ccol = col.column(align=True)
         ccol.prop(self, 'use_image_atlas')
         if self.mask:
@@ -2109,9 +2123,9 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
         use_fxaa = not self.hdr and self.fxaa
 
-        samples = 1
-        if self.mask and self.mask.enable_blur_vector:
-            samples = 4096 if is_greater_than_300() else 128
+        #samples = 1
+        #if self.mask: #and self.mask.enable_blur_vector:
+        #    samples = 4096 if is_greater_than_300() else 128
 
         # Preview setup
         ori_channel_index = yp.active_channel_index
@@ -2152,7 +2166,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             for m in get_problematic_modifiers(obj):
                 m.show_render = False
 
-        prepare_bake_settings(book, objs, yp, samples=samples, margin=self.margin, 
+        prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device
                 )
 
@@ -2200,6 +2214,8 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         if self.blur: 
             samples = 4096 if is_greater_than_300() else 128
             blur_image(image, False, bake_device=self.bake_device, factor=self.blur_factor, samples=samples)
+        if self.denoise: 
+            denoise_image(image)
 
         if self.mask:
             mask_name = image.name if not self.use_image_atlas else self.name
