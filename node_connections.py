@@ -1527,7 +1527,7 @@ def reconnect_source_internal_nodes(layer):
     # Clean unused essential nodes
     clean_essential_nodes(tree, exclude_texcoord=True, exclude_geometry=True)
 
-def reconnect_mask_internal_nodes(mask):
+def reconnect_mask_internal_nodes(mask, mask_source_index=0):
 
     tree = get_mask_tree(mask)
 
@@ -1544,7 +1544,7 @@ def reconnect_mask_internal_nodes(mask):
         #else:
         create_link(tree, start.outputs[0], source.inputs[0])
 
-    val = source.outputs[0]
+    val = source.outputs[mask_source_index]
 
     if linear:
         val = create_link(tree, val, linear.inputs[0])[0]
@@ -1793,9 +1793,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Mask source
         if mask.group_node != '':
             mask_source = nodes.get(mask.group_node)
-            reconnect_mask_internal_nodes(mask)
+            reconnect_mask_internal_nodes(mask, mask_source_index)
 
-            mask_val = mask_source.outputs[mask_source_index]
+            #mask_val = mask_source.outputs[mask_source_index]
+            mask_val = mask_source.outputs[0]
         else:
             mask_source = nodes.get(mask.source)
             mask_linear = nodes.get(mask.linear)
