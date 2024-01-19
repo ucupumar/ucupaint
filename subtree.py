@@ -353,7 +353,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 
         #print('ntob')
 
-        if mask.type in {'VCOL', 'HEMI'}:
+        if mask.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
             lib_name = lib.NEIGHBOR_FAKE
         else: lib_name = lib.get_neighbor_uv_tree_name(mask.texcoord_type, entity=mask)
 
@@ -369,7 +369,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 def enable_mask_source_tree(layer, mask, reconnect = False):
 
     # Check if source tree is already available
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} and mask.group_node != '': return
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'} and mask.group_node != '': return
 
     layer_tree = get_tree(layer)
 
@@ -378,7 +378,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
     #return
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
         linear_ref = layer_tree.nodes.get(mask.linear)
@@ -433,11 +433,11 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 def disable_mask_source_tree(layer, mask, reconnect=False):
 
     # Check if source tree is already gone
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} and mask.group_node == '': return
+    #if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} and mask.group_node == '': return
 
     layer_tree = get_tree(layer)
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+    if mask.group_node != '' and mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
 
         mask_tree = get_mask_tree(mask)
 
@@ -678,7 +678,7 @@ def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
     for i, mask in enumerate(layer.masks):
         if specific_mask and specific_mask != mask: continue
 
-        if get_mask_enabled(mask) and height_process_needed and (write_height_ch or i < chain):
+        if smooth_bump_ch and get_mask_enabled(mask) and height_process_needed and (write_height_ch or i < chain):
             enable_mask_source_tree(layer, mask)
         else: disable_mask_source_tree(layer, mask)
 

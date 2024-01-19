@@ -170,7 +170,8 @@ mask_type_items = (
         ('HEMI', 'Fake Lighting', ''),
         ('OBJECT_INDEX', 'Object Index', ''),
         ('COLOR_ID', 'Color ID', ''),
-        ('BACKFACE', 'Backface', '')
+        ('BACKFACE', 'Backface', ''),
+        ('EDGE_DETECT', 'Edge Detect', '')
         )
 
 channel_override_type_items = (
@@ -384,6 +385,7 @@ layer_node_bl_idnames = {
         'OBJECT_INDEX' : 'ShaderNodeGroup',
         'COLOR_ID' : 'ShaderNodeGroup',
         'BACKFACE' : 'ShaderNodeNewGeometry',
+        'EDGE_DETECT' : 'ShaderNodeGroup',
         }
 
 io_suffix = {
@@ -495,6 +497,11 @@ def is_greater_than_283():
 
 def is_greater_than_292():
     if bpy.app.version >= (2, 92, 0):
+        return True
+    return False
+
+def is_greater_than_293():
+    if bpy.app.version >= (2, 93, 0):
         return True
     return False
 
@@ -1603,27 +1610,33 @@ def check_duplicated_node_group(node_group, duplicated_trees = []):
     if not info_frame_found:
         create_info_nodes(node_group)
 
-def get_node_tree_lib(name):
+def load_from_lib_blend(tree_name, filename):
+    # Node groups necessary are in lib.blend
+    filepath = get_addon_filepath() + filename
+
+    # Load node groups
+    lib_found = False
+    with bpy.data.libraries.load(filepath) as (data_from, data_to):
+        from_ngs = data_from.node_groups
+        to_ngs = data_to.node_groups
+        for ng in from_ngs:
+            if ng == tree_name:
+                to_ngs.append(ng)
+                lib_found = True
+                break
+
+    return lib_found
+
+def get_node_tree_lib(name, filename='lib'):
 
     # Try to get from local lib first
     node_tree = bpy.data.node_groups.get(name)
     if node_tree: return node_tree
 
-    # Node groups necessary are in nodegroups_lib.blend
-    filepath = get_addon_filepath() + "lib.blend"
-
-    #appended = False
-    with bpy.data.libraries.load(filepath) as (data_from, data_to):
-
-        # Load node groups
-        exist_groups = [ng.name for ng in bpy.data.node_groups]
-        from_ngs = data_from.node_groups
-        to_ngs = data_to.node_groups
-        for ng in from_ngs:
-            if ng == name: # and ng not in exist_groups:
-                to_ngs.append(ng)
-                #appended = True
-                break
+    # Load from library blend files
+    lib_found = load_from_lib_blend(name, 'lib.blend')
+    if not lib_found:
+        lib_found = load_from_lib_blend(name, 'lib_281.blend')
 
     node_tree = bpy.data.node_groups.get(name)
 
@@ -2754,7 +2767,7 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'} 
 
 def clear_mapping(entity):
 
@@ -4144,7 +4157,7 @@ def is_uv_input_needed(layer, uv_name):
         
         for mask in layer.masks:
             if not get_mask_enabled(mask): continue
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}: continue
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}: continue
             if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
                 return True
 
@@ -4157,9 +4170,11 @@ def is_entity_need_tangent_input(entity, uv_name):
     if m: 
         layer = yp.layers[int(m.group(1))]
         entity_enabled = get_mask_enabled(entity)
+        is_mask = True
     else: 
         layer = entity
         entity_enabled = get_layer_enabled(entity)
+        is_mask = False
 
     if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
 

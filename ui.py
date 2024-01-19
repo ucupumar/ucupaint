@@ -521,6 +521,12 @@ def draw_solid_color_props(layer, source, layout):
     row.label(text='Shortcut on list:')
     row.prop(layer, 'color_shortcut', text='')
 
+def draw_edge_detect_props(layer, source, layout):
+    col = layout.column()
+    row = col.row()
+    row.label(text='Radius:')
+    row.prop(layer, 'edge_detect_radius', text='')
+
 def draw_mask_modifier_stack(layer, mask, layout, ui):
     ypui = bpy.context.window_manager.ypui
     tree = get_mask_tree(mask)
@@ -1990,10 +1996,12 @@ def draw_layer_masks(context, layout, layer):
                 draw_object_index_props(mask, rbox)
             elif mask.type == 'COLOR_ID':
                 draw_colorid_props(mask, mask_source, rbox)
+            elif mask.type == 'EDGE_DETECT':
+                draw_edge_detect_props(mask, mask_source, rbox)
             else: draw_tex_props(mask_source, rbox)
 
         # Input row
-        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'} and (is_greater_than_292() or mask.type != 'VCOL'):
+        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'} and (is_greater_than_292() or mask.type != 'VCOL'):
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon_value=lib.get_icon('input'))
             splits = split_layout(rrow, 0.3)
@@ -2001,7 +2009,7 @@ def draw_layer_masks(context, layout, layer):
             splits.prop(mask, 'source_input', text='')
 
         # Vector row
-        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
             rrow = rrcol.row(align=True)
 
             if maskui.expand_vector:
@@ -2319,14 +2327,14 @@ def draw_layers_ui(context, layout, node):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND'}:
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT'}:
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
                     #entities.append(layer.name)
 
             for mask in layer.masks:
-                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
                     uv_layer = uv_layers.get(mask.uv_name)
                     if not uv_layer and mask.uv_name not in uv_missings:
                         uv_missings.append(mask.uv_name)
@@ -2527,6 +2535,20 @@ def draw_layers_ui(context, layout, node):
             col.alert = True
             col.operator('node.y_use_linear_color_space', text='Refresh Linear Color Space', icon='ERROR')
             col.alert = False
+
+        # Check if AO is enabled or not
+        scene = bpy.context.scene
+        if is_greater_than_293() and not scene.eevee.use_gtao and scene.render.engine != 'BLENDER_EEVEE_NEXT':
+            edge_detect_found = False
+            for l in yp.layers:
+                for m in l.masks:
+                    if m.type == 'EDGE_DETECT' and get_mask_enabled(m, l):
+                        edge_detect_found = True
+                        break
+            if edge_detect_found:
+                col.alert = True
+                col.operator('node.y_fix_edge_detect_ao', text='Fix EEVEE Edge Detect AO', icon='ERROR')
+                col.alert = False
 
         if obj.type == 'MESH' and colorid_vcol:
 
@@ -4064,6 +4086,10 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         col.separator()
         col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('object_index'), text='Object Index').type = 'OBJECT_INDEX'
         col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('backface'), text='Backface').type = 'BACKFACE'
+
+        if is_greater_than_293():
+            col.separator()
+            col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Edge Detect').type = 'EDGE_DETECT'
 
         col = row.column()
         col.label(text='Bake as Mask:')

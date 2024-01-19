@@ -607,12 +607,15 @@ def fix_missing_lib_trees(tree, problematic_trees):
 def update_node_tree_libs(name):
     T = time.time()
 
-    filepath = get_addon_filepath() + "lib.blend"
+    filepaths = []
+    filepaths.append(get_addon_filepath() + "lib.blend")
+    if is_greater_than_281(): filepaths.append(get_addon_filepath() + "lib_281.blend")
 
-    if bpy.data.filepath == filepath: return
+    for fp in filepaths:
+        if bpy.data.filepath == fp: return
 
     tree_names = []
-    exist_groups = []
+    existing_groups = []
     missing_groups = []
 
     for ng in bpy.data.node_groups:
@@ -624,21 +627,22 @@ def update_node_tree_libs(name):
 
         m = re.match(r'^(~yPL .+?)(?:_Copy?)?(?:\.\d{3}?)?$', ng.name)
         if not m: continue
-        if m.group(1) not in exist_groups:
-            exist_groups.append(m.group(1))
+        if m.group(1) not in existing_groups:
+            existing_groups.append(m.group(1))
 
-    if not exist_groups: return
+    if not existing_groups: return
 
     # Fix missing groups
     if any(missing_groups):
 
         # Load missing node groups
-        with bpy.data.libraries.load(filepath) as (data_from, data_to):
-            for ng in data_from.node_groups:
-                if ng not in missing_groups: continue
-                fixed_trees = [n for n in bpy.data.node_groups if n.name == ng and not n.is_missing]
-                if not fixed_trees:
-                    data_to.node_groups.append(ng)
+        for fp in filepaths:
+            with bpy.data.libraries.load(fp) as (data_from, data_to):
+                for ng in data_from.node_groups:
+                    if ng not in missing_groups: continue
+                    fixed_trees = [n for n in bpy.data.node_groups if n.name == ng and not n.is_missing]
+                    if not fixed_trees:
+                        data_to.node_groups.append(ng)
 
         # Fix missing trees
         problematic_trees = []
@@ -651,16 +655,17 @@ def update_node_tree_libs(name):
             bpy.data.node_groups.remove(pt)
 
     # Load node groups
-    with bpy.data.libraries.load(filepath) as (data_from, data_to):
-        from_ngs = data_from.node_groups
-        to_ngs = data_to.node_groups
-        for ng in from_ngs:
-            if ng in exist_groups:
-                tree = bpy.data.node_groups.get(ng)
-                if tree:
-                    tree.name += '__OLD'
-                tree_names.append(ng)
-                to_ngs.append(ng)
+    for fp in filepaths:
+        with bpy.data.libraries.load(fp) as (data_from, data_to):
+            from_ngs = data_from.node_groups
+            to_ngs = data_to.node_groups
+            for ng in from_ngs:
+                if ng in existing_groups:
+                    tree = bpy.data.node_groups.get(ng)
+                    if tree:
+                        tree.name += '__OLD'
+                    tree_names.append(ng)
+                    to_ngs.append(ng)
 
     update_names = []
 

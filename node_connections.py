@@ -1537,7 +1537,7 @@ def reconnect_mask_internal_nodes(mask):
     start = tree.nodes.get(TREE_START)
     end = tree.nodes.get(TREE_END)
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
         #if mapping:
         #    create_link(tree, start.outputs[0], mapping.inputs[0])
         #    create_link(tree, mapping.outputs[0], source.inputs[0])
@@ -1776,7 +1776,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     for i, mask in enumerate(layer.masks):
         # Get source output index
         mask_source_index = 0
-        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX'}:
+        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT'}:
             # Noise and voronoi output has flipped order since Blender 2.81
             if is_greater_than_281() and mask.type in {'NOISE', 'VORONOI'}:
                 if mask.source_input == 'RGB':
@@ -1831,7 +1831,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Mask texcoord
         #mask_uv_map = nodes.get(mask.uv_map)
-        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
             if mask.texcoord_type == 'UV':
                 #mask_vector = mask_uv_map.outputs[0]
                 #mask_vector = mask_uv_map.outputs[0]
@@ -1852,7 +1852,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         mask_uv_neighbor = nodes.get(mask.uv_neighbor)
         if mask_uv_neighbor:
 
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
                 #create_link(tree, mask_source.outputs[0], mask_uv_neighbor.inputs[0])
                 create_link(tree, mask_val, mask_uv_neighbor.inputs[0])
             else:
@@ -1923,7 +1923,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if mask_mix:
                 create_link(tree, mask_val, mask_mix.inputs[mmixcol1])
                 if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-                    if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+                    if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
                         if mask_uv_neighbor:
                             create_link(tree, mask_uv_neighbor.outputs['n'], mask_mix.inputs['Color2 n'])
                             create_link(tree, mask_uv_neighbor.outputs['s'], mask_mix.inputs['Color2 s'])

@@ -97,22 +97,13 @@ PAINT_BASE = '~yPL Paint Base'
 
 BLUR_VECTOR = '~yPL Blur Vector'
 
-# NEW ORDER
-
 HEIGHT_PROCESS = '~yPL Height Process'
-#HEIGHT_PROCESS_GROUP = '~yPL Height Process Group'
 HEIGHT_PROCESS_TRANSITION = '~yPL Height Process Transition'
-#HEIGHT_PROCESS_TRANSITION_GROUP = '~yPL Height Process Transition Group'
 HEIGHT_PROCESS_TRANSITION_CREASE = '~yPL Height Process Transition Crease'
-#HEIGHT_PROCESS_TRANSITION_CREASE_GROUP = '~yPL Height Process Transition Crease Group'
 HEIGHT_PROCESS_SMOOTH = '~yPL Height Process Smooth'
-#HEIGHT_PROCESS_SMOOTH_GROUP = '~yPL Height Process Smooth Group'
 HEIGHT_PROCESS_TRANSITION_SMOOTH = '~yPL Height Process Transition Smooth'
-#HEIGHT_PROCESS_TRANSITION_SMOOTH_GROUP = '~yPL Height Process Transition Smooth Group'
 HEIGHT_PROCESS_TRANSITION_SMOOTH_ZERO_CHAIN = '~yPL Height Process Transition Smooth Zero Chain'
-#HEIGHT_PROCESS_TRANSITION_SMOOTH_ZERO_CHAIN_GROUP = '~yPL Height Process Transition Smooth Zero Chain Group'
 HEIGHT_PROCESS_TRANSITION_SMOOTH_CREASE = '~yPL Height Process Transition Smooth Crease'
-#HEIGHT_PROCESS_TRANSITION_SMOOTH_CREASE_GROUP = '~yPL Height Process Transition Smooth Crease Group'
 
 HEIGHT_PROCESS_NORMAL_MAP = '~yPL Height Process Normal Map'
 HEIGHT_PROCESS_TRANSITION_NORMAL_MAP = '~yPL Height Process Transition Normal Map'
@@ -146,7 +137,6 @@ ADVANCED_EMISSION_VIEWER = '~yPL Advanced Emission Viewer'
 ADVANCED_NORMAL_EMISSION_VIEWER = '~yPL Advanced Normal Emission Viewer'
 #GRID_EMISSION_VIEWER = '~yPL Grid Emission Viewer'
 
-
 ENGINE_FILTER = '~yPL Engine Filter'
 
 UNPACK_ONSEW = '~yPL Unpack ONSEW'
@@ -156,69 +146,16 @@ BL27_DISP = '~yPL Blender 2.7 Displacement'
 
 SMOOTH_PREFIX = '~yPL Smooth '
 
+# Nodes that require Blender 2.81 at minimum
+EDGE_DETECT = '~yPL Edge Detect'
+EDGE_DETECT_CUSTOM_NORMAL = '~yPL Edge Detect Custom Normal'
+
 # Legacy nodes for Blender 2.79
 FLIP_BACKFACE_NORMAL_LEGACY = '~yPL Flip Backface Normal Legacy'
 FLIP_BACKFACE_BUMP_LEGACY = '~yPL Flip Backface Bump Legacy'
 FLIP_BACKFACE_TANGENT_LEGACY = '~yPL Flip Backface Tangent Legacy'
 NORMAL_MAP_PREP_LEGACY = '~yPL Normal Map Preparation Legacy'
 ENGINE_FILTER_LEGACY = '~yPL Engine Filter Legacy'
-
-# END OF NEW ORDER
-
-#HEIGHT_PROCESS_BUMP_MIX = '~yPL Height Process Bump Mix'
-#HEIGHT_PROCESS_BUMP_ADD = '~yPL Height Process Bump Add'
-#
-#HEIGHT_PROCESS_TRANSITION_BUMP = '~yPL Height Process Transition Bump'
-#HEIGHT_PROCESS_TRANSITION_BUMP_MIX = '~yPL Height Process Transition Bump Mix'
-#HEIGHT_PROCESS_TRANSITION_BUMP_ADD = '~yPL Height Process Transition Bump Add'
-#
-#HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_MIX = '~yPL Height Process Transition Bump Crease Mix'
-#HEIGHT_PROCESS_TRANSITION_BUMP_CREASE_ADD = '~yPL Height Process Transition Bump Crease Add'
-#
-#HEIGHT_PROCESS_NORMAL_MAP_MIX = '~yPL Height Process Normal Map Mix'
-#HEIGHT_PROCESS_NORMAL_MAP_ADD = '~yPL Height Process Normal Map Add'
-#
-#HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_MIX = '~yPL Height Process Transition Normal Map Mix'
-#HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_ADD = '~yPL Height Process Transition Normal Map Add'
-#
-#HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE_MIX = '~yPL Height Process Transition Normal Map Crease Mix'
-#HEIGHT_PROCESS_TRANSITION_NORMAL_MAP_CREASE_ADD = '~yPL Height Process Transition Normal Map Crease Add'
-#
-#NORMAL_PROCESS_BUMP = '~yPL Normal Process Bump'
-#
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_MIX = '~yPL Normal Process Transition Smooth Bump Mix'
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ADD = '~yPL Normal Process Transition Smooth Bump Add'
-#
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ZERO_CHAIN_MIX = '~yPL Normal Process Transition Smooth Bump Zero Chain Mix'
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_ZERO_CHAIN_ADD = '~yPL Normal Process Transition Smooth Bump Zero Chain Add'
-#
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX = '~yPL Normal Process Transition Smooth Bump Crease Mix'
-#NORMAL_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD = '~yPL Normal Process Transition Smooth Bump Crease Add'
-#
-#NORMAL_PROCESS_BUMP_MIX = '~yPL Normal Process Bump Mix'
-#NORMAL_PROCESS_BUMP_ADD = '~yPL Normal Process Bump Add'
-#
-#NORMAL_MAP_PROCESS_BUMP = '~yPL Normal Map Process Bump'
-#NORMAL_MAP_PROCESS_TRANSITION_BUMP = '~yPL Normal Map Process Transition Bump'
-#
-#NORMAL_MAP_PROCESS_SMOOTH_BUMP_MIX = '~yPL Normal Map Process Smooth Bump Mix'
-#NORMAL_MAP_PROCESS_SMOOTH_BUMP_ADD = '~yPL Normal Map Process Smooth Bump Add'
-#
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX = '~yPL Normal Map Process Transition Smooth Bump Mix'
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD = '~yPL Normal Map Process Transition Smooth Bump Add'
-#
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX = '~yPL Normal Map Process Transition Smooth Bump Mix'
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD = '~yPL Normal Map Process Transition Smooth Bump Add'
-#
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_MIX = '~yPL Normal Map Process Transition Smooth Bump Mix'
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_ADD = '~yPL Normal Map Process Transition Smooth Bump Add'
-#
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_MIX = '~yPL Normal Map Process Transition Smooth Bump Crease Mix'
-#NORMAL_MAP_PROCESS_TRANSITION_SMOOTH_BUMP_CREASE_ADD = '~yPL Normal Map Process Transition Smooth Bump Crease Add'
-
-#DISP_MIX = '~yPL Displacement Mix'
-#DISP_OVERLAY = '~yPL Displacement Overlay'
-#HEIGHT_PACK = '~yPL Height Pack'
 
 EMULATED_CURVE = '~yPL Emulated Curve'
 EMULATED_CURVE_SMOOTH = '~yPL Emulated Curve Smooth'
