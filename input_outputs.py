@@ -193,7 +193,7 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 else: set_default_value(end_linear, 'Max Height', 1.0)
 
                 if channel.enable_smooth_bump:
-                    end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
+                    set_default_value(end_linear, 'Bump Height Scale', get_fine_bump_distance(max_height))
 
                 # Create a node to store max height
                 end_max_height = check_new_node(group_tree, channel, 'end_max_height', 'ShaderNodeValue', 'Max Height')
