@@ -980,13 +980,9 @@ def draw_root_channels_ui(context, layout, node):
                 bbcol = bbox.column() #align=True)
                 bbcol.active = channel.enable_bake_as_vcol
                 brow = bbcol.row(align=True)
-                if channel.type == 'RGB':
-                    brow.label(text='Include Alpha:')
-                    brow.prop(channel, 'bake_vcol_alpha', text='')
-                    brow.active = channel.enable_alpha
-                elif channel.type == 'VALUE':
+                if channel.type == 'VALUE':
                     brow.label(text='Bake to Alpha Only:')
-                    brow.prop(channel, 'bake_vcol_alpha', text='')
+                    brow.prop(channel, 'bake_to_vcol_alpha', text='')
 
                 brow = bbcol.row(align=True)
                 brow.label(text='Target Vertex Color:')
@@ -2188,29 +2184,6 @@ def draw_layers_ui(context, layout, node):
 
                 if baked.image.packed_file:
                     row.label(text='', icon='PACKAGE')
-            if root_ch.enable_bake_as_vcol:
-                obj = context.object
-                vcols = get_vertex_colors(obj)
-                vcol_name = root_ch.bake_vcol_name
-                vcol = vcols.get(vcol_name)
-                if vcol:
-                    row = col.row(align=True)
-                    label = 'Baked Vertex Color:'
-                    row.label(text=label, icon_value=lib.get_icon('vertex_color'))
-                    prow = split_layout(row, 0.25, align=True)
-                    if yp.vcol_preview_mode: prow.alert = True
-                    if not is_greater_than_280():
-                        prow.prop(yp, 'vcol_preview_mode', text='', icon='RESTRICT_VIEW_OFF')
-                    else: prow.prop(yp, 'vcol_preview_mode', text='', icon='HIDE_OFF')
-                    prow.prop(yp, 'vcol_preview_mode_type', text='')
-                    row = col.row(align=True)
-                    row.label(text='', icon='BLANK1')
-                    label = vcol_name
-                    row.label(text=label, icon='GROUP_VCOL')
-
-                    row.context_pointer_set('root_ch', root_ch)
-                    # row.context_pointer_set('image', baked.image)
-                
 
             if root_ch.type == 'NORMAL':
 
@@ -2243,6 +2216,23 @@ def draw_layers_ui(context, layout, node):
 
                     if baked_disp.image.packed_file:
                         row.label(text='', icon='PACKAGE')
+
+            if root_ch.enable_bake_as_vcol:
+                obj = context.object
+                vcols = get_vertex_colors(obj)
+                vcol_name = root_ch.bake_vcol_name
+                vcol = vcols.get(vcol_name)
+                baked_vcol = nodes.get(root_ch.baked_vcol)
+                row = split_layout(col, 0.5)
+                row.label(text='Baked Vertex Color:', icon_value=lib.get_icon('vertex_color'))
+                row.prop(root_ch, 'use_baked_vcol', text='Use Vertex Color')
+
+                row = col.row(align=True)
+                row.label(text='', icon='BLANK1')
+                if baked_vcol and vcol:
+                    row.label(text=vcol_name, icon='GROUP_VCOL')
+                else:
+                    row.label(text='Baked vertex color is missing!', icon='ERROR')
         return
 
     if is_a_mesh and not uv_found:

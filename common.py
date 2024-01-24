@@ -38,7 +38,6 @@ CURRENT_UV = ' Current UV'
 LAYER_VIEWER = '_Layer Viewer'
 LAYER_ALPHA_VIEWER = '_Layer Alpha Viewer'
 EMISSION_VIEWER = 'Emission Viewer'
-VERTEX_COLOR_VIEWER = 'Vertex Color Viewer'
 
 ITERATE_GROUP = '~yP Iterate Parallax Group'
 PARALLAX_DIVIDER = 4

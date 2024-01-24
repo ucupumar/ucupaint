@@ -2090,7 +2090,6 @@ def set_srgb_view_transform():
 def remove_preview(mat, advanced=False):
     nodes = mat.node_tree.nodes
     preview = nodes.get(EMISSION_VIEWER)
-    vcol_preview = nodes.get(VERTEX_COLOR_VIEWER)
     scene = bpy.context.scene
 
     if preview: 
@@ -2112,8 +2111,6 @@ def remove_preview(mat, advanced=False):
             scene.view_settings.exposure = scene.yp.ori_exposure
             scene.view_settings.gamma = scene.yp.ori_gamma
             scene.view_settings.use_curve_mapping = scene.yp.ori_use_curve_mapping
-    if vcol_preview:
-        simple_remove_node(mat.node_tree, vcol_preview)
 
 #def update_merge_mask_mode(self, context):
 #    if not self.layer_preview_mode:
@@ -2176,9 +2173,8 @@ def update_layer_preview_mode(self, context):
     channel = yp.channels[index]
     layer = yp.layers[yp.active_layer_index]
 
-    if (yp.preview_mode or yp.vcol_preview_mode) and yp.layer_preview_mode:
+    if yp.preview_mode and yp.layer_preview_mode:
         yp.preview_mode = False
-        yp.vcol_preview_mode = False
 
 
     # Get preview node
@@ -2245,9 +2241,8 @@ def update_preview_mode(self, context):
     index = yp.active_channel_index
     channel = yp.channels[index]
 
-    if (yp.layer_preview_mode or yp.vcol_preview_mode) and yp.preview_mode:
+    if yp.layer_preview_mode and yp.preview_mode:
         yp.layer_preview_mode = False
-        yp.vcol_preview_mode = False
 
     if self.preview_mode:
         # Set view transform to srgb so color picker won't pick wrong color
@@ -2293,40 +2288,6 @@ def update_preview_mode(self, context):
     else:
         remove_preview(mat)
 
-def update_vcol_preview_mode(self, context):
-    yp = self
-    mat = get_active_material()
-
-    tree = mat.node_tree
-    index = yp.active_channel_index
-    channel = yp.channels[index]
-
-    if (yp.layer_preview_mode or yp.preview_mode) and yp.vcol_preview_mode:
-        yp.layer_preview_mode = False
-        yp.preview_mode = False
-
-    if yp.vcol_preview_mode and yp.use_baked:
-        set_srgb_view_transform()
-
-        output = get_active_mat_output_node(mat.node_tree)
-        vcol_node = simple_replace_new_node(
-                    tree, VERTEX_COLOR_VIEWER, get_vcol_bl_idname(), 'Vertex Color Viewer', 
-                    None,
-                    return_status=False, hard_replace=True)
-        set_source_vcol_name(vcol_node, channel.bake_vcol_name)
-        if yp.vcol_preview_mode_type == 'RGB':
-            tree.links.new(vcol_node.outputs['Color'], output.inputs[0])
-        elif yp.vcol_preview_mode_type == 'ALPHA':
-            tree.links.new(vcol_node.outputs['Alpha'], output.inputs[0])
-        else:
-            preview = get_preview(mat, output, True)
-            if not preview: return
-            tree.links.new(vcol_node.outputs['Color'], preview.inputs[0])
-            tree.links.new(vcol_node.outputs['Alpha'], preview.inputs[1])
-            tree.links.new(preview.outputs[0], output.inputs[0])
-    else:
-        remove_preview(mat)
-
 def update_active_yp_channel(self, context):
     obj = context.object
     tree = self.id_data
@@ -2335,7 +2296,6 @@ def update_active_yp_channel(self, context):
 
     if yp.preview_mode: update_preview_mode(yp, context)
     if yp.layer_preview_mode: update_layer_preview_mode(yp, context)
-    if yp.vcol_preview_mode: update_vcol_preview_mode(yp, context)
 
     if yp.use_baked:
         baked = tree.nodes.get(ch.baked)
@@ -2899,6 +2859,13 @@ def update_channel_main_uv(self, context):
     if self.type == 'NORMAL':
         self.enable_smooth_bump = self.enable_smooth_bump
 
+def update_channel_enable_bake_as_vcol(self, context):
+    yp = self.id_data.yp
+    # ch = yp.channels[yp.active_channel_index]
+    if not self.enable_bake_as_vcol:
+        self.use_baked_vcol = False
+    
+# Ensure that only one channel has the "bake_vcol_force_first_index" set to True.
 def update_channel_bake_vcol(self, context):
     yp = self.id_data.yp
     if self.bake_vcol_force_first_index == False:
@@ -2909,6 +2876,18 @@ def update_channel_bake_vcol(self, context):
             ch['bake_vcol_force_first_index'] = False
     self['bake_vcol_force_first_index'] = True
     yp.bake_vcol_force_first_ch = yp.active_channel_index
+
+# Prevent vcol name from being null
+def get_channel_vcol_name(self):
+    if self['bake_vcol_name'] == '':
+        self['bake_vcol_name'] = 'Baked ' + self.name
+    return self['bake_vcol_name']
+
+def set_channel_vcol_name(self, value):
+    if value == '':
+        self['bake_vcol_name'] = 'Baked ' + self.name
+    else:
+        self['bake_vcol_name'] = value
 
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
@@ -3037,27 +3016,29 @@ class YPaintChannel(bpy.types.PropertyGroup):
                 ),
             default = 'BOTH', update=update_backface_mode)
 
-    # Alpha for transparent materials
     enable_bake_as_vcol : BoolProperty(
-            name = 'Enable Alpha Blend on Channel',
-            description = 'Enable alpha blend on channel',
+            name = 'Enable Bake As Vertex Color',
+            description = 'When enabled, the channel is baked to the specified vertex color',
+            default=False, update=update_channel_enable_bake_as_vcol)
+
+    bake_to_vcol_alpha : BoolProperty(
+            name='Bake To Vertex Color Alpha', 
+            description='When enabled, the channel are baked only to Alpha with vertex color', 
             default=False)
 
-    bake_vcol_alpha : BoolProperty(
-            name='Add Emission', 
-            description='Add the result with Emission Channel', 
-            default=False)
-
-    # Alpha for transparent materials
     bake_vcol_name : StringProperty(
-            name = 'Enable Alpha Blend on Channel',
-            description = 'Enable alpha blend on channel',
-            default='')
+            name='Target Vertex Color Name',
+            description='Target Vertex Color Name',
+            default='', get=get_channel_vcol_name, set=set_channel_vcol_name)
 
     bake_vcol_force_first_index : BoolProperty(
             name='Force First Index', 
             description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
             default=False, update=update_channel_bake_vcol)
+
+    use_baked_vcol : BoolProperty(
+            default=False,
+            update=Bake.update_use_baked_vcol)
 
     # Displacement for normal channel
     enable_parallax : BoolProperty(
@@ -3214,6 +3195,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_normal : StringProperty(default='')
     baked_normal_flip : StringProperty(default='')
     baked_normal_prep : StringProperty(default='')
+    baked_vcol : StringProperty(default='')
 
     baked_disp : StringProperty(default='')
     baked_normal_overlay : StringProperty(default='')
@@ -3225,6 +3207,8 @@ class YPaintChannel(bpy.types.PropertyGroup):
 
     baked_outside_disp_process : StringProperty(default='')
     baked_outside_normal_process : StringProperty(default='')
+
+    baked_outside_vcol : StringProperty(default='')
 
     # UI related
     expand_content : BoolProperty(default=False)
@@ -3304,13 +3288,6 @@ class YPaint(bpy.types.PropertyGroup):
             default=False,
             update=update_layer_preview_mode)
 
-    # Vertex Color Preview Mode
-    vcol_preview_mode : BoolProperty(
-            name= 'Enable Vertex Color Preview Mode',
-            description= 'Enable vertex color preview mode',
-            default=False,
-            update=update_vcol_preview_mode)
-
     # Mask Preview Mode
     #mask_preview_mode : BoolProperty(
     #        name= 'Enable Mask Preview Mode',
@@ -3336,16 +3313,6 @@ class YPaint(bpy.types.PropertyGroup):
             #items = layer_preview_mode_type_items,
             default = 'LAYER',
             update=update_layer_preview_mode
-            )
-    vcol_preview_mode_type : EnumProperty(
-            name= 'Vertex Color Preview Mode Type',
-            description = 'Vertex Color preview mode type',
-            items = (('RGBA', 'RGB/Alpha', ''),
-                     ('RGB', 'RGB', ''),
-                     ('ALPHA', 'Alpha', ''),
-                     ),
-            default = 'RGBA',
-            update=update_vcol_preview_mode
             )
 
     # Mode exclusively for merging mask

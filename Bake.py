@@ -955,6 +955,7 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
         # Remove baked nodes
         for root_ch in yp.channels:
             remove_node(tree, root_ch, 'baked')
+            remove_node(tree, root_ch, 'baked_vcol')
 
             if root_ch.type == 'NORMAL':
                 remove_node(tree, root_ch, 'baked_disp')
@@ -1359,7 +1360,11 @@ class YBakeChannels(bpy.types.Operator):
                     # Get the newly created vcol to avoid pointer error
                     vcol = vcols.get(vcol_name)
                     set_active_vertex_color(ob, vcol)
-                bake_to_vcol(mat, node, ch, objs, None,1, ch.bake_vcol_alpha, ch.bake_vcol_name)
+                bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, ch.bake_vcol_name)
+                baked = tree.nodes.get(ch.baked_vcol)
+                if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
+                    baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
+                set_source_vcol_name(baked, ch.bake_vcol_name)
                 for ob in objs:
                     # Recover material index
                     if ori_mat_ids[ob.name]:
@@ -2289,18 +2294,35 @@ def update_enable_baked_outside(self, context):
                 tex.parent = frame
                 mtree.links.new(uv.outputs[0], tex.inputs[0])
 
+                baked_vcol = tree.nodes.get(ch.baked_vcol)
+                if baked_vcol and not not ch.enable_bake_as_vcol:
+                    vcol = check_new_node(mtree, ch, 'baked_outside_vcol', get_vcol_bl_idname())
+                    set_source_vcol_name(vcol, ch.bake_vcol_name)
+                    loc_x += 280
+                    vcol.location.x = loc_x
+                    vcol.location.y = loc_y - 100
+                    vcol.parent = frame
+                    max_x = loc_x
+                    loc_x -= 280
+
                 if not is_greater_than_280() and baked.image.colorspace_settings.name != 'sRGB':
                     tex.color_space = 'NONE'
 
                 if outp_alpha:
                     for l in outp_alpha.links:
-                        mtree.links.new(tex.outputs[1], l.to_socket)
+                        if vcol and ch.use_baked_vcol:
+                            mtree.links.new(vcol.outputs['Alpha'], l.to_socket)
+                        else:
+                            mtree.links.new(tex.outputs[1], l.to_socket)
 
                 if ch.type != 'NORMAL':
 
                     for l in outp.links:
-                        mtree.links.new(tex.outputs[0], l.to_socket)
-
+                        if vcol and ch.use_baked_vcol:
+                            outp_name = 'Alpha' if ch.bake_to_vcol_alpha else 'Color'
+                            mtree.links.new(vcol.outputs[outp_name], l.to_socket)
+                        else:
+                            mtree.links.new(tex.outputs[0], l.to_socket)
                 else:
 
                     loc_x += 280
@@ -2310,6 +2332,9 @@ def update_enable_baked_outside(self, context):
                     norm.location.y = loc_y
                     norm.parent = frame
                     max_x = loc_x
+                    if vcol:
+                        vcol.location.x += 180
+                        max_x = loc_x + 180
                     loc_x -= 280
 
                     mtree.links.new(tex.outputs[0], norm.inputs[1])
@@ -2374,6 +2399,8 @@ def update_enable_baked_outside(self, context):
                         if output_mat and ch.enable_subdiv_setup and ch.subdiv_adaptive:
                             mtree.links.new(disp.outputs[0], output_mat[0].inputs['Displacement'])
 
+                    if ch.use_baked_vcol:
+                        mtree.links.new(vcol.outputs['Color'], l.to_socket)
                 loc_y -= 300
 
             else:
@@ -2432,6 +2459,7 @@ def update_enable_baked_outside(self, context):
             if baked_outside_frame:
                 
                 remove_node(mtree, ch, 'baked_outside', parent=baked_outside_frame)
+                remove_node(mtree, ch, 'baked_outside_vcol', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_disp', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_normal_overlay', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_normal_process', parent=baked_outside_frame)
@@ -2495,14 +2523,24 @@ def update_use_baked(self, context):
     rearrange_yp_nodes(tree)
 
     # Trigger active image update
-    if self.use_baked:
-        self.active_channel_index = self.active_channel_index
+    if yp.use_baked:
+        yp.active_channel_index = yp.active_channel_index
     else:
-        self.active_layer_index = self.active_layer_index
-        self.vcol_preview_mode = self.vcol_preview_mode
+        yp.active_layer_index = yp.active_layer_index
 
     # Update baked outside
     update_enable_baked_outside(self, context)
+
+def update_use_baked_vcol(self, context):
+    tree = self.id_data
+    yp = tree.yp
+
+    if yp.halt_update: return
+    if yp.enable_baked_outside:
+        # Reset the node location
+        yp.enable_baked_outside = False
+        yp['enable_baked_outside'] = True
+    update_use_baked(self, context)
 
 def set_adaptive_displacement_node(mat, node):
     return get_adaptive_displacement_node(mat, node, set_one=True)

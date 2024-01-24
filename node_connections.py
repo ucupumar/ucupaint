@@ -1298,7 +1298,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             mixcol0, mixcol1, mixout = get_mix_color_indices(clamp)
             rgb = create_link(tree, rgb, clamp.inputs[mixcol0])[mixout]
 
-        if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked: # and baked_uv:
+        if yp.use_baked and not ch.no_layer_using and not ch.disable_global_baked and not ch.use_baked_vcol: # and baked_uv:
             baked = nodes.get(ch.baked)
             if baked:
                 rgb = baked.outputs[0]
@@ -1344,12 +1344,22 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             #create_link(tree, geometry.outputs['Backfacing'], end_backface.inputs[1])
             create_link(tree, get_essential_node(tree, GEOMETRY)['Backfacing'], end_backface.inputs[1])
 
+        if yp.use_baked and ch.use_baked_vcol and not ch.disable_global_baked:
+            baked_vcol = nodes.get(ch.baked_vcol)
+            if baked_vcol:
+                if ch.bake_to_vcol_alpha:
+                    rgb = baked_vcol.outputs['Alpha']
+                else:
+                    rgb = baked_vcol.outputs['Color']
+                if ch.enable_alpha:
+                    alpha = baked_vcol.outputs['Alpha']
+
         #print(rgb)
         create_link(tree, rgb, end.inputs[io_name])
         #if ch.type == 'RGB' and ch.enable_alpha:
         if ch.enable_alpha:
             create_link(tree, alpha, end.inputs[io_alpha_name])
-        if ch.type == 'NORMAL':
+        if ch.type == 'NORMAL' and not ch.use_baked_vcol:
             create_link(tree, height, end.inputs[io_height_name])
             if ch.name + io_suffix['MAX_HEIGHT'] in end.inputs:
                 max_height = height
