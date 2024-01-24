@@ -1270,7 +1270,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha)
 
-        if end_linear:
+        if end_linear and (end_linear.type != 'GROUP' or end_linear.node_tree):
             if ch.type == 'NORMAL':
 
                 if 'Normal Overlay' in end_linear.inputs:

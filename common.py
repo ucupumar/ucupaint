@@ -1629,7 +1629,7 @@ def load_from_lib_blend(tree_name, filename):
 
     return lib_found
 
-def get_node_tree_lib(name, filename='lib'):
+def get_node_tree_lib(name):
 
     # Try to get from local lib first
     node_tree = bpy.data.node_groups.get(name)
