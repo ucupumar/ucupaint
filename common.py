@@ -1241,7 +1241,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
                         for o in obs:
                             other_users_found = False
                             for m in o.data.materials:
-                                if m.node_tree and is_vcol_being_used(m.node_tree, vcol_name, node):
+                                if m and m.node_tree and is_vcol_being_used(m.node_tree, vcol_name, node):
                                     other_users_found = True
                                     break
                             if not other_users_found:
