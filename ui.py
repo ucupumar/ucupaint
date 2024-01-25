@@ -4810,7 +4810,9 @@ def save_mat_ui_settings():
     ypui = bpy.context.window_manager.ypui
     for mui in ypui.materials:
         mat = bpy.data.materials.get(mui.name)
-        if mat: mat.yp.active_ypaint_node = mui.active_ypaint_node
+        if mat: 
+            try: mat.yp.active_ypaint_node = mui.active_ypaint_node
+            except Exception as e: print(e)
 
 def load_mat_ui_settings():
     ypui = bpy.context.window_manager.ypui

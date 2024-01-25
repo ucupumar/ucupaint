@@ -3369,18 +3369,18 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     clipboard_tree : StringProperty(default='')
     clipboard_layer : StringProperty(default='')
 
-class YPaintSceneProps(bpy.types.PropertyGroup):
     last_object : StringProperty(default='')
     last_mode : StringProperty(default='')
 
+    edit_image_editor_area_index : IntProperty(default=-1)
+
+class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')
     ori_exposure : FloatProperty(default=0.0)
     ori_gamma : FloatProperty(default=1.0)
     ori_look : StringProperty(default='')
     ori_use_curve_mapping : BoolProperty(default=False)
-
-    edit_image_editor_area_index : IntProperty(default=-1)
 
 class YPaintObjectProps(bpy.types.PropertyGroup):
     ori_subsurf_render_levels : IntProperty(default=1)
@@ -3437,8 +3437,10 @@ def ypaint_last_object_update(scene):
     except: return
     if not obj: return
 
-    if scene.yp.last_object != obj.name:
-        scene.yp.last_object = obj.name
+    ypwm = bpy.context.window_manager.ypprops
+
+    if ypwm.last_object != obj.name:
+        ypwm.last_object = obj.name
         node = get_active_ypaint_node()
 
         # Refresh layer index to update editor image
@@ -3452,13 +3454,13 @@ def ypaint_last_object_update(scene):
                 update_image_editor_image(bpy.context, image)
                 scene.tool_settings.image_paint.canvas = image
 
-    if obj.type == 'MESH' and scene.yp.last_object == obj.name and scene.yp.last_mode != obj.mode:
+    if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:
 
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
 
-        if obj.mode == 'TEXTURE_PAINT' or scene.yp.last_mode == 'TEXTURE_PAINT':
-            scene.yp.last_mode = obj.mode
+        if obj.mode == 'TEXTURE_PAINT' or ypwm.last_mode == 'TEXTURE_PAINT':
+            ypwm.last_mode = obj.mode
             if yp and len(yp.layers) > 0 :
                 image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
@@ -3475,12 +3477,12 @@ def ypaint_last_object_update(scene):
                 refresh_temp_uv(obj, src_of_img)
 
         # Into edit mode
-        if obj.mode == 'EDIT' and scene.yp.last_mode != 'EDIT':
-            scene.yp.last_mode = obj.mode
+        if obj.mode == 'EDIT' and ypwm.last_mode != 'EDIT':
+            ypwm.last_mode = obj.mode
             # Remember the space
             space, area_index = get_first_unpinned_image_editor_space(bpy.context, return_index=True)
             if space and area_index != -1:
-                scene.yp.edit_image_editor_area_index = area_index
+                ypwm.edit_image_editor_area_index = area_index
 
             # Trigger updating active index to update image
             #if yp: 
@@ -3489,12 +3491,12 @@ def ypaint_last_object_update(scene):
             #    else: yp.active_layer_index = yp.active_layer_index
 
         # Out of edit mode
-        if obj.mode != 'EDIT' and scene.yp.last_mode == 'EDIT':
-            scene.yp.last_mode = obj.mode
+        if obj.mode != 'EDIT' and ypwm.last_mode == 'EDIT':
+            ypwm.last_mode = obj.mode
             space = get_edit_image_editor_space(bpy.context)
             if space:
                 space.use_image_pin = False
-            scene.yp.edit_image_editor_area_index = -1
+            ypwm.edit_image_editor_area_index = -1
 
             # Trigger updating active index to update image
             #if yp: 
@@ -3502,8 +3504,8 @@ def ypaint_last_object_update(scene):
             #        yp.active_channel_index = yp.active_channel_index
             #    else: yp.active_layer_index = yp.active_layer_index
 
-        if scene.yp.last_mode != obj.mode:
-            scene.yp.last_mode = obj.mode
+        if ypwm.last_mode != obj.mode:
+            ypwm.last_mode = obj.mode
 
 @persistent
 def ypaint_force_update_on_anim(scene):

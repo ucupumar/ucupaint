@@ -934,8 +934,8 @@ def update_image_editor_image(context, image):
             space.use_image_pin = False
 
 def get_edit_image_editor_space(context):
-    scene = context.scene
-    area_index = scene.yp.edit_image_editor_area_index
+    ypwm = context.window_manager.ypprops
+    area_index = ypwm.edit_image_editor_area_index
     if area_index >= 0 and area_index < len(context.screen.areas):
         area = context.screen.areas[area_index]
         if area.type == 'IMAGE_EDITOR':
@@ -973,7 +973,8 @@ def update_tool_canvas_image(context, image):
             unpinned_images.append(area.spaces[0].image)
 
     # Update canvas image
-    context.scene.tool_settings.image_paint.canvas = image
+    try: context.scene.tool_settings.image_paint.canvas = image
+    except Exception as e: print(e)
 
     # Restore original images except for the first index
     for i, space in enumerate(unpinned_spaces):
