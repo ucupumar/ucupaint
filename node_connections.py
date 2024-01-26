@@ -1831,19 +1831,22 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         mask_source_w = nodes.get(mask.source_w)
 
         # Mask texcoord
+        mask_vector = None
         if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
             if mask.texcoord_type == 'UV':
                 mask_vector = texcoord.outputs.get(mask.uv_name + io_suffix['UV'])
             else: 
                 mask_vector = texcoord.outputs.get(io_names[mask.texcoord_type])
 
-            if mask_blur_vector:
-                if mask_vector: mask_vector = create_link(tree, mask_vector, mask_blur_vector.inputs[1])[0]
+            if mask_vector:
 
-            if mask_mapping:
-                if mask_vector: mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
+                if mask_blur_vector:
+                    mask_vector = create_link(tree, mask_vector, mask_blur_vector.inputs[1])[0]
 
-            if mask_vector: create_link(tree, mask_vector, mask_source.inputs[0])
+                if mask_mapping:
+                    mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
+
+                create_link(tree, mask_vector, mask_source.inputs[0])
 
         # Mask uv neighbor
         mask_uv_neighbor = nodes.get(mask.uv_neighbor)
@@ -1854,9 +1857,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else:
                 if mask_vector:
                     create_link(tree, mask_vector, mask_uv_neighbor.inputs[0])
-                else: 
-                    create_link(tree, texcoord.outputs[io_names[mask.texcoord_type]],
-                            mask_uv_neighbor.inputs[0])
 
                 if mask_source_n: create_link(tree, mask_uv_neighbor.outputs['n'], mask_source_n.inputs[0])
                 if mask_source_s: create_link(tree, mask_uv_neighbor.outputs['s'], mask_source_s.inputs[0])
