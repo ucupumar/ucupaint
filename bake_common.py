@@ -194,7 +194,7 @@ def remember_before_bake(yp=None, mat=None):
     for o in objs:
         active_node_names = []
         for m in o.data.materials:
-            if m.use_nodes and m.node_tree.nodes.active:
+            if m and m.use_nodes and m.node_tree.nodes.active:
                 active_node_names.append(m.node_tree.nodes.active.name)
                 continue
             active_node_names.append('')
@@ -523,7 +523,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
                     add_active_render_uv_node(mat.node_tree, active_render_uv.name)
 
         for m in o.data.materials:
-            if not m.use_nodes: continue
+            if not m or not m.use_nodes: continue
 
             # Create temporary image texture node to make sure
             # other materials inside single object did not bake to their active image
@@ -712,7 +712,7 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
             o = bpy.data.objects.get(o_name)
             if not o: continue
             for j, m in enumerate(o.data.materials):
-                if not m.use_nodes: continue
+                if not m or not m.use_nodes: continue
                 active_node = m.node_tree.nodes.get(book['ori_mat_objs_active_nodes'][i][j])
                 m.node_tree.nodes.active = active_node
 
