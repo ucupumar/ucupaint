@@ -4020,6 +4020,16 @@ class YTransitionAOMenu(bpy.types.Menu):
             col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='REMOVE').type = 'AO'
         else: col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='ZOOMOUT').type = 'AO'
 
+def new_mask_button(layout, operator, text, lib_icon='', otype='', layer_idx=-1, target_type='', overwrite_current=None):
+    if lib_icon:
+        op = layout.operator(operator, icon_value=lib.get_icon(lib_icon), text=text)
+    else: op = layout.operator(operator, text=text)
+
+    if otype != '': op.type = otype
+    if layer_idx != -1: op.layer_idx = layer_idx
+    if target_type != '': op.target_type = target_type
+    if overwrite_current != None: op.overwrite_current = overwrite_current
+
 class YAddLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_add_layer_mask_menu"
     bl_description = 'Add Layer Mask'
@@ -4028,8 +4038,6 @@ class YAddLayerMaskMenu(bpy.types.Menu):
     @classmethod
     def poll(cls, context):
         #return hasattr(context, 'layer')
-        #node =  get_active_ypaint_node()
-        #return node and len(node.node_tree.yp.layers) > 0
         return get_active_ypaint_node()
 
     def draw(self, context):
@@ -4043,94 +4051,51 @@ class YAddLayerMaskMenu(bpy.types.Menu):
             return
 
         col.context_pointer_set('layer', context.layer)
+        layer_idx = get_layer_index(context.layer)
 
         col.label(text='Image Mask:')
-        col.operator('node.y_new_layer_mask', icon_value=lib.get_icon('image'), text='New Image Mask').type = 'IMAGE'
-        #if is_greater_than_280():
-        #    col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon='FILEBROWSER')
-        #    col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', icon='FILEBROWSER').type = 'IMAGE'
-        #else:
-        col.operator('node.y_open_image_as_mask', text='Open Image as Mask', icon_value=lib.get_icon('open_image'))
-        col.operator('node.y_open_available_data_as_mask', text='Open Available Image as Mask', 
-                icon_value=lib.get_icon('open_image')).type = 'IMAGE'
-        #col.label(text='Not implemented yet!', icon='ERROR')
+        new_mask_button(col, 'node.y_new_layer_mask', 'New Image Mask', lib_icon='image', otype='IMAGE', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_open_image_as_mask', 'Open Image as Mask', lib_icon='open_image')
+        new_mask_button(col, 'node.y_open_available_data_as_mask', 'Open Available Image as Mask', lib_icon='open_image', otype='IMAGE', layer_idx=layer_idx)
         col.separator()
-        #col.label(text='Open Mask:')
-        #col.label(text='Open Other Mask', icon='MOD_MASK')
 
         col.label(text='Vertex Color Mask:')
-        #col.operator('node.y_new_layer_mask', text='New Vertex Color Mask', icon='GROUP_VCOL').type = 'VCOL'
-        col.operator('node.y_new_layer_mask', text='New Vertex Color Mask', 
-                icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
-        col.operator('node.y_open_available_data_as_mask', text='Open Available Vertex Color as Mask', 
-                icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
+        new_mask_button(col, 'node.y_new_layer_mask', 'New Vertex Color Mask', lib_icon='vertex_color', otype='VCOL', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_open_available_data_as_mask', 'Open Available Vertex Color as Mask', lib_icon='vertex_color', otype='VCOL', layer_idx=layer_idx)
 
-        #col.separator()
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('color'), text='Color ID ').type = 'COLOR_ID'
+        new_mask_button(col, 'node.y_new_layer_mask', 'Color ID', lib_icon='color', otype='COLOR_ID', layer_idx=layer_idx)
 
         col = row.column(align=True)
-        #col.separator()
         col.label(text='Generated Mask:')
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Brick').type = 'BRICK'
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Checker').type = 'CHECKER'
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Gradient').type = 'GRADIENT'
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Magic').type = 'MAGIC'
-        if not is_greater_than_410(): col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Musgrave').type = 'MUSGRAVE'
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Noise').type = 'NOISE'
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Voronoi').type = 'VORONOI'
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Wave').type = 'WAVE'
+
+        new_mask_button(col, 'node.y_new_layer_mask', 'Brick', lib_icon='texture', otype='BRICK', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'Checker', otype='CHECKER', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'Gradient', otype='GRADIENT', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'Magic', otype='MAGIC', layer_idx=layer_idx)
+        if not is_greater_than_410(): 
+            new_mask_button(col, 'node.y_new_layer_mask', 'Musgrave', otype='MUSGRAVE', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'Noise', otype='NOISE', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'Voronoi', otype='VORONOI', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'Wave', otype='WAVE', layer_idx=layer_idx)
 
         col.separator()
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('hemi'), text='Fake Lighting').type = 'HEMI'
+        new_mask_button(col, 'node.y_new_layer_mask', 'Fake Lighting', lib_icon='hemi', otype='HEMI', layer_idx=layer_idx)
 
         col.separator()
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('object_index'), text='Object Index').type = 'OBJECT_INDEX'
-        col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('backface'), text='Backface').type = 'BACKFACE'
-
+        new_mask_button(col, 'node.y_new_layer_mask', 'Object Index', otype='OBJECT_INDEX', layer_idx=layer_idx, lib_icon='object_index')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Backface', otype='BACKFACE', layer_idx=layer_idx) #, lib_icon='backface')
         if is_greater_than_293():
-            col.separator()
-            col.operator("node.y_new_layer_mask", icon_value=lib.get_icon('texture'), text='Edge Detect').type = 'EDGE_DETECT'
+            new_mask_button(col, 'node.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT', layer_idx=layer_idx) #, lib_icon='texture')
 
         col = row.column()
         col.label(text='Bake as Mask:')
-        c = col.operator("node.y_bake_to_layer", icon_value=lib.get_icon('bake'), text='Ambient Occlusion')
-        c.type = 'AO'
-        c.target_type = 'MASK'
-
-        c = col.operator("node.y_bake_to_layer", text='Pointiness')
-        c.type = 'POINTINESS'
-        c.target_type = 'MASK'
-        c.overwrite_current = False
-
-        c = col.operator("node.y_bake_to_layer", text='Cavity')
-        c.type = 'CAVITY'
-        c.target_type = 'MASK'
-        c.overwrite_current = False
-
-        c = col.operator("node.y_bake_to_layer", text='Dust')
-        c.type = 'DUST'
-        c.target_type = 'MASK'
-        c.overwrite_current = False
-
-        c = col.operator("node.y_bake_to_layer", text='Paint Base')
-        c.type = 'PAINT_BASE'
-        c.target_type = 'MASK'
-        c.overwrite_current = False
-
-        c = col.operator("node.y_bake_to_layer", text='Bevel Grayscale')
-        c.type = 'BEVEL_MASK'
-        c.target_type = 'MASK'
-        c.overwrite_current = False
-
-        c = col.operator("node.y_bake_to_layer", text='Selected Vertices')
-        c.type = 'SELECTED_VERTICES'
-        c.target_type = 'MASK'
-        c.overwrite_current = False
-
-        #c = col.operator("node.y_bake_to_layer", text='Other Objects Emission')
-        #c.type = 'OTHER_OBJECT_EMISSION'
-        #c.target_type = 'MASK'
-        #c.overwrite_current = False
+        new_mask_button(col, 'node.y_bake_to_layer', 'Ambient Occlusion', lib_icon='bake', otype='AO', target_type='MASK', overwrite_current=False)
+        new_mask_button(col, 'node.y_bake_to_layer', 'Pointiness', otype='POINTINESS', target_type='MASK', overwrite_current=False)
+        new_mask_button(col, 'node.y_bake_to_layer', 'Cavity', otype='CAVITY', target_type='MASK', overwrite_current=False)
+        new_mask_button(col, 'node.y_bake_to_layer', 'Dust', otype='DUST', target_type='MASK', overwrite_current=False)
+        new_mask_button(col, 'node.y_bake_to_layer', 'Paint Base', otype='PAINT_BASE', target_type='MASK', overwrite_current=False)
+        new_mask_button(col, 'node.y_bake_to_layer', 'Bevel Grayscale', otype='BEVEL_MASK', target_type='MASK', overwrite_current=False)
+        new_mask_button(col, 'node.y_bake_to_layer', 'Selected Vertices', otype='SELECTED_VERTICES', target_type='MASK', overwrite_current=False)
 
 class YLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_mask_menu"

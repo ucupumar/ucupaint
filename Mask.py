@@ -209,6 +209,7 @@ class YNewLayerMask(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     name : StringProperty(default='')
+    layer_idx : IntProperty(default=0)
 
     type : EnumProperty(
             name = 'Mask Type',
@@ -480,9 +481,14 @@ class YNewLayerMask(bpy.types.Operator):
         obj = context.object
         mat = obj.active_material
         ypui = context.window_manager.ypui
-        layer = self.layer
-        yp = layer.id_data.yp
+        yp = self.layer.id_data.yp
         #ypup = get_user_preferences()
+
+        # Get layer from layer_idx prop to avoid error when changing property on operator bottom left window
+        try: layer = yp.layers[self.layer_idx]
+        except Exception as e:
+            self.report({'ERROR'}, e)
+            return {'CANCELLED'}
 
         # Check if object is not a mesh
         if self.type == 'VCOL' and obj.type != 'MESH':
@@ -777,6 +783,8 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     bl_label = "Open available data as Layer Mask"
     bl_description = "Open available data as Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
+    
+    layer_idx : IntProperty(default=0)
 
     type : EnumProperty(
             name = 'Layer Type',
@@ -938,11 +946,16 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     def execute(self, context):
         if not hasattr(self, 'layer'): return {'CANCELLED'}
 
-        layer = self.layer
-        yp = layer.id_data.yp
+        yp = self.layer.id_data.yp
         ypui = context.window_manager.ypui
         obj = context.object
         mat = obj.active_material
+
+        # Get layer from layer_idx prop to avoid error when changing property on operator bottom left window
+        try: layer = yp.layers[self.layer_idx]
+        except Exception as e:
+            self.report({'ERROR'}, e)
+            return {'CANCELLED'}
 
         if self.type == 'IMAGE' and self.image_name == '':
             self.report({'ERROR'}, "No image selected!")
