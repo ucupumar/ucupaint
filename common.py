@@ -2405,6 +2405,13 @@ def is_bottom_member(layer, enabled_only=False):
 #
 #    return parent_idx
 
+def get_active_layer(yp):
+
+    if yp.active_layer_index >= 0 and yp.active_layer_index < len(yp.layers):
+        return yp.layers[yp.active_layer_index]
+
+    return None
+
 def get_layer_index(layer):
     yp = layer.id_data.yp
 

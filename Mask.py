@@ -209,7 +209,6 @@ class YNewLayerMask(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     name : StringProperty(default='')
-    layer_idx : IntProperty(default=0)
 
     type : EnumProperty(
             name = 'Mask Type',
@@ -308,35 +307,20 @@ class YNewLayerMask(bpy.types.Operator):
 
     def invoke(self, context, event):
 
-        # HACK: For some reason, checking context.layer on poll will cause problem
-        # This method below is to get around that
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        obj = context.object
+        layer = get_active_layer(yp)
+
         self.auto_cancel = False
-        if not hasattr(context, 'layer'):
+        if not layer:
             self.auto_cancel = True
             return self.execute(context)
 
-        obj = context.object
-        self.layer = context.layer
-        layer = context.layer
         yp = layer.id_data.yp
         ypup = get_user_preferences()
 
-        #surname = '(' + layer.name + ')'
-        #if self.type == 'IMAGE':
-        #    #name = 'Image'
-        #    name = 'Mask'
-        #    items = bpy.data.images
-        #    self.name = get_unique_name(name, items, surname)
-        #elif self.type == 'VCOL' and obj.type == 'MESH':
-        #    name = 'Mask VCol'
-        #    items = get_vertex_color_names(obj)
-        #    self.name = get_unique_name(name, items, surname)
-        #else:
-        #    #name += ' ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
-        #    name = 'Mask ' + [i[1] for i in mask_type_items if i[0] == self.type][0]
-        #    items = layer.masks
-        #    self.name = get_unique_name(name, items, surname)
-        ##name = 'Mask ' + name #+ ' ' + surname
         self.name = get_new_mask_name(obj, layer, self.type)
 
         # Use user preference default image size if input uses default image size
@@ -382,7 +366,9 @@ class YNewLayerMask(bpy.types.Operator):
 
     def draw(self, context):
         obj = context.object
-        yp = self.layer.id_data.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = get_active_layer(yp)
 
         row = split_layout(self.layout, 0.4)
 
@@ -422,7 +408,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'OBJECT_INDEX':
             col.label(text='Object Index')
 
-        if len(self.layer.masks) > 0:
+        if len(layer.masks) > 0:
             col.label(text='Blend:')
 
         col = row.column(align=False)
@@ -472,7 +458,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'OBJECT_INDEX':
             col.prop(self, 'object_index', text='')
 
-        if len(self.layer.masks) > 0:
+        if len(layer.masks) > 0:
             col.prop(self, 'blend_type', text='')
 
     def execute(self, context):
@@ -481,14 +467,9 @@ class YNewLayerMask(bpy.types.Operator):
         obj = context.object
         mat = obj.active_material
         ypui = context.window_manager.ypui
-        yp = self.layer.id_data.yp
-        #ypup = get_user_preferences()
-
-        # Get layer from layer_idx prop to avoid error when changing property on operator bottom left window
-        try: layer = yp.layers[self.layer_idx]
-        except Exception as e:
-            self.report({'ERROR'}, e)
-            return {'CANCELLED'}
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = get_active_layer(yp)
 
         # Check if object is not a mesh
         if self.type == 'VCOL' and obj.type != 'MESH':
@@ -784,8 +765,6 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
     bl_description = "Open available data as Layer Mask"
     bl_options = {'REGISTER', 'UNDO'}
     
-    layer_idx : IntProperty(default=0)
-
     type : EnumProperty(
             name = 'Layer Type',
             items = (('IMAGE', 'Image', ''),
@@ -826,8 +805,14 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
     def invoke(self, context, event):
         obj = context.object
-        self.layer = context.layer
-        yp = self.layer.id_data.yp
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = get_active_layer(yp)
+
+        self.auto_cancel = False
+        if not layer:
+            self.auto_cancel = True
+            return self.execute(context)
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
@@ -849,12 +834,12 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if self.type == 'IMAGE':
 
             layer_image = None
-            if self.layer.type == 'IMAGE':
-                source = get_layer_source(self.layer)
+            if layer.type == 'IMAGE':
+                source = get_layer_source(layer)
                 layer_image = source.image
 
             mask_images = []
-            for mask in self.layer.masks:
+            for mask in layer.masks:
                 if mask.type == 'IMAGE':
                     source = get_mask_source(mask)
                     if source.image:
@@ -863,7 +848,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             # Update image names
             self.image_coll.clear()
             imgs = bpy.data.images
-            baked_channel_images = get_all_baked_channel_images(self.layer.id_data)
+            baked_channel_images = get_all_baked_channel_images(layer.id_data)
             for img in imgs:
                 if not img.yia.is_image_atlas and img not in baked_channel_images and img != layer_image and img not in mask_images and img.name not in {'Render Result', 'Viewer Node'}:
                     self.image_coll.add().name = img.name
@@ -876,12 +861,12 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         elif self.type == 'VCOL':
 
             layer_vcol_name = None
-            if self.layer.type == 'VCOL':
-                source = get_layer_source(self.layer)
+            if layer.type == 'VCOL':
+                source = get_layer_source(layer)
                 layer_vcol_name = source.attribute_name
 
             mask_vcol_names = []
-            for mask in self.layer.masks:
+            for mask in layer.masks:
                 if mask.type == 'VCOL':
                     source = get_mask_source(mask)
                     mask_vcol_names.append(source.attribute_name)
@@ -897,7 +882,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             else: self.vcol_name = self.vcol_name
 
         # The default blend type for mask is multiply
-        if len(self.layer.masks) == 0:
+        if len(layer.masks) == 0:
             self.blend_type = 'MULTIPLY'
 
         return context.window_manager.invoke_props_dialog(self)
@@ -907,6 +892,9 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
     def draw(self, context):
         obj = context.object
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = get_active_layer(yp)
 
         if self.type == 'IMAGE':
             self.layout.prop_search(self, "image_name", self, "image_coll", icon='IMAGE_DATA')
@@ -919,7 +907,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.label(text='Vector:')
 
-        if len(self.layer.masks) > 0:
+        if len(layer.masks) > 0:
             col.label(text='Blend:')
 
         if self.type == 'IMAGE':
@@ -936,7 +924,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                 #crow.prop_search(self, "uv_map", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                 crow.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
 
-        if len(self.layer.masks) > 0:
+        if len(layer.masks) > 0:
             col.prop(self, 'blend_type', text='')
 
         if is_greater_than_292() or self.type != 'VCOL':
@@ -944,18 +932,15 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             crow.prop(self, 'source_input', expand=True)
 
     def execute(self, context):
-        if not hasattr(self, 'layer'): return {'CANCELLED'}
+        if self.auto_cancel: return {'CANCELLED'}
 
-        yp = self.layer.id_data.yp
-        ypui = context.window_manager.ypui
         obj = context.object
         mat = obj.active_material
 
-        # Get layer from layer_idx prop to avoid error when changing property on operator bottom left window
-        try: layer = yp.layers[self.layer_idx]
-        except Exception as e:
-            self.report({'ERROR'}, e)
-            return {'CANCELLED'}
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+        layer = get_active_layer(yp)
+        ypui = context.window_manager.ypui
 
         if self.type == 'IMAGE' and self.image_name == '':
             self.report({'ERROR'}, "No image selected!")

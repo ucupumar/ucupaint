@@ -4020,13 +4020,12 @@ class YTransitionAOMenu(bpy.types.Menu):
             col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='REMOVE').type = 'AO'
         else: col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='ZOOMOUT').type = 'AO'
 
-def new_mask_button(layout, operator, text, lib_icon='', otype='', layer_idx=-1, target_type='', overwrite_current=None):
+def new_mask_button(layout, operator, text, lib_icon='', otype='', target_type='', overwrite_current=None):
     if lib_icon:
         op = layout.operator(operator, icon_value=lib.get_icon(lib_icon), text=text)
     else: op = layout.operator(operator, text=text)
 
     if otype != '': op.type = otype
-    if layer_idx != -1: op.layer_idx = layer_idx
     if target_type != '': op.target_type = target_type
     if overwrite_current != None: op.overwrite_current = overwrite_current
 
@@ -4051,41 +4050,40 @@ class YAddLayerMaskMenu(bpy.types.Menu):
             return
 
         col.context_pointer_set('layer', context.layer)
-        layer_idx = get_layer_index(context.layer)
 
         col.label(text='Image Mask:')
-        new_mask_button(col, 'node.y_new_layer_mask', 'New Image Mask', lib_icon='image', otype='IMAGE', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'New Image Mask', lib_icon='image', otype='IMAGE')
         new_mask_button(col, 'node.y_open_image_as_mask', 'Open Image as Mask', lib_icon='open_image')
-        new_mask_button(col, 'node.y_open_available_data_as_mask', 'Open Available Image as Mask', lib_icon='open_image', otype='IMAGE', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_open_available_data_as_mask', 'Open Available Image as Mask', lib_icon='open_image', otype='IMAGE')
         col.separator()
 
         col.label(text='Vertex Color Mask:')
-        new_mask_button(col, 'node.y_new_layer_mask', 'New Vertex Color Mask', lib_icon='vertex_color', otype='VCOL', layer_idx=layer_idx)
-        new_mask_button(col, 'node.y_open_available_data_as_mask', 'Open Available Vertex Color as Mask', lib_icon='vertex_color', otype='VCOL', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'New Vertex Color Mask', lib_icon='vertex_color', otype='VCOL')
+        new_mask_button(col, 'node.y_open_available_data_as_mask', 'Open Available Vertex Color as Mask', lib_icon='vertex_color', otype='VCOL')
 
-        new_mask_button(col, 'node.y_new_layer_mask', 'Color ID', lib_icon='color', otype='COLOR_ID', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'Color ID', lib_icon='color', otype='COLOR_ID')
 
         col = row.column(align=True)
         col.label(text='Generated Mask:')
 
-        new_mask_button(col, 'node.y_new_layer_mask', 'Brick', lib_icon='texture', otype='BRICK', layer_idx=layer_idx)
-        new_mask_button(col, 'node.y_new_layer_mask', 'Checker', otype='CHECKER', layer_idx=layer_idx)
-        new_mask_button(col, 'node.y_new_layer_mask', 'Gradient', otype='GRADIENT', layer_idx=layer_idx)
-        new_mask_button(col, 'node.y_new_layer_mask', 'Magic', otype='MAGIC', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'Brick', lib_icon='texture', otype='BRICK')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Checker', otype='CHECKER')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Gradient', otype='GRADIENT')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Magic', otype='MAGIC')
         if not is_greater_than_410(): 
-            new_mask_button(col, 'node.y_new_layer_mask', 'Musgrave', otype='MUSGRAVE', layer_idx=layer_idx)
-        new_mask_button(col, 'node.y_new_layer_mask', 'Noise', otype='NOISE', layer_idx=layer_idx)
-        new_mask_button(col, 'node.y_new_layer_mask', 'Voronoi', otype='VORONOI', layer_idx=layer_idx)
-        new_mask_button(col, 'node.y_new_layer_mask', 'Wave', otype='WAVE', layer_idx=layer_idx)
+            new_mask_button(col, 'node.y_new_layer_mask', 'Musgrave', otype='MUSGRAVE')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Noise', otype='NOISE')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Voronoi', otype='VORONOI')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Wave', otype='WAVE')
 
         col.separator()
-        new_mask_button(col, 'node.y_new_layer_mask', 'Fake Lighting', lib_icon='hemi', otype='HEMI', layer_idx=layer_idx)
+        new_mask_button(col, 'node.y_new_layer_mask', 'Fake Lighting', lib_icon='hemi', otype='HEMI')
 
         col.separator()
-        new_mask_button(col, 'node.y_new_layer_mask', 'Object Index', otype='OBJECT_INDEX', layer_idx=layer_idx, lib_icon='object_index')
-        new_mask_button(col, 'node.y_new_layer_mask', 'Backface', otype='BACKFACE', layer_idx=layer_idx) #, lib_icon='backface')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Object Index', otype='OBJECT_INDEX', lib_icon='object_index')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Backface', otype='BACKFACE') #, lib_icon='backface')
         if is_greater_than_293():
-            new_mask_button(col, 'node.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT', layer_idx=layer_idx) #, lib_icon='texture')
+            new_mask_button(col, 'node.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT') #, lib_icon='texture')
 
         col = row.column()
         col.label(text='Bake as Mask:')
