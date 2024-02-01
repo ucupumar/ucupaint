@@ -3101,7 +3101,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     subdiv_on_max_polys : IntProperty(
             name = 'Subdiv On Max Polygons',
             description = 'Max Polygons (in thousand) when displacement setup is on',
-            default=1000, min=0, max=5000, 
+            default=1000, min=1, max=5000, 
             update=Bake.update_subdiv_max_polys
             )
 

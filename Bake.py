@@ -2560,9 +2560,8 @@ def check_subdiv_setup(height_ch):
     # Get height image and max height
     baked_disp = tree.nodes.get(height_ch.baked_disp)
     end_max_height = tree.nodes.get(height_ch.end_max_height)
-    if not baked_disp or not baked_disp.image or not end_max_height: return
-    img = baked_disp.image
-    max_height = end_max_height.outputs[0].default_value
+    img = baked_disp.image if baked_disp and baked_disp.image else None
+    max_height = end_max_height.outputs[0].default_value if end_max_height else 0.0
 
     # Max height tweak node
     if yp.use_baked and height_ch.enable_subdiv_setup:
@@ -2737,9 +2736,11 @@ def check_subdiv_setup(height_ch):
             tex = [t for t in bpy.data.textures if hasattr(t, 'image') and t.image == img]
             if tex: 
                 tex = tex[0]
-            else:
+            elif img:
                 tex = bpy.data.textures.new(img.name, 'IMAGE')
                 tex.image = img
+            else:
+                tex = None
             
             displace.texture = tex
             displace.texture_coords = 'UV'
