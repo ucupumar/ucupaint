@@ -1122,11 +1122,36 @@ class YBakeChannels(bpy.types.Operator):
         mat = obj.active_material
 
         if is_greater_than_280() and (obj.hide_viewport or obj.hide_render):
-            self.report({'ERROR'}, "Please unhide render and viewport of active object!")
+            self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
             return {'CANCELLED'}
 
         if not is_greater_than_280() and obj.hide_render:
-            self.report({'ERROR'}, "Please unhide render of active object!")
+            self.report({'ERROR'}, "Please unhide render of the active object!")
+            return {'CANCELLED'}
+
+        # Get all objects using material
+        objs = [obj]
+        meshes = [obj.data]
+        if mat.users > 1:
+            # Emptying the lists again in case active object is problematic
+            objs = []
+            meshes = []
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if is_greater_than_280() and ob.hide_viewport: continue
+                if ob.hide_render: continue
+                #if not in_renderable_layer_collection(ob): continue
+                if len(get_uv_layers(ob)) == 0: continue
+                if len(ob.data.polygons) == 0: continue
+                for i, m in enumerate(ob.data.materials):
+                    if m == mat:
+                        ob.active_material_index = i
+                        if ob not in objs and ob.data not in meshes:
+                            objs.append(ob)
+                            meshes.append(ob.data)
+
+        if not objs:
+            self.report({'ERROR'}, "No valid objects to bake!")
             return {'CANCELLED'}
 
         book = remember_before_bake(yp)
@@ -1134,7 +1159,7 @@ class YBakeChannels(bpy.types.Operator):
         height_ch = get_root_height_channel(yp)
 
         tangent_sign_calculation = False
-        if BL28_HACK and height_ch and is_greater_than_280() and not is_greater_than_300():
+        if BL28_HACK and height_ch and is_greater_than_280() and not is_greater_than_300() and obj in objs:
 
             if len(yp.uvs) > MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
                 self.report({'WARNING'}, "Maximum vertex colors reached! Need at least " + str(len(yp.uvs)) + " vertex color(s) to bake proper normal!")
@@ -1158,27 +1183,6 @@ class YBakeChannels(bpy.types.Operator):
         # Disable use baked first
         if yp.use_baked:
             yp.use_baked = False
-
-        # Get all objects using material
-        objs = [obj]
-        meshes = [obj.data]
-        if mat.users > 1:
-            # Emptying the lists again in case active object is problematic
-            objs = []
-            meshes = []
-            for ob in get_scene_objects():
-                if ob.type != 'MESH': continue
-                if is_greater_than_280() and ob.hide_viewport: continue
-                if ob.hide_render: continue
-                if not in_renderable_layer_collection(ob): continue
-                if len(get_uv_layers(ob)) == 0: continue
-                if len(ob.data.polygons) == 0: continue
-                for i, m in enumerate(ob.data.materials):
-                    if m == mat:
-                        ob.active_material_index = i
-                        if ob not in objs and ob.data not in meshes:
-                            objs.append(ob)
-                            meshes.append(ob.data)
 
         # Multi materials setup
         ori_mat_ids = {}
