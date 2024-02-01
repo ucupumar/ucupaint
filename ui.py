@@ -681,6 +681,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
             #row.label(text='', icon='BLANK1')
 
 def draw_root_channels_ui(context, layout, node):
+    engine = bpy.context.scene.render.engine
     mat = get_active_material()
     group_tree = node.node_tree
     nodes = group_tree.nodes
@@ -941,8 +942,10 @@ def draw_root_channels_ui(context, layout, node):
                 else: icon_value = lib.custom_icons["collapsed_input"].icon_id
                 brow.prop(chui, 'expand_subdiv_settings', text='', emboss=False, icon_value=icon_value)
 
+                disp_possible = yp.use_baked or ypup.eevee_next_displacement
+
                 brow.label(text='Displacement Setup:')
-                brow.active = yp.use_baked
+                brow.active = disp_possible
                 brow.prop(channel, 'enable_subdiv_setup', text='')
 
                 if chui.expand_subdiv_settings:
@@ -951,7 +954,7 @@ def draw_root_channels_ui(context, layout, node):
                     brow.label(text='', icon='BLANK1')
                     bbox = brow.box()
                     bbcol = bbox.column() #align=True)
-                    bbcol.active = yp.use_baked
+                    bbcol.active = disp_possible and channel.enable_subdiv_setup
 
                     brow = bbcol.row(align=True)
                     brow.label(text='Adaptive (Cycles Only):')

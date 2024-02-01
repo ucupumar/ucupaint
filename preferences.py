@@ -53,6 +53,11 @@ class YPaintPreferences(AddonPreferences):
             description = 'Show unfinished experimental features',
             default = False)
 
+    eevee_next_displacement : BoolProperty(
+            name = 'Enable EEVEE-Next Displacement (Experimental)',
+            description = 'Enable EEVEE-Next realtime Displacement (Experimental and requires Blender 4.1 or above)',
+            default = False)
+
     use_image_preview : BoolProperty(
             name = 'Use Image Preview/Thumbnail',
             description = 'Use image preview or thumbnail on the layers list',
@@ -110,6 +115,8 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'make_preview_mode_srgb')
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'show_experimental')
+        if is_greater_than_410():
+            self.layout.prop(self, 'eevee_next_displacement')
         self.layout.prop(self, 'developer_mode')
         self.layout.prop(self, 'parallax_without_baked')
 
