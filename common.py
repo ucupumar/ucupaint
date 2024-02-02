@@ -4241,8 +4241,9 @@ def is_tangent_process_needed(yp, uv_name):
     if height_root_ch:
 
         if height_root_ch.main_uv == uv_name and (
-                (height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch)) or
-                (not height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch) and any_layers_using_normal_map(height_root_ch))
+                #(height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch)) or
+                #(not height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch) and any_layers_using_normal_map(height_root_ch))
+                any_layers_using_bump_map(height_root_ch)
                 ):
             return True
 
