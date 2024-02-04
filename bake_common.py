@@ -1503,11 +1503,12 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
                 # Bake setup (doing little bit doing hacky reconnection here)
                 end = tree.nodes.get(TREE_END)
-                ori_soc = end.inputs[root_ch.name].links[0].from_socket
                 end_linear = tree.nodes.get(root_ch.end_linear)
-                soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
-                create_link(tree, soc, end.inputs[root_ch.name])
-                #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
+                if end_linear:
+                    ori_soc = end.inputs[root_ch.name].links[0].from_socket
+                    soc = end_linear.inputs['Normal Overlay'].links[0].from_socket
+                    create_link(tree, soc, end.inputs[root_ch.name])
+                    #create_link(mat.node_tree, node.outputs[root_ch.name], emit.inputs[0])
 
                 # Bake
                 print('BAKE CHANNEL: Baking normal overlay image of ' + root_ch.name + ' channel...')
@@ -1516,7 +1517,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 #return
 
                 # Recover connection
-                create_link(tree, ori_soc, end.inputs[root_ch.name])
+                if end_linear:
+                    create_link(tree, ori_soc, end.inputs[root_ch.name])
 
                 # Set baked normal overlay image
                 if baked_normal_overlay.image:
