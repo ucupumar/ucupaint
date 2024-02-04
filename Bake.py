@@ -2440,16 +2440,17 @@ def connect_to_original_node(mtree, outp, ori_to):
 def update_use_baked(self, context):
     tree = self.id_data
     yp = tree.yp
+    ypup = get_user_preferences()
 
     if yp.halt_update: return
 
     # Check subdiv setup
     height_ch = get_root_height_channel(yp)
     if height_ch:
-        if height_ch.enable_subdiv_setup and yp.use_baked:
+        if height_ch.enable_subdiv_setup and yp.use_baked and not ypup.eevee_next_displacement:
             remember_subsurf_levels()
         check_subdiv_setup(height_ch)
-        if height_ch.enable_subdiv_setup and not yp.use_baked:
+        if height_ch.enable_subdiv_setup and not yp.use_baked and not ypup.eevee_next_displacement:
             recover_subsurf_levels()
 
     # Check uv nodes
@@ -2564,7 +2565,7 @@ def check_subdiv_setup(height_ch):
     max_height = end_max_height.outputs[0].default_value if end_max_height else 0.0
 
     # Max height tweak node
-    if yp.use_baked and height_ch.enable_subdiv_setup:
+    if height_ch.enable_subdiv_setup and (yp.use_baked or ypup.eevee_next_displacement):
         end_max_height = check_new_node(tree, height_ch, 'end_max_height_tweak', 'ShaderNodeMath', 'Max Height Tweak')
         end_max_height.operation = 'MULTIPLY'
         end_max_height.inputs[1].default_value = height_ch.subdiv_tweak
@@ -2710,7 +2711,7 @@ def check_subdiv_setup(height_ch):
 
         # Displace Modifier
         displace = get_displace_modifier(obj)
-        if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
+        if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive and not ypup.eevee_next_displacement:
 
             mod_len = len(obj.modifiers)
 
@@ -2779,6 +2780,7 @@ def update_subdiv_setup(self, context):
     obj = context.object
     tree = self.id_data
     yp = tree.yp
+    ypup = get_user_preferences()
 
     # Check uv nodes to enable/disable parallax
     check_uv_nodes(yp)
@@ -2787,7 +2789,7 @@ def update_subdiv_setup(self, context):
     check_subdiv_setup(self)
 
     # Recover original subsurf levels if subdiv adaptive is active
-    if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
+    if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive and not ypup.eevee_next_displacement:
         recover_subsurf_levels()
 
     # Reconnect nodes
@@ -2836,16 +2838,17 @@ def recover_subsurf_levels():
 def update_enable_subdiv_setup(self, context):
     tree = self.id_data
     yp = tree.yp
+    ypup = get_user_preferences()
     height_ch = self
     mat = get_active_material()
     objs = get_all_objects_with_same_materials(mat, True)
 
-    if height_ch.enable_subdiv_setup and yp.use_baked:
+    if height_ch.enable_subdiv_setup and (yp.use_baked or ypup.eevee_next_displacement):
         remember_subsurf_levels()
 
     update_subdiv_setup(self, context)
 
-    if not height_ch.enable_subdiv_setup and yp.use_baked:
+    if not height_ch.enable_subdiv_setup and (yp.use_baked or ypup.eevee_next_displacement):
         recover_subsurf_levels()
 
 def update_subdiv_tweak(self, context):

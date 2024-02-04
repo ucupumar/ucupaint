@@ -943,6 +943,7 @@ def clean_essential_nodes(tree, exclude_texcoord=False, exclude_geometry=False):
 def reconnect_yp_nodes(tree, merged_layer_ids = []):
     yp = tree.yp
     nodes = tree.nodes
+    ypup = get_user_preferences()
 
     #print('Reconnect tree ' + tree.name)
 
@@ -1311,12 +1312,12 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             if ch.type == 'NORMAL':
                 baked_normal_overlay = nodes.get(ch.baked_normal_overlay)
-                if ch.enable_subdiv_setup and not ch.subdiv_adaptive and baked_normal_overlay:
+                if ch.enable_subdiv_setup and not ch.subdiv_adaptive and baked_normal_overlay and not ypup.eevee_next_displacement:
                     rgb = baked_normal_overlay.outputs[0]
                     create_link(tree, baked_uv_map, baked_normal_overlay.inputs[0])
 
                 # Sometimes there's no baked normal overlay, so empty up the rgb so it will use original normal
-                if not baked_normal_overlay and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
+                if not baked_normal_overlay and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive and not ypup.eevee_next_displacement:
                     rgb = None
 
                 baked_normal_prep = nodes.get(ch.baked_normal_prep)
