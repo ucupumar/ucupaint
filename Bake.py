@@ -6,6 +6,7 @@ from .bake_common import *
 from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
+from .input_outputs import *
 from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier
 
 def transfer_uv(objs, mat, entity, uv_map):
@@ -2791,6 +2792,9 @@ def update_subdiv_setup(self, context):
     # Recover original subsurf levels if subdiv adaptive is active
     if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive and not ypup.eevee_next_displacement:
         recover_subsurf_levels()
+
+    # Check start and end nodes
+    check_start_end_root_ch_nodes(tree)
 
     # Reconnect nodes
     reconnect_yp_nodes(tree)

@@ -1244,6 +1244,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
     tree = node.node_tree
     yp = tree.yp
+    ypup = get_user_preferences()
 
     # Check if udim image is needed based on number of tiles
     objs = get_all_objects_with_same_materials(mat)
@@ -1289,12 +1290,19 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
     emit = mat.node_tree.nodes.new('ShaderNodeEmission')
 
+    ori_subdiv_setup = False
+
     if root_ch.type == 'NORMAL':
 
         norm = mat.node_tree.nodes.new('ShaderNodeGroup')
         if is_greater_than_280 and not is_greater_than_300():
             norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV)
         else: norm.node_tree = get_node_tree_lib(lib.BAKE_NORMAL_ACTIVE_UV_300)
+
+        # Disable subdiv setup first if eevee next displacement is used
+        if root_ch.enable_subdiv_setup and ypup.eevee_next_displacement:
+            ori_subdiv_setup = True
+            root_ch.enable_subdiv_setup = False
 
     # Set tex as active node
     mat.node_tree.nodes.active = tex
@@ -1669,6 +1677,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     #for ent in temp_baked:
     #    print('BAKE CHANNEL: Removing temporary baked ' + ent.name + '...')
     #    disable_temp_bake(ent)
+
+    if ori_subdiv_setup:
+        root_ch.enable_subdiv_setup = True
 
     # Set image to target layer
     if target_layer:

@@ -116,6 +116,7 @@ def create_output(tree, name, socket_type, valid_outputs, index, dirty=False, de
 def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
     yp = group_tree.yp
+    ypup = get_user_preferences()
 
     for channel in yp.channels:
         if specific_channel and channel != specific_channel: continue
@@ -179,8 +180,13 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 # NOTE: Since normal input socket can be connected to outside nodes, normal overlay should always be available
                 if True or any_layers_using_normal_map(channel):
                     if channel.enable_smooth_bump:
-                        lib_name = lib.FINE_BUMP_PROCESS
-                    else: lib_name = lib.BUMP_PROCESS
+                        if channel.enable_subdiv_setup and ypup.eevee_next_displacement:
+                            lib_name = lib.FINE_BUMP_PROCESS_SUBDIV_ON
+                        else: lib_name = lib.FINE_BUMP_PROCESS
+                    else: 
+                        if channel.enable_subdiv_setup and ypup.eevee_next_displacement:
+                            lib_name = lib.BUMP_PROCESS_SUBDIV_ON
+                        else: lib_name = lib.BUMP_PROCESS
                 else:
                     # Unused for now
                     if channel.enable_smooth_bump:
