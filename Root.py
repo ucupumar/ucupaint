@@ -3370,6 +3370,7 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     clipboard_layer : StringProperty(default='')
 
     last_object : StringProperty(default='')
+    last_material : StringProperty(default='')
     last_mode : StringProperty(default='')
 
     edit_image_editor_area_index : IntProperty(default=-1)
@@ -3437,10 +3438,12 @@ def ypaint_last_object_update(scene):
     except: return
     if not obj: return
 
+    mat = obj.active_material
     ypwm = bpy.context.window_manager.ypprops
 
-    if ypwm.last_object != obj.name:
+    if ypwm.last_object != obj.name or (mat and mat.name != ypwm.last_material):
         ypwm.last_object = obj.name
+        ypwm.last_material = mat.name
         node = get_active_ypaint_node()
 
         # Refresh layer index to update editor image
