@@ -3443,7 +3443,7 @@ def ypaint_last_object_update(scene):
 
     if ypwm.last_object != obj.name or (mat and mat.name != ypwm.last_material):
         ypwm.last_object = obj.name
-        ypwm.last_material = mat.name
+        if mat: ypwm.last_material = mat.name
         node = get_active_ypaint_node()
 
         # Refresh layer index to update editor image
