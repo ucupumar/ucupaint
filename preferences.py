@@ -11,15 +11,6 @@ class YPaintPreferences(AddonPreferences):
     # when defining this in a submodule of a python package.
     bl_idname = __package__
 
-    auto_save : EnumProperty(
-            name = 'Auto Save/Pack Images',
-            description = 'Auto save/pack images when saving blend',
-            items = (('FORCE_ALL', 'Force All Images', ''),
-                     ('ONLY_DIRTY', 'Only Dirty Images', ''),
-                     ('OFF', 'Off', ''),
-                     ),
-            default = 'ONLY_DIRTY')
-
     default_new_image_size : IntProperty(
             name = 'Default New Image Size',
             description = 'Default new image size',
@@ -107,7 +98,6 @@ class YPaintPreferences(AddonPreferences):
         max=59)
 
     def draw(self, context):
-        self.layout.prop(self, 'auto_save')
         self.layout.prop(self, 'default_new_image_size')
         self.layout.prop(self, 'image_atlas_size')
         self.layout.prop(self, 'hdr_image_atlas_size')
@@ -147,10 +137,7 @@ def auto_save_images(scene):
     for tree in bpy.data.node_groups:
         if not hasattr(tree, 'yp'): continue
         if tree.yp.is_ypaint_node:
-            if ypup.auto_save == 'ONLY_DIRTY':
-                image_ops.save_pack_all(tree.yp, only_dirty=True)
-            elif ypup.auto_save == 'FORCE_ALL':
-                image_ops.save_pack_all(tree.yp, only_dirty=False)
+            image_ops.save_pack_all(tree.yp)
 
         # Update version
         tree.yp.version = get_current_version_str()
