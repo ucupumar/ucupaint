@@ -117,17 +117,37 @@ class YToggleEraser(bpy.types.Operator):
         if mode == 'TEXTURE_PAINT':
             brush = context.tool_settings.image_paint.brush
             draw_brush = bpy.data.brushes.get('TexDraw')
+            eraser_name = 'Eraser Tex'
         elif mode == 'VERTEX_PAINT' and is_greater_than_280(): 
             brush = context.tool_settings.vertex_paint.brush
             draw_brush = bpy.data.brushes.get('Draw')
+            eraser_name = 'Eraser Vcol'
         elif mode == 'SCULPT' and is_greater_than_320(): 
             brush = context.tool_settings.sculpt.brush
             draw_brush = bpy.data.brushes.get('Paint')
+            if not draw_brush:
+                draw_brushes = [d for d in bpy.data.brushes if d.use_paint_sculpt and d.sculpt_tool == 'PAINT']
+                if draw_brushes: draw_brush = draw_brushes[0]
+                else:
+                    self.report({'ERROR'}, "Cannot find a paint brush!")
+                    return {'CANCELLED'}
+            eraser_name = 'Eraser Paint'
         else:
             self.report({'ERROR'}, "There's no need to use this operator on this blender version!")
             return {'CANCELLED'}
 
-        if brush.blend == 'ERASE_ALPHA':
+        # Get eraser brush
+        eraser_brush = bpy.data.brushes.get(eraser_name)
+
+        if not eraser_brush:
+            if mode == 'SCULPT':
+                eraser_brush = draw_brush.copy()
+                eraser_brush.name = eraser_name
+            else:
+                eraser_brush = bpy.data.brushes.new(eraser_name, mode=mode)
+            eraser_brush.blend = 'ERASE_ALPHA'
+
+        if brush == eraser_brush:
 
             if mode == 'VERTEX_PAINT':
                 new_brush = bpy.data.brushes.get(ve.ori_brush)
@@ -158,6 +178,7 @@ class YToggleEraser(bpy.types.Operator):
                 ve.ori_sculpt_blending_mode = ''
 
         else:
+
             if mode == 'VERTEX_PAINT':
                 ve.ori_brush = brush.name
                 ve.ori_blending_mode = brush.blend
@@ -168,8 +189,7 @@ class YToggleEraser(bpy.types.Operator):
                 ve.ori_sculpt_brush = brush.name
                 ve.ori_sculpt_blending_mode = brush.blend
 
-            new_brush = draw_brush
-            if new_brush: new_brush.blend = 'ERASE_ALPHA'
+            new_brush = eraser_brush
 
         if new_brush:
             if mode == 'TEXTURE_PAINT':
