@@ -943,6 +943,7 @@ def clean_essential_nodes(tree, exclude_texcoord=False, exclude_geometry=False):
 def reconnect_yp_nodes(tree, merged_layer_ids = []):
     yp = tree.yp
     nodes = tree.nodes
+    ypup = get_user_preferences()
 
     #print('Reconnect tree ' + tree.name)
 
@@ -1270,7 +1271,7 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha)
 
-        if end_linear:
+        if end_linear and (end_linear.type != 'GROUP' or end_linear.node_tree):
             if ch.type == 'NORMAL':
 
                 if 'Normal Overlay' in end_linear.inputs:
@@ -1311,12 +1312,12 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
 
             if ch.type == 'NORMAL':
                 baked_normal_overlay = nodes.get(ch.baked_normal_overlay)
-                if ch.enable_subdiv_setup and not ch.subdiv_adaptive and baked_normal_overlay:
+                if ch.enable_subdiv_setup and not ch.subdiv_adaptive and baked_normal_overlay and not ypup.eevee_next_displacement:
                     rgb = baked_normal_overlay.outputs[0]
                     create_link(tree, baked_uv_map, baked_normal_overlay.inputs[0])
 
                 # Sometimes there's no baked normal overlay, so empty up the rgb so it will use original normal
-                if not baked_normal_overlay and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
+                if not baked_normal_overlay and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive and not ypup.eevee_next_displacement:
                     rgb = None
 
                 baked_normal_prep = nodes.get(ch.baked_normal_prep)
@@ -1537,7 +1538,7 @@ def reconnect_source_internal_nodes(layer):
     # Clean unused essential nodes
     clean_essential_nodes(tree, exclude_texcoord=True, exclude_geometry=True)
 
-def reconnect_mask_internal_nodes(mask):
+def reconnect_mask_internal_nodes(mask, mask_source_index=0):
 
     tree = get_mask_tree(mask)
 
@@ -1547,14 +1548,14 @@ def reconnect_mask_internal_nodes(mask):
     start = tree.nodes.get(TREE_START)
     end = tree.nodes.get(TREE_END)
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
         #if mapping:
         #    create_link(tree, start.outputs[0], mapping.inputs[0])
         #    create_link(tree, mapping.outputs[0], source.inputs[0])
         #else:
         create_link(tree, start.outputs[0], source.inputs[0])
 
-    val = source.outputs[0]
+    val = source.outputs[mask_source_index]
 
     if linear:
         val = create_link(tree, val, linear.inputs[0])[0]
@@ -1786,7 +1787,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     for i, mask in enumerate(layer.masks):
         # Get source output index
         mask_source_index = 0
-        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX'}:
+        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT'}:
             # Noise and voronoi output has flipped order since Blender 2.81
             if is_greater_than_281() and mask.type in {'NOISE', 'VORONOI'}:
                 if mask.source_input == 'RGB':
@@ -1803,9 +1804,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Mask source
         if mask.group_node != '':
             mask_source = nodes.get(mask.group_node)
-            reconnect_mask_internal_nodes(mask)
+            reconnect_mask_internal_nodes(mask, mask_source_index)
 
-            mask_val = mask_source.outputs[mask_source_index]
+            #mask_val = mask_source.outputs[mask_source_index]
+            mask_val = mask_source.outputs[0]
         else:
             mask_source = nodes.get(mask.source)
             mask_linear = nodes.get(mask.linear)
@@ -1840,39 +1842,32 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         mask_source_w = nodes.get(mask.source_w)
 
         # Mask texcoord
-        #mask_uv_map = nodes.get(mask.uv_map)
-        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+        mask_vector = None
+        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
             if mask.texcoord_type == 'UV':
-                #mask_vector = mask_uv_map.outputs[0]
-                #mask_vector = mask_uv_map.outputs[0]
                 mask_vector = texcoord.outputs.get(mask.uv_name + io_suffix['UV'])
             else: 
                 mask_vector = texcoord.outputs.get(io_names[mask.texcoord_type])
 
-            if mask_blur_vector:
-                if mask_vector: mask_vector = create_link(tree, mask_vector, mask_blur_vector.inputs[1])[0]
+            if mask_vector:
 
-            if mask_mapping:
-                if mask_vector: mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
-                #create_link(tree, mask_mapping.outputs[0], mask_source.inputs[0])
-            #else:
-            if mask_vector: create_link(tree, mask_vector, mask_source.inputs[0])
+                if mask_blur_vector:
+                    mask_vector = create_link(tree, mask_vector, mask_blur_vector.inputs[1])[0]
+
+                if mask_mapping:
+                    mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
+
+                create_link(tree, mask_vector, mask_source.inputs[0])
 
         # Mask uv neighbor
         mask_uv_neighbor = nodes.get(mask.uv_neighbor)
         if mask_uv_neighbor:
 
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
-                #create_link(tree, mask_source.outputs[0], mask_uv_neighbor.inputs[0])
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
                 create_link(tree, mask_val, mask_uv_neighbor.inputs[0])
             else:
-                if mask.texcoord_type == 'UV':
-                    #create_link(tree, mask_uv_map.outputs[0], mask_uv_neighbor.inputs[0])
-                    if mask_vector: create_link(tree, mask_vector, mask_uv_neighbor.inputs[0])
-                else: 
-                    #create_link(tree, texcoord.outputs[mask.texcoord_type], mask_uv_neighbor.inputs[0])
-                    create_link(tree, texcoord.outputs[io_names[mask.texcoord_type]],
-                            mask_uv_neighbor.inputs[0])
+                if mask_vector:
+                    create_link(tree, mask_vector, mask_uv_neighbor.inputs[0])
 
                 if mask_source_n: create_link(tree, mask_uv_neighbor.outputs['n'], mask_source_n.inputs[0])
                 if mask_source_s: create_link(tree, mask_uv_neighbor.outputs['s'], mask_source_s.inputs[0])
@@ -1933,7 +1928,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if mask_mix:
                 create_link(tree, mask_val, mask_mix.inputs[mmixcol1])
                 if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
-                    if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+                    if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
                         if mask_uv_neighbor:
                             create_link(tree, mask_uv_neighbor.outputs['n'], mask_mix.inputs['Color2 n'])
                             create_link(tree, mask_uv_neighbor.outputs['s'], mask_mix.inputs['Color2 s'])
@@ -2053,9 +2048,6 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     group_height_alpha = source.outputs.get(root_ch.name + io_suffix['HEIGHT'] + io_suffix['ALPHA'] + io_suffix['GROUP'])
                     if group_height_alpha: alpha = group_height_alpha
 
-                group_normal_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
-                if group_normal_alpha: normal_alpha = group_normal_alpha
-
             else:
                 group_channel_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
                 if group_channel_alpha: alpha = group_channel_alpha
@@ -2169,15 +2161,15 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         extra_alpha = nodes.get(ch.extra_alpha)
         blend = nodes.get(ch.blend)
 
-        if ch.source_group == '' and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
+        # Check if normal is overriden
+        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
+            rgb = normal
+
+        if ch.source_group == '': # and (root_ch.type != 'NORMAL' or ch.normal_map_type != 'NORMAL_MAP'):
             ch_linear = nodes.get(ch.linear)
             if ch_linear:
                 create_link(tree, rgb, ch_linear.inputs[0])
                 rgb = ch_linear.outputs[0]
-
-        # Check if normal is overriden
-        if root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
-            rgb = normal
 
         mod_group = nodes.get(ch.mod_group)
 
@@ -2185,18 +2177,20 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         alpha_before_mod = alpha
 
         # Background layer won't use modifier outputs
-        #if layer.type == 'BACKGROUND' or (layer.type == 'COLOR' and root_ch.type == 'NORMAL'):
-        #if layer.type == 'BACKGROUND':
-        if layer.type == 'BACKGROUND' or (layer.type == 'GROUP' and root_ch.type == 'NORMAL'):
-            #reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
+        if layer.type == 'BACKGROUND':
             pass
+        elif layer.type == 'GROUP' and root_ch.type == 'NORMAL':
+            if root_ch.name + io_suffix['GROUP'] in source.outputs:
+                normal = source.outputs.get(root_ch.name + io_suffix['GROUP'])
+            if root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'] in source.outputs:
+                normal_alpha = source.outputs.get(root_ch.name + io_suffix['ALPHA'] + io_suffix['GROUP'])
         elif root_ch.type == 'NORMAL' and ch.normal_map_type == 'NORMAL_MAP':
             rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, use_modifier_1=True)
         else:
             rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha, mod_group)
 
             if root_ch.type == 'NORMAL' and ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                normal, alpha_normal = reconnect_all_modifier_nodes(tree, ch, normal, alpha_before_mod, use_modifier_1=True)
+                normal, normal_alpha = reconnect_all_modifier_nodes(tree, ch, normal, alpha_before_mod, use_modifier_1=True)
 
         rgb_after_mod = rgb
         alpha_after_mod = alpha
@@ -2229,16 +2223,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         # Bookmark alpha before intensity because it can be useful
         alpha_before_intensity = alpha
 
-        # Pass alpha to intensity
-        if intensity:
-            alpha = create_link(tree, alpha, intensity.inputs[0])[0]
+        height_proc = nodes.get(ch.height_proc)
+        normal_proc = nodes.get(ch.normal_proc)
 
         if root_ch.type == 'NORMAL':
 
             write_height = get_write_height(ch)
-
-            height_proc = nodes.get(ch.height_proc)
-            normal_proc = nodes.get(ch.normal_proc)
 
             height_blend = nodes.get(ch.height_blend)
             hbcol0, hbcol1, hbout = get_mix_color_indices(height_blend)
@@ -2389,11 +2379,13 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             #if layer.type not in {'BACKGROUND', 'GROUP'}: #, 'COLOR'}:
 
             if normal_proc:
-                if ch.normal_map_type == 'NORMAL_MAP':
-                    create_link(tree, rgb, normal_proc.inputs['Normal Map'])
-                elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
-                    create_link(tree, normal, normal_proc.inputs['Normal Map'])
-                    #else: create_link(tree, rgb, normal_proc.inputs['Normal Map'])
+                if 'Normal Map' in normal_proc.inputs:
+                    if ch.normal_map_type == 'NORMAL_MAP':
+                            create_link(tree, rgb, normal_proc.inputs['Normal Map'])
+                    elif ch.normal_map_type == 'BUMP_NORMAL_MAP':
+                        create_link(tree, normal, normal_proc.inputs['Normal Map'])
+                elif 'Color' in normal_proc.inputs:
+                    create_link(tree, rgb, normal_proc.inputs['Color'])
 
             if write_height:
                 chain_local = len(layer.masks)
@@ -2541,8 +2533,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
             if layer.type == 'GROUP':
 
-                normal_group = source.outputs.get(root_ch.name + io_suffix['GROUP'])
-                if normal_proc: create_link(tree, normal_group, normal_proc.inputs['Normal'])
+                if normal_proc: create_link(tree, normal, normal_proc.inputs['Normal'])
 
                 if root_ch.enable_smooth_bump and height_group_unpack:
                     height_group = height_group_unpack.outputs[0]
@@ -2775,7 +2766,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if normal_proc:
                 if 'Alpha' in normal_proc.inputs:
                     create_link(tree, alpha, normal_proc.inputs['Alpha'])
-                if 'Normal Alpha' in normal_proc.inputs:
+                if 'Normal Alpha' in normal_proc.inputs and normal_alpha:
                     create_link(tree, normal_alpha, normal_proc.inputs['Normal Alpha'])
 
             if layer.type == 'GROUP':
@@ -2791,7 +2782,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 create_link(tree, bitangent, normal_proc.inputs['Bitangent'])
 
             if normal_proc:
-                if ch.normal_map_type == 'BUMP_NORMAL_MAP' or (ch.enable_transition_bump and not ch.write_height):
+                if ch.normal_map_type == 'BUMP_NORMAL_MAP' or (ch.enable_transition_bump and not ch.write_height) or (layer.type == 'GROUP' and not write_height):
                     rgb = normal_proc.outputs['Normal']
                 elif 'Normal No Bump' in normal_proc.outputs:
                     rgb = normal_proc.outputs['Normal No Bump']
@@ -2840,6 +2831,12 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                             if height_alpha: create_link(tree, height_alpha, next_height_alpha)
                         else:
                             if prev_height_alpha: create_link(tree, prev_height_alpha, next_height_alpha)
+
+        # Pass alpha to intensity
+        if intensity:
+            if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc and normal_alpha:
+                normal_alpha = create_link(tree, normal_alpha, intensity.inputs[0])[0]
+            else: alpha = create_link(tree, alpha, intensity.inputs[0])[0]
 
         # Transition AO
         tao = nodes.get(ch.tao)
@@ -2978,7 +2975,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             bcol0, bcol1, bout = get_mix_color_indices(blend)
 
             # Pass rgb to blend
-            create_link(tree, rgb, blend.inputs[bcol1])
+            if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc:
+                create_link(tree, normal, blend.inputs[bcol1])
+            else:
+                create_link(tree, rgb, blend.inputs[bcol1])
 
             if (
                     #(blend_type == 'MIX' and (has_parent or (root_ch.type == 'RGB' and root_ch.enable_alpha)))
@@ -2995,7 +2995,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, bg_alpha, blend.inputs[4])
 
             else:
-                create_link(tree, alpha, blend.inputs[0])
+                if layer.type == 'GROUP' and root_ch.type == 'NORMAL' and not normal_proc and normal_alpha:
+                    create_link(tree, normal_alpha, blend.inputs[0])
+                else: create_link(tree, alpha, blend.inputs[0])
                 if prev_rgb: create_link(tree, prev_rgb, blend.inputs[bcol0])
 
             # Armory can't recognize mute node, so reconnect input to output directly

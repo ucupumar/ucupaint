@@ -353,7 +353,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 
         #print('ntob')
 
-        if mask.type in {'VCOL', 'HEMI'}:
+        if mask.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
             lib_name = lib.NEIGHBOR_FAKE
         else: lib_name = lib.get_neighbor_uv_tree_name(mask.texcoord_type, entity=mask)
 
@@ -369,7 +369,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 def enable_mask_source_tree(layer, mask, reconnect = False):
 
     # Check if source tree is already available
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} and mask.group_node != '': return
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'} and mask.group_node != '': return
 
     layer_tree = get_tree(layer)
 
@@ -378,7 +378,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
     #return
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
         linear_ref = layer_tree.nodes.get(mask.linear)
@@ -433,11 +433,11 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 def disable_mask_source_tree(layer, mask, reconnect=False):
 
     # Check if source tree is already gone
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} and mask.group_node == '': return
+    #if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} and mask.group_node == '': return
 
     layer_tree = get_tree(layer)
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+    if mask.group_node != '' and mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
 
         mask_tree = get_mask_tree(mask)
 
@@ -608,7 +608,7 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
                 else:
                     if remove_node(tree, c, 'mix_remains'): need_reconnect = True
 
-                if layer.type == 'GROUP' and is_normal_process_needed(layer):
+                if layer.type == 'GROUP' and is_layer_using_normal_map(layer):
                     mix_normal = tree.nodes.get(c.mix_normal)
                     if not mix_normal:
                         need_reconnect = True
@@ -678,7 +678,7 @@ def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
     for i, mask in enumerate(layer.masks):
         if specific_mask and specific_mask != mask: continue
 
-        if get_mask_enabled(mask) and height_process_needed and (write_height_ch or i < chain):
+        if smooth_bump_ch and get_mask_enabled(mask) and height_process_needed and (write_height_ch or i < chain):
             enable_mask_source_tree(layer, mask)
         else: disable_mask_source_tree(layer, mask)
 
@@ -1861,6 +1861,8 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
     # Normal Process
     if channel_enabled and is_normal_process_needed(layer):
 
+        lib_name = ''
+
         if layer.type == 'GROUP':
             if root_ch.enable_smooth_bump:
                 lib_name = lib.NORMAL_PROCESS_SMOOTH_GROUP
@@ -1872,7 +1874,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                 if root_ch.enable_smooth_bump:
                     lib_name = lib.NORMAL_MAP_PROCESS_SMOOTH_TRANSITION
                 else: lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION
-            else:
+            elif is_parallax_enabled(root_ch):
                 lib_name = lib.NORMAL_MAP
 
         elif ch.normal_map_type == 'BUMP_MAP':
@@ -1893,12 +1895,19 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
                         lib_name = lib.NORMAL_MAP_PROCESS_TRANSITION
                     else:
                         lib_name = lib.NORMAL_MAP_PROCESS
-            else:
+            elif is_parallax_enabled(root_ch):
                 lib_name = lib.NORMAL_MAP
 
-        normal_proc, need_reconnect = replace_new_node(
-                tree, ch, 'normal_proc', 'ShaderNodeGroup', 'Normal Process', 
-                lib_name, return_status = True, hard_replace=True, dirty=need_reconnect)
+        if lib_name == '':
+            normal_proc, need_reconnect = replace_new_node(
+                    tree, ch, 'normal_proc', 'ShaderNodeNormalMap', 'Normal Process', 
+                    return_status = True, hard_replace=True, dirty=need_reconnect)
+
+            normal_proc.uv_map = layer.uv_name
+        else:
+            normal_proc, need_reconnect = replace_new_node(
+                    tree, ch, 'normal_proc', 'ShaderNodeGroup', 'Normal Process', 
+                    lib_name, return_status = True, hard_replace=True, dirty=need_reconnect)
 
         if 'Max Height' in normal_proc.inputs:
             normal_proc.inputs['Max Height'].default_value = max_height
@@ -1911,7 +1920,7 @@ def check_channel_normal_map_nodes(tree, layer, root_ch, ch, need_reconnect=Fals
             normal_proc.inputs['Intensity'].default_value = ch.intensity_value
 
         if 'Strength' in normal_proc.inputs:
-            normal_proc.inputs['Strength'].default_value = ch.normal_strength * ch.intensity_value
+            normal_proc.inputs['Strength'].default_value = ch.normal_strength
 
         # NOTE: Normal flip node is kinda unecessary since non smooth bump don't support backface up for now
         # Normal flip
@@ -2189,7 +2198,7 @@ def check_blend_type_nodes(root_ch, layer, ch):
 
     elif root_ch.type == 'NORMAL':
 
-        if channel_enabled and (is_normal_process_needed(layer) or root_ch.enable_alpha):
+        if channel_enabled and (is_layer_using_normal_map(layer) or root_ch.enable_alpha):
 
             #if has_parent and ch.normal_blend_type == 'MIX':
             if (has_parent or root_ch.enable_alpha) and ch.normal_blend_type in {'MIX', 'COMPARE'}:
@@ -2220,8 +2229,20 @@ def check_blend_type_nodes(root_ch, layer, ch):
         else:
             if remove_node(tree, ch, 'blend'): need_reconnect = True
 
-        # Remove intensity nodes
-        if remove_node(tree, ch, 'intensity'): need_reconnect = True
+        if channel_enabled and ((layer.type == 'GROUP' and is_layer_using_normal_map(layer) and not is_normal_process_needed(layer)) or
+                (layer.type != 'GROUP' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and not ch.enable_transition_bump)
+                ):
+            # Intensity nodes
+            intensity = tree.nodes.get(ch.intensity)
+            if not intensity:
+                intensity = new_node(tree, ch, 'intensity', 'ShaderNodeMath', 'Intensity')
+                intensity.operation = 'MULTIPLY'
+
+            # Channel intensity
+            intensity.inputs[1].default_value = ch.intensity_value
+
+        else:
+            if remove_node(tree, ch, 'intensity'): need_reconnect = True
 
     # Update preview mode node
     if yp.layer_preview_mode:
@@ -2273,6 +2294,7 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
     source_tree = get_channel_source_tree(ch, layer)
 
     image = None
+    source = None
     if ch.override and ch.override_type == 'IMAGE':
         source = source_tree.nodes.get(ch.source)
         if source: image = source.image
@@ -2283,31 +2305,54 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
     channel_enabled = get_channel_enabled(ch, layer, root_ch)
 
     if channel_enabled and ((
-            ch.override and (
+            not yp.use_linear_blending 
+            and ch.override 
+            and (
                 (image and is_image_source_srgb(image, source, root_ch)) or 
                 (
                     ch.override_type not in {'IMAGE'}
                     and root_ch.type != 'NORMAL' 
                     and root_ch.colorspace == 'SRGB' 
-                )
-            )
+                ))
         ) or (
-            not ch.override 
+            not yp.use_linear_blending
+            and not ch.override 
             and root_ch.type != 'NORMAL' 
             and root_ch.colorspace == 'SRGB' 
             and (
                 (not ch.gamma_space and ch.layer_input == 'RGB' and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'})
                 or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name != 'sRGB') # Float images need to converted to linear for some reason in Blender
                 )
+        ) or (
+            yp.use_linear_blending
+            and not ch.override_1
+            and root_ch.type == 'NORMAL'
+            and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}
+            and source and is_image_source_srgb(image, source)
         )):
         if root_ch.type == 'VALUE':
             linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
-            linear.inputs[1].default_value = 1.0
             linear.operation = 'POWER'
-        else:
-            linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
+        else: linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
 
         linear.inputs[1].default_value = 1.0 / GAMMA
+
+    elif channel_enabled and (
+            yp.use_linear_blending
+            and root_ch.type != 'NORMAL' 
+            and root_ch.colorspace == 'SRGB' 
+            and (
+                (ch.gamma_space and ch.layer_input == 'RGB' and layer.type not in {'IMAGE', 'BACKGROUND', 'GROUP'})
+                #or (layer.type == 'IMAGE' and image.is_float and image.colorspace_settings.name == 'sRGB') 
+                )
+        ):
+        if root_ch.type == 'VALUE':
+            linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeMath', 'Linear')
+            linear.operation = 'POWER'
+        else: linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeGamma', 'Linear')
+
+        linear.inputs[1].default_value = GAMMA
+
     else:
         remove_node(source_tree, ch, 'linear')
 
@@ -2331,6 +2376,8 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
 
 def check_layer_image_linear_node(layer, source_tree=None):
 
+    yp = layer.id_data.yp
+
     if not source_tree: source_tree = get_source_tree(layer)
 
     if get_layer_enabled(layer) and layer.type == 'IMAGE':
@@ -2340,11 +2387,19 @@ def check_layer_image_linear_node(layer, source_tree=None):
         if not image: return
 
         # Create linear if image type is srgb or float image
-        if is_image_source_srgb(image, source):
+        if is_image_source_srgb(image, source) and (not yp.use_linear_blending or (yp.use_linear_blending and image.is_float)):
             linear = source_tree.nodes.get(layer.linear)
             if not linear:
                 linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
                 linear.inputs[1].default_value = 1.0 / GAMMA
+
+            return
+
+        elif yp.use_linear_blending and not image.is_float and not is_image_source_srgb(image, source):
+            linear = source_tree.nodes.get(layer.linear)
+            if not linear:
+                linear = new_node(source_tree, layer, 'linear', 'ShaderNodeGamma', 'Linear')
+                linear.inputs[1].default_value = GAMMA
 
             return
 
@@ -2390,6 +2445,7 @@ def check_yp_linear_nodes(yp, specific_layer=None, reconnect=True):
                 check_mask_image_linear_node(mask)
                 image_found = True
 
-        if image_found and reconnect:
+        #if image_found and reconnect:
+        if reconnect:
             reconnect_layer_nodes(layer)
             rearrange_layer_nodes(layer)

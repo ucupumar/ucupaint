@@ -164,7 +164,7 @@ def clean_object_references(image):
     for r in removed_references:
         print('Reference for', r, "is removed because it's no longer found!")
 
-def save_pack_all(yp, only_dirty = True):
+def save_pack_all(yp):
 
     tree = yp.id_data
 
@@ -227,8 +227,7 @@ def save_pack_all(yp, only_dirty = True):
     # Save/pack images
     for image in images:
         clean_object_references(image)
-        if not image: continue
-        if only_dirty and not image.is_dirty: continue
+        if not image or not image.is_dirty: continue
         T = time.time()
         if image.packed_file or image.filepath == '':
             if is_greater_than_280():
@@ -1083,7 +1082,7 @@ class YSavePackAll(bpy.types.Operator):
         ypui = bpy.context.window_manager.ypui
         #T = time.time()
         yp = get_active_ypaint_node().node_tree.yp
-        save_pack_all(yp, only_dirty=False)
+        save_pack_all(yp)
         #print('INFO:', 'All images is saved/packed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
         ypui.refresh_image_hack = False
         return {'FINISHED'}

@@ -6,6 +6,7 @@ from .bake_common import *
 from .subtree import *
 from .node_connections import *
 from .node_arrangements import *
+from .input_outputs import *
 from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier
 
 def transfer_uv(objs, mat, entity, uv_map):
@@ -1123,11 +1124,36 @@ class YBakeChannels(bpy.types.Operator):
         mat = obj.active_material
 
         if is_greater_than_280() and (obj.hide_viewport or obj.hide_render):
-            self.report({'ERROR'}, "Please unhide render and viewport of active object!")
+            self.report({'ERROR'}, "Please unhide render and viewport of the active object!")
             return {'CANCELLED'}
 
         if not is_greater_than_280() and obj.hide_render:
-            self.report({'ERROR'}, "Please unhide render of active object!")
+            self.report({'ERROR'}, "Please unhide render of the active object!")
+            return {'CANCELLED'}
+
+        # Get all objects using material
+        objs = [obj]
+        meshes = [obj.data]
+        if mat.users > 1:
+            # Emptying the lists again in case active object is problematic
+            objs = []
+            meshes = []
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if is_greater_than_280() and ob.hide_viewport: continue
+                if ob.hide_render: continue
+                #if not in_renderable_layer_collection(ob): continue
+                if len(get_uv_layers(ob)) == 0: continue
+                if len(ob.data.polygons) == 0: continue
+                for i, m in enumerate(ob.data.materials):
+                    if m == mat:
+                        ob.active_material_index = i
+                        if ob not in objs and ob.data not in meshes:
+                            objs.append(ob)
+                            meshes.append(ob.data)
+
+        if not objs:
+            self.report({'ERROR'}, "No valid objects to bake!")
             return {'CANCELLED'}
 
         book = remember_before_bake(yp)
@@ -1135,7 +1161,7 @@ class YBakeChannels(bpy.types.Operator):
         height_ch = get_root_height_channel(yp)
 
         tangent_sign_calculation = False
-        if BL28_HACK and height_ch and is_greater_than_280() and not is_greater_than_300():
+        if BL28_HACK and height_ch and is_greater_than_280() and not is_greater_than_300() and obj in objs:
 
             if len(yp.uvs) > MAX_VERTEX_DATA - len(get_vertex_colors(obj)):
                 self.report({'WARNING'}, "Maximum vertex colors reached! Need at least " + str(len(yp.uvs)) + " vertex color(s) to bake proper normal!")
@@ -1159,27 +1185,6 @@ class YBakeChannels(bpy.types.Operator):
         # Disable use baked first
         if yp.use_baked:
             yp.use_baked = False
-
-        # Get all objects using material
-        objs = [obj]
-        meshes = [obj.data]
-        if mat.users > 1:
-            # Emptying the lists again in case active object is problematic
-            objs = []
-            meshes = []
-            for ob in get_scene_objects():
-                if ob.type != 'MESH': continue
-                if is_greater_than_280() and ob.hide_viewport: continue
-                if ob.hide_render: continue
-                if not in_renderable_layer_collection(ob): continue
-                if len(get_uv_layers(ob)) == 0: continue
-                if len(ob.data.polygons) == 0: continue
-                for i, m in enumerate(ob.data.materials):
-                    if m == mat:
-                        ob.active_material_index = i
-                        if ob not in objs and ob.data not in meshes:
-                            objs.append(ob)
-                            meshes.append(ob.data)
 
         # Multi materials setup
         ori_mat_ids = {}
@@ -2486,8 +2491,6 @@ def update_enable_baked_outside(self, context):
 
             set_adaptive_displacement_node(mat, node)
 
-    #print("howowowo")
-
 def connect_to_original_node(mtree, outp, ori_to):
     for con in ori_to:
         node = mtree.nodes.get(con.node)
@@ -2503,16 +2506,17 @@ def connect_to_original_node(mtree, outp, ori_to):
 def update_use_baked(self, context):
     tree = self.id_data
     yp = tree.yp
+    ypup = get_user_preferences()
 
     if yp.halt_update: return
 
     # Check subdiv setup
     height_ch = get_root_height_channel(yp)
     if height_ch:
-        if height_ch.enable_subdiv_setup and yp.use_baked:
+        if height_ch.enable_subdiv_setup and yp.use_baked and not ypup.eevee_next_displacement:
             remember_subsurf_levels()
         check_subdiv_setup(height_ch)
-        if height_ch.enable_subdiv_setup and not yp.use_baked:
+        if height_ch.enable_subdiv_setup and not yp.use_baked and not ypup.eevee_next_displacement:
             recover_subsurf_levels()
 
     # Check uv nodes
@@ -2566,7 +2570,6 @@ def get_adaptive_displacement_node(mat, node, set_one=False):
         height_matches = []
         for link in height_outp.links:
             if link.to_node.type == 'DISPLACEMENT':
-                #disp = link.to_node
                 height_matches.append(link.to_node)
 
         max_height_matches = []
@@ -2578,14 +2581,11 @@ def get_adaptive_displacement_node(mat, node, set_one=False):
         # Search for displacement node
         height_matches = []
         for link in height_outp.links:
-            #if link.to_node.type == 'MATH' and link.to_node.operation == 'MULTIPLY':
             if link.to_node.type == 'GROUP' and link.to_node.node_tree.name == lib.BL27_DISP:
-                #disp = link.to_node
                 height_matches.append(link.to_node)
 
         max_height_matches = []
         for link in max_height_outp.links:
-            #if link.to_node.type == 'MATH' and link.to_node.operation == 'MULTIPLY':
             if link.to_node.type == 'GROUP' and link.to_node.node_tree.name == lib.BL27_DISP:
                 max_height_matches.append(link.to_node)
 
@@ -2596,11 +2596,7 @@ def get_adaptive_displacement_node(mat, node, set_one=False):
 
     if set_one and not disp:
         if is_greater_than_280():
-            #mat.cycles.displacement_method = 'BOTH'
-            #mat.cycles.displacement_method = 'DISPLACEMENT'
-
             disp = mat.node_tree.nodes.new('ShaderNodeDisplacement')
-            disp.location.x = node.location.x #+ 200
             disp.location.y = node.location.y - 400
 
             create_link(mat.node_tree, disp.outputs[0], output_mat.inputs['Displacement'])
@@ -2617,11 +2613,6 @@ def get_adaptive_displacement_node(mat, node, set_one=False):
             break_output_link(mat.node_tree, norm_outp)
 
             # Set displacement mode
-            #mat.cycles.displacement_method = 'BOTH'
-            #mat.cycles.displacement_method = 'TRUE'
-
-            #disp = mat.node_tree.nodes.new('ShaderNodeMath')
-            #disp.operation = 'MULTIPLY'
             disp = mat.node_tree.nodes.new('ShaderNodeGroup')
             disp.node_tree = get_node_tree_lib(lib.BL27_DISP)
             disp.location.x = node.location.x #+ 200
@@ -2636,9 +2627,9 @@ def get_adaptive_displacement_node(mat, node, set_one=False):
 def check_subdiv_setup(height_ch):
     tree = height_ch.id_data
     yp = tree.yp
+    ypup = get_user_preferences()
 
     if not height_ch: return
-    #obj = bpy.context.object
     mat = get_active_material()
     scene = bpy.context.scene
 
@@ -2647,12 +2638,11 @@ def check_subdiv_setup(height_ch):
     # Get height image and max height
     baked_disp = tree.nodes.get(height_ch.baked_disp)
     end_max_height = tree.nodes.get(height_ch.end_max_height)
-    if not baked_disp or not baked_disp.image or not end_max_height: return
-    img = baked_disp.image
-    max_height = end_max_height.outputs[0].default_value
+    img = baked_disp.image if baked_disp and baked_disp.image else None
+    max_height = end_max_height.outputs[0].default_value if end_max_height else 0.0
 
     # Max height tweak node
-    if yp.use_baked and height_ch.enable_subdiv_setup:
+    if height_ch.enable_subdiv_setup and (yp.use_baked or ypup.eevee_next_displacement):
         end_max_height = check_new_node(tree, height_ch, 'end_max_height_tweak', 'ShaderNodeMath', 'Max Height Tweak')
         end_max_height.operation = 'MULTIPLY'
         end_max_height.inputs[1].default_value = height_ch.subdiv_tweak
@@ -2689,14 +2679,19 @@ def check_subdiv_setup(height_ch):
             height_ch.ori_normal_to.clear()
 
     # Adaptive subdiv
-    if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive: #and not yp.enable_baked_outside:
+    if height_ch.enable_subdiv_setup and (ypup.eevee_next_displacement or (yp.use_baked and height_ch.subdiv_adaptive)): #and not yp.enable_baked_outside:
 
-        # Adaptive subdivision only works for experimental feature set for now
-        scene.cycles.feature_set = 'EXPERIMENTAL'
-        scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
-        scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
+        if height_ch.subdiv_adaptive:
+            # Adaptive subdivision only works for experimental feature set for now
+            scene.cycles.feature_set = 'EXPERIMENTAL'
+            scene.cycles.dicing_rate = height_ch.subdiv_global_dicing
+            scene.cycles.preview_dicing_rate = height_ch.subdiv_global_dicing
 
         # Set displacement mode
+        if ypup.eevee_next_displacement:
+            #mat.displacement_method = 'BOTH'
+            mat.displacement_method = 'DISPLACEMENT'
+
         if is_greater_than_280():
             mat.cycles.displacement_method = 'DISPLACEMENT'
         else: mat.cycles.displacement_method = 'TRUE'
@@ -2764,7 +2759,6 @@ def check_subdiv_setup(height_ch):
         subsurf = get_subsurf_modifier(obj)
         multires = get_multires_modifier(obj)
 
-        #if yp.use_baked and height_ch.enable_subdiv_setup and multires:
         if multires:
             if yp.use_baked and height_ch.enable_subdiv_setup and (height_ch.subdiv_subsurf_only or height_ch.subdiv_adaptive):
                 multires.show_render = False
@@ -2776,7 +2770,8 @@ def check_subdiv_setup(height_ch):
                 multires.show_viewport = True
                 subsurf = multires
 
-        if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
+        if ((yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive) 
+            or ypup.eevee_next_displacement):
 
             if not subsurf:
                 
@@ -2784,14 +2779,7 @@ def check_subdiv_setup(height_ch):
                 if obj.type == 'MESH' and is_mesh_flat_shaded(obj.data):
                     subsurf.subdivision_type = 'SIMPLE'
 
-            #obj.yp.ori_subsurf_render_levels = subsurf.render_levels
-            #obj.yp.ori_subsurf_levels = subsurf.levels
-
             setup_subdiv_to_max_polys(obj, height_ch.subdiv_on_max_polys * 1000 * proportions[obj.name], subsurf)
-
-        #elif subsurf:
-        #    subsurf.render_levels = obj.yp.ori_subsurf_render_levels
-        #    subsurf.levels = obj.yp.ori_subsurf_levels
 
         # Set subsurf to visible
         if subsurf:
@@ -2800,7 +2788,7 @@ def check_subdiv_setup(height_ch):
 
         # Displace Modifier
         displace = get_displace_modifier(obj)
-        if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive:
+        if yp.use_baked and height_ch.enable_subdiv_setup and not height_ch.subdiv_adaptive and not ypup.eevee_next_displacement:
 
             mod_len = len(obj.modifiers)
 
@@ -2815,9 +2803,7 @@ def check_subdiv_setup(height_ch):
                     displace_idx = i
 
             # Move up if displace is not directly below subsurf
-            #if displace_idx != subsurf_idx+1:
             delta = displace_idx - subsurf_idx
-            #print(obj, delta, subsurf.name)
             if delta > 1:
                 for i in range(delta-1):
                     bpy.ops.object.modifier_move_up(modifier=displace.name)
@@ -2825,13 +2811,14 @@ def check_subdiv_setup(height_ch):
                 for i in range(abs(delta)):
                     bpy.ops.object.modifier_move_up(modifier=subsurf.name)
 
-            #tex = displace.texture
             tex = [t for t in bpy.data.textures if hasattr(t, 'image') and t.image == img]
             if tex: 
                 tex = tex[0]
-            else:
+            elif img:
                 tex = bpy.data.textures.new(img.name, 'IMAGE')
                 tex.image = img
+            else:
+                tex = None
             
             displace.texture = tex
             displace.texture_coords = 'UV'
@@ -2870,6 +2857,7 @@ def update_subdiv_setup(self, context):
     obj = context.object
     tree = self.id_data
     yp = tree.yp
+    ypup = get_user_preferences()
 
     # Check uv nodes to enable/disable parallax
     check_uv_nodes(yp)
@@ -2878,8 +2866,11 @@ def update_subdiv_setup(self, context):
     check_subdiv_setup(self)
 
     # Recover original subsurf levels if subdiv adaptive is active
-    if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive:
+    if yp.use_baked and height_ch.enable_subdiv_setup and height_ch.subdiv_adaptive and not ypup.eevee_next_displacement:
         recover_subsurf_levels()
+
+    # Check start and end nodes
+    check_start_end_root_ch_nodes(tree)
 
     # Reconnect nodes
     reconnect_yp_nodes(tree)
@@ -2927,16 +2918,17 @@ def recover_subsurf_levels():
 def update_enable_subdiv_setup(self, context):
     tree = self.id_data
     yp = tree.yp
+    ypup = get_user_preferences()
     height_ch = self
     mat = get_active_material()
     objs = get_all_objects_with_same_materials(mat, True)
 
-    if height_ch.enable_subdiv_setup and yp.use_baked:
+    if height_ch.enable_subdiv_setup and (yp.use_baked or ypup.eevee_next_displacement):
         remember_subsurf_levels()
 
     update_subdiv_setup(self, context)
 
-    if not height_ch.enable_subdiv_setup and yp.use_baked:
+    if not height_ch.enable_subdiv_setup and (yp.use_baked or ypup.eevee_next_displacement):
         recover_subsurf_levels()
 
 def update_subdiv_tweak(self, context):
@@ -3008,10 +3000,11 @@ def update_subdiv_max_polys(self, context):
     mat = get_active_material()
     tree = self.id_data
     yp = tree.yp
+    ypup = get_user_preferences()
     height_ch = self
     objs = get_all_objects_with_same_materials(mat, True)
 
-    if not yp.use_baked or not height_ch.enable_subdiv_setup or self.subdiv_adaptive: return
+    if not ypup.eevee_next_displacement and (not yp.use_baked or not height_ch.enable_subdiv_setup or self.subdiv_adaptive): return
 
     proportions = get_objs_size_proportions(objs)
 

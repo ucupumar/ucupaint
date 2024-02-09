@@ -21,10 +21,12 @@ def channel_items(self, context):
 
     for i, ch in enumerate(yp.channels):
         #if hasattr(lib, 'custom_icons'):
+        # Add two spaces to prevent text from being translated
+        text_ch_name = ch.name + '  '
         if not is_greater_than_280():
             icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i), ch.name, '', lib.custom_icons[icon_name].icon_id, i))
-        else: items.append((str(i), ch.name, '', lib.channel_icon_dict[ch.type], i))
+            items.append((str(i), text_ch_name, '', lib.custom_icons[icon_name].icon_id, i))
+        else: items.append((str(i), text_ch_name, '', lib.channel_icon_dict[ch.type], i))
 
     #if hasattr(lib, 'custom_icons'):
     if not is_greater_than_280():
@@ -2910,7 +2912,7 @@ class YRemoveLayer(bpy.types.Operator):
         obj = context.object
         if obj.mode != 'OBJECT':
             self.layout.label(text='You cannot UNDO this operation under this mode, are you sure?', icon='ERROR')
-        elif self.using_udim_atlas:
+        elif hasattr(self, 'using_udim_atlas') and self.using_udim_atlas:
             col = self.layout.column(align=True)
             col.label(text='This layer is using UDIM atlas image segment', icon='ERROR')
             col.label(text='You cannot UNDO after removal', icon='BLANK1')
@@ -4131,6 +4133,7 @@ def update_blend_type(self, context):
     root_ch = yp.channels[ch_index]
 
     check_all_layer_channel_io_and_nodes(layer, tree, self)
+    check_uv_nodes(yp)
 
     # Reconnect all layer channels if normal channel is updated
     if root_ch.type == 'NORMAL':
@@ -4188,7 +4191,7 @@ def update_normal_strength(self, context):
 
     normal_proc = tree.nodes.get(ch.normal_proc)
     if 'Strength' in normal_proc.inputs:
-        normal_proc.inputs['Strength'].default_value = ch.normal_strength * ch.intensity_value
+        normal_proc.inputs['Strength'].default_value = ch.normal_strength
 
 def update_bump_distance(self, context):
     group_tree = self.id_data
@@ -4261,7 +4264,7 @@ def update_uv_name(self, context):
 
     # Update uv neighbor
     smooth_bump_ch = get_smooth_bump_channel(layer)
-    if smooth_bump_ch and smooth_bump_ch.enable:
+    if smooth_bump_ch and smooth_bump_ch.enable and (smooth_bump_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or smooth_bump_ch.enable_transition_bump):
         uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), 
                 return_status=False, hard_replace=True)
@@ -4272,9 +4275,16 @@ def update_uv_name(self, context):
                     return_status=False, hard_replace=True)
             set_uv_neighbor_resolution(smooth_bump_ch, uv_neighbor)
 
-    # Update neighbor uv if mask bump is active
-    for i, mask in enumerate(layer.masks):
-        set_mask_uv_neighbor(tree, layer, mask, i)
+        # Update neighbor uv if mask bump is active
+        for i, mask in enumerate(layer.masks):
+            set_mask_uv_neighbor(tree, layer, mask, i)
+
+    # Update normal process uv
+    normal_ch = get_height_channel(layer)
+    if normal_ch:
+        normal_proc = nodes.get(normal_ch.normal_proc)
+        if hasattr(normal_proc, 'uv_map'):
+            normal_proc.uv_map = layer.uv_name
 
     # Update layer tree inputs
     check_layer_tree_ios(layer, tree)
@@ -4303,7 +4313,7 @@ def update_texcoord_type(self, context):
 
     # Update uv neighbor
     smooth_bump_ch = get_smooth_bump_channel(layer)
-    if smooth_bump_ch and smooth_bump_ch.enable:
+    if smooth_bump_ch and smooth_bump_ch.enable and (smooth_bump_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or smooth_bump_ch.enable_transition_bump):
         uv_neighbor = replace_new_node(tree, layer, 'uv_neighbor', 'ShaderNodeGroup', 'Neighbor UV', 
                 lib.get_neighbor_uv_tree_name(layer.texcoord_type, entity=layer), hard_replace=True)
         set_uv_neighbor_resolution(layer, uv_neighbor)
@@ -4392,7 +4402,7 @@ def update_channel_intensity_value(self, context):
     normal_proc = tree.nodes.get(ch.normal_proc)
     if normal_proc:
         if 'Strength' in normal_proc.inputs:
-            normal_proc.inputs['Strength'].default_value = ch.normal_strength * ch.intensity_value
+            normal_proc.inputs['Strength'].default_value = ch.normal_strength
         elif 'Intensity' in normal_proc.inputs:
             normal_proc.inputs['Intensity'].default_value = ch.intensity_value
 

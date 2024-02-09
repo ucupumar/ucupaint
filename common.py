@@ -170,7 +170,8 @@ mask_type_items = (
         ('HEMI', 'Fake Lighting', ''),
         ('OBJECT_INDEX', 'Object Index', ''),
         ('COLOR_ID', 'Color ID', ''),
-        ('BACKFACE', 'Backface', '')
+        ('BACKFACE', 'Backface', ''),
+        ('EDGE_DETECT', 'Edge Detect', '')
         )
 
 channel_override_type_items = (
@@ -384,6 +385,7 @@ layer_node_bl_idnames = {
         'OBJECT_INDEX' : 'ShaderNodeGroup',
         'COLOR_ID' : 'ShaderNodeGroup',
         'BACKFACE' : 'ShaderNodeNewGeometry',
+        'EDGE_DETECT' : 'ShaderNodeGroup',
         }
 
 io_suffix = {
@@ -498,6 +500,11 @@ def is_greater_than_292():
         return True
     return False
 
+def is_greater_than_293():
+    if bpy.app.version >= (2, 93, 0):
+        return True
+    return False
+
 def is_greater_than_300():
     if bpy.app.version >= (3, 00, 0):
         return True
@@ -533,6 +540,11 @@ def is_greater_than_400():
         return True
     return False
 
+def is_greater_than_410():
+    if bpy.app.version >= (4, 1, 0):
+        return True
+    return False
+
 def is_created_using_279():
     if bpy.data.version[:2] == (2, 79):
         return True
@@ -555,6 +567,11 @@ def is_created_using_280():
 
 def is_created_before_292():
     if bpy.data.version < (2, 92, 0):
+        return True
+    return False
+
+def is_created_before_410():
+    if bpy.data.version < (4, 1, 0):
         return True
     return False
 
@@ -917,8 +934,8 @@ def update_image_editor_image(context, image):
             space.use_image_pin = False
 
 def get_edit_image_editor_space(context):
-    scene = context.scene
-    area_index = scene.yp.edit_image_editor_area_index
+    ypwm = context.window_manager.ypprops
+    area_index = ypwm.edit_image_editor_area_index
     if area_index >= 0 and area_index < len(context.screen.areas):
         area = context.screen.areas[area_index]
         if area.type == 'IMAGE_EDITOR':
@@ -956,7 +973,8 @@ def update_tool_canvas_image(context, image):
             unpinned_images.append(area.spaces[0].image)
 
     # Update canvas image
-    context.scene.tool_settings.image_paint.canvas = image
+    try: context.scene.tool_settings.image_paint.canvas = image
+    except Exception as e: print(e)
 
     # Restore original images except for the first index
     for i, space in enumerate(unpinned_spaces):
@@ -1223,7 +1241,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
                         for o in obs:
                             other_users_found = False
                             for m in o.data.materials:
-                                if m.node_tree and is_vcol_being_used(m.node_tree, vcol_name, node):
+                                if m and m.node_tree and is_vcol_being_used(m.node_tree, vcol_name, node):
                                     other_users_found = True
                                     break
                             if not other_users_found:
@@ -1429,6 +1447,8 @@ def unmute_node(tree, entity, prop):
 
 def set_default_value(node, input_name_or_index, value):
 
+    if node.type == 'GROUP' and not node.node_tree: return
+
     # HACK: Sometimes Blender bug will cause node with no inputs
     # So try to reload the group again
     # Tested on Blender 3.6.2
@@ -1593,27 +1613,33 @@ def check_duplicated_node_group(node_group, duplicated_trees = []):
     if not info_frame_found:
         create_info_nodes(node_group)
 
+def load_from_lib_blend(tree_name, filename):
+    # Node groups necessary are in lib.blend
+    filepath = get_addon_filepath() + filename
+
+    # Load node groups
+    lib_found = False
+    with bpy.data.libraries.load(filepath) as (data_from, data_to):
+        from_ngs = data_from.node_groups
+        to_ngs = data_to.node_groups
+        for ng in from_ngs:
+            if ng == tree_name:
+                to_ngs.append(ng)
+                lib_found = True
+                break
+
+    return lib_found
+
 def get_node_tree_lib(name):
 
     # Try to get from local lib first
     node_tree = bpy.data.node_groups.get(name)
     if node_tree: return node_tree
 
-    # Node groups necessary are in nodegroups_lib.blend
-    filepath = get_addon_filepath() + "lib.blend"
-
-    #appended = False
-    with bpy.data.libraries.load(filepath) as (data_from, data_to):
-
-        # Load node groups
-        exist_groups = [ng.name for ng in bpy.data.node_groups]
-        from_ngs = data_from.node_groups
-        to_ngs = data_to.node_groups
-        for ng in from_ngs:
-            if ng == name: # and ng not in exist_groups:
-                to_ngs.append(ng)
-                #appended = True
-                break
+    # Load from library blend files
+    lib_found = load_from_lib_blend(name, 'lib.blend')
+    if not lib_found:
+        lib_found = load_from_lib_blend(name, 'lib_281.blend')
 
     node_tree = bpy.data.node_groups.get(name)
 
@@ -2379,6 +2405,13 @@ def is_bottom_member(layer, enabled_only=False):
 #
 #    return parent_idx
 
+def get_active_layer(yp):
+
+    if yp.active_layer_index >= 0 and yp.active_layer_index < len(yp.layers):
+        return yp.layers[yp.active_layer_index]
+
+    return None
+
 def get_layer_index(layer):
     yp = layer.id_data.yp
 
@@ -2600,7 +2633,7 @@ def has_previous_layer_channels(layer, root_ch):
     for i, t in reversed(list(enumerate(yp.layers))):
         if i > layer_idx and layer.parent_idx == t.parent_idx:
             for j, c in enumerate(t.channels):
-                if ch_idx == j and c.enable:
+                if ch_idx == j and get_channel_enabled(c, t, yp.channels[ch_idx]):
                     return True
 
     return False
@@ -2744,7 +2777,7 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'} 
 
 def clear_mapping(entity):
 
@@ -3746,11 +3779,12 @@ def update_displacement_height_ratio(root_ch, max_height=None):
 
     end_linear = group_tree.nodes.get(root_ch.end_linear)
     if end_linear:
-        if max_height != 0.0:
-            end_linear.inputs['Max Height'].default_value = max_height
-        else: end_linear.inputs['Max Height'].default_value = 1.0
+        if 'Max Height' in end_linear.inputs:
+            if max_height != 0.0:
+                end_linear.inputs['Max Height'].default_value = max_height
+            else: end_linear.inputs['Max Height'].default_value = 1.0
 
-        if root_ch.enable_smooth_bump:
+        if root_ch.enable_smooth_bump and 'Bump Height Scale' in end_linear.inputs:
             end_linear.inputs['Bump Height Scale'].default_value = get_fine_bump_distance(max_height)
 
     end_max_height = group_tree.nodes.get(root_ch.end_max_height)
@@ -4134,7 +4168,7 @@ def is_uv_input_needed(layer, uv_name):
         
         for mask in layer.masks:
             if not get_mask_enabled(mask): continue
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}: continue
+            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}: continue
             if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
                 return True
 
@@ -4147,24 +4181,34 @@ def is_entity_need_tangent_input(entity, uv_name):
     if m: 
         layer = yp.layers[int(m.group(1))]
         entity_enabled = get_mask_enabled(entity)
+        is_mask = True
     else: 
         layer = entity
         entity_enabled = get_layer_enabled(entity)
+        is_mask = False
 
-    if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'GROUP', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+    if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
 
         height_root_ch = get_root_height_channel(yp)
         height_ch = get_height_channel(layer)
         if height_root_ch and height_ch and height_ch.enable:
 
-            if uv_name == height_root_ch.main_uv:
+            if entity.type == 'GROUP':
+
+                if is_layer_using_normal_map(entity, height_root_ch):
+                    return True
+
+            elif uv_name == height_root_ch.main_uv:
 
                 # Main UV tangent is needed for normal process
-                if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
+                if is_parallax_enabled(height_root_ch) and height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
+                    return True
+
+                if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and (height_ch.normal_blend_type == 'OVERLAY' or height_ch.enable_transition_bump):
                     return True
 
                 # Main UV Tangent is needed if smooth bump is on and entity is using non-uv texcoord or have different UV
-                if height_root_ch.enable_smooth_bump and (entity.texcoord_type != 'UV' or entity.uv_name != uv_name):
+                if height_root_ch.enable_smooth_bump and (entity.texcoord_type != 'UV' or entity.uv_name != uv_name) and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                     return True
 
                 # Previous normal is calculated using normal process
@@ -4175,7 +4219,7 @@ def is_entity_need_tangent_input(entity, uv_name):
             elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
 
                 # Entity UV tangent is needed if smooth bump is on and entity is using different UV than main UV
-                if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name:
+                if height_root_ch.enable_smooth_bump and height_root_ch.main_uv != uv_name and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                     return True
 
     return False
@@ -4196,7 +4240,11 @@ def is_tangent_process_needed(yp, uv_name):
     height_root_ch = get_root_height_channel(yp)
     if height_root_ch:
 
-        if height_root_ch.main_uv == uv_name and (any_layers_using_normal_map(height_root_ch) or height_root_ch.enable_smooth_bump):
+        if height_root_ch.main_uv == uv_name and (
+                #(height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch)) or
+                #(not height_root_ch.enable_smooth_bump and any_layers_using_bump_map(height_root_ch) and any_layers_using_normal_map(height_root_ch))
+                any_layers_using_bump_map(height_root_ch)
+                ):
             return True
 
         for layer in yp.layers:
@@ -4212,17 +4260,14 @@ def is_height_process_needed(layer):
 
     if yp.layer_preview_mode: return True
 
-    layers = []
-    if layer.type == 'GROUP':
-        layers, layer_ids = get_list_of_all_childs_and_child_ids(layer)
-    layers.append(layer)
+    height_ch = get_height_channel(layer)
+    if not height_ch or not height_ch.enable: return False
 
-    for l in layers:
-        height_ch = get_height_channel(l)
-        if not height_ch or not height_ch.enable: continue
-
-        if l.type != 'GROUP' and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
+    if layer.type == 'GROUP': 
+        if is_layer_using_bump_map(layer, height_root_ch):
             return True
+    elif height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} or height_ch.enable_transition_bump:
+        return True
 
     return False
 
@@ -4233,20 +4278,14 @@ def is_normal_process_needed(layer):
 
     if yp.layer_preview_mode: return True
 
-    layers = []
-    if layer.type == 'GROUP':
-        layers, layer_ids = get_list_of_all_childs_and_child_ids(layer)
-    layers.append(layer)
+    height_ch = get_height_channel(layer)
+    if not height_ch or not height_ch.enable: return False
 
-    for l in layers:
-        height_ch = get_height_channel(l)
-        if not height_ch or not height_ch.enable: continue
-
-        if l.type == 'GROUP': 
-            if not height_ch.write_height:
-                return True
-        elif height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not height_ch.write_height:
+    if layer.type == 'GROUP': 
+        if is_layer_using_bump_map(layer, height_root_ch) and not height_ch.write_height:
             return True
+    elif height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or not height_ch.write_height:
+        return True
 
     return False
 
@@ -4368,7 +4407,7 @@ def is_layer_using_normal_map(layer, root_ch=None):
         if layer.type == 'GROUP':
             childs = get_list_of_direct_childrens(layer)
             for child in childs:
-                if is_layer_using_normal_map(child):
+                if is_layer_using_normal_map(child) or (not ch.write_height and is_layer_using_bump_map(child)):
                     return True
         elif not ch.write_height or ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
             return True
@@ -4801,7 +4840,7 @@ def any_linear_images_problem(yp):
             root_ch = yp.channels[i]
             if not get_channel_enabled(ch, layer, root_ch): continue
 
-            if ch.override and ch.override_type == 'IMAGE':
+            if not yp.use_linear_blending and ch.override and ch.override_type == 'IMAGE':
                 source_tree = get_channel_source_tree(ch)
                 linear = source_tree.nodes.get(ch.linear)
                 source = source_tree.nodes.get(ch.source)
@@ -4850,11 +4889,32 @@ def any_linear_images_problem(yp):
             if not source: continue
             image = source.image
             if not image: continue
-            if (
-                (is_image_source_srgb(image, source) and not linear) or
-                (not is_image_source_srgb(image, source) and linear)
-                ):
-                return True
+
+            if yp.use_linear_blending:
+                normal_ch = get_height_channel(layer)
+                normal_root_ch = get_root_height_channel(yp)
+                if normal_ch and get_channel_enabled(normal_ch, layer, normal_root_ch) and not normal_ch.override_1 and normal_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
+                    ch_linear = layer_tree.nodes.get(normal_ch.linear)
+                    if ((is_image_source_srgb(image, source) and not ch_linear) or
+                        (not is_image_source_srgb(image, source) and ch_linear)
+                        ):
+                        return True
+
+                if not image.is_float and ((is_image_source_srgb(image, source) and linear) or
+                    (not is_image_source_srgb(image, source) and not linear)
+                    ):
+                    return True
+
+                if image.is_float and ((is_image_source_srgb(image, source) and not linear) or
+                    (not is_image_source_srgb(image, source) and linear)
+                    ):
+                    return True
+
+            else:
+                if ((is_image_source_srgb(image, source) and not linear) or
+                    (not is_image_source_srgb(image, source) and linear)
+                    ):
+                    return True
 
     return False
 

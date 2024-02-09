@@ -397,6 +397,11 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             description = 'Set Stencil Mask Opacity found in the 3D Viewport\'s Overlays menu to 0',
             default = True)
 
+    use_linear_blending : BoolProperty(
+            name = 'Use Linear Color Blending',
+            description = 'Use more accurate linear color blending (it will behave diffrently than Photoshop)',
+            default = True)
+
     @classmethod
     def poll(cls, context):
         return context.object
@@ -452,6 +457,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
                 ccol.prop(self, 'metallic', toggle=True)
             ccol.prop(self, 'roughness', toggle=True)
             ccol.prop(self, 'normal', toggle=True)
+
+        col.prop(self, 'use_linear_blending')
 
         if is_greater_than_280():
             col.prop(self, 'mute_texture_paint_overlay')
@@ -617,6 +624,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # Update io
         check_all_channel_ios(group_tree.yp)
 
+        # Update linear blending
+        if self.use_linear_blending:
+            group_tree.yp.use_linear_blending = self.use_linear_blending
+
         # HACK: Remap channel pointers, because sometimes pointers are lost at this time
         ch_color = group_tree.yp.channels.get('Color')
         ch_ao = group_tree.yp.channels.get('Ambient Occlusion')
@@ -743,6 +754,9 @@ class YNewYPaintNode(bpy.types.Operator):
 
         # Set default input value
         set_input_default_value(node, channel)
+
+        # Linear blending is on by default
+        yp.use_linear_blending = True
 
         # Set the location of new node
         node.location = space.cursor_location
@@ -2859,6 +2873,7 @@ def update_channel_main_uv(self, context):
     if self.type == 'NORMAL':
         self.enable_smooth_bump = self.enable_smooth_bump
 
+
 def update_channel_enable_bake_as_vcol(self, context):
     yp = self.id_data.yp
     # ch = yp.channels[yp.active_channel_index]
@@ -2889,6 +2904,14 @@ def set_channel_vcol_name(self, value):
         self['bake_vcol_name'] = 'Baked ' + self.name
     else:
         self['bake_vcol_name'] = value
+
+def update_use_linear_blending(self, context):
+    check_start_end_root_ch_nodes(self.id_data)
+    check_yp_linear_nodes(self)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
+
 
 #def update_col_input(self, context):
 #    group_node = get_active_ypaint_node()
@@ -3136,7 +3159,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     subdiv_on_max_polys : IntProperty(
             name = 'Subdiv On Max Polygons',
             description = 'Max Polygons (in thousand) when displacement setup is on',
-            default=1000, min=0, max=5000, 
+            default=1000, min=1, max=5000, 
             update=Bake.update_subdiv_max_polys
             )
 
@@ -3383,6 +3406,12 @@ class YPaint(bpy.types.PropertyGroup):
     # Remind user to refresh UV after edit image layer mapping
     need_temp_uv_refresh : BoolProperty(default=False)
 
+    # Use linear color blending
+    use_linear_blending : BoolProperty(
+            name = 'Use Linear Color Blending',
+            description = 'Use more accurate linear color blending (it will behave diffrently than Photoshop)',
+            default=False, update=update_use_linear_blending)
+
     # Index pointer to the UI
     #ui_index : IntProperty(default=0)
 
@@ -3403,18 +3432,19 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     clipboard_tree : StringProperty(default='')
     clipboard_layer : StringProperty(default='')
 
-class YPaintSceneProps(bpy.types.PropertyGroup):
     last_object : StringProperty(default='')
+    last_material : StringProperty(default='')
     last_mode : StringProperty(default='')
 
+    edit_image_editor_area_index : IntProperty(default=-1)
+
+class YPaintSceneProps(bpy.types.PropertyGroup):
     ori_display_device : StringProperty(default='')
     ori_view_transform : StringProperty(default='')
     ori_exposure : FloatProperty(default=0.0)
     ori_gamma : FloatProperty(default=1.0)
     ori_look : StringProperty(default='')
     ori_use_curve_mapping : BoolProperty(default=False)
-
-    edit_image_editor_area_index : IntProperty(default=-1)
 
 class YPaintObjectProps(bpy.types.PropertyGroup):
     ori_subsurf_render_levels : IntProperty(default=1)
@@ -3471,8 +3501,12 @@ def ypaint_last_object_update(scene):
     except: return
     if not obj: return
 
-    if scene.yp.last_object != obj.name:
-        scene.yp.last_object = obj.name
+    mat = obj.active_material
+    ypwm = bpy.context.window_manager.ypprops
+
+    if ypwm.last_object != obj.name or (mat and mat.name != ypwm.last_material):
+        ypwm.last_object = obj.name
+        if mat: ypwm.last_material = mat.name
         node = get_active_ypaint_node()
 
         # Refresh layer index to update editor image
@@ -3486,13 +3520,13 @@ def ypaint_last_object_update(scene):
                 update_image_editor_image(bpy.context, image)
                 scene.tool_settings.image_paint.canvas = image
 
-    if obj.type == 'MESH' and scene.yp.last_object == obj.name and scene.yp.last_mode != obj.mode:
+    if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:
 
         node = get_active_ypaint_node()
         yp = node.node_tree.yp if node else None
 
-        if obj.mode == 'TEXTURE_PAINT' or scene.yp.last_mode == 'TEXTURE_PAINT':
-            scene.yp.last_mode = obj.mode
+        if obj.mode == 'TEXTURE_PAINT' or ypwm.last_mode == 'TEXTURE_PAINT':
+            ypwm.last_mode = obj.mode
             if yp and len(yp.layers) > 0 :
                 image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
@@ -3509,12 +3543,12 @@ def ypaint_last_object_update(scene):
                 refresh_temp_uv(obj, src_of_img)
 
         # Into edit mode
-        if obj.mode == 'EDIT' and scene.yp.last_mode != 'EDIT':
-            scene.yp.last_mode = obj.mode
+        if obj.mode == 'EDIT' and ypwm.last_mode != 'EDIT':
+            ypwm.last_mode = obj.mode
             # Remember the space
             space, area_index = get_first_unpinned_image_editor_space(bpy.context, return_index=True)
             if space and area_index != -1:
-                scene.yp.edit_image_editor_area_index = area_index
+                ypwm.edit_image_editor_area_index = area_index
 
             # Trigger updating active index to update image
             #if yp: 
@@ -3523,12 +3557,12 @@ def ypaint_last_object_update(scene):
             #    else: yp.active_layer_index = yp.active_layer_index
 
         # Out of edit mode
-        if obj.mode != 'EDIT' and scene.yp.last_mode == 'EDIT':
-            scene.yp.last_mode = obj.mode
+        if obj.mode != 'EDIT' and ypwm.last_mode == 'EDIT':
+            ypwm.last_mode = obj.mode
             space = get_edit_image_editor_space(bpy.context)
             if space:
                 space.use_image_pin = False
-            scene.yp.edit_image_editor_area_index = -1
+            ypwm.edit_image_editor_area_index = -1
 
             # Trigger updating active index to update image
             #if yp: 
@@ -3536,8 +3570,8 @@ def ypaint_last_object_update(scene):
             #        yp.active_channel_index = yp.active_channel_index
             #    else: yp.active_layer_index = yp.active_layer_index
 
-        if scene.yp.last_mode != obj.mode:
-            scene.yp.last_mode = obj.mode
+        if ypwm.last_mode != obj.mode:
+            ypwm.last_mode = obj.mode
 
 @persistent
 def ypaint_force_update_on_anim(scene):

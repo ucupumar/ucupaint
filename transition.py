@@ -505,6 +505,7 @@ def update_enable_transition_bump(self, context):
     check_transition_bump_nodes(layer, tree, ch)
     check_all_layer_channel_io_and_nodes(layer, specific_ch=ch)
     check_start_end_root_ch_nodes(self.id_data)
+    check_uv_nodes(yp)
 
     reconnect_layer_nodes(layer) #, mod_reconnect=True)
     rearrange_layer_nodes(layer)
