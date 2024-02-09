@@ -2879,7 +2879,8 @@ def update_channel_bake_vcol(self, context):
 
 # Prevent vcol name from being null
 def get_channel_vcol_name(self):
-    if self['bake_vcol_name'] == '':
+    name = self.get('bake_vcol_name', '') # May be null
+    if name == '':
         self['bake_vcol_name'] = 'Baked ' + self.name
     return self['bake_vcol_name']
 
