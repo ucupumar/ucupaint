@@ -528,8 +528,10 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
             # Create temporary image texture node to make sure
             # other materials inside single object did not bake to their active image
             if m != mat:
-                temp = m.node_tree.nodes.new('ShaderNodeTexImage')
-                temp.name = EMPTY_IMG_NODE
+                temp = m.node_tree.nodes.get(EMPTY_IMG_NODE)
+                if not temp:
+                    temp = m.node_tree.nodes.new('ShaderNodeTexImage')
+                    temp.name = EMPTY_IMG_NODE
                 m.node_tree.nodes.active = temp
 
     # Set active uv layers
