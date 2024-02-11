@@ -185,7 +185,7 @@ def remove_mask(layer, mask, obj):
     # Remove mask
     layer.masks.remove(mask_index)
 
-def get_new_mask_name(obj, layer, mask_type, modifier_type):
+def get_new_mask_name(obj, layer, mask_type, modifier_type=''):
     surname = '(' + layer.name + ')'
     items = layer.masks
     if mask_type == 'IMAGE':
