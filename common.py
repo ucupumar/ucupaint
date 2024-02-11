@@ -171,7 +171,8 @@ mask_type_items = (
         ('OBJECT_INDEX', 'Object Index', ''),
         ('COLOR_ID', 'Color ID', ''),
         ('BACKFACE', 'Backface', ''),
-        ('EDGE_DETECT', 'Edge Detect', '')
+        ('EDGE_DETECT', 'Edge Detect', ''),
+        ('MODIFIER', 'Modifier', ''),
         )
 
 channel_override_type_items = (
@@ -2782,7 +2783,7 @@ def get_udim_segment_mapping_offset(segment):
         offset_y += tiles_height + 1
 
 def is_mapping_possible(entity_type):
-    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'} 
+    return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} 
 
 def clear_mapping(entity):
 
@@ -3491,6 +3492,7 @@ def get_layer_channel_index(layer, ch):
     for i, c in enumerate(layer.channels):
         if c == ch:
             return i
+    return None
 
 def is_bump_distance_relevant(layer, ch):
     if layer.type in {'COLOR', 'BACKGROUND'} and ch.enable_transition_bump:

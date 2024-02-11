@@ -1533,16 +1533,13 @@ def reconnect_mask_internal_nodes(mask, mask_source_index=0):
     tree = get_mask_tree(mask)
 
     source = tree.nodes.get(mask.source)
-    #mapping = tree.nodes.get(mask.mapping)
     linear = tree.nodes.get(mask.linear)
     start = tree.nodes.get(TREE_START)
     end = tree.nodes.get(TREE_END)
 
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
-        #if mapping:
-        #    create_link(tree, start.outputs[0], mapping.inputs[0])
-        #    create_link(tree, mapping.outputs[0], source.inputs[0])
-        #else:
+    if mask.type == 'MODIFIER' and mask.modifier_type in {'INVERT', 'CURVE'}:
+        create_link(tree, start.outputs[0], source.inputs[1])
+    elif mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'}:
         create_link(tree, start.outputs[0], source.inputs[0])
 
     val = source.outputs[mask_source_index]
@@ -2192,6 +2189,19 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Mask multiplies
         for j, mask in enumerate(layer.masks):
+
+            # Modifier mask need previous alpha
+            if mask.type == 'MODIFIER':
+                if mask.group_node != '':
+                    mask_source = nodes.get(mask.group_node)
+                    if mask_source: create_link(tree, alpha, mask_source.inputs[0])
+                else:
+                    mask_source = nodes.get(mask.source)
+                    if mask_source:
+                        if mask.modifier_type in {'CURVE', 'INVERT'}:
+                            create_link(tree, alpha, mask_source.inputs[1])
+                        else: create_link(tree, alpha, mask_source.inputs[0])
+
             mask_mix = nodes.get(mask.channels[i].mix)
             mmixcol0, mmixcol1, mmixout = get_mix_color_indices(mask_mix)
             if mask_mix:
@@ -2436,6 +2446,17 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 mp_mixcol0, mp_mixcol1, mp_mixout = get_mix_color_indices(mix_pure)
                 mr_mixcol0, mr_mixcol1, mr_mixout = get_mix_color_indices(mix_remains)
                 mn_mixcol0, mn_mixcol1, mn_mixout = get_mix_color_indices(mix_normal)
+
+                if mask.type == 'MODIFIER' and root_ch.enable_smooth_bump:
+                    mask_source_n = nodes.get(mask.source_n)
+                    mask_source_s = nodes.get(mask.source_s)
+                    mask_source_e = nodes.get(mask.source_e)
+                    mask_source_w = nodes.get(mask.source_w)
+
+                    if mask_source_n: create_link(tree, alpha_n, mask_source_n.inputs[0])
+                    if mask_source_s: create_link(tree, alpha_s, mask_source_s.inputs[0])
+                    if mask_source_e: create_link(tree, alpha_e, mask_source_e.inputs[0])
+                    if mask_source_w: create_link(tree, alpha_w, mask_source_w.inputs[0])
 
                 if tb_falloff and (j == chain-1 or (j == chain_local-1 and not trans_bump_ch)):
                     pure = tb_falloff.outputs[0]

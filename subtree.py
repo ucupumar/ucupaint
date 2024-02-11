@@ -349,7 +349,7 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
     # Get chain
     chain = get_bump_chain(layer)
 
-    if smooth_bump_ch and get_channel_enabled(smooth_bump_ch) and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+    if smooth_bump_ch and get_channel_enabled(smooth_bump_ch) and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'MODIFIER'}:
 
         #print('ntob')
 
@@ -387,7 +387,9 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
         mask_tree = bpy.data.node_groups.new(MASKGROUP_PREFIX + mask.name, 'ShaderNodeTree')
 
         # Create input and outputs
-        new_tree_input(mask_tree, 'Vector', 'NodeSocketVector')
+        if mask.type == 'MODIFIER':
+            new_tree_input(mask_tree, 'Value', 'NodeSocketFloat')
+        else: new_tree_input(mask_tree, 'Vector', 'NodeSocketVector')
         new_tree_output(mask_tree, 'Value', 'NodeSocketFloat')
 
         create_essential_nodes(mask_tree)
@@ -672,13 +674,14 @@ def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
     smooth_bump_ch = get_smooth_bump_channel(layer)
     write_height_ch = get_write_height_normal_channel(layer)
     chain = get_bump_chain(layer)
+    ch_idx = get_layer_channel_index(layer, smooth_bump_ch)
 
     height_process_needed = is_height_process_needed(layer)
 
     for i, mask in enumerate(layer.masks):
         if specific_mask and specific_mask != mask: continue
 
-        if smooth_bump_ch and get_mask_enabled(mask) and height_process_needed and (write_height_ch or i < chain):
+        if smooth_bump_ch and get_mask_enabled(mask) and mask.channels[ch_idx].enable and height_process_needed and (write_height_ch or i < chain):
             enable_mask_source_tree(layer, mask)
         else: disable_mask_source_tree(layer, mask)
 

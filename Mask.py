@@ -12,7 +12,7 @@ from .input_outputs import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
-def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1), source_input='RGB', edge_detect_radius=0.05):
+def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1), source_input='RGB', edge_detect_radius=0.05, modifier_type='INVERT'):
     yp = layer.id_data.yp
     yp.halt_update = True
 
@@ -31,6 +31,16 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
     source = None
     if mask_type == 'VCOL':
         source = new_node(tree, mask, 'source', get_vcol_bl_idname(), 'Mask Source')
+    elif mask_type == 'MODIFIER':
+        mask.modifier_type = modifier_type
+        if modifier_type == 'INVERT':
+            source = new_node(tree, mask, 'source', 'ShaderNodeInvert', 'Mask Source')
+        elif modifier_type == 'RAMP':
+            source = new_node(tree, mask, 'source', 'ShaderNodeValToRGB', 'Mask Source')
+            #ramp_mix = new_mix_node(tree, mask, 'ramp_mix', 'Ramp Mix', 'FLOAT')
+        elif modifier_type == 'CURVE':
+            source = new_node(tree, mask, 'source', 'ShaderNodeRGBCurve', 'Mask Source')
+
     elif mask.type != 'BACKFACE': source = new_node(tree, mask, 'source', layer_node_bl_idnames[mask_type], 'Mask Source')
 
     if image:
@@ -175,10 +185,10 @@ def remove_mask(layer, mask, obj):
     # Remove mask
     layer.masks.remove(mask_index)
 
-def get_new_mask_name(obj, layer, mask_type):
+def get_new_mask_name(obj, layer, mask_type, modifier_type):
     surname = '(' + layer.name + ')'
+    items = layer.masks
     if mask_type == 'IMAGE':
-        #name = 'Image'
         name = 'Mask'
         name = get_unique_name(name, layer.masks, surname)
         name = get_unique_name(name, bpy.data.images)
@@ -187,9 +197,11 @@ def get_new_mask_name(obj, layer, mask_type):
         name = 'Mask VCol'
         items = get_vertex_color_names(obj)
         return get_unique_name(name, items, surname)
+    elif mask_type == 'MODIFIER':
+        name = 'Mask ' + modifier_type.title()
+        return get_unique_name(name, items, surname)
     else:
         name = 'Mask ' + [i[1] for i in mask_type_items if i[0] == mask_type][0]
-        items = layer.masks
         return get_unique_name(name, items, surname)
 
 def update_new_mask_uv_map(self, context):
@@ -214,6 +226,11 @@ class YNewLayerMask(bpy.types.Operator):
             name = 'Mask Type',
             items = mask_type_items,
             default = 'IMAGE')
+
+    modifier_type : EnumProperty(
+            name = 'Mask Modifier Type',
+            items = MaskModifier.mask_modifier_type_items,
+            default = 'INVERT')
 
     width : IntProperty(name='Width', default = 1234, min=1, max=16384)
     height : IntProperty(name='Height', default = 1234, min=1, max=16384)
@@ -321,7 +338,7 @@ class YNewLayerMask(bpy.types.Operator):
         yp = layer.id_data.yp
         ypup = get_user_preferences()
 
-        self.name = get_new_mask_name(obj, layer, self.type)
+        self.name = get_new_mask_name(obj, layer, self.type, self.modifier_type)
 
         # Use user preference default image size if input uses default image size
         if self.width == 1234 and self.height == 1234:
@@ -349,6 +366,8 @@ class YNewLayerMask(bpy.types.Operator):
         # The default blend type for mask is multiply
         if len(layer.masks) == 0:
             self.blend_type = 'MULTIPLY'
+        elif self.type in {'MODIFIER'}:
+            self.blend_type = 'MIX'
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -398,7 +417,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.label(text='')
 
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
             col.label(text='Vector:')
             if self.type == 'IMAGE':
                 if UDIM.is_udim_supported():
@@ -439,7 +458,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.prop(self, 'hdr')
 
-        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
+        if self.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -571,7 +590,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         # Add new mask
         mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
-                self.hemi_space, self.hemi_use_prev_normal, self.color_id)
+                self.hemi_space, self.hemi_use_prev_normal, self.color_id, modifier_type=self.modifier_type)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL', 'COLOR_ID'}:
@@ -1239,9 +1258,11 @@ def update_layer_mask_channel_enable(self, context):
     match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
     layer = yp.layers[int(match.group(1))]
     mask = layer.masks[int(match.group(2))]
+    ch = layer.channels[int(match.group(3))]
     tree = get_tree(layer)
 
-    check_mask_mix_nodes(layer, tree, mask, self)
+    check_mask_mix_nodes(layer, tree, mask, ch)
+    check_mask_source_tree(layer)
 
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
@@ -1607,6 +1628,11 @@ class YLayerMask(bpy.types.PropertyGroup):
             items = texcoord_type_items,
             default = 'UV',
             update=update_mask_texcoord_type)
+
+    modifier_type : EnumProperty(
+            name = 'Mask Modifier Type',
+            items = MaskModifier.mask_modifier_type_items,
+            default = 'INVERT')
 
     hemi_space : EnumProperty(
             name = 'Fake Lighting Space',
