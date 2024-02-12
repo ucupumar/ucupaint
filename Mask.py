@@ -604,7 +604,11 @@ class YNewLayerMask(bpy.types.Operator):
         reconnect_yp_nodes(layer.id_data)
         rearrange_yp_nodes(layer.id_data)
 
+        # Update UI
         ypui.layer_ui.expand_masks = True
+        if self.type not in {'IMAGE', 'VCOL', 'BACKFACE'}:
+            mask.expand_content = True
+            mask.expand_source = True
         ypui.need_update = True
 
         return {'FINISHED'}
