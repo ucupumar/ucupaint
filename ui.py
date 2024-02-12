@@ -1939,6 +1939,8 @@ def draw_layer_masks(context, layout, layer):
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('hemi'))
             elif mask.type == 'OBJECT_INDEX':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('object_index'))
+            elif mask.type == 'EDGE_DETECT':
+                row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('edge_detect'))
             elif mask.type == 'COLOR_ID':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('color'))
             elif mask.type == 'BACKFACE':
@@ -1981,8 +1983,12 @@ def draw_layer_masks(context, layout, layer):
                 suffix = 'hemi' 
             elif mask.type == 'OBJECT_INDEX':
                 suffix = 'object_index' 
+            elif mask.type == 'EDGE_DETECT':
+                suffix = 'edge_detect' 
             elif mask.type == 'COLOR_ID':
                 suffix = 'color' 
+            elif mask.type == 'BACKFACE':
+                suffix = 'backface' 
             elif mask.type == 'MODIFIER':
                 suffix = 'modifier' 
             else:
@@ -3246,6 +3252,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.label(text='', icon_value=lib.get_icon('hemi'))
                 elif m.type == 'OBJECT_INDEX':
                     row.label(text='', icon_value=lib.get_icon('object_index'))
+                elif m.type == 'EDGE_DETECT':
+                    row.label(text='', icon_value=lib.get_icon('edge_detect'))
                 elif m.type == 'COLOR_ID':
                     row.label(text='', icon_value=lib.get_icon('color'))
                 elif m.type == 'BACKFACE':
@@ -3270,6 +3278,8 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
                 elif m.type == 'OBJECT_INDEX':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('object_index'))
+                elif m.type == 'EDGE_DETECT':
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
                 elif m.type == 'COLOR_ID':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('color'))
                 elif m.type == 'BACKFACE':
@@ -4090,7 +4100,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         col = row.column(align=True)
         col.label(text='Generated Mask:')
 
-        new_mask_button(col, 'node.y_new_layer_mask', 'Brick', lib_icon='texture', otype='BRICK')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Brick', otype='BRICK', lib_icon='texture')
         new_mask_button(col, 'node.y_new_layer_mask', 'Checker', otype='CHECKER')
         new_mask_button(col, 'node.y_new_layer_mask', 'Gradient', otype='GRADIENT')
         new_mask_button(col, 'node.y_new_layer_mask', 'Magic', otype='MAGIC')
@@ -4105,9 +4115,9 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         col.separator()
         new_mask_button(col, 'node.y_new_layer_mask', 'Object Index', otype='OBJECT_INDEX', lib_icon='object_index')
-        new_mask_button(col, 'node.y_new_layer_mask', 'Backface', otype='BACKFACE') #, lib_icon='backface')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Backface', otype='BACKFACE', lib_icon='backface')
         if is_greater_than_293():
-            new_mask_button(col, 'node.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT') #, lib_icon='texture')
+            new_mask_button(col, 'node.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT', lib_icon='edge_detect')
 
         col = row.column(align=True)
         col.label(text='Bake as Mask:')
@@ -4122,8 +4132,8 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         col.separator()
         col.label(text='Inbetween Modifier Mask:')
         new_mask_button(col, 'node.y_new_layer_mask', 'Invert', otype='MODIFIER', modifier_type='INVERT', lib_icon='modifier')
-        new_mask_button(col, 'node.y_new_layer_mask', 'Ramp', otype='MODIFIER', modifier_type='RAMP')
-        new_mask_button(col, 'node.y_new_layer_mask', 'Curve', otype='MODIFIER', modifier_type='CURVE')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Ramp', otype='MODIFIER', modifier_type='RAMP', lib_icon='modifier')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Curve', otype='MODIFIER', modifier_type='CURVE', lib_icon='modifier')
 
 class YLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_mask_menu"

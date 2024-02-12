@@ -368,6 +368,8 @@ class YNewLayerMask(bpy.types.Operator):
             self.blend_type = 'MULTIPLY'
         elif self.type in {'MODIFIER'}:
             self.blend_type = 'MIX'
+        else:
+            self.blend_type = 'MULTIPLY'
 
         return context.window_manager.invoke_props_dialog(self)
 
