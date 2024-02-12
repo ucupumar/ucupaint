@@ -1036,6 +1036,7 @@ class YMoveLayerMask(bpy.types.Operator):
         return hasattr(context, 'mask') and hasattr(context, 'layer')
 
     def execute(self, context):
+        ypui = context.window_manager.ypui
         mask = context.mask
         layer = context.layer
 
@@ -1062,6 +1063,19 @@ class YMoveLayerMask(bpy.types.Operator):
         check_mask_mix_nodes(layer, tree)
         check_mask_source_tree(layer) #, bump_ch)
         #check_mask_image_linear_node(mask)
+
+        # Swap UI expand content
+        props = ['expand_content',
+                'expand_channels',
+                'expand_source',
+                'expand_vector'
+                 ]
+
+        for p in props:
+            neighbor_prop = getattr(ypui.layer_ui.masks[new_index], p)
+            prop = getattr(ypui.layer_ui.masks[index], p)
+            setattr(ypui.layer_ui.masks[new_index], p, prop)
+            setattr(ypui.layer_ui.masks[index], p, neighbor_prop)
 
         reconnect_layer_nodes(layer)
         rearrange_layer_nodes(layer)
