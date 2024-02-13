@@ -4902,9 +4902,10 @@ def any_linear_images_problem(yp):
                 normal_root_ch = get_root_height_channel(yp)
                 if normal_ch and get_channel_enabled(normal_ch, layer, normal_root_ch) and not normal_ch.override_1 and normal_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}:
                     ch_linear = layer_tree.nodes.get(normal_ch.linear)
-                    if ((is_image_source_srgb(image, source) and not ch_linear) or
-                        (not is_image_source_srgb(image, source) and ch_linear)
-                        ):
+                    #if ((is_image_source_srgb(image, source) and not ch_linear) or
+                    #    (not is_image_source_srgb(image, source) and ch_linear)
+                    #    ):
+                    if not ch_linear:
                         return True
 
                 if not image.is_float and ((is_image_source_srgb(image, source) and linear) or

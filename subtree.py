@@ -2331,7 +2331,7 @@ def check_layer_channel_linear_node(ch, layer=None, root_ch=None, reconnect=Fals
             and not ch.override_1
             and root_ch.type == 'NORMAL'
             and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}
-            and source and is_image_source_srgb(image, source)
+            and source #and is_image_source_srgb(image, source)
         )):
         if root_ch.type == 'VALUE':
             linear = replace_new_node(source_tree, ch, 'linear', 'ShaderNodeMath', 'Linear')

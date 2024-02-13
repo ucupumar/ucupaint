@@ -767,9 +767,11 @@ class YBakeToLayer(bpy.types.Operator):
         if self.type.startswith('MULTIRES_') and not get_multires_modifier(context.object):
             objs = []
             meshes = []
+            multires_count = 0
         else:
             objs = [context.object]
             meshes = [context.object.data]
+            multires_count = 1
 
         if mat.users > 1:
             # Emptying the lists again in case active object is problematic
@@ -779,12 +781,14 @@ class YBakeToLayer(bpy.types.Operator):
                 if ob.type != 'MESH': continue
                 if hasattr(ob, 'hide_viewport') and ob.hide_viewport: continue
                 if len(get_uv_layers(ob)) == 0: continue
-                if self.type.startswith('MULTIRES_') and not get_multires_modifier(ob): continue
                 if len(ob.data.polygons) == 0: continue
 
                 # Do not bake objects with hide_render on
                 if ob.hide_render: continue
                 if not in_renderable_layer_collection(ob): continue
+
+                if self.type.startswith('MULTIRES_') and get_multires_modifier(ob):
+                    multires_count += 1
 
                 for i, m in enumerate(ob.data.materials):
                     if m == mat:
@@ -793,7 +797,7 @@ class YBakeToLayer(bpy.types.Operator):
                             objs.append(ob)
                             meshes.append(ob.data)
 
-        if not objs:
+        if not objs or (self.type.startswith('MULTIRES_') and multires_count == 0):
             self.report({'ERROR'}, "No valid objects found to bake!")
             return {'CANCELLED'}
 
@@ -930,7 +934,7 @@ class YBakeToLayer(bpy.types.Operator):
             objs.extend(other_objs)
 
         # Join objects if the number of objects is higher than one
-        elif len(objs) > 1 and not is_join_objects_problematic(yp):
+        elif not self.type.startswith('MULTIRES_') and len(objs) > 1 and not is_join_objects_problematic(yp):
             objs = temp_objs = [get_merged_mesh_objects(scene, objs, True)]
 
         fill_mode = 'FACE'
@@ -1031,7 +1035,7 @@ class YBakeToLayer(bpy.types.Operator):
                 mod = get_multires_modifier(ob)
 
                 #mod.render_levels = mod.total_levels
-                if self.type.startswith('MULTIRES_'):
+                if mod and self.type.startswith('MULTIRES_'):
                     mod.render_levels = self.multires_base
                     mod.levels = self.multires_base
 

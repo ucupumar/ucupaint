@@ -445,7 +445,15 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
 
         for obj in objs:
             obj.hide_set(False)
-            obj.select_set(True)
+
+            if bake_from_multires:
+                # Do not select object without multires modifier
+                mod = get_multires_modifier(obj)
+                if not mod:
+                    obj.select_set(False)
+                else: obj.select_set(True)
+            else:
+                obj.select_set(True)
             #print(obj.name, obj.hide_render, obj.select_get())
 
         # Disable material override
