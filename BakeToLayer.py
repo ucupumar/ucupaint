@@ -4,6 +4,7 @@ from mathutils import *
 from .common import *
 from .bake_common import *
 from .subtree import *
+from .input_outputs import *
 from .node_connections import *
 from .node_arrangements import *
 from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier, BakeInfo, UDIM
@@ -1889,8 +1890,179 @@ class YBakeToLayer(bpy.types.Operator):
 
         return {'FINISHED'}
 
-class YDuplicateLayerToImage(bpy.types.Operator):
-    bl_idname = "node.y_duplicate_layer_to_image"
+def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, samples=1, margin=5, uv_name='', bake_device='CPU', 
+        use_udim=False, fxaa=True, blur=False, blur_factor=0.5, denoise=False, disable_modifiers=True):
+
+    yp = entity.id_data.yp
+
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+    ori_use_baked = False
+    ori_enabled_mods = []
+    #ori_enable_blur = False
+    if m1: 
+        layer = yp.layers[int(m1.group(1))]
+        mask = None
+    elif m2: 
+        layer = yp.layers[int(m2.group(1))]
+        mask = layer.masks[int(m2.group(2))]
+
+        # Disable use baked first
+        if mask.use_baked: 
+            ori_use_baked = True
+            mask.use_baked = False
+
+        # Disable modifiers
+        if disable_modifiers:
+            for mod in mask.modifiers:
+                if mod.enable:
+                    ori_enabled_mods.append(mod)
+                    mod.enable = False
+            #ori_enable_blur = mask.enable_blur_vector
+            #mask.enable_blur_vector = False
+
+    else: 
+        return None
+
+    # Remember things
+    book = remember_before_bake(yp)
+
+    # FXAA doesn't work with hdr image
+    # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
+    use_fxaa = not hdr and fxaa
+
+    # Preview setup
+    ori_channel_index = yp.active_channel_index
+    ori_preview_mode = yp.preview_mode
+    ori_layer_preview_mode = yp.layer_preview_mode
+    ori_layer_preview_mode_type = yp.layer_preview_mode_type
+
+    layer.enable = True
+
+    if mask: 
+        mask.enable = True
+        mask.active_edit = True
+
+    yp.layer_preview_mode_type = 'SPECIFIC_MASK' if mask else 'LAYER'
+    yp.layer_preview_mode = True
+
+    # Set active channel so preview will output right value
+    for i, ch in enumerate(layer.channels):
+        if mask:
+            if ch.enable and mask.channels[i].enable:
+                yp.active_channel_index = i
+                break
+        else:
+            if ch.enable:
+                yp.active_channel_index = i
+                break
+
+    # Modifier setups
+    ori_mods = {}
+    ori_viewport_mods = {}
+
+    for obj in objs:
+
+        # Disable few modifiers
+        ori_mods[obj.name] = [m.show_render for m in obj.modifiers]
+        ori_viewport_mods[obj.name] = [m.show_viewport for m in obj.modifiers]
+
+        for m in get_problematic_modifiers(obj):
+            m.show_render = False
+
+    prepare_bake_settings(book, objs, yp, samples=samples, margin=margin, 
+            uv_map=uv_name, bake_type='EMIT', bake_device=bake_device
+            )
+
+    # Create bake nodes
+    tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+
+    if mask:
+        color = (0,0,0,1)
+        color_str = 'BLACK'
+        colorspace = 'Non-Color'
+    else: 
+        color = (0,0,0,0)
+        color_str = 'TRANSPARENT'
+        colorspace = 'sRGB'
+
+    # Create image
+    if use_udim:
+        image = bpy.data.images.new(name=name,
+                width=width, height=height, alpha=True, float_buffer=hdr, tiled=True)
+
+        tilenums = UDIM.get_tile_numbers(objs, uv_name)
+
+        # Fill tiles
+        for tilenum in tilenums:
+            UDIM.fill_tile(image, tilenum, color, width, height)
+        UDIM.initial_pack_udim(image, color)
+
+        # Remember base color
+        image.yia.color = color_str
+    else:
+        image = bpy.data.images.new(name=name,
+                width=width, height=height, alpha=True, float_buffer=hdr)
+
+    image.generated_color = color
+    image.colorspace_settings.name = colorspace
+
+    # Set bake image
+    tex.image = image
+    mat.node_tree.nodes.active = tex
+
+    # Bake!
+    bpy.ops.object.bake()
+
+    if use_fxaa: fxaa_image(image, False, bake_device=bake_device)
+    if blur: 
+        samples = 4096 if is_greater_than_300() else 128
+        blur_image(image, False, bake_device=bake_device, factor=blur_factor, samples=samples)
+    if denoise: 
+        denoise_image(image)
+
+    # Remove temp bake nodes
+    simple_remove_node(mat.node_tree, tex, remove_data=False)
+
+    # Recover bake settings
+    recover_bake_settings(book, yp)
+
+    # Recover modifiers
+    for obj in objs:
+        # Recover modifiers
+        for i, m in enumerate(obj.modifiers):
+            #print(obj.name, i)
+            if i >= len(ori_mods[obj.name]): break
+            if ori_mods[obj.name][i] != m.show_render:
+                m.show_render = ori_mods[obj.name][i]
+            if i >= len(ori_viewport_mods[obj.name]): break
+            if ori_viewport_mods[obj.name][i] != m.show_render:
+                m.show_viewport = ori_viewport_mods[obj.name][i]
+
+    # Recover preview
+    yp.active_channel_index = ori_channel_index
+    if yp.preview_mode != ori_preview_mode:
+        yp.preview_mode = ori_preview_mode
+    if yp.layer_preview_mode != ori_layer_preview_mode:
+        yp.layer_preview_mode = ori_layer_preview_mode
+    if yp.layer_preview_mode_type != ori_layer_preview_mode_type:
+        yp.layer_preview_mode_type = ori_layer_preview_mode_type
+
+    if disable_modifiers:
+        for mod in ori_enabled_mods:
+            mod.enable = True
+
+        #if ori_enable_blur:
+        #    mask.enable_blur_vector = True
+
+    if mask and ori_use_baked:
+        mask.use_baked = True
+
+    return image
+
+class YBakeLayerToImage(bpy.types.Operator):
+    bl_idname = "node.y_bake_layer_to_image"
     bl_label = "Duplicate Layer/Mask To Image"
     bl_description = "Duplicate Layer/Mask to an image"
     bl_options = {'REGISTER', 'UNDO'}
@@ -1943,6 +2115,11 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             default=1.0, min=0.0, max=100.0
             )
 
+    duplicate_entity : BoolProperty(
+            name = 'Duplicate Entity',
+            description='Duplicate entity',
+            default=False)
+
     disable_current : BoolProperty(
             name = 'Disable current layer/mask',
             description='Disable current layer/mask',
@@ -1978,28 +2155,39 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         if m1: 
             self.layer = yp.layers[int(m1.group(1))]
             self.mask = None
+            self.entity = self.layer
             self.index = int(m1.group(1))
         elif m2: 
             self.layer = yp.layers[int(m2.group(1))]
             self.mask = self.layer.masks[int(m2.group(2))]
+            self.entity = self.mask
             self.index = int(m2.group(2))
         else: 
             return self.execute(context)
 
+        bi = None
+        overwrite_image = None
         if self.mask:
-            self.name = self.mask.name
-            if not self.name.endswith(' Image'):
-                self.name += ' Image'
-            self.name = get_unique_name(self.name, self.layer.masks)
+            if self.mask.use_baked:
+                mask_tree = get_mask_tree(self.mask)
+                baked_source = mask_tree.nodes.get(self.mask.baked_source)
+                if baked_source and baked_source.image:
+                    overwrite_image = baked_source.image
+                    if baked_source.image.y_bake_info.is_baked:
+                        bi = baked_source.image.y_bake_info
+
+            if overwrite_image:
+                self.name = overwrite_image.name
+            else:
+                self.name = self.mask.name
+                if not self.name.endswith(' Image'):
+                    self.name += ' Image'
+                self.name = get_unique_name(self.name, self.layer.masks)
         else:
             self.name = self.layer.name
             if not self.name.endswith(' Image'):
                 self.name += ' Image'
             self.name = get_unique_name(self.name, yp.layers)
-
-        # Use user preference default image size if input uses default image size
-        if self.width == 1234 and self.height == 1234:
-            self.width = self.height = ypup.default_new_image_size
 
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
@@ -2010,8 +2198,28 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             if not uv.name.startswith(TEMP_UV):
                 self.uv_map_coll.add().name = uv.name
 
-        if len(self.uv_map_coll) > 0:
-            self.uv_map = self.uv_map_coll[0].name
+        if bi:
+            for attr in dir(bi):
+                if attr in {'other_objects', 'selected_objects'}: continue
+                if attr.startswith('__'): continue
+                if attr.startswith('bl_'): continue
+                if attr in {'rna_type'}: continue
+                #if attr in dir(self):
+                try: setattr(self, attr, getattr(bi, attr))
+                except: pass
+
+        if overwrite_image:
+            self.width = overwrite_image.size[0]
+            self.height = overwrite_image.size[1]
+            if self.entity.uv_name in self.uv_map_coll:
+                self.uv_map = self.entity.uv_name
+        else:
+            if len(self.uv_map_coll) > 0:
+                self.uv_map = self.uv_map_coll[0].name
+
+            # Use user preference default image size if input uses default image size
+            if self.width == 1234 and self.height == 1234:
+                self.width = self.height = ypup.default_new_image_size
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -2049,7 +2257,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             col.label(text='')
         col.label(text='')
         col.label(text='')
-        #col.label(text='Blur:')
+        #col.label(text='')
 
         col = row.column(align=False)
 
@@ -2069,15 +2277,22 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         if is_greater_than_281():
             col.prop(self, 'denoise', text='Use Denoise')
         ccol = col.column(align=True)
-        ccol.prop(self, 'use_image_atlas')
-        if self.mask:
-            col.prop(self, 'disable_current', text='Disable Current Mask')
-        else: col.prop(self, 'disable_current', text='Disable Current Layer')
 
         rrow = col.row(align=True)
         rrow.prop(self, 'blur')
         if self.blur:
             rrow.prop(self, 'blur_factor', text='')
+
+        if self.mask:
+            col.prop(self, 'duplicate_entity', text='Duplicate Mask')
+        else: col.prop(self, 'duplicate_entity', text='Disable Layer')
+        if self.duplicate_entity:
+            if self.mask:
+                col.prop(self, 'disable_current', text='Disable Current Mask')
+            else: col.prop(self, 'disable_current', text='Disable Current Layer')
+
+            # TODO: Non duplicate Bake layer/mask to image atlas
+            col.prop(self, 'use_image_atlas')
 
     def execute(self, context):
 
@@ -2094,6 +2309,7 @@ class YDuplicateLayerToImage(bpy.types.Operator):
         node = get_active_ypaint_node()
         yp = node.node_tree.yp
         tree = node.node_tree
+        layer_tree = get_tree(self.layer)
 
         objs = [context.object]
         meshes = [context.object.data]
@@ -2120,202 +2336,153 @@ class YDuplicateLayerToImage(bpy.types.Operator):
             self.report({'ERROR'}, "No valid objects found to bake!")
             return {'CANCELLED'}
 
-        # Remember things
-        book = remember_before_bake(yp)
+        overwrite_image = None
 
-        # FXAA doesn't work with hdr image
-        # FXAA also does not works well with baked image with alpha, so other object bake will use SSAA instead
-        use_fxaa = not self.hdr and self.fxaa
+        if self.mask:
+            entity = self.mask 
+        else: entity = self.layer 
 
-        #samples = 1
-        #if self.mask: #and self.mask.enable_blur_vector:
-        #    samples = 4096 if is_greater_than_300() else 128
-
-        # Preview setup
-        ori_channel_index = yp.active_channel_index
-        ori_preview_mode = yp.preview_mode
-        ori_layer_preview_mode = yp.layer_preview_mode
-        ori_layer_preview_mode_type = yp.layer_preview_mode_type
-
-        self.layer.enable = True
-
-        if self.mask: 
-            self.mask.enable = True
-            self.mask.active_edit = True
-
-        yp.layer_preview_mode_type = 'SPECIFIC_MASK' if self.mask else 'LAYER'
-        yp.layer_preview_mode = True
-
-        # Set active channel so preview will output right value
-        for i, ch in enumerate(self.layer.channels):
-            if self.mask:
-                if ch.enable and self.mask.channels[i].enable:
-                    yp.active_channel_index = i
-                    break
-            else:
-                if ch.enable:
-                    yp.active_channel_index = i
-                    break
-
-        # Modifier setups
-        ori_mods = {}
-        ori_viewport_mods = {}
-
-        for obj in objs:
-
-            # Disable few modifiers
-            ori_mods[obj.name] = [m.show_render for m in obj.modifiers]
-            ori_viewport_mods[obj.name] = [m.show_viewport for m in obj.modifiers]
-
-            for m in get_problematic_modifiers(obj):
-                m.show_render = False
-
-        prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device
+        image = bake_as_image(objs, mat, entity, self.name, width=self.width, height=self.height, hdr=self.hdr, 
+                samples=self.samples, margin=self.margin, uv_name=self.uv_map, bake_device=self.bake_device, 
+                use_udim=self.use_udim, fxaa=self.fxaa, blur=self.blur, blur_factor=self.blur_factor, denoise=self.denoise,
+                disable_modifiers = not self.duplicate_entity
                 )
 
-        # Create bake nodes
-        tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
+        if self.duplicate_entity:
 
-        if self.mask:
-            color = (0,0,0,1)
-            color_str = 'BLACK'
-            colorspace = 'Non-Color'
-        else: 
-            color = (0,0,0,0)
-            color_str = 'TRANSPARENT'
-            colorspace = 'sRGB'
+            if self.mask:
+                mask_name = image.name if not self.use_image_atlas else self.name
 
-        # Create image
-        if self.use_udim:
-            image = bpy.data.images.new(name=self.name,
-                    width=self.width, height=self.height, alpha=True, float_buffer=self.hdr, tiled=True)
+                segment = None
+                if self.use_image_atlas:
+                    mask_name = get_unique_name(mask_name, self.layer.masks)
 
-            tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
+                    if self.use_udim:
+                        segment = UDIM.get_set_udim_atlas_segment(tilenums, color=(0,0,0,1), 
+                                colorspace='Non-Color', hdr=self.hdr, yp=yp)
+                    else:
+                        # Clearing unused image atlas segments
+                        img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', self.width, self.height, self.hdr)
+                        if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
 
-            # Fill tiles
-            for tilenum in tilenums:
-                UDIM.fill_tile(image, tilenum, color, self.width, self.height)
-            UDIM.initial_pack_udim(image, color)
+                        segment = ImageAtlas.get_set_image_atlas_segment(
+                                self.width, self.height, 'BLACK', self.hdr, yp=yp) #, ypup.image_atlas_size)
 
-            # Remember base color
-            image.yia.color = color_str
+                    ia_image = segment.id_data
+
+                    # Set baked image to segment
+                    if self.use_udim:
+                        offset = get_udim_segment_mapping_offset(segment) * 10
+                        copy_dict = {}
+                        for tilenum in tilenums:
+                            copy_dict[tilenum] = tilenum + offset
+                        UDIM.copy_tiles(image, ia_image, copy_dict)
+                    else: copy_image_pixels(image, ia_image, segment)
+                    temp_img = image
+                    image = ia_image
+
+                    # Remove original baked image
+                    bpy.data.images.remove(temp_img)
+
+                # Disable source mask
+                if self.mask and self.disable_current:
+                    self.mask.enable = False
+
+                # Create new mask
+                mask = Mask.add_new_mask(self.layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
+
+                # Set mask properties
+                mask.intensity_value = self.mask.intensity_value
+                mask.blend_type = self.mask.blend_type
+                for i, c in enumerate(self.mask.channels):
+                    mask.channels[i].enable = c.enable
+
+                # Set newly created mask active
+                mask.active_edit = True
+
+                # Reorder index
+                self.layer.masks.move(len(self.layer.masks)-1, self.index+1)
+                check_mask_mix_nodes(self.layer, layer_tree)
+                check_mask_source_tree(self.layer) #, bump_ch)
+                mask = self.layer.masks[self.index+1]
+
+                if segment:
+                    ImageAtlas.set_segment_mapping(mask, segment, image)
+
+                # Refresh uv
+                refresh_temp_uv(context.object, mask)
+
+                # Refresh Neighbor UV resolution
+                set_uv_neighbor_resolution(mask)
+
+                # Make new mask active
+                mask.active_edit = True
+            else:
+                # TODO: Duplicate layer as image(s)
+                pass
         else:
-            image = bpy.data.images.new(name=self.name,
-                    width=self.width, height=self.height, alpha=True, float_buffer=self.hdr)
+            if self.mask:
+                yp.halt_update = True
 
-        image.generated_color = color
-        image.colorspace_settings.name = colorspace
+                mask = self.mask
+                mask_tree = get_mask_tree(mask)
 
-        # Set bake image
-        tex.image = image
-        mat.node_tree.nodes.active = tex
+                overwrite_image = None
+                baked_source = mask_tree.nodes.get(mask.baked_source)
+                if baked_source:
+                    overwrite_image = baked_source.image
+                    overwrite_image_name = overwrite_image.name
 
-        # Bake!
-        bpy.ops.object.bake()
+                    # Remove node first to also remove its data
+                    remove_node(mask_tree, mask, 'baked_source')
 
-        if use_fxaa: fxaa_image(image, False, bake_device=self.bake_device)
-        if self.blur: 
-            samples = 4096 if is_greater_than_300() else 128
-            blur_image(image, False, bake_device=self.bake_device, factor=self.blur_factor, samples=samples)
-        if self.denoise: 
-            denoise_image(image)
+                    # Rename image 
+                    if overwrite_image_name == self.name:
+                        image.name = self.name
 
-        if self.mask:
-            mask_name = image.name if not self.use_image_atlas else self.name
+                # Set bake info to image/segment
+                #bi = segment.bake_info if segment else image.y_bake_info
+                bi = image.y_bake_info
 
-            segment = None
-            if self.use_image_atlas:
-                mask_name = get_unique_name(mask_name, self.layer.masks)
+                bi.is_baked = True
+                for attr in dir(bi):
+                    #if attr in dir(self):
+                    if attr.startswith('__'): continue
+                    if attr.startswith('bl_'): continue
+                    if attr in {'rna_type'}: continue
+                    try: setattr(bi, attr, getattr(self, attr))
+                    except: pass
 
-                if self.use_udim:
-                    segment = UDIM.get_set_udim_atlas_segment(tilenums, color=(0,0,0,1), 
-                            colorspace='Non-Color', hdr=self.hdr, yp=yp)
-                else:
-                    # Clearing unused image atlas segments
-                    img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', self.width, self.height, self.hdr)
-                    if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
+                # Create new node
+                baked_source = new_node(mask_tree, mask, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
 
-                    segment = ImageAtlas.get_set_image_atlas_segment(
-                            self.width, self.height, 'BLACK', self.hdr, yp=yp) #, ypup.image_atlas_size)
+                # Set image to baked node
+                baked_source.image = image
 
-                ia_image = segment.id_data
+                # Set mask props
+                mask.uv_name = self.uv_map
+                mask.use_baked = True
 
-                # Set baked image to segment
-                if self.use_udim:
-                    offset = get_udim_segment_mapping_offset(segment) * 10
-                    copy_dict = {}
-                    for tilenum in tilenums:
-                        copy_dict[tilenum] = tilenum + offset
-                    UDIM.copy_tiles(image, ia_image, copy_dict)
-                else: copy_image_pixels(image, ia_image, segment)
-                temp_img = image
-                image = ia_image
+                yp.halt_update = False
 
-                # Remove original baked image
-                bpy.data.images.remove(temp_img)
+                # Update global uv
+                check_uv_nodes(yp)
 
-            # Disable source mask
-            if self.mask and self.disable_current:
-                self.mask.enable = False
+                # Update layer tree inputs
+                check_all_layer_channel_io_and_nodes(self.layer)
+                check_start_end_root_ch_nodes(node.node_tree)
 
-            # Create new mask
-            mask = Mask.add_new_mask(self.layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
+                # Make current mask active
+                mask.active_edit = True
+            else:
+                # TODO: Bake layer as image(s)
+                pass
 
-            # Set mask properties
-            mask.intensity_value = self.mask.intensity_value
-            mask.blend_type = self.mask.blend_type
-            for i, c in enumerate(self.mask.channels):
-                mask.channels[i].enable = c.enable
+        reconnect_layer_nodes(self.layer)
+        rearrange_layer_nodes(self.layer)
 
-            # Set newly created mask active
-            mask.active_edit = True
-
-            # Reorder index
-            self.layer.masks.move(len(self.layer.masks)-1, self.index+1)
-            layer_tree = get_tree(self.layer)
-            check_mask_mix_nodes(self.layer, layer_tree)
-            check_mask_source_tree(self.layer) #, bump_ch)
-            mask = self.layer.masks[self.index+1]
-
-            if segment:
-                ImageAtlas.set_segment_mapping(mask, segment, image)
-
-            # Refresh uv
-            refresh_temp_uv(context.object, mask)
-
-            # Refresh Neighbor UV resolution
-            set_uv_neighbor_resolution(mask)
-
-            reconnect_layer_nodes(self.layer)
-            rearrange_layer_nodes(self.layer)
-
-        # Remove temp bake nodes
-        simple_remove_node(mat.node_tree, tex)
-
-        # Recover bake settings
-        recover_bake_settings(book, yp)
-
-        # Recover modifiers
-        for obj in objs:
-            # Recover modifiers
-            for i, m in enumerate(obj.modifiers):
-                #print(obj.name, i)
-                if i >= len(ori_mods[obj.name]): break
-                if ori_mods[obj.name][i] != m.show_render:
-                    m.show_render = ori_mods[obj.name][i]
-                if i >= len(ori_viewport_mods[obj.name]): break
-                if ori_viewport_mods[obj.name][i] != m.show_render:
-                    m.show_viewport = ori_viewport_mods[obj.name][i]
-
-        # Recover preview
-        yp.active_channel_index = ori_channel_index
-        if yp.preview_mode != ori_preview_mode:
-            yp.preview_mode = ori_preview_mode
-        if yp.layer_preview_mode != ori_layer_preview_mode:
-            yp.layer_preview_mode = ori_layer_preview_mode
-        if yp.layer_preview_mode_type != ori_layer_preview_mode_type:
-            yp.layer_preview_mode_type = ori_layer_preview_mode_type
+        reconnect_yp_nodes(node.node_tree)
+        rearrange_yp_nodes(node.node_tree)
 
         return {"FINISHED"}
 
@@ -2323,10 +2490,10 @@ def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YRemoveBakeInfoOtherObject)
     bpy.utils.register_class(YTryToSelectBakedVertexSelect)
-    bpy.utils.register_class(YDuplicateLayerToImage)
+    bpy.utils.register_class(YBakeLayerToImage)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
     bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
-    bpy.utils.unregister_class(YDuplicateLayerToImage)
+    bpy.utils.unregister_class(YBakeLayerToImage)

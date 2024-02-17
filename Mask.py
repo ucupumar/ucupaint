@@ -169,10 +169,12 @@ def remove_mask(layer, mask, obj):
     disable_mask_source_tree(layer, mask)
 
     remove_node(tree, mask, 'source')
+    remove_node(tree, mask, 'baked_source')
     remove_node(tree, mask, 'blur_vector')
     remove_node(tree, mask, 'mapping')
     remove_node(tree, mask, 'linear')
     remove_node(tree, mask, 'uv_map')
+    remove_node(tree, mask, 'uv_neighbor')
 
     # Remove mask modifiers
     for m in mask.modifiers:
@@ -1254,6 +1256,32 @@ def update_mask_blur_vector_factor(self, context):
     if blur_vector:
         blur_vector.inputs[0].default_value = mask.blur_vector_factor / 100.0
 
+def update_mask_use_baked(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    mask = self
+    tree = get_tree(layer)
+
+    # Update global uv
+    check_uv_nodes(yp)
+
+    # Update layer tree inputs
+    check_all_layer_channel_io_and_nodes(layer)
+    check_start_end_root_ch_nodes(self.id_data)
+
+    # Refresh active image by setting active edit
+    if mask.active_edit:
+        mask.active_edit = True
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
+
 def update_mask_intensity_value(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -1371,8 +1399,6 @@ def update_mask_texcoord_type(self, context):
     # Update layer tree inputs
     check_all_layer_channel_io_and_nodes(layer, tree)
 
-    set_mask_uv_neighbor(tree, layer, self, mask_idx)
-
     # Set image source projection
     if mask.type == 'IMAGE':
         source = get_mask_source(mask)
@@ -1425,8 +1451,6 @@ def update_mask_uv_name(self, context):
 
     # Update layer tree inputs
     check_all_layer_channel_io_and_nodes(layer, tree)
-
-    set_mask_uv_neighbor(tree, layer, self, mask_idx)
 
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
@@ -1726,6 +1750,13 @@ class YLayerMask(bpy.types.PropertyGroup):
             update=update_mask_color_id,
             )
 
+    use_baked : BoolProperty(
+            name = 'Use Baked',
+            description = 'Use baked image rather generated mask',
+            default = False,
+            update=update_mask_use_baked
+            )
+
     segment_name : StringProperty(default='')
 
     channels : CollectionProperty(type=YLayerMaskChannel)
@@ -1769,6 +1800,8 @@ class YLayerMask(bpy.types.PropertyGroup):
     source_s : StringProperty(default='')
     source_e : StringProperty(default='')
     source_w : StringProperty(default='')
+
+    baked_source : StringProperty(default='')
 
     uv_map : StringProperty(default='')
     uv_neighbor : StringProperty(default='')

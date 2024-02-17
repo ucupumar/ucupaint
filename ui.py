@@ -1926,6 +1926,9 @@ def draw_layer_masks(context, layout, layer):
 
         row.label(text=label_text)
 
+        if mask.baked_source != '':
+            row.prop(mask, 'use_baked', text='Use Baked', toggle=True)
+
         if mask.enable:
             if mask.type == 'IMAGE':
                 if mask.source_input == 'ALPHA':
@@ -2008,28 +2011,35 @@ def draw_layer_masks(context, layout, layer):
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon='BLANK1')
             rbox = rrow.box()
+            rbcol = rbox.column()
+            rbcol.active = not mask.use_baked
             if mask.use_temp_bake:
-                rbox.context_pointer_set('parent', mask)
-                rbox.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
+                rbcol.context_pointer_set('parent', mask)
+                rbcol.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
             elif mask_image:
-                draw_image_props(context, mask_source, rbox, mask)
+                draw_image_props(context, mask_source, rbcol, mask)
             elif mask.type == 'HEMI':
-                draw_hemi_props(mask, mask_source, rbox)
+                draw_hemi_props(mask, mask_source, rbcol)
             elif mask.type == 'OBJECT_INDEX':
-                draw_object_index_props(mask, rbox)
+                draw_object_index_props(mask, rbcol)
             elif mask.type == 'COLOR_ID':
-                draw_colorid_props(mask, mask_source, rbox)
+                draw_colorid_props(mask, mask_source, rbcol)
             elif mask.type == 'EDGE_DETECT':
-                draw_edge_detect_props(mask, mask_source, rbox)
+                draw_edge_detect_props(mask, mask_source, rbcol)
             elif mask.type == 'MODIFIER':
-                draw_inbetween_modifier_mask_props(mask, mask_source, rbox)
-            else: draw_tex_props(mask_source, rbox)
+                draw_inbetween_modifier_mask_props(mask, mask_source, rbcol)
+            else: draw_tex_props(mask_source, rbcol)
+
+            if mask.baked_source != '':
+                rbox.context_pointer_set('entity', mask)
+                rbox.operator("node.y_bake_layer_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
 
         # Input row
         if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} and (is_greater_than_292() or mask.type != 'VCOL'):
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon_value=lib.get_icon('input'))
             splits = split_layout(rrow, 0.3)
+            splits.active = not mask.use_baked
             splits.label(text='Input:')
             splits.prop(mask, 'source_input', text='')
 
@@ -2043,6 +2053,7 @@ def draw_layer_masks(context, layout, layer):
             rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
 
             splits = split_layout(rrow, 0.3)
+            splits.active = not mask.use_baked
 
             mask_src = get_mask_source(mask)
 
@@ -2069,6 +2080,7 @@ def draw_layer_masks(context, layout, layer):
                 rrow = rrcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
+                rbox.active = not mask.use_baked
                 if mask_image and (mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas):
                     #rbox.label(text="Transform vector with image atlas is not possible!")
                     pass
@@ -2924,7 +2936,12 @@ def main_draw(self, context):
 
             for mask in layer.masks:
                 if not mask.enable: continue
-                if mask.type == 'IMAGE':
+                if mask.use_baked:
+                    mask_tree = get_mask_tree(mask)
+                    src = mask_tree.nodes.get(mask.baked_source)
+                    if src.image and src.image not in images:
+                        images.append(src.image)
+                elif mask.type == 'IMAGE':
                     src = get_mask_source(mask)
                     if src.image and src.image not in images:
                         images.append(src.image)
@@ -4182,7 +4199,7 @@ class YLayerMaskMenu(bpy.types.Menu):
         col.separator()
 
         col.context_pointer_set('entity', mask)
-        col.operator('node.y_duplicate_layer_to_image', icon='COPY_ID', text='Duplicate as Image')
+        col.operator('node.y_bake_layer_to_image', icon_value=lib.get_icon('bake'), text='Bake as Image')
 
         col.separator()
 

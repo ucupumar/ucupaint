@@ -240,7 +240,10 @@ class YRemoveMaskModifier(bpy.types.Operator):
         return {'FINISHED'}
 
 class YMaskModifier(bpy.types.PropertyGroup):
-    enable : BoolProperty(default=True, update=update_mask_modifier_enable)
+    enable : BoolProperty(
+            name = 'Enable Modifier',
+            description = 'Enable modifier',
+            default=True, update=update_mask_modifier_enable)
     name : StringProperty(default='')
 
     type : EnumProperty(

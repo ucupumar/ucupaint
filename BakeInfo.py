@@ -66,6 +66,15 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             description = "Use Denoise on baked image",
             default=True)
 
+    blur : BoolProperty(name='Use Blur', 
+            description = "Use blur to baked image",
+            default=False)
+
+    blur_factor : FloatProperty(name='Blur Factor',
+            description = "Blur factor to baked image",
+            default=1.0, min=0.0, max=100.0
+            )
+
     use_baked_disp : BoolProperty(
             name='Use Baked Displacement Map',
             description='Use baked displacement map, this will also apply subdiv setup on object',

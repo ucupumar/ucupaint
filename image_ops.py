@@ -179,11 +179,16 @@ def save_pack_all(yp):
 
         # Mask image
         for mask in layer.masks:
+            mask_tree = get_mask_tree(mask)
+
             if mask.type == 'IMAGE':
-                mask_tree = get_mask_tree(mask)
                 source = mask_tree.nodes.get(mask.source)
                 if source.image and source.image not in images:
                     images.append(source.image)
+
+            baked_source = mask_tree.nodes.get(mask.baked_source)
+            if baked_source and baked_source.image and baked_source.image not in images:
+                images.append(baked_source.image)
 
         # Channel override image
         for ch in layer.channels:

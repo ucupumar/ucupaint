@@ -232,7 +232,9 @@ def rearrange_layer_frame_nodes(layer, tree=None):
 
         if mask.group_node != '':
             check_set_node_parent(tree, mask.group_node, frame)
-        else: check_set_node_parent(tree, mask.source, frame)
+        else: 
+            check_set_node_parent(tree, mask.baked_source, frame)
+            check_set_node_parent(tree, mask.source, frame)
 
         check_set_node_parent(tree, mask.uv_neighbor, frame)
         check_set_node_parent(tree, mask.uv_map, frame)
@@ -477,8 +479,14 @@ def rearrange_mask_tree_nodes(mask):
     #if check_set_node_loc(tree, mask.mapping, loc):
     #    loc.x += 380
 
+    if check_set_node_loc(tree, mask.baked_source, loc):
+        loc.y -= 270
+
     if check_set_node_loc(tree, mask.source, loc):
         loc.x += 280
+
+    if mask.baked_source != '':
+        loc.y = 0
 
     if check_set_node_loc(tree, mask.linear, loc):
         loc.x += 180
@@ -1005,6 +1013,9 @@ def rearrange_layer_nodes(layer, tree=None):
         else:
             if check_set_node_loc(tree, mask.linear, loc):
                 loc.y -= 140
+
+            if check_set_node_loc(tree, mask.baked_source, loc):
+                loc.y -= 270
 
             if check_set_node_loc(tree, mask.source, loc):
                 loc.y -= 270

@@ -4106,7 +4106,13 @@ def get_active_image_and_stuffs(obj, yp):
         if mask.active_edit:
             source = get_mask_source(mask)
 
-            if mask.type == 'IMAGE':
+            if mask.use_baked:
+                mask_tree = get_mask_tree(mask)
+                baked_source = mask_tree.nodes.get(mask.baked_source)
+                if baked_source and baked_source.image:
+                    image = baked_source.image
+                    src_of_img = mask
+            elif mask.type == 'IMAGE':
                 uv_name = mask.uv_name
                 image = source.image
                 src_of_img = mask
@@ -4175,6 +4181,8 @@ def is_uv_input_needed(layer, uv_name):
         
         for mask in layer.masks:
             if not get_mask_enabled(mask): continue
+            if mask.baked_source != '' and mask.use_baked and mask.uv_name == uv_name:
+                return True
             if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}: continue
             if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
                 return True
@@ -4194,10 +4202,15 @@ def is_entity_need_tangent_input(entity, uv_name):
         entity_enabled = get_layer_enabled(entity)
         is_mask = False
 
-    if entity_enabled and entity.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+    if entity_enabled and (entity.use_baked or entity.type not in {'BACKGROUND', 'COLOR', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}):
 
         height_root_ch = get_root_height_channel(yp)
         height_ch = get_height_channel(layer)
+
+        # Previous normal is calculated using normal process
+        if height_root_ch and check_need_prev_normal(layer):
+            return True
+
         if height_root_ch and height_ch and height_ch.enable:
 
             if entity.type == 'GROUP':
@@ -4211,6 +4224,7 @@ def is_entity_need_tangent_input(entity, uv_name):
                 if is_parallax_enabled(height_root_ch) and height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} or yp.layer_preview_mode or not height_ch.write_height:
                     return True
 
+                # Overlay blend and transition bump need tangent
                 if height_ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and (height_ch.normal_blend_type == 'OVERLAY' or height_ch.enable_transition_bump):
                     return True
 
@@ -4218,10 +4232,9 @@ def is_entity_need_tangent_input(entity, uv_name):
                 if height_root_ch.enable_smooth_bump and (entity.texcoord_type != 'UV' or entity.uv_name != uv_name) and height_ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'}:
                     return True
 
-                # Previous normal is calculated using normal process
-                need_prev_normal = check_need_prev_normal(layer)
-                if need_prev_normal:
-                     return True
+                # Fake neighbor need tangent
+                if height_root_ch.enable_smooth_bump and entity.type in {'VCOL', 'HEMI', 'EDGE_DETECT'} and not entity.use_baked:
+                    return True
 
             elif entity.uv_name == uv_name and entity.texcoord_type == 'UV':
 

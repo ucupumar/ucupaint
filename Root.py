@@ -3281,7 +3281,11 @@ class YPaint(bpy.types.PropertyGroup):
     #        update=update_merge_mask_mode)
 
     # Toggle to use baked results or not
-    use_baked : BoolProperty(default=False, update=Bake.update_use_baked)
+    use_baked : BoolProperty(default=False, 
+            name = 'Use Baked',
+            description = 'Use baked channels rather than layer channels',
+            update=Bake.update_use_baked)
+
     baked_uv_name : StringProperty(default='')
 
     enable_baked_outside : BoolProperty(

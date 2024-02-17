@@ -331,7 +331,7 @@ def check_layer_bump_process(layer, tree=None):
     else:
         remove_node(tree, layer, 'bump_process')
 
-def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
+def check_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 
     yp = layer.id_data.yp
 
@@ -349,11 +349,11 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
     # Get chain
     chain = get_bump_chain(layer)
 
-    if smooth_bump_ch and get_channel_enabled(smooth_bump_ch) and (write_height_ch or mask_idx < chain) and mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'MODIFIER'}:
+    if smooth_bump_ch and get_channel_enabled(smooth_bump_ch) and get_mask_enabled(mask) and (
+        (write_height_ch or mask_idx < chain) and (mask.use_baked or mask.type not in {'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'MODIFIER'})
+        ):
 
-        #print('ntob')
-
-        if mask.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
+        if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'EDGE_DETECT'}:
             lib_name = lib.NEIGHBOR_FAKE
         else: lib_name = lib.get_neighbor_uv_tree_name(mask.texcoord_type, entity=mask)
 
@@ -364,23 +364,25 @@ def set_mask_uv_neighbor(tree, layer, mask, mask_idx=-1):
 
         return dirty
 
+    else:
+        return remove_node(tree, mask, 'uv_neighbor')
+
     return False
 
 def enable_mask_source_tree(layer, mask, reconnect = False):
 
     # Check if source tree is already available
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'} and mask.group_node != '': return
+    #if (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}) and mask.group_node != '': return
 
     layer_tree = get_tree(layer)
 
     # Create uv neighbor
-    set_mask_uv_neighbor(layer_tree, layer, mask)
+    #check_mask_uv_neighbor(layer_tree, layer, mask)
 
-    #return
-
-    if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
+    if mask.group_node == '' and (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}):
         # Get current source for reference
         source_ref = layer_tree.nodes.get(mask.source)
+        baked_source_ref = layer_tree.nodes.get(mask.baked_source)
         linear_ref = layer_tree.nodes.get(mask.linear)
 
         # Create mask tree
@@ -396,10 +398,10 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
         # Copy nodes from reference
         source = new_node(mask_tree, mask, 'source', source_ref.bl_idname)
-        #source = new_node(mask_tree, mask, 'source', 'ShaderNodeTexImage')
-        #print(source, source_ref)
         copy_node_props(source_ref, source)
-        #source.image = source_ref.image
+        if baked_source_ref:
+            baked_source = new_node(mask_tree, mask, 'baked_source', baked_source_ref.bl_idname)
+            copy_node_props(baked_source_ref, baked_source)
 
         if linear_ref:
             linear = new_node(mask_tree, mask, 'linear', linear_ref.bl_idname)
@@ -423,6 +425,7 @@ def enable_mask_source_tree(layer, mask, reconnect = False):
 
         # Remove previous nodes
         layer_tree.nodes.remove(source_ref)
+        if baked_source_ref: layer_tree.nodes.remove(baked_source_ref)
         if linear_ref: layer_tree.nodes.remove(linear_ref)
 
     if reconnect:
@@ -439,17 +442,22 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
 
     layer_tree = get_tree(layer)
 
-    if mask.group_node != '' and mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}:
+    if mask.group_node != '': #and (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE'}):
 
         mask_tree = get_mask_tree(mask)
 
         source_ref = mask_tree.nodes.get(mask.source)
+        baked_source_ref = mask_tree.nodes.get(mask.baked_source)
         linear_ref = mask_tree.nodes.get(mask.linear)
         group_node = layer_tree.nodes.get(mask.group_node)
 
         # Create new nodes
         source = new_node(layer_tree, mask, 'source', source_ref.bl_idname)
         copy_node_props(source_ref, source)
+
+        if baked_source_ref:
+            baked_source = new_node(layer_tree, mask, 'baked_source', baked_source_ref.bl_idname)
+            copy_node_props(baked_source_ref, baked_source)
 
         if linear_ref:
             linear = new_node(layer_tree, mask, 'linear', linear_ref.bl_idname)
@@ -469,7 +477,7 @@ def disable_mask_source_tree(layer, mask, reconnect=False):
         remove_node(layer_tree, mask, 'tangent_flip')
         remove_node(layer_tree, mask, 'bitangent_flip')
 
-    remove_node(layer_tree, mask, 'uv_neighbor')
+    #remove_node(layer_tree, mask, 'uv_neighbor')
 
     if reconnect:
         # Reconnect outside nodes
@@ -669,21 +677,30 @@ def check_mask_mix_nodes(layer, tree=None, specific_mask=None, specific_ch=None)
 
 def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
 
+    #print("Checking mask source tree. Layer: " + layer.name + ' Specific Mask: ' + str(specific_mask))
+
     yp = layer.id_data.yp
 
     smooth_bump_ch = get_smooth_bump_channel(layer)
     write_height_ch = get_write_height_normal_channel(layer)
     chain = get_bump_chain(layer)
     ch_idx = get_layer_channel_index(layer, smooth_bump_ch)
+    tree = get_tree(layer)
 
     height_process_needed = is_height_process_needed(layer)
 
     for i, mask in enumerate(layer.masks):
         if specific_mask and specific_mask != mask: continue
 
-        if smooth_bump_ch and get_mask_enabled(mask) and mask.channels[ch_idx].enable and height_process_needed and (write_height_ch or i < chain):
+        if smooth_bump_ch and get_mask_enabled(mask) and (
+                mask.channels[ch_idx].enable and height_process_needed and (write_height_ch or i < chain) and
+                (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'})
+                ): 
             enable_mask_source_tree(layer, mask)
-        else: disable_mask_source_tree(layer, mask)
+        else:
+            disable_mask_source_tree(layer, mask)
+
+        check_mask_uv_neighbor(tree, layer, mask)
 
 def remove_tangent_sign_vcol(obj, uv_name):
     mat = obj.active_material
