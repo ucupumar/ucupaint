@@ -2166,13 +2166,12 @@ class YBakeEntityToImage(bpy.types.Operator):
         bi = None
         overwrite_image = None
         if self.mask:
-            if self.mask.use_baked:
-                mask_tree = get_mask_tree(self.mask)
-                baked_source = mask_tree.nodes.get(self.mask.baked_source)
-                if baked_source and baked_source.image:
-                    overwrite_image = baked_source.image
-                    if baked_source.image.y_bake_info.is_baked:
-                        bi = baked_source.image.y_bake_info
+            mask_tree = get_mask_tree(self.mask)
+            baked_source = mask_tree.nodes.get(self.mask.baked_source)
+            if baked_source and baked_source.image:
+                overwrite_image = baked_source.image
+                if baked_source.image.y_bake_info.is_baked:
+                    bi = baked_source.image.y_bake_info
 
             if overwrite_image:
                 self.name = overwrite_image.name
@@ -2313,7 +2312,6 @@ class YBakeEntityToImage(bpy.types.Operator):
 
         # Create new segment
         if self.use_image_atlas:
-            self.new_entity_name = get_unique_name(self.new_entity_name, self.entities)
 
             if self.use_udim:
                 segment = UDIM.get_set_udim_atlas_segment(self.tilenums, color=(0,0,0,1), 
@@ -2404,19 +2402,22 @@ class YBakeEntityToImage(bpy.types.Operator):
                 disable_modifiers = not self.duplicate_entity
                 )
 
+        # Get segment
+        segment = self.get_image_atlas_segment(context)
+
         if self.duplicate_entity:
 
             if self.mask:
-                self.new_entity_name = self.image.name if not self.use_image_atlas else self.name
-
-                segment = self.get_image_atlas_segment(context)
 
                 # Disable source mask
                 if self.mask and self.disable_current:
                     self.mask.enable = False
 
+                # New entity name
+                new_entity_name = get_unique_name(self.name, self.entities) if self.use_image_atlas else self.image.name
+
                 # Create new mask
-                mask = Mask.add_new_mask(self.layer, self.new_entity_name, 'IMAGE', 'UV', self.uv_map, self.image, None, segment)
+                mask = Mask.add_new_mask(self.layer, new_entity_name, 'IMAGE', 'UV', self.uv_map, self.image, None, segment)
 
                 # Set mask properties
                 mask.intensity_value = self.mask.intensity_value
