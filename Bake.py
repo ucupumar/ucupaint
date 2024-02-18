@@ -9,7 +9,7 @@ from .node_arrangements import *
 from .input_outputs import *
 from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier
 
-def transfer_uv(objs, mat, entity, uv_map):
+def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     yp = entity.id_data.yp
     scene = bpy.context.scene
@@ -19,11 +19,17 @@ def transfer_uv(objs, mat, entity, uv_map):
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     if m1: 
-        source = get_layer_source(entity)
+        if is_entity_baked:
+            tree = get_tree(entity)
+            source = tree.nodes.get(entity.baked_source)
+        else: source = get_layer_source(entity)
         mapping = get_layer_mapping(entity)
         index = int(m1.group(1))
     elif m2: 
-        source = get_mask_source(entity)
+        if is_entity_baked:
+            tree = get_mask_tree(entity)
+            source = tree.nodes.get(entity.baked_source)
+        else: source = get_mask_source(entity)
         mapping = get_mask_mapping(entity)
         index = int(m2.group(2))
     else: return
@@ -163,8 +169,10 @@ def transfer_uv(objs, mat, entity, uv_map):
     mat.node_tree.nodes.active = tex
 
     # Links
-    mat.node_tree.links.new(src_uv.outputs[0], mapp.inputs[0])
-    mat.node_tree.links.new(mapp.outputs[0], src.inputs[0])
+    if not is_entity_baked:
+        mat.node_tree.links.new(src_uv.outputs[0], mapp.inputs[0])
+        mat.node_tree.links.new(mapp.outputs[0], src.inputs[0])
+    else: mat.node_tree.links.new(src_uv.outputs[0], src.inputs[0])
     rgb = src.outputs[0]
     alpha = src.outputs[1]
     if straight_over:
@@ -255,16 +263,17 @@ def transfer_uv(objs, mat, entity, uv_map):
 
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
-    # Update entity transform
-    entity.translation = (0.0, 0.0, 0.0)
-    entity.rotation = (0.0, 0.0, 0.0)
-    entity.scale = (1.0, 1.0, 1.0)
+    if not is_entity_baked:
+        # Update entity transform
+        entity.translation = (0.0, 0.0, 0.0)
+        entity.rotation = (0.0, 0.0, 0.0)
+        entity.scale = (1.0, 1.0, 1.0)
+
+        # Update mapping
+        update_mapping(entity)
 
     # Change uv of entity
     entity.uv_name = uv_map
-
-    # Update mapping
-    update_mapping(entity)
 
     # Remove temporary objects
     if temp_objs:
@@ -392,7 +401,11 @@ class YTransferSomeLayerUV(bpy.types.Operator):
                 if layer.type == 'IMAGE':
                     print('TRANSFER UV: Transferring layer ' + layer.name + '...')
                     transfer_uv(objs, mat, layer, self.uv_map)
-                else:
+
+                if layer.baked_source != '':
+                    transfer_uv(objs, mat, layer, self.uv_map, is_entity_baked=True)
+
+                if layer.uv_name != self.uv_map:
                     layer.uv_name = self.uv_map
 
             for mask in layer.masks:
@@ -400,8 +413,11 @@ class YTransferSomeLayerUV(bpy.types.Operator):
                     if mask.type == 'IMAGE':
                         print('TRANSFER UV: Transferring mask ' + mask.name + ' on layer ' + layer.name + '...')
                         transfer_uv(objs, mat, mask, self.uv_map)
-                        #return {'FINISHED'}
-                    else:
+
+                    if mask.baked_source != '':
+                        transfer_uv(objs, mat, mask, self.uv_map, is_entity_baked=True)
+
+                    if mask.uv_name != self.uv_map:
                         mask.uv_name = self.uv_map
 
         #return {'FINISHED'}
@@ -527,6 +543,9 @@ class YTransferLayerUV(bpy.types.Operator):
 
         # Transfer UV
         transfer_uv(objs, mat, self.entity, self.uv_map)
+
+        if self.entity.baked_source != '':
+            transfer_uv(objs, mat, self.entity, self.uv_map, is_entity_baked=True)
 
         # Recover bake settings
         recover_bake_settings(book, yp)

@@ -5201,6 +5201,7 @@ class YLayer(bpy.types.PropertyGroup):
     source_e : StringProperty(default='')
     source_w : StringProperty(default='')
     source_group : StringProperty(default='')
+    baked_source : StringProperty(default='')
 
     source_temp : StringProperty(default='')
 
