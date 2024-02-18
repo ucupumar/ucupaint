@@ -1891,7 +1891,7 @@ class YBakeToLayer(bpy.types.Operator):
         return {'FINISHED'}
 
 def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, samples=1, margin=5, uv_name='', bake_device='CPU', 
-        use_udim=False, fxaa=True, blur=False, blur_factor=0.5, denoise=False, disable_modifiers=True):
+        use_udim=False, tilenums=[1001], fxaa=True, blur=False, blur_factor=0.5, denoise=False, disable_modifiers=True):
 
     yp = entity.id_data.yp
 
@@ -1992,8 +1992,6 @@ def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, s
         image = bpy.data.images.new(name=name,
                 width=width, height=height, alpha=True, float_buffer=hdr, tiled=True)
 
-        tilenums = UDIM.get_tile_numbers(objs, uv_name)
-
         # Fill tiles
         for tilenum in tilenums:
             UDIM.fill_tile(image, tilenum, color, width, height)
@@ -2061,10 +2059,10 @@ def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, s
 
     return image
 
-class YBakeLayerToImage(bpy.types.Operator):
-    bl_idname = "node.y_bake_layer_to_image"
-    bl_label = "Duplicate Layer/Mask To Image"
-    bl_description = "Duplicate Layer/Mask to an image"
+class YBakeEntityToImage(bpy.types.Operator):
+    bl_idname = "node.y_bake_entity_to_image"
+    bl_label = "Bake Layer/Mask To Image"
+    bl_description = "Bake Layer/Mask to an image"
     bl_options = {'REGISTER', 'UNDO'}
 
     name : StringProperty(default='')
@@ -2156,10 +2154,12 @@ class YBakeLayerToImage(bpy.types.Operator):
             self.layer = yp.layers[int(m1.group(1))]
             self.mask = None
             self.index = int(m1.group(1))
+            self.entities = yp.layers
         elif m2: 
             self.layer = yp.layers[int(m2.group(1))]
             self.mask = self.layer.masks[int(m2.group(2))]
             self.index = int(m2.group(2))
+            self.entities = self.layer.masks
         else: 
             return self.execute(context)
 
@@ -2292,6 +2292,58 @@ class YBakeLayerToImage(bpy.types.Operator):
             # TODO: Non duplicate Bake layer/mask to image atlas
             col.prop(self, 'use_image_atlas')
 
+    def get_image_atlas_segment(self, context):
+        yp = self.yp
+
+        # Get segment from overwrite image
+        segment = None
+        if self.overwrite_image:
+            if self.overwrite_image.yia.is_image_atlas:
+                segment = self.overwrite_image.yia.segments.get(self.entity.segment_name)
+            elif self.overwrite_image.yua.is_udim_atlas:
+                segment = self.overwrite_image.yua.segments.get(self.entity.segment_name)
+
+        # Remove current segment first
+        if segment:
+            if self.overwrite_image.yia.is_image_atlas:
+                segment.unused = True
+            elif self.overwrite_image.yua.is_udim_atlas:
+                UDIM.remove_udim_atlas_segment_by_name(overwrite_image, segment.name, yp)
+            segment = None
+
+        # Create new segment
+        if self.use_image_atlas:
+            self.new_entity_name = get_unique_name(self.new_entity_name, self.entities)
+
+            if self.use_udim:
+                segment = UDIM.get_set_udim_atlas_segment(self.tilenums, color=(0,0,0,1), 
+                        colorspace='Non-Color', hdr=self.hdr, yp=yp)
+            else:
+                # Clearing unused image atlas segments
+                img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', self.width, self.height, self.hdr)
+                if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
+
+                segment = ImageAtlas.get_set_image_atlas_segment(
+                        self.width, self.height, 'BLACK', self.hdr, yp=yp) #, ypup.image_atlas_size)
+
+            ia_image = segment.id_data
+
+            # Set baked image to segment
+            if self.use_udim:
+                offset = get_udim_segment_mapping_offset(segment) * 10
+                copy_dict = {}
+                for tilenum in self.tilenums:
+                    copy_dict[tilenum] = tilenum + offset
+                UDIM.copy_tiles(self.image, ia_image, copy_dict)
+            else: copy_image_pixels(self.image, ia_image, segment)
+            temp_img = self.image
+            self.image = ia_image
+
+            # Remove original baked image
+            bpy.data.images.remove(temp_img)
+
+        return segment
+
     def execute(self, context):
 
         if not self.layer:
@@ -2305,7 +2357,7 @@ class YBakeLayerToImage(bpy.types.Operator):
         T = time.time()
         mat = get_active_material()
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        self.yp = yp = node.node_tree.yp
         tree = node.node_tree
         layer_tree = get_tree(self.layer)
 
@@ -2340,54 +2392,31 @@ class YBakeLayerToImage(bpy.types.Operator):
             entity = self.mask 
         else: entity = self.layer 
 
-        image = bake_as_image(objs, mat, entity, self.name, width=self.width, height=self.height, hdr=self.hdr, 
+        self.tilenums = [1001]
+        if self.use_udim:
+            self.tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
+
+        self.overwrite_image = None
+
+        self.image = bake_as_image(objs, mat, entity, self.name, width=self.width, height=self.height, hdr=self.hdr, 
                 samples=self.samples, margin=self.margin, uv_name=self.uv_map, bake_device=self.bake_device, 
-                use_udim=self.use_udim, fxaa=self.fxaa, blur=self.blur, blur_factor=self.blur_factor, denoise=self.denoise,
+                use_udim=self.use_udim, tilenums=self.tilenums, fxaa=self.fxaa, blur=self.blur, blur_factor=self.blur_factor, denoise=self.denoise,
                 disable_modifiers = not self.duplicate_entity
                 )
 
         if self.duplicate_entity:
 
             if self.mask:
-                mask_name = image.name if not self.use_image_atlas else self.name
+                self.new_entity_name = self.image.name if not self.use_image_atlas else self.name
 
-                segment = None
-                if self.use_image_atlas:
-                    mask_name = get_unique_name(mask_name, self.layer.masks)
-
-                    if self.use_udim:
-                        segment = UDIM.get_set_udim_atlas_segment(tilenums, color=(0,0,0,1), 
-                                colorspace='Non-Color', hdr=self.hdr, yp=yp)
-                    else:
-                        # Clearing unused image atlas segments
-                        img_atlas = ImageAtlas.check_need_of_erasing_segments(yp, 'BLACK', self.width, self.height, self.hdr)
-                        if img_atlas: ImageAtlas.clear_unused_segments(img_atlas.yia)
-
-                        segment = ImageAtlas.get_set_image_atlas_segment(
-                                self.width, self.height, 'BLACK', self.hdr, yp=yp) #, ypup.image_atlas_size)
-
-                    ia_image = segment.id_data
-
-                    # Set baked image to segment
-                    if self.use_udim:
-                        offset = get_udim_segment_mapping_offset(segment) * 10
-                        copy_dict = {}
-                        for tilenum in tilenums:
-                            copy_dict[tilenum] = tilenum + offset
-                        UDIM.copy_tiles(image, ia_image, copy_dict)
-                    else: copy_image_pixels(image, ia_image, segment)
-                    temp_img = image
-                    image = ia_image
-
-                    # Remove original baked image
-                    bpy.data.images.remove(temp_img)
+                segment = self.get_image_atlas_segment(context)
 
                 # Disable source mask
                 if self.mask and self.disable_current:
                     self.mask.enable = False
 
                 # Create new mask
-                mask = Mask.add_new_mask(self.layer, mask_name, 'IMAGE', 'UV', self.uv_map, image, None, segment)
+                mask = Mask.add_new_mask(self.layer, self.new_entity_name, 'IMAGE', 'UV', self.uv_map, self.image, None, segment)
 
                 # Set mask properties
                 mask.intensity_value = self.mask.intensity_value
@@ -2405,7 +2434,8 @@ class YBakeLayerToImage(bpy.types.Operator):
                 mask = self.layer.masks[self.index+1]
 
                 if segment:
-                    ImageAtlas.set_segment_mapping(mask, segment, image)
+                    ImageAtlas.set_segment_mapping(mask, segment, self.image)
+                    mask.segment_name = segment.name
 
                 # Refresh uv
                 refresh_temp_uv(context.object, mask)
@@ -2415,6 +2445,7 @@ class YBakeLayerToImage(bpy.types.Operator):
 
                 # Make new mask active
                 mask.active_edit = True
+
             else:
                 # TODO: Duplicate layer as image(s)
                 pass
@@ -2425,22 +2456,20 @@ class YBakeLayerToImage(bpy.types.Operator):
                 mask = self.mask
                 mask_tree = get_mask_tree(mask)
 
-                overwrite_image = None
                 baked_source = mask_tree.nodes.get(mask.baked_source)
                 if baked_source:
-                    overwrite_image = baked_source.image
-                    overwrite_image_name = overwrite_image.name
+                    self.overwrite_image = baked_source.image
+                    overwrite_image_name = self.overwrite_image.name
 
                     # Remove node first to also remove its data
                     remove_node(mask_tree, mask, 'baked_source')
 
                     # Rename image 
                     if overwrite_image_name == self.name:
-                        image.name = self.name
+                        self.image.name = self.name
 
                 # Set bake info to image/segment
-                #bi = segment.bake_info if segment else image.y_bake_info
-                bi = image.y_bake_info
+                bi = segment.bake_info if segment else self.image.y_bake_info
 
                 bi.is_baked = True
                 for attr in dir(bi):
@@ -2455,7 +2484,7 @@ class YBakeLayerToImage(bpy.types.Operator):
                 baked_source = new_node(mask_tree, mask, 'baked_source', 'ShaderNodeTexImage', 'Baked Mask Source')
 
                 # Set image to baked node
-                baked_source.image = image
+                baked_source.image = self.image
 
                 # Set mask props
                 mask.uv_name = self.uv_map
@@ -2472,6 +2501,11 @@ class YBakeLayerToImage(bpy.types.Operator):
 
                 # Make current mask active
                 mask.active_edit = True
+
+                # Set entity segment name
+                if segment:
+                    self.entity.baked_segment_name = segment.name
+
             else:
                 # TODO: Bake layer as image(s)
                 pass
@@ -2530,8 +2564,8 @@ class YRemoveBakedEntity(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Remove baked source
-        entity.use_baked = False
         remove_node(tree, entity, 'baked_source')
+        entity.use_baked = False
 
         return {'FINISHED'}
 
@@ -2539,12 +2573,12 @@ def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YRemoveBakeInfoOtherObject)
     bpy.utils.register_class(YTryToSelectBakedVertexSelect)
-    bpy.utils.register_class(YBakeLayerToImage)
+    bpy.utils.register_class(YBakeEntityToImage)
     bpy.utils.register_class(YRemoveBakedEntity)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
     bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
-    bpy.utils.unregister_class(YBakeLayerToImage)
+    bpy.utils.unregister_class(YBakeEntityToImage)
     bpy.utils.unregister_class(YRemoveBakedEntity)

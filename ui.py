@@ -2032,7 +2032,7 @@ def draw_layer_masks(context, layout, layer):
 
             if mask.baked_source != '':
                 rbox.context_pointer_set('entity', mask)
-                rbox.operator("node.y_bake_layer_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
+                rbox.operator("node.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
 
         # Input row
         if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} and (is_greater_than_292() or mask.type != 'VCOL'):
@@ -4199,7 +4199,7 @@ class YLayerMaskMenu(bpy.types.Menu):
         col.separator()
 
         col.context_pointer_set('entity', mask)
-        col.operator('node.y_bake_layer_to_image', icon_value=lib.get_icon('bake'), text='Bake as Image')
+        col.operator('node.y_bake_entity_to_image', icon_value=lib.get_icon('bake'), text='Bake as Image')
         if mask.baked_source != '':
             if is_greater_than_280():
                 col.operator('node.y_remove_baked_entity', text='Remove Baked Image', icon='REMOVE')

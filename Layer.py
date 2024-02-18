@@ -5149,6 +5149,7 @@ class YLayer(bpy.types.PropertyGroup):
 
     # To get segment if using image atlas
     segment_name : StringProperty(default='')
+    baked_segment_name : StringProperty(default='')
 
     uv_name : StringProperty(
             name = 'UV Name',

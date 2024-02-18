@@ -1758,6 +1758,7 @@ class YLayerMask(bpy.types.PropertyGroup):
             )
 
     segment_name : StringProperty(default='')
+    baked_segment_name : StringProperty(default='')
 
     channels : CollectionProperty(type=YLayerMaskChannel)
 
