@@ -2155,12 +2155,10 @@ class YBakeLayerToImage(bpy.types.Operator):
         if m1: 
             self.layer = yp.layers[int(m1.group(1))]
             self.mask = None
-            self.entity = self.layer
             self.index = int(m1.group(1))
         elif m2: 
             self.layer = yp.layers[int(m2.group(1))]
             self.mask = self.layer.masks[int(m2.group(2))]
-            self.entity = self.mask
             self.index = int(m2.group(2))
         else: 
             return self.execute(context)
@@ -2486,14 +2484,67 @@ class YBakeLayerToImage(bpy.types.Operator):
 
         return {"FINISHED"}
 
+class YRemoveBakedEntity(bpy.types.Operator):
+    bl_idname = "node.y_remove_baked_entity"
+    bl_label = "Remove Baked Layer/Mask"
+    bl_description = "Remove baked layer/mask"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node() and context.object.type == 'MESH'
+
+    def execute(self, context):
+
+        obj = context.object
+        ypup = get_user_preferences()
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        entity = context.entity
+        layer = None
+        mask = None
+
+        # Check entity
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+
+        tree = None
+        baked_source = None
+        if m1: 
+            layer = yp.layers[int(m1.group(1))]
+            mask = None
+            tree = get_tree(layer)
+            baked_source = tree.nodes.get(tree.baked_source)
+        elif m2: 
+            layer = yp.layers[int(m2.group(1))]
+            mask = layer.masks[int(m2.group(2))]
+            tree = get_mask_tree(mask)
+            baked_source = tree.nodes.get(mask.baked_source)
+        else: 
+            self.report({'ERROR'}, "Invalid context!")
+            return {'CANCELLED'}
+
+        if not baked_source:
+            self.report({'ERROR'}, "No baked source found!")
+            return {'CANCELLED'}
+
+        # Remove baked source
+        entity.use_baked = False
+        remove_node(tree, entity, 'baked_source')
+
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(YBakeToLayer)
     bpy.utils.register_class(YRemoveBakeInfoOtherObject)
     bpy.utils.register_class(YTryToSelectBakedVertexSelect)
     bpy.utils.register_class(YBakeLayerToImage)
+    bpy.utils.register_class(YRemoveBakedEntity)
 
 def unregister():
     bpy.utils.unregister_class(YBakeToLayer)
     bpy.utils.unregister_class(YRemoveBakeInfoOtherObject)
     bpy.utils.unregister_class(YTryToSelectBakedVertexSelect)
     bpy.utils.unregister_class(YBakeLayerToImage)
+    bpy.utils.unregister_class(YRemoveBakedEntity)

@@ -4200,6 +4200,10 @@ class YLayerMaskMenu(bpy.types.Menu):
 
         col.context_pointer_set('entity', mask)
         col.operator('node.y_bake_layer_to_image', icon_value=lib.get_icon('bake'), text='Bake as Image')
+        if mask.baked_source != '':
+            if is_greater_than_280():
+                col.operator('node.y_remove_baked_entity', text='Remove Baked Image', icon='REMOVE')
+            else: col.operator('node.y_remove_baked_entity', text='Remove Baked Image', icon='ZOOMOUT')
 
         col.separator()
 
