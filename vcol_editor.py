@@ -75,6 +75,11 @@ def set_active_vertex_color(obj, vcol):
         else: obj.data.vertex_colors.active = vcol
     except Exception as e: print(e)
 
+def get_user_preferences():
+    if is_greater_than_280():
+        return bpy.context.preferences.addons[__package__].preferences
+    return bpy.context.user_preferences.addons[__package__].preferences
+
 class YSetActiveVcol(bpy.types.Operator):
     bl_idname = "mesh.y_set_active_vcol"
     bl_label = "Set Active Vertex Color"
@@ -543,9 +548,11 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
     ori_sculpt_brush : StringProperty(default='')
 
 def register():
-    #bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
-    #if not is_greater_than_280():
-    #    bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
+    ypup = get_user_preferences()
+    if not hasattr(ypup, 'show_experimental') or ypup.show_experimental:
+        bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
+        if not is_greater_than_280():
+            bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.register_class(YVcolEditorProps)
 
     bpy.types.Scene.ve_edit = PointerProperty(type=YVcolEditorProps)
@@ -556,9 +563,11 @@ def register():
     bpy.utils.register_class(YSetActiveVcol)
 
 def unregister():
-    #bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
-    #if not is_greater_than_280():
-    #    bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
+    ypup = get_user_preferences()
+    if not hasattr(ypup, 'show_experimental') or ypup.show_experimental:
+        bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
+        if not is_greater_than_280():
+            bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.unregister_class(YVcolEditorProps)
 
     bpy.utils.unregister_class(YVcolFill)
