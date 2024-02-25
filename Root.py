@@ -3459,7 +3459,8 @@ def ypaint_last_object_update(scene):
             elif len(yp.layers) > 0 :
                 image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
                 update_image_editor_image(bpy.context, image)
-                scene.tool_settings.image_paint.canvas = image
+                try: scene.tool_settings.image_paint.canvas = image
+                except Exception as e: print('EXCEPTIION: Cannot set image canvas!')
 
     if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:
 
