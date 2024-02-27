@@ -970,6 +970,21 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def bake_vcol_channel_items(self, context):
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
+
+    items = []
+    for i, ch in enumerate(yp.channels):
+        if not ch.enable_bake_as_vcol: continue
+        text_ch_name = ch.name + '  '
+        if hasattr(lib, 'custom_icons'):
+            icon_name = lib.channel_custom_icon_dict[ch.type]
+            items.append((str(i), text_ch_name, '', lib.custom_icons[icon_name].icon_id, i))
+        else: items.append((str(i), text_ch_name, '', lib.channel_icon_dict[ch.type], i))
+
+    return items
+
 class YBakeChannels(bpy.types.Operator):
     """Bake Channels to Image(s)"""
     bl_idname = "node.y_bake_channels"
@@ -1017,6 +1032,15 @@ class YBakeChannels(bpy.types.Operator):
                      ('CPU', 'CPU', '')),
             default='CPU'
             )
+    
+    enable_bake_as_vcol : BoolProperty(name='Enable Bake As VCol',
+            description='Has any channel enabled Bake As Vertex Color',
+            default=False)
+
+    vcol_force_first_channel_idx : EnumProperty(
+                name='Force First Vertex Color Channel',
+                description='Force the first channel after baking the Vertex Color',
+                items=bake_vcol_channel_items)
 
     @classmethod
     def poll(cls, context):
@@ -1031,10 +1055,6 @@ class YBakeChannels(bpy.types.Operator):
 
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
-
-        # Use user preference default image size if input uses default image size
-        if self.width == 1234 and self.height == 1234:
-            self.width = self.height = ypup.default_new_image_size
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(uv_layers) > 0:
@@ -1052,13 +1072,23 @@ class YBakeChannels(bpy.types.Operator):
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
 
+        self.enable_bake_as_vcol = False
         if len(yp.channels) > 0:
             for ch in yp.channels:
-                baked = node.node_tree.nodes.get(ch.baked)
-                if baked and baked.image:
-                    self.width = baked.image.size[0]
-                    self.height = baked.image.size[1]
+                if self.width == 1234 and self.height == 1234:
+                    baked = node.node_tree.nodes.get(ch.baked)
+                    if baked and baked.image:
+                        self.width = baked.image.size[0]
+                        self.height = baked.image.size[1]
+                elif self.enable_bake_as_vcol:
+                    # If we have done all the init, break loop
                     break
+                if ch.enable_bake_as_vcol:
+                    self.enable_bake_as_vcol = True
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -1085,6 +1115,8 @@ class YBakeChannels(bpy.types.Operator):
             col.separator()
         col.label(text='UV Map:')
         col.separator()
+        if self.enable_bake_as_vcol:
+            col.label(text='Force First Vcol:')
         col.label(text='')
         if is_greater_than_281():
             col.label(text='')
@@ -1107,6 +1139,9 @@ class YBakeChannels(bpy.types.Operator):
             col.separator()
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.separator()
+        if self.enable_bake_as_vcol:
+            col.prop(self, 'vcol_force_first_channel_idx', text='')
+            col.separator()
         col.prop(self, 'fxaa', text='Use FXAA')
         if is_greater_than_281():
             col.prop(self, 'denoise', text='Use Denoise')
@@ -1359,7 +1394,7 @@ class YBakeChannels(bpy.types.Operator):
                     vcol_name = vcol.name
 
                     # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-                    if ch.bake_vcol_force_first_index and not is_version_320():
+                    if yp.channels[int(self.vcol_force_first_channel_idx)] == ch and not is_version_320():
                         move_vcol(ob, get_vcol_index(ob, vcol.name), 0)
 
                     # Get the newly created vcol to avoid pointer error

@@ -2878,18 +2878,6 @@ def update_channel_enable_bake_as_vcol(self, context):
     # ch = yp.channels[yp.active_channel_index]
     if not self.enable_bake_as_vcol:
         self.use_baked_vcol = False
-    
-# Ensure that only one channel has the "bake_vcol_force_first_index" set to True.
-def update_channel_bake_vcol(self, context):
-    yp = self.id_data.yp
-    if self.bake_vcol_force_first_index == False:
-        yp.bake_vcol_force_first_ch = -1
-        return
-    for ch in yp.channels:
-        if ch.bake_vcol_force_first_index and ch != self:
-            ch['bake_vcol_force_first_index'] = False
-    self['bake_vcol_force_first_index'] = True
-    yp.bake_vcol_force_first_ch = yp.active_channel_index
 
 # Prevent vcol name from being null
 def get_channel_vcol_name(self):
@@ -3052,11 +3040,6 @@ class YPaintChannel(bpy.types.PropertyGroup):
             name='Target Vertex Color Name',
             description='Target Vertex Color Name',
             default='', get=get_channel_vcol_name, set=set_channel_vcol_name)
-
-    bake_vcol_force_first_index : BoolProperty(
-            name='Force First Index', 
-            description="Force target vertex color to be first on the vertex colors list (useful for exporting)",
-            default=False, update=update_channel_bake_vcol)
 
     use_baked_vcol : BoolProperty(
             default=False,
@@ -3290,7 +3273,6 @@ class YPaint(bpy.types.PropertyGroup):
     # Channels
     channels : CollectionProperty(type=YPaintChannel)
     active_channel_index : IntProperty(default=0, update=update_active_yp_channel)
-    bake_vcol_force_first_ch : IntProperty(default=-1)
 
     # Layers
     layers : CollectionProperty(type=Layer.YLayer)

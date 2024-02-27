@@ -1016,19 +1016,6 @@ def draw_root_channels_ui(context, layout, node):
                 brow.label(text='Target Vertex Color:')
                 brow.prop(channel, 'bake_vcol_name', text='')
 
-                brow = bbcol.row(align=True)
-                # brow.active = not (yp.use_baked and yp.enable_baked_outside)
-                brow.label(text='Force First Index:')
-                if yp.bake_vcol_force_first_ch != -1 and yp.bake_vcol_force_first_ch != ypui.channel_idx:
-                    ch = yp.channels[yp.bake_vcol_force_first_ch]
-                    ch_icon = lib.custom_icons[lib.channel_custom_icon_dict[ch.type]].icon_id
-                    brow.label(text=ch.name, icon_value=ch_icon)
-                    brow.label(text='', icon='LINKED')
-                    brow.active = False
-                else:
-                    brow.prop(channel, 'bake_vcol_force_first_index', text='')
-                    brow.active = True
-
 def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
     obj = context.object
     yp = layer.id_data.yp
