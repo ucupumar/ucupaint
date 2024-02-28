@@ -975,13 +975,18 @@ def bake_vcol_channel_items(self, context):
     yp = node.node_tree.yp
 
     items = []
+    # Default option to do nothing
+    items.append(('-1', 'Do Nothing', '', '', 0))
+
     for i, ch in enumerate(yp.channels):
         if not ch.enable_bake_as_vcol: continue
+        # Add two spaces to prevent text from being translated
         text_ch_name = ch.name + '  '
+        # Index plus one, minus one when read
         if hasattr(lib, 'custom_icons'):
             icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i), text_ch_name, '', lib.custom_icons[icon_name].icon_id, i))
-        else: items.append((str(i), text_ch_name, '', lib.channel_icon_dict[ch.type], i))
+            items.append((str(i + 1), text_ch_name, '', lib.custom_icons[icon_name].icon_id, i + 1))
+        else: items.append((str(i + 1), text_ch_name, '', lib.channel_icon_dict[ch.type], i + 1))
 
     return items
 
@@ -1115,7 +1120,8 @@ class YBakeChannels(bpy.types.Operator):
             col.separator()
         col.label(text='UV Map:')
         col.separator()
-        if self.enable_bake_as_vcol:
+        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+        if self.enable_bake_as_vcol and not is_version_320():
             col.label(text='Force First Vcol:')
         col.label(text='')
         if is_greater_than_281():
@@ -1139,7 +1145,8 @@ class YBakeChannels(bpy.types.Operator):
             col.separator()
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.separator()
-        if self.enable_bake_as_vcol:
+        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+        if self.enable_bake_as_vcol and not is_version_320():
             col.prop(self, 'vcol_force_first_channel_idx', text='')
             col.separator()
         col.prop(self, 'fxaa', text='Use FXAA')
@@ -1393,8 +1400,10 @@ class YBakeChannels(bpy.types.Operator):
                     # Get newly created vcol name
                     vcol_name = vcol.name
 
+                    real_force_first_ch_index = int(self.vcol_force_first_channel_idx) - 1
+
                     # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-                    if yp.channels[int(self.vcol_force_first_channel_idx)] == ch and not is_version_320():
+                    if yp.channels[real_force_first_ch_index] == ch and real_force_first_ch_index != -1 and not is_version_320():
                         move_vcol(ob, get_vcol_index(ob, vcol.name), 0)
 
                     # Get the newly created vcol to avoid pointer error
