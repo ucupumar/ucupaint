@@ -976,7 +976,7 @@ def bake_vcol_channel_items(self, context):
 
     items = []
     # Default option to do nothing
-    items.append(('-1', 'Do Nothing', '', '', 0))
+    items.append(('0', 'Do Nothing', '', '', 0))
 
     for i, ch in enumerate(yp.channels):
         if not ch.enable_bake_as_vcol: continue
@@ -1403,7 +1403,7 @@ class YBakeChannels(bpy.types.Operator):
                     real_force_first_ch_index = int(self.vcol_force_first_channel_idx) - 1
 
                     # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-                    if yp.channels[real_force_first_ch_index] == ch and real_force_first_ch_index != -1 and not is_version_320():
+                    if real_force_first_ch_index > -1 and yp.channels[real_force_first_ch_index] == ch and not is_version_320():
                         move_vcol(ob, get_vcol_index(ob, vcol.name), 0)
 
                     # Get the newly created vcol to avoid pointer error
