@@ -63,7 +63,10 @@ blend_type_items = (("MIX", "Mix", ""),
 	             ("VALUE", "Value", ""),
 	             ("COLOR", "Color", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
-	             ("LINEAR_LIGHT", "Linear Light", ""))
+	             ("LINEAR_LIGHT", "Linear Light", ""),
+	             ("DODGE", "Dodge", ""),
+	             ("BURN", "Burn", ""))
+
 
 mask_blend_type_items = (("MIX", "Replace", ""),
 	             ("ADD", "Add", ""),
@@ -80,7 +83,9 @@ mask_blend_type_items = (("MIX", "Replace", ""),
 	             ("VALUE", "Value", ""),
 	             ("COLOR", "Color", ""),
 	             ("SOFT_LIGHT", "Soft Light", ""),
-	             ("LINEAR_LIGHT", "Linear Light", ""))
+	             ("LINEAR_LIGHT", "Linear Light", ""),
+	             ("DODGE", "Dodge", ""),
+	             ("BURN", "Burn", ""))
 
 def entity_input_items(self, context):
     yp = self.id_data.yp
