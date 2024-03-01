@@ -99,6 +99,16 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             description = 'The maximum ray distance for matching points between the active and selected objects. If zero, there is no limit',
             default=0.2, min=0.0, max=1.0)
 
+    use_udim : BoolProperty(
+            name = 'Use UDIM Tiles',
+            description='Use UDIM Tiles',
+            default=False)
+
+    aa_level : IntProperty(
+        name='Anti Aliasing Level',
+        description='Super Sample Anti Aliasing Level (1=off)',
+        default=1, min=1, max=2)
+
     # To store other objects info
     other_objects : CollectionProperty(type=YBakeInfoOtherObject)
     
