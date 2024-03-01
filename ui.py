@@ -528,6 +528,13 @@ def draw_edge_detect_props(layer, source, layout):
     row.label(text='Radius:')
     row.prop(layer, 'edge_detect_radius', text='')
 
+def draw_inbetween_modifier_mask_props(layer, source, layout):
+    col = layout.column()
+    if layer.modifier_type == 'CURVE':
+        source.draw_buttons_ext(bpy.context, col)
+    elif layer.modifier_type == 'RAMP':
+        col.template_color_ramp(source, "color_ramp", expand=True)
+
 def draw_mask_modifier_stack(layer, mask, layout, ui):
     ypui = bpy.context.window_manager.ypui
     tree = get_mask_tree(mask)
@@ -1947,6 +1954,9 @@ def draw_layer_masks(context, layout, layer):
 
         row.label(text=label_text)
 
+        if mask.baked_source != '':
+            row.prop(mask, 'use_baked', text='Use Baked', toggle=True)
+
         if mask.enable:
             if mask.type == 'IMAGE':
                 if mask.source_input == 'ALPHA':
@@ -1960,10 +1970,14 @@ def draw_layer_masks(context, layout, layer):
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('hemi'))
             elif mask.type == 'OBJECT_INDEX':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('object_index'))
+            elif mask.type == 'EDGE_DETECT':
+                row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('edge_detect'))
             elif mask.type == 'COLOR_ID':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('color'))
             elif mask.type == 'BACKFACE':
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('backface'))
+            elif mask.type == 'MODIFIER':
+                row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('modifier'))
             else:
                 row.prop(mask, 'active_edit', text='', toggle=True, icon_value=lib.get_icon('texture'))
 
@@ -1991,6 +2005,8 @@ def draw_layer_masks(context, layout, layer):
             rrow.label(text='', icon_value=lib.get_icon('vertex_color'))
         elif mask.type == 'BACKFACE':
             rrow.label(text='', icon_value=lib.get_icon('backface'))
+        elif mask.type == 'MODIFIER' and mask.modifier_type == 'INVERT':
+            rrow.label(text='', icon_value=lib.get_icon('modifier'))
         else:
             if mask.type == 'IMAGE':
                 suffix = 'image' 
@@ -1998,8 +2014,14 @@ def draw_layer_masks(context, layout, layer):
                 suffix = 'hemi' 
             elif mask.type == 'OBJECT_INDEX':
                 suffix = 'object_index' 
+            elif mask.type == 'EDGE_DETECT':
+                suffix = 'edge_detect' 
             elif mask.type == 'COLOR_ID':
                 suffix = 'color' 
+            elif mask.type == 'BACKFACE':
+                suffix = 'backface' 
+            elif mask.type == 'MODIFIER':
+                suffix = 'modifier' 
             else:
                 suffix = 'texture' 
             if maskui.expand_source:
@@ -2012,35 +2034,45 @@ def draw_layer_masks(context, layout, layer):
             rrow.label(text=text_source + mask_image.name)
         else: rrow.label(text=text_source + mask.name)
 
-        if maskui.expand_source and mask.type not in {'VCOL', 'BACKFACE'}:
+        if maskui.expand_source and (mask.type not in {'VCOL', 'BACKFACE', 'MODIFIER'} or 
+                                     (mask.type == 'MODIFIER' and mask.modifier_type in {'CURVE', 'RAMP'})):
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon='BLANK1')
             rbox = rrow.box()
+            rbcol = rbox.column()
+            rbcol.active = not mask.use_baked
             if mask.use_temp_bake:
-                rbox.context_pointer_set('parent', mask)
-                rbox.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
+                rbcol.context_pointer_set('parent', mask)
+                rbcol.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
             elif mask_image:
-                draw_image_props(context, mask_source, rbox, mask)
+                draw_image_props(context, mask_source, rbcol, mask)
             elif mask.type == 'HEMI':
-                draw_hemi_props(mask, mask_source, rbox)
+                draw_hemi_props(mask, mask_source, rbcol)
             elif mask.type == 'OBJECT_INDEX':
-                draw_object_index_props(mask, rbox)
+                draw_object_index_props(mask, rbcol)
             elif mask.type == 'COLOR_ID':
-                draw_colorid_props(mask, mask_source, rbox)
+                draw_colorid_props(mask, mask_source, rbcol)
             elif mask.type == 'EDGE_DETECT':
-                draw_edge_detect_props(mask, mask_source, rbox)
-            else: draw_tex_props(mask_source, rbox)
+                draw_edge_detect_props(mask, mask_source, rbcol)
+            elif mask.type == 'MODIFIER':
+                draw_inbetween_modifier_mask_props(mask, mask_source, rbcol)
+            else: draw_tex_props(mask_source, rbcol)
+
+            if mask.baked_source != '':
+                rbox.context_pointer_set('entity', mask)
+                rbox.operator("node.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
 
         # Input row
-        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT'} and (is_greater_than_292() or mask.type != 'VCOL'):
+        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} and (is_greater_than_292() or mask.type != 'VCOL'):
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon_value=lib.get_icon('input'))
             splits = split_layout(rrow, 0.3)
+            splits.active = not mask.use_baked
             splits.label(text='Input:')
             splits.prop(mask, 'source_input', text='')
 
         # Vector row
-        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
+        if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
             rrow = rrcol.row(align=True)
 
             if maskui.expand_vector:
@@ -2049,6 +2081,7 @@ def draw_layer_masks(context, layout, layer):
             rrow.prop(maskui, 'expand_vector', text='', emboss=False, icon_value=icon_value)
 
             splits = split_layout(rrow, 0.3)
+            splits.active = not mask.use_baked
 
             mask_src = get_mask_source(mask)
 
@@ -2075,6 +2108,7 @@ def draw_layer_masks(context, layout, layer):
                 rrow = rrcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
+                rbox.active = not mask.use_baked
                 if mask_image and (mask_image.yia.is_image_atlas or mask_image.yua.is_udim_atlas):
                     #rbox.label(text="Transform vector with image atlas is not possible!")
                     pass
@@ -2376,14 +2410,14 @@ def draw_layers_ui(context, layout, node):
 
         # Check layer and mask uv
         for layer in yp.layers:
-            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT'}:
+            if layer.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'COLOR', 'BACKGROUND', 'EDGE_DETECT', 'MODIFIER'}:
                 uv_layer = uv_layers.get(layer.uv_name)
                 if not uv_layer and layer.uv_name not in uv_missings:
                     uv_missings.append(layer.uv_name)
                     #entities.append(layer.name)
 
             for mask in layer.masks:
-                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
+                if mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'}:
                     uv_layer = uv_layers.get(mask.uv_name)
                     if not uv_layer and mask.uv_name not in uv_missings:
                         uv_missings.append(mask.uv_name)
@@ -2948,7 +2982,12 @@ def main_draw(self, context):
 
             for mask in layer.masks:
                 if not mask.enable: continue
-                if mask.type == 'IMAGE':
+                if mask.use_baked:
+                    mask_tree = get_mask_tree(mask)
+                    src = mask_tree.nodes.get(mask.baked_source)
+                    if src.image and src.image not in images:
+                        images.append(src.image)
+                elif mask.type == 'IMAGE':
                     src = get_mask_source(mask)
                     if src.image and src.image not in images:
                         images.append(src.image)
@@ -3276,10 +3315,14 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.label(text='', icon_value=lib.get_icon('hemi'))
                 elif m.type == 'OBJECT_INDEX':
                     row.label(text='', icon_value=lib.get_icon('object_index'))
+                elif m.type == 'EDGE_DETECT':
+                    row.label(text='', icon_value=lib.get_icon('edge_detect'))
                 elif m.type == 'COLOR_ID':
                     row.label(text='', icon_value=lib.get_icon('color'))
                 elif m.type == 'BACKFACE':
                     row.label(text='', icon_value=lib.get_icon('backface'))
+                elif m.type == 'MODIFIER':
+                    row.label(text='', icon_value=lib.get_icon('modifier'))
                 else:
                     row.label(text='', icon_value=lib.get_icon('texture'))
             else:
@@ -3298,10 +3341,14 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('hemi'))
                 elif m.type == 'OBJECT_INDEX':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('object_index'))
+                elif m.type == 'EDGE_DETECT':
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('edge_detect'))
                 elif m.type == 'COLOR_ID':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('color'))
                 elif m.type == 'BACKFACE':
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('backface'))
+                elif m.type == 'MODIFIER':
+                    row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('modifier'))
                 else:
                     row.prop(m, 'active_edit', text='', emboss=False, icon_value=lib.get_icon('texture'))
 
@@ -4069,7 +4116,7 @@ class YTransitionAOMenu(bpy.types.Menu):
             col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='REMOVE').type = 'AO'
         else: col.operator('node.y_hide_transition_effect', text='Remove Transition AO', icon='ZOOMOUT').type = 'AO'
 
-def new_mask_button(layout, operator, text, lib_icon='', otype='', target_type='', overwrite_current=None):
+def new_mask_button(layout, operator, text, lib_icon='', otype='', target_type='', modifier_type='', overwrite_current=None):
     if lib_icon:
         op = layout.operator(operator, icon_value=lib.get_icon(lib_icon), text=text)
     else: op = layout.operator(operator, text=text)
@@ -4077,6 +4124,7 @@ def new_mask_button(layout, operator, text, lib_icon='', otype='', target_type='
     if otype != '': op.type = otype
     if target_type != '': op.target_type = target_type
     if overwrite_current != None: op.overwrite_current = overwrite_current
+    if modifier_type != '': op.modifier_type = modifier_type
 
 class YAddLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_add_layer_mask_menu"
@@ -4115,7 +4163,7 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         col = row.column(align=True)
         col.label(text='Generated Mask:')
 
-        new_mask_button(col, 'node.y_new_layer_mask', 'Brick', lib_icon='texture', otype='BRICK')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Brick', otype='BRICK', lib_icon='texture')
         new_mask_button(col, 'node.y_new_layer_mask', 'Checker', otype='CHECKER')
         new_mask_button(col, 'node.y_new_layer_mask', 'Gradient', otype='GRADIENT')
         new_mask_button(col, 'node.y_new_layer_mask', 'Magic', otype='MAGIC')
@@ -4130,11 +4178,11 @@ class YAddLayerMaskMenu(bpy.types.Menu):
 
         col.separator()
         new_mask_button(col, 'node.y_new_layer_mask', 'Object Index', otype='OBJECT_INDEX', lib_icon='object_index')
-        new_mask_button(col, 'node.y_new_layer_mask', 'Backface', otype='BACKFACE') #, lib_icon='backface')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Backface', otype='BACKFACE', lib_icon='backface')
         if is_greater_than_293():
-            new_mask_button(col, 'node.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT') #, lib_icon='texture')
+            new_mask_button(col, 'node.y_new_layer_mask', 'Edge Detect', otype='EDGE_DETECT', lib_icon='edge_detect')
 
-        col = row.column()
+        col = row.column(align=True)
         col.label(text='Bake as Mask:')
         new_mask_button(col, 'node.y_bake_to_layer', 'Ambient Occlusion', lib_icon='bake', otype='AO', target_type='MASK', overwrite_current=False)
         new_mask_button(col, 'node.y_bake_to_layer', 'Pointiness', otype='POINTINESS', target_type='MASK', overwrite_current=False)
@@ -4143,6 +4191,12 @@ class YAddLayerMaskMenu(bpy.types.Menu):
         new_mask_button(col, 'node.y_bake_to_layer', 'Paint Base', otype='PAINT_BASE', target_type='MASK', overwrite_current=False)
         new_mask_button(col, 'node.y_bake_to_layer', 'Bevel Grayscale', otype='BEVEL_MASK', target_type='MASK', overwrite_current=False)
         new_mask_button(col, 'node.y_bake_to_layer', 'Selected Vertices', otype='SELECTED_VERTICES', target_type='MASK', overwrite_current=False)
+
+        col.separator()
+        col.label(text='Inbetween Modifier Mask:')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Invert', otype='MODIFIER', modifier_type='INVERT', lib_icon='modifier')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Ramp', otype='MODIFIER', modifier_type='RAMP', lib_icon='modifier')
+        new_mask_button(col, 'node.y_new_layer_mask', 'Curve', otype='MODIFIER', modifier_type='CURVE', lib_icon='modifier')
 
 class YLayerMaskMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_layer_mask_menu"
@@ -4191,7 +4245,11 @@ class YLayerMaskMenu(bpy.types.Menu):
         col.separator()
 
         col.context_pointer_set('entity', mask)
-        col.operator('node.y_duplicate_layer_to_image', icon='COPY_ID', text='Duplicate as Image')
+        col.operator('node.y_bake_entity_to_image', icon_value=lib.get_icon('bake'), text='Bake as Image')
+        if mask.baked_source != '':
+            if is_greater_than_280():
+                col.operator('node.y_remove_baked_entity', text='Remove Baked Image', icon='REMOVE')
+            else: col.operator('node.y_remove_baked_entity', text='Remove Baked Image', icon='ZOOMOUT')
 
         col.separator()
 

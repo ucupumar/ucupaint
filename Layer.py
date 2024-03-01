@@ -4277,7 +4277,7 @@ def update_uv_name(self, context):
 
         # Update neighbor uv if mask bump is active
         for i, mask in enumerate(layer.masks):
-            set_mask_uv_neighbor(tree, layer, mask, i)
+            check_mask_uv_neighbor(tree, layer, mask, i)
 
     # Update normal process uv
     normal_ch = get_height_channel(layer)
@@ -5149,6 +5149,7 @@ class YLayer(bpy.types.PropertyGroup):
 
     # To get segment if using image atlas
     segment_name : StringProperty(default='')
+    baked_segment_name : StringProperty(default='')
 
     uv_name : StringProperty(
             name = 'UV Name',
@@ -5188,6 +5189,12 @@ class YLayer(bpy.types.PropertyGroup):
             default=1.0, min=0.0, max=100.0,
             update=update_layer_blur_vector_factor)
 
+    use_baked : BoolProperty(
+            name = 'Use Baked',
+            description = 'Use baked layer image',
+            default = False,
+            )
+
     # Sources
     source : StringProperty(default='')
     source_n : StringProperty(default='')
@@ -5195,6 +5202,7 @@ class YLayer(bpy.types.PropertyGroup):
     source_e : StringProperty(default='')
     source_w : StringProperty(default='')
     source_group : StringProperty(default='')
+    baked_source : StringProperty(default='')
 
     source_temp : StringProperty(default='')
 

@@ -66,6 +66,15 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             description = "Use Denoise on baked image",
             default=True)
 
+    blur : BoolProperty(name='Use Blur', 
+            description = "Use blur to baked image",
+            default=False)
+
+    blur_factor : FloatProperty(name='Blur Factor',
+            description = "Blur factor to baked image",
+            default=1.0, min=0.0, max=100.0
+            )
+
     use_baked_disp : BoolProperty(
             name='Use Baked Displacement Map',
             description='Use baked displacement map, this will also apply subdiv setup on object',
@@ -89,6 +98,16 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             name = 'Max Ray Distance',
             description = 'The maximum ray distance for matching points between the active and selected objects. If zero, there is no limit',
             default=0.2, min=0.0, max=1.0)
+
+    use_udim : BoolProperty(
+            name = 'Use UDIM Tiles',
+            description='Use UDIM Tiles',
+            default=False)
+
+    aa_level : IntProperty(
+        name='Anti Aliasing Level',
+        description='Super Sample Anti Aliasing Level (1=off)',
+        default=1, min=1, max=2)
 
     # To store other objects info
     other_objects : CollectionProperty(type=YBakeInfoOtherObject)

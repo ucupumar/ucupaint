@@ -212,6 +212,9 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 remove_node(group_tree, channel, 'end_max_height')
 
 def check_all_channel_ios(yp, reconnect=True, specific_layer=None):
+
+    #print("Checking YP IO. Specific Layer: " + str(specific_layer))
+
     group_tree = yp.id_data
 
     input_index = 0
@@ -329,6 +332,8 @@ def check_all_channel_ios(yp, reconnect=True, specific_layer=None):
         rearrange_yp_nodes(group_tree)
 
 def check_all_layer_channel_io_and_nodes(layer, tree=None, specific_ch=None, do_recursive=True): #, check_uvs=False): #, has_parent=False):
+
+    #print("Checking layer IO. Layer: " + layer.name + ' Specific Channel: ' + str(specific_ch))
 
     yp = layer.id_data.yp
     if not tree: tree = get_tree(layer)

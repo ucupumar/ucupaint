@@ -105,7 +105,7 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'make_preview_mode_srgb')
         self.layout.prop(self, 'use_image_preview')
         self.layout.prop(self, 'show_experimental')
-        if is_greater_than_410():
+        if is_greater_than_420():
             self.layout.prop(self, 'eevee_next_displacement')
         self.layout.prop(self, 'developer_mode')
         self.layout.prop(self, 'parallax_without_baked')
@@ -130,9 +130,7 @@ class YPaintPreferences(AddonPreferences):
 @persistent
 def auto_save_images(scene):
 
-    if is_greater_than_280():
-        ypup = bpy.context.preferences.addons[__package__].preferences
-    else: ypup = bpy.context.user_preferences.addons[__package__].preferences
+    ypup = get_user_preferences()
 
     for tree in bpy.data.node_groups:
         if not hasattr(tree, 'yp'): continue

@@ -445,7 +445,15 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
 
         for obj in objs:
             obj.hide_set(False)
-            obj.select_set(True)
+
+            if bake_from_multires:
+                # Do not select object without multires modifier
+                mod = get_multires_modifier(obj)
+                if not mod:
+                    obj.select_set(False)
+                else: obj.select_set(True)
+            else:
+                obj.select_set(True)
             #print(obj.name, obj.hide_render, obj.select_get())
 
         # Disable material override
@@ -528,8 +536,10 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
             # Create temporary image texture node to make sure
             # other materials inside single object did not bake to their active image
             if m != mat:
-                temp = m.node_tree.nodes.new('ShaderNodeTexImage')
-                temp.name = EMPTY_IMG_NODE
+                temp = m.node_tree.nodes.get(EMPTY_IMG_NODE)
+                if not temp:
+                    temp = m.node_tree.nodes.new('ShaderNodeTexImage')
+                    temp.name = EMPTY_IMG_NODE
                 m.node_tree.nodes.active = temp
 
     # Set active uv layers
@@ -1238,7 +1248,7 @@ def get_valid_filepath(img, use_hdr):
 
     return img.filepath
 
-def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, aa_level=1):
+def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_layer=None, use_hdr=False, aa_level=1, force_use_udim=False, tilenums=[]):
 
     print('BAKE CHANNEL: Baking', root_ch.name + ' channel...')
 
@@ -1247,8 +1257,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
     ypup = get_user_preferences()
 
     # Check if udim image is needed based on number of tiles
-    objs = get_all_objects_with_same_materials(mat)
-    tilenums = UDIM.get_tile_numbers(objs, uv_map)
+    if tilenums == []:
+        objs = get_all_objects_with_same_materials(mat)
+        tilenums = UDIM.get_tile_numbers(objs, uv_map)
 
     # Check if temp bake is necessary
     #temp_baked = []
@@ -1285,6 +1296,9 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             img.name = img_name
 
         ch = target_layer.channels[get_channel_index(root_ch)]
+
+    # Check if udim will be used
+    use_udim = force_use_udim or len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED')
 
     # Create setup nodes
     tex = mat.node_tree.nodes.new('ShaderNodeTexImage')
@@ -1399,7 +1413,8 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
             color = (col.r, col.g, col.b, 1.0)
 
         # Create new image
-        if len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED'):
+        #if force_use_udim or len(tilenums) > 1 or (segment and segment.id_data.source == 'TILED'):
+        if use_udim:
 
             # Create new udim image
             img = bpy.data.images.new(name=img_name, width=width, height=height, 
@@ -1429,7 +1444,10 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
         img.generated_color = color
 
         # Set filepath
-        if filepath != '':
+        if filepath != '' and (
+                (use_udim and '.<UDIM>.' in filepath) or 
+                (not use_udim and '.<UDIM>.' not in filepath)
+            ):
             img.filepath = filepath
 
         # Use hdr if not baking normal
@@ -1505,7 +1523,11 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     UDIM.initial_pack_udim(norm_img, color)
                 else: 
                     norm_img.generated_color = color
-                    norm_img.filepath = filepath
+                    if filepath != '' and (
+                            (use_udim and '.<UDIM>.' in filepath) or 
+                            (not use_udim and '.<UDIM>.' not in filepath)
+                        ):
+                        norm_img.filepath = filepath
 
                 tex.image = norm_img
 
@@ -1566,7 +1588,11 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 UDIM.initial_pack_udim(disp_img, color)
             else: 
                 disp_img.generated_color = color
-                disp_img.filepath = filepath
+                if filepath != '' and (
+                        (use_udim and '.<UDIM>.' in filepath) or 
+                        (not use_udim and '.<UDIM>.' not in filepath)
+                    ):
+                    disp_img.filepath = filepath
 
         elif ch.normal_map_type == 'BUMP_MAP':
             disp_img = img

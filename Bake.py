@@ -9,7 +9,7 @@ from .node_arrangements import *
 from .input_outputs import *
 from . import lib, Layer, Mask, ImageAtlas, Modifier, MaskModifier
 
-def transfer_uv(objs, mat, entity, uv_map):
+def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
 
     yp = entity.id_data.yp
     scene = bpy.context.scene
@@ -19,11 +19,17 @@ def transfer_uv(objs, mat, entity, uv_map):
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     if m1: 
-        source = get_layer_source(entity)
+        if is_entity_baked:
+            tree = get_tree(entity)
+            source = tree.nodes.get(entity.baked_source)
+        else: source = get_layer_source(entity)
         mapping = get_layer_mapping(entity)
         index = int(m1.group(1))
     elif m2: 
-        source = get_mask_source(entity)
+        if is_entity_baked:
+            tree = get_mask_tree(entity)
+            source = tree.nodes.get(entity.baked_source)
+        else: source = get_mask_source(entity)
         mapping = get_mask_mapping(entity)
         index = int(m2.group(2))
     else: return
@@ -163,8 +169,10 @@ def transfer_uv(objs, mat, entity, uv_map):
     mat.node_tree.nodes.active = tex
 
     # Links
-    mat.node_tree.links.new(src_uv.outputs[0], mapp.inputs[0])
-    mat.node_tree.links.new(mapp.outputs[0], src.inputs[0])
+    if not is_entity_baked:
+        mat.node_tree.links.new(src_uv.outputs[0], mapp.inputs[0])
+        mat.node_tree.links.new(mapp.outputs[0], src.inputs[0])
+    else: mat.node_tree.links.new(src_uv.outputs[0], src.inputs[0])
     rgb = src.outputs[0]
     alpha = src.outputs[1]
     if straight_over:
@@ -255,16 +263,17 @@ def transfer_uv(objs, mat, entity, uv_map):
 
     mat.node_tree.links.new(ori_bsdf, output.inputs[0])
 
-    # Update entity transform
-    entity.translation = (0.0, 0.0, 0.0)
-    entity.rotation = (0.0, 0.0, 0.0)
-    entity.scale = (1.0, 1.0, 1.0)
+    if not is_entity_baked:
+        # Update entity transform
+        entity.translation = (0.0, 0.0, 0.0)
+        entity.rotation = (0.0, 0.0, 0.0)
+        entity.scale = (1.0, 1.0, 1.0)
+
+        # Update mapping
+        update_mapping(entity)
 
     # Change uv of entity
     entity.uv_name = uv_map
-
-    # Update mapping
-    update_mapping(entity)
 
     # Remove temporary objects
     if temp_objs:
@@ -392,7 +401,11 @@ class YTransferSomeLayerUV(bpy.types.Operator):
                 if layer.type == 'IMAGE':
                     print('TRANSFER UV: Transferring layer ' + layer.name + '...')
                     transfer_uv(objs, mat, layer, self.uv_map)
-                else:
+
+                if layer.baked_source != '':
+                    transfer_uv(objs, mat, layer, self.uv_map, is_entity_baked=True)
+
+                if layer.uv_name != self.uv_map:
                     layer.uv_name = self.uv_map
 
             for mask in layer.masks:
@@ -400,8 +413,11 @@ class YTransferSomeLayerUV(bpy.types.Operator):
                     if mask.type == 'IMAGE':
                         print('TRANSFER UV: Transferring mask ' + mask.name + ' on layer ' + layer.name + '...')
                         transfer_uv(objs, mat, mask, self.uv_map)
-                        #return {'FINISHED'}
-                    else:
+
+                    if mask.baked_source != '':
+                        transfer_uv(objs, mat, mask, self.uv_map, is_entity_baked=True)
+
+                    if mask.uv_name != self.uv_map:
                         mask.uv_name = self.uv_map
 
         #return {'FINISHED'}
@@ -527,6 +543,9 @@ class YTransferLayerUV(bpy.types.Operator):
 
         # Transfer UV
         transfer_uv(objs, mat, self.entity, self.uv_map)
+
+        if self.entity.baked_source != '':
+            transfer_uv(objs, mat, self.entity, self.uv_map, is_entity_baked=True)
 
         # Recover bake settings
         recover_bake_settings(book, yp)
@@ -970,6 +989,13 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def update_bake_channel_uv_map(self, context):
+    if not UDIM.is_udim_supported(): return
+
+    mat = get_active_material()
+    objs = get_all_objects_with_same_materials(mat)
+    self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+
 def bake_vcol_channel_items(self, context):
     node = get_active_ypaint_node()
     yp = node.node_tree.yp
@@ -1000,7 +1026,7 @@ class YBakeChannels(bpy.types.Operator):
     width : IntProperty(name='Width', default = 1234, min=1, max=4096)
     height : IntProperty(name='Height', default = 1234, min=1, max=4096)
 
-    uv_map : StringProperty(default='')
+    uv_map : StringProperty(default='', update=update_bake_channel_uv_map)
     uv_map_coll : CollectionProperty(type=bpy.types.PropertyGroup)
 
     samples : IntProperty(name='Bake Samples', 
@@ -1048,6 +1074,16 @@ class YBakeChannels(bpy.types.Operator):
                 description='Force the first channel after baking the Vertex Color',
                 items=bake_vcol_channel_items)
 
+    use_udim : BoolProperty(
+            name = 'Use UDIM Tiles',
+            description='Use UDIM Tiles',
+            default=False)
+
+    use_udim : BoolProperty(
+            name = 'Use UDIM Tiles',
+            description='Use UDIM Tiles',
+            default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -1061,6 +1097,10 @@ class YBakeChannels(bpy.types.Operator):
 
         # Use active uv layer name by default
         uv_layers = get_uv_layers(obj)
+
+        # Use user preference default image size if input uses default image size
+        if self.width == 1234 and self.height == 1234:
+            self.width = self.height = ypup.default_new_image_size
 
         # Use active uv layer name by default
         if obj.type == 'MESH' and len(uv_layers) > 0:
@@ -1080,21 +1120,31 @@ class YBakeChannels(bpy.types.Operator):
 
         self.enable_bake_as_vcol = False
         if len(yp.channels) > 0:
+            bi = None
             for ch in yp.channels:
-                if self.width == 1234 and self.height == 1234:
-                    baked = node.node_tree.nodes.get(ch.baked)
-                    if baked and baked.image:
-                        self.width = baked.image.size[0]
-                        self.height = baked.image.size[1]
-                elif self.enable_bake_as_vcol:
-                    # If we have done all the init, break loop
+                baked = node.node_tree.nodes.get(ch.baked)
+                if baked and baked.image:
+                    if baked.image.y_bake_info.is_baked:
+                        bi = baked.image.y_bake_info
+                    self.width = baked.image.size[0]
+                    self.height = baked.image.size[1]
                     break
+            
+            for ch in yp.channels:
                 if ch.enable_bake_as_vcol:
                     self.enable_bake_as_vcol = True
+                    break
 
-        # Use user preference default image size if input uses default image size
-        if self.width == 1234 and self.height == 1234:
-            self.width = self.height = ypup.default_new_image_size
+            # Set some attributes from bake info
+            if bi:
+                for attr in dir(bi):
+                    if attr in {'other_objects', 'selected_objects'}: continue
+                    if attr.startswith('__'): continue
+                    if attr.startswith('bl_'): continue
+                    if attr in {'rna_type'}: continue
+                    #if attr in dir(self):
+                    try: setattr(self, attr, getattr(bi, attr))
+                    except: pass
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -1125,6 +1175,7 @@ class YBakeChannels(bpy.types.Operator):
         if self.enable_bake_as_vcol and not is_version_320():
             col.label(text='Force First Vcol:')
         col.label(text='')
+        col.label(text='')
         if is_greater_than_281():
             col.label(text='')
         col.label(text='')
@@ -1150,6 +1201,8 @@ class YBakeChannels(bpy.types.Operator):
         if self.enable_bake_as_vcol and not is_version_320():
             col.prop(self, 'vcol_force_first_channel_idx', text='')
             col.separator()
+        if UDIM.is_udim_supported():
+            col.prop(self, 'use_udim')
         col.prop(self, 'fxaa', text='Use FXAA')
         if is_greater_than_281():
             col.prop(self, 'denoise', text='Use Denoise')
@@ -1285,71 +1338,87 @@ class YBakeChannels(bpy.types.Operator):
         # Prepare bake settings
         prepare_bake_settings(book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, bake_device=self.bake_device)
 
+        # Get tilenums
+        tilenums = UDIM.get_tile_numbers(objs, self.uv_map) if self.use_udim else [1001]
+
         # Bake channels
         for ch in yp.channels:
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
                 #if ch.type != 'NORMAL': continue
                 use_hdr = not ch.use_clamp
-                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr)
+                bake_channel(self.uv_map, mat, node, ch, width, height, use_hdr=use_hdr, force_use_udim=self.use_udim, tilenums=tilenums)
 
-        # AA process
-        if self.aa_level > 1:
-            for ch in yp.channels:
+        # Process baked images
+        baked_images = []
+        for ch in yp.channels:
 
-                baked = tree.nodes.get(ch.baked)
-                if baked and baked.image:
+            baked = tree.nodes.get(ch.baked)
+            if baked and baked.image:
+
+                # AA process
+                if self.aa_level > 1:
                     resize_image(baked.image, self.width, self.height, 
                             baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
 
-                if ch.type == 'NORMAL':
+                # FXAA doesn't work with hdr image
+                if self.fxaa and ch.use_clamp:
+                    fxaa_image(baked.image, ch.enable_alpha, bake_device=self.bake_device)
 
-                    baked_disp = tree.nodes.get(ch.baked_disp)
-                    if baked_disp and baked_disp.image:
+                # Denoise
+                if self.denoise and is_greater_than_281():
+                    denoise_image(baked.image)
+
+                baked_images.append(baked.image)
+
+            if ch.type == 'NORMAL':
+
+                baked_disp = tree.nodes.get(ch.baked_disp)
+                if baked_disp and baked_disp.image:
+
+                    # AA process
+                    if self.aa_level > 1:
                         resize_image(baked_disp.image, self.width, self.height, 
                                 baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
 
-                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image:
-                        resize_image(baked_normal_overlay.image, self.width, self.height, 
-                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
-
-        # FXAA
-        if self.fxaa:
-            for ch in yp.channels:
-                # FXAA doesn't work with hdr image
-                if not ch.use_clamp: continue
-
-                baked = tree.nodes.get(ch.baked)
-                if baked and baked.image:
-                    fxaa_image(baked.image, ch.enable_alpha, bake_device=self.bake_device)
-
-                if ch.type == 'NORMAL':
-
-                    baked_disp = tree.nodes.get(ch.baked_disp)
-                    if baked_disp and baked_disp.image:
+                    # FXAA
+                    if self.fxaa:
                         fxaa_image(baked_disp.image, ch.enable_alpha, bake_device=self.bake_device)
 
-                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image:
-                        fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
-
-        # Denoise
-        if self.denoise and is_greater_than_281():
-            for ch in yp.channels:
-                baked = tree.nodes.get(ch.baked)
-                if baked and baked.image:
-                    denoise_image(baked.image)
-
-                if ch.type == 'NORMAL':
-
-                    baked_disp = tree.nodes.get(ch.baked_disp)
-                    if baked_disp and baked_disp.image:
+                    # Denoise
+                    if self.denoise and is_greater_than_281():
                         denoise_image(baked_disp.image)
 
-                    baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-                    if baked_normal_overlay and baked_normal_overlay.image:
+                    baked_images.append(baked_disp.image)
+
+                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
+                if baked_normal_overlay and baked_normal_overlay.image:
+
+                    # AA process
+                    if self.aa_level > 1:
+                        resize_image(baked_normal_overlay.image, self.width, self.height, 
+                                baked.image.colorspace_settings.name, alpha_aware=ch.enable_alpha, bake_device=self.bake_device)
+                    # FXAA
+                    if self.fxaa:
+                        fxaa_image(baked_normal_overlay.image, ch.enable_alpha, bake_device=self.bake_device)
+
+                    # Denoise
+                    if self.denoise and is_greater_than_281():
                         denoise_image(baked_normal_overlay.image)
+
+                    baked_images.append(baked_normal_overlay.image)
+
+        # Set bake info to baked images
+        for img in baked_images:
+            bi = img.y_bake_info
+            bi.is_baked = True
+            for attr in dir(bi):
+                #if attr in dir(self):
+                if attr.startswith('__'): continue
+                if attr.startswith('bl_'): continue
+                if attr in {'rna_type'}: continue
+                try: setattr(bi, attr, getattr(self, attr))
+                except: pass
 
         # Set baked uv
         yp.baked_uv_name = self.uv_map
