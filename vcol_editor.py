@@ -549,7 +549,7 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
 
 def register():
     ypup = get_user_preferences()
-    if ypup and not hasattr(ypup, 'show_experimental') or ypup.show_experimental:
+    if ypup and (not hasattr(ypup, 'show_experimental') or ypup.show_experimental):
         bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
         if not is_greater_than_280():
             bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
@@ -564,7 +564,7 @@ def register():
 
 def unregister():
     ypup = get_user_preferences()
-    if ypup and not hasattr(ypup, 'show_experimental') or ypup.show_experimental:
+    if ypup and (not hasattr(ypup, 'show_experimental') or ypup.show_experimental):
         bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
         if not is_greater_than_280():
             bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
