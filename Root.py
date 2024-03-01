@@ -2883,10 +2883,7 @@ def update_channel_main_uv(self, context):
         self.enable_smooth_bump = self.enable_smooth_bump
 
 def update_channel_enable_bake_as_vcol(self, context):
-    yp = self.id_data.yp
-    # ch = yp.channels[yp.active_channel_index]
-    if not self.enable_bake_as_vcol:
-        self.use_baked_vcol = False
+    self.use_baked_vcol = self.enable_bake_as_vcol
 
 # Prevent vcol name from being null
 def get_channel_vcol_name(self):

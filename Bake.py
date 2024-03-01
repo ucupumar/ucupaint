@@ -1456,7 +1456,7 @@ class YBakeChannels(bpy.types.Operator):
             current_vcol_order = 0
             prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device='CPU', bake_target='VERTEX_COLORS')
             for ch in yp.channels:
-                if ch.enable_bake_as_vcol:
+                if ch.enable_bake_as_vcol and ch.type != 'NORMAL':
                     # Check vertex color
                     for ob in objs:
                         vcols = get_vertex_colors(ob)
@@ -2422,7 +2422,7 @@ def update_enable_baked_outside(self, context):
                 mtree.links.new(uv.outputs[0], tex.inputs[0])
 
                 baked_vcol = tree.nodes.get(ch.baked_vcol)
-                if baked_vcol and not not ch.enable_bake_as_vcol:
+                if baked_vcol and ch.enable_bake_as_vcol:
                     vcol = check_new_node(mtree, ch, 'baked_outside_vcol', get_vcol_bl_idname())
                     set_source_vcol_name(vcol, ch.bake_vcol_name)
                     loc_x += 280

@@ -996,33 +996,33 @@ def draw_root_channels_ui(context, layout, node):
 
                 split.label(text='Space:')
                 split.prop(channel, 'colorspace', text='')
-            # Bake As Vertex Color
-            if is_greater_than_292():
-                brow = bcol.row(align=True)
-                if chui.expand_bake_as_vcol_settings:
-                    ch_icon = lib.custom_icons["uncollapsed_input"].icon_id
-                else: ch_icon = lib.custom_icons["collapsed_input"].icon_id
-                brow.prop(chui, 'expand_bake_as_vcol_settings', text='', emboss=False, icon_value=ch_icon)
-                brow.label(text='Bake As Vertex Color:')
-                # if not yp.use_baked:
-                brow.prop(channel, 'enable_bake_as_vcol', text='')
-                # else:
-                    # brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
-
-                if chui.expand_bake_as_vcol_settings:
+                # Bake As Vertex Color
+                if is_greater_than_292():
                     brow = bcol.row(align=True)
-                    brow.label(text='', icon='BLANK1')
-                    bbox = brow.box()
-                    bbcol = bbox.column() #align=True)
-                    bbcol.active = channel.enable_bake_as_vcol
-                    brow = bbcol.row(align=True)
-                    if channel.type == 'VALUE':
-                        brow.label(text='Bake to Alpha Only:')
-                        brow.prop(channel, 'bake_to_vcol_alpha', text='')
+                    if chui.expand_bake_as_vcol_settings:
+                        ch_icon = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: ch_icon = lib.custom_icons["collapsed_input"].icon_id
+                    brow.prop(chui, 'expand_bake_as_vcol_settings', text='', emboss=False, icon_value=ch_icon)
+                    brow.label(text='Bake As Vertex Color:')
+                    # if not yp.use_baked:
+                    brow.prop(channel, 'enable_bake_as_vcol', text='')
+                    # else:
+                        # brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
 
-                    brow = bbcol.row(align=True)
-                    brow.label(text='Target Vertex Color:')
-                    brow.prop(channel, 'bake_vcol_name', text='')
+                    if chui.expand_bake_as_vcol_settings:
+                        brow = bcol.row(align=True)
+                        brow.label(text='', icon='BLANK1')
+                        bbox = brow.box()
+                        bbcol = bbox.column() #align=True)
+                        bbcol.active = channel.enable_bake_as_vcol
+                        brow = bbcol.row(align=True)
+                        if channel.type == 'VALUE':
+                            brow.label(text='Bake to Alpha Only:')
+                            brow.prop(channel, 'bake_to_vcol_alpha', text='')
+
+                        brow = bbcol.row(align=True)
+                        brow.label(text='Target Vertex Color:')
+                        brow.prop(channel, 'bake_vcol_name', text='')
 
 def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
     obj = context.object
@@ -2271,7 +2271,7 @@ def draw_layers_ui(context, layout, node):
                     if baked_disp.image.packed_file:
                         row.label(text='', icon='PACKAGE')
 
-            if is_greater_than_292():
+            if is_greater_than_292() and root_ch.type != 'NORMAL':
                 if root_ch.enable_bake_as_vcol:
                     obj = context.object
                     vcols = get_vertex_colors(obj)
