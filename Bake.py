@@ -976,7 +976,8 @@ def bake_vcol_channel_items(self, context):
 
     items = []
     # Default option to do nothing
-    items.append(('0', 'Do Nothing', '', '', 0))
+    items.append(('Do Nothing', 'Do Nothing', '', '', 0))
+    items.append(('Sort By Channel Order', 'Sort By Channel Order', '', '', 1))
 
     for i, ch in enumerate(yp.channels):
         if not ch.enable_bake_as_vcol: continue
@@ -985,8 +986,8 @@ def bake_vcol_channel_items(self, context):
         # Index plus one, minus one when read
         if hasattr(lib, 'custom_icons'):
             icon_name = lib.channel_custom_icon_dict[ch.type]
-            items.append((str(i + 1), text_ch_name, '', lib.custom_icons[icon_name].icon_id, i + 1))
-        else: items.append((str(i + 1), text_ch_name, '', lib.channel_icon_dict[ch.type], i + 1))
+            items.append((str(i + 2), text_ch_name, '', lib.custom_icons[icon_name].icon_id, i + 2))
+        else: items.append((str(i + 2), text_ch_name, '', lib.channel_icon_dict[ch.type], i + 2))
 
     return items
 
@@ -1379,49 +1380,57 @@ class YBakeChannels(bpy.types.Operator):
                             #print(ori_loop_locs[ob.name][i][j])
                             uvl.data[li].uv = ori_loop_locs[ob.name][i][j]
 
-        prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device='CPU', bake_target='VERTEX_COLORS')
-        for ch in yp.channels:
-            if ch.enable_bake_as_vcol:
-                # Check vertex color
-                for ob in objs:
-                    vcols = get_vertex_colors(ob)
-                    vcol = vcols.get(ch.bake_vcol_name)
+        if is_greater_than_292():
+            is_do_nothing = self.vcol_force_first_channel_idx == 'Do Nothing'
+            is_sort_by_channel = self.vcol_force_first_channel_idx == 'Sort By Channel Order'
+            real_force_first_ch_idx = int(self.vcol_force_first_channel_idx) - 2 if not (is_do_nothing or is_sort_by_channel) else -1
+            current_vcol_order = 0
+            prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device='CPU', bake_target='VERTEX_COLORS')
+            for ch in yp.channels:
+                if ch.enable_bake_as_vcol:
+                    # Check vertex color
+                    for ob in objs:
+                        vcols = get_vertex_colors(ob)
+                        vcol = vcols.get(ch.bake_vcol_name)
 
-                    # Set index to first so new vcol will copy their value
-                    if len(vcols) > 0:
-                        first_vcol = vcols[0]
-                        set_active_vertex_color(ob, first_vcol)
+                        # Set index to first so new vcol will copy their value
+                        if len(vcols) > 0:
+                            first_vcol = vcols[0]
+                            set_active_vertex_color(ob, first_vcol)
 
-                    if not vcol:
-                        try: 
-                            vcol = new_vertex_color(ob, ch.bake_vcol_name)
-                        except Exception as e: print(e)
+                        if not vcol:
+                            try: 
+                                vcol = new_vertex_color(ob, ch.bake_vcol_name)
+                            except Exception as e: print(e)
 
-                    # Get newly created vcol name
-                    vcol_name = vcol.name
+                        # Get newly created vcol name
+                        vcol_name = vcol.name
 
-                    real_force_first_ch_index = int(self.vcol_force_first_channel_idx) - 1
+                        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+                        if not is_version_320() and not is_do_nothing:
+                            if is_sort_by_channel or yp.channels[real_force_first_ch_idx] == ch:
+                                move_vcol(ob, get_vcol_index(ob, vcol.name), current_vcol_order)
 
-                    # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-                    if real_force_first_ch_index > -1 and yp.channels[real_force_first_ch_index] == ch and not is_version_320():
-                        move_vcol(ob, get_vcol_index(ob, vcol.name), 0)
+                        # Get the newly created vcol to avoid pointer error
+                        vcol = vcols.get(vcol_name)
+                        set_active_vertex_color(ob, vcol)
+                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, ch.bake_vcol_name)
+                    baked = tree.nodes.get(ch.baked_vcol)
+                    if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
+                        baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
+                    set_source_vcol_name(baked, ch.bake_vcol_name)
+                    for ob in objs:
+                        # Recover material index
+                        if ori_mat_ids[ob.name]:
+                            for i, p in enumerate(ob.data.polygons):
+                                if ori_mat_ids[ob.name][i] != p.material_index:
+                                    p.material_index = ori_mat_ids[ob.name][i]
+                    if is_sort_by_channel:
+                        current_vcol_order += 1
 
-                    # Get the newly created vcol to avoid pointer error
-                    vcol = vcols.get(vcol_name)
-                    set_active_vertex_color(ob, vcol)
-                bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, ch.bake_vcol_name)
-                baked = tree.nodes.get(ch.baked_vcol)
-                if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
-                    baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
-                set_source_vcol_name(baked, ch.bake_vcol_name)
-                for ob in objs:
-                    # Recover material index
-                    if ori_mat_ids[ob.name]:
-                        for i, p in enumerate(ob.data.polygons):
-                            if ori_mat_ids[ob.name][i] != p.material_index:
-                                p.material_index = ori_mat_ids[ob.name][i]
-        # Recover bake settings
-        recover_bake_settings(book, yp)
+            # Sort vcols by channel order
+            # Recover bake settings
+            recover_bake_settings(book, yp)
         # Use bake results
         yp.halt_update = True
         yp.use_baked = True
