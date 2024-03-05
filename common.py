@@ -2090,9 +2090,12 @@ def change_layer_name(yp, obj, src, layer, texes):
                 new_mask_name = mask.name.replace(old_layer_name, layer.name)
                 if mask.type == 'IMAGE':
                     msrc = get_mask_source(mask)
-                    if msrc.image: msrc.image.name = get_unique_name(new_mask_name, bpy.data.images) 
+                    if msrc.image: 
+                        msrc.image.name = '___TEMP___'
+                        msrc.image.name = get_unique_name(new_mask_name, bpy.data.images) 
                 elif mask.type == 'VCOL':
                     msrc = get_mask_source(mask)
+                    mask.name = '___TEMP___'
                     change_vcol_name(yp, obj, msrc, new_mask_name, mask)
                 else:
                     mask.name = new_mask_name
