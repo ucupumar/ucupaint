@@ -3139,6 +3139,10 @@ def replace_layer_type(layer, new_type, item_name='', remove_data=False):
     # Check uv maps
     check_uv_nodes(yp)
 
+    # Update layer name
+    if layer_type_labels[ori_type] in layer.name:
+        layer.name = layer.name.replace(layer_type_labels[ori_type], layer_type_labels[layer.type])
+
     # Refresh colorspace
     for root_ch in yp.channels:
         if root_ch.type == 'RGB':
