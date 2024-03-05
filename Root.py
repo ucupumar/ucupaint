@@ -3469,7 +3469,7 @@ def ypaint_last_object_update(scene):
                 image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
                 update_image_editor_image(bpy.context, image)
                 try: scene.tool_settings.image_paint.canvas = image
-                except Exception as e: print('EXCEPTIION: Cannot set image canvas!')
+                except: print('EXCEPTIION: Cannot set image canvas!')
 
     if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:
 
@@ -3485,11 +3485,13 @@ def ypaint_last_object_update(scene):
                 if obj.mode == 'TEXTURE_PAINT':
                     mirror = get_first_mirror_modifier(obj)
                     if mirror:
-                        obj.yp.ori_mirror_offset_u = mirror.mirror_offset_u
-                        obj.yp.ori_mirror_offset_v = mirror.mirror_offset_v
-                        if is_greater_than_280():
-                            obj.yp.ori_offset_u = mirror.offset_u
-                            obj.yp.ori_offset_v = mirror.offset_v
+                        try: 
+                            obj.yp.ori_mirror_offset_u = mirror.mirror_offset_u
+                            obj.yp.ori_mirror_offset_v = mirror.mirror_offset_v
+                            if is_greater_than_280():
+                                obj.yp.ori_offset_u = mirror.offset_u
+                                obj.yp.ori_offset_v = mirror.offset_v
+                        except: print('EXCEPTIION: Cannot remember original mirror offset!')
 
                 refresh_temp_uv(obj, src_of_img)
 

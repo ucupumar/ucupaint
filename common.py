@@ -3063,8 +3063,10 @@ def refresh_temp_uv(obj, entity):
 
     # Set active uv
     if uv_layers.active != layer_uv:
-        uv_layers.active = layer_uv
-        layer_uv.active_render = True
+        try: uv_layers.active = layer_uv
+        except: print('EXCEPTIION: Cannot set active uv!')
+        try: layer_uv.active_render = True
+        except: print('EXCEPTIION: Cannot set active uv render!')
 
     if m3 and entity.override_type != 'IMAGE':
         remove_temp_uv(obj, entity)

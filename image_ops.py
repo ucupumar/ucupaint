@@ -221,13 +221,14 @@ def save_pack_all(yp):
 
     packed_float_images = []
 
-    #print()
     # Temporary scene for blender 3.30 hack
     tmpscene = None
     if is_greater_than_330():
         tmpscene = bpy.data.scenes.new('Temp Save Scene')
-        tmpscene.view_settings.view_transform = 'Standard'
-        tmpscene.render.image_settings.file_format = 'PNG'
+        try: tmpscene.view_settings.view_transform = 'Standard'
+        except: print('EXCEPTIION: Cannot set view transform on temporary save scene!')
+        try: tmpscene.render.image_settings.file_format = 'PNG'
+        except: print('EXCEPTIION: Cannot set file format on temporary save scene!')
 
     # Save/pack images
     for image in images:

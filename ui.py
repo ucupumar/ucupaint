@@ -4828,7 +4828,9 @@ def add_new_ypaint_node_menu(self, context):
 def copy_ui_settings(source, dest):
     for attr in dir(source):
         if attr.startswith(('show_', 'expand_')) or attr.endswith('_name'):
-            setattr(dest, attr, getattr(source, attr))
+            try: setattr(dest, attr, getattr(source, attr))
+            except Exception as e: 
+                print('EXCEPTIION: Cannot set UI settings!')
 
 def save_mat_ui_settings():
     ypui = bpy.context.window_manager.ypui
