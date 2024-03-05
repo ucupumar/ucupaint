@@ -2073,13 +2073,29 @@ def change_layer_name(yp, obj, src, layer, texes):
         layer.name = '___TEMP___'
         layer.name = get_unique_name(name, texes) 
 
-    # Update node group label
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', layer.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', layer.path_from_id())
     if m1:
         group_tree = yp.id_data
+
+        # Update node group label
         layer_group = group_tree.nodes.get(layer.group_node)
         layer_group.label = layer.name
+
+        # Also update mask name if it's in certain pattern
+        for mask in layer.masks:
+            m = re.match(r'^Mask\s.*\((.+)\)$', mask.name)
+            if m:
+                old_layer_name = m.group(1)
+                new_mask_name = mask.name.replace(old_layer_name, layer.name)
+                if mask.type == 'IMAGE':
+                    msrc = get_mask_source(mask)
+                    if msrc.image: msrc.image.name = get_unique_name(new_mask_name, bpy.data.images) 
+                elif mask.type == 'VCOL':
+                    msrc = get_mask_source(mask)
+                    change_vcol_name(yp, obj, msrc, new_mask_name, mask)
+                else:
+                    mask.name = new_mask_name
 
     yp.halt_update = False
 
