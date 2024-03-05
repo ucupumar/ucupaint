@@ -1960,7 +1960,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         root_ch = yp.channels[i]
 
         #if yp.disable_quick_toggle and not ch.enable: continue
-        if not ch.enable: 
+        if not get_channel_enabled(ch, layer, root_ch):
             
             # Disabled channel layer preview
             if yp.layer_preview_mode:

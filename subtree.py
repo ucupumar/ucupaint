@@ -692,7 +692,7 @@ def check_mask_source_tree(layer, specific_mask=None): #, ch=None):
     for i, mask in enumerate(layer.masks):
         if specific_mask and specific_mask != mask: continue
 
-        if smooth_bump_ch and get_mask_enabled(mask) and (
+        if smooth_bump_ch and get_channel_enabled(smooth_bump_ch, layer, yp.channels[ch_idx]) and get_mask_enabled(mask) and (
                 mask.channels[ch_idx].enable and height_process_needed and (write_height_ch or i < chain) and
                 (mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'})
                 ): 

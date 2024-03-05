@@ -4216,7 +4216,7 @@ def is_entity_need_tangent_input(entity, uv_name):
         if height_root_ch and check_need_prev_normal(layer):
             return True
 
-        if height_root_ch and height_ch and height_ch.enable:
+        if height_root_ch and height_ch and get_channel_enabled(height_ch, layer, height_root_ch):
 
             if entity.type == 'GROUP':
 
@@ -4377,7 +4377,7 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
             if l.type not in {'GROUP', 'BACKGROUND'} and c.enable:
                 return True
 
-            if l.type == 'GROUP' and get_channel_enabled(l.channels[channel_idx]):
+            if l.type == 'GROUP' and get_channel_enabled(l.channels[channel_idx], l, root_ch):
                 return True
 
         return False
