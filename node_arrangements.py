@@ -1842,6 +1842,9 @@ def rearrange_yp_nodes(group_tree):
         if check_set_node_loc(group_tree, ch.baked_disp, loc):
             loc.y -= 270
 
+        if check_set_node_loc(group_tree, ch.baked_vcol, loc):
+            loc.y -= 270
+
         loc.x = save_x
 
         if loc.x > farthest_x: farthest_x = loc.x

@@ -41,6 +41,7 @@ def update_yp_ui():
             ypui.channel_ui.expand_subdiv_settings = channel.expand_subdiv_settings
             ypui.channel_ui.expand_parallax_settings = channel.expand_parallax_settings
             ypui.channel_ui.expand_alpha_settings = channel.expand_alpha_settings
+            ypui.channel_ui.expand_bake_as_vcol_settings = channel.expand_bake_as_vcol_settings
             ypui.channel_ui.expand_smooth_bump_settings = channel.expand_smooth_bump_settings
             ypui.channel_ui.modifiers.clear()
 
@@ -995,6 +996,33 @@ def draw_root_channels_ui(context, layout, node):
 
                 split.label(text='Space:')
                 split.prop(channel, 'colorspace', text='')
+                # Bake As Vertex Color
+                if is_greater_than_292():
+                    brow = bcol.row(align=True)
+                    if chui.expand_bake_as_vcol_settings:
+                        ch_icon = lib.custom_icons["uncollapsed_input"].icon_id
+                    else: ch_icon = lib.custom_icons["collapsed_input"].icon_id
+                    brow.prop(chui, 'expand_bake_as_vcol_settings', text='', emboss=False, icon_value=ch_icon)
+                    brow.label(text='Bake As Vertex Color:')
+                    # if not yp.use_baked:
+                    brow.prop(channel, 'enable_bake_as_vcol', text='')
+                    # else:
+                        # brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
+
+                    if chui.expand_bake_as_vcol_settings:
+                        brow = bcol.row(align=True)
+                        brow.label(text='', icon='BLANK1')
+                        bbox = brow.box()
+                        bbcol = bbox.column() #align=True)
+                        bbcol.active = channel.enable_bake_as_vcol
+                        brow = bbcol.row(align=True)
+                        if channel.type == 'VALUE':
+                            brow.label(text='Bake to Alpha Only:')
+                            brow.prop(channel, 'bake_to_vcol_alpha', text='')
+
+                        brow = bbcol.row(align=True)
+                        brow.label(text='Target Vertex Color:')
+                        brow.prop(channel, 'bake_vcol_name', text='')
 
 def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, is_a_mesh):
     obj = context.object
@@ -2184,10 +2212,13 @@ def draw_layers_ui(context, layout, node):
             else:
                 row = col.row(align=True)
                 #label = 'Baked Image (' + root_ch.name + '):'
-                label = 'Baked ' + root_ch.name + ':'
+                text_disable = 'Baked ' + root_ch.name + ':'
+                baked_vcol_node = nodes.get(root_ch.baked_vcol)
+                if not root_ch.enable_bake_as_vcol and baked_vcol_node:
+                    text_disable = pgettext_iface('(Active) ') + text_disable
                 icon_name = lib.channel_custom_icon_dict[root_ch.type]
                 icon_value = lib.custom_icons[icon_name].icon_id
-                row.label(text=label, icon_value=icon_value)
+                row.label(text=text_disable, icon_value=icon_value)
 
                 row.context_pointer_set('root_ch', root_ch)
                 row.context_pointer_set('image', baked.image)
@@ -2202,11 +2233,11 @@ def draw_layers_ui(context, layout, node):
                 row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
                 row.label(text='', icon='BLANK1')
                 if baked.image.is_dirty:
-                    label = baked.image.name + ' *'
-                else: label = baked.image.name
+                    text_disable = baked.image.name + ' *'
+                else: text_disable = baked.image.name
                 if root_ch.disable_global_baked and not yp.enable_baked_outside:
-                    label += ' (Disabled)'
-                row.label(text=label, icon_value=lib.get_icon('image'))
+                    text_disable += ' (Disabled)'
+                row.label(text=text_disable, icon_value=lib.get_icon('image'))
 
                 if baked.image.packed_file:
                     row.label(text='', icon='PACKAGE')
@@ -2219,11 +2250,11 @@ def draw_layers_ui(context, layout, node):
                     row.active = not root_ch.disable_global_baked
                     row.label(text='', icon='BLANK1')
                     if baked_normal_overlay.image.is_dirty:
-                        label = baked_normal_overlay.image.name + ' *'
-                    else: label = baked_normal_overlay.image.name
+                        text_disable = baked_normal_overlay.image.name + ' *'
+                    else: text_disable = baked_normal_overlay.image.name
                     if root_ch.disable_global_baked:
-                        label += ' (Disabled)'
-                    row.label(text=label, icon_value=lib.get_icon('image'))
+                        text_disable += ' (Disabled)'
+                    row.label(text=text_disable, icon_value=lib.get_icon('image'))
 
                     if baked_normal_overlay.image.packed_file:
                         row.label(text='', icon='PACKAGE')
@@ -2234,14 +2265,37 @@ def draw_layers_ui(context, layout, node):
                     row.active = not root_ch.disable_global_baked
                     row.label(text='', icon='BLANK1')
                     if baked_disp.image.is_dirty:
-                        label = baked_disp.image.name + ' *'
-                    else: label = baked_disp.image.name
+                        text_disable = baked_disp.image.name + ' *'
+                    else: text_disable = baked_disp.image.name
                     if root_ch.disable_global_baked:
-                        label += ' (Disabled)'
-                    row.label(text=label, icon_value=lib.get_icon('image'))
+                        text_disable += ' (Disabled)'
+                    row.label(text=text_disable, icon_value=lib.get_icon('image'))
 
                     if baked_disp.image.packed_file:
                         row.label(text='', icon='PACKAGE')
+
+            if is_greater_than_292() and root_ch.type != 'NORMAL':
+                baked_vcol_node = nodes.get(root_ch.baked_vcol)
+                # If enabled or a baked vertex color is found
+                if root_ch.enable_bake_as_vcol or baked_vcol_node:
+                    obj = context.object
+                    vcols = get_vertex_colors(obj)
+                    vcol_name = root_ch.bake_vcol_name
+                    vcol = vcols.get(vcol_name)
+                    row = col.row(align=True)
+                    active_text = pgettext_iface('(Active) ') if root_ch.enable_bake_as_vcol else ''
+                    row.label(text=active_text + 'Baked Vertex Color:', icon_value=lib.get_icon('vertex_color'))
+                    row = col.row(align=True)
+                    row.label(text='', icon='BLANK1')
+
+                    row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
+                    text_disable = ''
+                    if root_ch.disable_global_baked and not yp.enable_baked_outside:
+                        text_disable += pgettext_iface(' (Disabled)')
+                    if baked_vcol_node and vcol:
+                        row.label(text=vcol_name + text_disable, icon='GROUP_VCOL')
+                    else:
+                        row.label(text='Baked vertex color is missing!' + text_disable, icon='ERROR')
         return
 
     if is_a_mesh and not uv_found:
@@ -4656,6 +4710,8 @@ def update_channel_ui(self, context):
         ch.expand_parallax_settings = self.expand_parallax_settings
     if hasattr(ch, 'expand_alpha_settings'):
         ch.expand_alpha_settings = self.expand_alpha_settings
+    if hasattr(ch, 'expand_bake_as_vcol_settings'):
+        ch.expand_bake_as_vcol_settings = self.expand_bake_as_vcol_settings
     if hasattr(ch, 'expand_smooth_bump_settings'):
         ch.expand_smooth_bump_settings = self.expand_smooth_bump_settings
     if hasattr(ch, 'expand_intensity_settings'):
@@ -4721,6 +4777,7 @@ class YChannelUI(bpy.types.PropertyGroup):
     expand_subdiv_settings : BoolProperty(default=False, update=update_channel_ui)
     expand_parallax_settings : BoolProperty(default=False, update=update_channel_ui)
     expand_alpha_settings : BoolProperty(default=False, update=update_channel_ui)
+    expand_bake_as_vcol_settings : BoolProperty(default=False, update=update_channel_ui)
     expand_smooth_bump_settings : BoolProperty(default=False, update=update_channel_ui)
     expand_input_settings : BoolProperty(default=True, update=update_channel_ui)
     expand_source : BoolProperty(default=True, update=update_channel_ui)

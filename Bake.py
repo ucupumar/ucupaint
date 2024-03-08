@@ -953,6 +953,10 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
     bl_description = "Delete all baked channel images"
     bl_options = {'REGISTER', 'UNDO'}
 
+    also_del_vcol : BoolProperty(
+        name="Also delete the vertex color",
+        default=False)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH'
@@ -962,11 +966,29 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
 
     def draw(self, context):
         self.layout.label(text='Are you sure you want to delete all baked images?', icon='ERROR')
+        row = split_layout(self.layout, 0.5)
+        col = row.column(align=False)
+        col.label(text='Also Delete Vertex Color:')
+        col = row.column(align=False)
+        col.prop(self, 'also_del_vcol', text='')
 
     def execute(self, context):
         node = get_active_ypaint_node()
         tree = node.node_tree
         yp = tree.yp
+        mat = get_active_material()
+
+        objs = []
+        # Get all objects using material
+        if self.also_del_vcol:
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if len(ob.data.polygons) == 0: continue
+                for i, m in enumerate(ob.data.materials):
+                    if m == mat:
+                        ob.active_material_index = i
+                        if ob not in objs:
+                            objs.append(ob)
 
         # Set bake to false first
         if yp.use_baked:
@@ -975,12 +997,22 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
         # Remove baked nodes
         for root_ch in yp.channels:
             remove_node(tree, root_ch, 'baked')
+            remove_node(tree, root_ch, 'baked_vcol')
 
             if root_ch.type == 'NORMAL':
                 remove_node(tree, root_ch, 'baked_disp')
                 remove_node(tree, root_ch, 'baked_normal_overlay')
                 remove_node(tree, root_ch, 'baked_normal_prep')
                 remove_node(tree, root_ch, 'baked_normal')
+
+            # Delete objects vertex color
+            if self.also_del_vcol:
+                for ob in objs:
+                    vcols = get_vertex_colors(ob)
+                    if len(vcols) == 0: continue
+                    vcol = vcols.get(root_ch.bake_vcol_name)
+                    if vcol:
+                        vcols.remove(vcol)
 
         # Reconnect
         reconnect_yp_nodes(tree)
@@ -994,6 +1026,27 @@ def update_bake_channel_uv_map(self, context):
     mat = get_active_material()
     objs = get_all_objects_with_same_materials(mat)
     self.use_udim = UDIM.is_uvmap_udim(objs, self.uv_map)
+
+def bake_vcol_channel_items(self, context):
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
+
+    items = []
+    # Default option to do nothing
+    items.append(('Do Nothing', 'Do Nothing', '', '', 0))
+    items.append(('Sort By Channel Order', 'Sort By Channel Order', '', '', 1))
+
+    for i, ch in enumerate(yp.channels):
+        if not ch.enable_bake_as_vcol: continue
+        # Add two spaces to prevent text from being translated
+        text_ch_name = ch.name + '  '
+        # Index plus one, minus one when read
+        if hasattr(lib, 'custom_icons'):
+            icon_name = lib.channel_custom_icon_dict[ch.type]
+            items.append((str(i + 2), text_ch_name, '', lib.custom_icons[icon_name].icon_id, i + 2))
+        else: items.append((str(i + 2), text_ch_name, '', lib.channel_icon_dict[ch.type], i + 2))
+
+    return items
 
 class YBakeChannels(bpy.types.Operator):
     """Bake Channels to Image(s)"""
@@ -1042,6 +1095,20 @@ class YBakeChannels(bpy.types.Operator):
                      ('CPU', 'CPU', '')),
             default='CPU'
             )
+    
+    enable_bake_as_vcol : BoolProperty(name='Enable Bake As VCol',
+            description='Has any channel enabled Bake As Vertex Color',
+            default=False)
+
+    vcol_force_first_ch_idx : EnumProperty(
+                name='Force First Vertex Color Channel',
+                description='Force the first channel after baking the Vertex Color',
+                items=bake_vcol_channel_items)
+
+    use_udim : BoolProperty(
+            name = 'Use UDIM Tiles',
+            description='Use UDIM Tiles',
+            default=False)
 
     use_udim : BoolProperty(
             name = 'Use UDIM Tiles',
@@ -1082,6 +1149,7 @@ class YBakeChannels(bpy.types.Operator):
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
 
+        self.enable_bake_as_vcol = False
         if len(yp.channels) > 0:
             bi = None
             for ch in yp.channels:
@@ -1091,6 +1159,11 @@ class YBakeChannels(bpy.types.Operator):
                         bi = baked.image.y_bake_info
                     self.width = baked.image.size[0]
                     self.height = baked.image.size[1]
+                    break
+            
+            for ch in yp.channels:
+                if ch.enable_bake_as_vcol:
+                    self.enable_bake_as_vcol = True
                     break
 
             # Set some attributes from bake info
@@ -1103,6 +1176,9 @@ class YBakeChannels(bpy.types.Operator):
                     #if attr in dir(self):
                     try: setattr(self, attr, getattr(bi, attr))
                     except: pass
+
+        if self.vcol_force_first_ch_idx == '':
+            self.vcol_force_first_ch_idx = 'Do Nothing'
 
         return context.window_manager.invoke_props_dialog(self, width=320)
 
@@ -1129,6 +1205,9 @@ class YBakeChannels(bpy.types.Operator):
             col.separator()
         col.label(text='UV Map:')
         col.separator()
+        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+        if self.enable_bake_as_vcol and not is_version_320():
+            col.label(text='Force First Vcol:')
         col.label(text='')
         col.label(text='')
         if is_greater_than_281():
@@ -1152,6 +1231,10 @@ class YBakeChannels(bpy.types.Operator):
             col.separator()
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.separator()
+        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+        if self.enable_bake_as_vcol and not is_version_320():
+            col.prop(self, 'vcol_force_first_ch_idx', text='')
+            col.separator()
         if UDIM.is_udim_supported():
             col.prop(self, 'use_udim')
         col.prop(self, 'fxaa', text='Use FXAA')
@@ -1400,6 +1483,73 @@ class YBakeChannels(bpy.types.Operator):
                             #print(ori_loop_locs[ob.name][i][j])
                             uvl.data[li].uv = ori_loop_locs[ob.name][i][j]
 
+        # Bake vcol
+        if is_greater_than_292():
+            is_do_nothing = self.vcol_force_first_ch_idx == 'Do Nothing'
+            is_sort_by_channel = self.vcol_force_first_ch_idx == 'Sort By Channel Order'
+            # check index, prevent crash
+            if not (is_do_nothing or is_sort_by_channel) and self.vcol_force_first_ch_idx != '':
+                real_force_first_ch_idx = int(self.vcol_force_first_ch_idx) - 2
+                if real_force_first_ch_idx < len(yp.channels) and real_force_first_ch_idx >= 0:
+                    target_ch = yp.channels[real_force_first_ch_idx]
+                    if not (target_ch and target_ch.enable_bake_as_vcol):
+                        real_force_first_ch_idx = -1
+                else: real_force_first_ch_idx = -1
+            else:
+                real_force_first_ch_idx = -1
+            # used to sort by channel
+            current_vcol_order = 0
+            prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device=self.bake_device, bake_target='VERTEX_COLORS')
+            for ch in yp.channels:
+                if ch.enable_bake_as_vcol and ch.type != 'NORMAL':
+                    # Check vertex color
+                    for ob in objs:
+                        vcols = get_vertex_colors(ob)
+                        vcol = vcols.get(ch.bake_vcol_name)
+
+                        # Set index to first so new vcol will copy their value
+                        if len(vcols) > 0:
+                            first_vcol = vcols[0]
+                            set_active_vertex_color(ob, first_vcol)
+
+                        if not vcol:
+                            try: 
+                                vcol = new_vertex_color(ob, ch.bake_vcol_name)
+                            except Exception as e: print(e)
+
+                        # Get newly created vcol name
+                        vcol_name = vcol.name
+
+                        # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
+                        if not is_version_320() and not is_do_nothing:
+                            if is_sort_by_channel or (real_force_first_ch_idx >= 0 and yp.channels[real_force_first_ch_idx] == ch):
+                                move_vcol(ob, get_vcol_index(ob, vcol.name), current_vcol_order)
+
+                        # Get the newly created vcol to avoid pointer error
+                        vcol = vcols.get(vcol_name)
+                        set_active_vertex_color(ob, vcol)
+                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, ch.bake_vcol_name)
+                    baked = tree.nodes.get(ch.baked_vcol)
+                    if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
+                        baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
+                    set_source_vcol_name(baked, ch.bake_vcol_name)
+                    for ob in objs:
+                        # Recover material index
+                        if ori_mat_ids[ob.name]:
+                            for i, p in enumerate(ob.data.polygons):
+                                if ori_mat_ids[ob.name][i] != p.material_index:
+                                    p.material_index = ori_mat_ids[ob.name][i]
+                    if is_sort_by_channel:
+                        current_vcol_order += 1
+                else:
+                    # If has baked vcol node, remove it
+                    baked = tree.nodes.get(ch.baked_vcol)
+                    if baked:
+                        simple_remove_node(tree, baked)
+
+            # Sort vcols by channel order
+            # Recover bake settings
+            recover_bake_settings(book, yp)
         # Use bake results
         yp.halt_update = True
         yp.use_baked = True
@@ -2321,18 +2471,35 @@ def update_enable_baked_outside(self, context):
                 tex.parent = frame
                 mtree.links.new(uv.outputs[0], tex.inputs[0])
 
+                baked_vcol = tree.nodes.get(ch.baked_vcol)
+                if baked_vcol and ch.enable_bake_as_vcol:
+                    vcol = check_new_node(mtree, ch, 'baked_outside_vcol', get_vcol_bl_idname())
+                    set_source_vcol_name(vcol, ch.bake_vcol_name)
+                    loc_x += 280
+                    vcol.location.x = loc_x
+                    vcol.location.y = loc_y - 100
+                    vcol.parent = frame
+                    max_x = loc_x
+                    loc_x -= 280
+
                 if not is_greater_than_280() and baked.image.colorspace_settings.name != 'sRGB':
                     tex.color_space = 'NONE'
 
                 if outp_alpha:
                     for l in outp_alpha.links:
-                        mtree.links.new(tex.outputs[1], l.to_socket)
+                        if vcol and ch.enable_bake_as_vcol:
+                            mtree.links.new(vcol.outputs['Alpha'], l.to_socket)
+                        else:
+                            mtree.links.new(tex.outputs[1], l.to_socket)
 
                 if ch.type != 'NORMAL':
 
                     for l in outp.links:
-                        mtree.links.new(tex.outputs[0], l.to_socket)
-
+                        if vcol and ch.enable_bake_as_vcol:
+                            outp_name = 'Alpha' if ch.bake_to_vcol_alpha else 'Color'
+                            mtree.links.new(vcol.outputs[outp_name], l.to_socket)
+                        else:
+                            mtree.links.new(tex.outputs[0], l.to_socket)
                 else:
 
                     loc_x += 280
@@ -2342,6 +2509,9 @@ def update_enable_baked_outside(self, context):
                     norm.location.y = loc_y
                     norm.parent = frame
                     max_x = loc_x
+                    if vcol:
+                        vcol.location.x += 180
+                        max_x = loc_x + 180
                     loc_x -= 280
 
                     mtree.links.new(tex.outputs[0], norm.inputs[1])
@@ -2406,6 +2576,8 @@ def update_enable_baked_outside(self, context):
                         if output_mat and ch.enable_subdiv_setup and ch.subdiv_adaptive:
                             mtree.links.new(disp.outputs[0], output_mat[0].inputs['Displacement'])
 
+                    if ch.enable_bake_as_vcol:
+                        mtree.links.new(vcol.outputs['Color'], l.to_socket)
                 loc_y -= 300
 
             else:
@@ -2464,6 +2636,7 @@ def update_enable_baked_outside(self, context):
             if baked_outside_frame:
                 
                 remove_node(mtree, ch, 'baked_outside', parent=baked_outside_frame)
+                remove_node(mtree, ch, 'baked_outside_vcol', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_disp', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_normal_overlay', parent=baked_outside_frame)
                 remove_node(mtree, ch, 'baked_outside_normal_process', parent=baked_outside_frame)
@@ -2526,13 +2699,24 @@ def update_use_baked(self, context):
     rearrange_yp_nodes(tree)
 
     # Trigger active image update
-    if self.use_baked:
-        self.active_channel_index = self.active_channel_index
+    if yp.use_baked:
+        yp.active_channel_index = yp.active_channel_index
     else:
-        self.active_layer_index = self.active_layer_index
+        yp.active_layer_index = yp.active_layer_index
 
     # Update baked outside
     update_enable_baked_outside(self, context)
+
+def update_use_baked_vcol(self, context):
+    tree = self.id_data
+    yp = tree.yp
+
+    if yp.halt_update: return
+    if yp.enable_baked_outside:
+        # Reset the node location
+        yp.enable_baked_outside = False
+        yp['enable_baked_outside'] = True
+    update_use_baked(self, context)
 
 def set_adaptive_displacement_node(mat, node):
     return get_adaptive_displacement_node(mat, node, set_one=True)

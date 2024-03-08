@@ -128,6 +128,11 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             description='Use Image Atlas',
             default=False)
 
+    vcol_force_first_ch_idx : StringProperty(
+            name='Force First Vertex Color Channel',
+            description='Force the first channel after baking the Vertex Color',
+            default='Do Nothing')
+
     selected_face_mode : BoolProperty(default=False)
     selected_objects : CollectionProperty(type=YBakeInfoSelectedObject)
 

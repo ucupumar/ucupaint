@@ -114,6 +114,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     # Add new channel
     channel = yp.channels.add()
     channel.name = name
+    channel.bake_vcol_name = 'Baked ' + name
     channel.type = channel_type
 
     # Get last index
@@ -1219,10 +1220,33 @@ class YRemoveYPaintChannel(bpy.types.Operator):
     bl_description = "Remove " + get_addon_title() + " channel"
     bl_options = {'REGISTER', 'UNDO'}
 
+    also_del_vcol : BoolProperty(
+        name="Also delete the vertex color",
+        default=False)
+
     @classmethod
     def poll(cls, context):
         group_node = get_active_ypaint_node()
         return group_node and len(group_node.node_tree.yp.channels) > 0
+
+    def invoke(self, context, event):
+        group_node = get_active_ypaint_node()
+        group_tree = group_node.node_tree
+        yp = group_tree.yp
+        # Get active channel
+        channel_idx = yp.active_channel_index
+        channel = yp.channels[channel_idx]
+        if channel.enable_bake_as_vcol:
+            return context.window_manager.invoke_props_dialog(self, width=320)
+        return self.execute(context)
+
+    def draw(self, context):
+        self.layout.label(text='Are you sure you want to delete channel?', icon='ERROR')
+        row = split_layout(self.layout, 0.4)
+        col = row.column(align=False)
+        col.label(text='Also Delete Vertex Color:')
+        col = row.column(align=False)
+        col.prop(self, 'also_del_vcol', text='')
 
     def execute(self, context):
         T = time.time()
@@ -1251,7 +1275,26 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         # Remove channel fcurves first
         remove_channel_fcurves(channel)
         shift_channel_fcurves_up(yp, channel_idx)
-
+        
+        # Delete objects vertex color
+        if self.also_del_vcol:
+            # Get all objects using material
+            objs = []
+            for ob in get_scene_objects():
+                if ob.type != 'MESH': continue
+                if len(ob.data.polygons) == 0: continue
+                for i, m in enumerate(ob.data.materials):
+                    if m == mat:
+                        ob.active_material_index = i
+                        if ob not in objs:
+                            objs.append(ob)
+            for ob in objs:
+                vcols = get_vertex_colors(ob)
+                if len(vcols) == 0: continue
+                vcol = vcols.get(channel.bake_vcol_name)
+                if vcol:
+                    vcols.remove(vcol)
+                    
         # Collapse the UI
         #setattr(ypui, 'show_channel_modifiers_' + str(channel_idx), False)
 
@@ -1362,6 +1405,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'end_max_height')
         remove_node(group_tree, channel, 'start_normal_filter')
         remove_node(group_tree, channel, 'baked')
+        remove_node(group_tree, channel, 'baked_vcol')
         remove_node(group_tree, channel, 'baked_normal')
         remove_node(group_tree, channel, 'baked_normal_flip')
         remove_node(group_tree, channel, 'baked_normal_prep')
@@ -2881,6 +2925,19 @@ def update_channel_main_uv(self, context):
     if self.type == 'NORMAL':
         self.enable_smooth_bump = self.enable_smooth_bump
 
+# Prevent vcol name from being null
+def get_channel_vcol_name(self):
+    name = self.get('bake_vcol_name', '') # May be null
+    if name == '':
+        self['bake_vcol_name'] = 'Baked ' + self.name
+    return self['bake_vcol_name']
+
+def set_channel_vcol_name(self, value):
+    if value == '':
+        self['bake_vcol_name'] = 'Baked ' + self.name
+    else:
+        self['bake_vcol_name'] = value
+
 def update_use_linear_blending(self, context):
     check_start_end_root_ch_nodes(self.id_data)
     check_yp_linear_nodes(self)
@@ -3014,6 +3071,21 @@ class YPaintChannel(bpy.types.PropertyGroup):
                 ('BACK_ONLY', 'Back Only', ''),
                 ),
             default = 'BOTH', update=update_backface_mode)
+
+    enable_bake_as_vcol : BoolProperty(
+            name = 'Enable Bake As Vertex Color',
+            description = 'When enabled, the channel is baked to the specified vertex color',
+            default=False, update=Bake.update_use_baked_vcol)
+
+    bake_to_vcol_alpha : BoolProperty(
+            name='Bake To Vertex Color Alpha', 
+            description='When enabled, the channel are baked only to Alpha with vertex color', 
+            default=False)
+
+    bake_vcol_name : StringProperty(
+            name='Target Vertex Color Name',
+            description='Target Vertex Color Name',
+            default='', get=get_channel_vcol_name, set=set_channel_vcol_name)
 
     # Displacement for normal channel
     enable_parallax : BoolProperty(
@@ -3170,6 +3242,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_normal : StringProperty(default='')
     baked_normal_flip : StringProperty(default='')
     baked_normal_prep : StringProperty(default='')
+    baked_vcol : StringProperty(default='')
 
     baked_disp : StringProperty(default='')
     baked_normal_overlay : StringProperty(default='')
@@ -3182,12 +3255,15 @@ class YPaintChannel(bpy.types.PropertyGroup):
     baked_outside_disp_process : StringProperty(default='')
     baked_outside_normal_process : StringProperty(default='')
 
+    baked_outside_vcol : StringProperty(default='')
+
     # UI related
     expand_content : BoolProperty(default=False)
     expand_base_vector : BoolProperty(default=True)
     expand_subdiv_settings : BoolProperty(default=False)
     expand_parallax_settings : BoolProperty(default=False)
     expand_alpha_settings : BoolProperty(default=False)
+    expand_bake_as_vcol_settings : BoolProperty(default=False)
     expand_smooth_bump_settings : BoolProperty(default=False)
 
     # Connection related
