@@ -2192,55 +2192,65 @@ def draw_layers_ui(context, layout, node):
 
     if yp.use_baked:
         col = box.column(align=False)
-        #bbox = col.box()
-        #bbox.alert = True
-        #bbox.label(text="Disable 'Use Baked' to see layers!")
-        ##bbox.operator("node.y_disable_baked_result", icon='ERROR')
-        #bbox.alert = False
 
         if len(yp.channels) > 0:
             root_ch = yp.channels[yp.active_channel_index]
 
-            #col.prop(root_ch, 'disable_global_baked', text='Disable Baked Image(s)')
-
-            #col = box.column(align=False)
-            #col.active = not root_ch.disable_global_baked
-
             baked = nodes.get(root_ch.baked)
+            baked_vcol_node = nodes.get(root_ch.baked_vcol)
+
             if not baked or not baked.image or root_ch.no_layer_using:
                 col.label(text='No layer is using this channel !')
             else:
                 row = col.row(align=True)
-                #label = 'Baked Image (' + root_ch.name + '):'
-                text_disable = 'Baked ' + root_ch.name + ':'
-                baked_vcol_node = nodes.get(root_ch.baked_vcol)
-                if not root_ch.enable_bake_as_vcol and baked_vcol_node:
-                    text_disable = pgettext_iface('(Active) ') + text_disable
+                title = 'Baked ' + root_ch.name + ':'
                 icon_name = lib.channel_custom_icon_dict[root_ch.type]
                 icon_value = lib.custom_icons[icon_name].icon_id
-                row.label(text=text_disable, icon_value=icon_value)
+                row.label(text=title, icon_value=icon_value)
 
                 row.context_pointer_set('root_ch', root_ch)
                 row.context_pointer_set('image', baked.image)
-
 
                 if is_greater_than_280():
                     row.menu("NODE_MT_y_baked_image_menu", text='', icon='PREFERENCES')
                 else: row.menu("NODE_MT_y_baked_image_menu", text='', icon='SCRIPTWIN')
 
-                #row.label(text='Baked Image (' + root_ch.name + '):')
                 row = col.row(align=True)
                 row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
                 row.label(text='', icon='BLANK1')
                 if baked.image.is_dirty:
-                    text_disable = baked.image.name + ' *'
-                else: text_disable = baked.image.name
+                    title = baked.image.name + ' *'
+                else: title = baked.image.name
                 if root_ch.disable_global_baked and not yp.enable_baked_outside:
-                    text_disable += ' (Disabled)'
-                row.label(text=text_disable, icon_value=lib.get_icon('image'))
+                    title += ' (Disabled)'
+                elif not root_ch.enable_bake_as_vcol and baked_vcol_node:
+                    title += pgettext_iface(' (Active)')
+                row.label(text=title, icon_value=lib.get_icon('image'))
 
                 if baked.image.packed_file:
                     row.label(text='', icon='PACKAGE')
+
+                # If enabled or a baked vertex color is found
+                if root_ch.enable_bake_as_vcol or baked_vcol_node:
+                    obj = context.object
+                    vcols = get_vertex_colors(obj)
+                    vcol_name = root_ch.bake_vcol_name
+                    vcol = vcols.get(vcol_name)
+
+                    row = col.row(align=True)
+                    row.label(text='', icon='BLANK1')
+
+                    row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
+                    title = ''
+                    if root_ch.disable_global_baked and not yp.enable_baked_outside:
+                        title += pgettext_iface(' (Disabled)')
+                    elif root_ch.enable_bake_as_vcol and baked_vcol_node:
+                        title += pgettext_iface(' (Active)')
+
+                    if baked_vcol_node and vcol:
+                        row.label(text=vcol_name + title, icon_value=lib.get_icon('vertex_color'))
+                    else:
+                        row.label(text='Baked vertex color is missing!' + title, icon='ERROR')
 
             if root_ch.type == 'NORMAL':
 
@@ -2250,11 +2260,11 @@ def draw_layers_ui(context, layout, node):
                     row.active = not root_ch.disable_global_baked
                     row.label(text='', icon='BLANK1')
                     if baked_normal_overlay.image.is_dirty:
-                        text_disable = baked_normal_overlay.image.name + ' *'
-                    else: text_disable = baked_normal_overlay.image.name
+                        title = baked_normal_overlay.image.name + ' *'
+                    else: title = baked_normal_overlay.image.name
                     if root_ch.disable_global_baked:
-                        text_disable += ' (Disabled)'
-                    row.label(text=text_disable, icon_value=lib.get_icon('image'))
+                        title += ' (Disabled)'
+                    row.label(text=title, icon_value=lib.get_icon('image'))
 
                     if baked_normal_overlay.image.packed_file:
                         row.label(text='', icon='PACKAGE')
@@ -2265,37 +2275,15 @@ def draw_layers_ui(context, layout, node):
                     row.active = not root_ch.disable_global_baked
                     row.label(text='', icon='BLANK1')
                     if baked_disp.image.is_dirty:
-                        text_disable = baked_disp.image.name + ' *'
-                    else: text_disable = baked_disp.image.name
+                        title = baked_disp.image.name + ' *'
+                    else: title = baked_disp.image.name
                     if root_ch.disable_global_baked:
-                        text_disable += ' (Disabled)'
-                    row.label(text=text_disable, icon_value=lib.get_icon('image'))
+                        title += ' (Disabled)'
+                    row.label(text=title, icon_value=lib.get_icon('image'))
 
                     if baked_disp.image.packed_file:
                         row.label(text='', icon='PACKAGE')
 
-            if is_greater_than_292() and root_ch.type != 'NORMAL':
-                baked_vcol_node = nodes.get(root_ch.baked_vcol)
-                # If enabled or a baked vertex color is found
-                if root_ch.enable_bake_as_vcol or baked_vcol_node:
-                    obj = context.object
-                    vcols = get_vertex_colors(obj)
-                    vcol_name = root_ch.bake_vcol_name
-                    vcol = vcols.get(vcol_name)
-                    row = col.row(align=True)
-                    active_text = pgettext_iface('(Active) ') if root_ch.enable_bake_as_vcol else ''
-                    row.label(text=active_text + 'Baked Vertex Color:', icon_value=lib.get_icon('vertex_color'))
-                    row = col.row(align=True)
-                    row.label(text='', icon='BLANK1')
-
-                    row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
-                    text_disable = ''
-                    if root_ch.disable_global_baked and not yp.enable_baked_outside:
-                        text_disable += pgettext_iface(' (Disabled)')
-                    if baked_vcol_node and vcol:
-                        row.label(text=vcol_name + text_disable, icon='GROUP_VCOL')
-                    else:
-                        row.label(text='Baked vertex color is missing!' + text_disable, icon='ERROR')
         return
 
     if is_a_mesh and not uv_found:
