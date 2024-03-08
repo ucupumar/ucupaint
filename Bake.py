@@ -2472,6 +2472,7 @@ def update_enable_baked_outside(self, context):
                 mtree.links.new(uv.outputs[0], tex.inputs[0])
 
                 baked_vcol = tree.nodes.get(ch.baked_vcol)
+                vcol = None
                 if baked_vcol and ch.enable_bake_as_vcol:
                     vcol = check_new_node(mtree, ch, 'baked_outside_vcol', get_vcol_bl_idname())
                     set_source_vcol_name(vcol, ch.bake_vcol_name)
