@@ -1221,7 +1221,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     also_del_vcol : BoolProperty(
-        name="Also delete the vertex color",
+        name="Also remove baked vertex color",
+        description="Also remove baked vertex color",
         default=False)
 
     @classmethod
@@ -1235,18 +1236,16 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         yp = group_tree.yp
         # Get active channel
         channel_idx = yp.active_channel_index
-        channel = yp.channels[channel_idx]
-        if channel.enable_bake_as_vcol:
+        self.channel = yp.channels[channel_idx]
+        baked_vcol_node = group_tree.nodes.get(self.channel.baked_vcol)
+        if baked_vcol_node and baked_vcol_node.attribute_name != '':
+            self.baked_vcol_name = baked_vcol_node.attribute_name
             return context.window_manager.invoke_props_dialog(self, width=320)
         return self.execute(context)
 
     def draw(self, context):
-        self.layout.label(text='Are you sure you want to delete channel?', icon='ERROR')
-        row = split_layout(self.layout, 0.4)
-        col = row.column(align=False)
-        col.label(text='Also Delete Vertex Color:')
-        col = row.column(align=False)
-        col.prop(self, 'also_del_vcol', text='')
+        title="Also remove baked vertex color (" + self.baked_vcol_name + ')'
+        self.layout.prop(self, 'also_del_vcol', text=title)
 
     def execute(self, context):
         T = time.time()
@@ -1291,7 +1290,7 @@ class YRemoveYPaintChannel(bpy.types.Operator):
             for ob in objs:
                 vcols = get_vertex_colors(ob)
                 if len(vcols) == 0: continue
-                vcol = vcols.get(channel.bake_vcol_name)
+                vcol = vcols.get(self.baked_vcol_name)
                 if vcol:
                     vcols.remove(vcol)
                     
