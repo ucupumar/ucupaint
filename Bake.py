@@ -962,15 +962,26 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
         return get_active_ypaint_node() and context.object.type == 'MESH'
 
     def invoke(self, context, event):
-        return context.window_manager.invoke_props_dialog(self, width=320)
+        node = get_active_ypaint_node()
+        tree = node.node_tree
+        yp = tree.yp
+
+        self.any_channel_use_baked_vcol = False
+
+        for ch in yp.channels:
+            baked_vcol_node = tree.nodes.get(ch.baked_vcol)
+            self.baked_vcol_name = baked_vcol_node.attribute_name if baked_vcol_node else ''
+            if self.baked_vcol_name != '':
+                self.any_channel_use_baked_vcol = True
+                return context.window_manager.invoke_props_dialog(self, width=320)
+
+        self.also_del_vcol = False
+        return self.execute(context)
 
     def draw(self, context):
-        self.layout.label(text='Are you sure you want to delete all baked images?', icon='ERROR')
-        row = split_layout(self.layout, 0.5)
-        col = row.column(align=False)
-        col.label(text='Also Delete Vertex Color:')
-        col = row.column(align=False)
-        col.prop(self, 'also_del_vcol', text='')
+        if self.any_channel_use_baked_vcol:
+            title="Also remove baked vertex colors"
+            self.layout.prop(self, 'also_del_vcol', text=title)
 
     def execute(self, context):
         node = get_active_ypaint_node()
@@ -978,24 +989,24 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
         yp = tree.yp
         mat = get_active_material()
 
-        objs = []
-        # Get all objects using material
-        if self.also_del_vcol:
-            for ob in get_scene_objects():
-                if ob.type != 'MESH': continue
-                if len(ob.data.polygons) == 0: continue
-                for i, m in enumerate(ob.data.materials):
-                    if m == mat:
-                        ob.active_material_index = i
-                        if ob not in objs:
-                            objs.append(ob)
-
         # Set bake to false first
         if yp.use_baked:
             yp.use_baked = False
 
         # Remove baked nodes
         for root_ch in yp.channels:
+
+            # Delete baked vertex color
+            if self.also_del_vcol:
+                for ob in get_all_objects_with_same_materials(mat):
+                    vcols = get_vertex_colors(ob)
+                    if len(vcols) == 0: continue
+                    baked_vcol_node = tree.nodes.get(root_ch.baked_vcol)
+                    if baked_vcol_node:
+                        vcol = vcols.get(baked_vcol_node.attribute_name)
+                        if vcol:
+                            vcols.remove(vcol)
+
             remove_node(tree, root_ch, 'baked')
             remove_node(tree, root_ch, 'baked_vcol')
 
@@ -1004,15 +1015,6 @@ class YDeleteBakedChannelImages(bpy.types.Operator):
                 remove_node(tree, root_ch, 'baked_normal_overlay')
                 remove_node(tree, root_ch, 'baked_normal_prep')
                 remove_node(tree, root_ch, 'baked_normal')
-
-            # Delete objects vertex color
-            if self.also_del_vcol:
-                for ob in objs:
-                    vcols = get_vertex_colors(ob)
-                    if len(vcols) == 0: continue
-                    vcol = vcols.get(root_ch.bake_vcol_name)
-                    if vcol:
-                        vcols.remove(vcol)
 
         # Reconnect
         reconnect_yp_nodes(tree)

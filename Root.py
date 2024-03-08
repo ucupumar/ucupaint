@@ -1241,6 +1241,8 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         self.baked_vcol_name = baked_vcol_node.attribute_name if baked_vcol_node else ''
         if self.baked_vcol_name != '':
             return context.window_manager.invoke_props_dialog(self, width=320)
+
+        self.also_del_vcol = False
         return self.execute(context)
 
     def draw(self, context):
