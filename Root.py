@@ -3072,10 +3072,14 @@ class YPaintChannel(bpy.types.PropertyGroup):
                 ),
             default = 'BOTH', update=update_backface_mode)
 
-    enable_bake_as_vcol : BoolProperty(
-            name = 'Enable Bake As Vertex Color',
-            description = 'When enabled, the channel is baked to the specified vertex color',
-            default=False, update=Bake.update_use_baked_vcol)
+    bake_target : EnumProperty(
+            name = 'Bake Target',
+            description = 'Bake target',
+            items = (
+                ('IMAGE', 'Image', '', 'IMAGE_DATA', 0),
+                ('VCOL', 'Vertex Color', '', 'GROUP_VCOL', 1),
+                ),
+            default='IMAGE', update=Bake.update_bake_target)
 
     bake_to_vcol_alpha : BoolProperty(
             name='Bake To Vertex Color Alpha', 
@@ -3263,7 +3267,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
     expand_subdiv_settings : BoolProperty(default=False)
     expand_parallax_settings : BoolProperty(default=False)
     expand_alpha_settings : BoolProperty(default=False)
-    expand_bake_as_vcol_settings : BoolProperty(default=False)
+    expand_bake_target_settings : BoolProperty(default=False)
     expand_smooth_bump_settings : BoolProperty(default=False)
 
     # Connection related
