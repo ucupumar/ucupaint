@@ -1238,14 +1238,15 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         channel_idx = yp.active_channel_index
         self.channel = yp.channels[channel_idx]
         baked_vcol_node = group_tree.nodes.get(self.channel.baked_vcol)
-        if baked_vcol_node and baked_vcol_node.attribute_name != '':
-            self.baked_vcol_name = baked_vcol_node.attribute_name
+        self.baked_vcol_name = baked_vcol_node.attribute_name if baked_vcol_node else ''
+        if self.baked_vcol_name != '':
             return context.window_manager.invoke_props_dialog(self, width=320)
         return self.execute(context)
 
     def draw(self, context):
-        title="Also remove baked vertex color (" + self.baked_vcol_name + ')'
-        self.layout.prop(self, 'also_del_vcol', text=title)
+        if self.baked_vcol_name != '':
+            title="Also remove baked vertex color (" + self.baked_vcol_name + ')'
+            self.layout.prop(self, 'also_del_vcol', text=title)
 
     def execute(self, context):
         T = time.time()
