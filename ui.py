@@ -804,7 +804,7 @@ def draw_bake_targets_ui(context, layout, node):
         
         if not image:
             row = col.row(align=True)
-            row.label(text="'Bake All Channels' to get the image!", icon='ERROR')
+            row.label(text="Do 'Bake All Channels' to get the image!", icon='ERROR')
 
 def draw_root_channels_ui(context, layout, node):
     engine = bpy.context.scene.render.engine
