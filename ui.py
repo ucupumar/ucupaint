@@ -796,6 +796,13 @@ def draw_bake_targets_ui(context, layout, node):
             for letter in rgba_letters:
                 draw_bake_target_channel(context, bcol, bt, letter)
 
+        row = col.row(align=True)
+        if not image:
+            row.label(text='Image: - ', icon_value=lib.get_icon('image'))
+            row = col.row(align=True)
+            row.label(text="'Bake All Channels' to get the image!", icon='ERROR')
+        else: row.label(text='Image: ' + image.name, icon_value=lib.get_icon('image'))
+
 def draw_root_channels_ui(context, layout, node):
     engine = bpy.context.scene.render.engine
     mat = get_active_material()
@@ -1105,7 +1112,7 @@ def draw_root_channels_ui(context, layout, node):
                 split.label(text='Space:')
                 split.prop(channel, 'colorspace', text='')
 
-                # Bake Target Settings
+                # Bake to vertex color settings
                 if is_greater_than_292():
                     brow = bcol.row(align=True)
                     if chui.expand_bake_to_vcol_settings:
