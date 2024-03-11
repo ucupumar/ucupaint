@@ -225,8 +225,8 @@ class YBakeToLayer(bpy.types.Operator):
             description = "Use Denoise on baked image",
             default=True)
 
-    width : IntProperty(name='Width', default = 1234, min=1, max=4096)
-    height : IntProperty(name='Height', default = 1234, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
 
     channel_idx : EnumProperty(
             name = 'Channel',
@@ -2072,8 +2072,8 @@ class YBakeEntityToImage(bpy.types.Operator):
 
     hdr : BoolProperty(name='32 bit Float', default=False)
 
-    width : IntProperty(name='Width', default = 1234, min=1, max=4096)
-    height : IntProperty(name='Height', default = 1234, min=1, max=4096)
+    width : IntProperty(name='Width', default = 1234, min=1, max=16384)
+    height : IntProperty(name='Height', default = 1234, min=1, max=16384)
 
     margin : IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
