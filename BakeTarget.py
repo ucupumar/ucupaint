@@ -169,6 +169,8 @@ class YNewBakeTarget(bpy.types.Operator):
                     bt.g.channel_name = ch.name
                 elif ch.name in {'Metallic', 'Metalness', 'M'}:
                     bt.b.channel_name = ch.name
+                bt.r.default_value = 1.0
+
         elif self.preset == 'DX_NORMAL':
             for ch in yp.channels:
                 if ch.type == 'NORMAL':
