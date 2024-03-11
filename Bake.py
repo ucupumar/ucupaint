@@ -1039,7 +1039,7 @@ def bake_vcol_channel_items(self, context):
     items.append(('Sort By Channel Order', 'Sort By Channel Order', '', '', 1))
 
     for i, ch in enumerate(yp.channels):
-        if not ch.bake_target == 'VCOL': continue
+        if not ch.enable_bake_to_vcol: continue
         # Add two spaces to prevent text from being translated
         text_ch_name = ch.name + '  '
         # Index plus one, minus one when read
@@ -1164,7 +1164,7 @@ class YBakeChannels(bpy.types.Operator):
                     break
             
             for ch in yp.channels:
-                if ch.bake_target == 'VCOL':
+                if ch.enable_bake_to_vcol:
                     self.enable_bake_as_vcol = True
                     break
 
@@ -1604,7 +1604,7 @@ class YBakeChannels(bpy.types.Operator):
                 real_force_first_ch_idx = int(self.vcol_force_first_ch_idx) - 2
                 if real_force_first_ch_idx < len(yp.channels) and real_force_first_ch_idx >= 0:
                     target_ch = yp.channels[real_force_first_ch_idx]
-                    if not (target_ch and target_ch.bake_target == 'VCOL'):
+                    if not (target_ch and target_ch.enable_bake_to_vcol):
                         real_force_first_ch_idx = -1
                 else: real_force_first_ch_idx = -1
             else:
@@ -1613,11 +1613,11 @@ class YBakeChannels(bpy.types.Operator):
             current_vcol_order = 0
             prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device=self.bake_device, bake_target='VERTEX_COLORS')
             for ch in yp.channels:
-                if ch.bake_target == 'VCOL' and ch.type != 'NORMAL':
+                if ch.enable_bake_to_vcol and ch.type != 'NORMAL':
                     # Check vertex color
                     for ob in objs:
                         vcols = get_vertex_colors(ob)
-                        vcol = vcols.get(ch.bake_vcol_name)
+                        vcol = vcols.get(ch.bake_to_vcol_name)
 
                         # Set index to first so new vcol will copy their value
                         if len(vcols) > 0:
@@ -1626,7 +1626,7 @@ class YBakeChannels(bpy.types.Operator):
 
                         if not vcol:
                             try: 
-                                vcol = new_vertex_color(ob, ch.bake_vcol_name)
+                                vcol = new_vertex_color(ob, ch.bake_to_vcol_name)
                             except Exception as e: print(e)
 
                         # Get newly created vcol name
@@ -1640,11 +1640,11 @@ class YBakeChannels(bpy.types.Operator):
                         # Get the newly created vcol to avoid pointer error
                         vcol = vcols.get(vcol_name)
                         set_active_vertex_color(ob, vcol)
-                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, ch.bake_vcol_name)
+                    bake_to_vcol(mat, node, ch, objs, None, 1, ch.bake_to_vcol_alpha or ch.enable_alpha, ch.bake_to_vcol_name)
                     baked = tree.nodes.get(ch.baked_vcol)
                     if not baked or not is_root_ch_prop_node_unique(ch, 'baked_vcol'):
                         baked = new_node(tree, ch, 'baked_vcol', get_vcol_bl_idname(), 'Baked Vcol ' + ch.name)
-                    set_source_vcol_name(baked, ch.bake_vcol_name)
+                    set_source_vcol_name(baked, ch.bake_to_vcol_name)
                     for ob in objs:
                         # Recover material index
                         if ori_mat_ids[ob.name]:
@@ -2589,9 +2589,9 @@ def update_enable_baked_outside(self, context):
 
                 baked_vcol = tree.nodes.get(ch.baked_vcol)
                 vcol = None
-                if baked_vcol and ch.bake_target == 'VCOL':
+                if baked_vcol and ch.enable_bake_to_vcol:
                     vcol = check_new_node(mtree, ch, 'baked_outside_vcol', get_vcol_bl_idname())
-                    set_source_vcol_name(vcol, ch.bake_vcol_name)
+                    set_source_vcol_name(vcol, ch.bake_to_vcol_name)
                     loc_x += 280
                     vcol.location.x = loc_x
                     vcol.location.y = loc_y - 100
@@ -2604,7 +2604,7 @@ def update_enable_baked_outside(self, context):
 
                 if outp_alpha:
                     for l in outp_alpha.links:
-                        if vcol and ch.bake_target == 'VCOL':
+                        if vcol and ch.enable_bake_to_vcol:
                             mtree.links.new(vcol.outputs['Alpha'], l.to_socket)
                         else:
                             mtree.links.new(tex.outputs[1], l.to_socket)
@@ -2612,7 +2612,7 @@ def update_enable_baked_outside(self, context):
                 if ch.type != 'NORMAL':
 
                     for l in outp.links:
-                        if vcol and ch.bake_target == 'VCOL':
+                        if vcol and ch.enable_bake_to_vcol:
                             outp_name = 'Alpha' if ch.bake_to_vcol_alpha else 'Color'
                             mtree.links.new(vcol.outputs[outp_name], l.to_socket)
                         else:
@@ -2693,7 +2693,7 @@ def update_enable_baked_outside(self, context):
                         if output_mat and ch.enable_subdiv_setup and ch.subdiv_adaptive:
                             mtree.links.new(disp.outputs[0], output_mat[0].inputs['Displacement'])
 
-                    if ch.bake_target == 'VCOL':
+                    if ch.enable_bake_to_vcol:
                         mtree.links.new(vcol.outputs['Color'], l.to_socket)
                 loc_y -= 300
 
@@ -2855,7 +2855,7 @@ def update_use_baked(self, context):
     # Update baked outside
     update_enable_baked_outside(self, context)
 
-def update_bake_target(self, context):
+def update_enable_bake_to_vcol(self, context):
     tree = self.id_data
     yp = tree.yp
 
