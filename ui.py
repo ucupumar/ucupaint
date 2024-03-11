@@ -573,9 +573,8 @@ def draw_mask_modifier_stack(layer, mask, layout, ui):
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('mask', mask)
         row.context_pointer_set('modifier', m)
-        if is_greater_than_280():
-            row.menu("NODE_MT_y_mask_modifier_menu", text='', icon='PREFERENCES')
-        else: row.menu("NODE_MT_y_mask_modifier_menu", text='', icon='SCRIPTWIN')
+        icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+        row.menu("NODE_MT_y_mask_modifier_menu", text='', icon=icon)
 
         row.prop(m, 'enable', text='')
 
@@ -677,13 +676,11 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
         row.context_pointer_set('parent', parent)
         row.context_pointer_set('modifier', m)
         if use_modifier_1:
-            if is_greater_than_280():
-                row.menu("NODE_MT_y_modifier1_menu", text='', icon='PREFERENCES')
-            else: row.menu("NODE_MT_y_modifier1_menu", text='', icon='SCRIPTWIN')
+            icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+            row.menu("NODE_MT_y_modifier1_menu", text='', icon=icon)
         else:
-            if is_greater_than_280():
-                row.menu("NODE_MT_y_modifier_menu", text='', icon='PREFERENCES')
-            else: row.menu("NODE_MT_y_modifier_menu", text='', icon='SCRIPTWIN')
+            icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+            row.menu("NODE_MT_y_modifier_menu", text='', icon=icon)
         row.prop(m, 'enable', text='')
 
         if modui.expand_content and can_be_expanded:
@@ -797,11 +794,17 @@ def draw_bake_targets_ui(context, layout, node):
                 draw_bake_target_channel(context, bcol, bt, letter)
 
         row = col.row(align=True)
+        image_name = image.name if image else '-'
+
+        row.label(text='Image: ' + image_name, icon_value=lib.get_icon('image'))
+
+        icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+        row.context_pointer_set('image', image)
+        row.menu("NODE_MT_y_bake_target_menu", text='', icon=icon)
+        
         if not image:
-            row.label(text='Image: - ', icon_value=lib.get_icon('image'))
             row = col.row(align=True)
             row.label(text="'Bake All Channels' to get the image!", icon='ERROR')
-        else: row.label(text='Image: ' + image.name, icon_value=lib.get_icon('image'))
 
 def draw_root_channels_ui(context, layout, node):
     engine = bpy.context.scene.render.engine
@@ -881,9 +884,8 @@ def draw_root_channels_ui(context, layout, node):
         #if channel.type != 'NORMAL':
         row.context_pointer_set('parent', channel)
         row.context_pointer_set('channel_ui', chui)
-        if is_greater_than_280():
-            row.menu("NODE_MT_y_new_modifier_menu", icon='PREFERENCES', text='')
-        else: row.menu("NODE_MT_y_new_modifier_menu", icon='SCRIPTWIN', text='')
+        icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+        row.menu("NODE_MT_y_new_modifier_menu", icon=icon, text='')
 
         if chui.expand_content:
 
@@ -1224,9 +1226,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
         row.operator('node.y_disable_temp_image', icon='FILE_REFRESH', text='Disable Baked Temp')
 
     #if layer.type != 'GROUP':
-    if is_greater_than_280():
-        row.menu("NODE_MT_y_layer_special_menu", icon='PREFERENCES', text='')
-    else: row.menu("NODE_MT_y_layer_special_menu", icon='SCRIPTWIN', text='')
+    icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+    row.menu("NODE_MT_y_layer_special_menu", icon=icon, text='')
 
     if layer.type == 'GROUP': return
     #if layer.type in {'VCOL', 'BACKGROUND'} and len(layer.modifiers) == 0: return
@@ -1329,9 +1330,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 split.prop(layer, 'texcoord_type', text='')
 
             if layer.texcoord_type == 'UV':
-                if is_greater_than_280():
-                    row.menu("NODE_MT_y_uv_special_menu", icon='PREFERENCES', text='')
-                else: row.menu("NODE_MT_y_uv_special_menu", icon='SCRIPTWIN', text='')
+                icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+                row.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
 
             if lui.expand_vector:
                 row = rcol.row(align=True)
@@ -1482,10 +1482,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
         row.context_pointer_set('layer', layer)
         row.context_pointer_set('channel_ui', chui)
 
-        if is_greater_than_280():
-            row.menu("NODE_MT_y_new_modifier_menu", icon='PREFERENCES', text='')
-        else:
-            row.menu("NODE_MT_y_new_modifier_menu", icon='SCRIPTWIN', text='')
+        icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+        row.menu("NODE_MT_y_new_modifier_menu", icon=icon, text='')
 
         if ypui.expand_channels:
             row.prop(ch, 'enable', text='')
@@ -1530,9 +1528,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     brow.prop(ch, 'transition_bump_distance', text='')
 
                 brow.context_pointer_set('parent', ch)
-                if is_greater_than_280():
-                    brow.menu("NODE_MT_y_transition_bump_menu", text='', icon='PREFERENCES')
-                else: brow.menu("NODE_MT_y_transition_bump_menu", text='', icon='SCRIPTWIN')
+                icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+                brow.menu("NODE_MT_y_transition_bump_menu", text='', icon=icon)
 
                 brow.prop(ch, 'enable_transition_bump', text='')
 
@@ -1723,9 +1720,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                     row.prop(ch, 'transition_ramp_intensity_value', text='')
 
                 row.context_pointer_set('parent', ch)
-                if is_greater_than_280():
-                    row.menu("NODE_MT_y_transition_ramp_menu", text='', icon='PREFERENCES')
-                else: row.menu("NODE_MT_y_transition_ramp_menu", text='', icon='SCRIPTWIN')
+                icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+                row.menu("NODE_MT_y_transition_ramp_menu", text='', icon=icon)
 
                 row.prop(ch, 'enable_transition_ramp', text='')
 
@@ -1771,9 +1767,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
 
                 row.context_pointer_set('layer', layer)
                 row.context_pointer_set('parent', ch)
-                if is_greater_than_280():
-                    row.menu("NODE_MT_y_transition_ao_menu", text='', icon='PREFERENCES')
-                else: row.menu("NODE_MT_y_transition_ao_menu", text='', icon='SCRIPTWIN')
+                icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+                row.menu("NODE_MT_y_transition_ao_menu", text='', icon=icon)
 
                 row.prop(ch, 'enable_transition_ao', text='')
 
@@ -1864,9 +1859,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 else: row.prop(ch, 'override_color', text='') #, icon='COLOR')
             row.prop(ch, 'override', text='')
 
-            if is_greater_than_280():
-                row.menu("NODE_MT_y_replace_channel_override_menu", icon='PREFERENCES', text='')
-            else: row.menu("NODE_MT_y_replace_channel_override_menu", icon='SCRIPTWIN', text='')
+            icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+            row.menu("NODE_MT_y_replace_channel_override_menu", icon=icon, text='')
 
             ch_source = None
             if ch.override:
@@ -1925,9 +1919,8 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
 
             row.prop(ch, 'override_1', text='')
 
-            if is_greater_than_280():
-                row.menu("NODE_MT_y_replace_channel_override_1_menu", icon='PREFERENCES', text='')
-            else: row.menu("NODE_MT_y_replace_channel_override_1_menu", icon='SCRIPTWIN', text='')
+            icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+            row.menu("NODE_MT_y_replace_channel_override_1_menu", icon=icon, text='')
 
             ch_source_1 = None
             if ch.override_1:
@@ -2099,9 +2092,8 @@ def draw_layer_masks(context, layout, layer):
 
         row.context_pointer_set('mask', mask)
 
-        if is_greater_than_280():
-            row.menu("NODE_MT_y_layer_mask_menu", text='', icon='PREFERENCES')
-        else: row.menu("NODE_MT_y_layer_mask_menu", text='', icon='SCRIPTWIN')
+        icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+        row.menu("NODE_MT_y_layer_mask_menu", text='', icon=icon)
 
         row = row.row(align=True)
         row.prop(mask, 'enable', text='')
@@ -2209,9 +2201,8 @@ def draw_layer_masks(context, layout, layer):
                 rrrow.prop_search(mask, "uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
 
                 rrow.context_pointer_set('mask', mask)
-                if is_greater_than_280():
-                    rrow.menu("NODE_MT_y_uv_special_menu", icon='PREFERENCES', text='')
-                else: rrow.menu("NODE_MT_y_uv_special_menu", icon='SCRIPTWIN', text='')
+                icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+                rrow.menu("NODE_MT_y_uv_special_menu", icon=icon, text='')
             elif mask.type == 'IMAGE' and mask.texcoord_type in {'Generated', 'Object'} and not maskui.expand_vector:
                 rrrow = split_layout(splits, 0.5, align=True)
 
@@ -2327,9 +2318,8 @@ def draw_layers_ui(context, layout, node):
                 row.context_pointer_set('root_ch', root_ch)
                 row.context_pointer_set('image', baked.image)
 
-                if is_greater_than_280():
-                    row.menu("NODE_MT_y_baked_image_menu", text='', icon='PREFERENCES')
-                else: row.menu("NODE_MT_y_baked_image_menu", text='', icon='SCRIPTWIN')
+                icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+                row.menu("NODE_MT_y_baked_image_menu", text='', icon=icon)
 
                 row = col.row(align=True)
                 row.active = not root_ch.disable_global_baked or yp.enable_baked_outside
@@ -2996,9 +2986,8 @@ def main_draw(self, context):
     row.label(text=node.node_tree.name)
     #row.prop(node.node_tree, 'name', text='')
 
-    if is_greater_than_280():
-        row.menu("NODE_MT_ypaint_special_menu", text='', icon='PREFERENCES')
-    else: row.menu("NODE_MT_ypaint_special_menu", text='', icon='SCRIPTWIN')
+    icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+    row.menu("NODE_MT_ypaint_special_menu", text='', icon=icon)
 
     # Check for baked node
     baked_found = False
@@ -3234,11 +3223,21 @@ class NODE_UL_YPaint_bake_targets(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         tree = item.id_data
         image_node = tree.nodes.get(item.image_node)
+        image = image_node.image if image_node else None
 
         row = layout.row()
 
-        if image_node and image_node.image:
-            row.prop(image_node.image, 'name', text='', emboss=False, icon_value=lib.get_icon('bake'))
+        if image:
+            row.prop(image, 'name', text='', emboss=False, icon_value=lib.get_icon('bake'))
+
+            # Asterisk icon to indicate dirty image
+            if image.is_dirty:
+                row.label(text='', icon_value=lib.custom_icons['asterisk'].icon_id)
+
+            # Indicate packed image
+            if image.packed_file:
+                row.label(text='', icon='PACKAGE')
+            
         else: row.prop(item, 'name', text='', emboss=False, icon_value=lib.get_icon('bake'))
 
 class NODE_UL_YPaint_channels(bpy.types.UIList):
@@ -3551,9 +3550,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
         if active_image:
             # Asterisk icon to indicate dirty image
             if active_image.is_dirty:
-                #if hasattr(lib, 'custom_icons'):
                 row.label(text='', icon_value=lib.custom_icons['asterisk'].icon_id)
-                #else: row.label(text='', icon='FREEZE')
 
             # Indicate packed image
             if active_image.packed_file:
@@ -3759,6 +3756,26 @@ class YPaintSpecialMenu(bpy.types.Menu):
         #col.label(text='Performance Options:')
         #col.prop(ypui, 'disable_auto_temp_uv_update')
         #col.prop(yp, 'disable_quick_toggle')
+
+class YBakeTargetMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_bake_target_menu"
+    bl_description = 'Bake Target Menu'
+    bl_label = "Bake Target Menu"
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def draw(self, context):
+
+        col = self.layout.column()
+        col.operator('node.y_pack_image', icon='PACKAGE')
+        col.operator('node.y_save_image', icon='FILE_TICK')
+
+        if context.image:
+            if context.image.packed_file:
+                col.operator('node.y_save_as_image', text='Unpack As Image', icon='UGLYPACKAGE').unpack = True
+            else: col.operator('node.y_save_as_image', text='Save As Image')
 
 class YNewLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_layer_menu"
@@ -5103,6 +5120,7 @@ def register():
 
     bpy.utils.register_class(YPaintSpecialMenu)
     bpy.utils.register_class(YNewLayerMenu)
+    bpy.utils.register_class(YBakeTargetMenu)
     bpy.utils.register_class(YBakedImageMenu)
     bpy.utils.register_class(YLayerListSpecialMenu)
     bpy.utils.register_class(YUVSpecialMenu)
@@ -5157,6 +5175,7 @@ def unregister():
 
     bpy.utils.unregister_class(YPaintSpecialMenu)
     bpy.utils.unregister_class(YNewLayerMenu)
+    bpy.utils.unregister_class(YBakeTargetMenu)
     bpy.utils.unregister_class(YBakedImageMenu)
     bpy.utils.unregister_class(YLayerListSpecialMenu)
     bpy.utils.unregister_class(YUVSpecialMenu)
