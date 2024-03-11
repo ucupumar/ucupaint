@@ -704,7 +704,7 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
     ch = yp.channels.get(btc.channel_name) if btc.channel_name != '' else None
 
     row = layout.row(align=True)
-    if ch and ch.type == 'NORMAL':
+    if ch:
         icon_name = letter
         if getattr(btui, 'expand_' + letter):
             icon_name = 'uncollapsed_' + icon_name
@@ -726,21 +726,21 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
         else:
             row.prop_search(btc, "channel_name", yp, "channels", text='')
 
-    if ch and ch.type == 'NORMAL' and getattr(btui, 'expand_' + letter):
+    if ch and getattr(btui, 'expand_' + letter):
 
         row = layout.row(align=True)
         row.label(text='', icon='BLANK1')
         box = row.box()
         bcol = box.column()
 
-        brow = split_layout(bcol, 0.3, align=True)
-        brow.label(text='Source:')
-        brow.prop(btc, 'normal_type', text='')
+        if ch.type == 'NORMAL':
+            brow = split_layout(bcol, 0.3, align=True)
+            brow.label(text='Source:')
+            brow.prop(btc, 'normal_type', text='')
 
         brow = bcol.row(align=True)
-        if btc.subchannel_index == '1':
-            brow.label(text='Flip G:')
-            brow.prop(btc, 'flip_value', text='')
+        brow.label(text='Flip Value:')
+        brow.prop(btc, 'flip_value', text='')
 
 def draw_bake_targets_ui(context, layout, node):
     group_tree = node.node_tree
@@ -4944,10 +4944,10 @@ def update_mask_channel_ui(self, context):
 
 class YBakeTargetUI(bpy.types.PropertyGroup):
     expand_content : BoolProperty(default=True, update=update_bake_target_ui)
-    expand_r : BoolProperty(default=True, update=update_bake_target_ui)
-    expand_g : BoolProperty(default=True, update=update_bake_target_ui)
-    expand_b : BoolProperty(default=True, update=update_bake_target_ui)
-    expand_a : BoolProperty(default=True, update=update_bake_target_ui)
+    expand_r : BoolProperty(default=False, update=update_bake_target_ui)
+    expand_g : BoolProperty(default=False, update=update_bake_target_ui)
+    expand_b : BoolProperty(default=False, update=update_bake_target_ui)
+    expand_a : BoolProperty(default=False, update=update_bake_target_ui)
 
 class YModifierUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')

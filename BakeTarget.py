@@ -53,8 +53,8 @@ class YBakeTargetChannel(bpy.types.PropertyGroup):
             default='COMBINED')
 
     flip_value : BoolProperty(
-            name = 'Flip G',
-            description = 'Flip G value so normal is compatible with DirectX application',
+            name = 'Flip Value',
+            description = 'Flip value',
             default = False)
 
 class YBakeTarget(bpy.types.PropertyGroup):
@@ -83,10 +83,10 @@ class YBakeTarget(bpy.types.PropertyGroup):
 
     # UI
     expand_content : BoolProperty(default=True)
-    expand_r : BoolProperty(default=True)
-    expand_g : BoolProperty(default=True)
-    expand_b : BoolProperty(default=True)
-    expand_a : BoolProperty(default=True)
+    expand_r : BoolProperty(default=False)
+    expand_g : BoolProperty(default=False)
+    expand_b : BoolProperty(default=False)
+    expand_a : BoolProperty(default=False)
 
 def update_new_bake_target_preset(self, context):
     node = get_active_ypaint_node()
