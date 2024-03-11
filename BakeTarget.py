@@ -88,6 +88,22 @@ class YBakeTarget(bpy.types.PropertyGroup):
     expand_b : BoolProperty(default=True)
     expand_a : BoolProperty(default=True)
 
+def update_new_bake_target_preset(self, context):
+    node = get_active_ypaint_node()
+    tree = node.node_tree
+    yp = tree.yp
+
+    tree_name = tree.name.replace(get_addon_title() + ' ', '')
+    if self.preset == 'BLANK':
+        suffix = ' Bake Target'
+    elif self.preset == 'ORM':
+        suffix = ' ORM'
+    elif self.preset == 'DX_NORMAL':
+        suffix = ' Normal DirectX'
+
+    #self.name = get_unique_name(tree_name + suffix, yp.bake_targets)
+    self.name = get_unique_name(tree_name + suffix, bpy.data.images)
+
 class YNewBakeTarget(bpy.types.Operator):
     bl_idname = "node.y_new_bake_target"
     bl_label = "New Bake Target"
@@ -99,6 +115,16 @@ class YNewBakeTarget(bpy.types.Operator):
             description = 'New bake target name',
             default='')
 
+    preset : EnumProperty(
+            name = 'Bake Target Preset',
+            description = 'Customm bake target preset',
+            items = (
+                ('BLANK', 'Blank', ''),
+                ('ORM', 'GLTF ORM', ''),
+                ('DX_NORMAL', 'DirectX Normal', ''),
+                ),
+            default='BLANK', update=update_new_bake_target_preset)
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node()
@@ -109,7 +135,8 @@ class YNewBakeTarget(bpy.types.Operator):
         yp = tree.yp
 
         tree_name = tree.name.replace(get_addon_title() + ' ', '')
-        self.name = get_unique_name(tree_name + ' Bake Target', yp.bake_targets)
+        #self.name = get_unique_name(tree_name + ' Bake Target', yp.bake_targets)
+        self.name = get_unique_name(tree_name + ' Bake Target', bpy.data.images)
         return context.window_manager.invoke_props_dialog(self, width=300)
 
     def draw(self, context):
@@ -118,8 +145,11 @@ class YNewBakeTarget(bpy.types.Operator):
 
         col = row.column(align=False)
         col.label(text='Name:')
+        col.label(text='Preset:')
+
         col = row.column(align=False)
         col.prop(self, 'name', text='')
+        col.prop(self, 'preset', text='')
 
     def execute(self, context):
         wm = context.window_manager
@@ -130,6 +160,27 @@ class YNewBakeTarget(bpy.types.Operator):
         bt = yp.bake_targets.add()
         bt.name = self.name
         bt.a.default_value = 1.0
+
+        if self.preset == 'ORM':
+            for ch in yp.channels:
+                if ch.name in {'Ambient Occlusion', 'AO'}:
+                    bt.r.channel_name = ch.name
+                elif ch.name in {'Roughness', 'R'}:
+                    bt.g.channel_name = ch.name
+                elif ch.name in {'Metallic', 'Metalness', 'M'}:
+                    bt.b.channel_name = ch.name
+        elif self.preset == 'DX_NORMAL':
+            for ch in yp.channels:
+                if ch.type == 'NORMAL':
+                    bt.r.channel_name = ch.name
+                    bt.g.channel_name = ch.name
+                    bt.b.channel_name = ch.name
+
+                    bt.r.subchannel_index = '0'
+                    bt.g.subchannel_index = '1'
+                    bt.b.subchannel_index = '2'
+
+                    bt.g.flip_value = True
 
         yp.active_bake_target_index = len(yp.bake_targets)-1
 
