@@ -23,14 +23,24 @@ def update_yp_ui():
     if (ypui.tree_name != tree.name or 
         ypui.layer_idx != yp.active_layer_index or 
         ypui.channel_idx != yp.active_channel_index or 
+        ypui.bake_target_idx != yp.active_bake_target_index or 
         ypui.need_update
         ):
 
         ypui.tree_name = tree.name
         ypui.layer_idx = yp.active_layer_index
         ypui.channel_idx = yp.active_channel_index
+        ypui.bake_target_idx = yp.active_bake_target_index
         ypui.need_update = False
         ypui.halt_prop_update = True
+
+        if len(yp.bake_targets) > 0:
+            bt = yp.bake_targets[yp.active_bake_target_index]
+            ypui.bake_target_ui.expand_content = bt.expand_content
+            ypui.bake_target_ui.expand_r = bt.expand_r
+            ypui.bake_target_ui.expand_g = bt.expand_g
+            ypui.bake_target_ui.expand_b = bt.expand_b
+            ypui.bake_target_ui.expand_a = bt.expand_a
 
         if len(yp.channels) > 0:
 
@@ -687,6 +697,104 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
             else: Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, box, False)
 
             #row.label(text='', icon='BLANK1')
+
+def draw_bake_target_channel(context, layout, bt, letter='r'):
+    yp = bt.id_data.yp
+    ypui = context.window_manager.ypui
+    btui = ypui.bake_target_ui
+
+    btc = getattr(bt, letter)
+    ch = yp.channels.get(btc.channel_name) if btc.channel_name != '' else None
+
+    row = layout.row(align=True)
+    if ch and ch.type == 'NORMAL':
+        icon_name = letter
+        if getattr(btui, 'expand_' + letter):
+            icon_name = 'uncollapsed_' + icon_name
+        else: icon_name = 'collapsed_' + icon_name
+        icon_value = lib.custom_icons[icon_name].icon_id
+        row.prop(btui, 'expand_' + letter, text='', emboss=False, icon_value=icon_value)
+    else:
+        row.label(text='', icon_value=lib.get_icon(letter))
+
+    if btc.channel_name == '':
+        split = split_layout(row, 0.65, align=True)
+        split.prop_search(btc, "channel_name", yp, "channels", text='')
+        split.prop(btc, 'default_value', text='')
+    else:
+        if ch and (ch.type == 'RGB' or (ch.type == 'NORMAL' and btc.normal_type != 'DISPLACEMENT')):
+            split = split_layout(row, 0.75, align=True)
+            split.prop_search(btc, "channel_name", yp, "channels", text='')
+            split.prop(btc, 'subchannel_index', text='')
+        else:
+            row.prop_search(btc, "channel_name", yp, "channels", text='')
+
+    if ch and ch.type == 'NORMAL' and getattr(btui, 'expand_' + letter):
+
+        row = layout.row(align=True)
+        row.label(text='', icon='BLANK1')
+        box = row.box()
+        bcol = box.column()
+
+        brow = split_layout(bcol, 0.3, align=True)
+        brow.label(text='Source:')
+        brow.prop(btc, 'normal_type', text='')
+
+        brow = bcol.row(align=True)
+        if btc.subchannel_index == '1':
+            brow.label(text='Flip G:')
+            brow.prop(btc, 'flip_g', text='')
+
+def draw_bake_targets_ui(context, layout, node):
+    group_tree = node.node_tree
+    nodes = group_tree.nodes
+    yp = group_tree.yp
+
+    ypui = context.window_manager.ypui
+    btui = ypui.bake_target_ui
+
+    box = layout.box()
+    col = box.column()
+    row = col.row()
+
+    rcol = row.column()
+    rcol.template_list("NODE_UL_YPaint_bake_targets", "", yp,
+            "bake_targets", yp, "active_bake_target_index", rows=3, maxrows=5)
+
+    rcol = row.column(align=True)
+    #rcol.context_pointer_set('node', node)
+
+    if is_greater_than_280():
+        rcol.operator("node.y_new_bake_target", icon='ADD', text='')
+        rcol.operator("node.y_remove_bake_target", icon='REMOVE', text='')
+    else: 
+        rcol.operator("node.y_new_bake_target", icon='ZOOMIN', text='')
+        rcol.operator("node.y_remove_bake_target", icon='ZOOMOUT', text='')
+
+    if len(yp.bake_targets) > 0:
+        bt = yp.bake_targets[yp.active_bake_target_index]
+        image_node = nodes.get(bt.image_node)
+        image = image_node.image if image_node and image_node.image else None
+
+        icon_name = 'bake'
+        if btui.expand_content:
+            icon_name = 'uncollapsed_' + icon_name
+        else: icon_name = 'collapsed_' + icon_name
+        icon_value = lib.custom_icons[icon_name].icon_id
+
+        row = col.row(align=True)
+
+        row.prop(btui, 'expand_content', text='', emboss=False, icon_value=icon_value)
+        if image: row.label(text=image.name)
+        else: row.label(text=bt.name)
+
+        if btui.expand_content:
+            row = col.row(align=True)
+            row.label(text='', icon='BLANK1')
+            bcol = row.column()
+
+            for letter in rgba_letters:
+                draw_bake_target_channel(context, bcol, bt, letter)
 
 def draw_root_channels_ui(context, layout, node):
     engine = bpy.context.scene.render.engine
@@ -2285,6 +2393,29 @@ def draw_layers_ui(context, layout, node):
                     if baked_disp.image.packed_file:
                         row.label(text='', icon='PACKAGE')
 
+            btimages = []
+            for bt in yp.bake_targets:
+                for i, letter in enumerate(rgba_letters):
+                    btc = getattr(bt, letter)
+                    if getattr(btc, 'channel_name') == root_ch.name:
+                        bt_node = nodes.get(bt.image_node)
+                        btimg = bt_node.image if bt_node and bt_node.image else None
+                        if btimg and btimg not in btimages:
+
+                            title = btimg.name
+                            if btimg.is_dirty:
+                                title += ' *'
+
+                            row = col.row(align=True)
+                            row.label(text='', icon='BLANK1')
+                            row.label(text=title, icon_value=lib.get_icon('image'))
+
+                            if btimg.packed_file:
+                                row.label(text='', icon='PACKAGE')
+
+                            btimages.append(btimg)
+
+
         return
 
     if is_a_mesh and not uv_found:
@@ -2869,6 +3000,7 @@ def main_draw(self, context):
         if baked: 
             baked_found = True
 
+    # Channels
     icon = 'TRIA_DOWN' if ypui.show_channels else 'TRIA_RIGHT'
     row = layout.row(align=True)
     row.prop(ypui, 'show_channels', emboss=False, text='', icon=icon)
@@ -2877,6 +3009,7 @@ def main_draw(self, context):
     if ypui.show_channels:
         draw_root_channels_ui(context, layout, node)
 
+    # Layers
     icon = 'TRIA_DOWN' if ypui.show_layers else 'TRIA_RIGHT'
     row = layout.row(align=True)
     row.prop(ypui, 'show_layers', emboss=False, text='', icon=icon)
@@ -2896,6 +3029,15 @@ def main_draw(self, context):
 
     if ypui.show_layers :
         draw_layers_ui(context, layout, node)
+
+    # Custom Bake Targets
+    icon = 'TRIA_DOWN' if ypui.show_bake_targets else 'TRIA_RIGHT'
+    row = layout.row(align=True)
+    row.prop(ypui, 'show_bake_targets', emboss=False, text='', icon=icon)
+    row.label(text='Custom Bake Targets')
+
+    if ypui.show_bake_targets:
+        draw_bake_targets_ui(context, layout, node)
 
     # Stats
     icon = 'TRIA_DOWN' if ypui.show_stats else 'TRIA_RIGHT'
@@ -3080,6 +3222,17 @@ def is_output_unconnected(node, index, root_ch=None):
     if root_ch and root_ch.type == 'NORMAL':
         unconnected &= not (not is_greater_than_280() and yp.use_baked and root_ch.subdiv_adaptive)
     return unconnected
+
+class NODE_UL_YPaint_bake_targets(bpy.types.UIList):
+    def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
+        tree = item.id_data
+        image_node = tree.nodes.get(item.image_node)
+
+        row = layout.row()
+
+        if image_node and image_node.image:
+            row.prop(image_node.image, 'name', text='', emboss=False, icon_value=lib.get_icon('bake'))
+        else: row.prop(item, 'name', text='', emboss=False, icon_value=lib.get_icon('bake'))
 
 class NODE_UL_YPaint_channels(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -3590,18 +3743,15 @@ class YPaintSpecialMenu(bpy.types.Menu):
         col.label(text='Option:')
         col.prop(yp, 'use_linear_blending')
 
-        #col = row.column()
-        #col.label(text='Options:')
+        if is_greater_than_280() and not is_greater_than_300():
+            col.prop(yp, 'enable_tangent_sign_hacks')
+
         #col.prop(yp, 'enable_backface_always_up')
+
         #col.separator()
         #col.label(text='Performance Options:')
         #col.prop(ypui, 'disable_auto_temp_uv_update')
         #col.prop(yp, 'disable_quick_toggle')
-        if is_greater_than_280() and not is_greater_than_300():
-            col = row.column()
-            col.separator()
-            col.label(text='Hacks:')
-            col.prop(yp, 'enable_tangent_sign_hacks')
 
 class YNewLayerMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_new_layer_menu"
@@ -4735,6 +4885,20 @@ def update_mask_ui(self, context):
     mask.expand_source = self.expand_source
     mask.expand_vector = self.expand_vector
 
+def update_bake_target_ui(self, context):
+    group_node =  get_active_ypaint_node()
+    if not group_node: return
+    yp = group_node.node_tree.yp
+
+    try: bt = yp.bake_targets[yp.active_bake_target_index]
+    except: return
+
+    bt.expand_content = self.expand_content
+    bt.expand_r = self.expand_r
+    bt.expand_g = self.expand_g
+    bt.expand_b = self.expand_b
+    bt.expand_a = self.expand_a
+
 def update_mask_channel_ui(self, context):
     ypui = context.window_manager.ypui
     if ypui.halt_prop_update: return
@@ -4749,6 +4913,13 @@ def update_mask_channel_ui(self, context):
     mask_ch = mask.channels[int(match.group(2))]
 
     mask_ch.expand_content = self.expand_content
+
+class YBakeTargetUI(bpy.types.PropertyGroup):
+    expand_content : BoolProperty(default=True, update=update_bake_target_ui)
+    expand_r : BoolProperty(default=True, update=update_bake_target_ui)
+    expand_g : BoolProperty(default=True, update=update_bake_target_ui)
+    expand_b : BoolProperty(default=True, update=update_bake_target_ui)
+    expand_a : BoolProperty(default=True, update=update_bake_target_ui)
 
 class YModifierUI(bpy.types.PropertyGroup):
     #name : StringProperty(default='')
@@ -4810,6 +4981,7 @@ class YPaintUI(bpy.types.PropertyGroup):
     show_materials : BoolProperty(default=False)
     show_channels : BoolProperty(default=True)
     show_layers : BoolProperty(default=True)
+    show_bake_targets : BoolProperty(default=False)
     show_stats : BoolProperty(default=False)
     show_support : BoolProperty(default=False)
 
@@ -4841,6 +5013,10 @@ class YPaintUI(bpy.types.PropertyGroup):
     channel_idx : IntProperty(default=0)
     channel_ui : PointerProperty(type=YChannelUI)
     modifiers : CollectionProperty(type=YModifierUI)
+
+    # Bake target related UI
+    bake_target_idx : IntProperty(default=0)
+    bake_target_ui : PointerProperty(type=YBakeTargetUI)
 
     # Update related
     need_update : BoolProperty(default=False)
@@ -4937,11 +5113,13 @@ def register():
     bpy.utils.register_class(YReplaceChannelOverride1Menu)
     bpy.utils.register_class(YLayerSpecialMenu)
     bpy.utils.register_class(YModifierUI)
+    bpy.utils.register_class(YBakeTargetUI)
     bpy.utils.register_class(YChannelUI)
     bpy.utils.register_class(YMaskChannelUI)
     bpy.utils.register_class(YMaskUI)
     bpy.utils.register_class(YLayerUI)
     bpy.utils.register_class(YMaterialUI)
+    bpy.utils.register_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.register_class(NODE_UL_YPaint_channels)
     bpy.utils.register_class(NODE_UL_YPaint_layers)
 
@@ -4989,11 +5167,13 @@ def unregister():
     bpy.utils.unregister_class(YReplaceChannelOverride1Menu)
     bpy.utils.unregister_class(YLayerSpecialMenu)
     bpy.utils.unregister_class(YModifierUI)
+    bpy.utils.unregister_class(YBakeTargetUI)
     bpy.utils.unregister_class(YChannelUI)
     bpy.utils.unregister_class(YMaskChannelUI)
     bpy.utils.unregister_class(YMaskUI)
     bpy.utils.unregister_class(YLayerUI)
     bpy.utils.unregister_class(YMaterialUI)
+    bpy.utils.unregister_class(NODE_UL_YPaint_bake_targets)
     bpy.utils.unregister_class(NODE_UL_YPaint_channels)
     bpy.utils.unregister_class(NODE_UL_YPaint_layers)
 

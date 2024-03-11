@@ -219,6 +219,12 @@ def save_pack_all(yp):
                 if baked_normal_overlay and baked_normal_overlay.image and baked_normal_overlay.image not in images:
                     images.append(baked_normal_overlay.image)
 
+    # Custom bake target images
+    for bt in yp.bake_targets:
+        image_node = tree.nodes.get(bt.image_node)
+        if image_node and image_node.image not in images:
+            images.append(image_node.image)
+
     packed_float_images = []
 
     # Temporary scene for blender 3.30 hack
@@ -629,6 +635,7 @@ class YSaveAllBakedImages(bpy.types.Operator):
 
         height_root_ch = get_root_height_channel(yp)
 
+        # Baked images
         for ch in yp.channels:
             if ch.no_layer_using: continue
 
@@ -646,6 +653,12 @@ class YSaveAllBakedImages(bpy.types.Operator):
                     baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
                     if baked_normal_overlay and baked_normal_overlay.image:
                         images.append(baked_normal_overlay.image)
+
+        # Custom bake target images
+        for bt in yp.bake_targets:
+            image_node = tree.nodes.get(bt.image_node)
+            if image_node and image_node.image not in images:
+                images.append(image_node.image)
 
         for image in images:
 

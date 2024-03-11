@@ -27,6 +27,7 @@ if "bpy" in locals():
     imp.reload(preferences)
     imp.reload(vcol_editor)
     imp.reload(transition)
+    imp.reload(BakeTarget)
     imp.reload(BakeInfo)
     imp.reload(UDIM)
     imp.reload(ImageAtlas)
@@ -43,7 +44,7 @@ if "bpy" in locals():
 else:
     from . import Localization
     from . import image_ops, common, bake_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
-    from . import vcol_editor, transition, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates, addon_updater_ops
+    from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates, addon_updater_ops
 
 import bpy 
 
@@ -56,6 +57,7 @@ def register():
     ui.register()
     vcol_editor.register()
     transition.register()
+    BakeTarget.register()
     BakeInfo.register()
     UDIM.register()
     ImageAtlas.register()
@@ -81,6 +83,7 @@ def unregister():
     ui.unregister()
     vcol_editor.unregister()
     transition.unregister()
+    BakeTarget.unregister()
     BakeInfo.unregister()
     UDIM.unregister()
     ImageAtlas.unregister()

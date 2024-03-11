@@ -258,6 +258,9 @@ def load_custom_icons():
     custom_icons.load('vertex_color_alpha', filepath + 'vertex_color_alpha_icon.png', 'IMAGE')
 
     custom_icons.load('bake', filepath + 'bake_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_bake', filepath + 'collapsed_bake_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_bake', filepath + 'uncollapsed_bake_icon.png', 'IMAGE')
+
     custom_icons.load('group', filepath + 'group_icon.png', 'IMAGE')
     custom_icons.load('background', filepath + 'background_icon.png', 'IMAGE')
     custom_icons.load('blend', filepath + 'blend_icon.png', 'IMAGE')
@@ -293,6 +296,21 @@ def load_custom_icons():
     custom_icons.load('collapsed_vector_channel', filepath + 'collapsed_vector_channel_icon.png', 'IMAGE')
     custom_icons.load('uncollapsed_vector_channel', filepath + 'uncollapsed_vector_channel_icon.png', 'IMAGE')
 
+    custom_icons.load('r', filepath + 'r_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_r', filepath + 'collapsed_r_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_r', filepath + 'uncollapsed_r_icon.png', 'IMAGE')
+
+    custom_icons.load('g', filepath + 'g_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_g', filepath + 'collapsed_g_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_g', filepath + 'uncollapsed_g_icon.png', 'IMAGE')
+
+    custom_icons.load('b', filepath + 'b_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_b', filepath + 'collapsed_b_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_b', filepath + 'uncollapsed_b_icon.png', 'IMAGE')
+
+    custom_icons.load('a', filepath + 'a_icon.png', 'IMAGE')
+    custom_icons.load('collapsed_a', filepath + 'collapsed_a_icon.png', 'IMAGE')
+    custom_icons.load('uncollapsed_a', filepath + 'uncollapsed_a_icon.png', 'IMAGE')
 
 def get_icon(custom_icon_name):
     return custom_icons[custom_icon_name].icon_id

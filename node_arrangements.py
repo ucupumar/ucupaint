@@ -1879,6 +1879,17 @@ def rearrange_yp_nodes(group_tree):
                 #loc.y -= 120
                 #loc.x += 200
 
+    for bt in yp.bake_targets:
+
+        loc.x = ori_x
+
+        if check_set_node_loc(group_tree, bt.image_node, loc):
+            loc.x += 200
+
+        loc.y -= 270
+
+        if loc.x > farthest_x: farthest_x = loc.x
+
     loc.x = farthest_x
     loc.y = 0
 

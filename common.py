@@ -447,6 +447,8 @@ limited_mask_blend_types = {
     'LINEAR_LIGHT',
     }
 
+rgba_letters = ['r', 'g', 'b', 'a']
+
 TEXCOORD_IO_PREFIX = 'Texcoord '
 PARALLAX_MIX_PREFIX = 'Parallax Mix '
 PARALLAX_DELTA_PREFIX = 'Parallax Delta '

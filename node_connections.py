@@ -992,10 +992,9 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
         bitangent = None
 
     baked_uv = yp.uvs.get(yp.baked_uv_name)
-    #print('Baked UV_Name:', yp.baked_uv_name, baked_uv)
-    if yp.use_baked and baked_uv:
+    baked_uv_map = nodes.get(baked_uv.uv_map).outputs[0] if baked_uv else None
 
-        baked_uv_map = nodes.get(baked_uv.uv_map).outputs[0]
+    if yp.use_baked and baked_uv:
 
         if parallax_ch and baked_parallax:
             if baked_parallax_filter:
@@ -1372,6 +1371,12 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
                     max_height = create_link(tree, max_height, end_max_height_tweak.inputs[0])[0]
                 
                 create_link(tree, max_height, end.inputs[ch.name + io_suffix['MAX_HEIGHT']])
+
+    # Bake target image nodes
+    for bt in yp.bake_targets:
+        image_node = nodes.get(bt.image_node)
+        if image_node and baked_uv_map:
+            create_link(tree, baked_uv_map, image_node.inputs[0])
 
     # Merge process doesn't care with parents
     if merged_layer_ids: return

@@ -5,7 +5,7 @@ from .common import *
 from .subtree import *
 from .node_arrangements import *
 from .node_connections import *
-from . import lib, Modifier, Layer, Mask, transition, Bake, ImageAtlas
+from . import lib, Modifier, Layer, Mask, transition, Bake, ImageAtlas, BakeTarget
 from .input_outputs import *
 
 YP_GROUP_SUFFIX = ' ' + get_addon_title()
@@ -2016,6 +2016,21 @@ class YCleanYPCaches(bpy.types.Operator):
 
         return {'FINISHED'}
 
+def get_channel_name(self):
+    return self['name']
+
+def set_channel_name(self, value):
+    yp = self.id_data.yp 
+
+    # Update bake target channel name
+    for bt in yp.bake_targets:
+        for letter in rgba_letters:
+            btc = getattr(bt, letter)
+            if getattr(btc, 'channel_name') == self.name:
+                setattr(btc, 'channel_name', value)
+
+    self['name'] = value
+
 def update_channel_name(self, context):
     T = time.time()
 
@@ -3008,7 +3023,7 @@ class YPaintChannel(bpy.types.PropertyGroup):
             name='Channel Name', 
             description = 'Name of the channel',
             default='Albedo',
-            update=update_channel_name)
+            update=update_channel_name, get=get_channel_name, set=set_channel_name)
 
     type : EnumProperty(
             name = 'Channel Type',
@@ -3329,6 +3344,10 @@ class YPaint(bpy.types.PropertyGroup):
     # UVs
     uvs : CollectionProperty(type=YPaintUV)
 
+    # Bake Targets
+    bake_targets : CollectionProperty(type=BakeTarget.YBakeTarget)
+    active_bake_target_index : IntProperty(default=0, update=BakeTarget.update_active_bake_target_index)
+
     # Temp channels to remember last channel selected when adding new layer
     #temp_channels = CollectionProperty(type=YChannelUI)
     preview_mode : BoolProperty(default=False, update=update_preview_mode)
@@ -3387,12 +3406,13 @@ class YPaint(bpy.types.PropertyGroup):
     # Outside nodes
     baked_outside_uv : StringProperty(default='')
     baked_outside_frame : StringProperty(default='')
+    bake_target_outside_frame : StringProperty(default='')
     baked_outside_x_shift : IntProperty(default=0)
 
     # Flip backface
     enable_backface_always_up : BoolProperty(
             name= 'Make backface normal always up',
-            description= 'Make sure normal will face toward camera even at backface',
+            description= 'Make sure normal will face toward camera even at backface\n(Need Normal channel with smooth bump on to enable this feature)',
             default=True, update=update_flip_backface)
 
     # Layer alpha Viewer Mode
