@@ -4522,8 +4522,10 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
             col.label(text=label, icon=icon)
 
         row = col.row(align=True)
-        ccol = row.column(align=True)
-        ccol.label(text='', icon='BLANK1')
+        # Blender 2.79 will create weird margin if there's blank space inside menu
+        if is_greater_than_280():
+            ccol = row.column(align=True)
+            ccol.label(text='', icon='BLANK1')
 
         ccol = row.column(align=True)
         #ccol.operator('node.y_replace_layer_channel_override', text='Open Image', icon_value=lib.get_icon('open_image')).type = 'IMAGE'
@@ -4550,8 +4552,10 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
         #col.label(text='Vertex Color', icon=icon)
 
         row = col.row(align=True)
-        ccol = row.column(align=True)
-        ccol.label(text='', icon='BLANK1')
+        # Blender 2.79 will create weird margin if there's blank space inside menu
+        if is_greater_than_280():
+            ccol = row.column(align=True)
+            ccol.label(text='', icon='BLANK1')
 
         ccol = row.column(align=True)
         #ccol.operator('node.y_replace_layer_channel_override', text='New Vertex Color', icon_value=lib.get_icon('vertex_color')).type = 'VCOL'
