@@ -1687,6 +1687,10 @@ class YBakeChannels(bpy.types.Operator):
         # Refresh active channel index
         yp.active_channel_index = yp.active_channel_index
 
+        # Refresh bake target index to show up the image result
+        if len(yp.bake_targets) > 0:
+            yp.active_bake_target_index = yp.active_bake_target_index
+
         # Update baked outside nodes
         update_enable_baked_outside(yp, context)
 
