@@ -5404,7 +5404,7 @@ def get_first_mirror_modifier(obj):
 
     return None
 
-def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0, segment=None, segment_src=None):
+def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0, segment=None, segment_src=None, flip_value=False):
 
     start_x = 0
     start_y = 0
@@ -5439,8 +5439,9 @@ def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0, segment=None, se
         src_pxs.shape = (-1, src.size[0], 4)
 
         # Copy to selected channel
-        #dest_pxs[dest_idx::4] = src_pxs[src_idx::4]
-        dest_pxs[start_y:start_y+height, start_x:start_x+width][::, ::, dest_idx] = src_pxs[src_start_y:src_start_y+height, src_start_x:src_start_x+width][::, ::, src_idx]
+        if flip_value:
+            dest_pxs[start_y:start_y+height, start_x:start_x+width][::, ::, dest_idx] = 1.0 - src_pxs[src_start_y:src_start_y+height, src_start_x:src_start_x+width][::, ::, src_idx]
+        else: dest_pxs[start_y:start_y+height, start_x:start_x+width][::, ::, dest_idx] = src_pxs[src_start_y:src_start_y+height, src_start_x:src_start_x+width][::, ::, src_idx]
         dest.pixels.foreach_set(dest_pxs.ravel())
 
     else:
@@ -5449,13 +5450,22 @@ def copy_image_channel_pixels(src, dest, src_idx=0, dest_idx=0, segment=None, se
         dest_pxs = list(dest.pixels)
 
         # Copy to selected channel
-        for y in range(height):
-            source_offset_y = width * 4 * (y + src_start_y)
-            offset_y = dest.size[0] * 4 * (y + start_y)
-            for x in range(width):
-                source_offset_x = 4 * (x + src_start_x)
-                offset_x = 4 * (x + start_x)
-                dest_pxs[offset_y + offset_x + dest_idx] = src_pxs[source_offset_y + source_offset_x + src_idx]
+        if flip_value:
+            for y in range(height):
+                source_offset_y = width * 4 * (y + src_start_y)
+                offset_y = dest.size[0] * 4 * (y + start_y)
+                for x in range(width):
+                    source_offset_x = 4 * (x + src_start_x)
+                    offset_x = 4 * (x + start_x)
+                    dest_pxs[offset_y + offset_x + dest_idx] = 1.0 - src_pxs[source_offset_y + source_offset_x + src_idx]
+        else:
+            for y in range(height):
+                source_offset_y = width * 4 * (y + src_start_y)
+                offset_y = dest.size[0] * 4 * (y + start_y)
+                for x in range(width):
+                    source_offset_x = 4 * (x + src_start_x)
+                    offset_x = 4 * (x + start_x)
+                    dest_pxs[offset_y + offset_x + dest_idx] = src_pxs[source_offset_y + source_offset_x + src_idx]
 
         dest.pixels = dest_pxs
 

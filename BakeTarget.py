@@ -52,7 +52,7 @@ class YBakeTargetChannel(bpy.types.PropertyGroup):
             items = normal_type_items,
             default='COMBINED')
 
-    flip_g : BoolProperty(
+    flip_value : BoolProperty(
             name = 'Flip G',
             description = 'Flip G value so normal is compatible with DirectX application',
             default = False)

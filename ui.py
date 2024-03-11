@@ -740,7 +740,7 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
         brow = bcol.row(align=True)
         if btc.subchannel_index == '1':
             brow.label(text='Flip G:')
-            brow.prop(btc, 'flip_g', text='')
+            brow.prop(btc, 'flip_value', text='')
 
 def draw_bake_targets_ui(context, layout, node):
     group_tree = node.node_tree
