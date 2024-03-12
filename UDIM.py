@@ -1028,6 +1028,59 @@ class YRemoveUDIMAtlasSegment(bpy.types.Operator):
 
         return {'FINISHED'}
 
+class YConvertImageTiled(bpy.types.Operator):
+    """Convert non tiled image to tiled image and vice versa"""
+    bl_idname = "image.y_convert_image_tiled"
+    bl_label = "Convert Image Tiled"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return hasattr(context, 'image') and context.image
+
+    def execute(self, context):
+        image = context.image
+
+        # Create new image
+        new_image = bpy.data.images.new(image.name,
+                                width=image.size[0], height=image.size[1], 
+                                alpha=True, float_buffer=image.is_float, tiled= not image.source=='TILED')
+
+        if new_image.source == 'TILED':
+
+            # Update tile numbers if necessary
+            tilenums = [1001]
+            color = (0, 0, 0, 0)
+            if hasattr(context, 'entity') and context.entity:
+
+                # Mask will use only black color for now
+                # TODO: Detect if mask is closer to black or white
+                match = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', context.entity.path_from_id())
+                if match:
+                    color = (0, 0, 0, 1)
+
+                uv_name = context.entity.uv_name
+                mat = get_active_material()
+                objs = get_all_objects_with_same_materials(mat, True, uv_name)
+                tilenums = get_tile_numbers(objs, uv_name)
+
+            for tilenum in tilenums:
+                fill_tile(new_image, tilenum, color, image.size[0], image.size[1])
+
+            initial_pack_udim(new_image, color)
+
+        # Copy image pixels
+        copy_image_pixels(image, new_image)
+
+        # Replace image
+        replace_image(image, new_image)
+
+        # Update image editor
+        update_image_editor_image(context, new_image)
+        update_tool_canvas_image(context, new_image)
+
+        return {'FINISHED'}
+
 class Y_PT_UDIM_Atlas_menu(bpy.types.Panel):
     bl_label = "UDIM Atlas"
     bl_space_type = "IMAGE_EDITOR"
@@ -1080,6 +1133,7 @@ def register():
     bpy.utils.register_class(YNewUDIMAtlasSegmentTest)
     bpy.utils.register_class(YRefreshUDIMAtlasOffset)
     bpy.utils.register_class(YRemoveUDIMAtlasSegment)
+    bpy.utils.register_class(YConvertImageTiled)
     #bpy.utils.register_class(Y_PT_UDIM_Atlas_menu)
     bpy.utils.register_class(YUDIMAtlasSegmentTile)
     bpy.utils.register_class(YUDIMAtlasSegment)
@@ -1094,6 +1148,7 @@ def unregister():
     bpy.utils.unregister_class(YNewUDIMAtlasSegmentTest)
     bpy.utils.unregister_class(YRefreshUDIMAtlasOffset)
     bpy.utils.unregister_class(YRemoveUDIMAtlasSegment)
+    bpy.utils.unregister_class(YConvertImageTiled)
     #bpy.utils.unregister_class(Y_PT_UDIM_Atlas_menu)
     bpy.utils.unregister_class(YUDIMAtlasSegmentTile)
     bpy.utils.unregister_class(YUDIMAtlasSegment)

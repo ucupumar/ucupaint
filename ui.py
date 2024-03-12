@@ -4088,7 +4088,12 @@ class YLayerListSpecialMenu(bpy.types.Menu):
 
             col.separator()
             text = 'Convert to ' + ('Byte ' if context.image.is_float else 'Float ') + 'Image'
-            col.operator("node.y_convert_image_bit_depth", icon='IMAGE_DATA', text=text)
+            col.operator("image.y_convert_image_bit_depth", icon='IMAGE_DATA', text=text)
+
+            if UDIM.is_udim_supported():
+                col.separator()
+                text = 'Convert to ' + ('Non UDIM ' if context.image.source == 'TILED' else 'UDIM ') + 'Image'
+                col.operator("image.y_convert_image_tiled", icon='IMAGE_DATA', text=text)
 
             col.separator()
             if context.image.yia.is_image_atlas or context.image.yua.is_udim_atlas:

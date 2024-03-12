@@ -1108,13 +1108,13 @@ class YSavePackAll(bpy.types.Operator):
 
 class YConvertImageBitDepth(bpy.types.Operator):
     """Convert Image Bit Depth"""
-    bl_idname = "node.y_convert_image_bit_depth"
+    bl_idname = "image.y_convert_image_bit_depth"
     bl_label = "Convert Image Bit Depth"
     bl_options = {'REGISTER', 'UNDO'}
 
     @classmethod
     def poll(cls, context):
-        return hasattr(context, 'image') and context.image and hasattr(context, 'entity')
+        return hasattr(context, 'image') and context.image
 
     def execute(self, context):
         node = get_active_ypaint_node()
