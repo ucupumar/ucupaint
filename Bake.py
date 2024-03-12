@@ -1532,11 +1532,8 @@ class YBakeChannels(bpy.types.Operator):
 
                     # Get image channel
                     subidx = 0
-                    flip_value = False
                     if ch.type in {'RGB', 'NORMAL'}:
                         subidx = int(getattr(btc, 'subchannel_index'))
-                        if ch.type == 'NORMAL' and subidx == 1 and btc.flip_value:
-                            flip_value = True
 
                     # Get baked node
                     baked = None
@@ -1555,7 +1552,7 @@ class YBakeChannels(bpy.types.Operator):
                                 UDIM.swap_tile(baked.image, 1001, tilenum)
 
                             # Copy pixels
-                            copy_image_channel_pixels(baked.image, btimg, src_idx=subidx, dest_idx=i, flip_value=flip_value)
+                            copy_image_channel_pixels(baked.image, btimg, src_idx=subidx, dest_idx=i, flip_value=btc.flip_value)
 
                             # Swap tile again to recover
                             if tilenum != 1001:
