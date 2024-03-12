@@ -1732,9 +1732,11 @@ class YBakeChannels(bpy.types.Operator):
         # Refresh active channel index
         yp.active_channel_index = yp.active_channel_index
 
-        # Refresh bake target index to show up the image result
+        # If bake target ui is visible, refresh bake target index to show up the image result
         if len(yp.bake_targets) > 0:
-            yp.active_bake_target_index = yp.active_bake_target_index
+            ypui = context.window_manager.ypui
+            if ypui.show_bake_targets:
+                yp.active_bake_target_index = yp.active_bake_target_index
 
         # Update baked outside nodes
         update_enable_baked_outside(yp, context)
