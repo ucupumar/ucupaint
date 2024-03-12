@@ -985,7 +985,6 @@ class YConnectYPaintChannel(bpy.types.Operator):
         inp = None
         if item:
             target_node = mat.node_tree.nodes.get(item.node_name)
-            #inp = target_node.inputs[item.input_name]
             inp = target_node.inputs[item.input_index]
             mat.node_tree.links.new(node.outputs[channel.name], inp)
 
@@ -1026,6 +1025,11 @@ class YNewYPaintChannel(bpy.types.Operator):
     use_clamp : BoolProperty(
             name='Use Clamp', 
             description = 'Use clamp of newly the channel',
+            default=True)
+
+    set_strength_to_one : BoolProperty(
+            name='Set Strength to One', 
+            description = 'Set socket strength to one',
             default=True)
 
     @classmethod
@@ -1074,6 +1078,15 @@ class YNewYPaintChannel(bpy.types.Operator):
             col.prop(self, "colorspace", text='')
         if self.type != 'NORMAL': col.prop(self, 'use_clamp')
 
+        # Blender 4.0 and above has some default weight and strength set to 0.0
+        if is_greater_than_400():
+            item = self.input_coll.get(self.connect_to)
+            if item:
+                mat = get_active_material()
+                target_node = mat.node_tree.nodes.get(item.node_name)
+                if target_node.type == 'BSDF_PRINCIPLED' and item.input_name in {'Emission Color', 'Subsurface Scale'}:
+                    col.prop(self, "set_strength_to_one")
+
     def execute(self, context):
 
         T = time.time()
@@ -1111,16 +1124,33 @@ class YNewYPaintChannel(bpy.types.Operator):
         # Connect to other inputs
         item = self.input_coll.get(self.connect_to)
         inp = None
+        strength_inp = None
+        input_name = ''
         if item:
             target_node = mat.node_tree.nodes.get(item.node_name)
-            #inp = target_node.inputs[item.input_name]
+            input_name = item.input_name
             inp = target_node.inputs[item.input_index]
             mat.node_tree.links.new(node.outputs[channel.name], inp)
+
+            # Blender 4.0 and above has some default weight and strength set to 0.0
+            if is_greater_than_400() and target_node.type == 'BSDF_PRINCIPLED':
+                if item.input_name == 'Emission Color':
+                    strength_inp = target_node.inputs.get('Emission Strength')
+                elif item.input_name == 'Subsurface Scale':
+                    strength_inp = target_node.inputs.get('Subsurface Weight')
 
         # Set input default value
         if inp and self.type != 'NORMAL': 
             set_input_default_value(node, channel, inp.default_value)
         else: set_input_default_value(node, channel)
+
+        # Set strength input default value
+        if strength_inp and self.set_strength_to_one:
+            strength_inp.default_value = 1.0
+            # Emission will default to use black color
+            if input_name == 'Emission Color':
+                inp.default_value = (0.0, 0.0, 0.0, 1.0)
+                set_input_default_value(node, channel, (0.0, 0.0, 0.0, 1.0))
 
         # Set use clamp
         if channel.use_clamp != self.use_clamp:
