@@ -31,6 +31,12 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             description = 'Bake margin in pixels',
             default=5, min=0, subtype='PIXEL')
 
+    margin_type : EnumProperty(name = 'Margin Type',
+            description = '',
+            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
+                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
+            default = 'ADJACENT_FACES')
+
     flip_normals : BoolProperty(
             name='Flip Normals',
             description='Flip normal of mesh',

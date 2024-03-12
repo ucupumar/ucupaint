@@ -300,6 +300,12 @@ class YTransferSomeLayerUV(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
+    margin_type : EnumProperty(name = 'Margin Type',
+            description = '',
+            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
+                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
+            default = 'ADJACENT_FACES')
+
     remove_from_uv : BoolProperty(name='Delete From UV',
             description = "Remove 'From UV' from objects",
             default=False)
@@ -347,7 +353,9 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         col.label(text='From UV:')
         col.label(text='To UV:')
         col.label(text='Samples:')
+
         col.label(text='Margin:')
+
         col.label(text='')
 
         if self.remove_from_uv:
@@ -357,7 +365,14 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         col.prop_search(self, "from_uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
-        col.prop(self, 'margin', text='')
+
+        if is_greater_than_310():
+            split = split_layout(col, 0.4, align=True)
+            split.prop(self, 'margin', text='')
+            split.prop(self, 'margin_type', text='')
+        else:
+            col.prop(self, 'margin', text='')
+
         col.prop(self, 'remove_from_uv')
 
         if self.remove_from_uv:
@@ -392,7 +407,7 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         # Prepare bake settings
         book = remember_before_bake(yp)
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', bake_device='CPU'
+                uv_map=self.uv_map, bake_type='EMIT', bake_device='CPU', margin_type=self.margin_type
                 )
 
         for layer in yp.layers:
@@ -469,6 +484,12 @@ class YTransferLayerUV(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
+    margin_type : EnumProperty(name = 'Margin Type',
+            description = '',
+            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
+                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
+            default = 'ADJACENT_FACES')
+
     @classmethod
     def poll(cls, context):
         return get_active_ypaint_node() and context.object.type == 'MESH' # and hasattr(context, 'layer')
@@ -511,7 +532,13 @@ class YTransferLayerUV(bpy.types.Operator):
         col = row.column(align=False)
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
-        col.prop(self, 'margin', text='')
+
+        if is_greater_than_310():
+            split = split_layout(col, 0.4, align=True)
+            split.prop(self, 'margin', text='')
+            split.prop(self, 'margin_type', text='')
+        else:
+            col.prop(self, 'margin', text='')
 
     def execute(self, context):
         T = time.time()
@@ -538,7 +565,7 @@ class YTransferLayerUV(bpy.types.Operator):
         # Prepare bake settings
         book = remember_before_bake(yp)
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
-                uv_map=self.uv_map, bake_type='EMIT', bake_device='CPU'
+                uv_map=self.uv_map, bake_type='EMIT', bake_device='CPU', margin_type=self.margin_type
                 )
 
         # Transfer UV
@@ -1070,6 +1097,12 @@ class YBakeChannels(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
+    margin_type : EnumProperty(name = 'Margin Type',
+            description = '',
+            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
+                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
+            default = 'ADJACENT_FACES')
+
     #hdr : BoolProperty(name='32 bit Float', default=False)
 
     fxaa : BoolProperty(name='Use FXAA', 
@@ -1199,8 +1232,12 @@ class YBakeChannels(bpy.types.Operator):
         #col.label(text='')
         col.separator()
         col.label(text='Samples:')
-        col.label(text='Margin:')
         col.label(text='AA Level:')
+
+        if is_greater_than_310():
+            col.separator()
+        col.label(text='Margin:')
+
         col.separator()
         if is_greater_than_280():
             col.label(text='Bake Device:')
@@ -1210,7 +1247,8 @@ class YBakeChannels(bpy.types.Operator):
         # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
         if self.enable_bake_as_vcol and not is_version_320():
             col.label(text='Force First Vcol:')
-        col.label(text='')
+        if UDIM.is_udim_supported():
+            col.label(text='')
         col.label(text='')
         if is_greater_than_281():
             col.label(text='')
@@ -1224,8 +1262,14 @@ class YBakeChannels(bpy.types.Operator):
         col.separator()
 
         col.prop(self, 'samples', text='')
-        col.prop(self, 'margin', text='')
         col.prop(self, 'aa_level', text='')
+        if is_greater_than_310():
+            col.separator()
+            split = split_layout(col, 0.4, align=True)
+            split.prop(self, 'margin', text='')
+            split.prop(self, 'margin_type', text='')
+        else:
+            col.prop(self, 'margin', text='')
         col.separator()
 
         if is_greater_than_280():
@@ -1372,7 +1416,8 @@ class YBakeChannels(bpy.types.Operator):
         height = self.height * self.aa_level
 
         # Prepare bake settings
-        prepare_bake_settings(book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, bake_device=self.bake_device)
+        prepare_bake_settings(book, objs, yp, self.samples, margin, self.uv_map, disable_problematic_modifiers=True, 
+                bake_device=self.bake_device, margin_type=self.margin_type)
 
         # Get tilenums
         tilenums = UDIM.get_tile_numbers(objs, self.uv_map) if self.use_udim else [1001]
@@ -2380,6 +2425,12 @@ class YBakeTempImage(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, subtype='PIXEL')
 
+    margin_type : EnumProperty(name = 'Margin Type',
+            description = '',
+            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
+                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
+            default = 'ADJACENT_FACES')
+
     width : IntProperty(name='Width', default = 1234, min=1, max=16384)
     height : IntProperty(name='Height', default = 1234, min=1, max=16384)
 
@@ -2436,6 +2487,7 @@ class YBakeTempImage(bpy.types.Operator):
         col.label(text='')
         col.label(text='UV Map:')
         col.label(text='Samples:')
+
         col.label(text='Margin:')
 
         col = row.column(align=False)
@@ -2446,7 +2498,13 @@ class YBakeTempImage(bpy.types.Operator):
         col.prop(self, 'hdr')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
-        col.prop(self, 'margin', text='')
+
+        if is_greater_than_310():
+            split = split_layout(col, 0.4, align=True)
+            split.prop(self, 'margin', text='')
+            split.prop(self, 'margin_type', text='')
+        else:
+            col.prop(self, 'margin', text='')
 
     def execute(self, context):
 
@@ -2460,7 +2518,7 @@ class YBakeTempImage(bpy.types.Operator):
             return {'CANCELLED'}
 
         # Bake temp image
-        image = temp_bake(context, entity, self.width, self.height, self.hdr, self.samples , self.margin, self.uv_map)
+        image = temp_bake(context, entity, self.width, self.height, self.hdr, self.samples , self.margin, self.uv_map, margin_type=self.margin_type)
 
         return {'FINISHED'}
 

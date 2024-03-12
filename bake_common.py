@@ -350,7 +350,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         bake_target = 'IMAGE_TEXTURES',
-        source_objs=[], bake_device='GPU', use_denoising=False):
+        source_objs=[], bake_device='GPU', use_denoising=False, margin_type='ADJACENT_FACES'):
 
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
@@ -385,7 +385,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         scene.render.bake.target = bake_target
 
     if hasattr(scene.render.bake, 'margin_type'):
-        scene.render.bake.margin_type = 'ADJACENT_FACES'
+        scene.render.bake.margin_type = margin_type
 
     if is_greater_than_280():
         bpy.context.view_layer.material_override = None
@@ -1727,7 +1727,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
 
         return True
 
-def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake_device='CPU'):
+def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake_device='CPU', margin_type='ADJACENT_FACES'):
 
     m1 = re.match(r'yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
@@ -1740,7 +1740,7 @@ def temp_bake(context, entity, width, height, hdr, samples, margin, uv_map, bake
 
     # Prepare bake settings
     book = remember_before_bake(yp)
-    prepare_bake_settings(book, [obj], yp, samples, margin, uv_map, bake_device=bake_device)
+    prepare_bake_settings(book, [obj], yp, samples, margin, uv_map, bake_device=bake_device, margin_type=margin_type)
 
     mat = get_active_material()
     name = entity.name + ' Temp'

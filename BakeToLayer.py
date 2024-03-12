@@ -178,6 +178,12 @@ class YBakeToLayer(bpy.types.Operator):
             description = 'Bake margin in pixels',
             default=5, min=0, subtype='PIXEL')
 
+    margin_type : EnumProperty(name = 'Margin Type',
+            description = '',
+            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
+                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
+            default = 'ADJACENT_FACES')
+
     type : EnumProperty(
             name = 'Bake Type',
             description = 'Bake Type',
@@ -614,10 +620,10 @@ class YBakeToLayer(bpy.types.Operator):
         col.label(text='')
         col.label(text='Width:')
         col.label(text='Height:')
+        col.label(text='Samples:')
         col.label(text='UV Map:')
         if self.type == 'FLOW':
             col.label(text='Straight UV Map:')
-        col.label(text='Samples:')
         col.label(text='Margin:')
         if is_greater_than_280():
             col.separator()
@@ -681,11 +687,16 @@ class YBakeToLayer(bpy.types.Operator):
         col.prop(self, 'hdr')
         col.prop(self, 'width', text='')
         col.prop(self, 'height', text='')
+        col.prop(self, 'samples', text='')
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         if self.type == 'FLOW':
             col.prop_search(self, "uv_map_1", self, "uv_map_coll", text='', icon='GROUP_UVS')
-        col.prop(self, 'samples', text='')
-        col.prop(self, 'margin', text='')
+        if is_greater_than_310():
+            split = split_layout(col, 0.4, align=True)
+            split.prop(self, 'margin', text='')
+            split.prop(self, 'margin_type', text='')
+        else:
+            col.prop(self, 'margin', text='')
 
         if is_greater_than_280():
             col.separator()
@@ -897,7 +908,8 @@ class YBakeToLayer(bpy.types.Operator):
             
             # Use 1 sample for baking height
             prepare_bake_settings(book, objs, yp, samples=1, margin=self.margin, 
-                    uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device
+                    uv_map=self.uv_map, bake_type='EMIT', bake_device=self.bake_device,
+                    margin_type=self.margin_type
                     )
 
             # Bake height channel
@@ -1026,7 +1038,7 @@ class YBakeToLayer(bpy.types.Operator):
                 bake_from_multires=self.type.startswith('MULTIRES_'), tile_x = tile_x, tile_y = tile_y, 
                 use_selected_to_active=self.type.startswith('OTHER_OBJECT_'),
                 max_ray_distance=self.max_ray_distance, cage_extrusion=self.cage_extrusion,
-                source_objs=other_objs, use_denoising=False,
+                source_objs=other_objs, use_denoising=False, margin_type=self.margin_type
                 )
 
         # Set multires level
@@ -1891,7 +1903,7 @@ class YBakeToLayer(bpy.types.Operator):
         return {'FINISHED'}
 
 def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, samples=1, margin=5, uv_name='', bake_device='CPU', 
-        use_udim=False, tilenums=[1001], fxaa=True, blur=False, blur_factor=0.5, denoise=False, disable_modifiers=True):
+        use_udim=False, tilenums=[1001], fxaa=True, blur=False, blur_factor=0.5, denoise=False, disable_modifiers=True, margin_type='ADJACENT_FACES'):
 
     yp = entity.id_data.yp
 
@@ -1972,7 +1984,8 @@ def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, s
             m.show_render = False
 
     prepare_bake_settings(book, objs, yp, samples=samples, margin=margin, 
-            uv_map=uv_name, bake_type='EMIT', bake_device=bake_device
+            uv_map=uv_name, bake_type='EMIT', bake_device=bake_device, 
+            margin_type=margin_type
             )
 
     # Create bake nodes
@@ -2078,6 +2091,12 @@ class YBakeEntityToImage(bpy.types.Operator):
     margin : IntProperty(name='Bake Margin',
             description = 'Bake margin in pixels',
             default=5, min=0, subtype='PIXEL')
+
+    margin_type : EnumProperty(name = 'Margin Type',
+            description = '',
+            items = (('ADJACENT_FACES', 'Adjacent Faces', 'Use pixels from adjacent faces across UV seams.'),
+                     ('EXTEND', 'Extend', 'Extend border pixels outwards')),
+            default = 'ADJACENT_FACES')
 
     samples : IntProperty(name='Bake Samples', 
             description='Bake Samples, more means less jagged on generated textures', 
@@ -2242,9 +2261,10 @@ class YBakeEntityToImage(bpy.types.Operator):
         col.label(text='')
         col.label(text='Width:')
         col.label(text='Height:')
-        col.label(text='UV Map:')
         col.label(text='Samples:')
+        col.label(text='UV Map:')
         col.label(text='Margin:')
+
         if is_greater_than_280():
             col.separator()
             col.label(text='Bake Device:')
@@ -2262,9 +2282,15 @@ class YBakeEntityToImage(bpy.types.Operator):
         col.prop(self, 'hdr')
         col.prop(self, 'width', text='')
         col.prop(self, 'height', text='')
-        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.prop(self, 'samples', text='')
-        col.prop(self, 'margin', text='')
+        col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
+
+        if is_greater_than_310():
+            split = split_layout(col, 0.4, align=True)
+            split.prop(self, 'margin', text='')
+            split.prop(self, 'margin_type', text='')
+        else:
+            col.prop(self, 'margin', text='')
 
         if is_greater_than_280():
             col.separator()
@@ -2399,7 +2425,7 @@ class YBakeEntityToImage(bpy.types.Operator):
         self.image = bake_as_image(objs, mat, entity, self.name, width=self.width, height=self.height, hdr=self.hdr, 
                 samples=self.samples, margin=self.margin, uv_name=self.uv_map, bake_device=self.bake_device, 
                 use_udim=self.use_udim, tilenums=self.tilenums, fxaa=self.fxaa, blur=self.blur, blur_factor=self.blur_factor, denoise=self.denoise,
-                disable_modifiers = not self.duplicate_entity
+                disable_modifiers = not self.duplicate_entity, margin_type=self.margin_type
                 )
 
         # Get segment

@@ -514,7 +514,12 @@ def is_greater_than_293():
     return False
 
 def is_greater_than_300():
-    if bpy.app.version >= (3, 00, 0):
+    if bpy.app.version >= (3, 0, 0):
+        return True
+    return False
+
+def is_greater_than_310():
+    if bpy.app.version >= (3, 1, 0):
         return True
     return False
 
