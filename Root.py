@@ -789,6 +789,7 @@ class YPaintNodeInputCollItem(bpy.types.PropertyGroup):
     name : StringProperty(default='')
     node_name : StringProperty(default='')
     input_name : StringProperty(default='')
+    input_index : IntProperty(default=0)
 
 def update_connect_to(self, context):
     yp = get_active_ypaint_node().node_tree.yp
@@ -810,7 +811,7 @@ def refresh_input_coll(self, context, ch_type):
 
     for node in nodes:
         if node == yp_node: continue
-        for inp in node.inputs:
+        for i, inp in enumerate(node.inputs):
             if ch_type == 'VALUE' and inp.type != 'VALUE': continue
             elif ch_type == 'RGB' and inp.type not in {'RGBA', 'VECTOR'}: continue
             elif ch_type == 'NORMAL' and 'Normal' not in inp.name: continue
@@ -820,6 +821,7 @@ def refresh_input_coll(self, context, ch_type):
             item.name = label
             item.node_name = node.name
             item.input_name = inp.name
+            item.input_index = i
 
 def do_alpha_setup(mat, node, channel):
     tree = mat.node_tree
@@ -983,7 +985,8 @@ class YConnectYPaintChannel(bpy.types.Operator):
         inp = None
         if item:
             target_node = mat.node_tree.nodes.get(item.node_name)
-            inp = target_node.inputs[item.input_name]
+            #inp = target_node.inputs[item.input_name]
+            inp = target_node.inputs[item.input_index]
             mat.node_tree.links.new(node.outputs[channel.name], inp)
 
             if channel.enable_alpha:
@@ -1110,7 +1113,8 @@ class YNewYPaintChannel(bpy.types.Operator):
         inp = None
         if item:
             target_node = mat.node_tree.nodes.get(item.node_name)
-            inp = target_node.inputs[item.input_name]
+            #inp = target_node.inputs[item.input_name]
+            inp = target_node.inputs[item.input_index]
             mat.node_tree.links.new(node.outputs[channel.name], inp)
 
         # Set input default value
@@ -2017,7 +2021,8 @@ class YCleanYPCaches(bpy.types.Operator):
         return {'FINISHED'}
 
 def get_channel_name(self):
-    return self['name']
+    name = self.get('name', '') # May be null
+    return name
 
 def set_channel_name(self, value):
     yp = self.id_data.yp 
@@ -2026,8 +2031,8 @@ def set_channel_name(self, value):
     for bt in yp.bake_targets:
         for letter in rgba_letters:
             btc = getattr(bt, letter)
-            if getattr(btc, 'channel_name') == self.name:
-                setattr(btc, 'channel_name', value)
+            if btc.channel_name != '' and btc.channel_name == self.name:
+                btc.channel_name  = value
 
     self['name'] = value
 
