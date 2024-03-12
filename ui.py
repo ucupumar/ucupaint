@@ -756,7 +756,7 @@ def draw_bake_targets_ui(context, layout, node):
 
     rcol = row.column()
     rcol.template_list("NODE_UL_YPaint_bake_targets", "", yp,
-            "bake_targets", yp, "active_bake_target_index", rows=3, maxrows=5)
+            "bake_targets", yp, "active_bake_target_index", rows=2, maxrows=5)
 
     rcol = row.column(align=True)
     #rcol.context_pointer_set('node', node)
