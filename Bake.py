@@ -1597,7 +1597,7 @@ class YBakeChannels(bpy.types.Operator):
                                 UDIM.swap_tile(baked.image, 1001, tilenum)
 
                             # Copy pixels
-                            copy_image_channel_pixels(baked.image, btimg, src_idx=subidx, dest_idx=i, flip_value=btc.flip_value)
+                            copy_image_channel_pixels(baked.image, btimg, src_idx=subidx, dest_idx=i, invert_value=btc.invert_value)
 
                             # Swap tile again to recover
                             if tilenum != 1001:

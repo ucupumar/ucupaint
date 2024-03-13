@@ -52,9 +52,9 @@ class YBakeTargetChannel(bpy.types.PropertyGroup):
             items = normal_type_items,
             default='COMBINED')
 
-    flip_value : BoolProperty(
-            name = 'Flip Value',
-            description = 'Flip value',
+    invert_value : BoolProperty(
+            name = 'Invert Value',
+            description = 'Invert value',
             default = False)
 
 class YBakeTarget(bpy.types.PropertyGroup):
@@ -182,7 +182,7 @@ class YNewBakeTarget(bpy.types.Operator):
                     bt.g.subchannel_index = '1'
                     bt.b.subchannel_index = '2'
 
-                    bt.g.flip_value = True
+                    bt.g.invert_value = True
 
         yp.active_bake_target_index = len(yp.bake_targets)-1
 

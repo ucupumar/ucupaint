@@ -739,8 +739,8 @@ def draw_bake_target_channel(context, layout, bt, letter='r'):
             brow.prop(btc, 'normal_type', text='')
 
         brow = bcol.row(align=True)
-        brow.label(text='Flip Value:')
-        brow.prop(btc, 'flip_value', text='')
+        brow.label(text='Invert Value:')
+        brow.prop(btc, 'invert_value', text='')
 
 def draw_bake_targets_ui(context, layout, node):
     group_tree = node.node_tree
