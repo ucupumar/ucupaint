@@ -5233,6 +5233,7 @@ class YLayer(bpy.types.PropertyGroup):
     uv_neighbor_1 : StringProperty(default='')
     uv_map : StringProperty(default='')
     mapping : StringProperty(default='')
+    baked_mapping : StringProperty(default='')
     texcoord : StringProperty(default='')
     blur_vector : StringProperty(default='')
 

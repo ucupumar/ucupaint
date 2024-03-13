@@ -256,7 +256,7 @@ def get_segment_mapping(segment, image):
 
     return scale_x, scale_y, offset_x, offset_y
 
-def set_segment_mapping(entity, segment, image):
+def set_segment_mapping(entity, segment, image, force_create_mapping=False):
 
     if image.source == 'TILED':
         UDIM.set_udim_segment_mapping(entity, segment, image)
@@ -267,8 +267,20 @@ def set_segment_mapping(entity, segment, image):
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: mapping = get_layer_mapping(entity)
-    else: mapping = get_mask_mapping(entity)
+    if m1: 
+        tree = get_tree(entity)
+    else: tree = get_mask_tree(entity, True)
+
+    if entity.use_baked:
+        mapping_prop_name = 'baked_mapping'
+        mapping_label_name = 'Baked Mapping'
+    else: 
+        mapping_prop_name = 'mapping'
+        mapping_label_name = 'Mapping'
+
+    mapping = tree.nodes.get(getattr(entity, mapping_prop_name))
+    if not mapping and force_create_mapping:
+        mapping = new_node(tree, entity, mapping_prop_name, 'ShaderNodeMapping', mapping_label_name)
 
     if mapping:
         if is_greater_than_281():

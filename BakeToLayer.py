@@ -2314,8 +2314,7 @@ class YBakeEntityToImage(bpy.types.Operator):
                 col.prop(self, 'disable_current', text='Disable Current Mask')
             else: col.prop(self, 'disable_current', text='Disable Current Layer')
 
-            # TODO: Non duplicate Bake layer/mask to image atlas
-            col.prop(self, 'use_image_atlas')
+        col.prop(self, 'use_image_atlas')
 
     def get_image_atlas_segment(self, context):
         yp = self.yp
@@ -2410,12 +2409,10 @@ class YBakeEntityToImage(bpy.types.Operator):
             self.report({'ERROR'}, "No valid objects found to bake!")
             return {'CANCELLED'}
 
-        overwrite_image = None
+        # Entity checking
+        entity = self.mask if self.mask else self.layer
 
-        if self.mask:
-            entity = self.mask 
-        else: entity = self.layer 
-
+        # Get tile numbers
         self.tilenums = [1001]
         if self.use_udim:
             self.tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
@@ -2488,11 +2485,22 @@ class YBakeEntityToImage(bpy.types.Operator):
                     self.overwrite_image = baked_source.image
                     overwrite_image_name = self.overwrite_image.name
 
+                    if mask.baked_segment_name != '':
+                        if self.overwrite_image.yia.is_image_atlas:
+                            old_segment = self.overwrite_image.yia.segments.get(mask.baked_segment_name)
+                            old_segment.unused = True
+                        elif self.overwrite_image.yua.is_udim_atlas:
+                            UDIM.remove_udim_atlas_segment_by_name(self.overwrite_image, mask.baked_segment_name, yp=yp)
+
                     # Remove node first to also remove its data
                     remove_node(mask_tree, mask, 'baked_source')
 
+                    # Remove baked mapping if image atlas is no longer used
+                    if not self.use_image_atlas:
+                        remove_node(layer_tree, mask, 'baked_mapping')
+
                     # Rename image 
-                    if overwrite_image_name == self.name:
+                    if not segment and overwrite_image_name == self.name:
                         self.image.name = self.name
 
                 # Set bake info to image/segment
@@ -2518,6 +2526,16 @@ class YBakeEntityToImage(bpy.types.Operator):
                 mask.use_baked = True
 
                 yp.halt_update = False
+
+                if segment:
+                    ImageAtlas.set_segment_mapping(mask, segment, self.image, force_create_mapping=True)
+                    mask.baked_segment_name = segment.name
+
+                # Refresh uv
+                refresh_temp_uv(context.object, mask)
+
+                # Refresh Neighbor UV resolution
+                set_uv_neighbor_resolution(mask)
 
                 # Update global uv
                 check_uv_nodes(yp)
@@ -2576,7 +2594,7 @@ class YRemoveBakedEntity(bpy.types.Operator):
             layer = yp.layers[int(m1.group(1))]
             mask = None
             tree = get_tree(layer)
-            baked_source = tree.nodes.get(tree.baked_source)
+            baked_source = tree.nodes.get(layer.baked_source)
         elif m2: 
             layer = yp.layers[int(m2.group(1))]
             mask = layer.masks[int(m2.group(2))]
@@ -2590,9 +2608,23 @@ class YRemoveBakedEntity(bpy.types.Operator):
             self.report({'ERROR'}, "No baked source found!")
             return {'CANCELLED'}
 
+        image = baked_source.image if baked_source else None
+
+        # Remove segment
+        if image and entity.baked_segment_name != '':
+            if image.yia.is_image_atlas:
+                segment = image.yia.segments.get(entity.baked_segment_name)
+                segment.unused = True
+            elif image.yua.is_udim_atlas:
+                UDIM.remove_udim_atlas_segment_by_name(image, entity.baked_segment_name, yp=yp)
+
         # Remove baked source
         remove_node(tree, entity, 'baked_source')
         entity.use_baked = False
+
+        # Remove baked mapping
+        layer_tree = get_tree(layer)
+        remove_node(layer_tree, entity, 'baked_mapping')
 
         return {'FINISHED'}
 

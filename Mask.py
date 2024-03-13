@@ -172,6 +172,7 @@ def remove_mask(layer, mask, obj):
     remove_node(tree, mask, 'baked_source')
     remove_node(tree, mask, 'blur_vector')
     remove_node(tree, mask, 'mapping')
+    remove_node(tree, mask, 'baked_mapping')
     remove_node(tree, mask, 'linear')
     remove_node(tree, mask, 'uv_map')
     remove_node(tree, mask, 'uv_neighbor')
@@ -1807,6 +1808,7 @@ class YLayerMask(bpy.types.PropertyGroup):
     uv_map : StringProperty(default='')
     uv_neighbor : StringProperty(default='')
     mapping : StringProperty(default='')
+    baked_mapping : StringProperty(default='')
     blur_vector : StringProperty(default='')
 
     linear : StringProperty(default='')

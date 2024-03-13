@@ -1485,7 +1485,6 @@ def reconnect_source_internal_nodes(layer):
     tree = get_source_tree(layer)
 
     source = tree.nodes.get(layer.source)
-    #mapping = tree.nodes.get(layer.mapping)
     linear = tree.nodes.get(layer.linear)
     divider_alpha = tree.nodes.get(layer.divider_alpha)
     flip_y = tree.nodes.get(layer.flip_y)
@@ -1493,12 +1492,6 @@ def reconnect_source_internal_nodes(layer):
     #solid = tree.nodes.get(ONE_VALUE)
     end = tree.nodes.get(TREE_END)
 
-    #if layer.type != 'VCOL':
-    #    create_link(tree, start.outputs[0], source.inputs[0])
-    #if mapping:
-    #    create_link(tree, start.outputs[0], mapping.inputs[0])
-    #    create_link(tree, mapping.outputs[0], source.inputs[0])
-    #else:
     create_link(tree, start.outputs[0], source.inputs[0])
 
     rgb = source.outputs[0]
@@ -1666,10 +1659,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         if vector and mapping:
             vector = create_link(tree, vector, mapping.inputs[0])[0]
-            #create_link(tree, mapping.outputs[0], source.inputs[0])
 
     if vector and layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX'}:
-        #if source_group or not mapping:
         create_link(tree, vector, source.inputs[0])
 
         if uv_neighbor: 
@@ -1867,6 +1858,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
                     if mask_mapping:
                         mask_vector = create_link(tree, mask_vector, mask_mapping.inputs[0])[0]
+
+                else:
+                    mask_baked_mapping = nodes.get(mask.baked_mapping)
+                    if mask_baked_mapping:
+                        mask_vector = create_link(tree, mask_vector, mask_baked_mapping.inputs[0])[0]
 
                 create_link(tree, mask_vector, mask_source.inputs[0])
 

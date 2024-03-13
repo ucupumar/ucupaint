@@ -3079,7 +3079,7 @@ def refresh_temp_uv(obj, entity):
         remove_temp_uv(obj, entity)
         return False
 
-    if (m1 or m2) and entity.type != 'IMAGE':
+    if (m1 or m2) and (entity.type != 'IMAGE' and not entity.use_baked):
         remove_temp_uv(obj, entity)
         return False
 
@@ -3094,12 +3094,23 @@ def refresh_temp_uv(obj, entity):
 
     # Get source
     if m1: 
-        source = get_layer_source(entity)
-        mapping = get_layer_mapping(entity)
+        if entity.use_baked:
+            tree = get_tree(entity)
+            source = tree.nodes.get(entity.baked_source)
+            mapping = tree.nodes.get(entity.baked_mapping)
+        else:
+            source = get_layer_source(entity)
+            mapping = get_layer_mapping(entity)
         #print('Layer!')
     elif m2: 
-        source = get_mask_source(entity)
-        mapping = get_mask_mapping(entity)
+        if entity.use_baked:
+            mask_tree = get_mask_tree(entity)
+            source = mask_tree.nodes.get(entity.baked_source)
+            layer_tree = get_mask_tree(entity, True)
+            mapping = layer_tree.nodes.get(entity.baked_mapping)
+        else:
+            source = get_mask_source(entity)
+            mapping = get_mask_mapping(entity)
         #print('Mask!')
     elif m3: 
         source = layer_tree.nodes.get(entity.source)
