@@ -2243,7 +2243,7 @@ class YBakeEntityToImage(bpy.types.Operator):
                 except: pass
 
             if self.entity.uv_name in self.uv_map_coll:
-                self.uv_map = self.entity.uv_name
+                self.uv_map = self.entity.baked_uv_name if self.entity.baked_uv_name != '' else self.entity.uv_name
 
         else:
             if len(self.uv_map_coll) > 0:
@@ -2516,7 +2516,7 @@ class YBakeEntityToImage(bpy.types.Operator):
                 baked_source.image = self.image
 
                 # Set mask props
-                mask.uv_name = self.uv_map
+                mask.baked_uv_name = self.uv_map
                 mask.use_baked = True
 
                 yp.halt_update = False

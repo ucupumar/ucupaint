@@ -511,7 +511,6 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
         for i, image in enumerate(images):
             if image.yia.is_image_atlas or image.yua.is_udim_atlas: continue
-            #if image.source == 'TILED': continue # UDIM Atlas is not supported yet
 
             used_by_masks = False
             valid_entities = []

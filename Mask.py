@@ -1701,6 +1701,11 @@ class YLayerMask(bpy.types.PropertyGroup):
             description = 'UV Name to use for mask coordinate',
             default='', update=update_mask_uv_name)
 
+    baked_uv_name : StringProperty(
+            name = 'Baked UV Name',
+            description = 'UV Name to use for baked mask coordinate',
+            default='')
+
     blend_type : EnumProperty(
         name = 'Blend',
         items = mask_blend_type_items,

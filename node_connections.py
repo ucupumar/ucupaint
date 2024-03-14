@@ -1180,9 +1180,15 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             if layer.texcoord_type == 'UV' and layer.uv_name not in uv_names:
                 uv_names.append(layer.uv_name)
 
+            if layer.use_baked and layer.baked_uv_name != '' and layer.baked_uv_name not in uv_names:
+                uv_names.append(layer.baked_uv_name)
+
             for mask in layer.masks:
                 if mask.texcoord_type == 'UV' and mask.uv_name not in uv_names:
                     uv_names.append(mask.uv_name)
+
+                if mask.use_baked and mask.baked_uv_name != '' and mask.baked_uv_name not in uv_names:
+                    uv_names.append(mask.baked_uv_name)
 
             for uv_name in uv_names:
                 uv = yp.uvs.get(uv_name)
@@ -1843,9 +1849,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
 
         # Mask texcoord
         mask_vector = None
+        mask_uv_name = mask.uv_name if not mask.use_baked or mask.baked_uv_name == '' else mask.baked_uv_name
         if mask.use_baked or mask.type not in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
             if mask.use_baked or mask.texcoord_type == 'UV':
-                mask_vector = texcoord.outputs.get(mask.uv_name + io_suffix['UV'])
+                mask_vector = texcoord.outputs.get(mask_uv_name + io_suffix['UV'])
             else: 
                 mask_vector = texcoord.outputs.get(io_names[mask.texcoord_type])
 
@@ -1882,8 +1889,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if mask_source_w: create_link(tree, mask_uv_neighbor.outputs['w'], mask_source_w.inputs[0])
 
             # Mask tangent
-            mask_tangent = texcoord.outputs.get(mask.uv_name + io_suffix['TANGENT'])
-            mask_bitangent = texcoord.outputs.get(mask.uv_name + io_suffix['BITANGENT'])
+            mask_tangent = texcoord.outputs.get(mask_uv_name + io_suffix['TANGENT'])
+            mask_bitangent = texcoord.outputs.get(mask_uv_name + io_suffix['BITANGENT'])
 
             if 'Tangent' in mask_uv_neighbor.inputs:
                 if tangent: create_link(tree, tangent, mask_uv_neighbor.inputs['Tangent'])

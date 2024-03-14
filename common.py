@@ -1894,15 +1894,17 @@ def get_mask_tree(mask, ignore_group=False):
     if not group_node or group_node.type != 'GROUP': return layer_tree
     return group_node.node_tree
 
-def get_mask_source(mask):
+def get_mask_source(mask, get_baked=False):
     tree = get_mask_tree(mask)
     if tree:
+        if get_baked:
+            return tree.nodes.get(mask.baked_source)
         return tree.nodes.get(mask.source)
     return None
 
-def get_mask_mapping(mask):
+def get_mask_mapping(mask, ignore_baked=True):
     tree = get_mask_tree(mask, True)
-    return tree.nodes.get(mask.mapping)
+    return tree.nodes.get(mask.mapping) if not mask.use_baked or ignore_baked else tree.nodes.get(mask.baked_mapping)
 
 def get_channel_source_tree(ch, layer=None, tree=None):
     yp = ch.id_data.yp
@@ -1961,19 +1963,20 @@ def get_source_tree(layer, tree=None):
 
     return tree
 
-def get_layer_source(layer, tree=None):
+def get_layer_source(layer, tree=None, get_baked=False):
     if not tree: tree = get_tree(layer)
 
+    prop_name = 'source' if not get_baked else 'baked_source'
+
     source_tree = get_source_tree(layer, tree)
-    if source_tree: return source_tree.nodes.get(layer.source)
-    if tree: return tree.nodes.get(layer.source)
+    if source_tree: return source_tree.nodes.get(getattr(layer, prop_name))
+    if tree: return tree.nodes.get(getattr(layer, prop_name))
 
     return None
 
-def get_layer_mapping(layer):
-    #tree = get_source_tree(layer)
+def get_layer_mapping(layer, ignore_baked=True):
     tree = get_tree(layer)
-    return tree.nodes.get(layer.mapping)
+    return tree.nodes.get(layer.mapping) if not layer.use_baked or ignore_baked else tree.nodes.get(layer.baked_mapping)
 
 def get_entity_source(entity):
 
@@ -1985,13 +1988,13 @@ def get_entity_source(entity):
 
     return None
 
-def get_entity_mapping(entity):
+def get_entity_mapping(entity, ignore_baked=True):
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: return get_layer_mapping(entity)
-    elif m2: return get_mask_mapping(entity)
+    if m1: return get_layer_mapping(entity, ignore_baked)
+    elif m2: return get_mask_mapping(entity, ignore_baked)
 
     return None
 
@@ -2898,28 +2901,34 @@ def update_mapping(entity):
             if bpy.context.object and bpy.context.object.mode == 'TEXTURE_PAINT':
                 yp.need_temp_uv_refresh = True
 
-def is_active_uv_map_match_entity(obj, entity):
+def is_active_uv_map_missmatch_entity(obj, entity):
+
+    # Non image entity doesn't need matching UV
+    if not entity.use_baked and entity.type != 'IMAGE':
+        return False
 
     m = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
 
     #if entity.type != 'IMAGE' or entity.texcoord_type != 'UV': return False
     if (m and not is_layer_using_vector(entity)) or entity.texcoord_type != 'UV': return False
-    mapping = get_entity_mapping(entity)
+    mapping = get_entity_mapping(entity, ignore_baked=False)
 
     uv_layers = get_uv_layers(obj)
     if not uv_layers: return False
     uv_layer = uv_layers.active
 
+    uv_name = entity.uv_name if not entity.use_baked or entity.baked_uv_name == '' else entity.baked_uv_name
+
     if mapping and is_transformed(mapping) and obj.mode == 'TEXTURE_PAINT':
         if uv_layer.name != TEMP_UV:
             return True
 
-    elif entity.uv_name in uv_layers and entity.uv_name != uv_layer.name:
+    elif uv_name in uv_layers and uv_name != uv_layer.name:
         return True
 
     return False
 
-def is_active_uv_map_match_active_entity(obj, layer):
+def is_active_uv_map_missmatch_active_entity(obj, layer):
 
     active_mask = None
     for mask in layer.masks:
@@ -2929,7 +2938,7 @@ def is_active_uv_map_match_active_entity(obj, layer):
     if active_mask: entity = active_mask
     else: entity = layer
 
-    return is_active_uv_map_match_entity(obj, entity)
+    return is_active_uv_map_missmatch_entity(obj, entity)
 
 def is_transformed(mapping):
     if is_greater_than_281():
@@ -3064,17 +3073,19 @@ def refresh_temp_uv(obj, entity):
     uv_layers = get_uv_layers(obj)
 
     if m3:
-        layer_uv = uv_layers.get(layer.uv_name)
+        entity_uv = uv_layers.get(layer.uv_name)
     else:
-        layer_uv = uv_layers.get(entity.uv_name)
-        if not layer_uv: 
+        uv_name = entity.baked_uv_name if entity.use_baked and entity.baked_uv_name != '' else entity.uv_name
+        entity_uv = uv_layers.get(uv_name)
+
+        if not entity_uv: 
             return False
 
     # Set active uv
-    if uv_layers.active != layer_uv:
-        try: uv_layers.active = layer_uv
+    if uv_layers.active != entity_uv:
+        try: uv_layers.active = entity_uv
         except: print('EXCEPTIION: Cannot set active uv!')
-        try: layer_uv.active_render = True
+        try: entity_uv.active_render = True
         except: print('EXCEPTIION: Cannot set active uv render!')
 
     if m3 and entity.override_type != 'IMAGE':
@@ -3099,20 +3110,18 @@ def refresh_temp_uv(obj, entity):
         if entity.use_baked:
             tree = get_tree(entity)
             source = tree.nodes.get(entity.baked_source)
-            mapping = tree.nodes.get(entity.baked_mapping)
         else:
             source = get_layer_source(entity)
-            mapping = get_layer_mapping(entity)
+        mapping = get_layer_mapping(entity, ignore_baked=False)
         #print('Layer!')
     elif m2: 
         if entity.use_baked:
             mask_tree = get_mask_tree(entity)
             source = mask_tree.nodes.get(entity.baked_source)
             layer_tree = get_mask_tree(entity, True)
-            mapping = layer_tree.nodes.get(entity.baked_mapping)
         else:
             source = get_mask_source(entity)
-            mapping = get_mask_mapping(entity)
+        mapping = get_mask_mapping(entity, ignore_baked=False)
         #print('Mask!')
     elif m3: 
         source = layer_tree.nodes.get(entity.source)
@@ -3123,7 +3132,7 @@ def refresh_temp_uv(obj, entity):
     if not hasattr(source, 'image'): return False
 
     img = source.image
-    if not img or not is_transformed(mapping):
+    if not img or not mapping or not is_transformed(mapping):
         return False
 
     set_active_object(obj)
@@ -4151,18 +4160,18 @@ def get_active_image_and_stuffs(obj, yp):
     for mask in layer.masks:
         if mask.active_edit:
             source = get_mask_source(mask)
+            baked_source = get_mask_source(mask, get_baked=True)
 
-            if mask.use_baked:
-                mask_tree = get_mask_tree(mask)
-                baked_source = mask_tree.nodes.get(mask.baked_source)
-                if baked_source and baked_source.image:
+            uv_name = mask.uv_name if not mask.use_baked or mask.baked_uv_name == '' else mask.baked_uv_name
+            mapping = get_mask_mapping(mask, ignore_baked=False)
+
+            if mask.use_baked and baked_source:
+                if baked_source.image:
                     image = baked_source.image
                     src_of_img = mask
             elif mask.type == 'IMAGE':
-                uv_name = mask.uv_name
                 image = source.image
                 src_of_img = mask
-                mapping = get_mask_mapping(mask)
             elif mask.type == 'VCOL' and obj.type == 'MESH':
                 # If source is empty, still try to get vertex color
                 if get_source_vcol_name(source) == '':
@@ -4221,16 +4230,19 @@ def is_uv_input_needed(layer, uv_name):
 
     if get_layer_enabled(layer):
 
+        if layer.baked_source != '' and layer.use_baked and layer.baked_uv_name == uv_name:
+            return True
+
         if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
             if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
                 return True
         
         for mask in layer.masks:
             if not get_mask_enabled(mask): continue
-            if mask.baked_source != '' and mask.use_baked and mask.uv_name == uv_name:
+            if mask.use_baked and mask.baked_source != '' and mask.baked_uv_name == uv_name:
                 return True
             if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}: continue
-            if mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
+            if (not mask.use_baked or mask.baked_source == '') and mask.texcoord_type == 'UV' and mask.uv_name == uv_name:
                 return True
 
     return False
@@ -4672,59 +4684,58 @@ def get_yp_entites_using_same_image(yp, image):
 
     return entities 
 
+def check_yp_entities_images_segments_in_lists(entity, image, segment_name, entities=[], images=[], segment_names=[]):
+
+    if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+        if image.yia.is_image_atlas:
+            segment = image.yia.segments.get(segment_name)
+        else: segment = image.yua.segments.get(segment_name)
+        if segment.name not in segment_names:
+            images.append(image)
+            segment_names.append(segment.name)
+            entities.append([entity])
+        else:
+            idx = [i for i, s in enumerate(segment_names) if s == segment.name][0]
+            entities[idx].append(entity)
+    else:
+        if image not in images:
+            images.append(image)
+            segment_names.append('')
+            entities.append([entity])
+        else:
+            idx = [i for i, img in enumerate(images) if img == image][0]
+            entities[idx].append(entity)
+
+    return entities, images, segment_names
+
 def get_yp_entities_images_and_segments(yp):
     entities = []
     images = []
     segment_names = []
 
     for layer in yp.layers:
+        #baked_source = get_layer_source(layer, get_baked=True)
+        #if baked_source and baked_source.image:
+        #    entities, images, segment_names = check_yp_entities_images_segments_in_lists(
+        #            layer, baked_source.image, layer.baked_segment_name, entities, images, segment_names)
+
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source and source.image:
-                image = source.image
-                if image.yia.is_image_atlas or image.yua.is_udim_atlas:
-                    if image.yia.is_image_atlas:
-                        segment = image.yia.segments.get(layer.segment_name)
-                    else: segment = image.yua.segments.get(layer.segment_name)
-                    if segment.name not in segment_names:
-                        images.append(image)
-                        segment_names.append(segment.name)
-                        entities.append([layer])
-                    else:
-                        idx = [i for i, s in enumerate(segment_names) if s == segment.name][0]
-                        entities[idx].append(layer)
-                else:
-                    if image not in images:
-                        images.append(image)
-                        segment_names.append('')
-                        entities.append([layer])
-                    else:
-                        idx = [i for i, img in enumerate(images) if img == image][0]
-                        entities[idx].append(layer)
+                entities, images, segment_names = check_yp_entities_images_segments_in_lists(
+                        layer, source.image, layer.segment_name, entities, images, segment_names)
+
         for mask in layer.masks:
+            #baked_source = get_mask_source(layer, get_baked=True)
+            #if baked_source and baked_source.image:
+            #    entities, images, segment_names = check_yp_entities_images_segments_in_lists(
+            #            mask, baked_source.image, mask.baked_segment_name, entities, images, segment_names)
+
             if mask.type == 'IMAGE':
                 source = get_mask_source(mask)
                 if source and source.image:
-                    image = source.image
-                    if image.yia.is_image_atlas or image.yua.is_udim_atlas:
-                        if image.yia.is_image_atlas:
-                            segment = image.yia.segments.get(mask.segment_name)
-                        else: segment = image.yua.segments.get(mask.segment_name)
-                        if segment.name not in segment_names:
-                            images.append(image)
-                            segment_names.append(segment.name)
-                            entities.append([mask])
-                        else:
-                            idx = [i for i, s in enumerate(segment_names) if s == segment.name][0]
-                            entities[idx].append(mask)
-                    else:
-                        if image not in images:
-                            images.append(image)
-                            segment_names.append('')
-                            entities.append([mask])
-                        else:
-                            idx = [i for i, img in enumerate(images) if img == image][0]
-                            entities[idx].append(mask)
+                    entities, images, segment_names = check_yp_entities_images_segments_in_lists(
+                            mask, source.image, mask.segment_name, entities, images, segment_names)
 
     return entities, images, segment_names
 
@@ -4772,7 +4783,7 @@ def get_all_baked_channel_images(tree):
     return images
 
 def is_layer_using_vector(layer):
-    if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
+    if layer.use_baked or layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'BACKFACE'}:
         return True
 
     for ch in layer.channels:

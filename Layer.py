@@ -5160,6 +5160,11 @@ class YLayer(bpy.types.PropertyGroup):
             description = 'UV Name to use for layer coordinate',
             default='', update=update_uv_name)
 
+    baked_uv_name : StringProperty(
+            name = 'Baked UV Name',
+            description = 'UV Name to use for layer coordinate',
+            default='')
+
     # Parent index
     parent_idx : IntProperty(default=-1)
 
