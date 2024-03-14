@@ -558,15 +558,16 @@ def get_udim_segment_tilenums(segment):
 def get_udim_segment_base_tilenums(segment):
     return [btile.number for btile in segment.base_tiles]
 
-def set_udim_segment_mapping(entity, segment, image):
+def set_udim_segment_mapping(entity, segment, image, mapping=None):
 
     offset_y = get_udim_segment_mapping_offset(segment)
 
-    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    if not mapping:
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: mapping = get_layer_mapping(entity)
-    else: mapping = get_mask_mapping(entity)
+        if m1: mapping = get_layer_mapping(entity)
+        else: mapping = get_mask_mapping(entity)
 
     if mapping: mapping.inputs[1].default_value[1] = offset_y
 

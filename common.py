@@ -2816,22 +2816,24 @@ def get_udim_segment_mapping_offset(segment):
 def is_mapping_possible(entity_type):
     return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} 
 
-def clear_mapping(entity):
+def clear_mapping(entity, mapping=None):
 
-    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    if not mapping:
+        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: mapping = get_layer_mapping(entity)
-    else: mapping = get_mask_mapping(entity)
+        if m1: mapping = get_layer_mapping(entity)
+        else: mapping = get_mask_mapping(entity)
 
-    if is_greater_than_281():
-        mapping.inputs[1].default_value = (0.0, 0.0, 0.0)
-        mapping.inputs[2].default_value = (0.0, 0.0, 0.0)
-        mapping.inputs[3].default_value = (1.0, 1.0, 1.0)
-    else:
-        mapping.translation = (0.0, 0.0, 0.0)
-        mapping.rotation = (0.0, 0.0, 0.0)
-        mapping.scale = (1.0, 1.0, 1.0)
+    if mapping:
+        if is_greater_than_281():
+            mapping.inputs[1].default_value = (0.0, 0.0, 0.0)
+            mapping.inputs[2].default_value = (0.0, 0.0, 0.0)
+            mapping.inputs[3].default_value = (1.0, 1.0, 1.0)
+        else:
+            mapping.translation = (0.0, 0.0, 0.0)
+            mapping.rotation = (0.0, 0.0, 0.0)
+            mapping.scale = (1.0, 1.0, 1.0)
 
 def update_mapping(entity):
 

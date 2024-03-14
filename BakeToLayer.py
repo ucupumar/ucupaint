@@ -2182,15 +2182,12 @@ class YBakeEntityToImage(bpy.types.Operator):
         else: 
             return self.execute(context)
 
-        bi = None
         overwrite_image = None
         if self.mask:
             mask_tree = get_mask_tree(self.mask)
             baked_source = mask_tree.nodes.get(self.mask.baked_source)
             if baked_source and baked_source.image:
                 overwrite_image = baked_source.image
-                if baked_source.image.y_bake_info.is_baked:
-                    bi = baked_source.image.y_bake_info
 
             if overwrite_image:
                 self.name = overwrite_image.name
@@ -2214,7 +2211,28 @@ class YBakeEntityToImage(bpy.types.Operator):
             if not uv.name.startswith(TEMP_UV):
                 self.uv_map_coll.add().name = uv.name
 
-        if bi:
+        if overwrite_image:
+
+            # Get segment set width and height
+            segment = None
+            if overwrite_image.yia.is_image_atlas:
+                segment = overwrite_image.yia.segments.get(self.entity.baked_segment_name)
+                self.width = segment.width
+                self.height = segment.height
+            elif overwrite_image.yua.is_udim_atlas:
+                segment = overwrite_image.yua.segments.get(self.entity.baked_segment_name)
+                tilenums = UDIM.get_udim_segment_tilenums(segment)
+                if len(tilenums) > 0:
+                    tile = overwrite_image.tiles.get(tilenums[0])
+                    self.width = tile.size[0]
+                    self.height = tile.size[1]
+            else:
+                self.width = overwrite_image.size[0]
+                self.height = overwrite_image.size[1]
+
+            # Get bake info
+            bi = segment.bake_info if segment else overwrite_image.y_bake_info
+
             for attr in dir(bi):
                 if attr in {'other_objects', 'selected_objects'}: continue
                 if attr.startswith('__'): continue
@@ -2224,11 +2242,9 @@ class YBakeEntityToImage(bpy.types.Operator):
                 try: setattr(self, attr, getattr(bi, attr))
                 except: pass
 
-        if overwrite_image:
-            self.width = overwrite_image.size[0]
-            self.height = overwrite_image.size[1]
             if self.entity.uv_name in self.uv_map_coll:
                 self.uv_map = self.entity.uv_name
+
         else:
             if len(self.uv_map_coll) > 0:
                 self.uv_map = self.uv_map_coll[0].name
@@ -2319,21 +2335,7 @@ class YBakeEntityToImage(bpy.types.Operator):
     def get_image_atlas_segment(self, context):
         yp = self.yp
 
-        # Get segment from overwrite image
         segment = None
-        if self.overwrite_image:
-            if self.overwrite_image.yia.is_image_atlas:
-                segment = self.overwrite_image.yia.segments.get(self.entity.segment_name)
-            elif self.overwrite_image.yua.is_udim_atlas:
-                segment = self.overwrite_image.yua.segments.get(self.entity.segment_name)
-
-        # Remove current segment first
-        if segment:
-            if self.overwrite_image.yia.is_image_atlas:
-                segment.unused = True
-            elif self.overwrite_image.yua.is_udim_atlas:
-                UDIM.remove_udim_atlas_segment_by_name(overwrite_image, segment.name, yp)
-            segment = None
 
         # Create new segment
         if self.use_image_atlas:
@@ -2417,8 +2419,6 @@ class YBakeEntityToImage(bpy.types.Operator):
         if self.use_udim:
             self.tilenums = UDIM.get_tile_numbers(objs, self.uv_map)
 
-        self.overwrite_image = None
-
         self.image = bake_as_image(objs, mat, entity, self.name, width=self.width, height=self.height, hdr=self.hdr, 
                 samples=self.samples, margin=self.margin, uv_name=self.uv_map, bake_device=self.bake_device, 
                 use_udim=self.use_udim, tilenums=self.tilenums, fxaa=self.fxaa, blur=self.blur, blur_factor=self.blur_factor, denoise=self.denoise,
@@ -2448,9 +2448,6 @@ class YBakeEntityToImage(bpy.types.Operator):
                 for i, c in enumerate(self.mask.channels):
                     mask.channels[i].enable = c.enable
 
-                # Set newly created mask active
-                mask.active_edit = True
-
                 # Reorder index
                 self.layer.masks.move(len(self.layer.masks)-1, self.index+1)
                 check_mask_mix_nodes(self.layer, layer_tree)
@@ -2468,7 +2465,7 @@ class YBakeEntityToImage(bpy.types.Operator):
                 set_uv_neighbor_resolution(mask)
 
                 # Make new mask active
-                mask.active_edit = True
+                self.mask = mask
 
             else:
                 # TODO: Duplicate layer as image(s)
@@ -2482,25 +2479,22 @@ class YBakeEntityToImage(bpy.types.Operator):
 
                 baked_source = mask_tree.nodes.get(mask.baked_source)
                 if baked_source:
-                    self.overwrite_image = baked_source.image
-                    overwrite_image_name = self.overwrite_image.name
+                    overwrite_image = baked_source.image
+                    overwrite_image_name = overwrite_image.name
 
+                    # Remove old segment
                     if mask.baked_segment_name != '':
-                        if self.overwrite_image.yia.is_image_atlas:
-                            old_segment = self.overwrite_image.yia.segments.get(mask.baked_segment_name)
+                        if overwrite_image.yia.is_image_atlas:
+                            old_segment = overwrite_image.yia.segments.get(mask.baked_segment_name)
                             old_segment.unused = True
-                        elif self.overwrite_image.yua.is_udim_atlas:
-                            UDIM.remove_udim_atlas_segment_by_name(self.overwrite_image, mask.baked_segment_name, yp=yp)
+                        elif overwrite_image.yua.is_udim_atlas:
+                            UDIM.remove_udim_atlas_segment_by_name(overwrite_image, mask.baked_segment_name, yp=yp)
 
                     # Remove node first to also remove its data
                     remove_node(mask_tree, mask, 'baked_source')
 
-                    # Remove baked mapping if image atlas is no longer used
-                    if not self.use_image_atlas:
-                        remove_node(layer_tree, mask, 'baked_mapping')
-
-                    # Rename image 
-                    if not segment and overwrite_image_name == self.name:
+                    # Rename image if it's not image atlas
+                    if mask.baked_segment_name == '' and overwrite_image_name == self.name:
                         self.image.name = self.name
 
                 # Set bake info to image/segment
@@ -2527,33 +2521,37 @@ class YBakeEntityToImage(bpy.types.Operator):
 
                 yp.halt_update = False
 
-                if segment:
-                    ImageAtlas.set_segment_mapping(mask, segment, self.image, force_create_mapping=True)
-                    mask.baked_segment_name = segment.name
-
-                # Refresh uv
-                refresh_temp_uv(context.object, mask)
-
-                # Refresh Neighbor UV resolution
-                set_uv_neighbor_resolution(mask)
-
-                # Update global uv
-                check_uv_nodes(yp)
-
-                # Update layer tree inputs
-                check_all_layer_channel_io_and_nodes(self.layer)
-                check_start_end_root_ch_nodes(node.node_tree)
-
-                # Make current mask active
-                mask.active_edit = True
-
-                # Set entity segment name
-                if segment:
-                    self.entity.baked_segment_name = segment.name
-
             else:
                 # TODO: Bake layer as image(s)
                 pass
+
+            if segment:
+                # Set up baked mapping
+                mapping = check_new_node(layer_tree, entity, 'baked_mapping', 'ShaderNodeMapping', 'Baked Mapping')
+                clear_mapping(entity, mapping)
+                ImageAtlas.set_segment_mapping(entity, segment, self.image, mapping=mapping)
+
+                # Set baked segment name to entity
+                entity.baked_segment_name = segment.name
+            else:
+                remove_node(layer_tree, entity, 'baked_mapping')
+
+            # Refresh uv
+            refresh_temp_uv(context.object, entity)
+
+            # Refresh Neighbor UV resolution
+            set_uv_neighbor_resolution(entity)
+
+            # Update global uv
+            check_uv_nodes(yp)
+
+            # Update layer tree inputs
+            check_all_layer_channel_io_and_nodes(self.layer)
+            check_start_end_root_ch_nodes(node.node_tree)
+
+        # Make current mask active
+        if self.mask:
+            self.mask.active_edit = True
 
         reconnect_layer_nodes(self.layer)
         rearrange_layer_nodes(self.layer)
