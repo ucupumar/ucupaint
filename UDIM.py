@@ -524,7 +524,8 @@ def udim_tilenum_items(self, context):
                 mask_entity = True
                 break
 
-        segment = image.yua.segments.get(entity.segment_name)
+        segment_name = entity.segment_name if not entity.use_baked else entity.baked_segment_name
+        segment = image.yua.segments.get(segment_name)
 
         tilenums = get_udim_segment_tilenums(segment)
     else:
@@ -558,16 +559,15 @@ def get_udim_segment_tilenums(segment):
 def get_udim_segment_base_tilenums(segment):
     return [btile.number for btile in segment.base_tiles]
 
-def set_udim_segment_mapping(entity, segment, image, mapping=None):
+def set_udim_segment_mapping(entity, segment, image, use_baked=False):
 
     offset_y = get_udim_segment_mapping_offset(segment)
 
-    if not mapping:
-        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-        if m1: mapping = get_layer_mapping(entity)
-        else: mapping = get_mask_mapping(entity)
+    if m1: mapping = get_layer_mapping(entity, get_baked=use_baked)
+    else: mapping = get_mask_mapping(entity, get_baked=use_baked)
 
     if mapping: mapping.inputs[1].default_value[1] = offset_y
 
@@ -813,6 +813,10 @@ def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
             ents = [ent for ent in entities if ent.segment_name == segment.name]
             if ents: uv_name = ents[0].uv_name
 
+            if uv_name == '':
+                ents = [ent for ent in entities if ent.baked_segment_name == segment.name]
+                if ents: uv_name = ents[0].uv_name if ents[0].baked_uv_name == '' else ents[0].baked_uv_name
+
             # Get new tilenums based on uv
             if uv_name != '':
                 if uv_name not in uv_tilenums_dict:
@@ -919,6 +923,17 @@ def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
             else:
                 segment = image.yua.segments.get(entity.segment_name)
                 if segment: set_udim_segment_mapping(entity, segment, image)
+
+        if entity.baked_segment_name != '':
+            if entity.baked_segment_name in oob_dict: 
+                # Set entity that are using newly create segment on other image
+                source = get_entity_source(entity, get_baked=True)
+                source.image = new_segment.id_data
+                entity.baked_segment_name = new_segment.name
+                set_udim_segment_mapping(entity, new_segment, new_segment.id_data, use_baked=True)
+            else:
+                segment = image.yua.segments.get(entity.baked_segment_name)
+                if segment: set_udim_segment_mapping(entity, segment, image, use_baked=True)
 
     # Also refresh newly created atlas images
     for new_image in new_atlas_images:

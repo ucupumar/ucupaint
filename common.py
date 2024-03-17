@@ -4690,6 +4690,11 @@ def get_yp_entites_using_same_image(yp, image):
     for layer in yp.layers:
 
         for mask in layer.masks:
+            baked_source = get_mask_source(mask, get_baked=True)
+            if baked_source and baked_source.image == image:
+                entities.append(mask)
+                continue
+
             if mask.type == 'IMAGE':
                 source = get_mask_source(mask)
                 if source and source.image == image:
@@ -4706,6 +4711,12 @@ def get_yp_entites_using_same_image(yp, image):
                     entities.append(ch)
 
         if layer.type == 'IMAGE':
+
+            baked_source = get_layer_source(layer, get_baked=True)
+            if baked_source and baked_source.image == image:
+                entities.append(layer)
+                continue
+
             source = get_layer_source(layer)
             if source and source.image == image:
                 entities.append(layer)

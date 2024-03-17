@@ -2533,7 +2533,7 @@ class YBakeEntityToImage(bpy.types.Operator):
                 # Set up baked mapping
                 mapping = check_new_node(layer_tree, entity, 'baked_mapping', 'ShaderNodeMapping', 'Baked Mapping')
                 clear_mapping(entity, use_baked=True)
-                ImageAtlas.set_segment_mapping(entity, segment, self.image, mapping=mapping)
+                ImageAtlas.set_segment_mapping(entity, segment, self.image, use_baked=True)
 
                 # Set baked segment name to entity
                 entity.baked_segment_name = segment.name

@@ -254,20 +254,19 @@ def get_segment_mapping(segment, image):
 
     return scale_x, scale_y, offset_x, offset_y
 
-def set_segment_mapping(entity, segment, image, mapping=None):
+def set_segment_mapping(entity, segment, image, use_baked=False):
 
     if image.source == 'TILED':
-        UDIM.set_udim_segment_mapping(entity, segment, image, mapping)
+        UDIM.set_udim_segment_mapping(entity, segment, image, use_baked)
         return
     
     scale_x, scale_y, offset_x, offset_y = get_segment_mapping(segment, image)
 
-    if not mapping:
-        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-        if m1: mapping = get_layer_mapping(entity)
-        else: mapping = get_mask_mapping(entity)
+    if m1: mapping = get_layer_mapping(entity, get_baked=use_baked)
+    else: mapping = get_mask_mapping(entity, get_baked=use_baked)
 
     if mapping:
         if is_greater_than_281():
@@ -497,12 +496,6 @@ class YConvertToImageAtlas(bpy.types.Operator):
 
         if self.all_images:
             entities, images, segment_names, segment_name_props = get_yp_entities_images_and_segments(yp)
-            print('ENTITIES')
-            for ent in entities:
-                print(ent)
-            print('IMAGES', images)
-            print('SEGMENT NAMES', segment_names)
-            print('SEGMENT NAME PROPS', segment_name_props)
         else:
             mapping = get_entity_mapping(context.entity)
             if is_transformed(mapping) and not context.entity.use_baked:
