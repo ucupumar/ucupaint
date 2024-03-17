@@ -1370,14 +1370,25 @@ def get_layer_ids_with_specific_segment(yp, segment):
     ids = []
 
     for i, layer in enumerate(yp.layers):
-        if layer.type == 'IMAGE':
-            source = get_layer_source(layer)
-            if not source or not source.image: continue
-            image = source.image
-            if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == layer.segment_name) or
-                (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == layer.segment_name)
+        tree = get_tree(layer)
+        baked_source = tree.nodes.get(layer.baked_source)
+        if layer.use_baked and baked_source and baked_source.image:
+            image = baked_source.image
+            if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == layer.baked_segment_name) or
+                (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == layer.baked_segment_name)
                 ):
                 ids.append(i)
+                continue
+
+        if layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source and source.image:
+                image = source.image
+                if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == layer.segment_name) or
+                    (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == layer.segment_name)
+                    ):
+                    ids.append(i)
+                    continue
 
     return ids
 
@@ -1396,14 +1407,26 @@ def get_masks_with_specific_segment(layer, segment):
     masks = []
 
     for m in layer.masks:
-        if m.type == 'IMAGE':
-            source = get_mask_source(m)
-            if not source or not source.image: continue
-            image = source.image
-            if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == m.segment_name) or
-                (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == m.segment_name)
+
+        tree = get_mask_tree(m)
+        baked_source = tree.nodes.get(m.baked_source)
+        if m.use_baked and baked_source and baked_source.image:
+            image = baked_source.image
+            if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == m.baked_segment_name) or
+                (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == m.baked_segment_name)
                 ):
                 masks.append(m)
+                continue
+
+        if m.type == 'IMAGE':
+            source = get_mask_source(m)
+            if source and source.image:
+                image = source.image
+                if ((image.yia.is_image_atlas and any([s for s in image.yia.segments if s == segment]) and segment.name == m.segment_name) or
+                    (image.yua.is_udim_atlas and any([s for s in image.yua.segments if s == segment]) and segment.name == m.segment_name)
+                    ):
+                    masks.append(m)
+                    continue
 
     return masks
 
@@ -1902,9 +1925,9 @@ def get_mask_source(mask, get_baked=False):
         return tree.nodes.get(mask.source)
     return None
 
-def get_mask_mapping(mask, ignore_baked=True):
+def get_mask_mapping(mask, get_baked=False):
     tree = get_mask_tree(mask, True)
-    return tree.nodes.get(mask.mapping) if not mask.use_baked or ignore_baked else tree.nodes.get(mask.baked_mapping)
+    return tree.nodes.get(mask.mapping) if not get_baked else tree.nodes.get(mask.baked_mapping)
 
 def get_channel_source_tree(ch, layer=None, tree=None):
     yp = ch.id_data.yp
@@ -1974,27 +1997,27 @@ def get_layer_source(layer, tree=None, get_baked=False):
 
     return None
 
-def get_layer_mapping(layer, ignore_baked=True):
+def get_layer_mapping(layer, get_baked=False):
     tree = get_tree(layer)
-    return tree.nodes.get(layer.mapping) if not layer.use_baked or ignore_baked else tree.nodes.get(layer.baked_mapping)
+    return tree.nodes.get(layer.mapping) if not get_baked else tree.nodes.get(layer.baked_mapping)
 
-def get_entity_source(entity):
+def get_entity_source(entity, get_baked=False):
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: return get_layer_source(entity)
-    elif m2: return get_mask_source(entity)
+    if m1: return get_layer_source(entity, get_baked)
+    elif m2: return get_mask_source(entity, get_baked)
 
     return None
 
-def get_entity_mapping(entity, ignore_baked=True):
+def get_entity_mapping(entity, get_baked=False):
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-    if m1: return get_layer_mapping(entity, ignore_baked)
-    elif m2: return get_mask_mapping(entity, ignore_baked)
+    if m1: return get_layer_mapping(entity, get_baked)
+    elif m2: return get_mask_mapping(entity, get_baked)
 
     return None
 
@@ -2750,7 +2773,7 @@ def get_correct_uv_neighbor_resolution(ch, image=None):
 
     return res_x, res_y
 
-def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None):
+def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None, use_baked=False):
 
     yp = entity.id_data.yp
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
@@ -2760,13 +2783,13 @@ def set_uv_neighbor_resolution(entity, uv_neighbor=None, source=None):
     if m1: 
         layer = yp.layers[int(m1.group(1))]
         tree = get_tree(entity)
-        if not source: source = get_layer_source(entity)
+        if not source: source = get_layer_source(entity, get_baked=use_baked)
         entity_type = entity.type
         scale = entity.scale
     elif m2: 
         layer = yp.layers[int(m2.group(1))]
         tree = get_tree(layer)
-        if not source: source = get_mask_source(entity)
+        if not source: source = get_mask_source(entity, get_baked=use_baked)
         entity_type = entity.type
         scale = entity.scale
     elif m3: 
@@ -2819,14 +2842,13 @@ def get_udim_segment_mapping_offset(segment):
 def is_mapping_possible(entity_type):
     return entity_type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} 
 
-def clear_mapping(entity, mapping=None):
+def clear_mapping(entity, use_baked=False):
 
-    if not mapping:
-        m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
-        m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
+    m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
+    m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
-        if m1: mapping = get_layer_mapping(entity)
-        else: mapping = get_mask_mapping(entity)
+    if m1: mapping = get_layer_mapping(entity, use_baked)
+    else: mapping = get_mask_mapping(entity, use_baked)
 
     if mapping:
         if is_greater_than_281():
@@ -2838,39 +2860,45 @@ def clear_mapping(entity, mapping=None):
             mapping.rotation = (0.0, 0.0, 0.0)
             mapping.scale = (1.0, 1.0, 1.0)
 
-def update_mapping(entity):
+def update_mapping(entity, use_baked=False):
 
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     # Get source
     if m1: 
-        source = get_layer_source(entity)
-        mapping = get_layer_mapping(entity)
+        source = get_layer_source(entity, get_baked=use_baked)
+        mapping = get_layer_mapping(entity, get_baked=use_baked)
     elif m2: 
-        source = get_mask_source(entity)
-        mapping = get_mask_mapping(entity)
+        source = get_mask_source(entity, get_baked=use_baked)
+        mapping = get_mask_mapping(entity, get_baked=use_baked)
     else: return
 
     if not mapping: return
 
+    segment_name = entity.segment_name if not use_baked else entity.baked_segment_name
+
     yp = entity.id_data.yp
 
-    offset_x = entity.translation[0]
-    offset_y = entity.translation[1]
-    offset_z = entity.translation[2]
+    if use_baked:
+        offset_x = offset_y = offset_z = 0.0
+        scale_x = scale_y = scale_z = 1.0
+    else:
+        offset_x = entity.translation[0]
+        offset_y = entity.translation[1]
+        offset_z = entity.translation[2]
 
-    scale_x = entity.scale[0]
-    scale_y = entity.scale[1]
-    scale_z = entity.scale[2]
+        scale_x = entity.scale[0]
+        scale_y = entity.scale[1]
+        scale_z = entity.scale[2]
 
-    if entity.type == 'IMAGE' and entity.segment_name != '':
+    if (entity.type == 'IMAGE' or use_baked) and segment_name != '':
         image = source.image
         if image.source == 'TILED':
-            segment = image.yua.segments.get(entity.segment_name)
+            segment = image.yua.segments.get(segment_name)
             offset_y = get_udim_segment_mapping_offset(segment) 
         else:
-            segment = image.yia.segments.get(entity.segment_name)
+            segment = image.yia.segments.get(segment_name)
 
             scale_x = segment.width/image.size[0] * scale_x
             scale_y = segment.height/image.size[1] * scale_y
@@ -2911,7 +2939,7 @@ def is_active_uv_map_missmatch_entity(obj, entity):
 
     #if entity.type != 'IMAGE' or entity.texcoord_type != 'UV': return False
     if (m and not is_layer_using_vector(entity)) or entity.texcoord_type != 'UV': return False
-    mapping = get_entity_mapping(entity, ignore_baked=False)
+    mapping = get_entity_mapping(entity, get_baked=entity.use_baked)
 
     uv_layers = get_uv_layers(obj)
     if not uv_layers: return False
@@ -3112,7 +3140,7 @@ def refresh_temp_uv(obj, entity):
             source = tree.nodes.get(entity.baked_source)
         else:
             source = get_layer_source(entity)
-        mapping = get_layer_mapping(entity, ignore_baked=False)
+        mapping = get_layer_mapping(entity, get_baked=entity.use_baked)
         #print('Layer!')
     elif m2: 
         if entity.use_baked:
@@ -3121,7 +3149,7 @@ def refresh_temp_uv(obj, entity):
             layer_tree = get_mask_tree(entity, True)
         else:
             source = get_mask_source(entity)
-        mapping = get_mask_mapping(entity, ignore_baked=False)
+        mapping = get_mask_mapping(entity, get_baked=entity.use_baked)
         #print('Mask!')
     elif m3: 
         source = layer_tree.nodes.get(entity.source)
@@ -4163,7 +4191,7 @@ def get_active_image_and_stuffs(obj, yp):
             baked_source = get_mask_source(mask, get_baked=True)
 
             uv_name = mask.uv_name if not mask.use_baked or mask.baked_uv_name == '' else mask.baked_uv_name
-            mapping = get_mask_mapping(mask, ignore_baked=False)
+            mapping = get_mask_mapping(mask, get_baked=mask.use_baked)
 
             if mask.use_baked and baked_source:
                 if baked_source.image:
@@ -4684,60 +4712,73 @@ def get_yp_entites_using_same_image(yp, image):
 
     return entities 
 
-def check_yp_entities_images_segments_in_lists(entity, image, segment_name, entities=[], images=[], segment_names=[]):
+def check_yp_entities_images_segments_in_lists(entity, image, segment_name, segment_name_prop, entities=[], images=[], segment_names=[], segment_name_props=[]):
 
     if image.yia.is_image_atlas or image.yua.is_udim_atlas:
         if image.yia.is_image_atlas:
             segment = image.yia.segments.get(segment_name)
         else: segment = image.yua.segments.get(segment_name)
-        if segment.name not in segment_names:
+
+        similar_ids = [i for i, s in enumerate(segment_names) if s == segment.name and images[i] == image]
+        if len(similar_ids) > 0:
+            entities[idx].append(similar_ids[0])
+            segment_name_props[idx].append(segment_name_prop)
+        else:
             images.append(image)
             segment_names.append(segment.name)
             entities.append([entity])
-        else:
-            idx = [i for i, s in enumerate(segment_names) if s == segment.name][0]
-            entities[idx].append(entity)
+            segment_name_props.append([segment_name_prop])
+
     else:
         if image not in images:
             images.append(image)
             segment_names.append('')
             entities.append([entity])
+            segment_name_props.append([segment_name_prop])
         else:
             idx = [i for i, img in enumerate(images) if img == image][0]
             entities[idx].append(entity)
+            segment_name_props[idx].append(segment_name_prop)
 
-    return entities, images, segment_names
+    return entities, images, segment_names, segment_name_props
 
 def get_yp_entities_images_and_segments(yp):
     entities = []
     images = []
     segment_names = []
+    segment_name_props = []
 
     for layer in yp.layers:
-        #baked_source = get_layer_source(layer, get_baked=True)
-        #if baked_source and baked_source.image:
-        #    entities, images, segment_names = check_yp_entities_images_segments_in_lists(
-        #            layer, baked_source.image, layer.baked_segment_name, entities, images, segment_names)
+
+        baked_source = get_layer_source(layer, get_baked=True)
+        if baked_source and baked_source.image:
+            image = baked_source.image
+            entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
+                    layer, image, layer.baked_segment_name, 'baked_segment_name', entities, images, segment_names, segment_name_props)
 
         if layer.type == 'IMAGE':
             source = get_layer_source(layer)
             if source and source.image:
-                entities, images, segment_names = check_yp_entities_images_segments_in_lists(
-                        layer, source.image, layer.segment_name, entities, images, segment_names)
+                image = source.image
+                entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
+                        layer, image, layer.segment_name, 'segment_name', entities, images, segment_names, segment_name_props)
 
         for mask in layer.masks:
-            #baked_source = get_mask_source(layer, get_baked=True)
-            #if baked_source and baked_source.image:
-            #    entities, images, segment_names = check_yp_entities_images_segments_in_lists(
-            #            mask, baked_source.image, mask.baked_segment_name, entities, images, segment_names)
+
+            baked_source = get_mask_source(mask, get_baked=True)
+            if baked_source and baked_source.image:
+                image = baked_source.image
+                entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
+                        mask, image, mask.baked_segment_name, 'baked_segment_name', entities, images, segment_names, segment_name_props)
 
             if mask.type == 'IMAGE':
                 source = get_mask_source(mask)
                 if source and source.image:
-                    entities, images, segment_names = check_yp_entities_images_segments_in_lists(
-                            mask, source.image, mask.segment_name, entities, images, segment_names)
+                    image = source.image
+                    entities, images, segment_names, segment_name_props = check_yp_entities_images_segments_in_lists(
+                            mask, image, mask.segment_name, 'segment_name', entities, images, segment_names, segment_name_props)
 
-    return entities, images, segment_names
+    return entities, images, segment_names, segment_name_props
 
 def check_need_prev_normal(layer):
 

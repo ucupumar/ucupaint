@@ -2608,7 +2608,12 @@ def draw_layers_ui(context, layout, node):
                     mask = entity = m
                     mask_idx = i
                     source = get_mask_source(m)
-                    if m.type == 'IMAGE':
+                    if m.use_baked:
+                        mask_tree = get_mask_tree(m)
+                        baked_source = mask_tree.nodes.get(m.baked_source)
+                        if baked_source:
+                            mask_image = baked_source.image
+                    elif m.type == 'IMAGE':
                         #mask_tree = get_mask_tree(m)
                         #source = mask_tree.nodes.get(m.source)
                         #image = source.image
@@ -4088,7 +4093,7 @@ class YLayerListSpecialMenu(bpy.types.Menu):
             col.operator("image.y_convert_image_bit_depth", icon='IMAGE_DATA', text=text)
 
             if UDIM.is_udim_supported():
-                col.separator()
+                #col.separator()
                 text = 'Convert to ' + ('Non UDIM ' if context.image.source == 'TILED' else 'UDIM ') + 'Image'
                 col.operator("image.y_convert_image_tiled", icon='IMAGE_DATA', text=text)
 

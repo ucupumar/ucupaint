@@ -2497,6 +2497,10 @@ class YBakeEntityToImage(bpy.types.Operator):
                     if mask.baked_segment_name == '' and overwrite_image_name == self.name:
                         self.image.name = self.name
 
+                    # Remove baked segment name since the data is removed
+                    if mask.baked_segment_name != '':
+                        entity.baked_segment_name = ''
+
                 # Set bake info to image/segment
                 bi = segment.bake_info if segment else self.image.y_bake_info
 
@@ -2528,7 +2532,7 @@ class YBakeEntityToImage(bpy.types.Operator):
             if segment:
                 # Set up baked mapping
                 mapping = check_new_node(layer_tree, entity, 'baked_mapping', 'ShaderNodeMapping', 'Baked Mapping')
-                clear_mapping(entity, mapping)
+                clear_mapping(entity, use_baked=True)
                 ImageAtlas.set_segment_mapping(entity, segment, self.image, mapping=mapping)
 
                 # Set baked segment name to entity
@@ -2615,6 +2619,9 @@ class YRemoveBakedEntity(bpy.types.Operator):
                 segment.unused = True
             elif image.yua.is_udim_atlas:
                 UDIM.remove_udim_atlas_segment_by_name(image, entity.baked_segment_name, yp=yp)
+
+            # Remove baked segment name since the data is removed
+            entity.baked_segment_name = ''
 
         # Remove baked source
         remove_node(tree, entity, 'baked_source')
