@@ -593,9 +593,12 @@ class YNewLayerMask(bpy.types.Operator):
             elif self.type == 'COLOR_ID':
                 check_colorid_vcol(objs)
 
+        # Voronoi and noise mask will use grayscale value by default
+        source_input = 'RGB' if self.type not in {'VORONOI', 'NOISE'} else 'ALPHA'
+
         # Add new mask
         mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
-                self.hemi_space, self.hemi_use_prev_normal, self.color_id, modifier_type=self.modifier_type)
+                self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, modifier_type=self.modifier_type)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL', 'COLOR_ID'}:

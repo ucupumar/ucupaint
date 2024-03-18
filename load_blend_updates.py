@@ -407,6 +407,15 @@ def update_routine(name):
             if is_greater_than_300():
                 need_to_update_tangent_process_300 = True
 
+        # Version 1.2 will have mask inputs
+        if LooseVersion(ng.yp.version) < LooseVersion('1.2.0'):
+            update_happened = True
+            for layer in ng.yp.layers:
+                for mask in layer.masks:
+                    # Voronoi and noise default is using alpha/value input
+                    if mask.type in {'VORONOI', 'NOISE'}:
+                        mask.source_input = 'ALPHA'
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version
