@@ -940,6 +940,12 @@ def blur_image(image, alpha_aware=True, factor=1.0, samples=512, bake_device='GP
         # Set source image
         source_tex.image = image_copy
 
+        # Blender 2.79 need to set these parameter to correct the gamma
+        if not is_greater_than_280() :
+            if image.colorspace_settings.name == 'sRGB':
+                source_tex.color_space = 'COLOR'
+            else: source_tex.color_space = 'NONE' 
+
         # Connect nodes again
         mat.node_tree.links.new(source_tex.outputs[0], emi.inputs[0])
         mat.node_tree.links.new(emi.outputs[0], output.inputs[0])
