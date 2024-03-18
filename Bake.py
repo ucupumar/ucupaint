@@ -2051,27 +2051,19 @@ class YMergeLayer(bpy.types.Operator):
                 max_height = get_max_height_from_list_of_layers([layer, neighbor_layer], int(self.channel_idx))
                 end_max_height.outputs[0].default_value = max_height
 
-        # Check layer
+        # Merge image layers
         if (layer.type == 'IMAGE' and layer.texcoord_type == 'UV'): # and neighbor_layer.type == 'IMAGE'):
+
 
             book = remember_before_bake(yp)
             prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
                     uv_map=layer.uv_name, bake_type='EMIT' 
                     )
 
-            #yp.halt_update = True
-
-            # Ge list of parent ids
-            #pids = get_list_of_parent_ids(layer)
-
-            # Disable other layers
-            #layer_oris = []
-            #for i, l in enumerate(yp.layers):
-            #    layer_oris.append(l.enable)
-            #    #if i in pids:
-            #    #    l.enable = True
-            #    if l not in {layer, neighbor_layer}:
-            #        l.enable = False
+            # Merge objects if necessary
+            temp_objs = []
+            if len(objs) > 1 and not is_join_objects_problematic(yp):
+                objs = temp_objs = [get_merged_mesh_objects(scene, objs)]
 
             # Disable modfiers and transformations if apply modifiers is not enabled
             if not self.apply_modifiers:
@@ -2088,8 +2080,6 @@ class YMergeLayer(bpy.types.Operator):
                 ori_blend_type = ch.normal_blend_type
                 ch.normal_blend_type = 'MIX'
 
-            #yp.halt_update = False
-
             # Enable alpha on main channel (will also update all the nodes)
             ori_enable_alpha = main_ch.enable_alpha
             yp.alpha_auto_setup = False
@@ -2102,17 +2092,19 @@ class YMergeLayer(bpy.types.Operator):
             merge_success = bake_channel(layer.uv_name, mat, node, main_ch, target_layer=layer)
             #return {'FINISHED'}
 
+            # Remove temporary objects
+            if temp_objs:
+                for o in temp_objs:
+                    m = o.data
+                    bpy.data.objects.remove(o)
+                    bpy.data.meshes.remove(m)
+
             # Recover bake settings
             recover_bake_settings(book, yp)
 
             if not self.apply_modifiers:
                 recover_layer_modifiers_and_transforms(layer, mod_oris)
             else: remove_layer_modifiers_and_transforms(layer)
-
-            # Recover layer enable
-            #for i, le in enumerate(layer_oris):
-            #    if yp.layers[i].enable != le:
-            #        yp.layers[i].enable = le
 
             # Recover original props
             main_ch.enable_alpha = ori_enable_alpha
@@ -2121,9 +2113,11 @@ class YMergeLayer(bpy.types.Operator):
                 ch.blend_type = ori_blend_type
             else: ch.normal_blend_type = ori_blend_type
 
-        #elif (layer.type == 'COLOR' and neighbor_layer.type == 'COLOR' 
-        #        and len(layer.masks) != 0 and len(neighbor_layer.masks) == len(layer.masks)):
-        #    pass
+            # Set all channel intensity value to 1.0
+            for c in layer.channels:
+                c.intensity_value = 1.0
+
+        # Merge vertex color layers
         elif layer.type == 'VCOL' and neighbor_layer.type == 'VCOL':
 
             modifier_found = False
@@ -2196,7 +2190,6 @@ class YMergeLayer(bpy.types.Operator):
             for c in layer.channels:
                 c.intensity_value = 1.0
 
-            #neighbor_layer.enable = False
             merge_success = True
 
         else:
@@ -2309,12 +2302,6 @@ class YMergeMask(bpy.types.Operator):
         # Get neighbor mask
         neighbor_mask = layer.masks[neighbor_idx]
 
-        # Disable modifiers
-        #ori_mods = []
-        #for i, mod in enumerate(mask.modifiers):
-        #    ori_mods.append(mod.enable)
-        #    mod.enable = False
-
         # Get layer tree
         tree = get_tree(layer)
 
@@ -2341,6 +2328,11 @@ class YMergeMask(bpy.types.Operator):
         prepare_bake_settings(book, objs, yp, samples=1, margin=5, 
                 uv_map=mask.uv_name, bake_type='EMIT'
                 )
+
+        # Combine objects if possible
+        temp_objs = []
+        if len(objs) > 1 and not is_join_objects_problematic(yp):
+            objs = temp_objs = [get_merged_mesh_objects(scene, objs)]
 
         # Get material output
         output = get_active_mat_output_node(mat.node_tree)
@@ -2393,6 +2385,13 @@ class YMergeMask(bpy.types.Operator):
 
         # Recover original bsdf
         mat.node_tree.links.new(ori_bsdf, output.inputs[0])
+
+        # Remove temporary objects
+        if temp_objs:
+            for o in temp_objs:
+                m = o.data
+                bpy.data.objects.remove(o)
+                bpy.data.meshes.remove(m)
 
         # Recover bake settings
         recover_bake_settings(book, yp)
