@@ -21,13 +21,13 @@ class YPaintPreferences(AddonPreferences):
             name = 'Image Atlas Size',
             description = 'Image Atlas Size',
             default = 4096,
-            min=2048, max=8192)
+            min=2048, max=16384)
 
     hdr_image_atlas_size : IntProperty(
             name = 'HDR Image Atlas Size',
             description = 'HDR Image Atlas Size',
             default = 2048,
-            min=1024, max=4096)
+            min=1024, max=8192)
 
     unique_image_atlas_per_yp : BoolProperty(
             name = 'Use unique Image Atlas per ' + get_addon_title() + ' tree',
