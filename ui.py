@@ -4087,23 +4087,35 @@ class YLayerListSpecialMenu(bpy.types.Menu):
         #    col.label(text=context.entity.name, icon=get_layer_type_icon(context.entity.type))
 
         if hasattr(context, 'image'):
+            col.menu("NODE_MT_y_image_convert_menu", text='Convert Image')
 
-            col.separator()
-            text = 'Convert to ' + ('Byte ' if context.image.is_float else 'Float ') + 'Image'
-            col.operator("image.y_convert_image_bit_depth", icon='IMAGE_DATA', text=text)
+class YImageConvertToMenu(bpy.types.Menu):
+    bl_idname = "NODE_MT_y_image_convert_menu"
+    bl_label = "Convert Image to Menu"
+    bl_description = "Convert Image to Menu"
 
-            if UDIM.is_udim_supported():
-                #col.separator()
-                text = 'Convert to ' + ('Non UDIM ' if context.image.source == 'TILED' else 'UDIM ') + 'Image'
-                col.operator("image.y_convert_image_tiled", icon='IMAGE_DATA', text=text)
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
 
-            col.separator()
-            if context.image.yia.is_image_atlas or context.image.yua.is_udim_atlas:
-                col.operator("node.y_convert_to_standard_image", icon='IMAGE_DATA', text='Convert to standard Image').all_images = False
-                col.operator("node.y_convert_to_standard_image", icon='IMAGE_DATA', text='Convert All Image Atlas to standard Images').all_images = True
-            else:
-                col.operator("node.y_convert_to_image_atlas", icon='IMAGE_DATA', text='Convert to Image Atlas').all_images = False
-                col.operator("node.y_convert_to_image_atlas", icon='IMAGE_DATA', text='Convert All Images to Image Atlas').all_images = True
+    def draw(self, context):
+        col = self.layout.column()
+
+        text = 'Convert to ' + ('Byte ' if context.image.is_float else 'Float ') + 'Image'
+        col.operator("image.y_convert_image_bit_depth", icon='IMAGE_DATA', text=text)
+
+        if UDIM.is_udim_supported():
+            #col.separator()
+            text = 'Convert to ' + ('Non UDIM ' if context.image.source == 'TILED' else 'UDIM ') + 'Image'
+            col.operator("image.y_convert_image_tiled", icon='IMAGE_DATA', text=text)
+
+        col.separator()
+        if context.image.yia.is_image_atlas or context.image.yua.is_udim_atlas:
+            col.operator("node.y_convert_to_standard_image", icon='IMAGE_DATA', text='Convert to standard Image').all_images = False
+            col.operator("node.y_convert_to_standard_image", icon='IMAGE_DATA', text='Convert All Image Atlas to standard Images').all_images = True
+        else:
+            col.operator("node.y_convert_to_image_atlas", icon='IMAGE_DATA', text='Convert to Image Atlas').all_images = False
+            col.operator("node.y_convert_to_image_atlas", icon='IMAGE_DATA', text='Convert All Images to Image Atlas').all_images = True
 
 class YUVSpecialMenu(bpy.types.Menu):
     bl_idname = "NODE_MT_y_uv_special_menu"
@@ -5134,6 +5146,7 @@ def register():
     bpy.utils.register_class(YBakeTargetMenu)
     bpy.utils.register_class(YBakedImageMenu)
     bpy.utils.register_class(YLayerListSpecialMenu)
+    bpy.utils.register_class(YImageConvertToMenu)
     bpy.utils.register_class(YUVSpecialMenu)
     bpy.utils.register_class(YModifierMenu)
     bpy.utils.register_class(YModifier1Menu)
@@ -5189,6 +5202,7 @@ def unregister():
     bpy.utils.unregister_class(YBakeTargetMenu)
     bpy.utils.unregister_class(YBakedImageMenu)
     bpy.utils.unregister_class(YLayerListSpecialMenu)
+    bpy.utils.unregister_class(YImageConvertToMenu)
     bpy.utils.unregister_class(YUVSpecialMenu)
     bpy.utils.unregister_class(YModifierMenu)
     bpy.utils.unregister_class(YModifier1Menu)
