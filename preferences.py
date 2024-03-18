@@ -20,13 +20,13 @@ class YPaintPreferences(AddonPreferences):
     image_atlas_size : IntProperty(
             name = 'Image Atlas Size',
             description = 'Image Atlas Size',
-            default = 4096,
+            default = 8192,
             min=2048, max=16384)
 
     hdr_image_atlas_size : IntProperty(
             name = 'HDR Image Atlas Size',
             description = 'HDR Image Atlas Size',
-            default = 2048,
+            default = 4096,
             min=1024, max=8192)
 
     unique_image_atlas_per_yp : BoolProperty(
