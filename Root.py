@@ -399,7 +399,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
     use_linear_blending : BoolProperty(
             name = 'Use Linear Color Blending',
-            description = 'Use more accurate linear color blending (it will behave diffrently than Photoshop)',
+            description = 'Use more accurate linear color blending (it will behave differently than Photoshop)',
             default = True)
 
     @classmethod
@@ -3491,7 +3491,7 @@ class YPaint(bpy.types.PropertyGroup):
     # Use linear color blending
     use_linear_blending : BoolProperty(
             name = 'Use Linear Color Blending',
-            description = 'Use more accurate linear color blending (it will behave diffrently than Photoshop)',
+            description = 'Use more accurate linear color blending (it will behave differently than Photoshop)',
             default=False, update=update_use_linear_blending)
 
     # Index pointer to the UI
