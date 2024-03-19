@@ -4088,6 +4088,21 @@ def get_vertex_colors(obj):
 
     return obj.data.color_attributes
 
+def get_vertex_color_names_from_geonodes(obj):
+    vcol_names = []
+
+    for mod in obj.modifiers:
+        if mod.type == 'NODES' and mod.node_group:
+            outputs = get_tree_outputs(mod.node_group)
+            for outp in outputs:
+                if ((is_greater_than_400() and outp.socket_type == 'NodeSocketColor') or
+                    (not is_greater_than_400() and outp.type == 'RGBA')):
+                    name = mod[outp.identifier + '_attribute_name']
+                    if name != '' and name not in vcol_names:
+                        vcol_names.append(name)
+
+    return vcol_names
+
 def get_vertex_color_names(obj):
     if not obj: return []
 
@@ -4102,15 +4117,7 @@ def get_vertex_color_names(obj):
             vcol_names = [v.name for v in obj.data.color_attributes]
 
     # Check geometry nodes outputs
-    for mod in obj.modifiers:
-        if mod.type == 'NODES' and mod.node_group:
-            outputs = get_tree_outputs(mod.node_group)
-            for outp in outputs:
-                if ((is_greater_than_400() and outp.socket_type == 'NodeSocketColor') or
-                    (not is_greater_than_400() and outp.type == 'RGBA')):
-                    name = mod[outp.identifier + '_attribute_name']
-                    if name != '' and name not in vcol_names:
-                        vcol_names.append(name)
+    vcol_names.extend(get_vertex_color_names_from_geonodes(obj))
 
     return vcol_names
 
@@ -4879,7 +4886,7 @@ def get_source_vcol_name(src):
     #    return src.layer_name
     return src.attribute_name
 
-def get_vcol_data_type_and_domain_by_name(obj, vcol_name):
+def get_vcol_data_type_and_domain_by_name(obj, vcol_name, objs=[]):
 
     data_type = 'BYTE_COLOR'
     domain = 'CORNER'
@@ -4894,16 +4901,21 @@ def get_vcol_data_type_and_domain_by_name(obj, vcol_name):
 
     if not vcol:
 
+        # Also check on other objects
+        if not any(objs): objs = [obj]
+
         # Check geometry nodes outputs
-        for mod in obj.modifiers:
-            if mod.type == 'NODES' and mod.node_group:
-                outputs = get_tree_outputs(mod.node_group)
-                for outp in outputs:
-                    if ((is_greater_than_400() and outp.socket_type == 'NodeSocketColor') or
-                        (not is_greater_than_400() and outp.type == 'RGBA')):
-                        if mod[outp.identifier + '_attribute_name'] == vcol_name:
-                            data_type = 'FLOAT_COLOR'
-                            domain = outp.attribute_domain
+        for o in objs:
+            for mod in o.modifiers:
+                if mod.type == 'NODES' and mod.node_group:
+                    outputs = get_tree_outputs(mod.node_group)
+                    for outp in outputs:
+                        if ((is_greater_than_400() and outp.socket_type == 'NodeSocketColor') or
+                            (not is_greater_than_400() and outp.type == 'RGBA')):
+                            if mod[outp.identifier + '_attribute_name'] == vcol_name:
+                                data_type = 'FLOAT_COLOR'
+                                domain = outp.attribute_domain
+                                break
 
     return data_type, domain
 

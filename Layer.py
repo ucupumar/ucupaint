@@ -2226,7 +2226,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
             for o in objs:
                 if self.vcol_name not in get_vertex_colors(o):
                     if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
-                    data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name)
+                    data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
                     other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
                     set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 1.0))
                     set_active_vertex_color(o, other_v)
@@ -2428,7 +2428,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
             for o in objs:
                 if self.vcol_name not in get_vertex_colors(o):
                     if not is_greater_than_330() and len(get_vertex_colors(o)) >= 8: continue
-                    data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name)
+                    data_type, domain = get_vcol_data_type_and_domain_by_name(o, self.vcol_name, objs)
                     other_v = new_vertex_color(o, self.vcol_name, data_type, domain)
                     if is_greater_than_292():
                         set_obj_vertex_colors(o, other_v.name, (0.0, 0.0, 0.0, 0.0))
