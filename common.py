@@ -4905,6 +4905,7 @@ def get_vcol_data_type_and_domain_by_name(obj, vcol_name, objs=[]):
         if not any(objs): objs = [obj]
 
         # Check geometry nodes outputs
+        outp_found = False
         for o in objs:
             for mod in o.modifiers:
                 if mod.type == 'NODES' and mod.node_group:
@@ -4915,7 +4916,12 @@ def get_vcol_data_type_and_domain_by_name(obj, vcol_name, objs=[]):
                             if mod[outp.identifier + '_attribute_name'] == vcol_name:
                                 data_type = 'FLOAT_COLOR'
                                 domain = outp.attribute_domain
+                                outp_found = True
                                 break
+                if outp_found:
+                    break
+            if outp_found:
+                break
 
     return data_type, domain
 
