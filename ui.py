@@ -3070,7 +3070,7 @@ def main_draw(self, context):
                 vcol_name = get_source_vcol_name(src)
                 if vcol_name != '' and vcol_name not in vcols:
                     vcols.append(vcol_name)
-            elif layer.type not in {'COLOR', 'BACKGROUND', 'GROUP'}:
+            elif layer.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'VORONOI', 'WAVE'}:
                 num_gen_texs += 1
 
             for ch in layer.channels:
@@ -3133,8 +3133,14 @@ def main_draw(self, context):
                     vcol_name = get_source_vcol_name(src)
                     if vcol_name != '' and vcol_name not in vcols:
                         vcols.append(vcol_name)
-                else:
+                elif mask.type in {'BRICK', 'CHECKER', 'GRADIENT', 'MAGIC', 'MUSGRAVE', 'NOISE', 'VORONOI', 'WAVE'}:
                     num_gen_texs += 1
+
+                if mask.type == 'MODIFIER':
+                    if mask.modifier_type == 'RAMP':
+                        num_ramps += 1
+                    elif mask.modifier_type == 'CURVE':
+                        num_curves += 1
 
                 for mod in mask.modifiers:
                     if not mod.enable: continue
