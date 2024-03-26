@@ -2091,9 +2091,6 @@ def change_vcol_name(yp, obj, src, new_name, layer=None):
 
     # HACK: Blender 3.2+ did not automatically update viewport after vertex color rename
     if is_greater_than_320():
-        mat = get_active_material()
-        objs = get_all_objects_with_same_materials(mat, True) if mat.users > 1 else [obj]
-
         for o in objs:
             set_active_object(o)
             if o.mode == 'OBJECT':
