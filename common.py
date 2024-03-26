@@ -1681,6 +1681,8 @@ def get_node_tree_lib(name):
     lib_found = load_from_lib_blend(name, 'lib.blend')
     if not lib_found:
         lib_found = load_from_lib_blend(name, 'lib_281.blend')
+    if not lib_found:
+        lib_found = load_from_lib_blend(name, 'lib_282.blend')
 
     node_tree = bpy.data.node_groups.get(name)
 

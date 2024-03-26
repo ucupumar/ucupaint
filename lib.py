@@ -87,6 +87,7 @@ OBJECT_INDEX_GREATER_THAN = '~yPL Object Index Greater Than'
 OBJECT_INDEX_LESS_THAN = '~yPL Object Index Less Than'
 
 COLOR_ID_EQUAL = '~yPL Color ID Equal'
+COLOR_ID_EQUAL_282 = '~yPL Color ID Equal 2.82'
 
 HEMI = '~yPL Hemi'
 FXAA = '~yPL FXAA'

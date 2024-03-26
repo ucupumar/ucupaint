@@ -63,7 +63,9 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         source.inputs[0].default_value = object_index
 
     if mask_type == 'COLOR_ID':
-        source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL)
+        if is_greater_than_282():
+            source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL_282)
+        else: source.node_tree = get_node_tree_lib(lib.COLOR_ID_EQUAL)
         mask.color_id = color_id
         col = (color_id[0], color_id[1], color_id[2], 1.0)
         source.inputs[0].default_value = col
