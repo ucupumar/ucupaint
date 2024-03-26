@@ -24,7 +24,7 @@ permissions = ["files", "network"]
 # https://docs.blender.org/manual/en/dev/extensions/tags.html
 tags = ["Node", "Material"]
 
-blender_version_min = "2.8.0"
+blender_version_min = "4.2.0"
 # Optional: maximum supported Blender version
 # blender_version_max = "5.1.0"
 
