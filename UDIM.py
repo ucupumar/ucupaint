@@ -902,7 +902,7 @@ def refresh_udim_atlas(image, yp=None, check_uv=True, remove_index=-1):
             dirty = True
 
     # Pack after fill
-    if dirty: initial_pack_udim(image)
+    if dirty or image.filepath == '': initial_pack_udim(image)
 
     # Rearrange tiles
     rearrange_tiles(image, convert_dict)
