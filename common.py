@@ -805,16 +805,19 @@ def blend_color_mix_byte(src1, src2, intensity1=1.0, intensity2=1.0):
 
     return dst
 
-def copy_id_props(source, dest, extras = []):
+def copy_id_props(source, dest, extras = [], reverse=False):
     props = dir(source)
     #print()
     #print(source)
     filters = ['bl_rna', 'rna_type']
     filters.extend(extras)
 
+    if reverse: props.reverse()
+
     for prop in props:
         if prop.startswith('__'): continue
         if prop in filters: continue
+        #if hasattr(prop, 'is_readonly'): continue
         #print(prop)
         try: val = getattr(source, prop)
         except:
@@ -827,7 +830,22 @@ def copy_id_props(source, dest, extras = []):
             dest_val = getattr(dest, prop)
             for subval in val:
                 dest_subval = dest_val.add()
-                copy_id_props(subval, dest_subval)
+                copy_id_props(subval, dest_subval, reverse=reverse)
+
+        elif 'bpy_prop_collection' in attr_type:
+            dest_val = getattr(dest, prop)
+            for i, subval in enumerate(val):
+                dest_subval = None
+
+                if hasattr(dest_val, 'new'):
+                    dest_subval = dest_val.new()
+
+                if not dest_subval:
+                    try: dest_subval = dest_val[i]
+                    except: print('Error bpy_prop_collection get by index:', prop)
+
+                if dest_subval:
+                    copy_id_props(subval, dest_subval, reverse=reverse)
 
         elif 'bpy_prop_array' in attr_type:
             dest_val = getattr(dest, prop)
