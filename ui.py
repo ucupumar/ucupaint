@@ -896,11 +896,11 @@ def draw_root_channels_ui(context, layout, node):
 
         row.label(text=channel.name + ' ' + pgettext_iface('Channel'))
 
-        #if channel.type != 'NORMAL':
-        row.context_pointer_set('parent', channel)
-        row.context_pointer_set('channel_ui', chui)
-        icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
-        row.menu("NODE_MT_y_new_modifier_menu", icon=icon, text='')
+        if channel.type != 'NORMAL':
+            row.context_pointer_set('parent', channel)
+            row.context_pointer_set('channel_ui', chui)
+            icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+            row.menu("NODE_MT_y_new_modifier_menu", icon=icon, text='')
 
         if chui.expand_content:
 
