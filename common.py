@@ -5288,42 +5288,44 @@ def copy_fcurves(src_fc, dest, subdest, attr):
         # Copy driver props with reverse on because some of the props need to set first
         copy_id_props(src_fc.driver, nfc.driver, reverse=True)
 
-    # Remember current frame
-    frame_current = bpy.context.scene.frame_current
+    else:
 
-    for i, kp in enumerate(src_fc.keyframe_points):
-        # Get frame
-        frame = int(kp.co[0])
+        # Remember current frame
+        frame_current = bpy.context.scene.frame_current
 
-        # Set attribute based on fcurve keyframe
-        if array_index >= 0:
-            # Update scene frame
-            bpy.context.scene.frame_set(frame)
+        for i, kp in enumerate(src_fc.keyframe_points):
+            # Get frame
+            frame = int(kp.co[0])
 
-            # Set attribute with index
-            att = getattr(subdest, attr)
-            att[array_index] = src_fc.evaluate(frame)
-        else: 
-            setattr(subdest, attr, src_fc.evaluate(frame))
-
-        # Insert keyframe
-        dest.keyframe_insert(data_path=dest_path, frame=frame)
-
-        # Get new fcurve
-        if not nfc:
+            # Set attribute based on fcurve keyframe
             if array_index >= 0:
-                nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path and f.array_index == array_index][0]
-            else: nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path][0]
+                # Update scene frame
+                bpy.context.scene.frame_set(frame)
 
-        # Get new keyframe point
-        nkp = nfc.keyframe_points[i]
+                # Set attribute with index
+                att = getattr(subdest, attr)
+                att[array_index] = src_fc.evaluate(frame)
+            else: 
+                setattr(subdest, attr, src_fc.evaluate(frame))
 
-        # Copy keyframe props
-        copy_id_props(kp, nkp)
+            # Insert keyframe
+            dest.keyframe_insert(data_path=dest_path, frame=frame)
 
-    # Set frame back
-    if bpy.context.scene.frame_current != frame_current:
-        bpy.context.scene.frame_current = frame_current
+            # Get new fcurve
+            if not nfc:
+                if array_index >= 0:
+                    nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path and f.array_index == array_index][0]
+                else: nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path][0]
+
+            # Get new keyframe point
+            nkp = nfc.keyframe_points[i]
+
+            # Copy keyframe props
+            copy_id_props(kp, nkp)
+
+        # Set frame back
+        if bpy.context.scene.frame_current != frame_current:
+            bpy.context.scene.frame_current = frame_current
 
 def get_yp_fcurves(yp):
     tree = yp.id_data
