@@ -689,9 +689,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
             row.label(text='', icon='BLANK1')
             box = row.box()
             box.active = m.enable
-            if use_modifier_1:
-                NormalMapModifier.draw_modifier_properties(m, box)
-            else: Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, box, False)
+            Modifier.draw_modifier_properties(bpy.context, channel_type, mod_tree.nodes, m, box, False)
 
             #row.label(text='', icon='BLANK1')
 

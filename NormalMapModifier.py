@@ -265,32 +265,6 @@ def update_normalmap_modifier_enable(self, context):
     rearrange_layer_nodes(layer)
     reconnect_layer_nodes(layer)
 
-def draw_modifier_properties(modifier, layout):
-
-    if modifier.type == 'INVERT':
-        row = layout.row(align=True)
-        row.prop(modifier, 'invert_r_enable', text='R', toggle=True)
-        row.prop(modifier, 'invert_g_enable', text='G', toggle=True)
-        row.prop(modifier, 'invert_b_enable', text='B', toggle=True)
-        row.prop(modifier, 'invert_a_enable', text='A', toggle=True)
-
-    elif modifier.type == 'MATH':
-        col = layout.column(align=True)
-        row = col.row()
-        col.prop(modifier, 'math_meth')
-        row = col.row()
-        row.label(text='Clamp:')
-        row.prop(modifier, 'use_clamp', text='')
-        col.prop(modifier, 'math_r_val', text='R')
-        col.prop(modifier, 'math_g_val', text='G')
-        col.prop(modifier, 'math_b_val', text='B')
-        col.separator()
-        row = col.row()
-        row.label(text='Affect Alpha:')
-        row.prop(modifier, 'affect_alpha', text='')
-        if modifier.affect_alpha :
-            col.prop(modifier, 'math_a_val', text='A')
-
 class YNormalMapModifier(bpy.types.PropertyGroup):
     enable : BoolProperty(default=True, update=update_normalmap_modifier_enable)
     name : StringProperty(default='')
