@@ -1,6 +1,7 @@
 import bpy, os, sys, re, time, numpy, math
 from mathutils import *
 from bpy.app.handlers import persistent
+from bpy_types import bpy_types
 #from .__init__ import bl_info
 
 BLENDER_28_GROUP_INPUT_HACK = False
@@ -807,8 +808,6 @@ def blend_color_mix_byte(src1, src2, intensity1=1.0, intensity2=1.0):
 
 def copy_id_props(source, dest, extras = [], reverse=False):
     props = dir(source)
-    #print()
-    #print(source)
     filters = ['bl_rna', 'rna_type']
     filters.extend(extras)
 
@@ -818,21 +817,19 @@ def copy_id_props(source, dest, extras = [], reverse=False):
         if prop.startswith('__'): continue
         if prop in filters: continue
         #if hasattr(prop, 'is_readonly'): continue
-        #print(prop)
         try: val = getattr(source, prop)
         except:
             print('Error prop:', prop)
             continue
-        attr_type = str(type(val))
-        #print(attr_type, prop)
+        attr_type = type(val)
 
-        if 'bpy_prop_collection_idprop' in attr_type:
+        if attr_type == bpy_types.bpy_prop_collection_idprop:
             dest_val = getattr(dest, prop)
             for subval in val:
                 dest_subval = dest_val.add()
                 copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif 'bpy_prop_collection' in attr_type:
+        elif attr_type == bpy_types.bpy_prop_collection:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_subval = None
@@ -847,7 +844,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
                 if dest_subval:
                     copy_id_props(subval, dest_subval, reverse=reverse)
 
-        elif 'bpy_prop_array' in attr_type:
+        elif attr_type == bpy_types.bpy_prop_array:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 dest_val[i] = subval
@@ -866,8 +863,8 @@ def copy_node_props_(source, dest, extras = []):
         if prop.startswith('bl_'): continue
         if prop in filters: continue
         val = getattr(source, prop)
-        attr_type = str(type(val))
-        if 'bpy_func' in attr_type: continue
+        attr_type = type(val)
+        if 'bpy_func' in str(attr_type): continue
         #if 'bpy_prop' in attr_type: continue
         #print(prop, str(type(getattr(source, prop))))
         # Copy stuff here
@@ -878,7 +875,7 @@ def copy_node_props_(source, dest, extras = []):
         #        dest_subval = dest_val.add()
         #        copy_id_props(subval, dest_subval)
 
-        if 'bpy_prop_array' in attr_type:
+        if attr_type == bpy_types.bpy_prop_array:
             dest_val = getattr(dest, prop)
             for i, subval in enumerate(val):
                 try: 
@@ -5268,6 +5265,65 @@ def get_mix_color_indices(mix):
     outidx = 0
 
     return idx0, idx1, outidx
+
+def copy_fcurves(src_fc, dest, subdest, attr):
+    dest_path = subdest.path_from_id() + '.' + attr
+
+    # Get prop value
+    prop_value = getattr(subdest, attr)
+
+    # Check array index
+    array_index = src_fc.array_index if type(prop_value) == bpy_types.bpy_prop_array else -1
+
+    # New fcurve
+    nfc = None
+
+    # Check if fcurve is from driver or not
+    is_driver = type(src_fc.id_data) != bpy.types.Action
+
+    if is_driver:
+        # Add new driver
+        nfc = dest.driver_add(dest_path)
+
+        # Copy driver props with reverse on because some of the props need to set first
+        copy_id_props(src_fc.driver, nfc.driver, reverse=True)
+
+    # Remember current frame
+    frame_current = bpy.context.scene.frame_current
+
+    for i, kp in enumerate(src_fc.keyframe_points):
+        # Get frame
+        frame = int(kp.co[0])
+
+        # Set attribute based on fcurve keyframe
+        if array_index >= 0:
+            # Update scene frame
+            bpy.context.scene.frame_set(frame)
+
+            # Set attribute with index
+            att = getattr(subdest, attr)
+            att[array_index] = src_fc.evaluate(frame)
+        else: 
+            setattr(subdest, attr, src_fc.evaluate(frame))
+
+        # Insert keyframe
+        dest.keyframe_insert(data_path=dest_path, frame=frame)
+
+        # Get new fcurve
+        if not nfc:
+            if array_index >= 0:
+                nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path and f.array_index == array_index][0]
+            else: nfc = [f for f in dest.animation_data.action.fcurves if f.data_path == dest_path][0]
+
+        # Get new keyframe point
+        nkp = nfc.keyframe_points[i]
+
+        # Copy keyframe props
+        copy_id_props(kp, nkp)
+
+    # Set frame back
+    if bpy.context.scene.frame_current != frame_current:
+        bpy.context.scene.frame_current = frame_current
 
 def get_yp_fcurves(yp):
     tree = yp.id_data
