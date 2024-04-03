@@ -823,7 +823,7 @@ def copy_id_props(source, dest, extras = [], reverse=False):
             continue
         attr_type = type(val)
 
-        if attr_type == bpy_types.bpy_prop_collection_idprop:
+        if bpy_types.bpy_prop_collection_idprop in str(attr_type):
             dest_val = getattr(dest, prop)
             for subval in val:
                 dest_subval = dest_val.add()
@@ -869,7 +869,7 @@ def copy_node_props_(source, dest, extras = []):
         #print(prop, str(type(getattr(source, prop))))
         # Copy stuff here
 
-        #if 'bpy_prop_collection_idprop' in attr_type:
+        #if 'bpy_prop_collection_idprop' in str(attr_type):
         #    dest_val = getattr(dest, prop)
         #    for subval in val:
         #        dest_subval = dest_val.add()
