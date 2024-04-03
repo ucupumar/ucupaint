@@ -1825,6 +1825,31 @@ def fix_missing_img(name, src, is_mask=False):
     else: img.generated_color = (0,0,0,0)
     src.image = img
 
+class YOptimizeNormalProcess(bpy.types.Operator):
+    bl_idname = "node.y_optimize_normal_process"
+    bl_label = "Optimize Normal Process"
+    bl_description = "Optimize normal process by not processing normal input when it's not connected"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        group_tree = node.node_tree
+        yp = group_tree.yp
+        root_normal_ch = get_root_height_channel(yp)
+        if not root_normal_ch:
+            return {'CANCELLED'}
+
+        check_start_end_root_ch_nodes(group_tree, specific_channel=root_normal_ch)
+
+        reconnect_yp_nodes(group_tree)
+        rearrange_yp_nodes(group_tree)
+
+        return {'FINISHED'}
+
 class YFixMissingData(bpy.types.Operator):
     bl_idname = "node.y_fix_missing_data"
     bl_label = "Fix Missing Data"
@@ -3731,6 +3756,7 @@ def register():
     bpy.utils.register_class(YRenameYPaintTree)
     bpy.utils.register_class(YChangeActiveYPaintNode)
     bpy.utils.register_class(YDuplicateYPNodes)
+    bpy.utils.register_class(YOptimizeNormalProcess)
     bpy.utils.register_class(YFixMissingData)
     bpy.utils.register_class(YRefreshTangentSignVcol)
     bpy.utils.register_class(YRemoveYPaintNode)
@@ -3780,6 +3806,7 @@ def unregister():
     bpy.utils.unregister_class(YRenameYPaintTree)
     bpy.utils.unregister_class(YChangeActiveYPaintNode)
     bpy.utils.unregister_class(YDuplicateYPNodes)
+    bpy.utils.unregister_class(YOptimizeNormalProcess)
     bpy.utils.unregister_class(YFixMissingData)
     bpy.utils.unregister_class(YRefreshTangentSignVcol)
     bpy.utils.unregister_class(YRemoveYPaintNode)
