@@ -17,6 +17,7 @@ if "bpy" in locals():
     imp.reload(image_ops)
     imp.reload(common)
     imp.reload(bake_common)
+    imp.reload(modifier_common)
     imp.reload(lib)
     imp.reload(ui)
     imp.reload(subtree)
@@ -43,7 +44,7 @@ if "bpy" in locals():
     imp.reload(addon_updater_ops)
 else:
     from . import Localization
-    from . import image_ops, common, bake_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
+    from . import image_ops, common, bake_common, modifier_common, lib, ui, subtree, transition_common, input_outputs, node_arrangements, node_connections, preferences
     from . import vcol_editor, transition, BakeTarget, BakeInfo, UDIM, ImageAtlas, MaskModifier, Mask, Modifier, NormalMapModifier, Layer, Bake, BakeToLayer, Root, load_blend_updates, addon_updater_ops
 
 import bpy 
