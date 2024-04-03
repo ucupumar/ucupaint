@@ -195,10 +195,14 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                             lib_name = lib.BUMP_PROCESS_SUBDIV_ON
                         else: lib_name = lib.BUMP_PROCESS
                 else:
-                    # Unused for now
                     if channel.enable_smooth_bump:
-                        lib_name = lib.FINE_BUMP_PROCESS_NO_OVERLAY
-                    else: lib_name = lib.BUMP_PROCESS_NO_OVERLAY
+                        if channel.enable_subdiv_setup and ypup.eevee_next_displacement:
+                            lib_name = lib.FINE_BUMP_PROCESS_NO_OVERLAY_SUBDIV_ON
+                        else: lib_name = lib.FINE_BUMP_PROCESS_NO_OVERLAY
+                    else:
+                        if channel.enable_subdiv_setup and ypup.eevee_next_displacement:
+                            lib_name = lib.BUMP_PROCESS_NO_OVERLAY_SUBDIV_ON
+                        else: lib_name = lib.BUMP_PROCESS_NO_OVERLAY
 
                 end_linear = replace_new_node(group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Bump Process',
                         lib_name, hard_replace=True)
