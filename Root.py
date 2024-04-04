@@ -1439,12 +1439,15 @@ class YRemoveYPaintChannel(bpy.types.Operator):
         remove_node(group_tree, channel, 'end_linear')
         remove_node(group_tree, channel, 'end_backface')
         remove_node(group_tree, channel, 'end_max_height')
+        remove_node(group_tree, channel, 'end_max_height_tweak')
         remove_node(group_tree, channel, 'start_normal_filter')
         remove_node(group_tree, channel, 'baked')
         remove_node(group_tree, channel, 'baked_vcol')
         remove_node(group_tree, channel, 'baked_normal')
         remove_node(group_tree, channel, 'baked_normal_flip')
         remove_node(group_tree, channel, 'baked_normal_prep')
+        remove_node(group_tree, channel, 'baked_disp')
+        remove_node(group_tree, channel, 'baked_normal_overlay')
 
         for mod in channel.modifiers:
             Modifier.delete_modifier_nodes(group_tree, mod)
