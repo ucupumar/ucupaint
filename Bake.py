@@ -1192,8 +1192,8 @@ class YBakeChannels(bpy.types.Operator):
                 if baked and baked.image:
                     if baked.image.y_bake_info.is_baked:
                         bi = baked.image.y_bake_info
-                    self.width = baked.image.size[0]
-                    self.height = baked.image.size[1]
+                    self.width = baked.image.size[0] if baked.image.size[0] != 0 else ypup.default_new_image_size
+                    self.height = baked.image.size[1] if baked.image.size[1] != 0 else ypup.default_new_image_size
                     break
             
             for ch in yp.channels:

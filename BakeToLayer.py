@@ -506,8 +506,8 @@ class YBakeToLayer(bpy.types.Operator):
                 self.overwrite_image_name = source.image.name
                 if not source.image.yia.is_image_atlas and not source.image.yua.is_udim_atlas:
                     self.overwrite_name = source.image.name
-                    self.width = source.image.size[0]
-                    self.height = source.image.size[1]
+                    self.width = source.image.size[0] if source.image.size[0] != 0 else ypup.default_new_image_size
+                    self.height = source.image.size[1] if source.image.size[1] != 0 else ypup.default_new_image_size
                     self.use_image_atlas = False
                     bi = source.image.y_bake_info
                 else:
@@ -2227,8 +2227,8 @@ class YBakeEntityToImage(bpy.types.Operator):
                     self.width = tile.size[0]
                     self.height = tile.size[1]
             else:
-                self.width = overwrite_image.size[0]
-                self.height = overwrite_image.size[1]
+                self.width = overwrite_image.size[0] if overwrite_image.size[0] != 0 else ypup.default_new_image_size
+                self.height = overwrite_image.size[1] if overwrite_image.size[1] != 0 else ypup.default_new_image_size
 
             # Get bake info
             bi = segment.bake_info if segment else overwrite_image.y_bake_info
