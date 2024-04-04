@@ -4901,12 +4901,12 @@ def is_normal_input_connected(root_normal_ch):
 def is_overlay_normal_empty(yp):
 
     root_ch = get_root_height_channel(yp)
-    if is_normal_input_connected(root_ch):
+    if root_ch and is_normal_input_connected(root_ch):
         return False
 
     for l in yp.layers:
         c = get_height_channel(l)
-        if not l.enable or not c.enable: continue
+        if not c or not l.enable or not c.enable: continue
         if c.normal_map_type == 'NORMAL_MAP' or (c.normal_map_type == 'BUMP_MAP' and not c.write_height):
             return False
 
