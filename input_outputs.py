@@ -113,14 +113,6 @@ def create_output(tree, name, socket_type, valid_outputs, index, dirty=False, de
 
     return dirty
 
-def is_normal_input_connected(root_normal_ch):
-    # NOTE: Assuming that the active node is using the input tree
-    node = get_active_ypaint_node()
-    if not node: return False
-    
-    normal_inp = node.inputs.get(root_normal_ch.name)
-    return normal_inp and len(normal_inp.links) > 0
-
 def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
     yp = group_tree.yp
