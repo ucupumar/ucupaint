@@ -3247,8 +3247,9 @@ def is_normal_input_unconnected_but_has_wrong_normal_process(node, index, root_c
     if root_ch.type != 'NORMAL': return False
     unconnected = len(node.inputs[index].links) == 0 and not yp.use_baked
     end_linear = node.node_tree.nodes.get(root_ch.end_linear)
-    if unconnected and end_linear and end_linear.type == 'GROUP' and end_linear.node_tree and 'No Overlay' not in end_linear.node_tree.name:
-        return True
+    if (unconnected and not any_layers_using_normal_map(root_ch)
+        and end_linear and end_linear.type == 'GROUP' and end_linear.node_tree and 'No Overlay' not in end_linear.node_tree.name):
+            return True
     return False
 
 def is_normal_input_connected_but_has_wrong_normal_process(node, index, root_ch):
@@ -3256,7 +3257,8 @@ def is_normal_input_connected_but_has_wrong_normal_process(node, index, root_ch)
     if root_ch.type != 'NORMAL': return False
     connected = len(node.inputs[index].links) > 0 and not yp.use_baked
     end_linear = node.node_tree.nodes.get(root_ch.end_linear)
-    if connected and end_linear and end_linear.type == 'GROUP' and end_linear.node_tree and 'No Overlay' in end_linear.node_tree.name:
+    if ((connected or any_layers_using_normal_map(root_ch))
+        and end_linear and end_linear.type == 'GROUP' and end_linear.node_tree and 'No Overlay' in end_linear.node_tree.name):
         return True
     return False
 
