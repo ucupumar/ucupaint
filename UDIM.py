@@ -610,6 +610,9 @@ def create_udim_atlas_segment(image, tilenums, width=1024, height=1024, color=(0
 
     #if yp: refresh_udim_atlas(image, yp)
 
+    # Make sure filepath is not empty
+    if image.filepath == '': initial_pack_udim(image)
+
     atlas = image.yua
     name = get_unique_name('Segment', atlas.segments)
 

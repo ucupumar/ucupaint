@@ -3757,6 +3757,7 @@ class YDuplicateLayer(bpy.types.Operator):
             duplicate_layer_nodes_and_images(tree, new_layer, True, self.make_image_blank)
 
             # Rename masks
+            mask_names = [m.name for m in l.masks]
             for mask in new_layer.masks:
                 if mask.type in {'VCOL'}: continue
                 m = re.match(r'^Mask\s.*\((.+)\)$', mask.name)
@@ -3764,6 +3765,11 @@ class YDuplicateLayer(bpy.types.Operator):
                     old_layer_name = m.group(1)
                     if old_layer_name == lname:
                         mask.name = mask.name.replace(old_layer_name, new_layer.name)
+                else:
+                    # Rename mask name with different name than original layer mask since
+                    # image atlas will show actual mask name rather than the image name itself
+                    mask.name = get_unique_name(mask.name, mask_names)
+                    mask_names.append(mask.name)
 
             #yp.layers.move(len(yp.layers)-1, idx)
             created_ids.append(len(yp.layers)-1)
