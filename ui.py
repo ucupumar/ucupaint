@@ -860,17 +860,14 @@ def draw_root_channels_ui(context, layout, node):
             # Optimize normal process button if normal input is disconnected
             root_normal_ch = get_root_height_channel(yp)
             if root_normal_ch:
-                input_index = [i for i, inp in enumerate(inputs) if inp.name == root_normal_ch.name]
-                if input_index:
-                    input_index = input_index[0]
-                    if is_normal_input_unconnected_but_has_wrong_normal_process(node, input_index, root_normal_ch):
-                        row = mcol.row(align=True)
-                        row.alert = True
-                        row.operator('node.y_optimize_normal_process', icon='ERROR', text='Optimize Normal Process')
-                    elif is_normal_input_connected_but_has_wrong_normal_process(node, input_index, root_normal_ch):
-                        row = mcol.row(align=True)
-                        row.alert = True
-                        row.operator('node.y_optimize_normal_process', icon='ERROR', text='Fix Normal Input')
+                if is_normal_input_unconnected_but_has_wrong_normal_process(node, root_normal_ch):
+                    row = mcol.row(align=True)
+                    row.alert = True
+                    row.operator('node.y_optimize_normal_process', icon='ERROR', text='Optimize Normal Process')
+                elif is_normal_input_connected_but_has_wrong_normal_process(node, root_normal_ch):
+                    row = mcol.row(align=True)
+                    row.alert = True
+                    row.operator('node.y_optimize_normal_process', icon='ERROR', text='Fix Normal Input')
 
             if is_output_unconnected(node, output_index, channel):
                 row = mcol.row(align=True)
@@ -3242,20 +3239,20 @@ def is_output_unconnected(node, index, root_ch=None):
         unconnected &= not (not is_greater_than_280() and yp.use_baked and root_ch.subdiv_adaptive)
     return unconnected
 
-def is_normal_input_unconnected_but_has_wrong_normal_process(node, index, root_ch):
+def is_normal_input_unconnected_but_has_wrong_normal_process(node, root_ch):
     yp = node.node_tree.yp
     if root_ch.type != 'NORMAL': return False
-    unconnected = len(node.inputs[index].links) == 0 and not yp.use_baked
+    unconnected = len(node.inputs[root_ch.io_index].links) == 0 and not yp.use_baked
     end_linear = node.node_tree.nodes.get(root_ch.end_linear)
     if (unconnected and not any_layers_using_normal_map(root_ch)
         and end_linear and end_linear.type == 'GROUP' and end_linear.node_tree and 'No Overlay' not in end_linear.node_tree.name):
             return True
     return False
 
-def is_normal_input_connected_but_has_wrong_normal_process(node, index, root_ch):
+def is_normal_input_connected_but_has_wrong_normal_process(node, root_ch):
     yp = node.node_tree.yp
     if root_ch.type != 'NORMAL': return False
-    connected = len(node.inputs[index].links) > 0 and not yp.use_baked
+    connected = len(node.inputs[root_ch.io_index].links) > 0 and not yp.use_baked
     end_linear = node.node_tree.nodes.get(root_ch.end_linear)
     if ((connected or any_layers_using_normal_map(root_ch))
         and end_linear and end_linear.type == 'GROUP' and end_linear.node_tree and 'No Overlay' in end_linear.node_tree.name):
