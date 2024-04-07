@@ -239,6 +239,14 @@ class YVcolFillFaceCustom(bpy.types.Operator):
 
         if is_greater_than_280():
             objs = context.objects_in_mode
+
+            # Set the same vertex color for all objects first
+            vcol = get_active_vertex_color(context.object)
+            for obj in objs:
+                vcols = get_vertex_colors(obj)
+                vc = vcols.get(vcol.name)
+                set_active_vertex_color(obj, vc)
+
         else: objs = [context.object]
 
         for obj in objs:
