@@ -339,36 +339,17 @@ class YInvertImage(bpy.types.Operator):
             #context.image.reload()
             # For some reason this no longer works since Blender 2.82
             bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
+
         else:
+            ori_area_type = context.area.type
+            context.area.type = 'IMAGE_EDITOR'
 
-            # Search for context
-            override = None
-            space = None
-            ori_image = None
+            space = context.area.spaces[0]
+            space.image = context.image
+                
+            bpy.ops.image.invert(invert_r=True, invert_g=True, invert_b=True)
 
-            #for screen in bpy.data.screens:
-            for area in context.screen.areas:
-                if area.type == 'IMAGE_EDITOR':
-                    space = area.spaces[0]
-                    ori_image = space.image
-                    space.image = context.image
-
-                    override = context.copy()
-
-                    override['area'] = area
-                    override['space_data'] = space
-                    break
-
-            if override:
-                # Invert image
-                bpy.ops.image.invert(override, invert_r=True, invert_g=True, invert_b=True)
-                space.image = ori_image
-
-                self.report({'INFO'}, 'You probably need to move the viewport to see the changes!')
-
-            else:
-                self.report({'ERROR'}, 'To use this feature, Image Editor should be opened anywhere on this screen!')
-                return {'CANCELLED'}
+            context.area.type = ori_area_type
 
         return {'FINISHED'}
 
