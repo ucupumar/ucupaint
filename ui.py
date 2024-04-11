@@ -919,12 +919,12 @@ def draw_root_channels_ui(context, layout, node):
                 elif channel.type == 'VALUE':
                     brow.label(text='Base Value:')
 
-                if len(inp.links) == 0:
-                    if not yp.use_baked or channel.no_layer_using:
-                        brow.prop(inp,'default_value', text='')
-                    else:
-                        brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
-                else:
+                if not yp.use_baked or (channel.no_layer_using and len(inp.links) == 0):
+                    brow.prop(inp,'default_value', text='')
+
+                if yp.use_baked and not channel.no_layer_using:
+                    brow.label(text='', icon_value=lib.custom_icons['texture'].icon_id)
+                elif len(inp.links) > 0:
                     brow.label(text='', icon='LINKED')
 
                 if len(channel.modifiers) > 0:
