@@ -1025,7 +1025,7 @@ def set_image_paint_canvas(mat=None, image=None):
     context = bpy.context
     scene = context.scene
 
-    if image == None or mat == None:
+    if image == None or mat == None or not is_greater_than_280():
         scene.tool_settings.image_paint.mode = 'IMAGE'
     elif mat: scene.tool_settings.image_paint.mode = 'MATERIAL'
 
