@@ -111,6 +111,7 @@ def remember_before_bake(yp=None, mat=None):
         book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
     book['ori_cage_extrusion'] = scene.render.bake.cage_extrusion
     book['ori_use_cage'] = scene.render.bake.use_cage
+    book['ori_cage_object_name'] = scene.render.bake.cage_object.name if scene.render.bake.cage_object else ''
 
     if hasattr(scene.render.bake, 'margin_type'):
         book['ori_margin_type'] = scene.render.bake.margin_type
@@ -350,7 +351,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
         disable_problematic_modifiers=False, hide_other_objs=True, bake_from_multires=False, 
         tile_x=64, tile_y=64, use_selected_to_active=False, max_ray_distance=0.0, cage_extrusion=0.0,
         bake_target = 'IMAGE_TEXTURES',
-        source_objs=[], bake_device='GPU', use_denoising=False, margin_type='ADJACENT_FACES'):
+        source_objs=[], bake_device='GPU', use_denoising=False, margin_type='ADJACENT_FACES', cage_object_name=''):
 
     scene = bpy.context.scene
     ypui = bpy.context.window_manager.ypui
@@ -365,7 +366,9 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     if hasattr(scene.render.bake, 'max_ray_distance'):
         scene.render.bake.max_ray_distance = max_ray_distance
     scene.render.bake.cage_extrusion = cage_extrusion
-    scene.render.bake.use_cage = False
+    cage_object = bpy.data.objects.get(cage_object_name) if cage_object_name != '' else None
+    scene.render.bake.use_cage = True if cage_object else False
+    if cage_object: scene.render.bake.cage_object = cage_object
     scene.render.use_simplify = False
     scene.render.bake.use_pass_direct = True
     scene.render.bake.use_pass_indirect = True
@@ -588,6 +591,9 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
         scene.render.bake.max_ray_distance = book['ori_max_ray_distance']
     scene.render.bake.cage_extrusion = book['ori_cage_extrusion']
     scene.render.bake.use_cage = book['ori_use_cage']
+    if book['ori_cage_object_name'] != '':
+        cage_object = bpy.data.objects.get(book['ori_cage_object_name'])
+        if cage_object: scene.render.bake.cage_object = cage_object
 
     if is_greater_than_280():
         bpy.context.view_layer.material_override = book['ori_material_override']

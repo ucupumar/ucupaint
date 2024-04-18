@@ -192,6 +192,13 @@ class YBakeToLayer(bpy.types.Operator):
             )
 
     # Other objects props
+    cage_object_name : StringProperty(
+            name = 'Cage Object',
+            description = 'Object to use as cage instead of calculating the cage from the active object with cage extrusion',
+            default=''
+            )
+    cage_object_coll : CollectionProperty(type=bpy.types.PropertyGroup)
+
     cage_extrusion : FloatProperty(
             name = 'Cage Extrusion',
             description = 'Inflate the active object by the specified distance for baking. This helps matching to points nearer to the outside of the selected object meshes',
@@ -554,6 +561,12 @@ class YBakeToLayer(bpy.types.Operator):
         if len(self.uv_map_coll) > 1:
             self.uv_map_1 = self.uv_map_coll[1].name
 
+        # Cage object collections update
+        self.cage_object_coll.clear()
+        for ob in get_scene_objects():
+            if ob != obj and ob not in bpy.context.selected_objects and ob.type == 'MESH':
+                self.cage_object_coll.add().name = ob.name
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
@@ -603,6 +616,7 @@ class YBakeToLayer(bpy.types.Operator):
             col.label(text='Name:')
 
         if self.type.startswith('OTHER_OBJECT_'):
+            col.label(text='Cage Object:')
             col.label(text='Cage Extrusion:')
             if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
                 col.label(text='Max Ray Distance:')
@@ -672,7 +686,10 @@ class YBakeToLayer(bpy.types.Operator):
             col.label(text=self.overwrite_name)
 
         if self.type.startswith('OTHER_OBJECT_'):
-            col.prop(self, 'cage_extrusion', text='')
+            col.prop_search(self, "cage_object_name", self, "cage_object_coll", text='', icon='OBJECT_DATA')
+            rrow = col.row(align=True)
+            rrow.active = self.cage_object_name == ''
+            rrow.prop(self, 'cage_extrusion', text='')
             if hasattr(bpy.context.scene.render.bake, 'max_ray_distance'):
                 col.prop(self, 'max_ray_distance', text='')
         elif self.type == 'AO':
@@ -775,6 +792,19 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "UVMap and Straight UVMap are cannot be the same or empty!")
             return {'CANCELLED'}
 
+        cage_object = None
+        if self.type.startswith('OTHER_OBJECT_') and self.cage_object_name != '':
+            cage_object = bpy.data.objects.get(self.cage_object_name)
+            if cage_object:
+
+                if any([mod for mod in cage_object.modifiers if mod.type not in {'ARMATURE'}]) or any([mod for mod in obj.modifiers if mod.type not in {'ARMATURE'}]):
+                    self.report({'ERROR'}, "Mesh modifiers is not working with cage object for now!")
+                    return {'CANCELLED'}
+
+                if len(cage_object.data.polygons) != len(obj.data.polygons):
+                    self.report({'ERROR'}, "Invalid cage object, the cage mesh must have the same number of faces as the active object!")
+                    return {'CANCELLED'}
+
         # Get all objects using material
         if self.type.startswith('MULTIRES_') and not get_multires_modifier(context.object):
             objs = []
@@ -794,6 +824,7 @@ class YBakeToLayer(bpy.types.Operator):
                 if hasattr(ob, 'hide_viewport') and ob.hide_viewport: continue
                 if len(get_uv_layers(ob)) == 0: continue
                 if len(ob.data.polygons) == 0: continue
+                if cage_object and cage_object == ob: continue
 
                 # Do not bake objects with hide_render on
                 if ob.hide_render: continue
@@ -1032,13 +1063,17 @@ class YBakeToLayer(bpy.types.Operator):
             tile_x = 256
             tile_y = 256
 
+        # Cage object only used for other object baking
+        cage_object_name = self.cage_object_name if self.type.startswith('OTHER_OBJECT_') else ''
+
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type=bake_type, #disable_problematic_modifiers=True, 
                 bake_device=self.bake_device, hide_other_objs=hide_other_objs, 
                 bake_from_multires=self.type.startswith('MULTIRES_'), tile_x = tile_x, tile_y = tile_y, 
                 use_selected_to_active=self.type.startswith('OTHER_OBJECT_'),
                 max_ray_distance=self.max_ray_distance, cage_extrusion=self.cage_extrusion,
-                source_objs=other_objs, use_denoising=False, margin_type=self.margin_type
+                source_objs=other_objs, use_denoising=False, margin_type=self.margin_type,
+                cage_object_name=cage_object_name
                 )
 
         # Set multires level
