@@ -1042,15 +1042,11 @@ def set_image_paint_canvas(mat=None, image=None):
             img_node = tree.nodes.get(ACTIVE_IMAGE_NODE)
 
         if img_node:
-            # Set yp node as active
-            node.select = True
-            mat.node_tree.nodes.active = node
 
             img_node.image = image
 
             for i, img in enumerate(mat.texture_paint_images):
                 if img.name == image.name:
-                    print(i, img.name, image.name)
                     mat.paint_active_slot = i
                     break
         else:
