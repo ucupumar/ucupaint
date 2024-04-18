@@ -368,7 +368,9 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     scene.render.bake.cage_extrusion = cage_extrusion
     cage_object = bpy.data.objects.get(cage_object_name) if cage_object_name != '' else None
     scene.render.bake.use_cage = True if cage_object else False
-    if cage_object: scene.render.bake.cage_object = cage_object
+    if cage_object: 
+        if is_greater_than_280(): scene.render.bake.cage_object = cage_object
+        else: scene.render.bake.cage_object = cage_object.name
     scene.render.use_simplify = False
     scene.render.bake.use_pass_direct = True
     scene.render.bake.use_pass_indirect = True

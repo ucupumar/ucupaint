@@ -98,8 +98,8 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
     cage_object_name : StringProperty(
             name = 'Cage Object',
             description = 'Object to use as cage instead of calculating the cage from the active object with cage extrusion',
-            default=''
-            )
+            default='')
+
     cage_extrusion : FloatProperty(
             name = 'Cage Extrusion',
             description = 'Inflate the active object by the specified distance for baking. This helps matching to points nearer to the outside of the selected object meshes',
