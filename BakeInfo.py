@@ -95,7 +95,7 @@ class YBakeInfoProps(bpy.types.PropertyGroup):
             default='CPU'
             )
 
-    cage_object : StringProperty(
+    cage_object_name : StringProperty(
             name = 'Cage Object',
             description = 'Object to use as cage instead of calculating the cage from the active object with cage extrusion',
             default=''
