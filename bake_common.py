@@ -111,7 +111,9 @@ def remember_before_bake(yp=None, mat=None):
         book['ori_max_ray_distance'] = scene.render.bake.max_ray_distance
     book['ori_cage_extrusion'] = scene.render.bake.cage_extrusion
     book['ori_use_cage'] = scene.render.bake.use_cage
-    book['ori_cage_object_name'] = scene.render.bake.cage_object.name if scene.render.bake.cage_object else ''
+    if is_greater_than_280():
+        book['ori_cage_object_name'] = scene.render.bake.cage_object.name if scene.render.bake.cage_object else ''
+    else: book['ori_cage_object_name'] = scene.render.bake.cage_object
 
     if hasattr(scene.render.bake, 'margin_type'):
         book['ori_margin_type'] = scene.render.bake.margin_type
@@ -595,7 +597,9 @@ def recover_bake_settings(book, yp=None, recover_active_uv=False, mat=None):
     scene.render.bake.use_cage = book['ori_use_cage']
     if book['ori_cage_object_name'] != '':
         cage_object = bpy.data.objects.get(book['ori_cage_object_name'])
-        if cage_object: scene.render.bake.cage_object = cage_object
+        if cage_object: 
+            if is_greater_than_280(): scene.render.bake.cage_object = cage_object
+            else: scene.render.bake.cage_object = cage_object.name
 
     if is_greater_than_280():
         bpy.context.view_layer.material_override = book['ori_material_override']
