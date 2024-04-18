@@ -2350,7 +2350,7 @@ def update_layer_preview_mode(self, context):
 
             # Set gamma
             if 'Gamma' in preview.inputs:
-                if channel.colorspace != 'LINEAR':
+                if channel.colorspace != 'LINEAR' and not yp.use_linear_blending:
                     preview.inputs['Gamma'].default_value = 2.2
                 else: preview.inputs['Gamma'].default_value = 1.0
 
