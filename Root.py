@@ -101,6 +101,12 @@ def create_new_group_tree(mat):
     # Create IO nodes
     create_essential_nodes(group_tree, True, True, True)
 
+    # HACK: First image node is needed to change active material texture paint slot
+    img_node = group_tree.nodes.new('ShaderNodeTexImage')
+    img_node.name = ACTIVE_IMAGE_NODE
+    img_node.label = 'Active Image'
+    img_node.width = 150
+
     # Create info nodes
     create_info_nodes(group_tree)
 
@@ -255,7 +261,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
         if self.set_canvas_to_empty:
             update_image_editor_image(context, None)
-            context.scene.tool_settings.image_paint.canvas = None
+            set_image_paint_canvas(mat, None)
 
         return {'FINISHED'}
 
@@ -2451,10 +2457,10 @@ def update_active_yp_channel(self, context):
                         baked_image = baked_normal_overlay.image
 
             update_image_editor_image(context, baked_image)
-            context.scene.tool_settings.image_paint.canvas = baked_image
+            set_image_paint_canvas(obj.active_material, baked_image)
         else:
             update_image_editor_image(context, None)
-            context.scene.tool_settings.image_paint.canvas = None
+            set_image_paint_canvas(obj.active_material, None)
 
         if obj.type == 'MESH':
             uv_layers = get_uv_layers(obj)
@@ -2490,9 +2496,6 @@ def update_layer_index(self, context):
             else: layer_node.select = False
 
     if yp.layer_preview_mode: update_layer_preview_mode(yp, context)
-
-    # Set image paint mode to Image
-    scene.tool_settings.image_paint.mode = 'IMAGE'
 
     # Get active image
     image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
@@ -3628,7 +3631,7 @@ def ypaint_last_object_update(scene):
             elif len(yp.layers) > 0 :
                 image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
                 update_image_editor_image(bpy.context, image)
-                try: scene.tool_settings.image_paint.canvas = image
+                try: set_image_paint_canvas(mat, image)
                 except: print('EXCEPTIION: Cannot set image canvas!')
 
     if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:

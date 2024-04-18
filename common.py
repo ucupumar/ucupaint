@@ -5,6 +5,7 @@ from bpy_types import bpy_types
 #from .__init__ import bl_info
 
 BLENDER_28_GROUP_INPUT_HACK = False
+ACTIVE_IMAGE_NODE = 'ACTIVE_IMAGE_NODE'
 
 MAX_VERTEX_DATA = 8
 
@@ -1005,8 +1006,12 @@ def update_tool_canvas_image(context, image):
             unpinned_spaces.append(area.spaces[0])
             unpinned_images.append(area.spaces[0].image)
 
+    obj = context.object
+
     # Update canvas image
-    try: context.scene.tool_settings.image_paint.canvas = image
+    try: 
+        if obj: set_image_paint_canvas(obj.active_material, image)
+        else: set_image_paint_canvas(None, image)
     except Exception as e: print(e)
 
     # Restore original images except for the first index
@@ -1015,6 +1020,38 @@ def update_tool_canvas_image(context, image):
             space.image = unpinned_images[i]
             # Hack for Blender 2.8 which keep pinning image automatically
             space.use_image_pin = False
+
+def set_image_paint_canvas(mat=None, image=None):
+    context = bpy.context
+    scene = context.scene
+
+    if image == None or mat == None:
+        scene.tool_settings.image_paint.mode = 'IMAGE'
+    elif mat: scene.tool_settings.image_paint.mode = 'MATERIAL'
+
+    if scene.tool_settings.image_paint.mode == 'IMAGE':
+        scene.tool_settings.image_paint.canvas = image
+    elif mat and mat.node_tree:
+
+        # HACK: Trying to get active image node inside yp tree
+        img_node = None
+        node = get_active_ypaint_node()
+        if node:
+            tree = node.node_tree
+            yp = tree.yp
+            img_node = tree.nodes.get(ACTIVE_IMAGE_NODE)
+
+        if img_node:
+            img_node.image = image
+
+            for i, img in enumerate(mat.texture_paint_images):
+                if img.name == image.name:
+                    mat.paint_active_slot = i
+                    break
+        else:
+            # Use image canvas as fallback if image node is not found
+            scene.tool_settings.image_paint.mode = 'IMAGE'
+            scene.tool_settings.image_paint.canvas = image
 
 # Check if name already available on the list
 def get_unique_name(name, items, surname = ''):
@@ -1171,10 +1208,16 @@ def get_nodes_using_yp(mat, yp):
 #    if tree.users == 0:
 #        bpy.data.node_groups.remove(tree)
 
-def safe_remove_image(image):
+def safe_remove_image(image, yp_tree=None):
     scene = bpy.context.scene
 
-    if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
+    img_node = None
+    if yp_tree: img_node = yp_tree.nodes.get(ACTIVE_IMAGE_NODE)
+
+    if (
+        (img_node and img_node.image == image and image.users == 2) or
+        (img_node and img_node.image != image and image.users == 1) or
+        (scene.tool_settings.image_paint.canvas == image and image.users == 2) or
         (scene.tool_settings.image_paint.canvas != image and image.users == 1) or
         image.users == 0):
         bpy.data.images.remove(image)
@@ -1237,6 +1280,8 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
 
         dirty = True
 
+        yp_tree = entity.id_data
+
         if parent and node.parent != parent:
             setattr(entity, prop, '')
             return
@@ -1246,7 +1291,7 @@ def remove_node(tree, entity, prop, remove_data=True, parent=None):
             if node.bl_idname == 'ShaderNodeTexImage':
 
                 image = node.image
-                if image: safe_remove_image(image)
+                if image: safe_remove_image(image, yp_tree)
 
             elif node.bl_idname == 'ShaderNodeGroup':
 
