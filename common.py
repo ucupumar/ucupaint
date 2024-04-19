@@ -4199,7 +4199,8 @@ def get_relevant_uv(obj, yp):
 
     return uv_name 
 
-def set_active_paint_slot_entity(yp, image):
+def set_active_paint_slot_entity(yp):
+    image = None
     mat = get_active_material()
     node = get_active_ypaint_node()
     scene = bpy.context.scene
@@ -4219,6 +4220,77 @@ def set_active_paint_slot_entity(yp, image):
         layer_node.select = True
         root_tree.nodes.active = layer_node
         layer_tree = layer_node.node_tree
+
+        for mask in layer.masks:
+            if mask.active_edit:
+                source = get_mask_source(mask)
+                baked_source = get_mask_source(mask, get_baked=True)
+
+                if mask.type == 'IMAGE' or (mask.use_baked and baked_source):
+
+                    if mask.use_baked and baked_source:
+                        source = baked_source 
+
+                    if mask.group_node != '':
+                        mask_node = layer_tree.nodes.get(mask.group_node)
+                        mask_node.select = True
+                        layer_tree.nodes.active = mask_node
+
+                        mask_tree = mask_node.node_tree
+                        source.select = True
+                        mask_tree.nodes.active = source
+                    else:
+                        source.select = True
+                        layer_tree.nodes.active = source
+
+                    image = source.image
+
+        for ch in layer.channels:
+            if ch.active_edit and ch.override and ch.override_type != 'DEFAULT' and ch.override_type == 'IMAGE':
+                source = get_channel_source(ch, layer)
+
+                if ch.source_group != '':
+                    source_group = layer_tree.nodes.get(ch.source_group)
+                    source_group.select = True
+                    layer_tree.nodes.active = source_group
+
+                    ch_tree = source_group.node_tree
+                    source.select = True
+                    ch_tree.nodes.active = source
+
+                else:
+                    source.select = True
+                    layer_tree.nodes.active = source
+
+                image = source.image
+
+            if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.override_1_type == 'IMAGE':
+                source = tree.nodes.get(ch.source_1)
+                source.select = True
+                layer_tree.nodes.active = source
+                image = source.image
+
+        if not image:
+            source = get_layer_source(layer, tree)
+            baked_source = get_layer_source(layer, get_baked=True)
+
+            if layer.type == 'IMAGE' or (layer.use_baked and baked_source):
+                if layer.use_baked and baked_source:
+                    source = baked_source 
+
+                if layer.source_group != '':
+                    source_group = layer_tree.nodes.get(layer.source_group)
+                    source_group.select = True
+                    layer_tree.nodes.active = source_group
+
+                    source_tree = source_group.node_tree
+                    source.select = True
+                    source_tree.nodes.active = source
+                else:
+                    source.select = True
+                    layer_tree.nodes.active = source
+
+                image = source.image
 
     if image and is_greater_than_281():
 
