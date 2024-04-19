@@ -2495,8 +2495,7 @@ def update_layer_index(self, context):
     image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
     # Set active image to paint slot
-    #update_tool_canvas_image(context, image)
-    set_active_paint_slot_entity(obj, yp)
+    set_active_paint_slot_entity(yp, image)
 
     # Update active vertex color
     if vcol and get_active_vertex_color(obj) != vcol:
@@ -2506,6 +2505,8 @@ def update_layer_index(self, context):
     objs = get_all_objects_with_same_materials(mat, selected_only=True)
     for ob in objs:
         refresh_temp_uv(ob, src_of_img)
+
+    #update_image_editor_image(context, image)
 
 def update_channel_colorspace(self, context):
 
@@ -3623,7 +3624,8 @@ def ypaint_last_object_update(scene):
                 update_active_yp_channel(yp, bpy.context)
 
             elif len(yp.layers) > 0 :
-                try: set_active_paint_slot_entity(obj, yp)
+                image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
+                try: set_active_paint_slot_entity(yp, image)
                 except: print('EXCEPTIION: Cannot set image canvas!')
 
     if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:
