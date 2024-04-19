@@ -1025,7 +1025,8 @@ def set_image_paint_canvas(mat=None, image=None):
     context = bpy.context
     scene = context.scene
 
-    if image == None or mat == None or not is_greater_than_281():
+    # NOTE: Image canvas is still used for now until there's a way to make paint slot active without hacks
+    if image == None or mat == None or not is_greater_than_300() or True:
         scene.tool_settings.image_paint.mode = 'IMAGE'
     elif mat: scene.tool_settings.image_paint.mode = 'MATERIAL'
 
@@ -1033,7 +1034,7 @@ def set_image_paint_canvas(mat=None, image=None):
         scene.tool_settings.image_paint.canvas = image
     elif mat and mat.node_tree:
 
-        # HACK: Trying to get active image node inside yp tree
+        # HACK: Using active image node inside yp tree to update active paint slot
         img_node = None
         node = get_active_ypaint_node()
         if node:
@@ -1041,14 +1042,23 @@ def set_image_paint_canvas(mat=None, image=None):
             yp = tree.yp
             img_node = tree.nodes.get(ACTIVE_IMAGE_NODE)
 
+            if not img_node:
+                try:
+                    # Create active image node
+                    img_node = tree.nodes.new('ShaderNodeTexImage')
+                    img_node.name = ACTIVE_IMAGE_NODE
+                    img_node.label = 'Active Image'
+                    img_node.width = 150
+                    start = tree.nodes.get(TREE_START)
+                    if start: img_node.location.x = start.location.x - 200
+                    img_node.image = image
+                except Exception as e: print(e)
+
         if img_node:
-
             img_node.image = image
+            img_node.select = True
+            tree.nodes.active = img_node
 
-            for i, img in enumerate(mat.texture_paint_images):
-                if img.name == image.name:
-                    mat.paint_active_slot = i
-                    break
         else:
             # Use image canvas as fallback if image node is not found
             scene.tool_settings.image_paint.mode = 'IMAGE'
