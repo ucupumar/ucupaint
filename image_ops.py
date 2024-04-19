@@ -1153,9 +1153,8 @@ class YConvertImageBitDepth(bpy.types.Operator):
         # Replace image
         replace_image(image, new_image)
 
-        # Update image editor
-        update_image_editor_image(context, new_image)
-        update_tool_canvas_image(context, new_image)
+        # Update image editor by setting active layer index
+        yp.active_layer_index = yp.active_layer_index
 
         return {'FINISHED'}
 

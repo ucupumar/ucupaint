@@ -1094,9 +1094,14 @@ class YConvertImageTiled(bpy.types.Operator):
         # Replace image
         replace_image(image, new_image)
 
-        # Update image editor
-        update_image_editor_image(context, new_image)
-        update_tool_canvas_image(context, new_image)
+        # Update image editor by setting active layer index
+        node = get_active_ypaint_node()
+        if node:
+            yp = node.node_tree.yp
+            yp.active_layer_index = yp.active_layer_index
+        else: 
+            update_image_editor_image(context, new_image)
+            set_image_paint_canvas(new_image)
 
         return {'FINISHED'}
 

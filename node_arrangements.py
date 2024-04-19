@@ -1701,9 +1701,6 @@ def rearrange_yp_nodes(group_tree):
 
     loc = Vector((-200, 0))
 
-    check_set_node_loc(group_tree, ACTIVE_IMAGE_NODE, loc)
-    loc.x += 200
-
     # Rearrange depth layer nodes
     rearrange_depth_layer_nodes(group_tree)
 

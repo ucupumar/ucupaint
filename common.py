@@ -5,7 +5,6 @@ from bpy_types import bpy_types
 #from .__init__ import bl_info
 
 BLENDER_28_GROUP_INPUT_HACK = False
-ACTIVE_IMAGE_NODE = 'ACTIVE_IMAGE_NODE'
 
 MAX_VERTEX_DATA = 8
 
@@ -1010,8 +1009,8 @@ def update_tool_canvas_image(context, image):
 
     # Update canvas image
     try: 
-        if obj: set_image_paint_canvas(obj.active_material, image)
-        else: set_image_paint_canvas(None, image)
+        if obj: set_image_paint_canvas(image)
+        else: set_image_paint_canvas(image)
     except Exception as e: print(e)
 
     # Restore original images except for the first index
@@ -1021,48 +1020,13 @@ def update_tool_canvas_image(context, image):
             # Hack for Blender 2.8 which keep pinning image automatically
             space.use_image_pin = False
 
-def set_image_paint_canvas(mat=None, image=None):
-    context = bpy.context
-    scene = context.scene
+def set_image_paint_canvas(image):
+    scene = bpy.context.scene
 
-    # NOTE: Image canvas is still used for now until there's a way to make paint slot active without hacks
-    if image == None or mat == None or not is_greater_than_300() or True:
+    try:
         scene.tool_settings.image_paint.mode = 'IMAGE'
-    elif mat: scene.tool_settings.image_paint.mode = 'MATERIAL'
-
-    if scene.tool_settings.image_paint.mode == 'IMAGE':
         scene.tool_settings.image_paint.canvas = image
-    elif mat and mat.node_tree:
-
-        # HACK: Using active image node inside yp tree to update active paint slot
-        img_node = None
-        node = get_active_ypaint_node()
-        if node:
-            tree = node.node_tree
-            yp = tree.yp
-            img_node = tree.nodes.get(ACTIVE_IMAGE_NODE)
-
-            if not img_node:
-                try:
-                    # Create active image node
-                    img_node = tree.nodes.new('ShaderNodeTexImage')
-                    img_node.name = ACTIVE_IMAGE_NODE
-                    img_node.label = 'Active Image'
-                    img_node.width = 150
-                    start = tree.nodes.get(TREE_START)
-                    if start: img_node.location.x = start.location.x - 200
-                    img_node.image = image
-                except Exception as e: print(e)
-
-        if img_node:
-            img_node.image = image
-            img_node.select = True
-            tree.nodes.active = img_node
-
-        else:
-            # Use image canvas as fallback if image node is not found
-            scene.tool_settings.image_paint.mode = 'IMAGE'
-            scene.tool_settings.image_paint.canvas = image
+    except Exception as e: print(e)
 
 # Check if name already available on the list
 def get_unique_name(name, items, surname = ''):
@@ -1222,13 +1186,7 @@ def get_nodes_using_yp(mat, yp):
 def safe_remove_image(image, yp_tree=None):
     scene = bpy.context.scene
 
-    img_node = None
-    if yp_tree: img_node = yp_tree.nodes.get(ACTIVE_IMAGE_NODE)
-
-    if (
-        (img_node and img_node.image == image and image.users == 2) or
-        (img_node and img_node.image != image and image.users == 1) or
-        (scene.tool_settings.image_paint.canvas == image and image.users == 2) or
+    if ((scene.tool_settings.image_paint.canvas == image and image.users == 2) or
         (scene.tool_settings.image_paint.canvas != image and image.users == 1) or
         image.users == 0):
         bpy.data.images.remove(image)
@@ -4265,6 +4223,110 @@ def get_relevant_uv(obj, yp):
                 uv_name = mask.uv_name
 
     return uv_name 
+
+def set_active_paint_slot_entity(obj, yp):
+    image = None
+
+    if len(yp.layers) == 0: return
+
+    mat = get_active_material()
+    node = get_active_ypaint_node()
+
+    # Set material active node 
+    node.select = True
+    mat.node_tree.nodes.active = node
+
+    # Get layer and yp tree
+    root_tree = yp.id_data
+    layer = yp.layers[yp.active_layer_index]
+    tree = get_tree(layer)
+
+    # Set layer node tree as active
+    layer_node = root_tree.nodes.get(layer.group_node)
+    layer_node.select = True
+    root_tree.nodes.active = layer_node
+    layer_tree = layer_node.node_tree
+
+    for mask in layer.masks:
+        if mask.active_edit:
+            source = get_mask_source(mask)
+            baked_source = get_mask_source(mask, get_baked=True)
+
+            if mask.type == 'IMAGE' or (mask.use_baked and baked_source):
+
+                if mask.use_baked and baked_source:
+                    source = baked_source 
+
+                if mask.group_node != '':
+                    mask_node = layer_tree.nodes.get(mask.group_node)
+                    mask_node.select = True
+                    layer_tree.nodes.active = mask_node
+
+                    mask_tree = mask_node.node_tree
+                    source.select = True
+                    mask_tree.nodes.active = source
+                else:
+                    source.select = True
+                    layer_tree.nodes.active = source
+
+                image = source.image
+
+    for ch in layer.channels:
+        if ch.active_edit and ch.override and ch.override_type != 'DEFAULT' and ch.override_type == 'IMAGE':
+            source = get_channel_source(ch, layer)
+
+            if ch.source_group != '':
+                source_group = layer_tree.nodes.get(ch.source_group)
+                source_group.select = True
+                layer_tree.nodes.active = source_group
+
+                ch_tree = source_group.node_tree
+                source.select = True
+                ch_tree.nodes.active = source
+
+            else:
+                source.select = True
+                layer_tree.nodes.active = source
+
+            image = source.image
+
+        if ch.active_edit_1 and ch.override_1 and ch.override_1_type != 'DEFAULT' and ch.override_1_type == 'IMAGE':
+            source = tree.nodes.get(ch.source_1)
+            source.select = True
+            layer_tree.nodes.active = source
+            image = source.image
+
+    if not image:
+        source = get_layer_source(layer, tree)
+        baked_source = get_layer_source(layer, get_baked=True)
+
+        if layer.type == 'IMAGE' or (layer.use_baked and baked_source):
+            if layer.use_baked and baked_source:
+                source = baked_source 
+
+            if layer.source_group != '':
+                source_group = layer_tree.nodes.get(layer.source_group)
+                source_group.select = True
+                layer_tree.nodes.active = source_group
+
+                source_tree = source_group.node_tree
+                source.select = True
+                source_tree.nodes.active = source
+            else:
+                source.select = True
+                layer_tree.nodes.active = source
+
+            image = source.image
+
+    scene = bpy.context.scene
+
+    if image and is_greater_than_300():
+        scene.tool_settings.image_paint.mode = 'MATERIAL'
+    else:
+        scene.tool_settings.image_paint.mode = 'IMAGE'
+        scene.tool_settings.image_paint.canvas = image
+
+    update_image_editor_image(bpy.context, image)
 
 def get_active_image_and_stuffs(obj, yp):
 

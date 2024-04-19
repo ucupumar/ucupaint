@@ -101,13 +101,6 @@ def create_new_group_tree(mat):
     # Create IO nodes
     create_essential_nodes(group_tree, True, True, True)
 
-    # HACK: First image node is needed to change active material texture paint slot
-    if is_greater_than_281() and False:
-        img_node = group_tree.nodes.new('ShaderNodeTexImage')
-        img_node.name = ACTIVE_IMAGE_NODE
-        img_node.label = 'Active Image'
-        img_node.width = 150
-
     # Create info nodes
     create_info_nodes(group_tree)
 
@@ -262,7 +255,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
         if self.set_canvas_to_empty:
             update_image_editor_image(context, None)
-            set_image_paint_canvas(mat, None)
+            set_image_paint_canvas(None)
 
         return {'FINISHED'}
 
@@ -2458,10 +2451,10 @@ def update_active_yp_channel(self, context):
                         baked_image = baked_normal_overlay.image
 
             update_image_editor_image(context, baked_image)
-            set_image_paint_canvas(obj.active_material, baked_image)
+            set_image_paint_canvas(baked_image)
         else:
             update_image_editor_image(context, None)
-            set_image_paint_canvas(obj.active_material, None)
+            set_image_paint_canvas(None)
 
         if obj.type == 'MESH':
             uv_layers = get_uv_layers(obj)
@@ -2484,7 +2477,7 @@ def update_layer_index(self, context):
     yp = self
 
     if (len(yp.layers) == 0 or yp.active_layer_index >= len(yp.layers) or yp.active_layer_index < 0): 
-        update_tool_canvas_image(context, None)
+        set_image_paint_canvas(None)
         return
 
     # Set active node to be layer group node so active keyframe can be visible on fcurve
@@ -2498,10 +2491,12 @@ def update_layer_index(self, context):
 
     if yp.layer_preview_mode: update_layer_preview_mode(yp, context)
 
-    # Get active image
+    # Get active image and stuff
     image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
 
-    update_tool_canvas_image(context, image)
+    # Set active image to paint slot
+    #update_tool_canvas_image(context, image)
+    set_active_paint_slot_entity(obj, yp)
 
     # Update active vertex color
     if vcol and get_active_vertex_color(obj) != vcol:
@@ -2511,8 +2506,6 @@ def update_layer_index(self, context):
     objs = get_all_objects_with_same_materials(mat, selected_only=True)
     for ob in objs:
         refresh_temp_uv(ob, src_of_img)
-
-    update_image_editor_image(context, image)
 
 def update_channel_colorspace(self, context):
 
@@ -3630,9 +3623,7 @@ def ypaint_last_object_update(scene):
                 update_active_yp_channel(yp, bpy.context)
 
             elif len(yp.layers) > 0 :
-                image, uv_name, src_of_img, mapping, vcol = get_active_image_and_stuffs(obj, yp)
-                update_image_editor_image(bpy.context, image)
-                try: set_image_paint_canvas(mat, image)
+                try: set_active_paint_slot_entity(obj, yp)
                 except: print('EXCEPTIION: Cannot set image canvas!')
 
     if obj.type == 'MESH' and ypwm.last_object == obj.name and ypwm.last_mode != obj.mode:
