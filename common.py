@@ -996,6 +996,18 @@ def get_first_image_editor_image(context):
     if space: return space.image
     return None
 
+def get_active_paint_slot_image():
+    scene = bpy.context.scene
+    image = None
+    if scene.tool_settings.image_paint.mode == 'IMAGE':
+        image = scene.tool_settings.image_paint.canvas
+    else:
+        mat = get_active_material()
+        if len(mat.texture_paint_images):
+            image = mat.texture_paint_images[mat.paint_active_slot]
+
+    return image
+
 def set_image_paint_canvas(image):
     scene = bpy.context.scene
     try:
@@ -4204,14 +4216,44 @@ def set_active_paint_slot_entity(yp):
     mat = get_active_material()
     node = get_active_ypaint_node()
     scene = bpy.context.scene
+    root_tree = yp.id_data
 
     # Set material active node 
     node.select = True
     mat.node_tree.nodes.active = node
 
-    if len(yp.layers) > 0:
-        # Get layer and yp tree
-        root_tree = yp.id_data
+    if yp.use_baked and len(yp.channels) > 0:
+
+        ch = yp.channels[yp.active_channel_index]
+        baked = root_tree.nodes.get(ch.baked)
+        if baked and baked.image:
+            if ch.type == 'NORMAL':
+                baked_disp = root_tree.nodes.get(ch.baked_disp)
+                baked_normal_overlay = root_tree.nodes.get(ch.baked_normal_overlay)
+
+                cur_image = get_active_paint_slot_image()
+
+                if cur_image == baked.image and baked_disp:
+                    baked_disp.select = True
+                    root_tree.nodes.active = baked_disp
+                    image = baked_disp.image
+                elif baked_disp and cur_image == baked_disp.image and baked_normal_overlay:
+                    baked_normal_overlay.select = True
+                    root_tree.nodes.active = baked_normal_overlay
+                    image = baked_normal_overlay.image
+                else:
+                    baked.select = True
+                    root_tree.nodes.active = baked
+                    image = baked.image
+
+            else:
+                baked.select = True
+                root_tree.nodes.active = baked
+                image = baked.image
+
+    elif len(yp.layers) > 0:
+        
+        # Get layer tree
         layer = yp.layers[yp.active_layer_index]
         tree = get_tree(layer)
 

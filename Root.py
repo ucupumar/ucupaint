@@ -2434,28 +2434,10 @@ def update_active_yp_channel(self, context):
     if yp.preview_mode: update_preview_mode(yp, context)
     if yp.layer_preview_mode: update_layer_preview_mode(yp, context)
 
+    # Set active baked image to paint slot
+    set_active_paint_slot_entity(yp)
+
     if yp.use_baked:
-        baked = tree.nodes.get(ch.baked)
-        if baked and baked.image:
-            baked_image = baked.image
-            if ch.type == 'NORMAL':
-
-                baked_disp = tree.nodes.get(ch.baked_disp)
-                baked_normal_overlay = tree.nodes.get(ch.baked_normal_overlay)
-
-                if baked_disp:
-                    cur_image = get_first_image_editor_image(context)
-                    if cur_image == baked.image and baked_disp.image:
-                        baked_image = baked_disp.image
-                    elif cur_image == baked_disp.image and baked_normal_overlay and baked_normal_overlay.image:
-                        baked_image = baked_normal_overlay.image
-
-            update_image_editor_image(context, baked_image)
-            set_image_paint_canvas(baked_image)
-        else:
-            update_image_editor_image(context, None)
-            set_image_paint_canvas(None)
-
         if obj.type == 'MESH':
             uv_layers = get_uv_layers(obj)
 
