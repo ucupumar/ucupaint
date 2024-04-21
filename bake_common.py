@@ -59,9 +59,9 @@ def is_join_objects_problematic(yp, mat=None):
     for layer in yp.layers:
 
         for mask in layer.masks:
-            if mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID'}: 
+            if mask.type in {'VCOL', 'HEMI', 'COLOR_ID'}: 
                 continue
-            if mask.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS:
+            if mask.texcoord_type in JOIN_PROBLEMATIC_TEXCOORDS or mask.type in {'OBJECT_INDEX'}:
                 return True
 
         if layer.type in {'VCOL', 'COLOR', 'BACKGROUND', 'HEMI', 'GROUP'}: 
