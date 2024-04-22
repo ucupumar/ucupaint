@@ -675,14 +675,14 @@ class YPaintModifier(bpy.types.PropertyGroup):
 
 def check_yp_modifier_linear_nodes(yp):
     for ch in yp.channels:
-        Modifier.check_modifiers_trees(ch)
+        check_modifiers_trees(ch)
         
     for layer in yp.layers:
-        Modifier.check_modifiers_trees(layer)
+        check_modifiers_trees(layer)
         for ch in layer.channels:
-            Modifier.check_modifiers_trees(ch)
+            check_modifiers_trees(ch)
         for mask in layer.masks:
-            Modifier.check_modifiers_trees(mask)
+            check_modifiers_trees(mask)
 
 def check_modifiers_trees(parent, rearrange=False):
     group_tree = parent.id_data
