@@ -217,9 +217,9 @@ def check_modifier_nodes(m, tree, ref_tree=None):
                 color_ramp_mix_alpha.inputs[0].default_value = 1.0
                 color_ramp_mix_rgb.inputs[0].default_value = 1.0
 
-            if non_color:
-                color_ramp_linear_start.inputs[1].default_value = 1.0
-                color_ramp_linear.inputs[1].default_value = 1.0
+            if non_color or yp.use_linear_blending:
+                remove_node(tree, m, 'color_ramp_linear_start')
+                remove_node(tree, m, 'color_ramp_linear')
             else: 
                 color_ramp_linear_start.inputs[1].default_value = GAMMA
                 color_ramp_linear.inputs[1].default_value = 1.0/GAMMA

@@ -2999,8 +2999,12 @@ def set_channel_vcol_name(self, value):
         self['bake_to_vcol_name'] = value
 
 def update_use_linear_blending(self, context):
+    Modifier.check_yp_modifier_linear_nodes(self)
     check_start_end_root_ch_nodes(self.id_data)
     check_yp_linear_nodes(self)
+
+    if self.layer_preview_mode:
+        update_layer_preview_mode(self, context)
 
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)

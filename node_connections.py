@@ -115,8 +115,11 @@ def reconnect_modifier_nodes(tree, mod, start_rgb, start_alpha):
         else:
             create_link(tree, color_ramp_alpha_multiply.outputs[am_mixout], color_ramp.inputs[0])
         create_link(tree, start_rgb, color_ramp_mix_rgb.inputs[mr_mixcol0])
-        create_link(tree, color_ramp.outputs[0], color_ramp_linear.inputs[0])
-        create_link(tree, color_ramp_linear.outputs[0], color_ramp_mix_rgb.inputs[mr_mixcol1])
+        if color_ramp_linear_start:
+            create_link(tree, color_ramp.outputs[0], color_ramp_linear.inputs[0])
+            create_link(tree, color_ramp_linear.outputs[0], color_ramp_mix_rgb.inputs[mr_mixcol1])
+        else:
+            create_link(tree, color_ramp.outputs[0], color_ramp_mix_rgb.inputs[mr_mixcol1])
 
         create_link(tree, start_alpha, color_ramp_mix_alpha.inputs[ma_mixcol0])
         create_link(tree, color_ramp.outputs[1], color_ramp_mix_alpha.inputs[ma_mixcol1])
