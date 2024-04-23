@@ -1947,10 +1947,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                 if root_ch.type == 'NORMAL' and root_ch.enable_smooth_bump:
                     if not mask.use_baked and mask.type in {'VCOL', 'HEMI', 'OBJECT_INDEX', 'COLOR_ID', 'BACKFACE', 'EDGE_DETECT'}:
                         if mask_uv_neighbor:
-                            create_link(tree, mask_uv_neighbor.outputs['n'], mask_mix.inputs['Color2 n'])
-                            create_link(tree, mask_uv_neighbor.outputs['s'], mask_mix.inputs['Color2 s'])
-                            create_link(tree, mask_uv_neighbor.outputs['e'], mask_mix.inputs['Color2 e'])
-                            create_link(tree, mask_uv_neighbor.outputs['w'], mask_mix.inputs['Color2 w'])
+                            if 'Color2 n' in mask_mix.inputs:
+                                create_link(tree, mask_uv_neighbor.outputs['n'], mask_mix.inputs['Color2 n'])
+                                create_link(tree, mask_uv_neighbor.outputs['s'], mask_mix.inputs['Color2 s'])
+                                create_link(tree, mask_uv_neighbor.outputs['e'], mask_mix.inputs['Color2 e'])
+                                create_link(tree, mask_uv_neighbor.outputs['w'], mask_mix.inputs['Color2 w'])
                         else: 
                             if 'Color2 n' in mask_mix.inputs:
                                 create_link(tree, mask_val, mask_mix.inputs['Color2 n'])
