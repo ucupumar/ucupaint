@@ -521,7 +521,8 @@ class VIEW3D_PT_y_vcol_editor_ui(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH'
+        ypup = get_user_preferences()
+        return ypup and (not hasattr(ypup, 'show_experimental') or ypup.show_experimental) and context.object and context.object.type == 'MESH'
 
     def draw(self, context):
         vcol_editor_draw(self, context)
@@ -534,7 +535,8 @@ class VIEW3D_PT_y_vcol_editor_tools(bpy.types.Panel):
 
     @classmethod
     def poll(cls, context):
-        return context.object and context.object.type == 'MESH'
+        ypup = get_user_preferences()
+        return ypup and (not hasattr(ypup, 'show_experimental') or ypup.show_experimental) and context.object and context.object.type == 'MESH'
 
     def draw(self, context):
         vcol_editor_draw(self, context)
@@ -556,11 +558,9 @@ class YVcolEditorProps(bpy.types.PropertyGroup):
     ori_sculpt_brush : StringProperty(default='')
 
 def register():
-    ypup = get_user_preferences()
-    if ypup and (not hasattr(ypup, 'show_experimental') or ypup.show_experimental):
-        bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
-        if not is_greater_than_280():
-            bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
+    bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_ui)
+    if not is_greater_than_280():
+        bpy.utils.register_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.register_class(YVcolEditorProps)
 
     bpy.types.Scene.ve_edit = PointerProperty(type=YVcolEditorProps)
@@ -571,11 +571,9 @@ def register():
     bpy.utils.register_class(YSetActiveVcol)
 
 def unregister():
-    ypup = get_user_preferences()
-    if ypup and (not hasattr(ypup, 'show_experimental') or ypup.show_experimental):
-        bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
-        if not is_greater_than_280():
-            bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
+    bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_ui)
+    if not is_greater_than_280():
+        bpy.utils.unregister_class(VIEW3D_PT_y_vcol_editor_tools)
     bpy.utils.unregister_class(YVcolEditorProps)
 
     bpy.utils.unregister_class(YVcolFill)
