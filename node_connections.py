@@ -1256,27 +1256,26 @@ def reconnect_yp_nodes(tree, merged_layer_ids = []):
             # Merge process doesn't care with parents
             if not merged_layer_ids and layer.parent_idx != -1: continue
 
-            if ch.type == 'NORMAL' and need_prev_normal and not layer_ch.enable:
-                create_link(tree, rgb, node.inputs[io_name])
-            elif io_name in node.inputs: 
-                rgb = create_link(tree, rgb, node.inputs[io_name])[io_name]
+            if io_name in node.inputs: 
+                outputs = create_link(tree, rgb, node.inputs[io_name])
+                if io_name in outputs: rgb = outputs[io_name]
 
-            #if ch.type =='RGB' and ch.enable_alpha:
             if ch.enable_alpha and io_alpha_name in node.inputs:
                 alpha = create_link(tree, alpha, node.inputs[io_alpha_name])[io_alpha_name]
 
             if height_ons:
-                if ch.type == 'NORMAL' and need_prev_normal and not layer_ch.enable:
-                    if io_height_ons_name in node.inputs: create_link(tree, height_ons, node.inputs[io_height_ons_name])
-                    if io_height_ew_name in node.inputs: create_link(tree, height_ew, node.inputs[io_height_ew_name])
-                else:
-                    if io_height_ons_name in node.inputs: height_ons = create_link(tree, height_ons, node.inputs[io_height_ons_name])[io_height_ons_name]
-                    if io_height_ew_name in node.inputs: height_ew = create_link(tree, height_ew, node.inputs[io_height_ew_name])[io_height_ew_name]
+                if io_height_ons_name in node.inputs: 
+                    outputs = create_link(tree, height_ons, node.inputs[io_height_ons_name])
+                    if io_height_ons_name in outputs: height_ons = outputs[io_height_ons_name]
+
+                if io_height_ew_name in node.inputs: 
+                    outputs = create_link(tree, height_ew, node.inputs[io_height_ew_name])
+                    if io_height_ew_name in outputs: height_ew = outputs[io_height_ew_name]
+
             elif height:
-                if ch.type == 'NORMAL' and need_prev_normal and not layer_ch.enable:
-                    create_link(tree, height, node.inputs[io_height_name])
-                elif io_height_name in node.inputs: 
-                    height = create_link(tree, height, node.inputs[io_height_name])[io_height_name]
+                if io_height_name in node.inputs: 
+                    outputs = create_link(tree, height, node.inputs[io_height_name])
+                    if io_height_name in node.outputs: height = outputs[io_height_name]
 
         rgb, alpha = reconnect_all_modifier_nodes(tree, ch, rgb, alpha)
 
