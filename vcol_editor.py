@@ -165,6 +165,8 @@ class YSelectFacesByVcol(bpy.types.Operator):
         mat = context.object.active_material
         vcol_name = get_active_vertex_color(context.object).name
         target = Color((self.color[0], self.color[1], self.color[2]))
+        if not is_greater_than_320():
+            target = linear_to_srgb(target)
 
         if mat.users > 1 and is_greater_than_280():
             objs = get_all_objects_with_same_materials(mat, mesh_only=True)
