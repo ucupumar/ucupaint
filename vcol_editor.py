@@ -1,84 +1,7 @@
 import bpy, bmesh, numpy, time, time
 from mathutils import *
 from bpy.props import *
-
-def is_greater_than_280():
-    if bpy.app.version >= (2, 80, 0):
-        return True
-    else: return False
-
-def is_greater_than_320():
-    if bpy.app.version >= (3, 2, 0):
-        return True
-    else: return False
-
-def srgb_to_linear_per_element(e):
-    if e <= 0.03928:
-        return e/12.92
-    else: 
-        return pow((e + 0.055) / 1.055, 2.4)
-
-def linear_to_srgb_per_element(e):
-    if e > 0.0031308:
-        return 1.055 * (pow(e, (1.0 / 2.4))) - 0.055
-    else: 
-        return 12.92 * e
-
-def srgb_to_linear(inp):
-
-    if type(inp) == float:
-        return srgb_to_linear_per_element(inp)
-
-    elif type(inp) == Color:
-
-        c = inp.copy()
-
-        for i in range(3):
-            c[i] = srgb_to_linear_per_element(c[i])
-
-        return c
-
-def linear_to_srgb(inp):
-
-    if type(inp) == float:
-        return linear_to_srgb_per_element(inp)
-
-    elif type(inp) == Color:
-
-        c = inp.copy()
-
-        for i in range(3):
-            c[i] = linear_to_srgb_per_element(c[i])
-
-        return c
-
-def get_vertex_colors(obj):
-    if not obj or obj.type != 'MESH': return []
-
-    if not is_greater_than_320():
-        return obj.data.vertex_colors
-
-    return obj.data.color_attributes
-
-def get_active_vertex_color(obj):
-    if not obj or obj.type != 'MESH': return None
-
-    if not is_greater_than_320():
-        return obj.data.vertex_colors.active
-
-    return obj.data.color_attributes.active_color
-
-def set_active_vertex_color(obj, vcol):
-    try:
-        if is_greater_than_320():
-            obj.data.color_attributes.active_color = vcol
-        else: obj.data.vertex_colors.active = vcol
-    except Exception as e: print(e)
-
-def get_user_preferences():
-    if is_greater_than_280():
-        return bpy.context.preferences.addons[__package__].preferences
-    return bpy.context.user_preferences.addons[__package__].preferences
+from .common import *
 
 class YSetActiveVcol(bpy.types.Operator):
     bl_idname = "mesh.y_set_active_vcol"
@@ -204,6 +127,91 @@ class YToggleEraser(bpy.types.Operator):
             elif mode == 'SCULPT': 
                 context.tool_settings.sculpt.brush = new_brush
 
+        return {'FINISHED'}
+
+class YSelectFacesByVcol(bpy.types.Operator):
+    bl_idname = "mesh.y_select_faces_by_vcol"
+    bl_label = "Select Faces based on Vertex Color"
+    bl_description = "Select faces based on vertex color"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    color : FloatVectorProperty(
+            name='Color', size=4,
+            subtype='COLOR',
+            default=(1.0, 0.0, 1.0, 1.0),
+            min=0.0, max=1.0,
+            )
+
+    #deselect : BoolProperty(
+    #        name='Deselect Faces',
+    #        description='Deselect faces with vertex color', 
+    #        default=False)
+
+    @classmethod
+    def poll(cls, context):
+        obj = context.object
+        if not obj or obj.type != 'MESH' or not any(get_vertex_colors(obj)): return False
+
+        if is_greater_than_320():
+            vcol = obj.data.color_attributes.active_color
+            if not vcol or vcol.domain != 'CORNER':
+                return False
+
+        return obj.mode == 'EDIT'
+
+    def execute(self, context):
+
+        threshold = .004
+        mat = context.object.active_material
+        vcol_name = get_active_vertex_color(context.object).name
+        target = Color((self.color[0], self.color[1], self.color[2]))
+
+        if mat.users > 1 and is_greater_than_280():
+            objs = get_all_objects_with_same_materials(mat, mesh_only=True)
+        else: objs = [context.object]
+
+        # Select object first
+        bpy.ops.object.mode_set(mode="OBJECT")
+        bpy.ops.object.select_all(action='DESELECT')
+        for obj in objs:
+            set_object_select(obj, True)
+        bpy.ops.object.mode_set(mode="EDIT")
+        bpy.context.tool_settings.mesh_select_mode = (False, False, True)
+        bpy.ops.mesh.reveal()
+        bpy.ops.mesh.select_all(action='DESELECT')
+
+        bpy.ops.object.mode_set(mode="OBJECT")
+        
+        for obj in objs:
+
+            # Select vcol
+            vcols = get_vertex_colors(obj)
+            vcol = vcols.get(vcol_name)
+            if not vcol: continue
+            set_active_vertex_color(obj, vcol)
+
+            # Select polygons
+            for p in obj.data.polygons:
+                r = g = b = 0
+                for i in p.loop_indices:
+                    c = vcol.data[i].color
+                    r += c[0]
+                    g += c[1]
+                    b += c[2]
+                r /= p.loop_total
+                g /= p.loop_total
+                b /= p.loop_total
+                source = Color((r, g, b))
+            
+                if (abs(source.r - target.r) < threshold and
+                    abs(source.g - target.g) < threshold and
+                    abs(source.b - target.b) < threshold):
+            
+                    p.select = True
+                    #p.select = not self.deselect
+
+        bpy.ops.object.mode_set(mode="EDIT")
+        
         return {'FINISHED'}
 
 class YVcolFillFaceCustom(bpy.types.Operator):
@@ -566,6 +574,7 @@ def register():
     bpy.types.Scene.ve_edit = PointerProperty(type=YVcolEditorProps)
 
     bpy.utils.register_class(YVcolFill)
+    bpy.utils.register_class(YSelectFacesByVcol)
     bpy.utils.register_class(YVcolFillFaceCustom)
     bpy.utils.register_class(YToggleEraser)
     bpy.utils.register_class(YSetActiveVcol)
@@ -577,6 +586,7 @@ def unregister():
     bpy.utils.unregister_class(YVcolEditorProps)
 
     bpy.utils.unregister_class(YVcolFill)
+    bpy.utils.unregister_class(YSelectFacesByVcol)
     bpy.utils.unregister_class(YVcolFillFaceCustom)
     bpy.utils.unregister_class(YToggleEraser)
     bpy.utils.unregister_class(YSetActiveVcol)

@@ -226,6 +226,7 @@ class YSelectMaterialPolygons(bpy.types.Operator):
 
         bpy.ops.object.mode_set(mode='EDIT')
         bpy.context.tool_settings.mesh_select_mode = (False, False, True)
+        bpy.ops.mesh.reveal()
         bpy.ops.mesh.select_all(action='DESELECT')
 
         bpy.ops.object.mode_set(mode='OBJECT')

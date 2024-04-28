@@ -2791,6 +2791,13 @@ def draw_layers_ui(context, layout, node):
                 row.context_pointer_set('mask', mask)
                 row.operator('mesh.y_vcol_fill_face_custom', text='Fill').color = color
                 row.operator('mesh.y_vcol_fill_face_custom', text='Erase').color = (0.0, 0.0, 0.0, 1.0)
+                #row = ccol.row(align=True)
+                op = row.operator('mesh.y_select_faces_by_vcol', text='Select')
+                op.color = color
+                #op.deselect = False
+                #op = row.operator('mesh.y_select_faces_by_vcol', text='Deselect')
+                #op.color = color
+                #op.deselect = True
 
         if obj.type == 'MESH' and active_vcol: # and layer.enable:
 
