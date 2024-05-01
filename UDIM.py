@@ -752,8 +752,8 @@ def rearrange_tiles(image, convert_dict):
                 path1 += '.TEMP_NAME'
             else: os.remove(path1)
 
-        shutil.copyfile(path0, path1)
-        #os.rename(path0, path1)
+        #shutil.copyfile(path0, path1)
+        os.rename(path0, path1)
 
     # Second pass is removing temporary name suffix
     if os.path.isdir(directory):
