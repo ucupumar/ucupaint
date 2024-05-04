@@ -942,6 +942,7 @@ def copy_node_props(source, dest, extras=[]):
 
     # Copy inputs default value
     for i, inp in enumerate(source.inputs):
+        if i >= len(dest.inputs): continue
         socket_name = source.inputs[i].name
         if socket_name in dest.inputs and dest.inputs[i].name == socket_name:
             try: dest.inputs[i].default_value = inp.default_value
@@ -949,6 +950,7 @@ def copy_node_props(source, dest, extras=[]):
 
     # Copy outputs default value
     for i, outp in enumerate(source.outputs):
+        if i >= len(dest.outputs): continue
         try: dest.outputs[i].default_value = outp.default_value 
         except Exception as e: print(e)
 
