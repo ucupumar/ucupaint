@@ -2061,12 +2061,12 @@ def bake_as_image(objs, mat, entity, name, width=1024, height=1024, hdr=False, s
     # Bake!
     bpy.ops.object.bake()
 
-    if use_fxaa: fxaa_image(image, False, bake_device=bake_device)
+    if denoise: 
+        denoise_image(image)
     if blur: 
         samples = 4096 if is_greater_than_300() else 128
         blur_image(image, False, bake_device=bake_device, factor=blur_factor, samples=samples)
-    if denoise: 
-        denoise_image(image)
+    if use_fxaa: fxaa_image(image, False, bake_device=bake_device)
 
     # Remove temp bake nodes
     simple_remove_node(mat.node_tree, tex, remove_data=False)
