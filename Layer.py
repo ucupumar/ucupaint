@@ -1061,8 +1061,9 @@ class YNewLayer(bpy.types.Operator):
         rearrange_yp_nodes(node.node_tree)
 
         # Update UI
-        if self.type != 'IMAGE':
+        if self.type not in {'IMAGE', 'VCOL', 'COLOR', 'BACKGROUND'}:
             ypui.layer_ui.expand_content = True
+            ypui.layer_ui.expand_source = True
         ypui.need_update = True
 
         print('INFO: Layer', layer.name, 'is created at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
