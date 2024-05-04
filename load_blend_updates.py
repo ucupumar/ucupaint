@@ -899,10 +899,11 @@ def update_node_tree_libs(name):
     for lib_tree in lib_trees:
         bpy.data.node_groups.remove(lib_tree)
 
-    # Remove temporary libraries
-    for l in reversed(bpy.data.libraries):
-        if l.filepath in filepaths:
-            bpy.data.batch_remove(ids=(l,))
+    # Remove temporary libraries (Doesn't work with Blender 2.79)
+    if is_greater_than_280():
+        for l in reversed(bpy.data.libraries):
+            if l.filepath in filepaths:
+                bpy.data.batch_remove(ids=(l,))
 
     print('INFO: ' + get_addon_title() + ' Node group libraries are checked at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 
