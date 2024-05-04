@@ -651,7 +651,8 @@ def copy_lib_tree_contents(tree, lib_tree):
             if new_n.node_tree == None:
                 new_n.node_tree = n.node_tree
 
-        copy_node_props(n, new_n, extras=['node_tree'])
+        if n.type not in {'REROUTE'}:
+            copy_node_props(n, new_n, extras=['node_tree'])
 
     # Set parent and location
     for n in lib_tree.nodes:

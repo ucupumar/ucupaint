@@ -893,6 +893,8 @@ def copy_node_props_(source, dest, extras = []):
                 pass
 
 def copy_node_props(source, dest, extras=[]):
+    if source.type != dest.type: return
+
     # Copy node props
     copy_node_props_(source, dest, extras)
 
@@ -942,7 +944,7 @@ def copy_node_props(source, dest, extras=[]):
 
     # Copy inputs default value
     for i, inp in enumerate(source.inputs):
-        if i >= len(dest.inputs): continue
+        if i >= len(dest.inputs) or dest.inputs[i].name != inp.name: continue
         socket_name = source.inputs[i].name
         if socket_name in dest.inputs and dest.inputs[i].name == socket_name and dest.inputs[i].bl_idname not in {'NodeSocketVirtual'}:
             try: dest.inputs[i].default_value = inp.default_value
@@ -950,7 +952,7 @@ def copy_node_props(source, dest, extras=[]):
 
     # Copy outputs default value
     for i, outp in enumerate(source.outputs):
-        if i >= len(dest.outputs) or dest.outputs[i].bl_idname in {'NodeSocketVirtual'}: continue
+        if i >= len(dest.outputs) or dest.outputs[i].bl_idname in {'NodeSocketVirtual'} or dest.outputs[i].name != outp.name: continue
         try: dest.outputs[i].default_value = outp.default_value 
         except Exception as e: print(e)
 
