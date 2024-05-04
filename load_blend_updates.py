@@ -167,7 +167,7 @@ def update_routine(name):
                             mapping = new_node(tree, layer, 'mapping', 'ShaderNodeMapping')
                             copy_node_props(mapping_ref, mapping)
                             group.node_tree.nodes.remove(mapping_ref)
-                            set_uv_neighbor_resolution(layer, mapping=mapping)
+                            set_uv_neighbor_resolution(layer) #, mapping=mapping)
                             mapping_replaced = True
                             print('INFO: Mapping of', layer.name, 'is moved out!')
 
@@ -181,7 +181,7 @@ def update_routine(name):
                                 mapping = new_node(tree, mask, 'mapping', 'ShaderNodeMapping')
                                 copy_node_props(mapping_ref, mapping)
                                 group.node_tree.nodes.remove(mapping_ref)
-                                set_uv_neighbor_resolution(mask, mapping=mapping)
+                                set_uv_neighbor_resolution(mask) #, mapping=mapping)
                                 mapping_replaced = True
                                 print('INFO: Mapping of', mask.name, 'is moved out!')
 
@@ -612,6 +612,142 @@ def fix_missing_lib_trees(tree, problematic_trees):
 
     return problematic_trees
 
+def copy_lib_tree_contents(tree, lib_tree):
+
+    valid_nodes = []
+
+    # Create new nodes
+    for n in lib_tree.nodes:
+
+        # Skip some nodes
+        if (n.name in tree.nodes and (
+            n.name.startswith('_') or #  Underscore meant the node stays the same
+            (lib_tree.name == HEMI and n.name in {'Normal', 'Vector Transform'}) # Hemi node will keep these nodes
+            )): 
+            nn = tree.nodes.get(n.name)
+            valid_nodes.append(nn)
+            continue
+
+        # Remove current node first
+        if n.name in tree.nodes:
+            tree.nodes.remove(tree.nodes[n.name])
+
+        # Create new node
+        new_n = tree.nodes.new(n.bl_idname)
+        new_n.name = n.name
+        valid_nodes.append(new_n)
+
+        # Checking if sub lib tree already exists
+        if n.type == 'GROUP':
+            # NOTE: Finding '_Copy' in name is still doing nothing here
+            m = re.match(r'^(~yPL .+?)(?:_Copy?)?(?:\.\d{3}?)?$', n.node_tree.name)
+            if m:
+                lib_name = m.group(1)
+                sublib = bpy.data.node_groups.get(lib_name)
+                if sublib:
+                    new_n.node_tree = sublib
+
+            # Fallback if node tree is not found
+            if new_n.node_tree == None:
+                new_n.node_tree = n.node_tree
+
+        copy_node_props(n, new_n, extras=['node_tree'])
+
+    # Set parent and location
+    for n in lib_tree.nodes:
+        nn = tree.nodes.get(n.name)
+
+        if n.parent != None:
+            nn_parent = tree.nodes.get(n.parent.name)
+            if nn and nn_parent:
+                nn.parent = nn_parent
+                nn_parent.location = n.parent.location.copy()
+
+        if nn: nn.location = n.location.copy()
+
+    # Remove invalid nodes
+    for n in reversed(tree.nodes):
+        if n not in valid_nodes:
+            tree.nodes.remove(n)
+
+    # Create new inputs
+    cur_input_names = [inp.name for inp in get_tree_inputs(tree)]
+    for inp in get_tree_inputs(lib_tree):
+        if inp.name not in cur_input_names:
+            description = inp.description if hasattr(inp, 'description') else ''
+            ninp = new_tree_input(tree, inp.name, inp.bl_socket_idname, description)
+            copy_id_props(inp, ninp)
+        else: cur_input_names.remove(inp.name)
+
+    # Remove remaining inputs
+    for inp in reversed(get_tree_inputs(tree)):
+        if inp.name in cur_input_names:
+            remove_tree_input(tree, inp)
+    
+    # Create new outputs
+    cur_output_names = [outp.name for outp in get_tree_outputs(tree)]
+    for outp in get_tree_outputs(lib_tree):
+        if outp.name not in cur_output_names:
+            description = outp.description if hasattr(inp, 'description') else ''
+            noutp = new_tree_output(tree, outp.name, outp.bl_socket_idname, description)
+            copy_id_props(outp, noutp)
+        else: cur_output_names.remove(outp.name)
+
+    # Remove remaining outputs
+    for outp in reversed(get_tree_outputs(tree)):
+        if outp.name in cur_output_names:
+            remove_tree_output(tree, outp)
+
+    # TODO: What if socket has different type but same name
+
+    # Reorder inputs and outputs
+    if is_greater_than_400():
+        for i, item in enumerate(lib_tree.interface.items_tree):
+            cur_i = [ci for ci, citem in enumerate(tree.interface.items_tree) if citem.name == item.name and citem.in_out == item.in_out][0]
+            if i != cur_i:
+                cur_item = tree.interface.items_tree[cur_i]
+                tree.interface.move(cur_item, i)
+    else:
+        # Reorder inputs
+        for i, inp in enumerate(lib_tree.inputs):
+            cur_i = [ci for ci, cinp in enumerate(tree.inputs) if cinp.name == inp.name][0]
+            if i != cur_i:
+                tree.inputs.move(cur_i, i)
+
+        # Reorder outputs
+        for i, outp in enumerate(lib_tree.outputs):
+            cur_i = [ci for ci, coutp in enumerate(tree.outputs) if coutp.name == outp.name][0]
+            if i != cur_i:
+                tree.outputs.move(cur_i, i)
+
+    # TODO: Check connection after reorders
+
+    # Create links
+    for l in lib_tree.links:
+
+        from_node = tree.nodes.get(l.from_node.name)
+        to_node = tree.nodes.get(l.to_node.name)
+
+        # Get from socket index
+        from_index = -1
+        for i, soc in enumerate(l.from_node.outputs):
+            if soc == l.from_socket:
+                from_index = i
+                break
+
+        # Get to socket index
+        to_index = -1
+        for i, soc in enumerate(l.to_node.inputs):
+            if soc == l.to_socket:
+                to_index = i
+                break
+
+        # Create the link
+        tree.links.new(from_node.outputs[from_index], to_node.inputs[to_index])
+
+    # Create info frames
+    create_info_nodes(tree)
+
 @persistent
 def update_node_tree_libs(name):
     T = time.time()
@@ -619,12 +755,14 @@ def update_node_tree_libs(name):
     filepaths = []
     filepaths.append(get_addon_filepath() + "lib.blend")
     if is_greater_than_281(): filepaths.append(get_addon_filepath() + "lib_281.blend")
+    if is_greater_than_282(): filepaths.append(get_addon_filepath() + "lib_282.blend")
 
     for fp in filepaths:
         if bpy.data.filepath == fp: return
 
     tree_names = []
-    existing_groups = []
+    existing_lib_names = []
+    existing_actual_names = []
     missing_groups = []
 
     for ng in bpy.data.node_groups:
@@ -636,10 +774,10 @@ def update_node_tree_libs(name):
 
         m = re.match(r'^(~yPL .+?)(?:_Copy?)?(?:\.\d{3}?)?$', ng.name)
         if not m: continue
-        if m.group(1) not in existing_groups:
-            existing_groups.append(m.group(1))
-
-    if not existing_groups: return
+        if m.group(1) not in existing_lib_names:
+            existing_lib_names.append(m.group(1))
+        if ng.name not in existing_actual_names:
+            existing_actual_names.append(ng.name)
 
     # Fix missing groups
     if any(missing_groups):
@@ -663,33 +801,34 @@ def update_node_tree_libs(name):
         for pt in problematic_trees:
             bpy.data.node_groups.remove(pt)
 
+    if not existing_lib_names: return
+
     # Load node groups
     for fp in filepaths:
         with bpy.data.libraries.load(fp) as (data_from, data_to):
             from_ngs = data_from.node_groups
             to_ngs = data_to.node_groups
             for ng in from_ngs:
-                if ng in existing_groups:
-                    tree = bpy.data.node_groups.get(ng)
-                    if tree:
-                        tree.name += '__OLD'
+                if ng in existing_lib_names:
                     tree_names.append(ng)
                     to_ngs.append(ng)
 
     update_names = []
+    lib_trees = []
 
-    for i, name in enumerate(tree_names):
+    for name in tree_names:
 
-        lib_tree = bpy.data.node_groups.get(name)
-        cur_trees = [n for n in bpy.data.node_groups if n.name.startswith(name) and n.name != name]
+        lib_tree = [n for n in bpy.data.node_groups if re.search(r'^' + re.escape(name) + r'(?:\.\d{3}?)?$', n.name) and n.name not in existing_actual_names]
+        if lib_tree: lib_tree = lib_tree[0]
+        else: continue
+        lib_trees.append(lib_tree)
 
-        #print(cur_trees)
+        cur_trees = [n for n in bpy.data.node_groups if re.search(r'^' + re.escape(name) + r'(?:_Copy?)?(?:\.\d{3}?)?$', n.name) and n.name in existing_actual_names]
 
         for cur_tree in cur_trees:
             # Check lib tree revision
             cur_ver = get_lib_revision(cur_tree)
             lib_ver = get_lib_revision(lib_tree)
-            #print(name, cur_tree.name, lib_tree.name, cur_ver, lib_ver)
 
             if lib_ver > cur_ver:
 
@@ -705,120 +844,65 @@ def update_node_tree_libs(name):
 
                 print('INFO: Updating Node group', name, 'to revision', str(lib_ver) + '!')
 
-    #print(update_names)
-
     for name in tree_names:
 
-        lib_tree = bpy.data.node_groups.get(name)
-        cur_tree = bpy.data.node_groups.get(name + '__OLD')
+        # Get library tree
+        lib_tree = [n for n in bpy.data.node_groups if re.search(r'^' + re.escape(name) + r'(?:\.\d{3}?)?$', n.name) and n.name not in existing_actual_names]
+        if lib_tree: lib_tree = lib_tree[0]
+        else: continue
 
-        if cur_tree:
+        if name not in update_names: continue
 
-            if name in update_names:
+        if lib_tree.name != name:
+            cur_tree = bpy.data.node_groups.get(name)
+            copy_lib_tree_contents(cur_tree, lib_tree)
+        else:
 
-                # Search for old tree usages
+            #cur_trees = [n for n in bpy.data.node_groups if n.name.startswith(name) and n.name != name]
+            cur_trees = [n for n in bpy.data.node_groups if re.search(r'^' + re.escape(name) + r'(?:_Copy?)?(?:\.\d{3}?)?$', n.name) and n.name in existing_actual_names]
+
+            for cur_tree in cur_trees:
+
+                used_nodes = []
+                parent_trees = []
+
+                # Search for tree usages
                 for mat in bpy.data.materials:
                     if not mat.node_tree: continue
                     for node in mat.node_tree.nodes:
                         if node.type == 'GROUP' and node.node_tree == cur_tree:
-                            node.node_tree = lib_tree
+                            used_nodes.append(node)
+                            parent_trees.append(mat.node_tree)
 
                 for group in bpy.data.node_groups:
                     for node in group.nodes:
                         if node.type == 'GROUP' and node.node_tree == cur_tree:
-                            node.node_tree = lib_tree
+                            used_nodes.append(node)
+                            parent_trees.append(group)
 
-                # Remove old tree
-                bpy.data.node_groups.remove(cur_tree)
+                if used_nodes:
 
-                # Create info frames
-                create_info_nodes(lib_tree)
+                    lib_ver = get_lib_revision(lib_tree)
 
-            else:
-                # Remove loaded lib tree
-                bpy.data.node_groups.remove(lib_tree)
+                    for i, node in enumerate(used_nodes):
+                        cur_tree = node.node_tree
+                        cur_ver = get_lib_revision(cur_tree)
 
-                # Bring back original tree name
-                cur_tree.name = cur_tree.name[:-5]
-        else:
+                        copy_lib_tree_contents(cur_tree, lib_tree)
 
-            cur_trees = [n for n in bpy.data.node_groups if n.name.startswith(name) and n.name != name]
-            #print(cur_trees)
+                        # Hemi revision 1 has normal input
+                        if name == HEMI and cur_ver == 0 and lib_ver == 1:
+                            geom = parent_trees[i].nodes.get(GEOMETRY)
+                            if geom: parent_trees[i].links.new(geom.outputs['Normal'], node.inputs['Normal'])
 
-            if name in update_names:
+    # Remove lib trees
+    for lib_tree in lib_trees:
+        bpy.data.node_groups.remove(lib_tree)
 
-                for cur_tree in cur_trees:
-
-                    used_nodes = []
-                    parent_trees = []
-
-                    # Search for old tree usages
-                    for mat in bpy.data.materials:
-                        if not mat.node_tree: continue
-                        for node in mat.node_tree.nodes:
-                            if node.type == 'GROUP' and node.node_tree == cur_tree:
-                                used_nodes.append(node)
-                                parent_trees.append(mat.node_tree)
-
-                    for group in bpy.data.node_groups:
-                        for node in group.nodes:
-                            if node.type == 'GROUP' and node.node_tree == cur_tree:
-                                used_nodes.append(node)
-                                parent_trees.append(group)
-
-                    #print(used_nodes)
-
-                    if used_nodes:
-
-                        # Remember original tree
-                        ori_tree = used_nodes[0].node_tree
-
-                        # Duplicate lib tree
-                        lib_tree.name += '_Copy'
-                        used_nodes[0].node_tree = lib_tree.copy()
-                        new_tree = used_nodes[0].node_tree
-                        lib_tree.name = name
-
-                        cur_ver = get_lib_revision(ori_tree)
-                        lib_ver = get_lib_revision(lib_tree)
-
-                        for i, node in enumerate(used_nodes):
-                            node.node_tree = new_tree
-
-                            # Hemi revision 1 has normal input
-                            if name == HEMI and cur_ver == 0 and lib_ver == 1:
-                                geom = parent_trees[i].nodes.get(GEOMETRY)
-                                if geom: parent_trees[i].links.new(geom.outputs['Normal'], node.inputs['Normal'])
-
-                        # Copy some nodes inside
-                        for n in new_tree.nodes:
-                            if n.name.startswith('_'):
-                                # Try to get the node on original tree
-                                ori_n = ori_tree.nodes.get(n.name)
-                                if ori_n: copy_node_props(ori_n, n)
-
-                        # Update hemi node
-                        if name == HEMI:
-                            # Copy hemi stuffs
-                            cur_norm = ori_tree.nodes.get('Normal')
-                            new_norm = new_tree.nodes.get('Normal')
-
-                            new_norm.outputs[0].default_value = cur_norm.outputs[0].default_value
-
-                            cur_vt = ori_tree.nodes.get('Vector Transform')
-                            new_vt = new_tree.nodes.get('Vector Transform')
-
-                            new_vt.convert_from = cur_vt.convert_from
-                            new_vt.convert_to = cur_vt.convert_to
-
-                        # Delete original tree
-                        bpy.data.node_groups.remove(ori_tree)
-
-                        # Create info frames
-                        create_info_nodes(new_tree)
-
-            # Remove lib tree
-            bpy.data.node_groups.remove(lib_tree)
+    # Remove temporary libraries
+    for l in reversed(bpy.data.libraries):
+        if l.filepath in filepaths:
+            bpy.data.batch_remove(ids=(l,))
 
     print('INFO: ' + get_addon_title() + ' Node group libraries are checked at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
 

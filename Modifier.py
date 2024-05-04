@@ -681,8 +681,8 @@ def check_yp_modifier_linear_nodes(yp):
         check_modifiers_trees(layer)
         for ch in layer.channels:
             check_modifiers_trees(ch)
-        for mask in layer.masks:
-            check_modifiers_trees(mask)
+        #for mask in layer.masks:
+        #    check_modifiers_trees(mask)
 
 def check_modifiers_trees(parent, rearrange=False):
     group_tree = parent.id_data

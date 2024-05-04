@@ -892,7 +892,7 @@ def copy_node_props_(source, dest, extras = []):
                 #print('FAILED:', prop, val)
                 pass
 
-def copy_node_props(source, dest, extras = []):
+def copy_node_props(source, dest, extras=[]):
     # Copy node props
     copy_node_props_(source, dest, extras)
 
@@ -944,11 +944,13 @@ def copy_node_props(source, dest, extras = []):
     for i, inp in enumerate(source.inputs):
         socket_name = source.inputs[i].name
         if socket_name in dest.inputs and dest.inputs[i].name == socket_name:
-            dest.inputs[i].default_value = inp.default_value
+            try: dest.inputs[i].default_value = inp.default_value
+            except Exception as e: print(e)
 
     # Copy outputs default value
     for i, outp in enumerate(source.outputs):
-        dest.outputs[i].default_value = outp.default_value 
+        try: dest.outputs[i].default_value = outp.default_value 
+        except Exception as e: print(e)
 
 def update_image_editor_image(context, image):
     obj = context.object
