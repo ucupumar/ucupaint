@@ -670,13 +670,16 @@ def copy_lib_tree_contents(tree, lib_tree):
         if n not in valid_nodes:
             tree.nodes.remove(n)
 
+    # Socket props that cannot be copied
+    socket_exception_props = ['draw', 'from_socket', 'identifier', 'in_out', 'index', 'init_socket', 'item_type', 'parent', 'position', 'type', 'draw_color', 'is_output']
+
     # Create new inputs
     cur_input_names = [inp.name for inp in get_tree_inputs(tree)]
     for inp in get_tree_inputs(lib_tree):
         if inp.name not in cur_input_names:
             description = inp.description if hasattr(inp, 'description') else ''
             ninp = new_tree_input(tree, inp.name, inp.bl_socket_idname, description)
-            copy_id_props(inp, ninp)
+            copy_id_props(inp, ninp, socket_exception_props)
         else: cur_input_names.remove(inp.name)
 
     # Remove remaining inputs
@@ -690,7 +693,7 @@ def copy_lib_tree_contents(tree, lib_tree):
         if outp.name not in cur_output_names:
             description = outp.description if hasattr(inp, 'description') else ''
             noutp = new_tree_output(tree, outp.name, outp.bl_socket_idname, description)
-            copy_id_props(outp, noutp)
+            copy_id_props(outp, noutp, socket_exception_props)
         else: cur_output_names.remove(outp.name)
 
     # Remove remaining outputs

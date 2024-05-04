@@ -944,13 +944,13 @@ def copy_node_props(source, dest, extras=[]):
     for i, inp in enumerate(source.inputs):
         if i >= len(dest.inputs): continue
         socket_name = source.inputs[i].name
-        if socket_name in dest.inputs and dest.inputs[i].name == socket_name:
+        if socket_name in dest.inputs and dest.inputs[i].name == socket_name and dest.inputs[i].bl_idname not in {'NodeSocketVirtual'}:
             try: dest.inputs[i].default_value = inp.default_value
             except Exception as e: print(e)
 
     # Copy outputs default value
     for i, outp in enumerate(source.outputs):
-        if i >= len(dest.outputs): continue
+        if i >= len(dest.outputs) or dest.outputs[i].bl_idname in {'NodeSocketVirtual'}: continue
         try: dest.outputs[i].default_value = outp.default_value 
         except Exception as e: print(e)
 
