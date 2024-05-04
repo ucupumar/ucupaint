@@ -1649,7 +1649,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
     if layer.type == 'HEMI':
         if layer.hemi_use_prev_normal and bump_process:
             create_link(tree, bump_process.outputs['Normal'], source.inputs['Normal'])
-        else: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], source.inputs['Normal'])
+        elif 'Normal' in source.inputs: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], source.inputs['Normal'])
 
     # Find override channels
     #using_vector = is_channel_override_using_vector(layer)
@@ -1841,7 +1841,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         if mask.type == 'HEMI' and not mask.use_baked: #and 'Normal' in mask_source.inputs:
             if mask.hemi_use_prev_normal and bump_process:
                 create_link(tree, bump_process.outputs['Normal'], mask_source.inputs['Normal'])
-            else: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], mask_source.inputs['Normal'])
+            elif 'Normal' in mask_source.inputs: create_link(tree, get_essential_node(tree, GEOMETRY)['Normal'], mask_source.inputs['Normal'])
 
         # Mask source directions
         mask_source_n = nodes.get(mask.source_n)
