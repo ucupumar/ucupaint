@@ -4076,6 +4076,9 @@ def update_layer_channel_override(self, context):
     reconnect_yp_nodes(self.id_data)
     rearrange_yp_nodes(self.id_data)
 
+    ypui = context.window_manager.ypui
+    ypui.layer_ui.channels[ch_index].expand_source = ch.override_type not in {'IMAGE', 'VCOL'}
+
     # Reselect layer so vcol or image will be updated
     yp.active_layer_index = yp.active_layer_index
 
