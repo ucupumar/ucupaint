@@ -166,6 +166,7 @@ def remove_mask(layer, mask, obj):
                     segment = image.yia.segments.get(mask.segment_name)
                     segment.unused = True
                 elif image.yua.is_udim_atlas:
+                    print('ZEGMENT:', mask.segment_name)
                     UDIM.remove_udim_atlas_segment_by_name(image, mask.segment_name, yp=yp)
 
     disable_mask_source_tree(layer, mask)
@@ -1566,6 +1567,21 @@ def update_mask_blend_type(self, context):
     # Rearrange nodes
     rearrange_layer_nodes(layer)
 
+def update_mask_voronoi_feature(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    match = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(match.group(1))]
+    mask = self
+
+    if mask.type != 'VORONOI': return
+
+    source = get_mask_source(mask)
+    source.feature = mask.voronoi_feature
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
 def update_mask_object_index(self, context):
     yp = self.id_data.yp
     if yp.halt_update: return
@@ -1804,6 +1820,15 @@ class YLayerMask(bpy.types.PropertyGroup):
     edge_detect_radius : FloatProperty(
             default=0.05, min=0.0, max=10.0,
             update=update_mask_edge_detect_radius)
+
+    # Specific for voronoi
+    voronoi_feature : EnumProperty(
+            name = 'Voronoi Feature',
+            description = 'The voronoi feature that will be used for compute',
+            items = voronoi_feature_items,
+            default = 'F1',
+            update = update_mask_voronoi_feature
+            )
 
     # Nodes
     source : StringProperty(default='')

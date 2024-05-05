@@ -4042,8 +4042,12 @@ def update_layer_channel_override_1(self, context):
         ch.halt_update = False
 
     check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
+    check_uv_nodes(yp)
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
 def update_layer_channel_override(self, context):
     yp = self.id_data.yp
@@ -4064,8 +4068,13 @@ def update_layer_channel_override(self, context):
         ch.halt_update = False
 
     check_all_layer_channel_io_and_nodes(layer) #, has_parent=has_parent)
+    check_uv_nodes(yp)
+
     reconnect_layer_nodes(layer)
     rearrange_layer_nodes(layer)
+
+    reconnect_yp_nodes(self.id_data)
+    rearrange_yp_nodes(self.id_data)
 
     # Reselect layer so vcol or image will be updated
     yp.active_layer_index = yp.active_layer_index
@@ -4109,7 +4118,7 @@ def update_channel_enable(self, context):
         ch.active_edit = False
         ch.active_edit_1 = False
 
-    print('INFO: Channel', root_ch.name, ' of ' + layer.name + ' is changed at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
+    print('INFO: Channel '+ root_ch.name + ' of ' + layer.name + ' is updated at', '{:0.2f}'.format((time.time() - T) * 1000), 'ms!')
     wm.yptimer.time = str(time.time())
 
 def update_normal_map_type(self, context):
@@ -4229,6 +4238,40 @@ def update_bump_smooth_multiplier(self, context):
     if self.override and self.override_type != 'DEFAULT':
         set_uv_neighbor_resolution(self)
     else: set_uv_neighbor_resolution(layer)
+
+def update_voronoi_feature(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    layer = self
+
+    if layer.type != 'VORONOI': return
+
+    source = get_layer_source(layer)
+    source.feature = layer.voronoi_feature
+
+    reconnect_layer_nodes(layer)
+    rearrange_layer_nodes(layer)
+
+def update_layer_channel_voronoi_feature(self, context):
+    yp = self.id_data.yp
+    if yp.halt_update: return
+    m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', self.path_from_id())
+    layer = yp.layers[int(m.group(1))]
+    ch = self
+
+    source = None
+    if ch.override_type == 'VORONOI':
+        source = get_channel_source(ch)
+
+    if not source:
+        tree = get_tree(layer)
+        source = tree.nodes.get(ch.cache_voronoi)
+
+    if source:
+        source.feature = ch.voronoi_feature
+
+        reconnect_layer_nodes(layer)
+        rearrange_layer_nodes(layer)
 
 def update_layer_input(self, context):
     yp = self.id_data.yp
@@ -4686,6 +4729,15 @@ class YLayerChannel(bpy.types.PropertyGroup):
             min=0.0, max=1.0, default=1.0, update=update_layer_channel_override_value)
     override_vcol_name : StringProperty(name='Vertex Color Name', description='Channel override vertex color name', default='', update=update_layer_channel_override_vcol_name)
 
+    # Specific for voronoi
+    voronoi_feature : EnumProperty(
+            name = 'Voronoi Feature',
+            description = 'The voronoi feature that will be used for compute',
+            items = voronoi_feature_items,
+            default = 'F1',
+            update = update_layer_channel_voronoi_feature
+            )
+
     # Extra override needed when bump and normal are used at the same time
     override_1 : BoolProperty(
             name = 'Enable Override (Normal Map Channel)',
@@ -5104,6 +5156,15 @@ class YLayer(bpy.types.PropertyGroup):
             description = 'Amount of blend to use between sides',
             default=0.0, min=0.0, max=1.0, subtype='FACTOR',
             update=update_projection_blend)
+
+    # Specific for voronoi
+    voronoi_feature : EnumProperty(
+            name = 'Voronoi Feature',
+            description = 'The voronoi feature that will be used for compute',
+            items = voronoi_feature_items,
+            default = 'F1',
+            update = update_voronoi_feature
+            )
 
     # For temporary bake
     use_temp_bake : BoolProperty(

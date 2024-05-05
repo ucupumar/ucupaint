@@ -302,7 +302,7 @@ def is_input_skipped(inp):
 
     return inp.name == 'Vector'
 
-def draw_tex_props(source, layout):
+def draw_tex_props(source, layout, entity=None):
 
     title = source.bl_idname.replace('ShaderNodeTex', '')
 
@@ -474,11 +474,13 @@ def draw_tex_props(source, layout):
         else: col.prop(source, 'coloring', text='')
 
         if is_greater_than_280():
-            col.prop(source, 'feature', text='')
+            if entity and is_greater_than_281():
+                col.prop(entity, 'voronoi_feature', text='')
+            else: col.prop(source, 'feature', text='')
             if source.feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'}:
                 col.prop(source, 'distance', text='')
 
-        if is_greater_than_400():
+        if is_greater_than_400() and source.feature not in {'N_SPHERE_RADIUS'}:
             col.prop(source, 'normalize', text='')
         else:
             col.separator()
@@ -1308,7 +1310,7 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
                 draw_vcol_props(bbox, vcol, layer)
             elif layer.type == 'HEMI':
                 draw_hemi_props(layer, source, bbox)
-            else: draw_tex_props(source, bbox)
+            else: draw_tex_props(source, bbox, entity=layer)
 
         # Vector
         #if layer.type not in {'VCOL', 'COLOR', 'HEMI', 'OBJECT_INDEX'}:
@@ -1887,7 +1889,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 elif ch.override_type == 'VCOL':
                     draw_vcol_props(rbox)
                 else:
-                    draw_tex_props(ch_source, rbox)
+                    draw_tex_props(ch_source, rbox, entity=ch)
 
         # Override 1
         if root_ch.type == 'NORMAL' and ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'}: # and (source_1 or cache_1))):
@@ -1945,7 +1947,9 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 draw_image_props(context, ch_source_1, rbox, entity=ch, show_flip_y=True)
 
         # Layer input
-        if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'}:
+        if (layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI', 'MUSGRAVE'} and not 
+            (is_greater_than_281() and layer.type == 'VORONOI' and layer.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})
+            ):
             row = mcol.row(align=True)
 
             input_settings_available = (ch.layer_input != 'ALPHA' 
@@ -2173,14 +2177,16 @@ def draw_layer_masks(context, layout, layer):
                 draw_edge_detect_props(mask, mask_source, rbcol)
             elif mask.type == 'MODIFIER':
                 draw_inbetween_modifier_mask_props(mask, mask_source, rbcol)
-            else: draw_tex_props(mask_source, rbcol)
+            else: draw_tex_props(mask_source, rbcol, entity=mask)
 
             if mask.baked_source != '':
                 rbox.context_pointer_set('entity', mask)
                 rbox.operator("node.y_bake_entity_to_image", text='Rebake', icon_value=lib.get_icon('bake'))
 
         # Input row
-        if mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} and (is_greater_than_292() or mask.type != 'VCOL'):
+        if (mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'BACKFACE', 'EDGE_DETECT', 'MODIFIER'} and (is_greater_than_292() or mask.type != 'VCOL') and
+            not (is_greater_than_281() and mask.type == 'VORONOI' and mask.voronoi_feature in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})
+            ):
             rrow = rrcol.row(align=True)
             rrow.label(text='', icon_value=lib.get_icon('input'))
             splits = split_layout(rrow, 0.3)
@@ -4628,7 +4634,7 @@ class YReplaceChannelOverrideMenu(bpy.types.Menu):
 
         col.separator()
 
-        for item in channel_override_type_items:
+        for item in channel_override_type_items_410 if is_greater_than_410() else channel_override_type_items:
             if item[0] == ch.override_type:
                 icon = 'RADIOBUT_ON'
             else: icon = 'RADIOBUT_OFF'

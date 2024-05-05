@@ -416,6 +416,38 @@ def update_routine(name):
                     if mask.type in {'VORONOI', 'NOISE'}:
                         mask.source_input = 'ALPHA'
 
+        # Version 1.2.4 has voronoi feature prop
+        if LooseVersion(ng.yp.version) < LooseVersion('1.2.4'):
+            update_happened = True
+            for layer in ng.yp.layers:
+                if layer.type == 'VORONOI':
+                    source = get_layer_source(layer)
+                    ng.yp.halt_update = True
+                    layer.voronoi_feature = source.feature
+                    ng.yp.halt_update = False
+
+                for ch in layer.channels:
+                    if ch.override_type == 'VORONOI':
+                        source = get_channel_source(ch)
+                        if source:
+                            ng.yp.halt_update = True
+                            ch.voronoi_feature = source.feature
+                            ng.yp.halt_update = False
+
+                    layer_tree = get_tree(layer)
+                    cache_voronoi = layer_tree.nodes.get(ch.cache_voronoi)
+                    if cache_voronoi:
+                        ng.yp.halt_update = True
+                        ch.voronoi_feature = cache_voronoi.feature
+                        ng.yp.halt_update = False
+
+                for mask in layer.masks:
+                    if mask.type == 'VORONOI':
+                        source = get_mask_source(mask)
+                        ng.yp.halt_update = True
+                        mask.voronoi_feature = source.feature
+                        ng.yp.halt_update = False
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version
@@ -459,6 +491,11 @@ def update_routine(name):
                 if layer.type == 'MUSGRAVE':
                     layer.type = 'NOISE'
                     show_message = True
+                for ch in layer.channels:
+                    if ch.override_type == 'MUSGRAVE':
+                        ch.override_type = 'NOISE'
+                    if ch.override_1_type == 'MUSGRAVE':
+                        ch.override_1_type = 'NOISE'
                 for mask in layer.masks:
                     if mask.type == 'MUSGRAVE':
                         mask.type = 'NOISE'

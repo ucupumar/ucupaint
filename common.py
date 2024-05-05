@@ -88,6 +88,12 @@ mask_blend_type_items = (("MIX", "Replace", ""),
 	             ("DODGE", "Dodge", ""),
 	             ("BURN", "Burn", ""))
 
+voronoi_feature_items = (("F1", "F1", "Compute and return the distance to the closest feature point as well as its position and color"),
+	             ("F2", "F2", "Compute and return the distance to the second closest feature point as well as its position and color."),
+	             ("SMOOTH_F1", "Smooth F1", "Compute and return a smooth version of F1."), 
+	             ("DISTANCE_TO_EDGE", "Distance to Edge", "Compute and return the distance to the edges of the Voronoi cells."), 
+	             ("N_SPHERE_RADIUS", "N-Sphere Radius", "Compute and return the radius of the n-sphere inscribed in the Voronoi cells. In other words, it is half the distance between the closest feature point and the feature point closest to it."))
+
 def entity_input_items(self, context):
     yp = self.id_data.yp
     entity = self
@@ -200,6 +206,19 @@ channel_override_type_items = (
         #('COLOR', 'Solid Color', ''),
         #('GROUP', 'Group', ''),
         #('HEMI', 'Fake Lighting', ''),
+        )
+
+channel_override_type_items_410 = (
+        ('DEFAULT', 'Default', ''),
+        ('IMAGE', 'Image', ''),
+        ('BRICK', 'Brick', ''),
+        ('CHECKER', 'Checker', ''),
+        ('GRADIENT', 'Gradient', ''),
+        ('MAGIC', 'Magic', ''),
+        ('NOISE', 'Noise', ''),
+        ('VORONOI', 'Voronoi', ''),
+        ('WAVE', 'Wave', ''),
+        ('VCOL', 'Vertex Color', ''),
         )
 
 # Override 1 will only use default value or image for now
@@ -4437,15 +4456,32 @@ def set_active_uv_layer(obj, uv_name):
                 uv_layers.active_index = i
 
 def is_uv_input_needed(layer, uv_name):
+    yp = layer.id_data.yp
 
     if get_layer_enabled(layer):
 
         if layer.baked_source != '' and layer.use_baked and layer.baked_uv_name == uv_name:
             return True
 
-        if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
             if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
                 return True
+
+        if layer.texcoord_type == 'UV' and layer.uv_name == uv_name:
+            if layer.type not in {'VCOL', 'BACKGROUND', 'COLOR', 'GROUP', 'HEMI'}:
+                return True
+
+            for i, ch in enumerate(layer.channels):
+                if not ch.enable: continue
+                root_ch = yp.channels[i]
+                if root_ch.type != 'NORMAL':
+                    if ch.override and ch.override_type not in {'DEFAULT', 'VCOL'}:
+                        return True
+                else:
+                    if ch.normal_map_type in {'BUMP_MAP', 'BUMP_NORMAL_MAP'} and ch.override and ch.override_type not in {'DEFAULT', 'VCOL'}:
+                        return True
+
+                    if ch.normal_map_type in {'NORMAL_MAP', 'BUMP_NORMAL_MAP'} and ch.override_1 and ch.override_1_type != 'DEFAULT':
+                        return True
         
         for mask in layer.masks:
             if not get_mask_enabled(mask): continue

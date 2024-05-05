@@ -1502,7 +1502,10 @@ def reconnect_source_internal_nodes(layer):
 
     create_link(tree, start.outputs[0], source.inputs[0])
 
-    rgb = source.outputs[0]
+    if is_greater_than_281() and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS':
+        rgb = source.outputs['Radius']
+    else: rgb = source.outputs[0]
+
     if layer.type == 'MUSGRAVE':
         alpha = get_essential_node(tree, ONE_VALUE)[0]
     else: alpha = source.outputs[1]
@@ -1698,7 +1701,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if source_w: create_link(tree, uv_neighbor.outputs['w'], source_w.inputs[0])
 
     # RGB
-    start_rgb = source.outputs[0]
+    if is_greater_than_281() and layer.type == 'VORONOI' and layer.voronoi_feature == 'N_SPHERE_RADIUS' and 'Radius' in source.outputs:
+        start_rgb = source.outputs['Radius']
+    else: start_rgb = source.outputs[0]
+
     start_rgb_1 = None
     if layer.type not in {'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'} and len(source.outputs) > 1:
         start_rgb_1 = source.outputs[1]
@@ -1794,7 +1800,11 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         mask_source_index = 0
         if not mask.use_baked and mask.type not in {'COLOR_ID', 'HEMI', 'OBJECT_INDEX', 'EDGE_DETECT'}:
             # Noise and voronoi output has flipped order since Blender 2.81
-            if is_greater_than_281() and mask.type in {'NOISE', 'VORONOI'}:
+            if is_greater_than_281() and mask.type == 'VORONOI' and mask.voronoi_feature == 'DISTANCE_TO_EDGE':
+                mask_source_index = 'Distance'
+            elif is_greater_than_281() and mask.type == 'VORONOI' and mask.voronoi_feature == 'N_SPHERE_RADIUS':
+                mask_source_index = 'Radius'
+            elif is_greater_than_281() and mask.type in {'NOISE', 'VORONOI'}:
                 if mask.source_input == 'RGB':
                     mask_source_index = 1
             elif mask.type == 'BACKFACE':
@@ -2083,7 +2093,7 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
         source_index = 0
         if layer.type not in {'IMAGE', 'VCOL', 'BACKGROUND', 'COLOR', 'HEMI', 'OBJECT_INDEX', 'MUSGRAVE'}:
             # Noise and voronoi output has flipped order since Blender 2.81
-            if is_greater_than_281() and layer.type in {'NOISE', 'VORONOI'}:
+            if is_greater_than_281() and (layer.type == 'NOISE' or (layer.type == 'VORONOI' and layer.voronoi_feature not in {'DISTANCE_TO_EDGE', 'N_SPHERE_RADIUS'})):
                 if ch.layer_input == 'RGB':
                     rgb = start_rgb_1
                     alpha = start_alpha_1
@@ -2105,7 +2115,9 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             else: ch_source = nodes.get(ch.source)
 
             if ch_source:
-                rgb = ch_source.outputs[0]
+                if is_greater_than_281() and ch.override_type == 'VORONOI' and ch.voronoi_feature == 'N_SPHERE_RADIUS':
+                    rgb = ch_source.outputs['Radius']
+                else: rgb = ch_source.outputs[0]
                 # Override channel will not output alpha whatsoever
                 #if layer.type != 'IMAGE':
                 #    if ch.override_type in {'IMAGE'}:
