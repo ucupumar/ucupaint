@@ -1884,6 +1884,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 rrow = mcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
+                rbox.active = ch.override
                 if ch.override_type == 'IMAGE':
                     draw_image_props(context, ch_source, rbox, ch)
                 elif ch.override_type == 'VCOL':
@@ -1944,6 +1945,7 @@ def draw_layer_channels(context, layout, layer, layer_tree, image):
                 rrow = mcol.row(align=True)
                 rrow.label(text='', icon='BLANK1')
                 rbox = rrow.box()
+                rbox.active = ch.override_1
                 draw_image_props(context, ch_source_1, rbox, entity=ch, show_flip_y=True)
 
         # Layer input
