@@ -1595,7 +1595,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                 #filepath = get_valid_filepath(baked_disp.image, use_hdr)
                 baked_disp.image.name = '____DISP_TEMP'
             else:
-                disp_img_name = tree.name + ' ' + root_ch.name + ' Displacement'
+                disp_img_name = tree.name + ' Displacement'
 
             disp_img = img.copy()
             disp_img.name = disp_img_name
