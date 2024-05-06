@@ -1157,7 +1157,9 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
             for img in images:
                 img_name = os.path.splitext(os.path.basename(img.filepath))[0].lower()
                 # Image 1 will represents normal
-                if 'normal' in img_name or 'norm' in img_name or img_name.endswith(('_nor', '.nor', '_n', '.n')):
+                if (('normal' in img_name or 'norm' in img_name or img_name.endswith(('_nor', '.nor', '_n', '.n'))) 
+                    and 'displacement' not in img_name # Baked displacement from ucupaint can contains 'normal' word
+                    ):
                     image_1 = img
                 elif not image:
                     image = img
