@@ -829,7 +829,7 @@ def denoise_image(image):
     image_node.image = image
 
     gamma = None
-    if image.colorspace_settings.name != 'sRGB':
+    if image.colorspace_settings.name != 'sRGB' and not image.is_float:
         gamma = tree.nodes.new('CompositorNodeGamma')
         gamma.inputs[1].default_value = 2.2
 
@@ -838,7 +838,8 @@ def denoise_image(image):
         tree.links.new(rgb, gamma.inputs[0])
         rgb = gamma.outputs[0]
     tree.links.new(rgb, denoise.inputs['Image'])
-    tree.links.new(denoise.outputs[0], composite.inputs[0])
+    rgb = denoise.outputs[0]
+    tree.links.new(rgb, composite.inputs[0])
 
     if image.source == 'TILED':
         tilenums = [tile.number for tile in image.tiles]
