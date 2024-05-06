@@ -2290,6 +2290,18 @@ class YBakeEntityToImage(bpy.types.Operator):
             if self.width == 1234 and self.height == 1234:
                 self.width = self.height = ypup.default_new_image_size
 
+            # Auto set some props for some types
+            if self.entity.type == 'EDGE_DETECT':
+                self.samples = 32
+                self.hdr = True
+                self.fxaa = False
+                self.denoise = True
+            else:
+                self.samples = 1
+                self.hdr = False
+                self.fxaa = True
+                self.denoise = False
+
         return context.window_manager.invoke_props_dialog(self, width=320)
 
     def check(self, context):
