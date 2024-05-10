@@ -1469,24 +1469,18 @@ class BaseMultipleImagesLayer():
 
         # Dict
 
-        # Check image names
-        #for image in images:
+        # Check for DirectX and OpenGL images
+        dx_image = None
+        gl_image = None
+        for image in images:
 
-        #    # Get filename without extension
-        #    name = os.path.splitext(os.path.basename(image.filepath))[0]
-        #    #print(name)
-
-        #    for i, ch in enumerate(yp.channels):
-
-        #        # Check image name suffix and match it with channel name
-        #        if name.lower().endswith(ch.name.lower()):
-        #            valid_images.append(image)
-        #            channel_ids.append(i)
-
-        #        # Check displacement
-        #        elif name.lower().endswith('displacement') and ch.type == 'NORMAL':
-        #            valid_images.append(image)
-        #            channel_ids.append(i)
+            # Get filename without extension
+            name = os.path.splitext(os.path.basename(image.filepath))[0]
+            lname = name.lower()
+            if 'normaldx' in lname:
+                dx_image = image
+            if 'normalgl' in lname:
+                gl_image = image
 
         synonym_libs = {
                 'color' : ['albedo', 'diffuse', 'base color'], 
@@ -1537,6 +1531,10 @@ class BaseMultipleImagesLayer():
                     # One image will only use one channel
                     if image in valid_images: continue
 
+                    # DirectX image will be skipped if there's OpenGL image
+                    if ch.type == 'NORMAL' and dx_image and gl_image and image == dx_image:
+                        continue
+
                     # Get filename without extension
                     img_name = os.path.splitext(os.path.basename(image.filepath))[0].lower()
 
@@ -1573,9 +1571,8 @@ class BaseMultipleImagesLayer():
 
                         secondary_imgae_found = True
 
-        for i, image in enumerate(valid_images):
-            #print(image.name, yp.channels[channel_ids[i]].name)
-            print(image.name, valid_channels[i].name, valid_synonyms[i])
+        #for i, image in enumerate(valid_images):
+        #    print(image.name, valid_channels[i].name, valid_synonyms[i])
 
         if not valid_images:
             # Remove loaded images
@@ -1633,6 +1630,8 @@ class BaseMultipleImagesLayer():
                     image_node.image = image
                     ch.override_1 = True
                     ch.override_1_type = 'IMAGE'
+                    if dx_image and dx_image == image:
+                        ch.image_flip_y = True
                 else:
                     image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
                     image_node.image = image
@@ -4079,7 +4078,8 @@ def update_layer_channel_override(self, context):
     rearrange_yp_nodes(self.id_data)
 
     ypui = context.window_manager.ypui
-    ypui.layer_ui.channels[ch_index].expand_source = ch.override_type not in {'IMAGE', 'VCOL'}
+    if len(ypui.layer_ui.channels) > ch_index:
+        ypui.layer_ui.channels[ch_index].expand_source = ch.override_type not in {'IMAGE', 'VCOL'}
 
     # Reselect layer so vcol or image will be updated
     yp.active_layer_index = yp.active_layer_index
