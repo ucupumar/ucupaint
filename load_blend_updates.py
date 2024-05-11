@@ -713,11 +713,14 @@ def copy_lib_tree_contents(tree, lib_tree):
 
     # Create new inputs
     cur_input_names = [inp.name for inp in get_tree_inputs(tree)]
+    new_input_default_dict = {}
     for inp in get_tree_inputs(lib_tree):
         if inp.name not in cur_input_names:
             description = inp.description if hasattr(inp, 'description') else ''
             ninp = new_tree_input(tree, inp.name, inp.bl_socket_idname, description)
-            copy_id_props(inp, ninp, socket_exception_props)
+            # NOTE: Reverse is needed because some prop need to be set first, probably not the best solution
+            copy_id_props(inp, ninp, socket_exception_props, reverse=True)
+            new_input_default_dict[ninp.name] = inp.default_value
         else: cur_input_names.remove(inp.name)
 
     # Remove remaining inputs
@@ -731,7 +734,8 @@ def copy_lib_tree_contents(tree, lib_tree):
         if outp.name not in cur_output_names:
             description = outp.description if hasattr(inp, 'description') else ''
             noutp = new_tree_output(tree, outp.name, outp.bl_socket_idname, description)
-            copy_id_props(outp, noutp, socket_exception_props)
+            # NOTE: Reverse is needed because some prop need to be set first, probably not the best solution
+            copy_id_props(outp, noutp, socket_exception_props, reverse=True)
         else: cur_output_names.remove(outp.name)
 
     # Remove remaining outputs
@@ -788,6 +792,18 @@ def copy_lib_tree_contents(tree, lib_tree):
 
     # Create info frames
     create_info_nodes(tree)
+
+    # Set default value for newly created inputs
+    for name, default_value in new_input_default_dict.items():
+        for ng in bpy.data.node_groups:
+            for n in ng.nodes:
+                if n.type == 'GROUP' and n.node_tree and n.node_tree == tree:
+                    n.inputs[name].default_value = default_value
+        for mat in bpy.data.materials:
+            if not mat.node_tree: continue
+            for n in mat.node_tree.nodes:
+                if n.type == 'GROUP' and n.node_tree and n.node_tree == tree:
+                    n.inputs[name].default_value = default_value
 
 @persistent
 def update_node_tree_libs(name):
