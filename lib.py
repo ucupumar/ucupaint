@@ -8,6 +8,7 @@ from mathutils import *
 OVERLAY_NORMAL = '~yPL Overlay Normal'
 OVERLAY_NORMAL_STRAIGHT_OVER = '~yPL Overlay Normal Straight Over'
 CHECK_INPUT_NORMAL = '~yPL Check Input Normal'
+CHECK_INPUT_NORMAL_GEOMETRY = '~yPL Check Input Normal Geometry'
 
 NORMAL_MAP = '~yPL Normal Map'
 NORMAL_MAP_PREP = '~yPL Normal Map Preparation'
@@ -164,13 +165,9 @@ FALLOFF_CURVE = '~yPL Falloff Curve'
 FALLOFF_CURVE_SMOOTH = '~yPL Falloff Curve Smooth'
 
 FINE_BUMP_PROCESS = '~yPL Fine Bump Process'
-FINE_BUMP_PROCESS_NO_OVERLAY = '~yPL Fine Bump Process No Overlay'
 FINE_BUMP_PROCESS_SUBDIV_ON = '~yPL Fine Bump Process Subdiv On'
-FINE_BUMP_PROCESS_NO_OVERLAY_SUBDIV_ON = '~yPL Fine Bump Process No Overlay Subdiv On'
 BUMP_PROCESS = '~yPL Bump Process'
-BUMP_PROCESS_NO_OVERLAY = '~yPL Bump Process No Overlay'
 BUMP_PROCESS_SUBDIV_ON = '~yPL Bump Process Subdiv On'
-BUMP_PROCESS_NO_OVERLAY_SUBDIV_ON = '~yPL Bump Process No Overlay Subdiv On'
 
 # Bake stuff
 BAKE_NORMAL = '~yPL Bake Normal'

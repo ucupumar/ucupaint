@@ -165,10 +165,13 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
         elif channel.type == 'NORMAL':
 
-            start_normal_filter = group_tree.nodes.get(channel.start_normal_filter)
-            if not start_normal_filter:
-                start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
-                start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
+            #start_normal_filter = group_tree.nodes.get(channel.start_normal_filter)
+            #if not start_normal_filter:
+            #    start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
+            #    start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
+            if not channel.enable_smooth_bump and channel.enable_subdiv_setup and ypup.eevee_next_displacement:
+                lib_name = lib.CHECK_INPUT_NORMAL_GEOMETRY
+            else: lib_name = lib.CHECK_INPUT_NORMAL
 
             lib_name = ''
 
@@ -177,24 +180,15 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
                 max_height = get_displacement_max_height(channel)
 
                 # Add end linear for converting displacement map to grayscale
-                if is_normal_input_connected(channel) or any_layers_using_normal_map(channel):
-                    if channel.enable_smooth_bump:
-                        if channel.enable_subdiv_setup and ypup.eevee_next_displacement:
-                            lib_name = lib.FINE_BUMP_PROCESS_SUBDIV_ON
-                        else: lib_name = lib.FINE_BUMP_PROCESS
-                    else: 
-                        if channel.enable_subdiv_setup and ypup.eevee_next_displacement:
-                            lib_name = lib.BUMP_PROCESS_SUBDIV_ON
-                        else: lib_name = lib.BUMP_PROCESS
-                else:
-                    if channel.enable_smooth_bump:
-                        if channel.enable_subdiv_setup and ypup.eevee_next_displacement:
-                            lib_name = lib.FINE_BUMP_PROCESS_NO_OVERLAY_SUBDIV_ON
-                        else: lib_name = lib.FINE_BUMP_PROCESS_NO_OVERLAY
-                    else:
-                        if channel.enable_subdiv_setup and ypup.eevee_next_displacement:
-                            lib_name = lib.BUMP_PROCESS_NO_OVERLAY_SUBDIV_ON
-                        else: lib_name = lib.BUMP_PROCESS_NO_OVERLAY
+                #if is_normal_input_connected(channel) or any_layers_using_normal_map(channel):
+                if channel.enable_smooth_bump:
+                    if channel.enable_subdiv_setup and ypup.eevee_next_displacement:
+                        lib_name = lib.FINE_BUMP_PROCESS_SUBDIV_ON
+                    else: lib_name = lib.FINE_BUMP_PROCESS
+                else: 
+                    if channel.enable_subdiv_setup and ypup.eevee_next_displacement:
+                        lib_name = lib.BUMP_PROCESS_SUBDIV_ON
+                    else: lib_name = lib.BUMP_PROCESS
 
                 end_linear = replace_new_node(group_tree, channel, 'end_linear', 'ShaderNodeGroup', 'Bump Process',
                         lib_name, hard_replace=True)

@@ -448,6 +448,15 @@ def update_routine(name):
                         mask.voronoi_feature = source.feature
                         ng.yp.halt_update = False
 
+        # Version 1.2.5 fix end normal process
+        if LooseVersion(ng.yp.version) < LooseVersion('1.2.5'):
+            update_happened = True
+            height_root_ch = get_root_height_channel(ng.yp)
+            if height_root_ch:
+                check_start_end_root_ch_nodes(ng, height_root_ch)
+                reconnect_yp_nodes(ng)
+                rearrange_yp_nodes(ng)
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version

@@ -1646,8 +1646,8 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
             if prev_height: create_link(tree, prev_height, bump_process.inputs['Height'])
 
         if prev_normal: create_link(tree, prev_normal, bump_process.inputs['Normal Overlay'])
-        if tangent: create_link(tree, tangent, bump_process.inputs['Tangent'])
-        if bitangent: create_link(tree, bitangent, bump_process.inputs['Bitangent'])
+        if tangent and 'Tangent' in bump_process.inputs: create_link(tree, tangent, bump_process.inputs['Tangent'])
+        if bitangent and 'Bitangent' in bump_process.inputs: create_link(tree, bitangent, bump_process.inputs['Bitangent'])
 
     if layer.type == 'HEMI':
         if layer.hemi_use_prev_normal and bump_process:
@@ -2601,6 +2601,10 @@ def reconnect_layer_nodes(layer, ch_idx=-1, merge_mask=False):
                     create_link(tree, rgb_s, height_proc.inputs['Height s'])
                     create_link(tree, rgb_e, height_proc.inputs['Height e'])
                     create_link(tree, rgb_w, height_proc.inputs['Height w'])
+            else:
+                prev_normal = texcoord.outputs.get(root_ch.name)
+                if prev_normal and normal_proc and 'Normal' in normal_proc.inputs: 
+                    create_link(tree, prev_normal, normal_proc.inputs['Normal'])
 
             height_alpha = alpha
             alpha_ns = None
