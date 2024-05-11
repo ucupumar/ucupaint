@@ -165,13 +165,12 @@ def check_start_end_root_ch_nodes(group_tree, specific_channel=None):
 
         elif channel.type == 'NORMAL':
 
-            #start_normal_filter = group_tree.nodes.get(channel.start_normal_filter)
-            #if not start_normal_filter:
-            #    start_normal_filter = new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter')
-            #    start_normal_filter.node_tree = get_node_tree_lib(lib.CHECK_INPUT_NORMAL)
             if not channel.enable_smooth_bump and channel.enable_subdiv_setup and ypup.eevee_next_displacement:
                 lib_name = lib.CHECK_INPUT_NORMAL_GEOMETRY
             else: lib_name = lib.CHECK_INPUT_NORMAL
+
+            start_normal_filter = replace_new_node(group_tree, channel, 'start_normal_filter', 'ShaderNodeGroup', 'Start Normal Filter',
+                    lib_name, hard_replace=True)
 
             lib_name = ''
 
