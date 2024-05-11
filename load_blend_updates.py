@@ -794,16 +794,18 @@ def copy_lib_tree_contents(tree, lib_tree):
     create_info_nodes(tree)
 
     # Set default value for newly created inputs
-    for name, default_value in new_input_default_dict.items():
+    if new_input_default_dict:
         for ng in bpy.data.node_groups:
             for n in ng.nodes:
                 if n.type == 'GROUP' and n.node_tree and n.node_tree == tree:
-                    n.inputs[name].default_value = default_value
+                    for name, default_value in new_input_default_dict.items():
+                        n.inputs[name].default_value = default_value
         for mat in bpy.data.materials:
             if not mat.node_tree: continue
             for n in mat.node_tree.nodes:
                 if n.type == 'GROUP' and n.node_tree and n.node_tree == tree:
-                    n.inputs[name].default_value = default_value
+                    for name, default_value in new_input_default_dict.items():
+                        n.inputs[name].default_value = default_value
 
 @persistent
 def update_node_tree_libs(name):
