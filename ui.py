@@ -2946,13 +2946,35 @@ def main_draw(self, context):
         col.prop(obj, 'pass_index')
         #row = box.row()
 
+    # HACK: Create split layout to load all icons
+    if not wm.ypprops.all_icons_loaded:
+        split = split_layout(layout, 1.0)
+        row = split.row(align=True)
+    else:
+        row = layout.row(align=True)
+
     icon = 'TRIA_DOWN' if ypui.show_materials else 'TRIA_RIGHT'
-    row = layout.row(align=True)
     row.prop(ypui, 'show_materials', emboss=False, text='', icon=icon)
     text_material = pgettext_iface('Material: ')
     if mat:
         row.label(text=text_material + mat.name)
     else: row.label(text=text_material + '-')
+
+    # HACK: Load all icons earlier so no missing icons possible
+    if not wm.ypprops.all_icons_loaded:
+        wm.ypprops.all_icons_loaded = True
+        row.label(text='', icon='BLANK1')
+        folder = get_addon_filepath() + 'icons' + os.sep
+        # Add extra splits so the actual icons aren't actually visible
+        s1 = split_layout(split, 1.0)
+        s1.label(text='', icon='BLANK1')
+        s2 = split_layout(s1, 1.0)
+        s2.label(text='', icon='BLANK1')
+        invisible_row = s2.row(align=False)
+        # Load all icons on invisible area of the screen
+        for i, f in enumerate(os.listdir(folder)):
+            icon_name = f.replace('_icon.png', '')
+            invisible_row.label(text='', icon_value=lib.get_icon(icon_name))
 
     if ypui.show_materials:
         is_sortable = len(obj.material_slots) > 1

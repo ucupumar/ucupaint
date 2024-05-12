@@ -3531,6 +3531,8 @@ class YPaintWMProps(bpy.types.PropertyGroup):
     last_material : StringProperty(default='')
     last_mode : StringProperty(default='')
 
+    all_icons_loaded : BoolProperty(default=False)
+
     edit_image_editor_area_index : IntProperty(default=-1)
 
 class YPaintSceneProps(bpy.types.PropertyGroup):
