@@ -2946,8 +2946,8 @@ def main_draw(self, context):
         col.prop(obj, 'pass_index')
         #row = box.row()
 
-    # HACK: Create split layout to load all icons
-    if not wm.ypprops.all_icons_loaded:
+    # HACK: Create split layout to load all icons (Only for Blender 3.2+)
+    if is_greater_than_320() and not wm.ypprops.all_icons_loaded:
         split = split_layout(layout, 1.0)
         row = split.row(align=True)
     else:
@@ -2960,8 +2960,8 @@ def main_draw(self, context):
         row.label(text=text_material + mat.name)
     else: row.label(text=text_material + '-')
 
-    # HACK: Load all icons earlier so no missing icons possible
-    if not wm.ypprops.all_icons_loaded:
+    # HACK: Load all icons earlier so no missing icons possible (Only for Blender 3.2+)
+    if is_greater_than_320() and not wm.ypprops.all_icons_loaded:
         wm.ypprops.all_icons_loaded = True
         row.label(text='', icon='BLANK1')
         folder = get_addon_filepath() + 'icons' + os.sep
