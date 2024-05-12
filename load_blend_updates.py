@@ -457,6 +457,12 @@ def update_routine(name):
                 reconnect_yp_nodes(ng)
                 rearrange_yp_nodes(ng)
 
+                for layer in ng.yp.layers:
+                    height_ch = get_height_channel(layer)
+                    if height_ch and height_ch.enable:
+                        reconnect_layer_nodes(layer)
+                        rearrange_layer_nodes(layer)
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version
