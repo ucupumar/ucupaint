@@ -2947,12 +2947,17 @@ def update_mapping(entity, use_baked=False):
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
     # Get source
+    layer = None
+    mask = None
     if m1: 
         source = get_layer_source(entity, get_baked=use_baked)
         mapping = get_layer_mapping(entity, get_baked=use_baked)
+        layer = entity
     elif m2: 
         source = get_mask_source(entity, get_baked=use_baked)
         mapping = get_mask_mapping(entity, get_baked=use_baked)
+        layer = yp.layers[int(m2.group(1))]
+        mask = entity
     else: return
 
     if not mapping: return
@@ -3006,8 +3011,16 @@ def update_mapping(entity, use_baked=False):
     #            set_uv_neighbor_resolution(ch, mapping=mapping)
 
     if entity.type == 'IMAGE' and entity.texcoord_type == 'UV':
-        if m1 or (m2 and entity.active_edit):
-            if hasattr(bpy.context, 'object') and bpy.context.object and bpy.context.object.mode == 'TEXTURE_PAINT':
+        if hasattr(bpy.context, 'object') and bpy.context.object and bpy.context.object.mode == 'TEXTURE_PAINT':
+
+            # Get active mask of layer
+            active_mask = None
+            for m in layer.masks:
+                if m.active_edit:
+                    active_mask = m
+
+            # Only need to refersh if entity is the active one
+            if not active_mask or (mask and active_mask == mask):
                 yp.need_temp_uv_refresh = True
 
 def is_active_uv_map_missmatch_entity(obj, entity):
