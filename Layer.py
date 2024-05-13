@@ -1599,6 +1599,11 @@ class BaseMultipleImagesLayer():
             #if image.colorspace_settings.name != 'Non-Color':
             #    image.colorspace_settings.name = 'Non-Color'
 
+            # Set relative
+            if self.relative:
+                try: image.filepath = bpy.path.relpath(image.filepath)
+                except: pass
+
             m = re.match(r'^yp\.channels\[(\d+)\].*', root_ch.path_from_id())
             ch_idx = int(m.group(1))
 
