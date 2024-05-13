@@ -1678,8 +1678,32 @@ def check_duplicated_node_group(node_group, duplicated_trees = []):
                     # Remember current tree
                     prev_tree = node.node_tree
 
+                    # HACK: Remember links because sometime tree sockets are unlinked
+                    from_nodes = []
+                    from_sockets = []
+                    to_sockets = []
+                    for inp in node.inputs:
+                        for l in inp.links:
+                            from_nodes.append(l.from_node.name)
+                            socket_index = [i for i, soc in enumerate(l.from_node.outputs) if soc == l.from_socket][0]
+                            from_sockets.append(socket_index)
+                            to_sockets.append(inp.name)
+
+                    #print('FROM:', node.node_tree.name, len(node.inputs))
+
                     # Replace new node
                     node.node_tree = ng
+
+                    #print('TO  :', node.node_tree.name, len(node.inputs))
+
+                    # HACK: Recover the unlinkeds
+                    for i, inp_name in enumerate(to_sockets):
+                        inp = node.inputs.get(inp_name)
+                        if not inp: continue
+                        from_node = node_group.nodes.get(from_nodes[i])
+                        if len(inp.links) == 0:
+                            try: node_group.links.new(from_node.outputs[from_sockets[i]], inp)
+                            except Exception as e: print(e)
 
                     if prev_tree not in duplicated_trees:
                         duplicated_trees.append(prev_tree)
