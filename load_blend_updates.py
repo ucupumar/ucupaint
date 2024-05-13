@@ -664,7 +664,23 @@ def fix_missing_lib_trees(tree, problematic_trees):
 
     return problematic_trees
 
-def copy_lib_tree_contents(tree, lib_tree):
+def copy_lib_tree_contents(tree, lib_tree, lib_trees):
+
+    # Check for the versions first
+    cur_ver = get_lib_revision(tree)
+    lib_ver = get_lib_revision(lib_tree)
+    if cur_ver >= lib_ver: return
+
+    # Update other libraries inside the tree
+    for n in tree.nodes:
+        if n.type == 'GROUP' and n.node_tree:
+            m = re.match(r'^(~yPL .+?)(?:_Copy?)?(?:\.\d{3}?)?$', n.node_tree.name)
+            if not m: continue
+            lname = m.group(1)
+            ltree = [t for t in lib_trees if re.search(r'^' + re.escape(lname) + r'(?:\.\d{3}?)?$', t.name)]
+            if not ltree: continue
+            ltree = ltree[0]
+            copy_lib_tree_contents(n.node_tree, ltree, lib_trees)       
 
     valid_nodes = []
 
@@ -803,7 +819,8 @@ def copy_lib_tree_contents(tree, lib_tree):
                 break
 
         # Create the link
-        tree.links.new(from_node.outputs[from_index], to_node.inputs[to_index])
+        try: tree.links.new(from_node.outputs[from_index], to_node.inputs[to_index])
+        except Exception as e: print(e)
 
     # Create info frames
     create_info_nodes(tree)
@@ -929,7 +946,7 @@ def update_node_tree_libs(name):
 
         if lib_tree.name != name:
             cur_tree = bpy.data.node_groups.get(name)
-            copy_lib_tree_contents(cur_tree, lib_tree)
+            copy_lib_tree_contents(cur_tree, lib_tree, lib_trees)
         else:
 
             #cur_trees = [n for n in bpy.data.node_groups if n.name.startswith(name) and n.name != name]
@@ -962,7 +979,7 @@ def update_node_tree_libs(name):
                         cur_tree = node.node_tree
                         cur_ver = get_lib_revision(cur_tree)
 
-                        copy_lib_tree_contents(cur_tree, lib_tree)
+                        copy_lib_tree_contents(cur_tree, lib_tree, lib_trees)
 
                         # Hemi revision 1 has normal input
                         if name == HEMI and cur_ver == 0 and lib_ver == 1:
