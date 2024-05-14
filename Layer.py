@@ -1308,7 +1308,9 @@ class YOpenImageToOverride1Channel(bpy.types.Operator, ImportHelper):
         for img in images:
             img_name = os.path.splitext(os.path.basename(img.filepath))[0].lower()
             # Image 1 will represents bump
-            if 'displacement' in img_name or 'bump' in img_name or img_name.endswith(('_disp', '.disp')):
+            if (('displacement' in img_name or 'bump' in img_name or img_name.endswith(('_disp', '.disp')))
+                and 'without bump' not in img_name # Baked normal from ucupaint can contains 'without bump' word
+                ):
                 image_1 = img
             elif not image:
                 image = img
