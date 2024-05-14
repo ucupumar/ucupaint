@@ -1529,7 +1529,7 @@ def bake_channel(uv_map, mat, node, root_ch, width=1024, height=1024, target_lay
                     #filepath = get_valid_filepath(baked_normal_overlay.image, use_hdr)
                     baked_normal_overlay.image.name = '____NORM_TEMP'
                 else:
-                    norm_img_name = tree.name + ' ' + root_ch.name + ' Overlay Only'
+                    norm_img_name = tree.name + ' ' + root_ch.name + ' without Bump'
 
                 # Create target image
                 norm_img = img.copy()
