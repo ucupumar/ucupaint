@@ -2943,6 +2943,8 @@ def clear_mapping(entity, use_baked=False):
 
 def update_mapping(entity, use_baked=False):
 
+    yp = entity.id_data.yp
+
     m1 = re.match(r'^yp\.layers\[(\d+)\]$', entity.path_from_id())
     m2 = re.match(r'^yp\.layers\[(\d+)\]\.masks\[(\d+)\]$', entity.path_from_id())
 
@@ -2963,8 +2965,6 @@ def update_mapping(entity, use_baked=False):
     if not mapping: return
 
     segment_name = entity.segment_name if not use_baked else entity.baked_segment_name
-
-    yp = entity.id_data.yp
 
     if use_baked:
         offset_x = offset_y = offset_z = 0.0
