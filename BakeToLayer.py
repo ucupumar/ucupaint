@@ -763,6 +763,10 @@ class YBakeToLayer(bpy.types.Operator):
         if len(yp.layers) > 0:
             active_layer = yp.layers[yp.active_layer_index]
 
+        if len(yp.channels) == 0:
+            self.report({'ERROR'}, "Need at least one channel!")
+            return {'CANCELLED'}
+
         if self.type == 'SELECTED_VERTICES' and obj.mode != 'EDIT':
             self.report({'ERROR'}, "Should be on edit mode!")
             return {'CANCELLED'}
