@@ -489,7 +489,7 @@ class YRefillUDIMTiles(bpy.types.Operator):
 
             else:
                 # Get tile numbers based from uv
-                uv_name = entity.uv_name
+                uv_name = entity.uv_name if not entity.use_baked else entity.baked_uv_name
                 objs = get_all_objects_with_same_materials(mat, True, uv_name)
                 tilenums = get_tile_numbers(objs, uv_name)
 
