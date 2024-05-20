@@ -758,14 +758,11 @@ class YBakeToLayer(bpy.types.Operator):
         scene = context.scene
         obj = context.object
         ypup = get_user_preferences()
+        channel_idx = int(self.channel_idx) if len(yp.channels) == 0 else -1
 
         active_layer = None
         if len(yp.layers) > 0:
             active_layer = yp.layers[yp.active_layer_index]
-
-        if len(yp.channels) == 0:
-            self.report({'ERROR'}, "Need at least one channel!")
-            return {'CANCELLED'}
 
         if self.type == 'SELECTED_VERTICES' and obj.mode != 'EDIT':
             self.report({'ERROR'}, "Should be on edit mode!")
@@ -1672,7 +1669,7 @@ class YBakeToLayer(bpy.types.Operator):
                         layer_name = get_unique_name(layer_name, yp.layers)
 
                     yp.halt_update = True
-                    layer = Layer.add_new_layer(node.node_tree, layer_name, 'IMAGE', int(self.channel_idx), self.blend_type, 
+                    layer = Layer.add_new_layer(node.node_tree, layer_name, 'IMAGE', channel_idx, self.blend_type, 
                             self.normal_blend_type, self.normal_map_type, 'UV', self.uv_map, image, None, segment
                             )
                     yp.halt_update = False
