@@ -758,7 +758,7 @@ class YBakeToLayer(bpy.types.Operator):
         scene = context.scene
         obj = context.object
         ypup = get_user_preferences()
-        channel_idx = int(self.channel_idx) if len(yp.channels) == 0 else -1
+        channel_idx = int(self.channel_idx) if len(yp.channels) > 0 else -1
 
         active_layer = None
         if len(yp.layers) > 0:
