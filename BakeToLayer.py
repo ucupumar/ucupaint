@@ -1397,6 +1397,10 @@ class YBakeToLayer(bpy.types.Operator):
 
                 ori_sockets[m.name] = soc
 
+        # Newly created layer index and image
+        active_id = None
+        image = None
+
         for idx in ch_ids:
 
             # Image name and colorspace
@@ -1932,9 +1936,10 @@ class YBakeToLayer(bpy.types.Operator):
 
         # Refresh active index (only when not overwriting current entity)
         #if active_id != yp.active_layer_index:
-        if not self.overwrite_current:
+        if active_id != None and not self.overwrite_current:
             yp.active_layer_index = active_id
 
+        # Expand image source to show rebake button
         if self.target_type == 'MASK':
             ypui.layer_ui.expand_masks = True
         else:
@@ -1945,7 +1950,8 @@ class YBakeToLayer(bpy.types.Operator):
         # Refresh mapping and stuff
         #yp.active_layer_index = yp.active_layer_index
 
-        print('BAKE TO LAYER: Baking', image.name, 'is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        if image: print('BAKE TO LAYER: Baking', image.name, 'is done at', '{:0.2f}'.format(time.time() - T), 'seconds!')
+        else: print('BAKE TO LAYER: No image created! Executed at', '{:0.2f}'.format(time.time() - T), 'seconds!')
 
         return {'FINISHED'}
 
