@@ -845,9 +845,11 @@ class YBakeToLayer(bpy.types.Operator):
             self.report({'ERROR'}, "No valid objects found to bake!")
             return {'CANCELLED'}
 
+        do_overwrite = False
         overwrite_img = None
         if (self.overwrite_choice or self.overwrite_current) and self.overwrite_image_name != '':
             overwrite_img = bpy.data.images.get(self.overwrite_image_name)
+            do_overwrite = True
 
         segment = None
         if overwrite_img:
@@ -1488,7 +1490,9 @@ class YBakeToLayer(bpy.types.Operator):
             image.colorspace_settings.name = colorspace
 
             # Set image filepath if overwrite image is found
-            if overwrite_img:
+            if do_overwrite:
+                # Get overwrite image again to avoid pointer error
+                overwrite_img = bpy.data.images.get(self.overwrite_image_name)
                 #if idx == 0:
                 if idx == min(ch_ids):
                     if not overwrite_img.packed_file and overwrite_img.filepath != '':
@@ -1617,7 +1621,10 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Index 0 is the main image
             if idx == min(ch_ids):
-                if overwrite_img:
+                if do_overwrite:
+
+                    # Get overwrite image again to avoid pointer error
+                    overwrite_img = bpy.data.images.get(self.overwrite_image_name)
 
                     active_id = yp.active_layer_index
 
@@ -1714,17 +1721,17 @@ class YBakeToLayer(bpy.types.Operator):
                 layer = yp.layers[yp.active_layer_index]
                 root_ch = yp.channels[idx]
                 ch = layer.channels[idx]
-                ch.enable = True
+                if not ch.enable: ch.enable = True
 
                 # Normal channel will use second override
                 if root_ch.type == 'NORMAL':
-                    ch.normal_map_type = 'NORMAL_MAP'
-                    ch.override_1 = True
-                    ch.override_1_type = 'IMAGE'
+                    if ch.normal_map_type != 'NORMAL_MAP': ch.normal_map_type = 'NORMAL_MAP'
+                    if not ch.override_1: ch.override_1 = True
+                    if ch.override_1_type != 'IMAGE': ch.override_1_type = 'IMAGE'
                     source = get_channel_source_1(ch, layer)
                 else:
-                    ch.override = True
-                    ch.override_type = 'IMAGE'
+                    if not ch.override: ch.override = True
+                    if ch.override_type != 'IMAGE': ch.override_type = 'IMAGE'
                     source = get_channel_source(ch, layer)
 
                 # If image already exists on source
@@ -1747,8 +1754,8 @@ class YBakeToLayer(bpy.types.Operator):
             # Set bake info to image/segment
             bi = segment.bake_info if segment else image.y_bake_info
 
-            bi.is_baked = True
-            bi.bake_type = self.type
+            if not bi.is_baked: bi.is_baked = True
+            if bi.bake_type != self.type: bi.bake_type = self.type
             for attr in dir(bi):
                 #if attr in dir(self):
                 if attr.startswith('__'): continue
@@ -1923,12 +1930,16 @@ class YBakeToLayer(bpy.types.Operator):
         reconnect_yp_nodes(node.node_tree)
         rearrange_yp_nodes(node.node_tree)
 
-        # Refresh active index
+        # Refresh active index (only when not overwriting current entity)
         #if active_id != yp.active_layer_index:
-        yp.active_layer_index = active_id
+        if not self.overwrite_current:
+            yp.active_layer_index = active_id
 
         if self.target_type == 'MASK':
             ypui.layer_ui.expand_masks = True
+        else:
+            ypui.layer_ui.expand_content = True
+            ypui.layer_ui.expand_source = True
         ypui.need_update = True
 
         # Refresh mapping and stuff
