@@ -1897,6 +1897,8 @@ def get_merged_mesh_objects(scene, objs, hide_original=False):
 
         # Apply shape keys
         if obj.data.shape_keys:
+            # Set active shape to make sure context will be correct
+            if not obj.active_shape_key: obj.active_shape_key_index = 0
             bpy.ops.object.shape_key_remove(all=True, apply_mix=True)
 
         # Apply modifiers
