@@ -27,6 +27,7 @@ import traceback
 import bpy
 from bpy.app.handlers import persistent
 from .preferences import *
+from . import common
 
 # Safely import the updater.
 # Prevents popups for users with invalid python installs e.g. missing libraries
@@ -1280,7 +1281,7 @@ classes = (
 )
 
 
-def register(bl_info):
+def register():
     """Registering the operators in this module"""
     # Safer failure in case of issue loading module.
     if updater.error:
@@ -1318,7 +1319,7 @@ def register(bl_info):
     updater.subfolder_path = ""
 
     # Used to check/compare versions.
-    updater.current_version = bl_info["version"]
+    updater.current_version = common.get_current_version()
 
     # Optional, to hard-set update frequency, use this here - however, this
     # demo has this set via UI properties.

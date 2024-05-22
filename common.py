@@ -522,6 +522,14 @@ def get_current_version_str():
     manifest = get_manifest()
     return manifest['version']
 
+def get_current_version():
+    if not is_greater_than_420():
+        bl_info = sys.modules[get_addon_name()].bl_info
+        return bl_info['version']
+
+    manifest = get_manifest()
+    return tuple(map(int, manifest['version'].split('.')))
+
 def is_greater_than_280():
     if bpy.app.version >= (2, 80, 0):
         return True

@@ -71,9 +71,9 @@ def register():
     BakeToLayer.register()
     Root.register()
     load_blend_updates.register()
-    addon_updater_ops.register(bl_info)
+    addon_updater_ops.register()
 
-    print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is registered!')
+    print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is registered!')
 
 def unregister():
     Localization.unregister_module(ui)
@@ -99,7 +99,7 @@ def unregister():
     load_blend_updates.unregister()
     addon_updater_ops.unregister()
 
-    print('INFO: ' + bl_info['name'] + ' ' + common.get_current_version_str() + ' is unregistered!')
+    print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is unregistered!')
 
 if __name__ == "__main__":
     register()
