@@ -2902,31 +2902,32 @@ def main_draw(self, context):
     #layout.operator("node.y_debug_mesh", icon='MESH_DATA')
     #layout.operator("node.y_test_ray", icon='MESH_DATA')
 
-    from . import addon_updater_ops
+    if not is_greater_than_420():
+        from . import addon_updater_ops
 
-    row_update = layout.row()
-    updater = addon_updater_ops.updater
+        row_update = layout.row()
+        updater = addon_updater_ops.updater
 
-    if not updater.auto_reload_post_update:
-        saved_state = updater.json
-        if "just_updated" in saved_state and saved_state["just_updated"]:
+        if not updater.auto_reload_post_update:
+            saved_state = updater.json
+            if "just_updated" in saved_state and saved_state["just_updated"]:
+                row_update.alert = True
+                row_update.operator("wm.quit_blender",
+                             text="Restart blender to complete update",
+                             icon="ERROR")
+                return
+            
+        if updater.update_ready and not ypui.hide_update:
             row_update.alert = True
-            row_update.operator("wm.quit_blender",
-                         text="Restart blender to complete update",
-                         icon="ERROR")
-            return
-        
-    if updater.update_ready and not ypui.hide_update:
-        row_update.alert = True
-        if updater.using_development_build:
-            update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
-            row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
-        else:
-            row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                        text="Update now to " + str(updater.update_version))
-        row_update.alert = False
+            if updater.using_development_build:
+                update_now_txt = "Update to latest commit on '{}' branch".format(updater.current_branch)
+                row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
+            else:
+                row_update.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
+                            text="Update now to " + str(updater.update_version))
+            row_update.alert = False
 
-        row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
+            row_update.operator(addon_updater_ops.UpdaterPendingUpdate.bl_idname, icon="X", text="")
 
     icon = 'TRIA_DOWN' if ypui.show_object else 'TRIA_RIGHT'
     row = layout.row(align=True)
@@ -3683,38 +3684,43 @@ def draw_ypaint_about(self, context):
     col.operator('wm.url_open', text='morirain', icon='ARMATURE_DATA').url = 'https://github.com/morirain'
     col.separator()
 
-    from . import addon_updater_ops
-    updater = addon_updater_ops.updater
+    col.label(text='Documentation:')
+    col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
+    col.separator()
 
-    row = col.row()            
-    if updater.using_development_build:
-        if addon_updater_ops.updater.legacy_blender:
-            row.label(text="Branch: Master (2.79)")
-        else:
-            row.label(text="Branch: "+updater.current_branch)
-    else:
-        row.label(text="Branch: Stable "+str(updater.current_version))
-    if addon_updater_ops.updater.legacy_blender:
-        col.operator(addon_updater_ops.AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="FILE_SCRIPT")
-    else:
-        row.menu(addon_updater_ops.UpdaterSettingMenu.bl_idname, text='', icon='PREFERENCES')
+    if not is_greater_than_420():
+        from . import addon_updater_ops
+        updater = addon_updater_ops.updater
 
-    if updater.async_checking:
-        col.enabled = False
-        col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text="Checking...")
-    elif updater.update_ready:
-        col.alert = True
+        row = col.row()            
         if updater.using_development_build:
-            update_now_txt = "Update to latest commit on '{}' branch".format(
-                updater.current_branch)
-            col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
-            
+            if addon_updater_ops.updater.legacy_blender:
+                row.label(text="Branch: Master (2.79)")
+            else:
+                row.label(text="Branch: "+updater.current_branch)
         else:
-            col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
-                        text="Update now to " + str(updater.update_version))
-    else:
-        col.operator(addon_updater_ops.RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
-        col.label(text="Ucupaint is up to date")
+            row.label(text="Branch: Stable "+str(updater.current_version))
+        if addon_updater_ops.updater.legacy_blender:
+            col.operator(addon_updater_ops.AddonUpdaterUpdateTarget.bl_idname, text="Change Branch", icon="FILE_SCRIPT")
+        else:
+            row.menu(addon_updater_ops.UpdaterSettingMenu.bl_idname, text='', icon='PREFERENCES')
+
+        if updater.async_checking:
+            col.enabled = False
+            col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text="Checking...")
+        elif updater.update_ready:
+            col.alert = True
+            if updater.using_development_build:
+                update_now_txt = "Update to latest commit on '{}' branch".format(
+                    updater.current_branch)
+                col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname, text=update_now_txt)
+                
+            else:
+                col.operator(addon_updater_ops.AddonUpdaterUpdateNow.bl_idname,
+                            text="Update now to " + str(updater.update_version))
+        else:
+            col.operator(addon_updater_ops.RefreshBranchesReleasesNow.bl_idname, text="Check for update", icon="FILE_REFRESH")
+            col.label(text="Ucupaint is up to date")
 
 class YPaintAboutPopover(bpy.types.Panel):
     bl_idname = "NODE_PT_ypaint_about_popover"
