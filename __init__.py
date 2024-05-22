@@ -71,7 +71,8 @@ def register():
     BakeToLayer.register()
     Root.register()
     load_blend_updates.register()
-    addon_updater_ops.register()
+    if not common.is_greater_than_420():
+        addon_updater_ops.register()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is registered!')
 
@@ -97,7 +98,8 @@ def unregister():
     BakeToLayer.unregister()
     Root.unregister()
     load_blend_updates.unregister()
-    addon_updater_ops.unregister()
+    if not common.is_greater_than_420():
+        addon_updater_ops.unregister()
 
     print('INFO: ' + common.get_addon_title() + ' ' + common.get_current_version_str() + ' is unregistered!')
 
