@@ -2,7 +2,6 @@ import bpy, os, sys, re, time, numpy, math
 from mathutils import *
 from bpy.app.handlers import persistent
 from bpy_types import bpy_types
-#from .__init__ import bl_info
 
 BLENDER_28_GROUP_INPUT_HACK = False
 
@@ -480,28 +479,48 @@ GAMMA = 2.2
 def versiontuple(v):
     return tuple(map(int, (v.split("."))))
 
+def get_manifest():
+    import toml
+    # Load manifest file
+    with open(get_addon_filepath() + 'blender_manifest.toml', 'r') as f:
+        manifest = toml.load(f)
+    return manifest
+
 def get_addon_name():
     return os.path.basename(os.path.dirname(bpy.path.abspath(__file__)))
 
 def get_addon_title():
-    bl_info = sys.modules[get_addon_name()].bl_info
-    return bl_info['name']
+    if not is_greater_than_420():
+        bl_info = sys.modules[get_addon_name()].bl_info
+        return bl_info['name']
+
+    manifest = get_manifest()
+    return manifest['name']
 
 def get_addon_warning():
-    bl_info = sys.modules[get_addon_name()].bl_info
-    return bl_info['warning']
+    if not is_greater_than_420():
+        bl_info = sys.modules[get_addon_name()].bl_info
+        return bl_info['warning']
+
+    return ''
 
 def get_alpha_suffix():
-    bl_info = sys.modules[get_addon_name()].bl_info
-    if 'Alpha' in bl_info['warning']:
-        return ' Alpha'
-    elif 'Beta' in bl_info['warning']:
-        return ' Beta'
+    if not is_greater_than_420():
+        bl_info = sys.modules[get_addon_name()].bl_info
+        if 'Alpha' in bl_info['warning']:
+            return ' Alpha'
+        elif 'Beta' in bl_info['warning']:
+            return ' Beta'
+
     return ''
 
 def get_current_version_str():
-    bl_info = sys.modules[get_addon_name()].bl_info
-    return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
+    if not is_greater_than_420():
+        bl_info = sys.modules[get_addon_name()].bl_info
+        return str(bl_info['version']).replace(', ', '.').replace('(','').replace(')','')
+
+    manifest = get_manifest()
+    return manifest['version']
 
 def is_greater_than_280():
     if bpy.app.version >= (2, 80, 0):
