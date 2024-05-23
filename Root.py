@@ -58,32 +58,54 @@ def set_input_default_value(group_node, channel, custom_value=None):
         #group_node.inputs[channel.io_index+1].default_value = 1.0
         group_node.inputs[channel.name + io_suffix['ALPHA']].default_value = 1.0
 
-def create_yp_channel_nodes(group_tree, channel, channel_idx):
-    yp = group_tree.yp
-    nodes = group_tree.nodes
+def check_yp_channel_nodes(yp, reconnect=False):
 
     # Link between layers
-    for t in yp.layers:
+    for layer in yp.layers:
+        layer_tree = get_tree(layer)
+        
+        num_difference = len(yp.channels) - len(layer.channels)
+        if num_difference > 0:
+            for i in range(num_difference):
+                # Add new channel
+                c = layer.channels.add()
+        elif num_difference < 0:
+            for i in range(abs(num_difference)):
+                last_idx = len(layer.channels)-1
+                # Remove layer channel
+                layer.channels.remove(channel_idx)
 
-        # Add new channel
-        c = t.channels.add()
-
-        # Add new channel to mask
-        layer_tree = get_tree(t)
-        for mask in t.masks:
-            mc = mask.channels.add()
+        for mask in layer.masks:
+            num_difference = len(yp.channels) - len(mask.channels)
+            if num_difference > 0:
+                for i in range(num_difference):
+                    # Add new channel to mask
+                    mc = mask.channels.add()
+            elif num_difference < 0:
+                for i in range(abs(num_difference)):
+                    last_idx = len(mask.channels)-1
+                    # Remove mask channel
+                    mask.channels.remove(channel_idx)
 
         # Check and set mask intensity nodes
-        transition.check_transition_bump_influences_to_other_channels(t, layer_tree, target_ch=c)
+        transition.check_transition_bump_influences_to_other_channels(layer, layer_tree) #, target_ch=c)
 
         # Set mask multiply nodes
-        check_mask_mix_nodes(t, layer_tree)
+        check_mask_mix_nodes(layer, layer_tree)
 
         # Add new nodes
-        Layer.check_all_layer_channel_io_and_nodes(t, layer_tree, specific_ch=c)
+        Layer.check_all_layer_channel_io_and_nodes(layer, layer_tree) #, specific_ch=c)
 
     # Check uv maps
     check_uv_nodes(yp)
+
+    if reconnect:
+        for layer in yp.layers:
+            reconnect_layer_nodes(layer)
+            rearrange_layer_nodes(layer)
+
+        reconnect_yp_nodes(yp.id_data)
+        rearrange_yp_nodes(yp.id_data)
 
 def create_new_group_tree(mat):
 
@@ -121,7 +143,7 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
     last_index = len(yp.channels)-1
 
     # Link new channel
-    create_yp_channel_nodes(group_tree, channel, last_index)
+    check_yp_channel_nodes(yp)
 
     for layer in yp.layers:
         # New channel is disabled in layer by default
@@ -1505,6 +1527,29 @@ class YAddSimpleUVs(bpy.types.Operator):
         bpy.ops.object.mode_set(mode='TEXTURE_PAINT')
         bpy.ops.paint.add_simple_uvs()
         bpy.ops.object.mode_set(mode=old_mode)
+
+        return {'FINISHED'}
+
+class YFixChannelMissmatch(bpy.types.Operator):
+    bl_idname = "node.y_fix_channel_missmatch"
+    bl_label = "Fix Channels Mistmatch"
+    bl_description = "Fix channels missmatch because of error"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        return get_active_ypaint_node()
+
+    def execute(self, context):
+        node = get_active_ypaint_node()
+        yp = node.node_tree.yp
+
+        # Make sure halt_update and halt_reconnect off
+        if yp.halt_update: yp.halt_update = False
+        if yp.halt_reconnect: yp.halt_reconnect = False
+
+        # Reconstruct channels
+        check_yp_channel_nodes(yp, reconnect=True)
 
         return {'FINISHED'}
 
@@ -3740,6 +3785,7 @@ def register():
     bpy.utils.register_class(YMoveYPaintChannel)
     bpy.utils.register_class(YRemoveYPaintChannel)
     bpy.utils.register_class(YAddSimpleUVs)
+    bpy.utils.register_class(YFixChannelMissmatch)
     bpy.utils.register_class(YFixMissingUV)
     bpy.utils.register_class(YRenameYPaintTree)
     bpy.utils.register_class(YChangeActiveYPaintNode)
@@ -3790,6 +3836,7 @@ def unregister():
     bpy.utils.unregister_class(YMoveYPaintChannel)
     bpy.utils.unregister_class(YRemoveYPaintChannel)
     bpy.utils.unregister_class(YAddSimpleUVs)
+    bpy.utils.unregister_class(YFixChannelMissmatch)
     bpy.utils.unregister_class(YFixMissingUV)
     bpy.utils.unregister_class(YRenameYPaintTree)
     bpy.utils.unregister_class(YChangeActiveYPaintNode)

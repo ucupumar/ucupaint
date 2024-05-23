@@ -2427,11 +2427,39 @@ def draw_layers_ui(context, layout, node):
         row.alert = False
         return
 
-    # If error happens, halt update can stuck on, add button to disable it
+    # Check if layer and yp has different numbers of channels
+    channel_mismatch = False
+    num_channels = len(yp.channels)
+    for layer in yp.layers:
+        if len(layer.channels) != num_channels:
+            channel_mismatch = True
+            break
+            
+            for mask in layer.masks:
+                if len(mask.channels) != num_channels:
+                    channel_mismatch = True
+                    break
+
+            if channel_mismatch:
+                break
+
+    if channel_mismatch:
+        row = box.row(align=True)
+        row.alert = True
+        row.operator("node.y_fix_channel_missmatch", text='Fix Missmatched Channels!', icon='ERROR')
+        row.alert = False
+        return
+
+    # If error happens, halt_update and halt_reconnect can stuck on, add button to disable it
     if yp.halt_update:
         row = box.row(align=True)
         row.alert = True
         row.prop(yp, 'halt_update', text='Disable Halt Update', icon='ERROR')
+        row.alert = False
+    if yp.halt_reconnect:
+        row = box.row(align=True)
+        row.alert = True
+        row.prop(yp, 'halt_reconnect', text='Disable Halt Reconnect', icon='ERROR')
         row.alert = False
 
     # Check if parallax is enabled

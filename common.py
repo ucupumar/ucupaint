@@ -4748,7 +4748,7 @@ def get_channel_enabled(ch, layer=None, root_ch=None):
     else:
         for pid in get_list_of_parent_ids(layer):
             parent = yp.layers[pid]
-            if not parent.channels[channel_idx].enable:
+            if len(parent.channels) > channel_idx and not parent.channels[channel_idx].enable:
                 return False
 
     return True
