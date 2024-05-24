@@ -1105,6 +1105,10 @@ class YBakeChannels(bpy.types.Operator):
 
     #hdr : BoolProperty(name='32 bit Float', default=False)
 
+    only_active_channel : BoolProperty(name = 'Only Bake Active Channel',
+            description = 'Only bake active channel',
+            default = False)
+
     fxaa : BoolProperty(name='Use FXAA', 
             description = "Use FXAA to baked images (doesn't work with float/non clamped images)",
             default=True)
@@ -1184,10 +1188,15 @@ class YBakeChannels(bpy.types.Operator):
                 if not uv.name.startswith(TEMP_UV):
                     self.uv_map_coll.add().name = uv.name
 
+        # List of channels that will be baked
+        if self.only_active_channel and yp.active_channel_index < len(yp.channels):
+            self.channels = [yp.channels[yp.active_channel_index]]
+        else: self.channels = yp.channels
+
         self.enable_bake_as_vcol = False
-        if len(yp.channels) > 0:
+        if len(self.channels) > 0:
             bi = None
-            for ch in yp.channels:
+            for ch in self.channels:
                 baked = node.node_tree.nodes.get(ch.baked)
                 if baked and baked.image:
                     if baked.image.y_bake_info.is_baked:
@@ -1196,7 +1205,7 @@ class YBakeChannels(bpy.types.Operator):
                     self.height = baked.image.size[1] if baked.image.size[1] != 0 else ypup.default_new_image_size
                     break
             
-            for ch in yp.channels:
+            for ch in self.channels:
                 if ch.enable_bake_to_vcol:
                     self.enable_bake_as_vcol = True
                     break
@@ -1423,7 +1432,7 @@ class YBakeChannels(bpy.types.Operator):
         tilenums = UDIM.get_tile_numbers(objs, self.uv_map) if self.use_udim else [1001]
 
         # Bake channels
-        for ch in yp.channels:
+        for ch in self.channels:
             ch.no_layer_using = not is_any_layer_using_channel(ch, node)
             if not ch.no_layer_using:
                 #if ch.type != 'NORMAL': continue
@@ -1432,7 +1441,7 @@ class YBakeChannels(bpy.types.Operator):
 
         # Process baked images
         baked_images = []
-        for ch in yp.channels:
+        for ch in self.channels:
 
             baked = tree.nodes.get(ch.baked)
             if baked and baked.image:
@@ -1523,7 +1532,7 @@ class YBakeChannels(bpy.types.Operator):
             color = []
             for letter in rgba_letters:
                 btc = getattr(bt, letter)
-                ch = yp.channels.get(getattr(btc, 'channel_name'))
+                ch = self.channels.get(getattr(btc, 'channel_name'))
                 if ch and ch.type == 'NORMAL':
                     if btc.normal_type in {'COMBINED', 'OVERLAY_ONLY'}:
                         # Normal RG default value
@@ -1572,7 +1581,7 @@ class YBakeChannels(bpy.types.Operator):
             # Copy image channels
             for i, letter in enumerate(rgba_letters):
                 btc = getattr(bt, letter)
-                ch = yp.channels.get(getattr(btc, 'channel_name'))
+                ch = self.channels.get(getattr(btc, 'channel_name'))
                 if ch:
 
                     # Get image channel
@@ -1647,8 +1656,8 @@ class YBakeChannels(bpy.types.Operator):
             # check index, prevent crash
             if not (is_do_nothing or is_sort_by_channel) and self.vcol_force_first_ch_idx != '':
                 real_force_first_ch_idx = int(self.vcol_force_first_ch_idx) - 2
-                if real_force_first_ch_idx < len(yp.channels) and real_force_first_ch_idx >= 0:
-                    target_ch = yp.channels[real_force_first_ch_idx]
+                if real_force_first_ch_idx < len(self.channels) and real_force_first_ch_idx >= 0:
+                    target_ch = self.channels[real_force_first_ch_idx]
                     if not (target_ch and target_ch.enable_bake_to_vcol):
                         real_force_first_ch_idx = -1
                 else: real_force_first_ch_idx = -1
@@ -1657,7 +1666,7 @@ class YBakeChannels(bpy.types.Operator):
             # used to sort by channel
             current_vcol_order = 0
             prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device=self.bake_device, bake_target='VERTEX_COLORS')
-            for ch in yp.channels:
+            for ch in self.channels:
                 if ch.enable_bake_to_vcol and ch.type != 'NORMAL':
                     # Check vertex color
                     for ob in objs:
@@ -1679,7 +1688,7 @@ class YBakeChannels(bpy.types.Operator):
 
                         # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
                         if not is_version_320() and not is_do_nothing:
-                            if is_sort_by_channel or (real_force_first_ch_idx >= 0 and yp.channels[real_force_first_ch_idx] == ch):
+                            if is_sort_by_channel or (real_force_first_ch_idx >= 0 and self.channels[real_force_first_ch_idx] == ch):
                                 move_vcol(ob, get_vcol_index(ob, vcol.name), current_vcol_order)
 
                         # Get the newly created vcol to avoid pointer error

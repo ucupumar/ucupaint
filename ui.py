@@ -587,7 +587,7 @@ def draw_mask_modifier_stack(layer, mask, layout, ui):
             box.active = m.enable
             MaskModifier.draw_modifier_properties(tree, m, box)
 
-def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False, use_modifier_1=False):
+def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, extra_blank=False, use_modifier_1=False, layout_active=True):
 
     ypui = context.window_manager.ypui
 
@@ -617,6 +617,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
         can_be_expanded = m.type in Modifier.can_be_expanded
         
         row = layout.row(align=True)
+        row.active = layout_active
 
         if can_be_expanded:
             if modui.expand_content:
@@ -687,6 +688,7 @@ def draw_modifier_stack(context, parent, channel_type, layout, ui, layer=None, e
 
         if modui.expand_content and can_be_expanded:
             row = layout.row(align=True)
+            row.active = layout_active
             #row.label(text='', icon='BLANK1')
             row.label(text='', icon='BLANK1')
             box = row.box()
@@ -883,11 +885,11 @@ def draw_root_channels_ui(context, layout, node):
 
         row.label(text=channel.name + ' ' + pgettext_iface('Channel'))
 
-        if channel.type != 'NORMAL':
-            row.context_pointer_set('parent', channel)
-            row.context_pointer_set('channel_ui', chui)
-            icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
-            row.menu("NODE_MT_y_new_modifier_menu", icon=icon, text='')
+        #if channel.type != 'NORMAL':
+        row.context_pointer_set('parent', channel)
+        row.context_pointer_set('channel_ui', chui)
+        icon = 'PREFERENCES' if is_greater_than_280() else 'SCRIPTWIN'
+        row.menu("NODE_MT_y_new_modifier_menu", icon=icon, text='')
 
         if chui.expand_content:
 
@@ -895,7 +897,11 @@ def draw_root_channels_ui(context, layout, node):
             row.label(text='', icon='BLANK1')
             bcol = row.column()
 
-            draw_modifier_stack(context, channel, channel.type, bcol, chui)
+            # Modifier stack ui will only active when use_baked is off
+            baked = nodes.get(channel.baked)
+            layout_active = not yp.use_baked or not baked
+
+            draw_modifier_stack(context, channel, channel.type, bcol, chui, layout_active=layout_active)
 
             inp = node.inputs[channel.io_index]
 
@@ -917,8 +923,8 @@ def draw_root_channels_ui(context, layout, node):
                 elif len(inp.links) > 0:
                     brow.label(text='', icon='LINKED')
 
-                if len(channel.modifiers) > 0:
-                    brow.label(text='', icon='BLANK1')
+                #if len(channel.modifiers) > 0:
+                #    brow.label(text='', icon='BLANK1')
 
             # Alpha settings will only visible on color channel without developer mode
             # Alpha will also not visible if other channel already enable the alpha
@@ -2312,7 +2318,7 @@ def draw_layers_ui(context, layout, node):
             baked_vcol_node = nodes.get(root_ch.baked_vcol)
 
             if not baked or not baked.image or root_ch.no_layer_using:
-                col.label(text='No layer is using this channel !')
+                col.label(text="This channel hasn't been baked yet!")
             else:
                 row = col.row(align=True)
                 title = 'Baked ' + root_ch.name + ':'
@@ -3795,7 +3801,7 @@ class YPaintSpecialMenu(bpy.types.Menu):
 
         col = row.column()
 
-        col.operator('node.y_bake_channels', text='Bake All Channels', icon_value=lib.get_icon('bake'))
+        col.operator('node.y_bake_channels', text='Bake All Channels', icon_value=lib.get_icon('bake')).only_active_channel = False
         col.operator('node.y_rename_ypaint_tree', text='Rename Tree', icon_value=lib.get_icon('rename'))
 
         col.separator()
@@ -4767,10 +4773,15 @@ class YAddModifierMenu(bpy.types.Menu):
         is_bump_layer_channel = False
         is_normal_layer_channel = False
         is_bump_normal_layer_channel = False
-        m = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
-        if m:
+
+        m1 = re.match(r'^yp\.channels\[(\d+)\]$', context.parent.path_from_id())
+        m2 = re.match(r'yp\.layers\[(\d+)\]\.channels\[(\d+)\]', context.parent.path_from_id())
+
+        if m1:
+            col.operator('node.y_bake_channels', text="Bake " + context.parent.name + " Channel", icon_value=lib.get_icon('bake')).only_active_channel = True
+        elif m2:
             yp = context.parent.id_data.yp
-            root_ch = yp.channels[int(m.group(2))]
+            root_ch = yp.channels[int(m2.group(2))]
             if root_ch.type == 'NORMAL':
                 if context.parent.normal_map_type == 'BUMP_MAP':
                     is_bump_layer_channel = True
@@ -4779,20 +4790,23 @@ class YAddModifierMenu(bpy.types.Menu):
                 elif context.parent.normal_map_type == 'BUMP_NORMAL_MAP':
                     is_bump_normal_layer_channel = True
 
-        if is_bump_normal_layer_channel or is_bump_layer_channel:
-            col.label(text='Add Modifier (Bump)')
-        elif is_normal_layer_channel:
-            col.label(text='Add Modifier (Normal)')
-        else:
-            col.label(text='Add Modifier')
+        if not m1 or (m1 and context.parent.type != 'NORMAL'):
+            col.separator()
 
-        if not is_normal_layer_channel:
-            ## List the items
-            for mt in Modifier.modifier_type_items:
-                # Override color modifier is deprecated
-                if mt[0] == 'OVERRIDE_COLOR': continue
-                if mt[0] == 'MULTIPLIER': continue
-                col.operator('node.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
+            if is_bump_normal_layer_channel or is_bump_layer_channel:
+                col.label(text='Add Modifier (Bump)')
+            elif is_normal_layer_channel:
+                col.label(text='Add Modifier (Normal)')
+            else:
+                col.label(text='Add Modifier')
+
+            if not is_normal_layer_channel:
+                ## List the items
+                for mt in Modifier.modifier_type_items:
+                    # Override color modifier is deprecated
+                    if mt[0] == 'OVERRIDE_COLOR': continue
+                    if mt[0] == 'MULTIPLIER': continue
+                    col.operator('node.y_new_ypaint_modifier', text=mt[1], icon_value=lib.get_icon('modifier')).type = mt[0]
 
         if is_bump_normal_layer_channel:
             #col = row.column()
@@ -4803,7 +4817,7 @@ class YAddModifierMenu(bpy.types.Menu):
             col.operator('node.y_new_normalmap_modifier', text='Invert', icon_value=lib.get_icon('modifier')).type = 'INVERT'
             col.operator('node.y_new_normalmap_modifier', text='Math', icon_value=lib.get_icon('modifier')).type = 'MATH'
 
-        if m:
+        if m2:
 
             col = row.column()
             col.label(text='Transition Effects')
@@ -4821,10 +4835,8 @@ class YAddModifierMenu(bpy.types.Menu):
                 col.prop(context.parent, 'use_clamp')
 
         ypup = get_user_preferences()
-
         if ypup.show_experimental:
 
-            m1 = re.match(r'^yp\.channels\[(\d+)\]$', context.parent.path_from_id())
             if m1:
                 col = row.column()
                 col.label(text='Experimental')
