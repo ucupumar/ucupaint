@@ -1511,114 +1511,118 @@ class YBakeChannels(bpy.types.Operator):
                 except: pass
 
         # Process custom bake target images
-        for bt in yp.bake_targets:
-            print("INFO: Processing custom bake target '" + bt.name + "'...")
-            bt_node = tree.nodes.get(bt.image_node)
-            btimg = bt_node.image if bt_node and bt_node.image else None 
-            
-            old_img = None
-            filepath = ''
-            if btimg and (
-                    btimg.size[0] != self.width or btimg.size[1] != self.height or
-                    (btimg.source == 'TILED' and not self.use_udim) or
-                    (btimg.source != 'TILED' and self.use_udim) 
-                    ):
-                old_img = btimg
-                btimg = None
-                if (old_img.source == 'TILED' and self.use_udim) or (old_img.source != 'TILED' and not self.use_udim):
-                    filepath = old_img.filepath
+        # Can only happen when only active channel is off since require all baked images to have the same resolution
+        if not self.only_active_channel:
+            for bt in yp.bake_targets:
+                print("INFO: Processing custom bake target '" + bt.name + "'...")
+                bt_node = tree.nodes.get(bt.image_node)
+                btimg = bt_node.image if bt_node and bt_node.image else None 
+                
+                old_img = None
+                filepath = ''
+                if btimg and (
+                        btimg.size[0] != self.width or btimg.size[1] != self.height or
+                        (btimg.source == 'TILED' and not self.use_udim) or
+                        (btimg.source != 'TILED' and self.use_udim) 
+                        ):
+                    old_img = btimg
+                    btimg = None
+                    if (old_img.source == 'TILED' and self.use_udim) or (old_img.source != 'TILED' and not self.use_udim):
+                        filepath = old_img.filepath
 
-            # Get default colors
-            color = []
-            for letter in rgba_letters:
-                btc = getattr(bt, letter)
-                ch = self.channels.get(getattr(btc, 'channel_name'))
-                if ch and ch.type == 'NORMAL':
-                    if btc.normal_type in {'COMBINED', 'OVERLAY_ONLY'}:
-                        # Normal RG default value
-                        if btc.subchannel_index in {'0', '1'}:
-                            color.append(0.5)
+                # Get default colors
+                color = []
+                for letter in rgba_letters:
+                    btc = getattr(bt, letter)
+                    ch = [c for c in self.channels if c.name == (getattr(btc, 'channel_name'))]
+                    if ch: ch = ch[0]
+                    if ch and ch.type == 'NORMAL':
+                        if btc.normal_type in {'COMBINED', 'OVERLAY_ONLY'}:
+                            # Normal RG default value
+                            if btc.subchannel_index in {'0', '1'}:
+                                color.append(0.5)
+                            else: 
+                                # Normal BA default value
+                                color.append(1.0)
                         else: 
-                            # Normal BA default value
-                            color.append(1.0)
-                    else: 
-                        # Displacement default value
-                        color.append(0.5)
-                else:
-                    color.append(btc.default_value)
+                            # Displacement default value
+                            color.append(0.5)
+                    else:
+                        color.append(btc.default_value)
 
-            if not btimg:
-                # Set new bake target image
-                if len(tilenums) > 1:
-                    btimg = bpy.data.images.new(name=bt.name, width=self.width, height=self.height, 
-                            alpha=True, tiled=True) #float_buffer=hdr)
-                    btimg.filepath = filepath
+                if not btimg:
+                    # Set new bake target image
+                    if len(tilenums) > 1:
+                        btimg = bpy.data.images.new(name=bt.name, width=self.width, height=self.height, 
+                                alpha=True, tiled=True) #float_buffer=hdr)
+                        btimg.filepath = filepath
 
-                    # Fill tiles
-                    for tilenum in tilenums:
-                        UDIM.fill_tile(btimg, tilenum, color, self.width, self.height)
-
-                    UDIM.initial_pack_udim(btimg, color)
-                else:
-                    btimg = bpy.data.images.new(name=bt.name,
-                        width=self.width, height=self.height, alpha=True, float_buffer=False)
-                    btimg.filepath = filepath
-                    btimg.generated_color = color
-            else:
-                for tilenum in tilenums:
-
-                    # Swap tile
-                    if tilenum != 1001:
-                        UDIM.swap_tile(btimg, 1001, tilenum)
-
-                    # Only set image color if image is already found
-                    set_image_pixels(btimg, color)
-
-                    # Swap tile again to recover
-                    if tilenum != 1001:
-                        UDIM.swap_tile(btimg, 1001, tilenum)
-
-            # Copy image channels
-            for i, letter in enumerate(rgba_letters):
-                btc = getattr(bt, letter)
-                ch = self.channels.get(getattr(btc, 'channel_name'))
-                if ch:
-
-                    # Get image channel
-                    subidx = 0
-                    if ch.type in {'RGB', 'NORMAL'}:
-                        subidx = int(getattr(btc, 'subchannel_index'))
-
-                    # Get baked node
-                    baked = None
-                    if ch.type == 'NORMAL' and btc.normal_type == 'OVERLAY_ONLY':
-                        baked = tree.nodes.get(ch.baked_normal_overlay)
-                    elif ch.type == 'NORMAL' and btc.normal_type == 'DISPLACEMENT':
-                        baked = tree.nodes.get(ch.baked_disp)
-                        subidx = 0
-                    else: baked = tree.nodes.get(ch.baked)
-
-                    if baked and baked.image:
+                        # Fill tiles
                         for tilenum in tilenums:
-                            # Swap tile
-                            if tilenum != 1001:
-                                UDIM.swap_tile(btimg, 1001, tilenum)
-                                UDIM.swap_tile(baked.image, 1001, tilenum)
+                            UDIM.fill_tile(btimg, tilenum, color, self.width, self.height)
 
-                            # Copy pixels
-                            copy_image_channel_pixels(baked.image, btimg, src_idx=subidx, dest_idx=i, invert_value=btc.invert_value)
+                        UDIM.initial_pack_udim(btimg, color)
+                    else:
+                        btimg = bpy.data.images.new(name=bt.name,
+                            width=self.width, height=self.height, alpha=True, float_buffer=False)
+                        btimg.filepath = filepath
+                        btimg.generated_color = color
+                else:
+                    for tilenum in tilenums:
 
-                            # Swap tile again to recover
-                            if tilenum != 1001:
-                                UDIM.swap_tile(btimg, 1001, tilenum)
-                                UDIM.swap_tile(baked.image, 1001, tilenum)
+                        # Swap tile
+                        if tilenum != 1001:
+                            UDIM.swap_tile(btimg, 1001, tilenum)
 
-            # Set bake target image
-            if old_img: 
-                replace_image(old_img, btimg)
-            else: 
-                bt_node = check_new_node(tree, bt, 'image_node', 'ShaderNodeTexImage')
-                bt_node.image = btimg
+                        # Only set image color if image is already found
+                        set_image_pixels(btimg, color)
+
+                        # Swap tile again to recover
+                        if tilenum != 1001:
+                            UDIM.swap_tile(btimg, 1001, tilenum)
+
+                # Copy image channels
+                for i, letter in enumerate(rgba_letters):
+                    btc = getattr(bt, letter)
+                    ch = [c for c in self.channels if c.name == (getattr(btc, 'channel_name'))]
+                    if ch:
+                        ch = ch[0]
+
+                        # Get image channel
+                        subidx = 0
+                        if ch.type in {'RGB', 'NORMAL'}:
+                            subidx = int(getattr(btc, 'subchannel_index'))
+
+                        # Get baked node
+                        baked = None
+                        if ch.type == 'NORMAL' and btc.normal_type == 'OVERLAY_ONLY':
+                            baked = tree.nodes.get(ch.baked_normal_overlay)
+                        elif ch.type == 'NORMAL' and btc.normal_type == 'DISPLACEMENT':
+                            baked = tree.nodes.get(ch.baked_disp)
+                            subidx = 0
+                        else: baked = tree.nodes.get(ch.baked)
+
+                        if baked and baked.image:
+                            for tilenum in tilenums:
+                                # Swap tile
+                                if tilenum != 1001:
+                                    UDIM.swap_tile(btimg, 1001, tilenum)
+                                    UDIM.swap_tile(baked.image, 1001, tilenum)
+
+                                # Copy pixels
+                                copy_image_channel_pixels(baked.image, btimg, src_idx=subidx, dest_idx=i, invert_value=btc.invert_value)
+
+                                # Swap tile again to recover
+                                if tilenum != 1001:
+                                    UDIM.swap_tile(btimg, 1001, tilenum)
+                                    UDIM.swap_tile(baked.image, 1001, tilenum)
+
+                # Set bake target image
+                if old_img: 
+                    replace_image(old_img, btimg)
+                else: 
+                    bt_node = check_new_node(tree, bt, 'image_node', 'ShaderNodeTexImage')
+                    bt_node.image = btimg
 
         # Set baked uv
         yp.baked_uv_name = self.uv_map
