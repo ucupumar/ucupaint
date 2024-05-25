@@ -2891,11 +2891,17 @@ def update_channel_alpha(self, context):
     if self.enable_alpha:
 
         if any(alpha_chs):
-            # Set material to use alpha blend
+
+            if is_greater_than_420():
+                # Settings for eevee next
+                mat.use_transparent_shadow = True
+
             if is_greater_than_280():
+                # Settings for eevee legacy
                 mat.blend_method = self.alpha_blend_mode
                 mat.shadow_method = self.alpha_shadow_mode
             else:
+                # Set material to use alpha blend
                 mat.game_settings.alpha_blend = 'ALPHA'
 
         # Get alpha index
