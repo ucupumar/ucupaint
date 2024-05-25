@@ -809,7 +809,8 @@ def draw_bake_targets_ui(context, layout, node):
             row.label(text="Do 'Bake All Channels' to get the image!", icon='ERROR')
 
 def draw_root_channels_ui(context, layout, node):
-    engine = bpy.context.scene.render.engine
+    scene = bpy.context.scene
+    engine = scene.render.engine
     mat = get_active_material()
     group_tree = node.node_tree
     nodes = group_tree.nodes
@@ -957,13 +958,19 @@ def draw_root_channels_ui(context, layout, node):
                     bbcol.active = channel.enable_alpha
 
                     if is_greater_than_280():
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Blend Mode:')
-                        brow.prop(channel, 'alpha_blend_mode', text='')
 
-                        brow = bbcol.row(align=True)
-                        brow.label(text='Shadow Mode:')
-                        brow.prop(channel, 'alpha_shadow_mode', text='')
+                        if is_greater_than_420() and engine == 'BLENDER_EEVEE_NEXT':
+                            brow = bbcol.row(align=True)
+                            brow.label(text='Jittered Shadow (Global):')
+                            brow.prop(scene.eevee, 'use_shadow_jitter_viewport', text='')
+                        else:
+                            brow = bbcol.row(align=True)
+                            brow.label(text='Blend Mode:')
+                            brow.prop(channel, 'alpha_blend_mode', text='')
+
+                            brow = bbcol.row(align=True)
+                            brow.label(text='Shadow Mode:')
+                            brow.prop(channel, 'alpha_shadow_mode', text='')
 
                         if channel.alpha_blend_mode == 'CLIP' or channel.alpha_shadow_mode == 'CLIP':
                             brow = bbcol.row(align=True)
