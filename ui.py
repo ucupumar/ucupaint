@@ -2936,7 +2936,7 @@ def main_draw(self, context):
     #layout.operator("node.y_debug_mesh", icon='MESH_DATA')
     #layout.operator("node.y_test_ray", icon='MESH_DATA')
 
-    if not is_greater_than_420():
+    if is_update_possible():
         from . import addon_updater_ops
 
         row_update = layout.row()
@@ -3722,7 +3722,7 @@ def draw_ypaint_about(self, context):
     col.operator('wm.url_open', text=get_addon_title()+' Wiki', icon='TEXT').url = 'https://ucupumar.github.io/ucupaint-wiki/'
     col.separator()
 
-    if not is_greater_than_420():
+    if is_update_possible():
         from . import addon_updater_ops
         updater = addon_updater_ops.updater
 
