@@ -961,8 +961,14 @@ def draw_root_channels_ui(context, layout, node):
 
                         if is_greater_than_420() and engine == 'BLENDER_EEVEE_NEXT':
                             brow = bbcol.row(align=True)
-                            brow.label(text='Jittered Shadow (Global):')
+                            brow.label(text='Transparent Shadows:')
+                            brow.prop(mat, 'use_transparent_shadow', text='')
+                            brow = bbcol.row(align=True)
+                            brow.label(text='Jittered Shadows (Global):')
                             brow.prop(scene.eevee, 'use_shadow_jitter_viewport', text='')
+                            brow = bbcol.row(align=True)
+                            brow.label(text='Render Method:')
+                            brow.prop(mat, 'surface_render_method', text='')
                         else:
                             brow = bbcol.row(align=True)
                             brow.label(text='Blend Mode:')
