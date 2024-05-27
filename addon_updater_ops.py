@@ -705,6 +705,11 @@ class UpdaterSettingMenu(bpy.types.Menu):
 
     def draw(self, context):
         col = self.layout.column()
+
+        if len(updater.tags) == 0:
+            if common.is_greater_than_420():
+                col.label(text="You need to enable 'Online Access' on Blender Preferences to be able to change branch!", icon='ERROR')
+            else: col.label(text="You need to be able to access internet to use be able to change branch!", icon='ERROR')
     
         for index, tg  in enumerate(updater.tags):
             item_icon = "RADIOBUT_ON" if tg[0] == updater.current_branch or (index == 0 and not updater.using_development_build) else "RADIOBUT_OFF"
