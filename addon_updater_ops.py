@@ -229,7 +229,7 @@ class RefreshBranchesReleasesNow(bpy.types.Operator):
     def execute(self, context):
 
         if not common.is_online():
-            self.report({'ERROR'}, "You need to enable 'Online Access' on Blender Preferences to use this feature!")
+            self.report({'ERROR'}, "You need to enable 'Online Access' in Blender Preferences to use this feature!")
             return {'CANCELLED'}
 
         wm = context.window_manager
@@ -300,7 +300,7 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
     def execute(self, context):
 
         if not common.is_online():
-            self.report({'ERROR'}, "You need to enable 'Online Access' on Blender Preferences to use this feature!")
+            self.report({'ERROR'}, "You need to enable 'Online Access' in Blender Preferences to use this feature!")
             return {'CANCELLED'}
 
         # in case of error importing updater
@@ -462,7 +462,7 @@ class AddonUpdaterUpdateBranch(bpy.types.Operator):
     def execute(self, context):
 
         if not common.is_online():
-            self.report({'ERROR'}, "You need to enable 'Online Access' on Blender Preferences to use this feature!")
+            self.report({'ERROR'}, "You need to enable 'Online Access' in Blender Preferences to use this feature!")
             return {'CANCELLED'}
 
         # In case of error importing updater.
@@ -710,7 +710,7 @@ class UpdaterSettingMenu(bpy.types.Menu):
             if common.is_greater_than_420():
                 if common.is_online():
                     col.label(text="Please do 'Check for update' first to be able to change branch!", icon='ERROR')
-                else: col.label(text="You need to enable 'Online Access' on Blender Preferences to be able to change branch!", icon='ERROR')
+                else: col.label(text="You need to enable 'Online Access' in Blender Preferences to be able to change branch!", icon='ERROR')
             else: col.label(text="You need to be able to access internet to use be able to change branch!", icon='ERROR')
     
         for index, tg  in enumerate(updater.tags):
@@ -1488,16 +1488,15 @@ def register():
         # Comment out this line if using bpy.utils.register_module(__name__)
         bpy.utils.register_class(cls)
 
-    if common.is_online():
-        # Special situation: we just updated the addon, show a popup to tell the
-        # user it worked. Could enclosed in try/catch in case other issues arise.
-        show_reload_popup()
+    # Special situation: we just updated the addon, show a popup to tell the
+    # user it worked. Could enclosed in try/catch in case other issues arise.
+    show_reload_popup()
         
-        settings = get_user_preferences()
-
+    if common.is_online():
         first_time =  "last_check" not in updater._json or updater._json["last_check"] == ""
 
         if not first_time:
+            settings = get_user_preferences()
             updater.set_check_interval(
                 enabled=settings.auto_check_update,
                 months=settings.updater_interval_months,
