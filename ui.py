@@ -3736,7 +3736,6 @@ def draw_ypaint_about(self, context):
 
     from . import addon_updater_ops
     updater = addon_updater_ops.updater
-    print(updater.current_branch)
 
     col.separator()
     row = col.row()            
