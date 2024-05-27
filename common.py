@@ -530,12 +530,8 @@ def get_current_version():
     manifest = get_manifest()
     return tuple(map(int, manifest['version'].split('.')))
 
-def is_update_possible():
-    # NOTE: Make 4.2 update possible for now since this addon is not on extension platform yet
-    if not is_greater_than_420() or True:
-        return True
-
-    return False
+def is_online():
+    return not is_greater_than_420() or bpy.app.online_access
 
 def is_greater_than_280():
     if bpy.app.version >= (2, 80, 0):

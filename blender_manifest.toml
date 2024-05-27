@@ -22,7 +22,7 @@ permissions = ["files", "network"]
 
 # Optional list defined by Blender and server, see:
 # https://docs.blender.org/manual/en/dev/extensions/tags.html
-tags = ["Node", "Material"]
+tags = ["Node", "Material", "Paint"]
 
 blender_version_min = "4.2.0"
 # Optional: maximum supported Blender version

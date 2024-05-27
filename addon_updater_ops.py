@@ -227,6 +227,11 @@ class RefreshBranchesReleasesNow(bpy.types.Operator):
     bl_idname = updater.addon + ".branches_releases_refresh"
     bl_description = "Refresh development releases branches"
     def execute(self, context):
+
+        if not common.is_online():
+            self.report({'ERROR'}, "You need to enable 'Online Access' on Blender Preferences to use this feature!")
+            return {'CANCELLED'}
+
         wm = context.window_manager
         ypui = wm.ypui
         ypui.hide_update = False
@@ -293,6 +298,10 @@ class AddonUpdaterUpdateNow(bpy.types.Operator):
     )
 
     def execute(self, context):
+
+        if not common.is_online():
+            self.report({'ERROR'}, "You need to enable 'Online Access' on Blender Preferences to use this feature!")
+            return {'CANCELLED'}
 
         # in case of error importing updater
         if updater.invalid_updater:
@@ -392,6 +401,7 @@ class AddonUpdaterUpdateTarget(bpy.types.Operator):
         sub_col.prop(self, "target", text="")
 
     def execute(self, context):
+
         # In case of error importing updater.
         if updater.invalid_updater:
             return {'CANCELLED'}
@@ -436,6 +446,8 @@ class AddonUpdaterUpdateBranch(bpy.types.Operator):
         return len(updater.tags) > 0
 
     def invoke(self, context, event):
+        if not common.is_online():
+            return self.execute(context)
         return context.window_manager.invoke_props_dialog(self)
 
     def draw(self, context):
@@ -448,6 +460,10 @@ class AddonUpdaterUpdateBranch(bpy.types.Operator):
         row.label(text="Do you want to install branch "+self.label+"?")
 
     def execute(self, context):
+
+        if not common.is_online():
+            self.report({'ERROR'}, "You need to enable 'Online Access' on Blender Preferences to use this feature!")
+            return {'CANCELLED'}
 
         # In case of error importing updater.
         if updater.invalid_updater:
@@ -1465,26 +1481,28 @@ def register():
         # Comment out this line if using bpy.utils.register_module(__name__)
         bpy.utils.register_class(cls)
 
-    # Special situation: we just updated the addon, show a popup to tell the
-    # user it worked. Could enclosed in try/catch in case other issues arise.
-    show_reload_popup()
-    
-    settings = get_user_preferences()
+    if common.is_online():
+        # Special situation: we just updated the addon, show a popup to tell the
+        # user it worked. Could enclosed in try/catch in case other issues arise.
+        show_reload_popup()
+        
+        settings = get_user_preferences()
 
-    first_time =  "last_check" not in updater._json or updater._json["last_check"] == ""
+        first_time =  "last_check" not in updater._json or updater._json["last_check"] == ""
 
-    if not first_time:
-        updater.set_check_interval(
-            enabled=settings.auto_check_update,
-            months=settings.updater_interval_months,
-            days=settings.updater_interval_days,
-            hours=settings.updater_interval_hours,
-            minutes=settings.updater_interval_minutes)
-    
-    if updater.past_interval_timestamp():
-        updater.check_for_branches_releases_now(None)
-    else:
-        print("Aborting check for updated, check interval not reached")
+        if not first_time:
+            updater.set_check_interval(
+                enabled=settings.auto_check_update,
+                months=settings.updater_interval_months,
+                days=settings.updater_interval_days,
+                hours=settings.updater_interval_hours,
+                minutes=settings.updater_interval_minutes)
+        
+        if updater.past_interval_timestamp():
+            updater.check_for_branches_releases_now(None)
+        else:
+            print("Aborting check for updated, check interval not reached")
+
     updater.restore_saved_branches()
 
 
