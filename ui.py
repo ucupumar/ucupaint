@@ -3724,7 +3724,7 @@ class NODE_UL_YPaint_layers(bpy.types.UIList):
 def draw_ypaint_about(self, context):
     col = self.layout.column(align=True)
     col.label(text=get_addon_title() + ' is created by:')
-    col.operator('wm.url_open', text='ucupumar', icon='ARMATURE_DATA').url = 'https://github.com/ucupumar'
+    col.operator('wm.url_open', text='ucupumar', icon='ARMATURE_DATA').url = 'https://github.com/sponsors/ucupumar'
     col.operator('wm.url_open', text='arsa', icon='ARMATURE_DATA').url = 'https://sites.google.com/view/arsanagara'
     col.operator('wm.url_open', text='swifterik', icon='ARMATURE_DATA').url = 'https://jblaha.art/'
     col.operator('wm.url_open', text='rifai', icon='ARMATURE_DATA').url = 'https://github.com/rifai'
