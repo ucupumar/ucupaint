@@ -1182,8 +1182,8 @@ def draw_layer_source(context, layout, layer, layer_tree, source, image, vcol, i
     elif vcol:
         #if len(layer.modifiers) > 0:
         if lui.expand_content:
-            icon_value = lib.custom_icons["uncollapsed_vcol"].icon_id
-        else: icon_value = lib.custom_icons["collapsed_vcol"].icon_id
+            icon_value = lib.custom_icons["uncollapsed_vertex_color"].icon_id
+        else: icon_value = lib.custom_icons["collapsed_vertex_color"].icon_id
         row.prop(lui, 'expand_content', text='', emboss=False, icon_value=icon_value)
         #else:
         #    row.label(text='', icon_value=lib.get_icon('vertex_color'))
