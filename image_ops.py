@@ -1048,8 +1048,9 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             if not self.copy:
                 image.filepath = self.filepath
 
-                if self.relative:
-                    image.filepath = bpy.path.relpath(image.filepath)
+                if self.relative and bpy.data.filepath != '':
+                    try: image.filepath = bpy.path.relpath(image.filepath)
+                    except Exception as e: print(e)
                 else: image.filepath = bpy.path.abspath(image.filepath)
 
                 image.source = 'FILE'
