@@ -990,20 +990,23 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
             self.report({'ERROR'}, 'Unpacking image atlas is not supported yet!')
             return {'CANCELLED'}
 
-        # Need to pack first to save the image
-        if image.is_dirty:
-            if is_greater_than_280():
-                image.pack()
-            else:
-                if image.is_float:
-                    pack_float_image(image)
-                else: image.pack(as_png=True)
-
-        # Unpack image if image is packed
+        # Packing and unpacking sometimes does not work if the blend file is not saved yet
         unpack = False
-        if self.unpack or image.packed_file:
-            unpack = True
-            self.unpack_image(context)
+        if bpy.data.filepath != '':
+
+            # Need to pack first to save the image
+            if image.is_dirty:
+                if is_greater_than_280():
+                    image.pack()
+                else:
+                    if image.is_float:
+                        pack_float_image(image)
+                    else: image.pack(as_png=True)
+
+            # Unpack image if image is packed
+            if self.unpack or image.packed_file:
+                unpack = True
+                self.unpack_image(context)
 
         # Create temporary scene
         tmpscene = bpy.data.scenes.new('Temp Save As Scene')
@@ -1014,7 +1017,7 @@ class YSaveAsImage(bpy.types.Operator, ExportHelper):
 
         # Some image need to set to srgb when saving
         ori_colorspace = image.colorspace_settings.name
-        if not image.is_float:
+        if not image.is_float and not image.is_dirty:
             image.colorspace_settings.name = 'sRGB'
 
         # Set settings
