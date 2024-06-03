@@ -316,8 +316,12 @@ def prepare_other_objs_channels(yp, other_objs):
                     elif ch.name in bsdf_node.inputs:
                         socket = bsdf_node.inputs[ch.name]
 
-                    if socket and len(socket.links) == 0 and default == None:
-                        default = socket.default_value
+                    if socket:
+                        if len(socket.links) == 0:
+                            if default == None:
+                                default = socket.default_value
+                        else:
+                            socket = socket.links[0].from_socket
 
                 # Append objects and materials if socket is found
                 if socket or default:
