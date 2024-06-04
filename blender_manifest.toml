@@ -17,5 +17,4 @@ license = ["SPDX:GPL-3.0-or-later"]
 
 [permissions]
 files = "Access to filesystem for loading and saving images"
-network = "Access to the network for updating or changing branch of the addon"
 
