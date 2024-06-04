@@ -1144,6 +1144,11 @@ class YBakeChannels(bpy.types.Operator):
                 description='Force the first channel after baking the Vertex Color',
                 items=bake_vcol_channel_items)
 
+    vcol_force_first_ch_idx_bool : BoolProperty(
+                name='Force First Vertex Color Channel',
+                description='Force the first channel after baking the Vertex Color',
+                default=False)
+
     use_udim : BoolProperty(
             name = 'Use UDIM Tiles',
             description='Use UDIM Tiles',
@@ -1254,7 +1259,12 @@ class YBakeChannels(bpy.types.Operator):
         col.label(text='UV Map:')
         col.separator()
         # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-        if self.enable_bake_as_vcol and not is_version_320():
+        active_channel = None
+        if self.only_active_channel and not is_version_320():
+            active_channel = self.channels[0]
+            if active_channel.enable_bake_to_vcol:
+                col.label(text='')
+        elif self.enable_bake_as_vcol and not is_version_320():
             col.label(text='Force First Vcol:')
         if UDIM.is_udim_supported():
             col.label(text='')
@@ -1287,7 +1297,10 @@ class YBakeChannels(bpy.types.Operator):
         col.prop_search(self, "uv_map", self, "uv_map_coll", text='', icon='GROUP_UVS')
         col.separator()
         # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
-        if self.enable_bake_as_vcol and not is_version_320():
+        if active_channel and active_channel.enable_bake_to_vcol:
+            col.prop(self, 'vcol_force_first_ch_idx_bool', text='Force First Vcol')
+            col.separator()
+        elif self.enable_bake_as_vcol and not is_version_320():
             col.prop(self, 'vcol_force_first_ch_idx', text='')
             col.separator()
         if UDIM.is_udim_supported():
@@ -1655,18 +1668,26 @@ class YBakeChannels(bpy.types.Operator):
 
         # Bake vcol
         if is_greater_than_292():
-            is_do_nothing = self.vcol_force_first_ch_idx == 'Do Nothing'
-            is_sort_by_channel = self.vcol_force_first_ch_idx == 'Sort By Channel Order'
-            # check index, prevent crash
-            if not (is_do_nothing or is_sort_by_channel) and self.vcol_force_first_ch_idx != '':
-                real_force_first_ch_idx = int(self.vcol_force_first_ch_idx) - 2
-                if real_force_first_ch_idx < len(self.channels) and real_force_first_ch_idx >= 0:
-                    target_ch = self.channels[real_force_first_ch_idx]
-                    if not (target_ch and target_ch.enable_bake_to_vcol):
-                        real_force_first_ch_idx = -1
-                else: real_force_first_ch_idx = -1
+            is_do_nothing = True
+            is_sort_by_channel = False
+            if self.only_active_channel:
+                active_channel = self.channels[0]
+                if active_channel.enable_bake_to_vcol and self.vcol_force_first_ch_idx_bool:
+                    real_force_first_ch_idx = yp.active_channel_index
+                    is_do_nothing = False
             else:
-                real_force_first_ch_idx = -1
+                is_do_nothing = self.vcol_force_first_ch_idx == 'Do Nothing'
+                is_sort_by_channel = self.vcol_force_first_ch_idx == 'Sort By Channel Order'
+                # check index, prevent crash
+                if not (is_do_nothing or is_sort_by_channel) and self.vcol_force_first_ch_idx != '':
+                    real_force_first_ch_idx = int(self.vcol_force_first_ch_idx) - 2
+                    if real_force_first_ch_idx < len(self.channels) and real_force_first_ch_idx >= 0:
+                        target_ch = self.channels[real_force_first_ch_idx]
+                        if not (target_ch and target_ch.enable_bake_to_vcol):
+                            real_force_first_ch_idx = -1
+                    else: real_force_first_ch_idx = -1
+                else:
+                    real_force_first_ch_idx = -1
             # used to sort by channel
             current_vcol_order = 0
             prepare_bake_settings(book, objs, yp, disable_problematic_modifiers=True, bake_device=self.bake_device, bake_target='VERTEX_COLORS')
@@ -1692,7 +1713,7 @@ class YBakeChannels(bpy.types.Operator):
 
                         # NOTE: Because of api changes, vertex color shift doesn't work with Blender 3.2
                         if not is_version_320() and not is_do_nothing:
-                            if is_sort_by_channel or (real_force_first_ch_idx >= 0 and self.channels[real_force_first_ch_idx] == ch):
+                            if is_sort_by_channel or (real_force_first_ch_idx >= 0 and yp.channels[real_force_first_ch_idx] == ch):
                                 move_vcol(ob, get_vcol_index(ob, vcol.name), current_vcol_order)
 
                         # Get the newly created vcol to avoid pointer error
