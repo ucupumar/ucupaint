@@ -4,7 +4,6 @@ from bpy.types import Operator, AddonPreferences
 from bpy.app.handlers import persistent
 from . import image_ops
 from .common import *
-from . import addon_updater_ops
 from .lib import *
 
 def update_icons(self, context):
@@ -93,39 +92,6 @@ class YPaintPreferences(AddonPreferences):
             default = False
             )
     
-    # Addon updater preferences.
-    auto_check_update : BoolProperty(
-        name="Auto-check for Update",
-        description="If enabled, auto-check for updates using an interval",
-        default=True)
-    
-    updater_interval_months : IntProperty(
-        name='Months',
-        description="Number of months between checking for updates",
-        default=0,
-        min=0)
-    
-    updater_interval_days : IntProperty(
-        name='Days',
-        description="Number of days between checking for updates",
-        default=1,
-        min=0,
-        max=31)
-    
-    updater_interval_hours : IntProperty(
-        name='Hours',
-        description="Number of hours between checking for updates",
-        default=0,
-        min=0,
-        max=23)
-    
-    updater_interval_minutes : IntProperty(
-        name='Minutes',
-        description="Number of minutes between checking for updates",
-        default=1,
-        min=0,
-        max=59)
-
     def draw(self, context):
         if is_bl_newer_than(2, 80):
             self.layout.prop(self, 'default_bake_device')
@@ -143,23 +109,6 @@ class YPaintPreferences(AddonPreferences):
         self.layout.prop(self, 'developer_mode')
         #self.layout.prop(self, 'parallax_without_baked')
 
-        if self.developer_mode:
-            box = self.layout.box()
-
-            box.prop(self, "auto_check_update")
-            sub_col = box.column()
-            if not self.auto_check_update:
-                sub_col.enabled = False
-            sub_row = sub_col.row()
-            sub_row.label(text="Interval between checks")
-            sub_row = sub_col.row(align=True)
-            check_col = sub_row.column(align=True)
-            check_col.prop(self, "updater_interval_days")
-            check_col = sub_row.column(align=True)
-            check_col.prop(self, "updater_interval_hours")
-            check_col = sub_row.column(align=True)
-            check_col.prop(self, "updater_interval_minutes")
-            check_col = sub_row.column(align=True)
 @persistent
 def auto_save_images(scene):
 
