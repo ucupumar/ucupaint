@@ -45,7 +45,7 @@ def get_normal_map_type_items(self, context):
     else: 
         items.append(('BUMP_MAP', 'Bump Map', '', 'MATCAP_09', 0))
         items.append(('NORMAL_MAP', 'Normal Map', '', 'MATCAP_23', 1))
-        items.append(('BUMP_NORMAL_MAP', 'Bump + Normal Map', '', 'MATCAP_23', 1))
+        items.append(('BUMP_NORMAL_MAP', 'Bump + Normal Map', '', 'MATCAP_23', 2))
 
     return items
 
