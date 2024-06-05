@@ -34,3 +34,14 @@ jobs:
         with:
           draft: true
           files: ${{ github.event.repository.name }}-${{ env.RELEASE_VERSION }}.zip
+      - name: Checkout no-auto-update
+        uses: actions/checkout@v3
+        with:
+          ref: no-auto-update
+      - name: zip
+        run: mkdir ucupaint && rsync -av --exclude='.git/' --exclude='.github/' --exclude='ucupaint/' . ucupaint/ && zip -r ${{ github.event.repository.name }}-no-auto-update-${{ env.RELEASE_VERSION }}.zip ucupaint/
+      - name: Release
+        uses: softprops/action-gh-release@v1
+        with:
+          draft: true
+          files: ${{ github.event.repository.name }}-no-auto-update-${{ env.RELEASE_VERSION }}.zip
