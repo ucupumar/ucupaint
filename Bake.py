@@ -282,6 +282,94 @@ def transfer_uv(objs, mat, entity, uv_map, is_entity_baked=False):
             bpy.data.objects.remove(o)
             bpy.data.meshes.remove(m)
 
+def set_entities_which_using_the_same_image_or_segment(entity, target_uv_name):
+    yp = entity.id_data.yp
+
+    if entity.type == 'IMAGE':
+        m = re.match(r'yp\.layers\[(\d+)\]\.masks\[(\d+)\]', entity.path_from_id())
+
+        if m: source = get_mask_source(entity)
+        else: source = get_layer_source(entity)
+
+        image = source.image
+        segment_mix_name = image.name + entity.segment_name if image and (image.yia.is_image_atlas or image.yua.is_udim_atlas) else ''
+
+        for layer in yp.layers:
+
+            for mask in layer.masks:
+                if mask == entity or mask.type != 'IMAGE': continue
+                src = get_mask_source(mask)
+                img = src.image
+
+                if img.yia.is_image_atlas or img.yua.is_udim_atlas:
+                    if img.name + mask.segment_name == segment_mix_name:
+                        mask.uv_name = target_uv_name
+                else:
+                    if img == image:
+                        mask.uv_name = target_uv_name
+
+            if layer == entity or layer.type != 'IMAGE': continue
+            src = get_layer_source(layer)
+            img = src.image
+
+            if img.yia.is_image_atlas or img.yua.is_udim_atlas:
+                if img.name + layer.segment_name == segment_mix_name:
+                    layer.uv_name = target_uv_name
+            else:
+                if img == image:
+                    layer.uv_name = target_uv_name
+
+def get_entities_to_transfer(yp, from_uv_map, to_uv_map):
+
+    # Check the same images used by multiple layers or masks
+    used_images = []
+    used_segments = []
+    entities = []
+    for layer in yp.layers:
+        if layer.baked_source != '' and layer.baked_uv_name == from_uv_map:
+            if layer not in entities: entities.append(layer)
+
+        if layer.type == 'IMAGE' and layer.uv_name == from_uv_map:
+            source = get_layer_source(layer)
+            if source and source.image:
+                image = source.image
+
+                if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+                    if image.name + layer.segment_name not in used_segments:
+                        used_segments.append(image.name + layer.segment_name)
+                        if layer not in entities: entities.append(layer)
+                else: 
+                    if image not in used_images:
+                        used_images.append(image)
+                        if layer not in entities: entities.append(layer)
+
+                if layer not in entities:
+                    layer.uv_name = to_uv_map
+        
+        for mask in layer.masks:
+            if mask.baked_source != '' and mask.baked_uv_name == from_uv_map:
+                if mask not in entities: entities.append(mask)
+
+            if mask.type == 'IMAGE' and mask.uv_name == from_uv_map:
+
+                source = get_mask_source(mask)
+                if source and source.image:
+                    image = source.image
+
+                    if image.yia.is_image_atlas or image.yua.is_udim_atlas:
+                        if image.name + mask.segment_name not in used_segments:
+                            used_segments.append(image.name + mask.segment_name)
+                            if mask not in entities: entities.append(mask)
+                    else: 
+                        if image not in used_images:
+                            used_images.append(image)
+                            if mask not in entities: entities.append(mask)
+
+                    if mask not in entities:
+                        mask.uv_name = to_uv_map
+
+    return entities
+
 class YTransferSomeLayerUV(bpy.types.Operator):
     bl_idname = "node.y_transfer_some_layer_uv"
     bl_label = "Transfer Some Layer UV"
@@ -409,31 +497,22 @@ class YTransferSomeLayerUV(bpy.types.Operator):
         prepare_bake_settings(book, objs, yp, samples=self.samples, margin=self.margin, 
                 uv_map=self.uv_map, bake_type='EMIT', bake_device='CPU', margin_type=self.margin_type
                 )
+        
+        # Get entites to transfer
+        entities = get_entities_to_transfer(yp, self.from_uv_map, self.uv_map)
 
-        for layer in yp.layers:
-            #print(layer.name)
-            if layer.uv_name == self.from_uv_map:
-                if layer.type == 'IMAGE':
-                    print('TRANSFER UV: Transferring layer ' + layer.name + '...')
-                    transfer_uv(objs, mat, layer, self.uv_map)
+        for entity in entities:
+            if entity.type == 'IMAGE':
 
-                if layer.baked_source != '':
-                    transfer_uv(objs, mat, layer, self.uv_map, is_entity_baked=True)
+                print('TRANSFER UV: Transferring entity ' + entity.name + '...')
+                transfer_uv(objs, mat, entity, self.uv_map)
 
-                if layer.uv_name != self.uv_map:
-                    layer.uv_name = self.uv_map
+            if entity.baked_source != '':
+                print('TRANSFER UV: Transferring baked entity ' + entity.name + '...')
+                transfer_uv(objs, mat, entity, self.uv_map, is_entity_baked=True)
 
-            for mask in layer.masks:
-                if mask.uv_name == self.from_uv_map:
-                    if mask.type == 'IMAGE':
-                        print('TRANSFER UV: Transferring mask ' + mask.name + ' on layer ' + layer.name + '...')
-                        transfer_uv(objs, mat, mask, self.uv_map)
-
-                    if mask.baked_source != '':
-                        transfer_uv(objs, mat, mask, self.uv_map, is_entity_baked=True)
-
-                    if mask.uv_name != self.uv_map:
-                        mask.uv_name = self.uv_map
+            if entity.uv_name != self.uv_map:
+                entity.uv_name = self.uv_map
 
         #return {'FINISHED'}
 
@@ -568,8 +647,13 @@ class YTransferLayerUV(bpy.types.Operator):
                 uv_map=self.uv_map, bake_type='EMIT', bake_device='CPU', margin_type=self.margin_type
                 )
 
-        # Transfer UV
-        transfer_uv(objs, mat, self.entity, self.uv_map)
+        if self.entity.type == 'IMAGE':
+            # Set other entites uv that using the same image or segment
+            set_entities_which_using_the_same_image_or_segment(self.entity, self.uv_map)
+
+            # Transfer UV
+            #for ent in entities:
+            transfer_uv(objs, mat, self.entity, self.uv_map)
 
         if self.entity.baked_source != '':
             transfer_uv(objs, mat, self.entity, self.uv_map, is_entity_baked=True)
