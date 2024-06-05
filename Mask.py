@@ -12,7 +12,7 @@ from .input_outputs import *
 #def check_object_index_props(entity, source=None):
 #    source.inputs[0].default_value = entity.object_index
 
-def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1), source_input='RGB', edge_detect_radius=0.05, modifier_type='INVERT'):
+def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, vcol = None, segment=None, object_index=0, blend_type='MULTIPLY', hemi_space='WORLD', hemi_use_prev_normal=False, color_id=(1,0,1), source_input='RGB', edge_detect_radius=0.05, modifier_type='INVERT', interpolation='Linear'):
     yp = layer.id_data.yp
     yp.halt_update = True
 
@@ -47,6 +47,7 @@ def add_new_mask(layer, name, mask_type, texcoord_type, uv_name, image = None, v
         source.image = image
         if hasattr(source, 'color_space'):
             source.color_space = 'NONE'
+        source.interpolation = interpolation
     elif mask_type == 'VCOL':
         if vcol: set_source_vcol_name(source, vcol.name)
         else: set_source_vcol_name(source, name)
@@ -241,6 +242,12 @@ class YNewLayerMask(bpy.types.Operator):
     width : IntProperty(name='Width', default = 1234, min=1, max=16384)
     height : IntProperty(name='Height', default = 1234, min=1, max=16384)
     
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     blend_type : EnumProperty(
         name = 'Blend',
         description = 'Blend type',
@@ -404,6 +411,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.label(text='Width:')
             col.label(text='Height:')
+            col.label(text='Interpolation:')
 
         if self.type in {'VCOL', 'IMAGE'}:
             col.label(text='Color:')
@@ -443,6 +451,7 @@ class YNewLayerMask(bpy.types.Operator):
         if self.type == 'IMAGE':
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
+            col.prop(self, 'interpolation', text='')
 
         if self.type in {'VCOL', 'IMAGE'}:
             col.prop(self, 'color_option', text='')
@@ -601,7 +610,7 @@ class YNewLayerMask(bpy.types.Operator):
 
         # Add new mask
         mask = add_new_mask(layer, self.name, self.type, self.texcoord_type, self.uv_name, img, vcol, segment, self.object_index, self.blend_type, 
-                self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, modifier_type=self.modifier_type)
+                self.hemi_space, self.hemi_use_prev_normal, self.color_id, source_input=source_input, modifier_type=self.modifier_type, interpolation=self.interpolation)
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL', 'COLOR_ID'}:

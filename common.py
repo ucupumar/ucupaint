@@ -353,6 +353,12 @@ texcoord_type_items = (
         ('Reflection', 'Reflection', ''),
         )
 
+interpolation_type_items = (
+        ('Linear', 'Linear', 'Linear interpolation.'),
+        ('Closest', 'Closest', 'No interpolation (sample closest texel).'),
+        ('Cubic', 'Cubic', 'Cubic interpolation.'),
+        )
+
 channel_socket_input_bl_idnames = {
     'RGB': 'NodeSocketColor',
     'VALUE': 'NodeSocketFloatFactor',

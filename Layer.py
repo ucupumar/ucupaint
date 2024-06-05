@@ -63,7 +63,8 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
         mask_uv_name = '', mask_width=1024, mask_height=1024, use_image_atlas_for_mask=False,
         hemi_space = 'WORLD', hemi_use_prev_normal = True,
         mask_color_id=(1,0,1), mask_vcol_data_type='BYTE_COLOR', mask_vcol_domain='CORNER',
-        use_divider_alpha = False, use_udim_for_mask=False
+        use_divider_alpha = False, use_udim_for_mask=False,
+        interpolation = 'Linear', mask_interpolation = 'Linear'
         ):
 
     yp = group_tree.yp
@@ -158,6 +159,9 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
 
         # Add new image if it's image layer
         source.image = image
+
+        # Set interpolation
+        source.interpolation = interpolation
 
     elif layer_type == 'VCOL':
         if vcol: set_source_vcol_name(source, vcol.name)
@@ -269,7 +273,7 @@ def add_new_layer(group_tree, layer_name, layer_type, channel_idx,
                 check_colorid_vcol(objs)
 
         mask = Mask.add_new_mask(layer, mask_name, mask_type, 'UV', #texcoord_type, 
-                mask_uv_name, mask_image, mask_vcol, mask_segment)
+                mask_uv_name, mask_image, mask_vcol, mask_segment, interpolation=mask_interpolation)
         mask.active_edit = True
 
         if mask_type == 'COLOR_ID':
@@ -514,6 +518,12 @@ class YNewLayer(bpy.types.Operator):
     #alpha : BoolProperty(name='Alpha', default=True)
     hdr : BoolProperty(name='32 bit Float', default=False)
 
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'Image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     texcoord_type : EnumProperty(
             name = 'Layer Coordinate Type',
             description = 'Layer Coordinate Type',
@@ -566,6 +576,12 @@ class YNewLayer(bpy.types.Operator):
 
     mask_width : IntProperty(name='Mask Width', default = 1234, min=1, max=4096)
     mask_height : IntProperty(name='Mask Height', default = 1234, min=1, max=4096)
+
+    mask_interpolation : EnumProperty(
+            name = 'Mask Image Interpolation Type',
+            description = 'Mask image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
 
     mask_uv_name : StringProperty(default='', update=update_new_layer_mask_uv_map)
     mask_use_hdr : BoolProperty(name='32 bit Float', default=False)
@@ -813,6 +829,7 @@ class YNewLayer(bpy.types.Operator):
             col.label(text='')
             col.label(text='Width:')
             col.label(text='Height:')
+            col.label(text='Interpolation:')
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
             col.label(text='Vector:')
@@ -836,6 +853,7 @@ class YNewLayer(bpy.types.Operator):
                         col.label(text='')
                         col.label(text='Mask Width:')
                         col.label(text='Mask Height:')
+                        col.label(text='Mask Interpolation:')
                         col.label(text='Mask UV Map:')
                         if UDIM.is_udim_supported():
                             col.label(text='')
@@ -874,6 +892,7 @@ class YNewLayer(bpy.types.Operator):
             col.prop(self, 'hdr')
             col.prop(self, 'width', text='')
             col.prop(self, 'height', text='')
+            col.prop(self, 'interpolation', text='')
 
         if self.type not in {'VCOL', 'GROUP', 'COLOR', 'BACKGROUND', 'HEMI'}:
             crow = col.row(align=True)
@@ -903,6 +922,7 @@ class YNewLayer(bpy.types.Operator):
                         col.prop(self, 'mask_use_hdr')
                         col.prop(self, 'mask_width', text='')
                         col.prop(self, 'mask_height', text='')
+                        col.prop(self, 'mask_interpolation', text='')
                         #col.prop_search(self, "mask_uv_name", obj.data, "uv_layers", text='', icon='GROUP_UVS')
                         col.prop_search(self, "mask_uv_name", self, "uv_map_coll", text='', icon='GROUP_UVS')
                         if UDIM.is_udim_supported():
@@ -1048,7 +1068,8 @@ class YNewLayer(bpy.types.Operator):
                 self.mask_uv_name, self.mask_width, self.mask_height, self.use_image_atlas_for_mask, 
                 self.hemi_space, self.hemi_use_prev_normal, self.mask_color_id,
                 self.mask_vcol_data_type, self.mask_vcol_domain, self.use_divider_alpha,
-                self.use_udim_for_mask)
+                self.use_udim_for_mask,
+                self.interpolation, self.mask_interpolation)
 
         if segment:
             ImageAtlas.set_segment_mapping(layer, segment, img)
