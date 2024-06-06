@@ -153,6 +153,9 @@ def create_new_yp_channel(group_tree, name, channel_type, non_color=True, enable
         if non_color:
             channel.colorspace = 'LINEAR'
         else: channel.colorspace = 'SRGB'
+    else:
+        # NOTE: Smooth bump is no longer on by default
+        channel.enable_smooth_bump = False
 
     yp.halt_reconnect = False
 

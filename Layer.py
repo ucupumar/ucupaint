@@ -4126,6 +4126,9 @@ def update_channel_enable(self, context):
 
     tree = get_tree(layer)
 
+    if root_ch.type == 'NORMAL' and self.enable:
+        update_layer_images_interpolation(layer, 'Cubic')
+
     # Check uv maps
     check_uv_nodes(yp)
 
