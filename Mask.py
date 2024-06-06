@@ -384,6 +384,14 @@ class YNewLayerMask(bpy.types.Operator):
         else:
             self.blend_type = 'MULTIPLY'
 
+        # Check if there's height channel and use cubic interpolation if there is one
+        height_ch = get_height_channel(layer)
+        if height_ch and height_ch.enable and self.type == 'IMAGE':
+            self.interpolation = 'Cubic'
+        elif layer.type == 'IMAGE':
+            source = get_layer_source(layer)
+            if source and source.image: self.interpolation = source.interpolation
+
         return context.window_manager.invoke_props_dialog(self)
 
     def check(self, context):
@@ -654,6 +662,12 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
 
     relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
             description = 'Mask Coordinate Type',
@@ -709,6 +723,14 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         # Default source input is always color for now
         self.source_input = 'RGB'
 
+        # Check if there's height channel and use cubic interpolation if there is one
+        height_ch = get_height_channel(self.layer)
+        if height_ch and height_ch.enable:
+            self.interpolation = 'Cubic'
+        elif self.layer.type == 'IMAGE':
+            source = get_layer_source(self.layer)
+            if source and source.image: self.interpolation = source.interpolation
+
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
@@ -721,6 +743,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         row = self.layout.row()
 
         col = row.column()
+        col.label(text='Interpolation:')
         col.label(text='Vector:')
         if len(self.layer.masks) > 0:
             col.label(text='Blend:')
@@ -728,6 +751,7 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
         col.label(text='Image Channel:')
 
         col = row.column()
+        col.prop(self, 'interpolation', text='')
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -764,7 +788,10 @@ class YOpenImageAsMask(bpy.types.Operator, ImportHelper):
                 image.colorspace_settings.name = 'Non-Color'
 
             # Add new mask
-            mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, blend_type=self.blend_type, source_input=self.source_input)
+            mask = add_new_mask(layer, image.name, 'IMAGE', self.texcoord_type, self.uv_map, image, None, 
+                                blend_type=self.blend_type, source_input=self.source_input,
+                                interpolation=self.interpolation
+                                )
 
         reconnect_layer_nodes(layer)
         rearrange_layer_nodes(layer)
@@ -813,6 +840,12 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
             items = (('IMAGE', 'Image', ''),
                 ('VCOL', 'Vertex Color', '')),
             default = 'IMAGE')
+
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
 
     texcoord_type : EnumProperty(
             name = 'Mask Coordinate Type',
@@ -901,6 +934,14 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                 self.image_name = ''
             else: self.image_name = self.image_name
 
+            # Check if there's height channel and use cubic interpolation if there is one
+            height_ch = get_height_channel(layer)
+            if height_ch and height_ch.enable:
+                self.interpolation = 'Cubic'
+            elif layer.type == 'IMAGE':
+                source = get_layer_source(layer)
+                if source and source.image: self.interpolation = source.interpolation
+
         elif self.type == 'VCOL':
 
             layer_vcol_name = None
@@ -948,6 +989,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
 
         col = row.column()
         if self.type == 'IMAGE':
+            col.label(text='Interpolation:')
             col.label(text='Vector:')
 
         if len(layer.masks) > 0:
@@ -961,6 +1003,7 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
         col = row.column()
 
         if self.type == 'IMAGE':
+            col.prop(self, 'interpolation', text='')
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -1019,7 +1062,10 @@ class YOpenAvailableDataAsMask(bpy.types.Operator):
                     set_active_vertex_color(o, other_v)
 
         # Add new mask
-        mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, blend_type=self.blend_type, source_input=self.source_input)
+        mask = add_new_mask(layer, name, self.type, self.texcoord_type, self.uv_map, image, vcol, 
+                            blend_type=self.blend_type, source_input=self.source_input,
+                            interpolation=self.interpolation
+                            )
 
         # Enable edit mask
         if self.type in {'IMAGE', 'VCOL'} and self.source_input == 'RGB':

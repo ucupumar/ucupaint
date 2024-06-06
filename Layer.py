@@ -498,6 +498,20 @@ def update_new_layer_mask_uv_map(self, context):
     objs = get_all_objects_with_same_materials(mat)
     self.use_udim_for_mask = UDIM.is_uvmap_udim(objs, self.mask_uv_name)
 
+def update_channel_idx_new_layer(self, context):
+
+    node = get_active_ypaint_node()
+    yp = node.node_tree.yp
+
+    # Bump map will use cubic interpolation
+    channel_idx = int(self.channel_idx)
+    if channel_idx != -1 and channel_idx < len(yp.channels):
+        channel = yp.channels[channel_idx]
+    else: channel = None
+
+    if channel and channel.type == 'NORMAL' and self.normal_map_type == 'BUMP_MAP':
+        self.interpolation = 'Cubic'
+
 class YNewLayer(bpy.types.Operator):
     bl_idname = "node.y_new_layer"
     bl_label = "New Layer"
@@ -533,8 +547,8 @@ class YNewLayer(bpy.types.Operator):
     channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items)
-            #update=update_channel_idx_new_layer)
+            items = channel_items, #set=set_channel_idx, get=get_channel_idx)
+            update=update_channel_idx_new_layer)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -672,7 +686,7 @@ class YNewLayer(bpy.types.Operator):
 
         ypup = get_user_preferences()
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        yp = self.yp = node.node_tree.yp
         obj = context.object
 
         if self.type == 'IMAGE':
@@ -767,11 +781,9 @@ class YNewLayer(bpy.types.Operator):
         # Init mask uv name
         if self.add_mask and self.mask_uv_name == '':
 
-            node = get_active_ypaint_node()
-            yp = node.node_tree.yp
             obj = context.object
 
-            uv_name = get_default_uv_name(obj, yp)
+            uv_name = get_default_uv_name(obj, self.yp)
             self.mask_uv_name = uv_name
 
         return True
@@ -1845,6 +1857,12 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
     relative : BoolProperty(name="Relative Path", default=True, description="Apply relative paths")
 
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'Image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     texcoord_type : EnumProperty(
             name = 'Layer Coordinate Type',
             description = 'Layer Coordinate Type',
@@ -1856,8 +1874,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items)
-            #update=update_channel_idx_new_layer)
+            items = channel_items,
+            update=update_channel_idx_new_layer)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -1893,7 +1911,7 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
     def invoke(self, context, event):
         obj = context.object
         node = get_active_ypaint_node()
-        yp = node.node_tree.yp
+        yp = self.yp = node.node_tree.yp
 
         if obj.type != 'MESH':
             self.texcoord_type = 'Object'
@@ -1928,12 +1946,14 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
         row = self.layout.row()
 
         col = row.column()
+        col.label(text='Interpolation:')
         col.label(text='Vector:')
         col.label(text='Channel:')
         if channel and channel.type == 'NORMAL':
             col.label(text='Type:')
 
         col = row.column()
+        col.prop(self, 'interpolation', text='')
         crow = col.row(align=True)
         crow.prop(self, 'texcoord_type', text='')
         if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -1983,7 +2003,8 @@ class YOpenImageToLayer(bpy.types.Operator, ImportHelper):
 
             add_new_layer(node.node_tree, image.name, 'IMAGE', int(self.channel_idx), self.blend_type, 
                     self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map,
-                    image, None, None, 
+                    image, None, None,
+                    interpolation=self.interpolation
                     )
 
         node.node_tree.yp.halt_update = False
@@ -2301,6 +2322,12 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
                 ('VCOL', 'Vertex Color', '')),
             default = 'IMAGE')
 
+    interpolation : EnumProperty(
+            name = 'Image Interpolation Type',
+            description = 'Image interpolation type',
+            items = interpolation_type_items,
+            default = 'Linear')
+
     texcoord_type : EnumProperty(
             name = 'Layer Coordinate Type',
             description = 'Layer Coordinate Type',
@@ -2312,8 +2339,8 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
     channel_idx : EnumProperty(
             name = 'Channel',
             description = 'Channel of new layer, can be changed later',
-            items = channel_items)
-            #update=update_channel_idx_new_layer)
+            items = channel_items,
+            update=update_channel_idx_new_layer)
 
     blend_type : EnumProperty(
         name = 'Blend',
@@ -2396,6 +2423,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
 
         col = row.column()
         if self.type == 'IMAGE':
+            col.label(text='Interpolation:')
             col.label(text='Vector:')
         col.label(text='Channel:')
         if channel and channel.type == 'NORMAL':
@@ -2404,6 +2432,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         col = row.column()
 
         if self.type == 'IMAGE':
+            col.prop(self, 'interpolation', text='')
             crow = col.row(align=True)
             crow.prop(self, 'texcoord_type', text='')
             if obj.type == 'MESH' and self.texcoord_type == 'UV':
@@ -2468,6 +2497,7 @@ class YOpenAvailableDataToLayer(bpy.types.Operator):
         add_new_layer(node.node_tree, name, self.type, int(self.channel_idx), self.blend_type, 
                 self.normal_blend_type, self.normal_map_type, self.texcoord_type, self.uv_map, 
                 image, vcol, None, 
+                interpolation = self.interpolation
                 )
 
         node.node_tree.yp.halt_update = False
@@ -4127,7 +4157,7 @@ def update_channel_enable(self, context):
     tree = get_tree(layer)
 
     if root_ch.type == 'NORMAL' and self.enable:
-        update_layer_images_interpolation(layer, 'Cubic')
+        update_layer_images_interpolation(layer, 'Cubic') #, from_interpolation='Linear')
 
     # Check uv maps
     check_uv_nodes(yp)

@@ -4104,31 +4104,36 @@ def get_multires_modifier(obj, keyword=''):
 
     return None
 
-def update_layer_images_interpolation(layer, interpolation='Linear'):
+def update_layer_images_interpolation(layer, interpolation='Linear', from_interpolation = ''):
     if layer.type == 'IMAGE':
         source = get_layer_source(layer)
         if source and source.image: 
-            source.interpolation = interpolation
+            if from_interpolation == '' or source.interpolation == from_interpolation:
+                source.interpolation = interpolation
 
         baked_source = get_layer_source(layer, get_baked=True)
         if baked_source and baked_source.image: 
-            baked_source.interpolation = interpolation
+            if from_interpolation == '' or baked_source.interpolation == from_interpolation:
+                baked_source.interpolation = interpolation
 
     height_ch = get_height_channel(layer)
     if height_ch:
         source = get_channel_source(height_ch, layer)
         if source and source.image: 
-            source.interpolation = interpolation
+            if from_interpolation == '' or source.interpolation == from_interpolation:
+                source.interpolation = interpolation
 
     for mask in layer.masks:
         if mask.type == 'IMAGE':
             source = get_mask_source(mask)
             if source and source.image: 
-                source.interpolation = interpolation
+                if from_interpolation == '' or source.interpolation == from_interpolation:
+                    source.interpolation = interpolation
 
         baked_source = get_mask_source(mask, get_baked=True)
         if baked_source and baked_source.image: 
-            baked_source.interpolation = interpolation
+            if from_interpolation == '' or baked_source.interpolation == from_interpolation:
+                baked_source.interpolation = interpolation
 
 def get_uv_layers(obj):
     if obj.type != 'MESH': return []
