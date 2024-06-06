@@ -456,8 +456,14 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         if obj.type != 'MESH':
             self.normal = False
 
-        self.muted_paint_opacity = is_greater_than_280() and space.overlay.texture_paint_mode_opacity == 0.0
-        self.on_material_view = space.type == 'VIEW_3D' and ((not is_greater_than_280() and space.viewport_shade in {'MATERIAL', 'RENDERED'}) or (is_greater_than_280() and space.shading.type in {'MATERIAL', 'RENDERED'}))
+        self.not_muted_paint_opacity = False
+        if is_greater_than_280():
+            for area in context.screen.areas:
+                if area.type == 'VIEW_3D':
+                    self.not_muted_paint_opacity = area.spaces[0].overlay.texture_paint_mode_opacity > 0.0
+                    break
+
+        self.not_on_material_view = space.type == 'VIEW_3D' and ((not is_greater_than_280() and space.viewport_shade not in {'MATERIAL', 'RENDERED'}) or (is_greater_than_280() and space.shading.type not in {'MATERIAL', 'RENDERED'}))
 
         return context.window_manager.invoke_props_dialog(self)
 
@@ -492,10 +498,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         col.prop(self, 'use_linear_blending')
 
-        if is_greater_than_280() and not self.muted_paint_opacity:
+        if is_greater_than_280() and self.not_muted_paint_opacity:
             col.prop(self, 'mute_texture_paint_overlay')
 
-        if not self.on_material_view:
+        if self.not_on_material_view:
             col.prop(self, 'switch_to_material_view')
 
     def execute(self, context):
@@ -724,10 +730,10 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
         # Disable overlay on Blender 2.8
         for area in context.screen.areas:
             if area.type == 'VIEW_3D':
-                if is_greater_than_280() and not self.muted_paint_opacity and self.mute_texture_paint_overlay:
+                if is_greater_than_280() and self.not_muted_paint_opacity and self.mute_texture_paint_overlay:
                     area.spaces[0].overlay.texture_paint_mode_opacity = 0.0
 
-                if not self.on_material_view and self.switch_to_material_view:
+                if self.not_on_material_view and self.switch_to_material_view:
                     if not is_greater_than_280():
                         area.spaces[0].viewport_shade = 'MATERIAL'
                     else: area.spaces[0].shading.type = 'MATERIAL'
