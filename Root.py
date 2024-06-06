@@ -425,6 +425,11 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             description = 'Use more accurate linear color blending (it will behave differently than Photoshop)',
             default = True)
 
+    switch_to_material_view : BoolProperty(
+            name = 'Switch to Material View',
+            description = 'Switch to material view so the node setup is automatically visible',
+            default = True)
+
     @classmethod
     def poll(cls, context):
         return context.object
@@ -485,6 +490,8 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
 
         if is_greater_than_280():
             col.prop(self, 'mute_texture_paint_overlay')
+
+        col.prop(self, 'switch_to_material_view')
 
     def execute(self, context):
 
@@ -710,11 +717,15 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             links.new(node.outputs[ch_normal.name], inp)
 
         # Disable overlay on Blender 2.8
-        if is_greater_than_280() and self.mute_texture_paint_overlay:
-            screen = context.screen
-            for area in context.screen.areas:
-                if area.type == 'VIEW_3D':
+        for area in context.screen.areas:
+            if area.type == 'VIEW_3D':
+                if is_greater_than_280() and self.mute_texture_paint_overlay:
                     area.spaces[0].overlay.texture_paint_mode_opacity = 0.0
+
+                if self.switch_to_material_view:
+                    if not is_greater_than_280():
+                        area.spaces[0].viewport_shade = 'MATERIAL'
+                    else: area.spaces[0].shading.type = 'MATERIAL'
 
         # Update UI
         context.window_manager.ypui.need_update = True
