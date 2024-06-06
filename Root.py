@@ -457,7 +457,7 @@ class YQuickYPaintNodeSetup(bpy.types.Operator):
             self.normal = False
 
         self.muted_paint_opacity = is_greater_than_280() and space.overlay.texture_paint_mode_opacity == 0.0
-        self.on_material_view = space.type == 'VIEW_3D' and ((not is_greater_than_280() and space.viewport_shade == 'MATERIAL') or (is_greater_than_280() and space.shading.type == 'MATERIAL'))
+        self.on_material_view = space.type == 'VIEW_3D' and ((not is_greater_than_280() and space.viewport_shade in {'MATERIAL', 'RENDERED'}) or (is_greater_than_280() and space.shading.type in {'MATERIAL', 'RENDERED'}))
 
         return context.window_manager.invoke_props_dialog(self)
 
