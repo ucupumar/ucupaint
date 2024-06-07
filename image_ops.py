@@ -238,7 +238,6 @@ def save_pack_all(yp):
 
     # Save/pack images
     for image in images:
-        clean_object_references(image)
         if not image or not image.is_dirty: continue
         T = time.time()
         if image.packed_file or image.filepath == '':
@@ -313,6 +312,10 @@ def save_pack_all(yp):
             if image in packed_float_images:
                 ypui = bpy.context.window_manager.ypui
                 ypui.refresh_image_hack = True
+
+    # Clean object reference on images
+    for image in images:
+        clean_object_references(image)
 
 class YInvertImage(bpy.types.Operator):
     """Invert Image"""
