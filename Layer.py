@@ -1216,6 +1216,7 @@ class YOpenImageToOverrideChannel(bpy.types.Operator, ImportHelper):
                 image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
+            if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
             ch.override_type = 'IMAGE'
             ch.active_edit = True
 
@@ -1675,6 +1676,7 @@ class BaseMultipleImagesLayer():
                 else:
                     image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
                     image_node.image = image
+                    if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
                     ch.override = True
                     ch.override_type = 'IMAGE'
 
@@ -2246,6 +2248,7 @@ class YOpenAvailableDataToOverrideChannel(bpy.types.Operator):
                 else: image_node, dirty = check_new_node(tree, ch, 'cache_image', 'ShaderNodeTexImage', '', True)
 
             image_node.image = image
+            if root_ch.type == 'NORMAL': image_node.interpolation = 'Cubic'
             #if image.colorspace_settings.name != 'Non-Color':
             #    image.colorspace_settings.name = 'Non-Color'
 
