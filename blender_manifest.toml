@@ -15,7 +15,7 @@ type = "add-on"
 # * "network" (for internet access)
 # * "camera" (to capture photos and videos)
 # * "microphone" (to capture audio)
-permissions = { "files" = "true", "network" = "true" }
+permissions = { "files" = "Access to filesystem for loading and saving images", "network" = "Access to the network for updating or changing branch of the addon" }
 
 # Optional link to documentation, support, source files, etc
 # website = "http://extensions.blender.org/add-ons/my-example-package/"
