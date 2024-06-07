@@ -4119,7 +4119,7 @@ def update_layer_images_interpolation(layer, interpolation='Linear', from_interp
     height_ch = get_height_channel(layer)
     if height_ch:
         source = get_channel_source(height_ch, layer)
-        if source and source.image: 
+        if source and source.bl_idname == 'ShaderNodeTexImage' and source.image: 
             if from_interpolation == '' or source.interpolation == from_interpolation:
                 source.interpolation = interpolation
 

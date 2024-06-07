@@ -463,6 +463,16 @@ def update_routine(name):
                         reconnect_layer_nodes(layer)
                         rearrange_layer_nodes(layer)
 
+        # Version 1.2.9 will use cubic interpolation for bump map
+        if LooseVersion(ng.yp.version) < LooseVersion('1.2.9'):
+            update_happened = True
+            height_root_ch = get_root_height_channel(ng.yp)
+            if height_root_ch:
+                for layer in ng.yp.layers:
+                    height_ch = get_height_channel(layer)
+                    if height_ch and height_ch.enable:
+                        update_layer_images_interpolation(layer, 'Cubic')
+
         # Update version
         if update_happened:
             ng.yp.version = cur_version
