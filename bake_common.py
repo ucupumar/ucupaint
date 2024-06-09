@@ -556,6 +556,7 @@ def prepare_bake_settings(book, objs, yp=None, samples=1, margin=5, uv_map='', b
     # Set active uv layers
     if uv_map != '':
         for obj in objs:
+            if obj.type != 'MESH': continue
             #set_active_uv_layer(obj, uv_map)
             uv_layers = get_uv_layers(obj)
             uv = uv_layers.get(uv_map)

@@ -1867,8 +1867,9 @@ class YBakeToLayer(bpy.types.Operator):
 
             # Delete temp vcol
             vcols = get_vertex_colors(obj)
-            vcol = vcols.get(TEMP_VCOL)
-            if vcol: vcols.remove(vcol)
+            if vcols:
+                vcol = vcols.get(TEMP_VCOL)
+                if vcol: vcols.remove(vcol)
 
         # Recover flip normals setup
         if self.flip_normals:
