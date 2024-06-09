@@ -5972,8 +5972,8 @@ def copy_image_pixels(src, dest, segment=None, segment_src=None):
     height = src.size[1]
 
     if segment:
-        start_x = width * segment.tile_x
-        start_y = height * segment.tile_y
+        start_x = segment.width * segment.tile_x
+        start_y = segment.height * segment.tile_y
 
     if segment_src:
         width = segment_src.width
