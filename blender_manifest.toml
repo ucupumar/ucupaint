@@ -9,10 +9,6 @@ tagline = "Layer based painting for Eevee and Cycles"
 maintainer = "Yusuf Umar <yusufumaris@gmail.com>"
 type = "add-on"
 
-[permissions]
-files = "Access to filesystem for loading and saving images"
-network = "Access to the network for updating or changing branch of the addon"
-
 website = "https://github.com/ucupumar/ucupaint"
 
 tags = ["Node", "Material", "Paint"]
@@ -20,4 +16,8 @@ tags = ["Node", "Material", "Paint"]
 blender_version_min = "4.2.0"
 
 license = ["SPDX:GPL-3.0-or-later"]
+
+[permissions]
+files = "Access to filesystem for loading and saving images"
+network = "Access to the network for updating or changing branch of the addon"
 
