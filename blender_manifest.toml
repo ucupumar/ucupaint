@@ -7,7 +7,7 @@ tagline = "Layer based painting for Eevee and Cycles"
 maintainer = "Yusuf Umar <yusufumaris@gmail.com>"
 type = "add-on"
 
-website = "https://github.com/ucupumar/ucupaint"
+website = "https://ucupumar.github.io/ucupaint-wiki/"
 
 tags = ["Node", "Material", "Paint"]
 
